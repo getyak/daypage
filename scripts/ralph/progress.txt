@@ -1,0 +1,604 @@
+## Codebase Patterns
+- `project.pbxproj` 手动管理：新增 Swift 文件必须同步添加 PBXFileReference（A2xxxxxxx）、PBXBuildFile（A1xxxxxxx），并加入目标 Group children 和 Sources build phase files
+- iOS 16 目标兼容性：麦克风权限检查用 `AVAudioSession.sharedInstance().recordPermission` 和 `.requestRecordPermission`；iOS 17+ 的 `AVAudioApplication` 不可用
+- `AVAudioSession.CategoryOptions.allowBluetoothHFP`（而非已弃用的 `.allowBluetooth`）是 iOS 16 正确的蓝牙音频选项
+- `xcrun swiftc -typecheck <files> -sdk $(xcrun --sdk iphonesimulator --show-sdk-path) -target arm64-apple-ios16.0-simulator` 是本项目的 typecheck 命令
+- Vault 根目录通过 `VaultInitializer.vaultURL` 获取（Documents/vault/），所有 Storage 层代码应使用此统一入口
+- 首次初始化写入：SCHEMA.md、wiki/index.md、wiki/hot.md、wiki/log.md 四个种子文件
+- API 密钥通过 `Secrets.xxx` 静态常量访问（dashScopeApiKey / dashScopeBaseURL / dashScopeModel / openAIWhisperApiKey / openWeatherApiKey）；GeneratedSecrets.swift 由构建脚本在每次编译时从 .env 重新生成
+- `.gitignore` 中忽略路径需写完整相对路径：`DayPage/Config/GeneratedSecrets.swift`（不能只写 `Config/GeneratedSecrets.swift`，那样只能匹配根目录下的 Config）
+- PBXShellScriptBuildPhase 添加方式：在 PBXShellScriptBuildPhase section 中定义，然后在 PBXNativeTarget 的 buildPhases 数组中（放在 Sources 之前）引用
+- 设计系统颜色通过 `DSColor.xxx` 访问；字体通过 `DSFonts.xxx()` 函数或 `DSType.xxx` 预设常量访问；组件样式通过 View 扩展方法（如 `.headlineMDStyle()`）应用
+- 自定义字体注册在 `DayPageApp.init()` 中通过 `DSFonts.registerAll()` 调用；若字体文件不存在 SwiftUI 自动 fallback 到系统字体，不会崩溃
+- 全局圆角规则：所有 DS 组件一律 `.cornerRadius(0)`，禁止使用任何非零圆角
+- Swift 字符串字面量中禁止使用中文弯引号（" " ' '）——编译器会误识别为字符串边界导致 parse error；改用「」或 ASCII 引号
+- 权限描述在 `GENERATE_INFOPLIST_FILE = YES` 项目中通过 pbxproj buildSettings 添加 `INFOPLIST_KEY_NSXxx` 键；两个 target 配置（Debug + Release）都需要加
+- Services 层用 `@MainActor` singleton（如 LocationService.shared）暴露 `@Published` 状态供 SwiftUI 直接观察；async 操作用 `Task {}` 在 ViewModel 中启动
+- Weather/Location 等网络 Service 失败时返回 nil 而非抛出错误，保证 memo 提交不被阻塞
+---
+
+# Ralph Progress Log
+Started: Wed Apr 15 17:59:31 +07 2026
+---
+
+## 2026-04-15 - US-001
+- What was implemented:
+  - `DayPage/Storage/VaultInitializer.swift`：首次启动时幂等创建完整 Vault 目录结构
+    (vault/raw/assets/, vault/wiki/daily|places|people|themes/)
+    并写入 4 个种子文件（SCHEMA.md, wiki/index.md, wiki/hot.md, wiki/log.md）
+  - `DayPage/App/DayPageApp.swift`：在 `App.init()` 中调用
+    `VaultInitializer.initializeIfNeeded()`
+  - `DayPage.xcodeproj/project.pbxproj`：注册 VaultInitializer.swift 到
+    Storage group 及 Sources build phase
+- Files changed:
+  - DayPage/Storage/VaultInitializer.swift （新建）
+  - DayPage/App/DayPageApp.swift （更新）
+  - DayPage.xcodeproj/project.pbxproj （更新）
+- **Learnings for future iterations:**
+  - 目录创建使用 `FileManager.createDirectory(at:withIntermediateDirectories:true)` 配合存在性检查，保证幂等
+  - 种子文件用 `data.write(to:options:.atomic)` 原子写入，首次才写（fileExists 检查）
+  - .env.example 和 .gitignore 已在上游提交中存在，US-001 验证项均满足
+  - SwiftLint 未安装，用 swiftc -typecheck 替代质量检查
+---
+
+## 2026-04-15 - US-020
+- What was implemented:
+  - `scripts/generate_secrets.sh`：Bash 脚本，读取项目根 `.env` 文件，
+    生成 `DayPage/Config/GeneratedSecrets.swift`（`enum Secrets` 静态常量）
+    供所有 Swift 代码通过 `Secrets.xxx` 访问 API 密钥
+  - `DayPage.xcodeproj/project.pbxproj`：
+    - 注册 `GeneratedSecrets.swift` 的 PBXFileReference（A20000004）和 PBXBuildFile（A10000004）
+    - 添加 `GeneratedSecrets.swift` 到 Config group children
+    - 添加 `GeneratedSecrets.swift` 到 Sources build phase
+    - 新增 PBXShellScriptBuildPhase（AE0000001 "Generate Secrets"），
+      在 Compile Sources 之前运行 `scripts/generate_secrets.sh`
+  - `.gitignore`：补充 `DayPage/Config/GeneratedSecrets.swift` 忽略规则
+    （原 `Config/GeneratedSecrets.swift` 路径不能匹配子目录下的文件）
+- Files changed:
+  - scripts/generate_secrets.sh （新建）
+  - DayPage.xcodeproj/project.pbxproj （更新）
+  - .gitignore （更新）
+- **Learnings for future iterations:**
+  - gitignore 相对路径不带 `/` 前缀只匹配同级目录，不会递归匹配子目录。
+    要忽略 `DayPage/Config/GeneratedSecrets.swift`，必须写完整路径
+  - `GeneratedSecrets.swift` 不提交入仓库（被 gitignore），每次 Xcode 构建时
+    由 Run Script Phase 自动重生成；typecheck 前需手动跑脚本（设置好 SRCROOT）
+  - Xcode Run Script Phase 在 PBXShellScriptBuildPhase section 定义，
+    PBXNativeTarget.buildPhases 数组中需放在 PBXSourcesBuildPhase 之前
+---
+
+## 2026-04-15 - US-020a
+- What was implemented:
+  - `DayPage/DesignSystem/Colors.swift`：
+    - `Color(hex:)` 扩展（支持 #RGB / #RRGGBB / #AARRGGBB 格式）
+    - `enum DSColor`：完整颜色 token（Brand amberArchival=#5D3000、Primary/Secondary/Tertiary/Surface/Outline/Error 全色域）
+  - `DayPage/DesignSystem/Typography.swift`：
+    - `enum DSFonts`：字体注册（`registerAll()` 从 Bundle 加载 Space Grotesk / Inter / JetBrains Mono；文件不存在时自动 fallback）
+    - `enum DSType`：9 个排版 level 常量（displayLG / headlineMD / headlineCaps / sectionLabel / titleSM / bodyMD / bodySM / labelSM / labelXS + mono11/mono10/mono9）
+    - 对应 ViewModifier + View 扩展方法（`.displayLGStyle()` 等）
+  - `DayPage/DesignSystem/Components.swift`：
+    - `PrimaryStampButton`（黑底白字 stamp 风格）
+    - `SecondaryOutlineButton`（描边按钮）
+    - `FieldChip`（mono label + value chip）
+    - `TimeChip`（mono 时间标签）
+    - `SectionHeading`（大写标题 + 横线）
+    - `WikilinkText`（amber #5D3000 颜色链接文本）
+    - `StatusBadge`（verified 黑底 / metadata 灰底）
+    - `CardContainer`（surface-container + 可选左 border）
+    - 所有组件 `cornerRadius(0)`，全局禁用圆角
+  - `DayPage/App/DayPageApp.swift`：在 `init()` 中添加 `DSFonts.registerAll()` 调用
+  - `DayPage.xcodeproj/project.pbxproj`：注册三个新文件（A20000005-7 / A10000005-7）到 DesignSystem group 和 Sources build phase
+- Files changed:
+  - DayPage/DesignSystem/Colors.swift（新建）
+  - DayPage/DesignSystem/Typography.swift（新建）
+  - DayPage/DesignSystem/Components.swift（新建）
+  - DayPage/App/DayPageApp.swift（更新）
+  - DayPage.xcodeproj/project.pbxproj（更新）
+  - scripts/ralph/prd.json（passes: true）
+- **Learnings for future iterations:**
+  - 自定义字体文件需放在 Bundle 根目录或 Resources 子目录，并在 Info.plist 的 UIAppFonts 数组中注册文件名（如 SpaceGrotesk-Bold.ttf）。本次未添加字体文件，registerAll() 会静默跳过不存在的文件
+  - `DSColor.amberArchival`（#5D3000）是品牌色，专用于 wikilink 文本
+  - 设计稿颜色通过 today-flow-refined.html 的 tailwind config 提取（surface = #f9f9f9, primary = #000000 等）
+---
+
+## 2026-04-15 - US-009
+- What was implemented:
+  - `DayPage/Models/Memo.swift`：
+    - `Memo` 结构体，含 id/type/created/location/weather/device/attachments/body 字段
+    - `toMarkdown()`：序列化为 YAML frontmatter + Markdown body
+    - `fromMarkdown(_:)`：反序列化，解析 frontmatter 和 body
+    - `YAMLParser`：轻量级行解析器，支持 scalar/mapping/sequenceOfMappings
+    - `ISO8601DateFormatter.memo` 静态扩展
+  - `DayPage/Storage/RawStorage.swift`：
+    - `append(_:to:)`：追加 memo 到日期文件，多条 memo 用 `\n\n---\n\n` 分隔
+    - `read(from:)`：读取指定文件，返回 Memo 数组
+    - `parse(fileContent:)`：静态方法，按分隔符切割后逐块解析
+    - `atomicWrite(string:to:)`：临时文件 + FileManager.replaceItemAt 原子写入
+  - `DayPage.xcodeproj/project.pbxproj`：注册 Memo.swift（A20000008/A10000008）和 RawStorage.swift（A20000009/A10000009）到 Models/Storage group 及 Sources build phase
+  - `scripts/tests/test_raw_storage.swift`：24 个测试全部通过（极简往返/全字段往返/多条文件往返/临时文件清理/body 含空行）
+- Files changed:
+  - DayPage/Models/Memo.swift（新建）
+  - DayPage/Storage/RawStorage.swift（新建）
+  - DayPage.xcodeproj/project.pbxproj（更新）
+  - scripts/tests/test_raw_storage.swift（新建）
+  - scripts/ralph/prd.json（passes: true）
+- **Learnings for future iterations:**
+  - Memo 序列化分隔符是 `\n\n---\n\n`（两端各两个换行），解析时需用 components(separatedBy:) 精确匹配
+  - YAMLParser 只支持简单的 YAML 子集：scalar（顶层 key: value）、2空格缩进 mapping、2空格 + 4空格混合的 sequence of mappings；复杂 YAML 嵌套不在支持范围内
+  - 原子写入必须写到目标文件的同一目录下的临时文件，再用 replaceItemAt 替换（跨卷 moveItem 会失败）
+  - `ISO8601DateFormatter.memo` 使用 withFractionalSeconds 保证 Date 往返精度，不带毫秒的字符串解析会返回 nil
+  - 单元测试以独立 Swift 脚本（xcrun swift xxx.swift）形式运行，不需要 XCTest target
+---
+
+## 2026-04-15 - US-008
+- What was implemented:
+  - `DayPage/Features/Today/TodayViewModel.swift`：
+    - `@MainActor` ObservableObject，管理 memos（倒序）、isDailyPageCompiled、dailyPageSummary、isLoading、errorMessage
+    - `load()`：通过 `RawStorage.read(for:)` 加载当日 memo，sorted 倒序；`checkDailyPage()` 检测 wiki/daily/YYYY-MM-DD.md 是否存在并提取 summary 字段
+    - `compile()` 占位方法（US-014/US-010 实现）
+  - `DayPage/Features/Today/MemoCardView.swift`：
+    - `MemoCardView`：时间 TimeChip + type 图标标签 + body（展开/收起，≥4行或≥200字符显示按钮）+ 位置标签；左侧 3px 彩色边框（text=black, voice=gray, photo=secondary, location=tertiary, mixed=amber）
+    - `DailyPageEntryCard`：已编译时显示在时间轴顶部，含摘要副标题和 > 箭头
+    - `CompilePromptCard`：未编译时显示，有"立即编译"按钮（memo>0时）
+  - `DayPage/Features/Today/TodayView.swift`：
+    - ScrollView 时间轴占 75% 高度（GeometryReader）
+    - 顶部：DailyPageEntryCard 或 CompilePromptCard
+    - 下方：ForEach memos 渲染 MemoCardView（倒序）
+    - 空状态、加载中、错误提示
+    - `.onAppear` 触发 `viewModel.load()`
+  - `DayPage.xcodeproj/project.pbxproj`：注册 TodayViewModel.swift（A20000013/A10000013）、MemoCardView.swift（A20000014/A10000014）到 Today group 和 Sources build phase
+- Files changed:
+  - DayPage/Features/Today/TodayViewModel.swift（新建）
+  - DayPage/Features/Today/MemoCardView.swift（新建）
+  - DayPage/Features/Today/TodayView.swift（更新）
+  - DayPage.xcodeproj/project.pbxproj（更新）
+  - scripts/ralph/prd.json（passes: true）
+- **Learnings for future iterations:**
+  - `@MainActor` + `ObservableObject` 是本项目 ViewModel 模式：属性标 `@Published`，视图用 `@StateObject` 持有
+  - `GeometryReader` + `.frame(minHeight: geo.size.height * 0.75)` 是约束 ScrollView 内容最小高度为屏幕75%的做法
+  - Daily Page 文件路径：`VaultInitializer.vaultURL/wiki/daily/YYYY-MM-DD.md`；summary 字段在 frontmatter 中
+  - 注意 compile() 是占位方法，US-014 实现后替换
+---
+
+## 2026-04-15 - US-019
+- What was implemented:
+  - `DayPage/Features/Today/TodayView.swift`：Today Tab 占位视图，含 Header（TODAY 标题 + 日期）、滚动区域（"今日还未编译"提示）、底部输入栏占位区域
+  - `DayPage/Features/Archive/ArchiveView.swift`：Archive Tab 占位视图，含 Header（ARCHIVE 标题）+ 大字占位
+  - `DayPage/Features/Graph/GraphView.swift`：Graph Tab 占位视图，显示 "GRAPH" 大字 + "敬请期待"文字，TabView 中 `.disabled(true)` 使图标灰置
+  - `DayPage/App/RootView.swift`：替换原始 `Text("DayPage")` 为三 Tab 的 `TabView`；Graph tab `.disabled(true)`；通过 `UITabBarAppearance` 设置 tab bar 背景色为设计系统 surface 色
+  - `DayPage.xcodeproj/project.pbxproj`：注册三个新文件（A20000010-12 / A10000010-12）；新增 Graph group（A50000014）并加入 Features group children；Today/Archive/Graph group 各自填入对应文件
+- Files changed:
+  - DayPage/Features/Today/TodayView.swift（新建）
+  - DayPage/Features/Archive/ArchiveView.swift（新建）
+  - DayPage/Features/Graph/GraphView.swift（新建）
+  - DayPage/App/RootView.swift（更新）
+  - DayPage.xcodeproj/project.pbxproj（更新）
+  - scripts/ralph/prd.json（passes: true）
+- **Learnings for future iterations:**
+  - SwiftUI `TabView` 中 `.disabled(true)` 修饰符可使 Tab 图标变灰且不可交互，但 Tab 内容视图仍正常渲染（不会崩溃）
+  - `UITabBarAppearance` 需在 `.onAppear` 中通过 `UITabBar.appearance()` 设置，同时设置 `standardAppearance` 和 `scrollEdgeAppearance` 才能覆盖所有滚动状态下的外观
+  - 新 Features 子目录（如 Graph/）需要同时在 pbxproj 中添加对应 PBXGroup（有 path 属性）并将其加入父 group 的 children 数组
+  - NavigationStack + `.navigationBarHidden(true)` 是本项目隐藏系统导航栏的方式，各 Tab 自行管理其导航栈
+---
+
+## 2026-04-15 - US-002
+- What was implemented:
+  - `DayPage/Features/Today/InputBarView.swift`：
+    - 底部固定输入栏，`TextEditor` 支持多行文本（最大高度 140pt，滚动）
+    - 占位文字通过 ZStack 叠加实现（TextEditor 原生无 placeholder）
+    - 提交按钮：文字为空或提交中时禁用，提交中显示 ProgressView
+    - `@FocusState` 管理键盘焦点
+  - `DayPage/Features/Today/TodayViewModel.swift`：
+    - 新增 `@Published var isSubmitting: Bool` 和 `@Published var submitError: String?`
+    - `submitTextMemo(body:)`：创建 `Memo(type: .text)`，调用 `deviceDescription()` 填入 device 字段，通过 `RawStorage.append()` 原子写入，成功后 insert 到 memos[0]（立即显示，< 1 秒）
+    - `deviceDescription()`：从 `UIDevice.current` 获取 model + systemName + systemVersion
+    - location/weather 字段留 nil，由 US-005/US-006 填充
+  - `DayPage/Features/Today/TodayView.swift`：
+    - 替换原占位 HStack 为真实 `InputBarView`
+    - `@State var draftText: String` 管理草稿，提交后立即清空
+    - 顶部 overlay 显示 submitError toast（3 秒自动消失，带 move+opacity 动画）
+  - `DayPage.xcodeproj/project.pbxproj`：注册 InputBarView.swift（A20000015/A10000015）到 Today group 和 Sources build phase
+- Files changed:
+  - DayPage/Features/Today/InputBarView.swift（新建）
+  - DayPage/Features/Today/TodayViewModel.swift（更新）
+  - DayPage/Features/Today/TodayView.swift（更新）
+  - DayPage.xcodeproj/project.pbxproj（更新）
+  - scripts/ralph/prd.json（passes: true）
+- **Learnings for future iterations:**
+  - SwiftUI `TextEditor` 没有原生 placeholder，需用 ZStack 叠加 Text + `.allowsHitTesting(false)` 实现占位效果
+  - `.scrollContentBackground(.hidden)` 是清除 TextEditor 默认白色背景的方式（iOS 16+）
+  - `@FocusState` 绑定 TextEditor，可在提交后通过设置焦点控制键盘显示/隐藏
+  - 提交后立即 `memos.insert(memo, at: 0)` 比重新调用 `load()` 更快（无磁盘读取延迟）
+  - UIDevice 访问需 `import UIKit`，在 `@MainActor` ViewModel 中调用安全
+---
+
+## 2026-04-15 - US-005
+- What was implemented:
+  - `DayPage/Services/LocationService.swift`：
+    - `@MainActor` singleton，封装 CLLocationManager + CLGeocoder
+    - `currentLocation(timeout:)`：async 方法，获取 GPS 坐标 + 反向地理编码（3 秒超时降级为仅坐标）
+    - `requestPermissionIfNeeded()`：请求 whenInUse 权限
+    - CLLocationManagerDelegate：`locationManagerDidChangeAuthorization`, `didUpdateLocations`, `didFailWithError`
+    - `LocationError` enum：denied / timeout / geocodingFailed（含用户友好描述）
+    - `withTimeout` 私有辅助：使用 ThrowingTaskGroup 实现超时竞争
+  - `DayPage/Features/Today/TodayViewModel.swift`：
+    - 新增 `isLocating: Bool`、`pendingLocation: Memo.Location?` 发布状态
+    - `fetchLocation()`：调用 LocationService.currentLocation，设置 pendingLocation；denied 时提示引导文字
+    - `clearPendingLocation()`：清除待附加位置
+    - `submitTextMemo(body:)` 更新：将 pendingLocation 附加到新 memo，提交后清空
+  - `DayPage/Features/Today/InputBarView.swift`：
+    - 新增 isLocating / pendingLocation / locationAuthStatus / onFetchLocation / onClearLocation 参数
+    - 地图图标按钮（mappin.circle）：定位中显示 spinner；已有 pendingLocation 时高亮 amberArchival 色
+    - 位置 chip 行（locationChipRow）：显示地名或坐标 + 可点击 ×（xmark）移除
+    - 权限被拒时按钮 disabled
+  - `DayPage/Features/Today/TodayView.swift`：传入新的 InputBarView 参数
+  - `DayPage.xcodeproj/project.pbxproj`：
+    - 注册 LocationService.swift（A20000016/A10000016）到 Services group 和 Sources build phase
+    - Debug + Release target 配置添加 INFOPLIST_KEY_NSLocationWhenInUseUsageDescription
+- Files changed:
+  - DayPage/Services/LocationService.swift（新建）
+  - DayPage/Features/Today/TodayViewModel.swift（更新）
+  - DayPage/Features/Today/InputBarView.swift（更新）
+  - DayPage/Features/Today/TodayView.swift（更新）
+  - DayPage.xcodeproj/project.pbxproj（更新）
+  - scripts/ralph/prd.json（passes: true）
+- **Learnings for future iterations:**
+  - `GENERATE_INFOPLIST_FILE = YES` 模式下（无 Info.plist 文件），在 pbxproj 的 XCBuildConfiguration.buildSettings 中添加 `INFOPLIST_KEY_NSLocationWhenInUseUsageDescription` 即可注入权限描述；两个 target 配置（Debug/Release）都需要加
+  - `CLGeocoder.reverseGeocodeLocation` 在 iOS 16+ 已是 async 方法，可直接 `try await`（不再需要 callback 包装）
+  - Swift 字符串不能包含中文弯引号（"" 等）——编译器会将其解析为字符串边界，导致解析错误；改用「」书名号或 ASCII 引号
+  - CLLocationManager.requestLocation() 是一次性请求（不持续监听），结合 CheckedThrowingContinuation 包装成 async 更干净
+  - `withThrowingTaskGroup` 是实现 async 超时的推荐方式：两个并发 Task 互相竞争，第一个完成后 `cancelAll()` 取消另一个
+---
+
+## 2026-04-15 - US-006
+- What was implemented:
+  - `DayPage/Services/WeatherService.swift`：
+    - `@MainActor` singleton，封装 OpenWeatherMap `/data/2.5/weather` API 调用
+    - `currentWeather(at:)` async 方法：构建带 lat/lon/units/lang/appid 的请求 URL，解析 `main.temp`（格式化为 "32°C"）+ `weather[0].description`（首字母大写）
+    - `CacheEntry` 结构体：记录天气结果、获取时间、坐标；缓存 TTL 10 分钟，距离阈值 1000m
+    - 所有失败路径（API Key 为空、网络错误、HTTP 非 200、JSON 解析失败）均返回 `nil`，不抛出错误，不阻塞 memo 提交
+    - API Key 从 `Secrets.openWeatherApiKey` 加载
+  - `DayPage/Features/Today/TodayViewModel.swift`：
+    - `submitTextMemo()` 改为 `Task {}` 异步执行（之前是同步）
+    - 提交前 `await weatherService.currentWeather(at: loc)` 获取天气，附加到 `memo.weather` 字段
+    - `defer { isSubmitting = false }` 保证状态正确重置
+  - `DayPage.xcodeproj/project.pbxproj`：注册 WeatherService.swift（A20000017/A10000017）到 Services group 和 Sources build phase
+- Files changed:
+  - DayPage/Services/WeatherService.swift（新建）
+  - DayPage/Features/Today/TodayViewModel.swift（更新）
+  - DayPage.xcodeproj/project.pbxproj（更新）
+  - scripts/ralph/prd.json（passes: true）
+- **Learnings for future iterations:**
+  - `URLSession.shared.data(from:)` 在 `@MainActor` 类中可直接 `try await`，Swift 5.5+ 会自动在后台线程执行网络操作
+  - OpenWeatherMap `/data/2.5/weather` 返回 JSON 中 `main.temp` 单位受 `units=metric` 参数控制（摄氏度）；`weather` 是数组，取 `[0].description` 获取描述
+  - 缓存逻辑需同时检查时间（TTL）和距离（CLLocation.distance），两个条件都满足才命中缓存
+  - 将 submitTextMemo 从同步改为 Task{} async 时，isSubmitting 的 defer 重置要放在 Task 内部，否则会立即重置
+---
+
+## 2026-04-15 - US-004
+- What was implemented:
+  - `DayPage/Services/PhotoService.swift`：
+    - `@MainActor` singleton，封装 PhotosPickerItem → raw Data → 原图原子写入 vault/raw/assets/IMG_YYYYMMDD_HHMMSS.jpg
+    - `processPickerItem(_ item: PhotosPickerItem) async -> PhotoPickerResult?`：加载 transferable Data + 委托 processImageData
+    - `processImageData(_ data: Data) -> PhotoPickerResult?`：原子写入 + CGImageSource EXIF 提取 + thumbnail 生成
+    - EXIF 字段：光圈（FNumber）、快门（ExposureTime）、ISO（ISOSpeedRatings）、焦距（FocalLength）、GPS（lat/lng）、拍摄时间（DateTimeOriginal）
+    - Thumbnail：CGImageSourceCreateThumbnailAtIndex（maxPixelSize 200），fallback UIImage(data:)
+    - `PhotoPickerResult`：filePath（vault 相对路径）、fileURL（本地绝对 URL）、exif、thumbnail
+    - `PhotoEXIF`：aperture/shutterSpeed/iso/focalLength/gpsLat/gpsLng/capturedAt
+  - `DayPage/Features/Today/TodayViewModel.swift`：
+    - 新增 `isProcessingPhoto: Bool`、`pendingPhotos: [PhotoPickerResult]` 发布状态
+    - `submitPhotoMemo(item:caption:)`：async Task{}，processPickerItem → buildPhotoAttachment → weatherService.currentWeather → RawStorage.append → memos.insert
+    - `buildPhotoAttachment(from:)`：将 EXIF 字段编码为 transcript（利用已有 Attachment 结构体）
+    - 位置优先 pendingLocation，其次 EXIF GPS
+  - `DayPage/Features/Today/InputBarView.swift`：
+    - 添加 isProcessingPhoto 参数 + onSelectPhoto 回调
+    - `photoButton`：PhotosPicker（matching: .images），选中后 onChange → onSelectPhoto(item)；处理中显示 ProgressView
+    - 按钮图标：`photo`（SF Symbol）
+  - `DayPage/Features/Today/MemoCardView.swift`：
+    - `firstPhotoThumbnail`：对 .photo/.mixed memo，从 VaultInitializer.vaultURL+att.file 加载，CGImageSourceCreateThumbnailAtIndex（maxPixelSize 600）
+    - 缩略图行：.fill aspect ratio，高度 160pt，.clipped()，位于 typeLabel 行与 body 之间
+    - 添加 `import UIKit` + `import ImageIO`
+  - `DayPage/Features/Today/TodayView.swift`：传入 isProcessingPhoto + onSelectPhoto（照片提交后清空 draftText）
+  - `DayPage.xcodeproj/project.pbxproj`：
+    - 注册 PhotoService.swift（A20000018/A10000018）到 Services group 和 Sources build phase
+    - Debug + Release 两个 target 配置添加 INFOPLIST_KEY_NSPhotoLibraryUsageDescription
+- Files changed:
+  - DayPage/Services/PhotoService.swift（新建）
+  - DayPage/Features/Today/TodayViewModel.swift（更新）
+  - DayPage/Features/Today/InputBarView.swift（更新）
+  - DayPage/Features/Today/MemoCardView.swift（更新）
+  - DayPage/Features/Today/TodayView.swift（更新）
+  - DayPage.xcodeproj/project.pbxproj（更新）
+  - scripts/ralph/prd.json（passes: true）
+- **Learnings for future iterations:**
+  - `PhotosPickerItem.loadTransferable(type: Data.self)` 保留原始 JPEG/HEIC 数据（含 EXIF），不经过 UIKit 解码压缩；是保留 EXIF 的正确姿势
+  - `CGImageSourceCopyPropertiesAtIndex` 提取 EXIF/GPS 时，kCGImagePropertyExifDictionary 和 kCGImagePropertyGPSDictionary 是两个不同的顶层 key；GPS 纬度/经度符号取决于 LatitudeRef（"N"/"S"）和 LongitudeRef（"E"/"W"）
+  - `CGImageSourceCreateThumbnailAtIndex` 比 UIImage(data:) 再 resized 更高效（不解码全图），设置 kCGImageSourceCreateThumbnailFromImageIfAbsent 可在没有内嵌缩略图时从原图生成
+  - SwiftUI `PhotosPicker` onChange 回调在 iOS 16+ 使用 `.onChange(of: selectedItem)` 可正常工作；reset 为 nil 后允许用户再次选同一张照片
+  - `INFOPLIST_KEY_NSPhotoLibraryUsageDescription` 需在 pbxproj 中两个 target 配置（Debug + Release）都添加，原理与 Location 权限相同
+  - MemoCardView 的缩略图使用计算属性同步读取（不是 async），对小图可接受；如需大量照片应改为异步加载（AsyncImage 或 Task{}）
+---
+
+## 2026-04-15 - US-003
+- What was implemented:
+  - `DayPage/Services/VoiceService.swift`：
+    - `@MainActor` singleton，封装 AVAudioSession + AVAudioRecorder
+    - `requestMicrophonePermission()` async：使用 iOS 16 兼容的 `AVAudioSession.recordPermission` API
+    - `startRecording()`：请求权限 → 配置 AVAudioSession（playAndRecord + allowBluetoothHFP + defaultToSpeaker）→ 创建 AVAudioRecorder（AAC/44100Hz/mono）→ 启动 1 秒计时器更新 `elapsedSeconds`
+    - `pauseRecording()` / `resumeRecording()`：暂停/继续录音，同步暂停/恢复计时器
+    - `stopAndTranscribe()` async：停止录音 → 关闭 AVAudioSession → 调用 Whisper API → 返回 VoiceRecordingResult
+    - `cancelRecording()`：停止录音并删除临时文件，状态回 idle
+    - `reset()`：结果已消费后清理状态
+    - Whisper multipart/form-data POST：language=zh，timeout 60s；失败时返回 nil（不阻塞）
+    - `makeAudioFileURL()`：vault/raw/assets/voice_YYYYMMDD_HHMMSS.m4a
+    - `AVAudioRecorderDelegate`：encodeError 时设置 failed 状态
+  - `DayPage/Features/Today/VoiceRecordingView.swift`：
+    - `.sheet` 半屏浮层（.presentationDetents([.medium])）
+    - 拖动手柄 + "VOICE MEMO" 大写标题
+    - 实时计时器 MM:SS（Space Grotesk Mono 56px）+ 录音中脉冲红点动画
+    - 状态文字行：requesting/recording/paused/processing（带 ProgressView）/done/failed
+    - 三按钮控制：取消（xmark）、暂停/继续（pause.fill/play.fill，仅 active 时显示）、完成（stop.fill）
+    - 录音完成后 `onComplete(result)` 回调给 TodayView
+  - `DayPage/Features/Today/TodayViewModel.swift`：
+    - 新增 `@Published isShowingVoiceRecorder: Bool`
+    - `submitVoiceMemo(result:caption:)` async Task{}：附加 weather/location → Memo(type:.voice) + Attachment(kind:audio, duration, transcript) → RawStorage.append → memos.insert
+    - `startVoiceRecording()` / `cancelVoiceRecording()`：管理 isShowingVoiceRecorder 状态
+  - `DayPage/Features/Today/InputBarView.swift`：
+    - 新增 `onStartVoiceRecording: () -> Void` 参数
+    - `microphoneButton`：mic SF Symbol 图标按钮，位于 location 和 photo 按钮之间
+  - `DayPage/Features/Today/TodayView.swift`：
+    - InputBarView 传入 onStartVoiceRecording 回调
+    - `.sheet(isPresented: $viewModel.isShowingVoiceRecorder)` 展示 VoiceRecordingView；onComplete 后提交 memo 并清空 draftText
+  - `DayPage.xcodeproj/project.pbxproj`：
+    - 注册 VoiceService.swift（A20000019/A10000019）到 Services group 和 Sources build phase
+    - 注册 VoiceRecordingView.swift（A20000020/A10000020）到 Today group 和 Sources build phase
+    - Debug + Release target 配置添加 INFOPLIST_KEY_NSMicrophoneUsageDescription
+- Files changed:
+  - DayPage/Services/VoiceService.swift（新建）
+  - DayPage/Features/Today/VoiceRecordingView.swift（新建）
+  - DayPage/Features/Today/TodayViewModel.swift（更新）
+  - DayPage/Features/Today/InputBarView.swift（更新）
+  - DayPage/Features/Today/TodayView.swift（更新）
+  - DayPage.xcodeproj/project.pbxproj（更新）
+  - scripts/ralph/prd.json（passes: true）
+- **Learnings for future iterations:**
+  - iOS 16 目标项目必须使用 `AVAudioSession.sharedInstance().recordPermission` 检查麦克风权限，不可使用 iOS 17+ 的 `AVAudioApplication.shared.recordPermission`
+  - `AVAudioSession.CategoryOptions.allowBluetoothHFP` 是 `.allowBluetooth` 的正确继任者（iOS 8+ 已弃用 `.allowBluetooth`）
+  - Whisper API 接受 multipart/form-data：字段顺序为 model → language → file；`Content-Type` 中的 boundary 必须与请求体一致
+  - `AVAudioRecorder` 保存的文件必须和目标目录在同一卷，才能用 `FileManager.replaceItemAt` 原子替换；直接写入目标路径即可（无需临时文件）
+  - SwiftUI `.sheet` + `.presentationDetents([.medium])` 实现原生半屏底部弹出（iOS 16+），无需自定义 overlay
+  - VoiceService 中 `nonisolated` 标注 AVAudioRecorderDelegate 方法是正确做法（委托回调在非 MainActor 线程），内部通过 `Task { @MainActor in }` 更新状态
+---
+
+## 2026-04-15 - US-007
+- What was implemented:
+  - `PendingAttachment` enum（新建，位于 TodayViewModel.swift 顶部）：
+    - `.photo(PhotoPickerResult)` 和 `.voice(VoiceRecordingResult)` 两种 case
+    - `Identifiable` 通过 `id` 计算属性（"photo-\(filePath)" / "voice-\(filePath)"）
+    - `attachment` 计算属性将 case 转换为 `Memo.Attachment`（photo EXIF→transcript, voice duration+transcript）
+  - `TodayViewModel`：
+    - 新增 `@Published var pendingAttachments: [PendingAttachment] = []`
+    - `addPhotoAttachment(item:)` — 异步处理照片后 append 到 pendingAttachments（不再直接提交）
+    - `addVoiceAttachment(result:)` — 录音完成后 append 到 pendingAttachments + reset VoiceService
+    - `removePendingAttachment(id:)` — 按 id 从 pendingAttachments 移除
+    - `submitCombinedMemo(body:)` — 合并文字 + 所有 pendingAttachments，自动推断 type（text/voice/photo/mixed），从 EXIF 衍生位置，成功后清空 pendingAttachments
+    - 移除已不需要的 `submitTextMemo()`、`buildPhotoAttachment()` 私有方法
+  - `InputBarView`：
+    - 添加 `pendingAttachments: [PendingAttachment]` 参数
+    - 添加 `onAddPhoto: (PhotosPickerItem) -> Void` 替代旧 `onSelectPhoto`
+    - 添加 `onRemoveAttachment: (String) -> Void` 回调
+    - `attachmentPreviewRow`：水平滚动行，ForEach pendingAttachments 渲染预览卡片
+    - `photoCard()`：64×64pt 缩略图，使用 `UIImage(data:)` 从磁盘加载
+    - `voiceCard()`：64×64pt 灰底卡片，显示 mic 图标 + MM:SS 时长
+    - `submitButton` 可用条件：`hasContent = !text.isEmpty || !pendingAttachments.isEmpty`
+    - 添加 `import UIKit`
+  - `TodayView`：
+    - 语音录制 sheet `onComplete` 改为 `viewModel.addVoiceAttachment(result:)`（原来是 submitVoiceMemo）
+    - `onSelectPhoto` → `onAddPhoto`，移除 `draftText = ""`（照片不再立即提交）
+    - 传入 `pendingAttachments: viewModel.pendingAttachments` 和 `onRemoveAttachment`
+    - `onSubmit` 改为调用 `viewModel.submitCombinedMemo(body: body)`
+- Files changed:
+  - DayPage/Features/Today/TodayViewModel.swift（更新）
+  - DayPage/Features/Today/InputBarView.swift（更新）
+  - DayPage/Features/Today/TodayView.swift（更新）
+  - scripts/ralph/prd.json（passes: true）
+- **Learnings for future iterations:**
+  - 混合 memo 的关键设计：将"暂存附件"和"提交"分离 — addPhotoAttachment/addVoiceAttachment 只 stage，submitCombinedMemo 统一提交
+  - PendingAttachment enum 是理想的 staging 层抽象；放在 ViewModel 文件顶部（同一文件内 enum）避免新增文件和 pbxproj 修改
+  - 附件预览行使用横向 ScrollView + ForEach，每个卡片固定 64×64pt，符合 brutalist 设计的方正风格
+  - voiceCard 不需要加载文件，只展示 duration + 图标，轻量且无 I/O
+  - photoCard 从磁盘加载缩略图：UIImage(data:) 足够（文件已在本地，无需 CGImageSource 额外优化）
+  - submit 按钮可用条件扩展为 hasText || !pendingAttachments.isEmpty，location 不算独立 attachment（仍作为元数据）
+---
+
+## 2026-04-15 - US-010
+- What was implemented:
+  - `DayPage/Services/CompilationService.swift`:
+    - `@MainActor` singleton with `compile(for:trigger:)` async function
+    - Reads `vault/raw/YYYY-MM-DD.md` (all raw memos) and `vault/wiki/hot.md` (short-term context)
+    - Builds structured LLM prompt requesting Daily Page in Markdown format
+    - Calls DashScope `/v1/chat/completions` with OpenAI-compatible protocol
+      (model, max_tokens, temperature all from Secrets / fallback defaults)
+    - Backs up existing daily page to `vault/wiki/daily/.trash/YYYY-MM-DD_TIMESTAMP.md` before overwrite
+    - Writes compiled output atomically to `vault/wiki/daily/YYYY-MM-DD.md` via `RawStorage.atomicWrite`
+    - Appends compilation row to `vault/wiki/log.md`
+    - `CompilationError` enum with per-case `errorDescription` (missingApiKey / invalidURL / networkError / apiError / parseError / fileSystemError)
+  - `DayPage/Features/Today/TodayViewModel.swift`:
+    - Added `@Published var isCompiling: Bool = false`
+    - Added `private let compilationService = CompilationService.shared`
+    - Replaced placeholder `compile()` with real async `Task {}` that calls `compilationService.compile(for:trigger:)`, sets `isCompiling`, refreshes `checkDailyPage()` on success, maps `CompilationError` to `submitError`
+  - `DayPage.xcodeproj/project.pbxproj`:
+    - PBXBuildFile A10000021, PBXFileReference A20000021 registered
+    - Added to Services group children and Sources build phase
+- Files changed:
+  - DayPage/Services/CompilationService.swift (新建)
+  - DayPage/Features/Today/TodayViewModel.swift (更新 compile())
+  - DayPage.xcodeproj/project.pbxproj (更新)
+  - scripts/ralph/prd.json (passes: true)
+- **Learnings for future iterations:**
+  - DashScope API 使用 OpenAI 兼容接口协议：URL 格式为 `{DASHSCOPE_BASE_URL}/chat/completions`，Authorization header 为 `Bearer {key}`
+  - 编译 Service 的错误需要区分"API Key 缺失"、"401 认证失败"、"429 限流"、"解析失败"等类型，UI 层显示不同文案
+  - 备份目录（.trash）需在写入前检查存在性并创建；.trash 目录以点开头，iOS 文件系统支持但 Finder 默认隐藏
+  - `RawStorage.atomicWrite(string:to:)` 是项目统一原子写入入口，所有文件写入都应复用它
+  - `CompilationService` 不更新 hot.md 和 Entity Pages（分别是 US-012 和 US-011 的职责），本次只完成 Daily Page 生成
+---
+
+## 2026-04-15 - US-011
+- What was implemented:
+  - `DayPage/Services/EntityPageService.swift`:
+    - `@MainActor` singleton; `apply(instructions:date:)` iterates entity update instructions
+    - Creates new entity page (buildNewEntityPage) with YAML frontmatter: type/name/slug/first_seen/last_updated(ISO8601)/occurrence_count=1
+    - Appends to existing entity page (appendToEntityPage): updates last_updated, increments occurrence_count, appends content under correct section
+    - `appendUnderSection(content:section:newContent:)`: finds section heading, inserts content before next same-or-higher-level heading; creates section at end if not found
+    - `updateFrontmatterField(in:key:value:)` and `incrementFrontmatterCount(in:key:)`: frontmatter helpers operating on line arrays (no external YAML library)
+    - `updateIndex(newEntities:)`: appends [[wiki/type/slug|name]] wikilink entries under ## Places / ## People / ## Themes in wiki/index.md (seeds file if missing)
+    - `parseStructuredOutput(_:)` static method: extracts ```json fenced block (or raw {} braces) from LLM response; returns (dailyPage: String, instructions: [EntityUpdateInstruction])
+    - `sanitizeSlug(_:)`: lowercases, removes non-alphanumeric/hyphen chars, collapses multiple hyphens
+    - `EntityUpdateInstruction` struct: entityType / entitySlug / section / content / displayName
+  - `DayPage/Services/CompilationService.swift`:
+    - `buildPrompt()` updated: requests JSON structured output `{ "daily_page": "...", "entity_updates": [...] }` instead of plain Markdown
+    - `compile()` updated: after LLM response, calls `EntityPageService.parseStructuredOutput()` to split daily page text from entity instructions, then `EntityPageService.shared.apply(instructions:date:)`
+  - `DayPage.xcodeproj/project.pbxproj`:
+    - PBXBuildFile A10000022, PBXFileReference A20000022 registered for EntityPageService.swift
+    - Added to Services group children and Sources build phase
+  - `scripts/tests/test_entity_page.swift`: 15 unit tests (sanitizeSlug x4, parseStructuredOutput x4, appendUnderSection x2, updateFrontmatterField x1, incrementFrontmatterCount x2, full lifecycle x1, multi-day same entity x1) - all pass
+- Files changed:
+  - DayPage/Services/EntityPageService.swift (新建)
+  - DayPage/Services/CompilationService.swift (更新 buildPrompt + compile)
+  - DayPage.xcodeproj/project.pbxproj (更新)
+  - scripts/tests/test_entity_page.swift (新建)
+  - scripts/ralph/prd.json (passes: true)
+- **Learnings for future iterations:**
+  - LLM 结构化输出用 JSON 包裹比纯 Markdown 更可靠：`parseStructuredOutput` 先尝试提取 ```json 围栏块，再 fallback 到裸 {} 括号，最终 fallback 整体作为 dailyPage
+  - Entity Page frontmatter 更新（last_updated / occurrence_count）通过逐行处理实现，无需引入外部 YAML 库；只修改 frontmatter 块（第一个 --- 到第二个 --- 之间）
+  - `appendUnderSection` 需要处理"相同或更高级别的下一个标题"边界：heading level 比较用 # 计数；截断到下一个同级标题之前
+  - wiki/index.md 的条目格式为 `[[wiki/type/slug|DisplayName]]`（含路径前缀），便于未来 Graph 视图解析
+  - `apply()` 只对 newly created entities 更新 index（不重复添加已存在 slug），但不做重复检测（同一天多次编译可能重复追加）；可在未来加 duplicate check
+---
+
+## 2026-04-15 - US-012
+- What was implemented:
+  - `DayPage/Services/CompilationService.swift`（更新）：
+    - `buildPrompt()` 在 JSON 输出要求中新增 `hot_cache` 字段，要求 LLM 生成约 500 字中文短期记忆摘要
+    - `parseStructuredOutputWithHot()` 私有方法：复用 `EntityPageService.parseStructuredOutput()` 解析 daily_page + entity_updates，同时从同一 JSON 块提取 `hot_cache` 字段
+    - `extractHotCacheFromJSON()` 私有方法：从 LLM 响应中提取 hot_cache 字符串（支持 ```json 围栏块和裸 JSON）
+    - `updateHotCache(summary:compiledDate:)` 私有方法：
+      - 读取现有 hot.md 中的 covers_dates 列表（parseCoversDates()）
+      - 追加当天日期，保留最近 7 天，避免无限增长
+      - 用 updated_at + covers_dates frontmatter + 新摘要内容覆盖写入 vault/wiki/hot.md
+    - `parseCoversDates()` 私有方法：解析 hot.md frontmatter 中的 YAML 序列 covers_dates
+    - `compile()` 第 8 步改为调用 `updateHotCache()`，原日志追加移至第 9 步
+- Files changed:
+  - DayPage/Services/CompilationService.swift（更新）
+  - scripts/ralph/prd.json（passes: true）
+- **Learnings for future iterations:**
+  - 同一 LLM 调用可在 JSON 输出中同时返回多个字段（daily_page / entity_updates / hot_cache），避免额外的 API 调用
+  - hot.md covers_dates 需要增量更新（读旧值 + 追加 + 截断为最近 7 天），不能每次从零构建
+  - `updateHotCache` 用 `try?` 静默失败（不影响 memo 提交流程），与 WeatherService 模式一致
+  - YAML 序列解析（covers_dates）只需简单行扫描，不需要完整 YAML 解析库
+---
+
+## 2026-04-15 - US-014
+- What was implemented:
+  - `DayPage/Features/Today/MemoCardView.swift`（更新）：
+    - `CompilePromptCard` 添加 `isCompiling: Bool = false` 参数
+    - `isCompiling=true` 时：标题改为"正在编译..."、显示 ProgressView spinner、显示"正在编译 N 条 memo..."进度文本、左侧边框色变为 primary 黑色；按钮 `.disabled(isCompiling)`
+    - `.animation(.easeInOut(duration: 0.2), value: isCompiling)` 状态切换平滑过渡
+  - `DayPage/Features/Today/TodayView.swift`（更新）：
+    - `CompilePromptCard` 调用传入 `isCompiling: viewModel.isCompiling`
+- Files changed:
+  - DayPage/Features/Today/MemoCardView.swift（更新）
+  - DayPage/Features/Today/TodayView.swift（更新）
+  - scripts/ralph/prd.json（passes: true）
+- **Learnings for future iterations:**
+  - `isCompiling` 状态已在 TodayViewModel 中由 US-010 实现，US-014 只需把该状态透传到 UI 组件
+  - 错误文案分类由 `CompilationError.errorDescription` 已实现，TodayViewModel.compile() 中 catch 已做区分
+---
+
+## 2026-04-15 - US-013
+- What was implemented:
+  - `DayPage/Services/BackgroundCompilationService.swift`（新建）：
+    - `nonisolated registerTask()`：在 app 启动时向 BGTaskScheduler 注册处理器
+    - `scheduleIfNeeded()`：提交 BGAppRefreshTaskRequest，earliestBeginDate = 下一个 2:00 AM；重复提交安全（系统忽略）
+    - `handleBackgroundTask(_ task: BGAppRefreshTask) async`：重新调度 → shouldCompile 检查 → CompilationService.compile(trigger:"auto") → UNUserNotificationCenter 通知
+    - `backfillIfNeeded()`：App 启动/进入前台时检查昨天是否需要补充编译
+    - `shouldCompile(for:)`：检查 raw 文件存在 + daily page 不存在
+    - `nextTwoAM()`：计算下一个本地 2:00 AM Date
+  - `DayPage/App/Info.plist`（新建）：包含 BGTaskSchedulerPermittedIdentifiers 和 UIBackgroundModes
+  - `DayPage/App/DayPageApp.swift`（更新）：init 调用 registerTask()；body.onAppear 调用 scheduleIfNeeded() + backfillIfNeeded()
+  - `DayPage.xcodeproj/project.pbxproj`（更新）：注册 BackgroundCompilationService.swift（A20000023/A10000023）、Info.plist（A20000024/A10000024）；Debug+Release buildSettings 添加 INFOPLIST_FILE
+- Files changed:
+  - DayPage/Services/BackgroundCompilationService.swift（新建）
+  - DayPage/App/Info.plist（新建）
+  - DayPage/App/DayPageApp.swift（更新）
+  - DayPage.xcodeproj/project.pbxproj（更新）
+  - scripts/ralph/prd.json（passes: true）
+- **Learnings for future iterations:**
+  - BGTaskSchedulerPermittedIdentifiers 不能通过 INFOPLIST_KEY_* 添加（不是标准键），需要独立 Info.plist 文件
+  - GENERATE_INFOPLIST_FILE = YES 与 INFOPLIST_FILE = ... 同时设置时，Xcode 14+ 会合并两个来源的 keys
+  - BGTaskScheduler.register() 必须在 applicationDidFinishLaunching 完成前调用，即 App.init()，不能在 onAppear
+  - nonisolated static let 可以避免从非 actor 上下文引用 @MainActor 隔离属性的警告
+---
+
+## 2026-04-15 - US-015
+- What was implemented:
+  - `DayPage/Features/Daily/DailyPageView.swift`（新建）：
+    - `DailyPageModel`：解析后的日记数据模型（dateString/weekday/summary/sections/locations/followUpQuestions/memoCount）
+    - `DailyPageParser.parse()`：从 Markdown 文件解析 frontmatter（summary/location_primary/entries_count）+ ## 段落 + LOCATIONS TODAY + AI FOLLOW-UP blockquote 追问
+    - `DailyPageView`：DIGEST/TIMELINE segmented control；header（56px Space Grotesk + 星期 + 2px 左边框 summary + metadata chips）；narrativeSection（heading + 右侧横线 + wikifiedText）；locationsSection；threadsSection 2列 LazyVGrid；footer
+    - `buildAttributedString()`：将 [[slug]] 替换为 amber 色 AttributedString
+    - TIMELINE tab 显示原始 Markdown wikifiedText
+  - `DayPage/Features/Today/TodayView.swift`（更新）：
+    - DailyPageEntryCard 添加 `onTap: { showDailyPage = true }`
+    - 添加 `@State showDailyPage: Bool`
+    - `.fullScreenCover(isPresented: $showDailyPage)` 展示 DailyPageView，onReturnToToday 回调预填 draftText
+  - `DayPage.xcodeproj/project.pbxproj`（更新）：注册 DailyPageView.swift A20000025/A10000025
+- Files changed:
+  - DayPage/Features/Daily/DailyPageView.swift（新建）
+  - DayPage/Features/Today/TodayView.swift（更新）
+  - DayPage.xcodeproj/project.pbxproj（更新）
+  - scripts/ralph/prd.json（passes: true）
+- **Learnings for future iterations:**
+  - AttributedString 可以在 SwiftUI Text 中内联混合颜色（用于 wikilink 渲染），不需要 UITextView 或 WebView
+  - [[slug|Display Name]] 与 [[slug]] 两种格式都要处理；NSRegularExpression 提取 group(at:1) 得到方括号内容
+  - fullScreenCover 支持 dismiss + 回调预填 draftText，适合 Daily Page → Today 的返回流程
+---
+
+## 2026-04-15 - US-016
+- What was implemented:
+  - `DayPage/Features/Entity/EntityPageView.swift`（新建）：
+    - `EntityPageView`：展示 vault/wiki/{type}/{slug}.md 的实体页；type badge（PLACE/PERSON/THEME）+ 32px Space Grotesk name + metadata chips (first_seen, occurrence_countx)
+    - `notFoundView`：当文件不存在时显示「该实体页尚未生成」
+    - `EntityModel`：name/entityType/firstSeen/occurrenceCount/sections[EntitySection]/relatedDates
+    - `EntityPageParser.parse()`：解析 frontmatter（name/type/first_seen/occurrence_count）+ ## 段落 + 从段落 body 中提取 "- YYYY-MM-DD" 格式的关联日期
+    - `relatedMemos`：RELATED ENTRIES 区块，关联日期列表倒序排列
+    - `wikifiedText` + `buildAttributedString()`：[[wikilink]] amber 色渲染（复用 DailyPageView 的相同逻辑）
+  - `DayPage.xcodeproj/project.pbxproj`（更新）：注册 EntityPageView.swift A20000026/A10000026
+- Files changed:
+  - DayPage/Features/Entity/EntityPageView.swift（新建）
+  - DayPage.xcodeproj/project.pbxproj（更新）
+  - scripts/ralph/prd.json（passes: true）
+- **Learnings for future iterations:**
+  - EntityPageView 和 DailyPageView 的 buildAttributedString 逻辑完全相同，未来可抽取为共用 extension
+  - related dates 从 section body 行里提取（"- YYYY-MM-DD" 前缀），不是单独的 frontmatter 字段
+---
+
+## 2026-04-15 - US-017 + US-018
+- What was implemented:
+  - `DayPage/Features/Archive/ArchiveView.swift`（重写）：
+    - `ArchiveMode` enum：.calendar / .list
+    - `DayStats`：memoCount/photosCount/voiceDurationSeconds/isDailyPageCompiled/dailySummary + `DensityLevel` nested enum（empty=#F9F9F9, low=#E8E8E8, medium=#474747, high=#000000）
+    - `ArchiveViewModel @MainActor`：displayedMonth, dayStats, monthlyTotals; loadMonth() 读取 vault/raw/ 目录 + vault/wiki/daily/; goToPreviousMonth/goToNextMonth
+    - 日历模式：weekday header (MON-SUN), 7列网格, 热力填充色, 今日 1px 黑色描边, Legend 行（4 色块 + EMPTY/LOW/MEDIUM/HIGH 标签）
+    - 月度统计：2×2 网格（TOTAL ENTRIES/VOICE DURATION/PHOTOS/UNIQUE LOCATIONS），数字 Space Grotesk 36px
+    - 列表模式：日期倒序, surfaceContainer 背景 + 4px 黑色左边框, StatusBadge(VERIFIED/METADATA), italic 摘要, 元数据图标行
+    - fullScreenCover → DailyPageView（点击日历格子或列表行）
+    - `Array+chunked(into:)` private extension for calendar row splitting
+- Files changed:
+  - DayPage/Features/Archive/ArchiveView.swift（重写）
+  - scripts/ralph/prd.json（US-017/US-018 passes: true）
+- **Learnings for future iterations:**
+  - 日历网格周首日偏移公式：`(firstWeekday + 5) % 7`，将 Calendar.current.firstWeekday（Sunday=1..Saturday=7）转换为 Monday=0..Sunday=6 的偏移量
+  - StatusBadge 的参数名是 `label:` 不是 `text:`，要与 Components.swift 核对
+  - Array.chunked(into:) 是标准扩展，斯wift 标准库没有，需要手写 private extension
+---
