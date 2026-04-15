@@ -442,3 +442,36 @@ Started: Wed Apr 15 17:59:31 +07 2026
   - `RawStorage.atomicWrite(string:to:)` 是项目统一原子写入入口，所有文件写入都应复用它
   - `CompilationService` 不更新 hot.md 和 Entity Pages（分别是 US-012 和 US-011 的职责），本次只完成 Daily Page 生成
 ---
+
+## 2026-04-15 - US-011
+- What was implemented:
+  - `DayPage/Services/EntityPageService.swift`:
+    - `@MainActor` singleton; `apply(instructions:date:)` iterates entity update instructions
+    - Creates new entity page (buildNewEntityPage) with YAML frontmatter: type/name/slug/first_seen/last_updated(ISO8601)/occurrence_count=1
+    - Appends to existing entity page (appendToEntityPage): updates last_updated, increments occurrence_count, appends content under correct section
+    - `appendUnderSection(content:section:newContent:)`: finds section heading, inserts content before next same-or-higher-level heading; creates section at end if not found
+    - `updateFrontmatterField(in:key:value:)` and `incrementFrontmatterCount(in:key:)`: frontmatter helpers operating on line arrays (no external YAML library)
+    - `updateIndex(newEntities:)`: appends [[wiki/type/slug|name]] wikilink entries under ## Places / ## People / ## Themes in wiki/index.md (seeds file if missing)
+    - `parseStructuredOutput(_:)` static method: extracts ```json fenced block (or raw {} braces) from LLM response; returns (dailyPage: String, instructions: [EntityUpdateInstruction])
+    - `sanitizeSlug(_:)`: lowercases, removes non-alphanumeric/hyphen chars, collapses multiple hyphens
+    - `EntityUpdateInstruction` struct: entityType / entitySlug / section / content / displayName
+  - `DayPage/Services/CompilationService.swift`:
+    - `buildPrompt()` updated: requests JSON structured output `{ "daily_page": "...", "entity_updates": [...] }` instead of plain Markdown
+    - `compile()` updated: after LLM response, calls `EntityPageService.parseStructuredOutput()` to split daily page text from entity instructions, then `EntityPageService.shared.apply(instructions:date:)`
+  - `DayPage.xcodeproj/project.pbxproj`:
+    - PBXBuildFile A10000022, PBXFileReference A20000022 registered for EntityPageService.swift
+    - Added to Services group children and Sources build phase
+  - `scripts/tests/test_entity_page.swift`: 15 unit tests (sanitizeSlug x4, parseStructuredOutput x4, appendUnderSection x2, updateFrontmatterField x1, incrementFrontmatterCount x2, full lifecycle x1, multi-day same entity x1) - all pass
+- Files changed:
+  - DayPage/Services/EntityPageService.swift (新建)
+  - DayPage/Services/CompilationService.swift (更新 buildPrompt + compile)
+  - DayPage.xcodeproj/project.pbxproj (更新)
+  - scripts/tests/test_entity_page.swift (新建)
+  - scripts/ralph/prd.json (passes: true)
+- **Learnings for future iterations:**
+  - LLM 结构化输出用 JSON 包裹比纯 Markdown 更可靠：`parseStructuredOutput` 先尝试提取 ```json 围栏块，再 fallback 到裸 {} 括号，最终 fallback 整体作为 dailyPage
+  - Entity Page frontmatter 更新（last_updated / occurrence_count）通过逐行处理实现，无需引入外部 YAML 库；只修改 frontmatter 块（第一个 --- 到第二个 --- 之间）
+  - `appendUnderSection` 需要处理"相同或更高级别的下一个标题"边界：heading level 比较用 # 计数；截断到下一个同级标题之前
+  - wiki/index.md 的条目格式为 `[[wiki/type/slug|DisplayName]]`（含路径前缀），便于未来 Graph 视图解析
+  - `apply()` 只对 newly created entities 更新 index（不重复添加已存在 slug），但不做重复检测（同一天多次编译可能重复追加）；可在未来加 duplicate check
+---

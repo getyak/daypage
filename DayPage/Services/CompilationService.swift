@@ -56,12 +56,18 @@ final class CompilationService {
 
         let compiledText = try await callDashScope(prompt: prompt, apiKey: apiKey)
 
-        // 5. Write Daily Page (backup existing if present)
+        // 5. Parse structured output (Daily Page + Entity update instructions)
+        let (dailyPageText, entityInstructions) = EntityPageService.parseStructuredOutput(compiledText)
+
+        // 6. Write Daily Page (backup existing if present)
         let dailyURL = dailyPageURL(for: dateString)
         try backupIfExists(at: dailyURL, dateString: dateString)
-        try writeFile(content: compiledText, to: dailyURL)
+        try writeFile(content: dailyPageText, to: dailyURL)
 
-        // 6. Append to log.md
+        // 7. Apply entity updates
+        try EntityPageService.shared.apply(instructions: entityInstructions, date: dateString)
+
+        // 8. Append to log.md
         let elapsed = Date().timeIntervalSince(startTime)
         appendLog(
             timestamp: iso8601Now(),
@@ -164,7 +170,7 @@ final class CompilationService {
         memoCount: Int
     ) -> String {
         """
-        You are DayPage's AI compilation engine. Compile today's raw memos into a structured Daily Page in Markdown.
+        You are DayPage's AI compilation engine. Compile today's raw memos into a structured Daily Page and identify entities (places, people, themes) for the wiki.
 
         ## Date
         \(dateString)
@@ -177,9 +183,25 @@ final class CompilationService {
 
         ## Output Requirements
 
-        Produce a Markdown document with this exact structure:
+        Respond with a single JSON object (no extra text outside the JSON):
 
+        ```json
+        {
+          "daily_page": "<full Markdown Daily Page as a string>",
+          "entity_updates": [
+            {
+              "entity_type": "places",
+              "entity_slug": "joma-coffee",
+              "display_name": "Joma Coffee",
+              "section": "## Visits",
+              "content": "- \(dateString): <brief note>"
+            }
+          ]
+        }
         ```
+
+        ### daily_page format (inside the JSON string, use \\n for newlines):
+
         ---
         type: daily
         date: \(dateString)
@@ -191,40 +213,41 @@ final class CompilationService {
 
         # \(dateString.uppercased())
 
-        <one-sentence summary with left 2px black border style annotation>
+        <one-sentence summary>
 
         ## MORNING
-
         <narrative paragraph synthesizing morning memos>
 
         ## AFTERNOON
-
         <narrative paragraph synthesizing afternoon memos>
 
         ## EVENING
-
         <narrative paragraph synthesizing evening memos>
 
         ## LOCATIONS TODAY
-
         - [[location-slug]]: Brief note
 
         ## AI FOLLOW-UP
-
-        > Question 1: <thoughtful follow-up question based on today's entries>
+        > Question 1: <thoughtful follow-up question>
         > Question 2: <second follow-up question>
         > Question 3: <third follow-up question>
 
         ---
         *Compiled from \(memoCount) raw entries*
-        ```
 
-        Rules:
-        - Write entirely in Chinese
-        - Entity references use [[slug]] format (lowercase, hyphens, no spaces)
-        - If a time section has no memos, write a brief placeholder
-        - Keep the frontmatter fields exactly as specified
-        - Do NOT include any explanation outside the Markdown document
+        ### entity_updates rules:
+        - entity_type must be one of: "places", "people", "themes"
+        - entity_slug: lowercase, hyphens only, no spaces (e.g. "joma-coffee")
+        - display_name: human-readable name (e.g. "Joma Coffee")
+        - section: Markdown heading for the content block (e.g. "## Visits", "## Mentions", "## Notes")
+        - content: Markdown content to append under that section
+        - Include all notable places, people, and themes mentioned in the memos
+        - Entity references in daily_page use [[slug]] format
+
+        ### General rules:
+        - Write daily_page entirely in Chinese
+        - Output ONLY the JSON object, no additional commentary
+        - Ensure the JSON is valid (escape quotes and newlines properly inside strings)
         """
     }
 

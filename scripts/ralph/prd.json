@@ -238,8 +238,8 @@
         "单元测试覆盖：新建 Entity、增量更新、多日引用同一 Entity"
       ],
       "priority": 14,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented EntityPageService.swift (@MainActor singleton; parseStructuredOutput() extracts JSON block from LLM response; apply(instructions:date:) creates new entity pages or appends to existing ones under correct sections; updateFrontmatterField/incrementFrontmatterCount frontmatter helpers; appendUnderSection() handles section insertion or creation; updateIndex() keeps wiki/index.md in sync grouped by type); CompilationService.buildPrompt() updated to request JSON structured output {daily_page, entity_updates[]}; CompilationService.compile() calls EntityPageService.shared.apply() after writing Daily Page; EntityPageService registered A20000022/A10000022 in project.pbxproj Services group and Sources build phase; 15 unit tests pass via scripts/tests/test_entity_page.swift; typecheck exit 0."
     },
     {
       "id": "US-012",
