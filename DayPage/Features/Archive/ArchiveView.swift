@@ -324,17 +324,30 @@ struct ArchiveView: View {
     // MARK: - Archive Header
 
     private var archiveHeader: some View {
-        HStack {
-            Text("ARCHIVE")
-                .headlineMDStyle()
+        HStack(spacing: 10) {
+            // Calendar icon (decorative)
+            Image(systemName: "calendar")
+                .font(.system(size: 18, weight: .regular))
                 .foregroundColor(DSColor.onSurface)
+
+            Text("ARCHIVE")
+                .font(.custom("SpaceGrotesk-Bold", size: 20))
+                .foregroundColor(DSColor.onSurface)
+                .kerning(2)
+
             Spacer()
-            Text(Date(), format: .dateTime.month(.wide).year())
-                .monoLabelStyle(size: 11)
-                .foregroundColor(DSColor.onSurfaceVariant)
+
+            // Search icon (MVP: tap shows "coming soon" toast)
+            Button(action: { }) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 18, weight: .regular))
+                    .foregroundColor(DSColor.onSurface)
+                    .frame(width: 32, height: 32)
+            }
+            .buttonStyle(.plain)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
+        .padding(.horizontal, 16)
+        .frame(height: 56)
     }
 
     // MARK: - Month Navigation Row
