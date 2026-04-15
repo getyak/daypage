@@ -42,6 +42,11 @@ struct VoiceRecordingView: View {
             // Timer display
             timerSection
 
+            // Real-time waveform visualizer
+            waveformView
+                .padding(.horizontal, 24)
+                .padding(.top, 12)
+
             Spacer()
 
             // State message (e.g., "Transcribing…")
@@ -102,6 +107,24 @@ struct VoiceRecordingView: View {
                 .foregroundColor(DSColor.onSurface)
                 .monospacedDigit()
         }
+    }
+
+    // MARK: - Waveform View
+
+    @ViewBuilder
+    private var waveformView: some View {
+        let barCount = 40
+        let bars = voiceService.waveformHistory
+        HStack(alignment: .center, spacing: 2) {
+            ForEach(0 ..< barCount, id: \.self) { i in
+                let level = i < bars.count ? bars[i] : 0.04
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(DSColor.amberArchival)
+                    .frame(width: 3, height: max(4, CGFloat(level) * 32))
+                    .animation(.easeOut(duration: 0.05), value: level)
+            }
+        }
+        .frame(height: 36)
     }
 
     // MARK: - Status Message

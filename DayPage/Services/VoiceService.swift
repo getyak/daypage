@@ -55,6 +55,10 @@ final class VoiceService: NSObject, ObservableObject {
     @Published var state: RecordingState = .idle
     /// Live elapsed seconds (updated every second during recording)
     @Published var elapsedSeconds: Int = 0
+    /// Normalised audio level 0.0–1.0, updated at ~30fps during recording
+    @Published var waveformLevel: Float = 0.0
+    /// Rolling history of waveform levels (last 40 samples) for bar display
+    @Published var waveformHistory: [Float] = Array(repeating: 0.04, count: 40)
 
     // MARK: Private
 
@@ -62,6 +66,7 @@ final class VoiceService: NSObject, ObservableObject {
     private var currentFileURL: URL?
     private var recordingStartDate: Date?
     private var timer: Timer?
+    private var meteringTimer: Timer?
 
     // MARK: - Permission
 
@@ -120,11 +125,14 @@ final class VoiceService: NSObject, ObservableObject {
         do {
             let rec = try AVAudioRecorder(url: fileURL, settings: settings)
             rec.delegate = self
+            rec.isMeteringEnabled = true
             rec.record()
             recorder = rec
             recordingStartDate = Date()
             elapsedSeconds = 0
+            waveformHistory = Array(repeating: 0.04, count: 40)
             startTimer()
+            startMeteringTimer()
             state = .recording
         } catch {
             state = .failed("录音启动失败：\(error.localizedDescription)")
@@ -137,6 +145,7 @@ final class VoiceService: NSObject, ObservableObject {
         guard state == .recording else { return }
         recorder?.pause()
         stopTimer()
+        stopMeteringTimer()
         state = .paused
     }
 
@@ -144,6 +153,7 @@ final class VoiceService: NSObject, ObservableObject {
         guard state == .paused else { return }
         recorder?.record()
         startTimer()
+        startMeteringTimer()
         state = .recording
     }
 
@@ -159,6 +169,7 @@ final class VoiceService: NSObject, ObservableObject {
         }
 
         stopTimer()
+        stopMeteringTimer()
         let finalDuration = Double(elapsedSeconds)
         rec.stop()
         recorder = nil
@@ -193,6 +204,7 @@ final class VoiceService: NSObject, ObservableObject {
     /// Aborts recording without saving.
     func cancelRecording() {
         stopTimer()
+        stopMeteringTimer()
         recorder?.stop()
         if let url = currentFileURL {
             try? FileManager.default.removeItem(at: url)
@@ -207,9 +219,12 @@ final class VoiceService: NSObject, ObservableObject {
     /// Resets state back to idle (call after the result has been consumed).
     func reset() {
         stopTimer()
+        stopMeteringTimer()
         recorder = nil
         currentFileURL = nil
         elapsedSeconds = 0
+        waveformLevel = 0.0
+        waveformHistory = Array(repeating: 0.04, count: 40)
         state = .idle
     }
 
@@ -296,6 +311,30 @@ final class VoiceService: NSObject, ObservableObject {
     private func stopTimer() {
         timer?.invalidate()
         timer = nil
+    }
+
+    // MARK: - Metering Timer (~30fps)
+
+    private func startMeteringTimer() {
+        meteringTimer?.invalidate()
+        meteringTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, let rec = self.recorder, self.state == .recording else { return }
+                rec.updateMeters()
+                let power = rec.averagePower(forChannel: 0) // -160 to 0 dB
+                // Map -60dB..0dB → 0..1, clamp below -60dB to near-zero
+                let normalized = Float(max(0.04, min(1.0, (Double(power) + 60.0) / 60.0)))
+                self.waveformLevel = normalized
+                // Shift history and append
+                self.waveformHistory.removeFirst()
+                self.waveformHistory.append(normalized)
+            }
+        }
+    }
+
+    private func stopMeteringTimer() {
+        meteringTimer?.invalidate()
+        meteringTimer = nil
     }
 }
 
