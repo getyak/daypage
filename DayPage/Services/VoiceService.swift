@@ -243,9 +243,7 @@ final class VoiceService: NSObject, ObservableObject {
         let modelField = "--\(boundary)\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\nwhisper-1\r\n"
         body.append(Data(modelField.utf8))
 
-        // -- language hint (Chinese)
-        let langField = "--\(boundary)\r\nContent-Disposition: form-data; name=\"language\"\r\n\r\nzh\r\n"
-        body.append(Data(langField.utf8))
+        // No language hint — let Whisper auto-detect for multilingual support
 
         // -- file field
         let fileHeader = "--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(url.lastPathComponent)\"\r\nContent-Type: audio/m4a\r\n\r\n"
@@ -263,19 +261,43 @@ final class VoiceService: NSObject, ObservableObject {
         request.httpBody = body
         request.timeoutInterval = 60
 
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+        // Retry up to 3 times for transient server/rate-limit errors (429, 500, 503)
+        let maxAttempts = 3
+        var delaySeconds: UInt64 = 2
+
+        for attempt in 1...maxAttempts {
+            do {
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let http = response as? HTTPURLResponse else { return nil }
+
+                if http.statusCode == 200 {
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let text = json["text"] as? String {
+                        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    }
+                    return nil
+                }
+
+                // Retryable: rate-limit or server error
+                let retryable = http.statusCode == 429 || http.statusCode >= 500
+                if retryable && attempt < maxAttempts {
+                    try? await Task.sleep(nanoseconds: delaySeconds * 1_000_000_000)
+                    delaySeconds *= 2
+                    continue
+                }
+
+                // Non-retryable error or exhausted retries
+                return nil
+            } catch {
+                if attempt < maxAttempts {
+                    try? await Task.sleep(nanoseconds: delaySeconds * 1_000_000_000)
+                    delaySeconds *= 2
+                    continue
+                }
                 return nil
             }
-            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let text = json["text"] as? String {
-                return text.trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-            return nil
-        } catch {
-            return nil
         }
+        return nil
     }
 
     // MARK: - File URL Helper
