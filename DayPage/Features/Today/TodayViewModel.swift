@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UIKit
 
 // MARK: - TodayViewModel
 
@@ -23,6 +24,12 @@ final class TodayViewModel: ObservableObject {
 
     /// Error message to display if loading fails.
     @Published var errorMessage: String? = nil
+
+    /// Whether a memo submission is in progress.
+    @Published var isSubmitting: Bool = false
+
+    /// Transient submit error shown as a toast/alert.
+    @Published var submitError: String? = nil
 
     // MARK: Private
 
@@ -54,11 +61,54 @@ final class TodayViewModel: ObservableObject {
         isLoading = false
     }
 
+    // MARK: - Submit Text Memo
+
+    /// Creates and persists a text memo from the given body string.
+    /// Automatically attaches timestamp, device info.
+    /// Location and weather are filled in by US-005 / US-006 respectively.
+    func submitTextMemo(body: String) {
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        isSubmitting = true
+        submitError = nil
+
+        let memo = Memo(
+            type: .text,
+            created: Date(),
+            location: nil,      // filled by US-005
+            weather: nil,       // filled by US-006
+            device: deviceDescription(),
+            attachments: [],
+            body: trimmed
+        )
+
+        do {
+            try RawStorage.append(memo)
+            // Insert at front (newest first)
+            memos.insert(memo, at: 0)
+        } catch {
+            submitError = "保存失败：\(error.localizedDescription)"
+        }
+
+        isSubmitting = false
+    }
+
     // MARK: - Compile Trigger (placeholder)
 
     /// Triggers manual compilation (placeholder until US-014 is implemented).
     func compile() {
         // Implemented in US-014 / US-010.
+    }
+
+    // MARK: - Private Helpers
+
+    // MARK: - Device Info
+
+    /// Returns a human-readable device description string for the frontmatter.
+    private func deviceDescription() -> String {
+        let device = UIDevice.current
+        return "\(device.model) (\(device.systemName) \(device.systemVersion))"
     }
 
     // MARK: - Private Helpers

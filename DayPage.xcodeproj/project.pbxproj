@@ -21,6 +21,7 @@
 		A10000012 /* GraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000012 /* GraphView.swift */; };
 		A10000013 /* TodayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000013 /* TodayViewModel.swift */; };
 		A10000014 /* MemoCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000014 /* MemoCardView.swift */; };
+		A10000015 /* InputBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000015 /* InputBarView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -38,6 +39,7 @@
 		A20000012 /* GraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphView.swift; sourceTree = "<group>"; };
 		A20000013 /* TodayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayViewModel.swift; sourceTree = "<group>"; };
 		A20000014 /* MemoCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoCardView.swift; sourceTree = "<group>"; };
+		A20000015 /* InputBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputBarView.swift; sourceTree = "<group>"; };
 		A30000001 /* DayPage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPage.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -104,6 +106,7 @@
 				A20000010 /* TodayView.swift */,
 				A20000013 /* TodayViewModel.swift */,
 				A20000014 /* MemoCardView.swift */,
+				A20000015 /* InputBarView.swift */,
 			);
 			path = Today;
 			sourceTree = "<group>";
@@ -288,6 +291,7 @@
 				A10000012 /* GraphView.swift in Sources */,
 				A10000013 /* TodayViewModel.swift in Sources */,
 				A10000014 /* MemoCardView.swift in Sources */,
+				A10000015 /* InputBarView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

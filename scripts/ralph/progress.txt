@@ -174,3 +174,34 @@ Started: Wed Apr 15 17:59:31 +07 2026
   - 新 Features 子目录（如 Graph/）需要同时在 pbxproj 中添加对应 PBXGroup（有 path 属性）并将其加入父 group 的 children 数组
   - NavigationStack + `.navigationBarHidden(true)` 是本项目隐藏系统导航栏的方式，各 Tab 自行管理其导航栈
 ---
+
+## 2026-04-15 - US-002
+- What was implemented:
+  - `DayPage/Features/Today/InputBarView.swift`：
+    - 底部固定输入栏，`TextEditor` 支持多行文本（最大高度 140pt，滚动）
+    - 占位文字通过 ZStack 叠加实现（TextEditor 原生无 placeholder）
+    - 提交按钮：文字为空或提交中时禁用，提交中显示 ProgressView
+    - `@FocusState` 管理键盘焦点
+  - `DayPage/Features/Today/TodayViewModel.swift`：
+    - 新增 `@Published var isSubmitting: Bool` 和 `@Published var submitError: String?`
+    - `submitTextMemo(body:)`：创建 `Memo(type: .text)`，调用 `deviceDescription()` 填入 device 字段，通过 `RawStorage.append()` 原子写入，成功后 insert 到 memos[0]（立即显示，< 1 秒）
+    - `deviceDescription()`：从 `UIDevice.current` 获取 model + systemName + systemVersion
+    - location/weather 字段留 nil，由 US-005/US-006 填充
+  - `DayPage/Features/Today/TodayView.swift`：
+    - 替换原占位 HStack 为真实 `InputBarView`
+    - `@State var draftText: String` 管理草稿，提交后立即清空
+    - 顶部 overlay 显示 submitError toast（3 秒自动消失，带 move+opacity 动画）
+  - `DayPage.xcodeproj/project.pbxproj`：注册 InputBarView.swift（A20000015/A10000015）到 Today group 和 Sources build phase
+- Files changed:
+  - DayPage/Features/Today/InputBarView.swift（新建）
+  - DayPage/Features/Today/TodayViewModel.swift（更新）
+  - DayPage/Features/Today/TodayView.swift（更新）
+  - DayPage.xcodeproj/project.pbxproj（更新）
+  - scripts/ralph/prd.json（passes: true）
+- **Learnings for future iterations:**
+  - SwiftUI `TextEditor` 没有原生 placeholder，需用 ZStack 叠加 Text + `.allowsHitTesting(false)` 实现占位效果
+  - `.scrollContentBackground(.hidden)` 是清除 TextEditor 默认白色背景的方式（iOS 16+）
+  - `@FocusState` 绑定 TextEditor，可在提交后通过设置焦点控制键盘显示/隐藏
+  - 提交后立即 `memos.insert(memo, at: 0)` 比重新调用 `load()` 更快（无磁盘读取延迟）
+  - UIDevice 访问需 `import UIKit`，在 `@MainActor` ViewModel 中调用安全
+---

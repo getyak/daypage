@@ -115,8 +115,8 @@
         "在 iOS 模拟器中验证主屏交互"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented InputBarView.swift (multiline TextEditor + submit button with disabled state); TodayViewModel.submitTextMemo() auto-captures device info and writes via RawStorage.append(); TodayView integrates InputBarView at bottom, clears draft on submit, shows submit error toast; registered A20000015/A10000015 in project.pbxproj Today group and Sources build phase; typecheck exit 0."
     },
     {
       "id": "US-005",

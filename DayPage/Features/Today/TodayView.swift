@@ -4,6 +4,9 @@ struct TodayView: View {
 
     @StateObject private var viewModel = TodayViewModel()
 
+    /// The draft text in the input bar.
+    @State private var draftText: String = ""
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -70,7 +73,7 @@ struct TodayView: View {
                                     .padding(.vertical, 20)
                                 }
 
-                                // Error message
+                                // Load error message
                                 if let error = viewModel.errorMessage {
                                     Text(error)
                                         .bodySMStyle()
@@ -86,25 +89,41 @@ struct TodayView: View {
                         .frame(maxHeight: geo.size.height)
                     }
 
-                    Divider()
-                        .background(DSColor.outline)
-
-                    // MARK: Input bar placeholder (implemented in US-002)
-                    HStack(spacing: 12) {
-                        Text("记录想法…")
-                            .bodyMDStyle()
-                            .foregroundColor(DSColor.onSurfaceVariant)
-                        Spacer()
+                    // MARK: Input Bar
+                    InputBarView(
+                        text: $draftText,
+                        isSubmitting: viewModel.isSubmitting,
+                        onSubmit: {
+                            let body = draftText
+                            draftText = ""
+                            viewModel.submitTextMemo(body: body)
+                        }
+                    )
+                }
+                // Submit error toast
+                .overlay(alignment: .top) {
+                    if let err = viewModel.submitError {
+                        Text(err)
+                            .bodySMStyle()
+                            .foregroundColor(DSColor.onError)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(DSColor.error)
+                            .padding(.top, 8)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                            .onAppear {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                                    viewModel.submitError = nil
+                                }
+                            }
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 16)
-                    .background(DSColor.surfaceContainerLow)
                 }
             }
             .navigationBarHidden(true)
             .onAppear {
                 viewModel.load()
             }
+            .animation(.easeInOut(duration: 0.25), value: viewModel.submitError)
         }
     }
 }
