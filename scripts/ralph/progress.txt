@@ -1,3 +1,30 @@
+## Codebase Patterns
+- `project.pbxproj` 手动管理：新增 Swift 文件必须同步添加 PBXFileReference（A2xxxxxxx）、PBXBuildFile（A1xxxxxxx），并加入目标 Group children 和 Sources build phase files
+- `xcrun swiftc -typecheck <files> -sdk $(xcrun --sdk iphonesimulator --show-sdk-path) -target arm64-apple-ios16.0-simulator` 是本项目的 typecheck 命令
+- Vault 根目录通过 `VaultInitializer.vaultURL` 获取（Documents/vault/），所有 Storage 层代码应使用此统一入口
+- 首次初始化写入：SCHEMA.md、wiki/index.md、wiki/hot.md、wiki/log.md 四个种子文件
+---
+
 # Ralph Progress Log
 Started: Wed Apr 15 17:59:31 +07 2026
+---
+
+## 2026-04-15 - US-001
+- What was implemented:
+  - `DayPage/Storage/VaultInitializer.swift`：首次启动时幂等创建完整 Vault 目录结构
+    (vault/raw/assets/, vault/wiki/daily|places|people|themes/)
+    并写入 4 个种子文件（SCHEMA.md, wiki/index.md, wiki/hot.md, wiki/log.md）
+  - `DayPage/App/DayPageApp.swift`：在 `App.init()` 中调用
+    `VaultInitializer.initializeIfNeeded()`
+  - `DayPage.xcodeproj/project.pbxproj`：注册 VaultInitializer.swift 到
+    Storage group 及 Sources build phase
+- Files changed:
+  - DayPage/Storage/VaultInitializer.swift （新建）
+  - DayPage/App/DayPageApp.swift （更新）
+  - DayPage.xcodeproj/project.pbxproj （更新）
+- **Learnings for future iterations:**
+  - 目录创建使用 `FileManager.createDirectory(at:withIntermediateDirectories:true)` 配合存在性检查，保证幂等
+  - 种子文件用 `data.write(to:options:.atomic)` 原子写入，首次才写（fileExists 检查）
+  - .env.example 和 .gitignore 已在上游提交中存在，US-001 验证项均满足
+  - SwiftLint 未安装，用 swiftc -typecheck 替代质量检查
 ---

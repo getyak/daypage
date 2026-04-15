@@ -16,8 +16,8 @@
         "Typecheck / SwiftLint 通过"
       ],
       "priority": 1,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented VaultInitializer.swift; seed files written on first launch; typecheck exit 0."
     },
     {
       "id": "US-020",
