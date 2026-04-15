@@ -1,0 +1,366 @@
+{
+  "project": "DayPage",
+  "branchName": "ralph/daypage-mvp",
+  "description": "DayPage MVP — 每日原始数据采集与 AI 编译系统（iOS，Archival Brutalist 设计）",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "初始化 Vault 目录结构与配置",
+      "description": "作为开发者，我需要在 App 首次启动时初始化 Vault 目录结构并加载环境变量，以便后续所有读写操作有统一的文件系统基础。",
+      "acceptanceCriteria": [
+        "在 App Sandbox 的 Documents 目录下创建 vault/raw/assets/、vault/wiki/daily/、vault/wiki/places/、vault/wiki/people/、vault/wiki/themes/ 子目录",
+        "首次启动时写入初始 SCHEMA.md、wiki/index.md、wiki/hot.md、wiki/log.md",
+        ".env.example 包含 DASHSCOPE_API_KEY、OPENAI_WHISPER_API_KEY、OPENWEATHER_API_KEY 三个占位键",
+        ".gitignore 包含 .env、*.xcuserstate、vault/（用户数据不入仓库）",
+        "密钥从 .env 加载到内存，不写入 UserDefaults 或 Keychain 以外的明文位置",
+        "Typecheck / SwiftLint 通过"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "环境变量与密钥管理",
+      "description": "作为开发者，所有第三方 API 密钥需要通过 .env 文件注入，不得硬编码入源码。",
+      "acceptanceCriteria": [
+        "项目根目录 .env 文件（被 .gitignore）包含 DASHSCOPE_API_KEY、DASHSCOPE_BASE_URL、DASHSCOPE_MODEL、OPENAI_WHISPER_API_KEY、OPENWEATHER_API_KEY",
+        "构建脚本（Xcode Run Script Phase）在编译时将 .env 转为 GeneratedSecrets.swift（被 .gitignore），作为 enum Secrets 静态常量暴露",
+        ".env.example 提交入仓库，列出所有必需键名但不含真实值",
+        ".gitignore 至少包含：.env、GeneratedSecrets.swift、vault/、*.xcuserstate、DerivedData/、build/",
+        "代码中所有 API Key 引用均通过 Secrets.xxx，grep 搜索不到明文密钥",
+        "Typecheck / SwiftLint 通过"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020a",
+      "title": "设计系统 Token 落地",
+      "description": "作为开发者，我需要将 Archival Brutalist 设计系统的颜色、字体、间距 token 在 Swift/SwiftUI 中实现为可复用的常量与样式修饰器，确保所有屏幕严格遵循设计规范。",
+      "acceptanceCriteria": [
+        "创建 DesignSystem/Colors.swift，定义所有颜色 token（含 amberArchival = #5D3000），用 Color(hex:) 扩展实现",
+        "创建 DesignSystem/Typography.swift，定义 9 个排版 level（Display-LG / Headline-MD / Headline-Caps / Section-Label / Title-SM / Body-MD / Body-SM / Label-SM / Label-XS），每个 level 是 SwiftUI ViewModifier 或 Font 扩展",
+        "引入字体文件：Space Grotesk、Inter、JetBrains Mono（三档全字重），通过 Info.plist UIAppFonts 注册",
+        "创建 DesignSystem/Components.swift：按钮（Primary Stamp / Secondary Outline）、Field Chip、Time Chip、Section Heading（带横线）、Wikilink Text 等基础组件",
+        "全局禁用圆角：所有自定义视图 cornerRadius(0)；UIKit 桥接控件统一移除默认圆角",
+        "Typecheck / SwiftLint 通过"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Raw 文件读写 — Markdown 序列化",
+      "description": "作为开发者，我需要实现 memo 与 Markdown 文件之间的序列化/反序列化逻辑。",
+      "acceptanceCriteria": [
+        "定义 Memo Swift 结构体，对应 PRD 数据结构（id、type、created、location、weather、device、attachments、body）",
+        "写入：将 Memo 序列化为 YAML frontmatter + Markdown body，追加到 vault/raw/YYYY-MM-DD.md",
+        "多条 memo 之间用 \\n\\n---\\n\\n 分隔；当天文件不存在则创建",
+        "读取：解析指定日期文件，按 --- 分割，逐块解析 frontmatter + body 为 Memo 数组",
+        "原子写入：使用临时文件 + rename，避免写入中断导致文件损坏",
+        "单元测试覆盖写入、读取、多条 memo 往返",
+        "Typecheck / SwiftLint 通过"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "底部 Tab 导航",
+      "description": "作为用户，我希望底部 Tab 栏提供 Today / Archive / Graph 三个入口，Graph 在 MVP 阶段灰置。",
+      "acceptanceCriteria": [
+        "SwiftUI TabView 实现三 Tab：Today、Archive、Graph",
+        "Today 和 Archive 可点击切换",
+        "Graph Tab 显示为灰色，点击后显示"敬请期待"占位页（不崩溃）",
+        "Tab 切换保持各自栈的浏览状态",
+        "Typecheck / SwiftLint 通过",
+        "在模拟器中验证 Tab 切换"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Today Flow 时间轴展示",
+      "description": "作为用户，我希望主屏上方展示今天所有已提交的 memo，按时间倒序排列，可滚动浏览。",
+      "acceptanceCriteria": [
+        "主屏上方 75% 区域为时间轴，按 created 字段倒序显示当日 memo 卡片",
+        "每条 memo 卡片显示：时间（HH:mm）、内容预览（截断后可展开）、位置标签",
+        "时间轴顶部：若当日 Daily Page 已编译，显示入口卡片（带摘要副标题）",
+        "未编译时显示"今日还未编译"的占位提示，附"立即编译"按钮",
+        "滚动流畅，长内容自动截断，点击卡片展开完整内容",
+        "Typecheck / SwiftLint 通过",
+        "在模拟器中验证时间轴渲染与滚动"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "统一输入栏 — 文字输入",
+      "description": "作为用户，我希望打开 App 后立刻看到输入框，可以直接打字记录想法，无需任何导航操作。",
+      "acceptanceCriteria": [
+        "Today Flow 主屏下方固定输入栏，键盘聚焦后光标立即可用",
+        "输入框支持多行文本，内容原样保存（支持 Markdown 语法）",
+        "提交按钮点击后 memo 立即出现在时间轴顶部（< 1 秒）",
+        "文字 memo 自动附加时间戳 + GPS + 天气 + 设备信息的 YAML frontmatter",
+        "追加写入 vault/raw/YYYY-MM-DD.md，与已有 memo 之间用 \\n\\n---\\n\\n 分隔",
+        "Typecheck / SwiftLint 通过",
+        "在 iOS 模拟器中验证主屏交互"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "统一输入栏 — 位置标记",
+      "description": "作为用户，我希望一键标记当前位置，自动获取可读地名（如 Joma Coffee, Setthathirath Rd）。",
+      "acceptanceCriteria": [
+        "点击地图图标触发 iOS 原生 CLLocationManager 获取当前坐标",
+        "首次使用请求"使用 App 期间"定位权限，被拒绝时显示明确引导",
+        "使用 iOS 原生 CLGeocoder 做反向地理编码",
+        "地名解析结果填入 frontmatter location.name，经纬度填入 location.lat/lng",
+        "位置采集在 3 秒内完成，超时降级为仅坐标无地名",
+        "位置可作为独立 memo 提交，也可作为其他 memo 的附加元数据",
+        "Typecheck / SwiftLint 通过",
+        "在模拟器模拟位置验证反向地理编码"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "自动元数据采集 — 天气",
+      "description": "作为用户，我希望每条 memo 自动附带当时的天气信息，无需手动输入。",
+      "acceptanceCriteria": [
+        "提交 memo 时，基于当前 GPS 调用 OpenWeatherMap API（https://api.openweathermap.org/data/2.5/weather）",
+        "API Key 从 Secrets.openWeatherApiKey 加载",
+        "天气信息格式化为 '32°C, 多云' 写入 frontmatter weather 字段",
+        "天气结果缓存 10 分钟，同一位置连续多条 memo 不重复调用 API",
+        "网络失败或无位置权限时跳过天气字段，不阻塞 memo 提交",
+        "Typecheck / SwiftLint 通过"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "统一输入栏 — 照片采集",
+      "description": "作为用户，我希望能快速拍照或从相册选照片，附带可选文字说明作为一条 memo。",
+      "acceptanceCriteria": [
+        "点击相机图标弹出 ActionSheet，提供"拍照"和"从相册选择"两个选项",
+        "使用 PHPickerViewController 或 UIImagePickerController 实现",
+        "照片原图（保留 EXIF）保存到 vault/raw/assets/IMG_YYYYMMDD_HHMMSS.jpg，不做压缩不去色",
+        "提取 EXIF：光圈、快门、ISO、焦距、GPS（若有）、拍摄时间，写入 frontmatter attachments 字段",
+        "照片附带的文字说明（可选）作为 memo 正文",
+        "时间轴中照片 memo 显示缩略图",
+        "Typecheck / SwiftLint 通过",
+        "在模拟器中验证相册选择功能"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "统一输入栏 — 语音录制与转写",
+      "description": "作为用户，我希望点击麦克风图标后能快速录音并自动转写为文字，音频文件本地保留作为原始数据。",
+      "acceptanceCriteria": [
+        "点击麦克风图标触发底部上滑半屏的录音浮层",
+        "首次使用请求 iOS 麦克风权限，被拒绝时显示明确引导",
+        "录音过程显示实时计时器，支持暂停/继续/取消",
+        "停止录音后音频保存为 vault/raw/assets/voice_YYYYMMDD_HHMMSS.m4a（AAC 编码）",
+        "调用 OpenAI Whisper API 转写音频，使用 Secrets.openAIWhisperApiKey",
+        "转写结果作为 memo 正文，原始音频作为 attachment 附加在 frontmatter 中（含 duration、file 路径、transcript 全文）",
+        "网络失败时音频仍完整保存，转写字段为空并显示"稍后重试"提示",
+        "Typecheck / SwiftLint 通过",
+        "在模拟器中验证录音界面（实际录音需真机）"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "混合 memo — 多类型组合输入",
+      "description": "作为用户，我希望一条 memo 能同时包含照片 + 文字 + 位置标记，一次性记录完整场景。",
+      "acceptanceCriteria": [
+        "输入栏支持在一次提交前依次添加多个附件（照片、音频、位置）",
+        "已添加的附件在输入栏上方以小预览卡片形式展示，支持单独移除",
+        "提交时将所有附件合并到同一条 memo 的 frontmatter attachments 数组中",
+        "memo 的 type 字段根据组合自动设为 text | voice | photo | location | mixed",
+        "Typecheck / SwiftLint 通过",
+        "在模拟器验证混合提交"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "AI 编译引擎 — Daily Page 生成",
+      "description": "作为开发者，我需要实现调用 LLM 将当天 raw memo 编译成结构化 Daily Page 的逻辑。",
+      "acceptanceCriteria": [
+        "编译服务读取 vault/raw/YYYY-MM-DD.md 全部 memo + wiki/hot.md 上下文",
+        "调用阿里云 DashScope API（https://coding.dashscope.aliyuncs.com/v1/chat/completions），模型 qwen3.5-plus，使用 OpenAI 兼容接口协议",
+        "API Key 从 Secrets.dashScopeApiKey 加载",
+        "产出写入 vault/wiki/daily/YYYY-MM-DD.md，包含 frontmatter（type、date、location_primary、mood、entries_count）+ 时段化正文 + 今日地点 + AI 追问",
+        "若目标文件已存在，覆盖前备份到 vault/wiki/daily/.trash/YYYY-MM-DD_TIMESTAMP.md",
+        "编译操作记录到 wiki/log.md（时间、触发方式、耗时、memo 数量）",
+        "网络失败时保留原文件不变，显示错误提示",
+        "Typecheck / SwiftLint 通过",
+        "在模拟器中用真实 memo 数据走通一次完整编译"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "AI 编译引擎 — Entity Page 更新",
+      "description": "作为开发者，编译时需要识别地点、人物、主题，创建或增量更新对应的 Entity Page。",
+      "acceptanceCriteria": [
+        "LLM 编译请求返回结构化产物：Daily Page 正文 + Entity 更新指令数组（每项包含 entity_type、entity_slug、section、content）",
+        "对每个 Entity 更新指令：若 wiki/{places|people|themes}/{slug}.md 不存在则新建，存在则在对应 section 追加新内容",
+        "Entity Page 包含 frontmatter（type、name、first_seen、last_updated、occurrence_count）+ 分段正文",
+        "新增 Entity 同步更新 wiki/index.md（按类型分组的索引列表）",
+        "Daily Page 正文中的实体以 [[slug]] 格式链接",
+        "Typecheck / SwiftLint 通过",
+        "单元测试覆盖：新建 Entity、增量更新、多日引用同一 Entity"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "AI 编译引擎 — Hot Cache 更新",
+      "description": "作为开发者，每次编译完成后需要刷新 wiki/hot.md，作为下一次编译的短期记忆上下文。",
+      "acceptanceCriteria": [
+        "编译完成后 LLM 追加生成 hot cache 摘要（约 500 字，中文）",
+        "内容包含：当前所在城市、最近 3-5 天情绪基调、活跃主题线索、值得关注的模式",
+        "直接覆盖写入 vault/wiki/hot.md，保留 frontmatter（updated_at、covers_dates）",
+        "下一次编译调用时 hot.md 作为上下文一并传入 LLM",
+        "Typecheck / SwiftLint 通过"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "手动触发编译",
+      "description": "作为用户，我希望能随时点击按钮立即编译今天已有的 memo，不必等到凌晨。",
+      "acceptanceCriteria": [
+        "Today Flow 顶部"立即编译"按钮，点击后进入 loading 状态",
+        "编译期间禁用按钮，显示进度提示（"正在编译 N 条 memo..."）",
+        "编译成功后时间轴顶部出现 Daily Page 入口卡片",
+        "编译失败弹出错误 toast（网络、API Key 缺失、LLM 返回格式错误分别有不同文案）",
+        "Typecheck / SwiftLint 通过",
+        "在模拟器中走通手动编译路径"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "每日自动编译 — 定时触发",
+      "description": "作为用户，我希望每天凌晨 2:00（设备本地时间）自动编译前一天的 memo，醒来就能看到日记。",
+      "acceptanceCriteria": [
+        "使用 iOS BGAppRefreshTask（BackgroundTasks 框架）注册每日后台任务",
+        "后台任务触发时检查：前一天 raw 文件存在且 Daily Page 尚未生成 → 执行编译",
+        "编译完成后发送本地通知："昨天的 Daily Page 已编译完成"",
+        "若后台任务未被系统调度，下次 App 启动时检查并补充编译",
+        "编译期间失败不重试（下次 App 启动时再判断）",
+        "Typecheck / SwiftLint 通过"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Daily Page 视图",
+      "description": "作为用户，我希望点击入口卡片后看到一篇完整的 AI 编译日记，包含时段叙事、地点汇总、AI 追问。",
+      "acceptanceCriteria": [
+        "屏幕 S3 渲染 wiki/daily/YYYY-MM-DD.md，Markdown 原生渲染（标题、段落、列表、引用）",
+        "顶部 segmented control 提供 DIGEST / TIMELINE 两个 Tab",
+        "日期主标题用 Space Grotesk 56px uppercase；副标题为星期（如 TUESDAY）",
+        "一句话副标题（frontmatter summary 字段）使用左 2px 黑色边框 + Inter 18px",
+        "顶部元数据 chips 行渲染 N entries / N locations / N min voice（Mono 11px uppercase）",
+        "[[wiki 链接]] 渲染为 #5D3000 颜色，点击跳转对应 Entity Page",
+        "AI 追问以 Threads bento grid 呈现，点击跳回 Today Flow 输入栏并预填追问文本",
+        "Footer 显示 Compiled from N raw entries + View original flow → 链接",
+        "支持下拉返回 / 系统 swipe-back 手势",
+        "Typecheck / SwiftLint 通过",
+        "在模拟器中验证完整渲染与跳转"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Entity Page 视图",
+      "description": "作为用户，我希望点击 wiki 链接后查看该地点/人物/主题的累积页面。",
+      "acceptanceCriteria": [
+        "渲染 wiki/places/*.md、wiki/people/*.md、wiki/themes/*.md",
+        "Markdown 原生渲染 + 内嵌 [[链接]] 跳转",
+        "页面底部显示"相关 memo"列表（按时间倒序），点击跳转对应日期的 Flow 视图",
+        "不存在的 wiki 链接点击后显示"该实体页尚未生成"提示",
+        "Typecheck / SwiftLint 通过"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Archive 视图 — 日历模式",
+      "description": "作为用户，我希望以月历视图浏览过往记录，通过格子颜色深浅快速看出哪些天记录密集。",
+      "acceptanceCriteria": [
+        "日历 Tab 月度 7 列网格，星期表头 Mono 10px on_surface_variant",
+        "格子热力填充：0 条→#F9F9F9，1-2 条→#E8E8E8，3-5 条→#474747，6+条→#000000",
+        "当日格子有 1px 黑色额外描边",
+        "网格下方 Legend 显示 4 个色块 + 标签：EMPTY / LOW / MEDIUM / HIGH DENSITY（Mono 10px）",
+        "月份导航栏：左右箭头 + 月份名（Space Grotesk 居中）+ 右侧 CALENDAR / LIST segmented control",
+        "月历下方 MONTHLY SUMMARY 模块含 4 个统计单元（TOTAL ENTRIES / VOICE RECORDING DURATION / PHOTOS CAPTURED / UNIQUE LOCATIONS），数字用 Space Grotesk 36px",
+        "左右滑动切换月份",
+        "点击某天格子跳转该日 Flow 视图（只读模式）",
+        "Typecheck / SwiftLint 通过",
+        "在模拟器中验证多月数据下的渲染"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Archive 视图 — 列表模式",
+      "description": "作为用户，我希望以列表形式浏览过往日期，每条显示当日 AI 摘要和元数据统计。",
+      "acceptanceCriteria": [
+        "Archive 顶部 segmented control 切换 CALENDAR / LIST，LIST 选中时为黑底白字",
+        "列表按日期倒序，每项 bg-surface-container p-6，左侧 4px 黑色边框",
+        "每项布局：日期标题（Space Grotesk 700 uppercase）+ 右上角状态徽章 + 一行 italic 摘要 + 元数据图标行",
+        "状态徽章规则：已编译且查看过→VERIFIED（黑底白字 Mono 9px chip）；未编译或仅元数据→Metadata Only（灰底灰字 chip）",
+        "元数据行用 3 个图标 + Mono 11px 计数（条目数 / 照片数 / 语音分钟数）",
+        "点击行跳转当日 Flow 视图（只读模式）",
+        "Typecheck / SwiftLint 通过",
+        "在模拟器中验证多日数据下的渲染"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}
