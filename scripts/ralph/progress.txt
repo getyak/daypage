@@ -6,6 +6,9 @@
 - API 密钥通过 `Secrets.xxx` 静态常量访问（dashScopeApiKey / dashScopeBaseURL / dashScopeModel / openAIWhisperApiKey / openWeatherApiKey）；GeneratedSecrets.swift 由构建脚本在每次编译时从 .env 重新生成
 - `.gitignore` 中忽略路径需写完整相对路径：`DayPage/Config/GeneratedSecrets.swift`（不能只写 `Config/GeneratedSecrets.swift`，那样只能匹配根目录下的 Config）
 - PBXShellScriptBuildPhase 添加方式：在 PBXShellScriptBuildPhase section 中定义，然后在 PBXNativeTarget 的 buildPhases 数组中（放在 Sources 之前）引用
+- 设计系统颜色通过 `DSColor.xxx` 访问；字体通过 `DSFonts.xxx()` 函数或 `DSType.xxx` 预设常量访问；组件样式通过 View 扩展方法（如 `.headlineMDStyle()`）应用
+- 自定义字体注册在 `DayPageApp.init()` 中通过 `DSFonts.registerAll()` 调用；若字体文件不存在 SwiftUI 自动 fallback 到系统字体，不会崩溃
+- 全局圆角规则：所有 DS 组件一律 `.cornerRadius(0)`，禁止使用任何非零圆角
 ---
 
 # Ralph Progress Log
@@ -56,4 +59,38 @@ Started: Wed Apr 15 17:59:31 +07 2026
     由 Run Script Phase 自动重生成；typecheck 前需手动跑脚本（设置好 SRCROOT）
   - Xcode Run Script Phase 在 PBXShellScriptBuildPhase section 定义，
     PBXNativeTarget.buildPhases 数组中需放在 PBXSourcesBuildPhase 之前
+---
+
+## 2026-04-15 - US-020a
+- What was implemented:
+  - `DayPage/DesignSystem/Colors.swift`：
+    - `Color(hex:)` 扩展（支持 #RGB / #RRGGBB / #AARRGGBB 格式）
+    - `enum DSColor`：完整颜色 token（Brand amberArchival=#5D3000、Primary/Secondary/Tertiary/Surface/Outline/Error 全色域）
+  - `DayPage/DesignSystem/Typography.swift`：
+    - `enum DSFonts`：字体注册（`registerAll()` 从 Bundle 加载 Space Grotesk / Inter / JetBrains Mono；文件不存在时自动 fallback）
+    - `enum DSType`：9 个排版 level 常量（displayLG / headlineMD / headlineCaps / sectionLabel / titleSM / bodyMD / bodySM / labelSM / labelXS + mono11/mono10/mono9）
+    - 对应 ViewModifier + View 扩展方法（`.displayLGStyle()` 等）
+  - `DayPage/DesignSystem/Components.swift`：
+    - `PrimaryStampButton`（黑底白字 stamp 风格）
+    - `SecondaryOutlineButton`（描边按钮）
+    - `FieldChip`（mono label + value chip）
+    - `TimeChip`（mono 时间标签）
+    - `SectionHeading`（大写标题 + 横线）
+    - `WikilinkText`（amber #5D3000 颜色链接文本）
+    - `StatusBadge`（verified 黑底 / metadata 灰底）
+    - `CardContainer`（surface-container + 可选左 border）
+    - 所有组件 `cornerRadius(0)`，全局禁用圆角
+  - `DayPage/App/DayPageApp.swift`：在 `init()` 中添加 `DSFonts.registerAll()` 调用
+  - `DayPage.xcodeproj/project.pbxproj`：注册三个新文件（A20000005-7 / A10000005-7）到 DesignSystem group 和 Sources build phase
+- Files changed:
+  - DayPage/DesignSystem/Colors.swift（新建）
+  - DayPage/DesignSystem/Typography.swift（新建）
+  - DayPage/DesignSystem/Components.swift（新建）
+  - DayPage/App/DayPageApp.swift（更新）
+  - DayPage.xcodeproj/project.pbxproj（更新）
+  - scripts/ralph/prd.json（passes: true）
+- **Learnings for future iterations:**
+  - 自定义字体文件需放在 Bundle 根目录或 Resources 子目录，并在 Info.plist 的 UIAppFonts 数组中注册文件名（如 SpaceGrotesk-Bold.ttf）。本次未添加字体文件，registerAll() 会静默跳过不存在的文件
+  - `DSColor.amberArchival`（#5D3000）是品牌色，专用于 wikilink 文本
+  - 设计稿颜色通过 today-flow-refined.html 的 tailwind config 提取（surface = #f9f9f9, primary = #000000 等）
 ---

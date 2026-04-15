@@ -11,6 +11,9 @@
 		A10000002 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000002 /* RootView.swift */; };
 		A10000003 /* VaultInitializer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000003 /* VaultInitializer.swift */; };
 		A10000004 /* GeneratedSecrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000004 /* GeneratedSecrets.swift */; };
+		A10000005 /* Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000005 /* Colors.swift */; };
+		A10000006 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000006 /* Typography.swift */; };
+		A10000007 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000007 /* Components.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -18,6 +21,9 @@
 		A20000002 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		A20000003 /* VaultInitializer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultInitializer.swift; sourceTree = "<group>"; };
 		A20000004 /* GeneratedSecrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedSecrets.swift; sourceTree = "<group>"; };
+		A20000005 /* Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Colors.swift; sourceTree = "<group>"; };
+		A20000006 /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
+		A20000007 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		A30000001 /* DayPage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPage.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -59,6 +65,9 @@
 		A50000003 /* DesignSystem */ = {
 			isa = PBXGroup;
 			children = (
+				A20000005 /* Colors.swift */,
+				A20000006 /* Typography.swift */,
+				A20000007 /* Components.swift */,
 			);
 			path = DesignSystem;
 			sourceTree = "<group>";
@@ -240,6 +249,9 @@
 				A10000002 /* RootView.swift in Sources */,
 				A10000003 /* VaultInitializer.swift in Sources */,
 				A10000004 /* GeneratedSecrets.swift in Sources */,
+				A10000005 /* Colors.swift in Sources */,
+				A10000006 /* Typography.swift in Sources */,
+				A10000007 /* Components.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -4,6 +4,7 @@ import SwiftUI
 struct DayPageApp: App {
 
     init() {
+        DSFonts.registerAll()
         VaultInitializer.initializeIfNeeded()
     }
 
