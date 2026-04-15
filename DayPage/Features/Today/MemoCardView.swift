@@ -158,43 +158,53 @@ struct MemoCardView: View {
 // MARK: - DailyPageEntryCard
 
 /// Card shown at the top of the timeline when today's Daily Page has been compiled.
+/// Full-width black card per design spec (Brutalist style).
 struct DailyPageEntryCard: View {
     let summary: String?
     var onTap: (() -> Void)?
 
+    @State private var arrowOffset: CGFloat = 0
+
     var body: some View {
         Button(action: { onTap?() }) {
-            HStack(spacing: 0) {
-                Rectangle()
-                    .fill(DSColor.primary)
-                    .frame(width: 4)
-
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text("今日日记")
-                            .sectionLabelStyle()
-                            .foregroundColor(DSColor.onSurface)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(DSColor.onSurfaceVariant)
-                    }
+            HStack(alignment: .center, spacing: 16) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("TODAY'S PAGE COMPILED")
+                        .font(.custom("SpaceGrotesk-Bold", size: 14))
+                        .foregroundColor(DSColor.onPrimary)
+                        .kerning(1)
 
                     if let summary = summary, !summary.isEmpty {
                         Text(summary)
                             .bodySMStyle()
-                            .foregroundColor(DSColor.onSurfaceVariant)
-                            .italic()
+                            .foregroundColor(DSColor.onPrimary.opacity(0.7))
+                            .lineLimit(2)
+                    } else {
+                        Text("Your daily digest is ready.")
+                            .bodySMStyle()
+                            .foregroundColor(DSColor.onPrimary.opacity(0.7))
                             .lineLimit(2)
                     }
                 }
-                .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(DSColor.surfaceContainerHigh)
+
+                Image(systemName: "arrow.forward")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(DSColor.onPrimary)
+                    .offset(x: arrowOffset)
             }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 18)
+            .frame(maxWidth: .infinity)
+            .background(DSColor.primary)
             .cornerRadius(0)
         }
         .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                arrowOffset = hovering ? 4 : 0
+            }
+        }
     }
 }
 
