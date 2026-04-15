@@ -253,8 +253,8 @@
         "Typecheck / SwiftLint 通过"
       ],
       "priority": 15,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Extended CompilationService.swift: buildPrompt() adds hot_cache field to JSON output; parseStructuredOutputWithHot() extracts daily_page + entity_updates + hot_cache from LLM response; updateHotCache() overwrites vault/wiki/hot.md with updated_at + covers_dates (last 7 dates) frontmatter + summary body; parseCoversDates() reads existing covers_dates list for incremental update; compile() step 8 calls updateHotCache() before log append; typecheck exit 0."
     },
     {
       "id": "US-014",

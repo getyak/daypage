@@ -56,8 +56,8 @@ final class CompilationService {
 
         let compiledText = try await callDashScope(prompt: prompt, apiKey: apiKey)
 
-        // 5. Parse structured output (Daily Page + Entity update instructions)
-        let (dailyPageText, entityInstructions) = EntityPageService.parseStructuredOutput(compiledText)
+        // 5. Parse structured output (Daily Page + Entity update instructions + hot cache)
+        let (dailyPageText, entityInstructions, hotCacheText) = parseStructuredOutputWithHot(compiledText)
 
         // 6. Write Daily Page (backup existing if present)
         let dailyURL = dailyPageURL(for: dateString)
@@ -67,7 +67,10 @@ final class CompilationService {
         // 7. Apply entity updates
         try EntityPageService.shared.apply(instructions: entityInstructions, date: dateString)
 
-        // 8. Append to log.md
+        // 8. Update hot.md cache (overwrite, preserve frontmatter structure)
+        updateHotCache(summary: hotCacheText, compiledDate: dateString)
+
+        // 9. Append to log.md
         let elapsed = Date().timeIntervalSince(startTime)
         appendLog(
             timestamp: iso8601Now(),
@@ -196,7 +199,8 @@ final class CompilationService {
               "section": "## Visits",
               "content": "- \(dateString): <brief note>"
             }
-          ]
+          ],
+          "hot_cache": "<short-term memory summary in Chinese, ~500 chars>"
         }
         ```
 
@@ -244,8 +248,16 @@ final class CompilationService {
         - Include all notable places, people, and themes mentioned in the memos
         - Entity references in daily_page use [[slug]] format
 
+        ### hot_cache format (inside the JSON string, use \\n for newlines):
+        Write ~500 Chinese characters covering:
+        1. 当前所在城市或地区
+        2. 最近 3-5 天的情绪基调与状态
+        3. 活跃中的主题线索或项目进展
+        4. 值得关注的行为模式或规律
+        This text will be stored in wiki/hot.md and fed back to the AI compiler next time.
+
         ### General rules:
-        - Write daily_page entirely in Chinese
+        - Write daily_page and hot_cache entirely in Chinese
         - Output ONLY the JSON object, no additional commentary
         - Ensure the JSON is valid (escape quotes and newlines properly inside strings)
         """
@@ -304,6 +316,119 @@ final class CompilationService {
             throw CompilationError.parseError("Unexpected response structure")
         }
         return content.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    // MARK: - Hot Cache
+
+    /// Parses the LLM structured output and extracts daily page, entity instructions, and hot cache.
+    /// Returns a tuple: (dailyPage, entityInstructions, hotCacheSummary).
+    /// hotCacheSummary is an empty string if the field is missing.
+    private func parseStructuredOutputWithHot(
+        _ rawLLMResponse: String
+    ) -> (dailyPage: String, instructions: [EntityUpdateInstruction], hotCache: String) {
+        let (dailyPage, instructions) = EntityPageService.parseStructuredOutput(rawLLMResponse)
+
+        // Also extract hot_cache from the same JSON block
+        let hotCache = extractHotCacheFromJSON(rawLLMResponse) ?? ""
+        return (dailyPage, instructions, hotCache)
+    }
+
+    /// Extracts the "hot_cache" string from the JSON block in the LLM response.
+    private func extractHotCacheFromJSON(_ text: String) -> String? {
+        // Find the JSON block (same logic as EntityPageService)
+        let jsonBlock: String?
+        if let fenceStart = text.range(of: "```json\n"),
+           let fenceEnd = text.range(of: "\n```", range: fenceStart.upperBound ..< text.endIndex) {
+            jsonBlock = String(text[fenceStart.upperBound ..< fenceEnd.lowerBound])
+        } else if let braceStart = text.firstIndex(of: "{"),
+                  let braceEnd = text.lastIndex(of: "}") {
+            jsonBlock = String(text[braceStart ... braceEnd])
+        } else {
+            jsonBlock = nil
+        }
+
+        guard let block = jsonBlock,
+              let data = block.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let hotCache = json["hot_cache"] as? String,
+              !hotCache.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        return hotCache.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Overwrites vault/wiki/hot.md with the new hot cache summary.
+    /// Preserves the frontmatter structure (updated_at, covers_dates).
+    /// If summary is empty the file is left unchanged.
+    private func updateHotCache(summary: String, compiledDate: String) {
+        guard !summary.isEmpty else { return }
+
+        let url = hotURL()
+        let now = iso8601Now()
+
+        // Build covers_dates: read existing if possible, then append compiledDate
+        var coveredDates: [String] = []
+        if let existing = try? String(contentsOf: url, encoding: .utf8) {
+            coveredDates = parseCoversDates(from: existing)
+        }
+        if !coveredDates.contains(compiledDate) {
+            coveredDates.append(compiledDate)
+        }
+        // Keep only the last 7 dates to avoid unbounded growth
+        if coveredDates.count > 7 {
+            coveredDates = Array(coveredDates.suffix(7))
+        }
+        let coversYAML = coveredDates.map { "  - \($0)" }.joined(separator: "\n")
+
+        let newContent = """
+        ---
+        type: hot_cache
+        updated_at: \(now)
+        covers_dates:
+        \(coversYAML)
+        ---
+
+        # Hot Cache
+
+        \(summary)
+        """
+
+        try? RawStorage.atomicWrite(string: newContent, to: url)
+    }
+
+    /// Parses the covers_dates YAML sequence from hot.md frontmatter.
+    private func parseCoversDates(from content: String) -> [String] {
+        var dates: [String] = []
+        var inFrontmatter = false
+        var inCoversDates = false
+        var closingFound = false
+
+        for (index, line) in content.components(separatedBy: "\n").enumerated() {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if index == 0 && trimmed == "---" {
+                inFrontmatter = true
+                continue
+            }
+            if inFrontmatter && !closingFound && trimmed == "---" {
+                closingFound = true
+                break
+            }
+            if inFrontmatter {
+                if trimmed.hasPrefix("covers_dates:") {
+                    inCoversDates = true
+                    continue
+                }
+                if inCoversDates {
+                    if trimmed.hasPrefix("- ") {
+                        dates.append(String(trimmed.dropFirst(2)))
+                    } else if !trimmed.isEmpty {
+                        // New key — stop collecting dates
+                        inCoversDates = false
+                    }
+                }
+            }
+        }
+        return dates
     }
 
     // MARK: - Date Formatters
