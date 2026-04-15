@@ -11,23 +11,51 @@ struct TodayView: View {
     /// Whether to show the Daily Page sheet.
     @State private var showDailyPage: Bool = false
 
+    /// Current time for the header timestamp (refreshed every minute).
+    @State private var currentTime: Date = Date()
+
+    private let headerTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
+
     var body: some View {
         NavigationStack {
             ZStack {
                 DSColor.background.ignoresSafeArea()
                 VStack(spacing: 0) {
                     // MARK: Header
-                    HStack {
-                        Text("TODAY")
-                            .headlineMDStyle()
+                    HStack(spacing: 12) {
+                        // Hamburger menu (decorative for MVP)
+                        Image(systemName: "line.3.horizontal")
+                            .font(.system(size: 20, weight: .regular))
                             .foregroundColor(DSColor.onSurface)
+                            .frame(width: 32, height: 32)
+
+                        // Brand name
+                        Text("DAYPAGE")
+                            .font(.custom("SpaceGrotesk-Bold", size: 20))
+                            .foregroundColor(DSColor.onSurface)
+                            .kerning(2)
+
                         Spacer()
-                        Text(Date(), format: .dateTime.month().day())
-                            .monoLabelStyle(size: 11)
+
+                        // Timestamp badge
+                        Text(formattedTimestamp(currentTime))
+                            .monoLabelStyle(size: 10)
                             .foregroundColor(DSColor.onSurfaceVariant)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(DSColor.surfaceContainer)
+
+                        // Settings icon (decorative for MVP)
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 18, weight: .regular))
+                            .foregroundColor(DSColor.onSurface)
+                            .frame(width: 32, height: 32)
                     }
                     .padding(.horizontal, 20)
-                    .padding(.vertical, 16)
+                    .frame(height: 56)
+                    .onReceive(headerTimer) { date in
+                        currentTime = date
+                    }
 
                     Divider()
                         .background(DSColor.outline)
@@ -185,5 +213,15 @@ struct TodayView: View {
                 .presentationDragIndicator(.hidden)
             }
         }
+    }
+
+    // MARK: - Helpers
+
+    private func formattedTimestamp(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy.MM.dd // HH:mm"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone.current
+        return f.string(from: date)
     }
 }
