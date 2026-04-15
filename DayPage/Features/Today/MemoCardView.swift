@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import ImageIO
+import AVFoundation
 
 // MARK: - MemoCardView
 
@@ -94,6 +95,18 @@ struct MemoCardView: View {
             }
             .padding(.horizontal, 12)
             .padding(.top, 10)
+
+            // Voice player row (for voice memos with audio attachments)
+            if memo.type == .voice || (memo.type == .mixed && memo.attachments.contains(where: { $0.kind == "audio" })) {
+                if let att = memo.attachments.first(where: { $0.kind == "audio" }) {
+                    VoiceMemoPlayerRow(
+                        fileURL: VaultInitializer.vaultURL.appendingPathComponent(att.file),
+                        duration: att.duration ?? 0,
+                        transcript: att.transcript ?? (memo.type == .voice ? memo.body : nil)
+                    )
+                    .padding(.top, 6)
+                }
+            }
 
             // Photo thumbnail row (for photo and mixed memos with photo attachments)
             if let photoThumb = firstPhotoThumbnail {
@@ -258,6 +271,143 @@ struct MemoCardView: View {
         // Approximate: if body has many newlines or is long
         let lineCount = body.components(separatedBy: "\n").count
         return lineCount > previewLineLimit || body.count > 200
+    }
+}
+
+// MARK: - VoiceMemoPlayerRow
+
+/// Inline voice memo player: black square play button + static waveform bars + duration.
+/// Uses AVAudioPlayer for playback. Only one instance plays at a time via a shared player.
+struct VoiceMemoPlayerRow: View {
+
+    let fileURL: URL
+    let duration: TimeInterval
+    let transcript: String?
+
+    @State private var isPlaying: Bool = false
+    @State private var player: AVAudioPlayer?
+    @State private var playbackProgress: Double = 0
+    @State private var progressTimer: Timer?
+    @State private var fileError: Bool = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                // Play/Pause button (40x40 black square)
+                Button(action: togglePlayback) {
+                    Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(fileError ? DSColor.onSurfaceVariant : DSColor.onPrimary)
+                        .frame(width: 40, height: 40)
+                        .background(fileError ? DSColor.surfaceContainerHigh : DSColor.primary)
+                }
+                .buttonStyle(.plain)
+                .cornerRadius(0)
+                .disabled(fileError)
+
+                // Waveform + progress overlay
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        // Background bars
+                        waveformBars(count: 30, color: DSColor.outlineVariant)
+
+                        // Progress overlay (clipped to progress fraction)
+                        waveformBars(count: 30, color: DSColor.primary)
+                            .frame(width: geo.size.width * playbackProgress)
+                            .clipped()
+                    }
+                }
+                .frame(height: 28)
+
+                // Duration
+                Text(formatDur(isPlaying ? (duration * playbackProgress) : duration))
+                    .font(.custom("JetBrainsMono-Regular", fixedSize: 10))
+                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .frame(width: 36, alignment: .trailing)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+
+            // Transcript preview (if available)
+            if let t = transcript, !t.isEmpty {
+                Text(t)
+                    .bodySMStyle()
+                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .lineLimit(2)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 6)
+            }
+        }
+        .onDisappear {
+            stopPlayback()
+        }
+    }
+
+    // MARK: - Waveform Bars (static, pseudo-random per URL)
+
+    private func waveformBars(count: Int, color: Color) -> some View {
+        // Deterministic pseudo-random heights based on file URL hash
+        let seed = abs(fileURL.hashValue)
+        return HStack(spacing: 2) {
+            ForEach(0..<count, id: \.self) { i in
+                let h = CGFloat(4 + ((seed >> i) & 0x1F) % 24)
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(color)
+                    .frame(width: 3, height: h)
+            }
+        }
+    }
+
+    // MARK: - Playback Control
+
+    private func togglePlayback() {
+        if isPlaying {
+            stopPlayback()
+        } else {
+            startPlayback()
+        }
+    }
+
+    private func startPlayback() {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
+            fileError = true
+            return
+        }
+        do {
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+            try AVAudioSession.sharedInstance().setActive(true)
+            let p = try AVAudioPlayer(contentsOf: fileURL)
+            p.play()
+            player = p
+            isPlaying = true
+            playbackProgress = 0
+
+            progressTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [self] _ in
+                Task { @MainActor in
+                    guard let p = player, p.isPlaying else {
+                        stopPlayback()
+                        return
+                    }
+                    playbackProgress = p.currentTime / p.duration
+                }
+            }
+        } catch {
+            fileError = true
+        }
+    }
+
+    private func stopPlayback() {
+        player?.stop()
+        player = nil
+        progressTimer?.invalidate()
+        progressTimer = nil
+        isPlaying = false
+        playbackProgress = 0
+    }
+
+    private func formatDur(_ secs: TimeInterval) -> String {
+        let t = Int(secs)
+        return String(format: "%02d:%02d", t / 60, t % 60)
     }
 }
 
