@@ -16,6 +16,9 @@
 		A10000007 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000007 /* Components.swift */; };
 		A10000008 /* Memo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000008 /* Memo.swift */; };
 		A10000009 /* RawStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000009 /* RawStorage.swift */; };
+		A10000010 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010 /* TodayView.swift */; };
+		A10000011 /* ArchiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000011 /* ArchiveView.swift */; };
+		A10000012 /* GraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000012 /* GraphView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -28,6 +31,9 @@
 		A20000007 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		A20000008 /* Memo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Memo.swift; sourceTree = "<group>"; };
 		A20000009 /* RawStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawStorage.swift; sourceTree = "<group>"; };
+		A20000010 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
+		A20000011 /* ArchiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveView.swift; sourceTree = "<group>"; };
+		A20000012 /* GraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphView.swift; sourceTree = "<group>"; };
 		A30000001 /* DayPage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPage.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -83,6 +89,7 @@
 				A50000011 /* Daily */,
 				A50000012 /* Archive */,
 				A50000013 /* Entity */,
+				A50000014 /* Graph */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -90,6 +97,7 @@
 		A50000010 /* Today */ = {
 			isa = PBXGroup;
 			children = (
+				A20000010 /* TodayView.swift */,
 			);
 			path = Today;
 			sourceTree = "<group>";
@@ -104,6 +112,7 @@
 		A50000012 /* Archive */ = {
 			isa = PBXGroup;
 			children = (
+				A20000011 /* ArchiveView.swift */,
 			);
 			path = Archive;
 			sourceTree = "<group>";
@@ -113,6 +122,14 @@
 			children = (
 			);
 			path = Entity;
+			sourceTree = "<group>";
+		};
+		A50000014 /* Graph */ = {
+			isa = PBXGroup;
+			children = (
+				A20000012 /* GraphView.swift */,
+			);
+			path = Graph;
 			sourceTree = "<group>";
 		};
 		A50000005 /* Models */ = {
@@ -260,6 +277,9 @@
 				A10000007 /* Components.swift in Sources */,
 				A10000008 /* Memo.swift in Sources */,
 				A10000009 /* RawStorage.swift in Sources */,
+				A10000010 /* TodayView.swift in Sources */,
+				A10000011 /* ArchiveView.swift in Sources */,
+				A10000012 /* GraphView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -81,8 +81,8 @@
         "在模拟器中验证 Tab 切换"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented TodayView.swift, ArchiveView.swift (Features/Today, Features/Archive), GraphView.swift (Features/Graph, disabled tab with 敬请期待 placeholder); RootView.swift updated to SwiftUI TabView with three tabs; Graph tab .disabled(true) grayed out; registered A20000010-12 / A10000010-12 in project.pbxproj + new Graph group A50000014; typecheck exit 0."
     },
     {
       "id": "US-008",
