@@ -108,6 +108,9 @@ struct TodayView: View {
                             viewModel.submitPhotoMemo(item: item, caption: draftText)
                             draftText = ""
                         },
+                        onStartVoiceRecording: {
+                            viewModel.startVoiceRecording()
+                        },
                         onSubmit: {
                             let body = draftText
                             draftText = ""
@@ -139,6 +142,21 @@ struct TodayView: View {
                 viewModel.load()
             }
             .animation(.easeInOut(duration: 0.25), value: viewModel.submitError)
+            // Voice recording half-screen sheet
+            .sheet(isPresented: $viewModel.isShowingVoiceRecorder) {
+                VoiceRecordingView(
+                    onComplete: { result in
+                        viewModel.isShowingVoiceRecorder = false
+                        viewModel.submitVoiceMemo(result: result, caption: draftText)
+                        draftText = ""
+                    },
+                    onCancel: {
+                        viewModel.cancelVoiceRecording()
+                    }
+                )
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.hidden)
+            }
         }
     }
 }

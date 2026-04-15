@@ -186,8 +186,8 @@
         "在模拟器中验证录音界面（实际录音需真机）"
       ],
       "priority": 11,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented VoiceService.swift (@MainActor singleton; AVAudioSession.recordPermission for iOS 16+ compat; AVAudioRecorder → vault/raw/assets/voice_YYYYMMDD_HHMMSS.m4a AAC; 1-second elapsed timer; pause/resume/cancel/stopAndTranscribe; Whisper multipart/form-data POST → transcript string or nil on failure); VoiceRecordingView.swift (half-screen sheet with pulsing indicator, MM:SS timer, pause/resume/stop/cancel buttons, processing spinner, state-driven status text); TodayViewModel.submitVoiceMemo() async with weather+location, Memo.Attachment(kind:audio, duration, transcript); InputBarView mic button (mic SF Symbol); TodayView .sheet(isPresented: $viewModel.isShowingVoiceRecorder) .presentationDetents([.medium]); NSMicrophoneUsageDescription added to Debug+Release in pbxproj; VoiceService A20000019/A10000019, VoiceRecordingView A20000020/A10000020 registered; typecheck exit 0."
     },
     {
       "id": "US-007",

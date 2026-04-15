@@ -38,6 +38,9 @@ struct InputBarView: View {
     /// Callback invoked when the user selects a photo from the picker.
     var onSelectPhoto: (PhotosPickerItem) -> Void
 
+    /// Callback invoked when the user taps the microphone icon to start recording.
+    var onStartVoiceRecording: () -> Void
+
     /// Callback invoked when the user taps the submit button.
     var onSubmit: () -> Void
 
@@ -63,6 +66,9 @@ struct InputBarView: View {
             HStack(alignment: .bottom, spacing: 8) {
                 // Location pin button
                 locationButton
+
+                // Microphone / Voice recording button
+                microphoneButton
 
                 // Camera / Photo picker button
                 photoButton
@@ -128,6 +134,20 @@ struct InputBarView: View {
             }
         }
         .disabled(isLocating || locationAuthStatus == .denied || locationAuthStatus == .restricted)
+        .cornerRadius(0)
+    }
+
+    /// Microphone button to open the voice recording sheet.
+    @ViewBuilder
+    private var microphoneButton: some View {
+        Button(action: {
+            onStartVoiceRecording()
+        }) {
+            Image(systemName: "mic")
+                .font(.system(size: 20, weight: .regular))
+                .foregroundColor(DSColor.onSurfaceVariant)
+                .frame(width: 36, height: 36)
+        }
         .cornerRadius(0)
     }
 

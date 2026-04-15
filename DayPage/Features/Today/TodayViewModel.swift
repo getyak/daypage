@@ -45,12 +45,16 @@ final class TodayViewModel: ObservableObject {
     /// Pending photo results (can accumulate before submission, cleared after).
     @Published var pendingPhotos: [PhotoPickerResult] = []
 
+    /// Whether the voice recording sheet is presented.
+    @Published var isShowingVoiceRecorder: Bool = false
+
     // MARK: Private
 
     private let date: Date
     private let locationService = LocationService.shared
     private let weatherService = WeatherService.shared
     private let photoService = PhotoService.shared
+    private let voiceService = VoiceService.shared
 
     // MARK: Init
 
@@ -173,6 +177,66 @@ final class TodayViewModel: ObservableObject {
     /// Clears all pending photos without submitting.
     func clearPendingPhotos() {
         pendingPhotos = []
+    }
+
+    // MARK: - Submit Voice Memo
+
+    /// Called after VoiceRecordingView finishes recording and transcription.
+    /// Attaches the audio file as an attachment, weather + location as metadata,
+    /// and the transcript as the memo body.
+    func submitVoiceMemo(result: VoiceRecordingResult, caption: String = "") {
+        isSubmitting = true
+        submitError = nil
+
+        let loc = pendingLocation
+
+        Task {
+            defer {
+                isSubmitting = false
+                voiceService.reset()
+            }
+
+            let weatherString = await weatherService.currentWeather(at: loc)
+
+            let trimmedCaption = caption.trimmingCharacters(in: .whitespacesAndNewlines)
+            let body = trimmedCaption.isEmpty ? (result.transcript ?? "") : trimmedCaption
+
+            let attachment = Memo.Attachment(
+                file: result.filePath,
+                kind: "audio",
+                duration: result.duration,
+                transcript: result.transcript
+            )
+
+            let memo = Memo(
+                type: .voice,
+                created: Date(),
+                location: loc,
+                weather: weatherString,
+                device: deviceDescription(),
+                attachments: [attachment],
+                body: body
+            )
+
+            do {
+                try RawStorage.append(memo)
+                memos.insert(memo, at: 0)
+                pendingLocation = nil
+            } catch {
+                submitError = "语音 memo 保存失败：\(error.localizedDescription)"
+            }
+        }
+    }
+
+    /// Opens the voice recording sheet.
+    func startVoiceRecording() {
+        isShowingVoiceRecorder = true
+    }
+
+    /// Dismisses the voice recording sheet without saving.
+    func cancelVoiceRecording() {
+        voiceService.cancelRecording()
+        isShowingVoiceRecorder = false
     }
 
     // MARK: - Private Photo Helpers
