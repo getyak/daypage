@@ -23,6 +23,7 @@
 		A10000014 /* MemoCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000014 /* MemoCardView.swift */; };
 		A10000015 /* InputBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000015 /* InputBarView.swift */; };
 		A10000016 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000016 /* LocationService.swift */; };
+		A10000017 /* WeatherService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000017 /* WeatherService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -43,6 +44,7 @@
 		A20000015 /* InputBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputBarView.swift; sourceTree = "<group>"; };
 		A30000001 /* DayPage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPage.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000016 /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
+		A20000017 /* WeatherService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -155,6 +157,7 @@
 			isa = PBXGroup;
 			children = (
 				A20000016 /* LocationService.swift */,
+				A20000017 /* WeatherService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -296,6 +299,7 @@
 				A10000014 /* MemoCardView.swift in Sources */,
 				A10000015 /* InputBarView.swift in Sources */,
 				A10000016 /* LocationService.swift in Sources */,
+				A10000017 /* WeatherService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

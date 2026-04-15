@@ -149,8 +149,8 @@
         "Typecheck / SwiftLint 通过"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented WeatherService.swift (@MainActor singleton, OpenWeatherMap /data/2.5/weather, 10-min cache keyed by lat/lng/time, graceful nil on failure); updated TodayViewModel.submitTextMemo() to async Task{} with await weatherService.currentWeather(at:loc) before write; WeatherService registered A20000017/A10000017 in project.pbxproj Services group and Sources build phase; typecheck exit 0."
     },
     {
       "id": "US-004",

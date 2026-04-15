@@ -42,6 +42,7 @@ final class TodayViewModel: ObservableObject {
 
     private let date: Date
     private let locationService = LocationService.shared
+    private let weatherService = WeatherService.shared
 
     // MARK: Init
 
@@ -72,7 +73,7 @@ final class TodayViewModel: ObservableObject {
     // MARK: - Submit Text Memo
 
     /// Creates and persists a text memo from the given body string.
-    /// Automatically attaches timestamp, device info, and pending location if available.
+    /// Automatically attaches timestamp, device info, pending location, and weather if available.
     func submitTextMemo(body: String) {
         let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -81,27 +82,33 @@ final class TodayViewModel: ObservableObject {
         submitError = nil
 
         let loc = pendingLocation
-        let memo = Memo(
-            type: .text,
-            created: Date(),
-            location: loc,       // attached from pendingLocation (US-005)
-            weather: nil,        // filled by US-006
-            device: deviceDescription(),
-            attachments: [],
-            body: trimmed
-        )
 
-        do {
-            try RawStorage.append(memo)
-            // Insert at front (newest first)
-            memos.insert(memo, at: 0)
-            // Clear pending location after use
-            pendingLocation = nil
-        } catch {
-            submitError = "保存失败：\(error.localizedDescription)"
+        Task {
+            defer { isSubmitting = false }
+
+            // Fetch weather asynchronously; non-blocking — nil if unavailable
+            let weatherString = await weatherService.currentWeather(at: loc)
+
+            let memo = Memo(
+                type: .text,
+                created: Date(),
+                location: loc,
+                weather: weatherString,   // US-006: auto-attached weather
+                device: deviceDescription(),
+                attachments: [],
+                body: trimmed
+            )
+
+            do {
+                try RawStorage.append(memo)
+                // Insert at front (newest first)
+                memos.insert(memo, at: 0)
+                // Clear pending location after use
+                pendingLocation = nil
+            } catch {
+                submitError = "保存失败：\(error.localizedDescription)"
+            }
         }
-
-        isSubmitting = false
     }
 
     // MARK: - Fetch Location

@@ -12,6 +12,7 @@
 - Swift 字符串字面量中禁止使用中文弯引号（" " ' '）——编译器会误识别为字符串边界导致 parse error；改用「」或 ASCII 引号
 - 权限描述在 `GENERATE_INFOPLIST_FILE = YES` 项目中通过 pbxproj buildSettings 添加 `INFOPLIST_KEY_NSXxx` 键；两个 target 配置（Debug + Release）都需要加
 - Services 层用 `@MainActor` singleton（如 LocationService.shared）暴露 `@Published` 状态供 SwiftUI 直接观察；async 操作用 `Task {}` 在 ViewModel 中启动
+- Weather/Location 等网络 Service 失败时返回 nil 而非抛出错误，保证 memo 提交不被阻塞
 ---
 
 # Ralph Progress Log
@@ -245,4 +246,29 @@ Started: Wed Apr 15 17:59:31 +07 2026
   - Swift 字符串不能包含中文弯引号（"" 等）——编译器会将其解析为字符串边界，导致解析错误；改用「」书名号或 ASCII 引号
   - CLLocationManager.requestLocation() 是一次性请求（不持续监听），结合 CheckedThrowingContinuation 包装成 async 更干净
   - `withThrowingTaskGroup` 是实现 async 超时的推荐方式：两个并发 Task 互相竞争，第一个完成后 `cancelAll()` 取消另一个
+---
+
+## 2026-04-15 - US-006
+- What was implemented:
+  - `DayPage/Services/WeatherService.swift`：
+    - `@MainActor` singleton，封装 OpenWeatherMap `/data/2.5/weather` API 调用
+    - `currentWeather(at:)` async 方法：构建带 lat/lon/units/lang/appid 的请求 URL，解析 `main.temp`（格式化为 "32°C"）+ `weather[0].description`（首字母大写）
+    - `CacheEntry` 结构体：记录天气结果、获取时间、坐标；缓存 TTL 10 分钟，距离阈值 1000m
+    - 所有失败路径（API Key 为空、网络错误、HTTP 非 200、JSON 解析失败）均返回 `nil`，不抛出错误，不阻塞 memo 提交
+    - API Key 从 `Secrets.openWeatherApiKey` 加载
+  - `DayPage/Features/Today/TodayViewModel.swift`：
+    - `submitTextMemo()` 改为 `Task {}` 异步执行（之前是同步）
+    - 提交前 `await weatherService.currentWeather(at: loc)` 获取天气，附加到 `memo.weather` 字段
+    - `defer { isSubmitting = false }` 保证状态正确重置
+  - `DayPage.xcodeproj/project.pbxproj`：注册 WeatherService.swift（A20000017/A10000017）到 Services group 和 Sources build phase
+- Files changed:
+  - DayPage/Services/WeatherService.swift（新建）
+  - DayPage/Features/Today/TodayViewModel.swift（更新）
+  - DayPage.xcodeproj/project.pbxproj（更新）
+  - scripts/ralph/prd.json（passes: true）
+- **Learnings for future iterations:**
+  - `URLSession.shared.data(from:)` 在 `@MainActor` 类中可直接 `try await`，Swift 5.5+ 会自动在后台线程执行网络操作
+  - OpenWeatherMap `/data/2.5/weather` 返回 JSON 中 `main.temp` 单位受 `units=metric` 参数控制（摄氏度）；`weather` 是数组，取 `[0].description` 获取描述
+  - 缓存逻辑需同时检查时间（TTL）和距离（CLLocation.distance），两个条件都满足才命中缓存
+  - 将 submitTextMemo 从同步改为 Task{} async 时，isSubmitting 的 defer 重置要放在 Task 内部，否则会立即重置
 ---
