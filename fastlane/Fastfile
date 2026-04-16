@@ -114,7 +114,7 @@ platform :ios do
       )
     )
 
-    notify_success("TestFlight beta uploaded")
+    UI.success "TestFlight beta uploaded"
   end
 
   # ─────────────────────────────────────────────────────────────
@@ -163,7 +163,7 @@ platform :ios do
       precheck_include_in_app_purchases: false
     )
 
-    notify_success("App Store submission complete")
+    UI.success "App Store submission complete"
   end
 
   # ─────────────────────────────────────────────────────────────
