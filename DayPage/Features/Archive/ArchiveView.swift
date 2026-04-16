@@ -322,6 +322,7 @@ struct ArchiveView: View {
     @State private var mode: ArchiveMode = .calendar
     @State private var selectedDateString: String? = nil
     @State private var showDailyPage: Bool = false
+    @State private var showSearch: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -369,6 +370,16 @@ struct ArchiveView: View {
                     DailyPageView(dateString: dateStr)
                 }
             }
+            .sheet(isPresented: $showSearch) {
+                SearchView { dateStr in
+                    selectedDateString = dateStr
+                    showSearch = false
+                    // 给 sheet 关闭动画一点时间再打开 DailyPage，避免叠加过渡。
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                        showDailyPage = true
+                    }
+                }
+            }
         }
     }
 
@@ -388,14 +399,14 @@ struct ArchiveView: View {
 
             Spacer()
 
-            // Search icon (MVP: tap shows "coming soon" toast)
-            Button(action: { }) {
+            Button(action: { showSearch = true }) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 18, weight: .regular))
                     .foregroundColor(DSColor.onSurface)
                     .frame(width: 32, height: 32)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("搜索")
         }
         .padding(.horizontal, 16)
         .frame(height: 56)
