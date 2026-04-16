@@ -56,6 +56,18 @@ struct DayStats {
             case .high: return "HIGH"
             }
         }
+
+        /// Color for the bottom-right indicator dot.
+        /// On today cells the dot matches the border (primary / white),
+        /// otherwise it matches the cell's text color so it always contrasts
+        /// with the heat-map background.
+        func dotColor(isToday: Bool) -> Color {
+            if isToday {
+                // today border is DSColor.primary (black); use onPrimary so dot is visible
+                return DSColor.onPrimary
+            }
+            return textColor
+        }
     }
 }
 
@@ -461,6 +473,14 @@ struct ArchiveView: View {
                         .monoLabelStyle(size: 9)
                         .foregroundColor(density.textColor)
                         .padding(4)
+
+                    if let entryCount = stats?.memoCount, entryCount > 0 {
+                        Circle()
+                            .fill(density.dotColor(isToday: isToday))
+                            .frame(width: 4, height: 4)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                            .padding(4)
+                    }
                 }
                 .aspectRatio(1, contentMode: .fit)
             }
