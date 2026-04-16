@@ -7,6 +7,22 @@ enum ArchiveMode {
     case list
 }
 
+// MARK: - SystemStatus
+
+enum SystemStatus {
+    case synchronized
+    case pendingCompilation
+    case offline
+
+    var label: String {
+        switch self {
+        case .synchronized:       return "SYNCHRONIZED"
+        case .pendingCompilation: return "PENDING COMPILATION"
+        case .offline:            return "OFFLINE"
+        }
+    }
+}
+
 // MARK: - DayStats
 
 /// Statistics for a single day in the Archive.
@@ -201,6 +217,26 @@ final class ArchiveViewModel: ObservableObject {
     // MARK: Monthly Aggregates
 
     var totalEntries: Int { dayStats.values.reduce(0) { $0 + $1.memoCount } }
+
+    // MARK: System Status
+
+    /// Derived system status based on the current month's compilation state.
+    var systemStatus: SystemStatus {
+        let days = dayStats.values
+        // Days that have raw memos but no compiled Daily Page
+        let hasPending = days.contains { $0.memoCount > 0 && !$0.isDailyPageCompiled }
+        let hasAny = days.contains { $0.memoCount > 0 || $0.isDailyPageCompiled }
+        guard hasAny else { return .synchronized }
+        return hasPending ? .pendingCompilation : .synchronized
+    }
+
+    var lastSyncTimestamp: String {
+        let compiled = dayStats.values
+            .filter { $0.isDailyPageCompiled }
+            .sorted { $0.dateString > $1.dateString }
+        guard let latest = compiled.first else { return "N/A" }
+        return latest.dateString.replacingOccurrences(of: "-", with: ".")
+    }
     var totalPhotos: Int { dayStats.values.reduce(0) { $0 + $1.photoCount } }
     var totalVoiceMinutes: Int { dayStats.values.reduce(0) { $0 + $1.voiceMinutes } }
     var totalLocations: Int { dayStats.values.reduce(0) { $0 + $1.uniqueLocations } }
@@ -312,6 +348,9 @@ struct ArchiveView: View {
 
                                 monthlySummary
                                     .padding(.horizontal, 20)
+                                    .padding(.top, 32)
+
+                                systemStatusArtifact
                                     .padding(.top, 32)
                                     .padding(.bottom, 40)
                             } else {
@@ -572,6 +611,58 @@ struct ArchiveView: View {
         .cornerRadius(0)
     }
 
+    // MARK: - System Status Artifact
+
+    private var systemStatusArtifact: some View {
+        VStack(spacing: 0) {
+            // Top divider line
+            Rectangle()
+                .fill(DSColor.outlineVariant)
+                .frame(height: 1)
+
+            ZStack {
+                DSColor.onSurface.opacity(0.96)
+                    .ignoresSafeArea(edges: [])
+
+                VStack(spacing: 16) {
+                    // Decorative geometric graphic
+                    ArtifactGeometricView()
+                        .frame(width: 80, height: 80)
+
+                    // Status label
+                    VStack(spacing: 6) {
+                        HStack(spacing: 6) {
+                            Text("SYSTEM STATUS:")
+                                .font(DSFonts.jetBrainsMono(size: 11, weight: .medium))
+                                .foregroundColor(Color.white.opacity(0.4))
+                                .tracking(0.5)
+
+                            Text(viewModel.systemStatus.label)
+                                .font(DSFonts.jetBrainsMono(size: 11, weight: .medium))
+                                .foregroundColor(statusTextColor)
+                                .tracking(0.5)
+                        }
+
+                        Text("LAST SYNC // \(viewModel.lastSyncTimestamp)")
+                            .font(DSFonts.jetBrainsMono(size: 10, weight: .regular))
+                            .foregroundColor(Color.white.opacity(0.3))
+                            .tracking(0.5)
+                    }
+                }
+                .padding(.vertical, 32)
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    private var statusTextColor: Color {
+        switch viewModel.systemStatus {
+        case .synchronized:       return Color.white.opacity(0.7)
+        case .pendingCompilation: return Color(hex: "F5C518").opacity(0.9)
+        case .offline:            return Color(hex: "FF4444").opacity(0.9)
+        }
+    }
+
     // MARK: - List Content
 
     private var listContent: some View {
@@ -665,6 +756,90 @@ struct ArchiveView: View {
             Text(unit != nil ? "\(count) \(unit!)" : "\(count)")
                 .monoLabelStyle(size: 11)
                 .foregroundColor(DSColor.onSurfaceVariant)
+        }
+    }
+}
+
+// MARK: - ArtifactGeometricView
+
+/// Black-and-white minimal decorative graphic echoing the "archaeological archive" design language.
+/// Renders concentric rings with radial tick marks — evoking a compass or archival seal.
+private struct ArtifactGeometricView: View {
+
+    var body: some View {
+        Canvas { context, size in
+            let center = CGPoint(x: size.width / 2, y: size.height / 2)
+            let outerR = min(size.width, size.height) / 2 - 1
+            let white   = Color.white
+            let dimmed  = Color.white.opacity(0.25)
+
+            // --- Outer ring ---
+            context.stroke(
+                Path { p in p.addArc(center: center, radius: outerR, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: false) },
+                with: .color(white.opacity(0.5)),
+                lineWidth: 1
+            )
+
+            // --- Middle ring ---
+            context.stroke(
+                Path { p in p.addArc(center: center, radius: outerR * 0.72, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: false) },
+                with: .color(white.opacity(0.35)),
+                lineWidth: 0.75
+            )
+
+            // --- Inner ring ---
+            context.stroke(
+                Path { p in p.addArc(center: center, radius: outerR * 0.44, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: false) },
+                with: .color(white.opacity(0.25)),
+                lineWidth: 0.75
+            )
+
+            // --- Center dot ---
+            let dotR: CGFloat = 3
+            context.fill(
+                Path { p in p.addArc(center: center, radius: dotR, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: false) },
+                with: .color(white.opacity(0.6))
+            )
+
+            // --- Radial tick marks (24 major + 24 minor) ---
+            let totalTicks = 48
+            for i in 0..<totalTicks {
+                let angle = Double(i) * (360.0 / Double(totalTicks))
+                let rad   = angle * .pi / 180
+                let isMajor = i % 2 == 0
+                let tickOuter = outerR
+                let tickInner = isMajor ? outerR * 0.86 : outerR * 0.92
+                let color = isMajor ? white.opacity(0.55) : dimmed
+
+                let outer = CGPoint(
+                    x: center.x + tickOuter * CGFloat(cos(rad)),
+                    y: center.y + tickOuter * CGFloat(sin(rad))
+                )
+                let inner = CGPoint(
+                    x: center.x + tickInner * CGFloat(cos(rad)),
+                    y: center.y + tickInner * CGFloat(sin(rad))
+                )
+
+                context.stroke(
+                    Path { p in p.move(to: outer); p.addLine(to: inner) },
+                    with: .color(color),
+                    lineWidth: isMajor ? 1 : 0.5
+                )
+            }
+
+            // --- Cross hair lines ---
+            let crossR = outerR * 0.38
+            let crossColor = white.opacity(0.2)
+            for angleDeg in [0.0, 90.0] {
+                let rad = angleDeg * .pi / 180
+                let p1 = CGPoint(x: center.x - crossR * CGFloat(cos(rad)), y: center.y - crossR * CGFloat(sin(rad)))
+                let p2 = CGPoint(x: center.x + crossR * CGFloat(cos(rad)), y: center.y + crossR * CGFloat(sin(rad)))
+                context.stroke(
+                    Path { p in p.move(to: p1); p.addLine(to: p2) },
+                    with: .color(crossColor),
+                    lineWidth: 0.5
+                )
+            }
         }
     }
 }
