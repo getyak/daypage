@@ -126,6 +126,9 @@ jobs:
           FASTLANE_XCODE_LIST_TIMEOUT:          "120"
           FASTLANE_SKIP_UPDATE_CHECK:           "1"
         run: |
+          echo "KEY_ID length: ${#APP_STORE_CONNECT_API_KEY_ID}"
+          echo "ISSUER_ID length: ${#APP_STORE_CONNECT_ISSUER_ID}"
+          echo "KEY_CONTENT length: ${#APP_STORE_CONNECT_API_KEY_CONTENT}"
           LANE="${{ github.event.inputs.lane || 'beta' }}"
           bundle exec fastlane $LANE
 
