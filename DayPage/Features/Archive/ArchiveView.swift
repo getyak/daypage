@@ -584,7 +584,8 @@ struct ArchiveView: View {
     }
 
     private func archiveListRow(stats: DayStats) -> some View {
-        Button(action: {
+        let isMetadataOnly = !stats.isDailyPageCompiled
+        return Button(action: {
             selectedDateString = stats.dateString
             if stats.isDailyPageCompiled {
                 showDailyPage = true
@@ -594,12 +595,14 @@ struct ArchiveView: View {
                 Rectangle()
                     .fill(DSColor.primary)
                     .frame(width: 4)
+                    .opacity(isMetadataOnly ? 0.8 : 1.0)
 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Text(formatArchiveDate(stats.dateString))
                             .font(.custom("SpaceGrotesk-Bold", size: 15))
                             .foregroundColor(DSColor.onSurface)
+                            .opacity(isMetadataOnly ? 0.8 : 1.0)
 
                         Spacer()
 
@@ -615,6 +618,7 @@ struct ArchiveView: View {
                             .foregroundColor(DSColor.onSurfaceVariant)
                             .italic()
                             .lineLimit(2)
+                            .opacity(isMetadataOnly ? 0.8 : 1.0)
                     }
 
                     HStack(spacing: 16) {
@@ -622,6 +626,7 @@ struct ArchiveView: View {
                         metaIcon("photo", count: stats.photoCount)
                         metaIcon("mic", count: stats.voiceMinutes, unit: "min")
                     }
+                    .opacity(isMetadataOnly ? 0.8 : 1.0)
                 }
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
