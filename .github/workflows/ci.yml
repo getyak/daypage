@@ -33,6 +33,12 @@ jobs:
       - name: Run EntityPage tests
         run: xcrun swift scripts/tests/test_entity_page.swift
 
+      - name: Run CompilationParsing tests
+        run: xcrun swift scripts/tests/test_compilation_parsing.swift
+
+      - name: Run VoiceTranscript tests
+        run: xcrun swift scripts/tests/test_voice_transcript.swift
+
   build:
     name: Xcode Build (no signing)
     runs-on: macos-15

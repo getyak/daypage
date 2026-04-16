@@ -57,7 +57,7 @@ final class CompilationService {
         let compiledText = try await callDashScope(prompt: prompt, apiKey: apiKey)
 
         // 5. Parse structured output (Daily Page + Entity update instructions + hot cache)
-        let (dailyPageText, entityInstructions, hotCacheText) = parseStructuredOutputWithHot(compiledText)
+        let (dailyPageText, entityInstructions, hotCacheText) = try parseStructuredOutputWithHot(compiledText)
 
         // 6. Write Daily Page (backup existing if present)
         let dailyURL = dailyPageURL(for: dateString)
@@ -322,14 +322,14 @@ final class CompilationService {
     // MARK: - Hot Cache
 
     /// Parses the LLM structured output and extracts daily page, entity instructions, and hot cache.
-    /// Returns a tuple: (dailyPage, entityInstructions, hotCacheSummary).
-    /// hotCacheSummary is an empty string if the field is missing.
+    /// Throws `parseError` when the response contains no valid JSON or is missing `daily_page`.
     private func parseStructuredOutputWithHot(
         _ rawLLMResponse: String
-    ) -> (dailyPage: String, instructions: [EntityUpdateInstruction], hotCache: String) {
+    ) throws -> (dailyPage: String, instructions: [EntityUpdateInstruction], hotCache: String) {
         let (dailyPage, instructions) = EntityPageService.parseStructuredOutput(rawLLMResponse)
-
-        // Also extract hot_cache from the same JSON block
+        guard !dailyPage.isEmpty else {
+            throw CompilationError.parseError("LLM 响应中未找到有效 JSON 或缺少 daily_page 字段")
+        }
         let hotCache = extractHotCacheFromJSON(rawLLMResponse) ?? ""
         return (dailyPage, instructions, hotCache)
     }
