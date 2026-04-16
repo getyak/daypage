@@ -46,6 +46,7 @@
 		AF0000010 /* Inter-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000010 /* Inter-Bold.ttf */; };
 		AF0000011 /* JetBrainsMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000011 /* JetBrainsMono-Regular.ttf */; };
 		AF0000012 /* JetBrainsMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000012 /* JetBrainsMono-Medium.ttf */; };
+		A10000029 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000029 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -73,6 +74,7 @@
 		A20000022 /* EntityPageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntityPageService.swift; sourceTree = "<group>"; };
 		A20000023 /* BackgroundCompilationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundCompilationService.swift; sourceTree = "<group>"; };
 		A20000024 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A20000029 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A20000025 /* DailyPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPageView.swift; sourceTree = "<group>"; };
 		A20000026 /* EntityPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntityPageView.swift; sourceTree = "<group>"; };
 		A20000027 /* SearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchService.swift; sourceTree = "<group>"; };
@@ -124,6 +126,7 @@
 				A20000001 /* DayPageApp.swift */,
 				A20000002 /* RootView.swift */,
 				A20000024 /* Info.plist */,
+				A20000029 /* Assets.xcassets */,
 				AF2000001 /* Fonts */,
 			);
 			path = App;
@@ -341,6 +344,7 @@
 				AF0000010 /* Inter-Bold.ttf in Resources */,
 				AF0000011 /* JetBrainsMono-Regular.ttf in Resources */,
 				AF0000012 /* JetBrainsMono-Medium.ttf in Resources */,
+				A10000029 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
