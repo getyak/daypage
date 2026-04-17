@@ -17,21 +17,119 @@ struct GraphView: View {
     @State private var simulationSize: CGSize = .zero
     @State private var simulationSteps: Int = 0
 
+    // Navigation state
+    @State private var selectedNode: GraphNode? = nil
+    @State private var showEntityPage: Bool = false
+
+    // Filter state
+    @State private var showFilters: Bool = false
+
     private let nodeRadius: CGFloat = 16
     private let maxSimSteps = 200
 
     var body: some View {
-        ZStack {
-            DSColor.background.ignoresSafeArea()
+        VStack(spacing: 0) {
+            // MARK: Header bar
+            VStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    // Search field
+                    HStack(spacing: 6) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 13))
+                            .foregroundColor(DSColor.onSurfaceVariant)
+                        TextField("搜索节点...", text: $viewModel.searchQuery)
+                            .font(.custom("JetBrainsMono-Regular", fixedSize: 12))
+                            .foregroundColor(DSColor.onSurface)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(DSColor.surfaceContainerLow)
 
-            if viewModel.isLoading {
-                ProgressView()
-                    .tint(DSColor.onSurfaceVariant)
-            } else if viewModel.nodes.isEmpty {
-                emptyState
-            } else {
-                graphCanvas
-                legend
+                    // Filter toggle
+                    Button {
+                        withAnimation(.easeInOut) { showFilters.toggle() }
+                    } label: {
+                        Image(systemName: showFilters ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                            .font(.system(size: 20))
+                            .foregroundColor(hasActiveFilter ? DSColor.primary : DSColor.onSurfaceVariant)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+
+                // Date range filter panel
+                if showFilters {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 8) {
+                            Text("开始")
+                                .font(.custom("JetBrainsMono-Regular", fixedSize: 11))
+                                .foregroundColor(DSColor.onSurfaceVariant)
+                                .frame(width: 30)
+                            DatePicker(
+                                "",
+                                selection: Binding(
+                                    get: { viewModel.filterStartDate ?? Date() },
+                                    set: { viewModel.filterStartDate = $0 }
+                                ),
+                                displayedComponents: .date
+                            )
+                            .labelsHidden()
+                            .datePickerStyle(.compact)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                            if viewModel.filterStartDate != nil {
+                                Button("清除") { viewModel.filterStartDate = nil }
+                                    .font(.custom("Inter-Regular", size: 11))
+                                    .foregroundColor(DSColor.onSurfaceVariant)
+                            }
+                        }
+                        HStack(spacing: 8) {
+                            Text("结束")
+                                .font(.custom("JetBrainsMono-Regular", fixedSize: 11))
+                                .foregroundColor(DSColor.onSurfaceVariant)
+                                .frame(width: 30)
+                            DatePicker(
+                                "",
+                                selection: Binding(
+                                    get: { viewModel.filterEndDate ?? Date() },
+                                    set: { viewModel.filterEndDate = $0 }
+                                ),
+                                displayedComponents: .date
+                            )
+                            .labelsHidden()
+                            .datePickerStyle(.compact)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                            if viewModel.filterEndDate != nil {
+                                Button("清除") { viewModel.filterEndDate = nil }
+                                    .font(.custom("Inter-Regular", size: 11))
+                                    .foregroundColor(DSColor.onSurfaceVariant)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 10)
+                    .background(DSColor.surfaceContainerLow)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+
+                Divider().background(DSColor.outline)
+            }
+            .background(DSColor.surfaceContainerLow)
+
+            // MARK: Graph area
+            ZStack {
+                DSColor.background.ignoresSafeArea()
+
+                if viewModel.isLoading {
+                    ProgressView()
+                        .tint(DSColor.onSurfaceVariant)
+                } else if viewModel.filteredNodes.isEmpty {
+                    emptyState
+                } else {
+                    graphCanvas
+                    legend
+                }
             }
         }
         .navigationBarHidden(true)
@@ -39,13 +137,20 @@ struct GraphView: View {
             viewModel.load()
         }
         .onChange(of: viewModel.nodes.count) { _ in
-            if !viewModel.nodes.isEmpty {
-                startSimulation()
-            }
+            if !viewModel.nodes.isEmpty { startSimulation() }
         }
         .onDisappear {
             stopSimulation()
         }
+        .sheet(isPresented: $showEntityPage) {
+            if let node = selectedNode {
+                EntityPageView(entityType: node.entityType, entitySlug: node.entitySlug)
+            }
+        }
+    }
+
+    private var hasActiveFilter: Bool {
+        viewModel.filterStartDate != nil || viewModel.filterEndDate != nil || !viewModel.searchQuery.isEmpty
     }
 
     // MARK: - Empty State
@@ -55,10 +160,10 @@ struct GraphView: View {
             Image(systemName: "point.3.connected.trianglepath.dotted")
                 .font(.system(size: 48, weight: .thin))
                 .foregroundColor(DSColor.outlineVariant)
-            Text("尚无知识图谱")
+            Text(viewModel.nodes.isEmpty ? "尚无知识图谱" : "无匹配节点")
                 .displayLGStyle()
                 .foregroundColor(DSColor.outlineVariant)
-            Text("编译日记后，实体节点将在此出现")
+            Text(viewModel.nodes.isEmpty ? "编译日记后，实体节点将在此出现" : "调整搜索或筛选条件以查看节点")
                 .bodySMStyle()
                 .foregroundColor(DSColor.onSurfaceVariant)
                 .multilineTextAlignment(.center)
@@ -71,11 +176,14 @@ struct GraphView: View {
     private var graphCanvas: some View {
         GeometryReader { geo in
             let size = geo.size
+            let filteredIDs = Set(viewModel.filteredNodes.map { $0.id })
+
             ZStack {
                 Canvas { ctx, _ in
-                    // Draw edges
                     let nodePos = Dictionary(uniqueKeysWithValues: viewModel.nodes.map { ($0.id, $0.position) })
-                    for edge in viewModel.edges {
+
+                    // Draw edges (filtered)
+                    for edge in viewModel.filteredEdges {
                         guard let src = nodePos[edge.sourceID], let dst = nodePos[edge.targetID] else { continue }
                         let sx = src.x * scale + offset.width + size.width / 2
                         let sy = src.y * scale + offset.height + size.height / 2
@@ -87,41 +195,58 @@ struct GraphView: View {
                         ctx.stroke(path, with: .color(DSColor.outlineVariant.opacity(0.5)), lineWidth: 1)
                     }
 
-                    // Draw nodes
+                    // Draw all nodes (dim non-matching)
                     for node in viewModel.nodes {
+                        let inFilter = filteredIDs.contains(node.id)
                         let x = node.position.x * scale + offset.width + size.width / 2
                         let y = node.position.y * scale + offset.height + size.height / 2
                         let r = nodeRadius * scale
                         let rect = CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2)
-                        ctx.fill(Path(ellipseIn: rect), with: .color(node.color))
-                        ctx.stroke(Path(ellipseIn: rect), with: .color(node.color.opacity(0.6)), lineWidth: 1.5 * scale)
+                        let alpha: CGFloat = inFilter ? 1.0 : 0.2
+                        ctx.fill(Path(ellipseIn: rect), with: .color(node.color.opacity(alpha)))
+                        ctx.stroke(Path(ellipseIn: rect), with: .color(node.color.opacity(0.6 * alpha)), lineWidth: 1.5 * scale)
                     }
                 }
                 .frame(width: size.width, height: size.height)
                 .onAppear { simulationSize = size }
                 .onChange(of: size) { simulationSize = $0 }
 
-                // Node labels overlay
-                ForEach(viewModel.nodes) { node in
+                // Node labels (filtered only)
+                ForEach(viewModel.filteredNodes) { node in
                     let x = node.position.x * scale + offset.width + size.width / 2
                     let y = node.position.y * scale + offset.height + size.height / 2
+                    let isSearchMatch = !viewModel.searchQuery.isEmpty
+                        && node.name.localizedCaseInsensitiveContains(viewModel.searchQuery)
                     Text(node.name)
                         .font(.custom("JetBrainsMono-Regular", fixedSize: max(8, 10 * scale)))
-                        .foregroundColor(DSColor.onSurface)
+                        .foregroundColor(isSearchMatch ? DSColor.primary : DSColor.onSurface)
+                        .fontWeight(isSearchMatch ? .bold : .regular)
                         .lineLimit(1)
                         .fixedSize()
                         .position(x: x, y: y + nodeRadius * scale + 10 * scale)
+                }
+
+                // Invisible tap targets for each filtered node
+                ForEach(viewModel.filteredNodes) { node in
+                    let x = node.position.x * scale + offset.width + size.width / 2
+                    let y = node.position.y * scale + offset.height + size.height / 2
+                    let r = max(nodeRadius * scale, 22)
+                    Circle()
+                        .fill(Color.clear)
+                        .frame(width: r * 2, height: r * 2)
+                        .contentShape(Circle())
+                        .position(x: x, y: y)
+                        .onTapGesture {
+                            selectedNode = node
+                            showEntityPage = true
+                        }
                 }
             }
             .gesture(
                 SimultaneousGesture(
                     MagnificationGesture()
-                        .onChanged { value in
-                            scale = max(0.3, min(5.0, lastScale * value))
-                        }
-                        .onEnded { _ in
-                            lastScale = scale
-                        },
+                        .onChanged { value in scale = max(0.3, min(5.0, lastScale * value)) }
+                        .onEnded { _ in lastScale = scale },
                     DragGesture()
                         .onChanged { value in
                             offset = CGSize(
@@ -129,9 +254,7 @@ struct GraphView: View {
                                 height: lastOffset.height + value.translation.height
                             )
                         }
-                        .onEnded { _ in
-                            lastOffset = offset
-                        }
+                        .onEnded { _ in lastOffset = offset }
                 )
             )
         }

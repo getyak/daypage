@@ -9,6 +9,7 @@ struct GraphNode: Identifiable {
     let entityType: String  // "places" | "people" | "themes"
     var position: CGPoint
     var velocity: CGPoint = .zero
+    var dates: Set<String> = []   // YYYY-MM-DD dates this entity appears in
 
     var color: Color {
         switch entityType {
@@ -17,6 +18,9 @@ struct GraphNode: Identifiable {
         default:        return DSColor.tertiary
         }
     }
+
+    /// Parses slug from the node id ("places/joma-coffee" → "joma-coffee")
+    var entitySlug: String { id.components(separatedBy: "/").dropFirst().joined(separator: "/") }
 }
 
 // MARK: - GraphEdge
@@ -35,6 +39,46 @@ final class GraphViewModel: ObservableObject {
     @Published var nodes: [GraphNode] = []
     @Published var edges: [GraphEdge] = []
     @Published var isLoading: Bool = false
+
+    // MARK: - Filter State
+    @Published var searchQuery: String = ""
+    @Published var filterStartDate: Date? = nil
+    @Published var filterEndDate: Date? = nil
+
+    /// Nodes after applying search and date filters.
+    var filteredNodes: [GraphNode] {
+        nodes.filter { node in
+            let matchesSearch = searchQuery.isEmpty
+                || node.name.localizedCaseInsensitiveContains(searchQuery)
+            let matchesDate: Bool = {
+                guard filterStartDate != nil || filterEndDate != nil else { return true }
+                let fmt = dateFormatter
+                if let start = filterStartDate {
+                    let startStr = fmt.string(from: start)
+                    if !node.dates.contains(where: { $0 >= startStr }) { return false }
+                }
+                if let end = filterEndDate {
+                    let endStr = fmt.string(from: end)
+                    if !node.dates.contains(where: { $0 <= endStr }) { return false }
+                }
+                return true
+            }()
+            return matchesSearch && matchesDate
+        }
+    }
+
+    /// Edges where both endpoints are in filteredNodes.
+    var filteredEdges: [GraphEdge] {
+        let ids = Set(filteredNodes.map { $0.id })
+        return edges.filter { ids.contains($0.sourceID) && ids.contains($0.targetID) }
+    }
+
+    private let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
 
     // MARK: - Scan & Build Graph
 
@@ -58,6 +102,7 @@ final class GraphViewModel: ObservableObject {
         let dailyURL = wikiURL.appendingPathComponent("daily", isDirectory: true)
 
         var entityMap: [String: (name: String, type: String)] = [:]
+        var entityDates: [String: Set<String>] = [:]
         var edgeSet: Set<String> = []
         var rawEdges: [GraphEdge] = []
 
@@ -65,11 +110,13 @@ final class GraphViewModel: ObservableObject {
         let dailyFiles = (try? fm.contentsOfDirectory(at: dailyURL, includingPropertiesForKeys: nil)) ?? []
         for fileURL in dailyFiles where fileURL.pathExtension == "md" {
             guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else { continue }
+            let dateStr = fileURL.deletingPathExtension().lastPathComponent
             let refs = extractWikilinks(from: content)
 
             // Build edges between entities mentioned on the same day
             let ids = refs.map { "\($0.type)/\($0.slug)" }
             for i in 0..<ids.count {
+                entityDates[ids[i], default: []].insert(dateStr)
                 for j in (i+1)..<ids.count {
                     let key = [ids[i], ids[j]].sorted().joined(separator: "↔")
                     if !edgeSet.contains(key) {
@@ -77,7 +124,6 @@ final class GraphViewModel: ObservableObject {
                         rawEdges.append(GraphEdge(id: key, sourceID: ids[i], targetID: ids[j]))
                     }
                 }
-                // Register entity
                 if entityMap[ids[i]] == nil {
                     entityMap[ids[i]] = (name: refs[i].name, type: refs[i].type)
                 }
@@ -92,7 +138,6 @@ final class GraphViewModel: ObservableObject {
                 let slug = fileURL.deletingPathExtension().lastPathComponent
                 let key = "\(entityType)/\(slug)"
                 if entityMap[key] == nil {
-                    // Try to read name from frontmatter
                     let name: String
                     if let content = try? String(contentsOf: fileURL, encoding: .utf8),
                        let parsed = parseName(from: content) {
@@ -112,11 +157,10 @@ final class GraphViewModel: ObservableObject {
         var idx = 0
         for (id, info) in entityMap {
             let angle = count > 0 ? (Double(idx) / Double(count)) * 2 * .pi : 0
-            let pos = CGPoint(
-                x: cos(angle) * radius,
-                y: sin(angle) * radius
-            )
-            nodes.append(GraphNode(id: id, name: info.name, entityType: info.type, position: pos))
+            let pos = CGPoint(x: cos(angle) * radius, y: sin(angle) * radius)
+            var node = GraphNode(id: id, name: info.name, entityType: info.type, position: pos)
+            node.dates = entityDates[id] ?? []
+            nodes.append(node)
             idx += 1
         }
 
