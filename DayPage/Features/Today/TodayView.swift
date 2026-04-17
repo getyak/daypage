@@ -6,6 +6,7 @@ struct TodayView: View {
     @StateObject private var viewModel = TodayViewModel()
     @StateObject private var passiveLocation = PassiveLocationService.shared
     @StateObject private var bannerCenter = BannerCenter.shared
+    @StateObject private var voiceQueue = VoiceAttachmentQueue.shared
 
     /// The draft text in the input bar.
     @State private var draftText: String = ""
@@ -248,6 +249,10 @@ struct TodayView: View {
             .navigationBarHidden(true)
             .onAppear {
                 viewModel.load()
+                updateVoiceQueueBanner(count: voiceQueue.pendingCount)
+            }
+            .onChange(of: voiceQueue.pendingCount) { count in
+                updateVoiceQueueBanner(count: count)
             }
             .animation(.easeInOut(duration: 0.25), value: viewModel.submitError)
             // Daily Page full-screen sheet
@@ -315,6 +320,18 @@ struct TodayView: View {
     }
 
     // MARK: - Helpers
+
+    private func updateVoiceQueueBanner(count: Int) {
+        if count > 0 {
+            bannerCenter.show(AppBannerModel(
+                kind: .info,
+                title: "你有 \(count) 条语音待转写",
+                autoDismiss: false
+            ))
+        } else if bannerCenter.currentBanner?.title.contains("语音待转写") == true {
+            bannerCenter.dismiss()
+        }
+    }
 
     private func formattedTimestamp(_ date: Date) -> String {
         let f = DateFormatter()

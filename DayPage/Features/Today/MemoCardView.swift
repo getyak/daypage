@@ -534,7 +534,7 @@ struct VoiceMemoPlayerRow: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
 
-            // Transcript preview (if available)
+            // Transcript preview (if available) or queued placeholder
             if let t = transcript, !t.isEmpty {
                 Text(t)
                     .bodySMStyle()
@@ -542,6 +542,17 @@ struct VoiceMemoPlayerRow: View {
                     .lineLimit(2)
                     .padding(.horizontal, 12)
                     .padding(.bottom, 6)
+            } else if transcript == nil && VoiceAttachmentQueue.shared.pendingCount > 0 {
+                HStack(spacing: 6) {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                        .tint(DSColor.onSurfaceVariant)
+                    Text("转写中...")
+                        .bodySMStyle()
+                        .foregroundColor(DSColor.onSurfaceVariant)
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 6)
             }
         }
         .onDisappear {

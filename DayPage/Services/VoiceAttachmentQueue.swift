@@ -16,7 +16,7 @@ private struct VoiceQueueEntry: Codable {
 // MARK: - VoiceAttachmentQueue
 
 @MainActor
-final class VoiceAttachmentQueue {
+final class VoiceAttachmentQueue: ObservableObject {
 
     static let shared = VoiceAttachmentQueue()
 
