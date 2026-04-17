@@ -137,3 +137,19 @@ Previous run (v2 roadmap) archived at: archive/2026-04-17-daypage-v2-roadmap/
   - fullScreenCover 里的 DayDetailView 已有自己的 NavigationStack，dismiss() 可直接关闭
   - isDailyCompiled 用 FileManager.fileExists 比读文件内容轻量；hasMemos 同理
 ---
+
+## 2026-04-17 - US-016
+- 重写 SettingsView：5 分区 API Keys / 权限 / 外观 / 数据 / 关于
+- API Keys：每行 key 后 4 位掩码预览 + '未配置'红徽章 + '测试连接'按钮（各自独立 isTesting state）
+- 测试实现：DashScope ping chat/completions；Whisper GET /v1/models；OpenWeather lat=0&lon=0
+- 权限：麦克风（AVAudioSession.recordPermission）+ 定位（LocationService.authorizationStatus）+ 被动位置开关；点击行→openSettings()
+- 外观：深色模式占位 disabled
+- 数据：Vault 大小（Task.detached + FileManager enumerator + ByteCountFormatter）+ 导出按钮 + bannerOverlay
+- 关于：CFBundleShortVersionString + CFBundleVersion
+- 修复 fontDesign(.monospaced) iOS 16.1 可用性 → .font(.system(size:12, design:.monospaced))
+- Files changed: DayPage/Features/Settings/SettingsView.swift, prd.json
+- **Learnings for future iterations:**
+  - .fontDesign(.monospaced) 只在 iOS 16.1+ 可用；iOS 16.0 目标需用 .font(.system(size:N, design:.monospaced))
+  - SettingsView 直接用 @StateObject 注入 BannerCenter，可在 List 内调 bannerCenter.show()
+  - Vault 大小计算用 Task.detached(priority:.utility)，完成后 MainActor.run 更新 UI
+---

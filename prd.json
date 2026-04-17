@@ -291,8 +291,8 @@
         "Verify in iOS Simulator: navigate to Settings -> all 5 sections render; tap 测试连接 -> toast appears"
       ],
       "priority": 16,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "5 分区：API Keys(测试连接+ping)/权限/外观(占位)/数据(vault大小+导出)/关于；.bannerOverlay() 显示 toast"
     },
     {
       "id": "US-017",
