@@ -197,3 +197,18 @@
   - Sheet 弹出使用 `.sheet(isPresented:)` modifier 挂在 TodayView body 上
   - SettingsView 需要 `@Environment(\.dismiss) var dismiss` 来关闭
 ---
+
+## 2026-04-17 - US-017
+- DailyPageView 右上角 toolbar 新增 `Menu`（ellipsis.circle 图标），包含"重新编译"和"编辑元数据"两个选项
+- 重新编译：`.alert` 确认弹窗，确认后调用 `CompilationService.shared.compile(for:trigger:)`，完成后刷新页面；编译中显示 ProgressView 替代菜单按钮
+- 编辑失败时弹出错误 alert 显示 localizedDescription
+- 新增 `DailyPageMetadataEditView` sheet：支持编辑 summary（TextEditor）、mood（预设选项横滚）、weather（TextField）、cover image（从 memo 附件选取 / PhotosPicker 从相册选取）
+- 封面图从相册选取后保存为 `vault/raw/assets/cover-YYYY-MM-DD-timestamp.jpg`
+- `updateFrontmatter()` 方法原子更新 YAML front-matter 中的 summary/weather/mood/cover 字段，保留其他字段和 body 不变
+- 修复已存在的 `metaChipVoice` 函数编译器类型检查超时问题（拆分链式调用为独立变量）
+- **Learnings for future iterations:**
+  - 编译器对复杂链式表达式（flatMap+filter+compactMap+reduce）在大文件中可能超时，需拆分为独立 let 语句
+  - PhotosPicker 需 import PhotosUI，onChange(of:) 监听 photosPickerItem 变化
+  - updateFrontmatter 要用 mutable `closingLine` 变量追踪 `---` 位置，因为插入/删除行会改变索引
+  - DailyPageMetadataEditView 的 save 直接操作 wiki/daily/YYYY-MM-DD.md，使用 RawStorage.atomicWrite
+---
