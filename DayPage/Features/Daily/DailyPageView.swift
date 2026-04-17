@@ -258,9 +258,17 @@ struct DailyPageView: View {
     }
 
     private func metaChipVoice(model: DailyPageModel) -> some View {
-        // Count audio attachments from raw file for voice minutes
-        // For MVP: show nothing if no voice info in front matter
-        return AnyView(EmptyView())
+        let totalSeconds = rawMemos
+            .flatMap { $0.attachments }
+            .filter { $0.kind == "audio" }
+            .compactMap { $0.duration }
+            .reduce(0, +)
+
+        guard totalSeconds > 0 else { return AnyView(EmptyView()) }
+
+        let t = Int(totalSeconds)
+        let label = "🎙️ \(String(format: "%02d:%02d", t / 60, t % 60))"
+        return AnyView(metaChip(label))
     }
 
     // MARK: - Narrative Section
