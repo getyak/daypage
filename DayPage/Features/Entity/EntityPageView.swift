@@ -15,6 +15,7 @@ struct EntityPageView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var model: EntityModel? = nil
     @State private var notFound: Bool = false
+    @State private var selectedDate: String? = nil
 
     var body: some View {
         NavigationStack {
@@ -62,6 +63,14 @@ struct EntityPageView: View {
             }
         }
         .onAppear { loadEntity() }
+        .sheet(isPresented: Binding(
+            get: { selectedDate != nil },
+            set: { if !$0 { selectedDate = nil } }
+        )) {
+            if let dateStr = selectedDate {
+                DailyPageView(dateString: dateStr)
+            }
+        }
     }
 
     // MARK: - Not Found
@@ -171,19 +180,22 @@ struct EntityPageView: View {
                     .foregroundColor(DSColor.onSurfaceVariant)
             } else {
                 ForEach(model.relatedDates, id: \.self) { dateStr in
-                    HStack {
-                        Text(dateStr)
-                            .monoLabelStyle(size: 11)
-                            .foregroundColor(DSColor.onSurface)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 11))
-                            .foregroundColor(DSColor.onSurfaceVariant)
+                    Button(action: { selectedDate = dateStr }) {
+                        HStack {
+                            Text(dateStr)
+                                .monoLabelStyle(size: 11)
+                                .foregroundColor(DSColor.onSurface)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 11))
+                                .foregroundColor(DSColor.onSurfaceVariant)
+                        }
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 12)
+                        .background(DSColor.surfaceContainer)
+                        .cornerRadius(0)
                     }
-                    .padding(.vertical, 10)
-                    .padding(.horizontal, 12)
-                    .background(DSColor.surfaceContainer)
-                    .cornerRadius(0)
+                    .buttonStyle(.plain)
                 }
             }
         }
