@@ -217,8 +217,8 @@
         "Verify in iOS Simulator: tap input field -> keyboard appears with QuickBar above -> tap photo icon -> photo picker opens"
       ],
       "priority": 12,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "使用 .toolbar { ToolbarItemGroup(placement: .keyboard) } 实现；相机和相册分为两个 QuickBar 按钮"
     },
     {
       "id": "US-013",

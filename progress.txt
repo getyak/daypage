@@ -81,3 +81,16 @@ Previous run (v2 roadmap) archived at: archive/2026-04-17-daypage-v2-roadmap/
   - VoiceAttachmentQueue.queueURL 是计算属性，在 @MainActor 类中；load()/save() 可以用 do/catch + DayPageLogger 直接替换
   - PhotoService.processImageData 内 replaceItemAt 失败后的 removeItem 是"清理临时文件"场景，语义上 try? 合理
 ---
+
+## 2026-04-17 - US-012
+- 主输入行移除 mic/camera/file/location 四个按钮，只保留 TextEditor + 发送键
+- 发送键：有内容（文字或附件）时 DSColor.primary 背景 + onPrimary 图标，空时灰色
+- QuickBar 通过 .toolbar { ToolbarItemGroup(placement: .keyboard) } 挂载在 TextEditor 上
+- QuickBar 包含：mic（语音录制）、camera（拍照对话框）、photo（相册 PhotosPicker）、paperclip（文件）、mappin.circle（位置）
+- confirmationDialog 从 photoButton 移至 body 层，共用 showPhotoSourceDialog state
+- Files changed: DayPage/Features/Today/InputBarView.swift, prd.json
+- **Learnings for future iterations:**
+  - .toolbar(placement: .keyboard) 挂载在 TextEditor 上，键盘弹起时 QuickBar 自动出现，键盘收起时消失
+  - PhotosPicker 在 ToolbarItemGroup 内需要 .buttonStyle(.plain) 才能正常点击
+  - confirmationDialog 必须在 body 视图层声明，不能嵌套在 ToolbarItemGroup 内
+---
