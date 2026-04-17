@@ -121,3 +121,19 @@ Previous run (v2 roadmap) archived at: archive/2026-04-17-daypage-v2-roadmap/
   - .frame(maxWidth: 120) 限制文字最大宽度防止 chip 过宽
   - truncationMode(.middle) 比 .tail 更适合文件名（保留扩展名）
 ---
+
+## 2026-04-17 - US-015
+- 新建 DayDetailView.swift：顶部 Picker(.segmented) 切换 [Daily Page | 原始 Memo]
+- 进入时 onAppear 检查 isDailyCompiled (wiki/daily/YYYY-MM-DD.md 是否存在)，未编译则默认 .raw tab
+- Daily tab：已编译→DailyPageView；未编译→图标+文字+跳转 raw 按钮
+- Raw tab：有 memo→RawMemoView；无→空状态图标+文字
+- ArchiveView 删除 showDailyPage/showRawMemo 两个 State，合并为 showDayDetail，fullScreenCover 只剩一个
+- handleDateTap 简化：有内容→showDayDetail，否则→alert
+- SearchView 回调也改为触发 showDayDetail
+- 注册 pbxproj：A10000040/A20000040
+- Files changed: DayPage/Features/Archive/DayDetailView.swift (new), DayPage/Features/Archive/ArchiveView.swift, DayPage.xcodeproj/project.pbxproj, prd.json
+- **Learnings for future iterations:**
+  - Picker(.segmented) 默认宽度跟随 content 宽度，需要 .padding(.horizontal, 16) + 背景色才好看
+  - fullScreenCover 里的 DayDetailView 已有自己的 NavigationStack，dismiss() 可直接关闭
+  - isDailyCompiled 用 FileManager.fileExists 比读文件内容轻量；hasMemos 同理
+---

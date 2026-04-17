@@ -271,8 +271,8 @@
         "Verify in iOS Simulator: tap compiled date -> Daily Page tab; tap uncompiled date with memos -> 原始 Memo tab shows memos; tap empty date -> empty message"
       ],
       "priority": 15,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "DayDetailView 用 Picker 切换两个 tab；onAppear 检查 isDailyCompiled 决定默认 tab；ArchiveView 合并为单一 showDayDetail"
     },
     {
       "id": "US-016",
