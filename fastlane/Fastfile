@@ -115,8 +115,9 @@ platform :ios do
     )
 
     # 创建 GitHub Release（仅在 tag 触发时有意义；无 GH_TOKEN 时跳过）
-    if ENV["GH_TOKEN"] && !git_tag_name.to_s.empty?
-      tag = git_tag_name.strip
+    current_tag = sh("git describe --tags --exact-match 2>/dev/null || echo ''").strip
+    if ENV["GH_TOKEN"] && !current_tag.empty?
+      tag = current_tag
       release_notes = changelog_from_git_commits(commits_count: 20, pretty: "- %s")
       sh("gh release create '#{tag}' build/DayPage.ipa \
           --title 'DayPage #{tag}' \
