@@ -58,10 +58,10 @@ struct DayStats {
 
         var fillColor: Color {
             switch self {
-            case .empty:  return Color(hex: "F9F9F9")
-            case .low:    return Color(hex: "E8E8E8")
-            case .medium: return Color(hex: "474747")
-            case .high:   return Color(hex: "000000")
+            case .empty:  return DSColor.heatmapEmpty
+            case .low:    return DSColor.heatmapLow
+            case .medium: return DSColor.heatmapMid
+            case .high:   return DSColor.heatmapHigh
             }
         }
 
@@ -853,9 +853,9 @@ struct ArchiveView: View {
 
     private var statusTextColor: Color {
         switch viewModel.systemStatus {
-        case .synchronized:       return Color.white.opacity(0.7)
-        case .pendingCompilation: return Color(hex: "F5C518").opacity(0.9)
-        case .offline:            return Color(hex: "FF4444").opacity(0.9)
+        case .synchronized:       return DSColor.onBackgroundSubtle
+        case .pendingCompilation: return DSColor.warningAmber
+        case .offline:            return DSColor.errorRed
         }
     }
 

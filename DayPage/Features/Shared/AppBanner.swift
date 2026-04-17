@@ -151,37 +151,32 @@ struct AppBanner: View {
 
     private var backgroundColor: Color {
         switch model.kind {
-        case .progress: return Color(hex: "F8ECD6")
-        case .success: return Color(hex: "EBF3E5")
-        case .error:   return Color(hex: "F5E1DC")
-        case .info:    return Color(hex: "F3F0EB")
+        case .progress: return DSColor.warningSoft
+        case .success: return DSColor.successSoft
+        case .error:   return DSColor.errorSoft
+        case .info:    return DSColor.surfaceSunken
         }
     }
 
     private var foregroundColor: Color {
-        switch model.kind {
-        case .progress: return Color(hex: "2B2822")
-        case .success:  return Color(hex: "2B2822")
-        case .error:    return Color(hex: "2B2822")
-        case .info:     return Color(hex: "2B2822")
-        }
+        DSColor.onBackgroundPrimary
     }
 
     private var accentColor: Color {
         switch model.kind {
-        case .progress: return Color(hex: "A66A00")
-        case .success:  return Color(hex: "4C7A3F")
-        case .error:    return Color(hex: "A23A2E")
-        case .info:     return Color(hex: "6B6560")
+        case .progress: return DSColor.warningAmber
+        case .success:  return DSColor.successGreen
+        case .error:    return DSColor.errorRed
+        case .info:     return DSColor.onBackgroundMuted
         }
     }
 
     private var borderColor: Color {
         switch model.kind {
-        case .progress: return Color(hex: "E8DCCA")
-        case .success:  return Color(hex: "C8E0BF")
-        case .error:    return Color(hex: "E8C4BC")
-        case .info:     return Color(hex: "D6CEC0")
+        case .progress: return DSColor.accentBorder
+        case .success:  return DSColor.successSoft
+        case .error:    return DSColor.errorSoft
+        case .info:     return DSColor.borderDefault
         }
     }
 }
