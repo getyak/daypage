@@ -1,5 +1,17 @@
 # DayPage v2 Ralph Progress Log
 
+## 2026-04-17 - US-007
+- 在 DailyPageView 添加 `@State private var rawMemos: [Memo] = []` 状态
+- 修改 `loadPage()` 在加载 Daily Page 内容时同步用 `RawStorage.read(for:)` 加载原始 memos
+- 重写 `timelineContent` 函数：复用 `TimelineRow` 组件渲染结构化 memo 卡片（时间竖线 + MemoCardView）
+- 空状态显示 "该日无原始记录" 提示
+- **Learnings for future iterations:**
+  - `TimelineRow` 定义在 `TodayView.swift` 第 280 行，接受 `Memo` 和 `isLast: Bool` 参数
+  - `RawStorage.read(for: Date)` 是同步调用，在 `loadPage()` 中直接调用即可
+  - `DailyPageView.loadPage()` 使用 `guard let content = try? String(contentsOf:)` 加载编译页，即使编译页不存在也能加载原始 memos
+  - Timeline Tab 复用了与 `RawMemoView` 完全相同的渲染逻辑，视觉一致
+---
+
 ## 2026-04-17 - US-006
 - 在 EntityPageView 添加 `@State private var selectedDate: String?` 状态
 - relatedMemos() 中每个日期行用 Button 包装，点击时 `selectedDate = dateStr`
