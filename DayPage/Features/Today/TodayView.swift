@@ -8,6 +8,10 @@ struct TodayView: View {
     @StateObject private var bannerCenter = BannerCenter.shared
     @StateObject private var voiceQueue = VoiceAttachmentQueue.shared
 
+    /// Feature flag for the Fromm-style InputBarV2 (US-007). Default ON; users
+    /// can fall back to the legacy InputBarView via Settings → 外观.
+    @AppStorage("useInputBarV2") private var useInputBarV2: Bool = true
+
     /// The draft text in the input bar.
     @State private var draftText: String = ""
 
@@ -246,45 +250,54 @@ struct TodayView: View {
                         onTap: { viewModel.compile() }
                     )
 
-                    // MARK: Input Bar
-                    InputBarView(
-                        text: $draftText,
-                        isSubmitting: viewModel.isSubmitting,
-                        isLocating: viewModel.isLocating,
-                        pendingLocation: viewModel.pendingLocation,
-                        locationAuthStatus: LocationService.shared.authorizationStatus,
-                        isProcessingPhoto: viewModel.isProcessingPhoto,
-                        pendingAttachments: viewModel.pendingAttachments,
-                        onFetchLocation: {
-                            viewModel.fetchLocation()
-                        },
-                        onClearLocation: {
-                            viewModel.clearPendingLocation()
-                        },
-                        onAddPhoto: { item in
-                            viewModel.addPhotoAttachment(item: item)
-                        },
-                        onCapturePhoto: {
-                            viewModel.startCameraCapture()
-                        },
-                        onRemoveAttachment: { id in
-                            viewModel.removePendingAttachment(id: id)
-                        },
-                        onStartVoiceRecording: {
-                            viewModel.startVoiceRecording()
-                        },
-                        onVoiceComplete: { result in
-                            viewModel.addVoiceAttachment(result: result)
-                        },
-                        onAddFile: {
-                            viewModel.startFilePicker()
-                        },
-                        onSubmit: {
-                            let body = draftText
-                            draftText = ""
-                            viewModel.submitCombinedMemo(body: body)
-                        }
-                    )
+                    // MARK: Input Bar — V2 (Fromm style) or legacy V1 per user setting.
+                    if useInputBarV2 {
+                        InputBarV2(
+                            text: $draftText,
+                            isSubmitting: viewModel.isSubmitting,
+                            isLocating: viewModel.isLocating,
+                            pendingLocation: viewModel.pendingLocation,
+                            locationAuthStatus: LocationService.shared.authorizationStatus,
+                            isProcessingPhoto: viewModel.isProcessingPhoto,
+                            pendingAttachments: viewModel.pendingAttachments,
+                            onFetchLocation: { viewModel.fetchLocation() },
+                            onClearLocation: { viewModel.clearPendingLocation() },
+                            onAddPhoto: { item in viewModel.addPhotoAttachment(item: item) },
+                            onCapturePhoto: { viewModel.startCameraCapture() },
+                            onRemoveAttachment: { id in viewModel.removePendingAttachment(id: id) },
+                            onStartVoiceRecording: { viewModel.startVoiceRecording() },
+                            onVoiceComplete: { result in viewModel.addVoiceAttachment(result: result) },
+                            onAddFile: { viewModel.startFilePicker() },
+                            onSubmit: {
+                                let body = draftText
+                                draftText = ""
+                                viewModel.submitCombinedMemo(body: body)
+                            }
+                        )
+                    } else {
+                        InputBarView(
+                            text: $draftText,
+                            isSubmitting: viewModel.isSubmitting,
+                            isLocating: viewModel.isLocating,
+                            pendingLocation: viewModel.pendingLocation,
+                            locationAuthStatus: LocationService.shared.authorizationStatus,
+                            isProcessingPhoto: viewModel.isProcessingPhoto,
+                            pendingAttachments: viewModel.pendingAttachments,
+                            onFetchLocation: { viewModel.fetchLocation() },
+                            onClearLocation: { viewModel.clearPendingLocation() },
+                            onAddPhoto: { item in viewModel.addPhotoAttachment(item: item) },
+                            onCapturePhoto: { viewModel.startCameraCapture() },
+                            onRemoveAttachment: { id in viewModel.removePendingAttachment(id: id) },
+                            onStartVoiceRecording: { viewModel.startVoiceRecording() },
+                            onVoiceComplete: { result in viewModel.addVoiceAttachment(result: result) },
+                            onAddFile: { viewModel.startFilePicker() },
+                            onSubmit: {
+                                let body = draftText
+                                draftText = ""
+                                viewModel.submitCombinedMemo(body: body)
+                            }
+                        )
+                    }
                 }
                 // Submit error toast
                 .overlay(alignment: .top) {

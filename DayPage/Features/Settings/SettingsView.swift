@@ -25,6 +25,9 @@ struct SettingsView: View {
     @State private var onThisDayEnabled: Bool = OnThisDayScheduler.shared.isEnabled
     @State private var onThisDayRefreshHour: Int = OnThisDayScheduler.shared.refreshHour
 
+    // Input bar variant (US-007). Default ON; toggle surfaces legacy fallback.
+    @AppStorage("useInputBarV2") private var useInputBarV2: Bool = true
+
     // Data section state
     @State private var vaultSizeLabel: String = "计算中…"
     @State private var showExportAlert = false
@@ -213,6 +216,15 @@ struct SettingsView: View {
                     .foregroundColor(DSColor.onSurfaceVariant)
             }
             .foregroundColor(DSColor.onSurfaceVariant)
+
+            // InputBarV2 (Fromm style) — US-007. Invert binding so the visible
+            // label reads "使用旧版输入框" per PRD copy.
+            Toggle(isOn: Binding(
+                get: { !useInputBarV2 },
+                set: { useInputBarV2 = !$0 }
+            )) {
+                Label("使用旧版输入框", systemImage: "keyboard")
+            }
 
             // On This Day configuration
             Toggle(isOn: $onThisDayEnabled) {

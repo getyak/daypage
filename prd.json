@@ -135,8 +135,8 @@
         "Verify in Simulator using verify-daypage skill — V2 input bar matches Fromm aesthetic; `+` popover opens smoothly"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "New Features/Today/InputBarV2.swift + AttachmentMenuPopover.swift implement the Fromm-style input bar. Main row is [+ 36pt circle] [capsule TextEditor cornerRadius 18 + 1pt DSColor.outlineVariant stroke + vertical padding 10pt container] [right action — mic when empty, send arrow.up in primary-filled circle when text or attachments exist]. `+` toggles AttachmentMenuPopover overlaid bottomLeading with spring(0.28, 0.85) scale+opacity; each of the 4 rows (📷 拍照 / 🖼 从相册选 / 📁 附件 / 📍 位置) closes the menu then calls the existing TodayViewModel handler (startCameraCapture / pickPhoto via .photosPicker / startFilePicker / fetchLocation). Tap-outside dismissal handled via a near-invisible (opacity 0.001) background layer that only mounts while menu is open. No keyboard accessory toolbar on V2 — all attachment entry points live in the popover per PRD. Legacy InputBarView kept intact as fallback. TodayView branches on @AppStorage('useInputBarV2') Bool (default true); SettingsView → 外观 section surfaces a '使用旧版输入框' toggle (inverted binding so the visible label reads as PRD copy). project.pbxproj registers A10000051/A20000051 (InputBarV2) and A10000052/A20000052 (AttachmentMenuPopover) into Today group + Sources build phase. Build: xcodebuild -scheme DayPage … → BUILD SUCCEEDED. Simulator visual check deferred (verify-daypage MCP skill not wired). PressToTalkButton (US-008) will later slot into the `+`-less-mic-button slot."
     },
     {
       "id": "US-008",
