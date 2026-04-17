@@ -272,3 +272,18 @@
   - updateFrontmatter 要用 mutable `closingLine` 变量追踪 `---` 位置，因为插入/删除行会改变索引
   - DailyPageMetadataEditView 的 save 直接操作 wiki/daily/YYYY-MM-DD.md，使用 RawStorage.atomicWrite
 ---
+## 2026-04-17 - US-022
+- InputBarView.swift: 添加 `onCapturePhoto: () -> Void` 回调参数；添加 `@State private var showPhotoSourceDialog: Bool` 状态
+- photoButton 改为 PhotosPicker（单击走相册流程，保持原有行为）+ LongPressGesture（长按弹出 confirmationDialog）
+- confirmationDialog 提供"拍照"/"从相册选择"/"取消"三个选项，选"拍照"调用 onCapturePhoto
+- TodayViewModel.swift: 添加 `@Published var isShowingCamera: Bool`、`startCameraCapture()` 方法、`addCameraPhoto(_ image: UIImage)` 方法（调用 photoService.processImageData 走现有 Photo 附件流程）
+- CameraPickerView.swift: 新建 UIViewControllerRepresentable，封装 UIImagePickerController（sourceType: .camera），Coordinator 实现 delegate 方法，捕获后调用 onCapture 回调
+- TodayView.swift: InputBarView 添加 onCapturePhoto 回调，fullScreenCover 绑定 viewModel.isShowingCamera 展示 CameraPickerView
+- DayPage.xcodeproj/project.pbxproj: 手动添加 CameraPickerView.swift 的 PBXBuildFile/PBXFileReference/Group/Sources 条目（ID: A10000033/A20000033）
+- 文件：DayPage/Features/Today/InputBarView.swift、TodayViewModel.swift、TodayView.swift、CameraPickerView.swift（新建）、DayPage.xcodeproj/project.pbxproj
+- **Learnings for future iterations:**
+  - 新增 Swift 文件必须手动更新 DayPage.xcodeproj/project.pbxproj 的四个位置：PBXBuildFile、PBXFileReference、Group children、Sources build phase
+  - UIImagePickerController 在模拟器上 sourceType:.camera 会崩溃（无相机硬件），仅在真机测试；confirmationDialog 在模拟器可正常触发
+  - PhotosPicker 的 `.simultaneousGesture(LongPressGesture)` 可与 PhotosPicker 的 tap 共存：单击走 picker，长按走 dialog
+  - 相机捕获的 UIImage 通过 jpegData(compressionQuality: 0.9) 转为 Data，复用 photoService.processImageData 写入 vault
+---
