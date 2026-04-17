@@ -1,12 +1,13 @@
 #!/bin/bash
 # Ralph Wiggum - Long-running AI agent loop
-# Usage: ./ralph.sh [--tool amp|claude] [max_iterations]
+# Usage: ./ralph.sh [--tool amp|claude] [--model <model-id>] [max_iterations]
 
 set -e
 
 # Parse arguments
 TOOL="amp"  # Default to amp for backwards compatibility
 MAX_ITERATIONS=10
+CLAUDE_MODEL="claude-sonnet-4-6"
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -16,6 +17,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --tool=*)
       TOOL="${1#*=}"
+      shift
+      ;;
+    --model)
+      CLAUDE_MODEL="$2"
+      shift 2
+      ;;
+    --model=*)
+      CLAUDE_MODEL="${1#*=}"
       shift
       ;;
     *)
@@ -79,7 +88,7 @@ if [ ! -f "$PROGRESS_FILE" ]; then
   echo "---" >> "$PROGRESS_FILE"
 fi
 
-echo "Starting Ralph - Tool: $TOOL - Max iterations: $MAX_ITERATIONS"
+echo "Starting Ralph - Tool: $TOOL - Model: $CLAUDE_MODEL - Max iterations: $MAX_ITERATIONS"
 
 for i in $(seq 1 $MAX_ITERATIONS); do
   echo ""
@@ -92,7 +101,7 @@ for i in $(seq 1 $MAX_ITERATIONS); do
     OUTPUT=$(cat "$SCRIPT_DIR/prompt.md" | amp --dangerously-allow-all 2>&1 | tee /dev/stderr) || true
   else
     # Claude Code: use --dangerously-skip-permissions for autonomous operation, --print for output
-    OUTPUT=$(claude --dangerously-skip-permissions --print < "$SCRIPT_DIR/CLAUDE.md" 2>&1 | tee /dev/stderr) || true
+    OUTPUT=$(claude --dangerously-skip-permissions --print --model "$CLAUDE_MODEL" < "$SCRIPT_DIR/CLAUDE.md" 2>&1 | tee /dev/stderr) || true
   fi
 
   # Check for completion signal
@@ -100,6 +109,54 @@ for i in $(seq 1 $MAX_ITERATIONS); do
     echo ""
     echo "Ralph completed all tasks!"
     echo "Completed at iteration $i of $MAX_ITERATIONS"
+
+    # ── Tag: bump patch version and push ──────────────────────────────────
+    LATEST_TAG=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+    if [[ -z "$LATEST_TAG" ]]; then
+      NEW_TAG="v0.1.0"
+    else
+      IFS='.' read -r MAJOR MINOR PATCH <<< "${LATEST_TAG#v}"
+      NEW_TAG="v${MAJOR}.${MINOR}.$((PATCH + 1))"
+    fi
+    echo "Tagging release: $NEW_TAG"
+    git tag -a "$NEW_TAG" -m "Release $NEW_TAG — ralph auto-ship"
+    git push origin "$NEW_TAG"
+
+    # ── PR: build title, body, and Closes list from prd.json ──────────────
+    BRANCH=$(jq -r '.branchName // empty' "$PRD_FILE" 2>/dev/null || echo "")
+    PR_TITLE=$(jq -r '.description // empty' "$PRD_FILE" 2>/dev/null | head -c 70)
+    STORY_COUNT=$(jq '[.userStories[] | select(.passes == true)] | length' "$PRD_FILE" 2>/dev/null || echo "?")
+    TOTAL_COUNT=$(jq '.userStories | length' "$PRD_FILE" 2>/dev/null || echo "?")
+
+    # Extract #number refs from all userStory descriptions and titles
+    CLOSES=$(jq -r '.userStories[] | (.description // "") + " " + (.title // "")' "$PRD_FILE" 2>/dev/null \
+      | grep -oE '#[0-9]+' | sort -u \
+      | sed 's/#\([0-9]*\)/Closes #\1/' \
+      | tr '\n' ' ')
+
+    # Build story summary list
+    STORY_LIST=$(jq -r '.userStories[] | select(.passes == true) | "- [\(.id)] \(.title)"' "$PRD_FILE" 2>/dev/null | head -20)
+
+    git push -u origin "$BRANCH" 2>/dev/null || true
+
+    gh pr create \
+      --title "$PR_TITLE" \
+      --body "$(cat <<PREOF
+## Summary
+Ralph autonomous agent completed $STORY_COUNT/$TOTAL_COUNT user stories.
+
+## Completed Stories
+$STORY_LIST
+
+## Release
+Tagged as \`$NEW_TAG\`
+
+## Linked Issues
+$CLOSES
+PREOF
+)"
+    echo ""
+    echo "PR created and tagged $NEW_TAG"
     exit 0
   fi
 
