@@ -7,6 +7,10 @@ extension Notification.Name {
     /// Posted when background compilation fails after all retries.
     /// TodayViewModel listens to show the error banner + retry button.
     static let compilationDidFail = Notification.Name("com.daypage.compilationDidFail")
+    /// Posted when background compilation starts.
+    static let compilationDidStart = Notification.Name("com.daypage.compilationDidStart")
+    /// Posted when background compilation ends (success or failure).
+    static let compilationDidEnd = Notification.Name("com.daypage.compilationDidEnd")
 }
 
 // MARK: - NotificationDelegate

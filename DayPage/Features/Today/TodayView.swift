@@ -48,6 +48,11 @@ struct TodayView: View {
                             .padding(.vertical, 4)
                             .background(DSColor.surfaceContainer)
 
+                        // Compiling badge (shown during manual or background compilation)
+                        if viewModel.isCompiling || viewModel.isBackgroundCompiling {
+                            CompilingBadge()
+                        }
+
                         // Settings icon
                         Button {
                             showSettings = true
@@ -318,6 +323,25 @@ struct CompilationFailedBanner: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(DSColor.errorContainer)
+    }
+}
+
+// MARK: - CompilingBadge
+
+/// Small badge shown in the Today header when compilation is in progress.
+struct CompilingBadge: View {
+    var body: some View {
+        HStack(spacing: 4) {
+            ProgressView()
+                .scaleEffect(0.6)
+                .tint(DSColor.onSurface)
+            Text("正在编译...")
+                .font(.custom("JetBrainsMono-Regular", fixedSize: 10))
+                .foregroundColor(DSColor.onSurface)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(DSColor.primary.opacity(0.12))
     }
 }
 

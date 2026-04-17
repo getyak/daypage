@@ -75,6 +75,9 @@ final class TodayViewModel: ObservableObject {
     /// Whether AI compilation is in progress.
     @Published var isCompiling: Bool = false
 
+    /// Whether background (auto/backfill) compilation is in progress.
+    @Published var isBackgroundCompiling: Bool = false
+
     /// Set when background compilation fails after all retries (triggers error banner).
     @Published var compilationFailedError: String? = nil
 
@@ -118,6 +121,24 @@ final class TodayViewModel: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.compilationFailedError = "后台编译失败，请检查网络或 API Key 后重试"
+            }
+        }
+        NotificationCenter.default.addObserver(
+            forName: .compilationDidStart,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.isBackgroundCompiling = true
+            }
+        }
+        NotificationCenter.default.addObserver(
+            forName: .compilationDidEnd,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.isBackgroundCompiling = false
             }
         }
     }

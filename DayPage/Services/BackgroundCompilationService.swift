@@ -84,6 +84,8 @@ final class BackgroundCompilationService {
         guard shouldCompile(for: yesterday) else { return }
 
         Task {
+            NotificationCenter.default.post(name: .compilationDidStart, object: nil)
+            defer { NotificationCenter.default.post(name: .compilationDidEnd, object: nil) }
             do {
                 try await compileWithRetry(for: yesterday, trigger: "backfill")
                 sendSuccessNotification(for: yesterday)
@@ -113,6 +115,8 @@ final class BackgroundCompilationService {
         }
 
         Task {
+            NotificationCenter.default.post(name: .compilationDidStart, object: nil)
+            defer { NotificationCenter.default.post(name: .compilationDidEnd, object: nil) }
             do {
                 try await compileWithRetry(for: yesterday, trigger: "auto")
                 sendSuccessNotification(for: yesterday)
