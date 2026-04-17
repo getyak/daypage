@@ -74,6 +74,16 @@ struct TodayView: View {
                         }
                     }
 
+                    // MARK: Compilation Failed Banner
+                    if let failureMsg = viewModel.compilationFailedError {
+                        CompilationFailedBanner(message: failureMsg) {
+                            viewModel.compilationFailedError = nil
+                            viewModel.compile()
+                        } onDismiss: {
+                            viewModel.compilationFailedError = nil
+                        }
+                    }
+
                     // MARK: Timeline (75% of available space)
                     GeometryReader { geo in
                         ScrollView {
@@ -271,6 +281,43 @@ struct ApiKeyMissingBanner: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(DSColor.warningContainer)
+    }
+}
+
+// MARK: - CompilationFailedBanner
+
+/// Red banner shown when background compilation failed after all retries.
+struct CompilationFailedBanner: View {
+    let message: String
+    let onRetry: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "xmark.circle.fill")
+                .foregroundColor(DSColor.error)
+                .font(.system(size: 14))
+            Text(message)
+                .font(.custom("Inter-Regular", size: 13))
+                .foregroundColor(DSColor.onErrorContainer)
+                .lineLimit(2)
+            Spacer()
+            Button("重试") {
+                onRetry()
+            }
+            .font(.custom("Inter-Medium", size: 13))
+            .foregroundColor(DSColor.error)
+            Button {
+                onDismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(DSColor.onErrorContainer)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(DSColor.errorContainer)
     }
 }
 

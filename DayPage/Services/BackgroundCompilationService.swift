@@ -10,7 +10,7 @@ import UserNotifications
 ///   1. Register the BGAppRefreshTask on app launch (call `registerTask()` from DayPageApp.init)
 ///   2. Schedule the next background fetch (call `scheduleIfNeeded()` from app launch / foreground)
 ///   3. Handle the background task: check if yesterday's raw file exists and daily page is absent
-///   4. Send a local notification when compilation completes
+///   4. Send a local notification when compilation completes (or fails after retries)
 ///   5. On app foreground: check and backfill any missed compilations
 ///
 /// Background task identifier:  "com.daypage.daily-compilation"
@@ -21,6 +21,8 @@ final class BackgroundCompilationService {
     // MARK: - Constants
 
     nonisolated static let taskIdentifier = "com.daypage.daily-compilation"
+    nonisolated static let failureNotificationCategory = "com.daypage.compilation-failed"
+    nonisolated static let failureNotificationAction = "com.daypage.retry-compilation"
 
     // MARK: - Singleton
 
@@ -83,10 +85,11 @@ final class BackgroundCompilationService {
 
         Task {
             do {
-                try await CompilationService.shared.compile(for: yesterday, trigger: "backfill")
-                sendNotification(for: yesterday)
+                try await compileWithRetry(for: yesterday, trigger: "backfill")
+                sendSuccessNotification(for: yesterday)
             } catch {
-                print("[BGCompile] Backfill failed: \(error.localizedDescription)")
+                print("[BGCompile] Backfill failed after retries: \(error.localizedDescription)")
+                sendFailureNotification()
             }
         }
     }
@@ -111,14 +114,37 @@ final class BackgroundCompilationService {
 
         Task {
             do {
-                try await CompilationService.shared.compile(for: yesterday, trigger: "auto")
-                sendNotification(for: yesterday)
+                try await compileWithRetry(for: yesterday, trigger: "auto")
+                sendSuccessNotification(for: yesterday)
                 task.setTaskCompleted(success: true)
             } catch {
-                print("[BGCompile] Background compile failed: \(error.localizedDescription)")
+                print("[BGCompile] Background compile failed after retries: \(error.localizedDescription)")
+                sendFailureNotification()
                 task.setTaskCompleted(success: false)
             }
         }
+    }
+
+    // MARK: - Private: Retry Logic
+
+    /// Retries compilation with exponential backoff: 30s → 2min → 10min.
+    /// Throws if all 3 attempts fail.
+    private func compileWithRetry(for date: Date, trigger: String) async throws {
+        let delays: [UInt64] = [0, 30, 120, 600]
+        var lastError: Error?
+        for (attempt, delaySecs) in delays.enumerated() {
+            if delaySecs > 0 {
+                try await Task.sleep(nanoseconds: delaySecs * 1_000_000_000)
+            }
+            do {
+                try await CompilationService.shared.compile(for: date, trigger: trigger)
+                return
+            } catch {
+                lastError = error
+                print("[BGCompile] Attempt \(attempt + 1) failed: \(error.localizedDescription)")
+            }
+        }
+        throw lastError!
     }
 
     // MARK: - Private: Compile Eligibility Check
@@ -142,9 +168,9 @@ final class BackgroundCompilationService {
         return !FileManager.default.fileExists(atPath: dailyURL.path)
     }
 
-    // MARK: - Private: Local Notification
+    // MARK: - Private: Local Notifications
 
-    private func sendNotification(for date: Date) {
+    private func sendSuccessNotification(for date: Date) {
         let center = UNUserNotificationCenter.current()
 
         let content = UNMutableNotificationContent()
@@ -155,12 +181,35 @@ final class BackgroundCompilationService {
         let request = UNNotificationRequest(
             identifier: "com.daypage.compiled-\(date.timeIntervalSince1970)",
             content: content,
-            trigger: nil // Deliver immediately
+            trigger: nil
         )
 
         center.add(request) { error in
             if let error {
                 print("[BGCompile] Notification error: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Sends a failure notification after all retry attempts are exhausted.
+    private func sendFailureNotification() {
+        let center = UNUserNotificationCenter.current()
+
+        let content = UNMutableNotificationContent()
+        content.title = "DayPage"
+        content.body = "今日编译失败，点击查看"
+        content.sound = .default
+        content.userInfo = ["compilationFailed": true]
+
+        let request = UNNotificationRequest(
+            identifier: "com.daypage.compilation-failed-\(Date().timeIntervalSince1970)",
+            content: content,
+            trigger: nil
+        )
+
+        center.add(request) { error in
+            if let error {
+                print("[BGCompile] Failure notification error: \(error.localizedDescription)")
             }
         }
     }

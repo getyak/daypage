@@ -75,6 +75,9 @@ final class TodayViewModel: ObservableObject {
     /// Whether AI compilation is in progress.
     @Published var isCompiling: Bool = false
 
+    /// Set when background compilation fails after all retries (triggers error banner).
+    @Published var compilationFailedError: String? = nil
+
     /// Pending photo results (can accumulate before submission, cleared after).
     @Published var pendingPhotos: [PhotoPickerResult] = []
 
@@ -104,6 +107,19 @@ final class TodayViewModel: ObservableObject {
 
     init(date: Date = Date()) {
         self.date = date
+        observeCompilationFailure()
+    }
+
+    private func observeCompilationFailure() {
+        NotificationCenter.default.addObserver(
+            forName: .compilationDidFail,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.compilationFailedError = "后台编译失败，请检查网络或 API Key 后重试"
+            }
+        }
     }
 
     // MARK: - Load Memos
