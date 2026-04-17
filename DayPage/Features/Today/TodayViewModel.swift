@@ -90,6 +90,9 @@ final class TodayViewModel: ObservableObject {
     /// Whether the voice recording sheet is presented.
     @Published var isShowingVoiceRecorder: Bool = false
 
+    /// Whether the camera capture sheet is presented.
+    @Published var isShowingCamera: Bool = false
+
     /// Whether any API key is missing (triggers banner in TodayView).
     var hasApiKeysMissing: Bool {
         Secrets.dashScopeApiKey.isEmpty
@@ -204,6 +207,25 @@ final class TodayViewModel: ObservableObject {
     /// Opens the voice recording sheet.
     func startVoiceRecording() {
         isShowingVoiceRecorder = true
+    }
+
+    /// Opens the camera capture sheet.
+    func startCameraCapture() {
+        isShowingCamera = true
+    }
+
+    /// Processes a UIImage captured from the camera and stages it as a pending attachment.
+    func addCameraPhoto(_ image: UIImage) {
+        guard let data = image.jpegData(compressionQuality: 0.9) else { return }
+        isProcessingPhoto = true
+        Task {
+            defer { isProcessingPhoto = false }
+            guard let result = photoService.processImageData(data) else {
+                submitError = "照片处理失败，请重试"
+                return
+            }
+            pendingAttachments.append(.photo(result))
+        }
     }
 
     /// Dismisses the voice recording sheet without saving.

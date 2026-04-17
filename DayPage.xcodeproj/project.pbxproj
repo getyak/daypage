@@ -27,6 +27,7 @@
 		A10000018 /* PhotoService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000018 /* PhotoService.swift */; };
 		A10000019 /* VoiceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000019 /* VoiceService.swift */; };
 		A10000020 /* VoiceRecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000020 /* VoiceRecordingView.swift */; };
+		A10000033 /* CameraPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000033 /* CameraPickerView.swift */; };
 		A10000021 /* CompilationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000021 /* CompilationService.swift */; };
 		A10000022 /* EntityPageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000022 /* EntityPageService.swift */; };
 		A10000023 /* BackgroundCompilationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000023 /* BackgroundCompilationService.swift */; };
@@ -73,6 +74,7 @@
 		A20000018 /* PhotoService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoService.swift; sourceTree = "<group>"; };
 		A20000019 /* VoiceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceService.swift; sourceTree = "<group>"; };
 		A20000020 /* VoiceRecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceRecordingView.swift; sourceTree = "<group>"; };
+		A20000033 /* CameraPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPickerView.swift; sourceTree = "<group>"; };
 		A20000021 /* CompilationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompilationService.swift; sourceTree = "<group>"; };
 		A20000022 /* EntityPageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntityPageService.swift; sourceTree = "<group>"; };
 		A20000023 /* BackgroundCompilationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundCompilationService.swift; sourceTree = "<group>"; };
@@ -226,6 +228,7 @@
 				A20000014 /* MemoCardView.swift */,
 				A20000015 /* InputBarView.swift */,
 				A20000020 /* VoiceRecordingView.swift */,
+				A20000033 /* CameraPickerView.swift */,
 			);
 			path = Today;
 			sourceTree = "<group>";
@@ -412,6 +415,7 @@
 				A10000018 /* PhotoService.swift in Sources */,
 				A10000019 /* VoiceService.swift in Sources */,
 				A10000020 /* VoiceRecordingView.swift in Sources */,
+				A10000033 /* CameraPickerView.swift in Sources */,
 				A10000021 /* CompilationService.swift in Sources */,
 				A10000022 /* EntityPageService.swift in Sources */,
 				A10000023 /* BackgroundCompilationService.swift in Sources */,

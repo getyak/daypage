@@ -206,6 +206,9 @@ struct TodayView: View {
                         onAddPhoto: { item in
                             viewModel.addPhotoAttachment(item: item)
                         },
+                        onCapturePhoto: {
+                            viewModel.startCameraCapture()
+                        },
                         onRemoveAttachment: { id in
                             viewModel.removePendingAttachment(id: id)
                         },
@@ -277,6 +280,19 @@ struct TodayView: View {
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
+            }
+            // Camera capture sheet (fullScreenCover so the camera UI uses full screen)
+            .fullScreenCover(isPresented: $viewModel.isShowingCamera) {
+                CameraPickerView(
+                    onCapture: { image in
+                        viewModel.isShowingCamera = false
+                        viewModel.addCameraPhoto(image)
+                    },
+                    onCancel: {
+                        viewModel.isShowingCamera = false
+                    }
+                )
+                .ignoresSafeArea()
             }
         }
     }
