@@ -51,14 +51,14 @@ struct MemoCardView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         if let name = memo.location?.name, !name.isEmpty {
                             Text(name.uppercased())
-                                .font(.custom("SpaceGrotesk-Bold", size: 14))
+                                .h2Style()
                                 .foregroundColor(DSColor.onSurface)
                         }
 
                         let coordText = coordinateString(memo.location)
                         if !coordText.isEmpty {
                             Text(coordText)
-                                .font(.custom("JetBrainsMono-Regular", fixedSize: 11))
+                                .monoLabelStyle(size: 11)
                                 .foregroundColor(DSColor.onSurfaceVariant)
                         }
                     }
@@ -131,7 +131,7 @@ struct MemoCardView: View {
                 // EXIF metadata bar below photo
                 if let exifText = photoExifText {
                     Text(exifText)
-                        .font(.custom("JetBrainsMono-Regular", fixedSize: 10))
+                        .monoLabelStyle(size: 10)
                         .foregroundColor(DSColor.onSurfaceVariant)
                         .lineLimit(1)
                         .truncationMode(.tail)
@@ -152,7 +152,7 @@ struct MemoCardView: View {
                                 .font(.system(size: 13))
                                 .foregroundColor(DSColor.onSurfaceVariant)
                             Text(att.transcript ?? URL(fileURLWithPath: att.file).lastPathComponent)
-                                .font(.custom("JetBrainsMono-Regular", fixedSize: 11))
+                                .monoLabelStyle(size: 11)
                                 .foregroundColor(DSColor.onSurface)
                                 .lineLimit(1)
                                 .truncationMode(.middle)
@@ -338,16 +338,16 @@ struct LocationPreviewSheet: View {
                 VStack(alignment: .leading, spacing: 2) {
                     if let name = location?.name, !name.isEmpty {
                         Text(name.uppercased())
-                            .font(.custom("SpaceGrotesk-Bold", size: 16))
+                            .h2Style()
                             .foregroundColor(DSColor.onSurface)
                     } else {
                         Text("位置附件")
-                            .font(.custom("SpaceGrotesk-Bold", size: 16))
+                            .h2Style()
                             .foregroundColor(DSColor.onSurface)
                     }
                     if let coord = coordinate {
                         Text(String(format: "%.5f°, %.5f°", coord.latitude, coord.longitude))
-                            .font(.custom("JetBrainsMono-Regular", fixedSize: 11))
+                            .monoLabelStyle(size: 11)
                             .foregroundColor(DSColor.onSurfaceVariant)
                     }
                 }
@@ -398,7 +398,7 @@ struct LocationPreviewSheet: View {
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(DSColor.primary)
                         Text("在 Apple Maps 中打开")
-                            .font(.custom("SpaceGrotesk-Medium", size: 15))
+                            .titleSMStyle()
                             .foregroundColor(DSColor.primary)
                         Spacer()
                         Image(systemName: "arrow.up.right")
@@ -425,7 +425,7 @@ struct LocationPreviewSheet: View {
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundColor(.red)
                             Text("删除附件")
-                                .font(.custom("SpaceGrotesk-Medium", size: 15))
+                                .titleSMStyle()
                                 .foregroundColor(.red)
                             Spacer()
                         }
@@ -527,7 +527,7 @@ struct VoiceMemoPlayerRow: View {
 
                 // Duration
                 Text(formatDur(isPlaying ? (duration * playbackProgress) : duration))
-                    .font(.custom("JetBrainsMono-Regular", fixedSize: 10))
+                    .monoLabelStyle(size: 10)
                     .foregroundColor(DSColor.onSurfaceVariant)
                     .frame(width: 36, alignment: .trailing)
             }
@@ -643,9 +643,8 @@ struct DailyPageEntryCard: View {
             HStack(alignment: .center, spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("TODAY'S PAGE COMPILED")
-                        .font(.custom("SpaceGrotesk-Bold", size: 14))
+                        .sectionLabelStyle()
                         .foregroundColor(DSColor.onPrimary)
-                        .kerning(1)
 
                     if let summary = summary, !summary.isEmpty {
                         Text(summary)

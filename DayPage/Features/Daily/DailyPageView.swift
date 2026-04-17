@@ -289,7 +289,7 @@ struct DailyPageView: View {
                     .font(.system(size: 32))
                     .foregroundColor(DSColor.onSurfaceVariant.opacity(0.5))
                 Text("该日无原始记录")
-                    .font(.custom("SpaceGrotesk-Bold", size: 14))
+                    .h2Style()
                     .foregroundColor(DSColor.onSurfaceVariant)
             }
             .frame(maxWidth: .infinity)
@@ -315,7 +315,7 @@ struct DailyPageView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Main date title — Space Grotesk 56px uppercase
             Text(model.dateString.uppercased())
-                .font(.custom("SpaceGrotesk-Bold", size: 56).leading(.tight))
+                .displayLGStyle()
                 .foregroundColor(DSColor.primary)
                 .lineLimit(2)
                 .minimumScaleFactor(0.6)
@@ -334,7 +334,7 @@ struct DailyPageView: View {
                         .fill(DSColor.primary)
                         .frame(width: 2)
                     Text(model.summary)
-                        .font(.custom("Inter-Regular", size: 18))
+                        .titleSMStyle()
                         .foregroundColor(DSColor.onSurface)
                         .lineSpacing(4)
                         .padding(.leading, 16)
@@ -390,9 +390,8 @@ struct DailyPageView: View {
             // Section heading with right horizontal line
             HStack(spacing: 16) {
                 Text(section.title.uppercased())
-                    .font(.custom("SpaceGrotesk-Bold", size: 11))
+                    .sectionLabelStyle()
                     .foregroundColor(DSColor.outline)
-                    .kerning(3)
                 Rectangle()
                     .fill(DSColor.outlineVariant)
                     .frame(height: 1)
@@ -408,9 +407,8 @@ struct DailyPageView: View {
     private func locationsSection(model: DailyPageModel) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("PLACES TODAY")
-                .font(.custom("SpaceGrotesk-Bold", size: 11))
+                .sectionLabelStyle()
                 .foregroundColor(DSColor.outline)
-                .kerning(3)
 
             VStack(alignment: .leading, spacing: 12) {
                 ForEach(model.locations, id: \.name) { loc in
@@ -451,9 +449,8 @@ struct DailyPageView: View {
     private func threadsSection(model: DailyPageModel) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("THREADS")
-                .font(.custom("SpaceGrotesk-Bold", size: 11))
+                .sectionLabelStyle()
                 .foregroundColor(DSColor.outline)
-                .kerning(3)
 
             let columns = [GridItem(.flexible()), GridItem(.flexible())]
             LazyVGrid(columns: columns, spacing: 12) {
@@ -836,7 +833,7 @@ struct HeroBannerView: View {
                 Spacer()
                 HStack {
                     Text("NO HERO IMAGE")
-                        .font(.custom("JetBrainsMono-Regular", fixedSize: 10))
+                        .monoLabelStyle(size: 10)
                         .kerning(2)
                         .foregroundColor(DSColor.onSurfaceVariant)
                         .padding(.horizontal, 8)
@@ -996,7 +993,7 @@ struct DailyPageMetadataEditView: View {
                             Task { await save() }
                         }
                         .foregroundColor(DSColor.primary)
-                        .font(.custom("SpaceGrotesk-Bold", size: 14))
+                        .h2Style()
                     }
                 }
             }
@@ -1030,7 +1027,7 @@ struct DailyPageMetadataEditView: View {
         VStack(alignment: .leading, spacing: 12) {
             sectionLabel("SUMMARY")
             TextEditor(text: $summary)
-                .font(.custom("Inter-Regular", size: 16))
+                .bodyMDStyle()
                 .foregroundColor(DSColor.onSurface)
                 .frame(minHeight: 80)
                 .padding(12)
@@ -1050,7 +1047,7 @@ struct DailyPageMetadataEditView: View {
                             mood = mood == option ? "" : option
                         }) {
                             Text(option)
-                                .font(.custom("Inter-Regular", size: 13))
+                                .captionStyle()
                                 .foregroundColor(mood == option ? DSColor.onPrimary : DSColor.onSurface)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
@@ -1063,7 +1060,7 @@ struct DailyPageMetadataEditView: View {
             }
             if !mood.isEmpty && !moodOptions.contains(mood) {
                 Text(mood)
-                    .font(.custom("JetBrainsMono-Regular", fixedSize: 12))
+                    .monoLabelStyle(size: 12)
                     .foregroundColor(DSColor.onSurfaceVariant)
                     .padding(.top, 4)
             }
@@ -1074,7 +1071,7 @@ struct DailyPageMetadataEditView: View {
         VStack(alignment: .leading, spacing: 12) {
             sectionLabel("WEATHER")
             TextField("例如：晴 28°C", text: $weather)
-                .font(.custom("Inter-Regular", size: 15))
+                .bodyMDStyle()
                 .foregroundColor(DSColor.onSurface)
                 .padding(12)
                 .background(DSColor.surfaceContainer)
@@ -1115,7 +1112,7 @@ struct DailyPageMetadataEditView: View {
                     }
                 } label: {
                     Text(selectedCoverPath == nil ? "从记录中选择" : "更换封面")
-                        .font(.custom("SpaceGrotesk-Bold", size: 12))
+                        .labelSMStyle()
                         .foregroundColor(DSColor.primary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
@@ -1128,7 +1125,7 @@ struct DailyPageMetadataEditView: View {
                 // Pick from photo library
                 PhotosPicker(selection: $photosPickerItem, matching: .images) {
                     Text("从相册选择")
-                        .font(.custom("SpaceGrotesk-Bold", size: 12))
+                        .labelSMStyle()
                         .foregroundColor(DSColor.onSurfaceVariant)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
@@ -1143,9 +1140,8 @@ struct DailyPageMetadataEditView: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(.custom("SpaceGrotesk-Bold", size: 11))
+            .sectionLabelStyle()
             .foregroundColor(DSColor.outline)
-            .kerning(3)
     }
 
     // MARK: - Data Helpers

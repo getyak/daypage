@@ -195,7 +195,7 @@ struct VoiceRecordingView: View {
                         Image(systemName: voiceService.state == .recording ? "pause.fill" : "play.fill")
                             .font(.system(size: 14, weight: .semibold))
                         Text(voiceService.state == .recording ? "PAUSE" : "RESUME")
-                            .font(.custom("JetBrainsMono-Regular", fixedSize: 12))
+                            .monoLabelStyle(size: 12)
                     }
                     .foregroundColor(DSColor.onSurface)
                     .frame(maxWidth: .infinity)
@@ -216,7 +216,7 @@ struct VoiceRecordingView: View {
                 onCancel()
             }) {
                 Text("DISCARD")
-                    .font(.custom("JetBrainsMono-Regular", fixedSize: 14))
+                    .monoLabelStyle(size: 14)
                     .foregroundColor(isProcessing ? DSColor.onSurfaceVariant : DSColor.onSurface)
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)
@@ -243,7 +243,7 @@ struct VoiceRecordingView: View {
                 }
             }) {
                 Text("SAVE")
-                    .font(.custom("JetBrainsMono-Regular", fixedSize: 14))
+                    .monoLabelStyle(size: 14)
                     .foregroundColor(canSave ? DSColor.onPrimary : DSColor.onSurfaceVariant)
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)

@@ -58,7 +58,7 @@ struct InputBarView: View {
                 ZStack(alignment: .topLeading) {
                     if text.isEmpty {
                         Text("LOG NEW OBSERVATION...")
-                            .font(.custom("JetBrainsMono-Regular", fixedSize: 13))
+                            .monoLabelStyle(size: 13)
                             .foregroundColor(DSColor.outlineVariant)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 8)
@@ -227,7 +227,7 @@ struct InputBarView: View {
                 .font(.system(size: 12, weight: .regular))
                 .foregroundColor(DSColor.onSurfaceVariant)
             Text(label)
-                .font(.custom("JetBrainsMono-Regular", fixedSize: 11))
+                .monoLabelStyle(size: 11)
                 .foregroundColor(DSColor.onSurfaceVariant)
                 .lineLimit(1)
                 .truncationMode(.middle)
