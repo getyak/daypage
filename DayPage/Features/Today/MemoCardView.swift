@@ -43,7 +43,7 @@ struct MemoCardView: View {
             VStack(alignment: .leading, spacing: 0) {
                 // Time chip
                 TimeChip(time: memo.created.formatted(.dateTime.hour().minute()))
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, DSSpacing.cardInner)
                     .padding(.top, 10)
 
                 // Location name + coordinates row
@@ -69,9 +69,9 @@ struct MemoCardView: View {
                         .font(.system(size: 16, weight: .regular))
                         .foregroundColor(DSColor.primary)
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, DSSpacing.cardInner)
                 .padding(.top, 6)
-                .padding(.bottom, 12)
+                .padding(.bottom, DSSpacing.cardInner)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(DSColor.surfaceContainer)
@@ -82,7 +82,8 @@ struct MemoCardView: View {
                 }
             }
         }
-        .cornerRadius(0)
+        .cornerRadius(DSSpacing.radiusCard)
+        .surfaceElevatedShadow()
         .sheet(isPresented: $showLocationSheet) {
             LocationPreviewSheet(
                 location: memo.location,
@@ -103,7 +104,7 @@ struct MemoCardView: View {
                 typeLabel
                 Spacer()
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, DSSpacing.cardInner)
             .padding(.top, 10)
 
             // Voice player row (for voice memos with audio attachments)
@@ -135,7 +136,7 @@ struct MemoCardView: View {
                         .foregroundColor(DSColor.onSurfaceVariant)
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, DSSpacing.cardInner)
                         .padding(.vertical, 6)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(DSColor.surfaceContainer)
@@ -157,7 +158,7 @@ struct MemoCardView: View {
                                 .lineLimit(1)
                                 .truncationMode(.middle)
                         }
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, DSSpacing.cardInner)
                         .padding(.vertical, 4)
                     }
                 }
@@ -175,7 +176,7 @@ struct MemoCardView: View {
                     .bodySMStyle()
                     .foregroundColor(DSColor.onSurface)
                     .lineLimit(isExpanded ? nil : previewLineLimit)
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, DSSpacing.cardInner)
                     .padding(.top, 6)
             }
 
@@ -204,9 +205,9 @@ struct MemoCardView: View {
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, DSSpacing.cardInner)
             .padding(.top, 6)
-            .padding(.bottom, 10)
+            .padding(.bottom, DSSpacing.cardInner)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(DSColor.surfaceContainer)
@@ -216,7 +217,8 @@ struct MemoCardView: View {
                 .frame(width: 3),
             alignment: .leading
         )
-        .cornerRadius(0)
+        .cornerRadius(DSSpacing.radiusCard)
+        .surfaceElevatedShadow()
     }
 
     // MARK: - Subviews
@@ -665,11 +667,11 @@ struct DailyPageEntryCard: View {
                     .foregroundColor(DSColor.onPrimary)
                     .offset(x: arrowOffset)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, DSSpacing.cardInner)
             .padding(.vertical, 18)
             .frame(maxWidth: .infinity)
             .background(DSColor.primary)
-            .cornerRadius(0)
+            .cornerRadius(DSSpacing.radiusCard)
         }
         .buttonStyle(.plain)
         .onHover { hovering in
@@ -724,7 +726,7 @@ struct CompilePromptCard: View {
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
                             .background(DSColor.primary)
-                            .cornerRadius(0)
+                            .cornerRadius(DSSpacing.radiusSmall)
                     }
                     .buttonStyle(.plain)
                     .disabled(isCompiling)
@@ -738,7 +740,8 @@ struct CompilePromptCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(DSColor.surfaceContainer)
         }
-        .cornerRadius(0)
+        .cornerRadius(DSSpacing.radiusCard)
+        .surfaceElevatedShadow()
         .animation(.easeInOut(duration: 0.2), value: isCompiling)
     }
 }

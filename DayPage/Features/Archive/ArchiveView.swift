@@ -932,11 +932,12 @@ struct ArchiveView: View {
                     }
                     .opacity(isMetadataOnly ? 0.8 : 1.0)
                 }
-                .padding(16)
+                .padding(DSSpacing.cardGap)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(DSColor.surfaceContainer)
             }
-            .cornerRadius(0)
+            .cornerRadius(DSSpacing.radiusCard)
+            .surfaceElevatedShadow()
         }
         .buttonStyle(.plain)
     }

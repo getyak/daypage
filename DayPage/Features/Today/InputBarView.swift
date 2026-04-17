@@ -187,7 +187,7 @@ struct InputBarView: View {
                     .background(hasContent ? DSColor.primary : DSColor.surfaceContainerHigh)
             }
         }
-        .cornerRadius(0)
+        .cornerRadius(DSSpacing.radiusSmall)
         .contentShape(Rectangle())
         // Short tap: send text
         .onTapGesture {

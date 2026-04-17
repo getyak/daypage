@@ -438,9 +438,10 @@ struct DailyPageView: View {
                     }
                 }
             }
-            .padding(20)
+            .padding(DSSpacing.cardInner)
             .background(DSColor.surfaceContainer)
-            .cornerRadius(0)
+            .cornerRadius(DSSpacing.radiusCard)
+            .surfaceElevatedShadow()
         }
     }
 
@@ -475,9 +476,9 @@ struct DailyPageView: View {
                                     .foregroundColor(DSColor.amberArchival)
                             }
                         }
-                        .padding(16)
+                        .padding(DSSpacing.cardInner)
                         .background(DSColor.surfaceContainerHigh)
-                        .cornerRadius(0)
+                        .cornerRadius(DSSpacing.radiusCard)
                     }
                     .buttonStyle(.plain)
                 }

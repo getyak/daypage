@@ -117,14 +117,14 @@ struct AppBanner: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(16)
+        .padding(DSSpacing.cardGap)
         .background(backgroundColor)
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: DSSpacing.radiusCard)
                 .stroke(borderColor, lineWidth: 1)
         )
-        .cornerRadius(12)
-        .padding(.horizontal, 16)
+        .cornerRadius(DSSpacing.radiusCard)
+        .padding(.horizontal, DSSpacing.cardGap)
     }
 
     @ViewBuilder

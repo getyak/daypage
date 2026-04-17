@@ -360,8 +360,8 @@
         "Verify in iOS Simulator: Today/Archive/Daily Page screenshots show clearly separated, rounded cards with subtle shadows"
       ],
       "priority": 20,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "新建 DSSpacing enum (cardInner 20/cardGap 16/sectionGap 24/radiusCard 12/radiusSmall 8)；MemoCardView/DailyPageEntryCard/CompilePromptCard → cornerRadius 12 + surfaceElevatedShadow；DailyPageView locationsSection + threadsSection cards → radius 12；ArchiveView listRow → radius 12 + shadow；AppBanner → radius 12；InputBar send button → radiusSmall 8。"
     },
     {
       "id": "US-021",
