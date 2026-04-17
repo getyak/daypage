@@ -1,5 +1,20 @@
 # DayPage v2 Ralph Progress Log
 
+## 2026-04-17 - US-023
+- 新建 DayPage/Features/Today/DocumentPickerView.swift：UIDocumentPickerViewController 的 SwiftUI 包装（UIViewControllerRepresentable），支持任意文件类型（.item），asCopy: true
+- TodayViewModel.swift：新增 FilePickerResult 结构体（filePath/fileName）；PendingAttachment 枚举新增 .file(FilePickerResult) case；新增 isShowingDocumentPicker @Published 属性；新增 startFilePicker() 和 addFileAttachment(url:) 方法，后者将文件复制到 vault/raw/assets/files/ 并追加 PendingAttachment.file
+- InputBarView.swift：新增 onAddFile: () -> Void 回调参数；新增 fileButton（paperclip 图标）插入到 photoButton 右侧；新增 fileCard 预览卡片（doc 图标 + 文件名，两行截断）；attachmentCard switch 新增 .file case
+- MemoCardView.swift：standardCard 新增文件附件列表渲染（kind == "file" 的附件显示 doc 图标 + transcript 字段存储的文件名）
+- TodayView.swift：InputBarView 添加 onAddFile 回调调用 viewModel.startFilePicker()；新增 .sheet(isPresented: $viewModel.isShowingDocumentPicker) 展示 DocumentPickerView
+- project.pbxproj：A20000034/A10000034 注册 DocumentPickerView.swift
+- 文件：DayPage/Features/Today/DocumentPickerView.swift（新建）、TodayViewModel.swift、InputBarView.swift、MemoCardView.swift、TodayView.swift、project.pbxproj
+- **Learnings for future iterations:**
+  - UIDocumentPickerViewController 用 forOpeningContentTypes: [.item] 支持所有文件类型，asCopy: true 确保 app 拥有文件副本（不依赖用户 iCloud/原始权限）
+  - 文件名冲突处理：先检测 destURL 是否存在，存在则追加 Unix 时间戳后缀
+  - Attachment.transcript 字段被复用来存储文件名（kind: "file" 时 transcript = fileName），避免修改模型结构；MemoCardView 读取 att.transcript ?? lastPathComponent 显示文件名
+  - PendingAttachment.file 的 attachment 属性中 transcript = r.fileName，YAML 序列化后 kind: file / transcript: "filename"
+---
+
 ## 2026-04-17 - US-021
 - Info.plist 添加 NSSpeechRecognitionUsageDescription 和 NSMicrophoneUsageDescription
 - VoiceService.swift: import Speech，新增 liveTranscript @Published 属性；新增 speechRecognizer/recognitionRequest/recognitionTask/audioEngine 私有属性
