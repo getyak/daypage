@@ -17,7 +17,6 @@ struct RootView: View {
                 .tabItem {
                     Label("Graph", systemImage: "point.3.connected.trianglepath.dotted")
                 }
-                .disabled(true)
         }
         .tint(DSColor.primary)
         .onAppear {

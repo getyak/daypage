@@ -19,6 +19,7 @@
 		A10000010 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010 /* TodayView.swift */; };
 		A10000011 /* ArchiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000011 /* ArchiveView.swift */; };
 		A10000012 /* GraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000012 /* GraphView.swift */; };
+		A10000035 /* GraphViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000035 /* GraphViewModel.swift */; };
 		A10000013 /* TodayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000013 /* TodayViewModel.swift */; };
 		A10000014 /* MemoCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000014 /* MemoCardView.swift */; };
 		A10000015 /* InputBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000015 /* InputBarView.swift */; };
@@ -67,6 +68,7 @@
 		A20000010 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
 		A20000011 /* ArchiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveView.swift; sourceTree = "<group>"; };
 		A20000012 /* GraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphView.swift; sourceTree = "<group>"; };
+		A20000035 /* GraphViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphViewModel.swift; sourceTree = "<group>"; };
 		A20000013 /* TodayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayViewModel.swift; sourceTree = "<group>"; };
 		A20000014 /* MemoCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoCardView.swift; sourceTree = "<group>"; };
 		A20000015 /* InputBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputBarView.swift; sourceTree = "<group>"; };
@@ -266,6 +268,7 @@
 			isa = PBXGroup;
 			children = (
 				A20000012 /* GraphView.swift */,
+				A20000035 /* GraphViewModel.swift */,
 			);
 			path = Graph;
 			sourceTree = "<group>";
@@ -410,6 +413,7 @@
 				A10000010 /* TodayView.swift in Sources */,
 				A10000011 /* ArchiveView.swift in Sources */,
 				A10000012 /* GraphView.swift in Sources */,
+				A10000035 /* GraphViewModel.swift in Sources */,
 				A10000013 /* TodayViewModel.swift in Sources */,
 				A10000014 /* MemoCardView.swift in Sources */,
 				A10000015 /* InputBarView.swift in Sources */,
