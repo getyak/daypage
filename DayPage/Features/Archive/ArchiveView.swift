@@ -382,6 +382,7 @@ struct ArchiveView: View {
     @State private var summaryFilter: MonthlySummaryFilter = .all
     @State private var showShareSheet: Bool = false
     @State private var shareItems: [Any] = []
+    @Environment(\.colorScheme) private var colorScheme
 
     // MARK: - Pre-scanned vault sets (US-006)
     //
@@ -786,7 +787,9 @@ struct ArchiveView: View {
                 }
                 .buttonStyle(.plain)
 
-                Button(action: shareScreenshot) {
+                Button {
+                    Task { await shareScreenshot() }
+                } label: {
                     Label("截图分享", systemImage: "camera")
                         .monoLabelStyle(size: 11)
                         .foregroundColor(DSColor.onSurface)
@@ -832,14 +835,15 @@ struct ArchiveView: View {
         showShareSheet = true
     }
 
-    private func shareScreenshot() {
-        // Capture the current window's screenshot
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let window = windowScene.windows.first else { return }
-        let renderer = UIGraphicsImageRenderer(size: window.bounds.size)
-        let image = renderer.image { _ in
-            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
-        }
+    @MainActor
+    private func shareScreenshot() async {
+        let image = PosterRenderer.render(
+            monthTitle: viewModel.currentMonthTitle,
+            totalEntries: viewModel.totalEntries,
+            totalPhotos: viewModel.totalPhotos,
+            totalVoiceMinutes: viewModel.totalVoiceMinutes,
+            totalLocations: viewModel.totalLocations
+        )
         shareItems = [image]
         showShareSheet = true
     }

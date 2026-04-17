@@ -60,6 +60,8 @@
 		A10000055 /* PressToTalkButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000055 /* PressToTalkButton.swift */; };
 		A10000040 /* DayDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000040 /* DayDetailView.swift */; };
 		A10000042 /* RelativeTimeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000042 /* RelativeTimeFormatter.swift */; };
+		A10000060 /* DailySharePosterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000060 /* DailySharePosterView.swift */; };
+		A10000061 /* PosterRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000061 /* PosterRenderer.swift */; };
 		T10000001 /* DayDetailViewStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000001 /* DayDetailViewStateTests.swift */; };
 		AF0000001 /* SpaceGrotesk-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000001 /* SpaceGrotesk-Light.ttf */; };
 		AF0000002 /* SpaceGrotesk-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000002 /* SpaceGrotesk-Regular.ttf */; };
@@ -119,6 +121,8 @@
 		A20000032 /* PassiveLocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassiveLocationService.swift; sourceTree = "<group>"; };
 		A20000036 /* DayPageLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPageLogger.swift; sourceTree = "<group>"; };
 		A20000037 /* AppBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBanner.swift; sourceTree = "<group>"; };
+		A20000060 /* DailySharePosterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailySharePosterView.swift; sourceTree = "<group>"; };
+		A20000061 /* PosterRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PosterRenderer.swift; sourceTree = "<group>"; };
 		A20000038 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		A20000039 /* VoiceAttachmentQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceAttachmentQueue.swift; sourceTree = "<group>"; };
 		A20000045 /* OnThisDayIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayIndex.swift; sourceTree = "<group>"; };
@@ -235,6 +239,8 @@
 			isa = PBXGroup;
 			children = (
 				A20000037 /* AppBanner.swift */,
+				A20000060 /* DailySharePosterView.swift */,
+				A20000061 /* PosterRenderer.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -568,6 +574,8 @@
 				A10000032 /* PassiveLocationService.swift in Sources */,
 				A10000036 /* DayPageLogger.swift in Sources */,
 				A10000037 /* AppBanner.swift in Sources */,
+				A10000060 /* DailySharePosterView.swift in Sources */,
+				A10000061 /* PosterRenderer.swift in Sources */,
 				A10000038 /* NetworkMonitor.swift in Sources */,
 				A10000039 /* VoiceAttachmentQueue.swift in Sources */,
 				A10000045 /* OnThisDayIndex.swift in Sources */,

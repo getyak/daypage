@@ -97,7 +97,7 @@ struct InputBarV2: View {
                 rightActionButton
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.vertical, 6)
             .background(DSColor.surfaceContainerLow)
         }
         // Attachment popover anchored above the `+` button
@@ -198,10 +198,10 @@ struct InputBarV2: View {
         ZStack(alignment: .topLeading) {
             if text.isEmpty {
                 Text("LOG NEW OBSERVATION...")
-                    .monoLabelStyle(size: 13)
-                    .foregroundColor(DSColor.outlineVariant)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 12)
+                    .monoLabelStyle(size: 11)
+                    .foregroundColor(DSColor.outlineVariant.opacity(0.7))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
                     .allowsHitTesting(false)
             }
             TextEditor(text: $text)
@@ -210,16 +210,18 @@ struct InputBarV2: View {
                 .focused($isFocused)
                 .scrollContentBackground(.hidden)
                 .background(Color.clear)
-                .frame(minHeight: 40, maxHeight: 140)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
+                .frame(minHeight: 36, maxHeight: 100)
+                // TextEditor has ~8pt top/bottom system padding; negate it so the
+                // capsule height matches the visual content height.
+                .padding(.horizontal, 8)
+                .padding(.vertical, -4)
         }
         .background(DSColor.surfaceContainerLowest)
         .overlay(
-            RoundedRectangle(cornerRadius: 18)
+            RoundedRectangle(cornerRadius: 12)
                 .stroke(DSColor.outlineVariant, lineWidth: 1)
         )
-        .cornerRadius(18)
+        .cornerRadius(12)
     }
 
     // MARK: - Right Action (Mic or Send)
