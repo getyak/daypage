@@ -1,7 +1,5 @@
 import Foundation
 import AVFoundation
-import UIKit
-import Speech
 
 // MARK: - Recording State
 
@@ -60,8 +58,6 @@ final class VoiceService: NSObject, ObservableObject {
     @Published var waveformLevel: Float = 0.0
     /// Rolling history of waveform levels (last 40 samples) for bar display
     @Published var waveformHistory: [Float] = Array(repeating: 0.04, count: 40)
-    /// Live transcription text from SFSpeechRecognizer (updated in real-time while recording)
-    @Published var liveTranscript: String = ""
 
     // MARK: Private
 
@@ -70,12 +66,6 @@ final class VoiceService: NSObject, ObservableObject {
     private var recordingStartDate: Date?
     private var timer: Timer?
     private var meteringTimer: Timer?
-
-    // MARK: - Speech Recognition
-    private var speechRecognizer: SFSpeechRecognizer?
-    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
-    private var recognitionTask: SFSpeechRecognitionTask?
-    private var audioEngine: AVAudioEngine?
 
     // MARK: - Permission
 
@@ -139,7 +129,6 @@ final class VoiceService: NSObject, ObservableObject {
             recorder = rec
             recordingStartDate = Date()
             elapsedSeconds = 0
-            liveTranscript = ""
             waveformHistory = Array(repeating: 0.04, count: 40)
             startTimer()
             startMeteringTimer()
@@ -148,72 +137,6 @@ final class VoiceService: NSObject, ObservableObject {
             state = .failed("录音启动失败：\(error.localizedDescription)")
             return
         }
-
-        // Start live transcription with SFSpeechRecognizer (best-effort, non-blocking)
-        await startLiveTranscription()
-    }
-
-    // MARK: - Live Transcription
-
-    private func startLiveTranscription() async {
-        // Request speech recognition authorization
-        let authStatus = await withCheckedContinuation { (cont: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in
-            SFSpeechRecognizer.requestAuthorization { status in
-                cont.resume(returning: status)
-            }
-        }
-        guard authStatus == .authorized else { return }
-
-        let recognizer = SFSpeechRecognizer(locale: Locale.current) ?? SFSpeechRecognizer(locale: Locale(identifier: "zh-CN"))
-        guard let recognizer, recognizer.isAvailable else { return }
-        self.speechRecognizer = recognizer
-
-        let engine = AVAudioEngine()
-        self.audioEngine = engine
-
-        let request = SFSpeechAudioBufferRecognitionRequest()
-        request.shouldReportPartialResults = true
-        request.requiresOnDeviceRecognition = false
-        self.recognitionRequest = request
-
-        let inputNode = engine.inputNode
-        let format = inputNode.outputFormat(forBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-            self?.recognitionRequest?.append(buffer)
-        }
-
-        do {
-            engine.prepare()
-            try engine.start()
-        } catch {
-            stopLiveTranscription()
-            return
-        }
-
-        self.recognitionTask = recognizer.recognitionTask(with: request) { [weak self] result, error in
-            guard let self else { return }
-            if let result {
-                Task { @MainActor in
-                    self.liveTranscript = result.bestTranscription.formattedString
-                }
-            }
-            if error != nil || (result?.isFinal == true) {
-                Task { @MainActor in
-                    self.stopLiveTranscription()
-                }
-            }
-        }
-    }
-
-    private func stopLiveTranscription() {
-        recognitionTask?.cancel()
-        recognitionTask = nil
-        recognitionRequest?.endAudio()
-        recognitionRequest = nil
-        audioEngine?.inputNode.removeTap(onBus: 0)
-        audioEngine?.stop()
-        audioEngine = nil
-        speechRecognizer = nil
     }
 
     // MARK: - Pause / Resume
@@ -223,7 +146,6 @@ final class VoiceService: NSObject, ObservableObject {
         recorder?.pause()
         stopTimer()
         stopMeteringTimer()
-        stopLiveTranscription()
         state = .paused
     }
 
@@ -233,7 +155,6 @@ final class VoiceService: NSObject, ObservableObject {
         startTimer()
         startMeteringTimer()
         state = .recording
-        Task { await startLiveTranscription() }
     }
 
     // MARK: - Stop & Transcribe
@@ -249,7 +170,6 @@ final class VoiceService: NSObject, ObservableObject {
 
         stopTimer()
         stopMeteringTimer()
-        stopLiveTranscription()
         let finalDuration = Double(elapsedSeconds)
         rec.stop()
         recorder = nil
@@ -260,20 +180,12 @@ final class VoiceService: NSObject, ObservableObject {
             // Non-fatal: log and continue
         }
 
-        // Capture live transcript before it's cleared
-        let capturedLiveTranscript = liveTranscript.isEmpty ? nil : liveTranscript
         state = .processing
 
         // Derive vault-relative path
         let filePath = "raw/assets/\(fileURL.lastPathComponent)"
 
-        // Use live transcript if available, otherwise fall back to Whisper API
-        let transcript: String?
-        if let live = capturedLiveTranscript, !live.isEmpty {
-            transcript = live
-        } else {
-            transcript = await transcribeAudio(at: fileURL)
-        }
+        let transcript = await transcribeAudio(at: fileURL)
 
         let result = VoiceRecordingResult(
             filePath: filePath,
@@ -292,7 +204,6 @@ final class VoiceService: NSObject, ObservableObject {
     func cancelRecording() {
         stopTimer()
         stopMeteringTimer()
-        stopLiveTranscription()
         recorder?.stop()
         if let url = currentFileURL {
             try? FileManager.default.removeItem(at: url)
@@ -300,7 +211,6 @@ final class VoiceService: NSObject, ObservableObject {
         recorder = nil
         currentFileURL = nil
         elapsedSeconds = 0
-        liveTranscript = ""
         state = .idle
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
@@ -309,11 +219,9 @@ final class VoiceService: NSObject, ObservableObject {
     func reset() {
         stopTimer()
         stopMeteringTimer()
-        stopLiveTranscription()
         recorder = nil
         currentFileURL = nil
         elapsedSeconds = 0
-        liveTranscript = ""
         waveformLevel = 0.0
         waveformHistory = Array(repeating: 0.04, count: 40)
         state = .idle
@@ -321,7 +229,7 @@ final class VoiceService: NSObject, ObservableObject {
 
     // MARK: - Whisper Transcription
 
-    private func transcribeAudio(at url: URL) async -> String? {
+    func transcribeAudio(at url: URL) async -> String? {
         let apiKey = Secrets.openAIWhisperApiKey
         guard !apiKey.isEmpty else { return nil }
 

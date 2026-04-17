@@ -1,18 +1,24 @@
 {
   "project": "DayPage",
-  "branchName": "ralph/daypage-v2-roadmap",
-  "description": "DayPage v2 全量路线图 - 按 Wave 分批交付，先稳定地基再扩展能力",
+  "branchName": "ralph/daypage-v3-experience",
+  "description": "DayPage v3 体验升级 - 从 Demo 到产品：可信任地基（编译反馈+语音重做）→ 流程精简 → 视觉升级（暖白系） → On This Day 懂我时刻 → 首次体验",
   "userStories": [
     {
       "id": "US-001",
-      "title": "创建 SettingsView 基础骨架",
-      "description": "As a developer, I need a SettingsView.swift with structured sections so the settings icon has somewhere to navigate.",
+      "title": "VoiceService 移除实时转写 - 删除 SFSpeechRecognizer 与 AVAudioEngine 相关代码",
+      "description": "As a user, I want voice recording to capture my full audio reliably, so 5-second recordings do not lose the last 2 seconds like the current SFSpeechRecognizer implementation does.",
       "acceptanceCriteria": [
-        "新建 DayPage/Features/Settings/SettingsView.swift",
-        "包含三个分区：API Keys、权限（位置/通知）、关于/版本号",
-        "API Keys 分区显示 DashScope / OpenAI / OpenWeather 三项，每项读取 GeneratedSecrets 并显示已配置/未配置状态",
-        "未配置项显示红色'未配置'徽章，已配置显示绿色勾",
-        "xcodebuild -scheme DayPage build 通过"
+        "Remove from VoiceService.swift: import Speech, speechRecognizer/recognitionRequest/recognitionTask/audioEngine private properties (line 74-78)",
+        "Remove startLiveTranscription() and stopLiveTranscription() methods entirely (line 156-217)",
+        "Remove @Published liveTranscript property (line 64)",
+        "Remove startLiveTranscription call from startRecording() (line 153)",
+        "Remove stopLiveTranscription calls from pauseRecording/resumeRecording/cancelRecording/reset/stopAndTranscribe",
+        "Simplify stopAndTranscribe() to always call transcribeAudio(at: fileURL) - remove capturedLiveTranscript branch (line 264-276)",
+        "Remove liveTranscript reset from startRecording/cancelRecording/reset",
+        "Remove NSSpeechRecognitionUsageDescription from Info.plist",
+        "VoiceService.swift file shrinks by approximately 80 lines",
+        "Typecheck passes",
+        "Xcode build succeeds with no Speech framework references"
       ],
       "priority": 1,
       "passes": true,
@@ -20,340 +26,499 @@
     },
     {
       "id": "US-002",
-      "title": "Today Header 设置按钮接线到 SettingsView",
-      "description": "As a user, I want the settings icon in Today header to open SettingsView so I can manage my configuration.",
+      "title": "VoiceRecordingView 移除实时转写 UI - 只保留波形 + 时长",
+      "description": "As a user, the recording overlay should show only the waveform and timer without a live transcript area that was the source of the lost-last-seconds bug.",
       "acceptanceCriteria": [
-        "TodayView 顶部设置图标点击后以 sheet 方式弹出 SettingsView",
-        "SettingsView 顶部有关闭按钮（dismiss）",
-        "xcodebuild -scheme DayPage build 通过"
+        "Remove liveTranscriptView component and all references to viewModel/VoiceService.liveTranscript from VoiceRecordingView.swift",
+        "Recording screen shows: waveform visualization + elapsed time + pause/stop/cancel buttons only",
+        "Bottom text reads '停止后自动转写' (or similar) instead of live transcript",
+        "No layout regressions - waveform takes the vertical space previously used by transcript",
+        "Typecheck passes",
+        "Verify in iOS Simulator: start recording, no live transcript appears, stop -> Whisper result appears in memo"
       ],
       "priority": 2,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-003",
-      "title": "API Key 缺失 Banner 提示",
-      "description": "As a user, I want a banner at the top of Today View when API keys are missing, so I know to configure them.",
+      "title": "引入 DayPageLogger 统一错误日志系统",
+      "description": "As a developer, I need a central logger writing to vault/logs/app.log so I can diagnose errors instead of losing them to try? swallowing.",
       "acceptanceCriteria": [
-        "启动时检测 DashScope / OpenAI / OpenWeather 三个 key，任一缺失时 Today View 顶部显示黄色 banner",
-        "Banner 文字：'部分功能需要配置 API Key'，右侧'前往设置'按钮",
-        "点击'前往设置'打开 SettingsView sheet",
-        "全部配置时 banner 不显示",
-        "xcodebuild -scheme DayPage build 通过"
+        "Create DayPage/Services/DayPageLogger.swift with @MainActor final class singleton",
+        "Public API: DayPageLogger.shared.error(_ message: String, file: String = #file, line: Int = #line), .warn(), .info()",
+        "Writes to vault/logs/app.log with ISO8601 timestamp + level + source file:line + message",
+        "Rotates log file when it exceeds 1MB (rename to app.log.old, start fresh)",
+        "Thread-safe: uses a serial DispatchQueue for writes",
+        "Register file in Xcode project (project.pbxproj entries)",
+        "Replace try? in CompilationService.swift:162 (appendLog) with do/catch calling logger.error",
+        "Replace try? in CompilationService.swift:397 (updateHotCache) with do/catch calling logger.error",
+        "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-004",
-      "title": "修复 Archive 日历未编译日期点击无响应",
-      "description": "As a user, I want to tap any date cell on the calendar—even if it's not yet compiled—so I can view raw memos.",
+      "title": "创建 AppBanner 组件 - 三态横幅（进行中/成功/错误）",
+      "description": "As a user, I want a top banner that shows operation progress and outcomes so I never see silent failures again.",
       "acceptanceCriteria": [
-        "未编译日期单元格可点击",
-        "点击导航到原始 memo 浏览视图（显示该日所有 memo，按时间排序）",
-        "空白日期点击提示'该日无记录'",
-        "xcodebuild -scheme DayPage build 通过"
+        "Create DayPage/Features/Shared/AppBanner.swift with enum BannerKind: .progress, .success, .error, .info",
+        "Struct AppBannerModel: id UUID, kind, title String, subtitle String?, primaryAction (label, handler)?, secondaryAction?, autoDismiss Bool",
+        "SwiftUI view AppBanner renders: leading icon (progress spinner / checkmark / exclamation), title line, optional subtitle, trailing action button(s), close X",
+        "Colors: progress = warningSoft bg + warning accent (placeholder hex #F8ECD6 / #A66A00 until US-017 defines tokens), success = successSoft/success, error = errorSoft/error, info = surfaceSunken/onBackgroundMuted",
+        "Auto-dismiss timer (3s for success, none for others) when autoDismiss = true",
+        "Animations: slide down from top + fade in; slide up + fade out on dismiss (spring response 0.4, dampingFraction 0.85)",
+        "Create BannerCenter @MainActor ObservableObject singleton with @Published currentBanner: AppBannerModel?, show(_ model), dismiss()",
+        "Only one banner visible at a time; show() replaces currentBanner",
+        "Typecheck passes"
       ],
       "priority": 4,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-005",
-      "title": "修复 Archive 列表视图未编译日期无法查看原始 memo",
-      "description": "As a user, I want the list view to also allow opening uncompiled dates so behavior matches the calendar.",
+      "title": "RootView / TodayView 挂载 BannerCenter",
+      "description": "As a user, I want banners to appear at the top of Today View without blocking scrolling or input.",
       "acceptanceCriteria": [
-        "列表视图中未编译日期行可点击，行为与 US-004 一致",
-        "复用同一原始 memo 浏览视图",
-        "xcodebuild -scheme DayPage build 通过"
+        "Inject BannerCenter.shared into RootView as @StateObject",
+        "Overlay AppBanner(model:) at the top of TodayView when BannerCenter.currentBanner != nil",
+        "Banner floats above the memo list; list remains scrollable and input bar remains usable",
+        "Banner respects safe area top inset",
+        "Banner X button dismisses via BannerCenter.dismiss()",
+        "Typecheck passes",
+        "Verify in iOS Simulator: manually call BannerCenter.shared.show(.init(kind: .progress, title: 'Test')) from a debug button - banner appears, does not block scrolling"
       ],
       "priority": 5,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-006",
-      "title": "修复 Entity Page 关联条目点击无响应",
-      "description": "As a user, I want to click a date entry in an Entity Page's related-entries list so I jump to that Daily Page.",
+      "title": "CompilationService 添加网络预检 + 前台自动重试",
+      "description": "As a user, I want compilation to handle flaky network automatically - preflight offline detection, retry twice on network errors, before showing a red error.",
       "acceptanceCriteria": [
-        "关联条目列表行点击有响应（添加 onTapGesture 或 NavigationLink）",
-        "导航到对应日期的 Daily Page",
-        "xcodebuild -scheme DayPage build 通过"
+        "Import Network framework; add NetworkMonitor singleton @MainActor that observes NWPathMonitor and publishes isOnline Bool",
+        "In CompilationService.compile(): before calling DashScope, check NetworkMonitor.shared.isOnline; if offline, throw CompilationError.offline (new case)",
+        "Add CompilationError.offline case with errorDescription '当前离线，已加入队列，联网后自动编译'",
+        "Wrap callDashScope in retry loop: maxAttempts = 3, backoff = 2s, 6s",
+        "Retry on: URLError.timedOut, URLError.notConnectedToInternet, URLError.networkConnectionLost, HTTP 429, HTTP 5xx, CompilationError.networkError",
+        "Do NOT retry on: 401, 403, 400, parseError",
+        "Each retry calls an optional onRetry: (attempt: Int, maxAttempts: Int) -> Void callback so callers can update UI",
+        "Typecheck passes"
       ],
       "priority": 6,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-007",
-      "title": "Daily Page Timeline Tab 渲染结构化 memo 卡片",
-      "description": "As a user, I want Timeline Tab to render memo cards with the same styling as Today view, not plain text dump.",
+      "title": "TodayViewModel 接入编译 Banner 生命周期",
+      "description": "As a user, I want to see progress, retry, success, and failure feedback for every manual compile via the top banner.",
       "acceptanceCriteria": [
-        "Timeline Tab 复用 Today view 的 memo 卡片组件",
-        "支持 text / voice / photo / location 四种类型渲染",
-        "与 Today view 视觉一致（时间竖线、间距、字体）",
-        "xcodebuild -scheme DayPage build 通过"
+        "In TodayViewModel.triggerCompilation() (or equivalent method): before await, call BannerCenter.shared.show progress banner with title '正在编译你的今天...'",
+        "Start Date and after 5s update banner subtitle to '网络较慢，请稍候...' (if still compiling)",
+        "After 15s, banner shows secondary action '取消' that cancels the Task",
+        "Pass onRetry callback to compile(): update banner subtitle to '正在重试（\\(attempt)/\\(maxAttempts)）...'",
+        "On offline error: show info banner '当前离线，已加入队列' with autoDismiss=true",
+        "On final success: show success banner '今日 Daily Page 已生成' with autoDismiss=true, tap -> navigate to Daily Page",
+        "On missingApiKey: show error banner 'DashScope API Key 未配置' with primaryAction '前往设置' -> Settings",
+        "On apiError(401): show error banner 'API Key 无效或已过期' with primaryAction '前往设置'",
+        "On parseError: show error banner 'AI 返回格式异常' with primaryAction '查看日志'",
+        "On final networkError after retries: show error banner '编译失败：网络不稳定' with primaryAction '立即重试', secondaryAction '稍后自动重试'",
+        "Typecheck passes",
+        "Verify in iOS Simulator: trigger compile with airplane mode on -> info banner appears; turn on network, trigger compile with invalid API key -> error banner with 前往设置 action"
       ],
       "priority": 7,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-008",
-      "title": "Daily Page 语音时长 Chip 修复",
-      "description": "As a user, I want the voice duration chip in Daily Page metadata to show total duration when voice memos exist.",
+      "title": "API Key 启动健康检查 Banner",
+      "description": "As a user, I want to know immediately at app launch if any API key is missing so I am not surprised later.",
       "acceptanceCriteria": [
-        "识别当日 memo 中所有语音附件，汇总总时长",
-        "Chip 显示 '🎙️ mm:ss' 格式（总时长）",
-        "无语音 memo 时 Chip 不显示",
-        "xcodebuild -scheme DayPage build 通过"
+        "On DayPageApp.onAppear, check Secrets.dashScopeApiKey, Secrets.openAIWhisperApiKey, Secrets.openWeatherApiKey",
+        "If any is empty, BannerCenter.shared.show info banner: title 'N 个功能未配置', subtitle listing missing keys, primaryAction '前往设置' navigating to Settings",
+        "Banner does NOT auto-dismiss; user must X it or tap action",
+        "If all configured: no banner",
+        "Typecheck passes",
+        "Verify in iOS Simulator: clear one key in GeneratedSecrets, relaunch -> banner appears"
       ],
       "priority": 8,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-009",
-      "title": "修复 Wikilink 跳转",
-      "description": "As a user, I want to click [[Entity]] links in Daily Page and Entity Page so I can navigate the knowledge network.",
+      "title": "VoiceAttachmentQueue - 离线/失败语音转写队列",
+      "description": "As a user, I want offline voice recordings to be saved and automatically transcribed when I am back online, without losing any audio.",
       "acceptanceCriteria": [
-        "Daily Page 内 [[Entity]] 文本渲染为可点击链接（下划线或 accent 色）",
-        "点击跳转到对应 Entity Page（若不存在则创建空 Entity Page）",
-        "Entity Page 内 [[Entity]] 同样可点击",
-        "xcodebuild -scheme DayPage build 通过"
+        "Create DayPage/Services/VoiceAttachmentQueue.swift @MainActor singleton",
+        "Queue persists as vault/drafts/voice_queue.json: [{ id, audioPath, createdAt, memoDate, attempts, lastError? }]",
+        "enqueue(audioPath: String, memoDate: Date) adds entry",
+        "processQueue() iterates: for each entry, if NetworkMonitor.isOnline, call Whisper (reuse VoiceService transcribeAudio); on success write transcript back to the memo and remove entry; on failure increment attempts and record lastError",
+        "Max 3 attempts per entry; after 3 attempts move to 'failed' section (still in file but skipped)",
+        "Observe NetworkMonitor: call processQueue() when transitioning from offline to online",
+        "Observe UIApplication.didBecomeActiveNotification: call processQueue()",
+        "VoiceService.stopAndTranscribe: if transcribeAudio returns nil AND NetworkMonitor.isOnline is false, enqueue the audio instead of leaving transcript nil silently",
+        "Typecheck passes"
       ],
       "priority": 9,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-010",
-      "title": "Entity Page 返回导航/面包屑",
-      "description": "As a user, I want a clear back path from Entity Page to the Daily Page I came from.",
+      "title": "离线语音待转写 Banner + memo 占位 UI",
+      "description": "As a user, I want visual feedback that my offline recordings are queued and being processed.",
       "acceptanceCriteria": [
-        "从 Daily Page 进入的 Entity Page 顶部显示面包屑或标准 back button",
-        "点击返回到来源 Daily Page",
-        "通过 Tab 切换进入的 Entity Page 不显示面包屑",
-        "xcodebuild -scheme DayPage build 通过"
+        "When VoiceAttachmentQueue count > 0, TodayView shows info banner '你有 N 条语音待转写' (auto-dismiss false)",
+        "MemoCardView for a voice memo with nil transcript and in-queue state shows '转写中...' placeholder with a small spinner",
+        "When transcript is written back, MemoCardView updates reactively to show final text",
+        "Banner dismisses automatically when queue empties",
+        "Typecheck passes",
+        "Verify in iOS Simulator: record voice offline -> banner + placeholder appears, go online -> transcript fills in, banner disappears"
       ],
       "priority": 10,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-011",
-      "title": "后台编译失败重试与用户通知",
-      "description": "As a user, I want background compilation failures to retry automatically and notify me if they still fail.",
+      "title": "清扫 try? 吞异常 - 替换为 DayPageLogger",
+      "description": "As a developer, I want errors logged instead of silently dropped, except for truly ignorable cases.",
       "acceptanceCriteria": [
-        "BackgroundCompilationService 失败时重试 3 次（30s / 2min / 10min backoff）",
-        "三次都失败后发本地通知：'今日编译失败，点击查看'",
-        "点击通知进入 Today View 并显示错误横幅 + 重试按钮",
-        "xcodebuild -scheme DayPage build 通过"
+        "Grep for 'try?' across DayPage/Services, DayPage/Models, DayPage/Features",
+        "For each occurrence except temp-file cleanup, replace with do { try ... } catch { DayPageLogger.shared.error(...) }",
+        "Allowlist (keep try?): cleanup of temporary files after successful atomic rename, AVAudioSession.setActive(false) shutdown",
+        "Count of try? occurrences reduced by at least 50%",
+        "New do/catch blocks preserve original control flow (same fallback values)",
+        "Typecheck passes"
       ],
       "priority": 11,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-012",
-      "title": "AI 编译进度反馈 UI",
-      "description": "As a user, I want to see that AI compilation is in progress, not just a frozen UI.",
+      "title": "输入栏瘦身 - 单输入框 + 发送键 + 键盘上方 QuickBar",
+      "description": "As a user, I want the input bar to feel calm - one text field, one send button - with secondary actions tucked into a keyboard accessory bar.",
       "acceptanceCriteria": [
-        "手动触发编译时 Daily Page 显示进度状态文字",
-        "使用 ProgressView + 动画文字",
-        "Today View 顶部显示小徽章'正在编译...'（后台编译时）",
-        "xcodebuild -scheme DayPage build 通过"
+        "Remove inline microphone/camera/photo/file/location buttons from InputBarView main row",
+        "Input bar main row shows only: expandable TextField + send button",
+        "Send button appearance: inactive gray when text empty, accent when text present",
+        "Above the system keyboard, add a QuickBar (UIToolbar via .toolbar ToolbarItemGroup(placement: .keyboard) or custom accessoryView) with icons: 🎙️ 相机 相册 📎 位置",
+        "Each QuickBar icon invokes the existing TodayViewModel handler (startVoiceRecording / startPhotoPicker / startFilePicker / attachCurrentLocation)",
+        "QuickBar disappears when keyboard dismisses",
+        "Typecheck passes",
+        "Verify in iOS Simulator: tap input field -> keyboard appears with QuickBar above -> tap photo icon -> photo picker opens"
       ],
       "priority": 12,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-013",
-      "title": "位置权限升级到 Always + 后台模式",
-      "description": "As a developer, I need to request Always location authorization and enable background location mode.",
+      "title": "长按发送键进入语音录制",
+      "description": "As a user, I want holding the send button to start voice recording (like iMessage) so voice is the primary mode, no modal tap required.",
       "acceptanceCriteria": [
-        "Info.plist 添加 NSLocationAlwaysAndWhenInUseUsageDescription 与 UIBackgroundModes: location",
-        "Settings 中添加'启用被动位置'开关，点击触发 Always 授权升级",
-        "授权状态在 Settings 中可见",
-        "xcodebuild -scheme DayPage build 通过"
+        "Add LongPressGesture(minimumDuration: 0.3) to send button",
+        "When recognized: haptic impact .light, present VoiceRecordingView as a half-sheet (.presentationDetents([.medium])) so the memo list below stays visible (dim overlay)",
+        "VoiceRecordingView instructs: '松手发送 / 上滑取消'",
+        "Release finger -> if not canceled, call stopAndTranscribe and append memo",
+        "Swipe up 80pt inside the sheet -> cancelRecording",
+        "Short tap on send button (no long press) keeps existing send-text behavior",
+        "Typecheck passes",
+        "Verify in iOS Simulator: long press send -> half sheet with waveform; release -> memo appears; long press + swipe up -> canceled"
       ],
       "priority": 13,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-014",
-      "title": "CLVisitor 被动位置感知服务",
-      "description": "As a nomad user, I want the app to automatically detect when I arrive at significant places.",
+      "title": "附件 Chip 行 - 发送前 inline 预览",
+      "description": "As a user, I want pending attachments to appear as small chips above the input field instead of oversized preview cards.",
       "acceptanceCriteria": [
-        "新建 PassiveLocationService.swift，使用 CLLocationManager.startMonitoringVisits()",
-        "didVisit 回调中保存 VisitDraft 到 vault/drafts/visits.json",
-        "到达事件异步反向地理编码并缓存地名",
-        "授权降级时自动停止",
-        "xcodebuild -scheme DayPage build 通过"
+        "Replace PendingAttachment preview cards with an HStack of chips above the TextField",
+        "Chip layout: type icon (16pt) + label (photo filename / file name / location name / voice duration, truncated to 20 chars) + close X",
+        "Chip height <= 32pt, spacing 8pt, horizontal scroll if too many",
+        "Tap X removes the pending attachment",
+        "On send, chips and text combine into one memo as before",
+        "Typecheck passes",
+        "Verify in iOS Simulator: attach photo + location -> two chips appear; remove photo -> one chip left; send -> memo created with remaining attachment"
       ],
       "priority": 14,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-015",
-      "title": "Today View 自动位置草稿确认卡片",
-      "description": "As a user, I want to see passively-detected visits as a draft card in Today, confirm or dismiss them.",
+      "title": "统一 DayDetailView - Archive 日期点击统一路由",
+      "description": "As a user, I want every date I tap in Archive to land on one consistent detail view with a tab switch between Daily Page and raw memos.",
       "acceptanceCriteria": [
-        "Today View 顶部显示 LocationDraftCard，列出当天所有 pending drafts",
-        "每行显示到达时间、地名、停留时长",
-        "支持单条确认/忽略和批量操作",
-        "确认后创建 .location memo 写入当日 .md",
-        "无 pending drafts 时卡片不显示",
-        "xcodebuild -scheme DayPage build 通过"
+        "Create DayPage/Features/Archive/DayDetailView.swift accepting a Date",
+        "Top segment control: [Daily Page] [原始 Memo]",
+        "Daily Page tab: reuse DailyPageView if compiled; if not compiled, show a CTA card '这一天还没编译' with a '立即编译' button",
+        "原始 Memo tab: reuse Today memo card components to render memos for that date",
+        "Empty date: single centered message '这一天没有记录' + link to nearest recorded date",
+        "Archive calendar AND list view both route to DayDetailView on date tap (remove the old conditional branching)",
+        "Back button preserves Archive scroll position",
+        "Typecheck passes",
+        "Verify in iOS Simulator: tap compiled date -> Daily Page tab; tap uncompiled date with memos -> 原始 Memo tab shows memos; tap empty date -> empty message"
       ],
       "priority": 15,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-016",
-      "title": "位置附件 Chip 地图预览",
-      "description": "As a user, I want to preview a location attachment on a map instead of only being able to delete it.",
+      "title": "Settings 页骨架与重构 - 分区 + API Key 状态",
+      "description": "As a user, I want a Settings page with clear sections for API keys, permissions, appearance, data, about - with test-connection buttons for each API key.",
       "acceptanceCriteria": [
-        "位置 Chip 点击弹出 Sheet，显示 MapKit 静态地图",
-        "Sheet 底部保留'删除附件'按钮",
-        "Sheet 支持'在 Apple Maps 中打开'",
-        "xcodebuild -scheme DayPage build 通过"
+        "Expand DayPage/Features/Settings/SettingsView.swift (create if missing) with sections: API Keys, 权限, 外观, 数据, 关于",
+        "API Keys section rows: DashScope, OpenAI Whisper, OpenWeather - each row shows: name, masked key preview (last 4 chars) or '未配置' red badge, '测试连接' button",
+        "测试连接 button invokes a minimal ping (DashScope: chat with 1 token, Whisper: GET /v1/models, OpenWeather: current weather for 0,0) and toasts success/failure",
+        "权限 section: microphone, location, notifications - show current authorization status, tap row opens iOS Settings deep link",
+        "外观 section: placeholder for future dark mode toggle (disabled, labeled '即将推出')",
+        "数据 section: '清除示例数据' button (wired in US-028), '导出全部 Markdown' button (link to existing export), vault 大小读取",
+        "关于 section: version (Bundle.main), build, GitHub link",
+        "Settings reachable from hamburger/settings icon in Today header",
+        "Typecheck passes",
+        "Verify in iOS Simulator: navigate to Settings -> all 5 sections render; tap 测试连接 -> toast appears"
       ],
       "priority": 16,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-017",
-      "title": "Daily Page 重新编译/元数据编辑",
-      "description": "As a user, I want to re-run AI compilation on a past day and manually edit metadata.",
+      "title": "DSColor 暖白 token 系统升级",
+      "description": "As a designer, I want a comprehensive warm-white color token system replacing the current stark black-on-white palette.",
       "acceptanceCriteria": [
-        "Daily Page 右上角'更多'菜单添加[重新编译][编辑元数据]选项",
-        "重新编译有确认弹窗",
-        "编辑元数据 Sheet 允许修改 mood、weather、cover image",
-        "编辑后 YAML front-matter 原子写入",
-        "xcodebuild -scheme DayPage build 通过"
+        "Update DayPage/DesignSystem/Colors.swift (or DSColor.swift) with new tokens: background #FAF8F6, surface #FFFFFF, surfaceElevated #FFFFFF + shadow, surfaceSunken #F3F0EB, onBackground #2B2822, onBackgroundMuted #6B6560, onBackgroundSubtle #A39F99, accent #5D3000, accentHover #7A3F00, accentSoft #F5EDE3, accentBorder #E8DCCA, success #4C7A3F, successSoft #EBF3E5, warning #A66A00, warningSoft #F8ECD6, error #A23A2E, errorSoft #F5E1DC, heatmapEmpty #F0EBE3, heatmapLow #E6D9C3, heatmapMid #C9A677, heatmapHigh #5D3000, borderSubtle #EDE8DF, borderDefault #D6CEC0",
+        "Provide a surfaceElevatedShadow ViewModifier (offset 0,1, radius 3, opacity 0.04)",
+        "Mark old tokens @available(*, deprecated, message: 'Use <new token>') if they overlap",
+        "Set UIUserInterfaceStyle = Light in Info.plist (lock light mode for v3)",
+        "Typecheck passes"
       ],
       "priority": 17,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-018",
-      "title": "语音 memo 重复转写 bug 修复",
-      "description": "As a user, I want voice transcription to appear only once, not duplicated.",
+      "title": "替换全部硬编码颜色 - 走 DSColor token",
+      "description": "As a user, I want every screen to use the new warm-white palette with no leftover stark black/white hardcodings.",
       "acceptanceCriteria": [
-        "定位重复来源（VoiceService 回调/memo 写入/UI 渲染）",
-        "修复重复问题",
-        "xcodebuild -scheme DayPage build 通过"
+        "Grep hardcoded colors: Color\\(hex:|\\.black|\\.white|Color\\(red:|UIColor\\( - replace with DSColor tokens across DayPage/Features and DayPage/App and DayPage/DesignSystem",
+        "Focus on ArchiveView.swift heatmap hex values (lines 61-64) -> DSColor.heatmap*",
+        "Today background -> DSColor.background; cards -> DSColor.surface with surfaceElevatedShadow modifier",
+        "Text primary -> DSColor.onBackground; metadata -> DSColor.onBackgroundMuted; placeholder -> DSColor.onBackgroundSubtle",
+        "AppBanner (US-004) re-reads tokens from DSColor now that they are defined",
+        "After change: grep count of Color(hex:|\\.black|\\.white in DayPage/Features and DayPage/App <= 0 (excluding DSColor.swift definitions)",
+        "Typecheck passes",
+        "Verify in iOS Simulator: screenshot Today and Daily Page - background is warm cream, text is dark warm brown (not pure black), cards have subtle lift"
       ],
       "priority": 18,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-019",
-      "title": "搜索高级筛选",
-      "description": "As a user, I want filters for date range, memo type, and location in search.",
+      "title": "Typography 扩展到 5 级层级",
+      "description": "As a user, I want typography to have clear visual hierarchy - Display / H1 / H2 / Body / Caption / Label - instead of only 2 levels.",
       "acceptanceCriteria": [
-        "搜索页顶部添加筛选栏：日期范围 picker、类型多选、地点过滤",
-        "筛选与关键词并存，结果实时更新",
-        "空结果显示 empty state",
-        "xcodebuild -scheme DayPage build 通过"
+        "Update DayPage/App/Typography.swift (or DSType.swift) with new styles: displayLG 56/Space Grotesk Bold/letterSpacing +0.04em, h1 32/Space Grotesk Bold, h2 22/Space Grotesk SemiBold, body 16/Inter Regular/lineHeight 1.6, caption 13/Inter Medium, label 11/Space Grotesk Bold uppercase",
+        "Provide SwiftUI modifiers: .displayLG(), .h1(), .h2(), .body(), .caption(), .label()",
+        "Replace the 3 hardcoded .custom(\"...\") usages: VoiceRecordingView.swift:~129, InputBarView.swift:~102, plus any grep-found extras",
+        "Update DailyPageView header to use displayLG for date, h1 for compiled title, h2 for section titles",
+        "Update MemoCardView body text to use body modifier, metadata to caption, tag labels to label",
+        "Typecheck passes",
+        "Verify in iOS Simulator: open Daily Page - date, title, section header, body, metadata are visually distinct in 4-5 steps"
       ],
       "priority": 19,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-020",
-      "title": "Archive 月度统计筛选/导出/分享",
-      "description": "As a user reflecting on a month, I want to filter the monthly summary and export/share it.",
+      "title": "留白与圆角系统化 - 卡片 padding 20pt / 圆角 12pt / 微阴影",
+      "description": "As a user, I want cards to breathe - generous padding, gentle rounded corners, subtle elevation - instead of cramped zero-radius rectangles.",
       "acceptanceCriteria": [
-        "月度摘要页添加筛选（仅有位置/仅有照片的日期）",
-        "导出按钮生成 Markdown 文件并通过 UIActivityViewController 分享",
-        "分享按钮截图当前页面",
-        "xcodebuild -scheme DayPage build 通过"
+        "DayPage/DesignSystem/Spacing.swift: add constants cardInner 20, cardGap 16, sectionGap 24, radiusCard 12, radiusSmall 8",
+        "MemoCardView: padding 20pt, corner radius 12pt, surfaceElevatedShadow modifier applied",
+        "Daily Page entry cards: same spacing/radius",
+        "Archive list rows: radius 12pt between rows, gap 16pt",
+        "Input bar container: radius 12pt",
+        "AppBanner: radius 12pt",
+        "NO zero-radius rectangles remain in user-visible cards (heatmap cells are allowed)",
+        "Typecheck passes",
+        "Verify in iOS Simulator: Today/Archive/Daily Page screenshots show clearly separated, rounded cards with subtle shadows"
       ],
       "priority": 20,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-021",
-      "title": "语音录音实时转写文字显示",
-      "description": "As a user recording voice, I want to see live transcription text as I speak.",
+      "title": "时间表达情绪化 - RelativeTimeFormatter 与全局替换",
+      "description": "As a user, I want dates to feel human - TODAY / YESTERDAY / 3 DAYS AGO - instead of cold timestamps like 2026.04.17 // 14:23.",
       "acceptanceCriteria": [
-        "录音浮层显示实时转写区域（使用 SFSpeechRecognizer）",
-        "停止录音后转写文字自动填入 memo",
-        "识别失败时回退到 Whisper API",
-        "xcodebuild -scheme DayPage build 通过"
+        "Create DayPage/Utilities/RelativeTimeFormatter.swift with: static func relative(_ date: Date, now: Date = .now) -> String returning 'TODAY · 14:23' / 'YESTERDAY · 14:23' / '3 DAYS AGO · APR 14' / 'APR 14, 2026'",
+        "Thresholds: today (same day in current calendar), yesterday (-1 day), within 7 days (N DAYS AGO + MMM d), older (MMM d, yyyy)",
+        "All-caps labels; numeric time in HH:mm",
+        "Replace timestamp strings in: TodayView.swift line ~319 memo timestamp, MemoCardView, DailyPageEntryCard, Archive list row date labels, EntityPageView related-entries",
+        "Daily Page header uses a variant: top line 'APRIL 14' displayLG, subtitle 'Sunday, 2026' caption",
+        "Typecheck passes",
+        "Verify in iOS Simulator: memos from today show TODAY · HH:mm; make a memo, observe Archive list shows TODAY for today, YESTERDAY for yesterday if any"
       ],
       "priority": 21,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-022",
-      "title": "输入栏直接拍照",
-      "description": "As a user, I want to take a photo directly from the input bar.",
+      "title": "微交互 - 卡片按压 / 展开动画 / 触觉反馈",
+      "description": "As a user, I want the app to feel alive - cards respond to touch, transitions are springy, key actions give haptic feedback.",
       "acceptanceCriteria": [
-        "输入栏照片按钮长按/次级菜单区分[拍照][从相册选择]",
-        "拍照后走现有 Photo 附件流程",
-        "xcodebuild -scheme DayPage build 通过"
+        "Create DayPage/DesignSystem/Interactions.swift with PressableCardModifier: onPress scaleEffect 0.98, overlay black opacity 0.04, haptic .light impact on press down",
+        "Apply PressableCardModifier to: MemoCardView root, DailyPageEntryCard root, Archive list row",
+        "Replace existing ad-hoc animations: use .animation(.spring(response: 0.4, dampingFraction: 0.8), value:) on expand/collapse in MemoCardView",
+        "Send memo action: UIImpactFeedbackGenerator(style: .soft) on successful send; new memo card animates in with .transition(.move(edge: .bottom).combined(with: .opacity))",
+        "Compile success: UINotificationFeedbackGenerator().notificationOccurred(.success)",
+        "Compile failure: .error notification haptic",
+        "Typecheck passes",
+        "Verify in iOS Simulator (haptics only vibrate on device, but animations are visible): press a memo card - visibly scales to 98% and back; send a memo - new card slides in"
       ],
       "priority": 22,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-023",
-      "title": "输入栏文件附件",
-      "description": "As a user, I want to attach arbitrary files (PDF, text) to memos.",
+      "title": "空状态重做 - Today / Archive / Graph 三处插图 + CTA",
+      "description": "As a first-time user, I want empty states to guide me with illustrations and CTA chips instead of bare text.",
       "acceptanceCriteria": [
-        "输入栏添加文件附件入口，使用 UIDocumentPickerViewController",
-        "附件拷贝到 vault/raw/assets/files/，YAML 记录 type: file",
-        "Daily Page 卡片显示文件图标 + 文件名",
-        "xcodebuild -scheme DayPage build 通过"
+        "Create SVG or SF Symbol composition empty-state illustrations (simple line art, single accent color) for: Today (feather/pen), Archive (calendar), Graph (network nodes)",
+        "Today empty: illustration + '记下今天的第一个观察' h2 + 3 tappable chips '今天天气如何' / '现在在哪' / '在想什么' that auto-fill the input field",
+        "Archive empty: illustration + '还没有 Daily Page' caption + '去记几条试试' link to Today",
+        "Graph empty: illustration + '记录更多，你的知识网络会自动生成' caption",
+        "Replace TodayView.swift lines ~147-151 bare-text empty state",
+        "Chip tap fills TextField and focuses it (does not auto-send)",
+        "Typecheck passes",
+        "Verify in iOS Simulator: delete all memos in vault/raw, relaunch - Today empty state shows illustration + 3 chips; tap a chip - input field fills in"
       ],
       "priority": 23,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-024",
-      "title": "Graph Tab 节点可视化与连线",
-      "description": "As a user, I want to see entities as nodes and connections as edges in Graph Tab.",
+      "title": "OnThisDayIndex - 历史同日索引服务",
+      "description": "As a developer, I need a fast way to look up prior memos for the same month/day, so On This Day can fire without scanning vault every launch.",
       "acceptanceCriteria": [
-        "RootView.swift 移除 Graph Tab 的 .disabled(true)",
-        "新建 GraphViewModel 扫描所有 Daily Page 中的 [[Entity]] 引用，构建节点 + 边",
-        "节点分类（人物/地点/主题）用不同颜色",
-        "使用 SwiftUI Canvas 实现力导向布局，支持 pinch 缩放、拖拽平移",
-        "xcodebuild -scheme DayPage build 通过"
+        "Create DayPage/Services/OnThisDayIndex.swift @MainActor singleton",
+        "On app launch (background Task), scan vault/raw/*.md and build index: [MMDD: [year: { filePath, memoCount, longestMemoPreview (120 chars) }]]",
+        "Persist index to vault/wiki/index.json",
+        "Public API: candidate(for date: Date) -> OnThisDayEntry? that returns: prefer -365d, else -180d, else -730d (two years); nil if none have memos",
+        "OnThisDayEntry struct: originalDate Date, yearsAgo Int (1/2) or daysAgo Int (180), preview String, filePath String",
+        "rebuildIndex() after each successful compilation (CompilationService hook)",
+        "Typecheck passes"
       ],
       "priority": 24,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-025",
-      "title": "Graph Tab 点击节点跳转 + 时间轴过滤 + 搜索",
-      "description": "As a user, I want to click a node to open its Entity Page, filter the graph by date, and search nodes.",
+      "title": "OnThisDayCard - UI 卡片与点击跳转",
+      "description": "As a user, I want to see a subtle 'On This Day · 1 year ago' card above the Today list when I have matching history.",
       "acceptanceCriteria": [
-        "节点点击导航到对应 Entity Page",
-        "顶部日期范围 picker 动态过滤节点",
-        "搜索框输入关键词高亮匹配节点",
-        "空图谱 empty state 提示",
-        "xcodebuild -scheme DayPage build 通过"
+        "Create DayPage/Features/Today/OnThisDayCard.swift taking an OnThisDayEntry",
+        "Layout: top label 'ON THIS DAY · 1 YEAR AGO' (label style, accent color), body preview (body style, 2 lines truncated), bottom right '翻开那天 →' link",
+        "Card style: accentSoft background (#F5EDE3), accentBorder, radius 12pt, padding 20pt",
+        "Top-right small X to dismiss for today (stores dismissed date in UserDefaults key onThisDayDismissedDate)",
+        "Tap card body -> navigate to DayDetailView for originalDate",
+        "Typecheck passes",
+        "Verify in iOS Simulator: inject a fake 2025-04-17 file in vault/raw, relaunch - card appears at top of Today; tap -> jumps to that date's detail"
       ],
       "priority": 25,
-      "passes": true,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-026",
+      "title": "OnThisDayScheduler - 时区感知定时触发",
+      "description": "As a user, I want On This Day to refresh once per day at my local midnight (or a user-chosen time), respecting timezone changes when I travel.",
+      "acceptanceCriteria": [
+        "Create DayPage/Services/OnThisDayScheduler.swift @MainActor singleton",
+        "Reads UserDefaults key onThisDayRefreshHour (Int, default 0 = midnight)",
+        "Public API: shouldShowToday() -> OnThisDayEntry? returning OnThisDayIndex.candidate only if (a) not dismissed for today's date AND (b) currentDate >= nextFireAt stored in UserDefaults OR (c) user just hit force-refresh",
+        "markShown() sets nextFireAt = next day at refreshHour using Calendar.current in TimeZone.current",
+        "forceRefresh() ignores nextFireAt (for manual long-press trigger), always returns candidate",
+        "Observe UIApplication.significantTimeChangeNotification: recompute nextFireAt",
+        "Observe UIApplication.didBecomeActiveNotification: if shouldShowToday() non-nil, publish to TodayViewModel",
+        "Typecheck passes"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-027",
+      "title": "Today 大日期长按手动触发 + Settings 配置入口",
+      "description": "As a user, I want a hidden manual gesture (long-press the big date) to resummon On This Day, and a Settings entry to configure auto-refresh time.",
+      "acceptanceCriteria": [
+        "In TodayView, attach .onLongPressGesture(minimumDuration: 1.5) to the large date Text at the top",
+        "On recognition: haptic .medium impact; call OnThisDayScheduler.forceRefresh()",
+        "If returns entry: display OnThisDayCard (reuse same UI); if returns nil: haptic .warning notification, NO visual indicator (silent no-op, preserving hidden nature)",
+        "NO tooltip, underline, icon, accessibility hint that reveals the gesture",
+        "Settings > 外观 section adds 'On This Day' row with: Picker for 刷新时间 (午夜 00:00 default / 清晨 06:00 / 上午 09:00 / 关闭), Toggle for 启用手动长按触发 (default on)",
+        "When 关闭 selected: OnThisDayScheduler.shouldShowToday always returns nil; long press also returns nil",
+        "Typecheck passes",
+        "Verify in iOS Simulator: long-press large date - card appears (if history exists) or nothing happens silently; go to Settings, change 刷新时间, verify UserDefaults updated"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-028",
+      "title": "首次启动引导 - 3 屏 Onboarding",
+      "description": "As a first-time user, I want a 3-screen introduction that explains the value, requests permissions, and lets me configure API keys (or skip).",
+      "acceptanceCriteria": [
+        "Create DayPage/Features/Onboarding/OnboardingView.swift with 3 pages via TabView(selection:) and .page style",
+        "Page 1: welcome illustration + 'DayPage' title + subtitle 'Dump today, let AI compile tomorrow' + Next button",
+        "Page 2: three permission cards (microphone / location / notifications), each with purpose text + Grant button that triggers the real iOS permission prompt; status updates to granted/denied; Next button always enabled (can skip)",
+        "Page 3: three API key input fields (DashScope, OpenAI, OpenWeather) with 'Paste from clipboard' button; Get Started button",
+        "On completion, UserDefaults key hasOnboarded = true",
+        "DayPageApp gates RootView on hasOnboarded; if false, show OnboardingView as root",
+        "Onboarding respects US-017 DSColor tokens (warm-white system)",
+        "Typecheck passes",
+        "Verify in iOS Simulator: delete app data (clear UserDefaults) and relaunch - onboarding shows; complete it - lands on Today"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-029",
+      "title": "示例 memo 预置 + Settings 清除按钮",
+      "description": "As a first-time user, I want 3 sample memos (text / voice-with-transcript / photo) dated yesterday so I see the app populated with realistic content.",
+      "acceptanceCriteria": [
+        "On first launch after onboarding completion (UserDefaults flag hasSeededSamples default false), seed 3 memos in vault/raw/{yesterday}.md: (1) text memo '在咖啡店角落的位置，窗外在下小雨。'; (2) voice memo with sample audio file bundled in app + pre-set transcript; (3) photo memo with a bundled sample jpg and EXIF",
+        "Bundle sample assets in DayPage/Resources/Samples/: sample_voice.m4a, sample_photo.jpg",
+        "Set hasSeededSamples = true after successful seeding",
+        "Settings > 数据 > '清除示例数据' button: removes the seeded memos (only if they still match their original content, to avoid clobbering user edits), resets hasSeededSamples",
+        "Typecheck passes",
+        "Verify in iOS Simulator: fresh install + onboarding - Today shows today empty, Archive shows yesterday has 3 memos; tap 清除示例数据 in Settings - those 3 memos removed"
+      ],
+      "priority": 29,
+      "passes": false,
       "notes": ""
     }
   ]
