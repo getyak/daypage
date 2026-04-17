@@ -1,5 +1,17 @@
 # DayPage v2 Ralph Progress Log
 
+## 2026-04-17 - US-010
+- EntityPageView 添加 `sourceDateString: String? = nil` 可选参数
+- 当 `sourceDateString` 非 nil 时，toolbar leading 显示 `← YYYY-MM-DD` 面包屑（primary 色），点击 dismiss
+- 无来源日期时（Tab 直接进入）只显示普通箭头图标
+- DailyPageView 弹出 EntityPageView 时传入 `sourceDateString: dateString`
+- 文件：EntityPageView.swift、DailyPageView.swift
+- **Learnings for future iterations:**
+  - `EntityPageView` 通过 `sourceDateString` 可选参数区分来源，nil = 无面包屑，有值 = 显示面包屑
+  - sheet 方式弹出时面包屑 dismiss 等同于关闭 sheet，返回来源视图
+  - ToolbarItem(placement: .navigationBarLeading) 可用 @ViewBuilder 条件渲染两种形态
+---
+
 ## 2026-04-17 - US-009
 - 新增 `WikilinkBodyText` 组件（Components.swift）：解析 `[[slug]]` 和 `[[slug|Name]]`，amber 色渲染，点击首个 wikilink 触发回调
 - DailyPageView：添加 `selectedEntitySlug/selectedEntityType` 状态，`.sheet` 弹出 EntityPageView；添加 `resolveEntityTypeAndSlug()` 扫描 wiki 目录推断实体类型；`wikifiedText()` 改用 WikilinkBodyText
