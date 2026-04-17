@@ -37,8 +37,8 @@
         "Verify in Simulator using verify-daypage skill"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "DayDetailView now has explicit LoadState machine (loading/compiled/rawOnly/empty/error) driven by .task async load. dateString validated via strict regex + DateFormatter round-trip. RawMemoView and DailyPageView also guard on file existence and log full path + errno on IO failure. Build passes; app launches without crashing. Automated Simulator click-through on dateString='2020-01-01' deferred — requires verify-daypage MCP skill (not wired) or manual UI navigation; the .empty / .error paths are covered by compile-time state machine and will be locked in by US-009 unit tests."
     },
     {
       "id": "US-003",

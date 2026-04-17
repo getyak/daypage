@@ -574,22 +574,38 @@ struct DailyPageView: View {
             .appendingPathComponent("daily")
             .appendingPathComponent("\(dateString).md")
 
-        do {
-            let content = try String(contentsOf: url, encoding: .utf8)
-            rawText = content
-            model = DailyPageParser.parse(content: content, dateString: dateString)
-        } catch {
-            DayPageLogger.shared.error("DailyPageView: load daily: \(error)")
+        if FileManager.default.fileExists(atPath: url.path) {
+            do {
+                let content = try String(contentsOf: url, encoding: .utf8)
+                rawText = content
+                model = DailyPageParser.parse(content: content, dateString: dateString)
+            } catch {
+                DayPageLogger.shared.error("DailyPageView: load daily \(url.path) errno=\(errno): \(error)")
+                model = nil
+            }
+        } else {
+            DayPageLogger.shared.error("DailyPageView: daily file missing at \(url.path) errno=\(errno)")
+            model = nil
         }
 
         // Load raw memos for Timeline Tab
         let parser = DateFormatter()
         parser.dateFormat = "yyyy-MM-dd"
         parser.locale = Locale(identifier: "en_US_POSIX")
-        let date = parser.date(from: dateString) ?? Date()
+        guard let date = parser.date(from: dateString) else {
+            DayPageLogger.shared.error("DailyPageView: invalid dateString '\(dateString)'")
+            rawMemos = []
+            return
+        }
         let loaded: [Memo]
         do { loaded = try RawStorage.read(for: date) }
-        catch { loaded = []; DayPageLogger.shared.error("DailyPageView: load memos: \(error)") }
+        catch {
+            let rawURL = VaultInitializer.vaultURL
+                .appendingPathComponent("raw")
+                .appendingPathComponent("\(dateString).md")
+            DayPageLogger.shared.error("DailyPageView: load memos \(rawURL.path) errno=\(errno): \(error)")
+            loaded = []
+        }
         rawMemos = loaded.sorted { $0.created < $1.created }
     }
 }

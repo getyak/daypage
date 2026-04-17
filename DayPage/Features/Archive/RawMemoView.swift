@@ -112,10 +112,30 @@ struct RawMemoView: View {
         let parser = DateFormatter()
         parser.dateFormat = "yyyy-MM-dd"
         parser.locale = Locale(identifier: "en_US_POSIX")
-        let date = parser.date(from: dateString) ?? Date()
+        guard let date = parser.date(from: dateString) else {
+            DayPageLogger.shared.error("RawMemoView: invalid dateString '\(dateString)'")
+            memos = []
+            isLoading = false
+            return
+        }
+
+        let url = VaultInitializer.vaultURL
+            .appendingPathComponent("raw")
+            .appendingPathComponent("\(dateString).md")
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            DayPageLogger.shared.error("RawMemoView: raw file missing at \(url.path) errno=\(errno)")
+            memos = []
+            isLoading = false
+            return
+        }
+
         let loaded: [Memo]
-        do { loaded = try RawStorage.read(for: date) }
-        catch { loaded = []; DayPageLogger.shared.error("RawMemoView: read: \(error)") }
+        do {
+            loaded = try RawStorage.read(for: date)
+        } catch {
+            DayPageLogger.shared.error("RawMemoView: read \(url.path) errno=\(errno): \(error)")
+            loaded = []
+        }
         memos = loaded.sorted { $0.created < $1.created }
         isLoading = false
     }

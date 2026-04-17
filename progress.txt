@@ -19,6 +19,9 @@ Previous run (V3 Wave 1) archived at: archive/2026-04-17-daypage-v3-wave1-experi
 - DayPageLogger uses nonisolated static helpers called from a DispatchQueue to avoid @MainActor actor isolation issues
 - DashScope OpenAI-compatible endpoint is `https://dashscope.aliyuncs.com/compatible-mode/v1` (NOT `coding.dashscope.aliyuncs.com/v1` — that returns 404). The `Secrets.dashScopeBaseURL` env override still wins; only the in-code default changed.
 - Use `#if DEBUG print(...)` (not DayPageLogger) for noisy network diagnostics — keeps release logs clean and avoids @MainActor isolation hops.
+- For archive-style detail screens that read vault files: load asynchronously inside a `.task` closure into an explicit `LoadState` enum, not inside computed properties. Computed-property IO runs on every re-render and hides failure paths.
+- Validate user-supplied date strings with BOTH a strict `^\d{4}-\d{2}-\d{2}$` regex AND a non-lenient DateFormatter round-trip — the regex alone lets `2020-02-30` through.
+- When a file-backed view (RawMemoView, DailyPageView) is opened, double-check `FileManager.default.fileExists(atPath:)` inside its own load path even if the parent already checked. Log `url.path` + `errno` on any miss — both are necessary to diagnose sandbox / migration issues.
 
 ---
 
@@ -33,6 +36,21 @@ Previous run (V3 Wave 1) archived at: archive/2026-04-17-daypage-v3-wave1-experi
   - The `Secrets` shim reads `dashScopeBaseURL` from env via `Config/GeneratedSecrets.swift`; in-code default only kicks in when env is empty. So users who already set `DASHSCOPE_BASE_URL` keep their override.
   - DEBUG-only print is intentional: prevents leaking partial response bodies in release. If you later need release telemetry, route through DayPageLogger instead.
   - SourceKit "Cannot find X in scope" diagnostics on this file (NetworkMonitor / RawStorage / Secrets / EntityPageService / VaultInitializer / DayPageLogger) are the documented cross-module false positives — ignore them, trust xcodebuild.
+---
+
+## 2026-04-17 - US-002 DayDetailView 三态健壮化 + dateString 格式校验
+- Rewrote `DayPage/Features/Archive/DayDetailView.swift` with an explicit `LoadState` enum (`.loading`, `.compiled`, `.rawOnly`, `.empty`, `.error(String)`). Moved file-existence checks out of computed properties into an async `.task` that runs off the main thread via `Task.detached`.
+- `dateString` is validated in two stages: strict regex `^\d{4}-\d{2}-\d{2}$`, then a non-lenient `DateFormatter` round-trip with UTC timezone so values like `2020-02-30` fall into `.error`.
+- Added dedicated `.empty` (calendar.badge.exclamationmark + "这一天还没有记录" + 关闭) and `.error` (exclamationmark.triangle + message + 关闭) views, each with a Close button wired to `dismiss()`.
+- `RawMemoView.loadMemos()` now logs full `url.path` + `errno` when the raw file is missing or read throws; bails to empty state instead of blindly calling `RawStorage.read` on an invalid date.
+- `DailyPageView.loadPage()` similarly guards with `FileManager.default.fileExists(atPath:)` before reading the compiled daily file, logs full path + errno on miss, and validates `dateString` before reading raw memos.
+- Files changed: `DayPage/Features/Archive/DayDetailView.swift`, `DayPage/Features/Archive/RawMemoView.swift`, `DayPage/Features/Daily/DailyPageView.swift`, `prd.json`, `progress.txt`.
+- Build: `xcodebuild -scheme DayPage ... build` → BUILD SUCCEEDED. App launched on booted simulator (iPhone 17 Pro, iOS 26.1) without crash.
+- **Learnings for future iterations:**
+  - `.task { await load() }` is the right hook for vault-backed detail views — it auto-cancels on view disappearance and lets you await `Task.detached` without bouncing across main actor manually.
+  - Keep `hasRawFile` as a separate `@State Bool` even after the `LoadState` resolves — the user can still switch the segmented control inside `.compiled`, and the Raw tab needs its own "no file" path.
+  - SourceKit diagnostics from macOS context (`No such module 'UIKit'`, `Cannot find DSColor/Memo in scope`) fire on this file too; they're the documented cross-module false positives — trust `xcodebuild`.
+  - Automated UI navigation to an invalid `dateString` requires either (a) the verify-daypage MCP skill wired up, or (b) a UI test target. Neither exists yet — US-009 will add unit-level coverage of the state machine, which is the practical regression guard.
 ---
 
 ## Wave 2 Story Order Rationale
