@@ -107,11 +107,13 @@ final class PassiveLocationService: NSObject, ObservableObject {
 
     private func loadDrafts() {
         let url = Self.draftsURL
-        guard FileManager.default.fileExists(atPath: url.path),
-              let data = try? Data(contentsOf: url),
-              let drafts = try? JSONDecoder().decode([VisitDraft].self, from: data)
-        else { return }
-        pendingDrafts = drafts
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        do {
+            let data = try Data(contentsOf: url)
+            pendingDrafts = try JSONDecoder().decode([VisitDraft].self, from: data)
+        } catch {
+            DayPageLogger.shared.error("loadDrafts: \(error)")
+        }
     }
 
     private func saveDrafts() {
@@ -120,11 +122,20 @@ final class PassiveLocationService: NSObject, ObservableObject {
         let fm = FileManager.default
 
         if !fm.fileExists(atPath: dir.path) {
-            try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            do {
+                try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            } catch {
+                DayPageLogger.shared.error("saveDrafts: createDirectory: \(error)")
+                return
+            }
         }
 
-        guard let data = try? JSONEncoder().encode(pendingDrafts) else { return }
-        try? data.write(to: url, options: .atomic)
+        do {
+            let data = try JSONEncoder().encode(pendingDrafts)
+            try data.write(to: url, options: .atomic)
+        } catch {
+            DayPageLogger.shared.error("saveDrafts: \(error)")
+        }
     }
 
     private func updateDraftStatus(id: UUID, status: VisitDraft.Status) {

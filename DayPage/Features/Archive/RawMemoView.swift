@@ -113,7 +113,9 @@ struct RawMemoView: View {
         parser.dateFormat = "yyyy-MM-dd"
         parser.locale = Locale(identifier: "en_US_POSIX")
         let date = parser.date(from: dateString) ?? Date()
-        let loaded = (try? RawStorage.read(for: date)) ?? []
+        let loaded: [Memo]
+        do { loaded = try RawStorage.read(for: date) }
+        catch { loaded = []; DayPageLogger.shared.error("RawMemoView: read: \(error)") }
         memos = loaded.sorted { $0.created < $1.created }
         isLoading = false
     }

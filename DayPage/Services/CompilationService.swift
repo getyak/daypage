@@ -125,12 +125,22 @@ final class CompilationService {
 
     private func rawFileContent(for date: Date) -> String {
         let url = RawStorage.fileURL(for: date)
-        return (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+        do {
+            return try String(contentsOf: url, encoding: .utf8)
+        } catch {
+            DayPageLogger.shared.error("rawFileContent: \(error)")
+            return ""
+        }
     }
 
     private func loadHotContent() -> String {
         let url = hotURL()
-        return (try? String(contentsOf: url, encoding: .utf8)) ?? ""
+        do {
+            return try String(contentsOf: url, encoding: .utf8)
+        } catch {
+            DayPageLogger.shared.info("loadHotContent: no hot cache yet")
+            return ""
+        }
     }
 
     private func backupIfExists(at url: URL, dateString: String) throws {
@@ -170,8 +180,14 @@ final class CompilationService {
         let durationStr = String(format: "%.1f", durationSeconds)
         let row = "| \(timestamp) | \(trigger) | \(durationStr) | \(memoCount) | \(status) |\n"
 
-        if let existing = try? String(contentsOf: url, encoding: .utf8) {
-            let updated = existing + row
+        let existing: String?
+        do {
+            existing = try String(contentsOf: url, encoding: .utf8)
+        } catch {
+            existing = nil // file may not exist yet — not an error
+        }
+        if let prev = existing {
+            let updated = prev + row
             do {
                 try RawStorage.atomicWrite(string: updated, to: url)
             } catch {
@@ -434,8 +450,11 @@ final class CompilationService {
 
         // Build covers_dates: read existing if possible, then append compiledDate
         var coveredDates: [String] = []
-        if let existing = try? String(contentsOf: url, encoding: .utf8) {
+        do {
+            let existing = try String(contentsOf: url, encoding: .utf8)
             coveredDates = parseCoversDates(from: existing)
+        } catch {
+            // hot.md may not exist on first compilation
         }
         if !coveredDates.contains(compiledDate) {
             coveredDates.append(compiledDate)

@@ -212,7 +212,8 @@ final class EntityPageService {
 
         var indexContent: String
         if FileManager.default.fileExists(atPath: indexURL.path) {
-            indexContent = (try? String(contentsOf: indexURL, encoding: .utf8)) ?? seedIndex()
+            do { indexContent = try String(contentsOf: indexURL, encoding: .utf8) }
+            catch { DayPageLogger.shared.error("EntityPageService: read index: \(error)"); indexContent = seedIndex() }
         } else {
             indexContent = seedIndex()
         }

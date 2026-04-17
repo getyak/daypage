@@ -238,7 +238,9 @@ final class VoiceService: NSObject, ObservableObject {
         let apiKey = Secrets.openAIWhisperApiKey
         guard !apiKey.isEmpty else { return nil }
 
-        guard let audioData = try? Data(contentsOf: url) else { return nil }
+        let audioData: Data
+        do { audioData = try Data(contentsOf: url) }
+        catch { DayPageLogger.shared.error("transcribeAudio: read file: \(error)"); return nil }
 
         let boundary = UUID().uuidString
         var body = Data()
@@ -318,7 +320,8 @@ final class VoiceService: NSObject, ObservableObject {
             .appendingPathComponent("assets")
 
         // Ensure directory exists
-        try? FileManager.default.createDirectory(at: assetsURL, withIntermediateDirectories: true)
+        do { try FileManager.default.createDirectory(at: assetsURL, withIntermediateDirectories: true) }
+        catch { DayPageLogger.shared.error("VoiceService: createDirectory: \(error)") }
 
         return assetsURL.appendingPathComponent(filename)
     }

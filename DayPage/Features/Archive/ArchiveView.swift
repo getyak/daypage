@@ -181,8 +181,10 @@ final class ArchiveViewModel: ObservableObject {
             var voiceSeconds = 0
             var uniqueLocations = Set<String>()
 
-            if let content = try? String(contentsOf: rawURL, encoding: .utf8) {
-                let memos = try? RawStorage.read(for: date)
+            if let content = (try? String(contentsOf: rawURL, encoding: .utf8)) {
+                let memos: [Memo]?
+                do { memos = try RawStorage.read(for: date) }
+                catch { memos = nil; DayPageLogger.shared.error("ArchiveView: read memos: \(error)") }
                 memoCount = memos?.count ?? countMemoBlocks(in: content)
                 for memo in (memos ?? []) {
                     if memo.type == .photo || memo.type == .mixed {
@@ -203,8 +205,10 @@ final class ArchiveViewModel: ObservableObject {
 
             let isDailyCompiled = FileManager.default.fileExists(atPath: dailyURL.path)
             var dailySummary: String? = nil
-            if isDailyCompiled, let content = try? String(contentsOf: dailyURL, encoding: .utf8) {
-                dailySummary = extractSummary(from: content)
+            if isDailyCompiled {
+                if let content = (try? String(contentsOf: dailyURL, encoding: .utf8)) {
+                    dailySummary = extractSummary(from: content)
+                }
             }
 
             result[dateStr] = DayStats(
@@ -760,7 +764,11 @@ struct ArchiveView: View {
         let markdown = viewModel.generateMarkdownExport(filter: summaryFilter)
         let filename = "\(viewModel.currentMonthTitle.lowercased().replacingOccurrences(of: " ", with: "-"))-summary.md"
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-        try? markdown.write(to: tempURL, atomically: true, encoding: .utf8)
+        do {
+            try markdown.write(to: tempURL, atomically: true, encoding: .utf8)
+        } catch {
+            DayPageLogger.shared.error("ArchiveView export: \(error)")
+        }
         shareItems = [tempURL]
         showShareSheet = true
     }

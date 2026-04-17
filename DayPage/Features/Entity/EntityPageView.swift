@@ -260,10 +260,9 @@ struct EntityPageView: View {
             .appendingPathComponent(entityType)
             .appendingPathComponent("\(entitySlug).md")
 
-        guard let content = try? String(contentsOf: url, encoding: .utf8) else {
-            notFound = true
-            return
-        }
+        let content: String
+        do { content = try String(contentsOf: url, encoding: .utf8) }
+        catch { notFound = true; return }
 
         model = EntityPageParser.parse(content: content, slug: entitySlug)
     }

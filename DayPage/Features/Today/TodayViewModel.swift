@@ -239,7 +239,8 @@ final class TodayViewModel: ObservableObject {
         let filesDir = VaultInitializer.vaultURL
             .appendingPathComponent("raw/assets/files", isDirectory: true)
         let fm = FileManager.default
-        try? fm.createDirectory(at: filesDir, withIntermediateDirectories: true)
+        do { try fm.createDirectory(at: filesDir, withIntermediateDirectories: true) }
+        catch { DayPageLogger.shared.error("addFileAttachment: createDirectory: \(error)") }
 
         let fileName = url.lastPathComponent
         let destURL = filesDir.appendingPathComponent(fileName)
@@ -553,8 +554,11 @@ final class TodayViewModel: ObservableObject {
         isDailyPageCompiled = true
 
         // Extract summary from frontmatter if available
-        if let content = try? String(contentsOf: dailyURL, encoding: .utf8) {
+        do {
+            let content = try String(contentsOf: dailyURL, encoding: .utf8)
             dailyPageSummary = extractSummary(from: content)
+        } catch {
+            DayPageLogger.shared.error("TodayViewModel: read daily: \(error)")
         }
     }
 

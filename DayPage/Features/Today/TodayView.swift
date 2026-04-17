@@ -101,7 +101,8 @@ struct TodayView: View {
                         LocationDraftCard(
                             drafts: todayPendingDrafts,
                             onConfirm: { draft in
-                                try? passiveLocation.confirmDraft(draft)
+                                do { try passiveLocation.confirmDraft(draft) }
+                                catch { DayPageLogger.shared.error("TodayView: confirmDraft: \(error)") }
                                 viewModel.load()
                             },
                             onIgnore: { draft in
@@ -109,7 +110,8 @@ struct TodayView: View {
                             },
                             onConfirmAll: {
                                 for draft in todayPendingDrafts {
-                                    try? passiveLocation.confirmDraft(draft)
+                                    do { try passiveLocation.confirmDraft(draft) }
+                                    catch { DayPageLogger.shared.error("TodayView: confirmDraft: \(error)") }
                                 }
                                 viewModel.load()
                             },

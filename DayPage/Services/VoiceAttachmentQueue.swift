@@ -30,7 +30,7 @@ final class VoiceAttachmentQueue: ObservableObject {
     private var queueURL: URL {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let drafts = docs.appendingPathComponent("vault/drafts", isDirectory: true)
-        try? FileManager.default.createDirectory(at: drafts, withIntermediateDirectories: true)
+        do { try FileManager.default.createDirectory(at: drafts, withIntermediateDirectories: true) } catch { DayPageLogger.shared.error("VoiceAttachmentQueue: createDirectory: \(error)") }
         return drafts.appendingPathComponent("voice_queue.json")
     }
 
@@ -139,28 +139,37 @@ final class VoiceAttachmentQueue: ObservableObject {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let vaultDir = docs.appendingPathComponent("vault")
         let memoFile = vaultDir.appendingPathComponent("raw/\(entry.memoDate).md")
-        guard let content = try? String(contentsOf: memoFile, encoding: .utf8) else { return }
-        // Replace the first occurrence of the audio path with transcript appended
+        let content: String
+        do { content = try String(contentsOf: memoFile, encoding: .utf8) }
+        catch { DayPageLogger.shared.error("VoiceAttachmentQueue: read memo: \(error)"); return }
         let audioPath = entry.audioPath
         let updated = content.replacingOccurrences(
             of: "file: \(audioPath)\n  kind: audio",
             with: "file: \(audioPath)\n  kind: audio\n  transcript: \"\(transcript.replacingOccurrences(of: "\"", with: "\\\""))\""
         )
         guard updated != content else { return }
-        try? RawStorage.atomicWrite(string: updated, to: memoFile)
+        do { try RawStorage.atomicWrite(string: updated, to: memoFile) }
+        catch { DayPageLogger.shared.error("VoiceAttachmentQueue: write memo: \(error)") }
     }
 
     private func load() -> [VoiceQueueEntry] {
-        guard let data = try? Data(contentsOf: queueURL),
-              let entries = try? JSONDecoder().decode([VoiceQueueEntry].self, from: data) else {
+        guard FileManager.default.fileExists(atPath: queueURL.path) else { return [] }
+        do {
+            let data = try Data(contentsOf: queueURL)
+            return try JSONDecoder().decode([VoiceQueueEntry].self, from: data)
+        } catch {
+            DayPageLogger.shared.error("VoiceAttachmentQueue: load: \(error)")
             return []
         }
-        return entries
     }
 
     private func save(_ entries: [VoiceQueueEntry]) {
-        guard let data = try? JSONEncoder().encode(entries) else { return }
-        try? data.write(to: queueURL, options: .atomic)
+        do {
+            let data = try JSONEncoder().encode(entries)
+            try data.write(to: queueURL, options: .atomic)
+        } catch {
+            DayPageLogger.shared.error("VoiceAttachmentQueue: save: \(error)")
+        }
     }
 
     private func updateCount() {

@@ -552,9 +552,12 @@ struct DailyPageView: View {
             .appendingPathComponent("daily")
             .appendingPathComponent("\(dateString).md")
 
-        if let content = try? String(contentsOf: url, encoding: .utf8) {
+        do {
+            let content = try String(contentsOf: url, encoding: .utf8)
             rawText = content
             model = DailyPageParser.parse(content: content, dateString: dateString)
+        } catch {
+            DayPageLogger.shared.error("DailyPageView: load daily: \(error)")
         }
 
         // Load raw memos for Timeline Tab
@@ -562,7 +565,9 @@ struct DailyPageView: View {
         parser.dateFormat = "yyyy-MM-dd"
         parser.locale = Locale(identifier: "en_US_POSIX")
         let date = parser.date(from: dateString) ?? Date()
-        let loaded = (try? RawStorage.read(for: date)) ?? []
+        let loaded: [Memo]
+        do { loaded = try RawStorage.read(for: date) }
+        catch { loaded = []; DayPageLogger.shared.error("DailyPageView: load memos: \(error)") }
         rawMemos = loaded.sorted { $0.created < $1.created }
     }
 }
@@ -681,7 +686,7 @@ enum DailyPageParser {
         formatter.timeZone = TimeZone.current
         guard let date = formatter.date(from: dateString) else { return nil }
 
-        let memos = (try? RawStorage.read(for: date)) ?? []
+        let memos: [Memo] = (try? RawStorage.read(for: date)) ?? []
         let photoAttachments = memos.flatMap { $0.attachments }.filter { $0.kind == "photo" }
 
         // Prefer an attachment whose filename starts with "cover" (manual override convention).
@@ -1193,10 +1198,9 @@ struct DailyPageMetadataEditView: View {
             .appendingPathComponent("daily")
             .appendingPathComponent("\(dateString).md")
 
-        guard let content = try? String(contentsOf: dailyURL, encoding: .utf8) else {
-            saveError = "无法读取日记文件"
-            return
-        }
+        let content: String
+        do { content = try String(contentsOf: dailyURL, encoding: .utf8) }
+        catch { saveError = "无法读取日记文件"; DayPageLogger.shared.error("DailyPageView: read daily: \(error)"); return }
 
         let updated = updateFrontmatter(
             content: content,

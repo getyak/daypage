@@ -61,11 +61,8 @@ final class PhotoService {
             .appendingPathComponent("assets")
 
         // Ensure assets directory exists
-        try? FileManager.default.createDirectory(
-            at: assetsURL,
-            withIntermediateDirectories: true,
-            attributes: nil
-        )
+        do { try FileManager.default.createDirectory(at: assetsURL, withIntermediateDirectories: true, attributes: nil) }
+        catch { DayPageLogger.shared.error("PhotoService: createDirectory: \(error)") }
 
         // Generate filename: IMG_YYYYMMDD_HHMMSS.jpg
         let formatter = DateFormatter()
@@ -86,7 +83,7 @@ final class PhotoService {
                 try FileManager.default.moveItem(at: tmpURL, to: fileURL)
             }
         } catch {
-            try? FileManager.default.removeItem(at: tmpURL)
+            do { try FileManager.default.removeItem(at: tmpURL) } catch { }
             return nil
         }
 
