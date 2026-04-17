@@ -6,7 +6,13 @@ enum VaultInitializer {
 
     // MARK: - Vault root
 
+    /// Test-only override. When non-nil, `vaultURL` returns this instead of the
+    /// Documents-derived URL. Keep `internal` so `@testable import DayPage` tests
+    /// can set/clear it; production code never touches it.
+    static var testOverrideURL: URL?
+
     static var vaultURL: URL {
+        if let override = testOverrideURL { return override }
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         return docs.appendingPathComponent("vault", isDirectory: true)
     }

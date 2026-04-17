@@ -179,8 +179,8 @@
         "Typecheck passes"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created DayPageTests target (PBXNativeTarget T70000001, product bundle com.daypage.DayPageTests) with full pbxproj wiring: PBXBuildFile T10000001, PBXFileReference T20000001 (DayDetailViewStateTests.swift) + T30000001 (xctest product), PBXGroup T50000001 (DayPageTests folder), PBXSourcesBuildPhase T90000001, PBXFrameworksBuildPhase T40000001, PBXTargetDependency T75000001 + PBXContainerItemProxy T76000001 on the DayPage app, XCBuildConfigurations TC0000001/TC0000002 (Debug/Release) using TEST_HOST=$(BUILT_PRODUCTS_DIR)/DayPage.app/... + BUNDLE_LOADER=$(TEST_HOST) for app-hosted unit tests, plus XCConfigurationList T80000001. DayPage.xcscheme updated to build DayPageTests.xctest for testing and list it under <TestAction><Testables>. VaultInitializer.vaultURL now reads from an internal static testOverrideURL first (production reads Documents as before). DayDetailView exposes a pure static resolver resolveLoadState(dateString:vaultURL:fileManager:) that returns (LoadState, hasRawFile) — the SwiftUI `.task` delegates to this resolver via Task.detached, keeping the state machine directly unit-testable. DayPageTests/DayDetailViewStateTests.swift covers 7 cases: .empty (no files), .error for invalid regex 'abc', .error for calendar-invalid '2020-02-30', .rawOnly (only raw file), .compiled (raw+daily), .compiled (daily-only, hasRaw=false), .error for missing vault path. setUp mounts a fresh temp directory per test into VaultInitializer.testOverrideURL; tearDown clears the override and removes the temp dir. `xcodebuild -scheme DayPage ... test` → TEST SUCCEEDED, 7/7 passing in 0.028s."
     }
   ]
 }

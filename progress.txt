@@ -41,6 +41,11 @@ Previous run (V3 Wave 1) archived at: archive/2026-04-17-daypage-v3-wave1-experi
 - When two gesture thresholds are crossed simultaneously (e.g. diagonal up-left), pick the "safer" outcome as the tiebreaker. For press-to-talk: cancel wins over transcribe when `|dy| >= |dx|` — users expect "discard" on ambiguous gestures, not "send the transcript".
 - For a floating in-input-bar overlay that tracks live audio, mount it as the FIRST child of the InputBar's VStack, gated by gesture-phase state. This keeps the overlay above the text field but anchored to the input bar so `ignoresSafeArea` and keyboard rules don't need any changes.
 - The transcribe-only path must `try? FileManager.default.removeItem(at: result.fileURL)` + `voiceService.reset()` after reading `result.transcript` — otherwise the audio file lingers in `vault/raw/assets/` and the Whisper queue might retry it later. Only the send path should keep the audio file.
+- To unit-test a SwiftUI view's load state machine, extract the pure resolver as a `static func` on the view that takes all dependencies (vaultURL, FileManager) as parameters and returns the state. The `.task { await load() }` hook then just calls the resolver inside `Task.detached` and copies the result into `@State`. You get unit-testable state without any SwiftUI / rendering harness.
+- Add a test injection point on singletons by adding an internal `static var testOverrideURL: URL?` that `vaultURL` checks first. `@testable import DayPage` lets tests set/tearDown the override. Don't gate it on `#if DEBUG` — `@testable` already implies a Debug build, and conditional compilation makes the setter invisible from release tests if you ever add them.
+- XCTest `testCompiledState_whenBothRawAndDailyExist`-style names read like specs. Pattern: `test<Outcome>_when<Condition>`. Makes `xcodebuild test` output self-documenting.
+- Manually adding an iOS unit-test target to a hand-maintained `project.pbxproj`: you need PBXBuildFile + PBXFileReference (source + xctest product in Products group), a new PBXGroup as a child of the project mainGroup (NOT inside the app group — same level as `DayPage`), PBXNativeTarget with productType `com.apple.product-type.bundle.unit-test`, PBXSourcesBuildPhase + PBXFrameworksBuildPhase (empty `files = ()` is fine; XCTest gets linked via test-host), PBXTargetDependency + PBXContainerItemProxy (proxyType=1 on the app target), XCBuildConfigurations with `TEST_HOST = $(BUILT_PRODUCTS_DIR)/DayPage.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/DayPage` + `BUNDLE_LOADER = $(TEST_HOST)`, XCConfigurationList, added to `targets = ( ... )` in PBXProject and to `TargetAttributes` with `TestTargetID = <app-target-id>`. Finally, update the scheme's BuildAction (add the xctest buildForTesting="YES") and TestAction (add a `<Testables><TestableReference><BuildableReference .../>` block).
+- Use ID prefix `T` for test-target-specific pbxproj objects (T1*, T2*, T3*, T4*, T5*, T7*, T8*, T9*, TC*) to keep them visually grouped from the app's `A*` IDs. Makes the pbxproj diff-friendly in future.
 
 ---
 
@@ -198,4 +203,43 @@ Previous run (V3 Wave 1) archived at: archive/2026-04-17-daypage-v3-wave1-experi
   - When a gesture has multiple armed states (cancel / transcribe), pick the "safer" outcome as the tiebreaker for ambiguous diagonals. Here: cancel wins when `|dy| >= |dx|`. Users get upset when a slightly-up-and-left swipe sends a transcript instead of cancelling.
   - For an overlay that needs live data from a `@StateObject` service, prefer putting the `@StateObject` on the view that mounts the overlay (InputBarV2) rather than passing the service down through the callback shape. The parent-view callbacks stay pure (result in / transcript in) and the overlay reads directly from the service via SwiftUI's binding.
   - The transcribe-only path must explicitly delete the audio file (`FileManager.default.removeItem(at:)`) because `VoiceService.stopAndTranscribe()` writes it to `vault/raw/assets/` for the send path to consume. If you skip the delete, the next `VoiceAttachmentQueue` pass may retry the orphaned audio file.
+---
+
+## 2026-04-17 - US-009 DayDetailView Unit Tests
+- Added a proper `DayPageTests` unit-test target (app-hosted, `com.daypage.DayPageTests`) to the hand-maintained `DayPage.xcodeproj/project.pbxproj`. All new pbxproj IDs use the `T*` prefix to stay visually separate from app `A*` IDs.
+- pbxproj additions:
+  - `T10000001` PBXBuildFile → `DayDetailViewStateTests.swift in Sources`
+  - `T20000001` PBXFileReference → `DayDetailViewStateTests.swift`
+  - `T30000001` PBXFileReference → `DayPageTests.xctest` (added to Products group)
+  - `T40000001` PBXFrameworksBuildPhase (empty — XCTest linked via test-host)
+  - `T50000001` PBXGroup `DayPageTests/` mounted at project mainGroup (sibling of `DayPage/`)
+  - `T70000001` PBXNativeTarget with `productType = com.apple.product-type.bundle.unit-test`, dependencies = [T75000001]
+  - `T75000001` PBXTargetDependency + `T76000001` PBXContainerItemProxy (proxyType 1) targeting the app `A70000001`
+  - `T90000001` PBXSourcesBuildPhase with the single test file
+  - `TC0000001` / `TC0000002` XCBuildConfigurations (Debug/Release): `TEST_HOST = $(BUILT_PRODUCTS_DIR)/DayPage.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/DayPage`, `BUNDLE_LOADER = $(TEST_HOST)`, `PRODUCT_BUNDLE_IDENTIFIER = com.daypage.DayPageTests`
+  - `T80000001` XCConfigurationList
+  - Added `T70000001` to PBXProject `targets = ( ... )` and `TargetAttributes` with `TestTargetID = A70000001`
+- `DayPage.xcscheme` updated: added a second `<BuildActionEntry buildForTesting="YES" buildForRunning="NO">` for `DayPageTests.xctest`, and a `<Testables><TestableReference skipped="NO"><BuildableReference .../>` pointing at `T70000001` inside `<TestAction>`.
+- Production code changes (tiny + surgical):
+  - `DayPage/Storage/VaultInitializer.swift`: added `static var testOverrideURL: URL?`. `vaultURL` now returns the override first, falling back to the Documents-derived URL. Production calls untouched.
+  - `DayPage/Features/Archive/DayDetailView.swift`: extracted the async load body into a pure `static func resolveLoadState(dateString:vaultURL:fileManager:) -> (LoadState, Bool)`. The SwiftUI `.task { await load() }` now just calls the resolver inside `Task.detached` and copies the result into `@State state` + `@State hasRawFile`. No behaviour change for the app; massive testability win.
+- New test file `DayPageTests/DayDetailViewStateTests.swift`:
+  - `setUp` creates a fresh `temporaryDirectory/DayPageTests-<UUID>/` with `raw/` + `wiki/daily/` subdirs, mounts it via `VaultInitializer.testOverrideURL = root`.
+  - `tearDown` clears the override and `removeItem(at:)` the temp dir.
+  - 7 test cases (PRD asked for 5; I added the 2 extra that complete the state-machine coverage):
+    - `testEmptyState_whenNoFilesExist` — .empty
+    - `testErrorState_whenDateStringIsInvalidFormat` (`'abc'`) — .error contains '日期格式无效'
+    - `testErrorState_whenDateStringIsCalendarInvalid` (`'2020-02-30'`) — .error contains '日期不存在'
+    - `testRawOnlyState_whenOnlyRawFileExists` — .rawOnly + hasRaw=true
+    - `testCompiledState_whenBothRawAndDailyExist` — .compiled + hasRaw=true
+    - `testCompiledState_whenOnlyDailyExists` — .compiled + hasRaw=false
+    - `testErrorState_whenVaultPathIsMissing` — .error contains 'vault unreachable'
+- Files changed: `DayPage/Storage/VaultInitializer.swift`, `DayPage/Features/Archive/DayDetailView.swift`, `DayPage.xcodeproj/project.pbxproj`, `DayPage.xcodeproj/xcshareddata/xcschemes/DayPage.xcscheme`, `DayPageTests/DayDetailViewStateTests.swift` (new), `prd.json`, `progress.txt`.
+- `xcodebuild -scheme DayPage -destination 'platform=iOS Simulator,arch=arm64,id=3A661BD8-5F57-42B2-B4BA-DBB2FAB4FAD0' test` → **TEST SUCCEEDED**, 7/7 in 0.028s.
+- **Learnings for future iterations:**
+  - The two-step test-hook pattern (internal `testOverrideURL` on the singleton + pure `static func` resolver on the view) lets you unit-test SwiftUI-integrated logic without any view-mounting, hosting controller, ViewInspector, etc. If a future story adds another file-backed state machine, reuse this shape.
+  - `setUp` / `tearDown` should clear the override unconditionally even if the test hit an XCTFail early — otherwise a crashed test leaks state to the next one and you get spooky green-then-red transitions.
+  - For Xcode 16 + iOS 16 deployment target, `Swift Testing` (`import Testing`) would also work, but XCTest is still the lowest-friction choice for a hand-maintained pbxproj — no package manifest, no PackageReference, no minimum-OS bump.
+  - `TEST_HOST = $(BUILT_PRODUCTS_DIR)/DayPage.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/DayPage` is the modern (iOS 11+) form; the older `…/DayPage.app/DayPage` still works but will fail silently on future iOS majors that change the executable folder path. Use the `$(BUNDLE_EXECUTABLE_FOLDER_PATH)` variable.
+  - If future stories add more test files, also remember to register them as `PBXBuildFile` + `PBXFileReference` + add them to `T50000001 /* DayPageTests */` group children AND `T90000001 /* Sources */` files. The scheme does NOT need updating for more tests in the same target.
 ---

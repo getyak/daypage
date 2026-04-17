@@ -209,11 +209,40 @@ struct DayDetailView: View {
         // Only load once per appearance; if already resolved, keep state.
         guard state == .loading else { return }
 
+        let target = dateString
+        let resolved = await Task.detached(priority: .userInitiated) { () -> (LoadState, Bool) in
+            Self.resolveLoadState(dateString: target,
+                                   vaultURL: VaultInitializer.vaultURL,
+                                   fileManager: .default)
+        }.value
+
+        if case .error(let msg) = resolved.0 {
+            DayPageLogger.shared.error("DayDetailView: \(msg)")
+        }
+
+        hasRawFile = resolved.1
+        switch resolved.0 {
+        case .compiled:
+            state = .compiled
+            selectedTab = .daily
+        case .rawOnly:
+            state = .rawOnly
+            selectedTab = .raw
+        case .empty, .error, .loading:
+            state = resolved.0
+        }
+    }
+
+    /// Pure resolver — no SwiftUI, no async. Returns `(state, hasRawFile)`.
+    /// Exposed at module-internal visibility so `@testable import DayPage` can cover
+    /// the 4 load states without spinning up a view.
+    static func resolveLoadState(dateString: String,
+                                 vaultURL: URL,
+                                 fileManager: FileManager) -> (LoadState, Bool) {
         // 1. Validate dateString format strictly.
         let range = NSRange(dateString.startIndex..., in: dateString)
-        guard Self.dateRegex.firstMatch(in: dateString, options: [], range: range) != nil else {
-            state = .error("日期格式无效：\(dateString)")
-            return
+        guard dateRegex.firstMatch(in: dateString, options: [], range: range) != nil else {
+            return (.error("日期格式无效：\(dateString)"), false)
         }
 
         // 2. Cross-check with DateFormatter (catches '2020-02-30' etc.).
@@ -223,50 +252,34 @@ struct DayDetailView: View {
         parser.timeZone = TimeZone(identifier: "UTC")
         parser.isLenient = false
         guard parser.date(from: dateString) != nil else {
-            state = .error("日期不存在：\(dateString)")
-            return
+            return (.error("日期不存在：\(dateString)"), false)
         }
 
-        // 3. Async file existence probes off the main thread.
-        let target = dateString
-        let (dailyExists, rawExists, failureDetail) = await Task.detached(priority: .userInitiated) { () -> (Bool, Bool, String?) in
-            let vault = VaultInitializer.vaultURL
-            let dailyURL = vault
-                .appendingPathComponent("wiki")
-                .appendingPathComponent("daily")
-                .appendingPathComponent("\(target).md")
-            let rawURL = vault
-                .appendingPathComponent("raw")
-                .appendingPathComponent("\(target).md")
-            let fm = FileManager.default
-            let dailyOK = fm.fileExists(atPath: dailyURL.path)
-            let rawOK = fm.fileExists(atPath: rawURL.path)
-
-            // Sanity-check the vault directory itself — unreachable vault = .error.
-            var isDir: ObjCBool = false
-            let vaultOK = fm.fileExists(atPath: vault.path, isDirectory: &isDir) && isDir.boolValue
-            if !vaultOK {
-                let detail = "vault unreachable: \(vault.path) (errno=\(errno))"
-                return (false, false, detail)
-            }
-            return (dailyOK, rawOK, nil)
-        }.value
-
-        if let detail = failureDetail {
-            DayPageLogger.shared.error("DayDetailView: \(detail)")
-            state = .error("存储初始化失败")
-            return
+        // 3. Sanity-check vault directory.
+        var isDir: ObjCBool = false
+        let vaultOK = fileManager.fileExists(atPath: vaultURL.path, isDirectory: &isDir) && isDir.boolValue
+        if !vaultOK {
+            let detail = "vault unreachable: \(vaultURL.path) (errno=\(errno))"
+            return (.error(detail), false)
         }
 
-        hasRawFile = rawExists
+        // 4. Probe daily + raw files.
+        let dailyURL = vaultURL
+            .appendingPathComponent("wiki")
+            .appendingPathComponent("daily")
+            .appendingPathComponent("\(dateString).md")
+        let rawURL = vaultURL
+            .appendingPathComponent("raw")
+            .appendingPathComponent("\(dateString).md")
+        let dailyExists = fileManager.fileExists(atPath: dailyURL.path)
+        let rawExists = fileManager.fileExists(atPath: rawURL.path)
+
         if dailyExists {
-            state = .compiled
-            selectedTab = .daily
+            return (.compiled, rawExists)
         } else if rawExists {
-            state = .rawOnly
-            selectedTab = .raw
+            return (.rawOnly, true)
         } else {
-            state = .empty
+            return (.empty, false)
         }
     }
 
