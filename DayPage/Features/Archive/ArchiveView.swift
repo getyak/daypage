@@ -322,7 +322,9 @@ struct ArchiveView: View {
     @State private var mode: ArchiveMode = .calendar
     @State private var selectedDateString: String? = nil
     @State private var showDailyPage: Bool = false
+    @State private var showRawMemo: Bool = false
     @State private var showSearch: Bool = false
+    @State private var showNoRecordAlert: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -370,6 +372,11 @@ struct ArchiveView: View {
                     DailyPageView(dateString: dateStr)
                 }
             }
+            .fullScreenCover(isPresented: $showRawMemo) {
+                if let dateStr = selectedDateString {
+                    RawMemoView(dateString: dateStr)
+                }
+            }
             .sheet(isPresented: $showSearch) {
                 SearchView { dateStr in
                     selectedDateString = dateStr
@@ -380,6 +387,22 @@ struct ArchiveView: View {
                     }
                 }
             }
+            .alert("该日无记录", isPresented: $showNoRecordAlert) {
+                Button("确认", role: .cancel) {}
+            }
+        }
+    }
+
+    // MARK: - Navigation Helper
+
+    private func handleDateTap(dateStr: String, stats: DayStats?) {
+        selectedDateString = dateStr
+        if stats?.isDailyPageCompiled == true {
+            showDailyPage = true
+        } else if (stats?.memoCount ?? 0) > 0 {
+            showRawMemo = true
+        } else {
+            showNoRecordAlert = true
         }
     }
 
@@ -505,10 +528,7 @@ struct ArchiveView: View {
             let isToday = viewModel.isCurrentMonthAndYear && day == viewModel.today
 
             Button(action: {
-                selectedDateString = dateStr
-                if stats?.isDailyPageCompiled == true {
-                    showDailyPage = true
-                }
+                handleDateTap(dateStr: dateStr, stats: stats)
             }) {
                 ZStack(alignment: .topLeading) {
                     Rectangle()
@@ -708,10 +728,7 @@ struct ArchiveView: View {
     private func archiveListRow(stats: DayStats) -> some View {
         let isMetadataOnly = !stats.isDailyPageCompiled
         return Button(action: {
-            selectedDateString = stats.dateString
-            if stats.isDailyPageCompiled {
-                showDailyPage = true
-            }
+            handleDateTap(dateStr: stats.dateString, stats: stats)
         }) {
             HStack(spacing: 0) {
                 Rectangle()
