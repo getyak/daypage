@@ -172,3 +172,16 @@ Previous run (v2 roadmap) archived at: archive/2026-04-17-daypage-v2-roadmap/
 - foregroundColor 简化为单值 DSColor.onBackgroundPrimary（四种 kind 同色）
 - Files changed: DayPage/Features/Archive/ArchiveView.swift, DayPage/Features/Shared/AppBanner.swift, prd.json
 ---
+
+## 2026-04-17 - US-019
+- Typography.swift 新增短命名修饰符：.displayLG()/.h1()/.h2()/.bodyText()/.captionText()/.labelText()/.monoText()（与带 Style 后缀的旧版并存）
+- 替换 VoiceRecordingView.swift 中 3 处 .custom("JetBrainsMono-Regular") → .monoLabelStyle()
+- 替换 InputBarView.swift 中 2 处硬编码字体 → .monoLabelStyle()
+- 替换 DailyPageView.swift 头部大日期 → .displayLGStyle()；section 标题 → .sectionLabelStyle()；正文/情绪/天气 → bodyMDStyle/captionStyle；其余标签 → labelSMStyle/monoLabelStyle
+- 替换 MemoCardView.swift 中所有 .custom(...) 字体调用 → DSType 修饰符
+- Files changed: DayPage/DesignSystem/Typography.swift, DayPage/Features/Today/VoiceRecordingView.swift, DayPage/Features/Today/InputBarView.swift, DayPage/Features/Daily/DailyPageView.swift, DayPage/Features/Today/MemoCardView.swift, prd.json
+- **Learnings for future iterations:**
+  - .body()/.caption()/.label() 与 SwiftUI 内置修饰符同名会冲突，改用 .bodyText()/.captionText()/.labelText() 避免歧义
+  - Typography 替换时 `.font(.custom(...))` 可直接换为 `.<modifierName>()`，但需检查是否有 `.kerning()` 等附加修饰符需要移除（sectionLabelStyle 内已内置 tracking）
+  - monoLabelStyle 内含 .textCase(.uppercase)，替换时不需要再加 .uppercased() 文本调用
+---

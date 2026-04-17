@@ -341,8 +341,8 @@
         "Verify in iOS Simulator: open Daily Page - date, title, section header, body, metadata are visually distinct in 4-5 steps"
       ],
       "priority": 19,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "新增短命名修饰符（.displayLG()/.h1()/.h2()/.bodyText()/.captionText()/.labelText()/.monoText()）；替换 VoiceRecordingView/InputBarView/DailyPageView/MemoCardView 中所有 .custom(...) 硬编码字体。"
     },
     {
       "id": "US-020",
