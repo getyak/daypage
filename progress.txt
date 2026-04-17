@@ -1,5 +1,20 @@
 # DayPage v2 Ralph Progress Log
 
+## 2026-04-17 - US-020
+- MonthlySummaryFilter enum（全部/有位置/有照片）新增于 ArchiveView.swift
+- ArchiveViewModel 新增 filteredDays(filter:) 和 generateMarkdownExport(filter:) 方法
+- monthlySummary 视图新增：筛选 chip 行、筛选结果列表（可点击跳转对应日期）、导出 Markdown 按钮、截图分享按钮
+- ShareSheetView（UIViewControllerRepresentable 包装 UIActivityViewController）新增
+- 导出：将 Markdown 写入临时目录，通过 UIActivityViewController 分享文件
+- 截图：UIGraphicsImageRenderer 渲染当前 window，分享图片
+- 文件：DayPage/Features/Archive/ArchiveView.swift
+- **Learnings for future iterations:**
+  - iOS SwiftUI 项目不需要 `import UIKit`，UIKit 类型（UIActivityViewController、UIGraphicsImageRenderer）直接可用
+  - UIActivityViewController 的 SwiftUI 包装用 UIViewControllerRepresentable，sheet 方式呈现
+  - 截图用 `window.drawHierarchy(in:afterScreenUpdates:true)` 而非 `layer.render(in:)`，后者不包含完整渲染树
+  - summaryFilter state 变量放在 ArchiveView，对应的 sheet(isPresented:) 也挂在 monthlySummary 的 VStack 上，避免与外层 sheet 冲突
+---
+
 ## 2026-04-17 - US-019
 - SearchService.search() 新增 filters: SearchFilters 参数，支持日期范围（startDate/endDate）、类型集合（Set<Memo.MemoType>）、地点关键词筛选
 - SearchResult 新增 memoType: Memo.MemoType? 字段
