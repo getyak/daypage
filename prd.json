@@ -377,8 +377,8 @@
         "Verify in iOS Simulator: memos from today show TODAY · HH:mm; make a memo, observe Archive list shows TODAY for today, YESTERDAY for yesterday if any"
       ],
       "priority": 21,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "RelativeTimeFormatter(TODAY·HH:mm/YESTERDAY·HH:mm/N DAYS AGO·MMM d/MMM d yyyy)；MemoCardView/TimelineRow→relative()；ArchiveView列表行→relativeDateLabel()；EntityPageView→relativeDateLabel()；DailyPageView header→月日 displayLG + 星期年 captionText"
     },
     {
       "id": "US-022",

@@ -185,3 +185,35 @@ Previous run (v2 roadmap) archived at: archive/2026-04-17-daypage-v2-roadmap/
   - Typography 替换时 `.font(.custom(...))` 可直接换为 `.<modifierName>()`，但需检查是否有 `.kerning()` 等附加修饰符需要移除（sectionLabelStyle 内已内置 tracking）
   - monoLabelStyle 内含 .textCase(.uppercase)，替换时不需要再加 .uppercased() 文本调用
 ---
+
+## 2026-04-17 - US-020
+- 新建 DayPage/DesignSystem/Spacing.swift：DSSpacing enum（cardInner 20, cardGap 16, sectionGap 24, radiusCard 12, radiusSmall 8）
+- MemoCardView 标准卡片和位置卡片：padding → DSSpacing.cardInner(20pt)，cornerRadius → DSSpacing.radiusCard(12pt)，.surfaceElevatedShadow() 微阴影
+- DailyPageEntryCard → cornerRadius 12pt；CompilePromptCard → cornerRadius 12pt + shadow；"立即编译"按钮 → radiusSmall 8pt
+- DailyPageView locationsSection → padding 20pt + cornerRadius 12pt + shadow；threadsSection 卡片 → padding 20pt + cornerRadius 12pt
+- ArchiveView archiveListRow → padding 16pt（cardGap）+ cornerRadius 12pt + shadow
+- AppBanner → padding 16pt（cardGap）+ RoundedRectangle/cornerRadius → DSSpacing.radiusCard(12pt)
+- InputBarView send button → cornerRadius DSSpacing.radiusSmall(8pt)
+- 注册 Spacing.swift 到 project.pbxproj（A10000041/A20000041）
+- Files changed: DayPage/DesignSystem/Spacing.swift (new), MemoCardView.swift, AppBanner.swift, DailyPageView.swift, ArchiveView.swift, InputBarView.swift, project.pbxproj, prd.json
+- **Learnings for future iterations:**
+  - DSSpacing.sectionGap(24) 预留用于 section 间距，暂无 UI 改动
+  - .cornerRadius 与 .surfaceElevatedShadow 同时使用时：shadow 在 cornerRadius 之后；如需严格 shadow clip，需用 .background(RoundedRectangle) 方案
+  - Archive heatmap cells 不需要 radius（US-020 明确豁免）
+---
+
+## 2026-04-17 - US-021
+- 新建 DayPage/Utilities/RelativeTimeFormatter.swift: static func relative() 返回 TODAY·HH:mm / YESTERDAY·HH:mm / N DAYS AGO·MMM d / MMM d, yyyy（全大写）
+- MemoCardView: 两处 .formatted(.dateTime.hour().minute()) → RelativeTimeFormatter.relative(memo.created)
+- TodayView TimelineRow: 时间列 → RelativeTimeFormatter.relative()，frame 宽从 40→60pt 适配更长文本
+- ArchiveView: 列表行日期标签 → relativeDateLabel()（今日TODAY/昨天YESTERDAY/7天内N DAYS AGO/更早MMMM d）
+- EntityPageView relatedDates: Text(dateStr) → Text(relativeDateLabel())，新增私有辅助函数
+- DailyPageView header: dateString → dailyPageMonthDay()（"APRIL 14" .displayLGStyle）; weekday → dailyPageWeekdayYear()（"Sunday, 2026" .captionText）
+- 新建 Utilities 组并注册到 project.pbxproj（A10000042/A20000042, A50000020）
+- Files changed: DayPage/Utilities/RelativeTimeFormatter.swift (new), MemoCardView.swift, TodayView.swift, ArchiveView.swift, EntityPageView.swift, DailyPageView.swift, project.pbxproj, prd.json
+- **Learnings for future iterations:**
+  - 新目录需在 DayPage 主组下添加 PBXGroup 并注册到 project.pbxproj（参考 A50000020 Utilities 组）
+  - TimelineRow 时间列宽需根据最长字符串（"YESTERDAY"≈9字）调整 frame 宽度
+  - DailyPageView 用私有函数（不是 RelativeTimeFormatter）格式化 header，因为 Daily Page 是确定日期，不是相对时间
+  - Archive 列表行只显示 TODAY/YESTERDAY/N DAYS AGO（无时分），是日期维度而非 memo 时间维度
+---
