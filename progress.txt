@@ -1,5 +1,16 @@
 # DayPage v2 Ralph Progress Log
 
+## 2026-04-17 - US-009
+- 新增 `WikilinkBodyText` 组件（Components.swift）：解析 `[[slug]]` 和 `[[slug|Name]]`，amber 色渲染，点击首个 wikilink 触发回调
+- DailyPageView：添加 `selectedEntitySlug/selectedEntityType` 状态，`.sheet` 弹出 EntityPageView；添加 `resolveEntityTypeAndSlug()` 扫描 wiki 目录推断实体类型；`wikifiedText()` 改用 WikilinkBodyText
+- EntityPageView：删除重复的 `buildAttributedString`，改用 WikilinkBodyText；新增第二个 `.sheet` 处理 entity→entity 跳转
+- locationsSection 的 WikilinkText 接入 onTap 回调
+- **Learnings for future iterations:**
+  - `Text` + `AttributedString` concatenation 不支持分别 tap 各个 link，需 `WikilinkBodyText` 组件将 tap 绑定到首个 wikilink inner
+  - `resolveEntityTypeAndSlug` 通过 FileManager 扫描 places/people/themes 三个目录推断类型，未找到时默认 themes（EntityPageView 会显示 notFoundView）
+  - 同一视图可以有多个 `.sheet` modifier，SwiftUI 会按 isPresented binding 顺序处理，不冲突
+---
+
 ## 2026-04-17 - US-008
 - 修改 `metaChipVoice()` 函数：遍历 `rawMemos`，过滤 `kind == "audio"` 附件，汇总 `duration`，格式化为 `🎙️ mm:ss`
 - 无语音附件时返回 `EmptyView()`，有时显示格式化 chip
