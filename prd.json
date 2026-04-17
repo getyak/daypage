@@ -75,7 +75,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -92,7 +92,7 @@
         "Verify in iOS Simulator: manually call BannerCenter.shared.show(.init(kind: .progress, title: 'Test')) from a debug button - banner appears, does not block scrolling"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

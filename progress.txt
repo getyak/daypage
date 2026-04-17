@@ -56,3 +56,17 @@ Previous run (v2 roadmap) archived at: archive/2026-04-17-daypage-v2-roadmap/
   - DayPageLogger builds log path directly from FileManager (Documents/vault/logs/) without calling VaultInitializer to avoid circular dependency
   - nonisolated static methods are the correct pattern for @MainActor class methods called from DispatchQueue.async blocks
 ---
+
+## 2026-04-17 - US-004 + US-005
+- Created DayPage/Features/Shared/AppBanner.swift with BannerKind enum, AppBannerModel struct, BannerAction, BannerCenter singleton, AppBanner view, BannerOverlayModifier, .bannerOverlay() View extension
+- BannerCenter manages one banner at a time; .show() replaces current banner; autoDismiss=true → 3s Task cancellable
+- AppBanner uses inline hex colors (matching US-017 design spec: #F8ECD6, #EBF3E5, #F5E1DC, #F3F0EB) as placeholders until DSColor tokens upgraded in US-017
+- Spring animation (response 0.4, dampingFraction 0.85) on .transition(.move(edge: .top).combined(with: .opacity))
+- RootView: added @StateObject private var bannerCenter = BannerCenter.shared
+- TodayView: added @StateObject bannerCenter injection + .bannerOverlay() on NavigationStack
+- Files changed: DayPage/Features/Shared/AppBanner.swift (new), DayPage/App/RootView.swift, DayPage/Features/Today/TodayView.swift, DayPage.xcodeproj/project.pbxproj, prd.json
+- **Learnings for future iterations:**
+  - New feature groups need PBXGroup entry in project.pbxproj + file added to group children + PBXBuildFile + PBXFileReference + Sources phase entry
+  - BannerOverlayModifier as ViewModifier + .bannerOverlay() extension is the cleanest pattern for overlay injection
+  - @StateObject with singleton pattern: `@StateObject private var x = Singleton.shared` ensures ObservableObject updates propagate correctly
+---
