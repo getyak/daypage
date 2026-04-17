@@ -1,0 +1,90 @@
+# DayPage — Claude Code Project Guidelines
+
+## Overview
+
+DayPage: a personal logging tool centered on daily raw data capture. Users dump, AI compiles into structured diary entries and a knowledge network each day. Target users: nomads / digital nomads.
+
+## Tech Stack
+
+### Client
+
+| Layer | Choice | Notes |
+|---|---|---|
+| Platform | **iOS 16.0+**, Swift 5 | Single Xcode target `DayPage.app`, no SPM dependencies |
+| UI | **SwiftUI** (pure) | `UITabBarAppearance` is the only UIKit touchpoint (`RootView.swift`) |
+| Navigation | **TabView** | Three tabs — Today / Archive / Graph (disabled, Post-MVP) |
+| State | `ObservableObject` + `@Published` + `@StateObject`, `@MainActor` services | No `@Observable` macro (Swift 5 constraint) |
+| Persistence | **File system** — YAML front-matter + Markdown | `vault/raw/YYYY-MM-DD.md`, multi-memo separated by `\n\n---\n\n`. Atomic writes via `FileManager.replaceItem`. No Core Data / SwiftData |
+| YAML / Markdown | Hand-written parser in `Models/Memo.swift` | No external Markdown library |
+| Voice recording | **AVFoundation** `AVAudioRecorder` → M4A | Stored under `vault/raw/assets/` |
+| Speech-to-text | **OpenAI Whisper API** (`whisper-1`) | `VoiceService.swift`; transcript saved to `Attachment.transcript` |
+| Camera / photos | **PhotosUI** + `PHPicker` | EXIF extraction (aperture, shutter, ISO, focal length, GPS, timestamp); originals saved, thumbnails for UI |
+| Location | **CoreLocation** + reverse geocoding | `LocationService.swift` |
+| Weather | **OpenWeatherMap API** (free tier) | 10-min cache, `zh_cn` locale (`WeatherService.swift`) |
+| Fonts | Space Grotesk / Inter / JetBrains Mono (TTF in bundle) | Registered via `DSFonts.registerAll()` at app launch |
+
+### AI Compilation Engine
+
+| Feature | Choice | Notes |
+|---|---|---|
+| Provider | **Aliyun DashScope** (OpenAI-compatible) | `CompilationService.swift`, model `qwen3.5-plus`, base URL `https://dashscope.aliyuncs.com/compatible-mode/v1` |
+| API key | `Config/GeneratedSecrets.swift` (auto-generated from env, not committed) | Never hardcode in source |
+| Schedule | **BGTaskScheduler** (`BGAppRefreshTask`) | Identifier `com.daypage.daily-compilation`, 02:00 local daily, with backfill + local notification (`BackgroundCompilationService.swift`) |
+| Input | Text only — no raw audio / image bytes sent | ~2k–5k tokens per day for 20 memos |
+
+## Project Structure
+
+```
+DayPage/
+  App/              RootView, DayPageApp, Fonts, Typography
+  Features/
+    Today/          TodayView + TodayViewModel (268 lines)
+    Archive/        ArchiveView (655 lines, calendar + list)
+    Graph/          GraphView (18-line placeholder — Post-MVP, see PRD NG-3)
+  Models/           Memo, Attachment, YAML parser
+  Services/         RawStorage, Location, Weather, Photo, Voice, Compilation, BackgroundCompilation
+  Config/           GeneratedSecrets (gitignored)
+```
+
+**Pipeline**: Today (raw input) → AI compilation → Daily Page (structured diary) → Entity Pages → Graph (Post-MVP knowledge network).
+
+## Coding Conventions
+
+- SwiftUI views: value types; extract subviews when a `body` exceeds ~80 lines
+- Services: `@MainActor final class`, singletons where shared state is required
+- View models: `@MainActor final class: ObservableObject` with `@Published`
+- `MARK: -` section comments for navigation
+- No force-unwraps in production paths; prefer `guard let` / `throws`
+- No external dependencies without discussion — prefer Apple frameworks
+- For design-related issues, they should be deeply designed and discussed clearly with me. Then, submit a GitHub issue first. Use the appropriate branch to solve this issue. Finally, after testing and verification, create a PR. Remember to link this issue according to the PR guidelines.
+
+## UI Design
+
+The design (Stitch project `DayPage Today Flow` / ID `6404909232718143042`) is snapshotted into the repo. **Read local files first** when implementing — do not call `mcp__stitch__*`:
+
+- `design/stitch/screenshots/*.png` — layout, color, visual hierarchy
+- `design/stitch/html/*.html` — exact spacing, font sizes, color values (read classes and inline styles as reference; translate to SwiftUI)
+
+Screen mapping:
+
+| Asset filename | Screen |
+|---|---|
+| `today-flow` | Today Tab main flow |
+| `voice-recording` | Voice recording overlay |
+| `daily-page` | Post-compilation diary page |
+| `archive-calendar` | Archive calendar view |
+| `archive-list` | Archive list view |
+
+Graph Tab has **no design** (Post-MVP, PRD NG-3) — keep the placeholder.
+
+**Re-sync**: after design changes, run `mcp__stitch__get_screen` (screen ID list in `design/stitch/README.md`) and overwrite the corresponding files under `design/stitch/`.
+
+## Testing
+
+No test target exists yet. When adding tests, create a `DayPageTests` target using **Swift Testing** (iOS 16+ supports it via the `Testing` package on Xcode 16+) or XCTest if the project stays on older Xcode.
+
+Before marking any task complete:
+1. Build the `DayPage` scheme (`xcodebuild -scheme DayPage build`)
+2. Run any existing tests
+3. For storage-related changes, inspect the actual `.md` file written under `vault/raw/` (use `get_app_container` to locate the sandbox) and verify YAML front-matter + Markdown structure
+4. For UI changes, launch the app in Simulator and verify visually — SwiftUI preview alone is not sufficient
