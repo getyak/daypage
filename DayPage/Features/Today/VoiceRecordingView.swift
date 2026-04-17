@@ -47,6 +47,11 @@ struct VoiceRecordingView: View {
                 .padding(.horizontal, 24)
                 .padding(.top, 12)
 
+            // Live transcription display
+            liveTranscriptView
+                .padding(.horizontal, 24)
+                .padding(.top, 12)
+
             Spacer()
 
             // State message (e.g., "Transcribing…")
@@ -106,6 +111,45 @@ struct VoiceRecordingView: View {
                 .font(.system(size: 56, weight: .bold, design: .monospaced))
                 .foregroundColor(DSColor.onSurface)
                 .monospacedDigit()
+        }
+    }
+
+    // MARK: - Live Transcript View
+
+    @ViewBuilder
+    private var liveTranscriptView: some View {
+        let isRecordingOrPaused = voiceService.state == .recording || voiceService.state == .paused
+        if isRecordingOrPaused || !voiceService.liveTranscript.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 4) {
+                    Image(systemName: "waveform")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(DSColor.onSurfaceVariant)
+                    Text("实时转写")
+                        .font(.custom("JetBrainsMono-Regular", fixedSize: 10))
+                        .foregroundColor(DSColor.onSurfaceVariant)
+                    Spacer()
+                }
+
+                if voiceService.liveTranscript.isEmpty {
+                    Text("等待语音输入…")
+                        .bodySMStyle()
+                        .foregroundColor(DSColor.onSurfaceVariant.opacity(0.5))
+                        .italic()
+                } else {
+                    Text(voiceService.liveTranscript)
+                        .bodySMStyle()
+                        .foregroundColor(DSColor.onSurface)
+                        .lineLimit(4)
+                        .multilineTextAlignment(.leading)
+                        .animation(.easeInOut(duration: 0.15), value: voiceService.liveTranscript)
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(DSColor.surfaceContainerLow)
+            .cornerRadius(8)
         }
     }
 
