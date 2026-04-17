@@ -114,6 +114,16 @@ platform :ios do
       )
     )
 
+    # 创建 GitHub Release（仅在 tag 触发时有意义；无 GH_TOKEN 时跳过）
+    if ENV["GH_TOKEN"] && !git_tag_name.to_s.empty?
+      tag = git_tag_name.strip
+      release_notes = changelog_from_git_commits(commits_count: 20, pretty: "- %s")
+      sh("gh release create '#{tag}' build/DayPage.ipa \
+          --title 'DayPage #{tag}' \
+          --notes '#{release_notes.gsub("'", "\\\\'")}' \
+          --prerelease") rescue UI.important "GitHub Release 创建失败（非致命）"
+    end
+
     UI.success "TestFlight beta uploaded"
   end
 
@@ -176,7 +186,21 @@ platform :ios do
   end
 
   private_lane :increment_build do
-    # 用 git commit 数量作为 build number，保证单调递增
+    # Marketing version 从最近的 git tag 读取（例如 v1.2.0 → 1.2.0）
+    # 无 tag 时回退到 pbxproj 里的现有值
+    raw_tag = sh("git describe --tags --abbrev=0 2>/dev/null || echo ''").strip
+    if raw_tag =~ /\Av?(\d+\.\d+(\.\d+)?)\z/
+      marketing_version = $1
+      increment_version_number(
+        version_number: marketing_version,
+        xcodeproj:      "DayPage.xcodeproj"
+      )
+      UI.message "Marketing version set to #{marketing_version} (from tag #{raw_tag})"
+    else
+      UI.message "No semver tag found, keeping existing MARKETING_VERSION"
+    end
+
+    # Build number 用 git commit 总数，保证单调递增
     build_number = sh("git rev-list --count HEAD").strip
     increment_build_number(
       build_number: build_number,
