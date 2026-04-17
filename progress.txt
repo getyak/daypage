@@ -94,3 +94,18 @@ Previous run (v2 roadmap) archived at: archive/2026-04-17-daypage-v2-roadmap/
   - PhotosPicker 在 ToolbarItemGroup 内需要 .buttonStyle(.plain) 才能正常点击
   - confirmationDialog 必须在 body 视图层声明，不能嵌套在 ToolbarItemGroup 内
 ---
+
+## 2026-04-17 - US-013
+- 发送键从 Button 改为 ZStack + .onTapGesture + .onLongPressGesture(0.3s)
+- 长按触发：UIImpactFeedbackGenerator(.light).impactOccurred() + showVoiceSheet=true
+- VoiceRecordingView 以 .sheet + .presentationDetents([.medium]) 弹出
+- onComplete: (VoiceRecordingResult) → showVoiceSheet=false + onVoiceComplete(result)
+- onCancel: showVoiceSheet=false
+- InputBarView 新增 onVoiceComplete: (VoiceRecordingResult) -> Void 参数
+- TodayView 传入 onVoiceComplete: { viewModel.addVoiceAttachment(result: result) }
+- Files changed: DayPage/Features/Today/InputBarView.swift, DayPage/Features/Today/TodayView.swift, prd.json
+- **Learnings for future iterations:**
+  - .onTapGesture + .onLongPressGesture 可共存在同一 View 上，短按触发 tap，长按触发 longPress
+  - 不能在 ToolbarItemGroup(placement: .keyboard) 里的子控件中声明 .sheet，需要挂载到父 View 的 .sheet 上
+  - onVoiceComplete 回调比 NotificationCenter 更简洁，避免跨层类型转换
+---

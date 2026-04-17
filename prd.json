@@ -235,8 +235,8 @@
         "Verify in iOS Simulator: long press send -> half sheet with waveform; release -> memo appears; long press + swipe up -> canceled"
       ],
       "priority": 13,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "长按 0.3s → haptic.light + showVoiceSheet=true。onVoiceComplete 回调直接调 addVoiceAttachment；cancel 关闭 sheet。"
     },
     {
       "id": "US-014",
