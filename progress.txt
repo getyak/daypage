@@ -1,5 +1,19 @@
 # DayPage v2 Ralph Progress Log
 
+## 2026-04-17 - US-016
+- MemoCardView.locationCard 点击行为改为弹出 Sheet（showLocationSheet state）而非直接打开 Apple Maps
+- 新增 LocationPreviewSheet 组件：标题栏（地名+坐标+关闭按钮）+ MapPreviewView（MapKit MKMapView）+ 底部操作区
+- 新增 MapPreviewView（UIViewRepresentable wrapping MKMapView）：静态地图 + pin 标注，禁用用户交互
+- Sheet 底部"在 Apple Maps 中打开"按钮（无坐标时 disabled）；当 onDelete 非 nil 时显示"删除附件"按钮
+- MemoCardView 新增可选 `onDelete: (() -> Void)?` 参数（默认 nil），不影响现有调用方
+- presentationDetents: [.medium, .large]，presentationDragIndicator: .visible
+- **Learnings for future iterations:**
+  - MKMapView 需通过 UIViewRepresentable 包装才能在 SwiftUI 中使用静态地图（MapKit SwiftUI Map 组件不支持禁用交互）
+  - .sheet modifier 挂在 locationCard 的 HStack 上，isPresented 绑定 @State showLocationSheet
+  - onDelete 设为可选参数默认 nil，避免修改所有已有的 MemoCardView(memo:) 调用方
+  - MapPreviewView.updateUIView 每次调用都先 removeAnnotations 再添加新 pin，避免重复标注
+---
+
 ## 2026-04-17 - US-015
 - TodayView 新增 `@StateObject private var passiveLocation = PassiveLocationService.shared`
 - 添加 `todayPendingDrafts` 计算属性，过滤今日 pending drafts
