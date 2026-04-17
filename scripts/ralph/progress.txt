@@ -18,3 +18,13 @@
 
 （新 iteration 从这里开始追加）
 
+## 2026-04-17 - US-001
+- 实现内容：新建 DayPage/Features/Settings/SettingsView.swift，@MainActor SwiftUI 视图，包含四个分区：API Keys、权限、通知、关于（仅占位），About 分区显示版本号和 build number
+- 文件变更：DayPage/Features/Settings/SettingsView.swift（新建）、DayPage.xcodeproj/project.pbxproj（新增 PBXFileReference A20000030、PBXBuildFile A10000030、PBXGroup A50000015/Settings、Sources build phase 条目）
+- **Learnings for future iterations:**
+  - 新建 Swift 文件需要在 pbxproj 中分配连续 ID：PBXBuildFile 用 A10000xxx，PBXFileReference 用 A20000xxx，PBXGroup 用 A50000xxx，且三处都要添加（FileReference section、Group children、Sources phase）
+  - Settings 目录需要在 Features group 下新建子 group，path = Settings，并加入 Features children 列表
+  - 版本号读取：Bundle.main.infoDictionary?["CFBundleShortVersionString"] 和 ["CFBundleVersion"]
+  - BUILD SUCCEEDED（iPhone 17 Simulator），只有已知 AccentColor 和旧 allowBluetooth 的 warning，不影响功能
+---
+
