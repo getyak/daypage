@@ -54,6 +54,24 @@ final class LocationService: NSObject, ObservableObject {
         }
     }
 
+    /// Requests "always" authorization for background passive location monitoring.
+    /// Requires NSLocationAlwaysAndWhenInUseUsageDescription in Info.plist.
+    func requestAlwaysAuthorization() {
+        switch manager.authorizationStatus {
+        case .notDetermined:
+            manager.requestAlwaysAuthorization()
+        case .authorizedWhenInUse:
+            manager.requestAlwaysAuthorization()
+        default:
+            break
+        }
+    }
+
+    /// Whether the app has "always" location authorization.
+    var hasAlwaysAuthorization: Bool {
+        manager.authorizationStatus == .authorizedAlways
+    }
+
     /// Fetches the current GPS location and reverse-geocodes it into a `Memo.Location`.
     ///
     /// - Parameter timeout: Seconds to wait before falling back to coordinates-only (default 3s).

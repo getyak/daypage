@@ -21,9 +21,14 @@
 	<array>
 		<string>com.daypage.daily-compilation</string>
 	</array>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>DayPage 需要在后台持续感知您的位置，以自动记录您到访的地点。</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>DayPage 需要访问您的位置，以在日记条目中记录当前地点。</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
+		<string>location</string>
 		<string>processing</string>
 	</array>
 	<key>CFBundleIconName</key>
