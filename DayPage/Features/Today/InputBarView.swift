@@ -51,6 +51,9 @@ struct InputBarView: View {
     /// Callback invoked when the user taps the microphone icon to start recording.
     var onStartVoiceRecording: () -> Void
 
+    /// Callback invoked when the user taps the file attachment icon.
+    var onAddFile: () -> Void
+
     /// Callback invoked when the user taps the submit button.
     var onSubmit: () -> Void
 
@@ -87,6 +90,9 @@ struct InputBarView: View {
 
                 // Camera / Photo picker button
                 photoButton
+
+                // File attachment button
+                fileButton
 
                 // Multiline text input
                 ZStack(alignment: .topLeading) {
@@ -157,6 +163,8 @@ struct InputBarView: View {
                 photoCard(result)
             case .voice(let result):
                 voiceCard(result)
+            case .file(let result):
+                fileCard(result)
             }
 
             // Remove (X) button
@@ -202,6 +210,24 @@ struct InputBarView: View {
         .cornerRadius(0)
     }
 
+    /// File attachment preview card showing file icon + name.
+    @ViewBuilder
+    private func fileCard(_ result: FilePickerResult) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: "doc.fill")
+                .font(.system(size: 20))
+                .foregroundColor(DSColor.onSurfaceVariant)
+            Text(result.fileName)
+                .monoLabelStyle(size: 9)
+                .foregroundColor(DSColor.onSurfaceVariant)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+        }
+        .frame(width: 64, height: 64)
+        .background(DSColor.surfaceContainerHigh)
+        .cornerRadius(0)
+    }
+
     /// Voice memo preview card showing duration.
     @ViewBuilder
     private func voiceCard(_ result: VoiceRecordingResult) -> some View {
@@ -237,6 +263,18 @@ struct InputBarView: View {
             }
         }
         .disabled(isLocating || locationAuthStatus == .denied || locationAuthStatus == .restricted)
+        .cornerRadius(0)
+    }
+
+    /// File attachment button to open the document picker.
+    @ViewBuilder
+    private var fileButton: some View {
+        Button(action: { onAddFile() }) {
+            Image(systemName: "paperclip")
+                .font(.system(size: 20, weight: .regular))
+                .foregroundColor(DSColor.onSurfaceVariant)
+                .frame(width: 36, height: 36)
+        }
         .cornerRadius(0)
     }
 

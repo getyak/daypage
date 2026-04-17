@@ -6,15 +6,24 @@ import PhotosUI
 
 // MARK: - Pending Attachment
 
+// MARK: - FilePickerResult
+
+struct FilePickerResult {
+    let filePath: String   // relative path under vault
+    let fileName: String
+}
+
 /// Represents a staged attachment waiting to be included in the next submit.
 enum PendingAttachment: Identifiable {
     case photo(PhotoPickerResult)
     case voice(VoiceRecordingResult)
+    case file(FilePickerResult)
 
     var id: String {
         switch self {
         case .photo(let r): return "photo-\(r.filePath)"
         case .voice(let r): return "voice-\(r.filePath)"
+        case .file(let r): return "file-\(r.filePath)"
         }
     }
 
@@ -30,6 +39,8 @@ enum PendingAttachment: Identifiable {
             return Memo.Attachment(file: r.filePath, kind: "photo", duration: nil, transcript: exifSummary)
         case .voice(let r):
             return Memo.Attachment(file: r.filePath, kind: "audio", duration: r.duration, transcript: r.transcript)
+        case .file(let r):
+            return Memo.Attachment(file: r.filePath, kind: "file", duration: nil, transcript: r.fileName)
         }
     }
 }
@@ -214,6 +225,48 @@ final class TodayViewModel: ObservableObject {
         isShowingCamera = true
     }
 
+    /// Whether the document picker sheet is presented.
+    @Published var isShowingDocumentPicker: Bool = false
+
+    /// Opens the document picker sheet.
+    func startFilePicker() {
+        isShowingDocumentPicker = true
+    }
+
+    /// Copies a picked file into vault/raw/assets/files/ and stages it as a pending attachment.
+    func addFileAttachment(url: URL) {
+        isShowingDocumentPicker = false
+        let filesDir = VaultInitializer.vaultURL
+            .appendingPathComponent("raw/assets/files", isDirectory: true)
+        let fm = FileManager.default
+        try? fm.createDirectory(at: filesDir, withIntermediateDirectories: true)
+
+        let fileName = url.lastPathComponent
+        let destURL = filesDir.appendingPathComponent(fileName)
+        // If a file with the same name exists, append a timestamp suffix
+        let finalURL: URL
+        if fm.fileExists(atPath: destURL.path) {
+            let ts = Int(Date().timeIntervalSince1970)
+            let ext = url.pathExtension
+            let base = url.deletingPathExtension().lastPathComponent
+            let newName = ext.isEmpty ? "\(base)_\(ts)" : "\(base)_\(ts).\(ext)"
+            finalURL = filesDir.appendingPathComponent(newName)
+        } else {
+            finalURL = destURL
+        }
+
+        do {
+            try fm.copyItem(at: url, to: finalURL)
+        } catch {
+            submitError = "文件复制失败：\(error.localizedDescription)"
+            return
+        }
+
+        let relativePath = "raw/assets/files/\(finalURL.lastPathComponent)"
+        let result = FilePickerResult(filePath: relativePath, fileName: finalURL.lastPathComponent)
+        pendingAttachments.append(.file(result))
+    }
+
     /// Processes a UIImage captured from the camera and stages it as a pending attachment.
     func addCameraPhoto(_ image: UIImage) {
         guard let data = image.jpegData(compressionQuality: 0.9) else { return }
@@ -281,14 +334,17 @@ final class TodayViewModel: ObservableObject {
             // Determine type
             let hasPhotos = snapshotAttachments.contains { if case .photo = $0 { return true }; return false }
             let hasVoice  = snapshotAttachments.contains { if case .voice = $0 { return true }; return false }
+            let hasFiles  = snapshotAttachments.contains { if case .file = $0 { return true }; return false }
             let memoType: Memo.MemoType
-            let typeCount = (hasText ? 1 : 0) + (hasPhotos ? 1 : 0) + (hasVoice ? 1 : 0)
+            let typeCount = (hasText ? 1 : 0) + (hasPhotos ? 1 : 0) + (hasVoice ? 1 : 0) + (hasFiles ? 1 : 0)
             if typeCount > 1 {
                 memoType = .mixed
             } else if hasPhotos {
                 memoType = .photo
             } else if hasVoice {
                 memoType = .voice
+            } else if hasFiles {
+                memoType = .mixed
             } else {
                 memoType = .text
             }

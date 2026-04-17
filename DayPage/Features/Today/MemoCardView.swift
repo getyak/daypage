@@ -142,6 +142,28 @@ struct MemoCardView: View {
                 }
             }
 
+            // File attachment rows (for mixed memos with file attachments)
+            let fileAttachments = memo.attachments.filter { $0.kind == "file" }
+            if !fileAttachments.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(fileAttachments, id: \.file) { att in
+                        HStack(spacing: 8) {
+                            Image(systemName: "doc.fill")
+                                .font(.system(size: 13))
+                                .foregroundColor(DSColor.onSurfaceVariant)
+                            Text(att.transcript ?? URL(fileURLWithPath: att.file).lastPathComponent)
+                                .font(.custom("JetBrainsMono-Regular", fixedSize: 11))
+                                .foregroundColor(DSColor.onSurface)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                    }
+                }
+                .padding(.top, 6)
+            }
+
             // Body content (caption)
             // For voice-only memos, suppress body when it duplicates the transcript
             // (legacy data had transcript copied into body before the fix).

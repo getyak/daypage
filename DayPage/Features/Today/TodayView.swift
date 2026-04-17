@@ -215,6 +215,9 @@ struct TodayView: View {
                         onStartVoiceRecording: {
                             viewModel.startVoiceRecording()
                         },
+                        onAddFile: {
+                            viewModel.startFilePicker()
+                        },
                         onSubmit: {
                             let body = draftText
                             draftText = ""
@@ -280,6 +283,18 @@ struct TodayView: View {
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
+            }
+            // Document picker sheet
+            .sheet(isPresented: $viewModel.isShowingDocumentPicker) {
+                DocumentPickerView(
+                    onPick: { url in
+                        viewModel.addFileAttachment(url: url)
+                    },
+                    onCancel: {
+                        viewModel.isShowingDocumentPicker = false
+                    }
+                )
+                .ignoresSafeArea()
             }
             // Camera capture sheet (fullScreenCover so the camera UI uses full screen)
             .fullScreenCover(isPresented: $viewModel.isShowingCamera) {
