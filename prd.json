@@ -324,8 +324,8 @@
         "Verify in iOS Simulator: screenshot Today and Daily Page - background is warm cream, text is dark warm brown (not pure black), cards have subtle lift"
       ],
       "priority": 18,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "ArchiveView heatmap+status 颜色 → DSColor v3；AppBanner bg/accent/border → v3 token。其余 Features 中无 Color(hex: 硬编码。"
     },
     {
       "id": "US-019",

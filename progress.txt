@@ -164,3 +164,11 @@ Previous run (v2 roadmap) archived at: archive/2026-04-17-daypage-v2-roadmap/
   - 保留旧 token 不加 deprecated 是防止大量编译警告；实际迁移在 US-018 完成后
   - 新 token 名称带语义前缀（backgroundWarm/accentAmber/successGreen）而非颜色值，便于主题替换
 ---
+
+## 2026-04-17 - US-018
+- ArchiveView：DensityLevel.fillColor 四色 → DSColor.heatmapEmpty/Low/Mid/High
+- ArchiveView：statusTextColor → DSColor.onBackgroundSubtle/warningAmber/errorRed
+- AppBanner：backgroundColor/foregroundColor/accentColor/borderColor 全部替换为 v3 token
+- foregroundColor 简化为单值 DSColor.onBackgroundPrimary（四种 kind 同色）
+- Files changed: DayPage/Features/Archive/ArchiveView.swift, DayPage/Features/Shared/AppBanner.swift, prd.json
+---
