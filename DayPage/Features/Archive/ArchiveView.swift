@@ -953,6 +953,7 @@ struct ArchiveView: View {
             }
             .cornerRadius(DSSpacing.radiusCard)
             .surfaceElevatedShadow()
+            .pressableCard()
         }
         .buttonStyle(.plain)
     }

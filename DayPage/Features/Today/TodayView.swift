@@ -162,6 +162,7 @@ struct TodayView: View {
                                         )
                                         .padding(.leading, 20)
                                         .padding(.trailing, 20)
+                                        .transition(.move(edge: .bottom).combined(with: .opacity))
                                     }
                                 }
 

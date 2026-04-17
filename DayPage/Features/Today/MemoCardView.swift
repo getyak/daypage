@@ -84,6 +84,7 @@ struct MemoCardView: View {
         }
         .cornerRadius(DSSpacing.radiusCard)
         .surfaceElevatedShadow()
+        .pressableCard()
         .sheet(isPresented: $showLocationSheet) {
             LocationPreviewSheet(
                 location: memo.location,
@@ -197,7 +198,11 @@ struct MemoCardView: View {
 
                 // Expand/collapse button for long content
                 if needsExpansionButton {
-                    Button(action: { isExpanded.toggle() }) {
+                    Button(action: {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            isExpanded.toggle()
+                        }
+                    }) {
                         Text(isExpanded ? "收起" : "展开")
                             .monoLabelStyle(size: 9)
                             .foregroundColor(DSColor.onSurfaceVariant)
@@ -219,6 +224,7 @@ struct MemoCardView: View {
         )
         .cornerRadius(DSSpacing.radiusCard)
         .surfaceElevatedShadow()
+        .pressableCard()
     }
 
     // MARK: - Subviews

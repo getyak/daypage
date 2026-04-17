@@ -1,0 +1,37 @@
+import SwiftUI
+import UIKit
+
+// MARK: - PressableCardModifier
+
+/// Applies a press-scale + dim overlay with haptic feedback to any card view.
+struct PressableCardModifier: ViewModifier {
+    @State private var isPressed: Bool = false
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(isPressed ? 0.98 : 1.0)
+            .overlay(
+                Color.black.opacity(isPressed ? 0.04 : 0)
+                    .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard, style: .continuous))
+            )
+            .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isPressed)
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        if !isPressed {
+                            isPressed = true
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        }
+                    }
+                    .onEnded { _ in
+                        isPressed = false
+                    }
+            )
+    }
+}
+
+extension View {
+    func pressableCard() -> some View {
+        modifier(PressableCardModifier())
+    }
+}

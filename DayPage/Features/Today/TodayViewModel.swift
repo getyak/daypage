@@ -367,7 +367,10 @@ final class TodayViewModel: ObservableObject {
 
             do {
                 try RawStorage.append(memo)
-                memos.insert(memo, at: 0)
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    memos.insert(memo, at: 0)
+                }
+                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
                 pendingLocation = nil
                 pendingAttachments = []
             } catch {
@@ -476,6 +479,7 @@ final class TodayViewModel: ObservableObject {
                 slowTask.cancel()
                 cancelTask.cancel()
                 checkDailyPage()
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .success,
                     title: "今日 Daily Page 已生成",
@@ -492,6 +496,7 @@ final class TodayViewModel: ObservableObject {
             } catch CompilationError.missingApiKey {
                 slowTask.cancel()
                 cancelTask.cancel()
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .error,
                     title: "DashScope API Key 未配置",
@@ -500,6 +505,7 @@ final class TodayViewModel: ObservableObject {
             } catch CompilationError.apiError(let code, _) where code == 401 {
                 slowTask.cancel()
                 cancelTask.cancel()
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .error,
                     title: "API Key 无效或已过期",
@@ -508,6 +514,7 @@ final class TodayViewModel: ObservableObject {
             } catch CompilationError.parseError {
                 slowTask.cancel()
                 cancelTask.cancel()
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .error,
                     title: "AI 返回格式异常",
@@ -516,6 +523,7 @@ final class TodayViewModel: ObservableObject {
             } catch {
                 slowTask.cancel()
                 cancelTask.cancel()
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
                 let self_ = self
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .error,
