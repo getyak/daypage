@@ -11,9 +11,12 @@ Previous run (v2 roadmap) archived at: archive/2026-04-17-daypage-v2-roadmap/
 ## Codebase Patterns
 - Build command: `xcodebuild -scheme DayPage -destination 'platform=iOS Simulator,arch=arm64,id=3A661BD8-5F57-42B2-B4BA-DBB2FAB4FAD0' build`
 - SourceKit diagnostics show macOS errors for AVAudioSession — these are iOS-only APIs and build fine in the iOS target
+- SourceKit also misreports "Cannot find X in scope" for cross-module symbols (RawStorage, VaultInitializer, etc.) — build succeeds regardless
 - VoiceService is @MainActor singleton; VoiceRecordingView uses @StateObject private var voiceService = VoiceService.shared
 - DSColor tokens used for all colors in existing views
 - VaultInitializer.vaultURL is the entry point for vault file paths
+- To add new Swift files: add PBXBuildFile + PBXFileReference + group child + Sources entry in project.pbxproj (use sequential IDs like A10000036/A20000036)
+- DayPageLogger uses nonisolated static helpers called from a DispatchQueue to avoid @MainActor actor isolation issues
 
 ---
 
@@ -30,4 +33,26 @@ Previous run (v2 roadmap) archived at: archive/2026-04-17-daypage-v2-roadmap/
   - transcribeAudio() was private, changed to internal so VoiceAttachmentQueue (US-009) can reuse it
   - liveTranscript reset calls were in startRecording, cancelRecording, reset — all cleaned up together
   - Build succeeds with iPhone 16e simulator (id: 3A661BD8-5F57-42B2-B4BA-DBB2FAB4FAD0)
+---
+
+## 2026-04-17 - US-002
+- Confirmed VoiceRecordingView.swift already satisfies all US-002 criteria from US-001 work
+- Recording screen shows: waveform + timer + pause/stop/cancel buttons only
+- Bottom text "停止后自动转写" present; no live transcript UI remains
+- Files changed: prd.json (passes: true)
+- **Learnings for future iterations:**
+  - US-001 and US-002 were implemented together; US-002's criteria were fully met in the US-001 commit
+---
+
+## 2026-04-17 - US-003
+- Created DayPage/Services/DayPageLogger.swift: @MainActor singleton with .error/.warn/.info methods
+- Writes to vault/logs/app.log (under Documents/vault/logs/) with ISO8601 timestamp + level + file:line
+- Rotates log file at 1MB: renames to app.log.old and starts fresh
+- Thread-safe via serial DispatchQueue; uses nonisolated static helpers to avoid actor isolation issues
+- Registered in project.pbxproj (PBXBuildFile A10000036, PBXFileReference A20000036)
+- Replaced 2 try? in CompilationService.swift with do/catch + DayPageLogger.shared.error()
+- Files changed: DayPage/Services/DayPageLogger.swift (new), DayPage/Services/CompilationService.swift, DayPage.xcodeproj/project.pbxproj, prd.json
+- **Learnings for future iterations:**
+  - DayPageLogger builds log path directly from FileManager (Documents/vault/logs/) without calling VaultInitializer to avoid circular dependency
+  - nonisolated static methods are the correct pattern for @MainActor class methods called from DispatchQueue.async blocks
 ---
