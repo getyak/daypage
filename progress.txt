@@ -246,3 +246,21 @@ Previous run (v2 roadmap) archived at: archive/2026-04-17-daypage-v2-roadmap/
   - SF Symbol "pencil.and.scribble" 在 iOS 16+ 可用，适合 Today 插图；"calendar" 适合 Archive；"point.3.connected.trianglepath.dotted" 适合 Graph
   - ArchiveEmptyStateView / GraphEmptyStateView 已创建备用，供后续 Archive / Graph tab 接入
 ---
+
+## 2026-04-17 - US-024
+- 新建 DayPage/Services/OnThisDayIndex.swift：@MainActor singleton
+- struct OnThisDayEntry (Codable)：originalDate, yearsAgo?, daysAgo?, preview, filePath
+- struct DayRecord (Codable)：year, filePath, memoCount, longestMemoPreview (private)
+- buildIndexOff()：`private static nonisolated` 扫描 vault/raw/*.md，按 MMDD key 建索引
+- rebuildIndex()：Task.detached 调 buildIndexOff + await persistIndex；loadIndex() 先磁盘后 rebuildIndex
+- candidate(for:)：优先-1年(-365d)，次-180d，再-2年；nil if 无历史
+- 持久化到 vault/wiki/index.json（与现有 wiki 目录共存，不新建目录）
+- TodayViewModel.compile() 成功分支：await OnThisDayIndex.shared.rebuildIndex()
+- DayPageApp.onAppear：Task { await OnThisDayIndex.shared.loadIndex() }
+- 注册 pbxproj：A10000045/A20000045，加入 Services 组
+- Files changed: DayPage/Services/OnThisDayIndex.swift (new), TodayViewModel.swift, DayPageApp.swift, project.pbxproj, prd.json
+- **Learnings for future iterations:**
+  - @MainActor 类里的 static 方法如需在 Task.detached 中调用，必须标 nonisolated；不加则编译报 "main actor-isolated cannot be called from outside of the actor"
+  - OnThisDayEntry/DayRecord Codable 需用 JSONEncoder/Decoder，Date 默认是 Double 时间戳，可正常 encode/decode
+  - candidate() 的 180d 逻辑：只有当前日期减 180d 的 MMDD 恰好等于今天的 MMDD 时（闰年极端情况）才命中；实际产品中此路径极少触发
+---

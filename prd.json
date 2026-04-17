@@ -430,8 +430,8 @@
         "Typecheck passes"
       ],
       "priority": 24,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "OnThisDayIndex：@MainActor singleton，buildIndexOff(nonisolated static)扫描vault/raw/，index.json持久化，candidate()优先-365d/-180d/-730d；TodayViewModel编译成功后rebuildIndex；DayPageApp onAppear loadIndex。"
     },
     {
       "id": "US-025",

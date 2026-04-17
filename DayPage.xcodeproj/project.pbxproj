@@ -47,6 +47,7 @@
 		A10000037 /* AppBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000037 /* AppBanner.swift */; };
 		A10000038 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000038 /* NetworkMonitor.swift */; };
 		A10000039 /* VoiceAttachmentQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000039 /* VoiceAttachmentQueue.swift */; };
+		A10000045 /* OnThisDayIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000045 /* OnThisDayIndex.swift */; };
 		A10000040 /* DayDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000040 /* DayDetailView.swift */; };
 		A10000042 /* RelativeTimeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000042 /* RelativeTimeFormatter.swift */; };
 		AF0000001 /* SpaceGrotesk-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000001 /* SpaceGrotesk-Light.ttf */; };
@@ -107,6 +108,7 @@
 		A20000037 /* AppBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBanner.swift; sourceTree = "<group>"; };
 		A20000038 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		A20000039 /* VoiceAttachmentQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceAttachmentQueue.swift; sourceTree = "<group>"; };
+		A20000045 /* OnThisDayIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayIndex.swift; sourceTree = "<group>"; };
 		A20000040 /* DayDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayDetailView.swift; sourceTree = "<group>"; };
 		A20000042 /* RelativeTimeFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeTimeFormatter.swift; sourceTree = "<group>"; };
 		A30000001 /* DayPage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPage.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -236,6 +238,7 @@
 				A20000036 /* DayPageLogger.swift */,
 				A20000038 /* NetworkMonitor.swift */,
 				A20000039 /* VoiceAttachmentQueue.swift */,
+				A20000045 /* OnThisDayIndex.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -485,6 +488,7 @@
 				A10000037 /* AppBanner.swift in Sources */,
 				A10000038 /* NetworkMonitor.swift in Sources */,
 				A10000039 /* VoiceAttachmentQueue.swift in Sources */,
+				A10000045 /* OnThisDayIndex.swift in Sources */,
 				A10000042 /* RelativeTimeFormatter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

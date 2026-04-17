@@ -68,6 +68,8 @@ struct DayPageApp: App {
                     PassiveLocationService.shared.startMonitoringIfAuthorized()
                     // API key health check
                     checkApiKeys()
+                    // Load On This Day index
+                    Task { await OnThisDayIndex.shared.loadIndex() }
                 }
         }
     }

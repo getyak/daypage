@@ -479,6 +479,7 @@ final class TodayViewModel: ObservableObject {
                 slowTask.cancel()
                 cancelTask.cancel()
                 checkDailyPage()
+                await OnThisDayIndex.shared.rebuildIndex()
                 UINotificationFeedbackGenerator().notificationOccurred(.success)
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .success,
