@@ -17,6 +17,7 @@
 		A10000041 /* Spacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000041 /* Spacing.swift */; };
 		A10000043 /* Interactions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000043 /* Interactions.swift */; };
 		A10000044 /* TodayEmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000044 /* TodayEmptyStateView.swift */; };
+		A10000046 /* OnThisDayCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000046 /* OnThisDayCard.swift */; };
 		A10000008 /* Memo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000008 /* Memo.swift */; };
 		A10000009 /* RawStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000009 /* RawStorage.swift */; };
 		A10000010 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010 /* TodayView.swift */; };
@@ -76,6 +77,7 @@
 		A20000041 /* Spacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Spacing.swift; sourceTree = "<group>"; };
 		A20000043 /* Interactions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Interactions.swift; sourceTree = "<group>"; };
 		A20000044 /* TodayEmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayEmptyStateView.swift; sourceTree = "<group>"; };
+		A20000046 /* OnThisDayCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayCard.swift; sourceTree = "<group>"; };
 		A20000008 /* Memo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Memo.swift; sourceTree = "<group>"; };
 		A20000009 /* RawStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawStorage.swift; sourceTree = "<group>"; };
 		A20000010 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
@@ -278,6 +280,7 @@
 				A20000020 /* VoiceRecordingView.swift */,
 				A20000033 /* CameraPickerView.swift */,
 				A20000044 /* TodayEmptyStateView.swift */,
+				A20000046 /* OnThisDayCard.swift */,
 				A20000034 /* DocumentPickerView.swift */,
 			);
 			path = Today;
@@ -472,6 +475,7 @@
 				A10000020 /* VoiceRecordingView.swift in Sources */,
 				A10000033 /* CameraPickerView.swift in Sources */,
 				A10000044 /* TodayEmptyStateView.swift in Sources */,
+				A10000046 /* OnThisDayCard.swift in Sources */,
 				A10000034 /* DocumentPickerView.swift in Sources */,
 				A10000021 /* CompilationService.swift in Sources */,
 				A10000022 /* EntityPageService.swift in Sources */,

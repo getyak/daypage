@@ -17,6 +17,9 @@ struct TodayView: View {
     /// Whether to show the Settings sheet.
     @State private var showSettings: Bool = false
 
+    /// Date string for On This Day navigation.
+    @State private var onThisDayDateString: String? = nil
+
     /// Current time for the header timestamp (refreshed every minute).
     @State private var currentTime: Date = Date()
 
@@ -127,6 +130,22 @@ struct TodayView: View {
                     GeometryReader { geo in
                         ScrollView {
                             LazyVStack(spacing: 8) {
+                                // On This Day card
+                                if let entry = viewModel.onThisDayEntry {
+                                    OnThisDayCard(
+                                        entry: entry,
+                                        onDismiss: { viewModel.dismissOnThisDay() },
+                                        onTap: { e in
+                                            let fmt = DateFormatter()
+                                            fmt.dateFormat = "yyyy-MM-dd"
+                                            fmt.locale = Locale(identifier: "en_US_POSIX")
+                                            fmt.timeZone = TimeZone.current
+                                            onThisDayDateString = fmt.string(from: e.originalDate)
+                                        }
+                                    )
+                                    .padding(.top, 4)
+                                }
+
                                 // Daily Page entry card or compile prompt
                                 Group {
                                     if viewModel.isDailyPageCompiled {
@@ -316,6 +335,13 @@ struct TodayView: View {
                 )
                 .ignoresSafeArea()
             }
+            // On This Day navigation to DayDetailView
+            .fullScreenCover(item: Binding(
+                get: { onThisDayDateString.map { OnThisDayNavTarget(dateString: $0) } },
+                set: { onThisDayDateString = $0?.dateString }
+            )) { target in
+                DayDetailView(dateString: target.dateString)
+            }
             .bannerOverlay()
         }
     }
@@ -341,6 +367,13 @@ struct TodayView: View {
         f.timeZone = TimeZone.current
         return f.string(from: date)
     }
+}
+
+// MARK: - OnThisDayNavTarget
+
+private struct OnThisDayNavTarget: Identifiable {
+    let dateString: String
+    var id: String { dateString }
 }
 
 // MARK: - ApiKeyMissingBanner

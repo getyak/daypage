@@ -264,3 +264,18 @@ Previous run (v2 roadmap) archived at: archive/2026-04-17-daypage-v2-roadmap/
   - OnThisDayEntry/DayRecord Codable 需用 JSONEncoder/Decoder，Date 默认是 Double 时间戳，可正常 encode/decode
   - candidate() 的 180d 逻辑：只有当前日期减 180d 的 MMDD 恰好等于今天的 MMDD 时（闰年极端情况）才命中；实际产品中此路径极少触发
 ---
+
+## 2026-04-17 - US-025
+- 新建 DayPage/Features/Today/OnThisDayCard.swift：取 OnThisDayEntry 渲染卡片
+- 卡片样式：accentSoft 背景 + accentBorder 描边 + cornerRadius 12 + padding 20（DSSpacing.cardInner）
+- header: "ON THIS DAY · N YEAR(S) AGO" labelText() + accentAmber；preview 2 行 bodyText()；右下 "翻开那天 →" captionText() + accentAmber
+- 右上 X 按钮：调用 onDismiss 回调
+- TodayViewModel：新增 @Published onThisDayEntry: OnThisDayEntry?；checkOnThisDay() 在 load() 末调用（检查 UserDefaults dismissed date）；dismissOnThisDay() 存今日 date 字符串到 UserDefaults
+- TodayView：LazyVStack 顶部插入 OnThisDayCard（if entry != nil）；私有 struct OnThisDayNavTarget: Identifiable 用于 .fullScreenCover(item:)；点击 → DayDetailView(dateString:)
+- 注册 pbxproj：A10000046/A20000046
+- Files changed: OnThisDayCard.swift (new), TodayView.swift, TodayViewModel.swift, project.pbxproj, prd.json
+- **Learnings for future iterations:**
+  - .fullScreenCover(item:) 需要 Identifiable item；用 Binding 把 String? 包成 Identifiable 结构体是最简单方案
+  - UserDefaults dismissed date 用 DateFormatter.localizedString(short style) 作为 key value，跨时区轻量稳定
+  - OnThisDayCard 里 Button + .buttonStyle(.plain) 嵌套：外 Button 整卡点击，内 X Button .buttonStyle(.plain) 防止事件冒泡
+---

@@ -175,6 +175,24 @@ final class TodayViewModel: ObservableObject {
 
         checkDailyPage()
         isLoading = false
+        checkOnThisDay()
+    }
+
+    // MARK: - On This Day
+
+    private let onThisDayDismissedKey = "onThisDayDismissedDate"
+
+    func dismissOnThisDay() {
+        let today = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
+        UserDefaults.standard.set(today, forKey: onThisDayDismissedKey)
+        onThisDayEntry = nil
+    }
+
+    private func checkOnThisDay() {
+        let today = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
+        let dismissed = UserDefaults.standard.string(forKey: onThisDayDismissedKey)
+        guard dismissed != today else { return }
+        onThisDayEntry = OnThisDayIndex.shared.candidate(for: Date())
     }
 
     // MARK: - Add Photo Attachment (staged, not yet submitted)
@@ -227,6 +245,9 @@ final class TodayViewModel: ObservableObject {
 
     /// Whether the document picker sheet is presented.
     @Published var isShowingDocumentPicker: Bool = false
+
+    /// On This Day entry to show at the top of Today (nil if dismissed or no history).
+    @Published var onThisDayEntry: OnThisDayEntry? = nil
 
     /// Opens the document picker sheet.
     func startFilePicker() {

@@ -447,8 +447,8 @@
         "Verify in iOS Simulator: inject a fake 2025-04-17 file in vault/raw, relaunch - card appears at top of Today; tap -> jumps to that date's detail"
       ],
       "priority": 25,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "OnThisDayCard：accentSoft背景+accentBorder描边+radius 12+padding 20；labelText() header+2行preview+翻开那天→；X按钮通过UserDefaults记录今日dismissed。TodayViewModel：onThisDayEntry @Published + checkOnThisDay() + dismissOnThisDay()。TodayView：LazyVStack顶部插入卡片，fullScreenCover item导航到DayDetailView。"
     },
     {
       "id": "US-026",
