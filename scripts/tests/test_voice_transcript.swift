@@ -64,11 +64,10 @@ func test(_ name: String, _ body: () throws -> Void) {
     }
 }
 
-func assertEqual<T: Equatable>(_ lhs: T, _ rhs: T, file: StaticString = #file, line: Int = #line) throws {
+func assertEqual<T: Equatable>(_ lhs: T, _ rhs: T, _ message: String = "", file: StaticString = #file, line: Int = #line) throws {
     if lhs != rhs {
-        throw NSError(domain: "Test", code: 1, userInfo: [
-            NSLocalizedDescriptionKey: "Expected \(rhs), got \(lhs) at line \(line)"
-        ])
+        let msg = message.isEmpty ? "Expected \(rhs), got \(lhs) at line \(line)" : "\(message) — Expected \(rhs), got \(lhs) at line \(line)"
+        throw NSError(domain: "Test", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
     }
 }
 

@@ -50,11 +50,10 @@ func test(_ name: String, _ body: () throws -> Void) {
     }
 }
 
-func assertEqual<T: Equatable>(_ lhs: T, _ rhs: T, file: StaticString = #file, line: Int = #line) throws {
+func assertEqual<T: Equatable>(_ lhs: T, _ rhs: T, _ message: String = "", file: StaticString = #file, line: Int = #line) throws {
     if lhs != rhs {
-        throw NSError(domain: "Test", code: 1, userInfo: [
-            NSLocalizedDescriptionKey: "Expected \(rhs), got \(lhs) at line \(line)"
-        ])
+        let msg = message.isEmpty ? "Expected \(rhs), got \(lhs) at line \(line)" : "\(message) — Expected \(rhs), got \(lhs) at line \(line)"
+        throw NSError(domain: "Test", code: 1, userInfo: [NSLocalizedDescriptionKey: msg])
     }
 }
 
@@ -69,7 +68,7 @@ func assertTrue(_ condition: Bool, _ message: String = "condition false") throws
 print("\n=== Compilation Parsing Tests ===\n")
 
 test("bare JSON parsed correctly") {
-    let raw = #"{"daily_page": "# Day\nContent here", "entity_updates": [], "hot_cache": "summary"}"#
+    let raw = "{\"daily_page\": \"# Day\\nContent here\", \"entity_updates\": [], \"hot_cache\": \"summary\"}"
     let (page, _) = parseStructuredOutput(raw)
     try assertTrue(!page.isEmpty, "dailyPage should not be empty")
     try assertTrue(page.contains("Content here"), "dailyPage should contain expected text")
@@ -127,7 +126,7 @@ test("invalid JSON returns empty sentinel") {
 }
 
 test("truncated JSON returns empty sentinel") {
-    let raw = #"{"daily_page": "# Start"#  // missing closing brace
+    let raw = "{\"daily_page\": \"# Start\""  // missing closing brace
     let (page, _) = parseStructuredOutput(raw)
     try assertEqual(page, "", "truncated JSON should return empty sentinel")
 }
