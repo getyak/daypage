@@ -1,7 +1,18 @@
 import SwiftUI
 
 struct RootView: View {
+    @StateObject private var bannerCenter = BannerCenter.shared
+    @State private var hasOnboarded: Bool = UserDefaults.standard.bool(forKey: "hasOnboarded")
+
     var body: some View {
+        if hasOnboarded {
+            mainTabView
+        } else {
+            OnboardingView(hasOnboarded: $hasOnboarded)
+        }
+    }
+
+    private var mainTabView: some View {
         TabView {
             TodayView()
                 .tabItem {

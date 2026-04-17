@@ -58,10 +58,10 @@ struct DayStats {
 
         var fillColor: Color {
             switch self {
-            case .empty:  return Color(hex: "F9F9F9")
-            case .low:    return Color(hex: "E8E8E8")
-            case .medium: return Color(hex: "474747")
-            case .high:   return Color(hex: "000000")
+            case .empty:  return DSColor.heatmapEmpty
+            case .low:    return DSColor.heatmapLow
+            case .medium: return DSColor.heatmapMid
+            case .high:   return DSColor.heatmapHigh
             }
         }
 
@@ -181,8 +181,10 @@ final class ArchiveViewModel: ObservableObject {
             var voiceSeconds = 0
             var uniqueLocations = Set<String>()
 
-            if let content = try? String(contentsOf: rawURL, encoding: .utf8) {
-                let memos = try? RawStorage.read(for: date)
+            if let content = (try? String(contentsOf: rawURL, encoding: .utf8)) {
+                let memos: [Memo]?
+                do { memos = try RawStorage.read(for: date) }
+                catch { memos = nil; DayPageLogger.shared.error("ArchiveView: read memos: \(error)") }
                 memoCount = memos?.count ?? countMemoBlocks(in: content)
                 for memo in (memos ?? []) {
                     if memo.type == .photo || memo.type == .mixed {
@@ -203,8 +205,10 @@ final class ArchiveViewModel: ObservableObject {
 
             let isDailyCompiled = FileManager.default.fileExists(atPath: dailyURL.path)
             var dailySummary: String? = nil
-            if isDailyCompiled, let content = try? String(contentsOf: dailyURL, encoding: .utf8) {
-                dailySummary = extractSummary(from: content)
+            if isDailyCompiled {
+                if let content = (try? String(contentsOf: dailyURL, encoding: .utf8)) {
+                    dailySummary = extractSummary(from: content)
+                }
             }
 
             result[dateStr] = DayStats(
@@ -373,8 +377,7 @@ struct ArchiveView: View {
     @StateObject private var viewModel = ArchiveViewModel()
     @State private var mode: ArchiveMode = .calendar
     @State private var selectedDateString: String? = nil
-    @State private var showDailyPage: Bool = false
-    @State private var showRawMemo: Bool = false
+    @State private var showDayDetail: Bool = false
     @State private var showSearch: Bool = false
     @State private var showNoRecordAlert: Bool = false
     @State private var summaryFilter: MonthlySummaryFilter = .all
@@ -422,23 +425,17 @@ struct ArchiveView: View {
             }
             .navigationBarHidden(true)
             .onAppear { viewModel.loadMonth() }
-            .fullScreenCover(isPresented: $showDailyPage) {
+            .fullScreenCover(isPresented: $showDayDetail) {
                 if let dateStr = selectedDateString {
-                    DailyPageView(dateString: dateStr)
-                }
-            }
-            .fullScreenCover(isPresented: $showRawMemo) {
-                if let dateStr = selectedDateString {
-                    RawMemoView(dateString: dateStr)
+                    DayDetailView(dateString: dateStr)
                 }
             }
             .sheet(isPresented: $showSearch) {
                 SearchView { dateStr in
                     selectedDateString = dateStr
                     showSearch = false
-                    // 给 sheet 关闭动画一点时间再打开 DailyPage，避免叠加过渡。
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                        showDailyPage = true
+                        showDayDetail = true
                     }
                 }
             }
@@ -452,10 +449,8 @@ struct ArchiveView: View {
 
     private func handleDateTap(dateStr: String, stats: DayStats?) {
         selectedDateString = dateStr
-        if stats?.isDailyPageCompiled == true {
-            showDailyPage = true
-        } else if (stats?.memoCount ?? 0) > 0 {
-            showRawMemo = true
+        if (stats?.memoCount ?? 0) > 0 || stats?.isDailyPageCompiled == true {
+            showDayDetail = true
         } else {
             showNoRecordAlert = true
         }
@@ -760,7 +755,11 @@ struct ArchiveView: View {
         let markdown = viewModel.generateMarkdownExport(filter: summaryFilter)
         let filename = "\(viewModel.currentMonthTitle.lowercased().replacingOccurrences(of: " ", with: "-"))-summary.md"
         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(filename)
-        try? markdown.write(to: tempURL, atomically: true, encoding: .utf8)
+        do {
+            try markdown.write(to: tempURL, atomically: true, encoding: .utf8)
+        } catch {
+            DayPageLogger.shared.error("ArchiveView export: \(error)")
+        }
         shareItems = [tempURL]
         showShareSheet = true
     }
@@ -854,9 +853,9 @@ struct ArchiveView: View {
 
     private var statusTextColor: Color {
         switch viewModel.systemStatus {
-        case .synchronized:       return Color.white.opacity(0.7)
-        case .pendingCompilation: return Color(hex: "F5C518").opacity(0.9)
-        case .offline:            return Color(hex: "FF4444").opacity(0.9)
+        case .synchronized:       return DSColor.onBackgroundSubtle
+        case .pendingCompilation: return DSColor.warningAmber
+        case .offline:            return DSColor.errorRed
         }
     }
 
@@ -891,6 +890,21 @@ struct ArchiveView: View {
         return formatter.string(from: date).uppercased()
     }
 
+    /// Human-friendly date label: TODAY / YESTERDAY / N DAYS AGO / APRIL 14.
+    private func relativeDateLabel(_ dateString: String) -> String {
+        let parser = DateFormatter()
+        parser.dateFormat = "yyyy-MM-dd"
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        guard let date = parser.date(from: dateString) else { return dateString }
+        let cal = Calendar.current
+        let now = Date()
+        if cal.isDateInToday(date) { return "TODAY" }
+        if cal.isDateInYesterday(date) { return "YESTERDAY" }
+        let daysDiff = cal.dateComponents([.day], from: date, to: now).day ?? 0
+        if daysDiff > 0 && daysDiff < 7 { return "\(daysDiff) DAYS AGO" }
+        return formatArchiveDate(dateString)
+    }
+
     private func archiveListRow(stats: DayStats) -> some View {
         let isMetadataOnly = !stats.isDailyPageCompiled
         return Button(action: {
@@ -904,7 +918,7 @@ struct ArchiveView: View {
 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
-                        Text(formatArchiveDate(stats.dateString))
+                        Text(relativeDateLabel(stats.dateString))
                             .font(.custom("SpaceGrotesk-Bold", size: 15))
                             .foregroundColor(DSColor.onSurface)
                             .opacity(isMetadataOnly ? 0.8 : 1.0)
@@ -933,11 +947,13 @@ struct ArchiveView: View {
                     }
                     .opacity(isMetadataOnly ? 0.8 : 1.0)
                 }
-                .padding(16)
+                .padding(DSSpacing.cardGap)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(DSColor.surfaceContainer)
             }
-            .cornerRadius(0)
+            .cornerRadius(DSSpacing.radiusCard)
+            .surfaceElevatedShadow()
+            .pressableCard()
         }
         .buttonStyle(.plain)
     }

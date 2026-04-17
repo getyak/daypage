@@ -1,0 +1,360 @@
+{
+  "project": "DayPage",
+  "branchName": "ralph/daypage-v2-roadmap",
+  "description": "DayPage v2 全量路线图 - 按 Wave 分批交付，先稳定地基再扩展能力",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "创建 SettingsView 基础骨架",
+      "description": "As a developer, I need a SettingsView.swift with structured sections so the settings icon has somewhere to navigate.",
+      "acceptanceCriteria": [
+        "新建 DayPage/Features/Settings/SettingsView.swift",
+        "包含三个分区：API Keys、权限（位置/通知）、关于/版本号",
+        "API Keys 分区显示 DashScope / OpenAI / OpenWeather 三项，每项读取 GeneratedSecrets 并显示已配置/未配置状态",
+        "未配置项显示红色'未配置'徽章，已配置显示绿色勾",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Today Header 设置按钮接线到 SettingsView",
+      "description": "As a user, I want the settings icon in Today header to open SettingsView so I can manage my configuration.",
+      "acceptanceCriteria": [
+        "TodayView 顶部设置图标点击后以 sheet 方式弹出 SettingsView",
+        "SettingsView 顶部有关闭按钮（dismiss）",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "API Key 缺失 Banner 提示",
+      "description": "As a user, I want a banner at the top of Today View when API keys are missing, so I know to configure them.",
+      "acceptanceCriteria": [
+        "启动时检测 DashScope / OpenAI / OpenWeather 三个 key，任一缺失时 Today View 顶部显示黄色 banner",
+        "Banner 文字：'部分功能需要配置 API Key'，右侧'前往设置'按钮",
+        "点击'前往设置'打开 SettingsView sheet",
+        "全部配置时 banner 不显示",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "修复 Archive 日历未编译日期点击无响应",
+      "description": "As a user, I want to tap any date cell on the calendar—even if it's not yet compiled—so I can view raw memos.",
+      "acceptanceCriteria": [
+        "未编译日期单元格可点击",
+        "点击导航到原始 memo 浏览视图（显示该日所有 memo，按时间排序）",
+        "空白日期点击提示'该日无记录'",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "修复 Archive 列表视图未编译日期无法查看原始 memo",
+      "description": "As a user, I want the list view to also allow opening uncompiled dates so behavior matches the calendar.",
+      "acceptanceCriteria": [
+        "列表视图中未编译日期行可点击，行为与 US-004 一致",
+        "复用同一原始 memo 浏览视图",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "修复 Entity Page 关联条目点击无响应",
+      "description": "As a user, I want to click a date entry in an Entity Page's related-entries list so I jump to that Daily Page.",
+      "acceptanceCriteria": [
+        "关联条目列表行点击有响应（添加 onTapGesture 或 NavigationLink）",
+        "导航到对应日期的 Daily Page",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Daily Page Timeline Tab 渲染结构化 memo 卡片",
+      "description": "As a user, I want Timeline Tab to render memo cards with the same styling as Today view, not plain text dump.",
+      "acceptanceCriteria": [
+        "Timeline Tab 复用 Today view 的 memo 卡片组件",
+        "支持 text / voice / photo / location 四种类型渲染",
+        "与 Today view 视觉一致（时间竖线、间距、字体）",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Daily Page 语音时长 Chip 修复",
+      "description": "As a user, I want the voice duration chip in Daily Page metadata to show total duration when voice memos exist.",
+      "acceptanceCriteria": [
+        "识别当日 memo 中所有语音附件，汇总总时长",
+        "Chip 显示 '🎙️ mm:ss' 格式（总时长）",
+        "无语音 memo 时 Chip 不显示",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "修复 Wikilink 跳转",
+      "description": "As a user, I want to click [[Entity]] links in Daily Page and Entity Page so I can navigate the knowledge network.",
+      "acceptanceCriteria": [
+        "Daily Page 内 [[Entity]] 文本渲染为可点击链接（下划线或 accent 色）",
+        "点击跳转到对应 Entity Page（若不存在则创建空 Entity Page）",
+        "Entity Page 内 [[Entity]] 同样可点击",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Entity Page 返回导航/面包屑",
+      "description": "As a user, I want a clear back path from Entity Page to the Daily Page I came from.",
+      "acceptanceCriteria": [
+        "从 Daily Page 进入的 Entity Page 顶部显示面包屑或标准 back button",
+        "点击返回到来源 Daily Page",
+        "通过 Tab 切换进入的 Entity Page 不显示面包屑",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "后台编译失败重试与用户通知",
+      "description": "As a user, I want background compilation failures to retry automatically and notify me if they still fail.",
+      "acceptanceCriteria": [
+        "BackgroundCompilationService 失败时重试 3 次（30s / 2min / 10min backoff）",
+        "三次都失败后发本地通知：'今日编译失败，点击查看'",
+        "点击通知进入 Today View 并显示错误横幅 + 重试按钮",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "AI 编译进度反馈 UI",
+      "description": "As a user, I want to see that AI compilation is in progress, not just a frozen UI.",
+      "acceptanceCriteria": [
+        "手动触发编译时 Daily Page 显示进度状态文字",
+        "使用 ProgressView + 动画文字",
+        "Today View 顶部显示小徽章'正在编译...'（后台编译时）",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "位置权限升级到 Always + 后台模式",
+      "description": "As a developer, I need to request Always location authorization and enable background location mode.",
+      "acceptanceCriteria": [
+        "Info.plist 添加 NSLocationAlwaysAndWhenInUseUsageDescription 与 UIBackgroundModes: location",
+        "Settings 中添加'启用被动位置'开关，点击触发 Always 授权升级",
+        "授权状态在 Settings 中可见",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 13,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "CLVisitor 被动位置感知服务",
+      "description": "As a nomad user, I want the app to automatically detect when I arrive at significant places.",
+      "acceptanceCriteria": [
+        "新建 PassiveLocationService.swift，使用 CLLocationManager.startMonitoringVisits()",
+        "didVisit 回调中保存 VisitDraft 到 vault/drafts/visits.json",
+        "到达事件异步反向地理编码并缓存地名",
+        "授权降级时自动停止",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 14,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Today View 自动位置草稿确认卡片",
+      "description": "As a user, I want to see passively-detected visits as a draft card in Today, confirm or dismiss them.",
+      "acceptanceCriteria": [
+        "Today View 顶部显示 LocationDraftCard，列出当天所有 pending drafts",
+        "每行显示到达时间、地名、停留时长",
+        "支持单条确认/忽略和批量操作",
+        "确认后创建 .location memo 写入当日 .md",
+        "无 pending drafts 时卡片不显示",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 15,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "位置附件 Chip 地图预览",
+      "description": "As a user, I want to preview a location attachment on a map instead of only being able to delete it.",
+      "acceptanceCriteria": [
+        "位置 Chip 点击弹出 Sheet，显示 MapKit 静态地图",
+        "Sheet 底部保留'删除附件'按钮",
+        "Sheet 支持'在 Apple Maps 中打开'",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 16,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Daily Page 重新编译/元数据编辑",
+      "description": "As a user, I want to re-run AI compilation on a past day and manually edit metadata.",
+      "acceptanceCriteria": [
+        "Daily Page 右上角'更多'菜单添加[重新编译][编辑元数据]选项",
+        "重新编译有确认弹窗",
+        "编辑元数据 Sheet 允许修改 mood、weather、cover image",
+        "编辑后 YAML front-matter 原子写入",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 17,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "语音 memo 重复转写 bug 修复",
+      "description": "As a user, I want voice transcription to appear only once, not duplicated.",
+      "acceptanceCriteria": [
+        "定位重复来源（VoiceService 回调/memo 写入/UI 渲染）",
+        "修复重复问题",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 18,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "搜索高级筛选",
+      "description": "As a user, I want filters for date range, memo type, and location in search.",
+      "acceptanceCriteria": [
+        "搜索页顶部添加筛选栏：日期范围 picker、类型多选、地点过滤",
+        "筛选与关键词并存，结果实时更新",
+        "空结果显示 empty state",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 19,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Archive 月度统计筛选/导出/分享",
+      "description": "As a user reflecting on a month, I want to filter the monthly summary and export/share it.",
+      "acceptanceCriteria": [
+        "月度摘要页添加筛选（仅有位置/仅有照片的日期）",
+        "导出按钮生成 Markdown 文件并通过 UIActivityViewController 分享",
+        "分享按钮截图当前页面",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 20,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-021",
+      "title": "语音录音实时转写文字显示",
+      "description": "As a user recording voice, I want to see live transcription text as I speak.",
+      "acceptanceCriteria": [
+        "录音浮层显示实时转写区域（使用 SFSpeechRecognizer）",
+        "停止录音后转写文字自动填入 memo",
+        "识别失败时回退到 Whisper API",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 21,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-022",
+      "title": "输入栏直接拍照",
+      "description": "As a user, I want to take a photo directly from the input bar.",
+      "acceptanceCriteria": [
+        "输入栏照片按钮长按/次级菜单区分[拍照][从相册选择]",
+        "拍照后走现有 Photo 附件流程",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 22,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-023",
+      "title": "输入栏文件附件",
+      "description": "As a user, I want to attach arbitrary files (PDF, text) to memos.",
+      "acceptanceCriteria": [
+        "输入栏添加文件附件入口，使用 UIDocumentPickerViewController",
+        "附件拷贝到 vault/raw/assets/files/，YAML 记录 type: file",
+        "Daily Page 卡片显示文件图标 + 文件名",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 23,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-024",
+      "title": "Graph Tab 节点可视化与连线",
+      "description": "As a user, I want to see entities as nodes and connections as edges in Graph Tab.",
+      "acceptanceCriteria": [
+        "RootView.swift 移除 Graph Tab 的 .disabled(true)",
+        "新建 GraphViewModel 扫描所有 Daily Page 中的 [[Entity]] 引用，构建节点 + 边",
+        "节点分类（人物/地点/主题）用不同颜色",
+        "使用 SwiftUI Canvas 实现力导向布局，支持 pinch 缩放、拖拽平移",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 24,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-025",
+      "title": "Graph Tab 点击节点跳转 + 时间轴过滤 + 搜索",
+      "description": "As a user, I want to click a node to open its Entity Page, filter the graph by date, and search nodes.",
+      "acceptanceCriteria": [
+        "节点点击导航到对应 Entity Page",
+        "顶部日期范围 picker 动态过滤节点",
+        "搜索框输入关键词高亮匹配节点",
+        "空图谱 empty state 提示",
+        "xcodebuild -scheme DayPage build 通过"
+      ],
+      "priority": 25,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}

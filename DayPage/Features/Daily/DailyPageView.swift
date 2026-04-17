@@ -289,7 +289,7 @@ struct DailyPageView: View {
                     .font(.system(size: 32))
                     .foregroundColor(DSColor.onSurfaceVariant.opacity(0.5))
                 Text("该日无原始记录")
-                    .font(.custom("SpaceGrotesk-Bold", size: 14))
+                    .h2Style()
                     .foregroundColor(DSColor.onSurfaceVariant)
             }
             .frame(maxWidth: .infinity)
@@ -313,17 +313,17 @@ struct DailyPageView: View {
 
     private func headerSection(model: DailyPageModel) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Main date title — Space Grotesk 56px uppercase
-            Text(model.dateString.uppercased())
-                .font(.custom("SpaceGrotesk-Bold", size: 56).leading(.tight))
+            // Main date title — "APRIL 14" (month + day only, all caps)
+            Text(dailyPageMonthDay(model.dateString))
+                .displayLGStyle()
                 .foregroundColor(DSColor.primary)
                 .lineLimit(2)
                 .minimumScaleFactor(0.6)
                 .padding(.bottom, 4)
 
-            // Weekday subtitle
-            Text(model.weekday.uppercased())
-                .monoLabelStyle(size: 13)
+            // Weekday + year subtitle — "Sunday, 2026"
+            Text(dailyPageWeekdayYear(model.dateString))
+                .captionText()
                 .foregroundColor(DSColor.onSurfaceVariant)
                 .padding(.bottom, 24)
 
@@ -334,7 +334,7 @@ struct DailyPageView: View {
                         .fill(DSColor.primary)
                         .frame(width: 2)
                     Text(model.summary)
-                        .font(.custom("Inter-Regular", size: 18))
+                        .titleSMStyle()
                         .foregroundColor(DSColor.onSurface)
                         .lineSpacing(4)
                         .padding(.leading, 16)
@@ -390,9 +390,8 @@ struct DailyPageView: View {
             // Section heading with right horizontal line
             HStack(spacing: 16) {
                 Text(section.title.uppercased())
-                    .font(.custom("SpaceGrotesk-Bold", size: 11))
+                    .sectionLabelStyle()
                     .foregroundColor(DSColor.outline)
-                    .kerning(3)
                 Rectangle()
                     .fill(DSColor.outlineVariant)
                     .frame(height: 1)
@@ -408,9 +407,8 @@ struct DailyPageView: View {
     private func locationsSection(model: DailyPageModel) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("PLACES TODAY")
-                .font(.custom("SpaceGrotesk-Bold", size: 11))
+                .sectionLabelStyle()
                 .foregroundColor(DSColor.outline)
-                .kerning(3)
 
             VStack(alignment: .leading, spacing: 12) {
                 ForEach(model.locations, id: \.name) { loc in
@@ -440,9 +438,10 @@ struct DailyPageView: View {
                     }
                 }
             }
-            .padding(20)
+            .padding(DSSpacing.cardInner)
             .background(DSColor.surfaceContainer)
-            .cornerRadius(0)
+            .cornerRadius(DSSpacing.radiusCard)
+            .surfaceElevatedShadow()
         }
     }
 
@@ -451,9 +450,8 @@ struct DailyPageView: View {
     private func threadsSection(model: DailyPageModel) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("THREADS")
-                .font(.custom("SpaceGrotesk-Bold", size: 11))
+                .sectionLabelStyle()
                 .foregroundColor(DSColor.outline)
-                .kerning(3)
 
             let columns = [GridItem(.flexible()), GridItem(.flexible())]
             LazyVGrid(columns: columns, spacing: 12) {
@@ -478,9 +476,9 @@ struct DailyPageView: View {
                                     .foregroundColor(DSColor.amberArchival)
                             }
                         }
-                        .padding(16)
+                        .padding(DSSpacing.cardInner)
                         .background(DSColor.surfaceContainerHigh)
-                        .cornerRadius(0)
+                        .cornerRadius(DSSpacing.radiusCard)
                     }
                     .buttonStyle(.plain)
                 }
@@ -544,6 +542,30 @@ struct DailyPageView: View {
         return ("themes", slug)
     }
 
+    // MARK: - Date Helpers
+
+    private func dailyPageMonthDay(_ dateString: String) -> String {
+        let parser = DateFormatter()
+        parser.dateFormat = "yyyy-MM-dd"
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        guard let date = parser.date(from: dateString) else { return dateString }
+        let f = DateFormatter()
+        f.dateFormat = "MMMM d"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f.string(from: date).uppercased()
+    }
+
+    private func dailyPageWeekdayYear(_ dateString: String) -> String {
+        let parser = DateFormatter()
+        parser.dateFormat = "yyyy-MM-dd"
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        guard let date = parser.date(from: dateString) else { return "" }
+        let f = DateFormatter()
+        f.dateFormat = "EEEE, yyyy"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f.string(from: date)
+    }
+
     // MARK: - Load
 
     private func loadPage() {
@@ -552,9 +574,12 @@ struct DailyPageView: View {
             .appendingPathComponent("daily")
             .appendingPathComponent("\(dateString).md")
 
-        if let content = try? String(contentsOf: url, encoding: .utf8) {
+        do {
+            let content = try String(contentsOf: url, encoding: .utf8)
             rawText = content
             model = DailyPageParser.parse(content: content, dateString: dateString)
+        } catch {
+            DayPageLogger.shared.error("DailyPageView: load daily: \(error)")
         }
 
         // Load raw memos for Timeline Tab
@@ -562,7 +587,9 @@ struct DailyPageView: View {
         parser.dateFormat = "yyyy-MM-dd"
         parser.locale = Locale(identifier: "en_US_POSIX")
         let date = parser.date(from: dateString) ?? Date()
-        let loaded = (try? RawStorage.read(for: date)) ?? []
+        let loaded: [Memo]
+        do { loaded = try RawStorage.read(for: date) }
+        catch { loaded = []; DayPageLogger.shared.error("DailyPageView: load memos: \(error)") }
         rawMemos = loaded.sorted { $0.created < $1.created }
     }
 }
@@ -681,7 +708,7 @@ enum DailyPageParser {
         formatter.timeZone = TimeZone.current
         guard let date = formatter.date(from: dateString) else { return nil }
 
-        let memos = (try? RawStorage.read(for: date)) ?? []
+        let memos: [Memo] = (try? RawStorage.read(for: date)) ?? []
         let photoAttachments = memos.flatMap { $0.attachments }.filter { $0.kind == "photo" }
 
         // Prefer an attachment whose filename starts with "cover" (manual override convention).
@@ -831,7 +858,7 @@ struct HeroBannerView: View {
                 Spacer()
                 HStack {
                     Text("NO HERO IMAGE")
-                        .font(.custom("JetBrainsMono-Regular", fixedSize: 10))
+                        .monoLabelStyle(size: 10)
                         .kerning(2)
                         .foregroundColor(DSColor.onSurfaceVariant)
                         .padding(.horizontal, 8)
@@ -991,7 +1018,7 @@ struct DailyPageMetadataEditView: View {
                             Task { await save() }
                         }
                         .foregroundColor(DSColor.primary)
-                        .font(.custom("SpaceGrotesk-Bold", size: 14))
+                        .h2Style()
                     }
                 }
             }
@@ -1025,7 +1052,7 @@ struct DailyPageMetadataEditView: View {
         VStack(alignment: .leading, spacing: 12) {
             sectionLabel("SUMMARY")
             TextEditor(text: $summary)
-                .font(.custom("Inter-Regular", size: 16))
+                .bodyMDStyle()
                 .foregroundColor(DSColor.onSurface)
                 .frame(minHeight: 80)
                 .padding(12)
@@ -1045,7 +1072,7 @@ struct DailyPageMetadataEditView: View {
                             mood = mood == option ? "" : option
                         }) {
                             Text(option)
-                                .font(.custom("Inter-Regular", size: 13))
+                                .captionStyle()
                                 .foregroundColor(mood == option ? DSColor.onPrimary : DSColor.onSurface)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
@@ -1058,7 +1085,7 @@ struct DailyPageMetadataEditView: View {
             }
             if !mood.isEmpty && !moodOptions.contains(mood) {
                 Text(mood)
-                    .font(.custom("JetBrainsMono-Regular", fixedSize: 12))
+                    .monoLabelStyle(size: 12)
                     .foregroundColor(DSColor.onSurfaceVariant)
                     .padding(.top, 4)
             }
@@ -1069,7 +1096,7 @@ struct DailyPageMetadataEditView: View {
         VStack(alignment: .leading, spacing: 12) {
             sectionLabel("WEATHER")
             TextField("例如：晴 28°C", text: $weather)
-                .font(.custom("Inter-Regular", size: 15))
+                .bodyMDStyle()
                 .foregroundColor(DSColor.onSurface)
                 .padding(12)
                 .background(DSColor.surfaceContainer)
@@ -1110,7 +1137,7 @@ struct DailyPageMetadataEditView: View {
                     }
                 } label: {
                     Text(selectedCoverPath == nil ? "从记录中选择" : "更换封面")
-                        .font(.custom("SpaceGrotesk-Bold", size: 12))
+                        .labelSMStyle()
                         .foregroundColor(DSColor.primary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
@@ -1123,7 +1150,7 @@ struct DailyPageMetadataEditView: View {
                 // Pick from photo library
                 PhotosPicker(selection: $photosPickerItem, matching: .images) {
                     Text("从相册选择")
-                        .font(.custom("SpaceGrotesk-Bold", size: 12))
+                        .labelSMStyle()
                         .foregroundColor(DSColor.onSurfaceVariant)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
@@ -1138,9 +1165,8 @@ struct DailyPageMetadataEditView: View {
 
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(.custom("SpaceGrotesk-Bold", size: 11))
+            .sectionLabelStyle()
             .foregroundColor(DSColor.outline)
-            .kerning(3)
     }
 
     // MARK: - Data Helpers
@@ -1193,10 +1219,9 @@ struct DailyPageMetadataEditView: View {
             .appendingPathComponent("daily")
             .appendingPathComponent("\(dateString).md")
 
-        guard let content = try? String(contentsOf: dailyURL, encoding: .utf8) else {
-            saveError = "无法读取日记文件"
-            return
-        }
+        let content: String
+        do { content = try String(contentsOf: dailyURL, encoding: .utf8) }
+        catch { saveError = "无法读取日记文件"; DayPageLogger.shared.error("DailyPageView: read daily: \(error)"); return }
 
         let updated = updateFrontmatter(
             content: content,

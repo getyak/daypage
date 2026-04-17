@@ -14,6 +14,11 @@
 		A10000005 /* Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000005 /* Colors.swift */; };
 		A10000006 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000006 /* Typography.swift */; };
 		A10000007 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000007 /* Components.swift */; };
+		A10000041 /* Spacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000041 /* Spacing.swift */; };
+		A10000043 /* Interactions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000043 /* Interactions.swift */; };
+		A10000044 /* TodayEmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000044 /* TodayEmptyStateView.swift */; };
+		A10000046 /* OnThisDayCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000046 /* OnThisDayCard.swift */; };
+		A10000048 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000048 /* OnboardingView.swift */; };
 		A10000008 /* Memo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000008 /* Memo.swift */; };
 		A10000009 /* RawStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000009 /* RawStorage.swift */; };
 		A10000010 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010 /* TodayView.swift */; };
@@ -40,6 +45,15 @@
 		A10000031 /* RawMemoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000031 /* RawMemoView.swift */; };
 		A10000030 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000030 /* SettingsView.swift */; };
 		A10000032 /* PassiveLocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000032 /* PassiveLocationService.swift */; };
+		A10000036 /* DayPageLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000036 /* DayPageLogger.swift */; };
+		A10000037 /* AppBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000037 /* AppBanner.swift */; };
+		A10000038 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000038 /* NetworkMonitor.swift */; };
+		A10000039 /* VoiceAttachmentQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000039 /* VoiceAttachmentQueue.swift */; };
+		A10000045 /* OnThisDayIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000045 /* OnThisDayIndex.swift */; };
+		A10000047 /* OnThisDayScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000047 /* OnThisDayScheduler.swift */; };
+		A10000049 /* SampleDataSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000049 /* SampleDataSeeder.swift */; };
+		A10000040 /* DayDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000040 /* DayDetailView.swift */; };
+		A10000042 /* RelativeTimeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000042 /* RelativeTimeFormatter.swift */; };
 		AF0000001 /* SpaceGrotesk-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000001 /* SpaceGrotesk-Light.ttf */; };
 		AF0000002 /* SpaceGrotesk-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000002 /* SpaceGrotesk-Regular.ttf */; };
 		AF0000003 /* SpaceGrotesk-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000003 /* SpaceGrotesk-Medium.ttf */; };
@@ -63,6 +77,11 @@
 		A20000005 /* Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Colors.swift; sourceTree = "<group>"; };
 		A20000006 /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
 		A20000007 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		A20000041 /* Spacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Spacing.swift; sourceTree = "<group>"; };
+		A20000043 /* Interactions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Interactions.swift; sourceTree = "<group>"; };
+		A20000044 /* TodayEmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayEmptyStateView.swift; sourceTree = "<group>"; };
+		A20000046 /* OnThisDayCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayCard.swift; sourceTree = "<group>"; };
+		A20000048 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		A20000008 /* Memo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Memo.swift; sourceTree = "<group>"; };
 		A20000009 /* RawStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawStorage.swift; sourceTree = "<group>"; };
 		A20000010 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
@@ -91,6 +110,15 @@
 		A20000031 /* RawMemoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawMemoView.swift; sourceTree = "<group>"; };
 		A20000030 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A20000032 /* PassiveLocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassiveLocationService.swift; sourceTree = "<group>"; };
+		A20000036 /* DayPageLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPageLogger.swift; sourceTree = "<group>"; };
+		A20000037 /* AppBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBanner.swift; sourceTree = "<group>"; };
+		A20000038 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
+		A20000039 /* VoiceAttachmentQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceAttachmentQueue.swift; sourceTree = "<group>"; };
+		A20000045 /* OnThisDayIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayIndex.swift; sourceTree = "<group>"; };
+		A20000047 /* OnThisDayScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayScheduler.swift; sourceTree = "<group>"; };
+		A20000049 /* SampleDataSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleDataSeeder.swift; sourceTree = "<group>"; };
+		A20000040 /* DayDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayDetailView.swift; sourceTree = "<group>"; };
+		A20000042 /* RelativeTimeFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeTimeFormatter.swift; sourceTree = "<group>"; };
 		A30000001 /* DayPage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPage.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF1000001 /* SpaceGrotesk-Light.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Light.ttf"; sourceTree = "<group>"; };
 		AF1000002 /* SpaceGrotesk-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Regular.ttf"; sourceTree = "<group>"; };
@@ -127,9 +155,18 @@
 				A50000006 /* Services */,
 				A50000007 /* Storage */,
 				A50000008 /* Config */,
+				A50000020 /* Utilities */,
 				A50000009 /* Products */,
 			);
 			path = DayPage;
+			sourceTree = "<group>";
+		};
+		A50000020 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				A20000042 /* RelativeTimeFormatter.swift */,
+			);
+			path = Utilities;
 			sourceTree = "<group>";
 		};
 		A50000002 /* App */ = {
@@ -150,6 +187,8 @@
 				A20000005 /* Colors.swift */,
 				A20000006 /* Typography.swift */,
 				A20000007 /* Components.swift */,
+				A20000041 /* Spacing.swift */,
+				A20000043 /* Interactions.swift */,
 			);
 			path = DesignSystem;
 			sourceTree = "<group>";
@@ -163,8 +202,26 @@
 				A50000013 /* Entity */,
 				A50000014 /* Graph */,
 				A50000015 /* Settings */,
+				A50000016 /* Shared */,
+				A50000017 /* Onboarding */,
 			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		A50000016 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				A20000037 /* AppBanner.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		A50000017 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				A20000048 /* OnboardingView.swift */,
+			);
+			path = Onboarding;
 			sourceTree = "<group>";
 		};
 		A50000015 /* Settings */ = {
@@ -195,6 +252,12 @@
 				A20000023 /* BackgroundCompilationService.swift */,
 				A20000027 /* SearchService.swift */,
 				A20000032 /* PassiveLocationService.swift */,
+				A20000036 /* DayPageLogger.swift */,
+				A20000038 /* NetworkMonitor.swift */,
+				A20000039 /* VoiceAttachmentQueue.swift */,
+				A20000045 /* OnThisDayIndex.swift */,
+				A20000047 /* OnThisDayScheduler.swift */,
+				A20000049 /* SampleDataSeeder.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -233,6 +296,8 @@
 				A20000015 /* InputBarView.swift */,
 				A20000020 /* VoiceRecordingView.swift */,
 				A20000033 /* CameraPickerView.swift */,
+				A20000044 /* TodayEmptyStateView.swift */,
+				A20000046 /* OnThisDayCard.swift */,
 				A20000034 /* DocumentPickerView.swift */,
 			);
 			path = Today;
@@ -252,6 +317,7 @@
 				A20000011 /* ArchiveView.swift */,
 				A20000028 /* SearchView.swift */,
 				A20000031 /* RawMemoView.swift */,
+				A20000040 /* DayDetailView.swift */,
 			);
 			path = Archive;
 			sourceTree = "<group>";
@@ -408,6 +474,8 @@
 				A10000005 /* Colors.swift in Sources */,
 				A10000006 /* Typography.swift in Sources */,
 				A10000007 /* Components.swift in Sources */,
+				A10000041 /* Spacing.swift in Sources */,
+				A10000043 /* Interactions.swift in Sources */,
 				A10000008 /* Memo.swift in Sources */,
 				A10000009 /* RawStorage.swift in Sources */,
 				A10000010 /* TodayView.swift in Sources */,
@@ -423,6 +491,9 @@
 				A10000019 /* VoiceService.swift in Sources */,
 				A10000020 /* VoiceRecordingView.swift in Sources */,
 				A10000033 /* CameraPickerView.swift in Sources */,
+				A10000044 /* TodayEmptyStateView.swift in Sources */,
+				A10000046 /* OnThisDayCard.swift in Sources */,
+				A10000048 /* OnboardingView.swift in Sources */,
 				A10000034 /* DocumentPickerView.swift in Sources */,
 				A10000021 /* CompilationService.swift in Sources */,
 				A10000022 /* EntityPageService.swift in Sources */,
@@ -432,8 +503,17 @@
 				A10000027 /* SearchService.swift in Sources */,
 				A10000028 /* SearchView.swift in Sources */,
 				A10000031 /* RawMemoView.swift in Sources */,
+				A10000040 /* DayDetailView.swift in Sources */,
 				A10000030 /* SettingsView.swift in Sources */,
 				A10000032 /* PassiveLocationService.swift in Sources */,
+				A10000036 /* DayPageLogger.swift in Sources */,
+				A10000037 /* AppBanner.swift in Sources */,
+				A10000038 /* NetworkMonitor.swift in Sources */,
+				A10000039 /* VoiceAttachmentQueue.swift in Sources */,
+				A10000045 /* OnThisDayIndex.swift in Sources */,
+				A10000047 /* OnThisDayScheduler.swift in Sources */,
+				A10000049 /* SampleDataSeeder.swift in Sources */,
+				A10000042 /* RelativeTimeFormatter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

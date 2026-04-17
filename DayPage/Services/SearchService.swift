@@ -58,9 +58,10 @@ enum SearchService {
         let rawDir = VaultInitializer.vaultURL.appendingPathComponent("raw")
         let dailyDir = VaultInitializer.vaultURL.appendingPathComponent("wiki/daily")
 
-        guard let files = try? fm.contentsOfDirectory(at: rawDir,
-                                                      includingPropertiesForKeys: nil,
-                                                      options: [.skipsHiddenFiles]) else {
+        let files: [URL]
+        do {
+            files = try fm.contentsOfDirectory(at: rawDir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
+        } catch {
             return []
         }
 
@@ -96,7 +97,9 @@ enum SearchService {
                 ))
             }
 
-            guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            let content: String
+            do { content = try String(contentsOf: url, encoding: .utf8) }
+            catch { continue }
             let memos = RawStorage.parse(fileContent: content)
 
             for memo in memos {

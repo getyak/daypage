@@ -125,6 +125,7 @@ final class TodayViewModel: ObservableObject {
     init(date: Date = Date()) {
         self.date = date
         observeCompilationFailure()
+        observeOnThisDay()
     }
 
     private func observeCompilationFailure() {
@@ -157,6 +158,18 @@ final class TodayViewModel: ObservableObject {
         }
     }
 
+    private func observeOnThisDay() {
+        NotificationCenter.default.addObserver(
+            forName: .onThisDayShouldShow,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            Task { @MainActor [weak self] in
+                self?.onThisDayEntry = notification.object as? OnThisDayEntry
+            }
+        }
+    }
+
     // MARK: - Load Memos
 
     /// Loads today's memos from the raw storage file and checks compiled status.
@@ -175,6 +188,24 @@ final class TodayViewModel: ObservableObject {
 
         checkDailyPage()
         isLoading = false
+        checkOnThisDay()
+    }
+
+    // MARK: - On This Day
+
+    private let onThisDayDismissedKey = "onThisDayDismissedDate"
+
+    func dismissOnThisDay() {
+        let today = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
+        UserDefaults.standard.set(today, forKey: onThisDayDismissedKey)
+        onThisDayEntry = nil
+    }
+
+    private func checkOnThisDay() {
+        let today = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
+        let dismissed = UserDefaults.standard.string(forKey: onThisDayDismissedKey)
+        guard dismissed != today else { return }
+        onThisDayEntry = OnThisDayIndex.shared.candidate(for: Date())
     }
 
     // MARK: - Add Photo Attachment (staged, not yet submitted)
@@ -228,6 +259,9 @@ final class TodayViewModel: ObservableObject {
     /// Whether the document picker sheet is presented.
     @Published var isShowingDocumentPicker: Bool = false
 
+    /// On This Day entry to show at the top of Today (nil if dismissed or no history).
+    @Published var onThisDayEntry: OnThisDayEntry? = nil
+
     /// Opens the document picker sheet.
     func startFilePicker() {
         isShowingDocumentPicker = true
@@ -239,7 +273,8 @@ final class TodayViewModel: ObservableObject {
         let filesDir = VaultInitializer.vaultURL
             .appendingPathComponent("raw/assets/files", isDirectory: true)
         let fm = FileManager.default
-        try? fm.createDirectory(at: filesDir, withIntermediateDirectories: true)
+        do { try fm.createDirectory(at: filesDir, withIntermediateDirectories: true) }
+        catch { DayPageLogger.shared.error("addFileAttachment: createDirectory: \(error)") }
 
         let fileName = url.lastPathComponent
         let destURL = filesDir.appendingPathComponent(fileName)
@@ -366,7 +401,10 @@ final class TodayViewModel: ObservableObject {
 
             do {
                 try RawStorage.append(memo)
-                memos.insert(memo, at: 0)
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    memos.insert(memo, at: 0)
+                }
+                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
                 pendingLocation = nil
                 pendingAttachments = []
             } catch {
@@ -413,45 +451,127 @@ final class TodayViewModel: ObservableObject {
 
     // MARK: - Compile Trigger
 
+    private var compilationTask: Task<Void, Never>?
+
     /// Triggers manual AI compilation for today's memos.
-    /// Sets isCompiling during the operation and updates isDailyPageCompiled on success.
+    /// Shows BannerCenter progress/retry/success/failure banners.
     func compile() {
         guard !isCompiling else { return }
         isCompiling = true
         submitError = nil
 
-        Task {
-            defer { isCompiling = false }
-            do {
-                try await compileWithRetry()
-                checkDailyPage()
-            } catch let error as CompilationError {
-                submitError = error.errorDescription ?? "编译失败，请重试"
-            } catch {
-                submitError = "编译失败：\(error.localizedDescription)"
-            }
-        }
-    }
+        BannerCenter.shared.show(AppBannerModel(kind: .progress, title: "正在编译你的今天..."))
 
-    private func compileWithRetry(maxAttempts: Int = 3) async throws {
-        var lastError: Error?
-        for attempt in 0..<maxAttempts {
-            do {
-                try await compilationService.compile(for: date, trigger: "manual")
-                return
-            } catch CompilationError.networkError(let msg) {
-                lastError = CompilationError.networkError(msg)
-            } catch CompilationError.apiError(let code, let body) where code == 429 {
-                lastError = CompilationError.apiError(statusCode: code, body: body)
-            } catch {
-                throw error  // Non-retryable errors surface immediately
+        compilationTask = Task {
+            defer {
+                isCompiling = false
+                compilationTask = nil
             }
-            if attempt < maxAttempts - 1 {
-                let delayNs = UInt64(pow(2.0, Double(attempt))) * 1_000_000_000
-                try await Task.sleep(nanoseconds: delayNs)
+
+            // Slow-network subtitle upgrade after 5 seconds
+            let slowTask = Task {
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                if !Task.isCancelled {
+                    let current = BannerCenter.shared.currentBanner
+                    if current?.kind == .progress {
+                        BannerCenter.shared.show(AppBannerModel(
+                            kind: .progress,
+                            title: "正在编译你的今天...",
+                            subtitle: "网络较慢，请稍候..."
+                        ))
+                    }
+                }
+            }
+
+            // Cancel button after 15 seconds
+            let cancelTask = Task {
+                try? await Task.sleep(nanoseconds: 15_000_000_000)
+                if !Task.isCancelled {
+                    let current = BannerCenter.shared.currentBanner
+                    if current?.kind == .progress {
+                        let self_ = self
+                        BannerCenter.shared.show(AppBannerModel(
+                            kind: .progress,
+                            title: "正在编译你的今天...",
+                            subtitle: "请稍候，或取消后稍后重试",
+                            secondaryAction: BannerAction(label: "取消") {
+                                self_.compilationTask?.cancel()
+                            }
+                        ))
+                    }
+                }
+            }
+
+            do {
+                try await compilationService.compile(for: date, trigger: "manual") { attempt, maxAttempts in
+                    BannerCenter.shared.show(AppBannerModel(
+                        kind: .progress,
+                        title: "正在编译你的今天...",
+                        subtitle: "正在重试（\(attempt)/\(maxAttempts)）..."
+                    ))
+                }
+                slowTask.cancel()
+                cancelTask.cancel()
+                checkDailyPage()
+                await OnThisDayIndex.shared.rebuildIndex()
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                BannerCenter.shared.show(AppBannerModel(
+                    kind: .success,
+                    title: "今日 Daily Page 已生成",
+                    autoDismiss: true
+                ))
+            } catch CompilationError.offline {
+                slowTask.cancel()
+                cancelTask.cancel()
+                BannerCenter.shared.show(AppBannerModel(
+                    kind: .info,
+                    title: "当前离线，已加入队列",
+                    autoDismiss: true
+                ))
+            } catch CompilationError.missingApiKey {
+                slowTask.cancel()
+                cancelTask.cancel()
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                BannerCenter.shared.show(AppBannerModel(
+                    kind: .error,
+                    title: "DashScope API Key 未配置",
+                    primaryAction: BannerAction(label: "前往设置") { }
+                ))
+            } catch CompilationError.apiError(let code, _) where code == 401 {
+                slowTask.cancel()
+                cancelTask.cancel()
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                BannerCenter.shared.show(AppBannerModel(
+                    kind: .error,
+                    title: "API Key 无效或已过期",
+                    primaryAction: BannerAction(label: "前往设置") { }
+                ))
+            } catch CompilationError.parseError {
+                slowTask.cancel()
+                cancelTask.cancel()
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                BannerCenter.shared.show(AppBannerModel(
+                    kind: .error,
+                    title: "AI 返回格式异常",
+                    primaryAction: BannerAction(label: "查看日志") { }
+                ))
+            } catch {
+                slowTask.cancel()
+                cancelTask.cancel()
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                let self_ = self
+                BannerCenter.shared.show(AppBannerModel(
+                    kind: .error,
+                    title: "编译失败：网络不稳定",
+                    primaryAction: BannerAction(label: "立即重试") {
+                        self_.compile()
+                    },
+                    secondaryAction: BannerAction(label: "稍后自动重试") {
+                        BannerCenter.shared.dismiss()
+                    }
+                ))
             }
         }
-        throw lastError!
     }
 
     // MARK: - Private Helpers
@@ -477,8 +597,11 @@ final class TodayViewModel: ObservableObject {
         isDailyPageCompiled = true
 
         // Extract summary from frontmatter if available
-        if let content = try? String(contentsOf: dailyURL, encoding: .utf8) {
+        do {
+            let content = try String(contentsOf: dailyURL, encoding: .utf8)
             dailyPageSummary = extractSummary(from: content)
+        } catch {
+            DayPageLogger.shared.error("TodayViewModel: read daily: \(error)")
         }
     }
 

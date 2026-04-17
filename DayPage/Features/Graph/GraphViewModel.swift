@@ -107,9 +107,13 @@ final class GraphViewModel: ObservableObject {
         var rawEdges: [GraphEdge] = []
 
         // Scan all Daily Page files for [[wiki/type/slug|Name]] wikilinks
-        let dailyFiles = (try? fm.contentsOfDirectory(at: dailyURL, includingPropertiesForKeys: nil)) ?? []
+        let dailyFiles: [URL]
+        do { dailyFiles = try fm.contentsOfDirectory(at: dailyURL, includingPropertiesForKeys: nil) }
+        catch { dailyFiles = [] }
         for fileURL in dailyFiles where fileURL.pathExtension == "md" {
-            guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else { continue }
+            let content: String
+            do { content = try String(contentsOf: fileURL, encoding: .utf8) }
+            catch { continue }
             let dateStr = fileURL.deletingPathExtension().lastPathComponent
             let refs = extractWikilinks(from: content)
 
@@ -133,14 +137,16 @@ final class GraphViewModel: ObservableObject {
         // Also scan entity page directories for any entities not yet in map
         for entityType in ["places", "people", "themes"] {
             let typeURL = wikiURL.appendingPathComponent(entityType, isDirectory: true)
-            let files = (try? fm.contentsOfDirectory(at: typeURL, includingPropertiesForKeys: nil)) ?? []
+            let files: [URL]
+            do { files = try fm.contentsOfDirectory(at: typeURL, includingPropertiesForKeys: nil) }
+            catch { files = [] }
             for fileURL in files where fileURL.pathExtension == "md" {
                 let slug = fileURL.deletingPathExtension().lastPathComponent
                 let key = "\(entityType)/\(slug)"
                 if entityMap[key] == nil {
                     let name: String
-                    if let content = try? String(contentsOf: fileURL, encoding: .utf8),
-                       let parsed = parseName(from: content) {
+                    if let fileContent = (try? String(contentsOf: fileURL, encoding: .utf8)),
+                       let parsed = parseName(from: fileContent) {
                         name = parsed
                     } else {
                         name = slug.replacingOccurrences(of: "-", with: " ").capitalized

@@ -21,8 +21,6 @@
 	<array>
 		<string>com.daypage.daily-compilation</string>
 	</array>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>DayPage 使用语音识别在录音时实时显示转写文字。</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>DayPage 需要麦克风权限来录制语音备忘录。</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

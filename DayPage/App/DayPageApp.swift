@@ -66,7 +66,31 @@ struct DayPageApp: App {
                     BackgroundCompilationService.shared.backfillIfNeeded()
                     // Start passive visit monitoring if Always authorization is granted
                     PassiveLocationService.shared.startMonitoringIfAuthorized()
+                    // API key health check
+                    checkApiKeys()
+                    // Load On This Day index
+                    Task { await OnThisDayIndex.shared.loadIndex() }
+                    // Seed sample data on first launch after onboarding
+                    if UserDefaults.standard.bool(forKey: "hasOnboarded") {
+                        SampleDataSeeder.seedIfNeeded()
+                    }
                 }
         }
+    }
+
+    private func checkApiKeys() {
+        var missing: [String] = []
+        if Secrets.dashScopeApiKey.isEmpty { missing.append("DashScope (AI 编译)") }
+        if Secrets.openAIWhisperApiKey.isEmpty { missing.append("OpenAI Whisper (语音转写)") }
+        if Secrets.openWeatherApiKey.isEmpty { missing.append("OpenWeather (天气)") }
+        guard !missing.isEmpty else { return }
+        let subtitle = missing.joined(separator: "、")
+        BannerCenter.shared.show(AppBannerModel(
+            kind: .info,
+            title: "\(missing.count) 个功能未配置",
+            subtitle: subtitle,
+            primaryAction: BannerAction(label: "前往设置") { },
+            autoDismiss: false
+        ))
     }
 }

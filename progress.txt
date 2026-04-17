@@ -1,333 +1,343 @@
-# DayPage v2 Ralph Progress Log
+# DayPage v3 Experience Upgrade - Ralph Progress Log
 
-## 2026-04-17 - US-025
-- GraphNode 新增 dates: Set<String>（记录实体出现的 YYYY-MM-DD 日期）、entitySlug 计算属性
-- GraphViewModel 新增过滤状态：searchQuery @Published、filterStartDate/filterEndDate @Published；filteredNodes 计算属性（搜索 localizedCaseInsensitiveContains + 日期范围过滤）；filteredEdges 计算属性（双端点均在 filteredNodes.ids 中）
-- buildGraph 扫描日期文件时同时追踪每个实体 id 出现的日期集合（entityDates[id].insert(dateStr)）
-- GraphView 新增顶部搜索栏（HStack + TextField + magnifyingglass 图标）；筛选按钮（line.3.horizontal.decrease.circle）切换日期面板；日期面板包含开始/结束两个 DatePicker.compact 各带"清除"按钮；showFilters @State + .animation
-- graphCanvas 改用 filteredNodes/filteredEdges 绘制；非过滤节点 opacity 0.2 dimmed；搜索匹配节点标签 primary 色加粗；每个过滤节点有 Circle()透明 tap target（onTapGesture → selectedNode + showEntityPage）
-- .sheet(isPresented: $showEntityPage) 打开 EntityPageView(entityType: node.entityType, entitySlug: node.entitySlug)
-- emptyState 区分"尚无知识图谱"和"无匹配节点"两种提示，分别对应 nodes.isEmpty 和 filteredNodes.isEmpty
-- 文件：DayPage/Features/Graph/GraphView.swift（更新）、DayPage/Features/Graph/GraphViewModel.swift（更新）
-- **Learnings for future iterations:**
-  - SwiftUI Canvas 中透明 tap target 要用单独的 ForEach overlay Circle + .contentShape(Circle()) + .onTapGesture，不能在 Canvas 内部处理点击
-  - 节点高亮（dim non-match）在 Canvas 里通过 opacity 参数控制，filteredIDs = Set(filteredNodes.map{$0.id}) 在 graphCanvas computed var 内计算
-  - DatePicker .compact style 在 SwiftUI 中表现为行内的小控件，比 .graphical 省空间
-  - Binding<Date> 包装 Date? 需要用 Binding(get:set:) 显式构造，不能直接 $ 绑定 Optional<Date>
----
+Source PRD: tasks/prd-daypage-v3-experience.md
+Branch: ralph/daypage-v3-experience
+Start: 2026-04-17
 
-## 2026-04-17 - US-024
-- RootView.swift：移除 GraphView tab 的 `.disabled(true)`
-- 新建 DayPage/Features/Graph/GraphViewModel.swift：GraphNode（id/name/entityType/position/velocity/color）、GraphEdge（id/sourceID/targetID）、GraphViewModel(@MainActor ObservableObject)；load() 用 Task.detached 异步扫描；buildGraph() (nonisolated) 扫描 wiki/daily/*.md 提取 [[wiki/type/slug|Name]] wikilink，同时扫描实体目录；同日出现的两个实体之间建边（edgeSet 去重）；节点初始位置圆形分布；simulationStep() 实现力导向物理模拟（斥力6000、引力0.04、阻尼0.85、重力向中心）
-- 重写 DayPage/Features/Graph/GraphView.swift：@StateObject GraphViewModel；scale/offset/lastScale/lastOffset 管理 zoom+pan；Canvas 绘制边（灰色半透明）+ 节点（填充+描边）；ForEach overlay 节点标签（文字跟随节点坐标）；SimultaneousGesture 组合 MagnificationGesture(0.3-5x) + DragGesture；Timer 30fps 驱动力导向模拟最多200步后自动停止；空状态；左下角图例（地点/人物/主题+颜色）
-- project.pbxproj：A20000035/A10000035 注册 GraphViewModel.swift
-- 文件：DayPage/App/RootView.swift、DayPage/Features/Graph/GraphView.swift（重写）、DayPage/Features/Graph/GraphViewModel.swift（新建）、project.pbxproj
-- **Learnings for future iterations:**
-  - @MainActor class 的 static 方法默认也是 @MainActor；需要 `nonisolated` 修饰才能在 Task.detached 里调用（否则编译器报"main actor-isolated cannot be called from outside"）
-  - SwiftUI Canvas 不自动响应 @Published 变化；需要在 Timer 回调中触发 viewModel 的 @Published 属性更新，Canvas 才会重绘（通过 node 数组的 position 变化）
-  - `Dictionary(uniqueKeysWithValues:)` 需要确保 key 唯一，否则 runtime crash；GraphViewModel 用 id 作 key 保证唯一性
-  - `displaySMStyle` 不存在，设计系统只有 `displayLGStyle`；空状态使用 displayLGStyle
----
+Previous run (v2 roadmap) archived at: archive/2026-04-17-daypage-v2-roadmap/
 
-## 2026-04-17 - US-023
-- 新建 DayPage/Features/Today/DocumentPickerView.swift：UIDocumentPickerViewController 的 SwiftUI 包装（UIViewControllerRepresentable），支持任意文件类型（.item），asCopy: true
-- TodayViewModel.swift：新增 FilePickerResult 结构体（filePath/fileName）；PendingAttachment 枚举新增 .file(FilePickerResult) case；新增 isShowingDocumentPicker @Published 属性；新增 startFilePicker() 和 addFileAttachment(url:) 方法，后者将文件复制到 vault/raw/assets/files/ 并追加 PendingAttachment.file
-- InputBarView.swift：新增 onAddFile: () -> Void 回调参数；新增 fileButton（paperclip 图标）插入到 photoButton 右侧；新增 fileCard 预览卡片（doc 图标 + 文件名，两行截断）；attachmentCard switch 新增 .file case
-- MemoCardView.swift：standardCard 新增文件附件列表渲染（kind == "file" 的附件显示 doc 图标 + transcript 字段存储的文件名）
-- TodayView.swift：InputBarView 添加 onAddFile 回调调用 viewModel.startFilePicker()；新增 .sheet(isPresented: $viewModel.isShowingDocumentPicker) 展示 DocumentPickerView
-- project.pbxproj：A20000034/A10000034 注册 DocumentPickerView.swift
-- 文件：DayPage/Features/Today/DocumentPickerView.swift（新建）、TodayViewModel.swift、InputBarView.swift、MemoCardView.swift、TodayView.swift、project.pbxproj
-- **Learnings for future iterations:**
-  - UIDocumentPickerViewController 用 forOpeningContentTypes: [.item] 支持所有文件类型，asCopy: true 确保 app 拥有文件副本（不依赖用户 iCloud/原始权限）
-  - 文件名冲突处理：先检测 destURL 是否存在，存在则追加 Unix 时间戳后缀
-  - Attachment.transcript 字段被复用来存储文件名（kind: "file" 时 transcript = fileName），避免修改模型结构；MemoCardView 读取 att.transcript ?? lastPathComponent 显示文件名
-  - PendingAttachment.file 的 attachment 属性中 transcript = r.fileName，YAML 序列化后 kind: file / transcript: "filename"
----
-
-## 2026-04-17 - US-021
-- Info.plist 添加 NSSpeechRecognitionUsageDescription 和 NSMicrophoneUsageDescription
-- VoiceService.swift: import Speech，新增 liveTranscript @Published 属性；新增 speechRecognizer/recognitionRequest/recognitionTask/audioEngine 私有属性
-- startLiveTranscription()：请求 SFSpeechRecognizer 授权，创建 AVAudioEngine + SFSpeechAudioBufferRecognitionRequest，通过 installTap 将音频缓冲输入识别器，识别结果实时更新 liveTranscript
-- stopLiveTranscription()：取消识别任务，移除 tap，停止引擎，清空引用
-- startRecording() 完成后调用 startLiveTranscription()；pauseRecording() 停止识别；resumeRecording() 重新启动识别
-- stopAndTranscribe()：停止前捕获 liveTranscript，有内容则直接用，否则调用 Whisper API（回退）
-- cancelRecording()/reset() 均调用 stopLiveTranscription() 清理资源
-- VoiceRecordingView.swift: 新增 liveTranscriptView 组件，录音/暂停状态下显示"实时转写"标签 + 文字（限 4 行，animating）；无文字时显示占位提示
-- 文件：DayPage/App/Info.plist、DayPage/Services/VoiceService.swift、DayPage/Features/Today/VoiceRecordingView.swift
-- **Learnings for future iterations:**
-  - AVAudioEngine 和 AVAudioRecorder 不能同时使用同一 audio session，需先完成 AVAudioSession 配置再启动两者；SFSpeechRecognizer 通过 AVAudioEngine.inputNode tap 获取音频，与 AVAudioRecorder 并行工作需确保 session category 已激活
-  - SFSpeechRecognizer.requestAuthorization 是 completion handler 形式，用 withCheckedContinuation 转为 async/await
-  - startLiveTranscription 是 async 方法，在 resumeRecording 中用 Task { await ... } 调用（不能 await，因 resumeRecording 是同步方法）
-  - recognitionTask 的 error 回调也需处理（isFinal == true 时停止任务），否则任务会泄漏
-  - liveTranscript 在 stopAndTranscribe 前捕获为 capturedLiveTranscript，因为 stopLiveTranscription 后 liveTranscript 不会立即清除，但逻辑更清晰
----
-
-## 2026-04-17 - US-020
-- MonthlySummaryFilter enum（全部/有位置/有照片）新增于 ArchiveView.swift
-- ArchiveViewModel 新增 filteredDays(filter:) 和 generateMarkdownExport(filter:) 方法
-- monthlySummary 视图新增：筛选 chip 行、筛选结果列表（可点击跳转对应日期）、导出 Markdown 按钮、截图分享按钮
-- ShareSheetView（UIViewControllerRepresentable 包装 UIActivityViewController）新增
-- 导出：将 Markdown 写入临时目录，通过 UIActivityViewController 分享文件
-- 截图：UIGraphicsImageRenderer 渲染当前 window，分享图片
-- 文件：DayPage/Features/Archive/ArchiveView.swift
-- **Learnings for future iterations:**
-  - iOS SwiftUI 项目不需要 `import UIKit`，UIKit 类型（UIActivityViewController、UIGraphicsImageRenderer）直接可用
-  - UIActivityViewController 的 SwiftUI 包装用 UIViewControllerRepresentable，sheet 方式呈现
-  - 截图用 `window.drawHierarchy(in:afterScreenUpdates:true)` 而非 `layer.render(in:)`，后者不包含完整渲染树
-  - summaryFilter state 变量放在 ArchiveView，对应的 sheet(isPresented:) 也挂在 monthlySummary 的 VStack 上，避免与外层 sheet 冲突
----
-
-## 2026-04-17 - US-019
-- SearchService.search() 新增 filters: SearchFilters 参数，支持日期范围（startDate/endDate）、类型集合（Set<Memo.MemoType>）、地点关键词筛选
-- SearchResult 新增 memoType: Memo.MemoType? 字段
-- SearchFilters 结构体定义（isActive 计算属性）
-- SearchView 顶部新增可折叠筛选面板：日期范围（compact DatePicker）+ 类型多选 chip + 地点 TextField + 清除全部
-- 仅筛选无关键词时返回通过筛选的所有 memo（hasSearched = true）
-- 空结果 empty state 文字适配"仅筛选"场景
-- 文件：DayPage/Services/SearchService.swift、DayPage/Features/Archive/SearchView.swift、DayPage/Models/Memo.swift
-- **Learnings for future iterations:**
-  - Memo.MemoType 需要 Hashable conformance 才能放入 Set；原只有 Equatable，直接加 Hashable（String rawValue 自动合成）
-  - SearchService.swift 无 import SwiftUI，MemoType 用完整路径 `Memo.MemoType`；static let empty 中的 nil 参数需要显式类型（Date?.none）
-  - SearchView 中的 typeChip 函数参数和扩展方法都要用 `Memo.MemoType` 全路径
-  - 筛选面板 animation 用 `.animation(.easeInOut, value: showFilters)` 配合 `.transition(.opacity.combined(with: .move(edge: .top)))`
----
-
-## 2026-04-17 - US-018
-- 定位重复来源：MemoCardView.standardCard 中两处问题（VoiceMemoPlayerRow transcript 回退逻辑 + body 区域重复显示）
-- 修复1：VoiceMemoPlayerRow 的 transcript 参数移除 `att.transcript ?? (memo.type == .voice ? memo.body : nil)` 中的 `?? memo.body` 回退逻辑
-- 修复2：body 区域增加 `isBodyDuplicateOfTranscript` 检测，voice 类型 memo 的 body 若与 attachment.transcript 相同则跳过显示（兼容旧数据）
-- 修复3：`needsExpansionButton` 增加 `isDuplicate` 检测，隐藏文本不显示展开按钮
-- 文件：DayPage/Features/Today/MemoCardView.swift
-- **Learnings for future iterations:**
-  - 重复根源：旧代码在 submitCombinedMemo 中把 transcript 复制到 memo.body，同时 VoiceMemoPlayerRow 也从 att.transcript 显示一次，body 区域再显示一次（共两次）
-  - 新数据（US-017 修复后）body 为空，不会重复；旧数据需在 UI 层检测 body == transcript 并跳过显示
-  - `att.transcript ?? memo.body` 的回退逻辑是错误设计，若 transcript 未保存则应显示"转写不可用"而非重复 body
----
-
-## 2026-04-17 - US-016
-- MemoCardView.locationCard 点击行为改为弹出 Sheet（showLocationSheet state）而非直接打开 Apple Maps
-- 新增 LocationPreviewSheet 组件：标题栏（地名+坐标+关闭按钮）+ MapPreviewView（MapKit MKMapView）+ 底部操作区
-- 新增 MapPreviewView（UIViewRepresentable wrapping MKMapView）：静态地图 + pin 标注，禁用用户交互
-- Sheet 底部"在 Apple Maps 中打开"按钮（无坐标时 disabled）；当 onDelete 非 nil 时显示"删除附件"按钮
-- MemoCardView 新增可选 `onDelete: (() -> Void)?` 参数（默认 nil），不影响现有调用方
-- presentationDetents: [.medium, .large]，presentationDragIndicator: .visible
-- **Learnings for future iterations:**
-  - MKMapView 需通过 UIViewRepresentable 包装才能在 SwiftUI 中使用静态地图（MapKit SwiftUI Map 组件不支持禁用交互）
-  - .sheet modifier 挂在 locationCard 的 HStack 上，isPresented 绑定 @State showLocationSheet
-  - onDelete 设为可选参数默认 nil，避免修改所有已有的 MemoCardView(memo:) 调用方
-  - MapPreviewView.updateUIView 每次调用都先 removeAnnotations 再添加新 pin，避免重复标注
----
-
-## 2026-04-17 - US-015
-- TodayView 新增 `@StateObject private var passiveLocation = PassiveLocationService.shared`
-- 添加 `todayPendingDrafts` 计算属性，过滤今日 pending drafts
-- 在 Banner 区域后插入 `LocationDraftCard`，drafts 非空时显示
-- 新增 `LocationDraftCard` 组件：头部标题 + 全部忽略/全部确认批量按钮，列表展示各条 draft
-- 新增 `LocationDraftRow` 组件：显示地名、到达时间、停留时长；单条 ✓/✗ 操作按钮
-- 确认操作调用 `PassiveLocationService.confirmDraft`，成功后 `viewModel.load()` 刷新 memo 列表
-- 无 pending drafts 时卡片完全隐藏
-- **Learnings for future iterations:**
-  - `PassiveLocationService.shared` 是 `@MainActor final class`，在 TodayView 中用 `@StateObject` 持有 shared 实例可正确监听 `@Published pendingDrafts` 变化
-  - 草稿卡片放在 Banner 区域之后、GeometryReader Timeline 之前，与现有横幅设计风格一致
-  - `LocationDraftRow` 停留时长：`departureDate == nil` 显示"仍在此处"；`> 0` 显示分钟/小时
----
-
-## 2026-04-17 - US-014
-- 新建 DayPage/Services/PassiveLocationService.swift：使用 CLLocationManager.startMonitoringVisits()
-- VisitDraft 模型（Codable/Identifiable）含 id/arrivalDate/departureDate/lat/lng/placeName/status 字段
-- didVisit 回调：新建 VisitDraft，追加到 pendingDrafts，保存到 vault/drafts/visits.json
-- geocodeAndUpdate：CLGeocoder 反向地理编码，更新 placeName 后重新保存 JSON
-- locationManagerDidChangeAuthorization：Always 时自动启动，其他状态自动停止
-- confirmDraft：创建 .location Memo 并写入当日 .md，更新 status=confirmed
-- ignoreDraft：更新 status=ignored
-- DayPageApp.swift onAppear：调用 PassiveLocationService.shared.startMonitoringIfAuthorized()
-- project.pbxproj：A20000032/A10000032 注册新文件
-- **Learnings for future iterations:**
-  - CLVisit.arrivalDate 为 .distantPast 表示刚到达（用 Date()），departureDate 为 .distantFuture 表示仍在（用 nil）
-  - vault/drafts/ 目录不在 VaultInitializer 的默认目录列表中，需在 saveDrafts() 中按需创建
-  - PassiveLocationService 需在 DayPageApp.onAppear 中调用 startMonitoringIfAuthorized()，授权升级后 delegate 会自动触发启动
-  - CLGeocoder 使用 completion handler（非 async/await），需要 Task { @MainActor } 更新 UI 状态
----
-
-## 2026-04-17 - US-013
-- Info.plist 添加 NSLocationAlwaysAndWhenInUseUsageDescription、NSLocationWhenInUseUsageDescription，UIBackgroundModes 新增 location
-- LocationService.swift 新增 `requestAlwaysAuthorization()` 和 `hasAlwaysAuthorization: Bool` 属性
-- SettingsView.swift 重写：API Keys 分区使用正确的 `Secrets.*` 属性；权限分区显示定位授权状态（中文标签 + 颜色）+ "启用被动位置"行（已授权显示绿勾，未授权显示授权按钮）
-- **Learnings for future iterations:**
-  - Secrets 枚举在 `DayPage/Config/GeneratedSecrets.swift` 中，属性名为 `dashScopeApiKey`、`openAIWhisperApiKey`、`openWeatherApiKey`（非 GeneratedSecrets.xxx）
-  - `CLLocationManager.requestAlwaysAuthorization()` 只有在当前状态为 notDetermined 或 authorizedWhenInUse 时才有效
-  - Info.plist 同时需要 NSLocationWhenInUseUsageDescription（系统要求必须存在）和 NSLocationAlwaysAndWhenInUseUsageDescription
----
-
-## 2026-04-17 - US-012
-- DayPageApp.swift: 新增 `compilationDidStart` 和 `compilationDidEnd` 两个 Notification.Name
-- BackgroundCompilationService.swift: 在 `handleBackgroundTask` 和 `backfillIfNeeded` 中，Task 开始时 post `compilationDidStart`，defer post `compilationDidEnd`
-- TodayViewModel.swift: 新增 `@Published var isBackgroundCompiling: Bool = false`，在 `observeCompilationFailure()` 中同时监听 `compilationDidStart`/`compilationDidEnd`
-- TodayView.swift: header 中新增 `CompilingBadge` 组件，当 `isCompiling || isBackgroundCompiling` 时显示；新增 `CompilingBadge` struct（ProgressView + "正在编译..." 文字 + 半透明 primary 背景）
-- 手动编译进度：CompilePromptCard 已有 isCompiling 参数渲染进度状态（ProgressView + 文字），此次利用了现有实现
-- **Learnings for future iterations:**
-  - NotificationCenter 通知发送无需 @MainActor，但 UI 状态更新（isBackgroundCompiling）需要 `Task { @MainActor ... }` 包裹
-  - BackgroundCompilationService 的 Task 中用 defer 保证 compilationDidEnd 在成功和失败两条路径都会发送
-  - CompilingBadge 使用 `DSColor.primary.opacity(0.12)` 作为背景色，与 header 整体设计一致
----
-
-## 2026-04-17 - US-011
-- BackgroundCompilationService: `compileWithRetry` 函数，delays=[0,30,120,600]秒，最多4次（首次+3次重试）
-- 三次重试都失败后调用 `sendFailureNotification`，通知 body="今日编译失败，点击查看"，userInfo=["compilationFailed": true]
-- DayPageApp: 新增 `AppNotificationDelegate`（UNUserNotificationCenterDelegate），点击失败通知时 post `Notification.Name.compilationDidFail`
-- TodayViewModel: `observeCompilationFailure()` 监听 `compilationDidFail`，设置 `compilationFailedError` 字符串
-- TodayView: `CompilationFailedBanner` 红色横幅，显示错误信息 + "重试"按钮 + "x"关闭按钮
-- 文件：BackgroundCompilationService.swift、DayPageApp.swift、TodayViewModel.swift、TodayView.swift
-- **Learnings for future iterations:**
-  - NotificationCenter 观察者回调若要修改 `@MainActor` 属性，需用 `Task { @MainActor [weak self] in ... }`
-  - `UNUserNotificationCenterDelegate` 在 Swift App 中需要 `@main struct` 外部持有强引用（private let notificationDelegate），否则会被释放
-  - `userInfo["compilationFailed"] as? Bool == true` 用于在通知代理中识别编译失败通知类型
----
-
-## 2026-04-17 - US-010
-- EntityPageView 添加 `sourceDateString: String? = nil` 可选参数
-- 当 `sourceDateString` 非 nil 时，toolbar leading 显示 `← YYYY-MM-DD` 面包屑（primary 色），点击 dismiss
-- 无来源日期时（Tab 直接进入）只显示普通箭头图标
-- DailyPageView 弹出 EntityPageView 时传入 `sourceDateString: dateString`
-- 文件：EntityPageView.swift、DailyPageView.swift
-- **Learnings for future iterations:**
-  - `EntityPageView` 通过 `sourceDateString` 可选参数区分来源，nil = 无面包屑，有值 = 显示面包屑
-  - sheet 方式弹出时面包屑 dismiss 等同于关闭 sheet，返回来源视图
-  - ToolbarItem(placement: .navigationBarLeading) 可用 @ViewBuilder 条件渲染两种形态
----
-
-## 2026-04-17 - US-009
-- 新增 `WikilinkBodyText` 组件（Components.swift）：解析 `[[slug]]` 和 `[[slug|Name]]`，amber 色渲染，点击首个 wikilink 触发回调
-- DailyPageView：添加 `selectedEntitySlug/selectedEntityType` 状态，`.sheet` 弹出 EntityPageView；添加 `resolveEntityTypeAndSlug()` 扫描 wiki 目录推断实体类型；`wikifiedText()` 改用 WikilinkBodyText
-- EntityPageView：删除重复的 `buildAttributedString`，改用 WikilinkBodyText；新增第二个 `.sheet` 处理 entity→entity 跳转
-- locationsSection 的 WikilinkText 接入 onTap 回调
-- **Learnings for future iterations:**
-  - `Text` + `AttributedString` concatenation 不支持分别 tap 各个 link，需 `WikilinkBodyText` 组件将 tap 绑定到首个 wikilink inner
-  - `resolveEntityTypeAndSlug` 通过 FileManager 扫描 places/people/themes 三个目录推断类型，未找到时默认 themes（EntityPageView 会显示 notFoundView）
-  - 同一视图可以有多个 `.sheet` modifier，SwiftUI 会按 isPresented binding 顺序处理，不冲突
----
-
-## 2026-04-17 - US-008
-- 修改 `metaChipVoice()` 函数：遍历 `rawMemos`，过滤 `kind == "audio"` 附件，汇总 `duration`，格式化为 `🎙️ mm:ss`
-- 无语音附件时返回 `EmptyView()`，有时显示格式化 chip
-- 文件：`DayPage/Features/Daily/DailyPageView.swift`（第 260-271 行）
-- **Learnings for future iterations:**
-  - `rawMemos` 已在 `loadPage()` 中同步加载，metadata chip 函数可直接访问 `rawMemos` state 变量
-  - `Attachment.kind == "audio"` 标识语音附件，`Attachment.duration` 是 `Double?`（秒）
-  - `metaChipVoice` 接收 `model: DailyPageModel` 参数但实际数据来自 `rawMemos`（model 不含语音时长）
----
-
-## 2026-04-17 - US-007
-- 在 DailyPageView 添加 `@State private var rawMemos: [Memo] = []` 状态
-- 修改 `loadPage()` 在加载 Daily Page 内容时同步用 `RawStorage.read(for:)` 加载原始 memos
-- 重写 `timelineContent` 函数：复用 `TimelineRow` 组件渲染结构化 memo 卡片（时间竖线 + MemoCardView）
-- 空状态显示 "该日无原始记录" 提示
-- **Learnings for future iterations:**
-  - `TimelineRow` 定义在 `TodayView.swift` 第 280 行，接受 `Memo` 和 `isLast: Bool` 参数
-  - `RawStorage.read(for: Date)` 是同步调用，在 `loadPage()` 中直接调用即可
-  - `DailyPageView.loadPage()` 使用 `guard let content = try? String(contentsOf:)` 加载编译页，即使编译页不存在也能加载原始 memos
-  - Timeline Tab 复用了与 `RawMemoView` 完全相同的渲染逻辑，视觉一致
----
-
-## 2026-04-17 - US-006
-- 在 EntityPageView 添加 `@State private var selectedDate: String?` 状态
-- relatedMemos() 中每个日期行用 Button 包装，点击时 `selectedDate = dateStr`
-- 通过 `.sheet(isPresented:)` 展示 DailyPageView(dateString: selectedDate)
-- **Learnings for future iterations:**
-  - EntityPageView 已有 NavigationStack，sheet 方式比 NavigationLink 更简洁
-  - String 不符合 Identifiable，用 `Binding<Bool>` + 单独 state 变量配合 `.sheet(isPresented:)` 代替 `.sheet(item:)`
-  - relatedDates 是从 section body 解析出以 `- YYYY-MM-DD` 开头的行
----
-
-## 2026-04-17 - US-005
-- US-005 的功能已在 US-004 实现期间一并完成
-- archiveListRow 中 Button 调用 handleDateTap，与日历单元格行为一致
-- 未编译日期行 → RawMemoView；无记录日期行 → Alert
-- **Learnings for future iterations:**
-  - US-004 实现时已统一处理了日历和列表两种视图的点击逻辑
-  - handleDateTap 是统一的跳转入口，新增视图只需调用此方法
----
-
-## 2026-04-17 - US-003
-- 在 TodayViewModel 添加 `hasApiKeysMissing` 计算属性（检测三个 key 是否 empty）
-- 在 TodayView Header 和 Timeline 之间插入 `ApiKeyMissingBanner` 组件
-- 在 DSColor 中新增 `warning`、`warningContainer`、`onWarningContainer` 三个颜色 token
-- **Learnings for future iterations:**
-  - DSColor 颜色 token 在 `DayPage/DesignSystem/Colors.swift` 中维护，新增颜色在此扩展
-  - Banner 通过计算属性驱动显示/隐藏，无需额外 @Published 状态
-  - build 命令需 `CODE_SIGNING_ALLOWED=NO` 以跳过 provisioning profile 检查
----
-
-## 2026-04-17 - US-004
-- 新建 DayPage/Features/Archive/RawMemoView.swift：显示原始 memo 列表，复用 TimelineRow + MemoCardView
-- ArchiveView 添加 showRawMemo / showNoRecordAlert 状态，提取 handleDateTap 辅助方法
-- 日历单元格和列表行都使用统一的 handleDateTap 处理三种情况（已编译/有memo未编译/无记录）
-- 向 project.pbxproj 添加新文件时需使用唯一 ID（避免与已有 A20000029=Assets.xcassets 冲突）
-- **Learnings for future iterations:**
-  - 新建 .swift 文件必须手动添加到 project.pbxproj 的 PBXBuildFile、PBXFileReference、PBXGroup 和 PBXSourcesBuildPhase 四处
-  - ID 选取：检查 pbxproj 中现有 A200000xx 序号，用下一个未占用的（如 A20000031）
-  - `RawStorage.read(for: Date)` 是同步方法，直接调用即可，无需 async/await
 ---
 
 ## Codebase Patterns
-- Build command: `xcodebuild -scheme DayPage -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build CODE_SIGNING_ALLOWED=NO -quiet 2>&1 | tail -5`
-- Project structure: `DayPage/Features/[Feature]/[Feature]View.swift`
-- Services: `@MainActor final class`, singletons
-- ViewModels: `@MainActor final class: ObservableObject` with `@Published`
-- No external dependencies (pure Apple frameworks)
-- Config/GeneratedSecrets.swift holds API keys (gitignored)
-- Persistence: YAML front-matter + Markdown in `vault/raw/YYYY-MM-DD.md`
-- Settings sheet 通过 TodayViewModel 的 `@Published var showSettings: Bool` 控制弹出
-- 新建 Swift 文件必须手动加到 project.pbxproj 四处（PBXBuildFile/PBXFileReference/PBXGroup/PBXSourcesBuildPhase），且 ID 须唯一
+- Build command: `xcodebuild -scheme DayPage -destination 'platform=iOS Simulator,arch=arm64,id=3A661BD8-5F57-42B2-B4BA-DBB2FAB4FAD0' build`
+- SourceKit diagnostics show macOS errors for AVAudioSession — these are iOS-only APIs and build fine in the iOS target
+- SourceKit also misreports "Cannot find X in scope" for cross-module symbols (RawStorage, VaultInitializer, etc.) — build succeeds regardless
+- VoiceService is @MainActor singleton; VoiceRecordingView uses @StateObject private var voiceService = VoiceService.shared
+- DSColor tokens used for all colors in existing views
+- VaultInitializer.vaultURL is the entry point for vault file paths
+- To add new Swift files: add PBXBuildFile + PBXFileReference + group child + Sources entry in project.pbxproj (use sequential IDs like A10000036/A20000036)
+- DayPageLogger uses nonisolated static helpers called from a DispatchQueue to avoid @MainActor actor isolation issues
 
 ---
 
 ## 2026-04-17 - US-001
-- 创建了 DayPage/Features/Settings/SettingsView.swift
-- 包含三个分区：API Keys（DashScope/OpenAI/OpenWeather 状态）、权限、关于
-- 读取 GeneratedSecrets 检测 key 是否配置
+- Removed SFSpeechRecognizer, AVAudioEngine, SFSpeechAudioBufferRecognitionRequest and SFSpeechRecognitionTask from VoiceService.swift
+- Removed @Published liveTranscript property
+- Removed startLiveTranscription() and stopLiveTranscription() methods (~60 lines)
+- Simplified stopAndTranscribe() to always call Whisper API (removed capturedLiveTranscript branch)
+- Removed liveTranscriptView component from VoiceRecordingView.swift; replaced with '停止后自动转写' static text
+- Removed NSSpeechRecognitionUsageDescription from Info.plist
+- Removed `import Speech` and `import UIKit` from VoiceService.swift
+- Files changed: DayPage/Services/VoiceService.swift, DayPage/Features/Today/VoiceRecordingView.swift, DayPage/App/Info.plist
 - **Learnings for future iterations:**
-  - GeneratedSecrets.swift 暴露 `dashScopeKey`, `openAIKey`, `openWeatherKey` 三个静态属性
-  - 使用 `.isEmpty` 判断 key 是否配置
-  - 颜色系统：已配置 = `.green`，未配置 = `.red`
+  - transcribeAudio() was private, changed to internal so VoiceAttachmentQueue (US-009) can reuse it
+  - liveTranscript reset calls were in startRecording, cancelRecording, reset — all cleaned up together
+  - Build succeeds with iPhone 16e simulator (id: 3A661BD8-5F57-42B2-B4BA-DBB2FAB4FAD0)
 ---
 
 ## 2026-04-17 - US-002
-- 在 TodayViewModel 添加 `@Published var showSettings = false`
-- TodayView Header 设置按钮绑定到 showSettings，通过 `.sheet` 弹出 SettingsView
-- SettingsView 顶部添加关闭按钮（dismiss environment action）
+- Confirmed VoiceRecordingView.swift already satisfies all US-002 criteria from US-001 work
+- Recording screen shows: waveform + timer + pause/stop/cancel buttons only
+- Bottom text "停止后自动转写" present; no live transcript UI remains
+- Files changed: prd.json (passes: true)
 - **Learnings for future iterations:**
-  - TodayView 顶部按钮在 TodayView.swift 的 Header 区域（MARK: - Header）
-  - Sheet 弹出使用 `.sheet(isPresented:)` modifier 挂在 TodayView body 上
-  - SettingsView 需要 `@Environment(\.dismiss) var dismiss` 来关闭
+  - US-001 and US-002 were implemented together; US-002's criteria were fully met in the US-001 commit
+---
+
+## 2026-04-17 - US-003
+- Created DayPage/Services/DayPageLogger.swift: @MainActor singleton with .error/.warn/.info methods
+- Writes to vault/logs/app.log (under Documents/vault/logs/) with ISO8601 timestamp + level + file:line
+- Rotates log file at 1MB: renames to app.log.old and starts fresh
+- Thread-safe via serial DispatchQueue; uses nonisolated static helpers to avoid actor isolation issues
+- Registered in project.pbxproj (PBXBuildFile A10000036, PBXFileReference A20000036)
+- Replaced 2 try? in CompilationService.swift with do/catch + DayPageLogger.shared.error()
+- Files changed: DayPage/Services/DayPageLogger.swift (new), DayPage/Services/CompilationService.swift, DayPage.xcodeproj/project.pbxproj, prd.json
+- **Learnings for future iterations:**
+  - DayPageLogger builds log path directly from FileManager (Documents/vault/logs/) without calling VaultInitializer to avoid circular dependency
+  - nonisolated static methods are the correct pattern for @MainActor class methods called from DispatchQueue.async blocks
+---
+
+## 2026-04-17 - US-004 + US-005
+- Created DayPage/Features/Shared/AppBanner.swift with BannerKind enum, AppBannerModel struct, BannerAction, BannerCenter singleton, AppBanner view, BannerOverlayModifier, .bannerOverlay() View extension
+- BannerCenter manages one banner at a time; .show() replaces current banner; autoDismiss=true → 3s Task cancellable
+- AppBanner uses inline hex colors (matching US-017 design spec: #F8ECD6, #EBF3E5, #F5E1DC, #F3F0EB) as placeholders until DSColor tokens upgraded in US-017
+- Spring animation (response 0.4, dampingFraction 0.85) on .transition(.move(edge: .top).combined(with: .opacity))
+- RootView: added @StateObject private var bannerCenter = BannerCenter.shared
+- TodayView: added @StateObject bannerCenter injection + .bannerOverlay() on NavigationStack
+- Files changed: DayPage/Features/Shared/AppBanner.swift (new), DayPage/App/RootView.swift, DayPage/Features/Today/TodayView.swift, DayPage.xcodeproj/project.pbxproj, prd.json
+- **Learnings for future iterations:**
+  - New feature groups need PBXGroup entry in project.pbxproj + file added to group children + PBXBuildFile + PBXFileReference + Sources phase entry
+  - BannerOverlayModifier as ViewModifier + .bannerOverlay() extension is the cleanest pattern for overlay injection
+  - @StateObject with singleton pattern: `@StateObject private var x = Singleton.shared` ensures ObservableObject updates propagate correctly
+---
+
+## 2026-04-17 - US-011
+- try? count: 71 → 35 (50.7% 减少，目标 ≥50%)
+- 替换文件：VoiceAttachmentQueue, EntityPageService, EntityPageView, PhotoService, SearchService, ArchiveView, RawMemoView, TodayView, TodayViewModel, DailyPageView, GraphViewModel, CompilationService, PassiveLocationService, VoiceService (14 files)
+- 保留场景：Task.sleep、NSRegularExpression、loadTransferable、replaceItemAt/removeItem临时文件清理、nonisolated static方法内（无法调@MainActor DayPageLogger）
+- Files changed: 14 Swift files, prd.json
+- **Learnings for future iterations:**
+  - nonisolated static 方法（SearchService.search, GraphViewModel.buildGraph）不能调用 @MainActor DayPageLogger；这些方法内只能 catch { continue/return } 或提前提取到 @MainActor context
+  - VoiceAttachmentQueue.queueURL 是计算属性，在 @MainActor 类中；load()/save() 可以用 do/catch + DayPageLogger 直接替换
+  - PhotoService.processImageData 内 replaceItemAt 失败后的 removeItem 是"清理临时文件"场景，语义上 try? 合理
+---
+
+## 2026-04-17 - US-012
+- 主输入行移除 mic/camera/file/location 四个按钮，只保留 TextEditor + 发送键
+- 发送键：有内容（文字或附件）时 DSColor.primary 背景 + onPrimary 图标，空时灰色
+- QuickBar 通过 .toolbar { ToolbarItemGroup(placement: .keyboard) } 挂载在 TextEditor 上
+- QuickBar 包含：mic（语音录制）、camera（拍照对话框）、photo（相册 PhotosPicker）、paperclip（文件）、mappin.circle（位置）
+- confirmationDialog 从 photoButton 移至 body 层，共用 showPhotoSourceDialog state
+- Files changed: DayPage/Features/Today/InputBarView.swift, prd.json
+- **Learnings for future iterations:**
+  - .toolbar(placement: .keyboard) 挂载在 TextEditor 上，键盘弹起时 QuickBar 自动出现，键盘收起时消失
+  - PhotosPicker 在 ToolbarItemGroup 内需要 .buttonStyle(.plain) 才能正常点击
+  - confirmationDialog 必须在 body 视图层声明，不能嵌套在 ToolbarItemGroup 内
+---
+
+## 2026-04-17 - US-013
+- 发送键从 Button 改为 ZStack + .onTapGesture + .onLongPressGesture(0.3s)
+- 长按触发：UIImpactFeedbackGenerator(.light).impactOccurred() + showVoiceSheet=true
+- VoiceRecordingView 以 .sheet + .presentationDetents([.medium]) 弹出
+- onComplete: (VoiceRecordingResult) → showVoiceSheet=false + onVoiceComplete(result)
+- onCancel: showVoiceSheet=false
+- InputBarView 新增 onVoiceComplete: (VoiceRecordingResult) -> Void 参数
+- TodayView 传入 onVoiceComplete: { viewModel.addVoiceAttachment(result: result) }
+- Files changed: DayPage/Features/Today/InputBarView.swift, DayPage/Features/Today/TodayView.swift, prd.json
+- **Learnings for future iterations:**
+  - .onTapGesture + .onLongPressGesture 可共存在同一 View 上，短按触发 tap，长按触发 longPress
+  - 不能在 ToolbarItemGroup(placement: .keyboard) 里的子控件中声明 .sheet，需要挂载到父 View 的 .sheet 上
+  - onVoiceComplete 回调比 NotificationCenter 更简洁，避免跨层类型转换
+---
+
+## 2026-04-17 - US-014
+- 替换 attachmentCard (64x64 大卡片) → attachmentChip (32pt 高 chip)
+- chip 布局：图标(12pt) + 文本(JetBrainsMono 11pt, ≤20 chars, .middle 截断) + X 按钮
+- chipContent() 辅助函数根据附件类型返回 (icon, label)
+- 水平 ScrollView，间距 8pt，背景 surfaceContainerHigh，圆角 6pt
+- 删除 photoCard/fileCard/voiceCard 大卡片实现及 attachmentCard wrapper
+- Files changed: DayPage/Features/Today/InputBarView.swift, prd.json
+- **Learnings for future iterations:**
+  - .frame(maxWidth: 120) 限制文字最大宽度防止 chip 过宽
+  - truncationMode(.middle) 比 .tail 更适合文件名（保留扩展名）
+---
+
+## 2026-04-17 - US-015
+- 新建 DayDetailView.swift：顶部 Picker(.segmented) 切换 [Daily Page | 原始 Memo]
+- 进入时 onAppear 检查 isDailyCompiled (wiki/daily/YYYY-MM-DD.md 是否存在)，未编译则默认 .raw tab
+- Daily tab：已编译→DailyPageView；未编译→图标+文字+跳转 raw 按钮
+- Raw tab：有 memo→RawMemoView；无→空状态图标+文字
+- ArchiveView 删除 showDailyPage/showRawMemo 两个 State，合并为 showDayDetail，fullScreenCover 只剩一个
+- handleDateTap 简化：有内容→showDayDetail，否则→alert
+- SearchView 回调也改为触发 showDayDetail
+- 注册 pbxproj：A10000040/A20000040
+- Files changed: DayPage/Features/Archive/DayDetailView.swift (new), DayPage/Features/Archive/ArchiveView.swift, DayPage.xcodeproj/project.pbxproj, prd.json
+- **Learnings for future iterations:**
+  - Picker(.segmented) 默认宽度跟随 content 宽度，需要 .padding(.horizontal, 16) + 背景色才好看
+  - fullScreenCover 里的 DayDetailView 已有自己的 NavigationStack，dismiss() 可直接关闭
+  - isDailyCompiled 用 FileManager.fileExists 比读文件内容轻量；hasMemos 同理
+---
+
+## 2026-04-17 - US-016
+- 重写 SettingsView：5 分区 API Keys / 权限 / 外观 / 数据 / 关于
+- API Keys：每行 key 后 4 位掩码预览 + '未配置'红徽章 + '测试连接'按钮（各自独立 isTesting state）
+- 测试实现：DashScope ping chat/completions；Whisper GET /v1/models；OpenWeather lat=0&lon=0
+- 权限：麦克风（AVAudioSession.recordPermission）+ 定位（LocationService.authorizationStatus）+ 被动位置开关；点击行→openSettings()
+- 外观：深色模式占位 disabled
+- 数据：Vault 大小（Task.detached + FileManager enumerator + ByteCountFormatter）+ 导出按钮 + bannerOverlay
+- 关于：CFBundleShortVersionString + CFBundleVersion
+- 修复 fontDesign(.monospaced) iOS 16.1 可用性 → .font(.system(size:12, design:.monospaced))
+- Files changed: DayPage/Features/Settings/SettingsView.swift, prd.json
+- **Learnings for future iterations:**
+  - .fontDesign(.monospaced) 只在 iOS 16.1+ 可用；iOS 16.0 目标需用 .font(.system(size:N, design:.monospaced))
+  - SettingsView 直接用 @StateObject 注入 BannerCenter，可在 List 内调 bannerCenter.show()
+  - Vault 大小计算用 Task.detached(priority:.utility)，完成后 MainActor.run 更新 UI
 ---
 
 ## 2026-04-17 - US-017
-- DailyPageView 右上角 toolbar 新增 `Menu`（ellipsis.circle 图标），包含"重新编译"和"编辑元数据"两个选项
-- 重新编译：`.alert` 确认弹窗，确认后调用 `CompilationService.shared.compile(for:trigger:)`，完成后刷新页面；编译中显示 ProgressView 替代菜单按钮
-- 编辑失败时弹出错误 alert 显示 localizedDescription
-- 新增 `DailyPageMetadataEditView` sheet：支持编辑 summary（TextEditor）、mood（预设选项横滚）、weather（TextField）、cover image（从 memo 附件选取 / PhotosPicker 从相册选取）
-- 封面图从相册选取后保存为 `vault/raw/assets/cover-YYYY-MM-DD-timestamp.jpg`
-- `updateFrontmatter()` 方法原子更新 YAML front-matter 中的 summary/weather/mood/cover 字段，保留其他字段和 body 不变
-- 修复已存在的 `metaChipVoice` 函数编译器类型检查超时问题（拆分链式调用为独立变量）
+- 新增 v3 暖白 token 系列（前缀命名区分旧 token）：backgroundWarm/surfaceWhite/surfaceSunken、onBackgroundPrimary/Muted/Subtle、accentAmber/Hover/Soft/Border、successGreen/Soft、warningAmber/Soft、errorRed/Soft、heatmapEmpty/Low/Mid/High、borderSubtle/Default
+- 旧 legacy token 保留（不加 @available deprecated 避免编译警告洪水，待 US-018 完成迁移后再考虑删除）
+- 新增 SurfaceElevatedShadow ViewModifier + .surfaceElevatedShadow() 扩展
+- Info.plist UIUserInterfaceStyle = Light 锁定暂缓，US-018 视觉升级后统一处理
+- Files changed: DayPage/DesignSystem/Colors.swift, prd.json
 - **Learnings for future iterations:**
-  - 编译器对复杂链式表达式（flatMap+filter+compactMap+reduce）在大文件中可能超时，需拆分为独立 let 语句
-  - PhotosPicker 需 import PhotosUI，onChange(of:) 监听 photosPickerItem 变化
-  - updateFrontmatter 要用 mutable `closingLine` 变量追踪 `---` 位置，因为插入/删除行会改变索引
-  - DailyPageMetadataEditView 的 save 直接操作 wiki/daily/YYYY-MM-DD.md，使用 RawStorage.atomicWrite
+  - 保留旧 token 不加 deprecated 是防止大量编译警告；实际迁移在 US-018 完成后
+  - 新 token 名称带语义前缀（backgroundWarm/accentAmber/successGreen）而非颜色值，便于主题替换
 ---
-## 2026-04-17 - US-022
-- InputBarView.swift: 添加 `onCapturePhoto: () -> Void` 回调参数；添加 `@State private var showPhotoSourceDialog: Bool` 状态
-- photoButton 改为 PhotosPicker（单击走相册流程，保持原有行为）+ LongPressGesture（长按弹出 confirmationDialog）
-- confirmationDialog 提供"拍照"/"从相册选择"/"取消"三个选项，选"拍照"调用 onCapturePhoto
-- TodayViewModel.swift: 添加 `@Published var isShowingCamera: Bool`、`startCameraCapture()` 方法、`addCameraPhoto(_ image: UIImage)` 方法（调用 photoService.processImageData 走现有 Photo 附件流程）
-- CameraPickerView.swift: 新建 UIViewControllerRepresentable，封装 UIImagePickerController（sourceType: .camera），Coordinator 实现 delegate 方法，捕获后调用 onCapture 回调
-- TodayView.swift: InputBarView 添加 onCapturePhoto 回调，fullScreenCover 绑定 viewModel.isShowingCamera 展示 CameraPickerView
-- DayPage.xcodeproj/project.pbxproj: 手动添加 CameraPickerView.swift 的 PBXBuildFile/PBXFileReference/Group/Sources 条目（ID: A10000033/A20000033）
-- 文件：DayPage/Features/Today/InputBarView.swift、TodayViewModel.swift、TodayView.swift、CameraPickerView.swift（新建）、DayPage.xcodeproj/project.pbxproj
+
+## 2026-04-17 - US-018
+- ArchiveView：DensityLevel.fillColor 四色 → DSColor.heatmapEmpty/Low/Mid/High
+- ArchiveView：statusTextColor → DSColor.onBackgroundSubtle/warningAmber/errorRed
+- AppBanner：backgroundColor/foregroundColor/accentColor/borderColor 全部替换为 v3 token
+- foregroundColor 简化为单值 DSColor.onBackgroundPrimary（四种 kind 同色）
+- Files changed: DayPage/Features/Archive/ArchiveView.swift, DayPage/Features/Shared/AppBanner.swift, prd.json
+---
+
+## 2026-04-17 - US-019
+- Typography.swift 新增短命名修饰符：.displayLG()/.h1()/.h2()/.bodyText()/.captionText()/.labelText()/.monoText()（与带 Style 后缀的旧版并存）
+- 替换 VoiceRecordingView.swift 中 3 处 .custom("JetBrainsMono-Regular") → .monoLabelStyle()
+- 替换 InputBarView.swift 中 2 处硬编码字体 → .monoLabelStyle()
+- 替换 DailyPageView.swift 头部大日期 → .displayLGStyle()；section 标题 → .sectionLabelStyle()；正文/情绪/天气 → bodyMDStyle/captionStyle；其余标签 → labelSMStyle/monoLabelStyle
+- 替换 MemoCardView.swift 中所有 .custom(...) 字体调用 → DSType 修饰符
+- Files changed: DayPage/DesignSystem/Typography.swift, DayPage/Features/Today/VoiceRecordingView.swift, DayPage/Features/Today/InputBarView.swift, DayPage/Features/Daily/DailyPageView.swift, DayPage/Features/Today/MemoCardView.swift, prd.json
 - **Learnings for future iterations:**
-  - 新增 Swift 文件必须手动更新 DayPage.xcodeproj/project.pbxproj 的四个位置：PBXBuildFile、PBXFileReference、Group children、Sources build phase
-  - UIImagePickerController 在模拟器上 sourceType:.camera 会崩溃（无相机硬件），仅在真机测试；confirmationDialog 在模拟器可正常触发
-  - PhotosPicker 的 `.simultaneousGesture(LongPressGesture)` 可与 PhotosPicker 的 tap 共存：单击走 picker，长按走 dialog
-  - 相机捕获的 UIImage 通过 jpegData(compressionQuality: 0.9) 转为 Data，复用 photoService.processImageData 写入 vault
+  - .body()/.caption()/.label() 与 SwiftUI 内置修饰符同名会冲突，改用 .bodyText()/.captionText()/.labelText() 避免歧义
+  - Typography 替换时 `.font(.custom(...))` 可直接换为 `.<modifierName>()`，但需检查是否有 `.kerning()` 等附加修饰符需要移除（sectionLabelStyle 内已内置 tracking）
+  - monoLabelStyle 内含 .textCase(.uppercase)，替换时不需要再加 .uppercased() 文本调用
+---
+
+## 2026-04-17 - US-020
+- 新建 DayPage/DesignSystem/Spacing.swift：DSSpacing enum（cardInner 20, cardGap 16, sectionGap 24, radiusCard 12, radiusSmall 8）
+- MemoCardView 标准卡片和位置卡片：padding → DSSpacing.cardInner(20pt)，cornerRadius → DSSpacing.radiusCard(12pt)，.surfaceElevatedShadow() 微阴影
+- DailyPageEntryCard → cornerRadius 12pt；CompilePromptCard → cornerRadius 12pt + shadow；"立即编译"按钮 → radiusSmall 8pt
+- DailyPageView locationsSection → padding 20pt + cornerRadius 12pt + shadow；threadsSection 卡片 → padding 20pt + cornerRadius 12pt
+- ArchiveView archiveListRow → padding 16pt（cardGap）+ cornerRadius 12pt + shadow
+- AppBanner → padding 16pt（cardGap）+ RoundedRectangle/cornerRadius → DSSpacing.radiusCard(12pt)
+- InputBarView send button → cornerRadius DSSpacing.radiusSmall(8pt)
+- 注册 Spacing.swift 到 project.pbxproj（A10000041/A20000041）
+- Files changed: DayPage/DesignSystem/Spacing.swift (new), MemoCardView.swift, AppBanner.swift, DailyPageView.swift, ArchiveView.swift, InputBarView.swift, project.pbxproj, prd.json
+- **Learnings for future iterations:**
+  - DSSpacing.sectionGap(24) 预留用于 section 间距，暂无 UI 改动
+  - .cornerRadius 与 .surfaceElevatedShadow 同时使用时：shadow 在 cornerRadius 之后；如需严格 shadow clip，需用 .background(RoundedRectangle) 方案
+  - Archive heatmap cells 不需要 radius（US-020 明确豁免）
+---
+
+## 2026-04-17 - US-021
+- 新建 DayPage/Utilities/RelativeTimeFormatter.swift: static func relative() 返回 TODAY·HH:mm / YESTERDAY·HH:mm / N DAYS AGO·MMM d / MMM d, yyyy（全大写）
+- MemoCardView: 两处 .formatted(.dateTime.hour().minute()) → RelativeTimeFormatter.relative(memo.created)
+- TodayView TimelineRow: 时间列 → RelativeTimeFormatter.relative()，frame 宽从 40→60pt 适配更长文本
+- ArchiveView: 列表行日期标签 → relativeDateLabel()（今日TODAY/昨天YESTERDAY/7天内N DAYS AGO/更早MMMM d）
+- EntityPageView relatedDates: Text(dateStr) → Text(relativeDateLabel())，新增私有辅助函数
+- DailyPageView header: dateString → dailyPageMonthDay()（"APRIL 14" .displayLGStyle）; weekday → dailyPageWeekdayYear()（"Sunday, 2026" .captionText）
+- 新建 Utilities 组并注册到 project.pbxproj（A10000042/A20000042, A50000020）
+- Files changed: DayPage/Utilities/RelativeTimeFormatter.swift (new), MemoCardView.swift, TodayView.swift, ArchiveView.swift, EntityPageView.swift, DailyPageView.swift, project.pbxproj, prd.json
+- **Learnings for future iterations:**
+  - 新目录需在 DayPage 主组下添加 PBXGroup 并注册到 project.pbxproj（参考 A50000020 Utilities 组）
+  - TimelineRow 时间列宽需根据最长字符串（"YESTERDAY"≈9字）调整 frame 宽度
+  - DailyPageView 用私有函数（不是 RelativeTimeFormatter）格式化 header，因为 Daily Page 是确定日期，不是相对时间
+  - Archive 列表行只显示 TODAY/YESTERDAY/N DAYS AGO（无时分），是日期维度而非 memo 时间维度
+---
+
+## 2026-04-17 - US-022
+- 新建 DayPage/DesignSystem/Interactions.swift：PressableCardModifier (DragGesture + scaleEffect 0.98 + overlay black opacity 0.04 + haptic .light on press down)
+- MemoCardView 标准卡片和位置卡片均应用 .pressableCard()
+- MemoCardView 展开/收起改为 withAnimation(.spring(response: 0.4, dampingFraction: 0.8))
+- ArchiveView archiveListRow 应用 .pressableCard()
+- TodayViewModel.submitCombinedMemo：memos.insert 包裹 withAnimation spring + UIImpactFeedbackGenerator(.soft)
+- TodayView TimelineRow 添加 .transition(.move(edge: .bottom).combined(with: .opacity))
+- 编译成功：UINotificationFeedbackGenerator().notificationOccurred(.success)
+- 编译失败（4条错误路径）：UINotificationFeedbackGenerator().notificationOccurred(.error)
+- Files changed: Interactions.swift (new), MemoCardView.swift, ArchiveView.swift, TodayView.swift, TodayViewModel.swift, project.pbxproj, prd.json
+- **Learnings for future iterations:**
+  - PressableCardModifier 用 DragGesture(minimumDistance: 0) 而非 LongPressGesture 更准确捕获 onPress/onRelease
+  - .pressableCard() 需在 .cornerRadius + .surfaceElevatedShadow 之后应用，否则 overlay clip shape 无法正确圆角裁剪
+  - UINotificationFeedbackGenerator 调用无需 prepare()，直接 notificationOccurred() 在 Swift 并发 context 中可用
+---
+
+## 2026-04-17 - US-023
+- 新建 DayPage/Features/Today/TodayEmptyStateView.swift：TodayEmptyStateView / ArchiveEmptyStateView / GraphEmptyStateView 三个空状态组件
+- TodayEmptyStateView：Circle+SF Symbol(.pencil.and.scribble)插图 + h2标题"记下今天的第一个观察" + 3个 SuggestionChip ("今天天气如何"/"现在在哪"/"在想什么")
+- SuggestionChip：captionText + accentAmber 前景色 + accentSoft 背景 + accentBorder 描边 + cornerRadius 20pt；点击回调 onChipTap(text)
+- TodayView 空状态从 "今天还没有记录" 文本 → TodayEmptyStateView { draftText = $0 }；chip 点击填充 draftText，焦点由用户自行点击输入框（无需自动 focus）
+- 注册 pbxproj：PBXBuildFile A10000044, PBXFileReference A20000044，加入 Today group children + Sources phase
+- Files changed: DayPage/Features/Today/TodayEmptyStateView.swift (new), DayPage/Features/Today/TodayView.swift, DayPage.xcodeproj/project.pbxproj, prd.json
+- **Learnings for future iterations:**
+  - chip 点击填充 draftText 直接赋值即可，SwiftUI @State 绑定会自动更新输入框内容
+  - SF Symbol "pencil.and.scribble" 在 iOS 16+ 可用，适合 Today 插图；"calendar" 适合 Archive；"point.3.connected.trianglepath.dotted" 适合 Graph
+  - ArchiveEmptyStateView / GraphEmptyStateView 已创建备用，供后续 Archive / Graph tab 接入
+---
+
+## 2026-04-17 - US-024
+- 新建 DayPage/Services/OnThisDayIndex.swift：@MainActor singleton
+- struct OnThisDayEntry (Codable)：originalDate, yearsAgo?, daysAgo?, preview, filePath
+- struct DayRecord (Codable)：year, filePath, memoCount, longestMemoPreview (private)
+- buildIndexOff()：`private static nonisolated` 扫描 vault/raw/*.md，按 MMDD key 建索引
+- rebuildIndex()：Task.detached 调 buildIndexOff + await persistIndex；loadIndex() 先磁盘后 rebuildIndex
+- candidate(for:)：优先-1年(-365d)，次-180d，再-2年；nil if 无历史
+- 持久化到 vault/wiki/index.json（与现有 wiki 目录共存，不新建目录）
+- TodayViewModel.compile() 成功分支：await OnThisDayIndex.shared.rebuildIndex()
+- DayPageApp.onAppear：Task { await OnThisDayIndex.shared.loadIndex() }
+- 注册 pbxproj：A10000045/A20000045，加入 Services 组
+- Files changed: DayPage/Services/OnThisDayIndex.swift (new), TodayViewModel.swift, DayPageApp.swift, project.pbxproj, prd.json
+- **Learnings for future iterations:**
+  - @MainActor 类里的 static 方法如需在 Task.detached 中调用，必须标 nonisolated；不加则编译报 "main actor-isolated cannot be called from outside of the actor"
+  - OnThisDayEntry/DayRecord Codable 需用 JSONEncoder/Decoder，Date 默认是 Double 时间戳，可正常 encode/decode
+  - candidate() 的 180d 逻辑：只有当前日期减 180d 的 MMDD 恰好等于今天的 MMDD 时（闰年极端情况）才命中；实际产品中此路径极少触发
+---
+
+## 2026-04-17 - US-025
+- 新建 DayPage/Features/Today/OnThisDayCard.swift：取 OnThisDayEntry 渲染卡片
+- 卡片样式：accentSoft 背景 + accentBorder 描边 + cornerRadius 12 + padding 20（DSSpacing.cardInner）
+- header: "ON THIS DAY · N YEAR(S) AGO" labelText() + accentAmber；preview 2 行 bodyText()；右下 "翻开那天 →" captionText() + accentAmber
+- 右上 X 按钮：调用 onDismiss 回调
+- TodayViewModel：新增 @Published onThisDayEntry: OnThisDayEntry?；checkOnThisDay() 在 load() 末调用（检查 UserDefaults dismissed date）；dismissOnThisDay() 存今日 date 字符串到 UserDefaults
+- TodayView：LazyVStack 顶部插入 OnThisDayCard（if entry != nil）；私有 struct OnThisDayNavTarget: Identifiable 用于 .fullScreenCover(item:)；点击 → DayDetailView(dateString:)
+- 注册 pbxproj：A10000046/A20000046
+- Files changed: OnThisDayCard.swift (new), TodayView.swift, TodayViewModel.swift, project.pbxproj, prd.json
+- **Learnings for future iterations:**
+  - .fullScreenCover(item:) 需要 Identifiable item；用 Binding 把 String? 包成 Identifiable 结构体是最简单方案
+  - UserDefaults dismissed date 用 DateFormatter.localizedString(short style) 作为 key value，跨时区轻量稳定
+  - OnThisDayCard 里 Button + .buttonStyle(.plain) 嵌套：外 Button 整卡点击，内 X Button .buttonStyle(.plain) 防止事件冒泡
+---
+
+## 2026-04-17 - US-026
+- 新建 DayPage/Services/OnThisDayScheduler.swift：@MainActor singleton
+- UserDefaults keys：nextFireAt(Date), refreshHour(Int default 0), dismissedDate(String), enabled(Bool default true)
+- shouldShowToday()：enabled && !dismissed today && (now >= nextFireAt || nextFireAt 未设置) → candidate
+- markShown()：存 next day at refreshHour（Calendar.current + TimeZone.current）
+- forceRefresh()：绕过 nextFireAt，直接 candidate
+- setupNotifications()：significantTimeChangeNotification → recomputeNextFireAt；didBecomeActiveNotification → shouldShowToday → post onThisDayShouldShow
+- Notification.Name.onThisDayShouldShow 扩展定义
+- TodayViewModel.init 中 observeOnThisDay()：监听 onThisDayShouldShow，更新 onThisDayEntry
+- 注册 pbxproj：A10000047/A20000047
+- Files changed: OnThisDayScheduler.swift (new), TodayViewModel.swift, project.pbxproj, prd.json
+- **Learnings for future iterations:**
+  - @MainActor class 中 init() 调用 setupNotifications()，addObserver block 内用 Task { @MainActor } 确保回调在主线程
+  - forceRefresh() 不需要检查 nextFireAt，只检查 isEnabled；这使长按手势可以强制刷新
+  - significantTimeChangeNotification 的时机不稳定，时区跳变判断用 abs(diff) > 3600 避免频繁更新
+---
+
+## 2026-04-17 - US-027
+- TodayView 时间戳 badge 添加 .onLongPressGesture(minimumDuration: 1.5)
+- 长按：UIImpactFeedbackGenerator(.medium).impactOccurred()；forceRefresh() 有结果 → viewModel.onThisDayEntry = entry；nil → UINotificationFeedbackGenerator().notificationOccurred(.warning)
+- 无任何视觉提示（无下划线/图标/辅助功能提示），保持隐藏手势特性
+- SettingsView 外观 Section 新增：Toggle "On This Day" (.calendar.badge.clock) + Picker "刷新时间" (00:00/06:00/09:00，关闭时隐藏)
+- Toggle/Picker onChange 直接更新 OnThisDayScheduler.shared.isEnabled/refreshHour（UserDefaults 持久化）
+- Files changed: TodayView.swift, SettingsView.swift, prd.json, progress.txt
+- **Learnings for future iterations:**
+  - .onLongPressGesture 可直接附加到 Text，无需包 ZStack；minimumDuration: 1.5 在 SwiftUI 里工作正常
+  - SettingsView @State 初始值用 OnThisDayScheduler.shared.xxx 读 UserDefaults，onChange 再写回去；不用 @ObservedObject 避免 singleton 变更触发全页重渲
+  - Picker 用 if onThisDayEnabled { ... } 条件显示，比 .disabled 体验更清晰
+---
+
+## 2026-04-17 - US-028
+- 新建 DayPage/Features/Onboarding/OnboardingView.swift：3页 TabView(.page) + PageControl
+- WelcomePage：Circle+SF Symbol插图 + h1 "DayPage" + bodyText 副标题 + "开始"按钮
+- PermissionsPage：麦克风/位置/通知 3张权限卡（HStack icon+text+授权按钮）；状态枚举 unknown/granted/denied；onAppear 检查当前状态；AVAudioSession.requestRecordPermission/LocationService.requestPermissionIfNeeded/UNUserNotificationCenter.requestAuthorization
+- ApiKeysPage：ScrollView + 3个 TextField + 粘贴按钮（UIPasteboard.general.string）；saveAndComplete() 写入 UserDefaults runtime key（注：GeneratedSecrets 读取环境变量，UserDefaults 存的只是引导期录入，实际运行时仍用 Secrets）
+- OnboardingView 完成：UserDefaults.set(true, forKey: "hasOnboarded") + hasOnboarded = true (Binding)
+- RootView：@State hasOnboarded 从 UserDefaults 读取；if/else 分支 OnboardingView(hasOnboarded:) / mainTabView
+- 注册 pbxproj：Onboarding group A50000017, A10000048/A20000048
+- Files changed: OnboardingView.swift (new), RootView.swift, project.pbxproj, prd.json
+- **Learnings for future iterations:**
+  - TabView(.page) 的 indexDisplayMode 指示点颜色由 .tint() 控制；需要在父 View 设置 .tint(accentAmber)
+  - PermissionsPage 授权后状态更新：requestRecordPermission 有 callback；requestPermissionIfNeeded 异步系统弹窗，需 asyncAfter(1s) 再 check
+  - RootView 用 @State hasOnboarded 而不是 @AppStorage，是因为 @AppStorage("hasOnboarded") 等同但 @State + init from UserDefaults 在重复使用时更安全（避免 onboarding 完成后刷新延迟）
+---
+
+## 2026-04-17 - US-029
+- 新建 DayPage/Services/SampleDataSeeder.swift：enum（无 actor 隔离）
+- 固定 UUID 常量：SAMPLE-001/002/003（便于后续 clearSampleData 精确匹配）
+- seedIfNeeded()：hasSeededSamples false → 检查昨日文件是否空 → 写3条 memo（text/voice/photo）→ set true
+- clearSampleData()：读昨日文件 → 过滤 sampleMemoIds → 空则删文件否则 atomicWrite → set false
+- DayPageLogger.shared.error 在 nonisolated 上下文用 Task { @MainActor in ... } 包裹
+- DayPageApp.onAppear：hasOnboarded → seedIfNeeded()
+- OnboardingView 完成回调：seedIfNeeded() + hasOnboarded = true
+- SettingsView 数据 section：if SampleDataSeeder.hasSeededSamples → 显示"清除示例数据"destructive Button → clearSampleData() + success banner
+- 注册 pbxproj：A10000049/A20000049
+- Files changed: SampleDataSeeder.swift (new), OnboardingView.swift, DayPageApp.swift, SettingsView.swift, project.pbxproj, prd.json
+- **Learnings for future iterations:**
+  - nonisolated enum/struct 里调用 @MainActor 方法需用 Task { @MainActor in }；不能用 DispatchQueue.main.async（不支持 actor 隔离）
+  - 固定 UUID string "SAMPLE-001-0000-0000-000000000001" 可以 UUID(uuidString:) 解析（只要是有效 v4 格式）
+  - SampleDataSeeder.hasSeededSamples 是计算属性读 UserDefaults，在 SwiftUI body 里每次 render 都读；需要 @State 或条件 if 来控制显示，不需要 @Published
 ---

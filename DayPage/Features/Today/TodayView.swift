@@ -5,6 +5,8 @@ struct TodayView: View {
 
     @StateObject private var viewModel = TodayViewModel()
     @StateObject private var passiveLocation = PassiveLocationService.shared
+    @StateObject private var bannerCenter = BannerCenter.shared
+    @StateObject private var voiceQueue = VoiceAttachmentQueue.shared
 
     /// The draft text in the input bar.
     @State private var draftText: String = ""
@@ -14,6 +16,9 @@ struct TodayView: View {
 
     /// Whether to show the Settings sheet.
     @State private var showSettings: Bool = false
+
+    /// Date string for On This Day navigation.
+    @State private var onThisDayDateString: String? = nil
 
     /// Current time for the header timestamp (refreshed every minute).
     @State private var currentTime: Date = Date()
@@ -26,7 +31,7 @@ struct TodayView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
+            ZStack(alignment: .top) {
                 DSColor.background.ignoresSafeArea()
                 VStack(spacing: 0) {
                     // MARK: Header
@@ -45,13 +50,21 @@ struct TodayView: View {
 
                         Spacer()
 
-                        // Timestamp badge
+                        // Timestamp badge (long press 1.5s → force-refresh On This Day)
                         Text(formattedTimestamp(currentTime))
                             .monoLabelStyle(size: 10)
                             .foregroundColor(DSColor.onSurfaceVariant)
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
                             .background(DSColor.surfaceContainer)
+                            .onLongPressGesture(minimumDuration: 1.5) {
+                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                                if let entry = OnThisDayScheduler.shared.forceRefresh() {
+                                    viewModel.onThisDayEntry = entry
+                                } else {
+                                    UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                                }
+                            }
 
                         // Compiling badge (shown during manual or background compilation)
                         if viewModel.isCompiling || viewModel.isBackgroundCompiling {
@@ -99,7 +112,8 @@ struct TodayView: View {
                         LocationDraftCard(
                             drafts: todayPendingDrafts,
                             onConfirm: { draft in
-                                try? passiveLocation.confirmDraft(draft)
+                                do { try passiveLocation.confirmDraft(draft) }
+                                catch { DayPageLogger.shared.error("TodayView: confirmDraft: \(error)") }
                                 viewModel.load()
                             },
                             onIgnore: { draft in
@@ -107,7 +121,8 @@ struct TodayView: View {
                             },
                             onConfirmAll: {
                                 for draft in todayPendingDrafts {
-                                    try? passiveLocation.confirmDraft(draft)
+                                    do { try passiveLocation.confirmDraft(draft) }
+                                    catch { DayPageLogger.shared.error("TodayView: confirmDraft: \(error)") }
                                 }
                                 viewModel.load()
                             },
@@ -123,6 +138,22 @@ struct TodayView: View {
                     GeometryReader { geo in
                         ScrollView {
                             LazyVStack(spacing: 8) {
+                                // On This Day card
+                                if let entry = viewModel.onThisDayEntry {
+                                    OnThisDayCard(
+                                        entry: entry,
+                                        onDismiss: { viewModel.dismissOnThisDay() },
+                                        onTap: { e in
+                                            let fmt = DateFormatter()
+                                            fmt.dateFormat = "yyyy-MM-dd"
+                                            fmt.locale = Locale(identifier: "en_US_POSIX")
+                                            fmt.timeZone = TimeZone.current
+                                            onThisDayDateString = fmt.string(from: e.originalDate)
+                                        }
+                                    )
+                                    .padding(.top, 4)
+                                }
+
                                 // Daily Page entry card or compile prompt
                                 Group {
                                     if viewModel.isDailyPageCompiled {
@@ -142,14 +173,9 @@ struct TodayView: View {
 
                                 // Memo cards (reverse-chronological)
                                 if viewModel.memos.isEmpty && !viewModel.isLoading {
-                                    VStack(spacing: 8) {
-                                        Spacer(minLength: 32)
-                                        Text("今天还没有记录")
-                                            .bodySMStyle()
-                                            .foregroundColor(DSColor.onSurfaceVariant)
-                                        Spacer(minLength: 32)
+                                    TodayEmptyStateView { suggestion in
+                                        draftText = suggestion
                                     }
-                                    .frame(maxWidth: .infinity)
                                 } else {
                                     ForEach(Array(viewModel.memos.enumerated()), id: \.element.id) { idx, memo in
                                         TimelineRow(
@@ -158,6 +184,7 @@ struct TodayView: View {
                                         )
                                         .padding(.leading, 20)
                                         .padding(.trailing, 20)
+                                        .transition(.move(edge: .bottom).combined(with: .opacity))
                                     }
                                 }
 
@@ -215,6 +242,9 @@ struct TodayView: View {
                         onStartVoiceRecording: {
                             viewModel.startVoiceRecording()
                         },
+                        onVoiceComplete: { result in
+                            viewModel.addVoiceAttachment(result: result)
+                        },
                         onAddFile: {
                             viewModel.startFilePicker()
                         },
@@ -247,6 +277,10 @@ struct TodayView: View {
             .navigationBarHidden(true)
             .onAppear {
                 viewModel.load()
+                updateVoiceQueueBanner(count: voiceQueue.pendingCount)
+            }
+            .onChange(of: voiceQueue.pendingCount) { count in
+                updateVoiceQueueBanner(count: count)
             }
             .animation(.easeInOut(duration: 0.25), value: viewModel.submitError)
             // Daily Page full-screen sheet
@@ -309,10 +343,30 @@ struct TodayView: View {
                 )
                 .ignoresSafeArea()
             }
+            // On This Day navigation to DayDetailView
+            .fullScreenCover(item: Binding(
+                get: { onThisDayDateString.map { OnThisDayNavTarget(dateString: $0) } },
+                set: { onThisDayDateString = $0?.dateString }
+            )) { target in
+                DayDetailView(dateString: target.dateString)
+            }
+            .bannerOverlay()
         }
     }
 
     // MARK: - Helpers
+
+    private func updateVoiceQueueBanner(count: Int) {
+        if count > 0 {
+            bannerCenter.show(AppBannerModel(
+                kind: .info,
+                title: "你有 \(count) 条语音待转写",
+                autoDismiss: false
+            ))
+        } else if bannerCenter.currentBanner?.title.contains("语音待转写") == true {
+            bannerCenter.dismiss()
+        }
+    }
 
     private func formattedTimestamp(_ date: Date) -> String {
         let f = DateFormatter()
@@ -321,6 +375,13 @@ struct TodayView: View {
         f.timeZone = TimeZone.current
         return f.string(from: date)
     }
+}
+
+// MARK: - OnThisDayNavTarget
+
+private struct OnThisDayNavTarget: Identifiable {
+    let dateString: String
+    var id: String { dateString }
 }
 
 // MARK: - ApiKeyMissingBanner
@@ -559,11 +620,12 @@ struct TimelineRow: View {
         HStack(alignment: .top, spacing: 0) {
             // Left timeline column: time label + connecting line
             VStack(spacing: 0) {
-                Text(memo.created.formatted(.dateTime.hour().minute()))
+                Text(RelativeTimeFormatter.relative(memo.created))
                     .font(.custom("JetBrainsMono-Regular", fixedSize: 10))
                     .foregroundColor(DSColor.onSurfaceVariant)
-                    .frame(width: 40)
+                    .frame(width: 60)
                     .padding(.top, 10)
+                    .multilineTextAlignment(.center)
 
                 // Connecting line extends to bottom of card
                 if !isLast {

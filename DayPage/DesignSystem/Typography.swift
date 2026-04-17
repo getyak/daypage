@@ -48,6 +48,12 @@ enum DSType {
     // Display-LG: 56 / Space Grotesk 700 uppercase
     static let displayLG: Font = DSFonts.spaceGrotesk(size: 56, weight: .bold)
 
+    // H1: 32 / Space Grotesk 700
+    static let h1: Font = DSFonts.spaceGrotesk(size: 32, weight: .bold)
+
+    // H2: 22 / Space Grotesk SemiBold
+    static let h2: Font = DSFonts.spaceGrotesk(size: 22, weight: .semibold)
+
     // Headline-MD: 24 / Space Grotesk 700 uppercase
     static let headlineMD: Font = DSFonts.spaceGrotesk(size: 24, weight: .bold)
 
@@ -66,6 +72,12 @@ enum DSType {
     // Body-SM: 14 / Inter 400
     static let bodySM: Font = DSFonts.inter(size: 14, weight: .regular)
 
+    // Caption: 13 / Inter Medium
+    static let caption: Font = DSFonts.inter(size: 13, weight: .medium)
+
+    // Label: 11 / Space Grotesk Bold uppercase
+    static let label: Font = DSFonts.spaceGrotesk(size: 11, weight: .bold)
+
     // Label-SM: 12 / Inter 500
     static let labelSM: Font = DSFonts.inter(size: 12, weight: .medium)
 
@@ -83,6 +95,30 @@ enum DSType {
 }
 
 // MARK: - View Modifiers
+
+struct H1Modifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content.font(DSType.h1)
+    }
+}
+
+struct H2Modifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content.font(DSType.h2)
+    }
+}
+
+struct CaptionStyleModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content.font(DSType.caption)
+    }
+}
+
+struct LabelStyleModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content.font(DSType.label).textCase(.uppercase).tracking(0.5)
+    }
+}
 
 struct DisplayLGModifier: ViewModifier {
     func body(content: Content) -> some View {
@@ -170,6 +206,22 @@ struct MonoLabelModifier: ViewModifier {
 // MARK: - View Extensions
 
 extension View {
+    // v3 shorthand (Style suffix)
+    func h1Style() -> some View { modifier(H1Modifier()) }
+    func h2Style() -> some View { modifier(H2Modifier()) }
+    func captionStyle() -> some View { modifier(CaptionStyleModifier()) }
+    func labelStyle() -> some View { modifier(LabelStyleModifier()) }
+
+    // v3 short names (no suffix) — use these in new code
+    func displayLG() -> some View { modifier(DisplayLGModifier()) }
+    func h1() -> some View { modifier(H1Modifier()) }
+    func h2() -> some View { modifier(H2Modifier()) }
+    func bodyText() -> some View { modifier(BodyMDModifier()) }
+    func captionText() -> some View { modifier(CaptionStyleModifier()) }
+    func labelText() -> some View { modifier(LabelStyleModifier()) }
+    func monoText(size: CGFloat = 11) -> some View { modifier(MonoLabelModifier(size: size)) }
+
+    // Legacy / existing
     func displayLGStyle() -> some View { modifier(DisplayLGModifier()) }
     func headlineMDStyle() -> some View { modifier(HeadlineMDModifier()) }
     func headlineCapsStyle() -> some View { modifier(HeadlineCapsModifier()) }

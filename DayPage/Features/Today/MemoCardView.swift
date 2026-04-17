@@ -42,8 +42,8 @@ struct MemoCardView: View {
             // Time + content
             VStack(alignment: .leading, spacing: 0) {
                 // Time chip
-                TimeChip(time: memo.created.formatted(.dateTime.hour().minute()))
-                    .padding(.horizontal, 12)
+                TimeChip(time: RelativeTimeFormatter.relative(memo.created))
+                    .padding(.horizontal, DSSpacing.cardInner)
                     .padding(.top, 10)
 
                 // Location name + coordinates row
@@ -51,14 +51,14 @@ struct MemoCardView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         if let name = memo.location?.name, !name.isEmpty {
                             Text(name.uppercased())
-                                .font(.custom("SpaceGrotesk-Bold", size: 14))
+                                .h2Style()
                                 .foregroundColor(DSColor.onSurface)
                         }
 
                         let coordText = coordinateString(memo.location)
                         if !coordText.isEmpty {
                             Text(coordText)
-                                .font(.custom("JetBrainsMono-Regular", fixedSize: 11))
+                                .monoLabelStyle(size: 11)
                                 .foregroundColor(DSColor.onSurfaceVariant)
                         }
                     }
@@ -69,9 +69,9 @@ struct MemoCardView: View {
                         .font(.system(size: 16, weight: .regular))
                         .foregroundColor(DSColor.primary)
                 }
-                .padding(.horizontal, 12)
+                .padding(.horizontal, DSSpacing.cardInner)
                 .padding(.top, 6)
-                .padding(.bottom, 12)
+                .padding(.bottom, DSSpacing.cardInner)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(DSColor.surfaceContainer)
@@ -82,7 +82,9 @@ struct MemoCardView: View {
                 }
             }
         }
-        .cornerRadius(0)
+        .cornerRadius(DSSpacing.radiusCard)
+        .surfaceElevatedShadow()
+        .pressableCard()
         .sheet(isPresented: $showLocationSheet) {
             LocationPreviewSheet(
                 location: memo.location,
@@ -99,11 +101,11 @@ struct MemoCardView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Top row: time chip + type icon
             HStack(alignment: .center, spacing: 8) {
-                TimeChip(time: memo.created.formatted(.dateTime.hour().minute()))
+                TimeChip(time: RelativeTimeFormatter.relative(memo.created))
                 typeLabel
                 Spacer()
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, DSSpacing.cardInner)
             .padding(.top, 10)
 
             // Voice player row (for voice memos with audio attachments)
@@ -131,11 +133,11 @@ struct MemoCardView: View {
                 // EXIF metadata bar below photo
                 if let exifText = photoExifText {
                     Text(exifText)
-                        .font(.custom("JetBrainsMono-Regular", fixedSize: 10))
+                        .monoLabelStyle(size: 10)
                         .foregroundColor(DSColor.onSurfaceVariant)
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, DSSpacing.cardInner)
                         .padding(.vertical, 6)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(DSColor.surfaceContainer)
@@ -152,12 +154,12 @@ struct MemoCardView: View {
                                 .font(.system(size: 13))
                                 .foregroundColor(DSColor.onSurfaceVariant)
                             Text(att.transcript ?? URL(fileURLWithPath: att.file).lastPathComponent)
-                                .font(.custom("JetBrainsMono-Regular", fixedSize: 11))
+                                .monoLabelStyle(size: 11)
                                 .foregroundColor(DSColor.onSurface)
                                 .lineLimit(1)
                                 .truncationMode(.middle)
                         }
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, DSSpacing.cardInner)
                         .padding(.vertical, 4)
                     }
                 }
@@ -175,7 +177,7 @@ struct MemoCardView: View {
                     .bodySMStyle()
                     .foregroundColor(DSColor.onSurface)
                     .lineLimit(isExpanded ? nil : previewLineLimit)
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, DSSpacing.cardInner)
                     .padding(.top, 6)
             }
 
@@ -196,7 +198,11 @@ struct MemoCardView: View {
 
                 // Expand/collapse button for long content
                 if needsExpansionButton {
-                    Button(action: { isExpanded.toggle() }) {
+                    Button(action: {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            isExpanded.toggle()
+                        }
+                    }) {
                         Text(isExpanded ? "收起" : "展开")
                             .monoLabelStyle(size: 9)
                             .foregroundColor(DSColor.onSurfaceVariant)
@@ -204,9 +210,9 @@ struct MemoCardView: View {
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, DSSpacing.cardInner)
             .padding(.top, 6)
-            .padding(.bottom, 10)
+            .padding(.bottom, DSSpacing.cardInner)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(DSColor.surfaceContainer)
@@ -216,7 +222,9 @@ struct MemoCardView: View {
                 .frame(width: 3),
             alignment: .leading
         )
-        .cornerRadius(0)
+        .cornerRadius(DSSpacing.radiusCard)
+        .surfaceElevatedShadow()
+        .pressableCard()
     }
 
     // MARK: - Subviews
@@ -338,16 +346,16 @@ struct LocationPreviewSheet: View {
                 VStack(alignment: .leading, spacing: 2) {
                     if let name = location?.name, !name.isEmpty {
                         Text(name.uppercased())
-                            .font(.custom("SpaceGrotesk-Bold", size: 16))
+                            .h2Style()
                             .foregroundColor(DSColor.onSurface)
                     } else {
                         Text("位置附件")
-                            .font(.custom("SpaceGrotesk-Bold", size: 16))
+                            .h2Style()
                             .foregroundColor(DSColor.onSurface)
                     }
                     if let coord = coordinate {
                         Text(String(format: "%.5f°, %.5f°", coord.latitude, coord.longitude))
-                            .font(.custom("JetBrainsMono-Regular", fixedSize: 11))
+                            .monoLabelStyle(size: 11)
                             .foregroundColor(DSColor.onSurfaceVariant)
                     }
                 }
@@ -398,7 +406,7 @@ struct LocationPreviewSheet: View {
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(DSColor.primary)
                         Text("在 Apple Maps 中打开")
-                            .font(.custom("SpaceGrotesk-Medium", size: 15))
+                            .titleSMStyle()
                             .foregroundColor(DSColor.primary)
                         Spacer()
                         Image(systemName: "arrow.up.right")
@@ -425,7 +433,7 @@ struct LocationPreviewSheet: View {
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundColor(.red)
                             Text("删除附件")
-                                .font(.custom("SpaceGrotesk-Medium", size: 15))
+                                .titleSMStyle()
                                 .foregroundColor(.red)
                             Spacer()
                         }
@@ -527,14 +535,14 @@ struct VoiceMemoPlayerRow: View {
 
                 // Duration
                 Text(formatDur(isPlaying ? (duration * playbackProgress) : duration))
-                    .font(.custom("JetBrainsMono-Regular", fixedSize: 10))
+                    .monoLabelStyle(size: 10)
                     .foregroundColor(DSColor.onSurfaceVariant)
                     .frame(width: 36, alignment: .trailing)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
 
-            // Transcript preview (if available)
+            // Transcript preview (if available) or queued placeholder
             if let t = transcript, !t.isEmpty {
                 Text(t)
                     .bodySMStyle()
@@ -542,6 +550,17 @@ struct VoiceMemoPlayerRow: View {
                     .lineLimit(2)
                     .padding(.horizontal, 12)
                     .padding(.bottom, 6)
+            } else if transcript == nil && VoiceAttachmentQueue.shared.pendingCount > 0 {
+                HStack(spacing: 6) {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                        .tint(DSColor.onSurfaceVariant)
+                    Text("转写中...")
+                        .bodySMStyle()
+                        .foregroundColor(DSColor.onSurfaceVariant)
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 6)
             }
         }
         .onDisappear {
@@ -632,9 +651,8 @@ struct DailyPageEntryCard: View {
             HStack(alignment: .center, spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("TODAY'S PAGE COMPILED")
-                        .font(.custom("SpaceGrotesk-Bold", size: 14))
+                        .sectionLabelStyle()
                         .foregroundColor(DSColor.onPrimary)
-                        .kerning(1)
 
                     if let summary = summary, !summary.isEmpty {
                         Text(summary)
@@ -655,11 +673,11 @@ struct DailyPageEntryCard: View {
                     .foregroundColor(DSColor.onPrimary)
                     .offset(x: arrowOffset)
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, DSSpacing.cardInner)
             .padding(.vertical, 18)
             .frame(maxWidth: .infinity)
             .background(DSColor.primary)
-            .cornerRadius(0)
+            .cornerRadius(DSSpacing.radiusCard)
         }
         .buttonStyle(.plain)
         .onHover { hovering in
@@ -714,7 +732,7 @@ struct CompilePromptCard: View {
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
                             .background(DSColor.primary)
-                            .cornerRadius(0)
+                            .cornerRadius(DSSpacing.radiusSmall)
                     }
                     .buttonStyle(.plain)
                     .disabled(isCompiling)
@@ -728,7 +746,8 @@ struct CompilePromptCard: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(DSColor.surfaceContainer)
         }
-        .cornerRadius(0)
+        .cornerRadius(DSSpacing.radiusCard)
+        .surfaceElevatedShadow()
         .animation(.easeInOut(duration: 0.2), value: isCompiling)
     }
 }
