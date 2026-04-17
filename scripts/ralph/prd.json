@@ -53,7 +53,7 @@
       "title": "SettingsView API Keys 状态显示",
       "description": "作为用户，我希望在 Settings 中看到三个 API Key（DashScope / OpenAI Whisper / OpenWeather）的配置状态。",
       "acceptanceCriteria": [
-        "API Keys 分区读取 Secrets.dashScopeApiKey / openAIApiKey / openWeatherApiKey",
+        "API Keys 分区读取 Secrets.dashScopeApiKey / openAIWhisperApiKey / openWeatherApiKey",
         "每个 key 显示 ✓ 已配置 / ✗ 未配置 徽章（空字符串视为未配置）",
         "未配置的 key 显示红色徽章",
         "Typecheck passes",

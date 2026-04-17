@@ -9,6 +9,7 @@
   - 麦克风权限检查用 `AVAudioSession.sharedInstance().recordPermission` 和 `.requestRecordPermission`；iOS 17+ 的 `AVAudioApplication` 不可用
   - `AVAudioSession.CategoryOptions.allowBluetoothHFP`（而非已弃用的 `.allowBluetooth`）是 iOS 16 正确的蓝牙音频选项
 - Typecheck 命令：`xcrun swiftc -typecheck <files> -sdk $(xcrun --sdk iphonesimulator --show-sdk-path) -target arm64-apple-ios16.0-simulator`
+- 运行单元测试：`xcodebuild test -scheme DayPage -destination 'platform=iOS Simulator,name=iPhone 15 Pro'`（US-015/US-016/US-021 等要求 "Tests pass" 的 story 必须执行）
 - Services：`@MainActor final class`，单例；View models：`@MainActor final class: ObservableObject` + `@Published`
 - Storage：YAML front-matter + Markdown，`vault/raw/YYYY-MM-DD.md`，多 memo 以 `\n\n---\n\n` 分隔；`FileManager.replaceItem` 原子写入
 - 不引入 SPM 依赖，只用 Apple 框架
