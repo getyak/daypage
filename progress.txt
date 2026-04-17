@@ -1,5 +1,18 @@
 # DayPage v2 Ralph Progress Log
 
+## 2026-04-17 - US-011
+- BackgroundCompilationService: `compileWithRetry` 函数，delays=[0,30,120,600]秒，最多4次（首次+3次重试）
+- 三次重试都失败后调用 `sendFailureNotification`，通知 body="今日编译失败，点击查看"，userInfo=["compilationFailed": true]
+- DayPageApp: 新增 `AppNotificationDelegate`（UNUserNotificationCenterDelegate），点击失败通知时 post `Notification.Name.compilationDidFail`
+- TodayViewModel: `observeCompilationFailure()` 监听 `compilationDidFail`，设置 `compilationFailedError` 字符串
+- TodayView: `CompilationFailedBanner` 红色横幅，显示错误信息 + "重试"按钮 + "x"关闭按钮
+- 文件：BackgroundCompilationService.swift、DayPageApp.swift、TodayViewModel.swift、TodayView.swift
+- **Learnings for future iterations:**
+  - NotificationCenter 观察者回调若要修改 `@MainActor` 属性，需用 `Task { @MainActor [weak self] in ... }`
+  - `UNUserNotificationCenterDelegate` 在 Swift App 中需要 `@main struct` 外部持有强引用（private let notificationDelegate），否则会被释放
+  - `userInfo["compilationFailed"] as? Bool == true` 用于在通知代理中识别编译失败通知类型
+---
+
 ## 2026-04-17 - US-010
 - EntityPageView 添加 `sourceDateString: String? = nil` 可选参数
 - 当 `sourceDateString` 非 nil 时，toolbar leading 显示 `← YYYY-MM-DD` 面包屑（primary 色），点击 dismiss
