@@ -11,6 +11,8 @@ struct EntityPageView: View {
 
     let entityType: String  // "places", "people", or "themes"
     let entitySlug: String
+    /// When presented from a Daily Page, pass the dateString to show a breadcrumb.
+    var sourceDateString: String? = nil
 
     @Environment(\.dismiss) private var dismiss
     @State private var model: EntityModel? = nil
@@ -51,10 +53,23 @@ struct EntityPageView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "arrow.left")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(DSColor.onSurface)
+                    if let src = sourceDateString {
+                        Button(action: { dismiss() }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.left")
+                                    .font(.system(size: 13, weight: .medium))
+                                Text(src)
+                                    .font(.custom("JetBrainsMono-Regular", fixedSize: 11))
+                                    .kerning(0.5)
+                            }
+                            .foregroundColor(DSColor.primary)
+                        }
+                    } else {
+                        Button(action: { dismiss() }) {
+                            Image(systemName: "arrow.left")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(DSColor.onSurface)
+                        }
                     }
                 }
                 ToolbarItem(placement: .principal) {

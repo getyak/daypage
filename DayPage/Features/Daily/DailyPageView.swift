@@ -110,7 +110,7 @@ struct DailyPageView: View {
             set: { if !$0 { selectedEntitySlug = nil } }
         )) {
             if let slug = selectedEntitySlug {
-                EntityPageView(entityType: selectedEntityType, entitySlug: slug)
+                EntityPageView(entityType: selectedEntityType, entitySlug: slug, sourceDateString: dateString)
             }
         }
     }
