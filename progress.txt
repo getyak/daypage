@@ -279,3 +279,20 @@ Previous run (v2 roadmap) archived at: archive/2026-04-17-daypage-v2-roadmap/
   - UserDefaults dismissed date 用 DateFormatter.localizedString(short style) 作为 key value，跨时区轻量稳定
   - OnThisDayCard 里 Button + .buttonStyle(.plain) 嵌套：外 Button 整卡点击，内 X Button .buttonStyle(.plain) 防止事件冒泡
 ---
+
+## 2026-04-17 - US-026
+- 新建 DayPage/Services/OnThisDayScheduler.swift：@MainActor singleton
+- UserDefaults keys：nextFireAt(Date), refreshHour(Int default 0), dismissedDate(String), enabled(Bool default true)
+- shouldShowToday()：enabled && !dismissed today && (now >= nextFireAt || nextFireAt 未设置) → candidate
+- markShown()：存 next day at refreshHour（Calendar.current + TimeZone.current）
+- forceRefresh()：绕过 nextFireAt，直接 candidate
+- setupNotifications()：significantTimeChangeNotification → recomputeNextFireAt；didBecomeActiveNotification → shouldShowToday → post onThisDayShouldShow
+- Notification.Name.onThisDayShouldShow 扩展定义
+- TodayViewModel.init 中 observeOnThisDay()：监听 onThisDayShouldShow，更新 onThisDayEntry
+- 注册 pbxproj：A10000047/A20000047
+- Files changed: OnThisDayScheduler.swift (new), TodayViewModel.swift, project.pbxproj, prd.json
+- **Learnings for future iterations:**
+  - @MainActor class 中 init() 调用 setupNotifications()，addObserver block 内用 Task { @MainActor } 确保回调在主线程
+  - forceRefresh() 不需要检查 nextFireAt，只检查 isEnabled；这使长按手势可以强制刷新
+  - significantTimeChangeNotification 的时机不稳定，时区跳变判断用 abs(diff) > 3600 避免频繁更新
+---

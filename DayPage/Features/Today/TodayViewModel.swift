@@ -125,6 +125,7 @@ final class TodayViewModel: ObservableObject {
     init(date: Date = Date()) {
         self.date = date
         observeCompilationFailure()
+        observeOnThisDay()
     }
 
     private func observeCompilationFailure() {
@@ -153,6 +154,18 @@ final class TodayViewModel: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.isBackgroundCompiling = false
+            }
+        }
+    }
+
+    private func observeOnThisDay() {
+        NotificationCenter.default.addObserver(
+            forName: .onThisDayShouldShow,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            Task { @MainActor [weak self] in
+                self?.onThisDayEntry = notification.object as? OnThisDayEntry
             }
         }
     }

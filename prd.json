@@ -465,8 +465,8 @@
         "Typecheck passes"
       ],
       "priority": 26,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "OnThisDayScheduler：refreshHour/isEnabled UserDefaults；shouldShowToday()检查enabled+dismissed+nextFireAt；markShown()存next day；forceRefresh()忽略nextFireAt；监听significantTimeChange重算nextFireAt；监听didBecomeActive发 onThisDayShouldShow 通知；TodayViewModel observeOnThisDay 接收更新 onThisDayEntry。"
     },
     {
       "id": "US-027",
