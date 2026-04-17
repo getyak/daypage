@@ -44,6 +44,7 @@
 		A10000037 /* AppBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000037 /* AppBanner.swift */; };
 		A10000038 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000038 /* NetworkMonitor.swift */; };
 		A10000039 /* VoiceAttachmentQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000039 /* VoiceAttachmentQueue.swift */; };
+		A10000040 /* DayDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000040 /* DayDetailView.swift */; };
 		AF0000001 /* SpaceGrotesk-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000001 /* SpaceGrotesk-Light.ttf */; };
 		AF0000002 /* SpaceGrotesk-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000002 /* SpaceGrotesk-Regular.ttf */; };
 		AF0000003 /* SpaceGrotesk-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000003 /* SpaceGrotesk-Medium.ttf */; };
@@ -99,6 +100,7 @@
 		A20000037 /* AppBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBanner.swift; sourceTree = "<group>"; };
 		A20000038 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		A20000039 /* VoiceAttachmentQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceAttachmentQueue.swift; sourceTree = "<group>"; };
+		A20000040 /* DayDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayDetailView.swift; sourceTree = "<group>"; };
 		A30000001 /* DayPage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPage.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF1000001 /* SpaceGrotesk-Light.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Light.ttf"; sourceTree = "<group>"; };
 		AF1000002 /* SpaceGrotesk-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Regular.ttf"; sourceTree = "<group>"; };
@@ -272,6 +274,7 @@
 				A20000011 /* ArchiveView.swift */,
 				A20000028 /* SearchView.swift */,
 				A20000031 /* RawMemoView.swift */,
+				A20000040 /* DayDetailView.swift */,
 			);
 			path = Archive;
 			sourceTree = "<group>";
@@ -452,6 +455,7 @@
 				A10000027 /* SearchService.swift in Sources */,
 				A10000028 /* SearchView.swift in Sources */,
 				A10000031 /* RawMemoView.swift in Sources */,
+				A10000040 /* DayDetailView.swift in Sources */,
 				A10000030 /* SettingsView.swift in Sources */,
 				A10000032 /* PassiveLocationService.swift in Sources */,
 				A10000036 /* DayPageLogger.swift in Sources */,

@@ -377,8 +377,7 @@ struct ArchiveView: View {
     @StateObject private var viewModel = ArchiveViewModel()
     @State private var mode: ArchiveMode = .calendar
     @State private var selectedDateString: String? = nil
-    @State private var showDailyPage: Bool = false
-    @State private var showRawMemo: Bool = false
+    @State private var showDayDetail: Bool = false
     @State private var showSearch: Bool = false
     @State private var showNoRecordAlert: Bool = false
     @State private var summaryFilter: MonthlySummaryFilter = .all
@@ -426,23 +425,17 @@ struct ArchiveView: View {
             }
             .navigationBarHidden(true)
             .onAppear { viewModel.loadMonth() }
-            .fullScreenCover(isPresented: $showDailyPage) {
+            .fullScreenCover(isPresented: $showDayDetail) {
                 if let dateStr = selectedDateString {
-                    DailyPageView(dateString: dateStr)
-                }
-            }
-            .fullScreenCover(isPresented: $showRawMemo) {
-                if let dateStr = selectedDateString {
-                    RawMemoView(dateString: dateStr)
+                    DayDetailView(dateString: dateStr)
                 }
             }
             .sheet(isPresented: $showSearch) {
                 SearchView { dateStr in
                     selectedDateString = dateStr
                     showSearch = false
-                    // 给 sheet 关闭动画一点时间再打开 DailyPage，避免叠加过渡。
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                        showDailyPage = true
+                        showDayDetail = true
                     }
                 }
             }
@@ -456,10 +449,8 @@ struct ArchiveView: View {
 
     private func handleDateTap(dateStr: String, stats: DayStats?) {
         selectedDateString = dateStr
-        if stats?.isDailyPageCompiled == true {
-            showDailyPage = true
-        } else if (stats?.memoCount ?? 0) > 0 {
-            showRawMemo = true
+        if (stats?.memoCount ?? 0) > 0 || stats?.isDailyPageCompiled == true {
+            showDayDetail = true
         } else {
             showNoRecordAlert = true
         }
