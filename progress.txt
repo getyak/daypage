@@ -1,5 +1,14 @@
 # DayPage v2 Ralph Progress Log
 
+## 2026-04-17 - US-005
+- US-005 的功能已在 US-004 实现期间一并完成
+- archiveListRow 中 Button 调用 handleDateTap，与日历单元格行为一致
+- 未编译日期行 → RawMemoView；无记录日期行 → Alert
+- **Learnings for future iterations:**
+  - US-004 实现时已统一处理了日历和列表两种视图的点击逻辑
+  - handleDateTap 是统一的跳转入口，新增视图只需调用此方法
+---
+
 ## 2026-04-17 - US-003
 - 在 TodayViewModel 添加 `hasApiKeysMissing` 计算属性（检测三个 key 是否 empty）
 - 在 TodayView Header 和 Timeline 之间插入 `ApiKeyMissingBanner` 组件
