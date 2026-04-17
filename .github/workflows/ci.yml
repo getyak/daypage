@@ -17,6 +17,8 @@ on:
       - "tasks/**"
       - "**.md"
       - ".gitignore"
+  schedule:
+    - cron: "0 2 * * *"   # 每天 UTC 02:00（北京时间 10:00）对 main 跑全量回归
 
 jobs:
   unit-tests:
@@ -27,11 +29,45 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run RawStorage tests
-        run: xcrun swift scripts/tests/test_raw_storage.swift
+      - name: Show Swift version
+        run: xcrun swift --version
 
-      - name: Run EntityPage tests
-        run: xcrun swift scripts/tests/test_entity_page.swift
+      - name: Run all unit tests (fail-fast=false)
+        run: |
+          set +e
+          OVERALL=0
+
+          run_test() {
+            local FILE="$1"
+            echo ""
+            echo "══════════════════════════════════════════"
+            echo "  Running: $FILE"
+            echo "══════════════════════════════════════════"
+            xcrun swift "$FILE"
+            local RC=$?
+            if [ $RC -ne 0 ]; then
+              echo "  ❌ FAILED: $FILE (exit $RC)"
+              OVERALL=1
+            else
+              echo "  ✅ PASSED: $FILE"
+            fi
+            return $RC
+          }
+
+          run_test scripts/tests/test_raw_storage.swift
+          run_test scripts/tests/test_entity_page.swift
+          run_test scripts/tests/test_compilation_parsing.swift
+          run_test scripts/tests/test_voice_transcript.swift
+
+          echo ""
+          echo "══════════════════════════════════════════"
+          if [ $OVERALL -eq 0 ]; then
+            echo "  ✅ All tests passed"
+          else
+            echo "  ❌ One or more tests failed"
+          fi
+          echo "══════════════════════════════════════════"
+          exit $OVERALL
 
   build:
     name: Xcode Build (no signing)

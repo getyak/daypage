@@ -227,14 +227,10 @@ final class TodayViewModel: ObservableObject {
                 memoType = .text
             }
 
-            // For voice-only memo body: use transcript when no explicit text
-            let finalBody: String
-            if !hasText, hasVoice, memoAttachments.count == 1,
-               let tr = memoAttachments.first?.transcript {
-                finalBody = tr
-            } else {
-                finalBody = trimmed
-            }
+            // Body is always the user-typed text (trimmed). For voice-only memos this
+            // is empty — the transcript lives exclusively in attachment.transcript and
+            // is rendered by VoiceMemoPlayerRow, preventing duplicate display.
+            let finalBody = trimmed
 
             let memo = Memo(
                 type: memoType,
@@ -305,8 +301,7 @@ final class TodayViewModel: ObservableObject {
         Task {
             defer { isCompiling = false }
             do {
-                try await compilationService.compile(for: date, trigger: "manual")
-                // Refresh daily page status after successful compile
+                try await compileWithRetry()
                 checkDailyPage()
             } catch let error as CompilationError {
                 submitError = error.errorDescription ?? "编译失败，请重试"
@@ -314,6 +309,27 @@ final class TodayViewModel: ObservableObject {
                 submitError = "编译失败：\(error.localizedDescription)"
             }
         }
+    }
+
+    private func compileWithRetry(maxAttempts: Int = 3) async throws {
+        var lastError: Error?
+        for attempt in 0..<maxAttempts {
+            do {
+                try await compilationService.compile(for: date, trigger: "manual")
+                return
+            } catch CompilationError.networkError(let msg) {
+                lastError = CompilationError.networkError(msg)
+            } catch CompilationError.apiError(let code, let body) where code == 429 {
+                lastError = CompilationError.apiError(statusCode: code, body: body)
+            } catch {
+                throw error  // Non-retryable errors surface immediately
+            }
+            if attempt < maxAttempts - 1 {
+                let delayNs = UInt64(pow(2.0, Double(attempt))) * 1_000_000_000
+                try await Task.sleep(nanoseconds: delayNs)
+            }
+        }
+        throw lastError!
     }
 
     // MARK: - Private Helpers

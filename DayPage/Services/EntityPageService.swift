@@ -324,15 +324,15 @@ final class EntityPageService {
     /// }
     /// ```
     static func parseStructuredOutput(_ rawLLMResponse: String) -> (dailyPage: String, instructions: [EntityUpdateInstruction]) {
-        // Try to extract JSON block from the response
+        // Try to extract and parse a JSON block from the response
         guard let jsonBlock = extractJSONBlock(from: rawLLMResponse),
               let data = jsonBlock.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            // Fallback: treat entire response as daily page, no entity updates
-            return (rawLLMResponse, [])
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let dailyPage = json["daily_page"] as? String,
+              !dailyPage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            // Extraction or validation failed — signal failure via empty dailyPage sentinel
+            return ("", [])
         }
-
-        let dailyPage = (json["daily_page"] as? String) ?? rawLLMResponse
         var instructions: [EntityUpdateInstruction] = []
 
         if let updates = json["entity_updates"] as? [[String: Any]] {
@@ -380,12 +380,15 @@ final class EntityPageService {
     // MARK: - Private Helpers
 
     private static func extractJSONBlock(from text: String) -> String? {
-        // Look for ```json ... ``` fenced block first
-        if let fenceStart = text.range(of: "```json\n"),
-           let fenceEnd = text.range(of: "\n```", range: fenceStart.upperBound ..< text.endIndex) {
-            return String(text[fenceStart.upperBound ..< fenceEnd.lowerBound])
+        // Match ```json (with optional space/uppercase) ... ``` fenced blocks
+        let fencePatterns = ["```json\n", "```json \n", "```JSON\n", "```\n"]
+        for pattern in fencePatterns {
+            if let fenceStart = text.range(of: pattern, options: .caseInsensitive),
+               let fenceEnd = text.range(of: "\n```", range: fenceStart.upperBound ..< text.endIndex) {
+                return String(text[fenceStart.upperBound ..< fenceEnd.lowerBound])
+            }
         }
-        // Fallback: look for raw { ... } spanning the whole response
+        // Fallback: raw { ... } spanning the whole response
         if let braceStart = text.firstIndex(of: "{"),
            let braceEnd = text.lastIndex(of: "}") {
             return String(text[braceStart ... braceEnd])
