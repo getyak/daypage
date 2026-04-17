@@ -1,5 +1,18 @@
 # DayPage v2 Ralph Progress Log
 
+## 2026-04-17 - US-024
+- RootView.swift：移除 GraphView tab 的 `.disabled(true)`
+- 新建 DayPage/Features/Graph/GraphViewModel.swift：GraphNode（id/name/entityType/position/velocity/color）、GraphEdge（id/sourceID/targetID）、GraphViewModel(@MainActor ObservableObject)；load() 用 Task.detached 异步扫描；buildGraph() (nonisolated) 扫描 wiki/daily/*.md 提取 [[wiki/type/slug|Name]] wikilink，同时扫描实体目录；同日出现的两个实体之间建边（edgeSet 去重）；节点初始位置圆形分布；simulationStep() 实现力导向物理模拟（斥力6000、引力0.04、阻尼0.85、重力向中心）
+- 重写 DayPage/Features/Graph/GraphView.swift：@StateObject GraphViewModel；scale/offset/lastScale/lastOffset 管理 zoom+pan；Canvas 绘制边（灰色半透明）+ 节点（填充+描边）；ForEach overlay 节点标签（文字跟随节点坐标）；SimultaneousGesture 组合 MagnificationGesture(0.3-5x) + DragGesture；Timer 30fps 驱动力导向模拟最多200步后自动停止；空状态；左下角图例（地点/人物/主题+颜色）
+- project.pbxproj：A20000035/A10000035 注册 GraphViewModel.swift
+- 文件：DayPage/App/RootView.swift、DayPage/Features/Graph/GraphView.swift（重写）、DayPage/Features/Graph/GraphViewModel.swift（新建）、project.pbxproj
+- **Learnings for future iterations:**
+  - @MainActor class 的 static 方法默认也是 @MainActor；需要 `nonisolated` 修饰才能在 Task.detached 里调用（否则编译器报"main actor-isolated cannot be called from outside"）
+  - SwiftUI Canvas 不自动响应 @Published 变化；需要在 Timer 回调中触发 viewModel 的 @Published 属性更新，Canvas 才会重绘（通过 node 数组的 position 变化）
+  - `Dictionary(uniqueKeysWithValues:)` 需要确保 key 唯一，否则 runtime crash；GraphViewModel 用 id 作 key 保证唯一性
+  - `displaySMStyle` 不存在，设计系统只有 `displayLGStyle`；空状态使用 displayLGStyle
+---
+
 ## 2026-04-17 - US-023
 - 新建 DayPage/Features/Today/DocumentPickerView.swift：UIDocumentPickerViewController 的 SwiftUI 包装（UIViewControllerRepresentable），支持任意文件类型（.item），asCopy: true
 - TodayViewModel.swift：新增 FilePickerResult 结构体（filePath/fileName）；PendingAttachment 枚举新增 .file(FilePickerResult) case；新增 isShowingDocumentPicker @Published 属性；新增 startFilePicker() 和 addFileAttachment(url:) 方法，后者将文件复制到 vault/raw/assets/files/ 并追加 PendingAttachment.file
