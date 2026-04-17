@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import PhotosUI
 
 // MARK: - DailyPageTab
 
@@ -54,6 +55,12 @@ struct DailyPageView: View {
     @State private var selectedEntitySlug: String? = nil
     @State private var selectedEntityType: String = "themes"
 
+    // US-017: Recompile & Edit Metadata
+    @State private var showRecompileConfirm: Bool = false
+    @State private var isRecompiling: Bool = false
+    @State private var recompileError: String? = nil
+    @State private var showEditMetadata: Bool = false
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -102,9 +109,49 @@ struct DailyPageView: View {
                         .headlineMDStyle()
                         .foregroundColor(DSColor.onSurface)
                 }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if isRecompiling {
+                        ProgressView()
+                            .tint(DSColor.onSurface)
+                            .scaleEffect(0.8)
+                    } else {
+                        Menu {
+                            Button {
+                                showRecompileConfirm = true
+                            } label: {
+                                Label("重新编译", systemImage: "arrow.clockwise")
+                            }
+                            Button {
+                                showEditMetadata = true
+                            } label: {
+                                Label("编辑元数据", systemImage: "pencil")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .font(.system(size: 18, weight: .regular))
+                                .foregroundColor(DSColor.onSurface)
+                        }
+                    }
+                }
             }
         }
         .onAppear { loadPage() }
+        .alert("重新编译", isPresented: $showRecompileConfirm) {
+            Button("取消", role: .cancel) {}
+            Button("重新编译", role: .destructive) {
+                Task { await recompile() }
+            }
+        } message: {
+            Text("将重新调用 AI 编译今日日记，当前内容将备份至 .trash 目录。")
+        }
+        .alert("编译失败", isPresented: Binding(
+            get: { recompileError != nil },
+            set: { if !$0 { recompileError = nil } }
+        )) {
+            Button("确定", role: .cancel) {}
+        } message: {
+            Text(recompileError ?? "")
+        }
         .sheet(isPresented: Binding(
             get: { selectedEntitySlug != nil },
             set: { if !$0 { selectedEntitySlug = nil } }
@@ -113,6 +160,62 @@ struct DailyPageView: View {
                 EntityPageView(entityType: selectedEntityType, entitySlug: slug, sourceDateString: dateString)
             }
         }
+        .sheet(isPresented: $showEditMetadata, onDismiss: { loadPage() }) {
+            if let m = model {
+                DailyPageMetadataEditView(
+                    dateString: dateString,
+                    currentSummary: m.summary,
+                    currentWeather: extractWeatherFromRawText(rawText),
+                    currentMood: extractMoodFromRawText(rawText),
+                    currentCoverPath: m.coverAssetPath,
+                    rawMemos: rawMemos
+                )
+            }
+        }
+    }
+
+    // MARK: - Recompile
+
+    private func recompile() async {
+        isRecompiling = true
+        defer { isRecompiling = false }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        guard let date = formatter.date(from: dateString) else {
+            recompileError = "日期格式无效"
+            return
+        }
+
+        do {
+            try await CompilationService.shared.compile(for: date, trigger: "manual")
+            loadPage()
+        } catch {
+            recompileError = error.localizedDescription
+        }
+    }
+
+    // MARK: - Metadata Extraction Helpers
+
+    private func extractWeatherFromRawText(_ text: String) -> String {
+        for line in text.components(separatedBy: "\n") {
+            let t = line.trimmingCharacters(in: .whitespaces)
+            if t.hasPrefix("weather:") {
+                return String(t.dropFirst("weather:".count)).trimmingCharacters(in: .whitespaces)
+            }
+        }
+        return ""
+    }
+
+    private func extractMoodFromRawText(_ text: String) -> String {
+        for line in text.components(separatedBy: "\n") {
+            let t = line.trimmingCharacters(in: .whitespaces)
+            if t.hasPrefix("mood:") {
+                return String(t.dropFirst("mood:".count)).trimmingCharacters(in: .whitespaces)
+            }
+        }
+        return ""
     }
 
     // MARK: - Segmented Control
@@ -268,11 +371,10 @@ struct DailyPageView: View {
     }
 
     private func metaChipVoice(model: DailyPageModel) -> some View {
-        let totalSeconds = rawMemos
-            .flatMap { $0.attachments }
-            .filter { $0.kind == "audio" }
-            .compactMap { $0.duration }
-            .reduce(0, +)
+        let allAttachments = rawMemos.flatMap { $0.attachments }
+        let audioAttachments = allAttachments.filter { $0.kind == "audio" }
+        let durations = audioAttachments.compactMap { $0.duration }
+        let totalSeconds: Double = durations.reduce(0, +)
 
         guard totalSeconds > 0 else { return AnyView(EmptyView()) }
 
@@ -824,5 +926,340 @@ private struct HeroBannerPreview: View {
             }
         }
         .onTapGesture { onDismiss() }
+    }
+}
+
+// MARK: - DailyPageMetadataEditView
+
+/// Sheet for editing Daily Page metadata fields: summary, weather, mood, cover image.
+/// Changes are atomically written back into the YAML front-matter of the compiled daily page.
+struct DailyPageMetadataEditView: View {
+
+    let dateString: String
+    let currentSummary: String
+    let currentWeather: String
+    let currentMood: String
+    let currentCoverPath: String?
+    let rawMemos: [Memo]
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var summary: String = ""
+    @State private var weather: String = ""
+    @State private var mood: String = ""
+    @State private var selectedCoverPath: String? = nil
+    @State private var photosPickerItem: PhotosPickerItem? = nil
+    @State private var coverPreview: UIImage? = nil
+    @State private var isSaving: Bool = false
+    @State private var saveError: String? = nil
+
+    private let moodOptions = ["😊 开心", "😐 平静", "😔 低落", "😤 烦躁", "🤩 兴奋", "😴 疲惫"]
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                DSColor.background.ignoresSafeArea()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 32) {
+                        summarySection
+                        moodSection
+                        weatherSection
+                        coverSection
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 40)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("取消") { dismiss() }
+                        .foregroundColor(DSColor.onSurface)
+                }
+                ToolbarItem(placement: .principal) {
+                    Text("编辑元数据")
+                        .headlineMDStyle()
+                        .foregroundColor(DSColor.onSurface)
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if isSaving {
+                        ProgressView().tint(DSColor.onSurface).scaleEffect(0.8)
+                    } else {
+                        Button("保存") {
+                            Task { await save() }
+                        }
+                        .foregroundColor(DSColor.primary)
+                        .font(.custom("SpaceGrotesk-Bold", size: 14))
+                    }
+                }
+            }
+        }
+        .onAppear {
+            summary = currentSummary
+            weather = currentWeather
+            mood = currentMood
+            selectedCoverPath = currentCoverPath
+            if let path = currentCoverPath {
+                loadCoverPreview(path: path)
+            }
+        }
+        .alert("保存失败", isPresented: Binding(
+            get: { saveError != nil },
+            set: { if !$0 { saveError = nil } }
+        )) {
+            Button("确定", role: .cancel) {}
+        } message: {
+            Text(saveError ?? "")
+        }
+        .onChange(of: photosPickerItem) { newItem in
+            guard let item = newItem else { return }
+            Task { await loadSelectedPhoto(item: item) }
+        }
+    }
+
+    // MARK: - Sections
+
+    private var summarySection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel("SUMMARY")
+            TextEditor(text: $summary)
+                .font(.custom("Inter-Regular", size: 16))
+                .foregroundColor(DSColor.onSurface)
+                .frame(minHeight: 80)
+                .padding(12)
+                .background(DSColor.surfaceContainer)
+                .cornerRadius(0)
+                .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
+        }
+    }
+
+    private var moodSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel("MOOD")
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(moodOptions, id: \.self) { option in
+                        Button(action: {
+                            mood = mood == option ? "" : option
+                        }) {
+                            Text(option)
+                                .font(.custom("Inter-Regular", size: 13))
+                                .foregroundColor(mood == option ? DSColor.onPrimary : DSColor.onSurface)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(mood == option ? DSColor.primary : DSColor.surfaceContainer)
+                                .cornerRadius(0)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            if !mood.isEmpty && !moodOptions.contains(mood) {
+                Text(mood)
+                    .font(.custom("JetBrainsMono-Regular", fixedSize: 12))
+                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .padding(.top, 4)
+            }
+        }
+    }
+
+    private var weatherSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel("WEATHER")
+            TextField("例如：晴 28°C", text: $weather)
+                .font(.custom("Inter-Regular", size: 15))
+                .foregroundColor(DSColor.onSurface)
+                .padding(12)
+                .background(DSColor.surfaceContainer)
+                .cornerRadius(0)
+                .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
+        }
+    }
+
+    private var coverSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            sectionLabel("COVER IMAGE")
+
+            if let preview = coverPreview {
+                Image(uiImage: preview)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 120)
+                    .clipped()
+                    .cornerRadius(0)
+            }
+
+            HStack(spacing: 12) {
+                // Choose from existing raw memos photos
+                Menu {
+                    ForEach(photoAttachmentsFromMemos, id: \.file) { att in
+                        Button(att.file.components(separatedBy: "/").last ?? att.file) {
+                            selectedCoverPath = att.file
+                            loadCoverPreview(path: att.file)
+                        }
+                    }
+                    if selectedCoverPath != nil {
+                        Divider()
+                        Button("移除封面", role: .destructive) {
+                            selectedCoverPath = nil
+                            coverPreview = nil
+                        }
+                    }
+                } label: {
+                    Text(selectedCoverPath == nil ? "从记录中选择" : "更换封面")
+                        .font(.custom("SpaceGrotesk-Bold", size: 12))
+                        .foregroundColor(DSColor.primary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(DSColor.surfaceContainer)
+                        .cornerRadius(0)
+                        .overlay(Rectangle().stroke(DSColor.primary, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+
+                // Pick from photo library
+                PhotosPicker(selection: $photosPickerItem, matching: .images) {
+                    Text("从相册选择")
+                        .font(.custom("SpaceGrotesk-Bold", size: 12))
+                        .foregroundColor(DSColor.onSurfaceVariant)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(DSColor.surfaceContainer)
+                        .cornerRadius(0)
+                        .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.custom("SpaceGrotesk-Bold", size: 11))
+            .foregroundColor(DSColor.outline)
+            .kerning(3)
+    }
+
+    // MARK: - Data Helpers
+
+    private var photoAttachmentsFromMemos: [Memo.Attachment] {
+        rawMemos.flatMap { $0.attachments }.filter { $0.kind == "photo" }
+    }
+
+    private func loadCoverPreview(path: String) {
+        let url = VaultInitializer.vaultURL.appendingPathComponent(path)
+        Task.detached(priority: .userInitiated) {
+            let img = UIImage(contentsOfFile: url.path)
+            await MainActor.run { self.coverPreview = img }
+        }
+    }
+
+    private func loadSelectedPhoto(item: PhotosPickerItem) async {
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let img = UIImage(data: data) else { return }
+
+        // Save to vault/raw/assets/
+        let filename = "cover-\(dateString)-\(Int(Date().timeIntervalSince1970)).jpg"
+        let assetsDir = VaultInitializer.vaultURL
+            .appendingPathComponent("raw")
+            .appendingPathComponent("assets")
+        let fileURL = assetsDir.appendingPathComponent(filename)
+
+        do {
+            if !FileManager.default.fileExists(atPath: assetsDir.path) {
+                try FileManager.default.createDirectory(at: assetsDir, withIntermediateDirectories: true)
+            }
+            if let jpeg = img.jpegData(compressionQuality: 0.85) {
+                try jpeg.write(to: fileURL)
+            }
+            selectedCoverPath = "raw/assets/\(filename)"
+            coverPreview = img
+        } catch {
+            saveError = "保存封面图片失败: \(error.localizedDescription)"
+        }
+    }
+
+    // MARK: - Save
+
+    private func save() async {
+        isSaving = true
+        defer { isSaving = false }
+
+        let dailyURL = VaultInitializer.vaultURL
+            .appendingPathComponent("wiki")
+            .appendingPathComponent("daily")
+            .appendingPathComponent("\(dateString).md")
+
+        guard let content = try? String(contentsOf: dailyURL, encoding: .utf8) else {
+            saveError = "无法读取日记文件"
+            return
+        }
+
+        let updated = updateFrontmatter(
+            content: content,
+            summary: summary,
+            weather: weather,
+            mood: mood,
+            coverPath: selectedCoverPath
+        )
+
+        do {
+            try RawStorage.atomicWrite(string: updated, to: dailyURL)
+            dismiss()
+        } catch {
+            saveError = "写入失败: \(error.localizedDescription)"
+        }
+    }
+
+    /// Updates YAML front-matter fields: summary, weather, mood, cover.
+    /// Preserves all other fields and the body unchanged.
+    private func updateFrontmatter(
+        content: String,
+        summary: String,
+        weather: String,
+        mood: String,
+        coverPath: String?
+    ) -> String {
+        var lines = content.components(separatedBy: "\n")
+
+        // Find front-matter bounds
+        guard lines.first?.trimmingCharacters(in: .whitespaces) == "---" else {
+            return content
+        }
+
+        var closingLine = -1
+        for i in 1..<lines.count {
+            if lines[i].trimmingCharacters(in: .whitespaces) == "---" {
+                closingLine = i
+                break
+            }
+        }
+        guard closingLine > 0 else { return content }
+
+        // Update existing keys or insert before closing ---
+        func setKey(_ key: String, value: String) {
+            let prefix = "\(key):"
+            if let idx = (1..<closingLine).first(where: { lines[$0].trimmingCharacters(in: .whitespaces).hasPrefix(prefix) }) {
+                if value.isEmpty {
+                    lines.remove(at: idx)
+                    closingLine -= 1
+                } else {
+                    lines[idx] = "\(key): \(value)"
+                }
+            } else if !value.isEmpty {
+                lines.insert("\(key): \(value)", at: closingLine)
+                closingLine += 1
+            }
+        }
+
+        setKey("summary", value: summary.isEmpty ? "" : "\"\(summary.replacingOccurrences(of: "\"", with: "\\\""))\"")
+        setKey("weather", value: weather)
+        setKey("mood", value: mood)
+        setKey("cover", value: coverPath ?? "")
+
+        return lines.joined(separator: "\n")
     }
 }
