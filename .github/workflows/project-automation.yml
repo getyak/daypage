@@ -11,6 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/add-to-project@v1.0.2
+        if: ${{ env.PROJECT_TOKEN != '' }}
+        env:
+          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
         with:
           project-url: https://github.com/orgs/getyak/projects/1
           github-token: ${{ secrets.PROJECT_TOKEN }}
