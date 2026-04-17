@@ -37,7 +37,7 @@
         "Verify in iOS Simulator: start recording, no live transcript appears, stop -> Whisper result appears in memo"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

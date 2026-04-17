@@ -40,6 +40,7 @@
 		A10000031 /* RawMemoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000031 /* RawMemoView.swift */; };
 		A10000030 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000030 /* SettingsView.swift */; };
 		A10000032 /* PassiveLocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000032 /* PassiveLocationService.swift */; };
+		A10000036 /* DayPageLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000036 /* DayPageLogger.swift */; };
 		AF0000001 /* SpaceGrotesk-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000001 /* SpaceGrotesk-Light.ttf */; };
 		AF0000002 /* SpaceGrotesk-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000002 /* SpaceGrotesk-Regular.ttf */; };
 		AF0000003 /* SpaceGrotesk-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000003 /* SpaceGrotesk-Medium.ttf */; };
@@ -91,6 +92,7 @@
 		A20000031 /* RawMemoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawMemoView.swift; sourceTree = "<group>"; };
 		A20000030 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A20000032 /* PassiveLocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassiveLocationService.swift; sourceTree = "<group>"; };
+		A20000036 /* DayPageLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPageLogger.swift; sourceTree = "<group>"; };
 		A30000001 /* DayPage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPage.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF1000001 /* SpaceGrotesk-Light.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Light.ttf"; sourceTree = "<group>"; };
 		AF1000002 /* SpaceGrotesk-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Regular.ttf"; sourceTree = "<group>"; };
@@ -195,6 +197,7 @@
 				A20000023 /* BackgroundCompilationService.swift */,
 				A20000027 /* SearchService.swift */,
 				A20000032 /* PassiveLocationService.swift */,
+				A20000036 /* DayPageLogger.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -434,6 +437,7 @@
 				A10000031 /* RawMemoView.swift in Sources */,
 				A10000030 /* SettingsView.swift in Sources */,
 				A10000032 /* PassiveLocationService.swift in Sources */,
+				A10000036 /* DayPageLogger.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

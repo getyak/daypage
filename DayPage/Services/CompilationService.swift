@@ -157,10 +157,18 @@ final class CompilationService {
 
         if let existing = try? String(contentsOf: url, encoding: .utf8) {
             let updated = existing + row
-            try? RawStorage.atomicWrite(string: updated, to: url)
+            do {
+                try RawStorage.atomicWrite(string: updated, to: url)
+            } catch {
+                DayPageLogger.shared.error("appendLog: failed to write compilation log: \(error)")
+            }
         } else {
             let header = "---\ntype: compilation_log\ncreated: \(timestamp)\n---\n\n# Compilation Log\n\n| timestamp | trigger | duration_s | memo_count | status |\n|-----------|---------|-----------|------------|--------|\n\(row)"
-            try? RawStorage.atomicWrite(string: header, to: url)
+            do {
+                try RawStorage.atomicWrite(string: header, to: url)
+            } catch {
+                DayPageLogger.shared.error("appendLog: failed to create compilation log: \(error)")
+            }
         }
     }
 
@@ -394,7 +402,11 @@ final class CompilationService {
         \(summary)
         """
 
-        try? RawStorage.atomicWrite(string: newContent, to: url)
+        do {
+            try RawStorage.atomicWrite(string: newContent, to: url)
+        } catch {
+            DayPageLogger.shared.error("updateHotCache: failed to write hot cache: \(error)")
+        }
     }
 
     /// Parses the covers_dates YAML sequence from hot.md frontmatter.
