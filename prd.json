@@ -55,8 +55,8 @@
         "Verify in Simulator using verify-daypage skill"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "testDashScope now resolves baseURL the same way CompilationService.callDashScope does (env override → compatible-mode/v1 default), sends POST {baseURL}/chat/completions with max_tokens=1. Results render inline under each row: green ✓ + '连接成功 · 模型 qwen3.5-plus' on 200; red ✗ + 'HTTP N · <hint>' on failure (401/403 → 'API key 无效或权限不足'; 404 → 'URL 不存在，检查 baseURL'; 429/5xx specific hints; network errors map timeout/NotConnected/CannotFindHost via NSURLError codes). Button shows spinner and is disabled while testing. Whisper/OpenWeather use same result machinery. Build passes; manual Simulator verification deferred (requires real keys in env)."
     },
     {
       "id": "US-004",

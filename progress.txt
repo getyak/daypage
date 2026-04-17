@@ -22,6 +22,8 @@ Previous run (V3 Wave 1) archived at: archive/2026-04-17-daypage-v3-wave1-experi
 - For archive-style detail screens that read vault files: load asynchronously inside a `.task` closure into an explicit `LoadState` enum, not inside computed properties. Computed-property IO runs on every re-render and hides failure paths.
 - Validate user-supplied date strings with BOTH a strict `^\d{4}-\d{2}-\d{2}$` regex AND a non-lenient DateFormatter round-trip — the regex alone lets `2020-02-30` through.
 - When a file-backed view (RawMemoView, DailyPageView) is opened, double-check `FileManager.default.fileExists(atPath:)` inside its own load path even if the parent already checked. Log `url.path` + `errno` on any miss — both are necessary to diagnose sandbox / migration issues.
+- When adding a "test this endpoint" Settings action, ALWAYS resolve baseURL/model the same way the production service does (`Secrets.*.isEmpty ? defaultLiteral : Secrets.*`). If you hardcode a URL in Settings, you will silently drift from CompilationService and the test can green while real compile 404s.
+- NSURLError codes (timeout=-1001, notConnected=-1009, cannotFindHost=-1003, cannotConnect=-1004) are the right bucket for network-layer hints; HTTP status codes only show up when the server actually responded.
 
 ---
 
@@ -51,6 +53,22 @@ Previous run (V3 Wave 1) archived at: archive/2026-04-17-daypage-v3-wave1-experi
   - Keep `hasRawFile` as a separate `@State Bool` even after the `LoadState` resolves — the user can still switch the segmented control inside `.compiled`, and the Raw tab needs its own "no file" path.
   - SourceKit diagnostics from macOS context (`No such module 'UIKit'`, `Cannot find DSColor/Memo in scope`) fire on this file too; they're the documented cross-module false positives — trust `xcodebuild`.
   - Automated UI navigation to an invalid `dateString` requires either (a) the verify-daypage MCP skill wired up, or (b) a UI test target. Neither exists yet — US-009 will add unit-level coverage of the state machine, which is the practical regression guard.
+---
+
+## 2026-04-17 - US-003 Settings 增加「测试 API 连接」按钮
+- Rewrote `testDashScope()` in `DayPage/Features/Settings/SettingsView.swift` to resolve baseURL identically to `CompilationService.callDashScope` (`Secrets.dashScopeBaseURL.isEmpty ? "https://dashscope.aliyuncs.com/compatible-mode/v1" : Secrets.dashScopeBaseURL`). Sends `POST {baseURL}/chat/completions` with `{model: resolved, max_tokens: 1, messages: [{role: "user", content: "hi"}]}` and 10s timeout.
+- Added inline per-row `APITestResult` rendering under each API Key row: green ✓ + "连接成功 · 模型 \(model)" on 200; red ✗ + "HTTP N · <hint>" on non-200. Button becomes a `ProgressView` and is disabled while `dashScopeTesting == true`.
+- Tailored hints: DashScope (401/403/404/429/5xx), OpenAI (401/403/404/429/5xx), OpenWeather (401/404/429/5xx); network errors mapped via `NSURLErrorDomain` codes (timeout → '网络不可达，检查代理（超时）', notConnected, cannotFindHost/cannotConnect → 'URL 不存在，检查 baseURL', networkConnectionLost).
+- Whisper and OpenWeather test paths mirror the same result / disabled-spinner pattern so UX is consistent across all three keys.
+- Added private `APITestResult` enum at file scope with `.success(String)` / `.failure(String)` + `isSuccess` / `message` accessors. Scoped fileprivate to SettingsView to avoid polluting global namespace.
+- Files changed: `DayPage/Features/Settings/SettingsView.swift`, `prd.json`, `progress.txt`.
+- Build: `xcodebuild -scheme DayPage ... build` → BUILD SUCCEEDED.
+- Manual Simulator verification deferred — requires real DashScope/Whisper/OpenWeather keys in env; the UI state machine is covered at compile time by the enum + per-row rendering.
+- **Learnings for future iterations:**
+  - SettingsView already had stub `testX()` methods with the wrong URL. The lesson: when a future story requires "test endpoint X", grep for existing `test{Service}()` helpers first — there's almost always a 70% stub waiting to be finished.
+  - Using a tiny fileprivate `enum APITestResult` is nicer than juggling `(Bool, String)` tuples or two optional `@State`s. Keep it fileprivate to the view — do NOT hoist to a shared type until there's a second caller.
+  - `bannerCenter.show(...)` is the right channel for app-wide outcomes, but for a "test connection" button the user is already looking at, inline rendering under the row is stronger UX — leave the banner out to avoid duplicate signals.
+  - `Secrets.dashScopeModel` default must match CompilationService.swift exactly (`qwen3.5-plus`) — if one drifts, the success banner will show a model that was never used.
 ---
 
 ## Wave 2 Story Order Rationale

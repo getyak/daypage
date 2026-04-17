@@ -16,6 +16,11 @@ struct SettingsView: View {
     @State private var whisperTesting = false
     @State private var weatherTesting = false
 
+    // Inline test result per key (cleared on next test)
+    @State private var dashScopeResult: APITestResult?
+    @State private var whisperResult: APITestResult?
+    @State private var weatherResult: APITestResult?
+
     // On This Day settings (backed by OnThisDayScheduler.shared via UserDefaults)
     @State private var onThisDayEnabled: Bool = OnThisDayScheduler.shared.isEnabled
     @State private var onThisDayRefreshHour: Int = OnThisDayScheduler.shared.refreshHour
@@ -54,18 +59,21 @@ struct SettingsView: View {
                 name: "DashScope",
                 key: Secrets.dashScopeApiKey,
                 isTesting: dashScopeTesting,
+                result: dashScopeResult,
                 onTest: { Task { await testDashScope() } }
             )
             apiKeyRow(
                 name: "OpenAI Whisper",
                 key: Secrets.openAIWhisperApiKey,
                 isTesting: whisperTesting,
+                result: whisperResult,
                 onTest: { Task { await testWhisper() } }
             )
             apiKeyRow(
                 name: "OpenWeatherMap",
                 key: Secrets.openWeatherApiKey,
                 isTesting: weatherTesting,
+                result: weatherResult,
                 onTest: { Task { await testWeather() } }
             )
         }
@@ -76,45 +84,59 @@ struct SettingsView: View {
         name: String,
         key: String,
         isTesting: Bool,
+        result: APITestResult?,
         onTest: @escaping () -> Void
     ) -> some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(name)
-                    .font(.body)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(name)
+                        .font(.body)
+                    if key.isEmpty {
+                        Text("未配置")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    } else {
+                        Text("…" + String(key.suffix(4)))
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundColor(DSColor.onSurfaceVariant)
+                    }
+                }
+                Spacer()
                 if key.isEmpty {
                     Text("未配置")
                         .font(.caption)
+                        .fontWeight(.medium)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(Color.red.opacity(0.12))
                         .foregroundColor(.red)
+                        .clipShape(Capsule())
                 } else {
-                    Text("…" + String(key.suffix(4)))
-                        .font(.system(size: 12, design: .monospaced))
-                        .foregroundColor(DSColor.onSurfaceVariant)
+                    Button(action: onTest) {
+                        if isTesting {
+                            ProgressView().controlSize(.mini)
+                        } else {
+                            Text("测试连接")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .disabled(isTesting)
                 }
             }
-            Spacer()
-            if key.isEmpty {
-                Text("未配置")
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 2)
-                    .background(Color.red.opacity(0.12))
-                    .foregroundColor(.red)
-                    .clipShape(Capsule())
-            } else {
-                Button(action: onTest) {
-                    if isTesting {
-                        ProgressView().controlSize(.mini)
-                    } else {
-                        Text("测试连接")
-                            .font(.caption)
-                            .fontWeight(.medium)
-                    }
+            if let result {
+                HStack(spacing: 6) {
+                    Image(systemName: result.isSuccess ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .foregroundColor(result.isSuccess ? .green : .red)
+                    Text(result.message)
+                        .font(.caption)
+                        .foregroundColor(result.isSuccess ? .green : .red)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .disabled(isTesting)
             }
         }
         .padding(.vertical, 2)
@@ -276,73 +298,142 @@ struct SettingsView: View {
 
     private func testDashScope() async {
         dashScopeTesting = true
+        dashScopeResult = nil
         defer { dashScopeTesting = false }
+
         let key = Secrets.dashScopeApiKey
         guard !key.isEmpty else { return }
-        var req = URLRequest(url: URL(string: "https://coding.dashscope.aliyuncs.com/v1/chat/completions")!)
+
+        // Mirror CompilationService.callDashScope URL resolution so test hits the same endpoint
+        let baseURL = Secrets.dashScopeBaseURL.isEmpty
+            ? "https://dashscope.aliyuncs.com/compatible-mode/v1"
+            : Secrets.dashScopeBaseURL
+        let model = Secrets.dashScopeModel.isEmpty ? "qwen3.5-plus" : Secrets.dashScopeModel
+
+        guard let url = URL(string: "\(baseURL)/chat/completions") else {
+            dashScopeResult = .failure("URL 无效：\(baseURL)")
+            return
+        }
+
+        var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try? JSONSerialization.data(withJSONObject: [
-            "model": "qwen-turbo",
+            "model": model,
             "max_tokens": 1,
             "messages": [["role": "user", "content": "hi"]]
         ])
         req.timeoutInterval = 10
+
         do {
             let (_, resp) = try await URLSession.shared.data(for: req)
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
             if code == 200 {
-                bannerCenter.show(.init(kind: .success, title: "DashScope 连接成功"))
+                dashScopeResult = .success("连接成功 · 模型 \(model)")
             } else {
-                bannerCenter.show(.init(kind: .error, title: "DashScope 返回 \(code)"))
+                dashScopeResult = .failure("HTTP \(code) · \(hintForDashScope(status: code))")
             }
         } catch {
-            bannerCenter.show(.init(kind: .error, title: "DashScope 连接失败"))
+            dashScopeResult = .failure(hintForNetwork(error: error))
         }
     }
 
     private func testWhisper() async {
         whisperTesting = true
+        whisperResult = nil
         defer { whisperTesting = false }
+
         let key = Secrets.openAIWhisperApiKey
         guard !key.isEmpty else { return }
+
         var req = URLRequest(url: URL(string: "https://api.openai.com/v1/models")!)
         req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         req.timeoutInterval = 10
+
         do {
             let (_, resp) = try await URLSession.shared.data(for: req)
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
             if code == 200 {
-                bannerCenter.show(.init(kind: .success, title: "Whisper 连接成功"))
+                whisperResult = .success("连接成功 · Whisper")
             } else {
-                bannerCenter.show(.init(kind: .error, title: "Whisper 返回 \(code)"))
+                whisperResult = .failure("HTTP \(code) · \(hintForOpenAI(status: code))")
             }
         } catch {
-            bannerCenter.show(.init(kind: .error, title: "Whisper 连接失败"))
+            whisperResult = .failure(hintForNetwork(error: error))
         }
     }
 
     private func testWeather() async {
         weatherTesting = true
+        weatherResult = nil
         defer { weatherTesting = false }
+
         let key = Secrets.openWeatherApiKey
         guard !key.isEmpty else { return }
         let urlStr = "https://api.openweathermap.org/data/2.5/weather?lat=0&lon=0&appid=\(key)"
         guard let url = URL(string: urlStr) else { return }
         var req = URLRequest(url: url)
         req.timeoutInterval = 10
+
         do {
             let (_, resp) = try await URLSession.shared.data(for: req)
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
             if code == 200 {
-                bannerCenter.show(.init(kind: .success, title: "OpenWeather 连接成功"))
+                weatherResult = .success("连接成功 · OpenWeather")
             } else {
-                bannerCenter.show(.init(kind: .error, title: "OpenWeather 返回 \(code)"))
+                weatherResult = .failure("HTTP \(code) · \(hintForOpenWeather(status: code))")
             }
         } catch {
-            bannerCenter.show(.init(kind: .error, title: "OpenWeather 连接失败"))
+            weatherResult = .failure(hintForNetwork(error: error))
         }
+    }
+
+    // MARK: - Error hint helpers
+
+    private func hintForDashScope(status: Int) -> String {
+        switch status {
+        case 401, 403: return "API key 无效或权限不足"
+        case 404: return "URL 不存在，检查 baseURL"
+        case 429: return "频率限制，稍后重试"
+        case 500...599: return "服务端错误，稍后重试"
+        default: return "请求失败"
+        }
+    }
+
+    private func hintForOpenAI(status: Int) -> String {
+        switch status {
+        case 401, 403: return "API key 无效或权限不足"
+        case 404: return "URL 不存在，检查 baseURL"
+        case 429: return "频率限制或额度不足"
+        case 500...599: return "服务端错误，稍后重试"
+        default: return "请求失败"
+        }
+    }
+
+    private func hintForOpenWeather(status: Int) -> String {
+        switch status {
+        case 401: return "API key 无效"
+        case 404: return "URL 不存在"
+        case 429: return "免费套餐额度用尽"
+        case 500...599: return "服务端错误，稍后重试"
+        default: return "请求失败"
+        }
+    }
+
+    private func hintForNetwork(error: Error) -> String {
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain {
+            switch nsError.code {
+            case NSURLErrorTimedOut: return "网络不可达，检查代理（超时）"
+            case NSURLErrorNotConnectedToInternet: return "未连接到互联网"
+            case NSURLErrorCannotFindHost, NSURLErrorCannotConnectToHost:
+                return "URL 不存在，检查 baseURL"
+            case NSURLErrorNetworkConnectionLost: return "网络连接已断开"
+            default: return "网络错误：\(nsError.localizedDescription)"
+            }
+        }
+        return "连接失败：\(nsError.localizedDescription)"
     }
 
     // MARK: - Data Helpers
@@ -401,6 +492,24 @@ struct SettingsView: View {
         case .authorizedAlways: return .green
         case .authorizedWhenInUse: return .orange
         default: return .red
+        }
+    }
+}
+
+// MARK: - API Test Result
+
+private enum APITestResult {
+    case success(String)
+    case failure(String)
+
+    var isSuccess: Bool {
+        if case .success = self { return true }
+        return false
+    }
+
+    var message: String {
+        switch self {
+        case .success(let m), .failure(let m): return m
         }
     }
 }
