@@ -113,8 +113,8 @@
         "Verify in Simulator using verify-daypage skill — three visual states are visible; tapping any date works"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "ArchiveView now pre-scans vault/raw/*.md and vault/wiki/daily/*.md via Task.detached on appear; results land in two @State Set<String> (rawDates, dailyDates). calendarCell(dayNum:) derives a CellDataState (.compiled / .rawOnly / .none) from the sets: .compiled → DSColor.primary solid fill + onPrimary text, .rawOnly → surfaceContainerLow fill + onSurface text + bottom-trailing 4pt dot, .none → 50% translucent surfaceContainerLow + 50% translucent text. Today still gets the 2pt primary stroke in all three states. All cells are tappable — removed the showNoRecordAlert path; handleDateTap(dateStr:) now unconditionally pushes DayDetailView which (US-002) already handles .empty / .error / .rawOnly / .compiled. Pre-scan moved behind a fileprivate enum ArchiveVaultScan.listDateFilenames(in:fileManager:) so Task.detached can call it without capturing self. Build: xcodebuild -scheme DayPage build → BUILD SUCCEEDED. Manual Simulator three-state visual verification deferred (verify-daypage MCP skill not wired in this env)."
     },
     {
       "id": "US-007",

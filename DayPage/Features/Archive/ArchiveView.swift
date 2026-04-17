@@ -379,10 +379,17 @@ struct ArchiveView: View {
     @State private var selectedDateString: String? = nil
     @State private var showDayDetail: Bool = false
     @State private var showSearch: Bool = false
-    @State private var showNoRecordAlert: Bool = false
     @State private var summaryFilter: MonthlySummaryFilter = .all
     @State private var showShareSheet: Bool = false
     @State private var shareItems: [Any] = []
+
+    // MARK: - Pre-scanned vault sets (US-006)
+    //
+    // Populated asynchronously on appear. Drives the three-state calendar cell
+    // visual: daily compiled → solid highlight; raw only → dot marker;
+    // neither → 50% translucent gray (still tappable).
+    @State private var rawDates: Set<String> = []
+    @State private var dailyDates: Set<String> = []
 
     var body: some View {
         NavigationStack {
@@ -424,7 +431,10 @@ struct ArchiveView: View {
                 }
             }
             .navigationBarHidden(true)
-            .onAppear { viewModel.loadMonth() }
+            .onAppear {
+                viewModel.loadMonth()
+                Task { await preScanVault() }
+            }
             .fullScreenCover(isPresented: $showDayDetail) {
                 if let dateStr = selectedDateString {
                     DayDetailView(dateString: dateStr)
@@ -439,21 +449,35 @@ struct ArchiveView: View {
                     }
                 }
             }
-            .alert("该日无记录", isPresented: $showNoRecordAlert) {
-                Button("确认", role: .cancel) {}
-            }
         }
     }
 
     // MARK: - Navigation Helper
 
-    private func handleDateTap(dateStr: String, stats: DayStats?) {
+    /// Every calendar cell is tappable (US-006). DayDetailView itself handles the
+    /// `.empty` / `.error` / `.rawOnly` / `.compiled` states — see US-002.
+    private func handleDateTap(dateStr: String) {
         selectedDateString = dateStr
-        if (stats?.memoCount ?? 0) > 0 || stats?.isDailyPageCompiled == true {
-            showDayDetail = true
-        } else {
-            showNoRecordAlert = true
-        }
+        showDayDetail = true
+    }
+
+    // MARK: - Vault Pre-Scan (US-006)
+
+    /// Lists `vault/raw/*.md` and `vault/wiki/daily/*.md` off-main and publishes
+    /// the discovered date strings into `@State` sets. Non-blocking; failures
+    /// degrade to empty sets (calendar falls back to "no data" visual — still tappable).
+    private func preScanVault() async {
+        let scanned: (Set<String>, Set<String>) = await Task.detached(priority: .utility) {
+            let fm = FileManager.default
+            let rawDir = VaultInitializer.vaultURL.appendingPathComponent("raw")
+            let dailyDir = VaultInitializer.vaultURL.appendingPathComponent("wiki/daily")
+            return (
+                ArchiveVaultScan.listDateFilenames(in: rawDir, fileManager: fm),
+                ArchiveVaultScan.listDateFilenames(in: dailyDir, fileManager: fm)
+            )
+        }.value
+        rawDates = scanned.0
+        dailyDates = scanned.1
     }
 
     // MARK: - Archive Header
@@ -569,20 +593,55 @@ struct ArchiveView: View {
         )
     }
 
+    /// Three-state classification for a calendar cell (US-006).
+    /// Derived from the pre-scanned `dailyDates` / `rawDates` sets.
+    private enum CellDataState {
+        case compiled   // daily file exists → solid highlight
+        case rawOnly    // only raw file exists → dot marker
+        case none       // neither → 50% translucent gray, still tappable
+    }
+
+    private func cellState(for dateStr: String) -> CellDataState {
+        if dailyDates.contains(dateStr) { return .compiled }
+        if rawDates.contains(dateStr)   { return .rawOnly }
+        return .none
+    }
+
     @ViewBuilder
     private func calendarCell(dayNum: Int?) -> some View {
         if let day = dayNum {
             let dateStr = viewModel.dateString(day: day)
-            let stats = viewModel.dayStats[dateStr]
-            let density = stats?.densityLevel ?? .empty
             let isToday = viewModel.isCurrentMonthAndYear && day == viewModel.today
+            let data = cellState(for: dateStr)
+
+            let fillColor: Color = {
+                switch data {
+                case .compiled: return DSColor.primary
+                case .rawOnly:  return DSColor.surfaceContainerLow
+                case .none:     return DSColor.surfaceContainerLow.opacity(0.5)
+                }
+            }()
+
+            let textColor: Color = {
+                switch data {
+                case .compiled: return DSColor.onPrimary
+                case .rawOnly:  return DSColor.onSurface
+                case .none:     return DSColor.onSurface.opacity(0.5)
+                }
+            }()
+
+            let dotColor: Color = {
+                // Dot appears only in .rawOnly state; keep it primary-tinted so
+                // it reads as a positive "has data" signal.
+                isToday ? DSColor.primary : DSColor.onSurface
+            }()
 
             Button(action: {
-                handleDateTap(dateStr: dateStr, stats: stats)
+                handleDateTap(dateStr: dateStr)
             }) {
                 ZStack(alignment: .topLeading) {
                     Rectangle()
-                        .fill(density.fillColor)
+                        .fill(fillColor)
                         .overlay(
                             Rectangle()
                                 .stroke(isToday ? DSColor.primary : DSColor.outlineVariant,
@@ -591,12 +650,12 @@ struct ArchiveView: View {
 
                     Text(String(format: "%02d", day))
                         .monoLabelStyle(size: 9)
-                        .foregroundColor(density.textColor)
+                        .foregroundColor(textColor)
                         .padding(4)
 
-                    if let entryCount = stats?.memoCount, entryCount > 0 {
+                    if data == .rawOnly {
                         Circle()
-                            .fill(density.dotColor(isToday: isToday))
+                            .fill(dotColor)
                             .frame(width: 4, height: 4)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                             .padding(4)
@@ -606,12 +665,21 @@ struct ArchiveView: View {
             }
             .buttonStyle(.plain)
             .frame(maxWidth: .infinity)
+            .accessibilityLabel(accessibilityLabel(dateStr: dateStr, state: data))
         } else {
             Rectangle()
                 .fill(DSColor.surfaceContainerLowest.opacity(0.3))
                 .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 0.5))
                 .aspectRatio(1, contentMode: .fit)
                 .frame(maxWidth: .infinity)
+        }
+    }
+
+    private func accessibilityLabel(dateStr: String, state: CellDataState) -> String {
+        switch state {
+        case .compiled: return "\(dateStr)，已编译 Daily Page"
+        case .rawOnly:  return "\(dateStr)，有原始记录"
+        case .none:     return "\(dateStr)，无记录"
         }
     }
 
@@ -678,7 +746,7 @@ struct ArchiveView: View {
                 } else {
                     VStack(spacing: 4) {
                         ForEach(filtered, id: \.dateString) { stats in
-                            Button(action: { handleDateTap(dateStr: stats.dateString, stats: stats) }) {
+                            Button(action: { handleDateTap(dateStr: stats.dateString) }) {
                                 HStack {
                                     Text(formatArchiveDate(stats.dateString))
                                         .monoLabelStyle(size: 11)
@@ -908,7 +976,7 @@ struct ArchiveView: View {
     private func archiveListRow(stats: DayStats) -> some View {
         let isMetadataOnly = !stats.isDailyPageCompiled
         return Button(action: {
-            handleDateTap(dateStr: stats.dateString, stats: stats)
+            handleDateTap(dateStr: stats.dateString)
         }) {
             HStack(spacing: 0) {
                 Rectangle()
@@ -967,6 +1035,36 @@ struct ArchiveView: View {
                 .monoLabelStyle(size: 11)
                 .foregroundColor(DSColor.onSurfaceVariant)
         }
+    }
+}
+
+// MARK: - ArchiveVaultScan (US-006)
+
+/// File-scoped helpers for the pre-scan that runs off-main on ArchiveView appear.
+/// Kept outside the view so the `Task.detached` closure can call it without
+/// capturing `self` (which would defeat the `@MainActor`-free goal).
+fileprivate enum ArchiveVaultScan {
+
+    /// Returns the set of `YYYY-MM-DD` basenames of `.md` files directly under `dir`.
+    /// Ignores non-matching filenames (assets/, attachments, etc.). Missing
+    /// directories degrade to an empty set — the calendar then renders every cell
+    /// as the "no data" state, still tappable.
+    static func listDateFilenames(in dir: URL, fileManager: FileManager) -> Set<String> {
+        guard let entries = try? fileManager.contentsOfDirectory(atPath: dir.path) else {
+            return []
+        }
+        var out: Set<String> = []
+        for name in entries {
+            guard name.hasSuffix(".md") else { continue }
+            let base = String(name.dropLast(3))  // strip ".md"
+            guard base.count == 10,
+                  base[base.index(base.startIndex, offsetBy: 4)] == "-",
+                  base[base.index(base.startIndex, offsetBy: 7)] == "-" else { continue }
+            let digits = base.replacingOccurrences(of: "-", with: "")
+            guard digits.count == 8, digits.allSatisfy({ $0.isNumber }) else { continue }
+            out.insert(base)
+        }
+        return out
     }
 }
 
