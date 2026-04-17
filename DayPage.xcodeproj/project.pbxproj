@@ -34,6 +34,7 @@
 		A10000026 /* EntityPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000026 /* EntityPageView.swift */; };
 		A10000027 /* SearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000027 /* SearchService.swift */; };
 		A10000028 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000028 /* SearchView.swift */; };
+		A10000030 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000030 /* SettingsView.swift */; };
 		AF0000001 /* SpaceGrotesk-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000001 /* SpaceGrotesk-Light.ttf */; };
 		AF0000002 /* SpaceGrotesk-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000002 /* SpaceGrotesk-Regular.ttf */; };
 		AF0000003 /* SpaceGrotesk-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000003 /* SpaceGrotesk-Medium.ttf */; };
@@ -79,6 +80,7 @@
 		A20000026 /* EntityPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntityPageView.swift; sourceTree = "<group>"; };
 		A20000027 /* SearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchService.swift; sourceTree = "<group>"; };
 		A20000028 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
+		A20000030 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A30000001 /* DayPage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPage.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF1000001 /* SpaceGrotesk-Light.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Light.ttf"; sourceTree = "<group>"; };
 		AF1000002 /* SpaceGrotesk-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Regular.ttf"; sourceTree = "<group>"; };
@@ -150,8 +152,17 @@
 				A50000012 /* Archive */,
 				A50000013 /* Entity */,
 				A50000014 /* Graph */,
+				A50000015 /* Settings */,
 			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		A50000015 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				A20000030 /* SettingsView.swift */,
+			);
+			path = Settings;
 			sourceTree = "<group>";
 		};
 		A50000005 /* Models */ = {
@@ -402,6 +413,7 @@
 				A10000026 /* EntityPageView.swift in Sources */,
 				A10000027 /* SearchService.swift in Sources */,
 				A10000028 /* SearchView.swift in Sources */,
+				A10000030 /* SettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
