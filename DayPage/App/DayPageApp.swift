@@ -64,6 +64,8 @@ struct DayPageApp: App {
                     // Schedule nightly auto-compile and backfill any missed day
                     BackgroundCompilationService.shared.scheduleIfNeeded()
                     BackgroundCompilationService.shared.backfillIfNeeded()
+                    // Start passive visit monitoring if Always authorization is granted
+                    PassiveLocationService.shared.startMonitoringIfAuthorized()
                 }
         }
     }
