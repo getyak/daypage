@@ -275,13 +275,7 @@ jobs:
       # 从 Fastfile 迁过来：之前 fastlane 用 sh("gh release create ...") + rescue
       # 会把失败静默吞掉，导致 v0.1.2~v0.1.6 的 Release 一直没创建。
       # 放在 tag push 之后，此时 tag 已经在 remote 上可引用。
-      #
-      # 注意：仓库开启了 immutable releases —— release 一旦 publish 就不能再上传 asset。
-      # softprops/action-gh-release 默认 create→publish→upload，在这种仓库下会在上传
-      # IPA 时报 "Cannot upload asset ... to an immutable release"。
-      # 解决：先 draft（可上传 asset），再用单独步骤 publish（触发 release.published）。
-      - name: Create GitHub Release (draft with asset)
-        id: create_release
+      - name: Create GitHub Release
         if: success()
         uses: softprops/action-gh-release@v2
         with:
@@ -290,18 +284,7 @@ jobs:
           body_path: ${{ steps.changelog.outputs.changelog_path }}
           files: build/DayPage.ipa
           prerelease: true
-          draft: true
           fail_on_unmatched_files: true
-
-      - name: Publish GitHub Release
-        if: success()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.version.outputs.release_tag }}
-        run: |
-          set -euo pipefail
-          gh release edit "$TAG" --draft=false --prerelease
-          echo "Published release $TAG"
 
       # ── 14. Upload build artifacts ───────────────────────────────────────
       - name: Upload IPA artifact
