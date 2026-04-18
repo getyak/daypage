@@ -51,6 +51,10 @@ struct PressToTalkButton: View {
     /// Reports phase transitions upward so parent can update the overlay state.
     var onPhaseChange: (PressToTalkPhase) -> Void
 
+    /// Diameter of the circular button and its hit target. Defaults to 40pt
+    /// (V2 inline mic). V3 voice-first home uses 80pt as the primary FAB.
+    var size: CGFloat = 40
+
     // MARK: State
 
     /// Tracked via @GestureState so SwiftUI resets it automatically when the
@@ -69,9 +73,9 @@ struct PressToTalkButton: View {
 
     var body: some View {
         Image(systemName: "mic.fill")
-            .font(.system(size: 18, weight: .regular))
+            .font(.system(size: size * 0.45, weight: .regular))
             .foregroundColor(iconColor)
-            .frame(width: 40, height: 40)
+            .frame(width: size, height: size)
             .background(backgroundColor)
             .clipShape(Circle())
             .scaleEffect(currentPhase == .idle ? 1.0 : 1.08)
