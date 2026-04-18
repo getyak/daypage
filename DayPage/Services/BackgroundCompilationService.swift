@@ -80,7 +80,7 @@ final class BackgroundCompilationService {
     /// Checks whether yesterday's memo file exists without a compiled Daily Page.
     /// If so, triggers compilation immediately (backfill for missed background run).
     func backfillIfNeeded() {
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+        let yesterday = Self.calendar.date(byAdding: .day, value: -1, to: Date()) ?? Date()
         guard shouldCompile(for: yesterday) else { return }
 
         Task {
@@ -107,7 +107,7 @@ final class BackgroundCompilationService {
             task.setTaskCompleted(success: false)
         }
 
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+        let yesterday = Self.calendar.date(byAdding: .day, value: -1, to: Date()) ?? Date()
 
         guard shouldCompile(for: yesterday) else {
             task.setTaskCompleted(success: true)
@@ -218,12 +218,23 @@ final class BackgroundCompilationService {
         }
     }
 
+    // MARK: - Private: Calendar
+
+    /// Calendar locked to the device's current time zone.
+    /// Using a single shared instance avoids subtle drift when TimeZone.current changes
+    /// mid-session (e.g. DST transitions, airplane mode, region switch).
+    private static var calendar: Calendar = {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone.current
+        return cal
+    }()
+
     // MARK: - Private: Next 2:00 AM
 
-    /// Computes the next 2:00 AM local time.
+    /// Computes the next 2:00 AM in the device's current time zone.
     /// If it's before 2:00 AM today, returns today's 2:00 AM; otherwise tomorrow's.
     private func nextTwoAM() -> Date {
-        let calendar = Calendar.current
+        let calendar = Self.calendar
         let now = Date()
 
         var components = calendar.dateComponents([.year, .month, .day], from: now)

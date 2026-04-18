@@ -246,10 +246,11 @@ struct DayDetailView: View {
         }
 
         // 2. Cross-check with DateFormatter (catches '2020-02-30' etc.).
+        // Use the device time zone so date boundaries align with how files are named.
         let parser = DateFormatter()
         parser.dateFormat = "yyyy-MM-dd"
         parser.locale = Locale(identifier: "en_US_POSIX")
-        parser.timeZone = TimeZone(identifier: "UTC")
+        parser.timeZone = TimeZone.current
         parser.isLenient = false
         guard parser.date(from: dateString) != nil else {
             return (.error("日期不存在：\(dateString)"), false)
