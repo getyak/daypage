@@ -1,12 +1,18 @@
 name: Deploy to TestFlight
 
 on:
-  # Tag 驱动发布：推送 v* tag 时触发（例如 v1.1.0, v1.2.0-beta）
+  # 合并到 main 自动发版：patch +1 → 打 tag → 上 TestFlight
   push:
-    tags:
-      - "v*"
+    branches:
+      - main
+    paths-ignore:
+      - "design/**"
+      - "scripts/ralph/**"
+      - "tasks/**"
+      - "**.md"
+      - ".gitignore"
 
-  # 支持手动触发
+  # 手动触发（可选指定 lane / 强制版本号）
   workflow_dispatch:
     inputs:
       lane:
@@ -17,27 +23,124 @@ on:
         options:
           - beta
           - release
+      version_override:
+        description: "Override version (e.g. 0.1.0). Leave empty to auto-bump patch."
+        required: false
+        type: string
+
+# 需要写仓库（push tag）和读取 PR 信息
+permissions:
+  contents: write
+  pull-requests: read
 
 jobs:
   deploy:
     name: Build & Upload to TestFlight
-    runs-on: macos-15   # 免费用于开源项目，包含 Xcode 16
+    runs-on: macos-15
 
     steps:
       # ── 1. Checkout ──────────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0    # 拉取完整 git 历史，用于计算 build number
+          fetch-depth: 0          # 需要完整 tag/commit 历史用于计算版本
+          persist-credentials: true  # 允许后续 git push tag
 
-      # ── 2. Setup Ruby (for Fastlane) ─────────────────────────────────────
+      # ── 2. Compute next version ──────────────────────────────────────────
+      # 规则：
+      #   1) 手动触发 + version_override 非空  → 用 override
+      #   2) 最近一个 v*.*.* tag 存在          → patch +1
+      #   3) 无 tag                            → 从 pbxproj 读 MARKETING_VERSION 作起点
+      - name: Compute next version
+        id: version
+        run: |
+          set -euo pipefail
+
+          OVERRIDE="${{ github.event.inputs.version_override }}"
+          if [ -n "$OVERRIDE" ]; then
+            NEXT="$OVERRIDE"
+            echo "Using manual override: $NEXT"
+          else
+            LAST_TAG=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1 || true)
+            if [ -n "$LAST_TAG" ]; then
+              BASE="${LAST_TAG#v}"
+              IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE"
+              PATCH=$((PATCH + 1))
+              NEXT="${MAJOR}.${MINOR}.${PATCH}"
+              echo "Bumping from $LAST_TAG → v$NEXT"
+            else
+              CURRENT=$(grep -m1 -E 'MARKETING_VERSION = ' DayPage.xcodeproj/project.pbxproj \
+                | sed -E 's/.*MARKETING_VERSION = ([^;]+);.*/\1/' | tr -d ' ')
+              if [[ "$CURRENT" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                NEXT="$CURRENT"
+              elif [[ "$CURRENT" =~ ^[0-9]+\.[0-9]+$ ]]; then
+                NEXT="${CURRENT}.0"
+              else
+                NEXT="0.0.1"
+              fi
+              echo "No tag found, using pbxproj MARKETING_VERSION=$CURRENT → v$NEXT"
+            fi
+          fi
+
+          TAG="v$NEXT"
+          # 防御：tag 已存在时直接报错，避免覆盖历史
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "::error::Tag $TAG already exists. Set workflow_dispatch.version_override to a new version."
+            exit 1
+          fi
+
+          echo "release_version=$NEXT" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$TAG"     >> "$GITHUB_OUTPUT"
+
+      # ── 3. Build changelog from merged PR title+body ─────────────────────
+      # 从 head commit message 里抓 (#123)；抓不到就回退到 commit message 本身
+      - name: Build release changelog
+        id: changelog
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+
+          PR_NUM=$(printf '%s' "$COMMIT_MSG" | grep -oE '#[0-9]+' | head -n1 | tr -d '#' || true)
+
+          CHANGELOG_FILE="$RUNNER_TEMP/changelog.txt"
+
+          if [ -n "${PR_NUM:-}" ]; then
+            echo "Found PR reference: #$PR_NUM"
+            # jq -r 的 null 会输出字符串 "null"，这里用 // "" 兜底
+            gh pr view "$PR_NUM" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json title,body \
+              --jq '.title + "\n\n" + (.body // "")' \
+              > "$CHANGELOG_FILE" || {
+                echo "gh pr view failed, falling back to commit message"
+                printf '%s' "$COMMIT_MSG" > "$CHANGELOG_FILE"
+              }
+          else
+            echo "No PR reference in commit message, using commit message as changelog"
+            printf '%s' "$COMMIT_MSG" > "$CHANGELOG_FILE"
+          fi
+
+          # 清理 Windows 行尾，去掉末尾空行
+          sed -i '' -e 's/\r$//' "$CHANGELOG_FILE" || true
+          # 限长：TestFlight "What to Test" 上限 4000 字符
+          head -c 3800 "$CHANGELOG_FILE" > "$CHANGELOG_FILE.trimmed"
+          mv "$CHANGELOG_FILE.trimmed" "$CHANGELOG_FILE"
+
+          echo "---- changelog ----"
+          cat "$CHANGELOG_FILE"
+          echo "-------------------"
+          echo "changelog_path=$CHANGELOG_FILE" >> "$GITHUB_OUTPUT"
+
+      # ── 4. Setup Ruby (for Fastlane) ─────────────────────────────────────
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.1"
-          bundler-cache: true   # 自动 bundle install + 缓存 gems
+          bundler-cache: true
 
-      # ── 3. Restore Xcode DerivedData cache ───────────────────────────────
+      # ── 5. Restore Xcode DerivedData cache ───────────────────────────────
       - name: Cache DerivedData
         uses: actions/cache@v4
         with:
@@ -46,15 +149,13 @@ jobs:
           restore-keys: |
             deriveddata-
 
-      # ── 3.5 Validate Fastfile syntax (fail fast before long build) ───────
+      # ── 6. Validate Fastfile syntax ──────────────────────────────────────
       - name: Validate Fastfile
         run: |
           ruby -c fastlane/Fastfile
           bundle exec fastlane lanes > /dev/null
 
-      # ── 4. Write .env from GitHub Secret ─────────────────────────────────
-      # .env 不提交到仓库，在 CI 中通过 secret 注入
-      # GitHub Secret: ENV_FILE — 存储完整的 .env 文件内容（多行）
+      # ── 7. Write .env from GitHub Secret ─────────────────────────────────
       - name: Write .env file
         env:
           ENV_FILE_CONTENT: ${{ secrets.ENV_FILE }}
@@ -62,22 +163,18 @@ jobs:
           echo "$ENV_FILE_CONTENT" > .env
           echo ".env written ($(wc -l < .env) lines)"
 
-      # ── 5. Import signing certificate ────────────────────────────────────
-      # GitHub Secret: BUILD_CERTIFICATE_BASE64 — p12 证书的 base64 编码
-      # GitHub Secret: P12_PASSWORD — p12 证书密码
+      # ── 8. Import signing certificate ────────────────────────────────────
       - name: Import code signing certificate
         env:
           BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          # 创建临时 keychain
           KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
-          # 导入证书
           CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
           echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
           security import $CERTIFICATE_PATH \
@@ -88,11 +185,9 @@ jobs:
             -S apple-tool:,apple: \
             -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
 
-          # 设为默认 keychain
           security list-keychain -d user -s $KEYCHAIN_PATH
 
-      # ── 6. Import provisioning profile ───────────────────────────────────
-      # GitHub Secret: BUILD_PROVISION_PROFILE_BASE64 — .mobileprovision 的 base64
+      # ── 9. Import provisioning profile ───────────────────────────────────
       - name: Install provisioning profile
         env:
           BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
@@ -102,21 +197,19 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
 
-          # 读取描述文件 UUID，传给后续步骤
           UUID=$(security cms -D -i $PP_PATH | plutil -extract UUID raw -)
           echo "PROVISIONING_PROFILE_UUID=$UUID" >> $GITHUB_ENV
           echo "Provisioning profile UUID: $UUID"
 
-      # ── 7. Write App Store Connect API Key ───────────────────────────────
-      # 写成文件供 Fastlane 读取（也可以通过环境变量传，Fastfile 里两种方式都支持）
+      # ── 10. Write App Store Connect API Key ──────────────────────────────
       - name: Write App Store Connect API key
         env:
           ASC_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
         run: |
           echo "$ASC_API_KEY_CONTENT" > /tmp/asc_key.p8
 
-      # ── 8. Run Fastlane ───────────────────────────────────────────────────
-      - name: Run Fastlane beta
+      # ── 11. Run Fastlane ─────────────────────────────────────────────────
+      - name: Run Fastlane
         env:
           DEVELOPMENT_TEAM:                     ${{ secrets.DEVELOPMENT_TEAM }}
           APP_STORE_CONNECT_API_KEY_ID:         ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
@@ -124,23 +217,36 @@ jobs:
           APP_STORE_CONNECT_API_KEY_CONTENT:    ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
           PROVISIONING_PROFILE_UUID:            ${{ env.PROVISIONING_PROFILE_UUID }}
           GH_TOKEN:                             ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REF_NAME:                      ${{ github.ref_name }}
-          GITHUB_REF_TYPE:                      ${{ github.ref_type }}
+          GITHUB_REF_NAME:                      ${{ steps.version.outputs.release_tag }}
+          GITHUB_REF_TYPE:                      tag
+          RELEASE_VERSION:                      ${{ steps.version.outputs.release_version }}
+          RELEASE_CHANGELOG_FILE:               ${{ steps.changelog.outputs.changelog_path }}
           FASTLANE_XCODE_LIST_TIMEOUT:          "120"
           FASTLANE_SKIP_UPDATE_CHECK:           "1"
         run: |
-          echo "KEY_ID length: ${#APP_STORE_CONNECT_API_KEY_ID}"
-          echo "ISSUER_ID length: ${#APP_STORE_CONNECT_ISSUER_ID}"
-          echo "KEY_CONTENT length: ${#APP_STORE_CONNECT_API_KEY_CONTENT}"
           LANE="${{ github.event.inputs.lane || 'beta' }}"
+          echo "Running lane=$LANE for version=$RELEASE_VERSION"
           bundle exec fastlane $LANE
 
-      # ── 9. Upload build artifacts (保留 IPA 和日志供排查) ─────────────────
+      # ── 12. Tag the release (only after fastlane succeeds) ───────────────
+      - name: Tag release and push
+        if: success()
+        env:
+          TAG: ${{ steps.version.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+          echo "Pushed tag $TAG"
+
+      # ── 13. Upload build artifacts ───────────────────────────────────────
       - name: Upload IPA artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: DayPage-${{ github.sha }}
+          name: DayPage-${{ steps.version.outputs.release_tag }}
           path: build/DayPage.ipa
           retention-days: 14
 
@@ -152,7 +258,7 @@ jobs:
           path: fastlane/logs/
           retention-days: 7
 
-      # ── 10. Cleanup keychain ──────────────────────────────────────────────
+      # ── 14. Cleanup keychain ──────────────────────────────────────────────
       - name: Cleanup keychain
         if: always()
         run: |
