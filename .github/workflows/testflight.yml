@@ -48,26 +48,58 @@ jobs:
 
       # ── 2. Compute next version ──────────────────────────────────────────
       # 规则：
-      #   1) 手动触发 + version_override 非空  → 用 override
-      #   2) 最近一个 v*.*.* tag 存在          → patch +1
+      #   1) 手动触发 + version_override 非空  → 用 override（必须是未占用的 tag）
+      #   2) 最近一个 v*.*.* tag 存在          → 从 latest patch 开始，循环 +1 直到找到未占用的 tag
       #   3) 无 tag                            → 从 pbxproj 读 MARKETING_VERSION 作起点
+      #
+      # 为什么用循环：workflow 可能因并发推送、重跑、或与外部 tag（如手动发版）
+      # 竞争而碰到"目标 tag 已存在"的情况。幂等的做法是找第一个空位而不是直接报错。
       - name: Compute next version
         id: version
         run: |
           set -euo pipefail
 
+          # 额外拉一次远端 tag，防止 checkout 到 tag push 之间有并发写入。
+          git fetch --tags --force origin
+
+          # 辅助：某个 tag 是否已被占用（本地或远端任一存在即算占用）。
+          tag_exists() {
+            local t="$1"
+            if git rev-parse -q --verify "refs/tags/$t" >/dev/null 2>&1; then return 0; fi
+            if git ls-remote --tags origin "refs/tags/$t" | grep -q "refs/tags/$t$"; then return 0; fi
+            return 1
+          }
+
           OVERRIDE="${{ github.event.inputs.version_override }}"
           if [ -n "$OVERRIDE" ]; then
             NEXT="$OVERRIDE"
+            TAG="v$NEXT"
+            if tag_exists "$TAG"; then
+              echo "::error::Tag $TAG already exists (local or remote). Pick a different version_override."
+              exit 1
+            fi
             echo "Using manual override: $NEXT"
           else
             LAST_TAG=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1 || true)
             if [ -n "$LAST_TAG" ]; then
               BASE="${LAST_TAG#v}"
               IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE"
-              PATCH=$((PATCH + 1))
-              NEXT="${MAJOR}.${MINOR}.${PATCH}"
-              echo "Bumping from $LAST_TAG → v$NEXT"
+              # 从 patch+1 开始，循环直到找到未占用的 tag。上限 50 次防呆。
+              for i in $(seq 1 50); do
+                CANDIDATE_PATCH=$((PATCH + i))
+                CANDIDATE="${MAJOR}.${MINOR}.${CANDIDATE_PATCH}"
+                if ! tag_exists "v$CANDIDATE"; then
+                  NEXT="$CANDIDATE"
+                  TAG="v$NEXT"
+                  echo "Bumping from $LAST_TAG → $TAG (tried $i candidate(s))"
+                  break
+                fi
+                echo "Candidate v$CANDIDATE already exists, trying next patch"
+              done
+              if [ -z "${NEXT:-}" ]; then
+                echo "::error::Could not find an unused patch within 50 attempts from $LAST_TAG."
+                exit 1
+              fi
             else
               CURRENT=$(grep -m1 -E 'MARKETING_VERSION = ' DayPage.xcodeproj/project.pbxproj \
                 | sed -E 's/.*MARKETING_VERSION = ([^;]+);.*/\1/' | tr -d ' ')
@@ -78,19 +110,17 @@ jobs:
               else
                 NEXT="0.0.1"
               fi
-              echo "No tag found, using pbxproj MARKETING_VERSION=$CURRENT → v$NEXT"
+              TAG="v$NEXT"
+              if tag_exists "$TAG"; then
+                echo "::error::No newest tag found, but fallback $TAG already exists. Set version_override."
+                exit 1
+              fi
+              echo "No tag found, using pbxproj MARKETING_VERSION=$CURRENT → $TAG"
             fi
           fi
 
-          TAG="v$NEXT"
-          # 防御：tag 已存在时直接报错，避免覆盖历史
-          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
-            echo "::error::Tag $TAG already exists. Set workflow_dispatch.version_override to a new version."
-            exit 1
-          fi
-
           echo "release_version=$NEXT" >> "$GITHUB_OUTPUT"
-          echo "release_tag=$TAG"     >> "$GITHUB_OUTPUT"
+          echo "release_tag=$TAG"      >> "$GITHUB_OUTPUT"
 
       # ── 3. Build changelog from merged PR title+body ─────────────────────
       # 从 head commit message 里抓 (#123)；抓不到就回退到 commit message 本身
