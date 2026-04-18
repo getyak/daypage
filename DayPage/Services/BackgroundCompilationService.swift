@@ -80,7 +80,7 @@ final class BackgroundCompilationService {
     /// Checks whether yesterday's memo file exists without a compiled Daily Page.
     /// If so, triggers compilation immediately (backfill for missed background run).
     func backfillIfNeeded() {
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+        let yesterday = Self.calendar.date(byAdding: .day, value: -1, to: Date()) ?? Date()
         guard shouldCompile(for: yesterday) else { return }
 
         Task {
@@ -107,7 +107,7 @@ final class BackgroundCompilationService {
             task.setTaskCompleted(success: false)
         }
 
-        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date()
+        let yesterday = Self.calendar.date(byAdding: .day, value: -1, to: Date()) ?? Date()
 
         guard shouldCompile(for: yesterday) else {
             task.setTaskCompleted(success: true)
@@ -161,7 +161,7 @@ final class BackgroundCompilationService {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone.current
+        formatter.timeZone = AppSettings.currentTimeZone()
         let dateString = formatter.string(from: date)
 
         let dailyURL = VaultInitializer.vaultURL
@@ -218,12 +218,22 @@ final class BackgroundCompilationService {
         }
     }
 
+    // MARK: - Private: Calendar
+
+    /// Returns a calendar locked to the user's preferred time zone.
+    /// Always constructed fresh so a Settings change takes effect immediately.
+    private static var calendar: Calendar {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = AppSettings.currentTimeZone()
+        return cal
+    }
+
     // MARK: - Private: Next 2:00 AM
 
-    /// Computes the next 2:00 AM local time.
+    /// Computes the next 2:00 AM in the device's current time zone.
     /// If it's before 2:00 AM today, returns today's 2:00 AM; otherwise tomorrow's.
     private func nextTwoAM() -> Date {
-        let calendar = Calendar.current
+        let calendar = Self.calendar
         let now = Date()
 
         var components = calendar.dateComponents([.year, .month, .day], from: now)

@@ -25,6 +25,11 @@ struct SettingsView: View {
     @State private var onThisDayEnabled: Bool = OnThisDayScheduler.shared.isEnabled
     @State private var onThisDayRefreshHour: Int = OnThisDayScheduler.shared.refreshHour
 
+    // Time zone settings
+    @ObservedObject private var appSettings = AppSettings.shared
+    @State private var timeZoneSearchText: String = ""
+    @State private var showTimeZonePicker = false
+
     // Input bar variant (US-007). Default ON; toggle surfaces legacy fallback.
     @AppStorage("useInputBarV2") private var useInputBarV2: Bool = true
     @AppStorage("usePressToTalk") private var usePressToTalk: Bool = true
@@ -41,6 +46,7 @@ struct SettingsView: View {
                 apiKeysSection
                 permissionsSection
                 appearanceSection
+                timeZoneSection
                 dataSection
                 aboutSection
             }
@@ -257,6 +263,45 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Time Zone Section
+
+    private var timeZoneSection: some View {
+        Section {
+            NavigationLink(destination: timeZonePickerView) {
+                HStack {
+                    Label("偏好时区", systemImage: "clock.badge.questionmark")
+                    Spacer()
+                    Text(appSettings.preferredTimeZone.localizedLabel)
+                        .font(.caption)
+                        .foregroundColor(DSColor.onSurfaceVariant)
+                }
+            }
+            if appSettings.preferredTimeZone.identifier != TimeZone.current.identifier {
+                Button(role: .destructive) {
+                    appSettings.resetToDeviceTimeZone()
+                    BackgroundCompilationService.shared.scheduleIfNeeded()
+                } label: {
+                    Label("恢复设备时区", systemImage: "arrow.counterclockwise")
+                }
+            }
+        } header: {
+            Text("时间与日期")
+        } footer: {
+            Text("所有 Memo 归属日期与编译触发时间均以此时区为准。旅行时锁定家乡时区，避免记录错位。")
+                .font(.caption)
+        }
+    }
+
+    private var timeZonePickerView: some View {
+        TimeZonePickerView(
+            selected: appSettings.preferredTimeZone,
+            onSelect: { tz in
+                appSettings.preferredTimeZone = tz
+                BackgroundCompilationService.shared.scheduleIfNeeded()
+            }
+        )
     }
 
     // MARK: - Data Section
