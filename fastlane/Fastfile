@@ -110,10 +110,7 @@ platform :ios do
         in_house:     false
       ),
       skip_waiting_for_build_processing: true,
-      changelog:                         changelog_from_git_commits(
-        commits_count: 10,
-        pretty:        "- %s"
-      )
+      changelog:                         resolve_changelog
     )
 
     # Create GitHub Release (only meaningful on tag push; skip if no token or not a tag build)
@@ -122,7 +119,7 @@ platform :ios do
       tag = ENV["GITHUB_REF_NAME"]
       ipa_path = "build/DayPage.ipa"
       if File.exist?(ipa_path)
-        release_notes = changelog_from_git_commits(commits_count: 20, pretty: "- %s")
+        release_notes = resolve_changelog
         begin
           sh("gh release create '#{tag}' '#{ipa_path}' \
               --title 'DayPage #{tag}' \
@@ -198,18 +195,29 @@ platform :ios do
   end
 
   private_lane :increment_build do
-    # Marketing version 从最近的 git tag 读取（例如 v1.2.0 → 1.2.0）
-    # 无 tag 时回退到 pbxproj 里的现有值
-    raw_tag = sh("git describe --tags --abbrev=0 2>/dev/null || echo ''").strip
-    if raw_tag =~ /\Av?(\d+\.\d+(\.\d+)?)\z/
-      marketing_version = $1
+    # Marketing version 优先级：
+    #   1) RELEASE_VERSION 环境变量（CI 在打 tag 前注入，例如 0.0.2）
+    #   2) 最近的 git tag（例如 v1.2.0 → 1.2.0）
+    #   3) 保持 pbxproj 里的现有值
+    injected = ENV["RELEASE_VERSION"].to_s.strip
+    if injected =~ /\A\d+\.\d+\.\d+\z/
       increment_version_number(
-        version_number: marketing_version,
+        version_number: injected,
         xcodeproj:      "DayPage.xcodeproj"
       )
-      UI.message "Marketing version set to #{marketing_version} (from tag #{raw_tag})"
+      UI.message "Marketing version set to #{injected} (from RELEASE_VERSION env)"
     else
-      UI.message "No semver tag found, keeping existing MARKETING_VERSION"
+      raw_tag = sh("git describe --tags --abbrev=0 2>/dev/null || echo ''").strip
+      if raw_tag =~ /\Av?(\d+\.\d+(\.\d+)?)\z/
+        marketing_version = $1
+        increment_version_number(
+          version_number: marketing_version,
+          xcodeproj:      "DayPage.xcodeproj"
+        )
+        UI.message "Marketing version set to #{marketing_version} (from tag #{raw_tag})"
+      else
+        UI.message "No RELEASE_VERSION or semver tag found, keeping existing MARKETING_VERSION"
+      end
     end
 
     # Build number 用 git commit 总数，保证单调递增
@@ -219,6 +227,24 @@ platform :ios do
       xcodeproj:    "DayPage.xcodeproj"
     )
     UI.message "Build number set to #{build_number}"
+  end
+
+  # TestFlight changelog 优先来自 RELEASE_CHANGELOG_FILE（CI 注入 PR title+body），
+  # 否则回退到最近 10 条 git commit message。
+  def resolve_changelog
+    path = ENV["RELEASE_CHANGELOG_FILE"].to_s.strip
+    if !path.empty? && File.exist?(path)
+      content = File.read(path).strip
+      unless content.empty?
+        UI.message "Using changelog from #{path} (#{content.bytesize} bytes)"
+        return content
+      end
+    end
+    UI.message "RELEASE_CHANGELOG_FILE not provided; falling back to recent commits"
+    changelog_from_git_commits(
+      commits_count: 10,
+      pretty:        "- %s"
+    )
   end
 
   private_lane :notify_success do |message|

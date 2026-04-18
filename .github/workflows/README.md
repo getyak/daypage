@@ -4,10 +4,28 @@
 
 | 触发 | 说明 |
 |------|------|
-| push to `main`（影响 app 代码） | 自动构建并上传 TestFlight |
-| 手动 `workflow_dispatch` | 可选 `beta`（TestFlight）或 `release`（App Store） |
+| push to `main`（通常是 PR 合并） | 自动 patch +1 → 打 tag → 构建并上传 TestFlight |
+| 手动 `workflow_dispatch` | 可选 `beta`（TestFlight）/ `release`（App Store），可传 `version_override` 跳过自动 patch |
 
-纯文档/设计稿改动（`design/`、`**.md`）**不会**触发构建。
+纯文档/设计稿改动（`design/`、`**.md`、`scripts/ralph/**`、`tasks/**`、`.gitignore`）**不会**触发构建。
+
+### 版本号规则
+
+1. **首次发布**：仓库无 `v*.*.*` tag，从 `DayPage.xcodeproj/project.pbxproj` 的 `MARKETING_VERSION` 读取（目前是 `0.0.1`）。
+2. **后续发布**：读取最近的 `v*.*.*` tag，patch 段 +1（如 `v0.0.1` → `v0.0.2`）。
+3. **手动覆盖**：`workflow_dispatch` 传 `version_override=0.1.0`，workflow 会打 `v0.1.0` tag。
+
+tag 只在 TestFlight 上传成功后才会被 push 到 origin，失败不留脏 tag。
+
+### Changelog 来源
+
+按优先级：
+
+1. 从合并的 PR 取 `title + body`（通过 commit message 里的 `(#123)` 定位 PR）。
+2. 没有 PR 引用（例如直接 push 到 main）：用 head commit 的完整 message。
+3. 本地 fastlane 手动跑：回退到最近 10 条 commit message。
+
+内容会被截到 3800 字符（TestFlight "What to Test" 上限 4000）。
 
 ---
 
