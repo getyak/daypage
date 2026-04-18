@@ -1,5 +1,3 @@
-require "shellwords"
-
 # 加载根目录 .env 文件（fastlane 默认只读 fastlane/.env）
 env_file = File.expand_path("../.env", __dir__)
 if File.exist?(env_file)
@@ -113,25 +111,9 @@ platform :ios do
       changelog:                         resolve_changelog
     )
 
-    # Create GitHub Release (only meaningful on tag push; skip if no token or not a tag build)
-    # GITHUB_REF_NAME is injected by GitHub Actions; GITHUB_REF_TYPE == "tag" iff triggered by tag push
-    if ENV["GH_TOKEN"] && ENV["GITHUB_REF_TYPE"] == "tag" && !ENV["GITHUB_REF_NAME"].to_s.empty?
-      tag = ENV["GITHUB_REF_NAME"]
-      ipa_path = "build/DayPage.ipa"
-      if File.exist?(ipa_path)
-        release_notes = resolve_changelog
-        begin
-          sh("gh release create '#{tag}' '#{ipa_path}' \
-              --title 'DayPage #{tag}' \
-              --notes #{release_notes.shellescape} \
-              --prerelease")
-        rescue => e
-          UI.important "GitHub Release creation failed (non-fatal): #{e.message}"
-        end
-      else
-        UI.important "Skipping GitHub Release: #{ipa_path} not found"
-      end
-    end
+    # GitHub Release 由 workflow 步骤（softprops/action-gh-release）创建，
+    # 不再在 fastlane 里处理 —— 旧版 sh("gh release create …") 的 rescue
+    # 会静默吞掉失败，导致 v0.1.2 之后的 Release 长期缺失。
 
     UI.success "TestFlight beta uploaded"
   end

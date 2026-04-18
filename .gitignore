@@ -82,6 +82,7 @@ Carthage/Checkouts
 # Claude Code 本地配置（team 共享的 commands/agents 可以提交）
 # -----------------------------------------------------------------------------
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 
 # -----------------------------------------------------------------------------
 # fastlane

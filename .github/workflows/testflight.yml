@@ -271,7 +271,22 @@ jobs:
           git push origin "$TAG"
           echo "Pushed tag $TAG"
 
-      # ── 13. Upload build artifacts ───────────────────────────────────────
+      # ── 13. Create GitHub Release ────────────────────────────────────────
+      # 从 Fastfile 迁过来：之前 fastlane 用 sh("gh release create ...") + rescue
+      # 会把失败静默吞掉，导致 v0.1.2~v0.1.6 的 Release 一直没创建。
+      # 放在 tag push 之后，此时 tag 已经在 remote 上可引用。
+      - name: Create GitHub Release
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.release_tag }}
+          name: DayPage ${{ steps.version.outputs.release_tag }}
+          body_path: ${{ steps.changelog.outputs.changelog_path }}
+          files: build/DayPage.ipa
+          prerelease: true
+          fail_on_unmatched_files: true
+
+      # ── 14. Upload build artifacts ───────────────────────────────────────
       - name: Upload IPA artifact
         if: success()
         uses: actions/upload-artifact@v4
@@ -288,7 +303,7 @@ jobs:
           path: fastlane/logs/
           retention-days: 7
 
-      # ── 14. Cleanup keychain ──────────────────────────────────────────────
+      # ── 15. Cleanup keychain ──────────────────────────────────────────────
       - name: Cleanup keychain
         if: always()
         run: |
