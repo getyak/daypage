@@ -77,8 +77,13 @@ struct InputBarV2: View {
                 .animation(.spring(response: 0.28, dampingFraction: 0.85), value: overlayMode)
             }
 
-            Divider()
-                .background(DSColor.outline)
+            // Hairline divider above the input row — uses outlineVariant so it
+            // reads as a subtle seam rather than a hard bar. Combined with the
+            // surface-matched background below, the input bar and system TabBar
+            // merge into a single bottom shelf instead of stacking as two bars.
+            Rectangle()
+                .fill(DSColor.outlineVariant.opacity(0.6))
+                .frame(height: 0.5)
 
             // Staged attachment preview row
             if !pendingAttachments.isEmpty {
@@ -97,8 +102,8 @@ struct InputBarV2: View {
                 rightActionButton
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 6)
-            .background(DSColor.surfaceContainerLow)
+            .padding(.vertical, 8)
+            .background(DSColor.surface)
         }
         // Attachment popover anchored above the `+` button
         .overlay(alignment: .bottomLeading) {

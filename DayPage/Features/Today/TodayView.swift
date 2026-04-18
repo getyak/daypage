@@ -65,13 +65,7 @@ struct TodayView: View {
                 VStack(spacing: 0) {
                     // MARK: Header
                     HStack(spacing: 12) {
-                        // Hamburger menu (decorative for MVP)
-                        Image(systemName: "line.3.horizontal")
-                            .font(.system(size: 20, weight: .regular))
-                            .foregroundColor(DSColor.onSurface)
-                            .frame(width: 32, height: 32)
-
-                        // Brand name
+                        // Brand name (anchored to leading edge)
                         Text("DAYPAGE")
                             .font(.custom("SpaceGrotesk-Bold", size: 20))
                             .foregroundColor(DSColor.onSurface)
