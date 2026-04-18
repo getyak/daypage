@@ -100,6 +100,11 @@ for i in $(seq 1 $MAX_ITERATIONS); do
     echo ""
     echo "Ralph completed all tasks!"
     echo "Completed at iteration $i of $MAX_ITERATIONS"
+
+    # Ask Claude to create a PR via /ship-pr
+    echo "Creating PR via Claude /ship-pr..."
+    claude --dangerously-skip-permissions --print "/ship-pr" 2>&1 | tee /dev/stderr || true
+
     exit 0
   fi
 
