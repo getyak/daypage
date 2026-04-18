@@ -262,11 +262,14 @@ struct TodayView: View {
                         onTap: { viewModel.compile() }
                     )
 
-                    // MARK: Input Bar — V3 (voice-first, Issue #76) is the default;
-                    // `inputBarVariant` can fall back to V2 (Fromm) or V1 (legacy).
+                    // MARK: Input Bar — `inputBarVariant` is now the single source
+                    // of truth for V3 / V2 / V1 selection. Do not branch on the
+                    // legacy `useInputBarV2` flag here, otherwise selecting V2 can
+                    // incorrectly fall through to V1 on installs carrying an old
+                    // stored boolean.
                     if inputBarVariant == "v3" {
                         inputBarV3
-                    } else if useInputBarV2 {
+                    } else if inputBarVariant == "v2" {
                         InputBarV2(
                             text: $draftText,
                             isSubmitting: viewModel.isSubmitting,
