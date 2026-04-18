@@ -12,6 +12,11 @@ struct TodayView: View {
     /// can fall back to the legacy InputBarView via Settings -> Appearance.
     @AppStorage("useInputBarV2") private var useInputBarV2: Bool = true
 
+    /// Input bar variant selector (Issue #76). "v3" is the voice-first default;
+    /// "v2" falls back to the Fromm-style bar; "v1" to the legacy InputBarView.
+    /// Takes precedence over `useInputBarV2` when set to a non-default value.
+    @AppStorage("inputBarVariant") private var inputBarVariant: String = "v3"
+
     /// The draft text in the input bar.
     @State private var draftText: String = ""
 
@@ -185,8 +190,21 @@ struct TodayView: View {
 
                                 // Memo cards (reverse-chronological)
                                 if viewModel.memos.isEmpty && !viewModel.isLoading {
-                                    TodayEmptyStateView { suggestion in
-                                        draftText = suggestion
+                                    if inputBarVariant == "v3" {
+                                        // Voice-first: delegate empty-state to the big mic below.
+                                        // Only render a quiet hint line here so the canvas stays spare.
+                                        VStack {
+                                            Spacer(minLength: 48)
+                                            Text("按住下方麦克风说一句")
+                                                .font(.custom("Inter-Regular", size: 13))
+                                                .foregroundColor(DSColor.onSurfaceVariant)
+                                            Spacer(minLength: 24)
+                                        }
+                                        .frame(maxWidth: .infinity)
+                                    } else {
+                                        TodayEmptyStateView { suggestion in
+                                            draftText = suggestion
+                                        }
                                     }
                                 } else {
                                     ForEach(Array(viewModel.memos.enumerated()), id: \.element.id) { idx, memo in
@@ -244,8 +262,11 @@ struct TodayView: View {
                         onTap: { viewModel.compile() }
                     )
 
-                    // MARK: Input Bar — V2 (Fromm style) or legacy V1 per user setting.
-                    if useInputBarV2 {
+                    // MARK: Input Bar — V3 (voice-first, Issue #76) is the default;
+                    // `inputBarVariant` can fall back to V2 (Fromm) or V1 (legacy).
+                    if inputBarVariant == "v3" {
+                        inputBarV3
+                    } else if useInputBarV2 {
                         InputBarV2(
                             text: $draftText,
                             isSubmitting: viewModel.isSubmitting,
@@ -407,6 +428,52 @@ struct TodayView: View {
             }
             .bannerOverlay()
         }
+    }
+
+    // MARK: - Input Bar V3 (voice-first) call-site
+    //
+    // Extracted to its own property because SwiftUI's result builder chokes on
+    // a >20-argument initializer nested inside an already-large `body` — the
+    // type-checker hits its budget and emits "unable to type-check this
+    // expression in reasonable time".
+
+    @ViewBuilder
+    private var inputBarV3: some View {
+        InputBarV3(
+            text: $draftText,
+            isSubmitting: viewModel.isSubmitting,
+            isLocating: viewModel.isLocating,
+            pendingLocation: viewModel.pendingLocation,
+            locationAuthStatus: LocationService.shared.authorizationStatus,
+            isProcessingPhoto: viewModel.isProcessingPhoto,
+            pendingAttachments: viewModel.pendingAttachments,
+            onFetchLocation: { viewModel.fetchLocation() },
+            onClearLocation: { viewModel.clearPendingLocation() },
+            onAddPhoto: { item in viewModel.addPhotoAttachment(item: item) },
+            onCapturePhoto: { viewModel.startCameraCapture() },
+            onRemoveAttachment: { id in viewModel.removePendingAttachment(id: id) },
+            onStartVoiceRecording: { viewModel.startVoiceRecording() },
+            onVoiceComplete: { result in viewModel.addVoiceAttachment(result: result) },
+            onPressToTalkSend: { result in
+                viewModel.addVoiceAttachment(result: result)
+                let body = draftText
+                draftText = ""
+                viewModel.submitCombinedMemo(body: body)
+            },
+            onPressToTalkTranscribe: { transcript in
+                if draftText.isEmpty {
+                    draftText = transcript
+                } else {
+                    draftText += (draftText.hasSuffix(" ") ? "" : " ") + transcript
+                }
+            },
+            onAddFile: { viewModel.startFilePicker() },
+            onSubmit: {
+                let body = draftText
+                draftText = ""
+                viewModel.submitCombinedMemo(body: body)
+            }
+        )
     }
 
     // MARK: - Helpers

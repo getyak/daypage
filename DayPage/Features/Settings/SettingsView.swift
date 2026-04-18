@@ -28,6 +28,7 @@ struct SettingsView: View {
     // Input bar variant (US-007). Default ON; toggle surfaces legacy fallback.
     @AppStorage("useInputBarV2") private var useInputBarV2: Bool = true
     @AppStorage("usePressToTalk") private var usePressToTalk: Bool = true
+    @AppStorage("inputBarVariant") private var inputBarVariant: String = "v3"
 
     // Data section state
     @State private var vaultSizeLabel: String = "计算中…"
@@ -218,13 +219,14 @@ struct SettingsView: View {
             }
             .foregroundColor(DSColor.onSurfaceVariant)
 
-            // InputBarV2 (Fromm style) — US-007. Invert the binding so the visible
-            // label reads "Use legacy input bar" per PRD copy.
-            Toggle(isOn: Binding(
-                get: { !useInputBarV2 },
-                set: { useInputBarV2 = !$0 }
-            )) {
-                Label("使用旧版输入框", systemImage: "keyboard")
+            // Input bar variant selector (Issue #76). V3 = voice-first big mic,
+            // V2 = Fromm capsule, V1 = legacy. V3 is the default.
+            Picker(selection: $inputBarVariant) {
+                Text("语音优先 (V3)").tag("v3")
+                Text("Fromm 风格 (V2)").tag("v2")
+                Text("旧版 (V1)").tag("v1")
+            } label: {
+                Label("输入栏样式", systemImage: "mic.and.signal.meter")
             }
 
             // Press-to-talk (US-008). Invert the binding so the visible label reads
