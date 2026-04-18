@@ -103,11 +103,13 @@ enum RawStorage {
 
     // MARK: - Date formatter
 
-    private static let dateFormatter: DateFormatter = {
+    // Computed so that a change to AppSettings.preferredTimeZone takes effect
+    // immediately without restarting the app.
+    private static var dateFormatter: DateFormatter {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
         f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
+        f.timeZone = AppSettings.currentTimeZone()
         return f
-    }()
+    }
 }

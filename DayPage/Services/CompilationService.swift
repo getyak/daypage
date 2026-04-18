@@ -529,21 +529,21 @@ final class CompilationService {
 
     // MARK: - Date Formatters
 
-    private let dateFormatter: DateFormatter = {
+    private var dateFormatter: DateFormatter {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
         f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
+        f.timeZone = AppSettings.currentTimeZone()
         return f
-    }()
+    }
 
-    private let backupTimestampFormatter: DateFormatter = {
+    private var backupTimestampFormatter: DateFormatter {
         let f = DateFormatter()
         f.dateFormat = "yyyyMMddHHmmss"
         f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
+        f.timeZone = AppSettings.currentTimeZone()
         return f
-    }()
+    }
 
     private func iso8601Now() -> String {
         ISO8601DateFormatter.memo.string(from: Date())

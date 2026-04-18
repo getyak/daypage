@@ -161,7 +161,7 @@ final class BackgroundCompilationService {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone.current
+        formatter.timeZone = AppSettings.currentTimeZone()
         let dateString = formatter.string(from: date)
 
         let dailyURL = VaultInitializer.vaultURL
@@ -220,14 +220,13 @@ final class BackgroundCompilationService {
 
     // MARK: - Private: Calendar
 
-    /// Calendar locked to the device's current time zone.
-    /// Using a single shared instance avoids subtle drift when TimeZone.current changes
-    /// mid-session (e.g. DST transitions, airplane mode, region switch).
-    private static var calendar: Calendar = {
+    /// Returns a calendar locked to the user's preferred time zone.
+    /// Always constructed fresh so a Settings change takes effect immediately.
+    private static var calendar: Calendar {
         var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = TimeZone.current
+        cal.timeZone = AppSettings.currentTimeZone()
         return cal
-    }()
+    }
 
     // MARK: - Private: Next 2:00 AM
 
