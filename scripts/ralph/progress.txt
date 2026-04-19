@@ -117,6 +117,18 @@ Started: Sun Apr 19 15:50:05 +07 2026
   - After sign out, set `authSkipped = false` so the auth gate re-presents automatically
 ---
 
+## 2026-04-19 - US-010
+- Added `memoSaveCount` tracking: incremented in `TodayViewModel` after each successful `RawStorage.append(memo)` call
+- Added `showSyncBanner` and `showAuthSheet` state to `TodayView`
+- `evaluateSyncBanner()` checks: `memoSaveCount >= 3`, `session == nil`, `authSkipped == true`, and `lastSyncBannerDate > 7 days` (or never shown)
+- Sync banner: `#1E1E1E` background, 13pt Inter Regular `#A0A0A0` text, full-width, 12pt vertical padding; swipe-up dismisses and sets `lastSyncBannerDate = now`; tap opens `AuthView` as sheet
+- Build passes: `** BUILD SUCCEEDED **`
+- **Learnings for future iterations:**
+  - `UserDefaults.standard.object(forKey:) as? Date` pattern for date comparison
+  - Banner swipe detection: `DragGesture(minimumDistance: 20).onEnded { value.translation.height < -10 }`
+  - The `evaluateSyncBanner()` call in `.onAppear` runs each time the view appears (tab switches) — good for re-evaluation without polling
+---
+
 ## 2026-04-19 - US-007
 - `EmailAuthView.swift` was already created as part of US-005 (required by AuthView's navigation)
 - All acceptance criteria verified: dark background, grain overlay, back chevron, heading, email TextField with validation regex, Send button with active/disabled states, success state, error display

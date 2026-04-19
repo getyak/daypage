@@ -461,6 +461,9 @@ final class TodayViewModel: ObservableObject {
                 UIImpactFeedbackGenerator(style: .soft).impactOccurred()
                 pendingLocation = nil
                 pendingAttachments = []
+                // Track save count for sync banner (US-010)
+                let count = UserDefaults.standard.integer(forKey: "memoSaveCount")
+                UserDefaults.standard.set(count + 1, forKey: "memoSaveCount")
             } catch {
                 submitError = "保存失败：\(error.localizedDescription)"
             }
