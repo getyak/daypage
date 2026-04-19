@@ -76,3 +76,20 @@ Started: Sun Apr 19 15:50:05 +07 2026
   - `@GestureState` combined with `DragGesture(minimumDistance: 0)` gives press-feedback without blocking taps
   - `fullScreenCover(isPresented: .constant(bool))` for non-dismissible modal works well for auth gating
 ---
+
+## 2026-04-19 - US-006
+- Implemented full `signInWithApple()` in `AuthService.swift` using `ASAuthorizationAppleIDProvider` + `ASAuthorizationController`
+- Used `CheckedContinuation` to bridge delegate-based `ASAuthorizationController` to `async/await`
+- `AuthService` now extends `NSObject` (required for `ASAuthorizationControllerDelegate` + `ASAuthorizationControllerPresentationContextProviding`)
+- On credential success: calls `supabase.auth.signInWithIdToken(credentials: .init(provider: .apple, idToken:))` → `session` updates → fullScreenCover dismisses
+- Stores Apple email in `UserDefaults` key `appleSignInEmail` on first sign-in (Apple hides email on repeat sign-ins)
+- On `.canceled` error: silently sets `isLoading = false`
+- On other errors: sets `self.error` to localized description
+- Build passes: `** BUILD SUCCEEDED **`
+- **Learnings for future iterations:**
+  - `AuthService` must extend `NSObject` to conform to `ASAuthorizationControllerDelegate`
+  - `CheckedContinuation` pattern bridges delegate callbacks to async/await cleanly
+  - `presentationAnchor` must find the key window via `UIApplication.shared.connectedScenes`
+  - `nonisolated` on delegate methods + `Task { @MainActor in ... }` pattern for thread safety
+  - `ASAuthorizationError.canceled` code is `.canceled` (not `.userCanceled`)
+---
