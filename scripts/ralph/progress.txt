@@ -93,3 +93,9 @@ Started: Sun Apr 19 15:50:05 +07 2026
   - `nonisolated` on delegate methods + `Task { @MainActor in ... }` pattern for thread safety
   - `ASAuthorizationError.canceled` code is `.canceled` (not `.userCanceled`)
 ---
+
+## 2026-04-19 - US-007
+- `EmailAuthView.swift` was already created as part of US-005 (required by AuthView's navigation)
+- All acceptance criteria verified: dark background, grain overlay, back chevron, heading, email TextField with validation regex, Send button with active/disabled states, success state, error display
+- Build passes: `** BUILD SUCCEEDED **`
+---
