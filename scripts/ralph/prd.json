@@ -1,48 +1,52 @@
 {
   "project": "DayPage",
-  "branchName": "ralph/daypage-v2-roadmap",
-  "description": "DayPage v2 — 24 个 open issue 整合路线图：导航修复、AI 可靠性、位置系统重做、内容完整性、输入扩展、Graph Tab",
+  "branchName": "ralph/auth-login",
+  "description": "Authentication system — Apple Sign-In + Email Magic Link via Supabase, dark Bôr aesthetic UI, email as canonical sync identity",
   "userStories": [
     {
       "id": "US-001",
-      "title": "创建 SettingsView 基础骨架",
-      "description": "作为开发者，我需要新建 Settings 页面作为后续 API Key 状态、位置权限、离线提示的宿主容器。",
+      "title": "Add Supabase Swift SDK via SPM",
+      "description": "As a developer, I need the Supabase Swift package added to the Xcode project so auth APIs are available at compile time.",
       "acceptanceCriteria": [
-        "新建 DayPage/Features/Settings/SettingsView.swift（@MainActor 的 SwiftUI 视图）",
-        "包含四个空分区：API Keys、权限、通知、关于（仅占位）",
-        "About 分区显示 App 版本号和 build number",
-        "project.pbxproj 同步添加 PBXFileReference + PBXBuildFile + Sources build phase",
-        "SettingsView 可在 Xcode Preview 中预览",
+        "Add package dependency `https://github.com/supabase/supabase-swift` (latest stable) to DayPage.xcodeproj via Swift Package Manager",
+        "Link `Supabase` library to the DayPage target",
+        "Project builds successfully with the new dependency",
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Manual prerequisite: Supabase project must already exist with SUPABASE_URL and SUPABASE_ANON_KEY available. Admin account admin@telepace.cc should be created in Supabase Dashboard manually."
     },
     {
       "id": "US-002",
-      "title": "Today Header 设置按钮接线到 SettingsView",
-      "description": "作为用户，我点击 Today 顶部的设置图标时应打开 SettingsView，而不是什么都没发生 (#35)。",
+      "title": "Add Supabase credentials to GeneratedSecrets",
+      "description": "As a developer, I need SUPABASE_URL and SUPABASE_ANON_KEY available in Config/GeneratedSecrets.swift so AuthService can initialize the Supabase client.",
       "acceptanceCriteria": [
-        "Today Header 设置图标按钮调用 .sheet(isPresented:) 打开 SettingsView",
-        "Sheet 右上角有关闭按钮",
-        "点击关闭按钮关闭 sheet",
-        "Typecheck passes",
-        "Verify in Simulator"
+        "Add `static let supabaseURL: String` and `static let supabaseAnonKey: String` to `GeneratedSecrets.swift` with placeholder values (empty string or TODO comment)",
+        "Add `SUPABASE_URL` and `SUPABASE_ANON_KEY` entries to the secrets generation script or Makefile (same pattern as existing keys)",
+        "GeneratedSecrets.swift remains in .gitignore",
+        "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": ""
+      "passes": false,
+      "notes": "Actual URL/key values must be filled in by the developer from Supabase Dashboard before runtime."
     },
     {
       "id": "US-003",
-      "title": "Today Header 汉堡菜单按钮接线",
-      "description": "作为用户，我点击 Today 顶部汉堡菜单时应看到 Archive / Graph / 设置 快捷入口，而不是什么都没发生 (#34)。",
+      "title": "Implement AuthService",
+      "description": "As a developer, I need a centralized AuthService so all views can observe login state and call sign-in/sign-out methods.",
       "acceptanceCriteria": [
-        "点击汉堡按钮弹出 ConfirmationDialog 或 Sheet，包含：跳转 Archive Tab、跳转 Graph Tab、打开 Settings 三个选项",
-        "每个选项点击后正确切换 Tab 或打开 Sheet",
-        "Typecheck passes",
-        "Verify in Simulator"
+        "Create `DayPage/Services/AuthService.swift` as `@MainActor final class AuthService: ObservableObject`",
+        "`@Published var session: Session?` — nil means logged out",
+        "`@Published var isLoading: Bool = false`",
+        "`@Published var error: String? = nil`",
+        "Init creates `SupabaseClient` using `GeneratedSecrets.supabaseURL` and `GeneratedSecrets.supabaseAnonKey`",
+        "On init, restores existing session from Supabase keychain storage",
+        "`func signInWithApple() async throws` — placeholder body with TODO comment (Apple credential wiring done in US-005)",
+        "`func signInWithMagicLink(email: String) async throws` — calls `supabase.auth.signInWithOTP(email:)`",
+        "`func signOut() async throws` — calls `supabase.auth.signOut()`",
+        "`AuthService` added as `@StateObject` in `DayPageApp` and injected as `.environmentObject`",
+        "Typecheck passes"
       ],
       "priority": 3,
       "passes": false,
@@ -50,45 +54,56 @@
     },
     {
       "id": "US-004",
-      "title": "SettingsView API Keys 状态显示",
-      "description": "作为用户，我希望在 Settings 中看到三个 API Key（DashScope / OpenAI Whisper / OpenWeather）的配置状态。",
+      "title": "Add Apple Sign-In entitlement and capability",
+      "description": "As a developer, I need the Sign in with Apple capability added to the Xcode target so ASAuthorizationAppleIDRequest compiles and works.",
       "acceptanceCriteria": [
-        "API Keys 分区读取 Secrets.dashScopeApiKey / openAIWhisperApiKey / openWeatherApiKey",
-        "每个 key 显示 ✓ 已配置 / ✗ 未配置 徽章（空字符串视为未配置）",
-        "未配置的 key 显示红色徽章",
-        "Typecheck passes",
-        "Verify in Simulator"
+        "Add `com.apple.developer.applesignin` entitlement to `DayPage.entitlements` with value `[Default]`",
+        "Add `AuthenticationServices` framework import where needed",
+        "Project builds without entitlement-related errors",
+        "Typecheck passes"
       ],
       "priority": 4,
       "passes": false,
-      "notes": ""
+      "notes": "The actual Apple Sign-In button and credential flow is wired in US-005. This story just ensures the entitlement and framework are in place."
     },
     {
       "id": "US-005",
-      "title": "API Key 缺失时 Today 顶部 banner 提示",
-      "description": "作为用户，当任一 API Key 缺失时，Today View 顶部应显示 banner 提醒我前往 Settings 配置 (#41)。",
+      "title": "Build AuthView — dark aesthetic entry screen",
+      "description": "As a new user, I want to see a beautiful dark login screen with Apple and Email options so the first impression feels premium.",
       "acceptanceCriteria": [
-        "Today View 顶部新增 APIKeyBanner 视图（可复用组件）",
-        "当 Secrets 中任一 key 为空字符串时显示 banner，文案：'部分功能需要配置 API Key'",
-        "banner 右侧有 'Settings' 按钮，点击打开 SettingsView sheet",
-        "所有 key 都配置时 banner 不显示",
-        "Typecheck passes",
-        "Verify in Simulator"
+        "Create `DayPage/Features/Auth/AuthView.swift`",
+        "Full-screen background color `Color(hex: \"#0A0A0A\")`",
+        "Grain texture overlay: use a `Rectangle` with `.fill(.white.opacity(0.04))` and a fine dot pattern via `Canvas` or a bundled `noise.png` asset at 6% opacity with `.blendMode(.overlay)` — tiled to fill screen",
+        "Wordmark 'DayPage' centered in upper third: `Font.custom(\"SpaceGrotesk-Bold\", size: 32)`, color `#F5F0E8`",
+        "Tagline 'Every day, captured.' below wordmark: `Font.custom(\"SpaceGrotesk-Regular\", size: 15)`, color `#6B6B6B`",
+        "'Continue with Apple' button: height 54pt, background `#1A1A1A`, border 1pt `#2A2A2A`, corner radius 14pt, SF Symbol `apple.logo` + white label `Font.custom(\"SpaceGrotesk-Medium\", size: 16)`, calls `authService.signInWithApple()`",
+        "'Continue with Email' button: same geometry, label color `#A0A0A0`, border `#222222`, navigates to `EmailAuthView`",
+        "12pt gap between buttons",
+        "Buttons bottom-anchored with `.safeAreaInset(edge: .bottom)` padding 32pt",
+        "'Skip for now' text button below main buttons: 13pt Inter, color `#4A4A4A`, sets `UserDefaults.standard.set(true, forKey: \"authSkipped\")`",
+        "`AuthService.isLoading == true` shows `.overlay(ProgressView())` on the button area",
+        "`AuthService.error != nil` shows inline error text 14pt `#E05A5A` above buttons",
+        "Auth screen presented as `.fullScreenCover` from `RootView` when `session == nil` AND `!authSkipped`",
+        "Entrance animation: `.transition(.opacity)` with 0.4s ease-out",
+        "Button press: `.scaleEffect(isPressed ? 0.97 : 1.0)` via `@GestureState`",
+        "Typecheck passes"
       ],
       "priority": 5,
       "passes": false,
-      "notes": ""
+      "notes": "noise.png asset: create a simple 200x200 grayscale noise PNG in Assets.xcassets. If unavailable, use a Canvas with random dots as fallback."
     },
     {
       "id": "US-006",
-      "title": "离线状态检测与 UI 提示",
-      "description": "作为用户，当设备离线时应看到 UI 反馈，而不是操作后静默失败 (#41)。",
+      "title": "Wire Apple Sign-In credential to AuthService",
+      "description": "As a user, I want tapping 'Continue with Apple' to trigger the native Apple auth sheet and sign me in.",
       "acceptanceCriteria": [
-        "新建 NetworkMonitor.swift，使用 NWPathMonitor 监听网络状态，@Published var isOnline: Bool",
-        "TodayView 在离线时在 Daily Page 编译按钮上显示 '离线，稍后自动重试' 提示",
-        "VoiceService / WeatherService / CompilationService 在离线时返回结构化错误而非静默失败",
-        "Typecheck passes",
-        "Verify in Simulator（使用 Link Conditioner 模拟离线）"
+        "Implement `signInWithApple()` in `AuthService` using `ASAuthorizationAppleIDProvider` and `ASAuthorizationController`",
+        "On credential success, call `supabase.auth.signInWithIdToken(credentials: .init(provider: .apple, idToken: identityToken))`",
+        "Extract `email` from `ASAuthorizationAppleIDCredential` and store in `UserDefaults` key `appleSignInEmail` (Apple hides email on repeat sign-ins; fall back to stored value)",
+        "On auth success, `session` publishes new value → `fullScreenCover` dismisses automatically",
+        "On user cancellation (`ASAuthorizationError.canceled`), set `isLoading = false` silently",
+        "On other errors, set `self.error` to localized error description",
+        "Typecheck passes"
       ],
       "priority": 6,
       "passes": false,
@@ -96,15 +111,19 @@
     },
     {
       "id": "US-007",
-      "title": "Wikilink 在 Daily Page 中渲染为可点击链接",
-      "description": "作为用户，我希望 Daily Page 正文里的 [[Entity]] 文本能点击，而不是纯文本 (#32)。",
+      "title": "Build EmailAuthView — magic link request screen",
+      "description": "As a user, I want to enter my email on a dedicated screen and receive a magic link to sign in without a password.",
       "acceptanceCriteria": [
-        "新建 WikilinkText.swift，解析输入字符串中的 [[Entity]] 模式",
-        "[[Entity]] 渲染为带下划线 + accent 色的 Text，其余文本正常样式",
-        "点击 [[Entity]] 通过 NavigationLink 跳转 EntityPageView(entityName:)",
-        "Daily Page 正文渲染切换到使用 WikilinkText",
-        "Typecheck passes",
-        "Verify in Simulator"
+        "Create `DayPage/Features/Auth/EmailAuthView.swift`",
+        "Same dark background `#0A0A0A` and grain overlay as `AuthView`",
+        "Back chevron top-left: SF Symbol `chevron.left`, color `#6B6B6B`",
+        "Heading 'Enter your email' — Space Grotesk Bold 24pt, `#F5F0E8`",
+        "Email `TextField`: Inter Regular 17pt, text color `#F5F0E8`, background `#1E1E1E`, border 1pt `#2A2A2A`, corner radius 12pt, height 52pt, `.keyboardType(.emailAddress)`, `.autocapitalization(.never)`",
+        "'Send Magic Link' button: full-width, height 54pt, corner radius 14pt — active state background `#F5F0E8` label `#0A0A0A`; disabled state background `#1A1A1A` label `#4A4A4A`; disabled when email field empty or not matching basic email regex `^[^@]+@[^@]+\\.[^@]+$`",
+        "On submit, calls `authService.signInWithMagicLink(email: email)`",
+        "Success state: `TextField` and button replaced with text 'Check your inbox — a magic link is on its way.' Space Grotesk Regular 16pt centered `#A0A0A0`",
+        "`authService.error` shown inline below button as 14pt `#E05A5A`",
+        "Typecheck passes"
       ],
       "priority": 7,
       "passes": false,
@@ -112,28 +131,28 @@
     },
     {
       "id": "US-008",
-      "title": "Wikilink 在 Entity Page 中同样可点击",
-      "description": "作为用户，我希望 Entity Page 正文里的 [[Entity]] 也能点击跳转（与 Daily Page 一致）(#32)。",
+      "title": "Register deep link scheme and handle auth callback",
+      "description": "As a user, I want tapping the magic link in my email to open DayPage and complete sign-in automatically.",
       "acceptanceCriteria": [
-        "Entity Page 正文渲染切换到 WikilinkText",
-        "点击跳转到对应 Entity Page（如果是同一个 entity 不重复 push）",
-        "Typecheck passes",
-        "Verify in Simulator"
+        "Add URL scheme `daypage` to `Info.plist` under `CFBundleURLTypes` with role `Editor`",
+        "In `DayPageApp.swift`, add `.onOpenURL { url in Task { try? await supabase.auth.session(from: url) } }` on the root view",
+        "After session exchange succeeds, `AuthService.session` updates and auth screen dismisses",
+        "Typecheck passes"
       ],
       "priority": 8,
       "passes": false,
-      "notes": ""
+      "notes": "Supabase redirect URL `daypage://auth/callback` must also be added in Supabase Dashboard under Authentication > URL Configuration."
     },
     {
       "id": "US-009",
-      "title": "Archive 日历未编译日期单元格可点击",
-      "description": "作为用户，我希望 Archive 日历上的未编译日期也能点击查看当日原始 memo (#33)。",
+      "title": "Add account avatar and AccountSheet to Today tab",
+      "description": "As a logged-in user, I want to see my account indicator and be able to sign out from the Today tab.",
       "acceptanceCriteria": [
-        "Archive 日历单元格移除 isCompiled 判定的禁用状态",
-        "点击未编译日期导航到新建的 RawMemoListView(date:) 页面，显示当日所有 memo",
-        "空白日期（无任何 memo）点击后弹出 toast '该日无记录'",
-        "Typecheck passes",
-        "Verify in Simulator"
+        "When `authService.session != nil`, show circular avatar in `TodayView` navigation bar trailing: 28pt diameter, background `#1E1E1E`, border 1pt `#2A2A2A`, shows first letter of email in Inter Medium 13pt `#A0A0A0`",
+        "Tapping avatar presents `AccountSheet` as `.sheet`",
+        "Create `DayPage/Features/Auth/AccountSheet.swift`: bottom sheet with drag handle, email address 14pt `#6B6B6B`, 'Sign Out' button destructive style `#E05A5A` that calls `authService.signOut()`",
+        "After sign out, `session` nil → `fullScreenCover` re-presents, `UserDefaults` `authSkipped` reset to false",
+        "Typecheck passes"
       ],
       "priority": 9,
       "passes": false,
@@ -141,507 +160,17 @@
     },
     {
       "id": "US-010",
-      "title": "Archive 列表视图未编译日期可点击",
-      "description": "作为用户，Archive 列表视图的未编译日期行也应该可点击 (#48)。",
+      "title": "Add contextual sync prompt banner",
+      "description": "As a local user after saving 3+ memos, I want a subtle banner prompting me to sync so I discover the cloud feature naturally.",
       "acceptanceCriteria": [
-        "Archive 列表视图未编译日期行添加 NavigationLink，目标同 US-009 的 RawMemoListView",
-        "未编译日期行样式与已编译保持区分（opacity 0.8）",
-        "Typecheck passes",
-        "Verify in Simulator"
+        "Track memo save count in `UserDefaults` key `memoSaveCount`; increment each time a memo is saved in `TodayViewModel`",
+        "When `memoSaveCount >= 3` AND `session == nil` AND `authSkipped == true` AND last banner shown > 7 days ago (key `lastSyncBannerDate`), show banner at top of `TodayView`",
+        "Banner: background `#1E1E1E`, text 'Sync your journal across devices →' 13pt Inter `#A0A0A0`, 12pt vertical padding, full-width",
+        "Banner dismissible with swipe-up gesture; sets `lastSyncBannerDate = now`",
+        "Tapping banner presents `AuthView` as a sheet",
+        "Typecheck passes"
       ],
       "priority": 10,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-011",
-      "title": "Entity Page 关联条目点击跳转 Daily Page",
-      "description": "作为用户，Entity Page 的关联条目列表应点击跳转到对应 Daily Page (#39)。",
-      "acceptanceCriteria": [
-        "Entity Page 关联条目每行包裹 NavigationLink，destination 为 DailyPageView(date:)",
-        "日期显示格式保持一致",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 11,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-012",
-      "title": "Entity Page 面包屑返回 Daily Page",
-      "description": "作为用户，从 Daily Page 跳进 Entity Page 时应看到返回路径，以便回到来源 (#49)。",
-      "acceptanceCriteria": [
-        "Entity Page 接收一个可选 sourceDate: Date? 参数",
-        "sourceDate 不为 nil 时顶部显示面包屑 Chip: '← {yyyy-MM-dd}'，点击返回 Daily Page",
-        "sourceDate 为 nil（从 Tab 直接进入）时不显示面包屑",
-        "Daily Page 的 wikilink 跳转时传入当前日期作为 sourceDate",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 12,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-013",
-      "title": "Daily Page Timeline Tab 渲染结构化 memo 卡片",
-      "description": "作为用户，Daily Page 的 Timeline Tab 应复用 Today 的 memo 卡片组件，而不是纯文本 (#31)。",
-      "acceptanceCriteria": [
-        "Daily Page Timeline Tab 读取当日 vault/raw/{date}.md 所有 memo",
-        "复用 Today 视图的 memo 卡片组件（text / voice / photo / location）",
-        "视觉一致：时间贯通竖线、间距、字体",
-        "语音卡片有播放按钮、照片卡片显示缩略图",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 13,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-014",
-      "title": "Daily Page 语音时长 Chip 修复",
-      "description": "作为用户，Daily Page 元数据栏的语音时长 Chip 应在有语音 memo 时显示总时长 (#47)。",
-      "acceptanceCriteria": [
-        "扫描当日所有 memo 的 voice attachments，汇总 duration",
-        "Chip 显示 '🎙️ mm:ss' 或 '🎙️ Hh Mm'（>1h 时）",
-        "无语音 memo 时 Chip 不显示（保持 EmptyView）",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 14,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-015",
-      "title": "语音 memo 重复转写 bug 修复",
-      "description": "作为用户，语音 memo 的转写文字不应重复显示两条 (#53)。",
-      "acceptanceCriteria": [
-        "定位重复来源（VoiceService 回调两次 / memo 写入两次 / 渲染两次）",
-        "修复后，一次录音只产生一条带 transcript 的 memo",
-        "添加 unit test 覆盖 VoiceService 完成回调去重逻辑",
-        "Typecheck passes",
-        "Tests pass",
-        "Verify in Simulator（录一条语音，确认转写只出现一次）"
-      ],
-      "priority": 15,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-016",
-      "title": "后台编译失败重试机制",
-      "description": "作为用户，当后台编译失败时应自动重试，而不是静默消失 (#40)。",
-      "acceptanceCriteria": [
-        "BackgroundCompilationService 失败时使用 exponential backoff 重试 3 次（30s / 2min / 10min）",
-        "重试次数和上次失败时间持久化到 UserDefaults（防止重启丢失）",
-        "每次重试失败记录结构化 error 到 log（区分 API / 网络 / JSON 解析错误）",
-        "Unit test 覆盖重试计时逻辑（使用 mock clock）",
-        "Typecheck passes",
-        "Tests pass"
-      ],
-      "priority": 16,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-017",
-      "title": "后台编译最终失败本地通知",
-      "description": "作为用户，三次重试都失败后应收到本地通知，并能点击跳转查看错误 (#40)。",
-      "acceptanceCriteria": [
-        "三次重试均失败后 UNUserNotificationCenter 发本地通知 '今日编译失败，点击查看'",
-        "点击通知打开 App 定位到 Today View 并显示错误横幅",
-        "错误横幅包含 '重试' 按钮，点击重新编译",
-        "首次发通知前请求通知权限",
-        "Typecheck passes",
-        "Verify in Simulator（手动触发一次失败场景）"
-      ],
-      "priority": 17,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-018",
-      "title": "AI 编译进度反馈 UI",
-      "description": "作为用户，手动触发编译时应看到进度反馈，而不是 UI 冻结 (#38)。",
-      "acceptanceCriteria": [
-        "CompilationService 新增 @Published var stage: CompilationStage（idle / analyzing / generating / done / error）",
-        "Daily Page 编译按钮点击后展示 ProgressView + 阶段文案 '正在分析 N 条 memo...' / '正在生成 Daily Page...'",
-        "耗时 > 5s 时显示 '取消' 按钮，点击中止请求",
-        "Today View 顶部显示小徽章 '正在编译...' 当后台编译进行中",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 18,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-019",
-      "title": "位置 Chip 地图预览 Sheet",
-      "description": "作为用户，点击位置附件 Chip 应看到地图预览，而不是直接清除 (#46)。",
-      "acceptanceCriteria": [
-        "位置 Chip 点击弹出 Sheet，显示 MapKit Map 视图（标注坐标 + 地名）",
-        "Sheet 底部有 '删除附件' 按钮（原清除行为移到这里）",
-        "Sheet 底部有 '在 Apple Maps 中打开' 按钮，调用 UIApplication.openURL with maps:// scheme",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 19,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-020",
-      "title": "位置权限 Always 授权升级流程",
-      "description": "作为开发者，我需要实现 Always 位置权限升级流程，为 CLVisitor 做准备 (#51)。",
-      "acceptanceCriteria": [
-        "Info.plist 添加 NSLocationAlwaysAndWhenInUseUsageDescription 与 UIBackgroundModes: location",
-        "SettingsView 权限分区新增 '启用被动位置' 开关",
-        "开关打开时弹出说明弹窗（隐私用途 + 电量影响），确认后调用 requestAlwaysAuthorization",
-        "授权状态实时反映到 UI（When-In-Use / Always / Denied）",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 20,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-021",
-      "title": "VisitDraftStore 持久化层",
-      "description": "作为开发者，我需要一个持久化的 VisitDraftStore，用于保存被动记录的位置草稿 (#50)。",
-      "acceptanceCriteria": [
-        "新建 VisitDraftStore.swift（@MainActor final class，单例）",
-        "数据结构 VisitDraft { id: UUID, arrivalDate: Date, departureDate: Date?, coordinate: CLLocationCoordinate2D, placeName: String?, status: pending/confirmed/dismissed }",
-        "持久化到 vault/drafts/visits.json，原子写入",
-        "提供 pendingDrafts(for: Date)、markConfirmed、markDismissed、cleanupOlderThan(days: 7)",
-        "Unit test 覆盖：写入 / 读取 / 去重 / 清理",
-        "Typecheck passes",
-        "Tests pass"
-      ],
-      "priority": 21,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-022",
-      "title": "PassiveLocationService 基于 CLVisitor",
-      "description": "作为用户，我希望 App 后台被动记录我的停留地点，无需手动输入 (#50)。",
-      "acceptanceCriteria": [
-        "新建 PassiveLocationService.swift 使用 CLLocationManager.startMonitoringVisits",
-        "didVisit 回调保存 VisitDraft 到 VisitDraftStore",
-        "授权非 Always 时不启动，授权从 Always 降级时自动停止",
-        "到达事件异步反向地理编码，填入 placeName",
-        "App 启动时清理 7 天前 dismissed drafts",
-        "Typecheck passes",
-        "Verify in Simulator（使用 Simulator Location 的 Custom Location 触发）"
-      ],
-      "priority": 22,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-023",
-      "title": "LocationDraftCard 组件",
-      "description": "作为开发者，我需要一个可复用的 LocationDraftCard 组件，展示 pending 位置草稿。",
-      "acceptanceCriteria": [
-        "新建 LocationDraftCard.swift（SwiftUI 视图）",
-        "输入：[VisitDraft]，回调：onConfirm(VisitDraft)、onDismiss(VisitDraft)、onConfirmAll、onDismissAll",
-        "每行显示：到达时间 HH:mm、地名、停留时长（departure - arrival 或 'ongoing'）",
-        "行级 ✓ / ✕ 按钮 + 底部 [全部确认] [全部忽略]",
-        "Xcode Preview 包含 mock 数据预览",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 23,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-024",
-      "title": "Today View 集成 LocationDraftCard",
-      "description": "作为用户，打开 Today 时若有未确认位置草稿应看到确认卡片 (#52)。",
-      "acceptanceCriteria": [
-        "TodayViewModel 新增 @Published var visitDrafts，刷新时调 VisitDraftStore.pendingDrafts(for: today)",
-        "Today View 时间轴顶部显示 LocationDraftCard（仅当 drafts 非空）",
-        "confirmVisit 创建 .location memo 写入 vault/raw/{today}.md 并 markConfirmed",
-        "dismissVisit 调用 markDismissed",
-        "操作后 drafts 自动刷新消失",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 24,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-025",
-      "title": "LocationDraftCard 地名行内编辑",
-      "description": "作为用户，我希望能编辑草稿的地名（反向地理编码不准时）(#52)。",
-      "acceptanceCriteria": [
-        "LocationDraftCard 行的地名点击后变为 TextField 可编辑",
-        "回车或失去焦点后调用 VisitDraftStore.updatePlaceName(id:, placeName:)",
-        "修改后下次显示保留",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 25,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-026",
-      "title": "Daily Page 重新编译功能",
-      "description": "作为用户，我希望能对某一天重新跑 AI 编译 (#43)。",
-      "acceptanceCriteria": [
-        "Daily Page 右上角新增 '更多' 菜单 (ellipsis.circle)",
-        "菜单包含 '重新编译' 选项",
-        "点击弹出 Alert '将覆盖当前 Daily Page，确定？'，确认后调用 CompilationService",
-        "编译期间显示 US-018 的进度 UI",
-        "成功后刷新 Daily Page 内容",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 26,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-027",
-      "title": "Daily Page 元数据编辑",
-      "description": "作为用户，我希望能手动编辑 Daily Page 的 mood / weather / cover image (#43)。",
-      "acceptanceCriteria": [
-        "Daily Page '更多' 菜单新增 '编辑元数据' 选项",
-        "打开 Sheet 表单：mood（TextField）、weather（TextField）、cover image（PhotosPicker）",
-        "保存后原子写入 YAML front-matter（保留其他字段）",
-        "表单取消不写入",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 27,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-028",
-      "title": "搜索日期范围筛选",
-      "description": "作为用户，搜索时应能按日期范围筛选结果 (#45)。",
-      "acceptanceCriteria": [
-        "搜索页顶部新增 DateRangePicker（起止日期）",
-        "筛选实时应用到结果，关键词与日期范围 AND 组合",
-        "默认空（不筛选日期）",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 28,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-029",
-      "title": "搜索 memo 类型筛选",
-      "description": "作为用户，搜索时应能按 memo 类型（text / voice / photo / location）筛选 (#45)。",
-      "acceptanceCriteria": [
-        "搜索页新增多选 Chips: Text / Voice / Photo / Location",
-        "未选中任何 chip 时等同于全选",
-        "选中后结果仅保留对应类型 memo",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 29,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-030",
-      "title": "搜索地点筛选",
-      "description": "作为用户，搜索时应能按地点筛选 (#45)。",
-      "acceptanceCriteria": [
-        "搜索页新增 Location Picker（下拉，列出当前 vault 所有已记录 placeName 去重）",
-        "选择地点后仅显示附带该位置的 memo",
-        "支持清除选择",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 30,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-031",
-      "title": "Archive 月度统计筛选",
-      "description": "作为用户，月度摘要应能筛选出仅含位置 / 仅含照片的日期 (#44)。",
-      "acceptanceCriteria": [
-        "月度摘要页新增筛选开关：'仅含位置'、'仅含照片'",
-        "开关组合生效，实时过滤日期网格",
-        "空结果显示 empty state",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 31,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-032",
-      "title": "Archive 月度导出 Markdown",
-      "description": "作为用户，我希望能导出一个月的所有 memo + Daily Page 为 Markdown 文件 (#44)。",
-      "acceptanceCriteria": [
-        "月度摘要页新增 '导出' 按钮",
-        "导出内容：YYYY-MM.md，包含当月每一天的 Daily Page 和所有 memo（按时间排序）",
-        "使用 UIActivityViewController 分享",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 32,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-033",
-      "title": "Archive 月度统计分享截图",
-      "description": "作为用户，我希望能分享月度统计的截图到社交平台 (#44)。",
-      "acceptanceCriteria": [
-        "月度摘要页新增 '分享' 按钮",
-        "截图当前月度统计页（使用 ImageRenderer 渲染视图）",
-        "通过 UIActivityViewController 分享 UIImage",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 33,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-034",
-      "title": "语音录音实时转写显示",
-      "description": "作为用户，录音时应能看到实时转写文字 (#42)。",
-      "acceptanceCriteria": [
-        "新建 LiveTranscriptionService.swift 使用 SFSpeechRecognizer（zh-CN locale）",
-        "录音浮层下方显示实时转写区域，文字随说话更新",
-        "首次使用请求语音识别权限",
-        "识别失败或权限拒绝时 UI 显示提示，仍允许录音（录完交给 Whisper）",
-        "停止录音后，最终转写文字作为 memo transcript 保存（不再调 Whisper）",
-        "Typecheck passes",
-        "Verify in Simulator（使用预录音频测试）"
-      ],
-      "priority": 34,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-035",
-      "title": "输入栏直接拍照",
-      "description": "作为用户，我希望能直接从输入栏拍照，而不只是从相册选取 (#36)。",
-      "acceptanceCriteria": [
-        "输入栏照片按钮改为次级菜单（Menu），包含 '拍照' 和 '从相册选择' 两项",
-        "'拍照' 调用 UIImagePickerController(sourceType: .camera)（模拟器 fallback 到 photoLibrary）",
-        "拍摄结果走现有 Photo 附件流程（EXIF 提取 + 缩略图）",
-        "Info.plist 添加 NSCameraUsageDescription",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 35,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-036",
-      "title": "输入栏文件附件",
-      "description": "作为用户，我希望能附加任意文件（PDF / 文本）到 memo (#37)。",
-      "acceptanceCriteria": [
-        "输入栏新增 '附件' 按钮（paperclip 图标）",
-        "点击打开 UIDocumentPickerViewController",
-        "选择文件后拷贝到 vault/raw/assets/files/{uuid}.ext",
-        "YAML 记录 type: file, path: ..., filename: ..., mimeType: ...",
-        "Daily Page 和 Today 卡片渲染文件图标 + 文件名，点击用 QLPreviewController 打开",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 36,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-037",
-      "title": "解锁 Graph Tab + GraphViewModel 基础",
-      "description": "作为开发者，我需要解锁 Graph Tab 并建立 GraphViewModel 数据模型 (#30)。",
-      "acceptanceCriteria": [
-        "RootView.swift 移除 Graph Tab 的 .disabled(true)",
-        "GraphView 替换占位 Text，使用新建的 GraphViewModel",
-        "GraphViewModel 扫描 vault/wiki/daily/*.md 中所有 [[Entity]] 引用，构建 nodes: [Node] 和 edges: [Edge]",
-        "Node 分类：person（@mention）/ place / theme，使用不同颜色",
-        "暂时以简单 List 形式展示所有节点（后续 story 换成图形）",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 37,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-038",
-      "title": "Graph Canvas 力导向布局",
-      "description": "作为用户，我希望 Graph Tab 展示节点和连线的力导向图，而不是纯列表 (#30)。",
-      "acceptanceCriteria": [
-        "GraphView 使用 SwiftUI Canvas 绘制节点圆形 + 边连线",
-        "实现简化版力导向布局（斥力 + 弹簧模型，每帧更新位置）",
-        "节点颜色按类型区分",
-        "支持 MagnificationGesture 缩放、DragGesture 平移",
-        "50 节点渲染保持 30fps 以上",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 38,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-039",
-      "title": "Graph 节点点击跳转 Entity Page",
-      "description": "作为用户，点击 Graph 中的节点应打开对应 Entity Page (#30)。",
-      "acceptanceCriteria": [
-        "Canvas 内节点点击通过 spatialGesture 命中检测",
-        "点击后 NavigationLink 打开 EntityPageView(entityName: node.name)",
-        "命中区域为节点圆形半径的 1.2 倍（易点中）",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 39,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-040",
-      "title": "Graph 时间轴过滤",
-      "description": "作为用户，我希望能按日期范围过滤 Graph 显示的节点 (#30)。",
-      "acceptanceCriteria": [
-        "GraphView 顶部新增 DateRangePicker（默认最近 30 天）",
-        "GraphViewModel 只加载该范围内 Daily Page 的 entity 引用",
-        "范围变化实时重算 nodes / edges，重新布局",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 40,
-      "passes": false,
-      "notes": ""
-    },
-    {
-      "id": "US-041",
-      "title": "Graph 节点搜索高亮",
-      "description": "作为用户，我希望能搜索特定节点，在图谱中高亮显示 (#30)。",
-      "acceptanceCriteria": [
-        "GraphView 顶部新增搜索框",
-        "输入关键词后，所有名称不匹配的节点 opacity 降到 0.2，匹配节点保持高亮",
-        "清空搜索恢复正常",
-        "Empty state: 无节点时显示 '记录更多 memo 以构建你的知识网络'",
-        "Typecheck passes",
-        "Verify in Simulator"
-      ],
-      "priority": 41,
       "passes": false,
       "notes": ""
     }
