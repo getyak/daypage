@@ -47,3 +47,15 @@ Started: Sun Apr 19 15:50:05 +07 2026
   - `SupabaseClient` init takes `supabaseURL: URL` and `supabaseKey: String`
   - `supabase.auth.session` throws if no stored session — catch and set `session = nil`
 ---
+
+## 2026-04-19 - US-004
+- Created `DayPage/App/DayPage.entitlements` with `com.apple.developer.applesignin = [Default]`
+- Added `CODE_SIGN_ENTITLEMENTS = DayPage/App/DayPage.entitlements` to both Debug and Release XCBuildConfiguration in `project.pbxproj`
+- Registered `A20000071 /* DayPage.entitlements */` as PBXFileReference and added to App group in pbxproj
+- `AuthenticationServices` framework already available via Supabase transitive deps (no explicit linking needed)
+- Build passes: `** BUILD SUCCEEDED **`
+- **Learnings for future iterations:**
+  - Entitlements require: (1) `.entitlements` plist file, (2) `CODE_SIGN_ENTITLEMENTS` in both Debug+Release build settings, (3) PBXFileReference entry
+  - No PBXBuildFile/Sources entry needed for entitlements — it's only a build setting reference
+  - `AuthenticationServices` is already available in the project via the Supabase SDK transitive deps
+---

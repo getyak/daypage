@@ -121,6 +121,7 @@
 		A20000022 /* EntityPageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntityPageService.swift; sourceTree = "<group>"; };
 		A20000023 /* BackgroundCompilationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundCompilationService.swift; sourceTree = "<group>"; };
 		A20000024 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A20000071 /* DayPage.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DayPage.entitlements; sourceTree = "<group>"; };
 		A20000025 /* DailyPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPageView.swift; sourceTree = "<group>"; };
 		A20000026 /* EntityPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntityPageView.swift; sourceTree = "<group>"; };
 		A20000027 /* SearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchService.swift; sourceTree = "<group>"; };
@@ -215,6 +216,7 @@
 				A20000001 /* DayPageApp.swift */,
 				A20000002 /* RootView.swift */,
 				A20000024 /* Info.plist */,
+				A20000071 /* DayPage.entitlements */,
 				A20000029 /* Assets.xcassets */,
 				AF2000001 /* Fonts */,
 			);
@@ -789,6 +791,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = DayPage/App/DayPage.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6RG2F8YY59;
@@ -814,6 +817,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = DayPage/App/DayPage.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6RG2F8YY59;

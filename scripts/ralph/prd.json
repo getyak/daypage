@@ -63,7 +63,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "The actual Apple Sign-In button and credential flow is wired in US-005. This story just ensures the entitlement and framework are in place."
     },
     {
