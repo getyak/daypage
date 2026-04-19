@@ -4,14 +4,12 @@ import SwiftUI
 
 struct AuthView: View {
 
+    var onSkip: (() -> Void)? = nil
+
     @EnvironmentObject private var authService: AuthService
     @State private var showEmailAuth = false
     @GestureState private var applePressed = false
     @GestureState private var emailPressed = false
-
-    private var authSkipped: Bool {
-        UserDefaults.standard.bool(forKey: "authSkipped")
-    }
 
     var body: some View {
         ZStack {
@@ -67,7 +65,7 @@ struct AuthView: View {
                     buttonStack
 
                     Button {
-                        UserDefaults.standard.set(true, forKey: "authSkipped")
+                        onSkip?()
                     } label: {
                         Text("Skip for now")
                             .font(.custom("Inter-Regular", size: 13))

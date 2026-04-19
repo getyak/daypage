@@ -17,11 +17,14 @@ struct RootView: View {
         Group {
             if hasOnboarded {
                 mainTabView
-                    .fullScreenCover(isPresented: .constant(showAuth)) {
-                        AuthView()
-                            .onDisappear {
-                                authSkipped = UserDefaults.standard.bool(forKey: "authSkipped")
-                            }
+                    .fullScreenCover(isPresented: Binding(
+                        get: { showAuth },
+                        set: { if !$0 { authSkipped = UserDefaults.standard.bool(forKey: "authSkipped") } }
+                    )) {
+                        AuthView(onSkip: {
+                            UserDefaults.standard.set(true, forKey: "authSkipped")
+                            authSkipped = true
+                        })
                     }
             } else {
                 OnboardingView(hasOnboarded: $hasOnboarded)

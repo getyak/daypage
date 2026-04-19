@@ -14,14 +14,24 @@ set -euo pipefail
 ENV_FILE="${SRCROOT}/.env"
 OUTPUT_FILE="${SRCROOT}/DayPage/Config/GeneratedSecrets.swift"
 
+# If .env doesn't exist and GeneratedSecrets.swift already has values, skip regeneration.
+# This preserves secrets during Archive/TestFlight builds where .env is not present.
+if [[ ! -f "${ENV_FILE}" ]]; then
+    if [[ -f "${OUTPUT_FILE}" ]] && grep -q 'supabaseURL: String = "https://' "${OUTPUT_FILE}"; then
+        echo "[generate_secrets] .env not found, keeping existing ${OUTPUT_FILE}"
+        exit 0
+    else
+        echo "[generate_secrets] ERROR: .env not found and ${OUTPUT_FILE} has no valid secrets. Add .env to \${SRCROOT}." >&2
+        exit 1
+    fi
+fi
+
 # ── Helper ──────────────────────────────────────────────────────────────────
 read_env_value() {
     local key="$1"
     local value=""
-    if [[ -f "${ENV_FILE}" ]]; then
-        # Strip comments, blank lines; match KEY=VALUE (no spaces around =)
-        value=$(grep -E "^${key}=" "${ENV_FILE}" | head -1 | cut -d'=' -f2- | tr -d '\r')
-    fi
+    # Strip comments, blank lines; match KEY=VALUE (no spaces around =)
+    value=$(grep -E "^${key}=" "${ENV_FILE}" | head -1 | cut -d'=' -f2- | tr -d '\r')
     # Escape backslash and double-quote for Swift string literal
     value="${value//\\/\\\\}"
     value="${value//\"/\\\"}"
