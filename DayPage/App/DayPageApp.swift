@@ -62,6 +62,16 @@ struct DayPageApp: App {
         WindowGroup {
             RootView()
                 .environmentObject(authService)
+                .onOpenURL { url in
+                    Task {
+                        do {
+                            try await authService.supabase.auth.session(from: url)
+                            authService.session = try? await authService.supabase.auth.session
+                        } catch {
+                            // URL may not be an auth callback — ignore silently
+                        }
+                    }
+                }
                 .onAppear {
                     // Schedule nightly auto-compile and backfill any missed day
                     BackgroundCompilationService.shared.scheduleIfNeeded()

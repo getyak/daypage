@@ -140,7 +140,7 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Supabase redirect URL `daypage://auth/callback` must also be added in Supabase Dashboard under Authentication > URL Configuration."
     },
     {

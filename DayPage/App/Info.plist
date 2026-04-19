@@ -75,6 +75,19 @@
 		<string>location</string>
 		<string>processing</string>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.daypage.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>daypage</string>
+			</array>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+		</dict>
+	</array>
 	<key>CFBundleIconName</key>
 	<string>AppIcon</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

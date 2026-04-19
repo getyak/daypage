@@ -94,6 +94,17 @@ Started: Sun Apr 19 15:50:05 +07 2026
   - `ASAuthorizationError.canceled` code is `.canceled` (not `.userCanceled`)
 ---
 
+## 2026-04-19 - US-008
+- Added `CFBundleURLTypes` to `DayPage/App/Info.plist` with scheme `daypage`, role `Editor`, URL name `com.daypage.app`
+- Added `.onOpenURL { url in Task { try await authService.supabase.auth.session(from: url) } }` to `DayPageApp.swift`
+- After session exchange: `authService.session` refreshed from keychain → fullScreenCover dismisses automatically
+- Build passes: `** BUILD SUCCEEDED **`
+- **Learnings for future iterations:**
+  - Deep link URL schemes go in `CFBundleURLTypes` in Info.plist (array of dicts with CFBundleURLSchemes, CFBundleTypeRole, CFBundleURLName)
+  - `supabase.auth.session(from:)` processes the magic link URL and stores session in keychain
+  - Must also add `daypage://auth/callback` in Supabase Dashboard → Authentication → URL Configuration (manual developer step)
+---
+
 ## 2026-04-19 - US-007
 - `EmailAuthView.swift` was already created as part of US-005 (required by AuthView's navigation)
 - All acceptance criteria verified: dark background, grain overlay, back chevron, heading, email TextField with validation regex, Send button with active/disabled states, success state, error display
