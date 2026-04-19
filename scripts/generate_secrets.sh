@@ -34,6 +34,8 @@ DASHSCOPE_BASE_URL=$(read_env_value "DASHSCOPE_BASE_URL")
 DASHSCOPE_MODEL=$(read_env_value "DASHSCOPE_MODEL")
 OPENAI_WHISPER_API_KEY=$(read_env_value "OPENAI_WHISPER_API_KEY")
 OPENWEATHER_API_KEY=$(read_env_value "OPENWEATHER_API_KEY")
+SUPABASE_URL=$(read_env_value "SUPABASE_URL")
+SUPABASE_ANON_KEY=$(read_env_value "SUPABASE_ANON_KEY")
 
 # ── Emit Swift file ──────────────────────────────────────────────────────────
 mkdir -p "$(dirname "${OUTPUT_FILE}")"
@@ -49,6 +51,8 @@ enum Secrets {
     static let dashScopeModel: String = "${DASHSCOPE_MODEL}"
     static let openAIWhisperApiKey: String = "${OPENAI_WHISPER_API_KEY}"
     static let openWeatherApiKey: String = "${OPENWEATHER_API_KEY}"
+    static let supabaseURL: String = "${SUPABASE_URL}"
+    static let supabaseAnonKey: String = "${SUPABASE_ANON_KEY}"
 }
 SWIFT
 
