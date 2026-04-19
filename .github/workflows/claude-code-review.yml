@@ -3,12 +3,18 @@ name: Claude Code Review
 on:
   pull_request:
     types: [opened, synchronize, ready_for_review, reopened]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
+    paths:
+      - "**/*.swift"
+      - "**/*.xib"
+      - "**/*.storyboard"
+      - "**/*.xcconfig"
+      - "**/*.entitlements"
+      - "**/*.plist"
+      - "DayPage.xcodeproj/**"
+      - "fastlane/**"
+      - "Gemfile*"
+      - "scripts/**"
+      - ".github/workflows/**"
 
 jobs:
   claude-review:
@@ -21,8 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
-      issues: read
+      pull-requests: write
       id-token: write
 
     steps:
