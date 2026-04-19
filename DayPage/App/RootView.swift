@@ -1,17 +1,31 @@
 import SwiftUI
 
 struct RootView: View {
+    @EnvironmentObject private var authService: AuthService
     @StateObject private var bannerCenter = BannerCenter.shared
     @State private var hasOnboarded: Bool = UserDefaults.standard.bool(forKey: "hasOnboarded")
+    @State private var authSkipped: Bool = UserDefaults.standard.bool(forKey: "authSkipped")
     @State private var selectedTab: Int = 0
 
     private let tabCount = 3
 
+    private var showAuth: Bool {
+        authService.session == nil && !authSkipped
+    }
+
     var body: some View {
-        if hasOnboarded {
-            mainTabView
-        } else {
-            OnboardingView(hasOnboarded: $hasOnboarded)
+        Group {
+            if hasOnboarded {
+                mainTabView
+                    .fullScreenCover(isPresented: .constant(showAuth)) {
+                        AuthView()
+                            .onDisappear {
+                                authSkipped = UserDefaults.standard.bool(forKey: "authSkipped")
+                            }
+                    }
+            } else {
+                OnboardingView(hasOnboarded: $hasOnboarded)
+            }
         }
     }
 

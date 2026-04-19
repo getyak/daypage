@@ -89,7 +89,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "noise.png asset: create a simple 200x200 grayscale noise PNG in Assets.xcassets. If unavailable, use a Canvas with random dots as fallback."
     },
     {
