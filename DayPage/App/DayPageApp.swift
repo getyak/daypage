@@ -47,6 +47,7 @@ final class AppNotificationDelegate: NSObject, UNUserNotificationCenterDelegate 
 struct DayPageApp: App {
 
     private let notificationDelegate = AppNotificationDelegate()
+    @StateObject private var authService = AuthService.shared
 
     init() {
         DSFonts.registerAll()
@@ -60,6 +61,7 @@ struct DayPageApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .environmentObject(authService)
                 .onAppear {
                     // Schedule nightly auto-compile and backfill any missed day
                     BackgroundCompilationService.shared.scheduleIfNeeded()

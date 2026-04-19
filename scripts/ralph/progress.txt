@@ -32,3 +32,18 @@ Started: Sun Apr 19 15:50:05 +07 2026
   - `GeneratedSecrets.swift` uses `enum Secrets` (not struct) — reference as `Secrets.supabaseURL`
   - Both `supabaseURL` and `supabaseAnonKey` are `String` properties inside `enum Secrets`
 ---
+
+## 2026-04-19 - US-003
+- Created `DayPage/Services/AuthService.swift` as `@MainActor final class AuthService: ObservableObject`
+- Published properties: `session: Session?`, `isLoading: Bool`, `error: String?`
+- Init creates `SupabaseClient` from `Secrets.supabaseURL` and `Secrets.supabaseAnonKey`; restores existing session asynchronously
+- `signInWithApple()` stub (TODO for US-006), `signInWithMagicLink(email:)` calls `supabase.auth.signInWithOTP(email:)`, `signOut()` calls `supabase.auth.signOut()`
+- Registered `AuthService.swift` in `DayPage.xcodeproj/project.pbxproj` (PBXBuildFile A10000070, PBXFileReference A20000070, Services group, PBXSourcesBuildPhase)
+- Added `@StateObject private var authService = AuthService.shared` and `.environmentObject(authService)` to `DayPageApp.swift`
+- Build passes: `** BUILD SUCCEEDED **`
+- **Learnings for future iterations:**
+  - New Swift files must be registered in `project.pbxproj` with 3 entries: PBXBuildFile, PBXFileReference, group children + PBXSourcesBuildPhase
+  - `AuthService` exposes `let supabase: SupabaseClient` as internal for US-006 to access
+  - `SupabaseClient` init takes `supabaseURL: URL` and `supabaseKey: String`
+  - `supabase.auth.session` throws if no stored session — catch and set `session = nil`
+---
