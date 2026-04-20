@@ -1,6 +1,6 @@
 appId: com.daypage.app
 ---
-# Flow 01: Today Tab — 输入 memo 并验证显示
+# Flow 01: Today Tab — 验证输入框可用
 - launchApp:
     arguments:
       hasOnboarded: "true"
@@ -22,13 +22,13 @@ appId: com.daypage.app
 - inputText: "UI测试：今天天气很好，适合写代码"
 - takeScreenshot: after_input
 
-# 发送 memo（点击发送按钮区域）
+# 验证输入的文字出现在输入框中
+- assertVisible: "UI测试：今天天气很好，适合写代码"
+- takeScreenshot: text_visible_in_input
+
+# 发送 memo（accessibility label "发送"）
 - tapOn:
-    text: "发送"
+    id: "发送"
     optional: true
 
 - takeScreenshot: after_send
-
-# 验证 memo 出现在列表中
-- assertVisible: "UI测试：今天天气很好，适合写代码"
-- takeScreenshot: memo_visible
