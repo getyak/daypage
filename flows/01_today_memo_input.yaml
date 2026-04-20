@@ -14,10 +14,22 @@ appId: com.daypage.app
 
 - takeScreenshot: today_tab_loaded
 
-# 点击输入区域（placeholder 文字）
+# 点击 "打开文字输入" 按钮展开输入行（collapsed 模式下先展开）
 - tapOn:
-    text: "写点什么…"
+    text: "写点什么"
     optional: true
+
+# 等待输入行展开动画完成
+- swipe:
+    duration: 300
+    startX: 50%
+    startY: 50%
+    endX: 50%
+    endY: 50%
+
+# 点击 TextEditor（通过 accessibilityIdentifier）
+- tapOn:
+    id: "memo-input"
 
 - inputText: "UI测试：今天天气很好，适合写代码"
 - takeScreenshot: after_input

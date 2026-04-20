@@ -288,6 +288,7 @@ struct InputBarV3: View {
                 .frame(minHeight: 22, maxHeight: 80)
                 .padding(.horizontal, 10)
                 .padding(.vertical, -7)
+                .accessibilityIdentifier("memo-input")
         }
         .frame(minHeight: 36)
         .background(DSColor.surfaceContainerLow)
