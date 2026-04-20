@@ -47,11 +47,3 @@ jobs:
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
 
-      - name: Report token usage to AgentBoard
-        if: always() && secrets.AGENTBOARD_TOKEN != ''
-        env:
-          AGENTBOARD_TOKEN: ${{ secrets.AGENTBOARD_TOKEN }}
-          AGENTBOARD_URL: ${{ secrets.AGENTBOARD_URL || 'https://agentboard.cc' }}
-        run: |
-          curl -fsSL "${AGENTBOARD_URL}/install" | bash -s -- "${AGENTBOARD_TOKEN}" "${AGENTBOARD_URL}"
-
