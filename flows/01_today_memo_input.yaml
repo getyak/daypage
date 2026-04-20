@@ -20,12 +20,7 @@ appId: com.daypage.app
     optional: true
 
 # 等待输入行展开动画完成
-- swipe:
-    duration: 300
-    startX: 50%
-    startY: 50%
-    endX: 50%
-    endY: 50%
+- wait: 500
 
 # 点击 TextEditor（通过 accessibilityIdentifier）
 - tapOn:
