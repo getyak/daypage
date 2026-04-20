@@ -125,26 +125,22 @@ jobs:
       - name: Build (simulator, CODE_SIGNING_ALLOWED=NO)
         run: |
           set -o pipefail
-          # Prefer iPhone 17, fall back to newest available iPhone simulator
-          DEST=$(xcrun simctl list devices available -j \
-            | python3 -c "
-import json, sys
-d = json.load(sys.stdin)
-devices = []
-for runtime, devs in d['devices'].items():
-    for dev in devs:
-        if dev.get('isAvailable') and 'iPhone' in dev['name']:
-            devices.append(dev['name'])
-# Prefer iPhone 17, then highest number
-preferred = [n for n in devices if 'iPhone 17' in n]
-if preferred:
-    print(preferred[0])
-elif devices:
-    devices.sort(key=lambda x: [int(c) if c.isdigit() else c for c in x.split()])
-    print(devices[-1])
-else:
-    print('iPhone 16')
-" 2>/dev/null || echo "iPhone 16")
+          # Prefer iPhone 17+, fall back to newest available iPhone simulator
+          DEST=$(xcrun simctl list devices available 2>/dev/null \
+            | grep -E 'iPhone 1[7-9]|iPhone [2-9][0-9]' \
+            | grep -v 'unavailable' \
+            | head -1 \
+            | sed 's/^\s*//' \
+            | sed 's/ (.*//' || true)
+          if [ -z "$DEST" ]; then
+            DEST=$(xcrun simctl list devices available 2>/dev/null \
+              | grep -E '^\s+iPhone' \
+              | grep -v 'unavailable' \
+              | tail -1 \
+              | sed 's/^\s*//' \
+              | sed 's/ (.*//' || true)
+          fi
+          if [ -z "$DEST" ]; then DEST="iPhone 16"; fi
           echo "Using simulator: $DEST"
           xcodebuild \
             -scheme DayPage \
@@ -205,23 +201,27 @@ else:
 
       - name: Boot iPhone Simulator
         run: |
-          UDID=$(xcrun simctl list devices available -j \
-            | python3 -c "
-import json, sys
-d = json.load(sys.stdin)
-iphones = []
-for runtime, devs in d['devices'].items():
-    for dev in devs:
-        if 'iPhone' in dev.get('name','') and dev.get('isAvailable'):
-            iphones.append((dev['name'], dev['udid']))
-# Prefer iPhone 17, otherwise pick highest numbered iPhone
-preferred = [(n, u) for n, u in iphones if 'iPhone 17' in n]
-if preferred:
-    print(preferred[0][1])
-elif iphones:
-    iphones.sort(key=lambda x: [int(c) if c.isdigit() else c for c in x[0].split()])
-    print(iphones[-1][1])
-")
+          # Prefer highest-numbered iPhone, prefer iPhone 17+
+          SIM_NAME=$(xcrun simctl list devices available 2>/dev/null \
+            | grep -E 'iPhone 1[7-9]|iPhone [2-9][0-9]' \
+            | grep -v 'unavailable' \
+            | head -1 \
+            | sed 's/^\s*//' \
+            | sed 's/ (.*//' || true)
+          if [ -z "$SIM_NAME" ]; then
+            SIM_NAME=$(xcrun simctl list devices available 2>/dev/null \
+              | grep -E '^\s+iPhone' \
+              | grep -v 'unavailable' \
+              | tail -1 \
+              | sed 's/^\s*//' \
+              | sed 's/ (.*//' || true)
+          fi
+          if [ -z "$SIM_NAME" ]; then SIM_NAME="iPhone 16"; fi
+          UDID=$(xcrun simctl list devices available 2>/dev/null \
+            | grep "$SIM_NAME" \
+            | grep -v 'unavailable' \
+            | head -1 \
+            | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' || true)
           echo "Booting simulator UDID: $UDID"
           xcrun simctl boot "$UDID"
           echo "SIMULATOR_UDID=$UDID" >> "$GITHUB_ENV"
