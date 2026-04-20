@@ -208,13 +208,14 @@ jobs:
 
       - name: Run Maestro flows
         id: maestro
+        env:
+          MAESTRO_DEVICE_ID: ${{ env.SIMULATOR_UDID }}
         run: |
           mkdir -p maestro-results
           maestro test flows/ \
             --format junit \
             --output maestro-results/report.xml \
-            --screenshots-dir maestro-results/screenshots \
-            --device "$SIMULATOR_UDID" \
+            --debug-output maestro-results/debug \
             || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
 
       - name: Upload Maestro results & screenshots
@@ -242,8 +243,8 @@ jobs:
             STATUS="Passed"
           fi
 
-          # 收集截图文件名（最多 5 张）
-          SCREENSHOTS=$(ls maestro-results/screenshots/*.png 2>/dev/null | head -5 || true)
+          # 收集截图文件名（最多 5 张，debug output 目录下的 screenshots）
+          SCREENSHOTS=$(find maestro-results/debug -name "*.png" 2>/dev/null | head -5 || true)
           SCREENSHOT_LIST=""
           if [ -n "$SCREENSHOTS" ]; then
             SCREENSHOT_LIST="\n\n**Screenshots** (from last failed step):\n"
