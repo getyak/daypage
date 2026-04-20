@@ -1,0 +1,37 @@
+appId: com.daypage.app
+---
+# Flow 01: Today Tab — 输入 memo 并验证显示
+- launchApp
+- takeScreenshot: launch
+
+# 确认 Today Tab 已加载
+- assertVisible:
+    text: "今天"
+    optional: false
+
+- takeScreenshot: today_tab_loaded
+
+# 点击输入区域
+- tapOn:
+    text: "记录一下…"
+    optional: true
+- tapOn:
+    id: "memo-input"
+    optional: true
+
+- inputText: "UI测试：今天天气很好，适合写代码"
+- takeScreenshot: after_input
+
+# 发送 memo（尝试常见的发送按钮文字/图标）
+- tapOn:
+    text: "发送"
+    optional: true
+- tapOn:
+    id: "send-button"
+    optional: true
+
+- takeScreenshot: after_send
+
+# 验证 memo 出现在列表中
+- assertVisible: "UI测试：今天天气很好，适合写代码"
+- takeScreenshot: memo_visible

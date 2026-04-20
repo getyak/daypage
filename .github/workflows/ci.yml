@@ -128,8 +128,146 @@ jobs:
           xcodebuild \
             -scheme DayPage \
             -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
+            -destination 'platform=iOS Simulator,name=iPhone 17' \
             CODE_SIGNING_ALLOWED=NO \
             COMPILER_CONTENT_PROTECTION=NO \
+            CONFIGURATION_BUILD_DIR=$PWD/build/Products \
             build 2>&1 | tee build.log
           grep 'BUILD SUCCEEDED' build.log
+
+      - name: Export built .app path
+        id: app_path
+        run: |
+          APP=$(find build/Products -name "DayPage.app" -maxdepth 3 | head -1)
+          echo "app_path=$APP" >> "$GITHUB_OUTPUT"
+          echo "Found .app: $APP"
+
+      - name: Upload .app for UI tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: DayPage-app-${{ github.sha }}
+          path: build/Products
+          retention-days: 1
+
+  ui-tests:
+    name: Maestro UI Tests
+    runs-on: macos-15
+    needs: build
+    # 仅 PR 和定时任务运行 UI 测试（push 到非 main 分支跳过，加速普通开发循环）
+    if: github.event_name == 'pull_request' || github.event_name == 'schedule'
+    permissions:
+      contents: read
+      pull-requests: write   # 允许发 PR comment
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select newest Xcode
+        run: |
+          LATEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$LATEST" ]; then
+            sudo xcode-select -s "$LATEST/Contents/Developer"
+          fi
+
+      - name: Download built .app
+        uses: actions/download-artifact@v4
+        with:
+          name: DayPage-app-${{ github.sha }}
+          path: build/Products
+
+      - name: Install Maestro
+        run: |
+          export MAESTRO_VERSION=1.39.0
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Boot iPhone 17 Simulator
+        run: |
+          UDID=$(xcrun simctl list devices available -j \
+            | python3 -c "
+          import json,sys
+          d=json.load(sys.stdin)
+          for runtime,devs in d['devices'].items():
+              for dev in devs:
+                  if 'iPhone 17' in dev['name'] and dev['isAvailable']:
+                      print(dev['udid'])
+                      exit()
+          ")
+          echo "Booting simulator UDID: $UDID"
+          xcrun simctl boot "$UDID"
+          echo "SIMULATOR_UDID=$UDID" >> "$GITHUB_ENV"
+          # 等待 Simulator 就绪
+          xcrun simctl bootstatus "$UDID" -b
+
+      - name: Install app on Simulator
+        run: |
+          APP=$(find build/Products -name "DayPage.app" -maxdepth 3 | head -1)
+          echo "Installing: $APP"
+          xcrun simctl install "$SIMULATOR_UDID" "$APP"
+
+      - name: Run Maestro flows
+        id: maestro
+        run: |
+          mkdir -p maestro-results
+          maestro test flows/ \
+            --format junit \
+            --output maestro-results/report.xml \
+            --screenshots-dir maestro-results/screenshots \
+            --device "$SIMULATOR_UDID" \
+            || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
+
+      - name: Upload Maestro results & screenshots
+        if: always()
+        id: upload_results
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-results-${{ github.sha }}
+          path: maestro-results/
+          retention-days: 7
+
+      - name: Comment on PR with test results
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ARTIFACT_URL: ${{ steps.upload_results.outputs.artifact-url }}
+        run: |
+          if [ "${MAESTRO_FAILED}" = "true" ]; then
+            ICON="❌"
+            STATUS="Failed"
+          else
+            ICON="✅"
+            STATUS="Passed"
+          fi
+
+          # 收集截图文件名（最多 5 张）
+          SCREENSHOTS=$(ls maestro-results/screenshots/*.png 2>/dev/null | head -5 || true)
+          SCREENSHOT_LIST=""
+          if [ -n "$SCREENSHOTS" ]; then
+            SCREENSHOT_LIST="\n\n**Screenshots** (from last failed step):\n"
+            for f in $SCREENSHOTS; do
+              NAME=$(basename "$f")
+              SCREENSHOT_LIST+="- \`$NAME\`\n"
+            done
+            SCREENSHOT_LIST+="\n[📁 Download all screenshots & report]($ARTIFACT_URL)"
+          fi
+
+          BODY="${ICON} **Maestro UI Tests ${STATUS}**
+
+          | | |
+          |---|---|
+          | Flows | \`flows/\` |
+          | Device | iPhone 17 Simulator |
+          | Run | [View logs](${RUN_URL}) |
+          ${SCREENSHOT_LIST}"
+
+          gh pr comment "$PR_NUMBER" \
+            --body "$(printf '%s' "$BODY")" \
+            --edit-last 2>/dev/null \
+            || gh pr comment "$PR_NUMBER" --body "$(printf '%s' "$BODY")"
+
+      - name: Fail job if Maestro tests failed
+        if: env.MAESTRO_FAILED == 'true'
+        run: exit 1

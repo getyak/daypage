@@ -1,0 +1,19 @@
+appId: com.daypage.app
+---
+# Flow 02: Tab 导航 — 验证三个 Tab 可以正常切换
+- launchApp
+- takeScreenshot: launch
+
+# 验证默认在 Today Tab
+- assertVisible: "今天"
+- takeScreenshot: today_tab
+
+# 切换到 Archive Tab
+- tapOn: "归档"
+- takeScreenshot: archive_tab
+- assertVisible: "归档"
+
+# 切换回 Today Tab
+- tapOn: "今天"
+- takeScreenshot: back_to_today
+- assertVisible: "今天"

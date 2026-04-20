@@ -1,0 +1,19 @@
+appId: com.daypage.app
+---
+# Flow 03: Smoke Test — App 启动不崩溃，基本 UI 可见
+- launchApp
+- takeScreenshot: launch
+
+# 等待 App 稳定（Maestro 自动轮询，这里加一个基础断言）
+- assertVisible:
+    text: "今天"
+    optional: false
+
+- takeScreenshot: stable
+
+# 验证没有错误弹窗
+- assertNotVisible: "错误"
+- assertNotVisible: "Error"
+- assertNotVisible: "崩溃"
+
+- takeScreenshot: no_error_dialogs
