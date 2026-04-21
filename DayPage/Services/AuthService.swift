@@ -188,6 +188,13 @@ final class AuthService: NSObject, ObservableObject {
 
     // MARK: - Email OTP
 
+    /// Clears the client-side resend cooldown for `email` so the next
+    /// `sendOTP` call is not blocked. Call only when the server has confirmed
+    /// the current code is expired — not as a general bypass.
+    func resetResendCooldown(email: String) {
+        defaults.removeObject(forKey: resendKey(for: email))
+    }
+
     /// Seconds remaining before the caller may request a new OTP for `email`.
     /// Returns 0 if cooldown has fully elapsed (or was never set). Used by the
     /// UI to initialize its resend countdown even across sheet dismiss/reopen.
@@ -257,17 +264,22 @@ final class AuthService: NSObject, ObservableObject {
         do {
             _ = try await supabase.auth.verifyOTP(email: email, token: token, type: .email)
             resetOTPFailures(email: email)
+            // Clear any lingering error on success so the listener stream
+            // can hand off cleanly.
+            self.error = nil
         } catch {
             let mapped = mapSupabaseError(error)
             if mapped == .otpMismatch || mapped == .otpExpired {
                 incrementOTPFailures(email: email)
                 if let lockedFor = otpLockRemaining(email: email) {
                     let lockErr = DPAuthError.otpLocked(retryAfter: lockedFor)
-                    self.error = lockErr
+                    self.error = lockErr   // lockout IS service-level; publish it
                     throw lockErr
                 }
             }
-            self.error = mapped
+            // For transient failures (mismatch / expired / network) don't
+            // clobber authService.error — the view owns localError for those.
+            // Only publish errors that affect cross-view state (lockout above).
             throw mapped
         }
     }
@@ -324,8 +336,13 @@ final class AuthService: NSObject, ObservableObject {
                     return .rateLimited(retryAfter: retry)
                 }
                 if response.statusCode == 422 { return .otpMismatch }
-                if response.statusCode == 400 && sbError.message.lowercased().contains("otp") {
-                    return .otpExpired
+                // 400 with "expired" in message → otpExpired; other 400 OTP
+                // errors (invalid_otp_state, token mismatch, etc.) → otpMismatch
+                // so we never falsely tell a user their code has expired.
+                if response.statusCode == 400 {
+                    let msg = sbError.message.lowercased()
+                    if msg.contains("expired") { return .otpExpired }
+                    if msg.contains("otp") || msg.contains("token") { return .otpMismatch }
                 }
             }
 

@@ -255,6 +255,13 @@ struct OTPVerificationView: View {
         .disabled(isLocked)
     }
 
+    /// When the server tells us the code has expired, the cooldown countdown
+    /// becomes irrelevant — allow an immediate resend regardless.
+    private var canResendImmediately: Bool {
+        if case .otpExpired = localError { return true }
+        return false
+    }
+
     private var resendButton: some View {
         HStack(spacing: 6) {
             Text("Didn't get it?")
@@ -263,13 +270,12 @@ struct OTPVerificationView: View {
             Button {
                 Task { await triggerResend() }
             } label: {
-                Text(resendCountdown > 0 ? "Resend in \(resendCountdown)s" : "Resend code")
+                let blocked = (!canResendImmediately && resendCountdown > 0) || isLocked
+                Text((!canResendImmediately && resendCountdown > 0) ? "Resend in \(resendCountdown)s" : "Resend code")
                     .font(.custom("SpaceGrotesk-Medium", size: 13))
-                    .foregroundColor(
-                        (resendCountdown > 0 || isLocked) ? Color(hex: "4A4A4A") : Color(hex: "F5F0E8")
-                    )
+                    .foregroundColor(blocked ? Color(hex: "4A4A4A") : Color(hex: "F5F0E8"))
             }
-            .disabled(resendCountdown > 0 || resendInFlight || isLocked)
+            .disabled((!canResendImmediately && resendCountdown > 0) || resendInFlight || isLocked)
         }
     }
 
@@ -292,22 +298,38 @@ struct OTPVerificationView: View {
         guard code.count == codeLength, !isVerifying, !isLocked else { return }
         localError = nil
         isVerifying = true
-        defer { isVerifying = false }
         do {
             try await authService.verifyOTP(email: email, token: code)
+            isVerifying = false
             #if canImport(UIKit)
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             #endif
             await animateSuccess()
             onVerified?()
         } catch let err as DPAuthError {
+            isVerifying = false
             localError = err
-            code = ""
-            codeFieldFocused = !isLocked
+            // On expired code: keep the field editable so the user can tap
+            // Resend without being forced back to the email screen.
+            // On lockout: the field disables itself via isLocked.
+            // On mismatch: clear digits so the user types fresh.
+            switch err {
+            case .otpExpired:
+                // Don't clear — user needs to resend, not retype the same code.
+                code = ""
+                codeFieldFocused = false
+            case .otpLocked:
+                code = ""
+                codeFieldFocused = false
+            default:
+                code = ""
+                codeFieldFocused = true
+            }
             #if canImport(UIKit)
             UINotificationFeedbackGenerator().notificationOccurred(.error)
             #endif
         } catch {
+            isVerifying = false
             localError = .unknown(message: error.localizedDescription)
             code = ""
             codeFieldFocused = true
@@ -346,11 +368,17 @@ struct OTPVerificationView: View {
     }
 
     private func triggerResend() async {
-        guard resendCountdown == 0, !resendInFlight, !isLocked else { return }
+        guard (resendCountdown == 0 || canResendImmediately), !resendInFlight, !isLocked else { return }
         resendInFlight = true
         localError = nil
         defer { resendInFlight = false }
         do {
+            // Bypass client-side cooldown when server-confirmed expiry: the
+            // user already knows their code is dead, so don't make them wait.
+            if canResendImmediately {
+                // Reset the stored send timestamp so sendOTP cooldown passes.
+                authService.resetResendCooldown(email: email)
+            }
             try await authService.sendOTP(email: email)
             code = ""
             codeFieldFocused = true
@@ -358,8 +386,6 @@ struct OTPVerificationView: View {
         } catch let err as DPAuthError {
             localError = err
             if case .rateLimited(let seconds) = err {
-                // Sync the countdown with what the service enforces so UI
-                // doesn't claim 0s-remaining while the service rejects.
                 resendCountdown = seconds
                 restartTickingTimer()
             }
