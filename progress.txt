@@ -65,3 +65,18 @@ Previous run (V3 Wave 2) archived at: archive/2026-04-22-daypage-v3-wave2-experi
   - The pattern: `objectWillChange.send() + UserDefaults.set()` triggers SwiftUI updates for computed properties on ObservableObject
   - VaultLocation and AttachmentPolicy enums are defined at file scope in AppSettings.swift, not nested, for cleaner access in other files
 ---
+
+## 2026-04-22 - US-004
+- Created DayPage/Services/iCloudSyncMonitor.swift as @MainActor final class with SyncStatus enum
+- NSMetadataQuery uses searchScopes=[NSMetadataQueryUbiquitousDocumentsScope] + predicate filtering by vault path prefix
+- queryDidUpdate/queryDidFinishGathering handlers dispatch to @MainActor Task to update @Published properties
+- startMonitoring is no-op when VaultInitializer.shared.isUsingiCloud == false; status stays .notConfigured
+- Registered iCloudSyncMonitor.shared.startMonitoring in DayPageApp.init after VaultInitializer.initializeIfNeeded()
+- Added iCloudSyncMonitor.swift to pbxproj (IDs A10000064/A20000064)
+- Files changed: DayPage/Services/iCloudSyncMonitor.swift (new), DayPage/App/DayPageApp.swift, DayPage.xcodeproj/project.pbxproj
+- Build: ** BUILD SUCCEEDED **
+- **Learnings for future iterations:**
+  - NSMetadataQuery callbacks (NSMetadataQueryDidUpdate/DidFinishGathering) arrive on a background thread; always dispatch to @MainActor via Task { @MainActor in }
+  - q.disableUpdates() / q.enableUpdates() must bracket result reading to prevent mutations during iteration
+  - Last pbxproj ID used: A10000064/A20000064 (next available: A10000065/A20000065)
+---
