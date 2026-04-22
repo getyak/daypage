@@ -52,3 +52,16 @@ Previous run (V3 Wave 2) archived at: archive/2026-04-22-daypage-v3-wave2-experi
   - NSFileCoordinator.coordinate block receives a potentially remapped `coordinatedURL`; use it (not the original url) for all I/O inside the block
   - NSFileCoordinator errors land in the `error:` inout parameter, not as thrown exceptions; capture both coordinatorError and writeError
 ---
+
+## 2026-04-22 - US-003
+- Added `enum VaultLocation: String { case local, iCloud }` and `enum AttachmentPolicy: String { case onDemand, alwaysLocal }` to AppSettings.swift
+- Added `vaultLocation: VaultLocation` property (UserDefaults key "vaultLocation", default .local) with objectWillChange.send() in setter
+- Added `attachmentPolicy: AttachmentPolicy` property (UserDefaults key "attachmentPolicy", default .onDemand) with objectWillChange.send() in setter
+- Added `migrationCompletedAt: Date?` property (UserDefaults key "migrationCompletedAt", default nil) with objectWillChange.send() in setter
+- Files changed: DayPage/Config/AppSettings.swift
+- Build: ** BUILD SUCCEEDED **
+- **Learnings for future iterations:**
+  - AppSettings uses objectWillChange.send() before UserDefaults.set() — no @Published needed since properties are computed (read from UserDefaults each time)
+  - The pattern: `objectWillChange.send() + UserDefaults.set()` triggers SwiftUI updates for computed properties on ObservableObject
+  - VaultLocation and AttachmentPolicy enums are defined at file scope in AppSettings.swift, not nested, for cleaner access in other files
+---
