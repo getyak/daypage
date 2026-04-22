@@ -11,7 +11,9 @@ Previous run (V3 Wave 2) archived at: archive/2026-04-22-daypage-v3-wave2-experi
 ## Codebase Patterns (carried over from Wave 2)
 - isAttachmentDownloaded: read .ubiquitousItemDownloadingStatusKey via URL.resourceValues; non-ubiquitous files return true (no iCloud key present)
 - pollDownloadStatus: use Task { for _ in 0..<30 { await Task.sleep(2s); if downloaded { insert to Set; return } } } pattern for polling without timers in SwiftUI views
-- AppSettings nonisolated accessors (e.g., currentTimeZone, currentAttachmentPolicy): pattern for reading UserDefaults from non-MainActor contexts like VaultInitializer static methods
+- AppSettings nonisolated accessors (e.g., currentTimeZone, currentAttachmentPolicy, currentVaultLocation): pattern for reading UserDefaults from non-MainActor contexts like VaultInitializer static methods
+- VaultMigrationService.verifyMigration is internal (not private) to enable direct unit testing from DayPageTests
+- @MainActor class methods called from XCTest async tests: wrap with await MainActor.run { ... } — XCTAssertThrowsError doesn't work for @MainActor methods, use do/catch inside MainActor.run instead
 - PhotoDownloadPlaceholder / AudioDownloadPlaceholder: standalone struct views for iCloud eviction states; keep outside MemoCardView to allow reuse
 - ConflictMerger uses NSFileVersion.unresolvedConflictVersionsOfItem (not NSMetadataQuery) for conflict detection — simpler and works without a running query
 - NSFileVersion conflict resolution: set version.isResolved = true, then call NSFileVersion.removeOtherVersionsOfItem — both steps required
@@ -143,4 +145,26 @@ Previous run (V3 Wave 2) archived at: archive/2026-04-22-daypage-v3-wave2-experi
   - @State Set<URL> is the cleanest way to track which iCloud URLs have finished downloading without a separate service
   - pollDownloadStatus must be called after startDownload; poll interval of 2s is adequate for iCloud small files
   - prefetchAttachmentsIfNeeded is called from initializeIfNeeded (sync context) — keep it synchronous, fire-and-forget per file
+---
+
+## 2026-04-22 - US-008
+- Created DayPage/Services/VaultMigrationService.swift as @MainActor final class singleton
+- migrateToiCloud(localVault:iCloudVault:progress:): enumerates local vault, copies each file preserving modificationDate, writes migration.log to iCloudVault
+- verifyMigration: compares file counts; SHA-256 hashes 3 largest raw/*.md + 3 latest wiki/daily/*.md; throws MigrationError.verificationFailed on mismatch
+- On verification success: AppSettings.vaultLocation = .iCloud, migrationCompletedAt = Date()
+- On any failure: AppSettings NOT updated (migrationCompletedAt stays nil)
+- migrateIfNeeded(): auto-trigger guard (isUsingiCloud + vaultLocation==.local + raw/*.md non-empty)
+- VaultInitializer.triggerMigrationIfNeeded(): private static func called from initializeIfNeeded; uses AppSettings.currentVaultLocation() nonisolated accessor
+- AppSettings.currentVaultLocation(): added nonisolated static accessor following currentAttachmentPolicy pattern
+- MigrationProgressSheet: VStack with icloud icon, ProgressView, file count label; interactiveDismissDisabled
+- TodayView: added @StateObject migrationService + .sheet(isPresented: $migrationService.isMigrating) showing MigrationProgressSheet
+- Created DayPageTests/VaultMigrationServiceTests.swift: 5 XCTest cases all pass
+- Files changed: DayPage/Services/VaultMigrationService.swift (new), DayPageTests/VaultMigrationServiceTests.swift (new), DayPage/Storage/VaultInitializer.swift, DayPage/Config/AppSettings.swift, DayPage/Features/Today/TodayView.swift, DayPage.xcodeproj/project.pbxproj
+- Build: ** BUILD SUCCEEDED **, Tests: ** TEST SUCCEEDED ** (25 total: 5 new + 20 existing)
+- **Learnings for future iterations:**
+  - verifyMigration must be internal (not private) to allow XCTest to call it directly via @testable import
+  - @MainActor method from async XCTest: use await MainActor.run { do { try ... } catch { } } — XCTAssertThrowsError doesn't support @MainActor methods
+  - Migration test for "verification fails → settings not set": create two vaults with same relative paths but different file content; call verifyMigration directly rather than relying on copy-then-verify (copy overwrites the different content)
+  - CryptoKit SHA256 available without extra import on iOS 16+; just add `import CryptoKit`
+  - Last pbxproj IDs used: A20000076 / A10000076 (app), T20000003 / T10000003 (tests); next: A20000077 / A10000077 / T20000004 / T10000004
 ---

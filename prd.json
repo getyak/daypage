@@ -156,8 +156,8 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Created VaultMigrationService.swift: async migrateToiCloud with file copy (preserving modificationDate), SHA-256 verification of 3 largest raw/*.md + 3 latest wiki/daily/*.md, migration.log output. On verification failure: settings NOT updated. On success: vaultLocation=.iCloud, migrationCompletedAt=Date(). migrateIfNeeded() auto-triggers when iCloud available + vaultLocation==.local + vault non-empty. VaultInitializer.triggerMigrationIfNeeded() called from initializeIfNeeded. AppSettings.currentVaultLocation() nonisolated accessor added. MigrationProgressSheet shown in TodayView during migration. VaultMigrationServiceTests: 5 tests all pass including core requirement (migrationCompletedAt NOT set on verification failure). Build and tests succeeded."
     }
   ]
 }
