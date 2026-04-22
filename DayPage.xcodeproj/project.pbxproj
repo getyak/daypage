@@ -63,6 +63,7 @@
 		A10000053 /* InputTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000053 /* InputTokens.swift */; };
 		A10000054 /* RecordingOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000054 /* RecordingOverlayView.swift */; };
 		A10000055 /* PressToTalkButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000055 /* PressToTalkButton.swift */; };
+		A10000056 /* VaultLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000056 /* VaultLocator.swift */; };
 		A10000060 /* DailySharePosterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000060 /* DailySharePosterView.swift */; };
 		A10000061 /* PosterRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000061 /* PosterRenderer.swift */; };
 		A10000062 /* InputBarV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000062 /* InputBarV3.swift */; };
@@ -159,6 +160,7 @@
 		A20000053 /* InputTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputTokens.swift; sourceTree = "<group>"; };
 		A20000054 /* RecordingOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingOverlayView.swift; sourceTree = "<group>"; };
 		A20000055 /* PressToTalkButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PressToTalkButton.swift; sourceTree = "<group>"; };
+		A20000056 /* VaultLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultLocator.swift; sourceTree = "<group>"; };
 		A20000060 /* DailySharePosterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailySharePosterView.swift; sourceTree = "<group>"; };
 		A20000061 /* PosterRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PosterRenderer.swift; sourceTree = "<group>"; };
 		A20000062 /* InputBarV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputBarV3.swift; sourceTree = "<group>"; };
@@ -312,6 +314,7 @@
 			children = (
 				A20000003 /* VaultInitializer.swift */,
 				A20000009 /* RawStorage.swift */,
+				A20000056 /* VaultLocator.swift */,
 			);
 			path = Storage;
 			sourceTree = "<group>";
@@ -650,6 +653,7 @@
 				A10000053 /* InputTokens.swift in Sources */,
 				A10000054 /* RecordingOverlayView.swift in Sources */,
 				A10000055 /* PressToTalkButton.swift in Sources */,
+				A10000056 /* VaultLocator.swift in Sources */,
 				A10000063 /* SwipeableMemoCard.swift in Sources */,
 				A10000042 /* RelativeTimeFormatter.swift in Sources */,
 				A10000070 /* AuthService.swift in Sources */,
