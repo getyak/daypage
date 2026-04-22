@@ -19,6 +19,9 @@ Previous run (V3 Wave 2) archived at: archive/2026-04-22-daypage-v3-wave2-experi
 - SourceKit diagnostics show macOS/cross-module false positives — trust xcodebuild, not SourceKit
 - DayPageTests target uses T* pbxproj ID prefix; app uses A* prefix
 - VaultInitializer.testOverrideURL is the injection point for unit tests
+- RawStorage.atomicWrite is now wrapped in NSFileCoordinator; temp-file + replaceItemAt logic runs inside the coordinator block
+- iCloudVaultLocator.vaultURL falls back to LocalVaultLocator().vaultURL when iCloud unavailable (nil ubiquity container)
+- VaultInitializer.shared is a lazy static var (closure-evaluated once at first access); safe to reassign later for rollback
 
 ---
 
@@ -33,4 +36,19 @@ Previous run (V3 Wave 2) archived at: archive/2026-04-22-daypage-v3-wave2-experi
   - VaultInitializer.shared is now the injection point for swapping storage backends at runtime
   - All 37 call sites remain untouched; they continue to use VaultInitializer.vaultURL which now delegates to shared.vaultURL
   - Last pbxproj ID used: A20000056 (next available: A20000057)
+---
+
+## 2026-04-22 - US-002
+- Added iCloud entitlements to DayPage/App/DayPage.entitlements: icloud-container-identifiers, ubiquity-container-identifiers, icloud-services=CloudDocuments
+- Implemented `struct iCloudVaultLocator: VaultLocator` in DayPage/Storage/VaultLocator.swift
+  - `vaultURL`: returns ubiquity container's Documents/vault, falls back to LocalVaultLocator when nil
+  - `isUsingiCloud`: returns true iff `url(forUbiquityContainerIdentifier:)` is non-nil
+- Updated `VaultInitializer.shared` from `= LocalVaultLocator()` to a lazy closure: tries iCloudVaultLocator first, falls back to LocalVaultLocator
+- Wrapped `RawStorage.atomicWrite` with `NSFileCoordinator.coordinate(writingItemAt:options:.forReplacing)`: temp-file + replaceItemAt logic runs inside the coordinator block
+- Files changed: DayPage/App/DayPage.entitlements, DayPage/Storage/VaultLocator.swift, DayPage/Storage/VaultInitializer.swift, DayPage/Storage/RawStorage.swift
+- Build: ** BUILD SUCCEEDED **
+- **Learnings for future iterations:**
+  - When iCloud not configured (Simulator without account), iCloudVaultLocator.isUsingiCloud == false → shared = LocalVaultLocator() → no crash
+  - NSFileCoordinator.coordinate block receives a potentially remapped `coordinatedURL`; use it (not the original url) for all I/O inside the block
+  - NSFileCoordinator errors land in the `error:` inout parameter, not as thrown exceptions; capture both coordinatorError and writeError
 ---

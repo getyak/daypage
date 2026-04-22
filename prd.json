@@ -37,8 +37,8 @@
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented iCloudVaultLocator in VaultLocator.swift; updated VaultInitializer.shared lazy init; wrapped RawStorage.atomicWrite with NSFileCoordinator; added iCloud entitlements. Build passed."
     },
     {
       "id": "US-003",
