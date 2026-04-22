@@ -130,4 +130,14 @@ final class AppSettings: ObservableObject {
         }
         return policy
     }
+
+    /// Reads the vault location directly from UserDefaults without requiring
+    /// a @MainActor context. Use from VaultInitializer or other non-isolated code.
+    nonisolated static func currentVaultLocation() -> VaultLocation {
+        guard let raw = UserDefaults.standard.string(forKey: "vaultLocation"),
+              let loc = VaultLocation(rawValue: raw) else {
+            return .local
+        }
+        return loc
+    }
 }

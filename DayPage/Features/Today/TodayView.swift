@@ -8,6 +8,7 @@ struct TodayView: View {
     @StateObject private var passiveLocation = PassiveLocationService.shared
     @StateObject private var bannerCenter = BannerCenter.shared
     @StateObject private var voiceQueue = VoiceAttachmentQueue.shared
+    @StateObject private var migrationService = VaultMigrationService.shared
 
     @State private var showAccountSheet: Bool = false
     @State private var showSyncBanner: Bool = false
@@ -456,6 +457,10 @@ struct TodayView: View {
             }
             .sheet(isPresented: $showAuthSheet) {
                 AuthView()
+            }
+            // iCloud migration progress sheet — shown during vault migration
+            .sheet(isPresented: $migrationService.isMigrating) {
+                MigrationProgressSheet(service: migrationService)
             }
             .onAppear {
                 evaluateSyncBanner()

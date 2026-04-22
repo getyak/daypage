@@ -1,0 +1,276 @@
+import Foundation
+import CryptoKit
+import SwiftUI
+
+// MARK: - MigrationError
+
+enum MigrationError: LocalizedError {
+    case iCloudUnavailable
+    case verificationFailed(details: String)
+    case fileCopyFailed(path: String, underlying: Error)
+
+    var errorDescription: String? {
+        switch self {
+        case .iCloudUnavailable:
+            return "iCloud 不可用，无法迁移"
+        case .verificationFailed(let details):
+            return "验证失败：\(details)"
+        case .fileCopyFailed(let path, let err):
+            return "文件复制失败 \(path)：\(err.localizedDescription)"
+        }
+    }
+}
+
+// MARK: - MigrationProgress
+
+struct MigrationProgress {
+    let copied: Int
+    let total: Int
+    var fraction: Double { total > 0 ? Double(copied) / Double(total) : 0 }
+}
+
+// MARK: - VaultMigrationService
+
+@MainActor
+final class VaultMigrationService: ObservableObject {
+
+    static let shared = VaultMigrationService()
+    private init() {}
+
+    @Published var isMigrating: Bool = false
+    @Published var migrationProgress: MigrationProgress = MigrationProgress(copied: 0, total: 0)
+    @Published var migrationError: String? = nil
+
+    // MARK: - Public migration entry point
+
+    /// Copies all files from localVault to iCloudVault preserving structure and modificationDate,
+    /// verifies integrity, then updates AppSettings. Throws on failure.
+    func migrateToiCloud(
+        localVault: URL,
+        iCloudVault: URL,
+        progress: @escaping (Int, Int) -> Void
+    ) async throws {
+        isMigrating = true
+        migrationError = nil
+        defer { isMigrating = false }
+
+        let fm = FileManager.default
+
+        // Enumerate all files in localVault
+        guard let enumerator = fm.enumerator(
+            at: localVault,
+            includingPropertiesForKeys: [.contentModificationDateKey, .isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            throw MigrationError.verificationFailed(details: "无法枚举本地 vault")
+        }
+
+        var filesToCopy: [URL] = []
+        for case let fileURL as URL in enumerator {
+            let isDir = (try? fileURL.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+            if !isDir { filesToCopy.append(fileURL) }
+        }
+
+        let total = filesToCopy.count
+        var logEntries: [String] = ["migration started: \(Date().iso8601String)", "total files: \(total)"]
+        var copyErrors: [String] = []
+
+        for (index, sourceURL) in filesToCopy.enumerated() {
+            let relativePath = sourceURL.path.replacingOccurrences(of: localVault.path, with: "")
+            let destURL = iCloudVault.appendingPathComponent(relativePath)
+
+            let destDir = destURL.deletingLastPathComponent()
+            try? fm.createDirectory(at: destDir, withIntermediateDirectories: true)
+
+            do {
+                if fm.fileExists(atPath: destURL.path) {
+                    try fm.removeItem(at: destURL)
+                }
+                try fm.copyItem(at: sourceURL, to: destURL)
+
+                // Preserve modification date
+                if let modDate = try? sourceURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate {
+                    try? fm.setAttributes([.modificationDate: modDate], ofItemAtPath: destURL.path)
+                }
+
+                let fileSize = (try? fm.attributesOfItem(atPath: sourceURL.path)[.size] as? Int) ?? 0
+                logEntries.append("success: \(relativePath) (\(fileSize) bytes)")
+            } catch {
+                copyErrors.append(relativePath)
+                logEntries.append("failed: \(relativePath) - \(error.localizedDescription)")
+                throw MigrationError.fileCopyFailed(path: relativePath, underlying: error)
+            }
+
+            let copied = index + 1
+            await MainActor.run {
+                self.migrationProgress = MigrationProgress(copied: copied, total: total)
+            }
+            progress(copied, total)
+        }
+
+        // Write migration.log to iCloud
+        let logContent = logEntries.joined(separator: "\n")
+        let logURL = iCloudVault.appendingPathComponent("migration.log")
+        try? logContent.data(using: .utf8)?.write(to: logURL, options: .atomic)
+
+        // Verification step
+        try verifyMigration(localVault: localVault, iCloudVault: iCloudVault, fm: fm)
+
+        // Success — update settings
+        AppSettings.shared.vaultLocation = .iCloud
+        AppSettings.shared.migrationCompletedAt = Date()
+    }
+
+    // MARK: - Verification
+
+    func verifyMigration(localVault: URL, iCloudVault: URL, fm: FileManager) throws {
+        // Compare file counts
+        let localFiles = allFiles(in: localVault, fm: fm)
+        let icloudFiles = allFiles(in: iCloudVault, fm: fm)
+
+        // iCloud vault may have the extra migration.log; allow +1
+        if icloudFiles.count < localFiles.count {
+            throw MigrationError.verificationFailed(
+                details: "文件数量不匹配：本地 \(localFiles.count)，iCloud \(icloudFiles.count)"
+            )
+        }
+
+        // Hash 3 largest raw/*.md files
+        let rawFiles = localFiles
+            .filter { $0.contains("/raw/") && $0.hasSuffix(".md") }
+            .compactMap { relPath -> (String, Int)? in
+                let url = localVault.appendingPathComponent(relPath)
+                let size = (try? fm.attributesOfItem(atPath: url.path)[.size] as? Int) ?? 0
+                return (relPath, size)
+            }
+            .sorted { $0.1 > $1.1 }
+            .prefix(3)
+            .map { $0.0 }
+
+        // Hash 3 latest wiki/daily/*.md files
+        let wikiFiles = localFiles
+            .filter { $0.contains("/wiki/daily/") && $0.hasSuffix(".md") }
+            .sorted()
+            .suffix(3)
+
+        let filesToVerify = Array(rawFiles) + Array(wikiFiles)
+
+        for relativePath in filesToVerify {
+            let localURL = localVault.appendingPathComponent(relativePath)
+            let icloudURL = iCloudVault.appendingPathComponent(relativePath)
+
+            guard let localHash = sha256(of: localURL),
+                  let icloudHash = sha256(of: icloudURL) else {
+                throw MigrationError.verificationFailed(details: "无法读取文件：\(relativePath)")
+            }
+
+            if localHash != icloudHash {
+                throw MigrationError.verificationFailed(details: "哈希不匹配：\(relativePath)")
+            }
+        }
+    }
+
+    private func allFiles(in directory: URL, fm: FileManager) -> [String] {
+        guard let enumerator = fm.enumerator(
+            at: directory,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else { return [] }
+
+        var files: [String] = []
+        for case let url as URL in enumerator {
+            let isDir = (try? url.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory ?? false
+            if !isDir {
+                let relative = url.path.replacingOccurrences(of: directory.path, with: "")
+                // Exclude migration.log from comparison
+                if !relative.hasSuffix("migration.log") {
+                    files.append(relative)
+                }
+            }
+        }
+        return files
+    }
+
+    private func sha256(of url: URL) -> String? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        let hash = SHA256.hash(data: data)
+        return hash.compactMap { String(format: "%02x", $0) }.joined()
+    }
+
+    // MARK: - Auto-migration trigger
+
+    /// Called from VaultInitializer when iCloud becomes available.
+    /// Migrates if: iCloud is usable, vaultLocation == .local, and local vault is non-empty.
+    func migrateIfNeeded() {
+        let locator = iCloudVaultLocator()
+        guard locator.isUsingiCloud else { return }
+        guard AppSettings.shared.vaultLocation == .local else { return }
+
+        let localVault = LocalVaultLocator().vaultURL
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: localVault.path) else { return }
+
+        // Check non-empty: must have at least one raw/*.md file
+        let rawDir = localVault.appendingPathComponent("raw")
+        guard let contents = try? fm.contentsOfDirectory(atPath: rawDir.path),
+              !contents.filter({ $0.hasSuffix(".md") }).isEmpty else { return }
+
+        let iCloudVault = locator.vaultURL
+
+        Task { @MainActor in
+            do {
+                try await self.migrateToiCloud(
+                    localVault: localVault,
+                    iCloudVault: iCloudVault,
+                    progress: { _, _ in }
+                )
+                // Swap runtime locator to iCloud
+                VaultInitializer.shared = locator
+            } catch {
+                self.migrationError = error.localizedDescription
+            }
+        }
+    }
+}
+
+// MARK: - Date helper
+
+private extension Date {
+    var iso8601String: String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f.string(from: self)
+    }
+}
+
+// MARK: - MigrationProgressView
+
+struct MigrationProgressSheet: View {
+    @ObservedObject var service: VaultMigrationService
+
+    var body: some View {
+        VStack(spacing: 24) {
+            Image(systemName: "icloud.and.arrow.up")
+                .font(.system(size: 48))
+                .foregroundColor(DSColor.primary)
+
+            Text("正在迁移到 iCloud")
+                .font(.custom("SpaceGrotesk-Bold", size: 20))
+                .foregroundColor(DSColor.onSurface)
+
+            ProgressView(value: service.migrationProgress.fraction)
+                .tint(DSColor.primary)
+                .frame(maxWidth: 280)
+
+            Text("\(service.migrationProgress.copied) / \(service.migrationProgress.total) 个文件")
+                .font(.custom("Inter-Regular", size: 14))
+                .foregroundColor(DSColor.onSurfaceVariant)
+
+            Text("请勿关闭应用")
+                .font(.custom("Inter-Regular", size: 12))
+                .foregroundColor(DSColor.onSurfaceVariant)
+        }
+        .padding(40)
+        .interactiveDismissDisabled(true)
+    }
+}

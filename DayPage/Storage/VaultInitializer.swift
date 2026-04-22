@@ -30,10 +30,24 @@ enum VaultInitializer {
     /// Safe to call on every launch — operations are idempotent.
     /// When attachmentPolicy == .alwaysLocal, also triggers download of any
     /// evicted iCloud attachment files under vault/raw/assets/.
+    /// When iCloud is available and vaultLocation == .local, triggers migration.
     static func initializeIfNeeded() {
         createDirectories()
         createSeedFiles()
         prefetchAttachmentsIfNeeded()
+        triggerMigrationIfNeeded()
+    }
+
+    // MARK: - iCloud Migration Trigger
+
+    private static func triggerMigrationIfNeeded() {
+        // Only relevant when iCloud is available and user has not yet migrated.
+        let locator = iCloudVaultLocator()
+        guard locator.isUsingiCloud else { return }
+        guard AppSettings.currentVaultLocation() == .local else { return }
+        Task { @MainActor in
+            VaultMigrationService.shared.migrateIfNeeded()
+        }
     }
 
     // MARK: - Attachment prefetch (alwaysLocal policy)
