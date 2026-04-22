@@ -56,6 +56,10 @@ struct DayPageApp: App {
         BackgroundCompilationService.shared.registerTask()
         // Set notification delegate to handle taps
         UNUserNotificationCenter.current().delegate = notificationDelegate
+        // Start iCloud sync monitoring after vault is initialized
+        Task { @MainActor in
+            iCloudSyncMonitor.shared.startMonitoring(vaultURL: VaultInitializer.vaultURL)
+        }
     }
 
     var body: some Scene {
