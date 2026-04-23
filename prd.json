@@ -1,163 +1,115 @@
 {
   "project": "DayPage",
-  "branchName": "ralph/icloud-sync",
-  "description": "iCloud Drive 同步方案 — 零账号零服务器本地优先多设备同步，基于 Issue #64 设计文档 tasks/design-icloud-sync.md",
+  "branchName": "ralph/sentry-linear",
+  "description": "Sentry + Linear 错误监控与自动同步 — iOS 崩溃捕获、性能追踪、Sentry Webhook → GitHub Actions → Linear Issue 全链路自动化",
   "userStories": [
     {
       "id": "US-001",
-      "title": "VaultLocator 协议 + LocalVaultLocator 默认实现",
-      "description": "As a developer, I need to decouple vault path from business logic so the storage backend can be swapped at runtime without touching the 37 call sites.",
+      "title": "集成 Sentry iOS SDK",
+      "description": "As a developer, I need the Sentry SDK initialized at app launch so that all unhandled crashes and errors are automatically captured.",
       "acceptanceCriteria": [
-        "Create DayPage/Storage/VaultLocator.swift with protocol VaultLocator { var vaultURL: URL { get }; var isUsingiCloud: Bool { get } }",
-        "Implement struct LocalVaultLocator: VaultLocator that returns FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent('vault') — identical behavior to current VaultInitializer.vaultURL",
-        "Add static var shared: VaultLocator to VaultInitializer, initialized to LocalVaultLocator()",
-        "Update VaultInitializer.vaultURL to: if let override = testOverrideURL { return override }; return shared.vaultURL",
-        "All 37 existing call sites still compile without any modification",
-        "testOverrideURL hook remains internal and functional",
+        "Add Swift Package Manager dependency: https://github.com/getsentry/sentry-cocoa version >= 8.36.0 to DayPage.xcodeproj",
+        "Link Sentry library to DayPage target",
+        "Add static let sentryDSN: String to GeneratedSecrets.swift (empty string placeholder)",
+        "Add SENTRY_DSN entry to scripts/generate_secrets.sh following same pattern as existing keys",
+        "Add SENTRY_DSN= placeholder line to .env.example with comment",
+        "In DayPageApp.swift init, call SentrySDK.start { options in options.dsn = GeneratedSecrets.sentryDSN; options.tracesSampleRate = ProcessInfo.processInfo.environment[\"DEBUG\"] != nil ? 1.0 : 0.2; options.enableCrashHandler = true; options.attachScreenshot = true; options.attachViewHierarchy = true }",
+        "SentrySDK.start is only called when sentryDSN is non-empty (guard against empty DSN)",
         "xcodebuild -scheme DayPage build passes",
         "Typecheck passes"
       ],
       "priority": 1,
       "passes": true,
-      "notes": "Implemented VaultLocator.swift with protocol + LocalVaultLocator; updated VaultInitializer.shared + vaultURL; build passed."
+      "notes": ""
     },
     {
       "id": "US-002",
-      "title": "iCloud Entitlements 配置 + iCloudVaultLocator 实现",
-      "description": "As a developer, I need the iCloud Drive container wired up so the app can resolve the Ubiquity Container URL and store vault files there.",
+      "title": "性能监控 — API 追踪 Span 封装",
+      "description": "As a developer, I want Sentry to trace outbound API calls so that slow compilations and Whisper timeouts are visible in Sentry Performance.",
       "acceptanceCriteria": [
-        "Add to DayPage.entitlements: com.apple.developer.icloud-container-identifiers = [iCloud.com.daypage.app], com.apple.developer.ubiquity-container-identifiers = [iCloud.$(TeamIdentifierPrefix)com.daypage.app], com.apple.developer.icloud-services = [CloudDocuments]",
-        "Create struct iCloudVaultLocator: VaultLocator in VaultLocator.swift with containerID = 'iCloud.com.daypage.app'",
-        "iCloudVaultLocator.vaultURL returns FileManager.default.url(forUbiquityContainerIdentifier: containerID)?.appendingPathComponent('Documents/vault') — returns nil when iCloud unavailable",
-        "iCloudVaultLocator.isUsingiCloud returns true iff url(forUbiquityContainerIdentifier:) is non-nil",
-        "Update VaultInitializer.shared lazy init: try iCloudVaultLocator first; if isUsingiCloud → use it, else fallback to LocalVaultLocator()",
-        "When iCloud unavailable (Simulator without iCloud account), App launches normally using LocalVaultLocator — no crash",
-        "Wrap RawStorage.atomicWrite with NSFileCoordinator.coordinate(writingItemAt:options:.forReplacing) — existing temp-file + replaceItemAt logic stays inside the coordinator block",
+        "In CompilationService.swift, wrap the DashScope URLSession request in a Sentry span: let span = SentrySDK.startTransaction(name: \"compilation.dashscope\", operation: \"http.client\"); defer { span.finish() }",
+        "In VoiceService.swift, wrap the Whisper API URLSession request in a Sentry span with name: \"voice.whisper\", operation: \"http.client\"",
+        "In WeatherService.swift, wrap the OpenWeatherMap URLSession request in a Sentry span with name: \"weather.fetch\", operation: \"http.client\"",
+        "In BackgroundCompilationService.swift, wrap background task execution in a Sentry transaction named \"background.compilation\" and call SentrySDK.flush(timeout: 5) before task completion handler",
+        "Spans are only created when SentrySDK is initialized (sentryDSN non-empty)",
         "xcodebuild -scheme DayPage build passes",
         "Typecheck passes"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "Implemented iCloudVaultLocator in VaultLocator.swift; updated VaultInitializer.shared lazy init; wrapped RawStorage.atomicWrite with NSFileCoordinator; added iCloud entitlements. Build passed."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-003",
-      "title": "AppSettings: vaultLocation + attachmentPolicy 持久化",
-      "description": "As a developer, I need UserDefaults-backed settings for vault location and attachment policy so other services and UI can read current sync state.",
+      "title": "DayPageLogger 与 Sentry Breadcrumb 打通",
+      "description": "As a developer, I want existing log entries to appear as Sentry breadcrumbs so that I can see what the user did before a crash without changing all call sites.",
       "acceptanceCriteria": [
-        "Add enum VaultLocation: String { case local = 'local'; case iCloud = 'iCloud' } to AppSettings.swift",
-        "Add enum AttachmentPolicy: String { case onDemand = 'onDemand'; case alwaysLocal = 'alwaysLocal' } to AppSettings.swift",
-        "Add AppSettings.vaultLocation: VaultLocation (UserDefaults key 'vaultLocation', default .local)",
-        "Add AppSettings.attachmentPolicy: AttachmentPolicy (UserDefaults key 'attachmentPolicy', default .onDemand)",
-        "Add AppSettings.migrationCompletedAt: Date? (UserDefaults key 'migrationCompletedAt', default nil)",
-        "All properties are @Published and trigger SwiftUI updates",
+        "Find DayPageLogger.swift (or equivalent logging utility) in the codebase",
+        "In DayPageLogger.error(), add: let crumb = Breadcrumb(level: .error, category: \"app\"); crumb.message = message; SentrySDK.addBreadcrumb(crumb); also call SentrySDK.capture(message: message, level: .error)",
+        "In DayPageLogger.warn() (or warning()), add Sentry breadcrumb with level: .warning",
+        "In DayPageLogger.info(), add Sentry breadcrumb with level: .info",
+        "Breadcrumb message uses format consistent with existing log output",
+        "All existing DayPageLogger call sites compile without modification",
+        "Sentry calls are no-ops when SDK not initialized (SDK handles this gracefully by default)",
         "xcodebuild -scheme DayPage build passes",
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Added VaultLocation + AttachmentPolicy enums and vaultLocation, attachmentPolicy, migrationCompletedAt properties to AppSettings.swift. Build passed."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-004",
-      "title": "iCloudSyncMonitor — NSMetadataQuery 实时监听同步状态",
-      "description": "As a developer, I need a service that watches iCloud sync state so the Settings UI can display live upload/download counts.",
+      "title": "用户上下文注入",
+      "description": "As a developer, I want Sentry events to include user ID and app version so I can filter errors by user cohort and build.",
       "acceptanceCriteria": [
-        "Create DayPage/Services/iCloudSyncMonitor.swift as @MainActor final class iCloudSyncMonitor: ObservableObject",
-        "@Published var status: SyncStatus with enum SyncStatus { case notConfigured, connected(lastSync: Date?), syncing(pendingFiles: Int), error(message: String) }",
-        "@Published var pendingUploadCount: Int = 0",
-        "@Published var pendingDownloadCount: Int = 0",
-        "func startMonitoring(vaultURL: URL) starts NSMetadataQuery with searchScopes=[NSMetadataQueryUbiquitousDocumentsScope] and predicate filtering by vaultURL.path prefix",
-        "NSMetadataQueryDidUpdate handler reads NSMetadataUbiquitousItemIsUploadingKey + IsDownloadingKey per item, updates published counts",
-        "When iCloud not configured (LocalVaultLocator active), status = .notConfigured and monitoring is no-op",
-        "Register iCloudSyncMonitor.shared as singleton and start monitoring in DayPageApp after VaultInitializer.initializeIfNeeded()",
+        "In AuthService.swift, after successful sign-in (session becomes non-nil), call: let user = SentrySDK.setUser(SentryUser(userId: session.user.id.uuidString))",
+        "In AuthService.signOut(), call SentrySDK.setUser(nil)",
+        "If AuthService does not exist yet (auth not integrated), add the Sentry user calls to a placeholder location with a TODO comment noting where to wire them when auth is added",
+        "Verify Sentry automatically captures app.version (CFBundleShortVersionString), app.build (CFBundleVersion), device.model, os.version via SDK defaults — no manual configuration needed",
         "xcodebuild -scheme DayPage build passes",
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "Created iCloudSyncMonitor.swift with SyncStatus enum, NSMetadataQuery monitoring, @Published counts. Registered in DayPageApp.init after VaultInitializer. Build passed."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-005",
-      "title": "ConflictMerger — Raw Memo 冲突合并逻辑 + Swift Testing 单测",
-      "description": "As a developer, I need conflict resolution logic for iCloud conflict copies so no memo is ever lost when two devices write to the same day file simultaneously.",
+      "title": "GitHub Actions Sentry→Linear 中转 Workflow",
+      "description": "As a developer, I need a GitHub Actions workflow that receives Sentry webhooks and creates Linear issues so the pipeline is version-controlled and auditable.",
       "acceptanceCriteria": [
-        "Create DayPage/Services/ConflictMerger.swift with func mergeRawMemos(original: [Memo], conflict: [Memo]) -> [Memo]",
-        "Merge algorithm: concatenate both arrays, sort by memo.created ascending, deduplicate by memo.id (UUID), keep first occurrence of each UUID",
-        "Create func mergeLogLines(original: String, conflict: String) -> String that deduplicates wiki/log.md lines by timestamp prefix",
-        "Create func mergeJSONEntries(original: Data, conflict: Data, idKey: String) -> Data that deduplicates JSON array entries by idKey field (for drafts/*.json)",
-        "Detect iCloud conflict copies in vault/raw/ via NSMetadataQuery (NSMetadataUbiquitousItemHasUnresolvedConflictsKey) and auto-merge them using ConflictMerger",
-        "After successful merge, delete conflict copy files and write merged result back to primary file using NSFileCoordinator",
-        "Post NotificationCenter notification .vaultConflictResolved with ConflictResolutionInfo(date: Date, mergedMemoCount: Int, sourceDevice: String) after merge",
-        "Swift Testing unit tests in DayPageTests covering: UUID deduplication keeps unique memos, duplicate UUID keeps only one, merged result is sorted by created, empty array merge, two non-overlapping sets produce union",
-        "Tests pass (xcodebuild -scheme DayPage test)",
-        "Typecheck passes"
+        "Create .github/workflows/sentry-to-linear.yml triggered by repository_dispatch with event type sentry_issue",
+        "Workflow reads from event payload: issue_id, title, culprit, url, count, userCount, environment, fingerprint",
+        "Step 1 — Dedup check: query Linear GraphQL API for open issues where title starts with '[Sentry]' and description contains the fingerprint; if found, skip creation and exit with success",
+        "Step 2 — Priority mapping: userCount >= 10 → priority 1 (Urgent), >= 3 → priority 2 (High), else → priority 3 (Medium)",
+        "Step 3 — Create Linear issue via GraphQL mutation issueCreate with: title = '[Sentry] {title}', description includes error summary + culprit + affected users + occurrence count + environment + Sentry URL + fingerprint, labelIds = bug label, priority from mapping, teamId from LINEAR_TEAM_ID secret",
+        "Workflow uses secrets: LINEAR_API_KEY, LINEAR_TEAM_ID, SENTRY_WEBHOOK_SECRET",
+        "Add workflow-level permissions: contents: read",
+        "On failure, workflow exits with non-zero code so GitHub Actions sends notification",
+        "Add comments in the YAML explaining each step",
+        "Typecheck passes (YAML lint via yamllint or actionlint if available, otherwise skip)"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Created ConflictMerger.swift with mergeRawMemos (UUID dedup + sort by created), mergeLogLines (timestamp prefix dedup), mergeJSONEntries (idKey dedup). Added iCloud conflict detection via NSFileVersion + NSFileCoordinator write-back + .vaultConflictResolved notification. ConflictMergerTests.swift: 9 XCTest cases all pass. Build and tests succeeded."
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Settings iCloud 同步面板 + 首次开启引导卡片",
-      "description": "As a user, I want to see iCloud sync status in Settings and get guided to enable iCloud Drive if it's not configured.",
+      "title": "Sentry Webhook 配置 Runbook",
+      "description": "As a developer, I need a runbook documenting how to configure the Sentry Webhook so any team member can set up or restore the pipeline.",
       "acceptanceCriteria": [
-        "Add 'iCloud 同步' section to SettingsView in the Data area, using @StateObject iCloudSyncMonitor.shared",
-        "When status == .notConfigured: show a card with '☁️ 开启多设备同步' title, subtitle '在 iPhone 与 iPad 之间同步你的日记', and a '前往 iOS 设置开启 iCloud Drive' button that opens UIApplication.openSettingsURLString",
-        "When status == .connected: show green dot + '已连接' + 'iCloud Drive' label + last sync time formatted as '今天 HH:mm' for today or 'M月d日 HH:mm' for other dates",
-        "When status == .syncing(let n): show spinner + '同步中' + '\(n) 个文件待传'",
-        "When status == .error(let msg): show red exclamation + '同步错误' + msg",
-        "Add AttachmentPolicy picker under the status row: '按需下载（节省空间）' and '始终保留本地副本'",
-        "When AppSettings.migrationCompletedAt != nil AND Date().timeIntervalSince(migrationCompletedAt) < 30*24*3600: show '切换回本地存储' secondary button",
-        "xcodebuild -scheme DayPage build passes",
-        "Typecheck passes",
-        "Verify in Simulator using verify-daypage skill"
-      ],
-      "priority": 6,
-      "passes": true,
-      "notes": "Added iCloudSyncSection to SettingsView: .notConfigured shows onboarding card with openSettings button; .connected shows green dot + last sync time; .syncing shows spinner + pending count; .error shows red exclamation + message. AttachmentPolicy picker hidden when notConfigured. Rollback button shown within 30-day migration window. Build passed."
-    },
-    {
-      "id": "US-007",
-      "title": "附件按需下载占位符 — MemoCardView iCloud eviction 处理",
-      "description": "As a user, I want to see a placeholder when an attachment hasn't been downloaded from iCloud yet, and have it download automatically when I need it.",
-      "acceptanceCriteria": [
-        "In MemoCardView, add func isAttachmentDownloaded(_ url: URL) -> Bool that reads .ubiquitousItemDownloadingStatusKey from URL resource values; returns true for local files (non-ubiquitous)",
-        "Add func startDownload(_ url: URL) that calls FileManager.default.startDownloadingUbiquitousItem(at:) — no-op on local files",
-        "For photo attachments: if !isAttachmentDownloaded, show a gray RoundedRectangle placeholder with ProgressView centered; call startDownload on appear; when status becomes .current, refresh the thumbnail",
-        "For audio attachments: if !isAttachmentDownloaded, show a waveform placeholder with download icon; call startDownload on tap",
-        "For local vault (iCloud disabled), isAttachmentDownloaded always returns true — no placeholders shown",
-        "When AppSettings.attachmentPolicy == .alwaysLocal, call startDownloadingUbiquitousItem on all vault/raw/assets/ files during VaultInitializer.initializeIfNeeded()",
-        "xcodebuild -scheme DayPage build passes",
-        "Typecheck passes",
-        "Verify in Simulator using verify-daypage skill"
-      ],
-      "priority": 7,
-      "passes": true,
-      "notes": "Added isAttachmentDownloaded(_:) + startDownload(_:) + pollDownloadStatus(for:) to MemoCardView. Photo shows PhotoDownloadPlaceholder when evicted; audio shows AudioDownloadPlaceholder. Local vault always returns true — no placeholders. VaultInitializer.prefetchAttachmentsIfNeeded() walks vault/raw/assets/ on launch when attachmentPolicy == .alwaysLocal. AppSettings.currentAttachmentPolicy() added as nonisolated accessor. Build passed."
-    },
-    {
-      "id": "US-008",
-      "title": "VaultMigrationService — 老用户本地 vault → iCloud 迁移 + 回滚",
-      "description": "As an existing user with local vault data, I want my data automatically migrated to iCloud when I enable it, with a 30-day rollback window if something goes wrong.",
-      "acceptanceCriteria": [
-        "Create DayPage/Services/VaultMigrationService.swift as @MainActor final class",
-        "func migrateToiCloud(localVault: URL, iCloudVault: URL, progress: @escaping (Int, Int) -> Void) async throws — copies all files preserving directory structure and modificationDate, reports (copiedCount, totalCount)",
-        "Verification step: compare file count in localVault vs iCloudVault; SHA-256 hash the 3 largest raw/*.md files and 3 latest wiki/daily/*.md files in both locations — throw MigrationError.verificationFailed if any hash mismatches",
-        "On verification success: set AppSettings.vaultLocation = .iCloud, AppSettings.migrationCompletedAt = Date()",
-        "On verification failure: leave AppSettings.vaultLocation = .local, do not delete local vault",
-        "Write a migration.log file to iCloudVault listing each copied file with status (success/failed) and file size",
-        "Call migrateToiCloud in VaultInitializer when iCloud becomes available AND AppSettings.vaultLocation == .local AND local vault directory is non-empty",
-        "Show migration progress sheet in TodayView or as a system alert during migration (progress callback drives a @Published migrationProgress on a shared migration service)",
-        "Settings rollback button (US-006, 30-day window): sets AppSettings.vaultLocation = .local and reinitializes VaultInitializer.shared = LocalVaultLocator()",
-        "Swift Testing unit test: mock FileManager verifies that migrationCompletedAt is NOT set when verification fails",
-        "Tests pass (xcodebuild -scheme DayPage test)",
+        "Create tasks/runbook-sentry-linear.md",
+        "Runbook section 1: Prerequisites — list required accounts (Sentry, Linear, GitHub), required secrets (SENTRY_DSN, LINEAR_API_KEY, LINEAR_TEAM_ID, SENTRY_WEBHOOK_SECRET), and how to obtain each",
+        "Runbook section 2: Sentry Webhook setup steps — navigate to Sentry Project Settings → Integrations → Webhooks, add endpoint URL format: https://api.github.com/repos/{owner}/{repo}/dispatches with Authorization header using GitHub PAT, configure to trigger on New Issue event only",
+        "Runbook section 3: GitHub Secrets setup — list all required secrets and where to set them (repo Settings → Secrets → Actions)",
+        "Runbook section 4: Testing the pipeline — curl command to manually trigger repository_dispatch with sample sentry_issue payload for testing without real Sentry events",
+        "Runbook section 5: Verification checklist — empty checkboxes for operator to fill in after setup",
         "Typecheck passes"
       ],
-      "priority": 8,
-      "passes": true,
-      "notes": "Created VaultMigrationService.swift: async migrateToiCloud with file copy (preserving modificationDate), SHA-256 verification of 3 largest raw/*.md + 3 latest wiki/daily/*.md, migration.log output. On verification failure: settings NOT updated. On success: vaultLocation=.iCloud, migrationCompletedAt=Date(). migrateIfNeeded() auto-triggers when iCloud available + vaultLocation==.local + vault non-empty. VaultInitializer.triggerMigrationIfNeeded() called from initializeIfNeeded. AppSettings.currentVaultLocation() nonisolated accessor added. MigrationProgressSheet shown in TodayView during migration. VaultMigrationServiceTests: 5 tests all pass including core requirement (migrationCompletedAt NOT set on verification failure). Build and tests succeeded."
+      "priority": 6,
+      "passes": false,
+      "notes": ""
     }
   ]
 }
