@@ -64,7 +64,7 @@
 		A10000054 /* RecordingOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000054 /* RecordingOverlayView.swift */; };
 		A10000055 /* PressToTalkButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000055 /* PressToTalkButton.swift */; };
 		A10000056 /* VaultLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000056 /* VaultLocator.swift */; };
-		A10000064 /* iCloudSyncMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000064 /* iCloudSyncMonitor.swift */; };
+		A10000079 /* iCloudSyncMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000079 /* iCloudSyncMonitor.swift */; };
 		A10000060 /* DailySharePosterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000060 /* DailySharePosterView.swift */; };
 		A10000061 /* PosterRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000061 /* PosterRenderer.swift */; };
 		A10000062 /* InputBarV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000062 /* InputBarV3.swift */; };
@@ -313,7 +313,7 @@
 				A20000045 /* OnThisDayIndex.swift */,
 				A20000047 /* OnThisDayScheduler.swift */,
 				A20000049 /* SampleDataSeeder.swift */,
-				A20000064 /* iCloudSyncMonitor.swift */,
+				A20000079 /* iCloudSyncMonitor.swift */,
 				A20000077 /* ConflictMerger.swift */,
 				A20000078 /* VaultMigrationService.swift */,
 				A20000070 /* AuthService.swift */,
@@ -671,7 +671,7 @@
 				A10000056 /* VaultLocator.swift in Sources */,
 				A10000063 /* SwipeableMemoCard.swift in Sources */,
 				A10000042 /* RelativeTimeFormatter.swift in Sources */,
-				A10000064 /* iCloudSyncMonitor.swift in Sources */,
+				A10000079 /* iCloudSyncMonitor.swift in Sources */,
 				A10000077 /* ConflictMerger.swift in Sources */,
 				A10000078 /* VaultMigrationService.swift in Sources */,
 				A10000070 /* AuthService.swift in Sources */,
