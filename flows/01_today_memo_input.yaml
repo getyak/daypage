@@ -1,18 +1,18 @@
 appId: com.daypage.app
 ---
-# Flow 01: Today Tab — 验证输入框可用
+# Flow 01: Today View — 验证输入框可用
 - launchApp:
     arguments:
       hasOnboarded: "true"
       authSkipped: "true"
 - takeScreenshot: launch
 
-# 确认 Today Tab 已加载
+# 确认 Today View 已加载（品牌文字 DAYPAGE 可见）
 - assertVisible:
-    text: "Today"
+    text: "DAYPAGE"
     optional: false
 
-- takeScreenshot: today_tab_loaded
+- takeScreenshot: today_view_loaded
 
 # 点击 "打开文字输入" 按钮展开输入行（collapsed 模式下先展开）
 - tapOn:

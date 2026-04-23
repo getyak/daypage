@@ -86,6 +86,7 @@ struct TodayView: View {
                                 .foregroundColor(DSColor.onSurface)
                                 .frame(width: 32, height: 32)
                         }
+                        .accessibilityLabel("Open navigation")
 
                         // Brand name
                         Text("DAYPAGE")

@@ -496,6 +496,7 @@ struct ArchiveView: View {
                     .frame(width: 32, height: 32)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Open navigation")
 
             Text("ARCHIVE")
                 .font(.custom("SpaceGrotesk-Bold", size: 20))
