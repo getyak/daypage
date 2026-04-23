@@ -61,6 +61,8 @@
 	<array>
 		<string>com.daypage.daily-compilation</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>DayPage 需要访问相机，以便拍摄照片并附加到 memo 中。</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>DayPage 需要访问麦克风，以便录制语音 memo 并自动转写为文字。</string>
 	<key>NSPhotoLibraryUsageDescription</key>
