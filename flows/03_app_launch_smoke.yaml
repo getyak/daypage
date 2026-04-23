@@ -8,9 +8,9 @@ appId: com.daypage.app
 - takeScreenshot: launch
 
 # 等待主界面加载（DAYPAGE 品牌文字可见，侧边栏导航已替代 Tab bar）
-- assertVisible:
-    text: "DAYPAGE"
-    optional: false
+- extendedWaitUntil:
+    visible: "DAYPAGE"
+    timeout: 10000
 
 - takeScreenshot: stable
 

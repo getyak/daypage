@@ -497,6 +497,7 @@ struct ArchiveView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Open navigation")
+            .accessibilityIdentifier("sidebar-menu-button")
 
             Text("ARCHIVE")
                 .font(.custom("SpaceGrotesk-Bold", size: 20))

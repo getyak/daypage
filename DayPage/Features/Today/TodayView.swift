@@ -87,6 +87,7 @@ struct TodayView: View {
                                 .frame(width: 32, height: 32)
                         }
                         .accessibilityLabel("Open navigation")
+                        .accessibilityIdentifier("sidebar-menu-button")
 
                         // Brand name
                         Text("DAYPAGE")

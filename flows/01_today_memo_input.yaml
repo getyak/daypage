@@ -7,10 +7,10 @@ appId: com.daypage.app
       authSkipped: "true"
 - takeScreenshot: launch
 
-# 确认 Today View 已加载（品牌文字 DAYPAGE 可见）
-- assertVisible:
-    text: "DAYPAGE"
-    optional: false
+# 等待 Today View 加载（品牌文字 DAYPAGE 可见）
+- extendedWaitUntil:
+    visible: "DAYPAGE"
+    timeout: 10000
 
 - takeScreenshot: today_view_loaded
 

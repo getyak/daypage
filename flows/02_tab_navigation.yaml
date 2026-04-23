@@ -7,13 +7,15 @@ appId: com.daypage.app
       authSkipped: "true"
 - takeScreenshot: launch
 
-# 验证默认在 Today View（DAYPAGE 品牌文字可见，无底部 Tab bar）
-- assertVisible: "DAYPAGE"
+# 等待 Today View 加载（DAYPAGE 可见）
+- extendedWaitUntil:
+    visible: "DAYPAGE"
+    timeout: 10000
 - takeScreenshot: today_view
 
-# 打开侧边栏（点击汉堡菜单按钮）
+# 打开侧边栏（通过 accessibilityIdentifier 定位汉堡按钮）
 - tapOn:
-    text: "Open navigation"
+    id: "sidebar-menu-button"
 - waitForAnimationToEnd
 - takeScreenshot: sidebar_open
 
@@ -27,7 +29,7 @@ appId: com.daypage.app
 
 # 重新打开侧边栏
 - tapOn:
-    text: "Open navigation"
+    id: "sidebar-menu-button"
 - waitForAnimationToEnd
 - takeScreenshot: sidebar_open_again
 
