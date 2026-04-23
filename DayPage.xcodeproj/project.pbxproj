@@ -65,6 +65,8 @@
 		A10000055 /* PressToTalkButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000055 /* PressToTalkButton.swift */; };
 		A10000056 /* VaultLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000056 /* VaultLocator.swift */; };
 		A10000079 /* iCloudSyncMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000079 /* iCloudSyncMonitor.swift */; };
+		A10000080 /* AppNavigationModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000080 /* AppNavigationModel.swift */; };
+		A10000081 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000081 /* SidebarView.swift */; };
 		A10000060 /* DailySharePosterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000060 /* DailySharePosterView.swift */; };
 		A10000061 /* PosterRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000061 /* PosterRenderer.swift */; };
 		A10000062 /* InputBarV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000062 /* InputBarV3.swift */; };
@@ -172,6 +174,8 @@
 		A20000063 /* SwipeableMemoCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeableMemoCard.swift; sourceTree = "<group>"; };
 		A20000064 /* AttachmentMenuSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentMenuSheet.swift; sourceTree = "<group>"; };
 		A20000079 /* iCloudSyncMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iCloudSyncMonitor.swift; sourceTree = "<group>"; };
+		A20000080 /* AppNavigationModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNavigationModel.swift; sourceTree = "<group>"; };
+		A20000081 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		A20000070 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		A20000072 /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
 		A20000073 /* EmailAuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailAuthView.swift; sourceTree = "<group>"; };
@@ -239,6 +243,8 @@
 			children = (
 				A20000001 /* DayPageApp.swift */,
 				A20000002 /* RootView.swift */,
+				A20000080 /* AppNavigationModel.swift */,
+				A20000081 /* SidebarView.swift */,
 				A20000024 /* Info.plist */,
 				A20000071 /* DayPage.entitlements */,
 				A20000029 /* Assets.xcassets */,
@@ -672,6 +678,8 @@
 				A10000063 /* SwipeableMemoCard.swift in Sources */,
 				A10000042 /* RelativeTimeFormatter.swift in Sources */,
 				A10000079 /* iCloudSyncMonitor.swift in Sources */,
+				A10000080 /* AppNavigationModel.swift in Sources */,
+				A10000081 /* SidebarView.swift in Sources */,
 				A10000077 /* ConflictMerger.swift in Sources */,
 				A10000078 /* VaultMigrationService.swift in Sources */,
 				A10000070 /* AuthService.swift in Sources */,
