@@ -240,6 +240,31 @@ jobs:
           echo "PROVISIONING_PROFILE_UUID=$UUID" >> $GITHUB_ENV
           echo "Provisioning profile UUID: $UUID"
 
+          # Validate that the profile includes required iCloud entitlements.
+          # If missing, the build will fail at archive time with a cryptic error.
+          # See: https://github.com/getyak/daypage/issues/120
+          DECODED=$(security cms -D -i $PP_PATH)
+          MISSING_ENTITLEMENTS=()
+          for KEY in \
+            "com.apple.developer.icloud-container-identifiers" \
+            "com.apple.developer.icloud-services" \
+            "com.apple.developer.ubiquity-container-identifiers"; do
+            if ! echo "$DECODED" | grep -q "$KEY"; then
+              MISSING_ENTITLEMENTS+=("$KEY")
+            fi
+          done
+          if [ ${#MISSING_ENTITLEMENTS[@]} -gt 0 ]; then
+            echo "::error::Provisioning profile is missing required iCloud entitlements:"
+            for E in "${MISSING_ENTITLEMENTS[@]}"; do
+              echo "::error::  - $E"
+            done
+            echo "::error::Fix: regenerate 'DayPage AppStore' profile in Apple Developer Portal"
+            echo "::error::after enabling iCloud capability for com.daypage.app, then update"
+            echo "::error::the BUILD_PROVISION_PROFILE_BASE64 GitHub Secret. See issue #120."
+            exit 1
+          fi
+          echo "Provisioning profile includes all required iCloud entitlements ✓"
+
       # ── 10. Write App Store Connect API Key ──────────────────────────────
       - name: Write App Store Connect API key
         env:
