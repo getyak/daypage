@@ -78,3 +78,14 @@ Started: Fri Apr 24 00:47:52 +07 2026
   - YAML multi-line heredocs with `<<'GQL'` / `<<'EOF'` work fine in GitHub Actions bash steps
   - BUILD SUCCEEDED confirmed (iOS build unaffected by workflow addition)
 ---
+
+## 2026-04-24 - US-006
+- Implemented Sentry Webhook 配置 Runbook
+- Files changed:
+  - tasks/runbook-sentry-linear.md: created 5-section runbook covering prerequisites, Sentry Webhook setup, GitHub Secrets setup, pipeline testing with curl, and verification checklist
+  - prd.json: marked US-006 passes: true
+- **Learnings for future iterations:**
+  - Sentry Webhook does not natively support GitHub repository_dispatch; use Sentry's generic Webhook with custom payload pointing to https://api.github.com/repos/{owner}/{repo}/dispatches
+  - GitHub PAT for dispatch needs `repo` scope; stored as Sentry Webhook Authorization header value `token <PAT>` (not Bearer)
+  - Runbook includes dedup test instructions: run the same curl twice to verify no duplicate Linear issue is created
+---
