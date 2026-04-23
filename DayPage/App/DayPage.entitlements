@@ -12,7 +12,7 @@
 	</array>
 	<key>com.apple.developer.ubiquity-container-identifiers</key>
 	<array>
-		<string>iCloud.$(TeamIdentifierPrefix)com.daypage.app</string>
+		<string>iCloud.com.daypage.app</string>
 	</array>
 	<key>com.apple.developer.icloud-services</key>
 	<array>
