@@ -64,6 +64,13 @@ struct PressToTalkButton: View {
     /// Diameter of the circular button and its hit target.
     var size: CGFloat = 40
 
+    /// Override idle-state background. Recording/cancel/transcribe phases
+    /// keep their own colors regardless of this value.
+    var idleBackgroundColor: Color? = nil
+
+    /// Override idle-state icon color.
+    var idleIconColor: Color? = nil
+
     // MARK: Constants
 
     /// Duration (seconds) that separates a "tap" from a "hold". Under this threshold
@@ -210,7 +217,7 @@ struct PressToTalkButton: View {
         case .cancelArmed: return DSColor.error
         case .transcribeArmed: return Color(red: 0.12, green: 0.30, blue: 0.65)
         case .recording: return DSColor.onPrimary
-        default: return DSColor.onSurface
+        default: return idleIconColor ?? DSColor.onSurface
         }
     }
 
@@ -219,7 +226,7 @@ struct PressToTalkButton: View {
         case .cancelArmed: return DSColor.errorContainer
         case .transcribeArmed: return Color(red: 0.85, green: 0.92, blue: 1.0)
         case .recording, .transcribing: return DSColor.primary
-        default: return DSColor.surfaceContainerHigh
+        default: return idleBackgroundColor ?? DSColor.surfaceContainerHigh
         }
     }
 }

@@ -5,12 +5,12 @@ import UIKit
 
 // MARK: - InputBarV3 (Voice-First)
 //
-// Voice-first home composer for Issue #76. Two states:
+// Voice-first home composer. Two states:
 //
-//   • collapsed — empty default. A centered 80pt primary mic (press-and-hold
-//     to record, slide-up to cancel, slide-left to transcribe-into-draft,
-//     release-in-place to send) with a small muted text affordance under
-//     it. Nothing else competes for attention.
+//   • collapsed — 64pt black mic centered as the primary CTA. Long-press to
+//     talk (slide-up to cancel, slide-left to transcribe-into-draft, release
+//     to send) or short-tap for the persistent recording bar. Text pill and
+//     camera sit below as a secondary action row.
 //
 //   • composing — user tapped the text affordance or has draft content or
 //     pending attachments. Reveals a capsule TextEditor with `+` on the
@@ -217,22 +217,17 @@ struct InputBarV3: View {
         }
     }
 
-    // MARK: - Collapsed Row (text + voice side-by-side)
+    // MARK: - Collapsed Row (centered primary mic + secondary action bar)
     //
-    // Previously a 80pt centered mic button with a tiny "写点什么" affordance that
-    // failed WCAG AA contrast (2.4:1). Redesigned to a horizontal bar where text
-    // and voice have equal visual weight — new users can find either entry instantly.
-    //
-    // Layout: [mic 44pt] [tappable text pill — fills remaining width]
-    // The text pill is visually identical to the composingRow capsule so the
-    // transition reads as "the same field expanded" rather than a mode swap.
+    // Voice is the primary action — 64pt black circle, centered, visually dominant.
+    // Text and camera sit below as a compact secondary bar so they remain reachable
+    // without competing for attention with the mic.
 
     @ViewBuilder
     private var collapsedRow: some View {
-        HStack(alignment: .center, spacing: 10) {
-            // Voice button — 44pt so it satisfies HIG minimum hit target.
-            // Hint labels above the button tell new users the gesture affordances.
-            VStack(spacing: 4) {
+        VStack(spacing: 12) {
+            // Primary: centered voice button
+            VStack(spacing: 8) {
                 PressToTalkButton(
                     onTap: { handleTapToRecord() },
                     onPressStart: { handlePressToTalkStart() },
@@ -244,40 +239,38 @@ struct InputBarV3: View {
                             pressToTalkPhase = phase
                         }
                     },
-                    size: 44
+                    size: 64,
+                    idleBackgroundColor: DSColor.primary,
+                    idleIconColor: DSColor.onPrimary
                 )
-                Text("说话")
-                    .font(.custom("Inter-Regular", size: 10))
+                Text("按住说话")
+                    .font(.custom("Inter-Medium", size: 12))
                     .foregroundColor(DSColor.onSurfaceVariant)
             }
+            .frame(maxWidth: .infinity)
 
-            // Text entry pill — always visible, tapping focuses the real TextEditor
-            // in composingRow. Using a Button with a ZStack so the entire area is
-            // tappable and the placeholder reads at full onSurfaceVariant opacity
-            // (contrast ≥ 4.5:1 against surface #f9f9f9).
-            Button {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                userExpandedText = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    isFocused = true
+            // Secondary: text + camera
+            HStack(alignment: .center, spacing: 10) {
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    userExpandedText = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        isFocused = true
+                    }
+                } label: {
+                    ZStack(alignment: .leading) {
+                        Text("记点什么…")
+                            .font(.custom("Inter-Regular", size: 15))
+                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .padding(.horizontal, 14)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 40)
+                    .background(DSColor.surfaceContainerLow)
+                    .clipShape(Capsule())
                 }
-            } label: {
-                ZStack(alignment: .leading) {
-                    Text("记点什么…")
-                        .font(.custom("Inter-Regular", size: 15))
-                        .foregroundColor(DSColor.onSurfaceVariant)
-                        .padding(.horizontal, 14)
-                }
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .background(DSColor.surfaceContainerLow)
-                .clipShape(Capsule())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("打开文字输入，记点什么")
+                .buttonStyle(.plain)
+                .accessibilityLabel("打开文字输入，记点什么")
 
-            // Camera shortcut — 1-tap access to capture a photo without needing
-            // to enter composing mode first. Nomads' highest-frequency attachment action.
-            VStack(spacing: 4) {
                 Button {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     onCapturePhoto()
@@ -285,19 +278,16 @@ struct InputBarV3: View {
                     Image(systemName: "camera")
                         .font(.system(size: 18, weight: .regular))
                         .foregroundColor(DSColor.onSurfaceVariant)
-                        .frame(width: 44, height: 44)
+                        .frame(width: 40, height: 40)
                         .background(DSColor.surfaceContainerLow)
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("拍照")
-                Text("拍照")
-                    .font(.custom("Inter-Regular", size: 10))
-                    .foregroundColor(DSColor.onSurfaceVariant)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
         .background(DSColor.surface)
     }
 
