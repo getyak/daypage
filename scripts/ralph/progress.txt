@@ -38,3 +38,15 @@ Started: Fri Apr 24 00:47:52 +07 2026
   - SourceKit shows "No such module 'Sentry'" in IDE but xcodebuild BUILD SUCCEEDED — this is expected until Xcode indexes the SPM package
   - BUILD SUCCEEDED confirmed
 ---
+
+## 2026-04-24 - US-003
+- Implemented DayPageLogger + Sentry Breadcrumb integration
+- Files changed:
+  - DayPage/Services/DayPageLogger.swift: added `import Sentry`; in error() added Breadcrumb(.error) + SentrySDK.addBreadcrumb + SentrySDK.capture(message:) with setLevel(.error) scope block; in warn() added Breadcrumb(.warning) + addBreadcrumb; in info() added Breadcrumb(.info) + addBreadcrumb
+  - prd.json: marked US-003 passes: true
+- **Learnings for future iterations:**
+  - `SentrySDK.capture(message:level:)` does NOT exist in Sentry SDK — use `SentrySDK.capture(message:block:)` with `$0.setLevel(SentryLevel.error)` in the scope block
+  - `Scope.level` is not a settable property in Swift — use `scope.setLevel(_:)` (ObjC bridged method)
+  - Sentry calls on uninitialised SDK are safe no-ops (SDK design guarantee), so no guard needed in DayPageLogger
+  - BUILD SUCCEEDED confirmed
+---

@@ -1,4 +1,5 @@
 import Foundation
+import Sentry
 
 @MainActor
 final class DayPageLogger {
@@ -19,14 +20,24 @@ final class DayPageLogger {
 
     func error(_ message: String, file: String = #file, line: Int = #line) {
         write(level: "ERROR", message: message, file: file, line: line)
+        let crumb = Breadcrumb(level: .error, category: "app")
+        crumb.message = message
+        SentrySDK.addBreadcrumb(crumb)
+        SentrySDK.capture(message: message) { $0.setLevel(SentryLevel.error) }
     }
 
     func warn(_ message: String, file: String = #file, line: Int = #line) {
         write(level: "WARN", message: message, file: file, line: line)
+        let crumb = Breadcrumb(level: .warning, category: "app")
+        crumb.message = message
+        SentrySDK.addBreadcrumb(crumb)
     }
 
     func info(_ message: String, file: String = #file, line: Int = #line) {
         write(level: "INFO", message: message, file: file, line: line)
+        let crumb = Breadcrumb(level: .info, category: "app")
+        crumb.message = message
+        SentrySDK.addBreadcrumb(crumb)
     }
 
     private func write(level: String, message: String, file: String, line: Int) {
