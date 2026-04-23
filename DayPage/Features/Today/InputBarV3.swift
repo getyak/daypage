@@ -52,6 +52,8 @@ struct InputBarV3: View {
     @State private var showHoldToast: Bool = false
     @State private var showTranscribeFailed: Bool = false
     @State private var userExpandedText: Bool = false
+    /// True while the tap-to-record persistent bar is active
+    @State private var isTapRecording: Bool = false
 
     @StateObject private var voiceService = VoiceService.shared
 
@@ -94,21 +96,24 @@ struct InputBarV3: View {
                 .fill(DSColor.outlineVariant.opacity(0.6))
                 .frame(height: 0.5)
 
-            if !pendingAttachments.isEmpty {
+            if !pendingAttachments.isEmpty && !isTapRecording {
                 attachmentPreviewRow
             }
 
-            if let loc = pendingLocation {
+            if let loc = pendingLocation, !isTapRecording {
                 locationChipRow(loc: loc)
             }
 
-            if isComposing {
+            if isTapRecording {
+                tapRecordingBar
+            } else if isComposing {
                 composingRow
             } else {
                 collapsedRow
             }
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: isComposing)
+        .animation(.spring(response: 0.28, dampingFraction: 0.85), value: isTapRecording)
         .sheet(isPresented: $showAttachmentMenu) {
             attachmentSheet
         }
@@ -125,7 +130,7 @@ struct InputBarV3: View {
         )
         .overlay(alignment: .bottom) {
             if showHoldToast {
-                Text("按住说话")
+                Text("长按可快速发送")
                     .monoLabelStyle(size: 11)
                     .foregroundColor(DSColor.onSurface)
                     .padding(.horizontal, 12)
@@ -152,6 +157,13 @@ struct InputBarV3: View {
         }
         .animation(.easeInOut(duration: 0.2), value: showHoldToast)
         .animation(.easeInOut(duration: 0.2), value: showTranscribeFailed)
+        .onChange(of: voiceService.state) { newState in
+            if case .failed = newState, isTapRecording {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+                    isTapRecording = false
+                }
+            }
+        }
         .onChange(of: isFocused) { focused in
             // Collapse only when the user actively dismisses (taps outside) with
             // nothing staged. Do NOT collapse after submit — continuous logging
@@ -222,6 +234,7 @@ struct InputBarV3: View {
             // Hint labels above the button tell new users the gesture affordances.
             VStack(spacing: 4) {
                 PressToTalkButton(
+                    onTap: { handleTapToRecord() },
                     onPressStart: { handlePressToTalkStart() },
                     onReleaseSend: { handlePressToTalkReleaseSend() },
                     onReleaseCancel: { handlePressToTalkReleaseCancel() },
@@ -233,7 +246,7 @@ struct InputBarV3: View {
                     },
                     size: 44
                 )
-                Text("按住说话")
+                Text("说话")
                     .font(.custom("Inter-Regular", size: 10))
                     .foregroundColor(DSColor.onSurfaceVariant)
             }
@@ -397,6 +410,7 @@ struct InputBarV3: View {
                 .transition(.scale.combined(with: .opacity))
             } else {
                 PressToTalkButton(
+                    onTap: { handleTapToRecord() },
                     onPressStart: { handlePressToTalkStart() },
                     onReleaseSend: { handlePressToTalkReleaseSend() },
                     onReleaseCancel: { handlePressToTalkReleaseCancel() },
@@ -412,6 +426,139 @@ struct InputBarV3: View {
             }
         }
         .animation(.spring(response: 0.3, dampingFraction: 0.82), value: hasContent)
+    }
+
+    // MARK: - Tap-to-Record Bar
+    //
+    // Shown when the user taps (short-press) the mic button. Replaces the entire
+    // input bar content with a compact recording control strip:
+    //   [❌ 取消]  [waveform]  [⏸ / ▶]  [00:12]  [✓ 发送]
+
+    @ViewBuilder
+    private var tapRecordingBar: some View {
+        let isCurrentlyRecording = voiceService.state == .recording
+        let isPaused = voiceService.state == .paused
+
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                // Cancel
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    voiceService.cancelRecording()
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+                        isTapRecording = false
+                    }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(DSColor.error)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("取消录音")
+
+                // Waveform (fills remaining space)
+                tapRecordingWaveform
+                    .frame(maxWidth: .infinity)
+
+                // Pause / Resume
+                Button {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    if isCurrentlyRecording {
+                        voiceService.pauseRecording()
+                    } else if isPaused {
+                        voiceService.resumeRecording()
+                    }
+                } label: {
+                    Image(systemName: isPaused ? "play.fill" : "pause.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(DSColor.onSurface)
+                        .frame(width: 36, height: 36)
+                        .background(DSColor.surfaceContainerHigh)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(isPaused ? "继续录音" : "暂停录音")
+                .padding(.trailing, 8)
+
+                // Elapsed timer
+                Text(formattedRecordingTime(voiceService.elapsedSeconds))
+                    .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                    .foregroundColor(isPaused ? DSColor.onSurfaceVariant : DSColor.error)
+                    .monospacedDigit()
+                    .frame(width: 42, alignment: .trailing)
+                    .padding(.trailing, 8)
+
+                // Send
+                Button {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    handleTapRecordingSend()
+                } label: {
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(DSColor.onPrimary)
+                        .frame(width: 36, height: 36)
+                        .background(DSColor.primary)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("发送录音")
+                .padding(.trailing, 8)
+            }
+            .frame(height: 56)
+            .padding(.horizontal, 4)
+            .background(DSColor.surface)
+        }
+    }
+
+    @ViewBuilder
+    private var tapRecordingWaveform: some View {
+        let bars = voiceService.waveformHistory
+        let barCount = min(30, bars.count)
+        HStack(alignment: .center, spacing: 2) {
+            ForEach(0 ..< barCount, id: \.self) { i in
+                let level = i < bars.count ? bars[i] : 0.04
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(voiceService.state == .paused
+                          ? DSColor.onSurfaceVariant.opacity(0.4)
+                          : DSColor.amberArchival)
+                    .frame(width: 3, height: max(4, CGFloat(level) * 28))
+                    .animation(.easeOut(duration: 0.05), value: level)
+            }
+        }
+        .frame(height: 36)
+    }
+
+    private func formattedRecordingTime(_ seconds: Int) -> String {
+        let m = seconds / 60
+        let s = seconds % 60
+        return String(format: "%02d:%02d", m, s)
+    }
+
+    private func handleTapToRecord() {
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+            isTapRecording = true
+        }
+        Task { @MainActor in
+            await voiceService.startRecording()
+        }
+    }
+
+    private func handleTapRecordingSend() {
+        Task { @MainActor in
+            guard let result = await voiceService.stopAndTranscribe() else {
+                withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+                    isTapRecording = false
+                }
+                flashTranscribeFailedToast()
+                return
+            }
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+                isTapRecording = false
+            }
+            onPressToTalkSend(result)
+        }
     }
 
     // MARK: - Press-to-Talk Handlers

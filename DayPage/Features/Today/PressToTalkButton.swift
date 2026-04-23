@@ -3,16 +3,21 @@ import UIKit
 
 // MARK: - PressToTalkButton
 //
-// WeChat-style press-to-talk microphone button for InputBarV2 (US-008).
+// Dual-mode microphone button:
 //
-// Gesture flow (via DragGesture(minimumDistance: 0)):
-//   • Press-down              → start recording + light haptic
-//   • Hold in place           → continue recording, live waveform
-//   • Release in place        → stop + send immediately + medium haptic
-//   • Drag up >= 80pt         → "cancel armed" (heavy haptic on entry)
-//   • Drag left >= 80pt       → "transcribe armed" (medium haptic on entry)
-//   • Release in cancel zone  → discard recording + light haptic
-//   • Release in transcribe   → VoiceService.transcribe → fill text, do NOT send
+//   Short tap (< 0.35s hold):
+//     • Tap → emit onTap, parent switches to "recording bar" mode
+//             (PressToTalkButton is no longer visible while recording bar is shown)
+//
+//   Long press (>= 0.35s hold):
+//     WeChat-style press-to-talk flow (original behaviour, unchanged):
+//     • Press-down              → start recording + light haptic
+//     • Hold in place           → continue recording, live waveform
+//     • Release in place        → stop + send immediately + medium haptic
+//     • Drag up >= 80pt         → "cancel armed" (heavy haptic on entry)
+//     • Drag left >= 80pt       → "transcribe armed" (medium haptic on entry)
+//     • Release in cancel zone  → discard recording + light haptic
+//     • Release in transcribe   → VoiceService.transcribe → fill text, do NOT send
 //
 // The overlay UI is rendered by `RecordingOverlayView` — the parent owns the
 // overlay placement and mounts it while `onGestureStateChange` reports the
@@ -34,40 +39,43 @@ struct PressToTalkButton: View {
 
     // MARK: Inputs
 
-    /// Called on press-down. Parent should start VoiceService.startRecording().
+    /// Called on short tap (< longPressThreshold). Parent should switch to
+    /// the persistent recording bar mode.
+    var onTap: () -> Void = {}
+
+    /// Called on long-press-down (>= longPressThreshold). Parent should start
+    /// VoiceService.startRecording() for the press-to-talk flow.
     var onPressStart: () -> Void
 
-    /// Called on release-in-place. Parent should stop-and-transcribe and then
-    /// submit the resulting memo immediately.
+    /// Called on release-in-place (long-press flow). Parent should stop-and-transcribe
+    /// and submit the resulting memo immediately.
     var onReleaseSend: () -> Void
 
-    /// Called on release in the cancel-armed zone. Parent should discard.
+    /// Called on release in the cancel-armed zone (long-press flow). Parent should discard.
     var onReleaseCancel: () -> Void
 
-    /// Called on release in the transcribe-armed zone. Parent should stop,
+    /// Called on release in the transcribe-armed zone (long-press flow). Parent should stop,
     /// transcribe audio, fill TodayViewModel.draftText, and NOT submit.
     var onReleaseTranscribe: () -> Void
 
     /// Reports phase transitions upward so parent can update the overlay state.
     var onPhaseChange: (PressToTalkPhase) -> Void
 
-    /// Diameter of the circular button and its hit target. Defaults to 40pt
-    /// (V2 inline mic). V3 voice-first home uses 80pt as the primary FAB.
+    /// Diameter of the circular button and its hit target.
     var size: CGFloat = 40
+
+    // MARK: Constants
+
+    /// Duration (seconds) that separates a "tap" from a "hold". Under this threshold
+    /// the gesture is treated as a tap → persistent recording bar.
+    private let longPressThreshold: TimeInterval = 0.35
 
     // MARK: State
 
-    /// Tracked via @GestureState so SwiftUI resets it automatically when the
-    /// gesture ends (including edge cases like the touch leaving the hit area).
     @GestureState private var isPressing: Bool = false
-
-    /// The last emitted phase. We keep it as @State (not @GestureState) so we
-    /// can fire precisely-once haptics on phase-entry edges.
     @State private var currentPhase: PressToTalkPhase = .idle
-
-    /// Latest drag translation (for reading on release — @GestureState resets
-    /// before onEnded runs on some iOS versions).
     @State private var lastTranslation: CGSize = .zero
+    @State private var pressStartTime: Date? = nil
 
     // MARK: Body
 
@@ -81,9 +89,8 @@ struct PressToTalkButton: View {
             .scaleEffect(currentPhase == .idle ? 1.0 : 1.08)
             .animation(.easeOut(duration: 0.12), value: currentPhase)
             .contentShape(Circle())
-            .accessibilityLabel("按住说话")
-            .accessibilityHint("松手发送，上滑取消，左滑转文字")
-            // highPriorityGesture so the outer ScrollView doesn't steal the drag
+            .accessibilityLabel("点击说话")
+            .accessibilityHint("单击开始录音；长按说话松手发送")
             .highPriorityGesture(dragGesture)
     }
 
@@ -95,20 +102,27 @@ struct PressToTalkButton: View {
                 state = true
             }
             .onChanged { value in
-                // First-edge: transitioning from idle → recording triggers
-                // the press-start haptic + recording start.
                 if currentPhase == .idle {
+                    pressStartTime = Date()
+                    // Don't start recording yet — wait to see if this becomes a long press
+                }
+
+                // Once we've held past the threshold, commit to press-to-talk mode
+                if currentPhase == .idle,
+                   let start = pressStartTime,
+                   Date().timeIntervalSince(start) >= longPressThreshold {
                     emitHaptic(InputTokens.pressDownHaptic)
                     onPressStart()
                     currentPhase = .recording
                     onPhaseChange(.recording)
                 }
 
+                guard currentPhase != .idle else { return }
+
                 lastTranslation = value.translation
                 let newPhase = derivePhase(from: value.translation)
 
                 if newPhase != currentPhase {
-                    // Phase-entry haptics (fire precisely on the transition).
                     switch newPhase {
                     case .cancelArmed where currentPhase != .cancelArmed:
                         emitHaptic(InputTokens.cancelArmHaptic)
@@ -122,6 +136,22 @@ struct PressToTalkButton: View {
                 }
             }
             .onEnded { value in
+                defer {
+                    pressStartTime = nil
+                }
+
+                // Short tap — delegate to onTap for persistent recording bar
+                if let start = pressStartTime,
+                   Date().timeIntervalSince(start) < longPressThreshold,
+                   currentPhase == .idle {
+                    emitHaptic(InputTokens.pressDownHaptic)
+                    currentPhase = .idle
+                    onPhaseChange(.idle)
+                    lastTranslation = .zero
+                    onTap()
+                    return
+                }
+
                 let translation = value.translation != .zero ? value.translation : lastTranslation
                 let endPhase = derivePhase(from: translation)
 
@@ -131,8 +161,6 @@ struct PressToTalkButton: View {
                     onReleaseCancel()
                 case .transcribeArmed:
                     emitHaptic(InputTokens.transcribeReleaseHaptic)
-                    // Parent will run Whisper asynchronously — briefly sit in
-                    // .transcribing so the overlay can show a spinner.
                     currentPhase = .transcribing
                     onPhaseChange(.transcribing)
                     onReleaseTranscribe()
