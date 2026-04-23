@@ -374,6 +374,7 @@ final class ArchiveViewModel: ObservableObject {
 
 struct ArchiveView: View {
 
+    @EnvironmentObject private var nav: AppNavigationModel
     @StateObject private var viewModel = ArchiveViewModel()
     @State private var mode: ArchiveMode = .calendar
     @State private var selectedDateString: String? = nil
@@ -485,10 +486,16 @@ struct ArchiveView: View {
 
     private var archiveHeader: some View {
         HStack(spacing: 10) {
-            // Calendar icon (decorative)
-            Image(systemName: "calendar")
-                .font(.system(size: 18, weight: .regular))
-                .foregroundColor(DSColor.onSurface)
+            // Hamburger menu — opens sidebar
+            Button {
+                nav.openSidebar()
+            } label: {
+                Image(systemName: "line.horizontal.3")
+                    .font(.system(size: 18, weight: .regular))
+                    .foregroundColor(DSColor.onSurface)
+                    .frame(width: 32, height: 32)
+            }
+            .buttonStyle(.plain)
 
             Text("ARCHIVE")
                 .font(.custom("SpaceGrotesk-Bold", size: 20))

@@ -48,6 +48,7 @@ struct DayPageApp: App {
 
     private let notificationDelegate = AppNotificationDelegate()
     @StateObject private var authService = AuthService.shared
+    @StateObject private var navModel = AppNavigationModel()
 
     init() {
         DSFonts.registerAll()
@@ -66,6 +67,7 @@ struct DayPageApp: App {
         WindowGroup {
             RootView()
                 .environmentObject(authService)
+                .environmentObject(navModel)
                 .onOpenURL { url in
                     // Handle both Magic Link callbacks (daypage://...) and OTP deep links.
                     // Session update is handled by authStateChanges listener — no manual assignment needed.

@@ -4,6 +4,7 @@ import CoreLocation
 struct TodayView: View {
 
     @EnvironmentObject private var authService: AuthService
+    @EnvironmentObject private var nav: AppNavigationModel
     @StateObject private var viewModel = TodayViewModel()
     @StateObject private var passiveLocation = PassiveLocationService.shared
     @StateObject private var bannerCenter = BannerCenter.shared
@@ -76,7 +77,17 @@ struct TodayView: View {
                 VStack(spacing: 0) {
                     // MARK: Header
                     HStack(spacing: 12) {
-                        // Brand name (anchored to leading edge)
+                        // Hamburger menu — opens sidebar
+                        Button {
+                            nav.openSidebar()
+                        } label: {
+                            Image(systemName: "line.horizontal.3")
+                                .font(.system(size: 18, weight: .regular))
+                                .foregroundColor(DSColor.onSurface)
+                                .frame(width: 32, height: 32)
+                        }
+
+                        // Brand name
                         Text("DAYPAGE")
                             .font(.custom("SpaceGrotesk-Bold", size: 20))
                             .foregroundColor(DSColor.onSurface)
@@ -99,16 +110,6 @@ struct TodayView: View {
                                     UINotificationFeedbackGenerator().notificationOccurred(.warning)
                                 }
                             }
-
-                        // Settings icon
-                        Button {
-                            showSettings = true
-                        } label: {
-                            Image(systemName: "gearshape")
-                                .font(.system(size: 18, weight: .regular))
-                                .foregroundColor(DSColor.onSurface)
-                                .frame(width: 32, height: 32)
-                        }
 
                         // Account avatar — shown when logged in
                         if authService.session != nil {

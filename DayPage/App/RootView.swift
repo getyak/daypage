@@ -2,12 +2,12 @@ import SwiftUI
 
 struct RootView: View {
     @EnvironmentObject private var authService: AuthService
+    @EnvironmentObject private var nav: AppNavigationModel
     @StateObject private var bannerCenter = BannerCenter.shared
     @State private var hasOnboarded: Bool = UserDefaults.standard.bool(forKey: "hasOnboarded")
     @State private var authSkipped: Bool = UserDefaults.standard.bool(forKey: "authSkipped")
-    @State private var selectedTab: Int = 0
 
-    private let tabCount = 3
+    private let sidebarWidth: CGFloat = 280
 
     private var showAuth: Bool {
         authService.session == nil && !authSkipped
@@ -16,7 +16,7 @@ struct RootView: View {
     var body: some View {
         Group {
             if hasOnboarded {
-                mainTabView
+                mainContent
                     .fullScreenCover(isPresented: Binding(
                         get: { showAuth },
                         set: { if !$0 { authSkipped = UserDefaults.standard.bool(forKey: "authSkipped") } }
@@ -32,62 +32,60 @@ struct RootView: View {
         }
     }
 
-    private var mainTabView: some View {
-        TabView(selection: $selectedTab) {
-            TodayView()
-                .tag(0)
-                .tabItem {
-                    Label("Today", systemImage: "square.and.pencil")
-                }
-                // No swipeTabGesture here — Today uses swipe gestures on memo cards
+    // MARK: - Main Content with Sidebar Overlay
 
-            ArchiveView()
-                .tag(1)
-                .tabItem {
-                    Label("Archive", systemImage: "archivebox")
-                }
-                .swipeTabGesture(selectedTab: $selectedTab, tabIndex: 1, tabCount: tabCount)
+    private var mainContent: some View {
+        ZStack(alignment: .leading) {
+            // Tab content — all three kept alive to preserve ViewModel state
+            ZStack {
+                TodayView()
+                    .opacity(nav.selectedTab == .today ? 1 : 0)
+                    .allowsHitTesting(nav.selectedTab == .today && !nav.isSidebarOpen)
 
-            GraphView()
-                .tag(2)
-                .tabItem {
-                    Label("Graph", systemImage: "point.3.connected.trianglepath.dotted")
-                }
-                .swipeTabGesture(selectedTab: $selectedTab, tabIndex: 2, tabCount: tabCount)
+                ArchiveView()
+                    .opacity(nav.selectedTab == .archive ? 1 : 0)
+                    .allowsHitTesting(nav.selectedTab == .archive && !nav.isSidebarOpen)
+
+                GraphView()
+                    .opacity(nav.selectedTab == .graph ? 1 : 0)
+                    .allowsHitTesting(nav.selectedTab == .graph && !nav.isSidebarOpen)
+            }
+
+            // Backdrop — tap or drag-left to close
+            if nav.isSidebarOpen {
+                Color.black.opacity(0.28)
+                    .ignoresSafeArea()
+                    .onTapGesture { nav.closeSidebar() }
+                    .gesture(
+                        DragGesture(minimumDistance: 20)
+                            .onEnded { value in
+                                if value.translation.width < -30 { nav.closeSidebar() }
+                            }
+                    )
+                    .transition(.opacity)
+            }
+
+            // Sidebar panel
+            SidebarView()
+                .frame(width: sidebarWidth)
+                .frame(maxHeight: .infinity)
+                .ignoresSafeArea()
+                .shadow(color: Color.black.opacity(0.10), radius: 20, x: 6, y: 0)
+                .offset(x: nav.isSidebarOpen ? 0 : -sidebarWidth)
         }
-        .tint(DSColor.primary)
-        .onAppear {
-            let appearance = UITabBarAppearance()
-            appearance.configureWithOpaqueBackground()
-            appearance.backgroundColor = UIColor(DSColor.surface)
-            UITabBar.appearance().standardAppearance = appearance
-            UITabBar.appearance().scrollEdgeAppearance = appearance
-        }
-    }
-}
-
-// MARK: - Swipe Tab Gesture
-
-private extension View {
-    /// Adds a horizontal drag gesture that switches tabs on significant swipe.
-    /// The gesture requires a horizontal translation > 60pt and a horizontal/vertical
-    /// ratio > 1.5 so it doesn't interfere with vertical scrolling inside tabs.
-    func swipeTabGesture(selectedTab: Binding<Int>, tabIndex: Int, tabCount: Int) -> some View {
-        self.gesture(
-            DragGesture(minimumDistance: 30, coordinateSpace: .local)
+        // Edge-swipe to open: only fires when drag starts within 40pt of left edge
+        .gesture(
+            DragGesture(minimumDistance: 20, coordinateSpace: .local)
                 .onEnded { value in
                     let dx = value.translation.width
                     let dy = value.translation.height
-                    guard abs(dx) > 60, abs(dx) > abs(dy) * 1.5 else { return }
-                    withAnimation(.easeInOut(duration: 0.25)) {
-                        if dx < 0 {
-                            selectedTab.wrappedValue = min(tabIndex + 1, tabCount - 1)
-                        } else {
-                            selectedTab.wrappedValue = max(tabIndex - 1, 0)
-                        }
+                    guard abs(dx) > abs(dy) * 1.2 else { return }
+                    if dx > 40, value.startLocation.x < 40, !nav.isSidebarOpen {
+                        nav.openSidebar()
+                    } else if dx < -40, nav.isSidebarOpen {
+                        nav.closeSidebar()
                     }
-                },
-            including: .gesture
+                }
         )
     }
 }
