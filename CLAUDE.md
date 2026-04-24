@@ -12,7 +12,7 @@ DayPage: a personal logging tool centered on daily raw data capture. Users dump,
 |---|---|---|
 | Platform | **iOS 16.0+**, Swift 5 | Single Xcode target `DayPage.app`, no SPM dependencies |
 | UI | **SwiftUI** (pure) | `UITabBarAppearance` is the only UIKit touchpoint (`RootView.swift`) |
-| Navigation | **TabView** | Three tabs — Today / Archive / Graph (disabled, Post-MVP) |
+| Navigation | **Sidebar** | Left drawer (280pt) — Today / Archive / Graph (disabled, Post-MVP); no bottom TabBar |
 | State | `ObservableObject` + `@Published` + `@StateObject`, `@MainActor` services | No `@Observable` macro (Swift 5 constraint) |
 | Persistence | **File system** — YAML front-matter + Markdown | `vault/raw/YYYY-MM-DD.md`, multi-memo separated by `\n\n---\n\n`. Atomic writes via `FileManager.replaceItem`. No Core Data / SwiftData |
 | YAML / Markdown | Hand-written parser in `Models/Memo.swift` | No external Markdown library |
@@ -60,24 +60,12 @@ DayPage/
 
 ## UI Design
 
-The design (Stitch project `DayPage Today Flow` / ID `6404909232718143042`) is snapshotted into the repo. **Read local files first** when implementing — do not call `mcp__stitch__*`:
+Design assets have been removed. **Use the current source code as the authoritative reference for UI design** — read `DayPage/App/RootView.swift`, `DayPage/Features/Today/TodayView.swift`, etc. directly.
 
-- `design/stitch/screenshots/*.png` — layout, color, visual hierarchy
-- `design/stitch/html/*.html` — exact spacing, font sizes, color values (read classes and inline styles as reference; translate to SwiftUI)
-
-Screen mapping:
-
-| Asset filename | Screen |
-|---|---|
-| `today-flow` | Today Tab main flow |
-| `voice-recording` | Voice recording overlay |
-| `daily-page` | Post-compilation diary page |
-| `archive-calendar` | Archive calendar view |
-| `archive-list` | Archive list view |
+- Navigation: left sidebar drawer (`RootView.swift`), no bottom TabBar
+- For new design decisions, discuss with the user first, then open a GitHub issue, implement on a branch, and PR
 
 Graph Tab has **no design** (Post-MVP, PRD NG-3) — keep the placeholder.
-
-**Re-sync**: after design changes, run `mcp__stitch__get_screen` (screen ID list in `design/stitch/README.md`) and overwrite the corresponding files under `design/stitch/`.
 
 ## Testing
 
