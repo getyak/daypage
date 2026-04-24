@@ -1,6 +1,7 @@
 import Foundation
 import BackgroundTasks
 import UserNotifications
+import Sentry
 
 // MARK: - BackgroundCompilationService
 
@@ -115,14 +116,20 @@ final class BackgroundCompilationService {
         }
 
         Task {
+            let transaction = Secrets.sentryDSN.isEmpty ? nil
+                : SentrySDK.startTransaction(name: "background.compilation", operation: "task")
             NotificationCenter.default.post(name: .compilationDidStart, object: nil)
             defer { NotificationCenter.default.post(name: .compilationDidEnd, object: nil) }
             do {
                 try await compileWithRetry(for: yesterday, trigger: "auto")
+                transaction?.finish()
+                if !Secrets.sentryDSN.isEmpty { SentrySDK.flush(timeout: 5) }
                 sendSuccessNotification(for: yesterday)
                 task.setTaskCompleted(success: true)
             } catch {
                 print("[BGCompile] Background compile failed after retries: \(error.localizedDescription)")
+                transaction?.finish(status: .internalError)
+                if !Secrets.sentryDSN.isEmpty { SentrySDK.flush(timeout: 5) }
                 sendFailureNotification()
                 task.setTaskCompleted(success: false)
             }

@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import Sentry
 
 // MARK: - Recording State
 
@@ -266,6 +267,10 @@ final class VoiceService: NSObject, ObservableObject {
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         request.httpBody = body
         request.timeoutInterval = 60
+
+        let span = Secrets.sentryDSN.isEmpty ? nil
+            : SentrySDK.startTransaction(name: "voice.whisper", operation: "http.client")
+        defer { span?.finish() }
 
         // Retry up to 3 times for transient server/rate-limit errors (429, 500, 503)
         let maxAttempts = 3

@@ -85,6 +85,8 @@ No test target exists yet. When adding tests, create a `DayPageTests` target usi
 
 **Default simulator**: use **iPhone 17** for all builds, runs, and UI verification (e.g. `xcodebuild -scheme DayPage -destination 'platform=iOS Simulator,name=iPhone 17'`).
 
+**Simulator launch**: always start the Simulator in the background to avoid blocking the terminal session — use `open -a Simulator &` or run `xcodebuild` with `run_in_background: true`. Never let the Simulator occupy the foreground terminal.
+
 Before marking any task complete:
 1. Build the `DayPage` scheme (`xcodebuild -scheme DayPage build`)
 2. Run any existing tests

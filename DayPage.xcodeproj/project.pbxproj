@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		SPM00001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = SPM00002 /* Supabase */; };
+		SPM00004 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = SPM00005 /* Sentry */; };
 		8C3DEB068D610AAB589EA680 /* TimeZonePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73FCD3E2EC4D7257BA7A22BD /* TimeZonePickerView.swift */; };
 		A10000001 /* DayPageApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000001 /* DayPageApp.swift */; };
 		A10000002 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000002 /* RootView.swift */; };
@@ -209,6 +210,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				SPM00001 /* Supabase in Frameworks */,
+				SPM00004 /* Sentry in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -507,6 +509,7 @@
 			name = DayPage;
 			packageProductDependencies = (
 				SPM00002 /* Supabase */,
+				SPM00005 /* Sentry */,
 			);
 			productName = DayPage;
 			productReference = A30000001 /* DayPage.app */;
@@ -559,6 +562,7 @@
 			mainGroup = A60000001;
 			packageReferences = (
 				SPM00003 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				SPM00006 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
 			);
 			productRefGroup = A50000009 /* Products */;
 			projectDirPath = "";
@@ -722,6 +726,14 @@
 				minimumVersion = 2.0.0;
 			};
 		};
+		SPM00006 /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/getsentry/sentry-cocoa";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.36.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -729,6 +741,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = SPM00003 /* XCRemoteSwiftPackageReference "supabase-swift" */;
 			productName = Supabase;
+		};
+		SPM00005 /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = SPM00006 /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
 		};
 /* End XCSwiftPackageProductDependency section */
 

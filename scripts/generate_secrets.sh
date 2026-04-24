@@ -46,6 +46,7 @@ OPENAI_WHISPER_API_KEY=$(read_env_value "OPENAI_WHISPER_API_KEY")
 OPENWEATHER_API_KEY=$(read_env_value "OPENWEATHER_API_KEY")
 SUPABASE_URL=$(read_env_value "SUPABASE_URL")
 SUPABASE_ANON_KEY=$(read_env_value "SUPABASE_ANON_KEY")
+SENTRY_DSN=$(read_env_value "SENTRY_DSN")
 
 # ── Emit Swift file ──────────────────────────────────────────────────────────
 mkdir -p "$(dirname "${OUTPUT_FILE}")"
@@ -63,6 +64,7 @@ enum Secrets {
     static let openWeatherApiKey: String = "${OPENWEATHER_API_KEY}"
     static let supabaseURL: String = "${SUPABASE_URL}"
     static let supabaseAnonKey: String = "${SUPABASE_ANON_KEY}"
+    static let sentryDSN: String = "${SENTRY_DSN}"
 }
 SWIFT
 

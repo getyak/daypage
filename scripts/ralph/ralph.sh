@@ -34,7 +34,15 @@ if [[ "$TOOL" != "amp" && "$TOOL" != "claude" ]]; then
   exit 1
 fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PRD_FILE="$SCRIPT_DIR/prd.json"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+# prd.json lookup: project root takes priority over scripts/ralph/
+# Put your prd.json in the project root. scripts/ralph/prd.json is a fallback.
+if [ -f "$PROJECT_ROOT/prd.json" ]; then
+  PRD_FILE="$PROJECT_ROOT/prd.json"
+else
+  PRD_FILE="$SCRIPT_DIR/prd.json"
+fi
 PROGRESS_FILE="$SCRIPT_DIR/progress.txt"
 ARCHIVE_DIR="$SCRIPT_DIR/archive"
 LAST_BRANCH_FILE="$SCRIPT_DIR/.last-branch"

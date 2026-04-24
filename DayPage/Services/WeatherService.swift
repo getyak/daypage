@@ -1,5 +1,6 @@
 import Foundation
 import CoreLocation
+import Sentry
 
 // MARK: - WeatherService
 
@@ -69,6 +70,10 @@ final class WeatherService {
 
         let urlString = "https://api.openweathermap.org/data/2.5/weather?lat=\(lat)&lon=\(lng)&units=metric&lang=zh_cn&appid=\(apiKey)"
         guard let url = URL(string: urlString) else { return nil }
+
+        let span = Secrets.sentryDSN.isEmpty ? nil
+            : SentrySDK.startTransaction(name: "weather.fetch", operation: "http.client")
+        defer { span?.finish() }
 
         do {
             let (data, response) = try await URLSession.shared.data(from: url)

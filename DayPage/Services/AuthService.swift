@@ -2,6 +2,7 @@ import SwiftUI
 import Supabase
 import AuthenticationServices
 import CryptoKit
+import Sentry
 
 // MARK: - DPAuthError
 
@@ -132,6 +133,12 @@ final class AuthService: NSObject, ObservableObject {
                 if Task.isCancelled { break }
                 await MainActor.run {
                     self.session = session
+                    if let session {
+                        let sentryUser = Sentry.User(userId: session.user.id.uuidString)
+                        SentrySDK.setUser(sentryUser)
+                    } else {
+                        SentrySDK.setUser(nil)
+                    }
                 }
             }
         }
@@ -298,6 +305,7 @@ final class AuthService: NSObject, ObservableObject {
         defer { isLoading = false }
         try await supabase.auth.signOut()
         session = nil   // listener will re-confirm; local clear is immediate for UI.
+        SentrySDK.setUser(nil)
     }
 
     // MARK: - Error Mapping

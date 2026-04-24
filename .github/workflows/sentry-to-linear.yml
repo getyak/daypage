@@ -1,0 +1,219 @@
+name: Sentry → Linear Issue Sync
+
+# Triggered by a repository_dispatch event sent from Sentry Webhook
+# (via a GitHub PAT configured in Sentry Project Settings → Integrations → Webhooks)
+on:
+  repository_dispatch:
+    types: [sentry_issue]
+
+# Minimal permissions — only reads repo contents
+permissions:
+  contents: read
+
+jobs:
+  create-linear-issue:
+    name: Create Linear Issue from Sentry Event
+    runs-on: ubuntu-latest
+
+    steps:
+      # -----------------------------------------------------------------
+      # Step 1 — Dedup check
+      # Query Linear GraphQL API for open issues whose title starts with
+      # '[Sentry]' and whose description contains the event fingerprint.
+      # If such an issue already exists, skip creation and exit with success
+      # to avoid flooding Linear with duplicate tickets.
+      # -----------------------------------------------------------------
+      - name: Check for duplicate Linear issue
+        id: dedup
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          FINGERPRINT: ${{ github.event.client_payload.fingerprint }}
+        run: |
+          # GraphQL query: search open issues with [Sentry] title prefix
+          QUERY=$(cat <<'GQL'
+          {
+            "query": "query($filter: IssueFilter) { issues(filter: $filter) { nodes { id title description state { name } } } }",
+            "variables": {
+              "filter": {
+                "title": { "startsWith": "[Sentry]" },
+                "state": { "type": { "neq": "completed" } }
+              }
+            }
+          }
+          GQL
+          )
+
+          RESPONSE=$(curl -s -X POST \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$QUERY" \
+            https://api.linear.app/graphql)
+
+          echo "Linear search response: $RESPONSE"
+
+          # Check if any returned issue description contains our fingerprint
+          if echo "$RESPONSE" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          fp = '$FINGERPRINT'
+          issues = data.get('data', {}).get('issues', {}).get('nodes', [])
+          found = any(fp in (i.get('description') or '') for i in issues)
+          sys.exit(0 if found else 1)
+          " 2>/dev/null; then
+            echo "duplicate=true" >> "$GITHUB_OUTPUT"
+            echo "Duplicate issue found for fingerprint: $FINGERPRINT — skipping creation"
+          else
+            echo "duplicate=false" >> "$GITHUB_OUTPUT"
+            echo "No duplicate found — proceeding with issue creation"
+          fi
+
+      # -----------------------------------------------------------------
+      # Step 2 — Priority mapping
+      # Map affected user count to Linear priority level:
+      #   userCount >= 10  → 1 (Urgent)
+      #   userCount >= 3   → 2 (High)
+      #   else             → 3 (Medium)
+      # -----------------------------------------------------------------
+      - name: Calculate issue priority
+        id: priority
+        if: steps.dedup.outputs.duplicate == 'false'
+        env:
+          USER_COUNT: ${{ github.event.client_payload.userCount }}
+        run: |
+          USER_COUNT="${USER_COUNT:-0}"
+          if [ "$USER_COUNT" -ge 10 ]; then
+            echo "priority=1" >> "$GITHUB_OUTPUT"
+            echo "Priority: 1 (Urgent) — $USER_COUNT affected users"
+          elif [ "$USER_COUNT" -ge 3 ]; then
+            echo "priority=2" >> "$GITHUB_OUTPUT"
+            echo "Priority: 2 (High) — $USER_COUNT affected users"
+          else
+            echo "priority=3" >> "$GITHUB_OUTPUT"
+            echo "Priority: 3 (Medium) — $USER_COUNT affected users"
+          fi
+
+      # -----------------------------------------------------------------
+      # Step 3 — Fetch Linear bug label ID
+      # Retrieve the bug label from the target team so we can attach it
+      # to the new issue. Falls back gracefully if no label is found.
+      # -----------------------------------------------------------------
+      - name: Fetch Linear bug label ID
+        id: label
+        if: steps.dedup.outputs.duplicate == 'false'
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
+        run: |
+          RESPONSE=$(curl -s -X POST \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{"query":"{ issueLabels(filter:{name:{eqIgnoreCase:\"Bug\"}}) { nodes { id name } } }"}' \
+            https://api.linear.app/graphql)
+
+          echo "Label query response: $RESPONSE"
+
+          LABEL_ID=$(echo "$RESPONSE" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          nodes = data.get('data', {}).get('issueLabels', {}).get('nodes', [])
+          print(nodes[0]['id'] if nodes else '')
+          " 2>/dev/null || echo "")
+
+          echo "label_id=$LABEL_ID" >> "$GITHUB_OUTPUT"
+          echo "Bug label ID: $LABEL_ID"
+
+      # -----------------------------------------------------------------
+      # Step 4 — Create Linear issue via GraphQL mutation
+      # Builds a rich description including error summary, culprit, affected
+      # users, occurrence count, environment, Sentry URL, and fingerprint.
+      # The fingerprint is embedded so Step 1 can detect duplicates later.
+      # -----------------------------------------------------------------
+      - name: Create Linear issue
+        id: create
+        if: steps.dedup.outputs.duplicate == 'false'
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
+          ISSUE_ID: ${{ github.event.client_payload.issue_id }}
+          TITLE: ${{ github.event.client_payload.title }}
+          CULPRIT: ${{ github.event.client_payload.culprit }}
+          SENTRY_URL: ${{ github.event.client_payload.url }}
+          COUNT: ${{ github.event.client_payload.count }}
+          USER_COUNT: ${{ github.event.client_payload.userCount }}
+          ENVIRONMENT: ${{ github.event.client_payload.environment }}
+          FINGERPRINT: ${{ github.event.client_payload.fingerprint }}
+          PRIORITY: ${{ steps.priority.outputs.priority }}
+          LABEL_ID: ${{ steps.label.outputs.label_id }}
+        run: |
+          # Build label IDs array (empty if no label found)
+          if [ -n "$LABEL_ID" ]; then
+            LABEL_IDS_JSON="[\"$LABEL_ID\"]"
+          else
+            LABEL_IDS_JSON="[]"
+          fi
+
+          # Escape special characters for JSON embedding
+          TITLE_ESC=$(echo "$TITLE" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read().strip()))" | sed 's/^"//;s/"$//')
+          CULPRIT_ESC=$(echo "$CULPRIT" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read().strip()))" | sed 's/^"//;s/"$//')
+
+          DESCRIPTION="## Sentry Error Report
+
+          **Error:** ${TITLE}
+
+          **Culprit:** \`${CULPRIT}\`
+
+          | Field | Value |
+          |---|---|
+          | Environment | \`${ENVIRONMENT}\` |
+          | Occurrences | ${COUNT} |
+          | Affected Users | ${USER_COUNT} |
+          | Sentry Issue ID | ${ISSUE_ID} |
+
+          **Sentry URL:** ${SENTRY_URL}
+
+          ---
+
+          <!-- sentry-fingerprint: ${FINGERPRINT} -->"
+
+          DESC_ESC=$(echo "$DESCRIPTION" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" | sed 's/^"//;s/"$//')
+
+          MUTATION=$(cat <<EOF
+          {
+            "query": "mutation(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier url } } }",
+            "variables": {
+              "input": {
+                "title": "[Sentry] ${TITLE_ESC}",
+                "description": "${DESC_ESC}",
+                "teamId": "${LINEAR_TEAM_ID}",
+                "priority": ${PRIORITY},
+                "labelIds": ${LABEL_IDS_JSON}
+              }
+            }
+          }
+          EOF
+          )
+
+          RESPONSE=$(curl -s -X POST \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$MUTATION" \
+            https://api.linear.app/graphql)
+
+          echo "Create issue response: $RESPONSE"
+
+          # Verify creation was successful
+          SUCCESS=$(echo "$RESPONSE" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          success = data.get('data', {}).get('issueCreate', {}).get('success', False)
+          if success:
+              issue = data['data']['issueCreate']['issue']
+              print(f\"Created: {issue['identifier']} — {issue['url']}\")
+              sys.exit(0)
+          else:
+              errors = data.get('errors', [])
+              print(f'Failed: {errors}', file=sys.stderr)
+              sys.exit(1)
+          " 2>&1)
+
+          echo "$SUCCESS"

@@ -1,5 +1,6 @@
 import Foundation
 import Network
+import Sentry
 
 // MARK: - CompilationService
 
@@ -374,6 +375,10 @@ final class CompilationService {
         ]
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let span = Secrets.sentryDSN.isEmpty ? nil
+            : SentrySDK.startTransaction(name: "compilation.dashscope", operation: "http.client")
+        defer { span?.finish() }
 
         let (data, response) = try await URLSession.shared.data(for: request)
 

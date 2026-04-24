@@ -1,5 +1,6 @@
 import SwiftUI
 import UserNotifications
+import Sentry
 
 // MARK: - App Notification Names
 
@@ -51,6 +52,16 @@ struct DayPageApp: App {
     @StateObject private var navModel = AppNavigationModel()
 
     init() {
+        // Initialize Sentry crash reporting (no-op when DSN is empty)
+        if !Secrets.sentryDSN.isEmpty {
+            SentrySDK.start { options in
+                options.dsn = Secrets.sentryDSN
+                options.tracesSampleRate = ProcessInfo.processInfo.environment["DEBUG"] != nil ? 1.0 : 0.2
+                options.enableCrashHandler = true
+                options.attachScreenshot = true
+                options.attachViewHierarchy = true
+            }
+        }
         DSFonts.registerAll()
         VaultInitializer.initializeIfNeeded()
         // Register background task handler before SwiftUI renders
