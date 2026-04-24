@@ -119,6 +119,7 @@ jobs:
               static let openWeatherApiKey: String = ""
               static let supabaseURL: String = "https://placeholder.supabase.co"
               static let supabaseAnonKey: String = ""
+              static let sentryDSN: String = ""
           }
           SWIFT
 
