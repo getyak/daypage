@@ -71,31 +71,14 @@ platform :ios do
     setup_secrets
     increment_build
 
-    # CI 使用手动签名（证书和描述文件已在 workflow 中导入）
-    # 本地开发若未设置 PROVISIONING_PROFILE_UUID 则回退到自动签名
-    use_manual_signing = !ENV["PROVISIONING_PROFILE_UUID"].to_s.empty?
+    match(
+      type:           "appstore",
+      readonly:       true,
+      git_url:        ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
+      app_identifier: "com.daypage.app"
+    )
 
-    if use_manual_signing
-      update_code_signing_settings(
-        use_automatic_signing: false,
-        path:                  "DayPage.xcodeproj",
-        team_id:               ENV["DEVELOPMENT_TEAM"],
-        code_sign_identity:    "Apple Distribution",
-        profile_uuid:          ENV["PROVISIONING_PROFILE_UUID"]
-      )
-    end
-
-    export_opts = use_manual_signing ? {
-      method:               "app-store",
-      signingStyle:         "manual",
-      teamID:               ENV["DEVELOPMENT_TEAM"],
-      provisioningProfiles: { "com.daypage.app" => ENV["PROVISIONING_PROFILE_UUID"] }
-    } : {
-      method:    "app-store",
-      signingStyle: "automatic",
-      teamID:    ENV["DEVELOPMENT_TEAM"]
-    }
-
+    profile_name = ENV["sigh_com.daypage.app_appstore_profile-name"] || "match AppStore com.daypage.app"
     build_app(
       scheme:           "DayPage",
       project:          "DayPage.xcodeproj",
@@ -104,8 +87,12 @@ platform :ios do
       clean:            true,
       output_directory: "build",
       output_name:      "DayPage.ipa",
-      export_options:   export_opts,
-      xcargs:           use_manual_signing ? "" : "-allowProvisioningUpdates"
+      export_options:   {
+        method:               "app-store",
+        signingStyle:         "manual",
+        teamID:               ENV["DEVELOPMENT_TEAM"],
+        provisioningProfiles: { "com.daypage.app" => profile_name }
+      }
     )
 
     upload_to_testflight(
@@ -135,29 +122,14 @@ platform :ios do
     setup_secrets
     increment_build
 
-    use_manual_signing = !ENV["PROVISIONING_PROFILE_UUID"].to_s.empty?
+    match(
+      type:           "appstore",
+      readonly:       true,
+      git_url:        ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
+      app_identifier: "com.daypage.app"
+    )
 
-    if use_manual_signing
-      update_code_signing_settings(
-        use_automatic_signing: false,
-        path:                  "DayPage.xcodeproj",
-        team_id:               ENV["DEVELOPMENT_TEAM"],
-        code_sign_identity:    "Apple Distribution",
-        profile_uuid:          ENV["PROVISIONING_PROFILE_UUID"]
-      )
-    end
-
-    export_opts = use_manual_signing ? {
-      method:               "app-store",
-      signingStyle:         "manual",
-      teamID:               ENV["DEVELOPMENT_TEAM"],
-      provisioningProfiles: { "com.daypage.app" => ENV["PROVISIONING_PROFILE_UUID"] }
-    } : {
-      method:      "app-store",
-      signingStyle: "automatic",
-      teamID:      ENV["DEVELOPMENT_TEAM"]
-    }
-
+    profile_name = ENV["sigh_com.daypage.app_appstore_profile-name"] || "match AppStore com.daypage.app"
     build_app(
       scheme:           "DayPage",
       project:          "DayPage.xcodeproj",
@@ -166,8 +138,12 @@ platform :ios do
       clean:            true,
       output_directory: "build",
       output_name:      "DayPage.ipa",
-      export_options:   export_opts,
-      xcargs:           use_manual_signing ? "" : "-allowProvisioningUpdates"
+      export_options:   {
+        method:               "app-store",
+        signingStyle:         "manual",
+        teamID:               ENV["DEVELOPMENT_TEAM"],
+        provisioningProfiles: { "com.daypage.app" => profile_name }
+      }
     )
 
     upload_to_app_store(

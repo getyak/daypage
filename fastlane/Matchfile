@@ -1,0 +1,4 @@
+git_url(ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git")
+storage_mode("git")
+type("appstore")
+app_identifier("com.daypage.app")

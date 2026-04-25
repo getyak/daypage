@@ -202,68 +202,19 @@ jobs:
           echo "$ENV_FILE_CONTENT" > .env
           echo ".env written ($(wc -l < .env) lines)"
 
-      # ── 8. Import signing certificate ────────────────────────────────────
-      - name: Import code signing certificate
+      # ── 8. Setup match SSH key ────────────────────────────────────────────
+      # match 通过 SSH 访问 getyak/daypage-certs 私有 repo 拉取加密的证书和 profile。
+      # MATCH_DEPLOY_KEY 是专用 Deploy Key 的私钥（公钥已挂在 daypage-certs repo）。
+      # 证书安装和 profile 导入均由 Fastlane match 在 lane 运行时自动完成。
+      - name: Setup match SSH key
         env:
-          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
-          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          MATCH_DEPLOY_KEY: ${{ secrets.MATCH_DEPLOY_KEY }}
         run: |
-          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
-          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-
-          CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
-          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
-          security import $CERTIFICATE_PATH \
-            -P "$P12_PASSWORD" \
-            -A -t cert -f pkcs12 \
-            -k $KEYCHAIN_PATH
-          security set-key-partition-list \
-            -S apple-tool:,apple: \
-            -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-
-          security list-keychain -d user -s $KEYCHAIN_PATH
-
-      # ── 9. Import provisioning profile ───────────────────────────────────
-      - name: Install provisioning profile
-        env:
-          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
-        run: |
-          PP_PATH=$RUNNER_TEMP/build_pp.mobileprovision
-          echo -n "$BUILD_PROVISION_PROFILE_BASE64" | base64 --decode -o $PP_PATH
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp $PP_PATH ~/Library/MobileDevice/Provisioning\ Profiles/
-
-          UUID=$(security cms -D -i $PP_PATH | plutil -extract UUID raw -)
-          echo "PROVISIONING_PROFILE_UUID=$UUID" >> $GITHUB_ENV
-          echo "Provisioning profile UUID: $UUID"
-
-          # Validate that the profile includes required iCloud entitlements.
-          # If missing, the build will fail at archive time with a cryptic error.
-          # See: https://github.com/getyak/daypage/issues/120
-          DECODED=$(security cms -D -i $PP_PATH)
-          MISSING_ENTITLEMENTS=()
-          for KEY in \
-            "com.apple.developer.icloud-container-identifiers" \
-            "com.apple.developer.icloud-services" \
-            "com.apple.developer.ubiquity-container-identifiers"; do
-            if ! echo "$DECODED" | grep -q "$KEY"; then
-              MISSING_ENTITLEMENTS+=("$KEY")
-            fi
-          done
-          if [ ${#MISSING_ENTITLEMENTS[@]} -gt 0 ]; then
-            echo "::error::Provisioning profile is missing required iCloud entitlements:"
-            for E in "${MISSING_ENTITLEMENTS[@]}"; do
-              echo "::error::  - $E"
-            done
-            echo "::error::Fix: regenerate 'DayPage AppStore' profile in Apple Developer Portal"
-            echo "::error::after enabling iCloud capability for com.daypage.app, then update"
-            echo "::error::the BUILD_PROVISION_PROFILE_BASE64 GitHub Secret. See issue #120."
-            exit 1
-          fi
-          echo "Provisioning profile includes all required iCloud entitlements ✓"
+          mkdir -p ~/.ssh
+          echo "$MATCH_DEPLOY_KEY" > ~/.ssh/match_deploy_key
+          chmod 600 ~/.ssh/match_deploy_key
+          printf 'Host github.com\n  IdentityFile ~/.ssh/match_deploy_key\n  StrictHostKeyChecking no\n' >> ~/.ssh/config
+          echo "Match SSH key configured"
 
       # ── 10. Write App Store Connect API Key ──────────────────────────────
       - name: Write App Store Connect API key
@@ -279,7 +230,8 @@ jobs:
           APP_STORE_CONNECT_API_KEY_ID:         ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID:          ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_CONTENT:    ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
-          PROVISIONING_PROFILE_UUID:            ${{ env.PROVISIONING_PROFILE_UUID }}
+          MATCH_PASSWORD:                       ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_URL:                        ${{ secrets.MATCH_GIT_URL }}
           GH_TOKEN:                             ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REF_NAME:                      ${{ steps.version.outputs.release_tag }}
           GITHUB_REF_TYPE:                      tag
@@ -337,8 +289,8 @@ jobs:
           path: fastlane/logs/
           retention-days: 7
 
-      # ── 15. Cleanup keychain ──────────────────────────────────────────────
-      - name: Cleanup keychain
+      # ── 15. Cleanup SSH key ───────────────────────────────────────────────
+      - name: Cleanup match SSH key
         if: always()
         run: |
-          security delete-keychain $RUNNER_TEMP/build.keychain || true
+          rm -f ~/.ssh/match_deploy_key || true

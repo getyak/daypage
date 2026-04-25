@@ -367,10 +367,10 @@ final class CompilationService {
         let body: [String: Any] = [
             "model": model,
             "messages": [
-                ["role": "system", "content": "You are DayPage, a personal diary AI compiler. Output only valid Markdown, no extra commentary."],
+                ["role": "system", "content": "You are DayPage's AI compilation engine. Output only a single valid JSON object as specified in the user prompt. No extra commentary outside the JSON."],
                 ["role": "user", "content": prompt]
             ],
-            "max_tokens": 2048,
+            "max_tokens": 4096,
             "temperature": 0.7
         ]
 
@@ -453,7 +453,9 @@ final class CompilationService {
 
     /// Overwrites vault/wiki/hot.md with the new hot cache summary.
     /// Preserves the frontmatter structure (updated_at, covers_dates).
-    /// If summary is empty the file is left unchanged.
+    /// Guards against low-quality overwrites: if the new summary is less than
+    /// 50% the character count of the existing content, skips the write and logs a warning.
+    /// Backs up the existing file to .trash/ before overwriting (same policy as Daily Page).
     private func updateHotCache(summary: String, compiledDate: String) {
         guard !summary.isEmpty else { return }
 
@@ -462,12 +464,32 @@ final class CompilationService {
 
         // Build covers_dates: read existing if possible, then append compiledDate
         var coveredDates: [String] = []
+        var existingCharCount = 0
         do {
             let existing = try String(contentsOf: url, encoding: .utf8)
             coveredDates = parseCoversDates(from: existing)
+            existingCharCount = existing.count
         } catch {
             // hot.md may not exist on first compilation
         }
+
+        // Guard: skip overwrite if new summary is suspiciously short (< 50% of existing)
+        if existingCharCount > 0 && summary.count < existingCharCount / 2 {
+            DayPageLogger.shared.warn("updateHotCache: new summary (\(summary.count) chars) is less than 50% of existing (\(existingCharCount) chars) — skipping overwrite to protect context")
+            return
+        }
+
+        // Backup existing hot.md before overwriting
+        if FileManager.default.fileExists(atPath: url.path) {
+            let trashDir = url.deletingLastPathComponent().appendingPathComponent(".trash")
+            if !FileManager.default.fileExists(atPath: trashDir.path) {
+                try? FileManager.default.createDirectory(at: trashDir, withIntermediateDirectories: true)
+            }
+            let ts = backupTimestampFormatter.string(from: Date())
+            let backupURL = trashDir.appendingPathComponent("hot_\(ts).md")
+            try? FileManager.default.copyItem(at: url, to: backupURL)
+        }
+
         if !coveredDates.contains(compiledDate) {
             coveredDates.append(compiledDate)
         }
@@ -534,21 +556,21 @@ final class CompilationService {
 
     // MARK: - Date Formatters
 
-    private var dateFormatter: DateFormatter {
+    private let dateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
         f.locale = Locale(identifier: "en_US_POSIX")
         f.timeZone = AppSettings.currentTimeZone()
         return f
-    }
+    }()
 
-    private var backupTimestampFormatter: DateFormatter {
+    private let backupTimestampFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyyMMddHHmmss"
         f.locale = Locale(identifier: "en_US_POSIX")
         f.timeZone = AppSettings.currentTimeZone()
         return f
-    }
+    }()
 
     private func iso8601Now() -> String {
         ISO8601DateFormatter.memo.string(from: Date())
