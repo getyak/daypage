@@ -12,12 +12,12 @@ struct SettingsView: View {
     @StateObject private var bannerCenter = BannerCenter.shared
 
     // API test state per key
-    @State private var dashScopeTesting = false
+    @State private var openAIChatTesting = false
     @State private var whisperTesting = false
     @State private var weatherTesting = false
 
     // Inline test result per key (cleared on next test)
-    @State private var dashScopeResult: APITestResult?
+    @State private var openAIChatResult: APITestResult?
     @State private var whisperResult: APITestResult?
     @State private var weatherResult: APITestResult?
 
@@ -71,11 +71,11 @@ struct SettingsView: View {
     private var apiKeysSection: some View {
         Section("API Keys") {
             apiKeyRow(
-                name: "DashScope",
-                key: Secrets.dashScopeApiKey,
-                isTesting: dashScopeTesting,
-                result: dashScopeResult,
-                onTest: { Task { await testDashScope() } }
+                name: "OpenAI Chat",
+                key: Secrets.openAIChatApiKey,
+                isTesting: openAIChatTesting,
+                result: openAIChatResult,
+                onTest: { Task { await testOpenAIChat() } }
             )
             apiKeyRow(
                 name: "OpenAI Whisper",
@@ -506,22 +506,22 @@ struct SettingsView: View {
 
     // MARK: - API Test Implementations
 
-    private func testDashScope() async {
-        dashScopeTesting = true
-        dashScopeResult = nil
-        defer { dashScopeTesting = false }
+    private func testOpenAIChat() async {
+        openAIChatTesting = true
+        openAIChatResult = nil
+        defer { openAIChatTesting = false }
 
-        let key = Secrets.dashScopeApiKey
+        let key = Secrets.openAIChatApiKey
         guard !key.isEmpty else { return }
 
-        // Mirror CompilationService.callDashScope URL resolution so test hits the same endpoint
-        let baseURL = Secrets.dashScopeBaseURL.isEmpty
-            ? "https://dashscope.aliyuncs.com/compatible-mode/v1"
-            : Secrets.dashScopeBaseURL
-        let model = Secrets.dashScopeModel.isEmpty ? "qwen3.5-plus" : Secrets.dashScopeModel
+        // Mirror CompilationService.callChatAPI URL resolution so test hits the same endpoint
+        let baseURL = Secrets.openAIChatBaseURL.isEmpty
+            ? "https://api.openai.com/v1"
+            : Secrets.openAIChatBaseURL
+        let model = Secrets.openAIChatModel.isEmpty ? "gpt-5.4-mini" : Secrets.openAIChatModel
 
         guard let url = URL(string: "\(baseURL)/chat/completions") else {
-            dashScopeResult = .failure("URL 无效：\(baseURL)")
+            openAIChatResult = .failure("URL 无效：\(baseURL)")
             return
         }
 
@@ -540,12 +540,12 @@ struct SettingsView: View {
             let (_, resp) = try await URLSession.shared.data(for: req)
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
             if code == 200 {
-                dashScopeResult = .success("连接成功 · 模型 \(model)")
+                openAIChatResult = .success("连接成功 · 模型 \(model)")
             } else {
-                dashScopeResult = .failure("HTTP \(code) · \(hintForDashScope(status: code))")
+                openAIChatResult = .failure("HTTP \(code) · \(hintForChatAPI(status: code))")
             }
         } catch {
-            dashScopeResult = .failure(hintForNetwork(error: error))
+            openAIChatResult = .failure(hintForNetwork(error: error))
         }
     }
 
@@ -601,7 +601,7 @@ struct SettingsView: View {
 
     // MARK: - Error hint helpers
 
-    private func hintForDashScope(status: Int) -> String {
+    private func hintForChatAPI(status: Int) -> String {
         switch status {
         case 401, 403: return "API key 无效或权限不足"
         case 404: return "URL 不存在，检查 baseURL"

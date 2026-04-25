@@ -256,7 +256,7 @@ private struct PermissionsPage: View {
 private struct ApiKeysPage: View {
     let onComplete: () -> Void
 
-    @State private var dashScopeKey: String = ""
+    @State private var openAIChatKey: String = ""
     @State private var openAIKey: String = ""
     @State private var openWeatherKey: String = ""
 
@@ -276,9 +276,9 @@ private struct ApiKeysPage: View {
 
                 VStack(spacing: 12) {
                     apiKeyField(
-                        label: "DashScope (AI 编译)",
+                        label: "OpenAI Chat (AI 编译)",
                         placeholder: "sk-...",
-                        text: $dashScopeKey
+                        text: $openAIChatKey
                     )
                     apiKeyField(
                         label: "OpenAI Whisper (语音转写)",
@@ -338,8 +338,8 @@ private struct ApiKeysPage: View {
     private func saveAndComplete() {
         // API keys are in a generated file; we write to UserDefaults as a runtime override
         // (GeneratedSecrets.swift reads from environment; store in UserDefaults for runtime use)
-        if !dashScopeKey.isEmpty {
-            UserDefaults.standard.set(dashScopeKey, forKey: "runtimeDashScopeKey")
+        if !openAIChatKey.isEmpty {
+            UserDefaults.standard.set(openAIChatKey, forKey: "runtimeOpenAIChatKey")
         }
         if !openAIKey.isEmpty {
             UserDefaults.standard.set(openAIKey, forKey: "runtimeOpenAIKey")

@@ -106,7 +106,7 @@ final class TodayViewModel: ObservableObject {
 
     /// Whether any API key is missing (triggers banner in TodayView).
     var hasApiKeysMissing: Bool {
-        Secrets.dashScopeApiKey.isEmpty
+        Secrets.openAIChatApiKey.isEmpty
             || Secrets.openAIWhisperApiKey.isEmpty
             || Secrets.openWeatherApiKey.isEmpty
     }
@@ -548,7 +548,7 @@ final class TodayViewModel: ObservableObject {
                 UINotificationFeedbackGenerator().notificationOccurred(.error)
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .error,
-                    title: "DashScope API Key 未配置",
+                    title: "OpenAI Chat API Key 未配置",
                     primaryAction: BannerAction(label: "前往设置") { }
                 ))
             } catch CompilationError.apiError(let code, _) where code == 401 {
