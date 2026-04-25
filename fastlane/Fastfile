@@ -87,6 +87,7 @@ platform :ios do
       clean:            true,
       output_directory: "build",
       output_name:      "DayPage.ipa",
+      xcargs:           "CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER='#{profile_name}'",
       export_options:   {
         method:               "app-store",
         signingStyle:         "manual",
@@ -138,6 +139,7 @@ platform :ios do
       clean:            true,
       output_directory: "build",
       output_name:      "DayPage.ipa",
+      xcargs:           "CODE_SIGN_STYLE=Manual PROVISIONING_PROFILE_SPECIFIER='#{profile_name}'",
       export_options:   {
         method:               "app-store",
         signingStyle:         "manual",
