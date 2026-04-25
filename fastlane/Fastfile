@@ -71,11 +71,23 @@ platform :ios do
     setup_secrets
     increment_build
 
+    # CI 专用临时 keychain，避免 xcodebuild archive 时触发 UI 权限弹窗后永久挂起
+    create_keychain(
+      name:               "ci_keychain",
+      password:           ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password",
+      default_keychain:   true,
+      unlock:             true,
+      timeout:            3600,
+      add_to_search_list: true
+    )
+
     match(
-      type:           "appstore",
-      readonly:       true,
-      git_url:        ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
-      app_identifier: "com.daypage.app"
+      type:              "appstore",
+      readonly:          true,
+      git_url:           ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
+      app_identifier:    "com.daypage.app",
+      keychain_name:     "ci_keychain",
+      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
     )
 
     profile_name = ENV["sigh_com.daypage.app_appstore_profile-name"] || "match AppStore com.daypage.app"
@@ -123,11 +135,22 @@ platform :ios do
     setup_secrets
     increment_build
 
+    create_keychain(
+      name:               "ci_keychain",
+      password:           ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password",
+      default_keychain:   true,
+      unlock:             true,
+      timeout:            3600,
+      add_to_search_list: true
+    )
+
     match(
-      type:           "appstore",
-      readonly:       true,
-      git_url:        ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
-      app_identifier: "com.daypage.app"
+      type:              "appstore",
+      readonly:          true,
+      git_url:           ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
+      app_identifier:    "com.daypage.app",
+      keychain_name:     "ci_keychain",
+      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
     )
 
     profile_name = ENV["sigh_com.daypage.app_appstore_profile-name"] || "match AppStore com.daypage.app"
