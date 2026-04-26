@@ -236,7 +236,7 @@ final class VoiceService: NSObject, ObservableObject {
     // MARK: - Whisper Transcription
 
     func transcribeAudio(at url: URL) async -> String? {
-        let apiKey = Secrets.openAIWhisperApiKey
+        let apiKey = Secrets.resolvedOpenAIWhisperApiKey
         guard !apiKey.isEmpty else { return nil }
 
         let audioData: Data

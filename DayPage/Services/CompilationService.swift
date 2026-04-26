@@ -61,7 +61,7 @@ final class CompilationService {
         )
 
         // 4. Call DashScope API with retry
-        let apiKey = Secrets.dashScopeApiKey
+        let apiKey = Secrets.resolvedDashScopeApiKey
         guard !apiKey.isEmpty else {
             throw CompilationError.missingApiKey
         }

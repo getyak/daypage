@@ -65,7 +65,7 @@ final class WeatherService {
         }
 
         // Fetch from OpenWeatherMap
-        let apiKey = Secrets.openWeatherApiKey
+        let apiKey = Secrets.resolvedOpenWeatherApiKey
         guard !apiKey.isEmpty else { return nil }
 
         let urlString = "https://api.openweathermap.org/data/2.5/weather?lat=\(lat)&lon=\(lng)&units=metric&lang=zh_cn&appid=\(apiKey)"
