@@ -4,11 +4,11 @@ import Sentry
 
 // MARK: - CompilationService
 
-/// Compiles today's raw memos into a structured Daily Page via DashScope LLM API.
+/// Compiles today's raw memos into a structured Daily Page via DeepSeek LLM API.
 ///
 /// Responsibilities:
 ///   1. Read vault/raw/YYYY-MM-DD.md (all memos) + vault/wiki/hot.md (context)
-///   2. Call DashScope chat completions (OpenAI-compatible)
+///   2. Call DeepSeek chat completions (OpenAI-compatible)
 ///   3. Write compiled output to vault/wiki/daily/YYYY-MM-DD.md
 ///      (backs up existing file before overwrite)
 ///   4. Append a row to vault/wiki/log.md
@@ -60,13 +60,13 @@ final class CompilationService {
             memoCount: memos.count
         )
 
-        // 4. Call DashScope API with retry
-        let apiKey = Secrets.resolvedDashScopeApiKey
+        // 4. Call DeepSeek API with retry
+        let apiKey = Secrets.resolvedDeepSeekApiKey
         guard !apiKey.isEmpty else {
             throw CompilationError.missingApiKey
         }
 
-        let compiledText = try await callDashScopeWithRetry(
+        let compiledText = try await callDeepSeekWithRetry(
             prompt: prompt,
             apiKey: apiKey,
             onRetry: onRetry
@@ -304,9 +304,9 @@ final class CompilationService {
         """
     }
 
-    // MARK: - DashScope API (with retry)
+    // MARK: - DeepSeek API (with retry)
 
-    private func callDashScopeWithRetry(
+    private func callDeepSeekWithRetry(
         prompt: String,
         apiKey: String,
         onRetry: ((Int, Int) -> Void)?
@@ -322,7 +322,7 @@ final class CompilationService {
                 try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             }
             do {
-                return try await callDashScope(prompt: prompt, apiKey: apiKey)
+                return try await callDeepSeek(prompt: prompt, apiKey: apiKey)
             } catch let error as CompilationError {
                 switch error {
                 case .apiError(let code, _) where code == 401 || code == 403 || code == 400:
@@ -348,11 +348,11 @@ final class CompilationService {
         throw lastError
     }
 
-    private func callDashScope(prompt: String, apiKey: String) async throws -> String {
-        let baseURL = Secrets.dashScopeBaseURL.isEmpty
-            ? "https://dashscope.aliyuncs.com/compatible-mode/v1"
-            : Secrets.dashScopeBaseURL
-        let model = Secrets.dashScopeModel.isEmpty ? "qwen3.5-plus" : Secrets.dashScopeModel
+    private func callDeepSeek(prompt: String, apiKey: String) async throws -> String {
+        let baseURL = Secrets.deepSeekBaseURL.isEmpty
+            ? "https://api.deepseek.com/v1"
+            : Secrets.deepSeekBaseURL
+        let model = Secrets.deepSeekModel.isEmpty ? "deepseek-v4-pro" : Secrets.deepSeekModel
 
         guard let url = URL(string: "\(baseURL)/chat/completions") else {
             throw CompilationError.invalidURL
@@ -377,14 +377,14 @@ final class CompilationService {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let span = Secrets.sentryDSN.isEmpty ? nil
-            : SentrySDK.startTransaction(name: "compilation.dashscope", operation: "http.client")
+            : SentrySDK.startTransaction(name: "compilation.deepseek", operation: "http.client")
         defer { span?.finish() }
 
         let (data, response) = try await URLSession.shared.data(for: request)
 
         guard let http = response as? HTTPURLResponse else {
             #if DEBUG
-            print("[DashScope] URL=\(url.absoluteString) status=- body=No HTTP response")
+            print("[DeepSeek] URL=\(url.absoluteString) status=- body=No HTTP response")
             #endif
             throw CompilationError.networkError("No HTTP response")
         }
@@ -393,7 +393,7 @@ final class CompilationService {
             let bodyStr = String(data: data, encoding: .utf8) ?? "(empty)"
             #if DEBUG
             let snippet = String(bodyStr.prefix(500))
-            print("[DashScope] URL=\(url.absoluteString) status=\(http.statusCode) body=\(snippet)")
+            print("[DeepSeek] URL=\(url.absoluteString) status=\(http.statusCode) body=\(snippet)")
             #endif
             throw CompilationError.apiError(statusCode: http.statusCode, body: bodyStr)
         }
@@ -591,9 +591,9 @@ enum CompilationError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingApiKey:
-            return "DashScope API Key 未配置，请检查 .env 文件"
+            return "DeepSeek API Key 未配置，请检查 .env 文件"
         case .invalidURL:
-            return "DashScope API URL 无效"
+            return "DeepSeek API URL 无效"
         case .networkError(let msg):
             return "网络错误：\(msg)"
         case .apiError(let code, let body):

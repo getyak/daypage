@@ -106,7 +106,7 @@ struct DayPageApp: App {
 
     private func checkApiKeys() {
         var missing: [String] = []
-        if Secrets.resolvedDashScopeApiKey.isEmpty { missing.append("DashScope (AI 编译)") }
+        if Secrets.resolvedDeepSeekApiKey.isEmpty { missing.append("DeepSeek (AI 编译)") }
         if Secrets.resolvedOpenAIWhisperApiKey.isEmpty { missing.append("OpenAI Whisper (语音转写)") }
         if Secrets.resolvedOpenWeatherApiKey.isEmpty { missing.append("OpenWeather (天气)") }
         guard !missing.isEmpty else { return }

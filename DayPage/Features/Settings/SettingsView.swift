@@ -12,12 +12,12 @@ struct SettingsView: View {
     @StateObject private var bannerCenter = BannerCenter.shared
 
     // API test state per key
-    @State private var dashScopeTesting = false
+    @State private var deepSeekTesting = false
     @State private var whisperTesting = false
     @State private var weatherTesting = false
 
     // Inline test result per key (cleared on next test)
-    @State private var dashScopeResult: APITestResult?
+    @State private var deepSeekResult: APITestResult?
     @State private var whisperResult: APITestResult?
     @State private var weatherResult: APITestResult?
 
@@ -141,12 +141,12 @@ struct SettingsView: View {
         Section("API Keys") {
             let _ = keyRefreshToken  // read token so SwiftUI re-evaluates when key is saved
             apiKeyRow(
-                name: "DashScope",
-                udKey: "runtimeDashScopeKey",
-                key: Secrets.resolvedDashScopeApiKey,
-                isTesting: dashScopeTesting,
-                result: dashScopeResult,
-                onTest: { Task { await testDashScope() } }
+                name: "DeepSeek",
+                udKey: "runtimeDeepSeekKey",
+                key: Secrets.resolvedDeepSeekApiKey,
+                isTesting: deepSeekTesting,
+                result: deepSeekResult,
+                onTest: { Task { await testDeepSeek() } }
             )
             apiKeyRow(
                 name: "OpenAI Whisper",
@@ -593,22 +593,22 @@ struct SettingsView: View {
 
     // MARK: - API Test Implementations
 
-    private func testDashScope() async {
-        dashScopeTesting = true
-        dashScopeResult = nil
-        defer { dashScopeTesting = false }
+    private func testDeepSeek() async {
+        deepSeekTesting = true
+        deepSeekResult = nil
+        defer { deepSeekTesting = false }
 
-        let key = Secrets.resolvedDashScopeApiKey
+        let key = Secrets.resolvedDeepSeekApiKey
         guard !key.isEmpty else { return }
 
-        // Mirror CompilationService.callDashScope URL resolution so test hits the same endpoint
-        let baseURL = Secrets.dashScopeBaseURL.isEmpty
-            ? "https://dashscope.aliyuncs.com/compatible-mode/v1"
-            : Secrets.dashScopeBaseURL
-        let model = Secrets.dashScopeModel.isEmpty ? "qwen3.5-plus" : Secrets.dashScopeModel
+        // Mirror CompilationService.callDeepSeek URL resolution so test hits the same endpoint
+        let baseURL = Secrets.deepSeekBaseURL.isEmpty
+            ? "https://api.deepseek.com/v1"
+            : Secrets.deepSeekBaseURL
+        let model = Secrets.deepSeekModel.isEmpty ? "deepseek-v4-pro" : Secrets.deepSeekModel
 
         guard let url = URL(string: "\(baseURL)/chat/completions") else {
-            dashScopeResult = .failure("URL 无效：\(baseURL)")
+            deepSeekResult = .failure("URL 无效：\(baseURL)")
             return
         }
 
@@ -627,12 +627,12 @@ struct SettingsView: View {
             let (_, resp) = try await URLSession.shared.data(for: req)
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
             if code == 200 {
-                dashScopeResult = .success("连接成功 · 模型 \(model)")
+                deepSeekResult = .success("连接成功 · 模型 \(model)")
             } else {
-                dashScopeResult = .failure("HTTP \(code) · \(hintForDashScope(status: code))")
+                deepSeekResult = .failure("HTTP \(code) · \(hintForDeepSeek(status: code))")
             }
         } catch {
-            dashScopeResult = .failure(hintForNetwork(error: error))
+            deepSeekResult = .failure(hintForNetwork(error: error))
         }
     }
 
@@ -688,7 +688,7 @@ struct SettingsView: View {
 
     // MARK: - Error hint helpers
 
-    private func hintForDashScope(status: Int) -> String {
+    private func hintForDeepSeek(status: Int) -> String {
         switch status {
         case 401, 403: return "API key 无效或权限不足"
         case 404: return "URL 不存在，检查 baseURL"

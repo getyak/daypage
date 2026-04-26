@@ -5,8 +5,8 @@ import Foundation
 // This file is committed and provides computed vars that prefer
 // UserDefaults keys saved during Onboarding over the compiled-in values.
 extension Secrets {
-    static var resolvedDashScopeApiKey: String {
-        UserDefaults.standard.string(forKey: "runtimeDashScopeKey").flatMap { $0.isEmpty ? nil : $0 } ?? dashScopeApiKey
+    static var resolvedDeepSeekApiKey: String {
+        UserDefaults.standard.string(forKey: "runtimeDeepSeekKey").flatMap { $0.isEmpty ? nil : $0 } ?? deepSeekApiKey
     }
     static var resolvedOpenAIWhisperApiKey: String {
         UserDefaults.standard.string(forKey: "runtimeOpenAIKey").flatMap { $0.isEmpty ? nil : $0 } ?? openAIWhisperApiKey

@@ -39,9 +39,9 @@ read_env_value() {
 }
 
 # ── Read values ──────────────────────────────────────────────────────────────
-DASHSCOPE_API_KEY=$(read_env_value "DASHSCOPE_API_KEY")
-DASHSCOPE_BASE_URL=$(read_env_value "DASHSCOPE_BASE_URL")
-DASHSCOPE_MODEL=$(read_env_value "DASHSCOPE_MODEL")
+DEEPSEEK_API_KEY=$(read_env_value "DEEPSEEK_API_KEY")
+DEEPSEEK_BASE_URL=$(read_env_value "DEEPSEEK_BASE_URL")
+DEEPSEEK_MODEL=$(read_env_value "DEEPSEEK_MODEL")
 OPENAI_WHISPER_API_KEY=$(read_env_value "OPENAI_WHISPER_API_KEY")
 OPENWEATHER_API_KEY=$(read_env_value "OPENWEATHER_API_KEY")
 SUPABASE_URL=$(read_env_value "SUPABASE_URL")
@@ -57,9 +57,9 @@ cat > "${OUTPUT_FILE}" << SWIFT
 // Regenerated on every build from the project-root .env file.
 
 enum Secrets {
-    static let dashScopeApiKey: String = "${DASHSCOPE_API_KEY}"
-    static let dashScopeBaseURL: String = "${DASHSCOPE_BASE_URL}"
-    static let dashScopeModel: String = "${DASHSCOPE_MODEL}"
+    static let deepSeekApiKey: String = "${DEEPSEEK_API_KEY}"
+    static let deepSeekBaseURL: String = "${DEEPSEEK_BASE_URL}"
+    static let deepSeekModel: String = "${DEEPSEEK_MODEL}"
     static let openAIWhisperApiKey: String = "${OPENAI_WHISPER_API_KEY}"
     static let openWeatherApiKey: String = "${OPENWEATHER_API_KEY}"
     static let supabaseURL: String = "${SUPABASE_URL}"
