@@ -30,31 +30,16 @@ struct TodayView: View {
     /// Current time for the header timestamp (refreshed every minute).
     @State private var currentTime: Date = Date()
 
-    /// Vertical slack (in points) between the bottom anchor and the ScrollView's
-    /// visible bottom that still counts as "near the bottom" for footer visibility.
-    /// Matches the 200pt spec in PRD US-005.
-    private let compileFooterThreshold: CGFloat = 200
-
-    /// Distance from the ScrollView's top edge to the bottom anchor.
-    /// When `anchorMinY <= visibleHeight + compileFooterThreshold` the user is
-    /// within 200pt of the content bottom and the footer should fade in.
-    @State private var compileFooterAnchorMinY: CGFloat = .infinity
-
-    /// Most recent visible height of the ScrollView.
-    @State private var scrollVisibleHeight: CGFloat = 0
-
     private let headerTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
-    /// Computed visibility for the sticky compile footer button.
-    /// PRD rule: show when daily page is not yet compiled, there is at least one
-    /// memo, and the bottom anchor is within `compileFooterThreshold` of the
-    /// visible bottom. Compile-in-flight keeps the button visible (morphs state).
+    /// Whether the inline compile call-to-action should render at the tail
+    /// of today's stream. No longer depends on scroll position — the button
+    /// is part of the timeline now, so it just shows whenever there is
+    /// uncompiled content (or a compile is in flight).
     private var shouldShowCompileFooter: Bool {
         guard !viewModel.isDailyPageCompiled else { return false }
-        guard viewModel.memos.count > 0 else { return false }
         if viewModel.isCompiling { return true }
-        guard scrollVisibleHeight > 0 else { return false }
-        return compileFooterAnchorMinY <= scrollVisibleHeight + compileFooterThreshold
+        return viewModel.memos.count > 0
     }
 
     private var todayPendingDrafts: [VisitDraft] {
@@ -246,6 +231,27 @@ struct TodayView: View {
                                         .padding(.horizontal, 20)
                                 }
 
+                                // MARK: Compile entry — inline at the tail of today's stream.
+                                // Earlier this lived as a sticky pill above the input bar; the
+                                // capture surface is supposed to be the only thing pinned to the
+                                // bottom. Now the compile call-to-action scrolls with the page,
+                                // so the dock stays calm and the user sees "编译今日 · N 条" as
+                                // a natural full-stop after the last memo of the day.
+                                if shouldShowCompileFooter {
+                                    HStack {
+                                        Spacer()
+                                        CompileFooterButton(
+                                            memoCount: viewModel.memos.count,
+                                            isCompiling: viewModel.isCompiling,
+                                            isVisible: true,
+                                            onTap: { viewModel.compile() }
+                                        )
+                                        Spacer()
+                                    }
+                                    .padding(.top, 8)
+                                    .padding(.bottom, 8)
+                                }
+
                                 // MARK: Weekly Recap (this week's compiled days, newest first)
                                 // Rendered after today's raw stream so the user scrolls "from now
                                 // into memory" — Phase 1 of the time-pyramid recap. Phase 2/3
@@ -258,29 +264,13 @@ struct TodayView: View {
                                 )
 
                                 Spacer(minLength: 16)
-
-                                // Bottom anchor for CompileFooterButton visibility tracking (US-005).
-                                CompileFooterAnchor()
                             }
                             .padding(.top, 12)
                             .frame(minHeight: geo.size.height * 0.75)
                         }
                         .coordinateSpace(name: "todayScroll")
                         .frame(maxHeight: geo.size.height)
-                        .onAppear { scrollVisibleHeight = geo.size.height }
-                        .onChange(of: geo.size.height) { h in scrollVisibleHeight = h }
-                        .onPreferenceChange(CompileFooterAnchorPreferenceKey.self) { minY in
-                            compileFooterAnchorMinY = minY
-                        }
                     }
-
-                    // MARK: Compile Footer Button (sticky, fades in near bottom of timeline)
-                    CompileFooterButton(
-                        memoCount: viewModel.memos.count,
-                        isCompiling: viewModel.isCompiling,
-                        isVisible: shouldShowCompileFooter,
-                        onTap: { viewModel.compile() }
-                    )
 
                     // MARK: Input Bar — single canonical surface (V4).
                     // V1/V2/V3 were removed in the Capture v2 cleanup; the

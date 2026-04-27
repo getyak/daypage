@@ -215,8 +215,15 @@ struct InputBarV4: View {
     // shadow stack approximating the iOS 26 Liquid Glass treatment from the
     // design canvas (inner highlight + soft drop shadow).
 
+    // STREAM dock — three free-floating glass discs.
+    //
+    // No outer container: the page (and any list content behind it) shows
+    // through between the three buttons. Each disc carries its own
+    // ultraThinMaterial fill, fine inner highlight, and a soft warm-amber
+    // drop shadow so the surface reads as elevated glass over the page,
+    // not a solid pill.
     private var streamDock: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 18) {
             // LEFT — More
             dockSideButton(
                 systemImage: "plus",
@@ -238,7 +245,9 @@ struct InputBarV4: View {
                 idleBackgroundColor: DSColor.accentAmber,
                 idleIconColor: .white
             )
-            .frame(width: 56, height: 44)
+            .frame(width: 56, height: 56)
+            .shadow(color: DSColor.accentAmber.opacity(0.32), radius: 14, x: 0, y: 8)
+            .shadow(color: DSColor.accentAmber.opacity(0.18), radius: 4, x: 0, y: 2)
             .accessibilityLabel("按住说话")
 
             // RIGHT — Pen (expand text composer)
@@ -252,21 +261,10 @@ struct InputBarV4: View {
                 isFocused = true
             }
         }
-        .padding(6)
-        .background(
-            Capsule(style: .continuous)
-                .fill(.ultraThinMaterial)
-        )
-        .overlay(
-            Capsule(style: .continuous)
-                .strokeBorder(Color.white.opacity(0.7), lineWidth: 0.5)
-        )
-        .shadow(color: DSColor.accentAmber.opacity(0.10), radius: 18, x: 0, y: 12)
-        .shadow(color: DSColor.accentAmber.opacity(0.06), radius: 4, x: 0, y: 2)
-        .frame(maxWidth: .infinity)
     }
 
-    // 40pt translucent side button. Plain SF Symbol, no fill, no label.
+    // Translucent glass disc — 44pt. ultraThinMaterial + warm hairline +
+    // soft drop shadow so it reads as a floating glass coin over the page.
     @ViewBuilder
     private func dockSideButton(
         systemImage: String,
@@ -278,17 +276,19 @@ struct InputBarV4: View {
             action()
         } label: {
             Image(systemName: systemImage)
-                .font(.system(size: 17, weight: .regular))
+                .font(.system(size: 18, weight: .regular))
                 .foregroundStyle(DSColor.onBackgroundPrimary)
-                .frame(width: 40, height: 40)
+                .frame(width: 44, height: 44)
                 .background(
                     Circle()
-                        .fill(Color.white.opacity(0.55))
+                        .fill(.ultraThinMaterial)
                 )
                 .overlay(
                     Circle()
-                        .strokeBorder(Color.white.opacity(0.7), lineWidth: 0.5)
+                        .strokeBorder(Color.white.opacity(0.55), lineWidth: 0.5)
                 )
+                .shadow(color: Color.black.opacity(0.10), radius: 10, x: 0, y: 6)
+                .shadow(color: Color.black.opacity(0.04), radius: 2, x: 0, y: 1)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
