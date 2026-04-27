@@ -104,13 +104,6 @@ final class TodayViewModel: ObservableObject {
     /// Whether the camera capture sheet is presented.
     @Published var isShowingCamera: Bool = false
 
-    /// Whether any API key is missing (triggers banner in TodayView).
-    var hasApiKeysMissing: Bool {
-        Secrets.deepSeekApiKey.isEmpty
-            || Secrets.openAIWhisperApiKey.isEmpty
-            || Secrets.openWeatherApiKey.isEmpty
-    }
-
     // MARK: Private
 
     private let date: Date

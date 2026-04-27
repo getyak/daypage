@@ -51,9 +51,17 @@ struct InputBarV3: View {
     @State private var pressToTalkPhase: PressToTalkPhase = .idle
     @State private var showHoldToast: Bool = false
     @State private var showTranscribeFailed: Bool = false
+    /// True while a "录音太短" hint is on screen — gracefully nudges the user
+    /// without committing a meaningless one-frame recording.
+    @State private var showTooShortToast: Bool = false
     @State private var userExpandedText: Bool = false
     /// 点击录制持久栏激活时为 true
     @State private var isTapRecording: Bool = false
+
+    /// Floor below which a recording is treated as accidental noise rather than
+    /// intent. Capture v2 design principle: respect the user's time — don't
+    /// commit a memo that is structurally too short to carry meaning.
+    private static let minRecordingSeconds: Int = 1
 
     @StateObject private var voiceService = VoiceService.shared
 
@@ -129,7 +137,23 @@ struct InputBarV3: View {
             photoLibrary: .shared()
         )
         .overlay(alignment: .bottom) {
-            if showHoldToast {
+            if showTooShortToast {
+                HStack(spacing: 6) {
+                    Image(systemName: "waveform")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text("再说久一点 · 至少 1 秒")
+                        .font(.custom("Inter-Regular", size: 11))
+                }
+                .foregroundColor(DSColor.onSurface)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(DSColor.surfaceContainerHigh)
+                .clipShape(Capsule())
+                .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 2)
+                .padding(.bottom, 140)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                .accessibilityLabel("录音太短，请按住麦克风继续说")
+            } else if showHoldToast {
                 Text("长按可快速发送")
                     .monoLabelStyle(size: 11)
                     .foregroundColor(DSColor.onSurface)
@@ -157,6 +181,7 @@ struct InputBarV3: View {
         }
         .animation(.easeInOut(duration: 0.2), value: showHoldToast)
         .animation(.easeInOut(duration: 0.2), value: showTranscribeFailed)
+        .animation(.easeInOut(duration: 0.2), value: showTooShortToast)
         .onChange(of: voiceService.state) { newState in
             if case .failed = newState, isTapRecording {
                 withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
@@ -217,17 +242,33 @@ struct InputBarV3: View {
         }
     }
 
-    // MARK: - Collapsed Row (centered primary mic + secondary action bar)
+    // MARK: - Collapsed Row (Capture v2 STREAM dock)
     //
-    // Voice is the primary action — 64pt black circle, centered, visually dominant.
-    // Text and camera sit below as a compact secondary bar so they remain reachable
-    // without competing for attention with the mic.
+    // Three-slot capsule, centered, NOT full-width:
+    //   [+]  ·  [ MIC HERO ]  ·  [✏️]
+    //
+    // Initial state is calm — no input field, no "Notes / Attach / Camera"
+    // labels, no prompt bubbles. Tap `+` for the attachment tray; tap mic for
+    // Flomo-style persistent recording bar; long-press mic for WeChat-style
+    // press-to-talk; tap ✏️ to expand the text composer above the dock.
+    //
+    // Why a centered capsule instead of a full-width bar: Capture v2 design
+    // note 06 — "the dock should feel like an instrument, not a chrome strip".
+    // Compact width keeps the warm canvas above breathing.
 
     @ViewBuilder
     private var collapsedRow: some View {
-        VStack(spacing: 12) {
-            // Primary: centered voice button
-            VStack(spacing: 8) {
+        VStack(spacing: 6) {
+            HStack(spacing: 8) {
+                dockSideButton(
+                    icon: "plus",
+                    label: "打开附件菜单",
+                    isActive: showAttachmentMenu
+                ) {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    showAttachmentMenu = true
+                }
+
                 PressToTalkButton(
                     onTap: { handleTapToRecord() },
                     onPressStart: { handlePressToTalkStart() },
@@ -239,56 +280,83 @@ struct InputBarV3: View {
                             pressToTalkPhase = phase
                         }
                     },
-                    size: 64,
+                    size: 56,
                     idleBackgroundColor: DSColor.primary,
                     idleIconColor: DSColor.onPrimary
                 )
-                Text("按住说话")
-                    .font(.custom("Inter-Medium", size: 12))
-                    .foregroundColor(DSColor.onSurfaceVariant)
-            }
-            .frame(maxWidth: .infinity)
+                .frame(width: 64)
 
-            // Secondary: text + camera
-            HStack(alignment: .center, spacing: 10) {
-                Button {
+                dockSideButton(
+                    icon: "square.and.pencil",
+                    label: "打开文字输入",
+                    isActive: false
+                ) {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     userExpandedText = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                         isFocused = true
                     }
-                } label: {
-                    ZStack(alignment: .leading) {
-                        Text("记点什么…")
-                            .font(.custom("Inter-Regular", size: 15))
-                            .foregroundColor(DSColor.onSurfaceVariant)
-                            .padding(.horizontal, 14)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 40)
-                    .background(DSColor.surfaceContainerLow)
-                    .clipShape(Capsule())
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("打开文字输入，记点什么")
-
-                Button {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    onCapturePhoto()
-                } label: {
-                    Image(systemName: "camera")
-                        .font(.system(size: 18, weight: .regular))
-                        .foregroundColor(DSColor.onSurfaceVariant)
-                        .frame(width: 40, height: 40)
-                        .background(DSColor.surfaceContainerLow)
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("拍照")
             }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 6)
+            .background(
+                Capsule()
+                    .fill(DSColor.surfaceContainerLow)
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(DSColor.outlineVariant.opacity(0.4), lineWidth: 0.5)
+                    )
+                    .shadow(color: Color.black.opacity(0.06), radius: 12, x: 0, y: 4)
+            )
+
+            Text(dockHintLabel)
+                .font(.custom("JetBrainsMono-Regular", size: 10))
+                .kerning(1.2)
+                .foregroundColor(DSColor.onSurfaceVariant.opacity(0.7))
+                .frame(height: 12)
+                .accessibilityHidden(true)
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 16)
+        .padding(.top, 12)
+        .padding(.bottom, 14)
+        .frame(maxWidth: .infinity)
         .background(DSColor.surface)
+    }
+
+    /// Single source of truth for the dock's contextual hint line.
+    /// Mirrors STREAM's "TAP TO RECORD · HOLD TO SEND".
+    private var dockHintLabel: String {
+        switch pressToTalkPhase {
+        case .cancelArmed: return "松开取消"
+        case .transcribeArmed: return "松开转文字"
+        case .recording, .transcribing: return "上滑取消 · 松开发送"
+        case .idle: return "点击录音 · 长按发送"
+        }
+    }
+
+    /// One of the two flanking dock buttons (`+` and ✏️). Shares geometry,
+    /// hit-area, and hover style so the dock reads as a single instrument.
+    @ViewBuilder
+    private func dockSideButton(
+        icon: String,
+        label: String,
+        isActive: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 17, weight: .regular))
+                .foregroundColor(isActive ? DSColor.onSurface : DSColor.onSurfaceVariant)
+                .frame(width: 40, height: 40)
+                .background(
+                    Circle()
+                        .fill(isActive ? DSColor.surfaceContainerHigh : Color.clear)
+                )
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
     }
 
     // MARK: - Composing Row (text capsule + send)
@@ -536,6 +604,19 @@ struct InputBarV3: View {
     }
 
     private func handleTapRecordingSend() {
+        // Boundary: don't commit a recording with no perceptible content. The
+        // tap-record bar is reachable in one finger move, so a quick "send" hit
+        // can land sub-second. Drop those silently (with a hint) instead of
+        // saving a meaningless 0:00 voice memo.
+        if isRecordingTooShort {
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            voiceService.cancelRecording()
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+                isTapRecording = false
+            }
+            flashTooShortToast()
+            return
+        }
         Task { @MainActor in
             guard let result = await voiceService.stopAndTranscribe() else {
                 withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
@@ -551,6 +632,15 @@ struct InputBarV3: View {
         }
     }
 
+    /// True when the active recording is below the meaning threshold AND
+    /// effectively silent. Using both gates avoids rejecting a brief but
+    /// audible "对" / "好" / "嗯" — those are valid log entries even at < 1s.
+    private var isRecordingTooShort: Bool {
+        let belowFloor = voiceService.elapsedSeconds < Self.minRecordingSeconds
+        let isSilent = voiceService.waveformHistory.allSatisfy { $0 < 0.05 }
+        return belowFloor && isSilent
+    }
+
     // MARK: - Press-to-Talk Handlers
 
     private func handlePressToTalkStart() {
@@ -561,13 +651,14 @@ struct InputBarV3: View {
     }
 
     private func handlePressToTalkReleaseSend() {
-        // Release-in-place with no actual movement may indicate a mis-tap.
-        // If elapsed < ~0.4s, treat as a tap → show the "hold to talk" toast
-        // rather than committing an empty recording.
-        if voiceService.elapsedSeconds < 1 && voiceService.waveformHistory.allSatisfy({ $0 < 0.02 }) {
+        // Boundary 1: gesture mis-tap — finger never crossed the long-press
+        // threshold AND the mic captured no audio. Coach the user toward the
+        // hold gesture rather than committing an empty memo.
+        if isRecordingTooShort {
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
             voiceService.cancelRecording()
             pressToTalkPhase = .idle
-            flashHoldToast()
+            flashTooShortToast()
             return
         }
         Task { @MainActor in
@@ -589,6 +680,16 @@ struct InputBarV3: View {
     }
 
     private func handlePressToTalkReleaseTranscribe() {
+        // Same floor as the send path — a "transcribe" gesture on a silent
+        // sub-second clip would just return an empty Whisper response and
+        // burn an API call.
+        if isRecordingTooShort {
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            voiceService.cancelRecording()
+            pressToTalkPhase = .idle
+            flashTooShortToast()
+            return
+        }
         Task { @MainActor in
             guard let result = await voiceService.stopAndTranscribe() else {
                 pressToTalkPhase = .idle
@@ -614,6 +715,13 @@ struct InputBarV3: View {
         showHoldToast = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) {
             showHoldToast = false
+        }
+    }
+
+    private func flashTooShortToast() {
+        showTooShortToast = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+            showTooShortToast = false
         }
     }
 
