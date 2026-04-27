@@ -62,6 +62,11 @@ final class TodayViewModel: ObservableObject {
     /// A brief excerpt from the compiled Daily Page (if compiled).
     @Published var dailyPageSummary: String? = nil
 
+    /// Compiled day-pages from this week (Monday → yesterday), newest first.
+    /// Populated in `load()` and refreshed whenever today's data reloads.
+    /// Drives the "Weekly Recap" section beneath today's raw memos.
+    @Published var weeklyRecap: [WeeklyRecapEntry] = []
+
     /// Whether the view is currently loading memos.
     @Published var isLoading: Bool = false
 
@@ -234,6 +239,7 @@ final class TodayViewModel: ObservableObject {
         }
 
         checkDailyPage()
+        weeklyRecap = WeeklyRecapService.shared.entries()
         isLoading = false
         checkOnThisDay()
     }

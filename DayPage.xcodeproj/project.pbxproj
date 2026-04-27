@@ -67,6 +67,8 @@
 		A10000080 /* AppNavigationModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000080 /* AppNavigationModel.swift */; };
 		A10000081 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000081 /* SidebarView.swift */; };
 		A10000082 /* InputBarV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000082 /* InputBarV4.swift */; };
+		A10000083 /* WeeklyRecapService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000083 /* WeeklyRecapService.swift */; };
+		A10000084 /* WeeklyRecapSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000084 /* WeeklyRecapSection.swift */; };
 		A10000060 /* DailySharePosterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000060 /* DailySharePosterView.swift */; };
 		A10000061 /* PosterRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000061 /* PosterRenderer.swift */; };
 		A10000063 /* SwipeableMemoCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000063 /* SwipeableMemoCard.swift */; };
@@ -171,6 +173,8 @@
 		A20000060 /* DailySharePosterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailySharePosterView.swift; sourceTree = "<group>"; };
 		A20000061 /* PosterRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PosterRenderer.swift; sourceTree = "<group>"; };
 		A20000082 /* InputBarV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputBarV4.swift; sourceTree = "<group>"; };
+		A20000083 /* WeeklyRecapService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapService.swift; sourceTree = "<group>"; };
+		A20000084 /* WeeklyRecapSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapSection.swift; sourceTree = "<group>"; };
 		A20000063 /* SwipeableMemoCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeableMemoCard.swift; sourceTree = "<group>"; };
 		A20000064 /* AttachmentMenuSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentMenuSheet.swift; sourceTree = "<group>"; };
 		A20000079 /* iCloudSyncMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iCloudSyncMonitor.swift; sourceTree = "<group>"; };
@@ -339,6 +343,7 @@
 				A20000070 /* AuthService.swift */,
 				A20000076 /* KeychainHelper.swift */,
 				FB1000001 /* FeedbackService.swift */,
+				A20000083 /* WeeklyRecapService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -389,6 +394,7 @@
 				A20000054 /* RecordingOverlayView.swift */,
 				A20000055 /* PressToTalkButton.swift */,
 				A20000063 /* SwipeableMemoCard.swift */,
+				A20000084 /* WeeklyRecapSection.swift */,
 			);
 			path = Today;
 			sourceTree = "<group>";
@@ -682,6 +688,8 @@
 				A10000049 /* SampleDataSeeder.swift in Sources */,
 				A10000050 /* CompileFooterButton.swift in Sources */,
 				A10000082 /* InputBarV4.swift in Sources */,
+				A10000083 /* WeeklyRecapService.swift in Sources */,
+				A10000084 /* WeeklyRecapSection.swift in Sources */,
 				A10000052 /* AttachmentMenuPopover.swift in Sources */,
 				A10000064 /* AttachmentMenuSheet.swift in Sources */,
 				A10000053 /* InputTokens.swift in Sources */,

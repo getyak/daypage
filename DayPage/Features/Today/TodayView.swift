@@ -235,6 +235,17 @@ struct TodayView: View {
                                         .padding(.horizontal, 20)
                                 }
 
+                                // MARK: Weekly Recap (this week's compiled days, newest first)
+                                // Rendered after today's raw stream so the user scrolls "from now
+                                // into memory" — Phase 1 of the time-pyramid recap. Phase 2/3
+                                // will collapse last week / month / year into coarser cards below.
+                                WeeklyRecapSection(
+                                    entries: viewModel.weeklyRecap,
+                                    onTapEntry: { dateStr in
+                                        onThisDayDateString = dateStr
+                                    }
+                                )
+
                                 Spacer(minLength: 16)
 
                                 // Bottom anchor for CompileFooterButton visibility tracking (US-005).
