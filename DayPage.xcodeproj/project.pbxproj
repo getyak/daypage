@@ -102,6 +102,8 @@
 		9034B2964DD6432BD7FA7250 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C98B5757B488F583231EC8F6 /* RootView.swift */; };
 		B197ECDEBDA86D4351A96898 /* RecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B93ED807E07C2171E9F4234B /* RecordingView.swift */; };
 		E4AC46FA495D4BD178789A14 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0881AB423FF6F12FCDE27C5B /* Assets.xcassets */; };
+		347B8BDADCBDDB2EDE830E66 /* WatchTransferService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */; };
+		E20A68158C940060066B2B73 /* WatchReceiveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11E0748715A251EE4A0168A /* WatchReceiveService.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -221,6 +223,8 @@
 		B93ED807E07C2171E9F4234B /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
 		0881AB423FF6F12FCDE27C5B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2748059CC689A341C7CAAACC /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchTransferService.swift; sourceTree = "<group>"; };
+		F11E0748715A251EE4A0168A /* WatchReceiveService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchReceiveService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -342,6 +346,7 @@
 		A50000006 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				F11E0748715A251EE4A0168A /* WatchReceiveService.swift */,
 				A20000016 /* LocationService.swift */,
 				A20000017 /* WeatherService.swift */,
 				A20000018 /* PhotoService.swift */,
@@ -575,10 +580,11 @@
 		E649E3AC4D392A4CEDD41728 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
-		};
+		}};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -739,6 +745,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E20A68158C940060066B2B73 /* WatchReceiveService.swift in Sources */,
 				A10000001 /* DayPageApp.swift in Sources */,
 				A10000002 /* RootView.swift in Sources */,
 				A10000003 /* VaultInitializer.swift in Sources */,
@@ -832,6 +839,7 @@
 				DBB277156934B2FA96E16077 /* WatchApp.swift in Sources */,
 				9034B2964DD6432BD7FA7250 /* RootView.swift in Sources */,
 				B197ECDEBDA86D4351A96898 /* RecordingView.swift in Sources */,
+				347B8BDADCBDDB2EDE830E66 /* WatchTransferService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
