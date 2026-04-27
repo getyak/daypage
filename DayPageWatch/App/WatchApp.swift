@@ -19,7 +19,7 @@ struct DayPageWatchApp: App {
 
 // MARK: - WCSession Manager
 
-final class WatchSessionManager: NSObject, ObservableObject {
+@MainActor final class WatchSessionManager: NSObject, ObservableObject {
 
     static let shared = WatchSessionManager()
 
@@ -56,4 +56,13 @@ extension WatchSessionManager: WCSessionDelegate {
         WCSession.default.activate()
     }
     #endif
+
+    /// Forward file transfer completion to WatchTransferService so it can
+    /// call the per-file completion handler and clean up the source file.
+    func session(_ session: WCSession, didFinish fileTransfer: WCSessionFileTransfer, error: Error?) {
+        WatchTransferService.shared.handleTransferFinished(
+            fileURL: fileTransfer.file.fileURL,
+            error: error
+        )
+    }
 }

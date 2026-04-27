@@ -141,7 +141,8 @@ final class WatchRecordingModel: ObservableObject {
         recorder = nil
         state = .uploading
 
-        // Transfer via WCSession
+        // Transfer via WCSession — file cleanup happens inside WatchTransferService
+        // once session(_:didFinish:error:) confirms the transfer is complete.
         WatchTransferService.shared.transferAudioFile(url) { [weak self] success in
             Task { @MainActor in
                 if success {
@@ -150,11 +151,6 @@ final class WatchRecordingModel: ObservableObject {
                     self?.state = .failed("Transfer failed")
                 }
             }
-        }
-
-        // Cleanup local file after a short delay
-        DispatchQueue.global().asyncAfter(deadline: .now() + 5) {
-            try? FileManager.default.removeItem(at: url)
         }
     }
 

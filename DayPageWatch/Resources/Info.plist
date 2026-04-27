@@ -26,6 +26,8 @@
 	<array>
 		<string>audio</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>DayPage uses the microphone to record voice memos.</string>
 	<key>WKRunsIndependentlyOfCompanionApp</key>
 	<true/>
 	<key>WKWatchKitApp</key>

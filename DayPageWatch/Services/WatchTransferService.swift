@@ -4,20 +4,19 @@ import WatchConnectivity
 // MARK: - WatchTransferService
 
 /// Manages transferring audio files from the Watch to the companion iPhone via WCSession.
-final class WatchTransferService: NSObject {
+/// WCSession activation and delegation are owned by WatchSessionManager; this service
+/// only queues file transfers and listens for their completion callbacks.
+@MainActor final class WatchTransferService: NSObject {
 
     static let shared = WatchTransferService()
 
-    private var transferCompletion: ((Bool) -> Void)?
-    private var currentFileURL: URL?
+    /// Per-file completion handlers keyed by file URL, so concurrent transfers are safe.
+    private var pendingCompletions: [URL: (Bool) -> Void] = [:]
 
     private override init() {
         super.init()
-        // Ensure the session delegate is set (WatchSessionManager in WatchApp.swift handles activation,
-        // but we also need to be the delegate here for transfer callbacks).
-        if WCSession.isSupported() {
-            WCSession.default.delegate = self
-        }
+        // Do NOT set WCSession.default.delegate here — WatchSessionManager owns the delegate
+        // and will forward didFinish events to this service.
     }
 
     /// Transfer an audio file to the companion iPhone.
@@ -28,8 +27,7 @@ final class WatchTransferService: NSObject {
             return
         }
 
-        currentFileURL = fileURL
-        transferCompletion = completion
+        pendingCompletions[fileURL] = completion
 
         let metadata: [String: Any] = [
             "type": "watchAudio",
@@ -41,34 +39,18 @@ final class WatchTransferService: NSObject {
         WCSession.default.transferFile(fileURL, metadata: metadata)
         print("[WatchTransferService] Queued transfer for \(fileURL.lastPathComponent)")
     }
-}
 
-// MARK: - WCSessionDelegate
-
-extension WatchTransferService: WCSessionDelegate {
-
-    func session(_ session: WCSession,
-                 activationDidCompleteWith activationState: WCSessionActivationState,
-                 error: Error?) {
-        // Handled by WatchSessionManager
-    }
-
-    #if os(iOS)
-    func sessionDidBecomeInactive(_ session: WCSession) {}
-    func sessionDidDeactivate(_ session: WCSession) {
-        WCSession.default.activate()
-    }
-    #endif
-
-    func session(_ session: WCSession, didFinish fileTransfer: WCSessionFileTransfer, error: Error?) {
+    /// Called by WatchSessionManager when a file transfer finishes.
+    func handleTransferFinished(fileURL: URL, error: Error?) {
+        guard let completion = pendingCompletions.removeValue(forKey: fileURL) else { return }
         if let error {
             print("[WatchTransferService] Transfer failed: \(error.localizedDescription)")
-            transferCompletion?(false)
+            completion(false)
         } else {
-            print("[WatchTransferService] Transfer succeeded: \(fileTransfer.file.fileURL.lastPathComponent)")
-            transferCompletion?(true)
+            print("[WatchTransferService] Transfer succeeded: \(fileURL.lastPathComponent)")
+            completion(true)
         }
-        transferCompletion = nil
-        currentFileURL = nil
+        // Safe to remove the source file now that the transfer is confirmed finished.
+        try? FileManager.default.removeItem(at: fileURL)
     }
 }

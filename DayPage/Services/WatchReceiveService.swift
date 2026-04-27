@@ -50,7 +50,9 @@ extension WatchReceiveService: WCSessionDelegate {
             return
         }
 
-        let filename = metadata["filename"] as? String ?? sourceURL.lastPathComponent
+        // Strip any path separators / ".." segments to prevent path traversal.
+        let rawFilename = metadata["filename"] as? String ?? sourceURL.lastPathComponent
+        let filename = (rawFilename as NSString).lastPathComponent
 
         // Move to vault: raw/assets/watch_<filename>
         let assetsURL = VaultInitializer.vaultURL
