@@ -2,9 +2,9 @@ import SwiftUI
 
 // MARK: - DayDetailView
 
-/// Unified detail view for a calendar date in Archive.
-/// Loads asynchronously on appear and resolves into one of four explicit states
-/// — compiled, rawOnly, empty, error — each with its own view.
+/// 归档中某一天历日期的统一详情视图。
+/// 在出现时异步加载，并解析为四种明确状态之一
+/// — compiled, rawOnly, empty, error — 每种状态有各自的视图。
 struct DayDetailView: View {
 
     let dateString: String
@@ -28,7 +28,7 @@ struct DayDetailView: View {
     @State private var hasRawFile: Bool = false
     @State private var selectedTab: Tab = .daily
 
-    // Matches strict YYYY-MM-DD, zero-padded.
+    // 严格匹配 YYYY-MM-DD，零填充。
     private static let dateRegex = try! NSRegularExpression(pattern: #"^\d{4}-\d{2}-\d{2}$"#)
 
     var body: some View {
@@ -206,7 +206,7 @@ struct DayDetailView: View {
     // MARK: - Load
 
     private func load() async {
-        // Only load once per appearance; if already resolved, keep state.
+        // 每次出现只加载一次；如果已解析，保持状态。
         guard state == .loading else { return }
 
         let target = dateString
@@ -233,20 +233,20 @@ struct DayDetailView: View {
         }
     }
 
-    /// Pure resolver — no SwiftUI, no async. Returns `(state, hasRawFile)`.
-    /// Exposed at module-internal visibility so `@testable import DayPage` can cover
-    /// the 4 load states without spinning up a view.
+    /// 纯解析器 — 不含 SwiftUI，不含异步。返回 `(state, hasRawFile)`。
+    /// 以模块内部可见性暴露，以便 `@testable import DayPage` 可以
+    /// 覆盖 4 种加载状态而无需启动视图。
     static func resolveLoadState(dateString: String,
                                  vaultURL: URL,
                                  fileManager: FileManager) -> (LoadState, Bool) {
-        // 1. Validate dateString format strictly.
+        // 1. 严格校验 dateString 格式。
         let range = NSRange(dateString.startIndex..., in: dateString)
         guard dateRegex.firstMatch(in: dateString, options: [], range: range) != nil else {
             return (.error("日期格式无效：\(dateString)"), false)
         }
 
-        // 2. Cross-check with DateFormatter (catches '2020-02-30' etc.).
-        // Use the device time zone so date boundaries align with how files are named.
+        // 2. 使用 DateFormatter 交叉校验（捕获 '2020-02-30' 等）。
+        // 使用设备时区，确保日期边界与文件命名方式对齐。
         let parser = DateFormatter()
         parser.dateFormat = "yyyy-MM-dd"
         parser.locale = Locale(identifier: "en_US_POSIX")
@@ -256,7 +256,7 @@ struct DayDetailView: View {
             return (.error("日期不存在：\(dateString)"), false)
         }
 
-        // 3. Sanity-check vault directory.
+        // 3. 检查 vault 目录完整性。
         var isDir: ObjCBool = false
         let vaultOK = fileManager.fileExists(atPath: vaultURL.path, isDirectory: &isDir) && isDir.boolValue
         if !vaultOK {
@@ -264,7 +264,7 @@ struct DayDetailView: View {
             return (.error(detail), false)
         }
 
-        // 4. Probe daily + raw files.
+        // 4. 探测 daily + raw 文件。
         let dailyURL = vaultURL
             .appendingPathComponent("wiki")
             .appendingPathComponent("daily")

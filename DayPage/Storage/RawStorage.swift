@@ -2,19 +2,19 @@ import Foundation
 
 // MARK: - RawStorage
 
-/// Reads and writes Memo records to vault/raw/YYYY-MM-DD.md files.
-/// Multiple memos in a single day file are separated by "\n\n---\n\n".
-/// All writes are atomic: written to a temp file first, then renamed.
+/// 读取和写入 Memo 记录到 vault/raw/YYYY-MM-DD.md 文件。
+/// 同一天文件中的多条 memo 由 "\n\n---\n\n" 分隔。
+/// 所有写入都是原子的：先写入临时文件，再重命名。
 enum RawStorage {
 
     // MARK: - Separator
 
-    /// The exact separator used between memos within a day file.
+    /// 同一天文件内 memo 之间使用的精确分隔符。
     static let memoSeparator = "\n\n---\n\n"
 
     // MARK: - URL helpers
 
-    /// Returns the URL for a given date's raw memo file.
+    /// 返回给定日期的原始 memo 文件的 URL。
     static func fileURL(for date: Date) -> URL {
         let dateString = dateFormatter.string(from: date)
         return VaultInitializer.vaultURL
@@ -24,9 +24,9 @@ enum RawStorage {
 
     // MARK: - Write
 
-    /// Appends a single Memo to the day file for memo.created.
-    /// Creates the file if it doesn't exist.
-    /// Uses atomic write (temp file + rename) to prevent corruption.
+    /// 将单条 Memo 追加到 memo.created 对应的日文件中。
+    /// 如果文件不存在则创建。
+    /// 使用原子写入（临时文件 + 重命名）以防止损坏。
     static func append(_ memo: Memo) throws {
         let url = fileURL(for: memo.created)
         let newBlock = memo.toMarkdown()
@@ -50,8 +50,8 @@ enum RawStorage {
 
     // MARK: - Read
 
-    /// Reads all Memos from the day file for the given date.
-    /// Returns an empty array if the file doesn't exist or contains no valid memos.
+    /// 读取给定日期日文件中的所有 Memo。
+    /// 如果文件不存在或不包含有效的 memo，返回空数组。
     static func read(for date: Date) throws -> [Memo] {
         let url = fileURL(for: date)
         guard FileManager.default.fileExists(atPath: url.path) else { return [] }

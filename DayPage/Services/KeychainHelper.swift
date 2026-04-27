@@ -1,11 +1,11 @@
 import Foundation
 import Security
 
-/// Minimal Keychain wrapper used by `AuthService` to persist identifiers
-/// that would leak PII if stored in `UserDefaults` (e.g. Apple Sign-In email,
-/// which Apple only returns on the very first sign-in). Access class is
-/// `AfterFirstUnlockThisDeviceOnly` so background refresh tasks can still
-/// read the value without iCloud sync.
+/// `AuthService` 使用的最小化 Keychain 包装器，用于持久化
+/// 如果存储在 `UserDefaults` 中会泄露 PII 的标识符
+/// （例如 Apple 登录邮箱，Apple 仅首次登录时返回）。
+/// 访问类为 `AfterFirstUnlockThisDeviceOnly`，
+/// 以便后台刷新任务仍能读取值而无需 iCloud 同步。
 enum KeychainHelper {
 
     private static let service = "com.daypage.auth"
@@ -17,8 +17,8 @@ enum KeychainHelper {
             kSecAttrService as String: service,
             kSecAttrAccount as String: key,
         ]
-        // Delete-then-add is simpler and atomic enough for our use case;
-        // SecItemUpdate would require a second query dict.
+        // 删除后添加更简单，对我们的用例来说也足够原子化；
+        // SecItemUpdate 需要第二个查询字典。
         SecItemDelete(base as CFDictionary)
 
         var attrs = base

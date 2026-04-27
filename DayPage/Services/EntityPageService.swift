@@ -2,32 +2,31 @@ import Foundation
 
 // MARK: - EntityUpdateInstruction
 
-/// A single instruction to create or update an Entity Page.
-/// Returned by the LLM as part of structured compilation output.
+/// LLM 返回的单条实体创建或更新指令，作为结构化编译输出的一部分。
 struct EntityUpdateInstruction {
-    /// Entity type: "places", "people", or "themes"
+    /// 实体类型："places"、"people" 或 "themes"
     let entityType: String
-    /// URL-safe slug (lowercase, hyphens, no spaces). e.g. "joma-coffee"
+    /// URL 安全的 slug（小写，连字符分隔，无空格），例如 "joma-coffee"
     let entitySlug: String
-    /// The section heading to append content under. e.g. "## Visits"
+    /// 要追加内容到的段落标题，例如 "## Visits"
     let section: String
-    /// Markdown content block to append under the section.
+    /// 追加到该段落下的 Markdown 内容块。
     let content: String
-    /// Human-readable display name. e.g. "Joma Coffee"
+    /// 人类可读的显示名称，例如 "Joma Coffee"
     let displayName: String
 }
 
 // MARK: - EntityPageService
 
-/// Manages the creation and incremental update of Entity Pages in vault/wiki/.
+/// 管理 vault/wiki/ 下实体页面的创建与增量更新。
 ///
-/// Responsibilities:
-///   1. Parse entity update instructions returned by the LLM
-///   2. Create new Entity Pages when the slug doesn't exist yet
-///   3. Append new content to existing Entity Pages under the correct section
-///   4. Keep wiki/index.md in sync (grouped by entity type)
+/// 职责：
+///   1. 解析 LLM 返回的实体更新指令
+///   2. 在 slug 不存在时创建新实体页面
+///   3. 在正确段落下为已有实体页面追加新内容
+///   4. 保持 wiki/index.md 同步（按实体类型分组）
 ///
-/// Entity Page Location:
+/// 实体页面位置：
 ///   vault/wiki/places/{slug}.md
 ///   vault/wiki/people/{slug}.md
 ///   vault/wiki/themes/{slug}.md
@@ -42,12 +41,12 @@ final class EntityPageService {
 
     // MARK: - Apply Instructions
 
-    /// Applies an array of entity update instructions.
-    /// Each instruction either creates a new page or appends to an existing one.
-    /// After processing, wiki/index.md is updated to reflect new entities.
+    /// 应用实体更新指令数组。
+    /// 每条指令要么创建新页面，要么追加到已有页面。
+    /// 处理完成后，wiki/index.md 会更新以反映新实体。
     ///
-    /// - Parameter instructions: Array of update instructions from the LLM.
-    /// - Parameter date: The date string for the source compilation (e.g. "2026-01-15").
+    /// - Parameter instructions: LLM 返回的更新指令数组。
+    /// - Parameter date: 源编译的日期字符串（例如 "2026-01-15"）。
     func apply(instructions: [EntityUpdateInstruction], date: String) throws {
         var newlyCreated: [(type: String, slug: String, name: String)] = []
 
@@ -67,18 +66,18 @@ final class EntityPageService {
             }
         }
 
-        // Update index for any newly created entities
+        // 更新索引，纳入所有新创建的实体
         if !newlyCreated.isEmpty {
             try updateIndex(newEntities: newlyCreated)
         }
 
-        // Also increment occurrence_count for existing entities
-        // (already handled in appendToEntityPage via frontmatter update)
+        // 同时为已有实体递增 occurrence_count
+        // （已在 appendToEntityPage 中通过 frontmatter 更新处理）
     }
 
     // MARK: - Create Entity Page
 
-    /// Creates a new Entity Page with frontmatter and initial content.
+    /// 创建带有 frontmatter 和初始内容的实体页面。
     private func createEntityPage(
         url: URL,
         instruction: EntityUpdateInstruction,
@@ -116,7 +115,7 @@ final class EntityPageService {
             ""
         ]
 
-        // Add the section with its initial content
+        // 添加段落及其初始内容
         lines.append(instruction.section)
         lines.append("")
         lines.append(instruction.content)
@@ -127,9 +126,9 @@ final class EntityPageService {
 
     // MARK: - Append to Entity Page
 
-    /// Appends new content under the given section in an existing Entity Page.
-    /// If the section doesn't exist, it is added at the end.
-    /// Updates `last_updated` and increments `occurrence_count` in frontmatter.
+    /// 在已有实体页面的指定段落下追加新内容。
+    /// 若段落不存在，则在末尾添加。
+    /// 更新 frontmatter 中的 `last_updated` 并递增 `occurrence_count`。
     private func appendToEntityPage(
         url: URL,
         instruction: EntityUpdateInstruction,
@@ -137,7 +136,7 @@ final class EntityPageService {
     ) throws {
         var pageContent = try String(contentsOf: url, encoding: .utf8)
 
-        // Update frontmatter fields
+        // 更新 frontmatter 字段
         pageContent = updateFrontmatterField(
             in: pageContent,
             key: "last_updated",
@@ -148,7 +147,7 @@ final class EntityPageService {
             key: "occurrence_count"
         )
 
-        // Append under section (or add new section at end)
+        // 在段落下追加（或在末尾添加新段落）
         pageContent = appendUnderSection(
             content: pageContent,
             section: instruction.section,
@@ -160,9 +159,9 @@ final class EntityPageService {
 
     // MARK: - Section Management
 
-    /// Finds `sectionHeading` in the Markdown content and appends `newContent` after
-    /// the last existing paragraph in that section.
-    /// If the section doesn't exist, adds it at the end of the document.
+    /// 在 Markdown 内容中查找 `sectionHeading`，并在该段落
+    /// 最后一段已有内容之后追加 `newContent`。
+    /// 若段落不存在，则在文档末尾添加。
     func appendUnderSection(
         content: String,
         section sectionHeading: String,
@@ -170,9 +169,9 @@ final class EntityPageService {
     ) -> String {
         var lines = content.components(separatedBy: "\n")
 
-        // Find the section heading line
+        // 查找段落标题行
         if let sectionIndex = lines.firstIndex(where: { $0.trimmingCharacters(in: .whitespaces) == sectionHeading }) {
-            // Find the end of this section (next heading at same or higher level, or end of file)
+            // 查找此段落的结束位置（下一个同级或更高级标题，或文件末尾）
             let level = headingLevel(of: sectionHeading)
             var insertIndex = sectionIndex + 1
             while insertIndex < lines.count {
@@ -183,15 +182,15 @@ final class EntityPageService {
                 }
                 insertIndex += 1
             }
-            // Remove trailing blank lines before insert point to avoid excessive spacing
+            // 移除插入点前的空白行，避免过多间距
             while insertIndex > sectionIndex + 1 && lines[insertIndex - 1].trimmingCharacters(in: .whitespaces).isEmpty {
                 insertIndex -= 1
             }
-            // Insert a blank separator + new content
+            // 插入一个空行分隔符 + 新内容
             let insertion = ["", newContent, ""]
             lines.insert(contentsOf: insertion, at: insertIndex)
         } else {
-            // Section not found: append at end
+            // 未找到段落：追加到末尾
             lines.append("")
             lines.append(sectionHeading)
             lines.append("")
@@ -204,7 +203,7 @@ final class EntityPageService {
 
     // MARK: - Index Update
 
-    /// Updates vault/wiki/index.md to include newly created entities, grouped by type.
+    /// 更新 vault/wiki/index.md，将新创建的实体按类型分组纳入。
     private func updateIndex(newEntities: [(type: String, slug: String, name: String)]) throws {
         let indexURL = VaultInitializer.vaultURL
             .appendingPathComponent("wiki")
@@ -218,7 +217,7 @@ final class EntityPageService {
             indexContent = seedIndex()
         }
 
-        // Group new entities by type
+        // 按类型分组新实体
         var byType: [String: [(slug: String, name: String)]] = [:]
         for entity in newEntities {
             byType[entity.type, default: []].append((entity.slug, entity.name))
@@ -241,7 +240,7 @@ final class EntityPageService {
 
     // MARK: - Frontmatter Helpers
 
-    /// Replaces the value of a frontmatter key (between leading --- and first ---).
+    /// 替换 frontmatter 中某个键的值（位于首行 --- 与首个 --- 之间）。
     func updateFrontmatterField(in content: String, key: String, value: String) -> String {
         let lines = content.components(separatedBy: "\n")
         var result: [String] = []
@@ -272,7 +271,7 @@ final class EntityPageService {
         return result.joined(separator: "\n")
     }
 
-    /// Increments an integer frontmatter field by 1.
+    /// 将 frontmatter 中的整数字段值加 1。
     func incrementFrontmatterCount(in content: String, key: String) -> String {
         let lines = content.components(separatedBy: "\n")
         var result: [String] = []
@@ -307,8 +306,8 @@ final class EntityPageService {
 
     // MARK: - Parse LLM Structured Output
 
-    /// Parses entity update instructions from the LLM response.
-    /// Expected JSON block embedded in the response:
+    /// 从 LLM 响应中解析实体更新指令。
+    /// 响应中内嵌的预期 JSON 块格式：
     ///
     /// ```json
     /// {

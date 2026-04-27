@@ -5,16 +5,16 @@ import Sentry
 
 // MARK: - BackgroundCompilationService
 
-/// Manages iOS BGAppRefreshTask registration and execution for nightly auto-compilation.
+/// 管理 iOS BGAppRefreshTask 注册和执行，用于夜间自动编译。
 ///
-/// Responsibilities:
-///   1. Register the BGAppRefreshTask on app launch (call `registerTask()` from DayPageApp.init)
-///   2. Schedule the next background fetch (call `scheduleIfNeeded()` from app launch / foreground)
-///   3. Handle the background task: check if yesterday's raw file exists and daily page is absent
-///   4. Send a local notification when compilation completes (or fails after retries)
-///   5. On app foreground: check and backfill any missed compilations
+/// 职责：
+///   1. 在应用启动时注册 BGAppRefreshTask（从 DayPageApp.init 调用 `registerTask()`）
+///   2. 调度下一次后台获取（从应用启动/前台调用 `scheduleIfNeeded()`）
+///   3. 处理后台任务：检查昨天的 raw 文件是否存在且 daily page 不存在
+///   4. 编译完成（或重试失败后）发送本地通知
+///   5. 应用进入前台时：检查并补充任何遗漏的编译
 ///
-/// Background task identifier:  "com.daypage.daily-compilation"
+/// 后台任务标识符："com.daypage.daily-compilation"
 ///
 @MainActor
 final class BackgroundCompilationService {
@@ -32,8 +32,8 @@ final class BackgroundCompilationService {
 
     // MARK: - Registration (call once from DayPageApp.init, before SwiftUI renders)
 
-    /// Registers the BGAppRefreshTask handler with the system.
-    /// Must be called before the end of `applicationDidFinishLaunching`.
+    /// 向系统注册 BGAppRefreshTask 处理器。
+    /// 必须在 `applicationDidFinishLaunching` 结束之前调用。
     nonisolated func registerTask() {
         BGTaskScheduler.shared.register(
             forTaskWithIdentifier: BackgroundCompilationService.taskIdentifier,
@@ -51,11 +51,11 @@ final class BackgroundCompilationService {
 
     // MARK: - Schedule
 
-    /// Schedules the next background app refresh for ~2:00 AM local time.
-    /// Safe to call repeatedly; the system ignores duplicate requests.
+    /// 调度下一次后台应用刷新，大约在当地时间凌晨 2:00。
+    /// 可重复调用；系统会忽略重复请求。
     func scheduleIfNeeded() {
         let request = BGAppRefreshTaskRequest(identifier: BackgroundCompilationService.taskIdentifier)
-        // Request earliest execution at today's 2:00 AM, or tomorrow's if already past
+        // 请求最早在今天凌晨 2:00 执行，如果已经过了，则请求明天
         request.earliestBeginDate = nextTwoAM()
 
         do {
@@ -63,10 +63,10 @@ final class BackgroundCompilationService {
         } catch let error as BGTaskScheduler.Error {
             switch error.code {
             case .notPermitted:
-                // Background refresh disabled by user — silently ignore
+                // 用户禁用了后台刷新 — 静默忽略
                 break
             case .tooManyPendingTaskRequests:
-                // Already scheduled — fine
+                // 已经调度 — 没问题
                 break
             default:
                 print("[BGCompile] Schedule error: \(error.localizedDescription)")
@@ -78,8 +78,8 @@ final class BackgroundCompilationService {
 
     // MARK: - Backfill Check (call from app foreground / scenePhase .active)
 
-    /// Checks whether yesterday's memo file exists without a compiled Daily Page.
-    /// If so, triggers compilation immediately (backfill for missed background run).
+    /// 检查昨天的 memo 文件是否存在但没有已编译的 Daily Page。
+    /// 如果有，立即触发编译（补充遗漏的后台运行）。
     func backfillIfNeeded() {
         let yesterday = Self.calendar.date(byAdding: .day, value: -1, to: Date()) ?? Date()
         guard shouldCompile(for: yesterday) else { return }
@@ -100,10 +100,10 @@ final class BackgroundCompilationService {
     // MARK: - Private: Background Task Handler
 
     private func handleBackgroundTask(_ task: BGAppRefreshTask) async {
-        // Re-schedule for the next night
+        // 为下一夜重新调度
         scheduleIfNeeded()
 
-        // Set expiration handler — system is reclaiming the task
+        // 设置过期处理器 — 系统正在回收任务
         task.expirationHandler = {
             task.setTaskCompleted(success: false)
         }
@@ -138,8 +138,8 @@ final class BackgroundCompilationService {
 
     // MARK: - Private: Retry Logic
 
-    /// Retries compilation with exponential backoff: 30s → 2min → 10min.
-    /// Throws if all 3 attempts fail.
+    /// 使用指数退避重试编译：30s → 2min → 10min。
+    /// 如果所有 3 次尝试都失败则抛出错误。
     private func compileWithRetry(for date: Date, trigger: String) async throws {
         let delays: [UInt64] = [0, 30, 120, 600]
         var lastError: Error?
@@ -160,7 +160,7 @@ final class BackgroundCompilationService {
 
     // MARK: - Private: Compile Eligibility Check
 
-    /// Returns true if a raw memo file exists for `date` and no Daily Page has been compiled yet.
+    /// 如果 `date` 存在 raw memo 文件且尚未编译 Daily Page，则返回 true。
     private func shouldCompile(for date: Date) -> Bool {
         let rawURL = RawStorage.fileURL(for: date)
         guard FileManager.default.fileExists(atPath: rawURL.path) else { return false }
@@ -202,7 +202,7 @@ final class BackgroundCompilationService {
         }
     }
 
-    /// Sends a failure notification after all retry attempts are exhausted.
+    /// 在所有重试尝试耗尽后发送失败通知。
     private func sendFailureNotification() {
         let center = UNUserNotificationCenter.current()
 
@@ -227,8 +227,8 @@ final class BackgroundCompilationService {
 
     // MARK: - Private: Calendar
 
-    /// Returns a calendar locked to the user's preferred time zone.
-    /// Always constructed fresh so a Settings change takes effect immediately.
+    /// 返回一个锁定到用户首选时区的日历。
+    /// 始终重新构建，以便设置更改立即生效。
     private static var calendar: Calendar {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = AppSettings.currentTimeZone()
@@ -237,8 +237,8 @@ final class BackgroundCompilationService {
 
     // MARK: - Private: Next 2:00 AM
 
-    /// Computes the next 2:00 AM in the device's current time zone.
-    /// If it's before 2:00 AM today, returns today's 2:00 AM; otherwise tomorrow's.
+    /// 计算设备当前时区中的下一个凌晨 2:00。
+    /// 如果现在还没到今天凌晨 2:00，返回今天的凌晨 2:00；否则返回明天的。
     private func nextTwoAM() -> Date {
         let calendar = Self.calendar
         let now = Date()

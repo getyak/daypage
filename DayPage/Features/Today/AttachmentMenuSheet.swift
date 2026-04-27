@@ -2,13 +2,13 @@ import SwiftUI
 
 // MARK: - AttachmentMenuSheet
 //
-// Bottom sheet version of the attachment menu, replacing AttachmentMenuPopover
-// for InputBarV3. Presented via .sheet(isPresented:) so iOS handles the scrim,
-// drag-to-dismiss, and keyboard avoidance automatically.
+// 附件菜单的底部弹出版本，替代 InputBarV3 的 AttachmentMenuPopover。
+// 通过 .sheet(isPresented:) 呈现，由 iOS 自动处理遮罩层、
+// 下滑关闭和键盘避让。
 //
-// Uses a 2×2 icon grid (camera | photos | file | location) rather than a
-// vertical list — icons are easier to target on mobile and match modern app
-// conventions (Telegram, Instagram).
+// 采用 2×2 图标网格（相机 | 照片 | 文件 | 位置）而非
+// 垂直列表——图标在移动端更容易点击，且符合现代应用
+// 惯例（Telegram、Instagram）。
 
 struct AttachmentMenuSheet: View {
 
@@ -40,7 +40,7 @@ struct AttachmentMenuSheet: View {
         .background(DSColor.surfaceContainerLowest)
     }
 
-    // MARK: - Sheet Handle
+    // MARK: - 弹出页手柄
 
     private var sheetHandle: some View {
         RoundedRectangle(cornerRadius: 2.5)
@@ -50,7 +50,7 @@ struct AttachmentMenuSheet: View {
             .padding(.bottom, 12)
     }
 
-    // MARK: - Icon Grid
+    // MARK: - 图标网格
 
     private var iconGrid: some View {
         HStack(spacing: 0) {

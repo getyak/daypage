@@ -36,7 +36,7 @@ struct RootView: View {
 
     private var mainContent: some View {
         ZStack(alignment: .leading) {
-            // Tab content — all three kept alive to preserve ViewModel state
+            // 标签页内容 — 三个页面全部保持存活以保留 ViewModel 状态
             ZStack {
                 TodayView()
                     .opacity(nav.selectedTab == .today ? 1 : 0)
@@ -51,7 +51,7 @@ struct RootView: View {
                     .allowsHitTesting(nav.selectedTab == .graph && !nav.isSidebarOpen)
             }
 
-            // Backdrop — tap or drag-left to close
+            // 背景遮罩 — 点击或左滑关闭
             if nav.isSidebarOpen {
                 Color.black.opacity(0.28)
                     .ignoresSafeArea()
@@ -73,7 +73,7 @@ struct RootView: View {
                 .shadow(color: Color.black.opacity(0.10), radius: 20, x: 6, y: 0)
                 .offset(x: nav.isSidebarOpen ? 0 : -sidebarWidth)
         }
-        // Edge-swipe to open: only fires when drag starts within 40pt of left edge
+        // 边缘滑动打开：仅在拖动从左侧 40pt 以内开始时触发
         .gesture(
             DragGesture(minimumDistance: 20, coordinateSpace: .local)
                 .onEnded { value in

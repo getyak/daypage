@@ -2,8 +2,8 @@ import Foundation
 
 // MARK: - Memo Model
 
-/// A single user-generated entry stored in vault/raw/YYYY-MM-DD.md.
-/// Serialized as YAML frontmatter + Markdown body, separated by \n\n---\n\n.
+/// 存储在 vault/raw/YYYY-MM-DD.md 中的单条用户生成条目。
+/// 序列化为 YAML 前置元数据 + Markdown 正文，以 \n\n---\n\n 分隔。
 struct Memo: Identifiable, Equatable {
 
     // MARK: Attachment types
@@ -69,8 +69,8 @@ extension Memo {
 
     // MARK: Serialize → String
 
-    /// Converts the Memo into its Markdown on-disk representation:
-    ///   YAML frontmatter (between --- delimiters) followed by a blank line and the body.
+    /// 将 Memo 转换为其磁盘上的 Markdown 表示：
+    ///   YAML 前置元数据（位于 --- 分隔符之间），后跟一个空行和正文。
     func toMarkdown() -> String {
         var lines: [String] = ["---"]
 
@@ -124,18 +124,18 @@ extension Memo {
 
     // MARK: Deserialize ← String
 
-    /// Parses a single Memo block (frontmatter + body).
-    /// Returns nil if the block cannot be parsed.
+    /// 解析单个 Memo 块（前置元数据 + 正文）。
+    /// 如果无法解析，则返回 nil。
     static func fromMarkdown(_ block: String) -> Memo? {
-        // Split frontmatter from body: expect "---\n...\n---\n\nbody"
+        // 从前置元数据中分离正文：期望格式为 "---\n...\n---\n\nbody"
         let text = block.trimmingCharacters(in: .whitespacesAndNewlines)
         guard text.hasPrefix("---") else { return nil }
 
-        // Find opening and closing --- delimiters
+        // 查找开始和结束的 --- 分隔符
         let lines = text.components(separatedBy: "\n")
         guard lines.count >= 2 else { return nil }
 
-        // lines[0] should be "---", find the next "---"
+        // lines[0] 应为 "---"，查找下一个 "---"
         var closingIndex: Int?
         for i in 1 ..< lines.count {
             if lines[i].trimmingCharacters(in: .whitespaces) == "---" {
@@ -147,11 +147,11 @@ extension Memo {
 
         let frontmatterLines = Array(lines[1 ..< closing])
         let bodyLines = Array(lines[(closing + 1)...])
-        // Skip leading blank line between frontmatter and body
+        // 跳过前置元数据和正文之间的前导空行
         let bodyStart = bodyLines.firstIndex(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) ?? 0
         let body = bodyLines[bodyStart...].joined(separator: "\n").trimmingCharacters(in: .newlines)
 
-        // Parse frontmatter as simple YAML
+        // 将前置元数据解析为简单 YAML
         var fm = YAMLParser(lines: frontmatterLines)
         guard let idString = fm.scalar("id"),
               let uuid = UUID(uuidString: idString) else { return nil }
@@ -199,7 +199,7 @@ extension Memo {
 
     // MARK: Private helpers
 
-    /// Wraps a string in double quotes, escaping internal quotes and backslashes.
+    /// 将字符串用双引号包裹，转义内部引号和反斜杠。
     private func yamlQuote(_ s: String) -> String {
         let escaped = s
             .replacingOccurrences(of: "\\", with: "\\\\")
@@ -220,8 +220,8 @@ extension ISO8601DateFormatter {
 
 // MARK: - Minimal YAML parser
 
-/// A lightweight line-by-line YAML parser sufficient for Memo frontmatter.
-/// Supports: scalar keys, nested mapping (2-space indent), flat sequence of mappings.
+/// 一个轻量级逐行 YAML 解析器，足以处理 Memo 前置元数据。
+/// 支持：标量键、嵌套映射（2 空格缩进）、扁平的映射序列。
 struct YAMLParser {
     private let lines: [String]
 
@@ -231,7 +231,7 @@ struct YAMLParser {
 
     // MARK: Scalar
 
-    /// Returns the unquoted value for a top-level key, or nil.
+    /// 返回顶级键的非引号值，如果不存在则返回 nil。
     mutating func scalar(_ key: String) -> String? {
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -245,7 +245,7 @@ struct YAMLParser {
 
     // MARK: Nested mapping (2-space indented block)
 
-    /// Returns a [String: String] for a top-level mapping key, or nil.
+    /// 返回顶级映射键的 [String: String] 字典，如果不存在则返回 nil。
     mutating func mapping(_ key: String) -> [String: String]? {
         var inBlock = false
         var result: [String: String] = [:]
@@ -257,7 +257,7 @@ struct YAMLParser {
                     inBlock = true
                 }
             } else {
-                // Two-space indented sub-key
+                // 两个空格缩进的子键
                 if line.hasPrefix("  ") && !line.hasPrefix("   ") {
                     let sub = line.trimmingCharacters(in: .whitespaces)
                     let parts = sub.split(separator: ":", maxSplits: 1)
@@ -276,8 +276,8 @@ struct YAMLParser {
 
     // MARK: Sequence of mappings
 
-    /// Returns an array of [String: String] for a top-level sequence key, or nil.
-    /// Each sequence item starts with "  - key: value".
+    /// 返回顶级序列键的 [[String: String]] 数组，如果不存在则返回 nil。
+    /// 每个序列项以 "  - key: value" 开头。
     mutating func sequenceOfMappings(_ key: String) -> [[String: String]]? {
         var inBlock = false
         var items: [[String: String]] = []
@@ -324,7 +324,7 @@ struct YAMLParser {
         return nil
     }
 
-    /// Strips surrounding double-quotes and unescapes \" and \\.
+    /// 去除外围双引号并反转义 \" 和 \\。
     private func yamlUnquote(_ s: String) -> String {
         var v = s
         if v.hasPrefix("\"") && v.hasSuffix("\"") && v.count >= 2 {

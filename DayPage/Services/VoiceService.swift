@@ -30,21 +30,20 @@ enum RecordingState: Equatable {
 // MARK: - VoiceRecordingResult
 
 struct VoiceRecordingResult {
-    /// Vault-relative path, e.g. "raw/assets/voice_20260415_143000.m4a"
+    /// Vault 相对路径，如 "raw/assets/voice_20260415_143000.m4a"
     let filePath: String
-    /// Absolute URL on device
+    /// 设备上的绝对 URL
     let fileURL: URL
-    /// Duration in seconds
+    /// 时长（秒）
     let duration: TimeInterval
-    /// Whisper transcript (nil if transcription failed or not yet done)
+    /// Whisper 转录文本（若转录失败或尚未完成则为 nil）
     let transcript: String?
 }
 
 // MARK: - VoiceService
 
-/// Handles microphone permission, audio recording (AVAudioRecorder) and
-/// Whisper API transcription.  Always runs on the MainActor so SwiftUI
-/// can bind directly to @Published properties.
+/// 处理麦克风权限、音频录制（AVAudioRecorder）以及 Whisper API 转录。
+/// 始终在主 Actor 上运行，SwiftUI 可直接绑定到 @Published 属性。
 @MainActor
 final class VoiceService: NSObject, ObservableObject {
 
@@ -53,11 +52,11 @@ final class VoiceService: NSObject, ObservableObject {
     // MARK: Published
 
     @Published var state: RecordingState = .idle
-    /// Live elapsed seconds (updated every second during recording)
+    /// 录制中每秒更新的实时已过秒数
     @Published var elapsedSeconds: Int = 0
-    /// Normalised audio level 0.0–1.0, updated at ~30fps during recording
+    /// 归一化音频电平 0.0–1.0，录制中约 30fps 更新
     @Published var waveformLevel: Float = 0.0
-    /// Rolling history of waveform levels (last 40 samples) for bar display
+    /// 波形电平滚动历史记录（最近 40 个采样），用于条形显示
     @Published var waveformHistory: [Float] = Array(repeating: 0.04, count: 40)
 
     // MARK: Private
@@ -70,9 +69,9 @@ final class VoiceService: NSObject, ObservableObject {
 
     // MARK: - Permission
 
-    /// Requests microphone permission if not yet granted.
-    /// Returns true when permission is granted.
-    /// Uses AVAudioSession API for iOS 16 compatibility.
+    /// 请求麦克风权限（若尚未授权）。
+    /// 权限被授权时返回 true。
+    /// 使用 AVAudioSession API 以兼容 iOS 16。
     func requestMicrophonePermission() async -> Bool {
         let status = AVAudioSession.sharedInstance().recordPermission
         switch status {
@@ -93,8 +92,8 @@ final class VoiceService: NSObject, ObservableObject {
 
     // MARK: - Start
 
-    /// Requests permission, sets up the audio session, and starts recording.
-    /// Sets `state` to `.recording` on success, `.failed` on error.
+    /// 请求权限、设置音频会话并开始录制。
+    /// 成功时将 `state` 设为 `.recording`，失败时设为 `.failed`。
     func startRecording() async {
         state = .requesting
         let granted = await requestMicrophonePermission()
@@ -160,9 +159,9 @@ final class VoiceService: NSObject, ObservableObject {
 
     // MARK: - Stop & Transcribe
 
-    /// Stops recording, saves the .m4a file, calls Whisper API, and returns a result.
-    /// On network failure the audio is still saved; transcript will be nil.
-    /// Returns nil only when there was never a valid recording to save.
+    /// 停止录制、保存 .m4a 文件、调用 Whisper API 并返回结果。
+    /// 网络失败时音频仍会保存；transcript 将为 nil。
+    /// 仅在没有有效可保存的录音时返回 nil。
     func stopAndTranscribe() async -> VoiceRecordingResult? {
         guard let rec = recorder, let fileURL = currentFileURL else {
             state = .failed("没有活跃的录音")
@@ -178,17 +177,17 @@ final class VoiceService: NSObject, ObservableObject {
         do {
             try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         } catch {
-            // Non-fatal: log and continue
+            // 非致命错误：记录日志并继续
         }
 
         state = .processing
 
-        // Derive vault-relative path
+        // 推导 vault 相对路径
         let filePath = "raw/assets/\(fileURL.lastPathComponent)"
 
         let transcript = await transcribeAudio(at: fileURL)
 
-        // If transcription failed and we are offline, enqueue for later
+        // 如果转录失败且处于离线状态，加入队列等待稍后处理
         if transcript == nil && !NetworkMonitor.shared.isOnline {
             VoiceAttachmentQueue.shared.enqueue(audioPath: filePath, memoDate: Date())
         }
@@ -206,7 +205,7 @@ final class VoiceService: NSObject, ObservableObject {
 
     // MARK: - Cancel
 
-    /// Aborts recording without saving.
+    /// 中止录制，不保存。
     func cancelRecording() {
         stopTimer()
         stopMeteringTimer()
@@ -221,7 +220,7 @@ final class VoiceService: NSObject, ObservableObject {
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 
-    /// Resets state back to idle (call after the result has been consumed).
+    /// 将状态重置回 idle（在结果被消费后调用）。
     func reset() {
         stopTimer()
         stopMeteringTimer()
@@ -250,7 +249,7 @@ final class VoiceService: NSObject, ObservableObject {
         let modelField = "--\(boundary)\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\nwhisper-1\r\n"
         body.append(Data(modelField.utf8))
 
-        // No language hint — let Whisper auto-detect for multilingual support
+        // 不提供语言提示 —— 让 Whisper 自动检测以支持多语言
 
         // -- file field
         let fileHeader = "--\(boundary)\r\nContent-Disposition: form-data; name=\"file\"; filename=\"\(url.lastPathComponent)\"\r\nContent-Type: audio/m4a\r\n\r\n"
@@ -272,7 +271,7 @@ final class VoiceService: NSObject, ObservableObject {
             : SentrySDK.startTransaction(name: "voice.whisper", operation: "http.client")
         defer { span?.finish() }
 
-        // Retry up to 3 times for transient server/rate-limit errors (429, 500, 503)
+        // 对瞬时服务器/速率限制错误（429、500、503）最多重试 3 次
         let maxAttempts = 3
         var delaySeconds: UInt64 = 2
 
@@ -289,7 +288,7 @@ final class VoiceService: NSObject, ObservableObject {
                     return nil
                 }
 
-                // Retryable: rate-limit or server error
+                // 可重试：速率限制或服务器错误
                 let retryable = http.statusCode == 429 || http.statusCode >= 500
                 if retryable && attempt < maxAttempts {
                     try? await Task.sleep(nanoseconds: delaySeconds * 1_000_000_000)
@@ -297,7 +296,7 @@ final class VoiceService: NSObject, ObservableObject {
                     continue
                 }
 
-                // Non-retryable error or exhausted retries
+                // 不可重试的错误或重试次数已耗尽
                 return nil
             } catch {
                 if attempt < maxAttempts {
@@ -324,7 +323,7 @@ final class VoiceService: NSObject, ObservableObject {
             .appendingPathComponent("raw")
             .appendingPathComponent("assets")
 
-        // Ensure directory exists
+        // 确保目录存在
         do { try FileManager.default.createDirectory(at: assetsURL, withIntermediateDirectories: true) }
         catch { DayPageLogger.shared.error("VoiceService: createDirectory: \(error)") }
 
@@ -355,11 +354,11 @@ final class VoiceService: NSObject, ObservableObject {
             Task { @MainActor in
                 guard let self, let rec = self.recorder, self.state == .recording else { return }
                 rec.updateMeters()
-                let power = rec.averagePower(forChannel: 0) // -160 to 0 dB
-                // Map -60dB..0dB → 0..1, clamp below -60dB to near-zero
+                let power = rec.averagePower(forChannel: 0) // -160 到 0 dB
+                // 将 -60dB..0dB 映射到 0..1，低于 -60dB 限制在接近零
                 let normalized = Float(max(0.04, min(1.0, (Double(power) + 60.0) / 60.0)))
                 self.waveformLevel = normalized
-                // Shift history and append
+                // 平移历史记录并追加
                 self.waveformHistory.removeFirst()
                 self.waveformHistory.append(normalized)
             }
@@ -376,7 +375,7 @@ final class VoiceService: NSObject, ObservableObject {
 
 extension VoiceService: AVAudioRecorderDelegate {
     nonisolated func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
-        // Handled by stopAndTranscribe / cancelRecording flows
+        // 由 stopAndTranscribe / cancelRecording 流程处理
     }
 
     nonisolated func audioRecorderEncodeErrorDidOccur(_ recorder: AVAudioRecorder, error: Error?) {

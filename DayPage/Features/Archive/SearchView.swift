@@ -2,9 +2,9 @@ import SwiftUI
 
 // MARK: - SearchView
 
-/// Full-screen search panel presented from ``ArchiveView``.
-/// Runs an in-memory ``SearchService`` query with a 150 ms debounce and
-/// forwards the selected date back to the parent so it can open the Daily Page.
+/// 从 ``ArchiveView`` 呈现的全屏搜索面板。
+/// 运行内存中的 ``SearchService`` 查询，带 150 毫秒防抖，
+/// 并将选中的日期传回父视图以打开 Daily Page。
 struct SearchView: View {
 
     @Environment(\.dismiss) private var dismiss
@@ -18,7 +18,7 @@ struct SearchView: View {
     @State private var filters: SearchFilters = SearchFilters.empty
     @State private var showFilters: Bool = false
 
-    /// Invoked with "yyyy-MM-dd" when the user taps a hit.
+    /// 当用户点击某条命中时，以 "yyyy-MM-dd" 格式调用。
     var onSelect: (String) -> Void
 
     var body: some View {

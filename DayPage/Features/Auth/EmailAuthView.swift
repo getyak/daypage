@@ -2,13 +2,13 @@ import SwiftUI
 
 // MARK: - EmailAuthView
 
-/// Two-stage email sign-in:
-/// 1. Email entry → `sendOTP(email:)`
-/// 2. On success, pushes `OTPVerificationView` which owns resend, verify, and error state.
+/// 两阶段邮箱登录：
+/// 1. 输入邮箱 → `sendOTP(email:)`
+/// 2. 成功后推送 `OTPVerificationView`，由它管理重新发送、验证和错误状态。
 ///
-/// State lives in `@StateObject EmailAuthViewModel` so dismissing the sheet
-/// doesn't silently lose in-flight data. The VM also debounces network
-/// activity and exposes a single error channel.
+/// 状态保存在 `@StateObject EmailAuthViewModel` 中，这样关闭表单
+/// 不会静默丢失进行中的数据。VM 还提供了网络活动防抖
+/// 并暴露单一错误通道。
 struct EmailAuthView: View {
 
     @EnvironmentObject private var authService: AuthService
@@ -38,7 +38,7 @@ struct EmailAuthView: View {
             .animation(.easeOut(duration: 0.25), value: viewModel.stage)
         }
         .task {
-            // Hook the VM to the shared AuthService once the view is alive.
+            // 视图激活后将 VM 绑定到共享的 AuthService。
             viewModel.bind(authService: authService)
         }
     }
@@ -186,7 +186,7 @@ final class EmailAuthViewModel: ObservableObject {
         do {
             try await authService.sendOTP(email: email)
             stage = .otp
-            // Clear any stale AuthService.error left over from a previous attempt.
+            // 清除之前尝试遗留的过时 AuthService.error。
             authService.error = nil
         } catch let err as DPAuthError {
             errorMessage = err.errorDescription
