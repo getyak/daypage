@@ -98,6 +98,10 @@
 		FB0000001 /* FeedbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000001 /* FeedbackService.swift */; };
 		FB0000002 /* FeedbackViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000002 /* FeedbackViewModel.swift */; };
 		FB0000003 /* FeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000003 /* FeedbackView.swift */; };
+		DBB277156934B2FA96E16077 /* WatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5BB61FECBCF7AB756E7A6CE /* WatchApp.swift */; };
+		9034B2964DD6432BD7FA7250 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C98B5757B488F583231EC8F6 /* RootView.swift */; };
+		B197ECDEBDA86D4351A96898 /* RecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B93ED807E07C2171E9F4234B /* RecordingView.swift */; };
+		E4AC46FA495D4BD178789A14 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0881AB423FF6F12FCDE27C5B /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -107,6 +111,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = A70000001;
 			remoteInfo = DayPage;
+		};
+		D13961FCE75D846CB11E2A04 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AB0000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 69BEA0675AFA233657A8AD39;
+			remoteInfo = DayPageWatch;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -183,6 +194,7 @@
 		A20000076 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
 		A20000074 /* AccountSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSheet.swift; sourceTree = "<group>"; };
 		A30000001 /* DayPage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPage.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		23EA9C83B41565EDB263FB35 /* DayPageWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPageWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF1000001 /* SpaceGrotesk-Light.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Light.ttf"; sourceTree = "<group>"; };
 		AF1000002 /* SpaceGrotesk-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Regular.ttf"; sourceTree = "<group>"; };
 		AF1000003 /* SpaceGrotesk-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Medium.ttf"; sourceTree = "<group>"; };
@@ -204,6 +216,11 @@
 		FB1000001 /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
 		FB1000002 /* FeedbackViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackViewModel.swift; sourceTree = "<group>"; };
 		FB1000003 /* FeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackView.swift; sourceTree = "<group>"; };
+		F5BB61FECBCF7AB756E7A6CE /* WatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchApp.swift; sourceTree = "<group>"; };
+		C98B5757B488F583231EC8F6 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		B93ED807E07C2171E9F4234B /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
+		0881AB423FF6F12FCDE27C5B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		2748059CC689A341C7CAAACC /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -217,6 +234,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		T40000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3EB5769AA1DE988ED54D7EAF /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -368,6 +392,7 @@
 			children = (
 				A30000001 /* DayPage.app */,
 				T30000001 /* DayPageTests.xctest */,
+				23EA9C83B41565EDB263FB35 /* DayPageWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -469,6 +494,7 @@
 			children = (
 				A50000001 /* DayPage */,
 				T50000001 /* DayPageTests */,
+				6E1BF02CE381B436F22B52D5 /* DayPageWatch */,
 			);
 			sourceTree = "<group>";
 		};
@@ -499,6 +525,58 @@
 				T20000003 /* VaultMigrationServiceTests.swift */,
 			);
 			path = DayPageTests;
+			sourceTree = "<group>";
+		};
+		6E1BF02CE381B436F22B52D5 /* DayPageWatch */ = {
+			isa = PBXGroup;
+			children = (
+				169A033458595BA06BEA3D5F /* App */,
+				199F425FF62768ECA9FD1FB9 /* Features */,
+				E8860B4D47FA22FF858763A5 /* Resources */,
+				4D6CD27C159EBD1C3B99E5A0 /* Complication */,
+				E649E3AC4D392A4CEDD41728 /* Services */,
+			);
+			path = DayPageWatch;
+			sourceTree = "<group>";
+		};
+		169A033458595BA06BEA3D5F /* App */ = {
+			isa = PBXGroup;
+			children = (
+				F5BB61FECBCF7AB756E7A6CE /* WatchApp.swift */,
+				C98B5757B488F583231EC8F6 /* RootView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		199F425FF62768ECA9FD1FB9 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				B93ED807E07C2171E9F4234B /* RecordingView.swift */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		E8860B4D47FA22FF858763A5 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				2748059CC689A341C7CAAACC /* Info.plist */,
+				0881AB423FF6F12FCDE27C5B /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		4D6CD27C159EBD1C3B99E5A0 /* Complication */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Complication;
+			sourceTree = "<group>";
+		};
+		E649E3AC4D392A4CEDD41728 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Services;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -543,6 +621,24 @@
 			productReference = T30000001 /* DayPageTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		69BEA0675AFA233657A8AD39 /* DayPageWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0D6D80FCABFECB20FC046750 /* Build configuration list for PBXNativeTarget "DayPageWatch" */;
+			buildPhases = (
+				4705AC05FAC24B4000886F57 /* Sources */,
+				3EB5769AA1DE988ED54D7EAF /* Frameworks */,
+				9E11D4E4CB1FFC4EC7D9A07A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AF08A5AA36824D34EF184641 /* PBXTargetDependency */,
+			);
+			name = DayPageWatch;
+			productName = DayPageWatch;
+			productReference = 23EA9C83B41565EDB263FB35 /* DayPageWatch.app */;
+			productType = "com.apple.product-type.application.watchapp2";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -569,6 +665,7 @@
 			knownRegions = (
 				en,
 				Base,
+				"zh-Hans",
 			);
 			mainGroup = A60000001;
 			packageReferences = (
@@ -581,6 +678,7 @@
 			targets = (
 				A70000001 /* DayPage */,
 				T70000001 /* DayPageTests */,
+				69BEA0675AFA233657A8AD39 /* DayPageWatch */,
 			);
 		};
 /* End PBXProject section */
@@ -603,6 +701,14 @@
 				AF0000011 /* JetBrainsMono-Regular.ttf in Resources */,
 				AF0000012 /* JetBrainsMono-Medium.ttf in Resources */,
 				A10000029 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9E11D4E4CB1FFC4EC7D9A07A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E4AC46FA495D4BD178789A14 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -719,6 +825,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4705AC05FAC24B4000886F57 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DBB277156934B2FA96E16077 /* WatchApp.swift in Sources */,
+				9034B2964DD6432BD7FA7250 /* RootView.swift in Sources */,
+				B197ECDEBDA86D4351A96898 /* RecordingView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -726,6 +842,11 @@
 			isa = PBXTargetDependency;
 			target = A70000001 /* DayPage */;
 			targetProxy = T76000001 /* PBXContainerItemProxy */;
+		};
+		AF08A5AA36824D34EF184641 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 69BEA0675AFA233657A8AD39 /* DayPageWatch */;
+			targetProxy = D13961FCE75D846CB11E2A04 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -983,6 +1104,59 @@
 			};
 			name = Release;
 		};
+		33B764539AC733ABA92320CE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 6RG2F8YY59;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DayPageWatch/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+			};
+			name = Debug;
+		};
+		EE270A0C68FDC7F8C8261410 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6RG2F8YY59;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DayPageWatch/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1009,6 +1183,15 @@
 			buildConfigurations = (
 				TC0000001 /* Debug */,
 				TC0000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0D6D80FCABFECB20FC046750 /* Build configuration list for PBXNativeTarget "DayPageWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				33B764539AC733ABA92320CE /* Debug */,
+				EE270A0C68FDC7F8C8261410 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
