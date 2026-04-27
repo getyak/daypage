@@ -4,6 +4,7 @@ struct RootView: View {
     @EnvironmentObject private var authService: AuthService
     @EnvironmentObject private var nav: AppNavigationModel
     @StateObject private var bannerCenter = BannerCenter.shared
+    @ObservedObject private var appSettings = AppSettings.shared
     @State private var hasOnboarded: Bool = UserDefaults.standard.bool(forKey: "hasOnboarded")
     @State private var authSkipped: Bool = UserDefaults.standard.bool(forKey: "authSkipped")
 
@@ -11,6 +12,15 @@ struct RootView: View {
 
     private var showAuth: Bool {
         authService.session == nil && !authSkipped
+    }
+
+    /// Resolve preferredColorScheme from AppSettings.
+    private var resolvedColorScheme: ColorScheme? {
+        switch appSettings.themeMode {
+        case .system: return nil
+        case .light: return .light
+        case .dark: return .dark
+        }
     }
 
     var body: some View {
@@ -30,6 +40,7 @@ struct RootView: View {
                 OnboardingView(hasOnboarded: $hasOnboarded)
             }
         }
+        .preferredColorScheme(resolvedColorScheme)
     }
 
     // MARK: - Main Content with Sidebar Overlay

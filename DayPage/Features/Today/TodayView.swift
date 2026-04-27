@@ -104,6 +104,17 @@ struct TodayView: View {
                                 }
                             }
 
+                        // Settings gear icon — always visible
+                        Button {
+                            showSettings = true
+                        } label: {
+                            Image(systemName: "gearshape")
+                                .font(.system(size: 16, weight: .regular))
+                                .foregroundColor(DSColor.onSurfaceVariant)
+                                .frame(width: 28, height: 28)
+                        }
+                        .accessibilityLabel("设置")
+
                         // Account avatar — shown when logged in
                         if authService.session != nil {
                             Button {
