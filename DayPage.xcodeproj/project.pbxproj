@@ -95,6 +95,9 @@
 		A10000077 /* ConflictMerger.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000077 /* ConflictMerger.swift */; };
 		A10000078 /* VaultMigrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000078 /* VaultMigrationService.swift */; };
 		T10000003 /* VaultMigrationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000003 /* VaultMigrationServiceTests.swift */; };
+		FB0000001 /* FeedbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000001 /* FeedbackService.swift */; };
+		FB0000002 /* FeedbackViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000002 /* FeedbackViewModel.swift */; };
+		FB0000003 /* FeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000003 /* FeedbackView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -198,6 +201,9 @@
 		A20000077 /* ConflictMerger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictMerger.swift; sourceTree = "<group>"; };
 		A20000078 /* VaultMigrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultMigrationService.swift; sourceTree = "<group>"; };
 		T20000003 /* VaultMigrationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultMigrationServiceTests.swift; sourceTree = "<group>"; };
+		FB1000001 /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
+		FB1000002 /* FeedbackViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackViewModel.swift; sourceTree = "<group>"; };
+		FB1000003 /* FeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -276,6 +282,7 @@
 				A50000016 /* Shared */,
 				A50000017 /* Onboarding */,
 				A50000021 /* Auth */,
+				A50000022 /* Feedback */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -289,6 +296,15 @@
 				A20000074 /* AccountSheet.swift */,
 			);
 			path = Auth;
+			sourceTree = "<group>";
+		};
+		A50000022 /* Feedback */ = {
+			isa = PBXGroup;
+			children = (
+				FB1000002 /* FeedbackViewModel.swift */,
+				FB1000003 /* FeedbackView.swift */,
+			);
+			path = Feedback;
 			sourceTree = "<group>";
 		};
 		A50000005 /* Models */ = {
@@ -322,6 +338,7 @@
 				A20000078 /* VaultMigrationService.swift */,
 				A20000070 /* AuthService.swift */,
 				A20000076 /* KeychainHelper.swift */,
+				FB1000001 /* FeedbackService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -686,6 +703,9 @@
 				A10000074 /* AccountSheet.swift in Sources */,
 				F617270BFC704FF5BBB99FD3 /* AppSettings.swift in Sources */,
 				8C3DEB068D610AAB589EA680 /* TimeZonePickerView.swift in Sources */,
+				FB0000001 /* FeedbackService.swift in Sources */,
+				FB0000002 /* FeedbackViewModel.swift in Sources */,
+				FB0000003 /* FeedbackView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

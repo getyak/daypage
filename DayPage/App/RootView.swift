@@ -46,6 +46,10 @@ struct RootView: View {
                     .opacity(nav.selectedTab == .archive ? 1 : 0)
                     .allowsHitTesting(nav.selectedTab == .archive && !nav.isSidebarOpen)
 
+                FeedbackView()
+                    .opacity(nav.selectedTab == .feedback ? 1 : 0)
+                    .allowsHitTesting(nav.selectedTab == .feedback && !nav.isSidebarOpen)
+
                 GraphView()
                     .opacity(nav.selectedTab == .graph ? 1 : 0)
                     .allowsHitTesting(nav.selectedTab == .graph && !nav.isSidebarOpen)

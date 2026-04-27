@@ -14,4 +14,7 @@ extension Secrets {
     static var resolvedOpenWeatherApiKey: String {
         UserDefaults.standard.string(forKey: "runtimeOpenWeatherKey").flatMap { $0.isEmpty ? nil : $0 } ?? openWeatherApiKey
     }
+    static var resolvedGitHubToken: String {
+        KeychainHelper.get(forKey: "githubToken") ?? ""
+    }
 }

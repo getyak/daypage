@@ -5,6 +5,7 @@ import SwiftUI
 enum AppTab: Equatable {
     case today
     case archive
+    case feedback
     case graph
 }
 

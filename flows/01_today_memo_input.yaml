@@ -5,6 +5,7 @@ appId: com.daypage.app
     arguments:
       hasOnboarded: "true"
       authSkipped: "true"
+      inputBarVariant: "v3"
 - takeScreenshot: launch
 
 # 等待 Today View 加载（品牌文字 DAYPAGE 可见）

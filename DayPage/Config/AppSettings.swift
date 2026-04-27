@@ -89,6 +89,33 @@ final class AppSettings: ObservableObject {
         }
     }
 
+    // MARK: - GitHub Repo Config
+
+    static let githubRepoOwnerKey = "githubRepoOwner"
+    static let githubRepoNameKey = "githubRepoName"
+
+    /// The GitHub repo owner for feedback issue creation. Defaults to "cubxxw".
+    var githubRepoOwner: String {
+        get {
+            UserDefaults.standard.string(forKey: Self.githubRepoOwnerKey) ?? "cubxxw"
+        }
+        set {
+            objectWillChange.send()
+            UserDefaults.standard.set(newValue, forKey: Self.githubRepoOwnerKey)
+        }
+    }
+
+    /// The GitHub repo name for feedback issue creation. Defaults to "daypage".
+    var githubRepoName: String {
+        get {
+            UserDefaults.standard.string(forKey: Self.githubRepoNameKey) ?? "daypage"
+        }
+        set {
+            objectWillChange.send()
+            UserDefaults.standard.set(newValue, forKey: Self.githubRepoNameKey)
+        }
+    }
+
     // MARK: - Migration Completed At
 
     static let migrationCompletedAtKey = "migrationCompletedAt"
