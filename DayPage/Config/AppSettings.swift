@@ -1,4 +1,75 @@
 import Foundation
+import SwiftUI
+
+// MARK: - ThemeMode
+
+enum ThemeMode: String, CaseIterable {
+    case system = "system"
+    case light = "light"
+    case dark = "dark"
+
+    var label: String {
+        switch self {
+        case .system: return "系统"
+        case .light: return "浅色"
+        case .dark: return "深色"
+        }
+    }
+}
+
+// MARK: - AccentColorOption
+
+enum AccentColorOption: String, CaseIterable {
+    case amber = "amber"
+    case sage = "sage"
+    case slate = "slate"
+    case rose = "rose"
+    case ink = "ink"
+
+    var label: String {
+        switch self {
+        case .amber: return "琥珀"
+        case .sage: return "鼠尾草"
+        case .slate: return "青石"
+        case .rose: return "玫瑰"
+        case .ink: return "墨"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .amber: return Color(hex: "5D3000")
+        case .sage: return Color(hex: "4A6B4A")
+        case .slate: return Color(hex: "4A5568")
+        case .rose: return Color(hex: "9B4D6B")
+        case .ink: return Color(hex: "2D2D2D")
+        }
+    }
+
+    var softColor: Color {
+        switch self {
+        case .amber: return Color(hex: "F5EDE3")
+        case .sage: return Color(hex: "E8F0E8")
+        case .slate: return Color(hex: "E8ECF0")
+        case .rose: return Color(hex: "F5E8EE")
+        case .ink: return Color(hex: "EAEAEA")
+        }
+    }
+}
+
+// MARK: - CardDensity
+
+enum CardDensity: String, CaseIterable {
+    case comfortable = "comfortable"
+    case compact = "compact"
+
+    var label: String {
+        switch self {
+        case .comfortable: return "舒适"
+        case .compact: return "紧凑"
+        }
+    }
+}
 
 // MARK: - VaultLocation
 
@@ -113,6 +184,54 @@ final class AppSettings: ObservableObject {
         set {
             objectWillChange.send()
             UserDefaults.standard.set(newValue, forKey: Self.githubRepoNameKey)
+        }
+    }
+
+    // MARK: - Theme Mode
+
+    private let themeModeKey = "themeMode"
+
+    var themeMode: ThemeMode {
+        get {
+            guard let raw = UserDefaults.standard.string(forKey: themeModeKey),
+                  let mode = ThemeMode(rawValue: raw) else { return .system }
+            return mode
+        }
+        set {
+            objectWillChange.send()
+            UserDefaults.standard.set(newValue.rawValue, forKey: themeModeKey)
+        }
+    }
+
+    // MARK: - Accent Color
+
+    private let accentColorKey = "accentColor"
+
+    var accentColor: AccentColorOption {
+        get {
+            guard let raw = UserDefaults.standard.string(forKey: accentColorKey),
+                  let color = AccentColorOption(rawValue: raw) else { return .amber }
+            return color
+        }
+        set {
+            objectWillChange.send()
+            UserDefaults.standard.set(newValue.rawValue, forKey: accentColorKey)
+        }
+    }
+
+    // MARK: - Card Density
+
+    private let cardDensityKey = "cardDensity"
+
+    var cardDensity: CardDensity {
+        get {
+            guard let raw = UserDefaults.standard.string(forKey: cardDensityKey),
+                  let density = CardDensity(rawValue: raw) else { return .comfortable }
+            return density
+        }
+        set {
+            objectWillChange.send()
+            UserDefaults.standard.set(newValue.rawValue, forKey: cardDensityKey)
         }
     }
 

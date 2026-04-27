@@ -305,14 +305,40 @@ struct SettingsView: View {
 
     private var appearanceSection: some View {
         Section("外观") {
-            HStack {
+            // Theme (dark mode)
+            Picker(selection: $appSettings.themeMode) {
+                ForEach(ThemeMode.allCases, id: \.self) { mode in
+                    HStack {
+                        Image(systemName: themeIcon(for: mode))
+                        Text(mode.label)
+                    }.tag(mode)
+                }
+            } label: {
                 Label("深色模式", systemImage: "moon.fill")
-                Spacer()
-                Text("即将推出")
-                    .font(.caption)
-                    .foregroundColor(DSColor.onSurfaceVariant)
             }
-            .foregroundColor(DSColor.onSurfaceVariant)
+
+            // Accent color
+            Picker(selection: $appSettings.accentColor) {
+                ForEach(AccentColorOption.allCases, id: \.self) { color in
+                    HStack {
+                        Circle()
+                            .fill(color.color)
+                            .frame(width: 14, height: 14)
+                        Text(color.label)
+                    }.tag(color)
+                }
+            } label: {
+                Label("强调色", systemImage: "paintpalette")
+            }
+
+            // Card density
+            Picker(selection: $appSettings.cardDensity) {
+                ForEach(CardDensity.allCases, id: \.self) { density in
+                    Text(density.label).tag(density)
+                }
+            } label: {
+                Label("卡片密度", systemImage: "rectangle.expand.vertical")
+            }
 
             // Press-to-talk (US-008). Invert the binding so the visible label reads
             // "Use legacy voice recording" per the PRD's legacy-fallback copy.
@@ -341,6 +367,14 @@ struct SettingsView: View {
                     OnThisDayScheduler.shared.refreshHour = val
                 }
             }
+        }
+    }
+
+    private func themeIcon(for mode: ThemeMode) -> String {
+        switch mode {
+        case .system: return "gearshape"
+        case .light: return "sun.max"
+        case .dark: return "moon.stars"
         }
     }
 

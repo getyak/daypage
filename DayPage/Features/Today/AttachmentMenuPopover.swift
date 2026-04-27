@@ -2,8 +2,10 @@ import SwiftUI
 
 // MARK: - AttachmentMenuPopover
 //
-// 底部弹出式附件选择器，采用 2×2 大图标网格布局。
-// 通过 .sheet 而非 .popover 呈现，以便在 iPhone 上从底部滑出。
+// Capture v2 minimal design: single-color line icons + text label list,
+// ultraThinMaterial background matching InputBarV4 capsule aesthetic.
+// Uses SF Symbols thin variants (camera, photo, paperclip, mappin) unfilled.
+// Subtle tap animation: depresses + micro-scale.
 
 struct AttachmentMenuPopover: View {
 
@@ -17,102 +19,87 @@ struct AttachmentMenuPopover: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // 拖拽手柄
+            // Drag handle
             RoundedRectangle(cornerRadius: 2)
                 .fill(DSColor.borderDefault)
                 .frame(width: 36, height: 4)
-                .padding(.top, 12)
-                .padding(.bottom, 22)
+                .padding(.top, 10)
+                .padding(.bottom, 20)
 
-            LazyVGrid(
-                columns: [GridItem(.flexible()), GridItem(.flexible())],
-                spacing: 12
-            ) {
-                AttachmentActionButton(
-                    icon: "camera.fill",
-                    label: "拍照",
-                    bgColor: Color(hex: "4A6FE3"),
-                    action: onCapturePhoto
-                )
-                AttachmentActionButton(
-                    icon: "photo.fill",
-                    label: "从相册选",
-                    bgColor: Color(hex: "3DAD74"),
-                    action: onPickPhoto
-                )
-                AttachmentActionButton(
-                    icon: "paperclip",
-                    label: "附件",
-                    bgColor: Color(hex: "E09030"),
-                    action: onAddFile
-                )
-                AttachmentActionButton(
-                    icon: hasPendingLocation ? "mappin.and.ellipse" : "mappin.circle.fill",
+            VStack(spacing: 0) {
+                attachmentRow(icon: "camera", label: "拍照", action: onCapturePhoto)
+                Divider().padding(.leading, 48).foregroundColor(DSColor.borderSubtle)
+                attachmentRow(icon: "photo", label: "从相册选", action: onPickPhoto)
+                Divider().padding(.leading, 48).foregroundColor(DSColor.borderSubtle)
+                attachmentRow(icon: "paperclip", label: "附件", action: onAddFile)
+                Divider().padding(.leading, 48).foregroundColor(DSColor.borderSubtle)
+                attachmentRow(
+                    icon: "mappin",
                     label: hasPendingLocation ? "更新位置" : "位置",
-                    bgColor: Color(hex: "D95050"),
                     isLoading: isLocating,
                     action: onAddLocation
                 )
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 36)
-        }
-        .frame(maxWidth: .infinity)
-        .background(DSColor.backgroundWarm)
-        .presentationDetents([.height(210)])
-        .presentationDragIndicator(.hidden)
-        .modifier(AttachmentSheetPresentation())
-    }
-}
-
-// MARK: - AttachmentActionButton
-
-private struct AttachmentActionButton: View {
-    let icon: String
-    let label: String
-    let bgColor: Color
-    var isLoading: Bool = false
-    let action: () -> Void
-
-    @State private var isPressed = false
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 10) {
-                ZStack {
-                    Circle()
-                        .fill(bgColor)
-                        .frame(width: 54, height: 54)
-                    if isLoading {
-                        ProgressView()
-                            .tint(.white)
-                            .scaleEffect(0.85)
-                    } else {
-                        Image(systemName: icon)
-                            .font(.system(size: 22, weight: .medium))
-                            .foregroundStyle(.white)
-                    }
-                }
-                .scaleEffect(isPressed ? 0.93 : 1.0)
-                .animation(.spring(response: 0.22, dampingFraction: 0.7), value: isPressed)
-
-                Text(label)
-                    .font(.custom("SpaceGrotesk-Medium", size: 13))
-                    .foregroundStyle(DSColor.onBackgroundMuted)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(isPressed ? DSColor.surfaceSunken : DSColor.surfaceWhite)
+                    .fill(.ultraThinMaterial)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .strokeBorder(DSColor.borderSubtle, lineWidth: 0.5)
             )
+            .padding(.horizontal, 16)
+            .padding(.bottom, 28)
         }
-        .buttonStyle(.plain)
-        ._onButtonGesture(pressing: { isPressed = $0 }, perform: {})
+        .frame(maxWidth: .infinity)
+        .background(DSColor.backgroundWarm)
+        .presentationDetents([.height(280)])
+        .presentationDragIndicator(.hidden)
+        .modifier(AttachmentSheetPresentation())
+    }
+
+    // MARK: - Attachment Row
+
+    @ViewBuilder
+    private func attachmentRow(icon: String, label: String, isLoading: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                ZStack {
+                    // Monochrome unfilled line icon
+                    if isLoading {
+                        ProgressView()
+                            .tint(DSColor.onBackgroundMuted)
+                            .scaleEffect(0.85)
+                    } else {
+                        Image(systemName: icon)
+                            .font(.system(size: 18, weight: .regular))
+                            .foregroundStyle(DSColor.onBackgroundMuted)
+                    }
+                }
+                .frame(width: 28, height: 28)
+
+                Text(label)
+                    .font(.custom("Inter-Regular", size: 15))
+                    .foregroundStyle(DSColor.onBackgroundPrimary)
+
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(AttachmentRowButtonStyle())
+    }
+}
+
+// MARK: - AttachmentRowButtonStyle
+
+private struct AttachmentRowButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .offset(y: configuration.isPressed ? 0.5 : 0)
+            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
 
