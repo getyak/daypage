@@ -11,32 +11,32 @@ enum InputTokens {
 
     // MARK: - Press-to-Talk Gesture
 
-    /// Minimum vertical upward swipe (in points) that arms the "cancel" state.
-    /// Lowered from 80pt → 60pt: usability testing shows 80pt requires an awkward
-    /// thumb extension on most phones; 60pt is comfortable while preventing accidental triggers.
+    /// 触发"取消"状态所需的最小垂直向上滑动距离（以点为单位）。
+    /// 从 80pt 降低到 60pt：可用性测试表明 80pt 在大多数手机上需要
+    /// 别扭的拇指伸展；60pt 舒适且能防止意外触发。
     static let cancelSwipeThreshold: CGFloat = 60
 
-    /// Minimum leftward swipe (in points) that arms the "transcribe only" state.
-    /// Lowered from 80pt → 60pt to match cancelSwipeThreshold.
+    /// 触发"仅转写"状态所需的最小左滑距离（以点为单位）。
+    /// 从 80pt 降低到 60pt 以匹配 cancelSwipeThreshold。
     static let transcribeSwipeThreshold: CGFloat = 60
 
     // MARK: - Haptic Intensities
 
-    /// Fired on press-down (recording begins).
+    /// 按下时触发（录音开始）。
     static let pressDownHaptic: UIImpactFeedbackGenerator.FeedbackStyle = .light
 
-    /// Fired on in-place release (send immediately).
+    /// 原位释放时触发（立即发送）。
     static let sendReleaseHaptic: UIImpactFeedbackGenerator.FeedbackStyle = .medium
 
-    /// Fired when the drag enters cancel-armed zone.
+    /// 拖动进入取消预备区域时触发。
     static let cancelArmHaptic: UIImpactFeedbackGenerator.FeedbackStyle = .heavy
 
-    /// Fired when the drag enters transcribe-armed zone.
+    /// 拖动进入转写预备区域时触发。
     static let transcribeArmHaptic: UIImpactFeedbackGenerator.FeedbackStyle = .medium
 
-    /// Fired when a cancel-armed gesture is released (recording discarded).
+    /// 取消预备手势释放时触发（录音已丢弃）。
     static let cancelReleaseHaptic: UIImpactFeedbackGenerator.FeedbackStyle = .light
 
-    /// Fired when a transcribe-armed gesture is released (text filled, not sent).
+    /// 转写预备手势释放时触发（文本已填充，未发送）。
     static let transcribeReleaseHaptic: UIImpactFeedbackGenerator.FeedbackStyle = .medium
 }

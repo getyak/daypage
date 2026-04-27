@@ -2,22 +2,21 @@ import SwiftUI
 
 // MARK: - CompileFooterButton
 
-/// Sticky compile entry mounted above `InputBarView`.
-/// Visibility is owned by the parent (`TodayView`) via `isVisible`; this view only
-/// animates in/out and morphs between `.idle` and `.compiling` states.
+/// 固定在 InputBarView 上方的编译入口。
+/// 可见性由父视图（TodayView）通过 `isVisible` 控制；此视图仅
+/// 负责淡入/淡出动画以及在 `.idle` 和 `.compiling` 状态之间切换。
 ///
-/// Design: capsule, 1pt outline, semi-transparent surface, sparkle icon + label.
-/// US-005 replaces the inline `CompilePromptCard` entry in the timeline.
+/// 设计：胶囊形，1pt 描边，半透明表面，闪光图标 + 标签。
+/// US-005 替代时间线中的内联 CompilePromptCard 入口。
 struct CompileFooterButton: View {
 
-    /// Number of raw memos captured today.
+    /// 今日已记录的原始 memo 数量。
     let memoCount: Int
-    /// Whether a compile pass is currently running.
+    /// 当前是否正在执行编译。
     let isCompiling: Bool
-    /// Whether the button should be rendered. When `false`, the view collapses
-    /// to zero size with a spring fade-out.
+    /// 是否渲染按钮。为 `false` 时，视图以弹性动画缩小至零尺寸。
     let isVisible: Bool
-    /// Tapped when the user wants to compile now. Ignored while compiling.
+    /// 用户点击立即编译时触发。编译中忽略。
     let onTap: () -> Void
 
     var body: some View {
@@ -36,7 +35,7 @@ struct CompileFooterButton: View {
         .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isCompiling)
     }
 
-    // MARK: Content
+    // MARK: 内容
 
     private var buttonBody: some View {
         Button(action: {
@@ -80,12 +79,12 @@ struct CompileFooterButton: View {
 
 // MARK: - ScrollOffsetPreferenceKey
 
-/// Carries the minY of the bottom anchor in the ScrollView's local coordinate space.
-/// Parent compares against the ScrollView's visible height + slack to decide whether
-/// the compile footer should be shown.
+/// 承载底部锚点在 ScrollView 本地坐标空间中的 minY 值。
+/// 父视图将其与 ScrollView 可见高度 + 松弛量进行比较，以决定
+/// 是否显示编译底部按钮。
 ///
-/// The anchor is placed at the end of the ScrollView's content; when the user scrolls
-/// near the bottom, `minY` approaches the ScrollView's visible height.
+/// 锚点放置在 ScrollView 内容的末尾；当用户滚动到
+/// 接近底部时，`minY` 接近 ScrollView 的可见高度。
 struct CompileFooterAnchorPreferenceKey: PreferenceKey {
     static var defaultValue: CGFloat = .infinity
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
@@ -93,11 +92,11 @@ struct CompileFooterAnchorPreferenceKey: PreferenceKey {
     }
 }
 
-// MARK: - Helper view for placing the anchor
+// MARK: - 放置锚点的辅助视图
 
-/// Zero-height anchor to be inserted at the bottom of ScrollView content.
-/// Emits `CompileFooterAnchorPreferenceKey` with its minY in the ScrollView's
-/// coordinate space (`named: "todayScroll"`).
+/// 零高度锚点，插入 ScrollView 内容底部。
+/// 通过在 ScrollView 坐标空间（`named: "todayScroll"`）中的 minY
+/// 来发射 `CompileFooterAnchorPreferenceKey`。
 struct CompileFooterAnchor: View {
     var body: some View {
         GeometryReader { geo in

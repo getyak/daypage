@@ -5,21 +5,21 @@ import Sentry
 // MARK: - App Notification Names
 
 extension Notification.Name {
-    /// Posted when background compilation fails after all retries.
-    /// TodayViewModel listens to show the error banner + retry button.
+    /// 后台编译在所有重试后失败时发布。
+    /// TodayViewModel 监听此通知以显示错误横幅和重试按钮。
     static let compilationDidFail = Notification.Name("com.daypage.compilationDidFail")
-    /// Posted when background compilation starts.
+    /// 后台编译开始时发布。
     static let compilationDidStart = Notification.Name("com.daypage.compilationDidStart")
-    /// Posted when background compilation ends (success or failure).
+    /// 后台编译结束时发布（无论成功或失败）。
     static let compilationDidEnd = Notification.Name("com.daypage.compilationDidEnd")
 }
 
 // MARK: - NotificationDelegate
 
-/// Handles foreground notification display and notification tap actions.
+/// 处理前台通知显示和通知点击操作。
 final class AppNotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
 
-    /// Show notification banners even when the app is in the foreground.
+    /// 即使应用在前台也显示通知横幅。
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
@@ -28,7 +28,7 @@ final class AppNotificationDelegate: NSObject, UNUserNotificationCenterDelegate 
         completionHandler([.banner, .sound])
     }
 
-    /// Handle notification tap — if it's a compilation failure, post to Today tab.
+    /// 处理通知点击 — 如果是编译失败，则发布到 Today 标签页。
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
@@ -52,7 +52,7 @@ struct DayPageApp: App {
     @StateObject private var navModel = AppNavigationModel()
 
     init() {
-        // Initialize Sentry crash reporting (no-op when DSN is empty)
+        // 初始化 Sentry 崩溃报告（DSN 为空时无操作）
         if !Secrets.sentryDSN.isEmpty {
             SentrySDK.start { options in
                 options.dsn = Secrets.sentryDSN
@@ -64,11 +64,11 @@ struct DayPageApp: App {
         }
         DSFonts.registerAll()
         VaultInitializer.initializeIfNeeded()
-        // Register background task handler before SwiftUI renders
+        // 在 SwiftUI 渲染之前注册后台任务处理器
         BackgroundCompilationService.shared.registerTask()
-        // Set notification delegate to handle taps
+        // 设置通知代理以处理点击
         UNUserNotificationCenter.current().delegate = notificationDelegate
-        // Start iCloud sync monitoring after vault is initialized
+        // 在 vault 初始化后启动 iCloud 同步监控
         Task { @MainActor in
             iCloudSyncMonitor.shared.startMonitoring(vaultURL: VaultInitializer.vaultURL)
         }
@@ -80,23 +80,23 @@ struct DayPageApp: App {
                 .environmentObject(authService)
                 .environmentObject(navModel)
                 .onOpenURL { url in
-                    // Handle both Magic Link callbacks (daypage://...) and OTP deep links.
-                    // Session update is handled by authStateChanges listener — no manual assignment needed.
+                    // 处理 Magic Link 回调 (daypage://...) 和 OTP 深度链接。
+                    // 会话更新由 authStateChanges 监听器处理 — 无需手动赋值。
                     Task {
                         try? await authService.supabase.auth.session(from: url)
                     }
                 }
                 .onAppear {
-                    // Schedule nightly auto-compile and backfill any missed day
+                    // 安排每晚自动编译并回填任何遗漏的日期
                     BackgroundCompilationService.shared.scheduleIfNeeded()
                     BackgroundCompilationService.shared.backfillIfNeeded()
-                    // Start passive visit monitoring if Always authorization is granted
+                    // 如果已授权"始终"权限，启动被动访问监控
                     PassiveLocationService.shared.startMonitoringIfAuthorized()
-                    // API key health check
+                    // API 密钥健康检查
                     checkApiKeys()
-                    // Load On This Day index
+                    // 加载"历史上的今天"索引
                     Task { await OnThisDayIndex.shared.loadIndex() }
-                    // Seed sample data on first launch after onboarding
+                    // 在首次启动且完成引导后填充示例数据
                     if UserDefaults.standard.bool(forKey: "hasOnboarded") {
                         SampleDataSeeder.seedIfNeeded()
                     }

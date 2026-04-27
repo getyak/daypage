@@ -2,21 +2,21 @@ import SwiftUI
 
 // MARK: - OTPVerificationView
 
-/// 6-digit email OTP entry screen. Uses a single invisible TextField that
-/// owns focus/input while 6 visible "cells" render the current state. This
-/// is the pattern Apple's Messages code UI uses — it lets iOS QuickType
-/// surface SMS/email verification codes (via `.oneTimeCode`) and keeps the
-/// backing data in one String.
+/// 6 位邮箱 OTP 输入页面。使用一个不可见的 TextField 来
+/// 持有焦点/输入，同时 6 个可见的"单元格"渲染当前状态。这是
+/// Apple Messages 验证码 UI 使用的模式 — 它允许 iOS 快速输入
+/// 显示短信/邮箱验证码（通过 `.oneTimeCode`），并将
+/// 底层数据保存在一个 String 中。
 struct OTPVerificationView: View {
 
     // MARK: Inputs
 
     let email: String
-    /// Called with the 6-digit code after successful verification. The parent
-    /// view can react (dismiss, navigate, etc.). Session state itself is
-    /// published by `AuthService.session` via `authStateChanges`.
+    /// 验证成功后调用，传入 6 位验证码。父视图可以做出反应
+    /// （关闭、导航等）。Session 状态由
+    /// `AuthService.session` 通过 `authStateChanges` 发布。
     var onVerified: (() -> Void)? = nil
-    /// Back button. Pops to EmailAuthView so user can edit the email.
+    /// 返回按钮。退回到 EmailAuthView 以便用户编辑邮箱。
     var onBack: (() -> Void)? = nil
 
     // MARK: Environment
@@ -31,19 +31,19 @@ struct OTPVerificationView: View {
     @State private var resendCountdown: Int = 0
     @State private var resendTimer: Timer?
     @State private var resendInFlight: Bool = false
-    /// 6-digit code we detected on the clipboard when the view appeared.
-    /// Drives the "Paste 123456" capsule. Nil once consumed or dismissed.
+    /// 视图出现时从剪贴板检测到的 6 位验证码。
+    /// 驱动 "Paste 123456" 胶囊按钮。一旦使用或关闭后置为 nil。
     @State private var clipboardCode: String?
-    /// Highest cell index whose stroke has flipped to the success-green color.
-    /// -1 means animation hasn't started; 5 means all cells are green.
+    /// 边框已变为成功绿色的最高单元格索引。
+    /// -1 表示动画尚未开始；5 表示所有单元格均为绿色。
     @State private var successStagger: Int = -1
     @FocusState private var codeFieldFocused: Bool
 
     private let codeLength = 6
     private let successGreen = Color(hex: "6EBE71")
 
-    /// Locked when the user has exhausted their local OTP budget. Disables
-    /// the 6-cell field and the Resend button until the lockout ends.
+    /// 当用户用完本地 OTP 预算后锁定。禁用
+    /// 6 格输入框和重新发送按钮，直到锁定结束。
     private var isLocked: Bool {
         if case .otpLocked = localError { return true }
         if case .otpLocked = authService.error { return true }
@@ -154,8 +154,8 @@ struct OTPVerificationView: View {
         .lineSpacing(4)
     }
 
-    /// Six visible cells that reflect `code`. Tapping anywhere in the row
-    /// re-focuses the hidden TextField so the keyboard reappears.
+    /// 六个可见单元格，反映 `code` 的值。点击行中任意位置
+    /// 重新聚焦隐藏的 TextField 以使键盘重新出现。
     private var otpCells: some View {
         HStack(spacing: 10) {
             ForEach(0..<codeLength, id: \.self) { index in
@@ -194,9 +194,9 @@ struct OTPVerificationView: View {
         .frame(maxWidth: .infinity)
     }
 
-    /// Shown under the OTP cells when the clipboard holds a fresh 6-digit
-    /// code. Tapping accepts → auto-verifies. Hidden once the user types
-    /// anything, once the lockout kicks in, or once the code is consumed.
+    /// 当剪贴板中有新的 6 位验证码时，在 OTP 单元格下方显示。
+    /// 点击接受 → 自动验证。用户输入任何内容后、
+    /// 锁定生效后或验证码被使用后隐藏。
     private var pasteCapsule: some View {
         Button {
             guard let digits = clipboardCode else { return }
@@ -228,9 +228,9 @@ struct OTPVerificationView: View {
         return code.isEmpty && !isLocked && successStagger == -1
     }
 
-    /// Invisible TextField that actually owns focus and input. Its value is
-    /// bound to `code`; visible UI mirrors it. `.oneTimeCode` is the ONLY
-    /// way to opt into iOS QuickType SMS/email autofill.
+    /// 不可见的 TextField，实际持有焦点和输入。其值
+    /// 绑定到 `code`；可见 UI 镜像它。`.oneTimeCode` 是
+    /// 唯一能让 iOS 快速输入短信/邮箱自动填充生效的方式。
     private var hiddenCodeField: some View {
         TextField("", text: Binding(
             get: { code },
@@ -255,8 +255,8 @@ struct OTPVerificationView: View {
         .disabled(isLocked)
     }
 
-    /// When the server tells us the code has expired, the cooldown countdown
-    /// becomes irrelevant — allow an immediate resend regardless.
+    /// 当服务器告知验证码已过期时，冷却倒计时
+    /// 不再相关 — 允许立即重新发送。
     private var canResendImmediately: Bool {
         if case .otpExpired = localError { return true }
         return false
@@ -281,9 +281,9 @@ struct OTPVerificationView: View {
 
     // MARK: - Logic
 
-    /// Prefer our own typed local error first; fall back to whatever the
-    /// service published (e.g. a persistent rate limit triggered before
-    /// this view ever appeared).
+    /// 优先使用我们自己的本地错误；其次回退到
+    /// 服务发布的错误（例如在此视图出现之前
+    /// 触发的持久速率限制）。
     private var displayedErrorMessage: String? {
         (localError ?? authService.error)?.errorDescription
     }
@@ -309,13 +309,13 @@ struct OTPVerificationView: View {
         } catch let err as DPAuthError {
             isVerifying = false
             localError = err
-            // On expired code: keep the field editable so the user can tap
-            // Resend without being forced back to the email screen.
-            // On lockout: the field disables itself via isLocked.
-            // On mismatch: clear digits so the user types fresh.
+            // 对于过期的验证码：保持输入框可编辑，以便用户可以点击
+            // 重新发送而不必返回邮箱页面。
+            // 对于锁定：输入框通过 isLocked 自行禁用。
+            // 对于不匹配：清空数字以便用户重新输入。
             switch err {
             case .otpExpired:
-                // Don't clear — user needs to resend, not retype the same code.
+                // 不要清除 — 用户需要重新发送，而不是重新输入相同的验证码。
                 code = ""
                 codeFieldFocused = false
             case .otpLocked:
@@ -339,10 +339,10 @@ struct OTPVerificationView: View {
         }
     }
 
-    /// Sniff the clipboard exactly once, on view appear, for a 6-digit code.
-    /// Kept synchronous (no `detectPatterns`) to avoid Apple's "Paste" toast
-    /// — reading `pasteboard.string` doesn't surface it on iOS 16+ when the
-    /// value is read outside an edit action.
+    /// 在视图出现时检查剪贴板中是否有 6 位验证码，只检查一次。
+    /// 保持同步（不使用 `detectPatterns`）以避免 Apple 的"粘贴"提示
+    /// — 在 iOS 16+ 上，当值在编辑操作之外读取时，
+    /// 读取 `pasteboard.string` 不会触发该提示。
     private func detectClipboardCode() {
         #if canImport(UIKit)
         guard !isLocked, code.isEmpty else { return }
@@ -353,9 +353,9 @@ struct OTPVerificationView: View {
         #endif
     }
 
-    /// 350ms "win" animation: cells flip to success green one-by-one, 50ms
-    /// per cell, then the parent dismisses. The stagger gives the eye a
-    /// moment to register success before the sheet collapses.
+    /// 350ms "胜利"动画：单元格逐个变为成功绿色，每个
+    /// 单元格 50ms，然后父视图关闭。这种交错效果让用户在
+    /// 表单关闭之前有片刻时间看到成功状态。
     private func animateSuccess() async {
         clipboardCode = nil
         for index in 0..<codeLength {
@@ -373,10 +373,10 @@ struct OTPVerificationView: View {
         localError = nil
         defer { resendInFlight = false }
         do {
-            // Bypass client-side cooldown when server-confirmed expiry: the
-            // user already knows their code is dead, so don't make them wait.
+            // 绕过客户端冷却，当服务器确认已过期时：
+            // 用户已经知道验证码无效，所以不要让他们等待。
             if canResendImmediately {
-                // Reset the stored send timestamp so sendOTP cooldown passes.
+                // 重置已存储的发送时间戳，以便 sendOTP 冷却通过。
                 authService.resetResendCooldown(email: email)
             }
             try await authService.sendOTP(email: email)
@@ -394,8 +394,8 @@ struct OTPVerificationView: View {
         }
     }
 
-    /// Initialize the resend countdown from the service's persistent state
-    /// so dismissing and re-entering this view never resets to a fresh 60s.
+    /// 从服务的持久状态初始化重新发送倒计时，
+    /// 这样关闭并重新进入此视图不会重置为全新的 60 秒。
     private func startResendCountdown() {
         stopResendCountdown()
         resendCountdown = authService.resendCooldownRemaining(email: email)

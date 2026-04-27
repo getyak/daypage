@@ -5,19 +5,19 @@ import UIKit
 
 // MARK: - InputBarV2
 //
-// Fromm-style input bar: a rounded outlined text field with a `+` button on
-// the left (opens AttachmentMenuPopover) and a context-sensitive right button
-// (microphone when empty, send when text exists).
+// Fromm 风格输入栏：圆角描边文本输入框，左侧 `+` 按钮
+//（打开 AttachmentMenuPopover），右侧根据上下文切换按钮
+//（空白时显示麦克风，有文本时显示发送）。
 //
-// Coexists with legacy InputBarView; TodayView chooses between them via the
-// Settings toggle backed by @AppStorage("useInputBarV2").
+// 与旧版 InputBarView 共存；TodayView 通过 Settings 中的
+// @AppStorage("useInputBarV2") 开关选择使用哪个。
 //
-// The old keyboard accessory toolbar's 5 icons are intentionally absent — all
-// attachment entry points live in the `+` popover (US-007 AC).
+// 旧版键盘附件工具栏的 5 个图标被有意移除——所有
+// 附件入口都在 `+` 弹出菜单中（US-007 AC）。
 
 struct InputBarV2: View {
 
-    // MARK: Binding
+    // MARK: 绑定
 
     @Binding var text: String
     var isSubmitting: Bool
@@ -33,16 +33,16 @@ struct InputBarV2: View {
     var onRemoveAttachment: (String) -> Void
     var onStartVoiceRecording: () -> Void
     var onVoiceComplete: (VoiceRecordingResult) -> Void
-    /// Called when a press-to-talk release-in-place produces a finished
-    /// recording. Parent should stage it and submit immediately.
+    /// 当按住说话原地松手产生完成的录音时调用。
+    /// 父视图应立即暂存并提交。
     var onPressToTalkSend: (VoiceRecordingResult) -> Void
-    /// Called when a press-to-talk left-swipe-release produces a transcript.
-    /// Parent should fill draftText; do NOT submit.
+    /// 当按住说话左滑松手产生转写文本时调用。
+    /// 父视图应填充 draftText；不提交。
     var onPressToTalkTranscribe: (String) -> Void
     var onAddFile: () -> Void
     var onSubmit: () -> Void
 
-    // MARK: Private State
+    // MARK: 私有状态
 
     @FocusState private var isFocused: Bool
     @State private var showAttachmentMenu: Bool = false
@@ -50,24 +50,24 @@ struct InputBarV2: View {
     @State private var showPhotosPicker: Bool = false
     @State private var showVoiceSheet: Bool = false
 
-    /// Feature flag — when true, the right-side mic button is the WeChat-style
-    /// press-to-talk gesture (US-008). When false, tapping the mic opens the
-    /// legacy VoiceRecordingView sheet. This is toggled in Settings -> Appearance.
+    /// 功能开关——为 true 时，右侧麦克风按钮为微信风格
+    /// 按住说话手势（US-008）。为 false 时，点击麦克风打开
+    /// 旧版 VoiceRecordingView 弹出页。在设置 → 外观中切换。
     @AppStorage("usePressToTalk") private var usePressToTalk: Bool = true
 
-    /// Voice service singleton used for live waveform + elapsed readouts
-    /// inside the press-to-talk overlay.
+    /// VoiceService 单例，用于按住说话浮层中
+    /// 的实时波形 + 计时显示。
     @StateObject private var voiceService = VoiceService.shared
 
-    /// Current press-to-talk gesture phase; drives overlay visibility + style.
+    /// 当前按住说话手势阶段；驱动浮层可见性和样式。
     @State private var pressToTalkPhase: PressToTalkPhase = .idle
 
-    // MARK: Body
+    // MARK: 主体
 
     var body: some View {
         VStack(spacing: 0) {
-            // Press-to-talk overlay — floats above the input bar while the user
-            // is holding the mic. Shows waveform + timer + swipe hints.
+            // 按住说话浮层——用户按住麦克风时悬浮在输入栏上方。
+            // 显示波形 + 计时器 + 滑动提示。
             if let overlayMode = pressToTalkOverlayMode {
                 RecordingOverlayView(
                     mode: overlayMode,
@@ -77,25 +77,25 @@ struct InputBarV2: View {
                 .animation(.spring(response: 0.28, dampingFraction: 0.85), value: overlayMode)
             }
 
-            // Hairline divider above the input row — uses outlineVariant so it
-            // reads as a subtle seam rather than a hard bar. Combined with the
-            // surface-matched background below, the input bar and system TabBar
-            // merge into a single bottom shelf instead of stacking as two bars.
+            // 输入行上方的细分割线——使用 outlineVariant，
+            // 使其看起来是微妙的接缝而非硬分割条。结合下方
+            // 匹配 surface 的背景，输入栏和系统 TabBar
+            // 融合成一个底部区域，而非堆叠成两条栏。
             Rectangle()
                 .fill(DSColor.outlineVariant.opacity(0.6))
                 .frame(height: 0.5)
 
-            // Staged attachment preview row
+            // 暂存附件预览行
             if !pendingAttachments.isEmpty {
                 attachmentPreviewRow
             }
 
-            // Location chip row
+            // 位置标签行
             if let loc = pendingLocation {
                 locationChipRow(loc: loc)
             }
 
-            // Main row: [+] [rounded text field] [mic | send]
+            // 主行：[+] [圆角文本输入框] [麦克风 | 发送]
             HStack(alignment: .bottom, spacing: 8) {
                 plusButton
                 textFieldCapsule
@@ -105,7 +105,7 @@ struct InputBarV2: View {
             .padding(.vertical, 8)
             .background(DSColor.surface)
         }
-        // Attachment popover anchored above the `+` button
+        // 附件弹出菜单，固定在 `+` 按钮上方
         .overlay(alignment: .bottomLeading) {
             if showAttachmentMenu {
                 AttachmentMenuPopover(
@@ -135,8 +135,8 @@ struct InputBarV2: View {
                 .zIndex(1)
             }
         }
-        // Tap-outside dismissal — covers the InputBar area; popover button taps
-        // close the menu themselves via their handlers above.
+        // 点击外部关闭——覆盖 InputBar 区域；弹出菜单按钮
+        // 通过上方的处理函数自行关闭菜单。
         .background(
             Group {
                 if showAttachmentMenu {
@@ -175,7 +175,7 @@ struct InputBarV2: View {
         }
     }
 
-    // MARK: - Plus Button
+    // MARK: - 加号按钮
 
     @ViewBuilder
     private var plusButton: some View {
@@ -196,7 +196,7 @@ struct InputBarV2: View {
         .accessibilityLabel(showAttachmentMenu ? "关闭附件菜单" : "打开附件菜单")
     }
 
-    // MARK: - Text Field Capsule
+    // MARK: - 文本输入胶囊
 
     @ViewBuilder
     private var textFieldCapsule: some View {
@@ -216,8 +216,8 @@ struct InputBarV2: View {
                 .scrollContentBackground(.hidden)
                 .background(Color.clear)
                 .frame(minHeight: 36, maxHeight: 100)
-                // TextEditor has ~8pt top/bottom system padding; negate it so the
-                // capsule height matches the visual content height.
+                // TextEditor 有约 8pt 上下系统内边距；用负值抵消，
+                // 使胶囊高度与视觉内容高度匹配。
                 .padding(.horizontal, 8)
                 .padding(.vertical, -4)
         }
@@ -229,7 +229,7 @@ struct InputBarV2: View {
         .cornerRadius(12)
     }
 
-    // MARK: - Right Action (Mic or Send)
+    // MARK: - 右侧操作（麦克风或发送）
 
     @ViewBuilder
     private var rightActionButton: some View {
@@ -237,7 +237,7 @@ struct InputBarV2: View {
                          || !pendingAttachments.isEmpty
 
         if hasContent {
-            // Send button
+            // 发送按钮
             Button {
                 guard !isSubmitting else { return }
                 onSubmit()
@@ -260,8 +260,8 @@ struct InputBarV2: View {
             .disabled(isSubmitting)
             .accessibilityLabel("发送")
         } else if usePressToTalk {
-            // Press-to-talk (US-008): press+hold to record, release to send,
-            // swipe up to cancel, swipe left to transcribe-only.
+            // 按住说话（US-008）：按住录制，松手发送，
+            // 上滑取消，左滑仅转写。
             PressToTalkButton(
                 onPressStart: { handlePressToTalkStart() },
                 onReleaseSend: { handlePressToTalkReleaseSend() },
@@ -274,7 +274,7 @@ struct InputBarV2: View {
                 }
             )
         } else {
-            // Legacy mic button — tap opens the VoiceRecordingView sheet.
+            // 旧版麦克风按钮——点击打开 VoiceRecordingView 弹出页。
             Button {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 onStartVoiceRecording()
@@ -291,9 +291,9 @@ struct InputBarV2: View {
         }
     }
 
-    // MARK: - Press-to-Talk Handlers
+    // MARK: - 按住说话处理函数
 
-    /// Maps the current gesture phase to the RecordingOverlayView mode.
+    /// 将当前手势阶段映射到 RecordingOverlayView 模式。
     private var pressToTalkOverlayMode: RecordingOverlayMode? {
         switch pressToTalkPhase {
         case .idle: return nil
@@ -336,14 +336,14 @@ struct InputBarV2: View {
             if let transcript = result.transcript, !transcript.isEmpty {
                 onPressToTalkTranscribe(transcript)
             }
-            // Discard the audio file — transcribe-only path does not stage a voice attachment.
+            // 丢弃音频文件——仅转写路径不暂存语音附件。
             try? FileManager.default.removeItem(at: result.fileURL)
             voiceService.reset()
             pressToTalkPhase = .idle
         }
     }
 
-    // MARK: - Attachment Chip Row
+    // MARK: - 附件标签行
 
     @ViewBuilder
     private var attachmentPreviewRow: some View {
@@ -398,7 +398,7 @@ struct InputBarV2: View {
         }
     }
 
-    // MARK: - Location Chip
+    // MARK: - 位置标签
 
     @ViewBuilder
     private func locationChipRow(loc: Memo.Location) -> some View {
@@ -415,7 +415,7 @@ struct InputBarV2: View {
         .background(DSColor.surfaceContainerLow)
     }
 
-    // MARK: - Helpers
+    // MARK: - 辅助方法
 
     private func locationLabel(_ loc: Memo.Location) -> String {
         if let name = loc.name, !name.isEmpty { return name }

@@ -3,8 +3,8 @@ import UIKit
 
 // MARK: - CameraPickerView
 
-/// A SwiftUI wrapper around UIImagePickerController for camera capture.
-/// Calls `onCapture` with the UIImage on success, or `onCancel` when dismissed without a photo.
+/// UIImagePickerController 的 SwiftUI 封装，用于相机拍摄。
+/// 成功时调用 `onCapture` 并传递 UIImage，无照片关闭时调用 `onCancel`。
 struct CameraPickerView: UIViewControllerRepresentable {
 
     let onCapture: (UIImage) -> Void
@@ -16,7 +16,7 @@ struct CameraPickerView: UIViewControllerRepresentable {
 
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
-        // Guard against devices/simulators without a physical camera
+        // 防止没有物理摄像头的设备/模拟器崩溃
         if UIImagePickerController.isSourceTypeAvailable(.camera) {
             picker.sourceType = .camera
             picker.cameraCaptureMode = .photo
@@ -30,7 +30,7 @@ struct CameraPickerView: UIViewControllerRepresentable {
 
     func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
 
-    // MARK: Coordinator
+    // MARK: 协调器
 
     final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
 

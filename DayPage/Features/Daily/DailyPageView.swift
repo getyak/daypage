@@ -11,7 +11,7 @@ enum DailyPageTab: String, CaseIterable {
 
 // MARK: - DailyPageModel
 
-/// Parsed model for a Daily Page Markdown file.
+/// Daily Page Markdown 文件的解析模型。
 struct DailyPageModel {
     let dateString: String
     let weekday: String
@@ -23,8 +23,8 @@ struct DailyPageModel {
     let locations: [LocationEntry]
     let followUpQuestions: [String]
     let memoCount: Int
-    /// Vault-relative path to the hero banner image (e.g. "raw/assets/photo_...jpg").
-    /// Nil when no photo is available for this day.
+    /// Vault 相对路径，指向封面主图（例如 "raw/assets/photo_...jpg"）。
+    /// 当日无照片时返回 nil。
     let coverAssetPath: String?
 
     struct PageSection {
@@ -41,11 +41,11 @@ struct DailyPageModel {
 
 // MARK: - DailyPageView
 
-/// Renders a compiled Daily Page from vault/wiki/daily/YYYY-MM-DD.md.
+/// 渲染来自 vault/wiki/daily/YYYY-MM-DD.md 的已编译 Daily Page。
 struct DailyPageView: View {
 
     let dateString: String
-    var onReturnToToday: ((String) -> Void)? = nil  // Called with pre-fill text when tapping a follow-up question
+    var onReturnToToday: ((String) -> Void)? = nil  // 点击跟进问题时调用，传入预填充文本
 
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTab: DailyPageTab = .digest
@@ -515,8 +515,8 @@ struct DailyPageView: View {
 
     // MARK: - Wikilink Text Rendering
 
-    /// Renders a string replacing [[slug]] patterns with tappable amber-colored spans.
-    /// Tapping a wikilink navigates to the corresponding EntityPageView via sheet.
+    /// 渲染字符串，将 [[slug]] 模式替换为可点击的琥珀色文本段。
+    /// 点击 wikilink 时通过 sheet 导航到对应的 EntityPageView。
     @ViewBuilder
     private func wikifiedText(_ text: String) -> some View {
         WikilinkBodyText(text: text) { slug in
@@ -526,8 +526,8 @@ struct DailyPageView: View {
         }
     }
 
-    /// Resolves entity type from slug by scanning wiki directories.
-    /// Falls back to "themes" if not found (creates empty entity page on first tap).
+    /// 通过扫描 wiki 目录从 slug 解析实体类型。
+    /// 未找到时回退到 "themes"（首次点击会创建空的实体页）。
     private func resolveEntityTypeAndSlug(_ inner: String) -> (type: String, slug: String) {
         let slug = inner.contains("|")
             ? String(inner.split(separator: "|", maxSplits: 1).first ?? Substring(inner))
@@ -612,13 +612,13 @@ struct DailyPageView: View {
 
 // MARK: - DailyPageParser
 
-/// Parses the Markdown content of a Daily Page file into a DailyPageModel.
+/// 将 Daily Page 文件的 Markdown 内容解析为 DailyPageModel。
 enum DailyPageParser {
 
     static func parse(content: String, dateString: String) -> DailyPageModel {
         let lines = content.components(separatedBy: "\n")
 
-        // -- Parse frontmatter --
+        // -- 解析 frontmatter --
         var summary = ""
         var locationPrimary = ""
         var entriesCount = 0
@@ -655,16 +655,16 @@ enum DailyPageParser {
             }
         }
 
-        // Fallback: derive cover from the day's raw memos if frontmatter has none.
+        // 回退：如果 frontmatter 中没有封面，从当日 raw memo 中推导。
         let resolvedCover = cover ?? firstPhotoAttachmentPath(for: dateString)
 
         let bodyLines = Array(lines.dropFirst(bodyStartIndex))
         let bodyText = bodyLines.joined(separator: "\n")
 
-        // -- Parse weekday --
+        // -- 解析星期 --
         let weekday = weekdayString(from: dateString)
 
-        // -- Parse narrative sections (## MORNING, ## AFTERNOON, ## EVENING etc.) --
+        // -- 解析叙事段落（## MORNING, ## AFTERNOON, ## EVENING 等） --
         var sections: [DailyPageModel.PageSection] = []
         let skipSections: Set<String> = ["LOCATIONS TODAY", "AI FOLLOW-UP"]
         var currentSectionTitle: String? = nil
@@ -685,7 +685,7 @@ enum DailyPageParser {
                 currentSectionLines.append(line)
             }
         }
-        // Last section
+        // 最后一个段落
         if let title = currentSectionTitle {
             let body = currentSectionLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
             if !body.isEmpty && !skipSections.contains(title) {
@@ -693,10 +693,10 @@ enum DailyPageParser {
             }
         }
 
-        // -- Parse LOCATIONS TODAY section --
+        // -- 解析 LOCATIONS TODAY 段落 --
         let locations = parseLocations(from: bodyText)
 
-        // -- Parse AI FOLLOW-UP section (lines starting with >) --
+        // -- 解析 AI FOLLOW-UP 段落（以 > 开头的行） --
         let followUpQuestions = parseFollowUpQuestions(from: bodyText)
 
         return DailyPageModel(
@@ -714,9 +714,9 @@ enum DailyPageParser {
         )
     }
 
-    /// Scans vault/raw/YYYY-MM-DD.md and returns the vault-relative path of the first
-    /// photo attachment (preferring any attachment file with a "cover-*" prefix if present).
-    /// Returns nil if no photos are attached.
+    /// 扫描 vault/raw/YYYY-MM-DD.md，返回第一个照片附件的 vault 相对路径
+    ///（优先使用文件名以 "cover-" 为前缀的附件）。
+    /// 如果没有照片附件则返回 nil。
     private static func firstPhotoAttachmentPath(for dateString: String) -> String? {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
@@ -727,7 +727,7 @@ enum DailyPageParser {
         let memos: [Memo] = (try? RawStorage.read(for: date)) ?? []
         let photoAttachments = memos.flatMap { $0.attachments }.filter { $0.kind == "photo" }
 
-        // Prefer an attachment whose filename starts with "cover" (manual override convention).
+        // 优先使用文件名以 "cover" 开头的附件（手动覆盖约定）。
         if let explicit = photoAttachments.first(where: {
             ($0.file as NSString).lastPathComponent.lowercased().hasPrefix("cover")
         }) {
@@ -759,7 +759,7 @@ enum DailyPageParser {
             if trimmed.hasPrefix("## ") && inLocations { break }
             if inLocations && trimmed.hasPrefix("- ") {
                 let raw = String(trimmed.dropFirst(2))
-                // Format: [[slug]]: note  or  [[slug]]
+                // 格式：[[slug]]: note  或  [[slug]]
                 let linkPattern = try? NSRegularExpression(pattern: #"\[\[([^\]]+)\]\]"#)
                 let nsRaw = raw as NSString
                 var name = raw
@@ -791,7 +791,7 @@ enum DailyPageParser {
             if inFollowUp && trimmed.hasPrefix("> ") {
                 let question = String(trimmed.dropFirst(2)).trimmingCharacters(in: .whitespaces)
                 if !question.isEmpty {
-                    // Remove "Question N: " prefix if present
+                    // 如果存在 "Question N: " 前缀则移除
                     let cleaned = question.replacingOccurrences(of: #"^Question \d+:\s*"#, with: "", options: .regularExpression)
                     results.append(cleaned)
                 }
@@ -803,10 +803,9 @@ enum DailyPageParser {
 
 // MARK: - HeroBannerView
 
-/// Full-bleed 16:7 banner rendered at the top of a Daily Page.
-/// Resolves `coverAssetPath` against the Vault sandbox and shows a skeleton
-/// while loading. Falls back to a geometric placeholder when no photo is available
-/// or the file fails to decode.
+/// Daily Page 顶部的全宽 16:7 横幅。
+/// 将 `coverAssetPath` 相对于 Vault 沙盒解析，并在加载时显示骨架屏。
+/// 当没有照片或文件解码失败时，回退为几何占位图。
 struct HeroBannerView: View {
     let coverAssetPath: String?
 
@@ -849,7 +848,7 @@ struct HeroBannerView: View {
 
     // MARK: - Placeholder
 
-    /// Monochrome geometric placeholder used when no photo exists for the day.
+    /// 当日无照片时使用的单色几何占位图。
     private var placeholder: some View {
         ZStack {
             DSColor.surfaceContainer
@@ -889,7 +888,7 @@ struct HeroBannerView: View {
 
     // MARK: - Skeleton
 
-    /// Neutral shimmer-free skeleton shown while the image decodes.
+    /// 图片解码期间显示的中性无闪烁骨架屏。
     private var skeleton: some View {
         DSColor.surfaceContainerHigh
             .overlay(
@@ -921,7 +920,7 @@ struct HeroBannerView: View {
 
 // MARK: - HeroBannerPreview
 
-/// Full-screen pinch-to-zoom preview presented when tapping the banner.
+/// 点击横幅时呈现的全屏捏合缩放预览。
 private struct HeroBannerPreview: View {
     let image: UIImage?
     let onDismiss: () -> Void
@@ -974,8 +973,8 @@ private struct HeroBannerPreview: View {
 
 // MARK: - DailyPageMetadataEditView
 
-/// Sheet for editing Daily Page metadata fields: summary, weather, mood, cover image.
-/// Changes are atomically written back into the YAML front-matter of the compiled daily page.
+/// 用于编辑 Daily Page 元数据字段的 Sheet：摘要、天气、心情、封面图片。
+/// 更改会原子性地写回已编译日记的 YAML front-matter 中。
 struct DailyPageMetadataEditView: View {
 
     let dateString: String

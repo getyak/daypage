@@ -15,16 +15,13 @@ struct TodayView: View {
     @State private var showSyncBanner: Bool = false
     @State private var showAuthSheet: Bool = false
 
-    /// Feature flag for the Fromm-style InputBarV2 (US-007). Default ON; users
-    /// can fall back to the legacy InputBarView via Settings -> Appearance.
+    /// Fromm 风格 InputBarV2 的功能开关（US-007）。默认开启；用户可通过「设置 → 外观」回退到旧版 InputBarView。
     @AppStorage("useInputBarV2") private var useInputBarV2: Bool = true
 
-    /// Input bar variant selector (Issue #76). "v3" is the voice-first default;
-    /// "v2" falls back to the Fromm-style bar; "v1" to the legacy InputBarView.
-    /// Takes precedence over `useInputBarV2` when set to a non-default value.
+    /// 输入栏样式选择器（Issue #76）。"v3" 为语音优先默认；"v2" 回退到 Fromm 风格；"v1" 回退到旧版 InputBarView。当设为非默认值时优先于 `useInputBarV2`。
     @AppStorage("inputBarVariant") private var inputBarVariant: String = "v4"
 
-    /// The draft text in the input bar.
+    /// 输入栏中的草稿文本。
     @State private var draftText: String = ""
 
     /// Whether to show the Daily Page sheet.

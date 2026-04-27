@@ -3,25 +3,25 @@ import CoreLocation
 import PhotosUI
 import UIKit
 
-// MARK: - InputBarV3 (Voice-First)
+// MARK: - InputBarV3（语音优先）
 //
-// Voice-first home composer. Two states:
+// 语音优先的首页输入器。两种状态：
 //
-//   • collapsed — 64pt black mic centered as the primary CTA. Long-press to
-//     talk (slide-up to cancel, slide-left to transcribe-into-draft, release
-//     to send) or short-tap for the persistent recording bar. Text pill and
-//     camera sit below as a secondary action row.
+//   • 收起态——64pt 黑色麦克风居中作为主要 CTA。长按
+//     说话（上滑取消，左滑转写为草稿，松手
+//     发送），或短按进入持久录音栏。文字和
+//     相机在下方作为辅助操作行。
 //
-//   • composing — user tapped the text affordance or has draft content or
-//     pending attachments. Reveals a capsule TextEditor with `+` on the
-//     left and an arrow-up send button on the right; mic is hidden while
-//     text is being composed. Matches WeChat's "tap-to-swap" metaphor.
+//   • 编辑态——用户点击了文字入口或有草稿内容或
+//     暂存附件。展开胶囊形 TextEditor，左侧 `+`，
+//     右侧向上箭头发送按钮；编辑文字时麦克风隐藏。
+//     符合微信"点击切换"的交互隐喻。
 //
-// Press-to-talk gesture + RecordingOverlayView reuse is unchanged from V2.
+// 按住说话手势 + RecordingOverlayView 复用与 V2 保持一致。
 
 struct InputBarV3: View {
 
-    // MARK: Inputs (identical surface to InputBarV2)
+    // MARK: 输入（与 InputBarV2 接口一致）
 
     @Binding var text: String
     var isSubmitting: Bool
@@ -42,7 +42,7 @@ struct InputBarV3: View {
     var onAddFile: () -> Void
     var onSubmit: () -> Void
 
-    // MARK: Private State
+    // MARK: 私有状态
 
     @FocusState private var isFocused: Bool
     @State private var showAttachmentMenu: Bool = false
@@ -52,12 +52,12 @@ struct InputBarV3: View {
     @State private var showHoldToast: Bool = false
     @State private var showTranscribeFailed: Bool = false
     @State private var userExpandedText: Bool = false
-    /// True while the tap-to-record persistent bar is active
+    /// 点击录制持久栏激活时为 true
     @State private var isTapRecording: Bool = false
 
     @StateObject private var voiceService = VoiceService.shared
 
-    // MARK: Derived
+    // MARK: 派生属性
 
     /// True when the bar should show the text composer (capsule field + send).
     /// Expanded automatically when there's draft content or attachments; also

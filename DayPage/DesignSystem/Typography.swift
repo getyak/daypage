@@ -3,14 +3,14 @@ import SwiftUI
 // MARK: - Font Registration
 
 enum DSFonts {
-    // Font family names — matched against registered custom fonts, fall back to system if unavailable
+    // 字体族名称 — 与注册的自定义字体匹配，不可用时回退到系统字体
     static let headline = "Space Grotesk"
     static let body = "Inter"
     static let mono = "JetBrains Mono"
 
-    /// Register custom fonts from app bundle.
-    /// Call once at app startup (e.g. in DayPageApp.init).
-    /// If the font files are not bundled, SwiftUI falls back to system fonts.
+    /// 从应用包中注册自定义字体。
+    /// 在应用启动时调用一次（例如在 DayPageApp.init 中）。
+    /// 如果字体文件未打包，SwiftUI 将回退到系统字体。
     static func registerAll() {
         let names = [
             "SpaceGrotesk-Light", "SpaceGrotesk-Regular", "SpaceGrotesk-Medium",

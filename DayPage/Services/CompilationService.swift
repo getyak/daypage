@@ -4,16 +4,16 @@ import Sentry
 
 // MARK: - CompilationService
 
-/// Compiles today's raw memos into a structured Daily Page via DeepSeek LLM API.
+/// 通过 DeepSeek LLM API 将今天的原始备忘录编译为结构化的每日页面。
 ///
-/// Responsibilities:
-///   1. Read vault/raw/YYYY-MM-DD.md (all memos) + vault/wiki/hot.md (context)
-///   2. Call DeepSeek chat completions (OpenAI-compatible)
-///   3. Write compiled output to vault/wiki/daily/YYYY-MM-DD.md
-///      (backs up existing file before overwrite)
-///   4. Append a row to vault/wiki/log.md
+/// 职责：
+///   1. 读取 vault/raw/YYYY-MM-DD.md（所有备忘录）+ vault/wiki/hot.md（上下文）
+///   2. 调用 DeepSeek 聊天补全接口（兼容 OpenAI 格式）
+///   3. 将编译结果写入 vault/wiki/daily/YYYY-MM-DD.md
+///      （覆盖前会备份现有文件）
+///   4. 在 vault/wiki/log.md 中追加一行日志
 ///
-/// Usage:
+/// 使用方式：
 ///   let service = CompilationService.shared
 ///   try await service.compile(for: Date())
 ///
@@ -27,17 +27,17 @@ final class CompilationService {
 
     // MARK: - Compile
 
-    /// Compiles the raw memos for the given date into a Daily Page.
-    /// - Parameter date: The date to compile. Defaults to today.
-    /// - Parameter trigger: How the compilation was triggered ("manual" | "auto").
-    /// - Parameter onRetry: Called before each retry attempt with (attempt, maxAttempts).
-    /// - Throws: `CompilationError` on API, parsing, or file-system failures.
+    /// 将给定日期的原始备忘录编译为每日页面。
+    /// - Parameter date: 要编译的日期，默认为今天。
+    /// - Parameter trigger: 编译触发方式（"manual" | "auto"）。
+    /// - Parameter onRetry: 每次重试前调用，参数为 (当前次数, 最大次数)。
+    /// - Throws: 当 API、解析或文件系统失败时抛出 `CompilationError`。
     func compile(
         for date: Date = Date(),
         trigger: String = "manual",
         onRetry: ((Int, Int) -> Void)? = nil
     ) async throws {
-        // Offline preflight check
+        // 离线预检
         guard NetworkMonitor.shared.isOnline else {
             throw CompilationError.offline
         }
@@ -45,14 +45,14 @@ final class CompilationService {
         let startTime = Date()
         let dateString = dateFormatter.string(from: date)
 
-        // 1. Load raw memos
+        // 1. 加载原始备忘录
         let memos = try RawStorage.read(for: date)
         let rawContent = rawFileContent(for: date)
 
-        // 2. Load hot.md context
+        // 2. 加载 hot.md 上下文
         let hotContent = loadHotContent()
 
-        // 3. Build prompt
+        // 3. 构建提示词
         let prompt = buildPrompt(
             dateString: dateString,
             rawContent: rawContent,
@@ -60,7 +60,7 @@ final class CompilationService {
             memoCount: memos.count
         )
 
-        // 4. Call DeepSeek API with retry
+        // 4. 调用 DeepSeek API（带重试）
         let apiKey = Secrets.resolvedDeepSeekApiKey
         guard !apiKey.isEmpty else {
             throw CompilationError.missingApiKey
@@ -72,21 +72,21 @@ final class CompilationService {
             onRetry: onRetry
         )
 
-        // 5. Parse structured output (Daily Page + Entity update instructions + hot cache)
+        // 5. 解析结构化输出（每日页面 + 实体更新指令 + 热缓存）
         let (dailyPageText, entityInstructions, hotCacheText) = try parseStructuredOutputWithHot(compiledText)
 
-        // 6. Write Daily Page (backup existing if present)
+        // 6. 写入每日页面（如已有则先备份）
         let dailyURL = dailyPageURL(for: dateString)
         try backupIfExists(at: dailyURL, dateString: dateString)
         try writeFile(content: dailyPageText, to: dailyURL)
 
-        // 7. Apply entity updates
+        // 7. 应用实体更新
         try EntityPageService.shared.apply(instructions: entityInstructions, date: dateString)
 
-        // 8. Update hot.md cache (overwrite, preserve frontmatter structure)
+        // 8. 更新 hot.md 缓存（覆盖写入，保留 frontmatter 结构）
         updateHotCache(summary: hotCacheText, compiledDate: dateString)
 
-        // 9. Append to log.md
+        // 9. 追加到 log.md
         let elapsed = Date().timeIntervalSince(startTime)
         appendLog(
             timestamp: iso8601Now(),
@@ -185,7 +185,7 @@ final class CompilationService {
         do {
             existing = try String(contentsOf: url, encoding: .utf8)
         } catch {
-            existing = nil // file may not exist yet — not an error
+            existing = nil // 文件可能尚不存在 — 不是错误
         }
         if let prev = existing {
             let updated = prev + row
@@ -326,9 +326,9 @@ final class CompilationService {
             } catch let error as CompilationError {
                 switch error {
                 case .apiError(let code, _) where code == 401 || code == 403 || code == 400:
-                    throw error // Do not retry auth/bad-request errors
+                    throw error // 不重试认证/请求格式错误
                 case .parseError:
-                    throw error // Do not retry parse errors
+                    throw error // 不重试解析错误
                 case .missingApiKey:
                     throw error
                 default:
@@ -414,8 +414,8 @@ final class CompilationService {
 
     // MARK: - Hot Cache
 
-    /// Parses the LLM structured output and extracts daily page, entity instructions, and hot cache.
-    /// Throws `parseError` when the response contains no valid JSON or is missing `daily_page`.
+    /// 解析 LLM 结构化输出，提取每日页面、实体指令和热缓存。
+    /// 当响应中无有效 JSON 或缺少 `daily_page` 时抛出 `parseError`。
     private func parseStructuredOutputWithHot(
         _ rawLLMResponse: String
     ) throws -> (dailyPage: String, instructions: [EntityUpdateInstruction], hotCache: String) {
@@ -427,9 +427,9 @@ final class CompilationService {
         return (dailyPage, instructions, hotCache)
     }
 
-    /// Extracts the "hot_cache" string from the JSON block in the LLM response.
+    /// 从 LLM 响应中的 JSON 块里提取 "hot_cache" 字符串。
     private func extractHotCacheFromJSON(_ text: String) -> String? {
-        // Find the JSON block (same logic as EntityPageService)
+        // 查找 JSON 块（逻辑与 EntityPageService 相同）
         let jsonBlock: String?
         if let fenceStart = text.range(of: "```json\n"),
            let fenceEnd = text.range(of: "\n```", range: fenceStart.upperBound ..< text.endIndex) {
@@ -451,18 +451,17 @@ final class CompilationService {
         return hotCache.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Overwrites vault/wiki/hot.md with the new hot cache summary.
-    /// Preserves the frontmatter structure (updated_at, covers_dates).
-    /// Guards against low-quality overwrites: if the new summary is less than
-    /// 50% the character count of the existing content, skips the write and logs a warning.
-    /// Backs up the existing file to .trash/ before overwriting (same policy as Daily Page).
+    /// 用新的热缓存摘要覆盖 vault/wiki/hot.md。
+    /// 保留 frontmatter 结构（updated_at、covers_dates）。
+    /// 防止低质量覆盖：若新摘要字符数不足现有内容的 50%，跳过写入并记录警告。
+    /// 覆盖前将现有文件备份至 .trash/（策略与每日页面一致）。
     private func updateHotCache(summary: String, compiledDate: String) {
         guard !summary.isEmpty else { return }
 
         let url = hotURL()
         let now = iso8601Now()
 
-        // Build covers_dates: read existing if possible, then append compiledDate
+        // 构建 covers_dates：尽可能读取已有内容，然后追加 compiledDate
         var coveredDates: [String] = []
         var existingCharCount = 0
         do {
@@ -470,16 +469,16 @@ final class CompilationService {
             coveredDates = parseCoversDates(from: existing)
             existingCharCount = existing.count
         } catch {
-            // hot.md may not exist on first compilation
+            // 首次编译时 hot.md 可能尚不存在
         }
 
-        // Guard: skip overwrite if new summary is suspiciously short (< 50% of existing)
+        // 保护：若新摘要异常短（不足已有的 50%），跳过覆盖
         if existingCharCount > 0 && summary.count < existingCharCount / 2 {
             DayPageLogger.shared.warn("updateHotCache: new summary (\(summary.count) chars) is less than 50% of existing (\(existingCharCount) chars) — skipping overwrite to protect context")
             return
         }
 
-        // Backup existing hot.md before overwriting
+        // 覆盖前备份现有 hot.md
         if FileManager.default.fileExists(atPath: url.path) {
             let trashDir = url.deletingLastPathComponent().appendingPathComponent(".trash")
             if !FileManager.default.fileExists(atPath: trashDir.path) {
@@ -493,7 +492,7 @@ final class CompilationService {
         if !coveredDates.contains(compiledDate) {
             coveredDates.append(compiledDate)
         }
-        // Keep only the last 7 dates to avoid unbounded growth
+        // 仅保留最近 7 个日期，防止无限增长
         if coveredDates.count > 7 {
             coveredDates = Array(coveredDates.suffix(7))
         }
@@ -519,7 +518,7 @@ final class CompilationService {
         }
     }
 
-    /// Parses the covers_dates YAML sequence from hot.md frontmatter.
+    /// 解析 hot.md frontmatter 中的 covers_dates YAML 序列。
     private func parseCoversDates(from content: String) -> [String] {
         var dates: [String] = []
         var inFrontmatter = false
@@ -545,7 +544,7 @@ final class CompilationService {
                     if trimmed.hasPrefix("- ") {
                         dates.append(String(trimmed.dropFirst(2)))
                     } else if !trimmed.isEmpty {
-                        // New key — stop collecting dates
+                        // 新字段 — 停止收集日期
                         inCoversDates = false
                     }
                 }

@@ -3,12 +3,12 @@ import CoreLocation
 
 // MARK: - LocationService
 
-/// Wraps CLLocationManager to provide a simple async-based API for:
-///   1. Requesting "while-in-use" location permission
-///   2. Fetching current GPS coordinates (one-shot)
-///   3. Reverse-geocoding coordinates to a human-readable place name
+/// 包装 CLLocationManager，提供简单的异步 API：
+///   1. 请求"使用期间"位置权限
+///   2. 获取当前 GPS 坐标（单次）
+///   3. 将坐标反向地理编码为人类可读的地名
 ///
-/// Usage:
+/// 用法：
 ///   let loc = try await LocationService.shared.currentLocation(timeout: 3)
 ///
 @MainActor
@@ -20,10 +20,10 @@ final class LocationService: NSObject, ObservableObject {
 
     // MARK: Published
 
-    /// Current authorization status; UI can observe this to show permission prompts.
+    /// 当前授权状态；UI 可以监听此值来显示权限提示。
     @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
 
-    /// Most recently resolved location result (name + coordinates).
+    /// 最近解析的位置结果（名称 + 坐标）。
     @Published var lastLocation: Memo.Location? = nil
 
     // MARK: Private
@@ -43,8 +43,8 @@ final class LocationService: NSObject, ObservableObject {
 
     // MARK: - Public API
 
-    /// Requests "when-in-use" authorization if not yet determined.
-    /// Call from the main thread before calling `currentLocation()`.
+    /// 如果尚未确定，请求"使用期间"授权。
+    /// 在调用 `currentLocation()` 之前从主线程调用。
     func requestPermissionIfNeeded() {
         switch manager.authorizationStatus {
         case .notDetermined:
@@ -54,8 +54,8 @@ final class LocationService: NSObject, ObservableObject {
         }
     }
 
-    /// Requests "always" authorization for background passive location monitoring.
-    /// Requires NSLocationAlwaysAndWhenInUseUsageDescription in Info.plist.
+    /// 请求"始终"授权以进行后台被动位置监控。
+    /// 需要 Info.plist 中的 NSLocationAlwaysAndWhenInUseUsageDescription。
     func requestAlwaysAuthorization() {
         switch manager.authorizationStatus {
         case .notDetermined:
@@ -67,22 +67,22 @@ final class LocationService: NSObject, ObservableObject {
         }
     }
 
-    /// Whether the app has "always" location authorization.
+    /// 应用是否具有"始终"位置授权。
     var hasAlwaysAuthorization: Bool {
         manager.authorizationStatus == .authorizedAlways
     }
 
-    /// Fetches the current GPS location and reverse-geocodes it into a `Memo.Location`.
+    /// 获取当前 GPS 位置并将其反向地理编码为 `Memo.Location`。
     ///
-    /// - Parameter timeout: Seconds to wait before falling back to coordinates-only (default 3s).
-    /// - Throws: `LocationError.denied` if permission is denied/restricted.
-    /// - Returns: A `Memo.Location` with `lat`/`lng` always set; `name` set when geocoding succeeds.
+    /// - Parameter timeout: 在退回到仅坐标之前等待的秒数（默认 3 秒）。
+    /// - Throws: 如果权限被拒绝/受限，抛出 `LocationError.denied`。
+    /// - Returns: 一个 `Memo.Location`，其中 `lat`/`lng` 总是设置的；当地理编码成功时设置 `name`。
     func currentLocation(timeout: TimeInterval = 3) async throws -> Memo.Location {
         switch manager.authorizationStatus {
         case .denied, .restricted:
             throw LocationError.denied
         case .notDetermined:
-            // Request and wait briefly for status to update
+            // 请求并短暂等待状态更新
             manager.requestWhenInUseAuthorization()
             try await Task.sleep(nanoseconds: 500_000_000) // 0.5s
             if manager.authorizationStatus == .denied || manager.authorizationStatus == .restricted {
@@ -92,12 +92,12 @@ final class LocationService: NSObject, ObservableObject {
             break
         }
 
-        // Get raw CLLocation with timeout
+        // 获取原始 CLLocation，带超时
         let clLocation = try await withTimeout(seconds: timeout) {
             try await self.fetchCLLocation()
         }
 
-        // Reverse-geocode (also with timeout — if it fails, return coords only)
+        // 反向地理编码（也带超时 — 如果失败，仅返回坐标）
         let name = try? await withTimeout(seconds: timeout) {
             try await self.reverseGeocode(clLocation)
         }
@@ -113,7 +113,7 @@ final class LocationService: NSObject, ObservableObject {
 
     // MARK: - Private Helpers
 
-    /// Starts a one-shot location request and waits for the first result.
+    /// 发起单次位置请求并等待第一个结果。
     private func fetchCLLocation() async throws -> CLLocation {
         return try await withCheckedThrowingContinuation { continuation in
             locationContinuation = continuation
@@ -121,7 +121,7 @@ final class LocationService: NSObject, ObservableObject {
         }
     }
 
-    /// Converts a CLLocation to a human-readable string via CLGeocoder.
+    /// 通过 CLGeocoder 将 CLLocation 转换为人类可读的字符串。
     private func reverseGeocode(_ location: CLLocation) async throws -> String {
         let geocoder = CLGeocoder()
         let placemarks = try await geocoder.reverseGeocodeLocation(location)
@@ -129,7 +129,7 @@ final class LocationService: NSObject, ObservableObject {
             throw LocationError.geocodingFailed
         }
 
-        // Build a compact location string: "Name, Street" or "City" fallback
+        // 构建紧凑的位置字符串："名称, 街道" 或回退到"城市"
         var parts: [String] = []
         if let name = placemark.name, !name.isEmpty {
             parts.append(name)
@@ -148,7 +148,7 @@ final class LocationService: NSObject, ObservableObject {
         return parts.joined(separator: ", ")
     }
 
-    /// Races a throwing async block against a timeout.
+    /// 将一个可能抛出错误的异步操作与超时进行竞速。
     private func withTimeout<T: Sendable>(
         seconds: TimeInterval,
         operation: @escaping @Sendable () async throws -> T
@@ -159,7 +159,7 @@ final class LocationService: NSObject, ObservableObject {
                 try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
                 throw LocationError.timeout
             }
-            // Return first result (or throw first error)
+            // 返回第一个结果（或抛出第一个错误）
             defer { group.cancelAll() }
             return try await group.next()!
         }

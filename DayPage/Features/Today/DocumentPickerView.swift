@@ -4,8 +4,8 @@ import UniformTypeIdentifiers
 
 // MARK: - DocumentPickerView
 
-/// A SwiftUI wrapper around UIDocumentPickerViewController for file selection.
-/// Calls `onPick` with the selected file URL, or `onCancel` when dismissed without a selection.
+/// UIDocumentPickerViewController 的 SwiftUI 封装，用于文件选择。
+/// 选中文件时调用 `onPick` 并传递 URL，未选择关闭时调用 `onCancel`。
 struct DocumentPickerView: UIViewControllerRepresentable {
 
     let onPick: (URL) -> Void
@@ -24,7 +24,7 @@ struct DocumentPickerView: UIViewControllerRepresentable {
 
     func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
 
-    // MARK: Coordinator
+    // MARK: 协调器
 
     final class Coordinator: NSObject, UIDocumentPickerDelegate {
 

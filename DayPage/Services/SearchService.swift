@@ -2,14 +2,14 @@ import Foundation
 
 // MARK: - SearchResult
 
-/// A single hit returned by ``SearchService``.
+/// ``SearchService`` 返回的单个命中结果。
 struct SearchResult: Identifiable, Equatable {
     let id = UUID()
     let dateString: String              // "yyyy-MM-dd"
-    let snippet: String                 // matched memo body (trimmed, <=120 chars)
+    let snippet: String                 // 匹配的 memo 正文（修剪后 <=120 字符）
     let matchKind: MatchKind
     let isDailyPageCompiled: Bool
-    let memoType: Memo.MemoType?        // nil when matchKind == .date
+    let memoType: Memo.MemoType?        // matchKind == .date 时为 nil
 
     enum MatchKind: Equatable {
         case memoBody
@@ -23,8 +23,8 @@ struct SearchResult: Identifiable, Equatable {
 struct SearchFilters: Equatable {
     var startDate: Date?
     var endDate: Date?
-    var types: Set<Memo.MemoType>       // empty = all types
-    var locationQuery: String           // empty = no location filter
+    var types: Set<Memo.MemoType>       // 空集 = 所有类型
+    var locationQuery: String           // 空字符串 = 无位置过滤
 
     static let empty = SearchFilters(startDate: Date?.none, endDate: Date?.none, types: Set<Memo.MemoType>(), locationQuery: "")
 
@@ -35,16 +35,16 @@ struct SearchFilters: Equatable {
 
 // MARK: - SearchService
 
-/// In-memory search over the local vault.
-/// MVP: scan all ``vault/raw/*.md`` files and the compiled daily pages, case-insensitive ``contains``.
-/// Results are grouped by date and capped at 100 to keep the UI responsive.
+/// 本地 vault 的内存搜索。
+/// MVP：扫描所有 ``vault/raw/*.md`` 文件和编译的日记页面，大小写不敏感的 ``contains``。
+/// 结果按日期分组，上限 100 以保持 UI 响应。
 enum SearchService {
 
     // MARK: - Public API
 
-    /// Searches raw memos + compiled daily pages for ``keyword`` with optional ``filters``.
-    /// Returns results sorted by date descending (newest first).
-    /// Empty keyword + no active filters returns an empty array.
+    /// 搜索原始 memo + 编译的日记页面，匹配 ``keyword`` 并应用可选的 ``filters``。
+    /// 返回按日期降序排列的结果（最新优先）。
+    /// 空关键字 + 无活跃过滤器时返回空数组。
     static func search(keyword rawKeyword: String,
                        filters: SearchFilters = .empty) -> [SearchResult] {
         let keyword = rawKeyword.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -65,7 +65,7 @@ enum SearchService {
             return []
         }
 
-        // Sort newest first by filename (yyyy-MM-dd sorts lexicographically).
+        // 按文件名从新到旧排序（yyyy-MM-dd 按字典序排列）。
         let mdFiles = files
             .filter { $0.pathExtension == "md" }
             .sorted { $0.lastPathComponent > $1.lastPathComponent }
@@ -74,7 +74,7 @@ enum SearchService {
             let dateString = url.deletingPathExtension().lastPathComponent
             guard isValidDateString(dateString) else { continue }
 
-            // Date range filter
+            // 日期范围过滤
             if let start = filters.startDate, let date = dateValidator.date(from: dateString) {
                 if date < Calendar.current.startOfDay(for: start) { continue }
             }
@@ -86,7 +86,7 @@ enum SearchService {
             let dailyURL = dailyDir.appendingPathComponent("\(dateString).md")
             let isDailyCompiled = fm.fileExists(atPath: dailyURL.path)
 
-            // Date string match (e.g. "2026-04" or "04-14") — only when keyword present and no type filter.
+            // 日期字符串匹配（如 "2026-04" 或 "04-14"）—— 仅当有关键字且无类型过滤时
             if hasKeyword && filters.types.isEmpty && dateString.lowercased().contains(lowered) {
                 results.append(SearchResult(
                     dateString: dateString,
@@ -103,10 +103,10 @@ enum SearchService {
             let memos = RawStorage.parse(fileContent: content)
 
             for memo in memos {
-                // Type filter
+                // 类型过滤
                 if !filters.types.isEmpty && !filters.types.contains(memo.type) { continue }
 
-                // Location query filter
+                // 位置查询过滤
                 if !filters.locationQuery.isEmpty {
                     let locLowered = filters.locationQuery.lowercased()
                     guard let name = memo.location?.name,
@@ -146,7 +146,7 @@ enum SearchService {
                         continue
                     }
                 } else {
-                    // Filters only — include any memo that passed filter checks
+                    // 仅过滤器 —— 包含所有通过过滤检查的 memo
                     let snippet = memo.body.isEmpty
                         ? (memo.location?.name ?? dateString)
                         : String(memo.body.prefix(120))
@@ -177,8 +177,8 @@ enum SearchService {
         return nil
     }
 
-    /// Extracts a short context window (<=120 chars) around the first match,
-    /// falling back to the head of the text.
+    /// 提取第一个匹配位置周围短上下文窗口（<=120 字符），
+    /// 回退到文本开头。
     private static func makeSnippet(_ text: String, around keyword: String) -> String {
         let normalized = text.replacingOccurrences(of: "\n", with: " ")
         let lowered = normalized.lowercased()

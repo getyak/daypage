@@ -33,7 +33,7 @@ enum SystemStatus {
 
 // MARK: - DayStats
 
-/// Statistics for a single day in the Archive.
+/// 存档中单日统计信息。
 struct DayStats {
     let dateString: String
     let memoCount: Int
@@ -81,10 +81,9 @@ struct DayStats {
             }
         }
 
-        /// Color for the bottom-right indicator dot.
-        /// On today cells the dot matches the border (primary / white),
-        /// otherwise it matches the cell's text color so it always contrasts
-        /// with the heat-map background.
+        /// 右下角指示器圆点的颜色。
+        /// 今日单元格中，圆点与边框颜色匹配（主色 / 白色），
+        /// 否则与单元格文本颜色一致，以确保在热力图背景上始终有对比度。
         func dotColor(isToday: Bool) -> Color {
             if isToday {
                 // today border is DSColor.primary (black); use onPrimary so dot is visible
@@ -232,7 +231,7 @@ final class ArchiveViewModel: ObservableObject {
 
     // MARK: System Status
 
-    /// Derived system status based on the current month's compilation state.
+    /// 基于当月编译状态推算的系统状态。
     var systemStatus: SystemStatus {
         let days = dayStats.values
         // Days that have raw memos but no compiled Daily Page
@@ -258,11 +257,11 @@ final class ArchiveViewModel: ObservableObject {
     func daysInCurrentMonth() -> [Int?] {
         let total = numberOfDays(year: currentYear, month: currentMonth)
         let firstWeekday = firstWeekdayOfMonth(year: currentYear, month: currentMonth)
-        // Monday-first: offset (Mon=0, Tue=1..Sun=6)
-        let offset = (firstWeekday + 5) % 7   // Convert Sun=1..Sat=7 to Mon=0..Sun=6
+        // 周一开头：偏移量（周一=0, 周二=1..周日=6）
+        let offset = (firstWeekday + 5) % 7   // 将周日=1..周六=7 转换为周一=0..周日=6
         var cells: [Int?] = Array(repeating: nil, count: offset)
         cells += (1...total).map { Optional($0) }
-        // Pad to multiple of 7
+        // 填充至 7 的倍数
         while cells.count % 7 != 0 { cells.append(nil) }
         return cells
     }
@@ -387,9 +386,9 @@ struct ArchiveView: View {
 
     // MARK: - Pre-scanned vault sets (US-006)
     //
-    // Populated asynchronously on appear. Drives the three-state calendar cell
-    // visual: daily compiled → solid highlight; raw only → dot marker;
-    // neither → 50% translucent gray (still tappable).
+    // 在视图出现时异步填充。驱动三态日历单元格视觉效果：
+    // 已编译日记 → 实色高亮；仅有原始记录 → 圆点标记；
+    // 二者皆无 → 50% 半透明灰色（仍可点击）。
     @State private var rawDates: Set<String> = []
     @State private var dailyDates: Set<String> = []
 
@@ -456,8 +455,8 @@ struct ArchiveView: View {
 
     // MARK: - Navigation Helper
 
-    /// Every calendar cell is tappable (US-006). DayDetailView itself handles the
-    /// `.empty` / `.error` / `.rawOnly` / `.compiled` states — see US-002.
+    /// 每个日历单元格均可点击（US-006）。DayDetailView 自身处理
+    /// `.empty` / `.error` / `.rawOnly` / `.compiled` 等状态 — 参见 US-002。
     private func handleDateTap(dateStr: String) {
         selectedDateString = dateStr
         showDayDetail = true
@@ -465,9 +464,9 @@ struct ArchiveView: View {
 
     // MARK: - Vault Pre-Scan (US-006)
 
-    /// Lists `vault/raw/*.md` and `vault/wiki/daily/*.md` off-main and publishes
-    /// the discovered date strings into `@State` sets. Non-blocking; failures
-    /// degrade to empty sets (calendar falls back to "no data" visual — still tappable).
+    /// 列出 `vault/raw/*.md` 和 `vault/wiki/daily/*.md`（脱离主线程），并将
+    /// 发现的日期字符串发布到 `@State` 集合中。非阻塞；失败时降级为空集合
+    ///（日历会退回到"无数据"视觉效果 — 仍可点击）。
     private func preScanVault() async {
         let scanned: (Set<String>, Set<String>) = await Task.detached(priority: .utility) {
             let fm = FileManager.default
@@ -486,7 +485,7 @@ struct ArchiveView: View {
 
     private var archiveHeader: some View {
         HStack(spacing: 10) {
-            // Hamburger menu — opens sidebar
+            // 汉堡菜单 — 打开侧边栏
             Button {
                 nav.openSidebar()
             } label: {
@@ -603,8 +602,8 @@ struct ArchiveView: View {
         )
     }
 
-    /// Three-state classification for a calendar cell (US-006).
-    /// Derived from the pre-scanned `dailyDates` / `rawDates` sets.
+    /// 日历单元格的三态分类（US-006）。
+    /// 基于预扫描的 `dailyDates` / `rawDates` 集合推导。
     private enum CellDataState {
         case compiled   // daily file exists → solid highlight
         case rawOnly    // only raw file exists → dot marker
@@ -641,8 +640,8 @@ struct ArchiveView: View {
             }()
 
             let dotColor: Color = {
-                // Dot appears only in .rawOnly state; keep it primary-tinted so
-                // it reads as a positive "has data" signal.
+                // 圆点仅在 .rawOnly 状态下出现；保持主色调，以
+                // 呈现"有数据"的积极信号。
                 isToday ? DSColor.primary : DSColor.onSurface
             }()
 
@@ -959,7 +958,7 @@ struct ArchiveView: View {
         .padding(.top, 8)
     }
 
-    /// Converts "yyyy-MM-dd" to "APRIL 14" (MMMM d, en_US, all caps).
+    /// 将 "yyyy-MM-dd" 转换为 "APRIL 14"（MMMM d, en_US, 全大写）。
     private func formatArchiveDate(_ dateString: String) -> String {
         let parser = DateFormatter()
         parser.dateFormat = "yyyy-MM-dd"
@@ -971,7 +970,7 @@ struct ArchiveView: View {
         return formatter.string(from: date).uppercased()
     }
 
-    /// Human-friendly date label: TODAY / YESTERDAY / N DAYS AGO / APRIL 14.
+    /// 人性化日期标签：TODAY / YESTERDAY / N DAYS AGO / APRIL 14。
     private func relativeDateLabel(_ dateString: String) -> String {
         let parser = DateFormatter()
         parser.dateFormat = "yyyy-MM-dd"
@@ -1053,15 +1052,14 @@ struct ArchiveView: View {
 
 // MARK: - ArchiveVaultScan (US-006)
 
-/// File-scoped helpers for the pre-scan that runs off-main on ArchiveView appear.
-/// Kept outside the view so the `Task.detached` closure can call it without
-/// capturing `self` (which would defeat the `@MainActor`-free goal).
+/// 文件级辅助函数，用于 ArchiveView 出现时在后台运行的预扫描。
+/// 放在视图外部，以便 `Task.detached` 闭包可以调用而不捕获
+/// `self`（否则会破坏脱离 `@MainActor` 的目的）。
 fileprivate enum ArchiveVaultScan {
 
-    /// Returns the set of `YYYY-MM-DD` basenames of `.md` files directly under `dir`.
-    /// Ignores non-matching filenames (assets/, attachments, etc.). Missing
-    /// directories degrade to an empty set — the calendar then renders every cell
-    /// as the "no data" state, still tappable.
+    /// 返回 `dir` 目录下 `.md` 文件的 `YYYY-MM-DD` 基础名称集合。
+    /// 忽略不匹配的文件名（assets/、附件等）。缺失目录降级为空集合
+    /// — 日历会将所有单元格渲染为"无数据"状态，仍可点击。
     static func listDateFilenames(in dir: URL, fileManager: FileManager) -> Set<String> {
         guard let entries = try? fileManager.contentsOfDirectory(atPath: dir.path) else {
             return []
@@ -1069,7 +1067,7 @@ fileprivate enum ArchiveVaultScan {
         var out: Set<String> = []
         for name in entries {
             guard name.hasSuffix(".md") else { continue }
-            let base = String(name.dropLast(3))  // strip ".md"
+            let base = String(name.dropLast(3))  // 去除 ".md"
             guard base.count == 10,
                   base[base.index(base.startIndex, offsetBy: 4)] == "-",
                   base[base.index(base.startIndex, offsetBy: 7)] == "-" else { continue }
@@ -1095,8 +1093,8 @@ private struct ShareSheetView: UIViewControllerRepresentable {
 
 // MARK: - ArtifactGeometricView
 
-/// Black-and-white minimal decorative graphic echoing the "archaeological archive" design language.
-/// Renders concentric rings with radial tick marks — evoking a compass or archival seal.
+/// 黑白极简装饰图案，呼应"考古档案"设计语言。
+/// 渲染带径向刻度线的同心圆 — 令人联想到罗盘或档案封印。
 private struct ArtifactGeometricView: View {
 
     var body: some View {

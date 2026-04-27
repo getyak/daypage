@@ -3,7 +3,7 @@ import UIKit
 
 // MARK: - PressableCardModifier
 
-/// Applies a press-scale + dim overlay with haptic feedback to any card view.
+/// 对任何卡片视图应用按压缩放 + 暗色叠加及触觉反馈。
 struct PressableCardModifier: ViewModifier {
     @State private var isPressed: Bool = false
 

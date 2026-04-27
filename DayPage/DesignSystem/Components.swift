@@ -129,9 +129,9 @@ struct WikilinkText: View {
 
 // MARK: - Wikilink Body Text
 
-/// Renders a block of text that may contain [[slug]] or [[slug|Display Name]] wikilinks.
-/// Wikilinks are rendered in amber; tapping any wikilink fires the callback for the first
-/// found link, which is sufficient for most single-entity paragraphs.
+/// 渲染可能包含 [[slug]] 或 [[slug|显示名称]] 维基链接的文本块。
+/// 维基链接以琥珀色渲染；点击任何维基链接都会触发第一个
+/// 找到的链接的回调，这对于大多数单实体段落来说已经足够。
 struct WikilinkBodyText: View {
     let text: String
     let onWikilinkTap: (String) -> Void

@@ -37,45 +37,45 @@ enum DSColor {
 
     // MARK: - V3 Warm-White Tokens
 
-    /// Page / screen background — warm off-white
+    /// 页面 / 屏幕背景 — 暖色调米白
     static let backgroundWarm = Color(hex: "FAF8F6")
-    /// Pure white surface (cards, sheets)
+    /// 纯白表面（卡片、弹出面板）
     static let surfaceWhite = Color(hex: "FFFFFF")
-    /// Recessed surface — slightly warm gray
+    /// 下凹表面 — 微暖灰色
     static let surfaceSunken = Color(hex: "F3F0EB")
 
-    /// Primary text on warm background
+    /// 暖色背景主文本
     static let onBackgroundPrimary = Color(hex: "2B2822")
-    /// Secondary / muted text
+    /// 次要 / 弱化文本
     static let onBackgroundMuted = Color(hex: "6B6560")
-    /// Subtle tertiary text
+    /// 第三级细微文本
     static let onBackgroundSubtle = Color(hex: "A39F99")
 
-    /// Accent — deep amber brown (replaces #000000 primary)
+    /// 强调色 — 深琥珀棕（替代 #000000 主色）
     static let accentAmber = Color(hex: "5D3000")
     static let accentAmberHover = Color(hex: "7A3F00")
     static let accentSoft = Color(hex: "F5EDE3")
     static let accentBorder = Color(hex: "E8DCCA")
 
-    /// Semantic: success
+    /// 语义色：成功
     static let successGreen = Color(hex: "4C7A3F")
     static let successSoft = Color(hex: "EBF3E5")
 
-    /// Semantic: warning
+    /// 语义色：警告
     static let warningAmber = Color(hex: "A66A00")
     static let warningSoft = Color(hex: "F8ECD6")
 
-    /// Semantic: error
+    /// 语义色：错误
     static let errorRed = Color(hex: "A23A2E")
     static let errorSoft = Color(hex: "F5E1DC")
 
-    /// Heatmap density scale (Archive calendar)
+    /// 热力图密度刻度（归档日历）
     static let heatmapEmpty = Color(hex: "F0EBE3")
     static let heatmapLow = Color(hex: "E6D9C3")
     static let heatmapMid = Color(hex: "C9A677")
     static let heatmapHigh = Color(hex: "5D3000")
 
-    /// Border tokens
+    /// 边框令牌
     static let borderSubtle = Color(hex: "EDE8DF")
     static let borderDefault = Color(hex: "D6CEC0")
 

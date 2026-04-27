@@ -112,9 +112,9 @@ jobs:
           cat > DayPage/Config/GeneratedSecrets.swift << 'SWIFT'
           // CI placeholder — real values injected at runtime via .env
           enum Secrets {
-              static let dashScopeApiKey: String = ""
-              static let dashScopeBaseURL: String = ""
-              static let dashScopeModel: String = ""
+              static let deepSeekApiKey: String = ""
+              static let deepSeekBaseURL: String = "https://api.deepseek.com/v1"
+              static let deepSeekModel: String = "deepseek-v4-pro"
               static let openAIWhisperApiKey: String = ""
               static let openWeatherApiKey: String = ""
               static let supabaseURL: String = "https://placeholder.supabase.co"

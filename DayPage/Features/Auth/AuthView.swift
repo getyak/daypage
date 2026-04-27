@@ -13,11 +13,11 @@ struct AuthView: View {
 
     var body: some View {
         ZStack {
-            // Background
+            // 背景
             Color(hex: "0A0A0A")
                 .ignoresSafeArea()
 
-            // Grain texture overlay
+            // 颗粒纹理叠加层
             Canvas { context, size in
                 let cols = Int(size.width / 3)
                 let rows = Int(size.height / 3)
@@ -33,7 +33,7 @@ struct AuthView: View {
             .allowsHitTesting(false)
 
             VStack(spacing: 0) {
-                // Wordmark — upper third
+                // 品牌标志 — 上三分之一
                 Spacer()
                     .frame(minHeight: 0)
 
@@ -50,7 +50,7 @@ struct AuthView: View {
 
                 Spacer()
 
-                // Error message
+                // 错误信息
                 if let errorText = authService.error?.errorDescription {
                     Text(errorText)
                         .font(.system(size: 14))
@@ -60,7 +60,7 @@ struct AuthView: View {
                         .padding(.bottom, 12)
                 }
 
-                // Buttons + skip
+                // 按钮 + 跳过
                 VStack(spacing: 0) {
                     buttonStack
 
@@ -79,7 +79,7 @@ struct AuthView: View {
             .padding(.horizontal, 24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // Loading overlay
+            // 加载遮罩层
             if authService.isLoading {
                 ProgressView()
                     .tint(.white)
@@ -95,7 +95,7 @@ struct AuthView: View {
 
     private var buttonStack: some View {
         VStack(spacing: 12) {
-            // Continue with Apple
+            // 使用 Apple 继续
             authButton(
                 icon: "apple.logo",
                 label: "Continue with Apple",
@@ -113,7 +113,7 @@ struct AuthView: View {
                     }
             )
 
-            // Continue with Email
+            // 使用邮箱继续
             authButton(
                 icon: "envelope",
                 label: "Continue with Email",

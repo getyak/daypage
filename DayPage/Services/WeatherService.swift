@@ -4,11 +4,10 @@ import Sentry
 
 // MARK: - WeatherService
 
-/// Fetches current weather from OpenWeatherMap API (free tier) and caches
-/// the result for 10 minutes so consecutive memos at the same location
-/// don't trigger repeated network calls.
+/// 从 OpenWeatherMap API（免费层）获取当前天气，并缓存结果 10 分钟，
+/// 避免相同位置的连续 memo 触发重复网络请求。
 ///
-/// Usage:
+/// 用法：
 ///   let weather = await WeatherService.shared.currentWeather(at: location)
 ///
 @MainActor
@@ -31,22 +30,20 @@ final class WeatherService {
 
     private var cache: CacheEntry?
 
-    /// Cache TTL: 10 minutes
+    /// 缓存 TTL：10 分钟
     private let cacheTTL: TimeInterval = 10 * 60
 
-    /// Maximum distance (metres) before the cached entry is considered stale for the new location.
+    /// 缓存条目对新位置被认为过时的最大距离（米）
     private let cacheLocationRadius: CLLocationDistance = 1000
 
     private init() {}
 
     // MARK: - Public API
 
-    /// Returns a formatted weather string like "32°C, Overcast Clouds" for the given location.
+    /// 返回给定位置的格式化天气字符串，如 "32°C, Overcast Clouds"。
     ///
-    /// - Returns: A localised weather string, or `nil` if the API key is missing,
-    ///            the network is unavailable, or the call fails for any reason.
-    ///            Callers must NOT block on this — it is fire-and-forget from the
-    ///            submission path.
+    /// - Returns: 本地化的天气字符串；如果 API 密钥缺失、网络不可用或调用因任何原因失败，则返回 `nil`。
+    ///            调用方不得阻塞此方法 —— 从提交流程中调用时采用即发即忘模式。
     func currentWeather(at location: Memo.Location?) async -> String? {
         guard let location,
               let lat = location.lat,
@@ -54,7 +51,7 @@ final class WeatherService {
             return nil
         }
 
-        // Return cached result if still fresh and close enough
+        // 如果缓存仍然新鲜且位置足够近，返回缓存结果
         if let entry = cache,
            Date().timeIntervalSince(entry.fetchedAt) < cacheTTL {
             let cachedCoord = CLLocation(latitude: entry.lat, longitude: entry.lng)
@@ -64,7 +61,7 @@ final class WeatherService {
             }
         }
 
-        // Fetch from OpenWeatherMap
+        // 从 OpenWeatherMap 获取
         let apiKey = Secrets.resolvedOpenWeatherApiKey
         guard !apiKey.isEmpty else { return nil }
 
@@ -84,20 +81,20 @@ final class WeatherService {
             cache = CacheEntry(weather: formatted, fetchedAt: Date(), lat: lat, lng: lng)
             return formatted
         } catch {
-            // Network/parse failure is non-blocking — caller continues without weather
+            // 网络/解析失败不阻塞 —— 调用方在没有天气数据的情况下继续执行
             return nil
         }
     }
 
     // MARK: - Private Helpers
 
-    /// Parses the OpenWeatherMap JSON response and formats it as "32°C, cloudy".
+    /// 解析 OpenWeatherMap JSON 响应，格式化为 "32°C, cloudy"。
     private func parseWeather(from data: Data) throws -> String {
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw WeatherError.invalidResponse
         }
 
-        // Extract temperature from "main.temp"
+        // 从 "main.temp" 提取温度
         var tempString = ""
         if let main = json["main"] as? [String: Any],
            let temp = main["temp"] as? Double {
@@ -105,12 +102,12 @@ final class WeatherService {
             tempString = "\(rounded)\u{00B0}C"   // e.g. "32°C"
         }
 
-        // Extract weather description from "weather[0].description"
+        // 从 "weather[0].description" 提取天气描述
         var descString = ""
         if let weatherArray = json["weather"] as? [[String: Any]],
            let first = weatherArray.first,
            let desc = first["description"] as? String {
-            // Capitalise first character
+            // 首字母大写
             descString = desc.prefix(1).uppercased() + desc.dropFirst()
         }
 

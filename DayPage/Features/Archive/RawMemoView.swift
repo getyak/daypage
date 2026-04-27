@@ -2,8 +2,8 @@ import SwiftUI
 
 // MARK: - RawMemoView
 
-/// Displays all raw memos for a given date, sorted chronologically.
-/// Used when a date has memos but no compiled Daily Page.
+/// 显示某一天的所有原始 memo，按时间排序。
+/// 用于某天有 memo 但尚无已编译的 Daily Page 时。
 struct RawMemoView: View {
 
     let dateString: String
