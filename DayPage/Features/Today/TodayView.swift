@@ -15,16 +15,7 @@ struct TodayView: View {
     @State private var showSyncBanner: Bool = false
     @State private var showAuthSheet: Bool = false
 
-    /// Feature flag for the Fromm-style InputBarV2 (US-007). Default ON; users
-    /// can fall back to the legacy InputBarView via Settings -> Appearance.
-    @AppStorage("useInputBarV2") private var useInputBarV2: Bool = true
-
-    /// Input bar variant selector (Issue #76). "v3" is the voice-first default;
-    /// "v2" falls back to the Fromm-style bar; "v1" to the legacy InputBarView.
-    /// Takes precedence over `useInputBarV2` when set to a non-default value.
-    @AppStorage("inputBarVariant") private var inputBarVariant: String = "v4"
-
-    /// The draft text in the input bar.
+    /// 输入栏中的草稿文本。
     @State private var draftText: String = ""
 
     /// Whether to show the Daily Page sheet.
@@ -131,13 +122,6 @@ struct TodayView: View {
                     Divider()
                         .background(DSColor.outline)
 
-                    // MARK: API Key Missing Banner
-                    if viewModel.hasApiKeysMissing {
-                        ApiKeyMissingBanner {
-                            showSettings = true
-                        }
-                    }
-
                     // MARK: Compilation Failed Banner
                     if let failureMsg = viewModel.compilationFailedError {
                         CompilationFailedBanner(message: failureMsg) {
@@ -213,22 +197,11 @@ struct TodayView: View {
 
                                 // Memo cards (reverse-chronological)
                                 if viewModel.memos.isEmpty && !viewModel.isLoading {
-                                    if inputBarVariant == "v3" {
-                                        // Voice-first: delegate empty-state to the big mic below.
-                                        // Only render a quiet hint line here so the canvas stays spare.
-                                        VStack {
-                                            Spacer(minLength: 48)
-                                            Text("按住下方麦克风说一句")
-                                                .font(.custom("Inter-Regular", size: 13))
-                                                .foregroundColor(DSColor.onSurfaceVariant)
-                                            Spacer(minLength: 24)
-                                        }
-                                        .frame(maxWidth: .infinity)
-                                    } else {
-                                        TodayEmptyStateView { suggestion in
-                                            draftText = suggestion
-                                        }
-                                    }
+                                    // Capture v2 design note 01: a blank page
+                                    // is the product, not a problem to solve.
+                                    // The dock below carries every cue the
+                                    // user needs.
+                                    Color.clear.frame(height: 1)
                                 } else {
                                     ForEach(Array(viewModel.memos.enumerated()), id: \.element.id) { idx, memo in
                                         TimelineRow(
@@ -287,79 +260,12 @@ struct TodayView: View {
                         onTap: { viewModel.compile() }
                     )
 
-                    // MARK: Input Bar — `inputBarVariant` is now the single source
-                    // of truth for V3 / V2 / V1 selection. Do not branch on the
-                    // legacy `useInputBarV2` flag here, otherwise selecting V2 can
-                    // incorrectly fall through to V1 on installs carrying an old
-                    // stored boolean.
-                    if inputBarVariant == "v4" {
-                        inputBarV4
-                    } else if inputBarVariant == "v3" {
-                        inputBarV3
-                    } else if inputBarVariant == "v2" {
-                        InputBarV2(
-                            text: $draftText,
-                            isSubmitting: viewModel.isSubmitting,
-                            isLocating: viewModel.isLocating,
-                            pendingLocation: viewModel.pendingLocation,
-                            locationAuthStatus: LocationService.shared.authorizationStatus,
-                            isProcessingPhoto: viewModel.isProcessingPhoto,
-                            pendingAttachments: viewModel.pendingAttachments,
-                            onFetchLocation: { viewModel.fetchLocation() },
-                            onClearLocation: { viewModel.clearPendingLocation() },
-                            onAddPhoto: { item in viewModel.addPhotoAttachment(item: item) },
-                            onCapturePhoto: { viewModel.startCameraCapture() },
-                            onRemoveAttachment: { id in viewModel.removePendingAttachment(id: id) },
-                            onStartVoiceRecording: { viewModel.startVoiceRecording() },
-                            onVoiceComplete: { result in viewModel.addVoiceAttachment(result: result) },
-                            onPressToTalkSend: { result in
-                                // Stage the recording, then submit immediately —
-                                // press-to-talk release-in-place is a send gesture.
-                                viewModel.addVoiceAttachment(result: result)
-                                let body = draftText
-                                draftText = ""
-                                viewModel.submitCombinedMemo(body: body)
-                            },
-                            onPressToTalkTranscribe: { transcript in
-                                // Fill the draft field but do NOT submit — user
-                                // should review/edit before sending.
-                                if draftText.isEmpty {
-                                    draftText = transcript
-                                } else {
-                                    draftText += (draftText.hasSuffix(" ") ? "" : " ") + transcript
-                                }
-                            },
-                            onAddFile: { viewModel.startFilePicker() },
-                            onSubmit: {
-                                let body = draftText
-                                draftText = ""
-                                viewModel.submitCombinedMemo(body: body)
-                            }
-                        )
-                    } else {
-                        InputBarView(
-                            text: $draftText,
-                            isSubmitting: viewModel.isSubmitting,
-                            isLocating: viewModel.isLocating,
-                            pendingLocation: viewModel.pendingLocation,
-                            locationAuthStatus: LocationService.shared.authorizationStatus,
-                            isProcessingPhoto: viewModel.isProcessingPhoto,
-                            pendingAttachments: viewModel.pendingAttachments,
-                            onFetchLocation: { viewModel.fetchLocation() },
-                            onClearLocation: { viewModel.clearPendingLocation() },
-                            onAddPhoto: { item in viewModel.addPhotoAttachment(item: item) },
-                            onCapturePhoto: { viewModel.startCameraCapture() },
-                            onRemoveAttachment: { id in viewModel.removePendingAttachment(id: id) },
-                            onStartVoiceRecording: { viewModel.startVoiceRecording() },
-                            onVoiceComplete: { result in viewModel.addVoiceAttachment(result: result) },
-                            onAddFile: { viewModel.startFilePicker() },
-                            onSubmit: {
-                                let body = draftText
-                                draftText = ""
-                                viewModel.submitCombinedMemo(body: body)
-                            }
-                        )
-                    }
+                    // MARK: Input Bar — single canonical surface (V4).
+                    // V1/V2/V3 were removed in the Capture v2 cleanup; the
+                    // variant switch was a feature-flag carcass keeping four
+                    // parallel implementations alive. Now the input bar is
+                    // just the input bar.
+                    inputBarV4
                 }
                 // Submit error toast
                 .overlay(alignment: .top) {
@@ -524,52 +430,6 @@ struct TodayView: View {
         }
     }
 
-    // MARK: - Input Bar V3 (voice-first) call-site
-    //
-    // Extracted to its own property because SwiftUI's result builder chokes on
-    // a >20-argument initializer nested inside an already-large `body` — the
-    // type-checker hits its budget and emits "unable to type-check this
-    // expression in reasonable time".
-
-    @ViewBuilder
-    private var inputBarV3: some View {
-        InputBarV3(
-            text: $draftText,
-            isSubmitting: viewModel.isSubmitting,
-            isLocating: viewModel.isLocating,
-            pendingLocation: viewModel.pendingLocation,
-            locationAuthStatus: LocationService.shared.authorizationStatus,
-            isProcessingPhoto: viewModel.isProcessingPhoto,
-            pendingAttachments: viewModel.pendingAttachments,
-            onFetchLocation: { viewModel.fetchLocation() },
-            onClearLocation: { viewModel.clearPendingLocation() },
-            onAddPhoto: { item in viewModel.addPhotoAttachment(item: item) },
-            onCapturePhoto: { viewModel.startCameraCapture() },
-            onRemoveAttachment: { id in viewModel.removePendingAttachment(id: id) },
-            onStartVoiceRecording: { viewModel.startVoiceRecording() },
-            onVoiceComplete: { result in viewModel.addVoiceAttachment(result: result) },
-            onPressToTalkSend: { result in
-                viewModel.addVoiceAttachment(result: result)
-                let body = draftText
-                draftText = ""
-                viewModel.submitCombinedMemo(body: body)
-            },
-            onPressToTalkTranscribe: { transcript in
-                if draftText.isEmpty {
-                    draftText = transcript
-                } else {
-                    draftText += (draftText.hasSuffix(" ") ? "" : " ") + transcript
-                }
-            },
-            onAddFile: { viewModel.startFilePicker() },
-            onSubmit: {
-                let body = draftText
-                draftText = ""
-                viewModel.submitCombinedMemo(body: body)
-            }
-        )
-    }
-
     // MARK: - InputBarV4 (variant D: Silent Press-to-Talk)
     //
     // Extracted to avoid "expression too complex" errors in body.
@@ -641,33 +501,6 @@ struct TodayView: View {
 private struct OnThisDayNavTarget: Identifiable {
     let dateString: String
     var id: String { dateString }
-}
-
-// MARK: - ApiKeyMissingBanner
-
-/// Yellow banner shown when one or more API keys are not configured.
-struct ApiKeyMissingBanner: View {
-    let onGoToSettings: () -> Void
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundColor(DSColor.warning)
-                .font(.system(size: 14))
-            Text("部分功能需要配置 API Key")
-                .font(.custom("Inter-Regular", size: 13))
-                .foregroundColor(DSColor.onWarningContainer)
-            Spacer()
-            Button("前往设置") {
-                onGoToSettings()
-            }
-            .font(.custom("Inter-Medium", size: 13))
-            .foregroundColor(DSColor.warning)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(DSColor.warningContainer)
-    }
 }
 
 // MARK: - CompilationFailedBanner

@@ -14,14 +14,14 @@ extension Notification.Name {
 
 // MARK: - ConflictMerger
 
-/// Merges iCloud conflict copies for raw memo files, wiki log lines, and JSON entries.
-/// Conflict detection is driven by NSMetadataQuery watching NSMetadataUbiquitousItemHasUnresolvedConflictsKey.
+/// 合并原始备忘录文件、wiki 日志行及 JSON 条目的 iCloud 冲突副本。
+/// 冲突检测由 NSMetadataQuery 监听 NSMetadataUbiquitousItemHasUnresolvedConflictsKey 驱动。
 enum ConflictMerger {
 
     // MARK: - Memo Merge
 
-    /// Merges two arrays of Memo objects.
-    /// Algorithm: concatenate, sort by created ascending, deduplicate by UUID (keep first).
+    /// 合并两个 Memo 对象数组。
+    /// 算法：拼接，按 created 升序排列，按 UUID 去重（保留首个）。
     static func mergeRawMemos(original: [Memo], conflict: [Memo]) -> [Memo] {
         let combined = (original + conflict).sorted { $0.created < $1.created }
         var seen = Set<UUID>()
@@ -34,7 +34,7 @@ enum ConflictMerger {
 
     // MARK: - Log Line Merge
 
-    /// Merges two wiki/log.md strings, deduplicating lines by their timestamp prefix (first token).
+    /// 合并两个 wiki/log.md 字符串，按时间戳前缀（首个 token）去重。
     static func mergeLogLines(original: String, conflict: String) -> String {
         let originalLines = original.components(separatedBy: "\n")
         let conflictLines = conflict.components(separatedBy: "\n")
@@ -44,7 +44,7 @@ enum ConflictMerger {
         for line in originalLines + conflictLines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             guard !trimmed.isEmpty else { continue }
-            // Use the first whitespace-separated token as the deduplication key (timestamp prefix).
+            // 使用以空格分隔的第一个 token 作为去重键（时间戳前缀）。
             let key = trimmed.components(separatedBy: .whitespaces).first ?? trimmed
             guard !seen.contains(key) else { continue }
             seen.insert(key)
@@ -56,8 +56,8 @@ enum ConflictMerger {
 
     // MARK: - JSON Entry Merge
 
-    /// Merges two JSON arrays, deduplicating entries by a given idKey field value.
-    /// Returns the original data if either input cannot be parsed as a JSON array.
+    /// 合并两个 JSON 数组，按给定 idKey 字段值去重。
+    /// 若任一输入无法解析为 JSON 数组，则返回原始数据。
     static func mergeJSONEntries(original: Data, conflict: Data, idKey: String) -> Data {
         guard
             let originalArray = try? JSONSerialization.jsonObject(with: original) as? [[String: Any]],
@@ -84,14 +84,14 @@ enum ConflictMerger {
 
     // MARK: - iCloud Conflict Resolution
 
-    /// Scans a vault URL for iCloud conflict copies and resolves them.
-    /// Uses NSMetadataQuery to find files with unresolved conflicts, merges content,
-    /// and posts .vaultConflictResolved after each successful resolution.
+    /// 扫描 vault URL 中的 iCloud 冲突副本并解决。
+    /// 使用 NSMetadataQuery 查找有未解决冲突的文件，合并内容，
+    /// 并在每次成功解决后发送 .vaultConflictResolved 通知。
     static func resolveConflictsIfNeeded(in vaultURL: URL) {
         let fm = FileManager.default
         guard fm.fileExists(atPath: vaultURL.path) else { return }
 
-        // Gather all files with unresolved conflicts under vaultURL.
+        // 收集 vaultURL 下所有存在未解决冲突的文件。
         guard let enumerator = fm.enumerator(at: vaultURL,
                                              includingPropertiesForKeys: [.ubiquitousItemHasUnresolvedConflictsKey],
                                              options: [.skipsHiddenFiles]) else { return }
@@ -124,7 +124,7 @@ enum ConflictMerger {
                 try resolveJSONConflict(primaryURL: primaryURL, conflictVersions: conflictVersions)
             }
 
-            // Mark all conflict versions as resolved and remove them.
+            // 将所有冲突版本标记为已解决并删除。
             for version in conflictVersions {
                 version.isResolved = true
             }
@@ -134,12 +134,12 @@ enum ConflictMerger {
             let info = ConflictResolutionInfo(date: Date(), mergedMemoCount: conflictVersions.count, sourceDevice: device)
             NotificationCenter.default.post(name: .vaultConflictResolved, object: info)
         } catch {
-            // Leave conflict unresolved; system will retry.
+            // 冲突无法解决；系统将重试。
         }
     }
 
     private static func resolveMDConflict(primaryURL: URL, conflictVersions: [NSFileVersion]) throws {
-        // Determine whether this is a raw memo file (vault/raw/YYYY-MM-DD.md) or a log file.
+        // 判断是原始备忘录文件（vault/raw/YYYY-MM-DD.md）还是日志文件。
         let pathComponents = primaryURL.pathComponents
         let isRaw = pathComponents.contains("raw") && !pathComponents.contains("assets")
 
@@ -156,7 +156,7 @@ enum ConflictMerger {
             let merged = original.map { $0.toMarkdown() }.joined(separator: "\n\n---\n\n")
             try writeMerged(data: Data(merged.utf8), to: primaryURL)
         } else {
-            // Log / wiki file: deduplicate by line timestamp prefix.
+            // 日志/wiki 文件：按行时间戳前缀去重。
             var merged = String(data: originalData, encoding: .utf8) ?? ""
             for version in conflictVersions {
                 if let conflictData = try? Data(contentsOf: version.url),

@@ -255,9 +255,31 @@ jobs:
           set -euo pipefail
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" -m "Release $TAG"
-          git push origin "$TAG"
-          echo "Pushed tag $TAG"
+
+          # Re-fetch at push time to detect concurrent runs that grabbed the same tag.
+          git fetch --tags --force origin
+
+          FINAL_TAG="$TAG"
+          if git rev-parse -q --verify "refs/tags/$FINAL_TAG" >/dev/null 2>&1 || \
+             git ls-remote --tags origin "refs/tags/$FINAL_TAG" | grep -q "refs/tags/$FINAL_TAG$"; then
+            echo "Tag $FINAL_TAG taken by a concurrent run. Finding next available patch..."
+            BASE="${FINAL_TAG#v}"
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE"
+            for i in $(seq 1 50); do
+              CANDIDATE="v${MAJOR}.${MINOR}.$((PATCH + i))"
+              if ! git rev-parse -q --verify "refs/tags/$CANDIDATE" >/dev/null 2>&1 && \
+                 ! git ls-remote --tags origin "refs/tags/$CANDIDATE" | grep -q "refs/tags/$CANDIDATE$"; then
+                FINAL_TAG="$CANDIDATE"
+                echo "Using $FINAL_TAG instead"
+                break
+              fi
+              echo "  $CANDIDATE also taken, trying next..."
+            done
+          fi
+
+          git tag -a "$FINAL_TAG" -m "Release $FINAL_TAG"
+          git push origin "$FINAL_TAG"
+          echo "Pushed tag $FINAL_TAG"
 
       # ── 13. Create GitHub Release ────────────────────────────────────────
       # 从 Fastfile 迁过来：之前 fastlane 用 sh("gh release create ...") + rescue

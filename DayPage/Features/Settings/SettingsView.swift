@@ -33,10 +33,8 @@ struct SettingsView: View {
     // iCloud sync monitor
     @StateObject private var syncMonitor = iCloudSyncMonitor.shared
 
-    // Input bar variant (US-007). Default ON; toggle surfaces legacy fallback.
-    @AppStorage("useInputBarV2") private var useInputBarV2: Bool = true
+    // Press-to-talk fallback toggle (US-008).
     @AppStorage("usePressToTalk") private var usePressToTalk: Bool = true
-    @AppStorage("inputBarVariant") private var inputBarVariant: String = "v4"
 
     // API key editing sheet
     @State private var editingKeyName: String = ""
@@ -315,17 +313,6 @@ struct SettingsView: View {
                     .foregroundColor(DSColor.onSurfaceVariant)
             }
             .foregroundColor(DSColor.onSurfaceVariant)
-
-            // Input bar variant selector (Issue #76). V3 = voice-first big mic,
-            // V2 = Fromm capsule, V1 = legacy. V3 is the default.
-            Picker(selection: $inputBarVariant) {
-                Text("静默长按 (V4)").tag("v4")
-                Text("语音优先 (V3)").tag("v3")
-                Text("Fromm 风格 (V2)").tag("v2")
-                Text("旧版 (V1)").tag("v1")
-            } label: {
-                Label("输入栏样式", systemImage: "mic.and.signal.meter")
-            }
 
             // Press-to-talk (US-008). Invert the binding so the visible label reads
             // "Use legacy voice recording" per the PRD's legacy-fallback copy.

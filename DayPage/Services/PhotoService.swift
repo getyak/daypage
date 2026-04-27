@@ -6,26 +6,26 @@ import UniformTypeIdentifiers
 
 // MARK: - PhotoPickerResult
 
-/// The result of a photo pick + EXIF extraction operation.
+/// 照片选择 + EXIF 提取操作的结果。
 struct PhotoPickerResult {
-    /// Path to the saved original image file (relative to vault root).
+    /// 保存的原始图像文件路径（相对于 vault 根目录）。
     let filePath: String
-    /// The full URL of the saved file (for local display).
+    /// 保存的文件的完整 URL（用于本地显示）。
     let fileURL: URL
-    /// EXIF metadata extracted from the image (nil if unavailable).
+    /// 从图像中提取的 EXIF 元数据（若不可用则为 nil）。
     let exif: PhotoEXIF?
-    /// UIImage for thumbnail display.
+    /// 用于缩略图显示的 UIImage。
     let thumbnail: UIImage?
 }
 
 // MARK: - PhotoEXIF
 
-/// Subset of EXIF metadata relevant to DayPage memo attachments.
+/// DayPage memo 附件所需的 EXIF 元数据子集。
 struct PhotoEXIF {
-    var aperture: String?      // e.g. "f/1.8"
-    var shutterSpeed: String?  // e.g. "1/120s"
-    var iso: String?           // e.g. "ISO 400"
-    var focalLength: String?   // e.g. "26mm"
+    var aperture: String?      // 如 "f/1.8"
+    var shutterSpeed: String?  // 如 "1/120s"
+    var iso: String?           // 如 "ISO 400"
+    var focalLength: String?   // 如 "26mm"
     var gpsLat: Double?
     var gpsLng: Double?
     var capturedAt: Date?
@@ -33,8 +33,8 @@ struct PhotoEXIF {
 
 // MARK: - PhotoService
 
-/// Handles photo selection, EXIF extraction, and saving originals to vault/raw/assets/.
-/// All public methods are safe to call from the main actor.
+/// 处理照片选择、EXIF 提取以及保存原始文件到 vault/raw/assets/。
+/// 所有公开方法均可从主 actor 安全调用。
 @MainActor
 final class PhotoService {
 
@@ -43,28 +43,28 @@ final class PhotoService {
 
     // MARK: - Save & Extract
 
-    /// Saves the selected PhotosPickerItem to vault/raw/assets/ preserving original data.
-    /// Returns a PhotoPickerResult with file path, EXIF, and thumbnail.
-    /// Returns nil on failure (caller should show error).
+    /// 将选中的 PhotosPickerItem 保存到 vault/raw/assets/，保留原始数据。
+    /// 返回包含文件路径、EXIF 和缩略图的 PhotoPickerResult。
+    /// 失败时返回 nil（调用方应显示错误）。
     func processPickerItem(_ item: PhotosPickerItem) async -> PhotoPickerResult? {
-        // Load raw image data (preserves EXIF)
+        // 加载原始图像数据（保留 EXIF）
         guard let data = try? await item.loadTransferable(type: Data.self) else {
             return nil
         }
         return processImageData(data)
     }
 
-    /// Processes raw image Data (from PHPicker or camera capture).
+    /// 处理原始图像 Data（来自 PHPicker 或相机拍摄）。
     func processImageData(_ data: Data) -> PhotoPickerResult? {
         let assetsURL = VaultInitializer.vaultURL
             .appendingPathComponent("raw")
             .appendingPathComponent("assets")
 
-        // Ensure assets directory exists
+        // 确保 assets 目录存在
         do { try FileManager.default.createDirectory(at: assetsURL, withIntermediateDirectories: true, attributes: nil) }
         catch { DayPageLogger.shared.error("PhotoService: createDirectory: \(error)") }
 
-        // Generate filename: IMG_YYYYMMDD_HHMMSS.jpg
+        // 生成文件名：IMG_YYYYMMDD_HHMMSS.jpg
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd_HHmmss"
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -73,12 +73,12 @@ final class PhotoService {
         let filename = "IMG_\(timestamp).jpg"
         let fileURL = assetsURL.appendingPathComponent(filename)
 
-        // Write original data atomically
+        // 原子写入原始数据
         let tmpURL = assetsURL.appendingPathComponent(".\(UUID().uuidString).tmp")
         do {
             try data.write(to: tmpURL, options: .atomic)
             _ = try? FileManager.default.replaceItemAt(fileURL, withItemAt: tmpURL)
-            // If replaceItemAt failed (no existing file), try move
+            // 如果 replaceItemAt 失败（没有现有文件），尝试移动
             if !FileManager.default.fileExists(atPath: fileURL.path) {
                 try FileManager.default.moveItem(at: tmpURL, to: fileURL)
             }
@@ -87,13 +87,13 @@ final class PhotoService {
             return nil
         }
 
-        // Extract EXIF metadata
+        // 提取 EXIF 元数据
         let exif = extractEXIF(from: data)
 
-        // Generate thumbnail
+        // 生成缩略图
         let thumbnail = generateThumbnail(from: data)
 
-        // Relative path for frontmatter (relative to vault root)
+        // 用于 frontmatter 的相对路径（相对于 vault 根目录）
         let relativePath = "raw/assets/\(filename)"
 
         return PhotoPickerResult(
@@ -113,7 +113,7 @@ final class PhotoService {
 
         var exif = PhotoEXIF()
 
-        // Aperture: EXIF FNumber (e.g. 1.8 -> "f/1.8")
+        // 光圈：EXIF FNumber（如 1.8 -> "f/1.8"）
         if let exifDict = properties[kCGImagePropertyExifDictionary] as? [CFString: Any] {
             if let fnum = exifDict[kCGImagePropertyExifFNumber] as? Double {
                 exif.aperture = String(format: "f/%.1f", fnum)
@@ -129,7 +129,7 @@ final class PhotoService {
             if let fl = exifDict[kCGImagePropertyExifFocalLength] as? Double {
                 exif.focalLength = "\(Int(fl))mm"
             }
-            // Capture date from EXIF DateTimeOriginal
+            // 从 EXIF DateTimeOriginal 获取拍摄日期
             if let dateStr = exifDict[kCGImagePropertyExifDateTimeOriginal] as? String {
                 let df = DateFormatter()
                 df.dateFormat = "yyyy:MM:dd HH:mm:ss"
@@ -165,7 +165,7 @@ final class PhotoService {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
               let cgThumb = CGImageSourceCreateThumbnailAtIndex(source, 0, opts as CFDictionary)
         else {
-            // Fallback: decode full image and downscale
+            // 回退：解码全图并缩小
             return UIImage(data: data)
         }
         return UIImage(cgImage: cgThumb)
@@ -175,7 +175,7 @@ final class PhotoService {
 // MARK: - PhotoEXIF → Attachment description
 
 extension PhotoEXIF {
-    /// Formats the EXIF fields into a human-readable summary string for display.
+    /// 将 EXIF 字段格式化为人类可读的摘要字符串用于显示。
     var summary: String {
         var parts: [String] = []
         if let ap = aperture { parts.append(ap) }

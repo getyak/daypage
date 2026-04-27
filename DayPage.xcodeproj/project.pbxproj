@@ -25,7 +25,6 @@
 		A10000012 /* GraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000012 /* GraphView.swift */; };
 		A10000013 /* TodayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000013 /* TodayViewModel.swift */; };
 		A10000014 /* MemoCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000014 /* MemoCardView.swift */; };
-		A10000015 /* InputBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000015 /* InputBarView.swift */; };
 		A10000016 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000016 /* LocationService.swift */; };
 		A10000017 /* WeatherService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000017 /* WeatherService.swift */; };
 		A10000018 /* PhotoService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000018 /* PhotoService.swift */; };
@@ -53,14 +52,12 @@
 		A10000041 /* Spacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000041 /* Spacing.swift */; };
 		A10000042 /* RelativeTimeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000042 /* RelativeTimeFormatter.swift */; };
 		A10000043 /* Interactions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000043 /* Interactions.swift */; };
-		A10000044 /* TodayEmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000044 /* TodayEmptyStateView.swift */; };
 		A10000045 /* OnThisDayIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000045 /* OnThisDayIndex.swift */; };
 		A10000046 /* OnThisDayCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000046 /* OnThisDayCard.swift */; };
 		A10000047 /* OnThisDayScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000047 /* OnThisDayScheduler.swift */; };
 		A10000048 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000048 /* OnboardingView.swift */; };
 		A10000049 /* SampleDataSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000049 /* SampleDataSeeder.swift */; };
 		A10000050 /* CompileFooterButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000050 /* CompileFooterButton.swift */; };
-		A10000051 /* InputBarV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000051 /* InputBarV2.swift */; };
 		A10000052 /* AttachmentMenuPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000052 /* AttachmentMenuPopover.swift */; };
 		A10000053 /* InputTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000053 /* InputTokens.swift */; };
 		A10000054 /* RecordingOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000054 /* RecordingOverlayView.swift */; };
@@ -72,7 +69,6 @@
 		A10000082 /* InputBarV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000082 /* InputBarV4.swift */; };
 		A10000060 /* DailySharePosterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000060 /* DailySharePosterView.swift */; };
 		A10000061 /* PosterRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000061 /* PosterRenderer.swift */; };
-		A10000062 /* InputBarV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000062 /* InputBarV3.swift */; };
 		A10000063 /* SwipeableMemoCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000063 /* SwipeableMemoCard.swift */; };
 		A10000064 /* AttachmentMenuSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000064 /* AttachmentMenuSheet.swift */; };
 		AF0000001 /* SpaceGrotesk-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000001 /* SpaceGrotesk-Light.ttf */; };
@@ -132,7 +128,6 @@
 		A20000012 /* GraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphView.swift; sourceTree = "<group>"; };
 		A20000013 /* TodayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayViewModel.swift; sourceTree = "<group>"; };
 		A20000014 /* MemoCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoCardView.swift; sourceTree = "<group>"; };
-		A20000015 /* InputBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputBarView.swift; sourceTree = "<group>"; };
 		A20000016 /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
 		A20000017 /* WeatherService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherService.swift; sourceTree = "<group>"; };
 		A20000018 /* PhotoService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoService.swift; sourceTree = "<group>"; };
@@ -162,14 +157,12 @@
 		A20000041 /* Spacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Spacing.swift; sourceTree = "<group>"; };
 		A20000042 /* RelativeTimeFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeTimeFormatter.swift; sourceTree = "<group>"; };
 		A20000043 /* Interactions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Interactions.swift; sourceTree = "<group>"; };
-		A20000044 /* TodayEmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayEmptyStateView.swift; sourceTree = "<group>"; };
 		A20000045 /* OnThisDayIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayIndex.swift; sourceTree = "<group>"; };
 		A20000046 /* OnThisDayCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayCard.swift; sourceTree = "<group>"; };
 		A20000047 /* OnThisDayScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayScheduler.swift; sourceTree = "<group>"; };
 		A20000048 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		A20000049 /* SampleDataSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleDataSeeder.swift; sourceTree = "<group>"; };
 		A20000050 /* CompileFooterButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompileFooterButton.swift; sourceTree = "<group>"; };
-		A20000051 /* InputBarV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputBarV2.swift; sourceTree = "<group>"; };
 		A20000052 /* AttachmentMenuPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentMenuPopover.swift; sourceTree = "<group>"; };
 		A20000053 /* InputTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputTokens.swift; sourceTree = "<group>"; };
 		A20000054 /* RecordingOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingOverlayView.swift; sourceTree = "<group>"; };
@@ -177,7 +170,6 @@
 		A20000056 /* VaultLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultLocator.swift; sourceTree = "<group>"; };
 		A20000060 /* DailySharePosterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailySharePosterView.swift; sourceTree = "<group>"; };
 		A20000061 /* PosterRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PosterRenderer.swift; sourceTree = "<group>"; };
-		A20000062 /* InputBarV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputBarV3.swift; sourceTree = "<group>"; };
 		A20000082 /* InputBarV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputBarV4.swift; sourceTree = "<group>"; };
 		A20000063 /* SwipeableMemoCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeableMemoCard.swift; sourceTree = "<group>"; };
 		A20000064 /* AttachmentMenuSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentMenuSheet.swift; sourceTree = "<group>"; };
@@ -386,15 +378,11 @@
 				A20000010 /* TodayView.swift */,
 				A20000013 /* TodayViewModel.swift */,
 				A20000014 /* MemoCardView.swift */,
-				A20000015 /* InputBarView.swift */,
 				A20000020 /* VoiceRecordingView.swift */,
 				A20000033 /* CameraPickerView.swift */,
-				A20000044 /* TodayEmptyStateView.swift */,
 				A20000046 /* OnThisDayCard.swift */,
 				A20000034 /* DocumentPickerView.swift */,
 				A20000050 /* CompileFooterButton.swift */,
-				A20000051 /* InputBarV2.swift */,
-				A20000062 /* InputBarV3.swift */,
 				A20000082 /* InputBarV4.swift */,
 				A20000052 /* AttachmentMenuPopover.swift */,
 				A20000064 /* AttachmentMenuSheet.swift */,
@@ -663,14 +651,12 @@
 				A10000035 /* GraphViewModel.swift in Sources */,
 				A10000013 /* TodayViewModel.swift in Sources */,
 				A10000014 /* MemoCardView.swift in Sources */,
-				A10000015 /* InputBarView.swift in Sources */,
 				A10000016 /* LocationService.swift in Sources */,
 				A10000017 /* WeatherService.swift in Sources */,
 				A10000018 /* PhotoService.swift in Sources */,
 				A10000019 /* VoiceService.swift in Sources */,
 				A10000020 /* VoiceRecordingView.swift in Sources */,
 				A10000033 /* CameraPickerView.swift in Sources */,
-				A10000044 /* TodayEmptyStateView.swift in Sources */,
 				A10000046 /* OnThisDayCard.swift in Sources */,
 				A10000048 /* OnboardingView.swift in Sources */,
 				A10000034 /* DocumentPickerView.swift in Sources */,
@@ -695,8 +681,6 @@
 				A10000047 /* OnThisDayScheduler.swift in Sources */,
 				A10000049 /* SampleDataSeeder.swift in Sources */,
 				A10000050 /* CompileFooterButton.swift in Sources */,
-				A10000051 /* InputBarV2.swift in Sources */,
-				A10000062 /* InputBarV3.swift in Sources */,
 				A10000082 /* InputBarV4.swift in Sources */,
 				A10000052 /* AttachmentMenuPopover.swift in Sources */,
 				A10000064 /* AttachmentMenuSheet.swift in Sources */,

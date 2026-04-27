@@ -5,16 +5,20 @@ import UIKit
 
 // MARK: - InputBarV4  "Silent Press-to-Talk"
 //
-// Design variant D: frosted-glass capsule (ultraThinMaterial) as the voice
-// primary CTA, morphing to a text editor via matchedGeometryEffect.
+// Capture v2 surface. Frosted-glass capsule (ultraThinMaterial) carrying
+// a visible mic-hero on the right; tap the capsule body to expand into a
+// text composer; long-press the mic-hero to record.
 //
 // States:
-//   collapsed  — capsule: mic icon + "Hold to talk … or tap to write ›"
-//   composing  — capsule expands to TextEditor; mic hidden
+//   collapsed  — capsule: "Hold to talk" hint + visible mic-hero on right
+//   composing  — capsule expands to TextField; + button on left, send
+//                arrow on right
 //   recording  — PressToTalk overlay; capsule stays visible
 //
-// Bottom shelf has three secondary actions: Notes, Attach (+), Camera.
-// Long-press semantics reuse PressToTalkButton / PressToTalkPhase from V2/V3.
+// No bottom shelf. Capture v2 design note 03: "Notes / Attach / Camera
+// labels — gone. Iconography under explicit text labels is a tell that
+// the icons are not legible." Attachments live behind the `+` button
+// inside the composing capsule.
 
 struct InputBarV4: View {
 
@@ -46,10 +50,28 @@ struct InputBarV4: View {
     @State private var photosPickerItem: PhotosPickerItem? = nil
     @State private var pressToTalkPhase: PressToTalkPhase = .idle
     @State private var userExpandedText: Bool = false
+    /// True while a "录音太短" hint is visible. Prevents committing a
+    /// meaningless one-frame recording while gracefully nudging the user
+    /// toward the hold gesture.
+    @State private var showTooShortToast: Bool = false
 
     @StateObject private var voiceService = VoiceService.shared
 
     @Namespace private var morphNS
+
+    /// Recording floor below which a press-and-release is treated as
+    /// accidental noise. Capture v2 boundary: respect the user's time —
+    /// a sub-second silent clip carries no meaning, drop it with a hint.
+    private static let minRecordingSeconds: Int = 1
+
+    /// True when the active recording is below the meaning threshold AND
+    /// the captured waveform is silent. Both gates so a brief but audible
+    /// "嗯" / "对" / "好" still goes through.
+    private var isRecordingTooShort: Bool {
+        let belowFloor = voiceService.elapsedSeconds < Self.minRecordingSeconds
+        let isSilent = voiceService.waveformHistory.allSatisfy { $0 < 0.05 }
+        return belowFloor && isSilent
+    }
 
     // MARK: Derived
 
@@ -103,12 +125,29 @@ struct InputBarV4: View {
             .animation(.spring(response: 0.32, dampingFraction: 0.82), value: isComposing)
             .padding(.horizontal, 16)
             .padding(.top, 10)
-            .padding(.bottom, 6)
-
-            bottomShelf
-                .padding(.bottom, 4)
+            .padding(.bottom, 12)
         }
         .background(DSColor.backgroundWarm)
+        .overlay(alignment: .top) {
+            if showTooShortToast {
+                HStack(spacing: 6) {
+                    Image(systemName: "waveform")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text("再说久一点 · 至少 1 秒")
+                        .font(.custom("Inter-Regular", size: 11))
+                }
+                .foregroundColor(DSColor.onSurface)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(DSColor.surfaceContainerHigh)
+                .clipShape(Capsule())
+                .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 2)
+                .padding(.top, -34)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                .accessibilityLabel("录音太短，请按住麦克风继续说")
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: showTooShortToast)
         .sheet(isPresented: $showAttachmentMenu) {
             AttachmentMenuPopover(
                 onCapturePhoto: { showAttachmentMenu = false; onCapturePhoto() },
@@ -127,40 +166,46 @@ struct InputBarV4: View {
     }
 
     // MARK: - Collapsed Capsule
+    //
+    // Layout: [ "Hold to talk · tap to write" pill ] [ mic-hero ]
+    // - Tap the pill body → expand to text composing mode
+    // - Long-press the mic-hero → press-to-talk recording flow
+    //
+    // The two regions are siblings, not overlaid, so the hit areas are
+    // unambiguous. Previously the press-to-talk button was an invisible
+    // overlay on the right quarter of the pill — users had no visual cue
+    // for where to press.
 
     private var collapsedCapsule: some View {
-        // Tap anywhere on capsule → expand to text mode
-        // Long-press on mic area (right side overlay) → voice recording
-        ZStack(alignment: .trailing) {
+        HStack(spacing: 8) {
             Button {
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
                     userExpandedText = true
                 }
                 isFocused = true
             } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "mic")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(DSColor.onBackgroundPrimary)
-
+                HStack(spacing: 10) {
                     Text("Hold to talk")
                         .font(.custom("SpaceGrotesk-Medium", size: 15))
                         .foregroundStyle(DSColor.onBackgroundPrimary)
 
-                    Spacer(minLength: 0)
+                    Text("·")
+                        .foregroundStyle(DSColor.onBackgroundSubtle)
 
-                    Text("or tap to write  ›")
+                    Text("tap to write")
                         .font(.custom("SpaceGrotesk-Regular", size: 13))
                         .foregroundStyle(DSColor.onBackgroundSubtle)
+
+                    Spacer(minLength: 0)
                 }
                 .padding(.horizontal, 18)
-                .padding(.vertical, 16)
+                .padding(.vertical, 14)
+                .frame(maxWidth: .infinity)
                 .background(.ultraThinMaterial, in: Capsule())
                 .overlay(Capsule().strokeBorder(DSColor.outlineVariant.opacity(0.5), lineWidth: 0.5))
             }
             .buttonStyle(.plain)
 
-            // Invisible press-to-talk overlay on the right quarter
             PressToTalkButton(
                 onTap: {},
                 onPressStart: handlePressToTalkStart,
@@ -168,12 +213,11 @@ struct InputBarV4: View {
                 onReleaseCancel: handlePressToTalkReleaseCancel,
                 onReleaseTranscribe: handlePressToTalkReleaseTranscribe,
                 onPhaseChange: { pressToTalkPhase = $0 },
-                size: 44,
-                idleBackgroundColor: .clear,
-                idleIconColor: .clear
+                size: 48,
+                idleBackgroundColor: DSColor.onBackgroundPrimary,
+                idleIconColor: .white
             )
-            .padding(.trailing, 6)
-            .allowsHitTesting(true)
+            .accessibilityLabel("按住说话")
         }
     }
 
@@ -250,43 +294,6 @@ struct InputBarV4: View {
         .disabled(isSubmitting || !hasContent)
     }
 
-    // MARK: - Bottom Shelf
-
-    private var bottomShelf: some View {
-        HStack(spacing: 0) {
-            Spacer()
-            shelfButton(icon: "doc.text", label: "Notes") { showAttachmentMenu = true }
-            Spacer()
-            shelfButton(icon: "plus", label: "Attach") { showAttachmentMenu = true }
-            Spacer()
-            PhotosPicker(selection: $photosPickerItem, matching: .images, photoLibrary: .shared()) {
-                shelfButtonLabel(icon: "camera", label: "Camera")
-            }
-            .buttonStyle(.plain)
-            Spacer()
-        }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 6)
-    }
-
-    private func shelfButton(icon: String, label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) { shelfButtonLabel(icon: icon, label: label) }
-            .buttonStyle(.plain)
-    }
-
-    private func shelfButtonLabel(icon: String, label: String) -> some View {
-        VStack(spacing: 3) {
-            Image(systemName: icon)
-                .font(.system(size: 17, weight: .regular))
-                .foregroundStyle(DSColor.onBackgroundMuted)
-            Text(label)
-                .font(.system(size: 10))
-                .foregroundStyle(DSColor.onBackgroundSubtle)
-        }
-        .frame(width: 60, height: 40)
-        .contentShape(Rectangle())
-    }
-
     // MARK: - Actions
 
     private func handleSend() {
@@ -306,6 +313,15 @@ struct InputBarV4: View {
     }
 
     private func handlePressToTalkReleaseSend() {
+        // Boundary: a sub-second silent press is almost always a mis-tap.
+        // Cancel the recording, warn-haptic, and surface the toast — don't
+        // commit a meaningless 0:00 voice memo.
+        if isRecordingTooShort {
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            voiceService.cancelRecording()
+            flashTooShortToast()
+            return
+        }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         Task {
             if let result = await voiceService.stopAndTranscribe() {
@@ -320,12 +336,33 @@ struct InputBarV4: View {
     }
 
     private func handlePressToTalkReleaseTranscribe() {
+        // Same floor as the send path — a transcribe gesture on a silent
+        // sub-second clip would burn an API call and return nothing.
+        if isRecordingTooShort {
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            voiceService.cancelRecording()
+            flashTooShortToast()
+            // Critical: the transcribe branch in PressToTalkButton.onEnded
+            // early-returns past the unconditional `.idle` reset that the
+            // send/cancel paths fall through to. Without this line the
+            // RecordingOverlayView stays mounted in `.transcribing` until
+            // the user kicks off a new gesture.
+            pressToTalkPhase = .idle
+            return
+        }
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         Task {
             if let result = await voiceService.stopAndTranscribe(),
                let t = result.transcript, !t.isEmpty {
                 onPressToTalkTranscribe(t)
             }
+        }
+    }
+
+    private func flashTooShortToast() {
+        showTooShortToast = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+            showTooShortToast = false
         }
     }
 

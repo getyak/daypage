@@ -43,8 +43,8 @@ final class VaultMigrationService: ObservableObject {
 
     // MARK: - Public migration entry point
 
-    /// Copies all files from localVault to iCloudVault preserving structure and modificationDate,
-    /// verifies integrity, then updates AppSettings. Throws on failure.
+    /// 将所有文件从 localVault 复制到 iCloudVault，保留目录结构和 modificationDate，
+    /// 验证完整性，然后更新 AppSettings。失败时抛出异常。
     func migrateToiCloud(
         localVault: URL,
         iCloudVault: URL,
@@ -56,7 +56,7 @@ final class VaultMigrationService: ObservableObject {
 
         let fm = FileManager.default
 
-        // Enumerate all files in localVault
+        // 枚举 localVault 中的所有文件
         guard let enumerator = fm.enumerator(
             at: localVault,
             includingPropertiesForKeys: [.contentModificationDateKey, .isDirectoryKey],
@@ -78,8 +78,8 @@ final class VaultMigrationService: ObservableObject {
         let localVaultPathPrefix = localVault.path.hasSuffix("/") ? localVault.path : localVault.path + "/"
 
         for (index, sourceURL) in filesToCopy.enumerated() {
-            // Use prefix-drop instead of replacingOccurrences to prevent path traversal
-            // when localVault.path appears more than once in sourceURL.path.
+            // 使用前缀删除而非 replacingOccurrences 以防止路径遍历
+            // 当 localVault.path 在 sourceURL.path 中出现多次时。
             guard sourceURL.path.hasPrefix(localVaultPathPrefix) else { continue }
             let relativePath = String(sourceURL.path.dropFirst(localVaultPathPrefix.count))
             guard !relativePath.contains("..") else { continue }
@@ -94,7 +94,7 @@ final class VaultMigrationService: ObservableObject {
                 }
                 try fm.copyItem(at: sourceURL, to: destURL)
 
-                // Preserve modification date
+                // 保留修改日期
                 if let modDate = try? sourceURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate {
                     try? fm.setAttributes([.modificationDate: modDate], ofItemAtPath: destURL.path)
                 }
@@ -114,15 +114,15 @@ final class VaultMigrationService: ObservableObject {
             progress(copied, total)
         }
 
-        // Write migration.log to iCloud
+        // 将 migration.log 写入 iCloud
         let logContent = logEntries.joined(separator: "\n")
         let logURL = iCloudVault.appendingPathComponent("migration.log")
         try? logContent.data(using: .utf8)?.write(to: logURL, options: .atomic)
 
-        // Verification step
+        // 验证步骤
         try verifyMigration(localVault: localVault, iCloudVault: iCloudVault, fm: fm)
 
-        // Success — update settings
+        // 成功 —— 更新设置
         AppSettings.shared.vaultLocation = .iCloud
         AppSettings.shared.migrationCompletedAt = Date()
     }
@@ -130,18 +130,18 @@ final class VaultMigrationService: ObservableObject {
     // MARK: - Verification
 
     func verifyMigration(localVault: URL, iCloudVault: URL, fm: FileManager) throws {
-        // Compare file counts
+        // 比较文件数量
         let localFiles = allFiles(in: localVault, fm: fm)
         let icloudFiles = allFiles(in: iCloudVault, fm: fm)
 
-        // iCloud vault may have the extra migration.log; allow +1
+        // iCloud vault 可能有额外的 migration.log；允许 +1
         if icloudFiles.count < localFiles.count {
             throw MigrationError.verificationFailed(
                 details: "文件数量不匹配：本地 \(localFiles.count)，iCloud \(icloudFiles.count)"
             )
         }
 
-        // Hash 3 largest raw/*.md files
+        // 对 3 个最大的 raw/*.md 文件进行哈希
         let rawFiles = localFiles
             .filter { $0.contains("/raw/") && $0.hasSuffix(".md") }
             .compactMap { relPath -> (String, Int)? in

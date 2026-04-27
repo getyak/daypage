@@ -1,9 +1,9 @@
 import Foundation
 
 // MARK: - Runtime Key Resolution
-// GeneratedSecrets.swift is gitignored (auto-generated from .env).
-// This file is committed and provides computed vars that prefer
-// UserDefaults keys saved during Onboarding over the compiled-in values.
+// GeneratedSecrets.swift 已被 gitignore（从 .env 自动生成）。
+// 此文件已提交，提供计算属性，优先使用
+// 引导过程中保存的 UserDefaults 密钥，而非编译时写入的值。
 extension Secrets {
     static var resolvedDeepSeekApiKey: String {
         UserDefaults.standard.string(forKey: "runtimeDeepSeekKey").flatMap { $0.isEmpty ? nil : $0 } ?? deepSeekApiKey

@@ -26,7 +26,7 @@ final class OnThisDayIndex: ObservableObject {
 
     static let shared = OnThisDayIndex()
 
-    private var index: [String: [DayRecord]] = [:]  // key: "MMDD"
+    private var index: [String: [DayRecord]] = [:]  // 键："MMDD"
     private let indexURL: URL = {
         VaultInitializer.vaultURL
             .appendingPathComponent("wiki")
@@ -44,18 +44,18 @@ final class OnThisDayIndex: ObservableObject {
 
         let currentYear = cal.component(.year, from: date)
 
-        // Prefer exactly 1 year ago
+        // 优先选择恰好 1 年前的
         if let r = records.first(where: { $0.year == currentYear - 1 }) {
             return makeEntry(record: r, currentYear: currentYear)
         }
-        // Then ~180 days (6 months, same year or prior)
+        // 其次约 180 天（6 个月，同年或前一年）
         let sixMonthsAgo = cal.date(byAdding: .day, value: -180, to: date)!
         let sixMonthYear = cal.component(.year, from: sixMonthsAgo)
         let sixMonthMMDD = mmddKey(from: sixMonthsAgo)
         if sixMonthMMDD == mmdd, let r = records.first(where: { $0.year == sixMonthYear }) {
             return makeEntry(record: r, currentYear: currentYear)
         }
-        // Then 2 years ago
+        // 其次 2 年前的
         if let r = records.first(where: { $0.year == currentYear - 2 }) {
             return makeEntry(record: r, currentYear: currentYear)
         }
@@ -73,7 +73,7 @@ final class OnThisDayIndex: ObservableObject {
     }
 
     func loadIndex() async {
-        // Try to load from disk first, then rebuild if missing
+        // 尝试先从磁盘加载，若缺失则重建
         if let loaded = loadIndexFromDisk() {
             index = loaded
         } else {
@@ -97,7 +97,7 @@ final class OnThisDayIndex: ObservableObject {
     }
 
     private func dateFromRecord(_ record: DayRecord) -> Date {
-        // filePath basename is YYYY-MM-DD.md
+        // filePath 的基础名是 YYYY-MM-DD.md
         let name = URL(fileURLWithPath: record.filePath).deletingPathExtension().lastPathComponent
         let fmt = DateFormatter()
         fmt.dateFormat = "yyyy-MM-dd"

@@ -2,8 +2,8 @@ import SwiftUI
 
 // MARK: - AttachmentMenuPopover
 //
-// Bottom-sheet style attachment picker with a 2×2 grid of large icon buttons.
-// Presented via .sheet instead of .popover so it slides up from the bottom on iPhone.
+// 底部弹出式附件选择器，采用 2×2 大图标网格布局。
+// 通过 .sheet 而非 .popover 呈现，以便在 iPhone 上从底部滑出。
 
 struct AttachmentMenuPopover: View {
 
@@ -17,7 +17,7 @@ struct AttachmentMenuPopover: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Drag handle
+            // 拖拽手柄
             RoundedRectangle(cornerRadius: 2)
                 .fill(DSColor.borderDefault)
                 .frame(width: 36, height: 4)
