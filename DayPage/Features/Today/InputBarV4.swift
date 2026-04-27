@@ -3,22 +3,30 @@ import CoreLocation
 import PhotosUI
 import UIKit
 
-// MARK: - InputBarV4  "Silent Press-to-Talk"
+// MARK: - InputBarV4  "Capture v2 · STREAM dock"
 //
-// Capture v2 surface. Frosted-glass capsule (ultraThinMaterial) carrying
-// a visible mic-hero on the right; tap the capsule body to expand into a
-// text composer; long-press the mic-hero to record.
+// Capture v2 surface, faithful to the design-handoff STREAM variation:
+// a centered, compact liquid-glass capsule with three slots —
 //
-// States:
-//   collapsed  — capsule: "Hold to talk" hint + visible mic-hero on right
-//   composing  — capsule expands to TextField; + button on left, send
-//                arrow on right
-//   recording  — PressToTalk overlay; capsule stays visible
+//   [+ more]  [ mic-hero (amber, 56×44) ]  [ ✏ pen ]
 //
-// No bottom shelf. Capture v2 design note 03: "Notes / Attach / Camera
-// labels — gone. Iconography under explicit text labels is a tell that
-// the icons are not legible." Attachments live behind the `+` button
-// inside the composing capsule.
+// + opens the attachment menu (camera / album / file / location).
+// mic-hero: tap → Flomo-style recording (separate bar);
+//           long-press (>= 0.35s) → WeChat-style press-to-talk
+//           (drag up to cancel, drag left to transcribe-into-draft,
+//            release to send).
+// pen: expands the dock into a full-width text composer above; send
+//      arrow on the right replaces the dock while composing.
+//
+// Hint line beneath the dock ("点击录音 · 长按发送") sets expectation;
+// it morphs to recording status while the gesture is active.
+//
+// Design notes from chat:
+//  - Dock is centered and compact, not edge-to-edge — "优雅美观简洁"
+//  - Glass material: ultraThin + warm border highlight + soft drop shadow
+//  - Mic-hero is the only filled control. Side buttons are translucent.
+//  - All English/Chinese helper labels above the dock have been killed
+//    in favor of the universal mic / + / pen glyphs (design note 03).
 
 struct InputBarV4: View {
 
@@ -116,18 +124,30 @@ struct InputBarV4: View {
                 locationChipRow(loc: loc)
             }
 
-            HStack(alignment: .bottom, spacing: 10) {
+            // STREAM dock layout:
+            // - composing → full-width capsule + send arrow on the right
+            // - idle      → centered three-slot dock (no send button; mic
+            //               is the hero) with a hint label below
+            Group {
                 if isComposing {
-                    composingCapsule
+                    HStack(alignment: .bottom, spacing: 10) {
+                        composingCapsule
+                        sendButton
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 10)
+                    .padding(.bottom, 12)
                 } else {
-                    collapsedCapsule
+                    VStack(spacing: 8) {
+                        streamDock
+                        dockHintLabel
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 10)
+                    .padding(.bottom, 14)
                 }
-                sendButton
             }
             .animation(.spring(response: 0.32, dampingFraction: 0.82), value: isComposing)
-            .padding(.horizontal, 16)
-            .padding(.top, 10)
-            .padding(.bottom, 12)
         }
         .background(DSColor.backgroundWarm)
         .overlay(alignment: .top) {
@@ -184,56 +204,28 @@ struct InputBarV4: View {
         }
     }
 
-    // MARK: - Collapsed Capsule
+    // MARK: - STREAM Dock (idle state)
     //
-    // Layout: [ "Hold to talk · tap to write" pill ] [ mic-hero ]
-    // - Tap the pill body → expand to text composing mode
-    // - Long-press the mic-hero → press-to-talk recording flow
+    // Centered three-slot capsule, faithful to VariationStream.jsx:
+    //   - 40pt `+` (more)        opens attachment menu
+    //   - 56×44 amber mic-hero   tap = Flomo record · long-press = WeChat send
+    //   - 40pt pen               expands to text composer
     //
-    // The two regions are siblings, not overlaid, so the hit areas are
-    // unambiguous. Previously the press-to-talk button was an invisible
-    // overlay on the right quarter of the pill — users had no visual cue
-    // for where to press.
+    // The capsule itself is wrapped in `.ultraThinMaterial` with a layered
+    // shadow stack approximating the iOS 26 Liquid Glass treatment from the
+    // design canvas (inner highlight + soft drop shadow).
 
-    private var collapsedCapsule: some View {
+    private var streamDock: some View {
         HStack(spacing: 8) {
-            Button {
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-                    userExpandedText = true
-                }
-                isFocused = true
-            } label: {
-                HStack(spacing: 10) {
-                    Text("Hold to talk")
-                        .font(.custom("SpaceGrotesk-Medium", size: 15))
-                        .foregroundStyle(DSColor.onBackgroundPrimary)
-
-                    Text("·")
-                        .foregroundStyle(DSColor.onBackgroundSubtle)
-
-                    Text("tap to write")
-                        .font(.custom("SpaceGrotesk-Regular", size: 13))
-                        .foregroundStyle(DSColor.onBackgroundSubtle)
-
-                    Spacer(minLength: 0)
-
-                    // Hint label that appears when user starts pressing (< 0.35s)
-                    if pressToTalkPhase == .preRecording {
-                        Text("再按住一下")
-                            .font(.custom("SpaceGrotesk-Medium", size: 12))
-                            .foregroundStyle(DSColor.primary)
-                            .transition(.opacity.combined(with: .move(edge: .trailing)))
-                    }
-                }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 14)
-                .frame(maxWidth: .infinity)
-                .background(.ultraThinMaterial, in: Capsule())
-                .overlay(Capsule().strokeBorder(DSColor.outlineVariant.opacity(0.5), lineWidth: 0.5))
+            // LEFT — More
+            dockSideButton(
+                systemImage: "plus",
+                accessibilityLabel: "更多附件"
+            ) {
+                showAttachmentMenu = true
             }
-            .buttonStyle(.plain)
-            .animation(.easeInOut(duration: 0.15), value: pressToTalkPhase)
 
+            // CENTER — Mic-hero (amber, slightly larger, the only filled CTA)
             PressToTalkButton(
                 onTap: {},
                 onPressStart: handlePressToTalkStart,
@@ -242,12 +234,85 @@ struct InputBarV4: View {
                 onReleaseTranscribe: handlePressToTalkReleaseTranscribe,
                 onPhaseChange: { pressToTalkPhase = $0 },
                 onTapShortRelease: flashHoldToast,
-                size: 48,
-                idleBackgroundColor: DSColor.onBackgroundPrimary,
+                size: 56,
+                idleBackgroundColor: DSColor.accentAmber,
                 idleIconColor: .white
             )
+            .frame(width: 56, height: 44)
             .accessibilityLabel("按住说话")
+
+            // RIGHT — Pen (expand text composer)
+            dockSideButton(
+                systemImage: "square.and.pencil",
+                accessibilityLabel: "写文字"
+            ) {
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                    userExpandedText = true
+                }
+                isFocused = true
+            }
         }
+        .padding(6)
+        .background(
+            Capsule(style: .continuous)
+                .fill(.ultraThinMaterial)
+        )
+        .overlay(
+            Capsule(style: .continuous)
+                .strokeBorder(Color.white.opacity(0.7), lineWidth: 0.5)
+        )
+        .shadow(color: DSColor.accentAmber.opacity(0.10), radius: 18, x: 0, y: 12)
+        .shadow(color: DSColor.accentAmber.opacity(0.06), radius: 4, x: 0, y: 2)
+        .frame(maxWidth: .infinity)
+    }
+
+    // 40pt translucent side button. Plain SF Symbol, no fill, no label.
+    @ViewBuilder
+    private func dockSideButton(
+        systemImage: String,
+        accessibilityLabel: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            action()
+        } label: {
+            Image(systemName: systemImage)
+                .font(.system(size: 17, weight: .regular))
+                .foregroundStyle(DSColor.onBackgroundPrimary)
+                .frame(width: 40, height: 40)
+                .background(
+                    Circle()
+                        .fill(Color.white.opacity(0.55))
+                )
+                .overlay(
+                    Circle()
+                        .strokeBorder(Color.white.opacity(0.7), lineWidth: 0.5)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    // Hint label below the dock — JetBrains Mono uppercase, like the design.
+    // Morphs based on press-to-talk phase so the gesture stays legible.
+    private var dockHintLabel: some View {
+        let raw: String
+        switch pressToTalkPhase {
+        case .idle:            raw = "点击录音 · 长按发送"
+        case .preRecording:    raw = "再按住一下"
+        case .recording:       raw = "上滑取消 · 左滑转文字 · 松开发送"
+        case .cancelArmed:     raw = "松开取消"
+        case .transcribeArmed: raw = "松开转文字"
+        case .transcribing:    raw = "正在转文字…"
+        }
+        return Text(raw)
+            .font(.custom("JetBrainsMono-Regular", size: 9))
+            .tracking(1.4)
+            .textCase(.uppercase)
+            .foregroundStyle(DSColor.onBackgroundSubtle)
+            .frame(height: 12)
+            .animation(.easeInOut(duration: 0.18), value: pressToTalkPhase)
     }
 
     // MARK: - Composing Capsule
@@ -274,12 +339,12 @@ struct InputBarV4: View {
             }
 
             // Multi-line text field — no system inset, aligns naturally with + button
-            TextField("Write something…", text: $text, axis: .vertical)
-                .font(.custom("SpaceGrotesk-Regular", size: 15))
+            TextField("记一笔…", text: $text, axis: .vertical)
+                .font(.custom("Inter-Regular", size: 16))
                 .foregroundStyle(DSColor.onBackgroundPrimary)
                 .focused($isFocused)
                 .lineLimit(1...5)
-                .tint(DSColor.onBackgroundPrimary)
+                .tint(DSColor.accentAmber)
 
             // Mic-back button — lets user exit composing and return to voice UI
             Button {
@@ -330,8 +395,12 @@ struct InputBarV4: View {
             }
             .frame(width: 44, height: 44)
             .background(
-                hasContent ? DSColor.onBackgroundPrimary : DSColor.onBackgroundSubtle.opacity(0.3),
+                hasContent ? DSColor.accentAmber : DSColor.accentAmber.opacity(0.18),
                 in: Circle()
+            )
+            .shadow(
+                color: hasContent ? DSColor.accentAmber.opacity(0.32) : .clear,
+                radius: 8, x: 0, y: 4
             )
             .animation(.easeInOut(duration: 0.18), value: hasContent)
         }

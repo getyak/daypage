@@ -2,10 +2,16 @@ import SwiftUI
 
 // MARK: - AttachmentMenuPopover
 //
-// Capture v2 minimal design: single-color line icons + text label list,
-// ultraThinMaterial background matching InputBarV4 capsule aesthetic.
-// Uses SF Symbols thin variants (camera, photo, paperclip, mappin) unfilled.
-// Subtle tap animation: depresses + micro-scale.
+// Capture v2 STREAM "more tray" — translated from VariationStream.jsx's
+// AttachItem grid. Four equal-weight tiles in a single row:
+//
+//   拍照 · 相册 · 位置 · 附件
+//
+// Each tile is a 56×56 rounded square in surfaceSunken with a monochrome
+// SF Symbol; below it a 12pt muted label. The whole tray sits on a small
+// rounded card with a subtle warm border — no full-height list, no big
+// dividers, no drag handle clutter. Matches the design's "elegant,
+// uncluttered" brief from chat round 4 ("没有必要占满啊，优雅美观简洁就可以").
 
 struct AttachmentMenuPopover: View {
 
@@ -19,73 +25,81 @@ struct AttachmentMenuPopover: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Drag handle
-            RoundedRectangle(cornerRadius: 2)
+            // Slim drag handle (Apple-style; sheet still draggable)
+            Capsule()
                 .fill(DSColor.borderDefault)
                 .frame(width: 36, height: 4)
-                .padding(.top, 10)
-                .padding(.bottom, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 22)
 
-            VStack(spacing: 0) {
-                attachmentRow(icon: "camera", label: "拍照", action: onCapturePhoto)
-                Divider().padding(.leading, 48).foregroundColor(DSColor.borderSubtle)
-                attachmentRow(icon: "photo", label: "从相册选", action: onPickPhoto)
-                Divider().padding(.leading, 48).foregroundColor(DSColor.borderSubtle)
-                attachmentRow(icon: "paperclip", label: "附件", action: onAddFile)
-                Divider().padding(.leading, 48).foregroundColor(DSColor.borderSubtle)
-                attachmentRow(
-                    icon: "mappin",
-                    label: hasPendingLocation ? "更新位置" : "位置",
-                    isLoading: isLocating,
-                    action: onAddLocation
-                )
+            // 4-up tile row, evenly distributed
+            HStack(spacing: 0) {
+                tile(icon: "camera",     label: "拍照",
+                     action: onCapturePhoto)
+                tile(icon: "photo.on.rectangle", label: "相册",
+                     action: onPickPhoto)
+                tile(icon: hasPendingLocation ? "mappin.circle.fill" : "mappin",
+                     label: hasPendingLocation ? "更新位置" : "位置",
+                     isLoading: isLocating,
+                     action: onAddLocation)
+                tile(icon: "paperclip",  label: "附件",
+                     action: onAddFile)
             }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity)
             .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
                     .fill(.ultraThinMaterial)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(DSColor.borderSubtle, lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.6), lineWidth: 0.5)
             )
+            .shadow(color: DSColor.accentAmber.opacity(0.08), radius: 16, x: 0, y: 8)
             .padding(.horizontal, 16)
-            .padding(.bottom, 28)
+
+            Spacer(minLength: 28)
         }
         .frame(maxWidth: .infinity)
         .background(DSColor.backgroundWarm)
-        .presentationDetents([.height(280)])
+        .presentationDetents([.height(220)])
         .presentationDragIndicator(.hidden)
         .modifier(AttachmentSheetPresentation())
     }
 
-    // MARK: - Attachment Row
+    // MARK: - Tile (icon square + label)
 
     @ViewBuilder
-    private func attachmentRow(icon: String, label: String, isLoading: Bool = false, action: @escaping () -> Void) -> some View {
+    private func tile(
+        icon: String,
+        label: String,
+        isLoading: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
-            HStack(spacing: 14) {
+            VStack(spacing: 8) {
                 ZStack {
-                    // Monochrome unfilled line icon
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(DSColor.surfaceSunken)
+                        .frame(width: 56, height: 56)
                     if isLoading {
                         ProgressView()
                             .tint(DSColor.onBackgroundMuted)
-                            .scaleEffect(0.85)
+                            .scaleEffect(0.9)
                     } else {
                         Image(systemName: icon)
-                            .font(.system(size: 18, weight: .regular))
+                            .font(.system(size: 22, weight: .regular))
                             .foregroundStyle(DSColor.onBackgroundMuted)
                     }
                 }
-                .frame(width: 28, height: 28)
 
                 Text(label)
-                    .font(.custom("Inter-Regular", size: 15))
-                    .foregroundStyle(DSColor.onBackgroundPrimary)
-
-                Spacer()
+                    .font(.custom("Inter-Regular", size: 12))
+                    .foregroundStyle(DSColor.onBackgroundMuted)
+                    .lineLimit(1)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
         }
         .buttonStyle(AttachmentRowButtonStyle())
