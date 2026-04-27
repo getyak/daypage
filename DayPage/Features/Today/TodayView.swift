@@ -128,13 +128,6 @@ struct TodayView: View {
                     Divider()
                         .background(DSColor.outline)
 
-                    // MARK: API Key Missing Banner
-                    if viewModel.hasApiKeysMissing {
-                        ApiKeyMissingBanner {
-                            showSettings = true
-                        }
-                    }
-
                     // MARK: Compilation Failed Banner
                     if let failureMsg = viewModel.compilationFailedError {
                         CompilationFailedBanner(message: failureMsg) {
@@ -211,16 +204,11 @@ struct TodayView: View {
                                 // Memo cards (reverse-chronological)
                                 if viewModel.memos.isEmpty && !viewModel.isLoading {
                                     if inputBarVariant == "v3" {
-                                        // Voice-first: delegate empty-state to the big mic below.
-                                        // Only render a quiet hint line here so the canvas stays spare.
-                                        VStack {
-                                            Spacer(minLength: 48)
-                                            Text("按住下方麦克风说一句")
-                                                .font(.custom("Inter-Regular", size: 13))
-                                                .foregroundColor(DSColor.onSurfaceVariant)
-                                            Spacer(minLength: 24)
-                                        }
-                                        .frame(maxWidth: .infinity)
+                                        // Capture v2 design note 01: a blank
+                                        // page is the product, not a problem
+                                        // to solve. The dock below already
+                                        // carries every cue the user needs.
+                                        Color.clear.frame(height: 1)
                                     } else {
                                         TodayEmptyStateView { suggestion in
                                             draftText = suggestion
@@ -638,33 +626,6 @@ struct TodayView: View {
 private struct OnThisDayNavTarget: Identifiable {
     let dateString: String
     var id: String { dateString }
-}
-
-// MARK: - ApiKeyMissingBanner
-
-/// Yellow banner shown when one or more API keys are not configured.
-struct ApiKeyMissingBanner: View {
-    let onGoToSettings: () -> Void
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundColor(DSColor.warning)
-                .font(.system(size: 14))
-            Text("部分功能需要配置 API Key")
-                .font(.custom("Inter-Regular", size: 13))
-                .foregroundColor(DSColor.onWarningContainer)
-            Spacer()
-            Button("前往设置") {
-                onGoToSettings()
-            }
-            .font(.custom("Inter-Medium", size: 13))
-            .foregroundColor(DSColor.warning)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(DSColor.warningContainer)
-    }
 }
 
 // MARK: - CompilationFailedBanner

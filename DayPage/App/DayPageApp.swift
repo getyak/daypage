@@ -92,8 +92,6 @@ struct DayPageApp: App {
                     BackgroundCompilationService.shared.backfillIfNeeded()
                     // 如果已授权"始终"权限，启动被动访问监控
                     PassiveLocationService.shared.startMonitoringIfAuthorized()
-                    // API 密钥健康检查
-                    checkApiKeys()
                     // 加载"历史上的今天"索引
                     Task { await OnThisDayIndex.shared.loadIndex() }
                     // 在首次启动且完成引导后填充示例数据
@@ -104,19 +102,4 @@ struct DayPageApp: App {
         }
     }
 
-    private func checkApiKeys() {
-        var missing: [String] = []
-        if Secrets.resolvedDeepSeekApiKey.isEmpty { missing.append("DeepSeek (AI 编译)") }
-        if Secrets.resolvedOpenAIWhisperApiKey.isEmpty { missing.append("OpenAI Whisper (语音转写)") }
-        if Secrets.resolvedOpenWeatherApiKey.isEmpty { missing.append("OpenWeather (天气)") }
-        guard !missing.isEmpty else { return }
-        let subtitle = missing.joined(separator: "、")
-        BannerCenter.shared.show(AppBannerModel(
-            kind: .info,
-            title: "\(missing.count) 个功能未配置",
-            subtitle: subtitle,
-            primaryAction: BannerAction(label: "前往设置") { },
-            autoDismiss: false
-        ))
-    }
 }
