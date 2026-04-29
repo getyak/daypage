@@ -65,15 +65,25 @@ final class WeatherService {
         let apiKey = Secrets.resolvedOpenWeatherApiKey
         guard !apiKey.isEmpty else { return nil }
 
-        let urlString = "https://api.openweathermap.org/data/2.5/weather?lat=\(lat)&lon=\(lng)&units=metric&lang=zh_cn&appid=\(apiKey)"
-        guard let url = URL(string: urlString) else { return nil }
+        // URLComponents avoids string-interpolating the API key and handles percent-encoding.
+        var components = URLComponents(string: "https://api.openweathermap.org/data/2.5/weather")!
+        components.queryItems = [
+            URLQueryItem(name: "lat",   value: String(lat)),
+            URLQueryItem(name: "lon",   value: String(lng)),
+            URLQueryItem(name: "units", value: "metric"),
+            URLQueryItem(name: "lang",  value: "zh_cn"),
+            URLQueryItem(name: "appid", value: apiKey),
+        ]
+        guard let url = components.url else { return nil }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 10  // weather is non-critical; don't stall memo saves
 
         let span = Secrets.sentryDSN.isEmpty ? nil
             : SentrySDK.startTransaction(name: "weather.fetch", operation: "http.client")
         defer { span?.finish() }
 
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
+            let (data, response) = try await URLSession.shared.data(for: request)
             guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
                 return nil
             }
