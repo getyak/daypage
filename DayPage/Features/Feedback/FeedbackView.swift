@@ -125,7 +125,8 @@ struct FeedbackView: View {
                 Image(systemName: vm.isRecording ? "waveform" : "mic")
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(vm.isRecording ? Color.red : DSColor.onBackgroundMuted)
-                    .symbolEffect(.variableColor.iterative, isActive: vm.isRecording)
+                    .opacity(vm.isRecording ? 1.0 : 0.7)
+                    .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: vm.isRecording)
             }
         }
         .buttonStyle(.plain)
