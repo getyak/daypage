@@ -62,7 +62,7 @@ struct InputBarV4: View {
     /// toward the hold gesture.
     @State private var showTooShortToast: Bool = false
     @State private var tooShortToastTask: Task<Void, Never>?
-    /// True while the mic-tap affordance hint is visible ("按住发送 · 单击录音").
+    /// True while the mic-tap affordance hint is visible ("单击打开录音页 · 长按发送语音").
     /// Shown on every short tap so users discover both interaction modes.
     @State private var showMicHintToast: Bool = false
     @State private var micHintToastTask: Task<Void, Never>?
@@ -164,11 +164,12 @@ struct InputBarV4: View {
                 .padding(.top, -34)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                 .accessibilityLabel("录音太短，请按住麦克风继续说")
+                .accessibilityHidden(!showTooShortToast)
             } else if showMicHintToast {
                 HStack(spacing: 6) {
                     Image(systemName: "hand.tap")
                         .font(.system(size: 11, weight: .semibold))
-                    Text("按住发送 · 单击录音")
+                    Text("单击打开录音页 · 长按发送语音")
                         .font(.custom("Inter-Regular", size: 11))
                 }
                 .foregroundColor(DSColor.onSurface)
@@ -180,10 +181,10 @@ struct InputBarV4: View {
                 .padding(.top, -34)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                 .accessibilityLabel("单击打开录音页，长按发送语音")
+                .accessibilityHidden(!showMicHintToast)
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: showTooShortToast)
-        .animation(.easeInOut(duration: 0.2), value: showMicHintToast)
+        .animation(.easeInOut(duration: 0.2), value: showTooShortToast || showMicHintToast)
         .sheet(isPresented: $showAttachmentMenu) {
             AttachmentMenuPopover(
                 onCapturePhoto: { showAttachmentMenu = false; onCapturePhoto() },
@@ -304,7 +305,7 @@ struct InputBarV4: View {
     private var dockHintLabel: some View {
         let raw: String
         switch pressToTalkPhase {
-        case .idle:            raw = "点击进入录音 · 长按发送"
+        case .idle:            raw = "单击打开录音页 · 长按发送语音"
         case .preRecording:    raw = "再按住一下"
         case .recording:       raw = "上滑取消 · 左滑转文字 · 松开发送"
         case .cancelArmed:     raw = "松开取消"
