@@ -14,10 +14,14 @@ protocol VaultLocator {
 /// Default implementation: stores vault under the app's local Documents directory.
 /// Behavior is identical to the previous hard-coded VaultInitializer.vaultURL.
 struct LocalVaultLocator: VaultLocator {
-    var vaultURL: URL {
+    // FileManager.urls(for:) is safe to call repeatedly but allocates on every
+    // call. Cache the result once at the static level — the Documents path never
+    // changes within a process lifetime.
+    private static let _localDocuments: URL =
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("vault", isDirectory: true)
-    }
+
+    var vaultURL: URL { Self._localDocuments }
 
     var isUsingiCloud: Bool { false }
 }
