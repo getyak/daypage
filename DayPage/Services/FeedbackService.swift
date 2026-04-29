@@ -96,7 +96,9 @@ final class FeedbackService {
         guard let baseURL = repoURL(owner: owner, repo: repo, path: "labels") else {
             throw FeedbackError.networkError("Invalid repo URL")
         }
-        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+        guard var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false) else {
+            throw FeedbackError.networkError("Invalid repo URL")
+        }
         components.queryItems = [URLQueryItem(name: "per_page", value: "100")]
         guard let url = components.url else {
             throw FeedbackError.networkError("Invalid repo URL")
