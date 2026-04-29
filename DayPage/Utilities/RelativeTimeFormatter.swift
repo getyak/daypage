@@ -31,7 +31,6 @@ enum RelativeTimeFormatter {
         let f = DateFormatter()
         f.dateFormat = "HH:mm"
         f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
         return f
     }()
 
@@ -39,7 +38,6 @@ enum RelativeTimeFormatter {
         let f = DateFormatter()
         f.dateFormat = "MMM d"
         f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
         return f
     }()
 
@@ -47,7 +45,6 @@ enum RelativeTimeFormatter {
         let f = DateFormatter()
         f.dateFormat = "MMM d, yyyy"
         f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
         return f
     }()
 
