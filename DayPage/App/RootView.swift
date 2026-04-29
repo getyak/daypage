@@ -5,8 +5,8 @@ struct RootView: View {
     @EnvironmentObject private var nav: AppNavigationModel
     @StateObject private var bannerCenter = BannerCenter.shared
     @ObservedObject private var appSettings = AppSettings.shared
-    @State private var hasOnboarded: Bool = UserDefaults.standard.bool(forKey: "hasOnboarded")
-    @State private var authSkipped: Bool = UserDefaults.standard.bool(forKey: "authSkipped")
+    @State private var hasOnboarded: Bool = UserDefaults.standard.bool(forKey: AppSettings.Keys.hasOnboarded)
+    @State private var authSkipped: Bool = UserDefaults.standard.bool(forKey: AppSettings.Keys.authSkipped)
 
     private let sidebarWidth: CGFloat = 280
 
@@ -29,10 +29,10 @@ struct RootView: View {
                 mainContent
                     .fullScreenCover(isPresented: Binding(
                         get: { showAuth },
-                        set: { if !$0 { authSkipped = UserDefaults.standard.bool(forKey: "authSkipped") } }
+                        set: { if !$0 { authSkipped = UserDefaults.standard.bool(forKey: AppSettings.Keys.authSkipped) } }
                     )) {
                         AuthView(onSkip: {
-                            UserDefaults.standard.set(true, forKey: "authSkipped")
+                            UserDefaults.standard.set(true, forKey: AppSettings.Keys.authSkipped)
                             authSkipped = true
                         })
                     }

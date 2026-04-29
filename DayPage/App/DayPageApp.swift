@@ -99,7 +99,7 @@ struct DayPageApp: App {
                     // 加载"历史上的今天"索引
                     Task { await OnThisDayIndex.shared.loadIndex() }
                     // 在首次启动且完成引导后填充示例数据
-                    if UserDefaults.standard.bool(forKey: "hasOnboarded") {
+                    if UserDefaults.standard.bool(forKey: AppSettings.Keys.hasOnboarded) {
                         SampleDataSeeder.seedIfNeeded()
                     }
                 }

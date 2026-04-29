@@ -394,10 +394,10 @@ struct TodayView: View {
     // MARK: - Sync Banner Logic
 
     private func evaluateSyncBanner() {
-        let saveCount = UserDefaults.standard.integer(forKey: "memoSaveCount")
-        let authSkipped = UserDefaults.standard.bool(forKey: "authSkipped")
+        let saveCount = UserDefaults.standard.integer(forKey: AppSettings.Keys.memoSaveCount)
+        let authSkipped = UserDefaults.standard.bool(forKey: AppSettings.Keys.authSkipped)
         guard saveCount >= 3, authService.session == nil, authSkipped else { return }
-        let lastShown = UserDefaults.standard.object(forKey: "lastSyncBannerDate") as? Date
+        let lastShown = UserDefaults.standard.object(forKey: AppSettings.Keys.lastSyncBannerDate) as? Date
         let sevenDays: TimeInterval = 7 * 24 * 3600
         if let last = lastShown, Date().timeIntervalSince(last) < sevenDays { return }
         showSyncBanner = true
@@ -415,7 +415,7 @@ struct TodayView: View {
                     .onEnded { value in
                         if value.translation.height < -10 {
                             withAnimation { showSyncBanner = false }
-                            UserDefaults.standard.set(Date(), forKey: "lastSyncBannerDate")
+                            UserDefaults.standard.set(Date(), forKey: AppSettings.Keys.lastSyncBannerDate)
                         }
                     }
             )

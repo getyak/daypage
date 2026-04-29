@@ -10,7 +10,7 @@ final class OnThisDayScheduler: ObservableObject {
 
     private let nextFireKey = "onThisDayNextFireAt"
     private let refreshHourKey = "onThisDayRefreshHour"
-    private let dismissedDateKey = "onThisDayDismissedDate"
+    private let dismissedDateKey = AppSettings.Keys.onThisDayDismissed
     private let enabledKey = "onThisDayEnabled"
 
     var refreshHour: Int {

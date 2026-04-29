@@ -195,7 +195,7 @@ struct AccountSheet: View {
         Button(role: .destructive) {
             Task {
                 try? await authService.signOut()
-                UserDefaults.standard.set(false, forKey: "authSkipped")
+                UserDefaults.standard.set(false, forKey: AppSettings.Keys.authSkipped)
                 dismiss()
             }
         } label: {
