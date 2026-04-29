@@ -26,22 +26,25 @@ final class WatchReceiveService: NSObject, ObservableObject {
 
 extension WatchReceiveService: WCSessionDelegate {
 
-    func session(_ session: WCSession,
-                 activationDidCompleteWith activationState: WCSessionActivationState,
-                 error: Error?) {
+    // WCSessionDelegate callbacks arrive on an arbitrary background thread.
+    // Mark each method nonisolated and hop back to MainActor only for @Published mutations.
+
+    nonisolated func session(_ session: WCSession,
+                             activationDidCompleteWith activationState: WCSessionActivationState,
+                             error: Error?) {
         if let error {
             print("[WatchReceiveService] activation error: \(error.localizedDescription)")
         }
     }
 
-    func sessionDidBecomeInactive(_ session: WCSession) {}
+    nonisolated func sessionDidBecomeInactive(_ session: WCSession) {}
 
-    func sessionDidDeactivate(_ session: WCSession) {
+    nonisolated func sessionDidDeactivate(_ session: WCSession) {
         WCSession.default.activate()
     }
 
     /// Called when the iPhone receives a file transfer from the Watch.
-    func session(_ session: WCSession, didReceive file: WCSessionFile) {
+    nonisolated func session(_ session: WCSession, didReceive file: WCSessionFile) {
         let sourceURL = file.fileURL
         let metadata = file.metadata ?? [:]
 
@@ -63,21 +66,20 @@ extension WatchReceiveService: WCSessionDelegate {
             try FileManager.default.createDirectory(at: assetsURL,
                                                     withIntermediateDirectories: true)
             let destURL = assetsURL.appendingPathComponent("watch_\(filename)")
-            // Remove any existing file at destination
             if FileManager.default.fileExists(atPath: destURL.path) {
                 try FileManager.default.removeItem(at: destURL)
             }
             try FileManager.default.moveItem(at: sourceURL, to: destURL)
 
-            print("[WatchReceiveService] Saved watch audio to: \(destURL.path)")
+            print("[WatchReceiveService] Saved watch audio to: \(destURL.lastPathComponent)")
 
             Task { @MainActor in
-                lastReceivedFile = destURL
+                self.lastReceivedFile = destURL
             }
         } catch {
             print("[WatchReceiveService] Failed to move file: \(error.localizedDescription)")
             Task { @MainActor in
-                lastError = error.localizedDescription
+                self.lastError = error.localizedDescription
             }
         }
     }
