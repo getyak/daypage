@@ -129,7 +129,7 @@ final class RawStorageTests: XCTestCase {
     func testParse_ignoresEmptyBlocks() {
         let content = "\n\n---\n\n" + validMemoBlock() + "\n\n---\n\n"
         let memos = RawStorage.parse(fileContent: content)
-        XCTAssertEqual(memos.count, 1, "parse must ignore empty separator-only blocks")
+        XCTAssertEqual(memos.count, 1, "Empty separator blocks must not produce Memo objects")
     }
 
     func testParse_singleBlock_returnsSingleMemo() {
