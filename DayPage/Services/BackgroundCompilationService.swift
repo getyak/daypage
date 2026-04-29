@@ -69,10 +69,10 @@ final class BackgroundCompilationService {
                 // 已经调度 — 没问题
                 break
             default:
-                print("[BGCompile] Schedule error: \(error.localizedDescription)")
+                DayPageLogger.shared.error("[BGCompile] Schedule error: \(error.localizedDescription)")
             }
         } catch {
-            print("[BGCompile] Schedule error: \(error.localizedDescription)")
+            DayPageLogger.shared.error("[BGCompile] Schedule error: \(error.localizedDescription)")
         }
     }
 
@@ -91,7 +91,7 @@ final class BackgroundCompilationService {
                 try await compileWithRetry(for: yesterday, trigger: "backfill")
                 sendSuccessNotification(for: yesterday)
             } catch {
-                print("[BGCompile] Backfill failed after retries: \(error.localizedDescription)")
+                DayPageLogger.shared.error("[BGCompile] Backfill failed after retries: \(error.localizedDescription)")
                 sendFailureNotification()
             }
         }
@@ -127,7 +127,7 @@ final class BackgroundCompilationService {
                 sendSuccessNotification(for: yesterday)
                 task.setTaskCompleted(success: true)
             } catch {
-                print("[BGCompile] Background compile failed after retries: \(error.localizedDescription)")
+                DayPageLogger.shared.error("[BGCompile] Background compile failed after retries: \(error.localizedDescription)")
                 transaction?.finish(status: .internalError)
                 if !Secrets.sentryDSN.isEmpty { SentrySDK.flush(timeout: 5) }
                 sendFailureNotification()
@@ -152,7 +152,7 @@ final class BackgroundCompilationService {
                 return
             } catch {
                 lastError = error
-                print("[BGCompile] Attempt \(attempt + 1) failed: \(error.localizedDescription)")
+                DayPageLogger.shared.warn("[BGCompile] Attempt \(attempt + 1) failed: \(error.localizedDescription)")
             }
         }
         throw lastError!
@@ -197,7 +197,7 @@ final class BackgroundCompilationService {
 
         center.add(request) { error in
             if let error {
-                print("[BGCompile] Notification error: \(error.localizedDescription)")
+                DayPageLogger.shared.error("[BGCompile] Notification error: \(error.localizedDescription)")
             }
         }
     }
@@ -220,7 +220,7 @@ final class BackgroundCompilationService {
 
         center.add(request) { error in
             if let error {
-                print("[BGCompile] Failure notification error: \(error.localizedDescription)")
+                DayPageLogger.shared.error("[BGCompile] Failure notification error: \(error.localizedDescription)")
             }
         }
     }

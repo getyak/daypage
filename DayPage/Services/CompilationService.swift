@@ -383,18 +383,14 @@ final class CompilationService {
         let (data, response) = try await URLSession.shared.data(for: request)
 
         guard let http = response as? HTTPURLResponse else {
-            #if DEBUG
-            print("[DeepSeek] URL=\(url.absoluteString) status=- body=No HTTP response")
-            #endif
+            DayPageLogger.shared.error("[DeepSeek] status=- body=No HTTP response")
             throw CompilationError.networkError("No HTTP response")
         }
 
         guard http.statusCode == 200 else {
             let bodyStr = String(data: data, encoding: .utf8) ?? "(empty)"
-            #if DEBUG
             let snippet = String(bodyStr.prefix(500))
-            print("[DeepSeek] URL=\(url.absoluteString) status=\(http.statusCode) body=\(snippet)")
-            #endif
+            DayPageLogger.shared.error("[DeepSeek] status=\(http.statusCode) body=\(snippet)")
             throw CompilationError.apiError(statusCode: http.statusCode, body: bodyStr)
         }
 
