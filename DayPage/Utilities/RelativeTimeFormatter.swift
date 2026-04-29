@@ -25,29 +25,43 @@ enum RelativeTimeFormatter {
         return longDateString(date)
     }
 
-    // MARK: - Private helpers
+    // MARK: - Private formatters (shared; DateFormatter is thread-safe after init)
 
-    private static func timeString(_ date: Date) -> String {
+    private static let hhmmFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "HH:mm"
         f.locale = Locale(identifier: "en_US_POSIX")
         f.timeZone = TimeZone.current
-        return f.string(from: date)
-    }
+        return f
+    }()
 
-    private static func monthDayString(_ date: Date) -> String {
+    private static let monthDayFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "MMM d"
         f.locale = Locale(identifier: "en_US_POSIX")
         f.timeZone = TimeZone.current
-        return f.string(from: date).uppercased()
-    }
+        return f
+    }()
 
-    private static func longDateString(_ date: Date) -> String {
+    private static let longDateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "MMM d, yyyy"
         f.locale = Locale(identifier: "en_US_POSIX")
         f.timeZone = TimeZone.current
-        return f.string(from: date).uppercased()
+        return f
+    }()
+
+    // MARK: - Private helpers
+
+    private static func timeString(_ date: Date) -> String {
+        hhmmFormatter.string(from: date)
+    }
+
+    private static func monthDayString(_ date: Date) -> String {
+        monthDayFormatter.string(from: date).uppercased()
+    }
+
+    private static func longDateString(_ date: Date) -> String {
+        longDateFormatter.string(from: date).uppercased()
     }
 }
