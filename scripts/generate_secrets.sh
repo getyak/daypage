@@ -47,6 +47,7 @@ OPENWEATHER_API_KEY=$(read_env_value "OPENWEATHER_API_KEY")
 SUPABASE_URL=$(read_env_value "SUPABASE_URL")
 SUPABASE_ANON_KEY=$(read_env_value "SUPABASE_ANON_KEY")
 SENTRY_DSN=$(read_env_value "SENTRY_DSN")
+KUBOT_GITHUB_TOKEN=$(read_env_value "KUBOT_GITHUB_TOKEN")
 
 # ── Emit Swift file ──────────────────────────────────────────────────────────
 mkdir -p "$(dirname "${OUTPUT_FILE}")"
@@ -65,6 +66,7 @@ enum Secrets {
     static let supabaseURL: String = "${SUPABASE_URL}"
     static let supabaseAnonKey: String = "${SUPABASE_ANON_KEY}"
     static let sentryDSN: String = "${SENTRY_DSN}"
+    static let kubotGitHubToken: String = "${KUBOT_GITHUB_TOKEN}"
 }
 SWIFT
 

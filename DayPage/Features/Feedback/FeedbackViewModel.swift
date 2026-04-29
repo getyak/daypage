@@ -1,4 +1,6 @@
 import Foundation
+import Speech
+import AVFoundation
 
 // MARK: - FeedbackStatus
 
@@ -9,6 +11,17 @@ enum FeedbackStatus: Equatable {
     case submitting
     case submitted(issueURL: String)
     case error(String)
+}
+
+// MARK: - SubmittedIssue
+
+struct SubmittedIssue: Codable, Identifiable {
+    let number: Int
+    let url: String
+    let title: String
+    let date: Date
+
+    var id: Int { number }
 }
 
 // MARK: - FeedbackViewModel
@@ -23,25 +36,18 @@ final class FeedbackViewModel: ObservableObject {
     @Published var aiBody: String = ""
     @Published var aiLabels: [String] = []
     @Published var status: FeedbackStatus = .idle
+    @Published var submittedIssues: [SubmittedIssue] = []
+    @Published var isRecording = false
+    @Published var showMicPermissionAlert = false
 
-    // MARK: - Repo Config (UserDefaults)
+    private let submittedIssuesKey = "submittedIssues"
 
-    var repoOwner: String {
-        get { UserDefaults.standard.string(forKey: AppSettings.Keys.githubRepoOwner) ?? "cubxxw" }
-        set { UserDefaults.standard.set(newValue, forKey: AppSettings.Keys.githubRepoOwner) }
-    }
+    // MARK: - Voice
 
-    var repoName: String {
-        get { UserDefaults.standard.string(forKey: AppSettings.Keys.githubRepoName) ?? "daypage" }
-        set { UserDefaults.standard.set(newValue, forKey: AppSettings.Keys.githubRepoName) }
-    }
-
-    // MARK: - Token (Keychain)
-
-    var githubToken: String {
-        get { KeychainHelper.get(forKey: "githubToken") ?? "" }
-        set { KeychainHelper.set(newValue, forKey: "githubToken") }
-    }
+    private var audioEngine = AVAudioEngine()
+    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    private var recognitionTask: SFSpeechRecognitionTask?
+    private let speechRecognizer = SFSpeechRecognizer(locale: Locale.current)
 
     // MARK: - Computed
 
@@ -58,6 +64,12 @@ final class FeedbackViewModel: ObservableObject {
     var errorMessage: String? {
         if case .error(let msg) = status { return msg }
         return nil
+    }
+
+    // MARK: - Init
+
+    init() {
+        loadSubmittedIssues()
     }
 
     // MARK: - AI Summarize
@@ -90,15 +102,6 @@ final class FeedbackViewModel: ObservableObject {
     // MARK: - Submit to GitHub
 
     func submitToGitHub() async {
-        let token = githubToken
-        guard !token.isEmpty else {
-            status = .error("GitHub token is not set. Add it below.")
-            return
-        }
-        guard !repoOwner.isEmpty, !repoName.isEmpty else {
-            status = .error("GitHub repo owner and name must be set.")
-            return
-        }
         guard !aiTitle.isEmpty else {
             status = .error("Issue title is empty. Run AI Summarize first.")
             return
@@ -107,18 +110,114 @@ final class FeedbackViewModel: ObservableObject {
         status = .submitting
 
         do {
-            let issue = try await FeedbackService.shared.createIssue(
+            let issue = try await FeedbackService.shared.createIssueViaBot(
                 title: aiTitle,
                 body: aiBody,
-                labels: aiLabels,
-                token: token,
-                owner: repoOwner,
-                repo: repoName
+                labels: aiLabels
             )
+            let submitted = SubmittedIssue(
+                number: issue.number,
+                url: issue.htmlURL,
+                title: aiTitle,
+                date: Date()
+            )
+            submittedIssues.insert(submitted, at: 0)
+            persistSubmittedIssues()
             status = .submitted(issueURL: issue.htmlURL)
         } catch {
             status = .error(error.localizedDescription)
         }
+    }
+
+    // MARK: - Voice Transcription
+
+    func transcribeVoice() {
+        if isRecording {
+            stopRecording()
+        } else {
+            SFSpeechRecognizer.requestAuthorization { [weak self] authStatus in
+                DispatchQueue.main.async {
+                    switch authStatus {
+                    case .authorized:
+                        self?.startRecording()
+                    case .denied, .restricted, .notDetermined:
+                        self?.showMicPermissionAlert = true
+                    @unknown default:
+                        self?.showMicPermissionAlert = true
+                    }
+                }
+            }
+        }
+    }
+
+    private func startRecording() {
+        recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
+        guard let recognitionRequest else { return }
+        recognitionRequest.shouldReportPartialResults = true
+
+        let audioSession = AVAudioSession.sharedInstance()
+        do {
+            try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
+            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+        } catch {
+            status = .error("Audio session error: \(error.localizedDescription)")
+            return
+        }
+
+        let inputNode = audioEngine.inputNode
+        let recordingFormat = inputNode.outputFormat(forBus: 0)
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
+            recognitionRequest.append(buffer)
+        }
+
+        audioEngine.prepare()
+        do {
+            try audioEngine.start()
+        } catch {
+            status = .error("Audio engine error: \(error.localizedDescription)")
+            return
+        }
+
+        recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
+            guard let self else { return }
+            if let result {
+                Task { @MainActor in
+                    self.rawFeedback = result.bestTranscription.formattedString
+                }
+            }
+            if error != nil || (result?.isFinal == true) {
+                Task { @MainActor in
+                    self.stopRecording()
+                }
+            }
+        }
+
+        isRecording = true
+    }
+
+    private func stopRecording() {
+        audioEngine.stop()
+        audioEngine.inputNode.removeTap(onBus: 0)
+        recognitionRequest?.endAudio()
+        recognitionRequest = nil
+        recognitionTask?.cancel()
+        recognitionTask = nil
+        isRecording = false
+
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+
+    // MARK: - Submitted Issues Persistence
+
+    func loadSubmittedIssues() {
+        guard let data = UserDefaults.standard.data(forKey: submittedIssuesKey),
+              let issues = try? JSONDecoder().decode([SubmittedIssue].self, from: data) else { return }
+        submittedIssues = issues
+    }
+
+    private func persistSubmittedIssues() {
+        guard let data = try? JSONEncoder().encode(submittedIssues) else { return }
+        UserDefaults.standard.set(data, forKey: submittedIssuesKey)
     }
 
     // MARK: - Reset

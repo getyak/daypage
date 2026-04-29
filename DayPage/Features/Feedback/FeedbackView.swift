@@ -5,7 +5,6 @@ import SwiftUI
 struct FeedbackView: View {
 
     @StateObject private var vm = FeedbackViewModel()
-    @State private var showConfig = false
 
     var body: some View {
         ZStack {
@@ -25,17 +24,30 @@ struct FeedbackView: View {
                         if vm.isReady || vm.isSubmitting || vm.isIdle && !vm.aiTitle.isEmpty {
                             previewSection
                         }
-                        configSection
                     }
 
                     if let err = vm.errorMessage {
                         errorBanner(message: err)
                     }
 
+                    if !vm.submittedIssues.isEmpty {
+                        submittedIssuesSection
+                    }
+
                     Spacer(minLength: 40)
                 }
                 .padding(.horizontal, 20)
             }
+        }
+        .alert("Microphone Permission Required", isPresented: $vm.showMicPermissionAlert) {
+            Button("Cancel", role: .cancel) {}
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+        } message: {
+            Text("Please enable microphone and speech recognition access in Settings to use voice input.")
         }
     }
 
@@ -46,7 +58,7 @@ struct FeedbackView: View {
             Text("Feedback")
                 .font(.custom("SpaceGrotesk-Bold", size: 22))
                 .foregroundColor(DSColor.onBackgroundPrimary)
-            Text("Write feedback → AI summarizes → create GitHub issue")
+            Text("Describe → AI summarizes → direct to GitHub")
                 .font(.custom("Inter-Regular", size: 13))
                 .foregroundColor(DSColor.onBackgroundSubtle)
         }
@@ -87,11 +99,46 @@ struct FeedbackView: View {
             .frame(minHeight: 140)
 
             HStack {
+                micButton
                 Spacer()
                 summarizeButton
             }
         }
         .padding(.bottom, 24)
+    }
+
+    private var micButton: some View {
+        Button {
+            vm.transcribeVoice()
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(vm.isRecording ? Color.red.opacity(0.15) : DSColor.surfaceWhite)
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        Circle().stroke(
+                            vm.isRecording ? Color.red : DSColor.borderDefault,
+                            lineWidth: 1
+                        )
+                    )
+
+                Image(systemName: vm.isRecording ? "waveform" : "mic")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(vm.isRecording ? Color.red : DSColor.onBackgroundMuted)
+                    .symbolEffect(.variableColor.iterative, isActive: vm.isRecording)
+            }
+        }
+        .buttonStyle(.plain)
+        .overlay(alignment: .topTrailing) {
+            if vm.isRecording {
+                Circle()
+                    .fill(Color.red)
+                    .frame(width: 8, height: 8)
+                    .offset(x: 2, y: -2)
+                    .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: vm.isRecording)
     }
 
     private var summarizeButton: some View {
@@ -218,7 +265,7 @@ struct FeedbackView: View {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.system(size: 16))
                 }
-                Text(vm.isSubmitting ? "Creating Issue…" : "Create GitHub Issue")
+                Text(vm.isSubmitting ? "Submitting…" : "Submit to GitHub")
                     .font(.custom("Inter-SemiBold", size: 15))
             }
             .foregroundColor(.white)
@@ -230,92 +277,61 @@ struct FeedbackView: View {
         .disabled(vm.isSubmitting || vm.isSummarizing)
     }
 
-    // MARK: - Config Section
+    // MARK: - Submitted Issues
 
-    private var configSection: some View {
+    private var submittedIssuesSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    showConfig.toggle()
+            sectionLabel("Submitted Issues")
+
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(vm.submittedIssues) { issue in
+                    submittedIssueRow(issue)
+                    if issue.id != vm.submittedIssues.last?.id {
+                        Divider()
+                            .background(DSColor.borderSubtle)
+                            .padding(.leading, 14)
+                    }
                 }
-            } label: {
-                HStack {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 13))
+            }
+            .background(DSColor.surfaceWhite)
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(DSColor.borderDefault, lineWidth: 1)
+            )
+        }
+        .padding(.bottom, 24)
+    }
+
+    private func submittedIssueRow(_ issue: SubmittedIssue) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(issue.title)
+                    .font(.custom("Inter-Medium", size: 13))
+                    .foregroundColor(DSColor.onBackgroundPrimary)
+                    .lineLimit(2)
+                HStack(spacing: 6) {
+                    Text("#\(issue.number)")
+                        .font(.custom("JetBrainsMono-Regular", size: 11))
+                        .foregroundColor(DSColor.accentAmber)
+                    Text("·")
                         .foregroundColor(DSColor.onBackgroundSubtle)
-                    Text("GitHub Configuration")
-                        .font(.custom("Inter-Medium", size: 13))
+                    Text(issue.date, style: .date)
+                        .font(.custom("Inter-Regular", size: 11))
+                        .foregroundColor(DSColor.onBackgroundSubtle)
+                }
+            }
+            Spacer()
+            if let link = URL(string: issue.url) {
+                Link(destination: link) {
+                    Image(systemName: "arrow.up.right.square")
+                        .font(.system(size: 14))
                         .foregroundColor(DSColor.onBackgroundMuted)
-                    Spacer()
-                    Image(systemName: showConfig ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 11))
-                        .foregroundColor(DSColor.onBackgroundSubtle)
                 }
             }
-            .buttonStyle(.plain)
-
-            if showConfig {
-                configFields
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-            }
         }
-        .padding(.bottom, 16)
-    }
-
-    private var configFields: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            configField(label: "Repo Owner", placeholder: "e.g. cubxxw", binding: repoOwnerBinding)
-            configField(label: "Repo Name", placeholder: "e.g. daypage", binding: repoNameBinding)
-            tokenField
-        }
-        .padding(14)
-        .background(DSColor.surfaceSunken)
-        .cornerRadius(10)
-    }
-
-    private func configField(label: String, placeholder: String, binding: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(.custom("Inter-Medium", size: 12))
-                .foregroundColor(DSColor.onBackgroundSubtle)
-            TextField(placeholder, text: binding)
-                .font(.custom("Inter-Regular", size: 14))
-                .foregroundColor(DSColor.onBackgroundPrimary)
-                .textFieldStyle(.plain)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-                .padding(10)
-                .background(DSColor.surfaceWhite)
-                .cornerRadius(7)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 7)
-                        .stroke(DSColor.borderDefault, lineWidth: 1)
-                )
-        }
-    }
-
-    private var tokenField: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("GitHub Token")
-                .font(.custom("Inter-Medium", size: 12))
-                .foregroundColor(DSColor.onBackgroundSubtle)
-            SecureField("ghp_…", text: tokenBinding)
-                .font(.custom("JetBrainsMono-Regular", size: 13))
-                .foregroundColor(DSColor.onBackgroundPrimary)
-                .textFieldStyle(.plain)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-                .padding(10)
-                .background(DSColor.surfaceWhite)
-                .cornerRadius(7)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 7)
-                        .stroke(DSColor.borderDefault, lineWidth: 1)
-                )
-            Text("Stored in Keychain. Needs issues:write scope.")
-                .font(.custom("Inter-Regular", size: 11))
-                .foregroundColor(DSColor.onBackgroundSubtle)
-        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
     }
 
     // MARK: - Success View
@@ -395,27 +411,5 @@ struct FeedbackView: View {
             .foregroundColor(DSColor.onBackgroundSubtle)
             .kerning(0.5)
             .textCase(.uppercase)
-    }
-
-    // Bindings that write-through to UserDefaults via vm
-    private var repoOwnerBinding: Binding<String> {
-        Binding(
-            get: { vm.repoOwner },
-            set: { vm.repoOwner = $0 }
-        )
-    }
-
-    private var repoNameBinding: Binding<String> {
-        Binding(
-            get: { vm.repoName },
-            set: { vm.repoName = $0 }
-        )
-    }
-
-    private var tokenBinding: Binding<String> {
-        Binding(
-            get: { vm.githubToken },
-            set: { vm.githubToken = $0 }
-        )
     }
 }

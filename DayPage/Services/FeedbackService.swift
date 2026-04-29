@@ -11,7 +11,7 @@ enum FeedbackError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .networkError(let msg): return "Network error: \(msg)"
-        case .authError: return "Invalid GitHub token. Check your token in Settings."
+        case .authError: return "GitHub authentication failed. Please try again later."
         case .rateLimitError: return "GitHub API rate limit exceeded. Try again later."
         case .unknownError(let code, let body): return "GitHub API error \(code): \(body.prefix(200))"
         }
@@ -46,6 +46,24 @@ final class FeedbackService {
     private init() {}
 
     private let apiBase = "https://api.github.com"
+    private static let botToken: String = Secrets.kubotGitHubToken
+    private static let botOwner = "getyak"
+    private static let botRepo  = "daypage"
+
+    // MARK: - Create Issue via Bot (zero-config)
+
+    /// Posts a new issue using the embedded bot token to the hardcoded repo.
+    /// No user-supplied credentials required.
+    func createIssueViaBot(title: String, body: String, labels: [String]) async throws -> GitHubIssue {
+        return try await createIssue(
+            title: title,
+            body: body,
+            labels: labels,
+            token: FeedbackService.botToken,
+            owner: FeedbackService.botOwner,
+            repo: FeedbackService.botRepo
+        )
+    }
 
     // MARK: - Create Issue
 
