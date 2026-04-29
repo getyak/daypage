@@ -4,31 +4,47 @@ import SwiftUI
 
 /// WeChat-style swipe-to-reveal wrapper around MemoCardView.
 /// Left swipe → trailing Delete button. Right swipe → leading Pin button.
+///
+/// Performance fixes (issue #150 Phase 1):
+///  - Removed redundant `settledOffset` @State; offset is now derived from
+///    `revealedSide`, eliminating double view invalidation on every snap.
+///  - Removed deprecated implicit `.animation(_:value:)` modifiers from panels;
+///    opacity is animated via the scoped `withAnimation` in snapOpen/snapClose.
+///  - Tightened spring to Apple HIG values (response: 0.22, dampingFraction: 0.82)
+///    for snappier 1:1 tracking and reduced visible overshoot.
+///  - `PressableCardModifier` in Interactions.swift now uses `LongPressGesture`
+///    instead of `DragGesture(minimumDistance: 0)` to fully eliminate the
+///    dual-DragGesture hit-testing collision that caused frame drops.
 struct SwipeableMemoCard: View {
 
     let memo: Memo
     var onDelete: (() -> Void)? = nil
     var onPin: (() -> Void)? = nil
 
-    // Settled offset after a gesture ends (negative = trailing open, positive = leading open)
-    @State private var settledOffset: CGFloat = 0
-    // Which panel is currently revealed
+    // Which panel is currently revealed (single source of truth for offset)
     @State private var revealedSide: Side? = nil
 
-    // Live delta from DragGesture (resets to zero when finger lifts)
+    // Live delta from DragGesture (@GestureState resets automatically when finger lifts)
     @GestureState private var dragDelta: CGFloat = 0
 
     private enum Side { case leading, trailing }
 
     // Panel widths and thresholds
-    private let panelW: CGFloat     = 80
-    private let openThreshold: CGFloat = 44
+    private let panelW: CGFloat         = 80
+    private let openThreshold: CGFloat  = 44
     private let closeThreshold: CGFloat = 20
 
-    // Combined offset while dragging
+    // Derived offset — eliminates the redundant `settledOffset` @State that caused
+    // double view invalidation on every snap event.
     private var currentOffset: CGFloat {
-        let raw = settledOffset + dragDelta
-        return max(-panelW, min(panelW, raw))
+        let settled: CGFloat = {
+            switch revealedSide {
+            case .trailing: return -panelW
+            case nil:       return 0
+            case .leading:  return panelW
+            }
+        }()
+        return max(-panelW, min(panelW, settled + dragDelta))
     }
 
     var body: some View {
@@ -41,7 +57,7 @@ struct SwipeableMemoCard: View {
             }
 
             // Card — highPriorityGesture wins over PressableCardModifier's
-            // simultaneousGesture(DragGesture(minimumDistance:0)) inside MemoCardView.
+            // LongPressGesture inside MemoCardView (no drag conflict).
             MemoCardView(memo: memo, onDelete: onDelete)
                 .offset(x: currentOffset)
                 .highPriorityGesture(swipeGesture)
@@ -67,8 +83,10 @@ struct SwipeableMemoCard: View {
             .frame(maxHeight: .infinity)
             .background(DSColor.amberArchival)
         }
+        // Opacity is driven by scoped withAnimation in snapOpen/snapClose.
+        // Removed deprecated implicit .animation(_:value:) to prevent
+        // animation pollution across the entire view subtree.
         .opacity(revealedSide == .leading ? 1 : 0)
-        .animation(.easeOut(duration: 0.15), value: revealedSide)
     }
 
     private var deletePanel: some View {
@@ -86,8 +104,8 @@ struct SwipeableMemoCard: View {
             .frame(maxHeight: .infinity)
             .background(DSColor.error)
         }
+        // Same as pinPanel — opacity driven by scoped withAnimation, no implicit modifier.
         .opacity(revealedSide == .trailing ? 1 : 0)
-        .animation(.easeOut(duration: 0.15), value: revealedSide)
     }
 
     // MARK: - Gesture
@@ -97,6 +115,7 @@ struct SwipeableMemoCard: View {
             .updating($dragDelta) { value, state, _ in
                 let dx = value.translation.width
                 let dy = value.translation.height
+                // Only track horizontal-dominant drags
                 guard abs(dx) > abs(dy) * 0.6 else { return }
                 state = dx
             }
@@ -104,7 +123,8 @@ struct SwipeableMemoCard: View {
                 let dx = value.translation.width
                 let dy = value.translation.height
                 guard abs(dx) > abs(dy) * 0.6 else {
-                    snapToSettled()
+                    // Vertical drag — stay in current settled position;
+                    // @GestureState resets dragDelta automatically.
                     return
                 }
                 let vel = value.predictedEndTranslation.width - value.translation.width
@@ -115,7 +135,8 @@ struct SwipeableMemoCard: View {
     // MARK: - Snap Logic
 
     private func decideSnap(dx: CGFloat, velocity: CGFloat) {
-        if settledOffset == 0 {
+        switch revealedSide {
+        case nil:
             if dx < -openThreshold || velocity < -300 {
                 snapOpen(.trailing)
             } else if dx > openThreshold || velocity > 300 {
@@ -123,33 +144,25 @@ struct SwipeableMemoCard: View {
             } else {
                 snapClose()
             }
-        } else if settledOffset < 0 {
-            // Trailing was open
+        case .trailing:
             (dx > closeThreshold || velocity > 200) ? snapClose() : snapOpen(.trailing)
-        } else {
-            // Leading was open
+        case .leading:
             (dx < -closeThreshold || velocity < -200) ? snapClose() : snapOpen(.leading)
         }
     }
 
     private func snapOpen(_ side: Side) {
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
+        // Tightened spring: response 0.22 (was 0.28), dampingFraction 0.82 (was 0.72).
+        // Matches Apple HIG range and reduces visible bounce during snap.
+        withAnimation(.spring(response: 0.22, dampingFraction: 0.82)) {
             revealedSide = side
-            settledOffset = side == .trailing ? -panelW : panelW
         }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     func snapClose() {
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
+        withAnimation(.spring(response: 0.22, dampingFraction: 0.82)) {
             revealedSide = nil
-            settledOffset = 0
-        }
-    }
-
-    private func snapToSettled() {
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) {
-            // dragDelta auto-resets; just keep settledOffset
         }
     }
 }

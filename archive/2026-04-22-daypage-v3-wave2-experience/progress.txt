@@ -1,0 +1,245 @@
+# DayPage V3 Wave 2 - Ralph Progress Log
+
+Source PRD: tasks/prd-v3-wave2-experience.md
+Branch: ralph/daypage-v3-wave2-experience
+Start: 2026-04-17
+
+Previous run (V3 Wave 1) archived at: archive/2026-04-17-daypage-v3-wave1-experience/
+
+---
+
+## Codebase Patterns (carried over from Wave 1, append new findings here)
+- Track ScrollView scroll position with a named `.coordinateSpace(name:)` on the ScrollView + a 1pt `GeometryReader`-backed anchor view at the end of its content that emits its `.frame(in: .named(...)).minY` via a `PreferenceKey`. Parent reads both the anchor minY and the ScrollView's visible height (from the outer GeometryReader's `geo.size.height`) to derive "near bottom" — no ScrollViewReader needed for that. Works on iOS 16.
+- When removing a card from the timeline that was used as the pre-compile entry (e.g. CompilePromptCard), leave the DailyPageEntryCard post-compile branch in place and move the pre-compile entry to a sticky footer. Do NOT keep the card as a dual-state widget — parent conditionals stay cleaner.
+- Mount sticky chrome (compile footer, etc.) as a sibling of the ScrollView inside the outer VStack, ABOVE the InputBarView, so the keyboard and input bar layout are untouched.
+- Build command: `xcodebuild -scheme DayPage -destination 'platform=iOS Simulator,arch=arm64,id=3A661BD8-5F57-42B2-B4BA-DBB2FAB4FAD0' build`
+- SourceKit diagnostics show macOS errors for AVAudioSession — these are iOS-only APIs and build fine in the iOS target
+- SourceKit also misreports "Cannot find X in scope" for cross-module symbols — build succeeds regardless
+- VoiceService is @MainActor singleton; reuse VoiceService.transcribe(audioURL:) for the new transcribe-on-swipe-left path (US-008)
+- DSColor / DSFonts / DSRadius / DSSpacing tokens used for all visuals
+- VaultInitializer.vaultURL is the entry point for vault file paths
+- To add new Swift files: add PBXBuildFile + PBXFileReference + group child + Sources entry in project.pbxproj (use sequential IDs)
+- DayPageLogger uses nonisolated static helpers called from a DispatchQueue to avoid @MainActor actor isolation issues
+- DashScope OpenAI-compatible endpoint is `https://dashscope.aliyuncs.com/compatible-mode/v1` (NOT `coding.dashscope.aliyuncs.com/v1` — that returns 404). The `Secrets.dashScopeBaseURL` env override still wins; only the in-code default changed.
+- Use `#if DEBUG print(...)` (not DayPageLogger) for noisy network diagnostics — keeps release logs clean and avoids @MainActor isolation hops.
+- For archive-style detail screens that read vault files: load asynchronously inside a `.task` closure into an explicit `LoadState` enum, not inside computed properties. Computed-property IO runs on every re-render and hides failure paths.
+- Validate user-supplied date strings with BOTH a strict `^\d{4}-\d{2}-\d{2}$` regex AND a non-lenient DateFormatter round-trip — the regex alone lets `2020-02-30` through.
+- When a file-backed view (RawMemoView, DailyPageView) is opened, double-check `FileManager.default.fileExists(atPath:)` inside its own load path even if the parent already checked. Log `url.path` + `errno` on any miss — both are necessary to diagnose sandbox / migration issues.
+- When adding a "test this endpoint" Settings action, ALWAYS resolve baseURL/model the same way the production service does (`Secrets.*.isEmpty ? defaultLiteral : Secrets.*`). If you hardcode a URL in Settings, you will silently drift from CompilationService and the test can green while real compile 404s.
+- NSURLError codes (timeout=-1001, notConnected=-1009, cannotFindHost=-1003, cannotConnect=-1004) are the right bucket for network-layer hints; HTTP status codes only show up when the server actually responded.
+- "Single source of truth for in-flight UI state": when collapsing redundant indicators, also delete the timed `Task` chains that only existed to refresh the now-removed banner. They become dead code (`kind == .progress` guards never fire), and leaving them in the file plants traps for future readers. Either fully delete or pipe their signal into the surviving indicator's view-model field.
+- BannerCenter is the right channel for **terminal** outcomes (success / offline / error) but a poor fit for in-flight progress — it competes with timeline cards. Reserve it for "the operation is done, here is the verdict" messages.
+- For off-main vault scans, put the real work in a `fileprivate enum`'s `static func` at file scope and call it from inside `Task.detached { ... }.value`. Instance methods fail to compile (`self` capture) and `Self.foo` also fails in detached contexts — file-scope statics are the only clean escape hatch.
+- Calendar cell "has data" state should be derived from a pre-scanned `Set<String>` of date basenames (cheap `.contains`), NOT from per-day `DayStats` aggregations (which read file *contents*). Split the two axes: "is anything here?" (pre-scan) vs. "how much activity?" (heatmap aggregation).
+- When a detail view already has an explicit `LoadState` handling `.empty`/`.error`/etc, parent cell/list taps should push unconditionally and delete any pre-tap `.alert` guards. Alerts that were protecting a crash-prone detail view become dead UX once the detail view is hardened.
+- Feature-flag toggles whose PRD copy is phrased against the legacy path (e.g. '使用旧版输入框') should keep the storage key positive (`useInputBarV2 = true` by default) and invert only inside the Settings Toggle's Binding (`get: { !key }, set: { key = !$0 }`). Avoids 'off means on' confusion later.
+- For local popover/menu tap-outside dismissal bounded to a parent view (InputBar, card), a `Color.black.opacity(0.001).contentShape(Rectangle()).onTapGesture { close() }` layer gated by the open-state Bool is enough — no need for a full-screen overlay or DragGesture. Put it in `.background` so it sits behind the popover but in front of the parent view's main content.
+- `.photosPicker(isPresented:selection:matching:photoLibrary:)` is the iOS-16 "imperative" API — trigger the picker from any callback closure without having to embed a `PhotosPicker` label view. Pair with `onChange(of: photosPickerItem)` to forward the selection.
+- For press-to-talk gestures, use `DragGesture(minimumDistance: 0)` + `@GestureState` for auto-reset, BUT capture the latest translation into a separate `@State CGSize` inside `.onChanged` — some iOS versions reset the gesture's translation before `.onEnded` fires, so reading from `value.translation` in `.onEnded` can give `.zero`. Fall back to the last captured translation when `value.translation == .zero`.
+- Fire first-edge haptics (press-down) inside `.onChanged`'s first invocation by gating on `currentPhase == .idle` then transitioning to `.recording`. `.onChanged` has no "did begin" hook — the first call is the begin.
+- Attach press-to-talk gestures via `.highPriorityGesture(...)` (not `.gesture` / `.simultaneousGesture`) so an outer ScrollView's DragGesture doesn't steal the touch. `.simultaneousGesture` would let BOTH fire, causing the ScrollView to scroll while the user is holding the button.
+- When two gesture thresholds are crossed simultaneously (e.g. diagonal up-left), pick the "safer" outcome as the tiebreaker. For press-to-talk: cancel wins over transcribe when `|dy| >= |dx|` — users expect "discard" on ambiguous gestures, not "send the transcript".
+- For a floating in-input-bar overlay that tracks live audio, mount it as the FIRST child of the InputBar's VStack, gated by gesture-phase state. This keeps the overlay above the text field but anchored to the input bar so `ignoresSafeArea` and keyboard rules don't need any changes.
+- The transcribe-only path must `try? FileManager.default.removeItem(at: result.fileURL)` + `voiceService.reset()` after reading `result.transcript` — otherwise the audio file lingers in `vault/raw/assets/` and the Whisper queue might retry it later. Only the send path should keep the audio file.
+- To unit-test a SwiftUI view's load state machine, extract the pure resolver as a `static func` on the view that takes all dependencies (vaultURL, FileManager) as parameters and returns the state. The `.task { await load() }` hook then just calls the resolver inside `Task.detached` and copies the result into `@State`. You get unit-testable state without any SwiftUI / rendering harness.
+- Add a test injection point on singletons by adding an internal `static var testOverrideURL: URL?` that `vaultURL` checks first. `@testable import DayPage` lets tests set/tearDown the override. Don't gate it on `#if DEBUG` — `@testable` already implies a Debug build, and conditional compilation makes the setter invisible from release tests if you ever add them.
+- XCTest `testCompiledState_whenBothRawAndDailyExist`-style names read like specs. Pattern: `test<Outcome>_when<Condition>`. Makes `xcodebuild test` output self-documenting.
+- Manually adding an iOS unit-test target to a hand-maintained `project.pbxproj`: you need PBXBuildFile + PBXFileReference (source + xctest product in Products group), a new PBXGroup as a child of the project mainGroup (NOT inside the app group — same level as `DayPage`), PBXNativeTarget with productType `com.apple.product-type.bundle.unit-test`, PBXSourcesBuildPhase + PBXFrameworksBuildPhase (empty `files = ()` is fine; XCTest gets linked via test-host), PBXTargetDependency + PBXContainerItemProxy (proxyType=1 on the app target), XCBuildConfigurations with `TEST_HOST = $(BUILT_PRODUCTS_DIR)/DayPage.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/DayPage` + `BUNDLE_LOADER = $(TEST_HOST)`, XCConfigurationList, added to `targets = ( ... )` in PBXProject and to `TargetAttributes` with `TestTargetID = <app-target-id>`. Finally, update the scheme's BuildAction (add the xctest buildForTesting="YES") and TestAction (add a `<Testables><TestableReference><BuildableReference .../>` block).
+- Use ID prefix `T` for test-target-specific pbxproj objects (T1*, T2*, T3*, T4*, T5*, T7*, T8*, T9*, TC*) to keep them visually grouped from the app's `A*` IDs. Makes the pbxproj diff-friendly in future.
+
+---
+
+## 2026-04-17 - US-001 DashScope baseURL 修正 + 失败可观测
+- Changed default baseURL in `DayPage/Services/CompilationService.swift` (callDashScope) from `https://coding.dashscope.aliyuncs.com/v1` → `https://dashscope.aliyuncs.com/compatible-mode/v1`
+- Added `#if DEBUG print("[DashScope] URL=... status=... body=<first 500 chars>")` on both non-200 responses and missing HTTPURLResponse paths
+- Updated `CLAUDE.md` line 30 to match new default baseURL
+- Files changed: `DayPage/Services/CompilationService.swift`, `CLAUDE.md`, `prd.json`, `progress.txt`
+- Build: `xcodebuild -scheme DayPage ... build` → BUILD SUCCEEDED
+- Manual API hit verification deferred (needs real DashScope key, not present in this sandbox). Default URL was wrong path — only host/path differ; method, headers, body schema remain OpenAI-compatible.
+- **Learnings for future iterations:**
+  - The `Secrets` shim reads `dashScopeBaseURL` from env via `Config/GeneratedSecrets.swift`; in-code default only kicks in when env is empty. So users who already set `DASHSCOPE_BASE_URL` keep their override.
+  - DEBUG-only print is intentional: prevents leaking partial response bodies in release. If you later need release telemetry, route through DayPageLogger instead.
+  - SourceKit "Cannot find X in scope" diagnostics on this file (NetworkMonitor / RawStorage / Secrets / EntityPageService / VaultInitializer / DayPageLogger) are the documented cross-module false positives — ignore them, trust xcodebuild.
+---
+
+## 2026-04-17 - US-002 DayDetailView 三态健壮化 + dateString 格式校验
+- Rewrote `DayPage/Features/Archive/DayDetailView.swift` with an explicit `LoadState` enum (`.loading`, `.compiled`, `.rawOnly`, `.empty`, `.error(String)`). Moved file-existence checks out of computed properties into an async `.task` that runs off the main thread via `Task.detached`.
+- `dateString` is validated in two stages: strict regex `^\d{4}-\d{2}-\d{2}$`, then a non-lenient `DateFormatter` round-trip with UTC timezone so values like `2020-02-30` fall into `.error`.
+- Added dedicated `.empty` (calendar.badge.exclamationmark + "这一天还没有记录" + 关闭) and `.error` (exclamationmark.triangle + message + 关闭) views, each with a Close button wired to `dismiss()`.
+- `RawMemoView.loadMemos()` now logs full `url.path` + `errno` when the raw file is missing or read throws; bails to empty state instead of blindly calling `RawStorage.read` on an invalid date.
+- `DailyPageView.loadPage()` similarly guards with `FileManager.default.fileExists(atPath:)` before reading the compiled daily file, logs full path + errno on miss, and validates `dateString` before reading raw memos.
+- Files changed: `DayPage/Features/Archive/DayDetailView.swift`, `DayPage/Features/Archive/RawMemoView.swift`, `DayPage/Features/Daily/DailyPageView.swift`, `prd.json`, `progress.txt`.
+- Build: `xcodebuild -scheme DayPage ... build` → BUILD SUCCEEDED. App launched on booted simulator (iPhone 17 Pro, iOS 26.1) without crash.
+- **Learnings for future iterations:**
+  - `.task { await load() }` is the right hook for vault-backed detail views — it auto-cancels on view disappearance and lets you await `Task.detached` without bouncing across main actor manually.
+  - Keep `hasRawFile` as a separate `@State Bool` even after the `LoadState` resolves — the user can still switch the segmented control inside `.compiled`, and the Raw tab needs its own "no file" path.
+  - SourceKit diagnostics from macOS context (`No such module 'UIKit'`, `Cannot find DSColor/Memo in scope`) fire on this file too; they're the documented cross-module false positives — trust `xcodebuild`.
+  - Automated UI navigation to an invalid `dateString` requires either (a) the verify-daypage MCP skill wired up, or (b) a UI test target. Neither exists yet — US-009 will add unit-level coverage of the state machine, which is the practical regression guard.
+---
+
+## 2026-04-17 - US-003 Settings 增加「测试 API 连接」按钮
+- Rewrote `testDashScope()` in `DayPage/Features/Settings/SettingsView.swift` to resolve baseURL identically to `CompilationService.callDashScope` (`Secrets.dashScopeBaseURL.isEmpty ? "https://dashscope.aliyuncs.com/compatible-mode/v1" : Secrets.dashScopeBaseURL`). Sends `POST {baseURL}/chat/completions` with `{model: resolved, max_tokens: 1, messages: [{role: "user", content: "hi"}]}` and 10s timeout.
+- Added inline per-row `APITestResult` rendering under each API Key row: green ✓ + "连接成功 · 模型 \(model)" on 200; red ✗ + "HTTP N · <hint>" on non-200. Button becomes a `ProgressView` and is disabled while `dashScopeTesting == true`.
+- Tailored hints: DashScope (401/403/404/429/5xx), OpenAI (401/403/404/429/5xx), OpenWeather (401/404/429/5xx); network errors mapped via `NSURLErrorDomain` codes (timeout → '网络不可达，检查代理（超时）', notConnected, cannotFindHost/cannotConnect → 'URL 不存在，检查 baseURL', networkConnectionLost).
+- Whisper and OpenWeather test paths mirror the same result / disabled-spinner pattern so UX is consistent across all three keys.
+- Added private `APITestResult` enum at file scope with `.success(String)` / `.failure(String)` + `isSuccess` / `message` accessors. Scoped fileprivate to SettingsView to avoid polluting global namespace.
+- Files changed: `DayPage/Features/Settings/SettingsView.swift`, `prd.json`, `progress.txt`.
+- Build: `xcodebuild -scheme DayPage ... build` → BUILD SUCCEEDED.
+- Manual Simulator verification deferred — requires real DashScope/Whisper/OpenWeather keys in env; the UI state machine is covered at compile time by the enum + per-row rendering.
+- **Learnings for future iterations:**
+  - SettingsView already had stub `testX()` methods with the wrong URL. The lesson: when a future story requires "test endpoint X", grep for existing `test{Service}()` helpers first — there's almost always a 70% stub waiting to be finished.
+  - Using a tiny fileprivate `enum APITestResult` is nicer than juggling `(Bool, String)` tuples or two optional `@State`s. Keep it fileprivate to the view — do NOT hoist to a shared type until there's a second caller.
+  - `bannerCenter.show(...)` is the right channel for app-wide outcomes, but for a "test connection" button the user is already looking at, inline rendering under the row is stronger UX — leave the banner out to avoid duplicate signals.
+  - `Secrets.dashScopeModel` default must match CompilationService.swift exactly (`qwen3.5-plus`) — if one drifts, the success banner will show a model that was never used.
+---
+
+## 2026-04-17 - US-004 删除三处冗余编译提示 — 统一到 CompilePromptCard
+- Removed `BannerCenter.shared.show(... .progress ...)` seed call in `TodayViewModel.compile()` (was at line 463).
+- Deleted the dependent `slowTask` (5s "网络较慢" upgrade) and `cancelTask` (15s 取消按钮 upgrade). Their `kind == .progress` guards became permanently false once the seed banner was gone — pure dead code.
+- Replaced the retry `progressCallback` body with a no-op (`{ _, _ in }`) so retries no longer push extra "正在编译...重试 N/M" banners. Future retry telemetry should land in a `@Published` viewmodel field that CompilePromptCard renders inline; centralizing the "single in-flight indicator" rule.
+- Kept ALL terminal banners untouched: `.success` ("今日 Daily Page 已生成"), `.info` (.offline), `.error` (missingApiKey / 401 / parseError / network failure with retry).
+- `TodayView.swift`: removed `if viewModel.isCompiling || viewModel.isBackgroundCompiling { CompilingBadge() }` from the header HStack (was lines 69-72). Deleted the entire `CompilingBadge` struct + its `// MARK: - CompilingBadge` block since `grep CompilingBadge DayPage/` returns zero matches after removal.
+- `MemoCardView.CompilePromptCard.body`: split the body on `if isCompiling`. Compiling state is now ONE line — `Text("正在编译 \(memoCount) 条 memo") + ProgressView()` inside an HStack. Non-compiling branch keeps the "今日还未编译" + memoCount sub-text + "立即编译" button. Removed the `.disabled(isCompiling)` modifier on the button since it's only mounted in the non-compiling branch.
+- Files changed: `DayPage/Features/Today/TodayViewModel.swift`, `DayPage/Features/Today/TodayView.swift`, `DayPage/Features/Today/MemoCardView.swift`, `prd.json`, `progress.txt`.
+- Build: `xcodebuild -scheme DayPage ... build` → BUILD SUCCEEDED.
+- Manual Simulator click-through deferred (verify-daypage skill not wired). The state is provably single-indicator: only `CompilePromptCard` reads `isCompiling` from the viewmodel after this change; no other view does.
+- **Learnings for future iterations:**
+  - Before deleting a "redundant" indicator, grep the entire file tree for the symbol — `CompilingBadge` was both used and defined in the same file, so deleting the call site let me also drop the struct cleanly. `BackgroundCompilationService.isBackgroundCompiling` is still wired into TodayViewModel but no longer surfaces in the UI; keep it published in case background compile gets its own indicator later.
+  - When a banner sequence has chained `Task` upgrades (5s subtitle → 15s cancel), they're almost always stitched to a seed banner. Removing only the seed leaves orphan timers that race silently. Audit the chain before deleting any link.
+  - `disabled(isCompiling)` on a button that only renders in `!isCompiling` branch is dead — Swift compiler doesn't warn, but readers assume there's a state where the button is disabled. Easier to delete the modifier than explain why it can't fire.
+---
+
+## 2026-04-17 - US-005 新建 CompileFooterButton — 滚到底部才优雅淡入
+- Created `DayPage/Features/Today/CompileFooterButton.swift` (new file). Exposes three types:
+  - `CompileFooterButton`: capsule, 1pt outlineVariant stroke, `DSColor.surface.opacity(0.85)` fill, `surfaceElevatedShadow()`. Idle state: `sparkles` + `编译今日 · N 条`. Compiling state: `ProgressView().scaleEffect(0.7)` + `正在编译 N 条 memo`. Button `.disabled(isCompiling)`; `guard !isCompiling` in tap handler as belt-and-suspenders. `.animation(.spring(response: 0.35, dampingFraction: 0.85), value:)` on both `isVisible` and `isCompiling` → in/out <300ms.
+  - `CompileFooterAnchorPreferenceKey`: CGFloat preference, reduce = min (nearest anchor wins).
+  - `CompileFooterAnchor`: 1pt-tall zero-opacity view that emits `geo.frame(in: .named("todayScroll")).minY`.
+- `TodayView.swift`: removed the pre-compile `CompilePromptCard` branch from the timeline LazyVStack (was lines 158–171); kept `DailyPageEntryCard` post-compile branch. Added the `CompileFooterAnchor` at the end of the ScrollView content. Named the ScrollView's coordinate space `"todayScroll"` via `.coordinateSpace(name:)`. Captured `scrollVisibleHeight` via `.onAppear` + `.onChange(of: geo.size.height)` and `compileFooterAnchorMinY` via `.onPreferenceChange`. Added private computed `shouldShowCompileFooter` that encodes the PRD rule: `!isDailyPageCompiled && memos.count > 0 && (isCompiling || anchorMinY <= visibleHeight + 200)`. Mounted `CompileFooterButton` between the timeline GeometryReader and `InputBarView`.
+- `project.pbxproj`: registered `A10000050` PBXBuildFile + `A20000050` PBXFileReference, added to `A50000010 /* Today */` group, appended to the Sources build phase.
+- Files changed: `DayPage/Features/Today/CompileFooterButton.swift` (new), `DayPage/Features/Today/TodayView.swift`, `DayPage.xcodeproj/project.pbxproj`, `prd.json`, `progress.txt`.
+- Build: `xcodebuild -scheme DayPage ... build` → **BUILD SUCCEEDED**.
+- `CompilePromptCard` struct still defined in `MemoCardView.swift` but now **unused** (grep shows zero call sites after this change). Left in place to keep this PR surgical; a later cleanup can delete it once Wave 2 stabilises. Same-file structs are cheap.
+- Manual Simulator scroll-flicker verification deferred (`verify-daypage` MCP skill not wired in this environment). The visibility rule is pure data-flow from geometry → preference → derived state → SwiftUI `Group { if ... }`, so flicker would only surface as animation tuning, not logic bugs.
+- **Learnings for future iterations:**
+  - `GeometryReader + PreferenceKey` is the iOS-16-compatible replacement for iOS 17's `scrollPosition`. Put the GeometryReader inside the ScrollView content (wrapped in a tiny anchor view), NOT around the whole ScrollView — wrapping the whole ScrollView in a GeometryReader is fine for measuring the visible frame, but for measuring scroll position you must read from a child inside the content space.
+  - `.coordinateSpace(name:)` is attached to the ScrollView itself, not the container. Preferences emitted from inside the content can resolve against that name.
+  - Keep the threshold (`compileFooterThreshold = 200`) as a private constant on the parent view — it's load-bearing for the "within 200pt of bottom" UX contract and should be easy to tune without hunting through the button file.
+  - While compiling, force the footer visible even if the user scrolled up — compile is the critical in-flight indicator (see US-004). The rule is `isCompiling || nearBottom`, not `nearBottom && !isCompiling`.
+  - When adding a new file to the Xcode project, the sequential ID pattern is `A1xxxxxxx` (build file) + `A2xxxxxxx` (file reference) + group child + Sources build phase entry. Last used: 49. New file uses 50. Forgetting the group child entry is the most common mistake — the build still works but the file won't show up in the Xcode navigator.
+---
+
+## 2026-04-17 - US-006 Archive 日历区分有数据 / 无数据日期
+- `DayPage/Features/Archive/ArchiveView.swift`: added two `@State Set<String>` — `rawDates`, `dailyDates`. On `.onAppear`, `viewModel.loadMonth()` still runs (keeps monthly summary heatmap intact) and a sibling `Task { await preScanVault() }` kicks off an off-main scan of `vault/raw/*.md` and `vault/wiki/daily/*.md` via `Task.detached(priority: .utility)`. Results published back on MainActor into the two sets.
+- Pre-scan parsing lives in a new `fileprivate enum ArchiveVaultScan { static func listDateFilenames(in:fileManager:) -> Set<String> }` at file scope. Static helper + file-scope enum means the `Task.detached` closure can call it without capturing `self` or tripping `actor-isolated` errors — calling `Self.foo` or `someInstanceMethod` in a detached Task both fail. Parsing filters to `*.md` then validates basename length == 10 + dashes at offsets 4/7 + 8 digits, dropping any stray files (assets/, attachments, macOS .DS_Store, etc.).
+- New private `CellDataState` enum (`.compiled` / `.rawOnly` / `.none`) derived from the sets in `cellState(for:)`. Calendar cell rewritten: `.compiled` → `DSColor.primary` fill + `DSColor.onPrimary` text; `.rawOnly` → `DSColor.surfaceContainerLow` fill + `DSColor.onSurface` text + 4pt bottom-trailing dot; `.none` → 50% translucent `surfaceContainerLow` fill + 50% translucent `onSurface` text. Today retains the 2pt primary stroke across all three states. Added accessibility labels for each state so VoiceOver announces "date, 已编译" / "有原始记录" / "无记录".
+- `handleDateTap(dateStr:stats:)` collapsed to `handleDateTap(dateStr:)` — every cell now unconditionally `showDayDetail = true`. The old `showNoRecordAlert` and `.alert(...)` modifier are gone entirely; DayDetailView (US-002) already handles the `.empty` / `.error` paths for invalid or missing-data dates. Also updated the two other call sites (filteredDays list row inside monthlySummary and archiveListRow in list mode) to the single-argument signature.
+- Files changed: `DayPage/Features/Archive/ArchiveView.swift`, `prd.json`, `progress.txt`.
+- Build: `xcodebuild -scheme DayPage ... build` → **BUILD SUCCEEDED**.
+- Manual Simulator verification of three-state visual + tap-through on no-data cells deferred (`verify-daypage` MCP skill not wired). The state machine is pure data-flow: sets populate → cellState derives → three branches in ViewBuilder. No timing, no animation races.
+- **Learnings for future iterations:**
+  - Want off-main work that doesn't capture `self`? Move the real work into a `fileprivate enum`'s `static func`. Instance methods, `Self.foo`, and even `self.foo` all fail inside `Task.detached`'s non-isolated closure; file-scope statics are the only clean escape hatch.
+  - When pre-scanning a vault directory, list the contents (`contentsOfDirectory(atPath:)`) and parse basenames — do NOT read file contents. One directory listing is O(1) IOs; reading 365 daily files on appear would stall the tab-switch animation.
+  - `CellDataState` from pre-scanned sets is semantically different from `DayStats.DensityLevel` (which counts memos for the heatmap). Keep them separate: the calendar cell cares about "is there anything here?" while the monthly summary heatmap cares about "how much activity." Forcing them into one enum bloats both.
+  - When a detail view (DayDetailView) already handles all failure modes, the parent should just push unconditionally. The old "guard the tap with an alert" pattern predates US-002's state machine and became dead UX — one of those cases where removing code is the feature.
+  - Two `@State Set<String>`s beats a single `[String: CellDataState]` dictionary — Sets are cheaper to populate off-main, and `.contains(...)` is the only query the view makes.
+  - The pre-scan scans the entire vault (not just the current month). Month navigation doesn't re-scan — cells for past/future months read from the same sets. This is why it's important to re-trigger `preScanVault()` on every `onAppear`, not just the first: a compile on Today tab adds a new `vault/wiki/daily/YYYY-MM-DD.md`, and coming back to Archive should surface it without restart.
+---
+
+## 2026-04-17 - US-007 InputBarV2 视觉重设计 + AttachmentMenuPopover
+- New `DayPage/Features/Today/InputBarV2.swift` defines the Fromm-style bottom bar. Main row is a 3-column HStack: 36pt circular `+` button (surfaceContainerHigh fill, onSurface icon; toggles to `xmark` when popover open), capsule TextEditor (cornerRadius 18, 1pt `DSColor.outlineVariant` stroke, surfaceContainerLowest fill, minHeight 40 / max 140), and a right action button that swaps between a 40pt mic circle (text+attachments empty) and a 40pt primary-filled send circle (`arrow.up`, disabled while `isSubmitting`). Location chip + attachment chip rows render above the main row with identical layout to V1 so users don't notice during toggle. No keyboard accessory toolbar in V2 — all 5 legacy icons migrated into the popover per PRD.
+- New `DayPage/Features/Today/AttachmentMenuPopover.swift` — 200pt-wide card with 4 rows (📷 拍照 / 🖼 从相册选 / 📁 附件 / 📍 位置), Divider between each. Location row shows a mini ProgressView when `isLocating`. Card uses `.surfaceElevatedShadow()` + `RoundedRectangle(cornerRadius: 12)` outline for a floating appearance. Each row is a `.plain`-styled Button running its closure from V2.
+- Popover mounted via `.overlay(alignment: .bottomLeading)` on the InputBarV2 root so it anchors above the `+` button (padding .leading 12, .bottom 56). Spring animation `(response 0.28, damping 0.85)` drives both the `scale(0.85, anchor: .bottomLeading)` + opacity in/out and the `+`/`xmark` icon swap. Tap-outside dismissal uses a `Color.black.opacity(0.001)` background layer gated by `showAttachmentMenu` — an invisible full-input-bar hit target that closes the menu but lets the popover itself swallow its own taps.
+- Popover handlers call existing TodayViewModel APIs — camera → `startCameraCapture()`, photo → internal `.photosPicker(isPresented:...)` that forwards `PhotosPickerItem` via `onAddPhoto`, file → `onAddFile()` (startFilePicker), location → `onFetchLocation()` guarded by `!isLocating`. No new ViewModel plumbing.
+- Legacy `InputBarView` kept intact as fallback. `TodayView.swift` now owns `@AppStorage("useInputBarV2") var useInputBarV2 = true` and branches `if useInputBarV2 { InputBarV2(...) } else { InputBarView(...) }` right where the input bar used to render. Callback list is identical across both branches.
+- `SettingsView.swift` → `appearanceSection` gains a Toggle `"使用旧版输入框"` with inverted binding (`get: { !useInputBarV2 }`, `set: { useInputBarV2 = !$0 }`) so the PRD-specified label reads naturally while persistence stays positive (`useInputBarV2 = true` by default, flipped to `false` when user wants legacy).
+- `project.pbxproj`: registered A10000051/A20000051 for `InputBarV2.swift` and A10000052/A20000052 for `AttachmentMenuPopover.swift`. Added both to `A50000010 /* Today */` group children and appended to the Sources build phase.
+- Files changed: `DayPage/Features/Today/InputBarV2.swift` (new), `DayPage/Features/Today/AttachmentMenuPopover.swift` (new), `DayPage/Features/Today/TodayView.swift`, `DayPage/Features/Settings/SettingsView.swift`, `DayPage.xcodeproj/project.pbxproj`, `prd.json`, `progress.txt`.
+- Build: `xcodebuild -scheme DayPage -destination 'platform=iOS Simulator,arch=arm64,id=3A661BD8-5F57-42B2-B4BA-DBB2FAB4FAD0' build` → **BUILD SUCCEEDED**.
+- Manual Simulator visual verification of the Fromm aesthetic + popover spring in/out deferred (`verify-daypage` MCP skill not wired). The two-file split keeps V1 fully working on any toggle flip, so regressions on the legacy path are a single-state query, not a migration bug.
+- **Learnings for future iterations:**
+  - `.photosPicker(isPresented:selection:)` is the modern iOS 16 API — cleaner than embedding a `PhotosPicker` label in a keyboard accessory toolbar. Lets you trigger the picker from any action callback instead of requiring the user to tap a labeled `PhotosPicker` view.
+  - When adding a "feature flag" toggle whose PRD copy is phrased against the fallback (e.g. '使用旧版输入框'), keep the `@AppStorage` binding positive (`useInputBarV2`) and invert only inside the Settings Toggle's Binding. This prevents 'default true = false in storage' confusion when someone grep-reads the storage key later.
+  - For popover tap-outside dismissal, a near-invisible `Color.black.opacity(0.001)` background layer *gated by `menuOpen`* is simpler than a full-screen overlay with a DragGesture. Because it's bounded to the InputBarV2's frame, it doesn't swallow scroll gestures on the timeline above — the menu appears above the input bar, and tapping *anywhere on the input bar* (including the text field itself) dismisses it. If a future story needs to dismiss from taps on the timeline, hoist the overlay up to TodayView.
+  - SourceKit diagnostics on new files ("Cannot find DSColor / Memo / PendingAttachment / VoiceRecordingResult / No such module 'UIKit'") are the same cross-module false positives documented in Wave 1 — trust `xcodebuild`.
+  - Adding two files to the pbxproj uses the sequential ID pattern established in Wave 1: Build/FileRef IDs 51/52 follow US-005's 50. Remember all three touch points: PBXBuildFile (line ~55), PBXFileReference (line ~121), group children (line ~305), and Sources build phase (line ~520). Forgetting the group child is silent — build still compiles but the file never shows up in Xcode's navigator.
+  - Keep the legacy `InputBarView` callback shape identical across V1 and V2 so the toggle flip is a single-line branch. If a new callback lands in one but not the other, fix the legacy path too — don't let the legacy fallback rot.
+---
+
+## Wave 2 Story Order Rationale
+- US-001 first: unblocks compile entirely; one-line URL change
+- US-002 second: unblocks Archive entirely; refactor + 4-state machine
+- US-003 next: depends on US-001's URL fix
+- US-004 → US-005: must delete redundant indicators before adding the new footer button (avoid 4 indicators on screen)
+- US-006: depends on US-002 (DayDetailView must already handle .empty without crashing)
+- US-007 → US-008: must have InputBarV2 framework before bolting on press-to-talk gesture
+- US-009 last: tests for US-002, easier to write after the implementation stabilizes
+
+---
+
+## 2026-04-17 - US-008 PressToTalkButton + RecordingOverlayView 三态长按录音
+- Three new files:
+  - `DayPage/DesignSystem/InputTokens.swift`: enum `InputTokens` centralizing `cancelSwipeThreshold` (80pt), `transcribeSwipeThreshold` (80pt), and six `UIImpactFeedbackGenerator.FeedbackStyle` constants — `pressDownHaptic = .light`, `sendReleaseHaptic = .medium`, `cancelArmHaptic = .heavy`, `transcribeArmHaptic = .medium`, `cancelReleaseHaptic = .light`, `transcribeReleaseHaptic = .medium`.
+  - `DayPage/Features/Today/PressToTalkButton.swift`: 40pt `mic.fill` SF symbol inside a circle, scale 1.08 while non-idle. Attaches `DragGesture(minimumDistance: 0)` via `.highPriorityGesture` so outer ScrollView cannot steal. `@GestureState isPressing: Bool` for auto-reset; `@State currentPhase: PressToTalkPhase` tracks `.idle / .recording / .cancelArmed / .transcribeArmed / .transcribing`. First-edge detection (`currentPhase == .idle` on first `.onChanged`) fires press-down haptic + `onPressStart()`. Subsequent `.onChanged` calls call `derivePhase(from: translation)` which resolves `-dy >= 80` → cancel, `-dx >= 80` → transcribe (cancel wins on diagonals where `dy >= dx`). Phase transitions emit precisely-once haptics on entry. `.onEnded` falls back to `lastTranslation` when `value.translation == .zero` (iOS drops translation on some end events); dispatches to `onReleaseSend/Cancel/Transcribe` and transitions through `.transcribing` while Whisper is running for the transcribe path.
+  - `DayPage/Features/Today/RecordingOverlayView.swift`: card with 40-bar waveform + monospace 20pt timer + status line. 4 visual modes switch fill/border/foreground colors — `.recording` is DSColor.surface + amberArchival bars, `.cancelArmed` is DSColor.errorContainer + DSColor.error, `.transcribeArmed` is a custom light-blue (`Color(red: 0.85, green: 0.92, blue: 1.0)`) + darker blue accents, `.transcribing` is surface + ProgressView at the right. No internal state — all rendering driven by `mode`, `elapsedSeconds`, `waveform` inputs.
+- `InputBarV2.swift` integration:
+  - Added `@AppStorage("usePressToTalk") var usePressToTalk: Bool = true` — feature flag; when off, right-side mic reverts to tap-opens-sheet (old path).
+  - Added `@StateObject private var voiceService = VoiceService.shared` for live waveform + elapsed readouts.
+  - Added `@State private var pressToTalkPhase: PressToTalkPhase = .idle`.
+  - Added two new callbacks: `onPressToTalkSend: (VoiceRecordingResult) -> Void` (stage + submit immediately) and `onPressToTalkTranscribe: (String) -> Void` (fill draft text, do NOT submit).
+  - In `rightActionButton`, branched `else if usePressToTalk { PressToTalkButton(...) } else { legacy tap-mic Button }`.
+  - Added `handlePressToTalkStart/ReleaseSend/ReleaseCancel/ReleaseTranscribe` helpers that own the VoiceService plumbing. Transcribe-path removes the audio file (`try? FileManager.default.removeItem(at: result.fileURL)`) + calls `voiceService.reset()` so the Whisper queue doesn't retry an audio blob that has no owning memo.
+  - Mounted `RecordingOverlayView` as the first child of the main `VStack` gated by `pressToTalkOverlayMode` optional — sits above the divider/text-field row, below the keyboard area.
+- `TodayView.swift`: wired two new callbacks on the InputBarV2 call site. `onPressToTalkSend` → `addVoiceAttachment(result:) → submitCombinedMemo(body: draftText) → draftText = ""`. `onPressToTalkTranscribe` → appends transcript to `draftText` with a single-space separator (or sets it outright when empty).
+- `SettingsView.swift`: `appearanceSection` gets a second Toggle — `使用旧版语音录制` — with inverted binding (`get: { !usePressToTalk }, set: { usePressToTalk = !$0 }`) matching the US-007 pattern.
+- `project.pbxproj`: registered A10000053/A20000053 (InputTokens.swift → DesignSystem group), A10000054/A20000054 (RecordingOverlayView.swift → Today group), A10000055/A20000055 (PressToTalkButton.swift → Today group). All three added to the Sources build phase.
+- Files changed: `DayPage/DesignSystem/InputTokens.swift` (new), `DayPage/Features/Today/PressToTalkButton.swift` (new), `DayPage/Features/Today/RecordingOverlayView.swift` (new), `DayPage/Features/Today/InputBarV2.swift`, `DayPage/Features/Today/TodayView.swift`, `DayPage/Features/Settings/SettingsView.swift`, `DayPage.xcodeproj/project.pbxproj`, `prd.json`, `progress.txt`.
+- Build: `xcodebuild -scheme DayPage -destination 'platform=iOS Simulator,arch=arm64,id=3A661BD8-5F57-42B2-B4BA-DBB2FAB4FAD0' build` → **BUILD SUCCEEDED**.
+- Manual Simulator press-hold / swipe-up / swipe-left verification deferred — `verify-daypage` MCP skill not wired in this environment. Haptic paths, phase transitions, and callback wiring are covered at compile time by the `PressToTalkPhase` enum; Whisper-round-trip is covered by VoiceService's existing retry/idle logic.
+- **Learnings for future iterations:**
+  - `DragGesture(minimumDistance: 0)` is the only clean way to get both press-down and release in one gesture recognizer. Tap + LongPress + DragGesture combined via `.simultaneously(with:)` creates race conditions — the minimumDistance-0 drag handles everything.
+  - `@GestureState` resets automatically when the gesture ends, but reading `value.translation` in `.onEnded` can return `.zero` on some iOS builds. Always keep a separate `@State lastTranslation: CGSize` that you update in every `.onChanged` and fall back to it on release.
+  - `.highPriorityGesture` is the correct attachment for press-to-talk inside a scrollable parent. `.gesture` and `.simultaneousGesture` let the outer ScrollView's DragGesture fire too, causing scroll-during-hold bugs.
+  - Haptic feedback is best done with `UIImpactFeedbackGenerator(style:)` created per-edge with `.prepare()` called just before `.impactOccurred()`. Don't try to reuse a single generator across phases — the warm-up window is part of the API contract, and reusing can drop haptics on fast transitions.
+  - When a gesture has multiple armed states (cancel / transcribe), pick the "safer" outcome as the tiebreaker for ambiguous diagonals. Here: cancel wins when `|dy| >= |dx|`. Users get upset when a slightly-up-and-left swipe sends a transcript instead of cancelling.
+  - For an overlay that needs live data from a `@StateObject` service, prefer putting the `@StateObject` on the view that mounts the overlay (InputBarV2) rather than passing the service down through the callback shape. The parent-view callbacks stay pure (result in / transcript in) and the overlay reads directly from the service via SwiftUI's binding.
+  - The transcribe-only path must explicitly delete the audio file (`FileManager.default.removeItem(at:)`) because `VoiceService.stopAndTranscribe()` writes it to `vault/raw/assets/` for the send path to consume. If you skip the delete, the next `VoiceAttachmentQueue` pass may retry the orphaned audio file.
+---
+
+## 2026-04-17 - US-009 DayDetailView Unit Tests
+- Added a proper `DayPageTests` unit-test target (app-hosted, `com.daypage.DayPageTests`) to the hand-maintained `DayPage.xcodeproj/project.pbxproj`. All new pbxproj IDs use the `T*` prefix to stay visually separate from app `A*` IDs.
+- pbxproj additions:
+  - `T10000001` PBXBuildFile → `DayDetailViewStateTests.swift in Sources`
+  - `T20000001` PBXFileReference → `DayDetailViewStateTests.swift`
+  - `T30000001` PBXFileReference → `DayPageTests.xctest` (added to Products group)
+  - `T40000001` PBXFrameworksBuildPhase (empty — XCTest linked via test-host)
+  - `T50000001` PBXGroup `DayPageTests/` mounted at project mainGroup (sibling of `DayPage/`)
+  - `T70000001` PBXNativeTarget with `productType = com.apple.product-type.bundle.unit-test`, dependencies = [T75000001]
+  - `T75000001` PBXTargetDependency + `T76000001` PBXContainerItemProxy (proxyType 1) targeting the app `A70000001`
+  - `T90000001` PBXSourcesBuildPhase with the single test file
+  - `TC0000001` / `TC0000002` XCBuildConfigurations (Debug/Release): `TEST_HOST = $(BUILT_PRODUCTS_DIR)/DayPage.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/DayPage`, `BUNDLE_LOADER = $(TEST_HOST)`, `PRODUCT_BUNDLE_IDENTIFIER = com.daypage.DayPageTests`
+  - `T80000001` XCConfigurationList
+  - Added `T70000001` to PBXProject `targets = ( ... )` and `TargetAttributes` with `TestTargetID = A70000001`
+- `DayPage.xcscheme` updated: added a second `<BuildActionEntry buildForTesting="YES" buildForRunning="NO">` for `DayPageTests.xctest`, and a `<Testables><TestableReference skipped="NO"><BuildableReference .../>` pointing at `T70000001` inside `<TestAction>`.
+- Production code changes (tiny + surgical):
+  - `DayPage/Storage/VaultInitializer.swift`: added `static var testOverrideURL: URL?`. `vaultURL` now returns the override first, falling back to the Documents-derived URL. Production calls untouched.
+  - `DayPage/Features/Archive/DayDetailView.swift`: extracted the async load body into a pure `static func resolveLoadState(dateString:vaultURL:fileManager:) -> (LoadState, Bool)`. The SwiftUI `.task { await load() }` now just calls the resolver inside `Task.detached` and copies the result into `@State state` + `@State hasRawFile`. No behaviour change for the app; massive testability win.
+- New test file `DayPageTests/DayDetailViewStateTests.swift`:
+  - `setUp` creates a fresh `temporaryDirectory/DayPageTests-<UUID>/` with `raw/` + `wiki/daily/` subdirs, mounts it via `VaultInitializer.testOverrideURL = root`.
+  - `tearDown` clears the override and `removeItem(at:)` the temp dir.
+  - 7 test cases (PRD asked for 5; I added the 2 extra that complete the state-machine coverage):
+    - `testEmptyState_whenNoFilesExist` — .empty
+    - `testErrorState_whenDateStringIsInvalidFormat` (`'abc'`) — .error contains '日期格式无效'
+    - `testErrorState_whenDateStringIsCalendarInvalid` (`'2020-02-30'`) — .error contains '日期不存在'
+    - `testRawOnlyState_whenOnlyRawFileExists` — .rawOnly + hasRaw=true
+    - `testCompiledState_whenBothRawAndDailyExist` — .compiled + hasRaw=true
+    - `testCompiledState_whenOnlyDailyExists` — .compiled + hasRaw=false
+    - `testErrorState_whenVaultPathIsMissing` — .error contains 'vault unreachable'
+- Files changed: `DayPage/Storage/VaultInitializer.swift`, `DayPage/Features/Archive/DayDetailView.swift`, `DayPage.xcodeproj/project.pbxproj`, `DayPage.xcodeproj/xcshareddata/xcschemes/DayPage.xcscheme`, `DayPageTests/DayDetailViewStateTests.swift` (new), `prd.json`, `progress.txt`.
+- `xcodebuild -scheme DayPage -destination 'platform=iOS Simulator,arch=arm64,id=3A661BD8-5F57-42B2-B4BA-DBB2FAB4FAD0' test` → **TEST SUCCEEDED**, 7/7 in 0.028s.
+- **Learnings for future iterations:**
+  - The two-step test-hook pattern (internal `testOverrideURL` on the singleton + pure `static func` resolver on the view) lets you unit-test SwiftUI-integrated logic without any view-mounting, hosting controller, ViewInspector, etc. If a future story adds another file-backed state machine, reuse this shape.
+  - `setUp` / `tearDown` should clear the override unconditionally even if the test hit an XCTFail early — otherwise a crashed test leaks state to the next one and you get spooky green-then-red transitions.
+  - For Xcode 16 + iOS 16 deployment target, `Swift Testing` (`import Testing`) would also work, but XCTest is still the lowest-friction choice for a hand-maintained pbxproj — no package manifest, no PackageReference, no minimum-OS bump.
+  - `TEST_HOST = $(BUILT_PRODUCTS_DIR)/DayPage.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/DayPage` is the modern (iOS 11+) form; the older `…/DayPage.app/DayPage` still works but will fail silently on future iOS majors that change the executable folder path. Use the `$(BUNDLE_EXECUTABLE_FOLDER_PATH)` variable.
+  - If future stories add more test files, also remember to register them as `PBXBuildFile` + `PBXFileReference` + add them to `T50000001 /* DayPageTests */` group children AND `T90000001 /* Sources */` files. The scheme does NOT need updating for more tests in the same target.
+---

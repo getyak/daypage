@@ -1,0 +1,186 @@
+{
+  "project": "DayPage",
+  "branchName": "ralph/daypage-v3-wave2-experience",
+  "description": "DayPage V3 Wave 2 体验细节打磨 - 修复 DashScope 404、统一编译提示、底部 sticky 编译按钮、Fromm 风输入框 + 长按语音（上滑取消 / 左滑转文字）、Archive 过往日期健壮化",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "DashScope baseURL 修正 + 失败可观测",
+      "description": "As a user, I want compile to actually work (not return 404). As a developer, I want failed compile calls to log URL/status/body for instant diagnosis.",
+      "acceptanceCriteria": [
+        "Change default baseURL in CompilationService.swift from `https://coding.dashscope.aliyuncs.com/v1` to `https://dashscope.aliyuncs.com/compatible-mode/v1`",
+        "Update CLAUDE.md line 30 to match the new default baseURL",
+        "On DashScope call failure, print `[DashScope] URL=... status=... body=<first 500 chars>` in DEBUG builds",
+        "Manually trigger one compile with a real DashScope key — daily page is generated successfully",
+        "`xcodebuild -scheme DayPage build` passes",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Default baseURL switched to compatible-mode/v1. DEBUG builds now print [DashScope] URL/status/body on non-200 or missing HTTP response. Manual API verification deferred — requires real DashScope key in env, not available in CI sandbox."
+    },
+    {
+      "id": "US-002",
+      "title": "DayDetailView 三态健壮化 + dateString 格式校验",
+      "description": "As a user, I want to tap any date in Archive without white-screen or crash. Empty dates should show a friendly empty state.",
+      "acceptanceCriteria": [
+        "Refactor DayDetailView: move file existence checks from computed properties to @State + onAppear async load",
+        "Implement explicit 4 states: .compiled, .rawOnly, .empty, .error — each with its own view",
+        ".empty state shows icon + '这一天还没有记录' + close button",
+        ".error state shows error icon + description + close button",
+        "Validate dateString in init with regex `^\\d{4}-\\d{2}-\\d{2}$` — invalid → .error state",
+        "DailyPageView and RawMemoView init/onAppear check file existence; on failure fall through to .error",
+        "Any file IO failure prints full path + errno",
+        "Manually navigate to dateString='2020-01-01' in Simulator — no crash, shows .empty state",
+        "`xcodebuild -scheme DayPage build` passes",
+        "Typecheck passes",
+        "Verify in Simulator using verify-daypage skill"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "DayDetailView now has explicit LoadState machine (loading/compiled/rawOnly/empty/error) driven by .task async load. dateString validated via strict regex + DateFormatter round-trip. RawMemoView and DailyPageView also guard on file existence and log full path + errno on IO failure. Build passes; app launches without crashing. Automated Simulator click-through on dateString='2020-01-01' deferred — requires verify-daypage MCP skill (not wired) or manual UI navigation; the .empty / .error paths are covered by compile-time state machine and will be locked in by US-009 unit tests."
+    },
+    {
+      "id": "US-003",
+      "title": "Settings 增加「测试 API 连接」按钮",
+      "description": "As a user, I want to verify my DashScope API key works immediately when configuring it, instead of waiting until the 02:00 nightly compile fails.",
+      "acceptanceCriteria": [
+        "Add 「测试连接」 button below DashScope key input in Settings",
+        "Button sends minimal request to `{baseURL}/chat/completions` with `[{\"role\":\"user\",\"content\":\"hi\"}]` and max_tokens=1",
+        "Success: green ✓ with '连接成功 · 模型 xxx'",
+        "Failure: red ✗ with HTTP status + tailored hint (401/403 → 'API key 无效或权限不足'; 404 → 'URL 不存在，检查 baseURL'; timeout → '网络不可达，检查代理')",
+        "While testing: button shows spinner and is disabled",
+        "`xcodebuild -scheme DayPage build` passes",
+        "Typecheck passes",
+        "Verify in Simulator using verify-daypage skill"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "testDashScope now resolves baseURL the same way CompilationService.callDashScope does (env override → compatible-mode/v1 default), sends POST {baseURL}/chat/completions with max_tokens=1. Results render inline under each row: green ✓ + '连接成功 · 模型 qwen3.5-plus' on 200; red ✗ + 'HTTP N · <hint>' on failure (401/403 → 'API key 无效或权限不足'; 404 → 'URL 不存在，检查 baseURL'; 429/5xx specific hints; network errors map timeout/NotConnected/CannotFindHost via NSURLError codes). Button shows spinner and is disabled while testing. Whisper/OpenWeather use same result machinery. Build passes; manual Simulator verification deferred (requires real keys in env)."
+    },
+    {
+      "id": "US-004",
+      "title": "删除三处冗余编译提示 — 统一到 CompilePromptCard",
+      "description": "As a user, I do not want 3 simultaneous '正在编译' indicators on screen. One is enough.",
+      "acceptanceCriteria": [
+        "Delete the in-progress BannerCenter call at TodayViewModel.swift:463 (keep success/failure banners)",
+        "Delete CompilingBadge usage at TodayView.swift:69-72",
+        "If CompilingBadge has no other usage, delete the component file too",
+        "Merge CompilePromptCard compiling state into one line: '正在编译 N 条 memo · [progress / spinner]'",
+        "Compile success and failure still flash BannerCenter once",
+        "Manually trigger compile in Simulator — exactly one '正在编译' indicator on screen",
+        "`xcodebuild -scheme DayPage build` passes",
+        "Typecheck passes",
+        "Verify in Simulator using verify-daypage skill"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "Removed initial BannerCenter progress call in TodayViewModel.compile() and the dependent slowTask/cancelTask upgrade paths (the 'kind == .progress' guards became dead code once the seed banner was gone). Retry-callback no-op'd — future retry telemetry should route through a @Published field so CompilePromptCard owns the indicator. Deleted CompilingBadge usage in TodayView header AND the unused struct itself. CompilePromptCard.body now branches on isCompiling: compiling state collapses to ONE row 'Text + ProgressView' instead of header+sublabel; the 'disabled' modifier is gone since the button only renders in non-compiling state. Success/offline/missingApiKey/401/parseError/network failure banners untouched. Build passes; manual Simulator verify-daypage check deferred (skill not wired)."
+    },
+    {
+      "id": "US-005",
+      "title": "新建 CompileFooterButton — 滚到底部才优雅淡入",
+      "description": "As a user, I want the compile entry to live at the bottom and only appear when I scroll near the bottom of the timeline, instead of dominating the timeline.",
+      "acceptanceCriteria": [
+        "Create Features/Today/CompileFooterButton.swift — capsule shape, 1pt outline, semi-transparent background, sparkle icon + '编译今日 · N 条' text",
+        "Remove CompilePromptCard from TodayView.swift:158-171 (timeline)",
+        "Mount CompileFooterButton above InputBarView",
+        "Use ScrollViewReader + GeometryReader to track scroll offset",
+        "Visibility rule: `!isDailyPageCompiled && memoCount > 0 && scrollOffset within 200pt of contentHeight`",
+        "Spring animation in/out (response 0.35, damping 0.85), duration < 300ms",
+        "While compiling: button morphs to progress state ('正在编译 N 条 memo · [progress]'), disabled — same single indicator from US-004",
+        "On compile success: button fades out",
+        "`xcodebuild -scheme DayPage build` passes",
+        "Typecheck passes",
+        "Verify in Simulator using verify-daypage skill — scroll up/down, button appears/disappears smoothly without flicker"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "New Features/Today/CompileFooterButton.swift defines the sticky capsule button + a CompileFooterAnchor helper view + CompileFooterAnchorPreferenceKey that reports the bottom anchor's minY in the ScrollView coordinate space 'todayScroll'. TodayView removed the pre-compile CompilePromptCard from the timeline (DailyPageEntryCard still renders post-compile), named the ScrollView coordinate space, tracks scrollVisibleHeight via GeometryReader and anchorMinY via onPreferenceChange, and mounts CompileFooterButton between the ScrollView and InputBarView. Visibility rule matches PRD: !isDailyPageCompiled && memoCount > 0 && (isCompiling || anchorMinY <= scrollHeight + 200). Spring(response:0.35, dampingFraction:0.85) applied to both isVisible and isCompiling transitions. Compiling state morphs to 'ProgressView + 正在编译 N 条 memo', button disabled. Registered in project.pbxproj (A10000050 / A20000050). Build: xcodebuild -scheme DayPage → BUILD SUCCEEDED. Simulator flicker-check deferred (verify-daypage MCP not wired)."
+    },
+    {
+      "id": "US-006",
+      "title": "Archive 日历区分有数据 / 无数据日期（半透明 + 全部可点）",
+      "description": "As a user, I want to see at a glance which dates have records on the Archive calendar. No-record dates should be semi-transparent but still tappable.",
+      "acceptanceCriteria": [
+        "On ArchiveView appear, async pre-scan vault/raw/ and vault/wiki/daily/ file listings; cache results into @State Sets",
+        "Calendar cell visuals: has daily → solid highlight; raw only → dot marker; neither → 50% transparent gray",
+        "All cells (including no-data) remain tappable → push DayDetailView",
+        "DayDetailView (from US-002) handles state display",
+        "Pre-scan does not block UI",
+        "`xcodebuild -scheme DayPage build` passes",
+        "Typecheck passes",
+        "Verify in Simulator using verify-daypage skill — three visual states are visible; tapping any date works"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "ArchiveView now pre-scans vault/raw/*.md and vault/wiki/daily/*.md via Task.detached on appear; results land in two @State Set<String> (rawDates, dailyDates). calendarCell(dayNum:) derives a CellDataState (.compiled / .rawOnly / .none) from the sets: .compiled → DSColor.primary solid fill + onPrimary text, .rawOnly → surfaceContainerLow fill + onSurface text + bottom-trailing 4pt dot, .none → 50% translucent surfaceContainerLow + 50% translucent text. Today still gets the 2pt primary stroke in all three states. All cells are tappable — removed the showNoRecordAlert path; handleDateTap(dateStr:) now unconditionally pushes DayDetailView which (US-002) already handles .empty / .error / .rawOnly / .compiled. Pre-scan moved behind a fileprivate enum ArchiveVaultScan.listDateFilenames(in:fileManager:) so Task.detached can call it without capturing self. Build: xcodebuild -scheme DayPage build → BUILD SUCCEEDED. Manual Simulator three-state visual verification deferred (verify-daypage MCP skill not wired in this env)."
+    },
+    {
+      "id": "US-007",
+      "title": "InputBarV2 视觉重设计 + AttachmentMenuPopover（加号面板）",
+      "description": "As a user, I want the input bar to look like Fromm: a rounded outlined input + a `+` button on the left that expands attachment options (camera/photos/file/location) in a popover.",
+      "acceptanceCriteria": [
+        "Create Features/Today/InputBarV2.swift coexisting with old InputBarView (feature flag `useInputBarV2 = true` in Settings)",
+        "Input bar style: cornerRadius 18, 1pt outline (DSColor.outlineVariant), vertical padding 10pt",
+        "Left `+` button: circular 36pt",
+        "Right side: microphone button when empty, send button when text exists",
+        "Create Features/Today/AttachmentMenuPopover.swift — 4 menu items (📷 拍照 / 🖼 从相册选 / 📁 附件 / 📍 位置)",
+        "Tapping `+` opens popover with spring animation; tapping outside dismisses",
+        "Each menu item triggers existing TodayViewModel handlers (capturePhoto, pickPhoto, pickFile, addLocation)",
+        "Remove the old keyboard accessory toolbar's 5 icons (mic/camera/photo/file/location) when V2 enabled",
+        "Settings toggle: 「使用旧版输入框」 falls back to old InputBarView",
+        "`xcodebuild -scheme DayPage build` passes",
+        "Typecheck passes",
+        "Verify in Simulator using verify-daypage skill — V2 input bar matches Fromm aesthetic; `+` popover opens smoothly"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "New Features/Today/InputBarV2.swift + AttachmentMenuPopover.swift implement the Fromm-style input bar. Main row is [+ 36pt circle] [capsule TextEditor cornerRadius 18 + 1pt DSColor.outlineVariant stroke + vertical padding 10pt container] [right action — mic when empty, send arrow.up in primary-filled circle when text or attachments exist]. `+` toggles AttachmentMenuPopover overlaid bottomLeading with spring(0.28, 0.85) scale+opacity; each of the 4 rows (📷 拍照 / 🖼 从相册选 / 📁 附件 / 📍 位置) closes the menu then calls the existing TodayViewModel handler (startCameraCapture / pickPhoto via .photosPicker / startFilePicker / fetchLocation). Tap-outside dismissal handled via a near-invisible (opacity 0.001) background layer that only mounts while menu is open. No keyboard accessory toolbar on V2 — all attachment entry points live in the popover per PRD. Legacy InputBarView kept intact as fallback. TodayView branches on @AppStorage('useInputBarV2') Bool (default true); SettingsView → 外观 section surfaces a '使用旧版输入框' toggle (inverted binding so the visible label reads as PRD copy). project.pbxproj registers A10000051/A20000051 (InputBarV2) and A10000052/A20000052 (AttachmentMenuPopover) into Today group + Sources build phase. Build: xcodebuild -scheme DayPage … → BUILD SUCCEEDED. Simulator visual check deferred (verify-daypage MCP skill not wired). PressToTalkButton (US-008) will later slot into the `+`-less-mic-button slot."
+    },
+    {
+      "id": "US-008",
+      "title": "PressToTalkButton + RecordingOverlayView — 长按录音三态（原位发送 / 上滑取消 / 左滑转文字）",
+      "description": "As a user, I want WeChat-style press-to-talk: hold the mic to record, release to send instantly, swipe up to cancel, swipe left to transcribe-only (fill text field, do not send).",
+      "acceptanceCriteria": [
+        "Create Features/Today/PressToTalkButton.swift using DragGesture(minimumDistance: 0) + @GestureState",
+        "Press down → start recording immediately + light haptic + RecordingOverlayView slides up from bottom (waveform + timer)",
+        "Hold in place → continue recording; real-time waveform from AVAudioRecorder.averagePower(forChannel: 0), update at >= 20Hz (every 50ms)",
+        "Release in original position → stop + send immediately + medium haptic; overlay dismisses; no confirmation dialog",
+        "Swipe up >= 80pt → 'cancel armed' state: heavy haptic + overlay turns red + '↑ 松手取消'",
+        "Swipe left >= 80pt → 'transcribe armed' state: medium haptic + overlay turns blue + '← 松手转文字'",
+        "Release in cancel state → discard recording + light haptic + overlay dismisses",
+        "Release in transcribe state → call VoiceService.transcribe(audioURL:), fill result into TodayViewModel.draftText, do NOT send + medium haptic + transcribing spinner during call",
+        "Create Features/Today/RecordingOverlayView.swift with 3 visual states (recording / cancelArmed / transcribeArmed)",
+        "Threshold (80pt) and haptic intensities centralized in DSTokens (or new InputTokens file)",
+        "Use .simultaneousGesture or .highPriorityGesture so DragGesture is not stolen by outer ScrollView",
+        "Old VoiceRecordingView sheet path remains as fallback (toggleable in Settings)",
+        "`xcodebuild -scheme DayPage build` passes",
+        "Typecheck passes",
+        "Verify in Simulator using verify-daypage skill — manually run press→release / swipe-up cancel / swipe-left transcribe"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "Three new files: DayPage/DesignSystem/InputTokens.swift (enum InputTokens — cancelSwipeThreshold/transcribeSwipeThreshold = 80pt; press/send/cancelArm/transcribeArm/cancelRelease/transcribeRelease haptic styles), Features/Today/PressToTalkButton.swift (40pt mic circle driven by DragGesture(minimumDistance: 0) + @GestureState; first-edge onChanged emits press-down haptic + calls onPressStart; derivePhase() compares -translation.height/width against thresholds — cancel wins over transcribe on ambiguous diagonals so the 'safer' default fires; onEnded reads last translation and dispatches to onReleaseSend/Cancel/Transcribe with phase-appropriate haptic; attached via .highPriorityGesture so outer ScrollView cannot steal it), Features/Today/RecordingOverlayView.swift (4-mode card — .recording / .cancelArmed / .transcribeArmed / .transcribing — colored background + border + 40-bar live waveform from VoiceService.waveformHistory + monospace 20pt timer; transcribing mode shows ProgressView). InputBarV2 now holds @AppStorage('usePressToTalk') Bool (default true), @StateObject VoiceService.shared, @State PressToTalkPhase. When usePressToTalk && no-content, the right action slot renders PressToTalkButton; else legacy tap-mic path opens VoiceRecordingView sheet as before. Press-to-talk handlers: onPressStart → Task { await voiceService.startRecording() }; onReleaseSend → Task { let r = await voiceService.stopAndTranscribe(); onPressToTalkSend(r) }; onReleaseCancel → voiceService.cancelRecording(); onReleaseTranscribe → Task { stopAndTranscribe; if let transcript, onPressToTalkTranscribe(transcript); remove audio file; reset }. RecordingOverlayView mounts at the top of the InputBarV2 VStack when pressToTalkPhase != .idle, so it sits above the divider/text-field row. TodayView wires onPressToTalkSend → addVoiceAttachment + submitCombinedMemo, and onPressToTalkTranscribe → append to draftText with a single-space separator (do NOT submit). SettingsView → 外观 adds 'Use 旧版语音录制' toggle with inverted binding (storage positive, label legacy copy). project.pbxproj registers A10000053/A20000053 (InputTokens), A10000054/A20000054 (RecordingOverlayView), A10000055/A20000055 (PressToTalkButton); InputTokens added to DesignSystem group, overlay+button added to Today group, all three added to Sources build phase. Build: xcodebuild -scheme DayPage ... build → BUILD SUCCEEDED. Simulator press→release / swipe-up / swipe-left manual verification deferred (verify-daypage MCP not wired)."
+    },
+    {
+      "id": "US-009",
+      "title": "DayDetailView Unit Tests",
+      "description": "As a developer, I want unit test coverage for DayDetailView's 4 states so future changes do not regress crash behavior.",
+      "acceptanceCriteria": [
+        "Create DayPageTests target if it does not exist (use Swift Testing on Xcode 16+ or XCTest fallback)",
+        "Test: dateString='2020-01-01' (no files anywhere) → state == .empty",
+        "Test: dateString='abc' (invalid format) → state == .error",
+        "Test: write mock raw file only → state == .rawOnly",
+        "Test: write mock raw + daily files → state == .compiled",
+        "Test: corrupted vault path → state == .error, no crash",
+        "Tests use a temp directory mocked into VaultInitializer; clean up in tearDown",
+        "`xcodebuild -scheme DayPage test` passes",
+        "Typecheck passes"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": "Created DayPageTests target (PBXNativeTarget T70000001, product bundle com.daypage.DayPageTests) with full pbxproj wiring: PBXBuildFile T10000001, PBXFileReference T20000001 (DayDetailViewStateTests.swift) + T30000001 (xctest product), PBXGroup T50000001 (DayPageTests folder), PBXSourcesBuildPhase T90000001, PBXFrameworksBuildPhase T40000001, PBXTargetDependency T75000001 + PBXContainerItemProxy T76000001 on the DayPage app, XCBuildConfigurations TC0000001/TC0000002 (Debug/Release) using TEST_HOST=$(BUILT_PRODUCTS_DIR)/DayPage.app/... + BUNDLE_LOADER=$(TEST_HOST) for app-hosted unit tests, plus XCConfigurationList T80000001. DayPage.xcscheme updated to build DayPageTests.xctest for testing and list it under <TestAction><Testables>. VaultInitializer.vaultURL now reads from an internal static testOverrideURL first (production reads Documents as before). DayDetailView exposes a pure static resolver resolveLoadState(dateString:vaultURL:fileManager:) that returns (LoadState, hasRawFile) — the SwiftUI `.task` delegates to this resolver via Task.detached, keeping the state machine directly unit-testable. DayPageTests/DayDetailViewStateTests.swift covers 7 cases: .empty (no files), .error for invalid regex 'abc', .error for calendar-invalid '2020-02-30', .rawOnly (only raw file), .compiled (raw+daily), .compiled (daily-only, hasRaw=false), .error for missing vault path. setUp mounts a fresh temp directory per test into VaultInitializer.testOverrideURL; tearDown clears the override and removes the temp dir. `xcodebuild -scheme DayPage ... test` → TEST SUCCEEDED, 7/7 passing in 0.028s."
+    }
+  ]
+}

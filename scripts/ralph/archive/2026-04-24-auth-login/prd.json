@@ -1,0 +1,163 @@
+{
+  "project": "DayPage",
+  "branchName": "ralph/icloud-sync",
+  "description": "iCloud Drive 同步方案 — 零账号零服务器本地优先多设备同步，基于 Issue #64 设计文档 tasks/design-icloud-sync.md",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "VaultLocator 协议 + LocalVaultLocator 默认实现",
+      "description": "As a developer, I need to decouple vault path from business logic so the storage backend can be swapped at runtime without touching the 37 call sites.",
+      "acceptanceCriteria": [
+        "Create DayPage/Storage/VaultLocator.swift with protocol VaultLocator { var vaultURL: URL { get }; var isUsingiCloud: Bool { get } }",
+        "Implement struct LocalVaultLocator: VaultLocator that returns FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent('vault') — identical behavior to current VaultInitializer.vaultURL",
+        "Add static var shared: VaultLocator to VaultInitializer, initialized to LocalVaultLocator()",
+        "Update VaultInitializer.vaultURL to: if let override = testOverrideURL { return override }; return shared.vaultURL",
+        "All 37 existing call sites still compile without any modification",
+        "testOverrideURL hook remains internal and functional",
+        "xcodebuild -scheme DayPage build passes",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Implemented VaultLocator.swift with protocol + LocalVaultLocator; updated VaultInitializer.shared + vaultURL; build passed."
+    },
+    {
+      "id": "US-002",
+      "title": "iCloud Entitlements 配置 + iCloudVaultLocator 实现",
+      "description": "As a developer, I need the iCloud Drive container wired up so the app can resolve the Ubiquity Container URL and store vault files there.",
+      "acceptanceCriteria": [
+        "Add to DayPage.entitlements: com.apple.developer.icloud-container-identifiers = [iCloud.com.daypage.app], com.apple.developer.ubiquity-container-identifiers = [iCloud.$(TeamIdentifierPrefix)com.daypage.app], com.apple.developer.icloud-services = [CloudDocuments]",
+        "Create struct iCloudVaultLocator: VaultLocator in VaultLocator.swift with containerID = 'iCloud.com.daypage.app'",
+        "iCloudVaultLocator.vaultURL returns FileManager.default.url(forUbiquityContainerIdentifier: containerID)?.appendingPathComponent('Documents/vault') — returns nil when iCloud unavailable",
+        "iCloudVaultLocator.isUsingiCloud returns true iff url(forUbiquityContainerIdentifier:) is non-nil",
+        "Update VaultInitializer.shared lazy init: try iCloudVaultLocator first; if isUsingiCloud → use it, else fallback to LocalVaultLocator()",
+        "When iCloud unavailable (Simulator without iCloud account), App launches normally using LocalVaultLocator — no crash",
+        "Wrap RawStorage.atomicWrite with NSFileCoordinator.coordinate(writingItemAt:options:.forReplacing) — existing temp-file + replaceItemAt logic stays inside the coordinator block",
+        "xcodebuild -scheme DayPage build passes",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Implemented iCloudVaultLocator in VaultLocator.swift; updated VaultInitializer.shared lazy init; wrapped RawStorage.atomicWrite with NSFileCoordinator; added iCloud entitlements. Build passed."
+    },
+    {
+      "id": "US-003",
+      "title": "AppSettings: vaultLocation + attachmentPolicy 持久化",
+      "description": "As a developer, I need UserDefaults-backed settings for vault location and attachment policy so other services and UI can read current sync state.",
+      "acceptanceCriteria": [
+        "Add enum VaultLocation: String { case local = 'local'; case iCloud = 'iCloud' } to AppSettings.swift",
+        "Add enum AttachmentPolicy: String { case onDemand = 'onDemand'; case alwaysLocal = 'alwaysLocal' } to AppSettings.swift",
+        "Add AppSettings.vaultLocation: VaultLocation (UserDefaults key 'vaultLocation', default .local)",
+        "Add AppSettings.attachmentPolicy: AttachmentPolicy (UserDefaults key 'attachmentPolicy', default .onDemand)",
+        "Add AppSettings.migrationCompletedAt: Date? (UserDefaults key 'migrationCompletedAt', default nil)",
+        "All properties are @Published and trigger SwiftUI updates",
+        "xcodebuild -scheme DayPage build passes",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Added VaultLocation + AttachmentPolicy enums and vaultLocation, attachmentPolicy, migrationCompletedAt properties to AppSettings.swift. Build passed."
+    },
+    {
+      "id": "US-004",
+      "title": "iCloudSyncMonitor — NSMetadataQuery 实时监听同步状态",
+      "description": "As a developer, I need a service that watches iCloud sync state so the Settings UI can display live upload/download counts.",
+      "acceptanceCriteria": [
+        "Create DayPage/Services/iCloudSyncMonitor.swift as @MainActor final class iCloudSyncMonitor: ObservableObject",
+        "@Published var status: SyncStatus with enum SyncStatus { case notConfigured, connected(lastSync: Date?), syncing(pendingFiles: Int), error(message: String) }",
+        "@Published var pendingUploadCount: Int = 0",
+        "@Published var pendingDownloadCount: Int = 0",
+        "func startMonitoring(vaultURL: URL) starts NSMetadataQuery with searchScopes=[NSMetadataQueryUbiquitousDocumentsScope] and predicate filtering by vaultURL.path prefix",
+        "NSMetadataQueryDidUpdate handler reads NSMetadataUbiquitousItemIsUploadingKey + IsDownloadingKey per item, updates published counts",
+        "When iCloud not configured (LocalVaultLocator active), status = .notConfigured and monitoring is no-op",
+        "Register iCloudSyncMonitor.shared as singleton and start monitoring in DayPageApp after VaultInitializer.initializeIfNeeded()",
+        "xcodebuild -scheme DayPage build passes",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "Created iCloudSyncMonitor.swift with SyncStatus enum, NSMetadataQuery monitoring, @Published counts. Registered in DayPageApp.init after VaultInitializer. Build passed."
+    },
+    {
+      "id": "US-005",
+      "title": "ConflictMerger — Raw Memo 冲突合并逻辑 + Swift Testing 单测",
+      "description": "As a developer, I need conflict resolution logic for iCloud conflict copies so no memo is ever lost when two devices write to the same day file simultaneously.",
+      "acceptanceCriteria": [
+        "Create DayPage/Services/ConflictMerger.swift with func mergeRawMemos(original: [Memo], conflict: [Memo]) -> [Memo]",
+        "Merge algorithm: concatenate both arrays, sort by memo.created ascending, deduplicate by memo.id (UUID), keep first occurrence of each UUID",
+        "Create func mergeLogLines(original: String, conflict: String) -> String that deduplicates wiki/log.md lines by timestamp prefix",
+        "Create func mergeJSONEntries(original: Data, conflict: Data, idKey: String) -> Data that deduplicates JSON array entries by idKey field (for drafts/*.json)",
+        "Detect iCloud conflict copies in vault/raw/ via NSMetadataQuery (NSMetadataUbiquitousItemHasUnresolvedConflictsKey) and auto-merge them using ConflictMerger",
+        "After successful merge, delete conflict copy files and write merged result back to primary file using NSFileCoordinator",
+        "Post NotificationCenter notification .vaultConflictResolved with ConflictResolutionInfo(date: Date, mergedMemoCount: Int, sourceDevice: String) after merge",
+        "Swift Testing unit tests in DayPageTests covering: UUID deduplication keeps unique memos, duplicate UUID keeps only one, merged result is sorted by created, empty array merge, two non-overlapping sets produce union",
+        "Tests pass (xcodebuild -scheme DayPage test)",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "Created ConflictMerger.swift with mergeRawMemos (UUID dedup + sort by created), mergeLogLines (timestamp prefix dedup), mergeJSONEntries (idKey dedup). Added iCloud conflict detection via NSFileVersion + NSFileCoordinator write-back + .vaultConflictResolved notification. ConflictMergerTests.swift: 9 XCTest cases all pass. Build and tests succeeded."
+    },
+    {
+      "id": "US-006",
+      "title": "Settings iCloud 同步面板 + 首次开启引导卡片",
+      "description": "As a user, I want to see iCloud sync status in Settings and get guided to enable iCloud Drive if it's not configured.",
+      "acceptanceCriteria": [
+        "Add 'iCloud 同步' section to SettingsView in the Data area, using @StateObject iCloudSyncMonitor.shared",
+        "When status == .notConfigured: show a card with '☁️ 开启多设备同步' title, subtitle '在 iPhone 与 iPad 之间同步你的日记', and a '前往 iOS 设置开启 iCloud Drive' button that opens UIApplication.openSettingsURLString",
+        "When status == .connected: show green dot + '已连接' + 'iCloud Drive' label + last sync time formatted as '今天 HH:mm' for today or 'M月d日 HH:mm' for other dates",
+        "When status == .syncing(let n): show spinner + '同步中' + '\\(n) 个文件待传'",
+        "When status == .error(let msg): show red exclamation + '同步错误' + msg",
+        "Add AttachmentPolicy picker under the status row: '按需下载（节省空间）' and '始终保留本地副本'",
+        "When AppSettings.migrationCompletedAt != nil AND Date().timeIntervalSince(migrationCompletedAt) < 30*24*3600: show '切换回本地存储' secondary button",
+        "xcodebuild -scheme DayPage build passes",
+        "Typecheck passes",
+        "Verify in Simulator using verify-daypage skill"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "Added iCloudSyncSection to SettingsView: .notConfigured shows onboarding card with openSettings button; .connected shows green dot + last sync time; .syncing shows spinner + pending count; .error shows red exclamation + message. AttachmentPolicy picker hidden when notConfigured. Rollback button shown within 30-day migration window. Build passed."
+    },
+    {
+      "id": "US-007",
+      "title": "附件按需下载占位符 — MemoCardView iCloud eviction 处理",
+      "description": "As a user, I want to see a placeholder when an attachment hasn't been downloaded from iCloud yet, and have it download automatically when I need it.",
+      "acceptanceCriteria": [
+        "In MemoCardView, add func isAttachmentDownloaded(_ url: URL) -> Bool that reads .ubiquitousItemDownloadingStatusKey from URL resource values; returns true for local files (non-ubiquitous)",
+        "Add func startDownload(_ url: URL) that calls FileManager.default.startDownloadingUbiquitousItem(at:) — no-op on local files",
+        "For photo attachments: if !isAttachmentDownloaded, show a gray RoundedRectangle placeholder with ProgressView centered; call startDownload on appear; when status becomes .current, refresh the thumbnail",
+        "For audio attachments: if !isAttachmentDownloaded, show a waveform placeholder with download icon; call startDownload on tap",
+        "For local vault (iCloud disabled), isAttachmentDownloaded always returns true — no placeholders shown",
+        "When AppSettings.attachmentPolicy == .alwaysLocal, call startDownloadingUbiquitousItem on all vault/raw/assets/ files during VaultInitializer.initializeIfNeeded()",
+        "xcodebuild -scheme DayPage build passes",
+        "Typecheck passes",
+        "Verify in Simulator using verify-daypage skill"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "Added isAttachmentDownloaded(_:) + startDownload(_:) + pollDownloadStatus(for:) to MemoCardView. Photo shows PhotoDownloadPlaceholder when evicted; audio shows AudioDownloadPlaceholder. Local vault always returns true — no placeholders. VaultInitializer.prefetchAttachmentsIfNeeded() walks vault/raw/assets/ on launch when attachmentPolicy == .alwaysLocal. AppSettings.currentAttachmentPolicy() added as nonisolated accessor. Build passed."
+    },
+    {
+      "id": "US-008",
+      "title": "VaultMigrationService — 老用户本地 vault → iCloud 迁移 + 回滚",
+      "description": "As an existing user with local vault data, I want my data automatically migrated to iCloud when I enable it, with a 30-day rollback window if something goes wrong.",
+      "acceptanceCriteria": [
+        "Create DayPage/Services/VaultMigrationService.swift as @MainActor final class",
+        "func migrateToiCloud(localVault: URL, iCloudVault: URL, progress: @escaping (Int, Int) -> Void) async throws — copies all files preserving directory structure and modificationDate, reports (copiedCount, totalCount)",
+        "Verification step: compare file count in localVault vs iCloudVault; SHA-256 hash the 3 largest raw/*.md files and 3 latest wiki/daily/*.md files in both locations — throw MigrationError.verificationFailed if any hash mismatches",
+        "On verification success: set AppSettings.vaultLocation = .iCloud, AppSettings.migrationCompletedAt = Date()",
+        "On verification failure: leave AppSettings.vaultLocation = .local, do not delete local vault",
+        "Write a migration.log file to iCloudVault listing each copied file with status (success/failed) and file size",
+        "Call migrateToiCloud in VaultInitializer when iCloud becomes available AND AppSettings.vaultLocation == .local AND local vault directory is non-empty",
+        "Show migration progress sheet in TodayView or as a system alert during migration (progress callback drives a @Published migrationProgress on a shared migration service)",
+        "Settings rollback button (US-006, 30-day window): sets AppSettings.vaultLocation = .local and reinitializes VaultInitializer.shared = LocalVaultLocator()",
+        "Swift Testing unit test: mock FileManager verifies that migrationCompletedAt is NOT set when verification fails",
+        "Tests pass (xcodebuild -scheme DayPage test)",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "Created VaultMigrationService.swift: async migrateToiCloud with file copy (preserving modificationDate), SHA-256 verification of 3 largest raw/*.md + 3 latest wiki/daily/*.md, migration.log output. On verification failure: settings NOT updated. On success: vaultLocation=.iCloud, migrationCompletedAt=Date(). migrateIfNeeded() auto-triggers when iCloud available + vaultLocation==.local + vault non-empty. VaultInitializer.triggerMigrationIfNeeded() called from initializeIfNeeded. AppSettings.currentVaultLocation() nonisolated accessor added. MigrationProgressSheet shown in TodayView during migration. VaultMigrationServiceTests: 5 tests all pass including core requirement (migrationCompletedAt NOT set on verification failure). Build and tests succeeded."
+    }
+  ]
+}
