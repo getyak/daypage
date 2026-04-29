@@ -75,7 +75,7 @@ final class AuthService: NSObject, ObservableObject {
         case unknown
     }
 
-    var loginProvider: LoginProvider {
+    private(set) var loginProvider: LoginProvider {
         guard let email = session?.user.email else { return .unknown }
         if let appleEmail = KeychainHelper.get(forKey: Self.appleEmailKey),
            appleEmail == email {

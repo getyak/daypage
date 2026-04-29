@@ -77,6 +77,14 @@ struct AccountSheet: View {
     private var currentAccountRow: some View {
         let email = authService.session?.user.email ?? "—"
         let initial = email.first.map { String($0).uppercased() } ?? "?"
+        let provider = authService.loginProvider
+        let providerLabel: String = {
+            switch provider {
+            case .apple: return "Apple 登录"
+            case .emailOTP: return "邮箱登录"
+            case .unknown: return "当前账户"
+            }
+        }()
         return HStack(spacing: 14) {
             ZStack {
                 Circle()
@@ -94,11 +102,10 @@ struct AccountSheet: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
                 HStack(spacing: 4) {
-                    let provider = authService.loginProvider
                     Image(systemName: provider == .apple ? "applelogo" : "envelope")
                         .font(.system(size: 11))
                         .foregroundColor(DSColor.onSurfaceVariant)
-                    Text(provider == .apple ? "Apple 登录" : provider == .emailOTP ? "邮箱登录" : "当前账户")
+                    Text(providerLabel)
                         .font(.custom("Inter-Regular", size: 12))
                         .foregroundColor(DSColor.onSurfaceVariant)
                 }
