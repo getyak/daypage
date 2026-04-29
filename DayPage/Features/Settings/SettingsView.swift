@@ -705,7 +705,7 @@ struct SettingsView: View {
         let key = Secrets.resolvedOpenAIWhisperApiKey
         guard !key.isEmpty else { return }
 
-        var req = URLRequest(url: URL(staticString: "https://api.openai.com/v1/models"))
+        var req = URLRequest(url: URL(string: "https://api.openai.com/v1/models")!)
         req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         req.timeoutInterval = 10
 
