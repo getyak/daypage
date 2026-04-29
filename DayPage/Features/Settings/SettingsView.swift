@@ -433,6 +433,7 @@ struct SettingsView: View {
             iCloudStatusRow
             attachmentPolicyPicker
             rollbackButton
+            cleanupBackupButton
         } header: {
             Text("iCloud 同步")
         }
@@ -548,6 +549,36 @@ struct SettingsView: View {
             title: "已切换回本地存储",
             autoDismiss: true
         ))
+    }
+
+    // Shows only when: migrated to iCloud + 30-day window elapsed + local backup still exists
+    @ViewBuilder
+    private var cleanupBackupButton: some View {
+        if let migratedAt = appSettings.migrationCompletedAt,
+           Date().timeIntervalSince(migratedAt) >= 30 * 24 * 3600,
+           appSettings.vaultLocation == .iCloud,
+           FileManager.default.fileExists(atPath: LocalVaultLocator().vaultURL.path) {
+            Button(role: .destructive, action: cleanupLocalBackup) {
+                Label("清理本地备份", systemImage: "trash")
+            }
+        }
+    }
+
+    private func cleanupLocalBackup() {
+        do {
+            try VaultMigrationService.shared.deleteLocalBackup()
+            bannerCenter.show(AppBannerModel(
+                kind: .info,
+                title: "本地备份已清理",
+                autoDismiss: true
+            ))
+        } catch {
+            bannerCenter.show(AppBannerModel(
+                kind: .error,
+                title: "清理失败：\(error.localizedDescription)",
+                autoDismiss: true
+            ))
+        }
     }
 
     private func lastSyncLabel(_ date: Date) -> String {
