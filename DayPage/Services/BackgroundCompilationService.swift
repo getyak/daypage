@@ -155,7 +155,7 @@ final class BackgroundCompilationService {
                 DayPageLogger.shared.warn("[BGCompile] Attempt \(attempt + 1) failed: \(error.localizedDescription)")
             }
         }
-        throw lastError!
+        throw lastError ?? CompilationError.networkError("All retry attempts exhausted")
     }
 
     // MARK: - Private: Compile Eligibility Check
