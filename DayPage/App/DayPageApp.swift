@@ -68,9 +68,10 @@ struct DayPageApp: App {
         BackgroundCompilationService.shared.registerTask()
         // 设置通知代理以处理点击
         UNUserNotificationCenter.current().delegate = notificationDelegate
-        // 在 vault 初始化后启动 iCloud 同步监控
+        // 在 vault 初始化后启动 iCloud 同步监控和冲突自动合并
         Task { @MainActor in
             iCloudSyncMonitor.shared.startMonitoring(vaultURL: VaultInitializer.vaultURL)
+            iCloudConflictMonitor.shared.startMonitoring(vaultURL: VaultInitializer.vaultURL)
         }
     }
 
