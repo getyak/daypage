@@ -82,15 +82,31 @@ final class iCloudSyncMonitor: ObservableObject {
 
         var uploadCount = 0
         var downloadCount = 0
+        var firstErrorMessage: String?
 
         for i in 0..<q.resultCount {
             guard let item = q.result(at: i) as? NSMetadataItem else { continue }
+
+            // Surface per-file iCloud errors (e.g. quota exceeded, network issue).
+            if let downloadError = item.value(forAttribute: NSMetadataUbiquitousItemDownloadingErrorKey) as? NSError,
+               firstErrorMessage == nil {
+                firstErrorMessage = downloadError.localizedDescription
+            }
+            if let uploadError = item.value(forAttribute: NSMetadataUbiquitousItemUploadingErrorKey) as? NSError,
+               firstErrorMessage == nil {
+                firstErrorMessage = uploadError.localizedDescription
+            }
 
             let isUploading = item.value(forAttribute: NSMetadataUbiquitousItemIsUploadingKey) as? Bool ?? false
             let isDownloading = item.value(forAttribute: NSMetadataUbiquitousItemIsDownloadingKey) as? Bool ?? false
 
             if isUploading { uploadCount += 1 }
             if isDownloading { downloadCount += 1 }
+        }
+
+        if let errorMessage = firstErrorMessage {
+            status = .error(message: errorMessage)
+            return
         }
 
         let total = uploadCount + downloadCount
