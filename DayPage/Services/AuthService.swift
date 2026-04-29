@@ -67,6 +67,23 @@ final class AuthService: NSObject, ObservableObject {
     @Published var isLoading: Bool = false
     @Published var error: DPAuthError?
 
+    // MARK: Derived — Login Provider
+
+    enum LoginProvider {
+        case apple
+        case emailOTP
+        case unknown
+    }
+
+    var loginProvider: LoginProvider {
+        guard let email = session?.user.email else { return .unknown }
+        if let appleEmail = KeychainHelper.get(forKey: Self.appleEmailKey),
+           appleEmail == email {
+            return .apple
+        }
+        return .emailOTP
+    }
+
     // MARK: Dependencies
 
     let supabase: SupabaseClient

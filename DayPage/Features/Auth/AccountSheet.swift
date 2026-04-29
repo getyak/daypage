@@ -93,9 +93,15 @@ struct AccountSheet: View {
                     .foregroundColor(DSColor.onSurface)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                Text("当前账户")
-                    .font(.custom("Inter-Regular", size: 12))
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                HStack(spacing: 4) {
+                    let provider = authService.loginProvider
+                    Image(systemName: provider == .apple ? "applelogo" : "envelope")
+                        .font(.system(size: 11))
+                        .foregroundColor(DSColor.onSurfaceVariant)
+                    Text(provider == .apple ? "Apple 登录" : provider == .emailOTP ? "邮箱登录" : "当前账户")
+                        .font(.custom("Inter-Regular", size: 12))
+                        .foregroundColor(DSColor.onSurfaceVariant)
+                }
             }
 
             Spacer()
