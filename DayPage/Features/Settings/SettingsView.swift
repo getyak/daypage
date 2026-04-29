@@ -140,7 +140,7 @@ struct SettingsView: View {
             let _ = keyRefreshToken  // read token so SwiftUI re-evaluates when key is saved
             apiKeyRow(
                 name: "DeepSeek",
-                udKey: "runtimeDeepSeekKey",
+                udKey: AppSettings.Keys.runtimeDeepSeekKey,
                 key: Secrets.resolvedDeepSeekApiKey,
                 isTesting: deepSeekTesting,
                 result: deepSeekResult,
@@ -148,7 +148,7 @@ struct SettingsView: View {
             )
             apiKeyRow(
                 name: "OpenAI Whisper",
-                udKey: "runtimeOpenAIKey",
+                udKey: AppSettings.Keys.runtimeOpenAIKey,
                 key: Secrets.resolvedOpenAIWhisperApiKey,
                 isTesting: whisperTesting,
                 result: whisperResult,
@@ -156,7 +156,7 @@ struct SettingsView: View {
             )
             apiKeyRow(
                 name: "OpenWeatherMap",
-                udKey: "runtimeOpenWeatherKey",
+                udKey: AppSettings.Keys.runtimeOpenWeatherKey,
                 key: Secrets.resolvedOpenWeatherApiKey,
                 isTesting: weatherTesting,
                 result: weatherResult,

@@ -17,7 +17,7 @@ struct OnboardingView: View {
             PermissionsPage(onNext: { currentPage = 2 })
                 .tag(1)
             ApiKeysPage(onComplete: {
-                UserDefaults.standard.set(true, forKey: "hasOnboarded")
+                UserDefaults.standard.set(true, forKey: AppSettings.Keys.hasOnboarded)
                 SampleDataSeeder.seedIfNeeded()
                 hasOnboarded = true
             })
@@ -339,13 +339,13 @@ private struct ApiKeysPage: View {
         // API keys are in a generated file; we write to UserDefaults as a runtime override
         // (GeneratedSecrets.swift reads from environment; store in UserDefaults for runtime use)
         if !deepSeekKey.isEmpty {
-            UserDefaults.standard.set(deepSeekKey, forKey: "runtimeDeepSeekKey")
+            UserDefaults.standard.set(deepSeekKey, forKey: AppSettings.Keys.runtimeDeepSeekKey)
         }
         if !openAIKey.isEmpty {
-            UserDefaults.standard.set(openAIKey, forKey: "runtimeOpenAIKey")
+            UserDefaults.standard.set(openAIKey, forKey: AppSettings.Keys.runtimeOpenAIKey)
         }
         if !openWeatherKey.isEmpty {
-            UserDefaults.standard.set(openWeatherKey, forKey: "runtimeOpenWeatherKey")
+            UserDefaults.standard.set(openWeatherKey, forKey: AppSettings.Keys.runtimeOpenWeatherKey)
         }
         onComplete()
     }

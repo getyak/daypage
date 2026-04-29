@@ -115,6 +115,28 @@ enum AttachmentPolicy: String {
 /// 基于 UserDefaults 的持久化用户偏好设置。
 /// 使用 AppSettings.shared 作为所有影响日期/时间计算的
 /// 用户可配置选项的唯一数据源。
+// MARK: - AppSettings.Keys
+
+extension AppSettings {
+    /// Centralized UserDefaults key constants. Use these instead of bare string
+    /// literals so typos produce a compile error rather than a silent data loss.
+    enum Keys {
+        // Onboarding / auth
+        static let hasOnboarded       = "hasOnboarded"
+        static let authSkipped        = "authSkipped"
+        // Engagement / prompts
+        static let memoSaveCount      = "memoSaveCount"
+        static let lastSyncBannerDate = "lastSyncBannerDate"
+        static let onThisDayDismissed = "onThisDayDismissedDate"
+        // Runtime API keys (entered during onboarding, stored in UserDefaults)
+        static let runtimeDeepSeekKey   = "runtimeDeepSeekKey"
+        static let runtimeOpenAIKey     = "runtimeOpenAIKey"
+        static let runtimeOpenWeatherKey = "runtimeOpenWeatherKey"
+    }
+}
+
+// MARK: - AppSettings
+
 @MainActor
 final class AppSettings: ObservableObject {
 

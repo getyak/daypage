@@ -246,17 +246,15 @@ final class TodayViewModel: ObservableObject {
 
     // MARK: - On This Day
 
-    private let onThisDayDismissedKey = "onThisDayDismissedDate"
-
     func dismissOnThisDay() {
         let today = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
-        UserDefaults.standard.set(today, forKey: onThisDayDismissedKey)
+        UserDefaults.standard.set(today, forKey: AppSettings.Keys.onThisDayDismissed)
         onThisDayEntry = nil
     }
 
     private func checkOnThisDay() {
         let today = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
-        let dismissed = UserDefaults.standard.string(forKey: onThisDayDismissedKey)
+        let dismissed = UserDefaults.standard.string(forKey: AppSettings.Keys.onThisDayDismissed)
         guard dismissed != today else { return }
         onThisDayEntry = OnThisDayIndex.shared.candidate(for: Date())
     }
@@ -501,8 +499,8 @@ final class TodayViewModel: ObservableObject {
                 pendingLocation = nil
                 pendingAttachments = []
                 // Track save count for sync banner (US-010)
-                let count = UserDefaults.standard.integer(forKey: "memoSaveCount")
-                UserDefaults.standard.set(count + 1, forKey: "memoSaveCount")
+                let count = UserDefaults.standard.integer(forKey: AppSettings.Keys.memoSaveCount)
+                UserDefaults.standard.set(count + 1, forKey: AppSettings.Keys.memoSaveCount)
             } catch {
                 submitError = "保存失败：\(error.localizedDescription)"
             }

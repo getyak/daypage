@@ -6,13 +6,13 @@ import Foundation
 // 引导过程中保存的 UserDefaults 密钥，而非编译时写入的值。
 extension Secrets {
     static var resolvedDeepSeekApiKey: String {
-        UserDefaults.standard.string(forKey: "runtimeDeepSeekKey").flatMap { $0.isEmpty ? nil : $0 } ?? deepSeekApiKey
+        UserDefaults.standard.string(forKey: AppSettings.Keys.runtimeDeepSeekKey).flatMap { $0.isEmpty ? nil : $0 } ?? deepSeekApiKey
     }
     static var resolvedOpenAIWhisperApiKey: String {
-        UserDefaults.standard.string(forKey: "runtimeOpenAIKey").flatMap { $0.isEmpty ? nil : $0 } ?? openAIWhisperApiKey
+        UserDefaults.standard.string(forKey: AppSettings.Keys.runtimeOpenAIKey).flatMap { $0.isEmpty ? nil : $0 } ?? openAIWhisperApiKey
     }
     static var resolvedOpenWeatherApiKey: String {
-        UserDefaults.standard.string(forKey: "runtimeOpenWeatherKey").flatMap { $0.isEmpty ? nil : $0 } ?? openWeatherApiKey
+        UserDefaults.standard.string(forKey: AppSettings.Keys.runtimeOpenWeatherKey).flatMap { $0.isEmpty ? nil : $0 } ?? openWeatherApiKey
     }
     static var resolvedGitHubToken: String {
         KeychainHelper.get(forKey: "githubToken") ?? ""
