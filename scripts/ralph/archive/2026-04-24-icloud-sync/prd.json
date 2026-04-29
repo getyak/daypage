@@ -1,0 +1,115 @@
+{
+  "project": "DayPage",
+  "branchName": "ralph/sentry-linear",
+  "description": "Sentry + Linear 错误监控与自动同步 — iOS 崩溃捕获、性能追踪、Sentry Webhook → GitHub Actions → Linear Issue 全链路自动化",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "集成 Sentry iOS SDK",
+      "description": "As a developer, I need the Sentry SDK initialized at app launch so that all unhandled crashes and errors are automatically captured.",
+      "acceptanceCriteria": [
+        "Add Swift Package Manager dependency: https://github.com/getsentry/sentry-cocoa version >= 8.36.0 to DayPage.xcodeproj",
+        "Link Sentry library to DayPage target",
+        "Add static let sentryDSN: String to GeneratedSecrets.swift (empty string placeholder)",
+        "Add SENTRY_DSN entry to scripts/generate_secrets.sh following same pattern as existing keys",
+        "Add SENTRY_DSN= placeholder line to .env.example with comment",
+        "In DayPageApp.swift init, call SentrySDK.start { options in options.dsn = GeneratedSecrets.sentryDSN; options.tracesSampleRate = ProcessInfo.processInfo.environment[\"DEBUG\"] != nil ? 1.0 : 0.2; options.enableCrashHandler = true; options.attachScreenshot = true; options.attachViewHierarchy = true }",
+        "SentrySDK.start is only called when sentryDSN is non-empty (guard against empty DSN)",
+        "xcodebuild -scheme DayPage build passes",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "性能监控 — API 追踪 Span 封装",
+      "description": "As a developer, I want Sentry to trace outbound API calls so that slow compilations and Whisper timeouts are visible in Sentry Performance.",
+      "acceptanceCriteria": [
+        "In CompilationService.swift, wrap the DashScope URLSession request in a Sentry span: let span = SentrySDK.startTransaction(name: \"compilation.dashscope\", operation: \"http.client\"); defer { span.finish() }",
+        "In VoiceService.swift, wrap the Whisper API URLSession request in a Sentry span with name: \"voice.whisper\", operation: \"http.client\"",
+        "In WeatherService.swift, wrap the OpenWeatherMap URLSession request in a Sentry span with name: \"weather.fetch\", operation: \"http.client\"",
+        "In BackgroundCompilationService.swift, wrap background task execution in a Sentry transaction named \"background.compilation\" and call SentrySDK.flush(timeout: 5) before task completion handler",
+        "Spans are only created when SentrySDK is initialized (sentryDSN non-empty)",
+        "xcodebuild -scheme DayPage build passes",
+        "Typecheck passes"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "DayPageLogger 与 Sentry Breadcrumb 打通",
+      "description": "As a developer, I want existing log entries to appear as Sentry breadcrumbs so that I can see what the user did before a crash without changing all call sites.",
+      "acceptanceCriteria": [
+        "Find DayPageLogger.swift (or equivalent logging utility) in the codebase",
+        "In DayPageLogger.error(), add: let crumb = Breadcrumb(level: .error, category: \"app\"); crumb.message = message; SentrySDK.addBreadcrumb(crumb); also call SentrySDK.capture(message: message, level: .error)",
+        "In DayPageLogger.warn() (or warning()), add Sentry breadcrumb with level: .warning",
+        "In DayPageLogger.info(), add Sentry breadcrumb with level: .info",
+        "Breadcrumb message uses format consistent with existing log output",
+        "All existing DayPageLogger call sites compile without modification",
+        "Sentry calls are no-ops when SDK not initialized (SDK handles this gracefully by default)",
+        "xcodebuild -scheme DayPage build passes",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "用户上下文注入",
+      "description": "As a developer, I want Sentry events to include user ID and app version so I can filter errors by user cohort and build.",
+      "acceptanceCriteria": [
+        "In AuthService.swift, after successful sign-in (session becomes non-nil), call: let user = SentrySDK.setUser(SentryUser(userId: session.user.id.uuidString))",
+        "In AuthService.signOut(), call SentrySDK.setUser(nil)",
+        "If AuthService does not exist yet (auth not integrated), add the Sentry user calls to a placeholder location with a TODO comment noting where to wire them when auth is added",
+        "Verify Sentry automatically captures app.version (CFBundleShortVersionString), app.build (CFBundleVersion), device.model, os.version via SDK defaults — no manual configuration needed",
+        "xcodebuild -scheme DayPage build passes",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "GitHub Actions Sentry→Linear 中转 Workflow",
+      "description": "As a developer, I need a GitHub Actions workflow that receives Sentry webhooks and creates Linear issues so the pipeline is version-controlled and auditable.",
+      "acceptanceCriteria": [
+        "Create .github/workflows/sentry-to-linear.yml triggered by repository_dispatch with event type sentry_issue",
+        "Workflow reads from event payload: issue_id, title, culprit, url, count, userCount, environment, fingerprint",
+        "Step 1 — Dedup check: query Linear GraphQL API for open issues where title starts with '[Sentry]' and description contains the fingerprint; if found, skip creation and exit with success",
+        "Step 2 — Priority mapping: userCount >= 10 → priority 1 (Urgent), >= 3 → priority 2 (High), else → priority 3 (Medium)",
+        "Step 3 — Create Linear issue via GraphQL mutation issueCreate with: title = '[Sentry] {title}', description includes error summary + culprit + affected users + occurrence count + environment + Sentry URL + fingerprint, labelIds = bug label, priority from mapping, teamId from LINEAR_TEAM_ID secret",
+        "Workflow uses secrets: LINEAR_API_KEY, LINEAR_TEAM_ID, SENTRY_WEBHOOK_SECRET",
+        "Add workflow-level permissions: contents: read",
+        "On failure, workflow exits with non-zero code so GitHub Actions sends notification",
+        "Add comments in the YAML explaining each step",
+        "Typecheck passes (YAML lint via yamllint or actionlint if available, otherwise skip)"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Sentry Webhook 配置 Runbook",
+      "description": "As a developer, I need a runbook documenting how to configure the Sentry Webhook so any team member can set up or restore the pipeline.",
+      "acceptanceCriteria": [
+        "Create tasks/runbook-sentry-linear.md",
+        "Runbook section 1: Prerequisites — list required accounts (Sentry, Linear, GitHub), required secrets (SENTRY_DSN, LINEAR_API_KEY, LINEAR_TEAM_ID, SENTRY_WEBHOOK_SECRET), and how to obtain each",
+        "Runbook section 2: Sentry Webhook setup steps — navigate to Sentry Project Settings → Integrations → Webhooks, add endpoint URL format: https://api.github.com/repos/{owner}/{repo}/dispatches with Authorization header using GitHub PAT, configure to trigger on New Issue event only",
+        "Runbook section 3: GitHub Secrets setup — list all required secrets and where to set them (repo Settings → Secrets → Actions)",
+        "Runbook section 4: Testing the pipeline — curl command to manually trigger repository_dispatch with sample sentry_issue payload for testing without real Sentry events",
+        "Runbook section 5: Verification checklist — empty checkboxes for operator to fill in after setup",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": ""
+    }
+  ]
+}

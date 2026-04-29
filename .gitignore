@@ -83,6 +83,9 @@ Carthage/Checkouts
 # -----------------------------------------------------------------------------
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+.claude/worktrees/
+.claude/skills/verify-daypage/runs/
+.claude/PRPs/
 
 # -----------------------------------------------------------------------------
 # fastlane
