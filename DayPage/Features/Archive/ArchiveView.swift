@@ -958,24 +958,29 @@ struct ArchiveView: View {
         .padding(.top, 8)
     }
 
+    private static let isoParser: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
+    private static let monthDayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMMM d"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
     /// 将 "yyyy-MM-dd" 转换为 "APRIL 14"（MMMM d, en_US, 全大写）。
     private func formatArchiveDate(_ dateString: String) -> String {
-        let parser = DateFormatter()
-        parser.dateFormat = "yyyy-MM-dd"
-        parser.locale = Locale(identifier: "en_US_POSIX")
-        guard let date = parser.date(from: dateString) else { return dateString }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM d"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        return formatter.string(from: date).uppercased()
+        guard let date = Self.isoParser.date(from: dateString) else { return dateString }
+        return Self.monthDayFormatter.string(from: date).uppercased()
     }
 
     /// 人性化日期标签：TODAY / YESTERDAY / N DAYS AGO / APRIL 14。
     private func relativeDateLabel(_ dateString: String) -> String {
-        let parser = DateFormatter()
-        parser.dateFormat = "yyyy-MM-dd"
-        parser.locale = Locale(identifier: "en_US_POSIX")
-        guard let date = parser.date(from: dateString) else { return dateString }
+        guard let date = Self.isoParser.date(from: dateString) else { return dateString }
         let cal = Calendar.current
         let now = Date()
         if cal.isDateInToday(date) { return "TODAY" }
