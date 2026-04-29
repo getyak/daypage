@@ -321,6 +321,20 @@ struct InputBarV4: View {
 
             // Icon toolbar row
             HStack(spacing: 0) {
+                // Collapse — dismiss keyboard and return to idle voice dock.
+                // Draft text / attachments / location are preserved so the user
+                // can re-open the composer without losing their work.
+                toolbarIconButton(
+                    systemImage: "chevron.down",
+                    accessibilityLabel: "收起，回到语音模式"
+                ) {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                        userExpandedText = false
+                    }
+                    isFocused = false
+                }
+
                 // Mic — voice-to-text mode in composing
                 toolbarIconButton(
                     systemImage: isComposingTranscribe ? "waveform" : "mic",
