@@ -34,7 +34,7 @@ struct SettingsView: View {
     @StateObject private var syncMonitor = iCloudSyncMonitor.shared
 
     // Press-to-talk fallback toggle (US-008).
-    @AppStorage("usePressToTalk") private var usePressToTalk: Bool = true
+    @AppStorage(AppSettings.Keys.usePressToTalk) private var usePressToTalk: Bool = true
 
     // API key editing sheet
     @State private var editingKeyName: String = ""

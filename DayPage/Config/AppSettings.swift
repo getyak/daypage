@@ -129,9 +129,25 @@ extension AppSettings {
         static let lastSyncBannerDate = "lastSyncBannerDate"
         static let onThisDayDismissed = "onThisDayDismissedDate"
         // Runtime API keys (entered during onboarding, stored in UserDefaults)
-        static let runtimeDeepSeekKey   = "runtimeDeepSeekKey"
-        static let runtimeOpenAIKey     = "runtimeOpenAIKey"
+        static let runtimeDeepSeekKey    = "runtimeDeepSeekKey"
+        static let runtimeOpenAIKey      = "runtimeOpenAIKey"
         static let runtimeOpenWeatherKey = "runtimeOpenWeatherKey"
+        // Settings — time zone, vault, attachment
+        static let preferredTimeZone  = "preferredTimeZone"
+        static let vaultLocation      = "vaultLocation"
+        static let attachmentPolicy   = "attachmentPolicy"
+        // GitHub feedback repo
+        static let githubRepoOwner    = "githubRepoOwner"
+        static let githubRepoName     = "githubRepoName"
+        // Migration
+        static let migrationCompletedAt = "migrationCompletedAt"
+        // Appearance
+        static let themeMode          = "themeMode"
+        static let accentColor        = "accentColor"
+        static let fontSizeAdjust     = "fontSizeAdjust"
+        static let cardDensity        = "cardDensity"
+        // Input
+        static let usePressToTalk     = "usePressToTalk"
     }
 }
 
@@ -145,13 +161,11 @@ final class AppSettings: ObservableObject {
 
     // MARK: - Preferred Time Zone
 
-    private let timeZoneKey = "preferredTimeZone"
-
     /// 用于所有日期计算的时区：文件命名、编译调度和日报归属。
     /// 默认为设备时区。
     var preferredTimeZone: TimeZone {
         get {
-            guard let id = UserDefaults.standard.string(forKey: timeZoneKey),
+            guard let id = UserDefaults.standard.string(forKey: Keys.preferredTimeZone),
                   let tz = TimeZone(identifier: id) else {
                 return TimeZone.current
             }
@@ -159,24 +173,22 @@ final class AppSettings: ObservableObject {
         }
         set {
             objectWillChange.send()
-            UserDefaults.standard.set(newValue.identifier, forKey: timeZoneKey)
+            UserDefaults.standard.set(newValue.identifier, forKey: Keys.preferredTimeZone)
         }
     }
 
     /// 将首选时区重置为当前设备时区。
     func resetToDeviceTimeZone() {
-        UserDefaults.standard.removeObject(forKey: timeZoneKey)
+        UserDefaults.standard.removeObject(forKey: Keys.preferredTimeZone)
         objectWillChange.send()
     }
 
     // MARK: - Vault Location
 
-    static let vaultLocationKey = "vaultLocation"
-
     /// vault 存储位置。默认为 .local。
     var vaultLocation: VaultLocation {
         get {
-            guard let raw = UserDefaults.standard.string(forKey: Self.vaultLocationKey),
+            guard let raw = UserDefaults.standard.string(forKey: Keys.vaultLocation),
                   let loc = VaultLocation(rawValue: raw) else {
                 return .local
             }
@@ -184,18 +196,16 @@ final class AppSettings: ObservableObject {
         }
         set {
             objectWillChange.send()
-            UserDefaults.standard.set(newValue.rawValue, forKey: Self.vaultLocationKey)
+            UserDefaults.standard.set(newValue.rawValue, forKey: Keys.vaultLocation)
         }
     }
 
     // MARK: - Attachment Policy
 
-    static let attachmentPolicyKey = "attachmentPolicy"
-
     /// iCloud 附件的下载方式。默认为 .onDemand。
     var attachmentPolicy: AttachmentPolicy {
         get {
-            guard let raw = UserDefaults.standard.string(forKey: Self.attachmentPolicyKey),
+            guard let raw = UserDefaults.standard.string(forKey: Keys.attachmentPolicy),
                   let policy = AttachmentPolicy(rawValue: raw) else {
                 return .onDemand
             }
@@ -203,116 +213,103 @@ final class AppSettings: ObservableObject {
         }
         set {
             objectWillChange.send()
-            UserDefaults.standard.set(newValue.rawValue, forKey: Self.attachmentPolicyKey)
+            UserDefaults.standard.set(newValue.rawValue, forKey: Keys.attachmentPolicy)
         }
     }
 
     // MARK: - GitHub Repo Config
 
-    static let githubRepoOwnerKey = "githubRepoOwner"
-    static let githubRepoNameKey = "githubRepoName"
-
     /// The GitHub repo owner for feedback issue creation. Defaults to "cubxxw".
     var githubRepoOwner: String {
         get {
-            UserDefaults.standard.string(forKey: Self.githubRepoOwnerKey) ?? "cubxxw"
+            UserDefaults.standard.string(forKey: Keys.githubRepoOwner) ?? "cubxxw"
         }
         set {
             objectWillChange.send()
-            UserDefaults.standard.set(newValue, forKey: Self.githubRepoOwnerKey)
+            UserDefaults.standard.set(newValue, forKey: Keys.githubRepoOwner)
         }
     }
 
     /// The GitHub repo name for feedback issue creation. Defaults to "daypage".
     var githubRepoName: String {
         get {
-            UserDefaults.standard.string(forKey: Self.githubRepoNameKey) ?? "daypage"
+            UserDefaults.standard.string(forKey: Keys.githubRepoName) ?? "daypage"
         }
         set {
             objectWillChange.send()
-            UserDefaults.standard.set(newValue, forKey: Self.githubRepoNameKey)
+            UserDefaults.standard.set(newValue, forKey: Keys.githubRepoName)
         }
     }
 
     // MARK: - Theme Mode
 
-    private let themeModeKey = "themeMode"
-
     var themeMode: ThemeMode {
         get {
-            guard let raw = UserDefaults.standard.string(forKey: themeModeKey),
+            guard let raw = UserDefaults.standard.string(forKey: Keys.themeMode),
                   let mode = ThemeMode(rawValue: raw) else { return .system }
             return mode
         }
         set {
             objectWillChange.send()
-            UserDefaults.standard.set(newValue.rawValue, forKey: themeModeKey)
+            UserDefaults.standard.set(newValue.rawValue, forKey: Keys.themeMode)
         }
     }
 
     // MARK: - Accent Color
 
-    private let accentColorKey = "accentColor"
-
     var accentColor: AccentColorOption {
         get {
-            guard let raw = UserDefaults.standard.string(forKey: accentColorKey),
+            guard let raw = UserDefaults.standard.string(forKey: Keys.accentColor),
                   let color = AccentColorOption(rawValue: raw) else { return .amber }
             return color
         }
         set {
             objectWillChange.send()
-            UserDefaults.standard.set(newValue.rawValue, forKey: accentColorKey)
+            UserDefaults.standard.set(newValue.rawValue, forKey: Keys.accentColor)
         }
     }
 
     // MARK: - Font Size Adjust
 
-    private let fontSizeAdjustKey = "fontSizeAdjust"
-
     var fontSizeAdjust: FontSizeAdjust {
         get {
-            guard let raw = UserDefaults.standard.string(forKey: fontSizeAdjustKey),
+            guard let raw = UserDefaults.standard.string(forKey: Keys.fontSizeAdjust),
                   let adjust = FontSizeAdjust(rawValue: raw) else { return .normal }
             return adjust
         }
         set {
             objectWillChange.send()
-            UserDefaults.standard.set(newValue.rawValue, forKey: fontSizeAdjustKey)
+            UserDefaults.standard.set(newValue.rawValue, forKey: Keys.fontSizeAdjust)
         }
     }
 
     // MARK: - Card Density
 
-    private let cardDensityKey = "cardDensity"
-
     var cardDensity: CardDensity {
         get {
-            guard let raw = UserDefaults.standard.string(forKey: cardDensityKey),
+            guard let raw = UserDefaults.standard.string(forKey: Keys.cardDensity),
                   let density = CardDensity(rawValue: raw) else { return .comfortable }
             return density
         }
         set {
             objectWillChange.send()
-            UserDefaults.standard.set(newValue.rawValue, forKey: cardDensityKey)
+            UserDefaults.standard.set(newValue.rawValue, forKey: Keys.cardDensity)
         }
     }
 
     // MARK: - Migration Completed At
 
-    static let migrationCompletedAtKey = "migrationCompletedAt"
-
     /// 迁移到 iCloud 的完成日期。未迁移时为 nil。
     var migrationCompletedAt: Date? {
         get {
-            UserDefaults.standard.object(forKey: Self.migrationCompletedAtKey) as? Date
+            UserDefaults.standard.object(forKey: Keys.migrationCompletedAt) as? Date
         }
         set {
             objectWillChange.send()
             if let date = newValue {
-                UserDefaults.standard.set(date, forKey: Self.migrationCompletedAtKey)
+                UserDefaults.standard.set(date, forKey: Keys.migrationCompletedAt)
             } else {
-                UserDefaults.standard.removeObject(forKey: Self.migrationCompletedAtKey)
+                UserDefaults.standard.removeObject(forKey: Keys.migrationCompletedAt)
             }
         }
     }
@@ -322,7 +319,7 @@ final class AppSettings: ObservableObject {
     /// 直接从 UserDefaults 读取首选时区，无需 @MainActor 上下文。
     /// 在同步、非隔离的代码路径中使用此方法（例如 RawStorage、静态格式化器）。
     nonisolated static func currentTimeZone() -> TimeZone {
-        guard let id = UserDefaults.standard.string(forKey: "preferredTimeZone"),
+        guard let id = UserDefaults.standard.string(forKey: Keys.preferredTimeZone),
               let tz = TimeZone(identifier: id) else {
             return TimeZone.current
         }
@@ -332,7 +329,7 @@ final class AppSettings: ObservableObject {
     /// 直接从 UserDefaults 读取附件策略，无需 @MainActor 上下文。
     /// 在 VaultInitializer 或其他非隔离代码中使用。
     nonisolated static func currentAttachmentPolicy() -> AttachmentPolicy {
-        guard let raw = UserDefaults.standard.string(forKey: "attachmentPolicy"),
+        guard let raw = UserDefaults.standard.string(forKey: Keys.attachmentPolicy),
               let policy = AttachmentPolicy(rawValue: raw) else {
             return .onDemand
         }
@@ -342,7 +339,7 @@ final class AppSettings: ObservableObject {
     /// 直接从 UserDefaults 读取 vault 位置，无需 @MainActor 上下文。
     /// 在 VaultInitializer 或其他非隔离代码中使用。
     nonisolated static func currentVaultLocation() -> VaultLocation {
-        guard let raw = UserDefaults.standard.string(forKey: "vaultLocation"),
+        guard let raw = UserDefaults.standard.string(forKey: Keys.vaultLocation),
               let loc = VaultLocation(rawValue: raw) else {
             return .local
         }

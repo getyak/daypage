@@ -27,13 +27,13 @@ final class FeedbackViewModel: ObservableObject {
     // MARK: - Repo Config (UserDefaults)
 
     var repoOwner: String {
-        get { UserDefaults.standard.string(forKey: AppSettings.githubRepoOwnerKey) ?? "cubxxw" }
-        set { UserDefaults.standard.set(newValue, forKey: AppSettings.githubRepoOwnerKey) }
+        get { UserDefaults.standard.string(forKey: AppSettings.Keys.githubRepoOwner) ?? "cubxxw" }
+        set { UserDefaults.standard.set(newValue, forKey: AppSettings.Keys.githubRepoOwner) }
     }
 
     var repoName: String {
-        get { UserDefaults.standard.string(forKey: AppSettings.githubRepoNameKey) ?? "daypage" }
-        set { UserDefaults.standard.set(newValue, forKey: AppSettings.githubRepoNameKey) }
+        get { UserDefaults.standard.string(forKey: AppSettings.Keys.githubRepoName) ?? "daypage" }
+        set { UserDefaults.standard.set(newValue, forKey: AppSettings.Keys.githubRepoName) }
     }
 
     // MARK: - Token (Keychain)
