@@ -66,7 +66,7 @@ final class WeatherService {
         guard !apiKey.isEmpty else { return nil }
 
         // URLComponents avoids string-interpolating the API key and handles percent-encoding.
-        var components = URLComponents(string: "https://api.openweathermap.org/data/2.5/weather")!
+        guard var components = URLComponents(string: "https://api.openweathermap.org/data/2.5/weather") else { return nil }
         components.queryItems = [
             URLQueryItem(name: "lat",   value: String(lat)),
             URLQueryItem(name: "lon",   value: String(lng)),
