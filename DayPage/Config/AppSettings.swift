@@ -72,7 +72,7 @@ enum FontSizeAdjust: String, CaseIterable {
         }
     }
 
-    /// Points to add to the base body font size (16pt).
+    /// Points to add to the base body font size (14pt).
     var delta: CGFloat {
         switch self {
         case .small: return -1

@@ -164,9 +164,13 @@ struct TitleSMModifier: ViewModifier {
 }
 
 struct BodyMDModifier: ViewModifier {
+    @ObservedObject private var appSettings = AppSettings.shared
+
     func body(content: Content) -> some View {
+        let baseSize: CGFloat = 16
+        let adjusted = baseSize + appSettings.fontSizeAdjust.delta
         content
-            .font(DSType.bodyMD)
+            .font(DSFonts.inter(size: adjusted, weight: .regular))
             .lineSpacing(4)
     }
 }
