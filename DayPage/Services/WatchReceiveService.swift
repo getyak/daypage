@@ -33,7 +33,7 @@ extension WatchReceiveService: WCSessionDelegate {
                              activationDidCompleteWith activationState: WCSessionActivationState,
                              error: Error?) {
         if let error {
-            print("[WatchReceiveService] activation error: \(error.localizedDescription)")
+            DayPageLogger.log(level: "ERROR", message: "WatchReceiveService activation error: \(error.localizedDescription)")
         }
     }
 
@@ -49,7 +49,7 @@ extension WatchReceiveService: WCSessionDelegate {
         let metadata = file.metadata ?? [:]
 
         guard let type = metadata["type"] as? String, type == "watchAudio" else {
-            print("[WatchReceiveService] Ignored file with type: \(metadata["type"] ?? "nil")")
+            DayPageLogger.log(level: "WARN", message: "WatchReceiveService ignored file with type: \(metadata["type"] ?? "nil")")
             return
         }
 
@@ -71,13 +71,13 @@ extension WatchReceiveService: WCSessionDelegate {
             }
             try FileManager.default.moveItem(at: sourceURL, to: destURL)
 
-            print("[WatchReceiveService] Saved watch audio to: \(destURL.lastPathComponent)")
+            DayPageLogger.log(level: "INFO", message: "WatchReceiveService saved watch audio to: \(destURL.lastPathComponent)")
 
             Task { @MainActor in
                 self.lastReceivedFile = destURL
             }
         } catch {
-            print("[WatchReceiveService] Failed to move file: \(error.localizedDescription)")
+            DayPageLogger.log(level: "ERROR", message: "WatchReceiveService failed to move file: \(error.localizedDescription)")
             Task { @MainActor in
                 self.lastError = error.localizedDescription
             }

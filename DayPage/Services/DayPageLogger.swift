@@ -51,6 +51,22 @@ final class DayPageLogger {
         }
     }
 
+    // Callable from any actor context (nonisolated enum, background threads, WCSessionDelegate).
+    // Writes to the log file directly; Sentry breadcrumbs are skipped for off-actor calls.
+    nonisolated static func log(level: String, message: String,
+                                file: String = #file, line: Int = #line) {
+        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let shortFile = (file as NSString).lastPathComponent
+        let entry = "[\(timestamp)] [\(level)] \(shortFile):\(line) — \(message)\n"
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let url = docs
+            .appendingPathComponent("vault/logs", isDirectory: true)
+            .appendingPathComponent("app.log")
+        try? FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        appendEntry(entry, to: url, maxFileSize: 1_048_576)
+    }
+
     private nonisolated static func appendEntry(_ entry: String, to url: URL, maxFileSize: Int) {
         rotateIfNeeded(url: url, maxFileSize: maxFileSize)
         guard let data = entry.data(using: .utf8) else { return }

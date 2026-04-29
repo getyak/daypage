@@ -88,7 +88,7 @@ enum VaultInitializer {
             do {
                 try fm.createDirectory(at: url, withIntermediateDirectories: true)
             } catch {
-                print("[VaultInitializer] Failed to create directory \(relativePath): \(error)")
+                DayPageLogger.log(level: "ERROR", message: "Failed to create directory \(relativePath): \(error)")
             }
         }
     }
@@ -109,7 +109,7 @@ enum VaultInitializer {
             let data = Data(content.utf8)
             try data.write(to: url, options: .atomic)
         } catch {
-            print("[VaultInitializer] Failed to write \(relativePath): \(error)")
+            DayPageLogger.log(level: "ERROR", message: "Failed to write \(relativePath): \(error)")
         }
     }
 
