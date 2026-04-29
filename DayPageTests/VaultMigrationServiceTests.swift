@@ -172,9 +172,8 @@ final class VaultMigrationServiceTests: XCTestCase {
         XCTAssertNotNil(UserDefaults.standard.object(forKey: AppSettings.migrationCompletedAtKey))
 
         let service = await VaultMigrationService.shared
-        await MainActor.run {
-            XCTAssertNoThrow(try service.deleteLocalBackup(),
-                             "deleteLocalBackup must not throw when vault is already absent")
+        try await MainActor.run {
+            try service.deleteLocalBackup()
         }
 
         XCTAssertNil(
@@ -204,9 +203,8 @@ final class VaultMigrationServiceTests: XCTestCase {
         UserDefaults.standard.removeObject(forKey: AppSettings.migrationCompletedAtKey)
 
         let service = await VaultMigrationService.shared
-        await MainActor.run {
-            XCTAssertNoThrow(try service.deleteLocalBackup(),
-                             "deleteLocalBackup must tolerate missing migrationCompletedAt")
+        try await MainActor.run {
+            try service.deleteLocalBackup()
         }
     }
 
@@ -228,10 +226,10 @@ final class VaultMigrationServiceTests: XCTestCase {
             "migrationCompletedAt must be set after successful migration"
         )
 
-        await MainActor.run {
+        try await MainActor.run {
             // deleteLocalBackup targets LocalVaultLocator().vaultURL (Documents/vault),
             // not our temp dir — but it still clears migrationCompletedAt.
-            try? service.deleteLocalBackup()
+            try service.deleteLocalBackup()
         }
 
         XCTAssertNil(
