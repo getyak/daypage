@@ -41,9 +41,9 @@ enum VaultInitializer {
     // MARK: - iCloud Migration Trigger
 
     private static func triggerMigrationIfNeeded() {
-        // Only relevant when iCloud is available and user has not yet migrated.
-        let locator = iCloudVaultLocator()
-        guard locator.isUsingiCloud else { return }
+        // Reuse the already-resolved shared locator instead of constructing a new
+        // iCloudVaultLocator — avoids a redundant ubiquity-container lookup.
+        guard shared.isUsingiCloud else { return }
         guard AppSettings.currentVaultLocation() == .local else { return }
         Task { @MainActor in
             VaultMigrationService.shared.migrateIfNeeded()
