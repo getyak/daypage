@@ -162,4 +162,81 @@ final class VaultMigrationServiceTests: XCTestCase {
         }
         XCTAssertTrue(didThrowVerificationFailed, "Expected verificationFailed for file count mismatch")
     }
+
+    // MARK: - deleteLocalBackup
+
+    /// When vault doesn't exist (common in Simulator where Documents/vault is absent),
+    /// deleteLocalBackup should not throw and must clear migrationCompletedAt.
+    func testDeleteLocalBackup_whenVaultAbsent_clearsMigrationDate() async throws {
+        UserDefaults.standard.set(Date(), forKey: AppSettings.migrationCompletedAtKey)
+        XCTAssertNotNil(UserDefaults.standard.object(forKey: AppSettings.migrationCompletedAtKey))
+
+        let service = await VaultMigrationService.shared
+        await MainActor.run {
+            XCTAssertNoThrow(try service.deleteLocalBackup(),
+                             "deleteLocalBackup must not throw when vault is already absent")
+        }
+
+        XCTAssertNil(
+            UserDefaults.standard.object(forKey: AppSettings.migrationCompletedAtKey),
+            "migrationCompletedAt must be cleared even when vault directory was absent"
+        )
+    }
+
+    /// deleteLocalBackup clears migrationCompletedAt regardless of how old the date is.
+    func testDeleteLocalBackup_clearsMigrationDate_regardlessOfAge() async throws {
+        let oldDate = Date(timeIntervalSinceNow: -40 * 24 * 3600) // 40 days ago
+        UserDefaults.standard.set(oldDate, forKey: AppSettings.migrationCompletedAtKey)
+
+        let service = await VaultMigrationService.shared
+        await MainActor.run {
+            try? service.deleteLocalBackup()
+        }
+
+        XCTAssertNil(
+            UserDefaults.standard.object(forKey: AppSettings.migrationCompletedAtKey),
+            "migrationCompletedAt must be nil after deleteLocalBackup for a 40-day-old migration"
+        )
+    }
+
+    /// When migrationCompletedAt is already nil, deleteLocalBackup must not crash.
+    func testDeleteLocalBackup_whenNoPriorMigration_doesNotThrow() async throws {
+        UserDefaults.standard.removeObject(forKey: AppSettings.migrationCompletedAtKey)
+
+        let service = await VaultMigrationService.shared
+        await MainActor.run {
+            XCTAssertNoThrow(try service.deleteLocalBackup(),
+                             "deleteLocalBackup must tolerate missing migrationCompletedAt")
+        }
+    }
+
+    /// Full round-trip: migrate then delete backup.
+    /// Confirms migrationCompletedAt is set by migration and cleared by deleteLocalBackup.
+    func testDeleteLocalBackup_afterSuccessfulMigration_clearsMigrationDate() async throws {
+        let local = try makeVault(name: "local_delete_after_migrate", rawContent: "roundtrip content")
+        let icloud = try makeVault(name: "icloud_delete_after_migrate")
+
+        let service = await VaultMigrationService.shared
+        try await service.migrateToiCloud(
+            localVault: local,
+            iCloudVault: icloud,
+            progress: { _, _ in }
+        )
+
+        XCTAssertNotNil(
+            UserDefaults.standard.object(forKey: AppSettings.migrationCompletedAtKey),
+            "migrationCompletedAt must be set after successful migration"
+        )
+
+        await MainActor.run {
+            // deleteLocalBackup targets LocalVaultLocator().vaultURL (Documents/vault),
+            // not our temp dir — but it still clears migrationCompletedAt.
+            try? service.deleteLocalBackup()
+        }
+
+        XCTAssertNil(
+            UserDefaults.standard.object(forKey: AppSettings.migrationCompletedAtKey),
+            "migrationCompletedAt must be cleared after deleteLocalBackup"
+        )
+    }
 }
