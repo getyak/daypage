@@ -9,6 +9,13 @@ final class DayPageLogger {
     private nonisolated static let queue = DispatchQueue(label: "com.daypage.logger", qos: .utility)
     private let maxFileSize: Int = 1_048_576 // 1 MB
 
+    // Shared formatter — ISO8601DateFormatter init is expensive; reuse across all calls.
+    private nonisolated static let formatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
     private var logURL: URL {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let logsDir = docs.appendingPathComponent("vault/logs", isDirectory: true)
@@ -23,7 +30,8 @@ final class DayPageLogger {
         let crumb = Breadcrumb(level: .error, category: "app")
         crumb.message = message
         SentrySDK.addBreadcrumb(crumb)
-        SentrySDK.capture(message: message) { $0.setLevel(SentryLevel.error) }
+        // Breadcrumb only — no per-call SentrySDK.capture(). Call sites that need a
+        // full Sentry event (unhandled exceptions) should invoke SentrySDK directly.
     }
 
     func warn(_ message: String, file: String = #file, line: Int = #line) {
@@ -41,7 +49,7 @@ final class DayPageLogger {
     }
 
     private func write(level: String, message: String, file: String, line: Int) {
-        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let timestamp = Self.formatter.string(from: Date())
         let shortFile = (file as NSString).lastPathComponent
         let entry = "[\(timestamp)] [\(level)] \(shortFile):\(line) — \(message)\n"
         let url = logURL
@@ -51,11 +59,12 @@ final class DayPageLogger {
         }
     }
 
-    // Callable from any actor context (nonisolated enum, background threads, WCSessionDelegate).
-    // Routes through the shared serial queue for thread-safe writes; Sentry breadcrumbs are skipped for off-actor calls.
+    // Callable from any actor context (nonisolated, background threads, WCSessionDelegate).
+    // Routes through the shared serial queue for thread-safe writes; Sentry breadcrumbs
+    // are skipped for off-actor calls.
     nonisolated static func log(level: String, message: String,
                                 file: String = #file, line: Int = #line) {
-        let timestamp = ISO8601DateFormatter().string(from: Date())
+        let timestamp = formatter.string(from: Date())
         let shortFile = (file as NSString).lastPathComponent
         let entry = "[\(timestamp)] [\(level)] \(shortFile):\(line) — \(message)\n"
         Self.queue.async {
