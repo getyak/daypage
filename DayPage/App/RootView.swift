@@ -41,6 +41,11 @@ struct RootView: View {
             }
         }
         .preferredColorScheme(resolvedColorScheme)
+        // Apply user-selected accent color to all SwiftUI tintable controls
+        // (Button highlight, Toggle, Picker selection, TextField cursor) app-wide.
+        // AppSettings.accentColor setter calls objectWillChange.send(), so RootView
+        // re-renders immediately when the user changes this in Settings.
+        .tint(appSettings.accentColor.color)
     }
 
     // MARK: - Main Content with Sidebar Overlay
