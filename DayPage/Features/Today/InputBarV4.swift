@@ -61,6 +61,8 @@ struct InputBarV4: View {
     /// meaningless one-frame recording while gracefully nudging the user
     /// toward the hold gesture.
     @State private var showTooShortToast: Bool = false
+    /// True while the mic-tap mode hint ("按住发送 · 单击录音") is visible.
+    @State private var showMicHintToast: Bool = false
     /// True while composing-mode mic is actively recording for transcription.
     @State private var isComposingTranscribe: Bool = false
 
@@ -159,9 +161,26 @@ struct InputBarV4: View {
                 .padding(.top, -34)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                 .accessibilityLabel("录音太短，请按住麦克风继续说")
+            } else if showMicHintToast {
+                HStack(spacing: 6) {
+                    Image(systemName: "hand.tap")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text("按住发送 · 单击录音")
+                        .font(.custom("Inter-Regular", size: 11))
+                }
+                .foregroundColor(DSColor.onSurface)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 7)
+                .background(DSColor.surfaceContainerHigh)
+                .clipShape(Capsule())
+                .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 2)
+                .padding(.top, -34)
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                .accessibilityLabel("单击打开录音页，长按发送语音")
             }
         }
         .animation(.easeInOut(duration: 0.2), value: showTooShortToast)
+        .animation(.easeInOut(duration: 0.2), value: showMicHintToast)
         .sheet(isPresented: $showAttachmentMenu) {
             AttachmentMenuPopover(
                 onCapturePhoto: { showAttachmentMenu = false; onCapturePhoto() },
@@ -463,6 +482,7 @@ struct InputBarV4: View {
     /// it itself in `.onAppear`.
     private func handleMicTap() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        flashMicHintToast()
         onStartVoiceRecording()
     }
 
@@ -522,6 +542,13 @@ struct InputBarV4: View {
         showTooShortToast = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
             showTooShortToast = false
+        }
+    }
+
+    private func flashMicHintToast() {
+        showMicHintToast = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+            showMicHintToast = false
         }
     }
 
