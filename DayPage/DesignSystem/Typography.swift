@@ -172,9 +172,13 @@ struct BodyMDModifier: ViewModifier {
 }
 
 struct BodySMModifier: ViewModifier {
+    @ObservedObject private var appSettings = AppSettings.shared
+
     func body(content: Content) -> some View {
+        let baseSize: CGFloat = 14
+        let adjusted = baseSize + appSettings.fontSizeAdjust.delta
         content
-            .font(DSType.bodySM)
+            .font(DSFonts.inter(size: adjusted, weight: .regular))
             .lineSpacing(3)
     }
 }
