@@ -160,16 +160,20 @@ final class BackgroundCompilationService {
 
     // MARK: - Private: Compile Eligibility Check
 
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
     /// 如果 `date` 存在 raw memo 文件且尚未编译 Daily Page，则返回 true。
     private func shouldCompile(for date: Date) -> Bool {
         let rawURL = RawStorage.fileURL(for: date)
         guard FileManager.default.fileExists(atPath: rawURL.path) else { return false }
 
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = AppSettings.currentTimeZone()
-        let dateString = formatter.string(from: date)
+        Self.dateFormatter.timeZone = AppSettings.currentTimeZone()
+        let dateString = Self.dateFormatter.string(from: date)
 
         let dailyURL = VaultInitializer.vaultURL
             .appendingPathComponent("wiki")
