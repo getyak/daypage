@@ -59,7 +59,10 @@ final class FeedbackService {
         owner: String,
         repo: String
     ) async throws -> GitHubIssue {
-        guard let url = URL(string: "\(apiBase)/repos/\(owner)/\(repo)/issues") else {
+        guard NetworkMonitor.shared.isOnline else {
+            throw FeedbackError.networkError("offline")
+        }
+        guard let url = repoURL(owner: owner, repo: repo, path: "issues") else {
             throw FeedbackError.networkError("Invalid repo URL")
         }
 
@@ -87,7 +90,15 @@ final class FeedbackService {
 
     /// Returns all labels defined on the given repo.
     func listRepoLabels(token: String, owner: String, repo: String) async throws -> [GitHubLabel] {
-        guard let url = URL(string: "\(apiBase)/repos/\(owner)/\(repo)/labels?per_page=100") else {
+        guard NetworkMonitor.shared.isOnline else {
+            throw FeedbackError.networkError("offline")
+        }
+        guard let baseURL = repoURL(owner: owner, repo: repo, path: "labels") else {
+            throw FeedbackError.networkError("Invalid repo URL")
+        }
+        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+        components.queryItems = [URLQueryItem(name: "per_page", value: "100")]
+        guard let url = components.url else {
             throw FeedbackError.networkError("Invalid repo URL")
         }
 
@@ -101,6 +112,19 @@ final class FeedbackService {
         try validateGitHubResponse(data: data, response: response)
 
         return try JSONDecoder().decode([GitHubLabel].self, from: data)
+    }
+
+    // MARK: - URL Builder
+
+    /// Builds a GitHub API URL with URLComponents so owner/repo are percent-encoded
+    /// and cannot escape the intended path via traversal sequences.
+    private func repoURL(owner: String, repo: String, path: String) -> URL? {
+        guard var components = URLComponents(string: apiBase) else { return nil }
+        let encoded = [owner, repo, path].map {
+            $0.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? $0
+        }
+        components.path = "/repos/\(encoded[0])/\(encoded[1])/\(encoded[2])"
+        return components.url
     }
 
     // MARK: - Response Validation
