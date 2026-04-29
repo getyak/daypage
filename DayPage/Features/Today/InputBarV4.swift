@@ -61,9 +61,11 @@ struct InputBarV4: View {
     /// meaningless one-frame recording while gracefully nudging the user
     /// toward the hold gesture.
     @State private var showTooShortToast: Bool = false
+    @State private var tooShortToastTask: Task<Void, Never>?
     /// True while the mic-tap affordance hint is visible ("按住发送 · 单击录音").
     /// Shown on every short tap so users discover both interaction modes.
     @State private var showMicHintToast: Bool = false
+    @State private var micHintToastTask: Task<Void, Never>?
     /// True while composing-mode mic is actively recording for transcription.
     @State private var isComposingTranscribe: Bool = false
 
@@ -541,15 +543,29 @@ struct InputBarV4: View {
     }
 
     private func flashTooShortToast() {
+        // Fix 2: clear competing toast before showing this one
+        micHintToastTask?.cancel()
+        showMicHintToast = false
+        // Fix 1: cancellable Task prevents stacked timers on rapid triggers
+        tooShortToastTask?.cancel()
         showTooShortToast = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+        tooShortToastTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_600_000_000)
+            guard !Task.isCancelled else { return }
             showTooShortToast = false
         }
     }
 
     private func flashMicHintToast() {
+        // Fix 2: clear competing toast before showing this one
+        tooShortToastTask?.cancel()
+        showTooShortToast = false
+        // Fix 1: cancellable Task prevents stacked timers on rapid taps
+        micHintToastTask?.cancel()
         showMicHintToast = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
+        micHintToastTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_800_000_000)
+            guard !Task.isCancelled else { return }
             showMicHintToast = false
         }
     }
