@@ -6,7 +6,7 @@ final class DayPageLogger {
 
     static let shared = DayPageLogger()
 
-    private let queue = DispatchQueue(label: "com.daypage.logger", qos: .utility)
+    private nonisolated static let queue = DispatchQueue(label: "com.daypage.logger", qos: .utility)
     private let maxFileSize: Int = 1_048_576 // 1 MB
 
     private var logURL: URL {
@@ -46,25 +46,27 @@ final class DayPageLogger {
         let entry = "[\(timestamp)] [\(level)] \(shortFile):\(line) — \(message)\n"
         let url = logURL
         let maxSize = maxFileSize
-        queue.async {
+        Self.queue.async {
             DayPageLogger.appendEntry(entry, to: url, maxFileSize: maxSize)
         }
     }
 
     // Callable from any actor context (nonisolated enum, background threads, WCSessionDelegate).
-    // Writes to the log file directly; Sentry breadcrumbs are skipped for off-actor calls.
+    // Routes through the shared serial queue for thread-safe writes; Sentry breadcrumbs are skipped for off-actor calls.
     nonisolated static func log(level: String, message: String,
                                 file: String = #file, line: Int = #line) {
         let timestamp = ISO8601DateFormatter().string(from: Date())
         let shortFile = (file as NSString).lastPathComponent
         let entry = "[\(timestamp)] [\(level)] \(shortFile):\(line) — \(message)\n"
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let url = docs
-            .appendingPathComponent("vault/logs", isDirectory: true)
-            .appendingPathComponent("app.log")
-        try? FileManager.default.createDirectory(
-            at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        appendEntry(entry, to: url, maxFileSize: 1_048_576)
+        Self.queue.async {
+            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let url = docs
+                .appendingPathComponent("vault/logs", isDirectory: true)
+                .appendingPathComponent("app.log")
+            try? FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            appendEntry(entry, to: url, maxFileSize: 1_048_576)
+        }
     }
 
     private nonisolated static func appendEntry(_ entry: String, to url: URL, maxFileSize: Int) {
