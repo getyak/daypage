@@ -47,3 +47,31 @@ struct iCloudVaultLocator: VaultLocator {
         Self._ubiquityContainer != nil
     }
 }
+
+// MARK: - SyncBackend
+
+/// Extension point for future remote sync backends (Supabase, Google Drive, etc.).
+/// The iCloud path uses VaultLocator directly (filesystem-level sync handled by the OS);
+/// this protocol covers backends that require explicit upload/download operations.
+///
+/// Upgrade path: local → iCloud → remote backend (one-way, no data loss on upgrade).
+/// v4 target: SupabaseSyncBackend (requires AuthService.session).
+protocol SyncBackend {
+    /// Human-readable identifier shown in Settings (e.g. "iCloud", "Supabase").
+    var displayName: String { get }
+
+    /// Whether this backend is currently available (signed in, reachable, etc.).
+    var isAvailable: Bool { get }
+
+    /// Upload a single file from the local vault to the remote backend.
+    /// Called after a successful local write when the backend requires explicit push.
+    func upload(fileAt localURL: URL, relativePath: String) async throws
+
+    /// Download a single file from the remote backend to the local vault.
+    /// `relativePath` is relative to the vault root (e.g. "raw/2026-04-29.md").
+    func download(relativePath: String, to localURL: URL) async throws
+
+    /// List all files known to the backend, returning their relative paths and
+    /// last-modified dates. Used for incremental sync diff.
+    func listRemoteFiles() async throws -> [(relativePath: String, modifiedAt: Date)]
+}

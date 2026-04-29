@@ -510,6 +510,44 @@ iCloud 同步**不依赖** `AuthService.session`，独立运行。
 2. Google Drive 扩展点：`GoogleDriveVaultLocator` 实现 `VaultLocator`，需单独 Google OAuth 流程
 3. MCP 工具可通过 `vault/wiki/index.md` + `vault/wiki/daily/*.md` 获取结构化数据，无需特殊适配
 
+### 8.4 SyncBackend 协议（代码预留）
+
+iCloud 同步由 OS 的 NSUbiquitousContainer 管理，不需要显式 push/pull；但未来的 Supabase 或 Google Drive 后端需要应用层主动上传/下载。为此在 `VaultLocator.swift` 中预留 `SyncBackend` 协议：
+
+```swift
+protocol SyncBackend {
+    var displayName: String { get }        // Settings 显示名，如 "Supabase"
+    var isAvailable: Bool { get }          // 是否已登录、网络可达等
+    func upload(fileAt localURL: URL, relativePath: String) async throws
+    func download(relativePath: String, to localURL: URL) async throws
+    func listRemoteFiles() async throws -> [(relativePath: String, modifiedAt: Date)]
+}
+```
+
+**与 VaultLocator 的关系**：`VaultLocator` 决定本地写入路径；`SyncBackend` 决定写入后是否需要额外的远端同步操作。两者独立，iCloud 路径只需 `VaultLocator`，Supabase 路径需要 `VaultLocator`（本地缓存）+ `SyncBackend`（远端同步）。
+
+**v4 预计实现**：`SupabaseSyncBackend: SyncBackend`，依赖 `AuthService.session` 中的 JWT，实现增量 diff（基于 `updated_at`）+ `BGTaskScheduler` 定时同步。
+
+### 8.5 数据迁移优先级（单向升级路径）
+
+```
+本地存储 (LocalVaultLocator)
+    │  升级：用户首次开启 iCloud → VaultMigrationService.migrateToiCloud()
+    ▼
+iCloud Drive (iCloudVaultLocator)
+    │  升级：用户登录 Supabase 并开启云备份 → SupabaseSyncBackend 增量同步
+    ▼
+Supabase 云备份 (SupabaseSyncBackend)   [v4]
+    │  预留：Google Drive OAuth 接入
+    ▼
+Google Drive (GoogleDriveSyncBackend)   [v4+]
+```
+
+**原则**：
+- 升级路径**单向**，不允许降级时丢失数据
+- 每一步升级都先写本地、再同步远端（本地优先原则不变）
+- 降级（关闭 iCloud）→ App 回退本地模式，本地数据完整，不做删除
+
 ---
 
 ## 9. 测试矩阵
