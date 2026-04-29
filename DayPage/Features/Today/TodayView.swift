@@ -325,12 +325,12 @@ struct TodayView: View {
                 )
             }
             // Voice recording half-screen sheet
-            // On complete: stage the recording as a pending attachment; user submits manually.
+            // On complete: immediately submit the recording as a standalone memo.
             .sheet(isPresented: $viewModel.isShowingVoiceRecorder) {
                 VoiceRecordingView(
                     onComplete: { result in
                         viewModel.isShowingVoiceRecorder = false
-                        viewModel.addVoiceAttachment(result: result)
+                        viewModel.addVoiceAndSubmit(result: result)
                     },
                     onCancel: {
                         viewModel.cancelVoiceRecording()
@@ -359,7 +359,7 @@ struct TodayView: View {
                 CameraPickerView(
                     onCapture: { image in
                         viewModel.isShowingCamera = false
-                        viewModel.addCameraPhoto(image)
+                        viewModel.addCameraPhotoAndSubmit(image)
                     },
                     onCancel: {
                         viewModel.isShowingCamera = false
@@ -458,7 +458,7 @@ struct TodayView: View {
             pendingAttachments: viewModel.pendingAttachments,
             onFetchLocation: { viewModel.fetchLocation() },
             onClearLocation: { viewModel.clearPendingLocation() },
-            onAddPhoto: { item in viewModel.addPhotoAttachment(item: item) },
+            onAddPhoto: { items in viewModel.addPhotosAndSubmit(items: items) },
             onCapturePhoto: { viewModel.startCameraCapture() },
             onRemoveAttachment: { id in viewModel.removePendingAttachment(id: id) },
             onStartVoiceRecording: { viewModel.startVoiceRecording() },

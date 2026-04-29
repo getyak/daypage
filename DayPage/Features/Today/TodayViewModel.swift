@@ -299,6 +299,13 @@ final class TodayViewModel: ObservableObject {
         voiceService.reset()
     }
 
+    /// Stages a voice recording and immediately submits it as a standalone memo.
+    func addVoiceAndSubmit(result: VoiceRecordingResult) {
+        pendingAttachments.append(.voice(result))
+        voiceService.reset()
+        submitCombinedMemo(body: "")
+    }
+
     /// Opens the voice recording sheet.
     func startVoiceRecording() {
         isShowingVoiceRecorder = true
@@ -366,6 +373,39 @@ final class TodayViewModel: ObservableObject {
                 return
             }
             pendingAttachments.append(.photo(result))
+        }
+    }
+
+    /// Processes a camera-captured UIImage and immediately submits it as a standalone memo.
+    func addCameraPhotoAndSubmit(_ image: UIImage) {
+        guard let data = image.jpegData(compressionQuality: 0.9) else { return }
+        isProcessingPhoto = true
+        Task {
+            defer { isProcessingPhoto = false }
+            guard let result = photoService.processImageData(data) else {
+                submitError = "照片处理失败，请重试"
+                return
+            }
+            pendingAttachments.append(.photo(result))
+            submitCombinedMemo(body: "")
+        }
+    }
+
+    /// Processes multiple PhotosPickerItems and immediately submits them as one memo.
+    func addPhotosAndSubmit(items: [PhotosPickerItem]) {
+        guard !items.isEmpty else { return }
+        isProcessingPhoto = true
+        Task {
+            defer { isProcessingPhoto = false }
+            var processed = false
+            for item in items {
+                guard let result = await photoService.processPickerItem(item) else { continue }
+                pendingAttachments.append(.photo(result))
+                processed = true
+            }
+            if processed {
+                submitCombinedMemo(body: "")
+            }
         }
     }
 

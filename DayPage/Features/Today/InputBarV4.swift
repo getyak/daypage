@@ -41,7 +41,7 @@ struct InputBarV4: View {
     var pendingAttachments: [PendingAttachment]
     var onFetchLocation: () -> Void
     var onClearLocation: () -> Void
-    var onAddPhoto: (PhotosPickerItem) -> Void
+    var onAddPhoto: ([PhotosPickerItem]) -> Void
     var onCapturePhoto: () -> Void
     var onRemoveAttachment: (String) -> Void
     var onStartVoiceRecording: () -> Void
@@ -54,13 +54,15 @@ struct InputBarV4: View {
 
     @FocusState private var isFocused: Bool
     @State private var showAttachmentMenu: Bool = false
-    @State private var photosPickerItem: PhotosPickerItem? = nil
+    @State private var photosPickerItems: [PhotosPickerItem] = []
     @State private var pressToTalkPhase: PressToTalkPhase = .idle
     @State private var userExpandedText: Bool = false
     /// True while a "录音太短" hint is visible. Prevents committing a
     /// meaningless one-frame recording while gracefully nudging the user
     /// toward the hold gesture.
     @State private var showTooShortToast: Bool = false
+    /// True while composing-mode mic is actively recording for transcription.
+    @State private var isComposingTranscribe: Bool = false
 
     @StateObject private var voiceService = VoiceService.shared
 
@@ -122,18 +124,11 @@ struct InputBarV4: View {
             }
 
             // STREAM dock layout:
-            // - composing → full-width capsule + send arrow on the right
-            // - idle      → centered three-slot dock (no send button; mic
-            //               is the hero) with a hint label below
+            // - composing → INK-style: full-width text area + icon toolbar row
+            // - idle      → centered three-slot dock with hint label below
             Group {
                 if isComposing {
-                    HStack(alignment: .bottom, spacing: 10) {
-                        composingCapsule
-                        sendButton
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 10)
-                    .padding(.bottom, 12)
+                    composingToolbarLayout
                 } else {
                     VStack(spacing: 8) {
                         streamDock
@@ -177,10 +172,10 @@ struct InputBarV4: View {
                 hasPendingLocation: pendingLocation != nil
             )
         }
-        .onChange(of: photosPickerItem) { newItem in
-            guard let item = newItem else { return }
-            onAddPhoto(item)
-            photosPickerItem = nil
+        .onChange(of: photosPickerItems) { newItems in
+            guard !newItems.isEmpty else { return }
+            onAddPhoto(newItems)
+            photosPickerItems = []
         }
     }
 
@@ -303,65 +298,104 @@ struct InputBarV4: View {
             .animation(.easeInOut(duration: 0.18), value: pressToTalkPhase)
     }
 
-    // MARK: - Composing Capsule
+    // MARK: - Composing Toolbar Layout (INK-style)
+    //
+    // Full-width text area on top, then a flat icon toolbar row:
+    //   [mic]  [camera]  [photo]  [location]  ········  [↑ send]
+    // The mic in this mode triggers voice-to-text (fills the text field)
+    // rather than sending a standalone voice memo.
 
-    private var composingCapsule: some View {
-        HStack(alignment: .center, spacing: 8) {
-            // + button
-            Button {
-                showAttachmentMenu = true
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(DSColor.onBackgroundMuted)
-                    .frame(width: 28, height: 28)
-                    .background(DSColor.surfaceSunken, in: Circle())
-            }
-            .buttonStyle(.plain)
-            .overlay {
-                PhotosPicker(selection: $photosPickerItem, matching: .images, photoLibrary: .shared()) {
-                    Color.clear
-                }
-                .opacity(0)
-                .allowsHitTesting(false)
-            }
-
-            // Multi-line text field — no system inset, aligns naturally with + button
+    private var composingToolbarLayout: some View {
+        VStack(spacing: 0) {
+            // Text field — full width, no border, generous padding
             TextField("记一笔…", text: $text, axis: .vertical)
-                .font(.custom("Inter-Regular", size: 16))
+                .font(.custom("Inter-Regular", size: 17))
                 .foregroundStyle(DSColor.onBackgroundPrimary)
                 .focused($isFocused)
-                .lineLimit(1...5)
+                .lineLimit(1...8)
                 .tint(DSColor.accentAmber)
+                .padding(.horizontal, 20)
+                .padding(.top, 14)
+                .padding(.bottom, 10)
+                .onTapGesture { isFocused = true }
 
-            // Mic-back button — lets user exit composing and return to voice UI
-            Button {
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
-                    userExpandedText = false
+            // Icon toolbar row
+            HStack(spacing: 0) {
+                // Mic — voice-to-text mode in composing
+                toolbarIconButton(
+                    systemImage: isComposingTranscribe ? "waveform" : "mic",
+                    tint: isComposingTranscribe ? DSColor.accentAmber : DSColor.onBackgroundMuted,
+                    accessibilityLabel: isComposingTranscribe ? "停止语音转文字" : "语音转文字"
+                ) {
+                    handleComposingMicTap()
                 }
-                isFocused = false
-            } label: {
-                Image(systemName: "mic.fill")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(DSColor.onBackgroundMuted)
-                    .frame(width: 28, height: 28)
-                    .background(DSColor.surfaceSunken, in: Circle())
+
+                // Camera
+                toolbarIconButton(systemImage: "camera", accessibilityLabel: "拍照") {
+                    onCapturePhoto()
+                }
+
+                // Photo library (multi-select)
+                ZStack {
+                    toolbarIconButton(systemImage: "photo.on.rectangle", accessibilityLabel: "相册") {}
+                    PhotosPicker(selection: $photosPickerItems, matching: .images, photoLibrary: .shared()) {
+                        Color.clear.frame(width: 44, height: 44)
+                    }
+                    .opacity(0.01)
+                }
+
+                // Location
+                toolbarIconButton(
+                    systemImage: pendingLocation != nil ? "mappin.circle.fill" : "mappin.and.ellipse",
+                    tint: pendingLocation != nil ? DSColor.accentAmber : DSColor.onBackgroundMuted,
+                    accessibilityLabel: pendingLocation != nil ? "清除位置" : "添加位置"
+                ) {
+                    pendingLocation != nil ? onClearLocation() : onFetchLocation()
+                }
+
+                Spacer()
+
+                // Send button
+                sendButton
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("切换到语音输入")
+            .padding(.horizontal, 12)
+            .padding(.bottom, 10)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .strokeBorder(DSColor.outlineVariant.opacity(0.5), lineWidth: 0.5)
-                )
-        )
-        .onTapGesture { isFocused = true }
+    }
+
+    @ViewBuilder
+    private func toolbarIconButton(
+        systemImage: String,
+        tint: Color = DSColor.onBackgroundMuted,
+        accessibilityLabel: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 20, weight: .light))
+                .foregroundStyle(tint)
+                .frame(width: 44, height: 44)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    private func handleComposingMicTap() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        if isComposingTranscribe {
+            // Stop recording and transcribe into text field
+            isComposingTranscribe = false
+            Task {
+                if let result = await voiceService.stopAndTranscribe(),
+                   let t = result.transcript, !t.isEmpty {
+                    onPressToTalkTranscribe(t)
+                }
+            }
+        } else {
+            // Start recording for transcription
+            isComposingTranscribe = true
+            Task { await voiceService.startRecording() }
+        }
     }
 
     // MARK: - Send Button
