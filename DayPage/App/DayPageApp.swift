@@ -73,6 +73,9 @@ struct DayPageApp: App {
             iCloudSyncMonitor.shared.startMonitoring(vaultURL: VaultInitializer.vaultURL)
             iCloudConflictMonitor.shared.startMonitoring(vaultURL: VaultInitializer.vaultURL)
         }
+        // Eagerly initialize WatchReceiveService so WCSession activates on launch.
+        // Without this the lazy singleton never starts and Watch audio transfers are lost.
+        _ = WatchReceiveService.shared
     }
 
     var body: some Scene {
