@@ -27,9 +27,11 @@ final class RawStorageTests: XCTestCase {
     // MARK: - atomicWrite
 
     func testAtomicWrite_createsFileWithCorrectContent() throws {
-        let url = tempDir.appendingPathComponent("test.md")
-        try RawStorage.atomicWrite(string: "hello world", to: url)
-        let content = try String(contentsOf: url, encoding: .utf8)
+        let targetURL = tempDir.appendingPathComponent("test.md")
+        try RawStorage.atomicWrite(string: "hello world", to: targetURL)
+
+        XCTAssertTrue(fm.fileExists(atPath: targetURL.path), "File must exist after atomicWrite")
+        let content = try String(contentsOf: targetURL, encoding: .utf8)
         XCTAssertEqual(content, "hello world")
     }
 
@@ -148,6 +150,8 @@ final class RawStorageTests: XCTestCase {
         let components = url.pathComponents
         let rawIndex = components.firstIndex(of: "raw")
         XCTAssertNotNil(rawIndex, "fileURL must include 'raw' path component")
+        XCTAssertTrue(url.lastPathComponent.hasSuffix(".md"), "fileURL must produce a .md path")
+        XCTAssertTrue(url.path.contains("/raw/"), "fileURL must be under the raw/ directory")
     }
 
     func testFileURL_usesInjectedVaultRoot() {
