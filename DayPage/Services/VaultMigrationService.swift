@@ -212,6 +212,22 @@ final class VaultMigrationService: ObservableObject {
         return digest.compactMap { String(format: "%02x", $0) }.joined()
     }
 
+    // MARK: - Local backup cleanup
+
+    /// Deletes the local vault backup after the user confirms they no longer need it.
+    /// Only safe to call when vaultLocation == .iCloud and 30-day window has passed.
+    /// Clears migrationCompletedAt so the cleanup button disappears after use.
+    func deleteLocalBackup() throws {
+        let localVault = LocalVaultLocator().vaultURL
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: localVault.path) else {
+            AppSettings.shared.migrationCompletedAt = nil
+            return
+        }
+        try fm.removeItem(at: localVault)
+        AppSettings.shared.migrationCompletedAt = nil
+    }
+
     // MARK: - Auto-migration trigger
 
     /// Called from VaultInitializer when iCloud becomes available.
