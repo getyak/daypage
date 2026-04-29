@@ -57,6 +57,31 @@ enum AccentColorOption: String, CaseIterable {
     }
 }
 
+// MARK: - FontSizeAdjust
+
+enum FontSizeAdjust: String, CaseIterable {
+    case small = "-1"
+    case normal = "0"
+    case large = "1"
+
+    var label: String {
+        switch self {
+        case .small: return "小"
+        case .normal: return "默认"
+        case .large: return "大"
+        }
+    }
+
+    /// Points to add to the base body font size (14pt).
+    var delta: CGFloat {
+        switch self {
+        case .small: return -1
+        case .normal: return 0
+        case .large: return 1
+        }
+    }
+}
+
 // MARK: - CardDensity
 
 enum CardDensity: String, CaseIterable {
@@ -216,6 +241,22 @@ final class AppSettings: ObservableObject {
         set {
             objectWillChange.send()
             UserDefaults.standard.set(newValue.rawValue, forKey: accentColorKey)
+        }
+    }
+
+    // MARK: - Font Size Adjust
+
+    private let fontSizeAdjustKey = "fontSizeAdjust"
+
+    var fontSizeAdjust: FontSizeAdjust {
+        get {
+            guard let raw = UserDefaults.standard.string(forKey: fontSizeAdjustKey),
+                  let adjust = FontSizeAdjust(rawValue: raw) else { return .normal }
+            return adjust
+        }
+        set {
+            objectWillChange.send()
+            UserDefaults.standard.set(newValue.rawValue, forKey: fontSizeAdjustKey)
         }
     }
 

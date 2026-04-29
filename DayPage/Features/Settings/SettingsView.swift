@@ -331,6 +331,15 @@ struct SettingsView: View {
                 Label("强调色", systemImage: "paintpalette")
             }
 
+            // Font size adjustment
+            Picker(selection: $appSettings.fontSizeAdjust) {
+                ForEach(FontSizeAdjust.allCases, id: \.self) { adjust in
+                    Text(adjust.label).tag(adjust)
+                }
+            } label: {
+                Label("正文字号", systemImage: "textformat.size")
+            }
+
             // Card density
             Picker(selection: $appSettings.cardDensity) {
                 ForEach(CardDensity.allCases, id: \.self) { density in
