@@ -61,7 +61,8 @@ struct InputBarV4: View {
     /// meaningless one-frame recording while gracefully nudging the user
     /// toward the hold gesture.
     @State private var showTooShortToast: Bool = false
-    /// True while the mic-tap mode hint ("按住发送 · 单击录音") is visible.
+    /// True while the mic-tap affordance hint is visible ("按住发送 · 单击录音").
+    /// Shown on every short tap so users discover both interaction modes.
     @State private var showMicHintToast: Bool = false
     /// True while composing-mode mic is actively recording for transcription.
     @State private var isComposingTranscribe: Bool = false
@@ -480,6 +481,7 @@ struct InputBarV4: View {
     /// sheet. The user controls pause / resume / save / discard from inside
     /// VoiceRecordingView; we don't start VoiceService here, the sheet does
     /// it itself in `.onAppear`.
+    /// Also flashes a hint toast so users discover that long-press sends directly.
     private func handleMicTap() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         flashMicHintToast()
