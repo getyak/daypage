@@ -260,7 +260,7 @@ final class VoiceService: NSObject, ObservableObject {
         // -- closing boundary
         body.append(Data("--\(boundary)--\r\n".utf8))
 
-        var request = URLRequest(url: URL(string: "https://api.openai.com/v1/audio/transcriptions")!)
+        var request = URLRequest(url: URL(staticString: "https://api.openai.com/v1/audio/transcriptions"))
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
