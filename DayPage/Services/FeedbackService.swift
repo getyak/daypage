@@ -104,6 +104,83 @@ final class FeedbackService {
         return try JSONDecoder().decode(GitHubIssue.self, from: data)
     }
 
+    // MARK: - Upload Feedback Image
+
+    /// Uploads a JPEG (or any binary) to the bot repo via the GitHub Contents
+    /// API and returns the public `download_url`. Path: `feedback-assets/<filename>`.
+    /// On 422 (path collision) we retry once with a `_<6char>` suffix before giving up.
+    func uploadFeedbackImage(data: Data, filename: String) async throws -> String {
+        return try await uploadFeedbackImageOnce(
+            data: data,
+            filename: filename,
+            allowRename: true
+        )
+    }
+
+    private func uploadFeedbackImageOnce(
+        data: Data,
+        filename: String,
+        allowRename: Bool
+    ) async throws -> String {
+        guard NetworkMonitor.shared.isOnline else {
+            throw FeedbackError.networkError("offline")
+        }
+
+        let path = "feedback-assets/\(filename)"
+        guard let url = repoURL(
+            owner: FeedbackService.botOwner,
+            repo: FeedbackService.botRepo,
+            path: "contents/\(path)"
+        ) else {
+            throw FeedbackError.networkError("Invalid repo URL")
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "PUT"
+        request.setValue("token \(FeedbackService.botToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 60
+
+        let payload: [String: Any] = [
+            "message": "feedback: upload \(filename)",
+            "content": data.base64EncodedString()
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+
+        let (respData, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw FeedbackError.networkError("No HTTP response")
+        }
+
+        // 422 = path already exists. Retry once with a fresh suffix.
+        if http.statusCode == 422 && allowRename {
+            let renamed = renameWithSuffix(filename)
+            return try await uploadFeedbackImageOnce(data: data, filename: renamed, allowRename: false)
+        }
+        guard http.statusCode == 200 || http.statusCode == 201 else {
+            let body = String(data: respData, encoding: .utf8) ?? ""
+            throw FeedbackError.unknownError(http.statusCode, body)
+        }
+
+        guard let json = try JSONSerialization.jsonObject(with: respData) as? [String: Any],
+              let content = json["content"] as? [String: Any],
+              let downloadURL = content["download_url"] as? String else {
+            throw FeedbackError.networkError("Upload response missing download_url")
+        }
+        return downloadURL
+    }
+
+    private func renameWithSuffix(_ filename: String) -> String {
+        let suffix = UUID().uuidString.prefix(6)
+        if let dot = filename.lastIndex(of: ".") {
+            let stem = filename[..<dot]
+            let ext = filename[dot...]
+            return "\(stem)_\(suffix)\(ext)"
+        }
+        return "\(filename)_\(suffix)"
+    }
+
     // MARK: - List Labels
 
     /// Returns all labels defined on the given repo.

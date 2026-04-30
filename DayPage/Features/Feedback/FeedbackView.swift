@@ -1,10 +1,15 @@
 import SwiftUI
+import PhotosUI
+import UIKit
 
 // MARK: - FeedbackView
 
 struct FeedbackView: View {
 
     @StateObject private var vm = FeedbackViewModel()
+
+    @State private var photosPickerItems: [PhotosPickerItem] = []
+    @State private var showCamera: Bool = false
 
     var body: some View {
         ZStack {
@@ -21,9 +26,8 @@ struct FeedbackView: View {
                         successView(url: url)
                     } else {
                         feedbackInputSection
-                        if vm.isReady || vm.isSubmitting || vm.isIdle && !vm.aiTitle.isEmpty {
-                            previewSection
-                        }
+                        attachmentsSection
+                        sendBar
                     }
 
                     if let err = vm.errorMessage {
@@ -38,16 +42,36 @@ struct FeedbackView: View {
                 }
                 .padding(.horizontal, 20)
             }
-        }
-        .alert("Microphone Permission Required", isPresented: $vm.showMicPermissionAlert) {
-            Button("Cancel", role: .cancel) {}
-            Button("Open Settings") {
-                if let url = URL(string: UIApplication.openSettingsURLString) {
-                    UIApplication.shared.open(url)
-                }
+
+            if vm.pressToTalkPhase == .recording
+                || vm.pressToTalkPhase == .cancelArmed
+                || vm.pressToTalkPhase == .transcribeArmed
+                || vm.pressToTalkPhase == .transcribing {
+                voiceOverlay
+                    .transition(.opacity)
             }
-        } message: {
-            Text("Please enable microphone and speech recognition access in Settings to use voice input.")
+
+            if vm.showHoldToRecordToast {
+                toast("Hold to record")
+            }
+        }
+        .sheet(isPresented: $showCamera) {
+            CameraPickerView(
+                onCapture: { image in
+                    vm.addCameraImage(image)
+                    showCamera = false
+                },
+                onCancel: { showCamera = false }
+            )
+        }
+        .onChange(of: photosPickerItems) { newItems in
+            guard !newItems.isEmpty else { return }
+            Task {
+                for item in newItems {
+                    await vm.addImage(from: item)
+                }
+                photosPickerItems = []
+            }
         }
     }
 
@@ -58,7 +82,7 @@ struct FeedbackView: View {
             Text("Feedback")
                 .font(.custom("SpaceGrotesk-Bold", size: 22))
                 .foregroundColor(DSColor.onBackgroundPrimary)
-            Text("Describe → AI summarizes → direct to GitHub")
+            Text("Describe → AI files it on GitHub for you")
                 .font(.custom("Inter-Regular", size: 13))
                 .foregroundColor(DSColor.onBackgroundSubtle)
         }
@@ -81,7 +105,7 @@ struct FeedbackView: View {
                     )
 
                 if vm.rawFeedback.isEmpty {
-                    Text("Describe a bug, feature request, or improvement…")
+                    Text("Describe a bug, feature, or improvement…")
                         .font(.custom("Inter-Regular", size: 15))
                         .foregroundColor(DSColor.onBackgroundSubtle)
                         .padding(.horizontal, 14)
@@ -97,192 +121,211 @@ struct FeedbackView: View {
                     .frame(minHeight: 140)
             }
             .frame(minHeight: 140)
+        }
+        .padding(.bottom, 16)
+    }
 
-            HStack {
-                micButton
+    // MARK: - Attachments
+
+    private var attachmentsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                PhotosPicker(
+                    selection: $photosPickerItems,
+                    maxSelectionCount: 4,
+                    matching: .images,
+                    photoLibrary: .shared()
+                ) {
+                    attachmentChip(icon: "photo.on.rectangle", label: "Photos")
+                }
+
+                Button {
+                    showCamera = true
+                } label: {
+                    attachmentChip(icon: "camera", label: "Camera")
+                }
+                .buttonStyle(.plain)
+
                 Spacer()
-                summarizeButton
             }
-        }
-        .padding(.bottom, 24)
-    }
 
-    private var micButton: some View {
-        Button {
-            vm.transcribeVoice()
-        } label: {
-            ZStack {
-                Circle()
-                    .fill(vm.isRecording ? Color.red.opacity(0.15) : DSColor.surfaceWhite)
-                    .frame(width: 40, height: 40)
-                    .overlay(
-                        Circle().stroke(
-                            vm.isRecording ? Color.red : DSColor.borderDefault,
-                            lineWidth: 1
-                        )
-                    )
-
-                Image(systemName: vm.isRecording ? "waveform" : "mic")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(vm.isRecording ? Color.red : DSColor.onBackgroundMuted)
-                    .opacity(vm.isRecording ? 1.0 : 0.7)
-                    .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: vm.isRecording)
-            }
-        }
-        .buttonStyle(.plain)
-        .overlay(alignment: .topTrailing) {
-            if vm.isRecording {
-                Circle()
-                    .fill(Color.red)
-                    .frame(width: 8, height: 8)
-                    .offset(x: 2, y: -2)
-                    .transition(.scale.combined(with: .opacity))
-            }
-        }
-        .animation(.easeInOut(duration: 0.2), value: vm.isRecording)
-    }
-
-    private var summarizeButton: some View {
-        Button {
-            Task { await vm.summarizeWithAI() }
-        } label: {
-            HStack(spacing: 6) {
-                if vm.isSummarizing {
-                    ProgressView()
-                        .progressViewStyle(.circular)
-                        .scaleEffect(0.8)
-                        .tint(DSColor.onPrimary)
-                } else {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 13, weight: .medium))
-                }
-                Text(vm.isSummarizing ? "Summarizing…" : "AI Summarize")
-                    .font(.custom("Inter-SemiBold", size: 14))
-            }
-            .foregroundColor(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(vm.isSummarizing ? DSColor.accentAmber.opacity(0.7) : DSColor.accentAmber)
-            .cornerRadius(8)
-        }
-        .disabled(vm.isSummarizing || vm.isSubmitting)
-    }
-
-    // MARK: - Preview / Editable Card
-
-    private var previewSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            sectionLabel("Issue Preview")
-
-            VStack(alignment: .leading, spacing: 14) {
-                // Title
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Title")
-                        .font(.custom("Inter-Medium", size: 12))
-                        .foregroundColor(DSColor.onBackgroundSubtle)
-                    TextField("Issue title", text: $vm.aiTitle)
-                        .font(.custom("Inter-SemiBold", size: 15))
-                        .foregroundColor(DSColor.onBackgroundPrimary)
-                        .textFieldStyle(.plain)
-                        .padding(10)
-                        .background(DSColor.surfaceSunken)
-                        .cornerRadius(8)
-                }
-
-                // Labels
-                if !vm.aiLabels.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Labels")
-                            .font(.custom("Inter-Medium", size: 12))
-                            .foregroundColor(DSColor.onBackgroundSubtle)
-                        HStack(spacing: 6) {
-                            ForEach(vm.aiLabels, id: \.self) { label in
-                                labelChip(label)
-                            }
+            if !vm.pendingImages.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(vm.pendingImages) { image in
+                            imageThumb(image)
                         }
                     }
                 }
-
-                // Body
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Body")
-                        .font(.custom("Inter-Medium", size: 12))
-                        .foregroundColor(DSColor.onBackgroundSubtle)
-
-                    ZStack(alignment: .topLeading) {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(DSColor.surfaceSunken)
-
-                        TextEditor(text: $vm.aiBody)
-                            .font(.custom("JetBrainsMono-Regular", size: 12))
-                            .foregroundColor(DSColor.onBackgroundPrimary)
-                            .scrollContentBackground(.hidden)
-                            .background(Color.clear)
-                            .padding(8)
-                            .frame(minHeight: 180)
-                    }
-                    .frame(minHeight: 180)
-                }
-
-                // Submit button
-                submitButton
             }
-            .padding(16)
-            .background(DSColor.surfaceWhite)
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(DSColor.accentBorder, lineWidth: 1)
+
+            if vm.isProcessingImage {
+                HStack(spacing: 6) {
+                    ProgressView().scaleEffect(0.7)
+                    Text("Processing image…")
+                        .font(.custom("Inter-Regular", size: 12))
+                        .foregroundColor(DSColor.onBackgroundSubtle)
+                }
+            }
+        }
+        .padding(.bottom, 16)
+    }
+
+    private func attachmentChip(icon: String, label: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 13))
+            Text(label)
+                .font(.custom("Inter-Medium", size: 13))
+        }
+        .foregroundColor(DSColor.onBackgroundMuted)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(DSColor.surfaceWhite)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(DSColor.borderDefault, lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func imageThumb(_ image: PendingFeedbackImage) -> some View {
+        ZStack(alignment: .topTrailing) {
+            Image(uiImage: image.thumbnail)
+                .resizable()
+                .scaledToFill()
+                .frame(width: 72, height: 72)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(DSColor.borderDefault, lineWidth: 1)
+                )
+
+            Button {
+                vm.removeImage(id: image.id)
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 16))
+                    .foregroundColor(DSColor.onBackgroundMuted)
+                    .background(Circle().fill(DSColor.surfaceWhite))
+            }
+            .buttonStyle(.plain)
+            .offset(x: 4, y: -4)
+        }
+    }
+
+    // MARK: - Send bar (mic + send)
+
+    private var sendBar: some View {
+        HStack(spacing: 12) {
+            PressToTalkButton(
+                onPressStart: { vm.voicePressStart() },
+                onReleaseSend: { vm.voiceReleaseSendAsTranscript() },
+                onReleaseCancel: { vm.voiceReleaseCancel() },
+                onReleaseTranscribe: { vm.voiceReleaseTranscribe() },
+                onPhaseChange: { phase in vm.pressToTalkPhase = phase },
+                onTapShortRelease: { vm.voiceShortTap() },
+                size: 44
             )
-            .cornerRadius(12)
-            .surfaceElevatedShadow()
+
+            Text("Hold mic to record")
+                .font(.custom("Inter-Regular", size: 12))
+                .foregroundColor(DSColor.onBackgroundSubtle)
+
+            Spacer()
+
+            sendButton
         }
         .padding(.bottom, 24)
     }
 
-    private func labelChip(_ label: String) -> some View {
-        Text(label)
-            .font(.custom("JetBrainsMono-Regular", fixedSize: 11))
-            .foregroundColor(DSColor.accentAmber)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(DSColor.accentSoft)
-            .overlay(
-                Capsule().stroke(DSColor.accentBorder, lineWidth: 1)
-            )
-            .clipShape(Capsule())
-    }
-
-    private var submitButton: some View {
+    private var sendButton: some View {
         Button {
-            Task { await vm.submitToGitHub() }
+            Task { await vm.send() }
         } label: {
-            HStack(spacing: 8) {
-                if vm.isSubmitting {
+            HStack(spacing: 6) {
+                if vm.isSending {
                     ProgressView()
                         .progressViewStyle(.circular)
                         .scaleEffect(0.8)
                         .tint(.white)
                 } else {
-                    Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 16))
+                    Image(systemName: "paperplane.fill")
+                        .font(.system(size: 13, weight: .medium))
                 }
-                Text(vm.isSubmitting ? "Submitting…" : "Submit to GitHub")
-                    .font(.custom("Inter-SemiBold", size: 15))
+                Text(vm.isSending ? "Sending…" : "Send")
+                    .font(.custom("Inter-SemiBold", size: 14))
             }
             .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 13)
-            .background(vm.isSubmitting ? DSColor.accentAmber.opacity(0.7) : DSColor.accentAmber)
-            .cornerRadius(10)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(vm.isSending ? DSColor.accentAmber.opacity(0.7) : DSColor.accentAmber)
+            .cornerRadius(8)
         }
-        .disabled(vm.isSubmitting || vm.isSummarizing)
+        .disabled(vm.isSending)
     }
 
-    // MARK: - Submitted Issues
+    // MARK: - Voice Overlay
+
+    private var voiceOverlay: some View {
+        VStack {
+            Spacer()
+            VStack(spacing: 12) {
+                Image(systemName: overlayIcon)
+                    .font(.system(size: 28))
+                    .foregroundColor(overlayColor)
+                Text(overlayLabel)
+                    .font(.custom("Inter-SemiBold", size: 14))
+                    .foregroundColor(DSColor.onBackgroundPrimary)
+                if vm.pressToTalkPhase == .recording {
+                    Text("\(vm.voiceService.elapsedSeconds)s · slide up to cancel")
+                        .font(.custom("Inter-Regular", size: 12))
+                        .foregroundColor(DSColor.onBackgroundSubtle)
+                }
+            }
+            .padding(.horizontal, 28)
+            .padding(.vertical, 22)
+            .background(DSColor.surfaceWhite)
+            .overlay(
+                RoundedRectangle(cornerRadius: 14)
+                    .stroke(DSColor.borderDefault, lineWidth: 1)
+            )
+            .cornerRadius(14)
+            .padding(.bottom, 120)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var overlayIcon: String {
+        switch vm.pressToTalkPhase {
+        case .cancelArmed: return "xmark.circle.fill"
+        case .transcribeArmed: return "text.bubble.fill"
+        case .transcribing: return "waveform"
+        default: return "mic.fill"
+        }
+    }
+
+    private var overlayColor: Color {
+        switch vm.pressToTalkPhase {
+        case .cancelArmed: return DSColor.errorRed
+        default: return DSColor.accentAmber
+        }
+    }
+
+    private var overlayLabel: String {
+        switch vm.pressToTalkPhase {
+        case .cancelArmed: return "Release to cancel"
+        case .transcribeArmed: return "Release to transcribe"
+        case .transcribing: return "Transcribing…"
+        default: return "Listening…"
+        }
+    }
+
+    // MARK: - Submitted Issues (muted styling — issue numbers de-emphasized)
 
     private var submittedIssuesSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            sectionLabel("Submitted Issues")
+            sectionLabel("Past Submissions")
 
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(vm.submittedIssues) { issue in
@@ -311,23 +354,16 @@ struct FeedbackView: View {
                     .font(.custom("Inter-Medium", size: 13))
                     .foregroundColor(DSColor.onBackgroundPrimary)
                     .lineLimit(2)
-                HStack(spacing: 6) {
-                    Text("#\(issue.number)")
-                        .font(.custom("JetBrainsMono-Regular", size: 11))
-                        .foregroundColor(DSColor.accentAmber)
-                    Text("·")
-                        .foregroundColor(DSColor.onBackgroundSubtle)
-                    Text(issue.date, style: .date)
-                        .font(.custom("Inter-Regular", size: 11))
-                        .foregroundColor(DSColor.onBackgroundSubtle)
-                }
+                Text(issue.date, style: .date)
+                    .font(.custom("Inter-Regular", size: 11))
+                    .foregroundColor(DSColor.onBackgroundSubtle)
             }
             Spacer()
             if let link = URL(string: issue.url) {
                 Link(destination: link) {
                     Image(systemName: "arrow.up.right.square")
                         .font(.system(size: 14))
-                        .foregroundColor(DSColor.onBackgroundMuted)
+                        .foregroundColor(DSColor.onBackgroundSubtle)
                 }
             }
         }
@@ -338,48 +374,46 @@ struct FeedbackView: View {
     // MARK: - Success View
 
     private func successView(url: String) -> some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 18) {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 52))
+                .font(.system(size: 48))
                 .foregroundColor(DSColor.successGreen)
 
-            Text("Issue Created!")
-                .font(.custom("SpaceGrotesk-Bold", size: 22))
+            Text("Thanks — your feedback was received.")
+                .font(.custom("SpaceGrotesk-Bold", size: 20))
                 .foregroundColor(DSColor.onBackgroundPrimary)
-
-            Text(url)
-                .font(.custom("JetBrainsMono-Regular", size: 12))
-                .foregroundColor(DSColor.onBackgroundMuted)
                 .multilineTextAlignment(.center)
-                .lineLimit(2)
 
-            if let link = URL(string: url) {
-                Link(destination: link) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "arrow.up.right.square")
-                            .font(.system(size: 14))
-                        Text("Open in GitHub")
-                            .font(.custom("Inter-SemiBold", size: 15))
+            Text("We'll take it from here.")
+                .font(.custom("Inter-Regular", size: 14))
+                .foregroundColor(DSColor.onBackgroundMuted)
+
+            HStack(spacing: 14) {
+                if let link = URL(string: url) {
+                    Link(destination: link) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "arrow.up.right.square")
+                                .font(.system(size: 12))
+                            Text("Review on GitHub")
+                                .font(.custom("Inter-Medium", size: 13))
+                        }
+                        .foregroundColor(DSColor.onBackgroundMuted)
                     }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 12)
-                    .background(DSColor.accentAmber)
-                    .cornerRadius(10)
                 }
-            }
 
-            Button("Submit Another") {
-                vm.reset()
+                Button("Submit another") {
+                    vm.reset()
+                }
+                .font(.custom("Inter-Medium", size: 13))
+                .foregroundColor(DSColor.accentAmber)
             }
-            .font(.custom("Inter-Regular", size: 14))
-            .foregroundColor(DSColor.onBackgroundMuted)
+            .padding(.top, 4)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
+        .padding(.vertical, 48)
     }
 
-    // MARK: - Error Banner
+    // MARK: - Error / Toast
 
     private func errorBanner(message: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
@@ -402,6 +436,20 @@ struct FeedbackView: View {
         .background(DSColor.errorSoft)
         .cornerRadius(10)
         .padding(.vertical, 8)
+    }
+
+    private func toast(_ text: String) -> some View {
+        VStack {
+            Spacer()
+            Text(text)
+                .font(.custom("Inter-Medium", size: 13))
+                .foregroundColor(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(Color.black.opacity(0.78))
+                .clipShape(Capsule())
+                .padding(.bottom, 60)
+        }
     }
 
     // MARK: - Helpers

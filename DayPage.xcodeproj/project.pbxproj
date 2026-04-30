@@ -103,6 +103,7 @@
 		FB0000001 /* FeedbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000001 /* FeedbackService.swift */; };
 		FB0000002 /* FeedbackViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000002 /* FeedbackViewModel.swift */; };
 		FB0000003 /* FeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000003 /* FeedbackView.swift */; };
+		FB0000004 /* FeedbackContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000004 /* FeedbackContext.swift */; };
 		DBB277156934B2FA96E16077 /* WatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5BB61FECBCF7AB756E7A6CE /* WatchApp.swift */; };
 		9034B2964DD6432BD7FA7250 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C98B5757B488F583231EC8F6 /* RootView.swift */; };
 		B197ECDEBDA86D4351A96898 /* RecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B93ED807E07C2171E9F4234B /* RecordingView.swift */; };
@@ -230,6 +231,7 @@
 		FB1000001 /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
 		FB1000002 /* FeedbackViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackViewModel.swift; sourceTree = "<group>"; };
 		FB1000003 /* FeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackView.swift; sourceTree = "<group>"; };
+		FB1000004 /* FeedbackContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackContext.swift; sourceTree = "<group>"; };
 		F5BB61FECBCF7AB756E7A6CE /* WatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchApp.swift; sourceTree = "<group>"; };
 		C98B5757B488F583231EC8F6 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		B93ED807E07C2171E9F4234B /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
@@ -345,6 +347,7 @@
 			children = (
 				FB1000002 /* FeedbackViewModel.swift */,
 				FB1000003 /* FeedbackView.swift */,
+				FB1000004 /* FeedbackContext.swift */,
 			);
 			path = Feedback;
 			sourceTree = "<group>";
@@ -843,6 +846,7 @@
 				FB0000001 /* FeedbackService.swift in Sources */,
 				FB0000002 /* FeedbackViewModel.swift in Sources */,
 				FB0000003 /* FeedbackView.swift in Sources */,
+				FB0000004 /* FeedbackContext.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
