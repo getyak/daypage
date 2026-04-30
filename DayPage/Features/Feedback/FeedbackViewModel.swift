@@ -1,14 +1,15 @@
 import Foundation
-import Speech
-import AVFoundation
+import SwiftUI
+import PhotosUI
+import UIKit
 
 // MARK: - FeedbackStatus
 
 enum FeedbackStatus: Equatable {
     case idle
-    case summarizing
-    case ready
-    case submitting
+    /// Single combined "AI summarize + GitHub submit" loading state — the
+    /// user sees one spinner instead of two stages.
+    case sending
     case submitted(issueURL: String)
     case error(String)
 }
@@ -24,6 +25,17 @@ struct SubmittedIssue: Codable, Identifiable {
     var id: Int { number }
 }
 
+// MARK: - PendingFeedbackImage
+
+struct PendingFeedbackImage: Identifiable {
+    let id: String = UUID().uuidString
+    let data: Data
+    let thumbnail: UIImage
+    /// Filename used when uploading to GitHub. Generated once at staging time
+    /// so re-uploads (after retry) keep a stable path.
+    let filename: String
+}
+
 // MARK: - FeedbackViewModel
 
 @MainActor
@@ -32,35 +44,37 @@ final class FeedbackViewModel: ObservableObject {
     // MARK: - Published State
 
     @Published var rawFeedback: String = ""
-    @Published var aiTitle: String = ""
-    @Published var aiBody: String = ""
-    @Published var aiLabels: [String] = []
     @Published var status: FeedbackStatus = .idle
     @Published var submittedIssues: [SubmittedIssue] = []
-    @Published var isRecording = false
-    @Published var showMicPermissionAlert = false
+
+    /// Toast: "Hold to record" — shown on a short tap of the mic.
+    @Published var showHoldToRecordToast: Bool = false
+
+    /// Pending image attachments (uploaded only at submit time).
+    @Published var pendingImages: [PendingFeedbackImage] = []
+    @Published var isProcessingImage: Bool = false
+
+    /// Voice recording mirror, exposed so the view can render an overlay.
+    @Published var pressToTalkPhase: PressToTalkPhase = .idle
 
     private let submittedIssuesKey = "submittedIssues"
 
-    // MARK: - Voice
+    // MARK: - Dependencies
 
-    private var audioEngine = AVAudioEngine()
-    private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
-    private var recognitionTask: SFSpeechRecognitionTask?
-    private let speechRecognizer = SFSpeechRecognizer(locale: Locale.current)
+    let voiceService = VoiceService.shared
+    private var capturedContext: FeedbackContext?
 
     // MARK: - Computed
 
     var isIdle: Bool { status == .idle }
-    var isSummarizing: Bool { status == .summarizing }
-    var isReady: Bool { status == .ready }
-    var isSubmitting: Bool { status == .submitting }
-
+    var isSending: Bool {
+        if case .sending = status { return true }
+        return false
+    }
     var submittedIssueURL: String? {
         if case .submitted(let url) = status { return url }
         return nil
     }
-
     var errorMessage: String? {
         if case .error(let msg) = status { return msg }
         return nil
@@ -72,53 +86,72 @@ final class FeedbackViewModel: ObservableObject {
         loadSubmittedIssues()
     }
 
-    // MARK: - AI Summarize
+    // MARK: - Send (AI Summary + Submit, single step)
 
-    func summarizeWithAI() async {
-        guard !rawFeedback.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            status = .error("Please enter some feedback before summarizing.")
+    /// Combined flow: capture context → ask AI to compose issue → upload images
+    /// → create GitHub issue. The UI sees one `.sending` state for the whole
+    /// chain so the user isn't asked to confirm AI output.
+    func send() async {
+        let trimmed = rawFeedback.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty || !pendingImages.isEmpty else {
+            status = .error("Please describe your feedback or attach a screenshot.")
             return
         }
 
-        status = .summarizing
+        status = .sending
+        let context = capturedContext ?? FeedbackContext.capture()
+        capturedContext = context
 
-        let apiKey = Secrets.resolvedDeepSeekApiKey
-        guard !apiKey.isEmpty else {
-            status = .error("DeepSeek API key is not configured. Set it in Settings.")
-            return
-        }
-
+        // 1. AI summarize
+        let summary: AIIssueSummary
         do {
-            let result = try await callDeepSeekForSummary(feedback: rawFeedback, apiKey: apiKey)
-            aiTitle = result.title
-            aiBody = result.body
-            aiLabels = result.labels
-            status = .ready
+            summary = try await callDeepSeekForSummary(
+                feedback: trimmed.isEmpty ? "(no text — see attached screenshots)" : trimmed,
+                context: context
+            )
         } catch {
             status = .error(error.localizedDescription)
-        }
-    }
-
-    // MARK: - Submit to GitHub
-
-    func submitToGitHub() async {
-        guard !aiTitle.isEmpty else {
-            status = .error("Issue title is empty. Run AI Summarize first.")
             return
         }
 
-        status = .submitting
+        // 2. Upload images (best effort — image upload failure shouldn't block
+        //    the issue itself, but we surface a warning by appending a note).
+        var imageMarkdown = ""
+        var uploadedAll = true
+        for image in pendingImages {
+            do {
+                let url = try await FeedbackService.shared.uploadFeedbackImage(
+                    data: image.data,
+                    filename: image.filename
+                )
+                imageMarkdown += "\n\n![\(image.filename)](\(url))"
+            } catch {
+                uploadedAll = false
+                DayPageLogger.shared.error("feedback: image upload failed: \(error)")
+            }
+        }
 
+        // 3. Compose final body: AI body + context block + screenshots
+        var body = summary.body
+        body += "\n\n---\n\n<details><summary>📱 Diagnostic context</summary>\n\n```\n\(context.promptDescription)\n```\n\n</details>"
+        if !imageMarkdown.isEmpty {
+            body += "\n\n## Screenshots" + imageMarkdown
+        }
+        if !pendingImages.isEmpty && !uploadedAll {
+            body += "\n\n> ⚠️ Some screenshots failed to upload."
+        }
+
+        // 4. Create issue
         do {
             let issue = try await FeedbackService.shared.createIssueViaBot(
-                title: aiTitle,
-                body: aiBody,
-                labels: aiLabels
+                title: summary.title,
+                body: body,
+                labels: summary.labels
             )
             let submitted = SubmittedIssue(
                 number: issue.number,
                 url: issue.htmlURL,
-                title: aiTitle,
+                title: summary.title,
                 date: Date()
             )
             submittedIssues.insert(submitted, at: 0)
@@ -129,82 +162,87 @@ final class FeedbackViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Voice Transcription
+    // MARK: - Voice (Whisper press-to-talk)
 
-    func transcribeVoice() {
-        if isRecording {
-            stopRecording()
+    /// Called by PressToTalkButton when the user starts a long-press.
+    func voicePressStart() {
+        Task { await voiceService.startRecording() }
+    }
+
+    /// Long-press release in the default zone — transcribe via Whisper and
+    /// fill the input field. We deliberately do NOT auto-submit; the user
+    /// can still tweak the wording before sending.
+    func voiceReleaseSendAsTranscript() {
+        Task { await consumeRecordingAsTranscript() }
+    }
+
+    /// Long-press release after the user dragged into the cancel zone.
+    func voiceReleaseCancel() {
+        voiceService.cancelRecording()
+    }
+
+    /// Long-press release after the user dragged into the transcribe-armed
+    /// zone — same behaviour as the default in this screen (fill draft, no
+    /// submit).
+    func voiceReleaseTranscribe() {
+        Task { await consumeRecordingAsTranscript() }
+    }
+
+    /// Short tap — show "Hold to record" hint.
+    func voiceShortTap() {
+        showHoldToRecordToast = true
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 1_400_000_000)
+            self.showHoldToRecordToast = false
+        }
+    }
+
+    private func consumeRecordingAsTranscript() async {
+        guard let result = await voiceService.stopAndTranscribe() else { return }
+        defer { voiceService.reset() }
+        if let text = result.transcript, !text.isEmpty {
+            if rawFeedback.isEmpty {
+                rawFeedback = text
+            } else {
+                rawFeedback += " " + text
+            }
         } else {
-            SFSpeechRecognizer.requestAuthorization { [weak self] authStatus in
-                DispatchQueue.main.async {
-                    switch authStatus {
-                    case .authorized:
-                        self?.startRecording()
-                    case .denied, .restricted, .notDetermined:
-                        self?.showMicPermissionAlert = true
-                    @unknown default:
-                        self?.showMicPermissionAlert = true
-                    }
-                }
-            }
+            status = .error("Voice transcription failed. Check your network or OpenAI Whisper key.")
         }
     }
 
-    private func startRecording() {
-        recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
-        guard let recognitionRequest else { return }
-        recognitionRequest.shouldReportPartialResults = true
+    // MARK: - Image Attachments
 
-        let audioSession = AVAudioSession.sharedInstance()
-        do {
-            try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
-            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-        } catch {
-            status = .error("Audio session error: \(error.localizedDescription)")
+    func addImage(from item: PhotosPickerItem) async {
+        isProcessingImage = true
+        defer { isProcessingImage = false }
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let thumb = UIImage(data: data) else {
+            status = .error("Could not load that image.")
             return
         }
-
-        let inputNode = audioEngine.inputNode
-        let recordingFormat = inputNode.outputFormat(forBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
-            recognitionRequest.append(buffer)
-        }
-
-        audioEngine.prepare()
-        do {
-            try audioEngine.start()
-        } catch {
-            status = .error("Audio engine error: \(error.localizedDescription)")
-            return
-        }
-
-        recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
-            guard let self else { return }
-            if let result {
-                Task { @MainActor in
-                    self.rawFeedback = result.bestTranscription.formattedString
-                }
-            }
-            if error != nil || (result?.isFinal == true) {
-                Task { @MainActor in
-                    self.stopRecording()
-                }
-            }
-        }
-
-        isRecording = true
+        appendImage(data: data, thumbnail: thumb)
     }
 
-    private func stopRecording() {
-        audioEngine.stop()
-        audioEngine.inputNode.removeTap(onBus: 0)
-        recognitionRequest?.endAudio()
-        recognitionRequest = nil
-        recognitionTask?.cancel()
-        recognitionTask = nil
-        isRecording = false
+    func addCameraImage(_ image: UIImage) {
+        guard let data = image.jpegData(compressionQuality: 0.85) else {
+            status = .error("Could not encode that photo.")
+            return
+        }
+        appendImage(data: data, thumbnail: image)
+    }
 
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    private func appendImage(data: Data, thumbnail: UIImage) {
+        let stamp = DateFormatter.feedbackImageStamp.string(from: Date())
+        let suffix = UUID().uuidString.prefix(6)
+        let filename = "IMG_\(stamp)_\(suffix).jpg"
+        pendingImages.append(
+            PendingFeedbackImage(data: data, thumbnail: thumbnail, filename: String(filename))
+        )
+    }
+
+    func removeImage(id: String) {
+        pendingImages.removeAll { $0.id == id }
     }
 
     // MARK: - Submitted Issues Persistence
@@ -224,21 +262,28 @@ final class FeedbackViewModel: ObservableObject {
 
     func reset() {
         rawFeedback = ""
-        aiTitle = ""
-        aiBody = ""
-        aiLabels = []
+        pendingImages = []
+        capturedContext = nil
         status = .idle
     }
 
-    // MARK: - Private: DeepSeek Call
+    // MARK: - DeepSeek Call
 
-    private struct AIIssueSummary {
+    fileprivate struct AIIssueSummary {
         let title: String
         let body: String
         let labels: [String]
     }
 
-    private func callDeepSeekForSummary(feedback: String, apiKey: String) async throws -> AIIssueSummary {
+    private func callDeepSeekForSummary(
+        feedback: String,
+        context: FeedbackContext
+    ) async throws -> AIIssueSummary {
+        let apiKey = Secrets.resolvedDeepSeekApiKey
+        guard !apiKey.isEmpty else {
+            throw FeedbackError.networkError("DeepSeek API key is not configured.")
+        }
+
         let baseURL = Secrets.deepSeekBaseURL.isEmpty
             ? "https://api.deepseek.com/v1"
             : Secrets.deepSeekBaseURL
@@ -255,24 +300,48 @@ final class FeedbackViewModel: ObservableObject {
         request.timeoutInterval = 60
 
         let systemPrompt = """
-        You are DayPage's feedback assistant. Convert the user's raw feedback into a well-structured GitHub issue.
-        Output ONLY a JSON object with exactly these fields:
+        You are DayPage's feedback triage assistant. The user is reporting a bug or
+        requesting an improvement. You are given the raw feedback text AND a block
+        of diagnostic context (app version, OS, device, user id, etc.). Your job:
+
+        1. Decide whether this is a bug, feature request, or improvement.
+        2. Write a short, specific issue title (≤ 80 chars). Do NOT include the
+           version number in the title — it goes in the body.
+        3. Compose a Markdown body using the appropriate sections:
+             - Bug:         ## Description, ## Steps to Reproduce, ## Expected, ## Actual, ## Environment
+             - Feature:     ## Problem, ## Proposed Solution, ## Why
+             - Improvement: ## Current behaviour, ## Suggested change, ## Why
+           Always include an "## Environment" section that lists the relevant
+           subset of the diagnostic context (app version, OS, device — user id
+           only if it helps reproduce). Don't dump the whole context block — the
+           app appends a verbatim copy below your output.
+        4. Pick 1–2 labels from: ["bug", "enhancement", "improvement"].
+
+        Output ONLY a JSON object:
         {
-          "title": "<concise issue title, max 80 chars>",
-          "body": "<markdown body with ## Description, ## Steps to Reproduce (if bug), ## Expected Behavior, ## Actual Behavior sections>",
-          "labels": ["bug" or "enhancement" or "improvement" — pick one or two that fit best]
+          "title": "...",
+          "body":  "...",
+          "labels": ["bug"]
         }
-        No extra text outside the JSON.
+        No prose outside the JSON. No markdown fences around the JSON.
+        """
+
+        let userMessage = """
+        --- USER FEEDBACK ---
+        \(feedback)
+
+        --- DIAGNOSTIC CONTEXT ---
+        \(context.promptDescription)
         """
 
         let body: [String: Any] = [
             "model": model,
             "messages": [
                 ["role": "system", "content": systemPrompt],
-                ["role": "user", "content": feedback]
+                ["role": "user", "content": userMessage]
             ],
             "max_tokens": 1024,
-            "temperature": 0.5
+            "temperature": 0.4
         ]
 
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -301,7 +370,7 @@ final class FeedbackViewModel: ObservableObject {
 
         let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Extract JSON from possible markdown fences
+        // Tolerate models that wrap JSON in ```json fences.
         let jsonString: String
         if let fenceStart = trimmed.range(of: "```json\n"),
            let fenceEnd = trimmed.range(of: "\n```", range: fenceStart.upperBound ..< trimmed.endIndex) {
@@ -328,4 +397,16 @@ final class FeedbackViewModel: ObservableObject {
 
         return AIIssueSummary(title: title, body: bodyText, labels: labels)
     }
+}
+
+// MARK: - Date helper
+
+private extension DateFormatter {
+    static let feedbackImageStamp: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyyMMdd_HHmmss"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone.current
+        return f
+    }()
 }
