@@ -296,6 +296,20 @@ jobs:
           prerelease: true
           fail_on_unmatched_files: true
 
+      # ── 14a. Upload changelog artifact for async update-changelog workflow ─
+      # The changelog is no longer written to TestFlight by `upload_to_testflight`
+      # (see fastlane/Fastfile NOTE) because passing changelog made fastlane poll
+      # until the 1h30m job timeout. The async update-changelog workflow downloads
+      # this artifact and PATCHes the build's "What to Test" via the App Store
+      # Connect API once ASC has finished processing.
+      - name: Upload changelog artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog-${{ steps.version.outputs.release_tag }}
+          path: ${{ steps.changelog.outputs.changelog_path }}
+          retention-days: 7
+
       # ── 14. Upload build artifacts ───────────────────────────────────────
       - name: Upload IPA artifact
         if: success()

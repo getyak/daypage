@@ -1,0 +1,142 @@
+name: Update TestFlight Changelog
+
+# Async second half of the deploy pipeline:
+# 1. `Deploy to TestFlight` uploads the IPA fast (no changelog) and uploads the
+#    changelog text as an artifact named `changelog-v<X.Y.Z>`.
+# 2. This workflow triggers on that workflow's completion, downloads the
+#    changelog artifact, waits until ASC has finished processing the build,
+#    then PATCHes the TestFlight "What to Test" via the App Store Connect API.
+#
+# Why split: passing `changelog` to fastlane's `upload_to_testflight` makes it
+# poll until the build appears in the build list, which Apple's backend can
+# delay 30+ minutes — exhausting the 1h30m GitHub Actions job timeout. By
+# decoupling, the deploy job exits in ~3 min and changelog is restored
+# asynchronously without blocking the deploy critical path.
+#
+# Manual trigger (workflow_dispatch) is the fallback when the auto trigger
+# misses or fails — supply the same release_tag from a recent deploy run.
+
+on:
+  workflow_run:
+    workflows: ["Deploy to TestFlight"]
+    types: [completed]
+
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag from the deploy run (e.g. v0.1.66)"
+        required: true
+        type: string
+      run_id:
+        description: "Deploy run id whose changelog artifact to use"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  update_changelog:
+    name: Update TestFlight changelog
+    runs-on: ubuntu-latest
+    # Auto-trigger only on successful deploys; manual trigger is unconditional.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    timeout-minutes: 35  # 30-min ASC processing wait + buffer
+
+    steps:
+      - name: Resolve source ref and run id
+        id: resolve
+        env:
+          EVENT_NAME:  ${{ github.event_name }}
+          WR_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          WR_RUN_ID:   ${{ github.event.workflow_run.id }}
+          WR_HEAD_BR:  ${{ github.event.workflow_run.head_branch }}
+          INPUT_TAG:   ${{ github.event.inputs.release_tag }}
+          INPUT_RUN:   ${{ github.event.inputs.run_id }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "workflow_run" ]; then
+            echo "ref=$WR_HEAD_SHA"      >> "$GITHUB_OUTPUT"
+            echo "run_id=$WR_RUN_ID"     >> "$GITHUB_OUTPUT"
+            echo "manual_tag="           >> "$GITHUB_OUTPUT"
+            echo "Triggered by deploy run $WR_RUN_ID on branch=$WR_HEAD_BR sha=$WR_HEAD_SHA"
+          else
+            echo "ref=$INPUT_TAG"        >> "$GITHUB_OUTPUT"
+            echo "run_id=$INPUT_RUN"     >> "$GITHUB_OUTPUT"
+            echo "manual_tag=$INPUT_TAG" >> "$GITHUB_OUTPUT"
+            echo "Manual trigger for tag=$INPUT_TAG run_id=$INPUT_RUN"
+          fi
+
+      - name: Checkout repository at deployed ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.resolve.outputs.ref }}
+          fetch-depth: 0  # need full history for `git rev-list --count`
+
+      # Recompute the same identifiers fastlane's `increment_build` writes into
+      # the IPA. Both runs see the same commit, so the values match.
+      - name: Compute build identifiers
+        id: ids
+        env:
+          MANUAL_TAG: ${{ steps.resolve.outputs.manual_tag }}
+        run: |
+          set -euo pipefail
+          BUILD_NUMBER=$(git rev-list --count HEAD)
+
+          # Marketing version: prefer the manual tag input; otherwise derive from
+          # the most recent v* tag pointing at HEAD (deploy creates one).
+          if [ -n "$MANUAL_TAG" ]; then
+            TAG="$MANUAL_TAG"
+          else
+            TAG=$(git tag --points-at HEAD --list 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -n1 || true)
+            if [ -z "$TAG" ]; then
+              TAG=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1 || true)
+            fi
+          fi
+          if [ -z "$TAG" ]; then
+            echo "::error::Could not determine release tag for ref"
+            exit 1
+          fi
+          MARKETING="${TAG#v}"
+
+          echo "build_number=$BUILD_NUMBER"   >> "$GITHUB_OUTPUT"
+          echo "marketing_version=$MARKETING" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$TAG"             >> "$GITHUB_OUTPUT"
+          echo "Resolved build_number=$BUILD_NUMBER, marketing=$MARKETING, tag=$TAG"
+
+      - name: Download changelog artifact from deploy run
+        uses: actions/download-artifact@v4
+        with:
+          name: changelog-${{ steps.ids.outputs.release_tag }}
+          path: changelog
+          # When triggered by workflow_run, the artifact lives on a different
+          # workflow run; supply run-id and github-token to point download-artifact
+          # at the right source. For manual dispatch, run_id from inputs is used.
+          run-id: ${{ steps.resolve.outputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyjwt cryptography
+
+      - name: Update TestFlight changelog
+        env:
+          APP_STORE_CONNECT_API_KEY_ID:      ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID:       ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+          ASC_APP_ID:            ${{ vars.ASC_APP_ID || '6762390618' }}
+          BUILD_NUMBER:          ${{ steps.ids.outputs.build_number }}
+          MARKETING_VERSION:     ${{ steps.ids.outputs.marketing_version }}
+          CHANGELOG_FILE:        changelog/changelog.txt
+          LOCALE:                en-US
+          MAX_WAIT_SECONDS:      "1800"
+          POLL_INTERVAL_SECONDS: "30"
+        run: |
+          python3 scripts/update_testflight_changelog.py
