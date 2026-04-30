@@ -266,6 +266,7 @@ struct InputBarV4: View {
                 }
                 isFocused = true
             }
+            .accessibilityIdentifier("expand-text-composer")
         }
     }
 
@@ -341,6 +342,7 @@ struct InputBarV4: View {
                 .padding(.top, 14)
                 .padding(.bottom, 10)
                 .onTapGesture { isFocused = true }
+                .accessibilityIdentifier("memo-input")
 
             // Icon toolbar row
             HStack(spacing: 0) {
@@ -465,6 +467,8 @@ struct InputBarV4: View {
         }
         .buttonStyle(.plain)
         .disabled(isSubmitting || !hasContent)
+        .accessibilityLabel("发送")
+        .accessibilityIdentifier("memo-send")
     }
 
     // MARK: - Actions

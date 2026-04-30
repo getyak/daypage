@@ -15,28 +15,29 @@ appId: com.daypage.app
 
 - takeScreenshot: today_view_loaded
 
-# 点击 "打开文字输入" 按钮展开输入行（collapsed 模式下先展开）
+# Tap the pen button on the STREAM dock to expand the text composer
+# (InputBarV4 idle dock shows mic-hero centered, pen on the right).
 - tapOn:
-    text: "写点什么"
+    id: "expand-text-composer"
     optional: true
 
-# 等待展开动画完成
+# Wait for the composer expand animation to finish
 - waitForAnimationToEnd
 
-# 点击 TextEditor（通过 accessibilityIdentifier）
+# Tap the TextField (accessibilityIdentifier="memo-input")
 - tapOn:
     id: "memo-input"
 
 - inputText: "UI测试：今天天气很好，适合写代码"
 - takeScreenshot: after_input
 
-# 验证输入的文字出现在输入框中
+# Verify the typed text is visible inside the composer
 - assertVisible: "UI测试：今天天气很好，适合写代码"
 - takeScreenshot: text_visible_in_input
 
-# 发送 memo（accessibility label "发送"）
+# Send the memo (accessibilityIdentifier="memo-send", label "发送")
 - tapOn:
-    id: "发送"
+    id: "memo-send"
     optional: true
 
 - takeScreenshot: after_send
