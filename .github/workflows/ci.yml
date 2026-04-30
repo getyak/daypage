@@ -118,6 +118,7 @@ jobs:
               static let supabaseURL: String = "https://placeholder.supabase.co"
               static let supabaseAnonKey: String = ""
               static let sentryDSN: String = ""
+              static let kubotGitHubToken: String = ""
           }
           SWIFT
 
