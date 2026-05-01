@@ -45,8 +45,10 @@ final class FeedbackViewModel: ObservableObject {
     @Published var status: FeedbackStatus = .idle
     @Published var submittedIssues: [SubmittedIssue] = []
 
-    /// Toast: "Hold to record" — shown on a short tap of the mic.
-    @Published var showHoldToRecordToast: Bool = false
+    /// Whether the half-screen VoiceRecordingView sheet is presented.
+    /// A single tap on the mic flips this true; the sheet handles
+    /// pause/resume/save and returns a transcript via `handleVoiceRecordingComplete`.
+    @Published var isShowingVoiceRecorder: Bool = false
 
     /// Pending image attachments (uploaded only at submit time).
     @Published var pendingImages: [PendingFeedbackImage] = []
@@ -196,12 +198,33 @@ final class FeedbackViewModel: ObservableObject {
         Task { await consumeRecordingAsTranscript() }
     }
 
-    /// Short tap — show "Hold to record" hint.
-    func voiceShortTap() {
-        showHoldToRecordToast = true
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 1_400_000_000)
-            self.showHoldToRecordToast = false
+    /// Short tap — open the half-screen voice recorder sheet. Mirrors the
+    /// TodayView input bar so users get pause/resume/save instead of a
+    /// press-to-talk gesture.
+    func startVoiceRecording() {
+        isShowingVoiceRecorder = true
+    }
+
+    /// Dismiss the recorder sheet without keeping any audio.
+    func cancelVoiceRecording() {
+        voiceService.cancelRecording()
+        isShowingVoiceRecorder = false
+    }
+
+    /// Recorder sheet finished — append the transcript to the feedback draft.
+    /// The audio file itself is discarded; feedback is text-only.
+    func handleVoiceRecordingComplete(result: VoiceRecordingResult) {
+        isShowingVoiceRecorder = false
+        defer { voiceService.reset() }
+        if let text = result.transcript?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !text.isEmpty {
+            if rawFeedback.isEmpty {
+                rawFeedback = text
+            } else {
+                rawFeedback += " " + text
+            }
+        } else {
+            status = .error("Voice transcription failed. Check your network or OpenAI Whisper key.")
         }
     }
 
