@@ -75,13 +75,15 @@ struct SwipeableMemoCard: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { onPin?() }
         }) {
             VStack(spacing: 4) {
-                Image(systemName: "pin.fill").font(.system(size: 16, weight: .semibold))
-                Text("置顶").font(.custom("Inter-Medium", size: 11))
+                Image(systemName: memo.pinnedAt != nil ? "pin.slash.fill" : "pin.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                Text(memo.pinnedAt != nil ? "取消置顶" : "置顶")
+                    .font(.custom("Inter-Medium", size: 11))
             }
             .foregroundColor(.white)
             .frame(width: panelW)
             .frame(maxHeight: .infinity)
-            .background(DSColor.amberArchival)
+            .background(memo.pinnedAt != nil ? DSColor.textSecondary : DSColor.amberArchival)
         }
         // Opacity is driven by scoped withAnimation in snapOpen/snapClose.
         // Removed deprecated implicit .animation(_:value:) to prevent
