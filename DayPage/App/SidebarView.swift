@@ -71,7 +71,11 @@ struct SidebarView: View {
 
         Button {
             guard !disabled else { return }
-            nav.navigate(to: tab)
+            if tab == .feedback {
+                nav.openFeedbackPanel()
+            } else {
+                nav.navigate(to: tab)
+            }
         } label: {
             HStack(spacing: 12) {
                 // Left accent bar

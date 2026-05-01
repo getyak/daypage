@@ -10,6 +10,10 @@ struct RootView: View {
 
     private let sidebarWidth: CGFloat = 280
 
+    private var feedbackPanelWidth: CGFloat {
+        min(UIScreen.main.bounds.width * 0.85, 360)
+    }
+
     private var showAuth: Bool {
         authService.session == nil && !authSkipped
     }
@@ -62,10 +66,6 @@ struct RootView: View {
                     .opacity(nav.selectedTab == .archive ? 1 : 0)
                     .allowsHitTesting(nav.selectedTab == .archive && !nav.isSidebarOpen)
 
-                FeedbackView()
-                    .opacity(nav.selectedTab == .feedback ? 1 : 0)
-                    .allowsHitTesting(nav.selectedTab == .feedback && !nav.isSidebarOpen)
-
                 GraphView()
                     .opacity(nav.selectedTab == .graph ? 1 : 0)
                     .allowsHitTesting(nav.selectedTab == .graph && !nav.isSidebarOpen)
@@ -92,6 +92,33 @@ struct RootView: View {
                 .ignoresSafeArea()
                 .shadow(color: Color.black.opacity(0.10), radius: 20, x: 6, y: 0)
                 .offset(x: nav.isSidebarOpen ? 0 : -sidebarWidth)
+
+            // Right-side feedback panel — overlay + sliding panel
+            if nav.isFeedbackPanelOpen {
+                Color.black.opacity(0.28)
+                    .ignoresSafeArea()
+                    .onTapGesture { nav.closeFeedbackPanel() }
+                    .transition(.opacity)
+                    .zIndex(1)
+            }
+
+            FeedbackView()
+                .frame(width: feedbackPanelWidth)
+                .frame(maxHeight: .infinity)
+                .background(DSColor.backgroundWarm)
+                .shadow(color: Color.black.opacity(0.12), radius: 24, x: -8, y: 0)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .offset(x: nav.isFeedbackPanelOpen ? 0 : feedbackPanelWidth + 40)
+                .gesture(
+                    DragGesture(minimumDistance: 20)
+                        .onEnded { value in
+                            if value.translation.width > 60 {
+                                nav.closeFeedbackPanel()
+                            }
+                        }
+                )
+                .allowsHitTesting(nav.isFeedbackPanelOpen)
+                .zIndex(2)
         }
         // 边缘滑动打开：仅在拖动从左侧 40pt 以内开始时触发
         .gesture(

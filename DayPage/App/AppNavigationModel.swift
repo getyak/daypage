@@ -16,6 +16,7 @@ final class AppNavigationModel: ObservableObject {
 
     @Published var selectedTab: AppTab = .today
     @Published var isSidebarOpen: Bool = false
+    @Published var isFeedbackPanelOpen: Bool = false
 
     init() {}
 
@@ -34,5 +35,18 @@ final class AppNavigationModel: ObservableObject {
     func navigate(to tab: AppTab) {
         selectedTab = tab
         closeSidebar()
+    }
+
+    func openFeedbackPanel() {
+        closeSidebar()
+        withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
+            isFeedbackPanelOpen = true
+        }
+    }
+
+    func closeFeedbackPanel() {
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.90)) {
+            isFeedbackPanelOpen = false
+        }
     }
 }
