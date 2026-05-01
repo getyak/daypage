@@ -1,0 +1,336 @@
+name: Linear ↔ GitHub Automation
+
+# ──────────────────────────────────────────────────────────
+# Full bidirectional sync between GitHub PRs and Linear issues.
+#
+# Triggers:
+#   PR opened/edited  → Link to Linear, move to "In Progress"
+#   PR merged/closed  → Move Linear to "Done" / "Canceled"
+#   PR review         → Move Linear to "In Review"
+#   Issue opened      → Sync to Linear as new issue
+#   Issue labeled     → Sync labels to Linear
+#   Push with [DAY-*] → Auto-comment on Linear with commit info
+# ──────────────────────────────────────────────────────────
+
+on:
+  pull_request:
+    types: [opened, reopened, edited, closed, ready_for_review]
+  pull_request_review:
+    types: [submitted]
+  issues:
+    types: [opened, labeled, unlabeled, closed, reopened, assigned]
+  push:
+    branches:
+      - '**'
+
+# Prevent infinite loops: only run on PRs/issues with Linear references
+# or where we can meaningfully sync
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+env:
+  LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+  LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
+  TEAM_ID: "6f56b048-0155-4f2f-be96-20aa5dafe0a9"
+
+  # Workflow state UUIDs (DayPage team)
+  STATE_TODO: "ef0366f3-edde-4889-a633-b908c6be8ae2"
+  STATE_IN_PROGRESS: "9b3b8f1a-e816-4ffd-b864-1b9b79a5e7ac"
+  STATE_IN_REVIEW: "e7a1b7ef-bed6-4167-9331-24d867443b81"
+  STATE_DONE: "0ccb1b40-6513-486f-9b03-1903b166b669"
+  STATE_CANCELED: "b4749b49-f3e9-4814-999c-e7bddfa10e77"
+  STATE_BACKLOG: "3745a8d5-2f7a-4a88-b9f3-3c0f11fff869"
+
+  # Label UUIDs
+  LABEL_BUG: "03d3edf2-0625-400b-bb13-1c427f3ae148"
+  LABEL_FEATURE: "ee323296-8f66-41c4-a3a5-2ba363d98d2f"
+  LABEL_IMPROVEMENT: "7a273477-1290-4292-b795-a31f163123e9"
+
+  # Default assignee (Xinwei Xiong)
+  DEFAULT_ASSIGNEE_ID: "6e4cdb0c-8ac1-4e1c-bb4f-d03955c3a0ac"
+
+jobs:
+  # ─────────────────────────────────────────────────────────
+  # PR → Linear: sync PR state to Linear issue status
+  # Looks for [DAY-*] pattern in PR title/body/branch name
+  # ─────────────────────────────────────────────────────────
+  pr-to-linear:
+    name: PR → Linear Status Sync
+    if: |
+      github.event_name == 'pull_request' &&
+      github.event.action != 'edited'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract Linear issue ID from PR
+        id: extract
+        run: |
+          # Search for Linear issue references in PR title, body, branch name
+          TITLE="${{ github.event.pull_request.title }}"
+          BODY="${{ github.event.pull_request.body }}"
+          HEAD="${{ github.event.pull_request.head.ref }}"
+
+          COMBINED="${TITLE} ${BODY} ${HEAD}"
+
+          # Look for: DAY-123, [DAY-123], closes DAY-123, fixes DAY-123, etc.
+          LINEAR_ID=$(echo "$COMBINED" | grep -oP '(?<![A-Za-z])DAY-\d+(?![A-Za-z0-9])' | head -1 || echo "")
+
+          # Also try Linear URL format
+          if [ -z "$LINEAR_ID" ]; then
+            LINEAR_URL=$(echo "$COMBINED" | grep -oP 'linear\.app/[^/\s]+/issue/[A-Z]+-\d+' | head -1 || echo "")
+            if [ -n "$LINEAR_URL" ]; then
+              LINEAR_ID=$(echo "$LINEAR_URL" | grep -oP '[A-Z]+-\d+$' || echo "")
+            fi
+          fi
+
+          if [ -z "$LINEAR_ID" ]; then
+            echo "No Linear issue reference found in PR — skipping sync"
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Found Linear issue: $LINEAR_ID"
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "linear_id=$LINEAR_ID" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: PR opened → Move Linear to "In Progress"
+        if: |
+          steps.extract.outputs.found == 'true' &&
+          (github.event.action == 'opened' || github.event.action == 'reopened')
+        env:
+          LINEAR_ID: ${{ steps.extract.outputs.linear_id }}
+        run: |
+          QUERY='{"query":"mutation { issueUpdate(id: \"'"$LINEAR_ID"'\", input: { stateId: \"'"$STATE_IN_PROGRESS"'\" }) { success issue { identifier title state { name type } } } }"}'
+
+          RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$QUERY")
+
+          echo "Response: $RESPONSE"
+          echo "$RESPONSE" | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          if d.get('data', {}).get('issueUpdate', {}).get('success'):
+              i = d['data']['issueUpdate']['issue']
+              print(f'✅ {i[\"identifier\"]} → {i[\"state\"][\"name\"]} ({i[\"state\"][\"type\"]})')
+          else:
+              print(f'❌ Failed: {d.get(\"errors\", \"unknown\")}')
+          "
+
+      - name: PR closed/merged → Move Linear to "Done" or "Canceled"
+        if: |
+          steps.extract.outputs.found == 'true' &&
+          github.event.action == 'closed'
+        env:
+          LINEAR_ID: ${{ steps.extract.outputs.linear_id }}
+          MERGED: ${{ github.event.pull_request.merged }}
+        run: |
+          if [ "$MERGED" = "true" ]; then
+            TARGET_STATE="$STATE_DONE"
+            VERB="✅ Merged → Done"
+          else
+            TARGET_STATE="$STATE_CANCELED"
+            VERB="🚫 Closed (not merged) → Canceled"
+          fi
+
+          QUERY='{"query":"mutation { issueUpdate(id: \"'"$LINEAR_ID"'\", input: { stateId: \"'"$TARGET_STATE"'\" }) { success issue { identifier title state { name type } } } }"}'
+
+          RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$QUERY")
+
+          echo "$VERB"
+          echo "$RESPONSE" | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          if d.get('data', {}).get('issueUpdate', {}).get('success'):
+              i = d['data']['issueUpdate']['issue']
+              print(f'{i[\"identifier\"]} → {i[\"state\"][\"name\"]}')
+          "
+
+      - name: Add PR link as Linear comment
+        if: |
+          steps.extract.outputs.found == 'true' &&
+          (github.event.action == 'opened' || github.event.action == 'reopened')
+        env:
+          LINEAR_ID: ${{ steps.extract.outputs.linear_id }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          # Escape for JSON
+          BODY=$(printf '**PR opened:** %s\n\n%s\n\nby @%s' \
+            "$PR_TITLE" "$PR_URL" "$PR_AUTHOR" | \
+            python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
+
+          QUERY='{"query":"mutation { commentCreate(input: { issueId: \"'"$LINEAR_ID"'\", body: '"$BODY"' }) { success comment { id body } } }"}'
+
+          curl -s -X POST https://api.linear.app/graphql \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$QUERY" | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          if d.get('data', {}).get('commentCreate', {}).get('success'):
+              print('📝 PR link posted to Linear')
+          else:
+              print(f'⚠️ Comment failed: {d.get(\"errors\", \"unknown\")}')
+          "
+
+  # ─────────────────────────────────────────────────────────
+  # PR Review → Move Linear to "In Review"
+  # ─────────────────────────────────────────────────────────
+  review-to-linear:
+    name: PR Review → Linear Status
+    if: |
+      github.event_name == 'pull_request_review' &&
+      github.event.review.state == 'approved'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract Linear ID
+        id: extract
+        run: |
+          TITLE="${{ github.event.pull_request.title }}"
+          HEAD="${{ github.event.pull_request.head.ref }}"
+          LINEAR_ID=$(echo "${TITLE} ${HEAD}" | grep -oP '(?<![A-Za-z])DAY-\d+(?![A-Za-z0-9])' | head -1 || echo "")
+          if [ -z "$LINEAR_ID" ]; then
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "linear_id=$LINEAR_ID" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Move to "In Review"
+        if: steps.extract.outputs.found == 'true'
+        env:
+          LINEAR_ID: ${{ steps.extract.outputs.linear_id }}
+          REVIEWER: ${{ github.event.review.user.login }}
+        run: |
+          QUERY='{"query":"mutation { issueUpdate(id: \"'"$LINEAR_ID"'\", input: { stateId: \"'"$STATE_IN_REVIEW"'\" }) { success issue { identifier state { name } } } }"}'
+
+          RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$QUERY")
+
+          echo "Approved by @$REVIEWER → In Review"
+          echo "$RESPONSE" | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          if d.get('data', {}).get('issueUpdate', {}).get('success'):
+              print(f'✅ {d[\"data\"][\"issueUpdate\"][\"issue\"][\"identifier\"]} → In Review')
+          "
+
+  # ─────────────────────────────────────────────────────────
+  # GitHub Issue → Linear: auto-create Linear issue from
+  # new GitHub issues tagged with specific labels
+  # ─────────────────────────────────────────────────────────
+  issue-to-linear:
+    name: GitHub Issue → Linear
+    if: |
+      github.event_name == 'issues' &&
+      github.event.action == 'opened'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Linear issue from GitHub issue
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+        run: |
+          # Skip if already has Linear reference
+          HAS_LINEAR=$(echo "${ISSUE_TITLE} ${ISSUE_BODY}" | grep -ci 'DAY-' || echo "0")
+          if [ "$HAS_LINEAR" -gt 0 ]; then
+            echo "Issue already references a Linear issue — skipping creation"
+            exit 0
+          fi
+
+          # Determine label based on issue content
+          if echo "${ISSUE_TITLE} ${ISSUE_BODY}" | grep -qi 'bug\|crash\|error\|fix'; then
+            LABEL_IDS='["'"$LABEL_BUG"'"]'
+          elif echo "${ISSUE_TITLE} ${ISSUE_BODY}" | grep -qi 'feature\|enhance\|add'; then
+            LABEL_IDS='["'"$LABEL_FEATURE"'"]'
+          else
+            LABEL_IDS='["'"$LABEL_IMPROVEMENT"'"]'
+          fi
+
+          # Build description with GitHub link
+          DESC=$(printf "## GitHub Issue\n\n%s\n\n---\n\n**GitHub:** %s\n\n**Author:** @%s" \
+            "$ISSUE_BODY" "$ISSUE_URL" "$ISSUE_AUTHOR" | \
+            python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
+
+          TITLE_ESC=$(echo "$ISSUE_TITLE" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read().strip()))")
+
+          MUTATION='{"query":"mutation($input: IssueCreateInput!) { issueCreate(input: $input) { success issue { id identifier url } } }","variables":{"input":{"teamId":"'"$TEAM_ID"'","title":'"$TITLE_ESC"',"description":'"$DESC"',"labelIds":'"$LABEL_IDS"',"priority":3}}}'
+
+          RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$MUTATION")
+
+          echo "Response: $RESPONSE"
+
+          LINEAR_ISSUE_ID=$(echo "$RESPONSE" | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          if d.get('data', {}).get('issueCreate', {}).get('success'):
+              i = d['data']['issueCreate']['issue']
+              print(i['identifier'])
+              print(f'Created: {i[\"identifier\"]} — {i[\"url\"]}')
+          " 2>&1 | head -1)
+
+          if [ -n "$LINEAR_ISSUE_ID" ]; then
+            echo "linear_issue_id=$LINEAR_ISSUE_ID" >> "$GITHUB_OUTPUT"
+
+            # Add reference comment on GitHub issue
+            gh issue comment "$ISSUE_NUMBER" \
+              --body "📋 Linear issue created: [$LINEAR_ISSUE_ID](https://linear.app/daypage/issue/$LINEAR_ISSUE_ID)"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ─────────────────────────────────────────────────────────
+  # Commit push → Comment on Linear with commit info
+  # Only for commits referencing [DAY-*]
+  # ─────────────────────────────────────────────────────────
+  commit-to-linear:
+    name: Commit → Linear Comment
+    if: |
+      github.event_name == 'push' &&
+      !contains(github.event.head_commit.message, '[skip-ci]')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract and post commit to Linear
+        run: |
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          COMMIT_URL="${{ github.event.head_commit.url }}"
+          COMMIT_AUTHOR="${{ github.event.head_commit.author.username }}"
+          COMMIT_SHA_SHORT=$(echo "${{ github.event.head_commit.id }}" | cut -c1-7)
+
+          # Find all DAY-* references
+          LINEAR_IDS=$(echo "$COMMIT_MSG" | grep -oP '(?<![A-Za-z])DAY-\d+(?![A-Za-z0-9])' | sort -u || echo "")
+
+          if [ -z "$LINEAR_IDS" ]; then
+            echo "No Linear references in commit — skipping"
+            exit 0
+          fi
+
+          for LINEAR_ID in $LINEAR_IDS; do
+            BODY=$(printf "📝 Commit: %s\n\n\`%s\`\n\nby @%s" \
+              "${COMMIT_MSG:0:200}" "$COMMIT_SHA_SHORT" "$COMMIT_AUTHOR" | \
+              python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
+
+            QUERY='{"query":"mutation { commentCreate(input: { issueId: \"'"$LINEAR_ID"'\", body: '"$BODY"' }) { success } }"}'
+
+            curl -s -X POST https://api.linear.app/graphql \
+              -H "Authorization: $LINEAR_API_KEY" \
+              -H "Content-Type: application/json" \
+              -d "$QUERY" > /dev/null
+
+            echo "📝 Posted commit $COMMIT_SHA_SHORT → $LINEAR_ID"
+          done
