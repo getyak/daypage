@@ -50,6 +50,18 @@ final class FeedbackService {
     private static let botOwner = "getyak"
     private static let botRepo  = "daypage"
 
+    /// URLSession that waits for connectivity instead of failing fast when
+    /// the device briefly drops off the network mid-submit. Combined with
+    /// the longer `timeoutInterval` on each request this lets the issue
+    /// creation survive lock-screen / app-switch / spotty-wifi moments.
+    private static let resilientSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.waitsForConnectivity = true
+        config.timeoutIntervalForRequest = 120
+        config.timeoutIntervalForResource = 300
+        return URLSession(configuration: config)
+    }()
+
     // MARK: - Create Issue via Bot (zero-config)
 
     /// Posts a new issue using the embedded bot token to the hardcoded repo.
@@ -89,7 +101,7 @@ final class FeedbackService {
         request.setValue("token \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        request.timeoutInterval = 30
+        request.timeoutInterval = 120
 
         let payload: [String: Any] = [
             "title": title,
@@ -98,7 +110,7 @@ final class FeedbackService {
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await FeedbackService.resilientSession.data(for: request)
         try validateGitHubResponse(data: data, response: response)
 
         return try JSONDecoder().decode(GitHubIssue.self, from: data)

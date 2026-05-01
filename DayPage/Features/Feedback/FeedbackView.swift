@@ -241,6 +241,7 @@ struct FeedbackView: View {
 
     private var sendButton: some View {
         Button {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             Task { await vm.send() }
         } label: {
             HStack(spacing: 6) {
@@ -251,16 +252,17 @@ struct FeedbackView: View {
                         .tint(.white)
                 } else {
                     Image(systemName: "paperplane.fill")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 15, weight: .medium))
                 }
                 Text(vm.isSending ? "Sending…" : "Send")
-                    .font(.custom("Inter-SemiBold", size: 14))
+                    .font(.custom("Inter-SemiBold", size: 16))
             }
             .foregroundColor(.white)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
             .background(vm.isSending ? DSColor.accentAmber.opacity(0.7) : DSColor.accentAmber)
-            .cornerRadius(8)
+            .cornerRadius(12)
         }
         .disabled(vm.isSending)
     }
