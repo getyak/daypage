@@ -184,15 +184,12 @@ final class TodayViewModel: ObservableObject {
         }
     }
 
-    /// Moves a memo to the top of today's list (newest created-time wins display order).
-    /// Adjusts the memo's `created` timestamp to just before the current newest so it
-    /// appears first without changing the day boundary.
+    /// Pins a memo to the top of today's list without changing its original timestamp.
+    /// Uses a separate `pinnedAt` field for sort order; `created` remains untouched.
     func pinMemo(_ memo: Memo) {
         guard let idx = memos.firstIndex(where: { $0.id == memo.id }) else { return }
         var pinned = memos[idx]
-        // Set to one second after the current newest memo's time so it sorts first
-        let newestTime = memos.first?.created ?? Date()
-        pinned.created = max(newestTime, pinned.created) + 1
+        pinned.pinnedAt = Date()
         var updated = memos
         updated.remove(at: idx)
         updated.insert(pinned, at: 0)
@@ -203,6 +200,25 @@ final class TodayViewModel: ObservableObject {
             }
         } catch {
             submitError = "置顶失败：\(error.localizedDescription)"
+        }
+    }
+
+    /// Unpins a memo, restoring it to its natural position based on original `created` time.
+    func unpinMemo(_ memo: Memo) {
+        guard let idx = memos.firstIndex(where: { $0.id == memo.id }) else { return }
+        var unpinned = memos[idx]
+        unpinned.pinnedAt = nil
+        var updated = memos
+        updated.remove(at: idx)
+        let insertIdx = updated.firstIndex(where: { $0.created < unpinned.created }) ?? updated.endIndex
+        updated.insert(unpinned, at: insertIdx)
+        do {
+            try rewrite(memos: updated)
+            withAnimation(.easeInOut(duration: 0.25)) {
+                memos = updated
+            }
+        } catch {
+            submitError = "取消置顶失败：\(error.localizedDescription)"
         }
     }
 
@@ -232,7 +248,12 @@ final class TodayViewModel: ObservableObject {
         do {
             let loaded = try RawStorage.read(for: date)
             // Newest first
-            memos = loaded.sorted { $0.created > $1.created }
+            memos = loaded.sorted { lhs, rhs in
+            if lhs.pinnedAt != nil && rhs.pinnedAt == nil { return true }
+            if lhs.pinnedAt == nil && rhs.pinnedAt != nil { return false }
+            if let lp = lhs.pinnedAt, let rp = rhs.pinnedAt { return lp > rp }
+            return lhs.created > rhs.created
+        }
         } catch {
             errorMessage = "加载失败：\(error.localizedDescription)"
             memos = []

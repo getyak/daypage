@@ -34,6 +34,7 @@ struct Memo: Identifiable, Equatable {
     var id: UUID
     var type: MemoType
     var created: Date
+    var pinnedAt: Date? = nil
     var location: Location?
     var weather: String?
     var device: String?
@@ -46,6 +47,7 @@ struct Memo: Identifiable, Equatable {
         id: UUID = UUID(),
         type: MemoType = .text,
         created: Date = Date(),
+        pinnedAt: Date? = nil,
         location: Location? = nil,
         weather: String? = nil,
         device: String? = nil,
@@ -55,6 +57,7 @@ struct Memo: Identifiable, Equatable {
         self.id = id
         self.type = type
         self.created = created
+        self.pinnedAt = pinnedAt
         self.location = location
         self.weather = weather
         self.device = device
@@ -77,6 +80,10 @@ extension Memo {
         lines.append("id: \(id.uuidString)")
         lines.append("type: \(type.rawValue)")
         lines.append("created: \(ISO8601DateFormatter.memo.string(from: created))")
+
+        if let p = pinnedAt {
+            lines.append("pinned_at: \(ISO8601DateFormatter.memo.string(from: p))")
+        }
 
         if let loc = location {
             lines.append("location:")
@@ -162,6 +169,11 @@ extension Memo {
         let createdString = fm.scalar("created") ?? ""
         let created = ISO8601DateFormatter.memo.date(from: createdString) ?? Date()
 
+        let pinnedAt: Date? = {
+            guard let s = fm.scalar("pinned_at") else { return nil }
+            return ISO8601DateFormatter.memo.date(from: s)
+        }()
+
         var location: Location?
         if let locationMap = fm.mapping("location") {
             var loc = Location()
@@ -189,6 +201,7 @@ extension Memo {
             id: uuid,
             type: memoType,
             created: created,
+            pinnedAt: pinnedAt,
             location: location,
             weather: weather,
             device: device,

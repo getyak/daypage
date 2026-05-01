@@ -204,7 +204,13 @@ struct TodayView: View {
                                             memo: memo,
                                             isLast: idx == viewModel.memos.count - 1,
                                             onDelete: { viewModel.deleteMemo(memo) },
-                                            onPin: { viewModel.pinMemo(memo) }
+                                            onPin: {
+                                    if memo.pinnedAt != nil {
+                                        viewModel.unpinMemo(memo)
+                                    } else {
+                                        viewModel.pinMemo(memo)
+                                    }
+                                }
                                         )
                                         .padding(.leading, 20)
                                         .padding(.trailing, 20)
