@@ -83,7 +83,7 @@ struct SwipeableMemoCard: View {
             .foregroundColor(.white)
             .frame(width: panelW)
             .frame(maxHeight: .infinity)
-            .background(memo.pinnedAt != nil ? DSColor.textSecondary : DSColor.amberArchival)
+            .background(memo.pinnedAt != nil ? DSColor.secondary : DSColor.amberArchival)
         }
         // Opacity is driven by scoped withAnimation in snapOpen/snapClose.
         // Removed deprecated implicit .animation(_:value:) to prevent
