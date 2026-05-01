@@ -7,8 +7,6 @@ import UIKit
 
 enum FeedbackStatus: Equatable {
     case idle
-    /// Single combined "AI summarize + GitHub submit" loading state — the
-    /// user sees one spinner instead of two stages.
     case sending
     case submitted(issueURL: String)
     case error(String)
@@ -86,11 +84,12 @@ final class FeedbackViewModel: ObservableObject {
         loadSubmittedIssues()
     }
 
-    // MARK: - Send (AI Summary + Submit, single step)
+    // MARK: - Send (instant — backend triage takes over)
 
-    /// Combined flow: capture context → ask AI to compose issue → upload images
-    /// → create GitHub issue. The UI sees one `.sending` state for the whole
-    /// chain so the user isn't asked to confirm AI output.
+    /// Submit flow: capture context → upload images → create GitHub issue
+    /// labelled `triage`. The kubbot Feedback Triage Bot workflow picks it up
+    /// server-side and rewrites title/body/labels via DeepSeek, so the user
+    /// sees a confirmation in well under a second instead of waiting on AI.
     func send() async {
         let trimmed = rawFeedback.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty || !pendingImages.isEmpty else {
@@ -98,24 +97,17 @@ final class FeedbackViewModel: ObservableObject {
             return
         }
 
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+
         status = .sending
         let context = capturedContext ?? FeedbackContext.capture()
         capturedContext = context
 
-        // 1. AI summarize
-        let summary: AIIssueSummary
-        do {
-            summary = try await callDeepSeekForSummary(
-                feedback: trimmed.isEmpty ? "(no text — see attached screenshots)" : trimmed,
-                context: context
-            )
-        } catch {
-            status = .error(error.localizedDescription)
-            return
-        }
+        let rawText = trimmed.isEmpty ? "(no text — see attached screenshots)" : trimmed
+        let title = Self.makeProvisionalTitle(from: rawText)
 
-        // 2. Upload images (best effort — image upload failure shouldn't block
-        //    the issue itself, but we surface a warning by appending a note).
+        // Upload images (best effort — image upload failure shouldn't block
+        // the issue itself, but we surface a warning by appending a note).
         var imageMarkdown = ""
         var uploadedAll = true
         for image in pendingImages {
@@ -131,8 +123,7 @@ final class FeedbackViewModel: ObservableObject {
             }
         }
 
-        // 3. Compose final body: AI body + context block + screenshots
-        var body = summary.body
+        var body = "## Raw feedback\n\n\(rawText)"
         body += "\n\n---\n\n<details><summary>📱 Diagnostic context</summary>\n\n```\n\(context.promptDescription)\n```\n\n</details>"
         if !imageMarkdown.isEmpty {
             body += "\n\n## Screenshots" + imageMarkdown
@@ -141,25 +132,42 @@ final class FeedbackViewModel: ObservableObject {
             body += "\n\n> ⚠️ Some screenshots failed to upload."
         }
 
-        // 4. Create issue
         do {
             let issue = try await FeedbackService.shared.createIssueViaBot(
-                title: summary.title,
+                title: title,
                 body: body,
-                labels: summary.labels
+                labels: ["triage"]
             )
             let submitted = SubmittedIssue(
                 number: issue.number,
                 url: issue.htmlURL,
-                title: summary.title,
+                title: title,
                 date: Date()
             )
             submittedIssues.insert(submitted, at: 0)
             persistSubmittedIssues()
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
             status = .submitted(issueURL: issue.htmlURL)
         } catch {
             status = .error(error.localizedDescription)
         }
+    }
+
+    /// First non-empty line, truncated to 80 chars (with ellipsis when cut).
+    /// The triage workflow rewrites this server-side, so it just has to be
+    /// good enough for the user to recognize the issue in their list.
+    private static func makeProvisionalTitle(from text: String) -> String {
+        let firstLine = text
+            .split(whereSeparator: { $0.isNewline })
+            .first
+            .map(String.init)?
+            .trimmingCharacters(in: .whitespaces) ?? ""
+        let source = firstLine.isEmpty
+            ? text.trimmingCharacters(in: .whitespacesAndNewlines)
+            : firstLine
+        if source.count <= 80 { return source }
+        let cutoff = source.index(source.startIndex, offsetBy: 79)
+        return String(source[..<cutoff]) + "…"
     }
 
     // MARK: - Voice (Whisper press-to-talk)
@@ -267,136 +275,6 @@ final class FeedbackViewModel: ObservableObject {
         status = .idle
     }
 
-    // MARK: - DeepSeek Call
-
-    fileprivate struct AIIssueSummary {
-        let title: String
-        let body: String
-        let labels: [String]
-    }
-
-    private func callDeepSeekForSummary(
-        feedback: String,
-        context: FeedbackContext
-    ) async throws -> AIIssueSummary {
-        let apiKey = Secrets.resolvedDeepSeekApiKey
-        guard !apiKey.isEmpty else {
-            throw FeedbackError.networkError("DeepSeek API key is not configured.")
-        }
-
-        let baseURL = Secrets.deepSeekBaseURL.isEmpty
-            ? "https://api.deepseek.com/v1"
-            : Secrets.deepSeekBaseURL
-        let model = Secrets.deepSeekModel.isEmpty ? "deepseek-v4-pro" : Secrets.deepSeekModel
-
-        guard let url = URL(string: "\(baseURL)/chat/completions") else {
-            throw FeedbackError.networkError("Invalid API URL")
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 60
-
-        let systemPrompt = """
-        You are DayPage's feedback triage assistant. The user is reporting a bug or
-        requesting an improvement. You are given the raw feedback text AND a block
-        of diagnostic context (app version, OS, device, user id, etc.). Your job:
-
-        1. Decide whether this is a bug, feature request, or improvement.
-        2. Write a short, specific issue title (≤ 80 chars). Do NOT include the
-           version number in the title — it goes in the body.
-        3. Compose a Markdown body using the appropriate sections:
-             - Bug:         ## Description, ## Steps to Reproduce, ## Expected, ## Actual, ## Environment
-             - Feature:     ## Problem, ## Proposed Solution, ## Why
-             - Improvement: ## Current behaviour, ## Suggested change, ## Why
-           Always include an "## Environment" section that lists the relevant
-           subset of the diagnostic context (app version, OS, device — user id
-           only if it helps reproduce). Don't dump the whole context block — the
-           app appends a verbatim copy below your output.
-        4. Pick 1–2 labels from: ["bug", "enhancement", "improvement"].
-
-        Output ONLY a JSON object:
-        {
-          "title": "...",
-          "body":  "...",
-          "labels": ["bug"]
-        }
-        No prose outside the JSON. No markdown fences around the JSON.
-        """
-
-        let userMessage = """
-        --- USER FEEDBACK ---
-        \(feedback)
-
-        --- DIAGNOSTIC CONTEXT ---
-        \(context.promptDescription)
-        """
-
-        let body: [String: Any] = [
-            "model": model,
-            "messages": [
-                ["role": "system", "content": systemPrompt],
-                ["role": "user", "content": userMessage]
-            ],
-            "max_tokens": 1024,
-            "temperature": 0.4
-        ]
-
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let http = response as? HTTPURLResponse else {
-            throw FeedbackError.networkError("No HTTP response")
-        }
-        guard http.statusCode == 200 else {
-            let bodyStr = String(data: data, encoding: .utf8) ?? ""
-            throw FeedbackError.unknownError(http.statusCode, bodyStr)
-        }
-
-        return try parseAISummary(from: data)
-    }
-
-    private func parseAISummary(from data: Data) throws -> AIIssueSummary {
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let choices = json["choices"] as? [[String: Any]],
-              let first = choices.first,
-              let message = first["message"] as? [String: Any],
-              let content = message["content"] as? String else {
-            throw FeedbackError.networkError("Unexpected API response structure")
-        }
-
-        let trimmed = content.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // Tolerate models that wrap JSON in ```json fences.
-        let jsonString: String
-        if let fenceStart = trimmed.range(of: "```json\n"),
-           let fenceEnd = trimmed.range(of: "\n```", range: fenceStart.upperBound ..< trimmed.endIndex) {
-            jsonString = String(trimmed[fenceStart.upperBound ..< fenceEnd.lowerBound])
-        } else if let braceStart = trimmed.firstIndex(of: "{"),
-                  let braceEnd = trimmed.lastIndex(of: "}") {
-            jsonString = String(trimmed[braceStart ... braceEnd])
-        } else {
-            throw FeedbackError.networkError("AI response did not contain valid JSON")
-        }
-
-        guard let jsonData = jsonString.data(using: .utf8),
-              let parsed = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
-            throw FeedbackError.networkError("Failed to parse AI JSON response")
-        }
-
-        let title = (parsed["title"] as? String) ?? ""
-        let bodyText = (parsed["body"] as? String) ?? ""
-        let labels = (parsed["labels"] as? [String]) ?? []
-
-        guard !title.isEmpty else {
-            throw FeedbackError.networkError("AI returned empty issue title")
-        }
-
-        return AIIssueSummary(title: title, body: bodyText, labels: labels)
-    }
 }
 
 // MARK: - Date helper

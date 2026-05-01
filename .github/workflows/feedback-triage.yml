@@ -1,0 +1,237 @@
+name: kubbot Feedback Triage
+
+# Server-side AI triage for issues filed by the in-app feedback flow.
+#
+# The iOS client now files raw feedback instantly, with the `triage` label
+# and the user's verbatim text in the body. This workflow:
+#   1. Reads the issue body (raw feedback + diagnostic context).
+#   2. Calls DeepSeek to classify (bug / enhancement / improvement) and
+#      rewrite a proper title + Markdown body.
+#   3. Updates the issue and swaps the `triage` label for the AI-suggested
+#      one via the GitHub REST API (using `gh api`).
+#
+# Required repo secret:
+#   DEEPSEEK_API_KEY   — DeepSeek chat completions key
+# Optional repo variables (vars):
+#   DEEPSEEK_BASE_URL  — defaults to https://api.deepseek.com/v1
+#   DEEPSEEK_MODEL     — defaults to deepseek-chat
+
+on:
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  triage:
+    name: Triage feedback issue
+    runs-on: ubuntu-latest
+    # Only act on issues that currently carry the `triage` label. For
+    # `opened` we check the labels array; for `labeled` we check the label
+    # that was just applied.
+    if: |
+      (github.event.action == 'opened' &&
+        contains(github.event.issue.labels.*.name, 'triage')) ||
+      (github.event.action == 'labeled' &&
+        github.event.label.name == 'triage')
+    steps:
+      - name: Checkout (for script)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run triage
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          DEEPSEEK_BASE_URL: ${{ vars.DEEPSEEK_BASE_URL }}
+          DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 <<'PY'
+          import json
+          import os
+          import re
+          import subprocess
+          import sys
+          import urllib.request
+          import urllib.error
+
+          api_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
+          if not api_key:
+              print("DEEPSEEK_API_KEY is not set; skipping triage.", file=sys.stderr)
+              sys.exit(0)
+
+          base_url = (os.environ.get("DEEPSEEK_BASE_URL") or "https://api.deepseek.com/v1").rstrip("/")
+          model    = os.environ.get("DEEPSEEK_MODEL") or "deepseek-chat"
+          repo     = os.environ["REPO"]
+          number   = os.environ["ISSUE_NUMBER"]
+          orig_title = os.environ.get("ISSUE_TITLE", "") or ""
+          orig_body  = os.environ.get("ISSUE_BODY",  "") or ""
+
+          allowed_labels = {"bug", "enhancement", "improvement"}
+
+          system_prompt = (
+              "You are DayPage's feedback triage assistant. The user filed feedback "
+              "from inside the iOS app. The issue body contains their raw text plus "
+              "a diagnostic context block (app version, OS, device, etc.).\n\n"
+              "Your job:\n"
+              "1. Decide whether this is a bug, feature request (enhancement), or "
+              "improvement.\n"
+              "2. Write a short, specific issue title (<= 80 chars). Do NOT include the "
+              "version number in the title.\n"
+              "3. Compose a Markdown body using the appropriate sections:\n"
+              "     - Bug:         ## Description, ## Steps to Reproduce, ## Expected, ## Actual, ## Environment\n"
+              "     - Feature:     ## Problem, ## Proposed Solution, ## Why\n"
+              "     - Improvement: ## Current behaviour, ## Suggested change, ## Why\n"
+              "   Always include an '## Environment' section listing the relevant "
+              "subset of the diagnostic context (app version, OS, device).\n"
+              "4. Pick exactly one label from: ['bug', 'enhancement', 'improvement'].\n\n"
+              "Output ONLY a JSON object: {\"title\": \"...\", \"body\": \"...\", \"label\": \"bug\"}.\n"
+              "No prose outside the JSON. No markdown fences."
+          )
+
+          user_message = (
+              "--- ORIGINAL TITLE ---\n"
+              f"{orig_title}\n\n"
+              "--- ISSUE BODY (raw feedback + diagnostics) ---\n"
+              f"{orig_body}\n"
+          )
+
+          payload = {
+              "model": model,
+              "messages": [
+                  {"role": "system", "content": system_prompt},
+                  {"role": "user",   "content": user_message},
+              ],
+              "max_tokens": 1024,
+              "temperature": 0.4,
+          }
+
+          req = urllib.request.Request(
+              f"{base_url}/chat/completions",
+              data=json.dumps(payload).encode("utf-8"),
+              headers={
+                  "Authorization": f"Bearer {api_key}",
+                  "Content-Type": "application/json",
+              },
+              method="POST",
+          )
+
+          try:
+              with urllib.request.urlopen(req, timeout=60) as resp:
+                  raw = resp.read().decode("utf-8")
+          except urllib.error.HTTPError as e:
+              detail = e.read().decode("utf-8", errors="replace")[:500]
+              print(f"DeepSeek HTTP {e.code}: {detail}", file=sys.stderr)
+              sys.exit(1)
+          except Exception as e:
+              print(f"DeepSeek call failed: {e}", file=sys.stderr)
+              sys.exit(1)
+
+          try:
+              data = json.loads(raw)
+              content = data["choices"][0]["message"]["content"].strip()
+          except (KeyError, IndexError, json.JSONDecodeError) as e:
+              print(f"Unexpected DeepSeek response shape: {e}\n{raw[:500]}", file=sys.stderr)
+              sys.exit(1)
+
+          # Tolerate ```json ... ``` fences and leading prose.
+          fence = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", content, re.DOTALL)
+          if fence:
+              json_str = fence.group(1)
+          else:
+              first = content.find("{")
+              last  = content.rfind("}")
+              if first == -1 or last == -1 or last < first:
+                  print(f"AI response had no JSON object:\n{content[:500]}", file=sys.stderr)
+                  sys.exit(1)
+              json_str = content[first:last + 1]
+
+          try:
+              parsed = json.loads(json_str)
+          except json.JSONDecodeError as e:
+              print(f"Failed to parse AI JSON ({e}):\n{json_str[:500]}", file=sys.stderr)
+              sys.exit(1)
+
+          new_title = (parsed.get("title") or "").strip()
+          new_body  = (parsed.get("body")  or "").strip()
+          # Accept either `label` or `labels` to be tolerant of the model.
+          label_field = parsed.get("label") or (parsed.get("labels") or [None])[0]
+          new_label = (label_field or "").strip().lower()
+
+          if not new_title or not new_body:
+              print("AI returned empty title or body; leaving issue untouched.", file=sys.stderr)
+              sys.exit(1)
+          if new_label not in allowed_labels:
+              print(f"AI label '{new_label}' not in {allowed_labels}; defaulting to 'bug'.", file=sys.stderr)
+              new_label = "bug"
+
+          if len(new_title) > 80:
+              new_title = new_title[:79].rstrip() + "…"
+
+          # Preserve the original raw-feedback + diagnostics block at the bottom
+          # so nothing the user typed is ever lost.
+          final_body = (
+              f"{new_body}\n\n"
+              "---\n\n"
+              "<details><summary>Original submission</summary>\n\n"
+              f"{orig_body}\n\n"
+              "</details>\n"
+          )
+
+          def gh(*args, input_data=None):
+              return subprocess.run(
+                  ["gh", *args],
+                  input=input_data,
+                  text=True,
+                  capture_output=True,
+                  check=False,
+              )
+
+          # Update title + body via the REST API (handles arbitrary-size body
+          # better than `gh issue edit`).
+          patch_payload = json.dumps({"title": new_title, "body": final_body})
+          patch = gh(
+              "api",
+              "--method", "PATCH",
+              f"/repos/{repo}/issues/{number}",
+              "--input", "-",
+              input_data=patch_payload,
+          )
+          if patch.returncode != 0:
+              print(f"Failed to update issue: {patch.stderr}", file=sys.stderr)
+              sys.exit(1)
+
+          # Add the AI-picked label (no-op if already present).
+          add = gh(
+              "api",
+              "--method", "POST",
+              f"/repos/{repo}/issues/{number}/labels",
+              "-f", f"labels[]={new_label}",
+          )
+          if add.returncode != 0:
+              # Non-fatal — the issue is still updated.
+              print(f"Warning: failed to add label '{new_label}': {add.stderr}", file=sys.stderr)
+
+          # Remove the `triage` label. 404 just means it was already gone.
+          rm = gh(
+              "api",
+              "--method", "DELETE",
+              f"/repos/{repo}/issues/{number}/labels/triage",
+          )
+          if rm.returncode != 0 and "404" not in (rm.stderr or ""):
+              print(f"Warning: failed to remove 'triage' label: {rm.stderr}", file=sys.stderr)
+
+          print(f"Triaged issue #{number}: '{new_title}' [{new_label}]")
+          PY
