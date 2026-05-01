@@ -30,17 +30,13 @@ struct TodayView: View {
     /// Current time for the header timestamp (refreshed every minute).
     @State private var currentTime: Date = Date()
 
-    private let headerTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
+    /// Whether the daily page card is swiped open to reveal the recompile action.
+    @State private var dailyPageRevealed: Bool = false
 
-    /// Whether the inline compile call-to-action should render at the tail
-    /// of today's stream. No longer depends on scroll position — the button
-    /// is part of the timeline now, so it just shows whenever there is
-    /// uncompiled content (or a compile is in flight).
-    private var shouldShowCompileFooter: Bool {
-        guard !viewModel.isDailyPageCompiled else { return false }
-        if viewModel.isCompiling { return true }
-        return viewModel.memos.count > 0
-    }
+    /// Live drag offset for the daily page card (negative = pulled left).
+    @GestureState private var dailyPageDrag: CGFloat = 0
+
+    private let headerTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     private var todayPendingDrafts: [VisitDraft] {
         passiveLocation.todayPendingDrafts()
@@ -180,15 +176,12 @@ struct TodayView: View {
                                     .padding(.top, 4)
                                 }
 
-                                // Daily Page entry card (post-compile). Pre-compile entry
-                                // is now the sticky CompileFooterButton mounted above
-                                // InputBarView — see US-005.
+                                // Daily Page entry card (post-compile). Auto-compile runs
+                                // silently on load; users swipe left to reveal a manual
+                                // "重新编译" action when the AI output needs a redo.
                                 if viewModel.isDailyPageCompiled {
-                                    DailyPageEntryCard(
-                                        summary: viewModel.dailyPageSummary,
-                                        onTap: { showDailyPage = true }
-                                    )
-                                    .padding(.horizontal, 20)
+                                    swipeableDailyPageCard
+                                        .padding(.horizontal, 20)
                                 }
 
                                 // Memo cards (reverse-chronological)
@@ -236,27 +229,6 @@ struct TodayView: View {
                                         .bodySMStyle()
                                         .foregroundColor(DSColor.error)
                                         .padding(.horizontal, 20)
-                                }
-
-                                // MARK: Compile entry — inline at the tail of today's stream.
-                                // Earlier this lived as a sticky pill above the input bar; the
-                                // capture surface is supposed to be the only thing pinned to the
-                                // bottom. Now the compile call-to-action scrolls with the page,
-                                // so the dock stays calm and the user sees "编译今日 · N 条" as
-                                // a natural full-stop after the last memo of the day.
-                                if shouldShowCompileFooter {
-                                    HStack {
-                                        Spacer()
-                                        CompileFooterButton(
-                                            memoCount: viewModel.memos.count,
-                                            isCompiling: viewModel.isCompiling,
-                                            isVisible: true,
-                                            onTap: { viewModel.compile() }
-                                        )
-                                        Spacer()
-                                    }
-                                    .padding(.top, 8)
-                                    .padding(.bottom, 8)
                                 }
 
                                 // MARK: Weekly Recap (this week's compiled days, newest first)
@@ -446,6 +418,63 @@ struct TodayView: View {
             Text(initial)
                 .font(.custom("Inter-Medium", size: 13))
                 .foregroundColor(Color(hex: "A0A0A0"))
+        }
+    }
+
+    // MARK: - Swipeable Daily Page Card
+
+    /// Daily Page entry card with a left-swipe-to-reveal "重新编译" action.
+    /// Mirrors the SwipeableMemoCard interaction: drag the card left, snap
+    /// open at -44pt, tap the revealed amber button to recompile, or tap
+    /// the card itself to dismiss the open state.
+    @ViewBuilder
+    private var swipeableDailyPageCard: some View {
+        ZStack(alignment: .center) {
+            HStack(spacing: 0) {
+                Spacer()
+                Button {
+                    withAnimation(.spring(response: 0.22, dampingFraction: 0.82)) {
+                        dailyPageRevealed = false
+                    }
+                    viewModel.compile()
+                } label: {
+                    Text("重新编译")
+                        .font(.custom("Inter-Medium", size: 13))
+                        .foregroundColor(.white)
+                        .frame(width: 80)
+                        .frame(maxHeight: .infinity)
+                        .background(DSColor.accentAmber)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("重新编译")
+            }
+
+            DailyPageEntryCard(
+                summary: viewModel.dailyPageSummary,
+                onTap: {
+                    if dailyPageRevealed {
+                        withAnimation(.spring(response: 0.22, dampingFraction: 0.82)) {
+                            dailyPageRevealed = false
+                        }
+                    } else {
+                        showDailyPage = true
+                    }
+                }
+            )
+            .offset(x: (dailyPageRevealed ? -80 : 0) + dailyPageDrag)
+            .highPriorityGesture(
+                DragGesture(minimumDistance: 10)
+                    .updating($dailyPageDrag) { value, state, _ in
+                        if value.translation.width < 0 {
+                            state = value.translation.width
+                        }
+                    }
+                    .onEnded { value in
+                        withAnimation(.spring(response: 0.22, dampingFraction: 0.82)) {
+                            dailyPageRevealed = value.translation.width < -44
+                        }
+                    }
+            )
         }
     }
 

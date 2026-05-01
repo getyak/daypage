@@ -263,6 +263,13 @@ final class TodayViewModel: ObservableObject {
         weeklyRecap = WeeklyRecapService.shared.entries()
         isLoading = false
         checkOnThisDay()
+
+        // Auto-compile on load when today has uncompiled memos. The compile
+        // button was removed in #213 — the user expects today's diary to be
+        // ready whenever they open the app, no manual trigger required.
+        if !isDailyPageCompiled && !memos.isEmpty && !isCompiling {
+            Task { compile() }
+        }
     }
 
     // MARK: - On This Day
