@@ -21,7 +21,7 @@ struct PressableCardModifier: ViewModifier {
                     .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard, style: .continuous))
             )
             .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isPressed)
-            .onLongPressGesture(minimumDuration: 0.01, maximumDistance: 10) {
+            .onLongPressGesture(minimumDuration: 0.0, maximumDistance: .infinity) {
                 // 轻触动作由 MemoCardView 内部的 .onTapGesture 处理
                 // 此处不执行任何操作
             } onPressingChanged: { pressing in
