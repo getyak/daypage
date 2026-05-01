@@ -60,6 +60,7 @@ struct SwipeableMemoCard: View {
             // LongPressGesture inside MemoCardView (no drag conflict).
             MemoCardView(memo: memo, onDelete: onDelete)
                 .offset(x: currentOffset)
+                .drawingGroup(opaque: false, colorMode: .extendedLinear)
                 .highPriorityGesture(swipeGesture)
                 .onTapGesture { if revealedSide != nil { snapClose() } }
         }

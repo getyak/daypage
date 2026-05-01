@@ -559,16 +559,18 @@ struct VoiceMemoPlayerRow: View {
                 .disabled(fileError)
 
                 // Waveform + progress overlay
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        // Background bars
-                        waveformBars(count: 30, color: DSColor.outlineVariant)
+                ZStack(alignment: .leading) {
+                    // Background bars
+                    waveformBars(count: 30, color: DSColor.outlineVariant)
 
-                        // Progress overlay (clipped to progress fraction)
-                        waveformBars(count: 30, color: DSColor.primary)
-                            .frame(width: geo.size.width * playbackProgress)
-                            .clipped()
-                    }
+                    // Progress overlay (mask-based: scale a leading-anchored
+                    // Rectangle by playbackProgress instead of measuring the
+                    // container with GeometryReader on every frame).
+                    waveformBars(count: 30, color: DSColor.primary)
+                        .mask(alignment: .leading) {
+                            Rectangle()
+                                .scaleEffect(x: CGFloat(playbackProgress), y: 1, anchor: .leading)
+                        }
                 }
                 .frame(height: 28)
 
@@ -613,12 +615,19 @@ struct VoiceMemoPlayerRow: View {
 
     // MARK: - Waveform Bars (static, pseudo-random per URL)
 
-    private func waveformBars(count: Int, color: Color) -> some View {
-        // Deterministic pseudo-random heights based on file URL hash
+    /// Pre-computed deterministic bar heights derived from `fileURL.hashValue`.
+    /// Computed once per body re-evaluation instead of recomputing the bit-shift
+    /// expression for every bar on every frame during a swipe gesture.
+    private var waveformHeights: [CGFloat] {
         let seed = abs(fileURL.hashValue)
-        return HStack(spacing: 2) {
-            ForEach(0..<count, id: \.self) { i in
-                let h = CGFloat(4 + ((seed >> i) & 0x1F) % 24)
+        return (0..<30).map { i in
+            CGFloat(4 + ((seed >> i) & 0x1F) % 24)
+        }
+    }
+
+    private func waveformBars(count: Int, color: Color) -> some View {
+        HStack(spacing: 2) {
+            ForEach(Array(waveformHeights.prefix(count).enumerated()), id: \.offset) { _, h in
                 RoundedRectangle(cornerRadius: 1)
                     .fill(color)
                     .frame(width: 3, height: h)
@@ -860,20 +869,22 @@ struct PhotoThumbnailView: View {
         }
     }
 
-    @MainActor
     private func loadThumbnailAsync(from fileURL: URL) async -> UIImage? {
-        guard let data = try? Data(contentsOf: fileURL) else { return nil }
-        let opts: [CFString: Any] = [
-            kCGImageSourceShouldCacheImmediately: false,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
-            kCGImageSourceThumbnailMaxPixelSize: 600
-        ]
-        if let source = CGImageSourceCreateWithData(data as CFData, nil),
-           let cgThumb = CGImageSourceCreateThumbnailAtIndex(source, 0, opts as CFDictionary) {
-            return UIImage(cgImage: cgThumb)
-        }
-        return UIImage(data: data)
+        let url = fileURL
+        return await Task.detached(priority: .userInitiated) {
+            guard let data = try? Data(contentsOf: url) else { return nil }
+            let opts: [CFString: Any] = [
+                kCGImageSourceShouldCacheImmediately: false,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
+                kCGImageSourceThumbnailMaxPixelSize: 600
+            ]
+            if let source = CGImageSourceCreateWithData(data as CFData, nil),
+               let cgThumb = CGImageSourceCreateThumbnailAtIndex(source, 0, opts as CFDictionary) {
+                return UIImage(cgImage: cgThumb)
+            }
+            return UIImage(data: data)
+        }.value
     }
 }
 

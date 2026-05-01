@@ -215,6 +215,7 @@ struct TodayView: View {
                                         .padding(.leading, 20)
                                         .padding(.trailing, 20)
                                         .transition(.move(edge: .bottom).combined(with: .opacity))
+                                        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: viewModel.memos.count)
                                     }
                                 }
 
