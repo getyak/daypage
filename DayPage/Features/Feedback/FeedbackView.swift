@@ -50,10 +50,18 @@ struct FeedbackView: View {
                 voiceOverlay
                     .transition(.opacity)
             }
-
-            if vm.showHoldToRecordToast {
-                toast("Hold to record")
-            }
+        }
+        .sheet(isPresented: $vm.isShowingVoiceRecorder) {
+            VoiceRecordingView(
+                onComplete: { result in
+                    vm.handleVoiceRecordingComplete(result: result)
+                },
+                onCancel: {
+                    vm.cancelVoiceRecording()
+                }
+            )
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.hidden)
         }
         .sheet(isPresented: $showCamera) {
             CameraPickerView(
@@ -224,11 +232,11 @@ struct FeedbackView: View {
                 onReleaseCancel: { vm.voiceReleaseCancel() },
                 onReleaseTranscribe: { vm.voiceReleaseTranscribe() },
                 onPhaseChange: { phase in vm.pressToTalkPhase = phase },
-                onTapShortRelease: { vm.voiceShortTap() },
+                onTapShortRelease: { vm.startVoiceRecording() },
                 size: 44
             )
 
-            Text("Hold mic to record")
+            Text("Tap to record · hold for quick memo")
                 .font(.custom("Inter-Regular", size: 12))
                 .foregroundColor(DSColor.onBackgroundSubtle)
 
@@ -438,20 +446,6 @@ struct FeedbackView: View {
         .background(DSColor.errorSoft)
         .cornerRadius(10)
         .padding(.vertical, 8)
-    }
-
-    private func toast(_ text: String) -> some View {
-        VStack {
-            Spacer()
-            Text(text)
-                .font(.custom("Inter-Medium", size: 13))
-                .foregroundColor(.white)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
-                .background(Color.black.opacity(0.78))
-                .clipShape(Capsule())
-                .padding(.bottom, 60)
-        }
     }
 
     // MARK: - Helpers
