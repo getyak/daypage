@@ -1,0 +1,107 @@
+name: Linear → GitHub Issue Creator
+
+# ──────────────────────────────────────────────────────────
+# Receives Linear webhook events and creates/mirrors
+# corresponding GitHub issues for selected use cases.
+#
+# Setup: In Linear → Settings → API → Webhooks, add:
+#   URL: https://api.github.com/repos/getyak/daypage/dispatches
+#   Event: issue.created, issue.updated
+#   Auth header: Authorization: token <GITHUB_PAT_WITH_REPO_SCOPE>
+#
+# Payload:
+#   { "event_type": "linear_webhook",
+#     "client_payload": { "action": "create", "data": { ... } } }
+# ──────────────────────────────────────────────────────────
+
+on:
+  repository_dispatch:
+    types: [linear_webhook]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  linear-to-github:
+    name: Linear → GitHub
+    if: github.event.client_payload.action == 'create'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub issue from Linear
+        env:
+          LINEAR_DATA: ${{ toJson(github.event.client_payload.data) }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ISSUE_TITLE=$(echo "$LINEAR_DATA" | python3 -c "
+          import sys, json, os
+          d = json.loads(os.environ['LINEAR_DATA'])
+          print(d.get('title', 'Untitled'))
+          ")
+
+          ISSUE_ID=$(echo "$LINEAR_DATA" | python3 -c "
+          import sys, json, os
+          d = json.loads(os.environ['LINEAR_DATA'])
+          print(d.get('identifier', ''))
+          ")
+
+          ISSUE_DESC=$(echo "$LINEAR_DATA" | python3 -c "
+          import sys, json, os
+          d = json.loads(os.environ['LINEAR_DATA'])
+          desc = d.get('description', '')
+          url = d.get('url', '')
+          identifier = d.get('identifier', '')
+
+          # Map Linear priority to GitHub label
+          prio = d.get('priority', 3)
+          labels = []
+          if prio == 1: labels.append('priority:urgent')
+          elif prio == 2: labels.append('priority:high')
+          elif prio == 3: labels.append('priority:medium')
+          elif prio == 4: labels.append('priority:low')
+
+          # Add type label
+          if d.get('labels'):
+              for l in d['labels'].get('nodes', []):
+                  if l['name'] in ('Bug', 'Feature', 'Improvement'):
+                      labels.append(l['name'].lower())
+
+          body = f'''## [{identifier}]({url})
+
+          {desc}
+
+          ---
+          *Mirrored from Linear automatically*
+          '''
+
+          # Add labels as frontmatter-style comment
+          body += f'\\n<!-- labels: {\",\".join(labels)} -->'
+
+          print(json.dumps({'title': f'[{identifier}] {d.get(\"title\", \"Untitled\")}', 'body': body, 'labels': labels}))
+          ")
+
+          TITLE=$(echo "$ISSUE_DESC" | python3 -c "import sys,json; print(json.load(sys.stdin)['title'])")
+          BODY=$(echo "$ISSUE_DESC" | python3 -c "import sys,json; print(json.load(sys.stdin)['body'])")
+          LABELS=$(echo "$ISSUE_DESC" | python3 -c "import sys,json; print(','.join(json.load(sys.stdin)['labels']))")
+
+          # Check if issue already exists
+          EXISTING=$(gh issue list --search "$ISSUE_ID in:title" --limit 1 --json number -q '.[0].number' 2>/dev/null || echo "")
+
+          if [ -n "$EXISTING" ]; then
+            echo "⚠️ GitHub issue #$EXISTING already exists for $ISSUE_ID — skipping"
+            exit 0
+          fi
+
+          # Create the GitHub issue
+          if [ -n "$LABELS" ]; then
+            gh issue create \
+              --title "$TITLE" \
+              --body "$BODY" \
+              --label "$LABELS"
+          else
+            gh issue create \
+              --title "$TITLE" \
+              --body "$BODY"
+          fi
+
+          echo "✅ Created GitHub issue for $ISSUE_ID"
