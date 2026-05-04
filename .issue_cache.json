@@ -1,0 +1,480 @@
+{
+  "close_time_count": 25,
+  "close_time_total_seconds": 440470.0,
+  "counted_closed_numbers": [
+    126,
+    132,
+    136,
+    137,
+    143,
+    150,
+    173,
+    175,
+    177,
+    181,
+    184,
+    186,
+    188,
+    190,
+    192,
+    194,
+    196,
+    198,
+    200,
+    203,
+    204,
+    208,
+    212,
+    213,
+    214
+  ],
+  "fetched_at": "2026-05-04T04:12:51+00:00",
+  "issues": {
+    "126": {
+      "assignees": [],
+      "closed_at": "2026-04-23T16:29:36Z",
+      "closed_by": "cubxxw",
+      "comments": 0,
+      "created_at": "2026-04-23T15:43:02Z",
+      "labels": [
+        "enhancement",
+        "design"
+      ],
+      "milestone": null,
+      "number": 126,
+      "state": "CLOSED",
+      "title": "feat: Replace bottom tab bar with Flomo-style hidden sidebar navigation",
+      "updated_at": "2026-04-23T16:29:36Z",
+      "url": "https://github.com/getyak/daypage/issues/126"
+    },
+    "132": {
+      "assignees": [
+        "cubxxw"
+      ],
+      "closed_at": "2026-04-25T04:11:18Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-04-24T13:01:46Z",
+      "labels": [
+        "bug",
+        "enhancement",
+        "P2",
+        "compilation"
+      ],
+      "milestone": "v0.2",
+      "number": 132,
+      "state": "CLOSED",
+      "title": "[Refactor] CompilationService 若干质量问题修复",
+      "updated_at": "2026-04-25T04:11:18Z",
+      "url": "https://github.com/getyak/daypage/issues/132"
+    },
+    "136": {
+      "assignees": [],
+      "closed_at": "2026-04-27T05:46:55Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-04-27T05:46:43Z",
+      "labels": [],
+      "milestone": null,
+      "number": 136,
+      "state": "CLOSED",
+      "title": "🚀 Linear Automation Test",
+      "updated_at": "2026-04-27T05:46:55Z",
+      "url": "https://github.com/getyak/daypage/issues/136"
+    },
+    "137": {
+      "assignees": [
+        "cubxxw"
+      ],
+      "closed_at": "2026-04-27T07:06:07Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-04-27T06:15:14Z",
+      "labels": [],
+      "milestone": null,
+      "number": 137,
+      "state": "CLOSED",
+      "title": "代码注释中文化 — 全部 Swift 代码注释翻译为中文",
+      "updated_at": "2026-04-27T07:06:07Z",
+      "url": "https://github.com/getyak/daypage/issues/137"
+    },
+    "143": {
+      "assignees": [],
+      "closed_at": "2026-04-29T05:10:30Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-04-27T10:56:07Z",
+      "labels": [
+        "enhancement",
+        "ui",
+        "P1",
+        "input",
+        "ux"
+      ],
+      "milestone": null,
+      "number": 143,
+      "state": "CLOSED",
+      "title": "Capture v2 体验优化：长按提示 / 文本-语音返回 / 附件菜单 / 设置 & 账户",
+      "updated_at": "2026-04-29T05:10:30Z",
+      "url": "https://github.com/getyak/daypage/issues/143"
+    },
+    "150": {
+      "assignees": [],
+      "closed_at": "2026-04-29T04:17:50Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-04-27T14:58:29Z",
+      "labels": [
+        "bug",
+        "enhancement",
+        "ui",
+        "P0",
+        "ux"
+      ],
+      "milestone": null,
+      "number": 150,
+      "state": "CLOSED",
+      "title": "🐛 Swipe animation stutter + 🏗 Zero-config feedback architecture",
+      "updated_at": "2026-04-29T04:17:50Z",
+      "url": "https://github.com/getyak/daypage/issues/150"
+    },
+    "173": {
+      "assignees": [],
+      "closed_at": "2026-04-29T07:13:24Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-04-29T06:23:31Z",
+      "labels": [
+        "enhancement"
+      ],
+      "milestone": null,
+      "number": 173,
+      "state": "CLOSED",
+      "title": "chore: replace raw print() calls with DayPageLogger in VaultInitializer and WatchReceiveService",
+      "updated_at": "2026-04-29T07:13:24Z",
+      "url": "https://github.com/getyak/daypage/issues/173"
+    },
+    "175": {
+      "assignees": [],
+      "closed_at": "2026-04-29T07:24:08Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-04-29T06:33:40Z",
+      "labels": [
+        "enhancement"
+      ],
+      "milestone": null,
+      "number": 175,
+      "state": "CLOSED",
+      "title": "perf/sec: WeatherService — add request timeout + avoid logging API key in URL",
+      "updated_at": "2026-04-29T07:24:08Z",
+      "url": "https://github.com/getyak/daypage/issues/175"
+    },
+    "177": {
+      "assignees": [],
+      "closed_at": "2026-04-29T07:04:55Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-04-29T06:45:04Z",
+      "labels": [
+        "bug"
+      ],
+      "milestone": null,
+      "number": 177,
+      "state": "CLOSED",
+      "title": "fix(build): iCloudConflictMonitor.swift not registered in pbxproj — iOS build broken",
+      "updated_at": "2026-04-29T07:04:55Z",
+      "url": "https://github.com/getyak/daypage/issues/177"
+    },
+    "181": {
+      "assignees": [],
+      "closed_at": "2026-04-29T07:24:43Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-04-29T07:04:12Z",
+      "labels": [
+        "enhancement"
+      ],
+      "milestone": null,
+      "number": 181,
+      "state": "CLOSED",
+      "title": "refactor: centralize scattered UserDefaults key literals into AppSettings.Keys",
+      "updated_at": "2026-04-29T07:24:43Z",
+      "url": "https://github.com/getyak/daypage/issues/181"
+    },
+    "184": {
+      "assignees": [],
+      "closed_at": "2026-04-29T07:31:20Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-04-29T07:17:40Z",
+      "labels": [
+        "enhancement"
+      ],
+      "milestone": null,
+      "number": 184,
+      "state": "CLOSED",
+      "title": "chore(logger): replace remaining print() with DayPageLogger in BackgroundCompilationService and CompilationService",
+      "updated_at": "2026-04-29T07:31:20Z",
+      "url": "https://github.com/getyak/daypage/issues/184"
+    },
+    "186": {
+      "assignees": [],
+      "closed_at": "2026-04-29T08:40:09Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-04-29T07:24:33Z",
+      "labels": [
+        "enhancement"
+      ],
+      "milestone": null,
+      "number": 186,
+      "state": "CLOSED",
+      "title": "fix(feedback): use URLComponents for GitHub API URLs + add offline guard in FeedbackService",
+      "updated_at": "2026-04-29T08:40:09Z",
+      "url": "https://github.com/getyak/daypage/issues/186"
+    },
+    "188": {
+      "assignees": [],
+      "closed_at": "2026-04-29T08:45:11Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-04-29T08:40:11Z",
+      "labels": [
+        "enhancement"
+      ],
+      "milestone": null,
+      "number": 188,
+      "state": "CLOSED",
+      "title": "perf(logger): cache ISO8601DateFormatter in DayPageLogger + only breadcrumb errors (no per-call Sentry event)",
+      "updated_at": "2026-04-29T08:45:11Z",
+      "url": "https://github.com/getyak/daypage/issues/188"
+    },
+    "190": {
+      "assignees": [],
+      "closed_at": "2026-04-29T09:00:41Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-04-29T08:47:01Z",
+      "labels": [
+        "bug"
+      ],
+      "milestone": null,
+      "number": 190,
+      "state": "CLOSED",
+      "title": "fix: eliminate force-unwraps in VoiceService, SettingsView, and BackgroundCompilationService",
+      "updated_at": "2026-04-29T09:00:41Z",
+      "url": "https://github.com/getyak/daypage/issues/190"
+    },
+    "192": {
+      "assignees": [],
+      "closed_at": "2026-04-29T09:00:27Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-04-29T08:51:44Z",
+      "labels": [
+        "enhancement"
+      ],
+      "milestone": null,
+      "number": 192,
+      "state": "CLOSED",
+      "title": "perf: cache DateFormatter instances to avoid repeated expensive allocations",
+      "updated_at": "2026-04-29T09:00:27Z",
+      "url": "https://github.com/getyak/daypage/issues/192"
+    },
+    "194": {
+      "assignees": [],
+      "closed_at": "2026-04-29T09:34:59Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-04-29T09:03:04Z",
+      "labels": [
+        "enhancement"
+      ],
+      "milestone": null,
+      "number": 194,
+      "state": "CLOSED",
+      "title": "perf: cache DateFormatter instances in RelativeTimeFormatter (called per memo card)",
+      "updated_at": "2026-04-29T09:34:59Z",
+      "url": "https://github.com/getyak/daypage/issues/194"
+    },
+    "196": {
+      "assignees": [],
+      "closed_at": "2026-04-29T09:34:12Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-04-29T09:13:28Z",
+      "labels": [
+        "enhancement"
+      ],
+      "milestone": null,
+      "number": 196,
+      "state": "CLOSED",
+      "title": "refactor: consolidate remaining AppSettings UserDefaults keys into AppSettings.Keys",
+      "updated_at": "2026-04-29T09:34:12Z",
+      "url": "https://github.com/getyak/daypage/issues/196"
+    },
+    "198": {
+      "assignees": [],
+      "closed_at": "2026-04-29T17:06:38Z",
+      "closed_by": "kubbot",
+      "comments": 1,
+      "created_at": "2026-04-29T17:06:29Z",
+      "labels": [
+        "enhancement"
+      ],
+      "milestone": null,
+      "number": 198,
+      "state": "CLOSED",
+      "title": "[TEST] Feedback system integration test",
+      "updated_at": "2026-04-29T17:06:38Z",
+      "url": "https://github.com/getyak/daypage/issues/198"
+    },
+    "200": {
+      "assignees": [],
+      "closed_at": "2026-04-30T06:34:30Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-04-30T06:29:24Z",
+      "labels": [
+        "improvement"
+      ],
+      "milestone": null,
+      "number": 200,
+      "state": "CLOSED",
+      "title": "Implement compilation logic to resolve queuing bottleneck",
+      "updated_at": "2026-04-30T06:34:30Z",
+      "url": "https://github.com/getyak/daypage/issues/200"
+    },
+    "203": {
+      "assignees": [],
+      "closed_at": "2026-04-30T15:44:40Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-04-30T15:15:45Z",
+      "labels": [
+        "bug"
+      ],
+      "milestone": null,
+      "number": 203,
+      "state": "CLOSED",
+      "title": "Long voice transcription text truncated after sending",
+      "updated_at": "2026-04-30T15:44:40Z",
+      "url": "https://github.com/getyak/daypage/issues/203"
+    },
+    "204": {
+      "assignees": [],
+      "closed_at": "2026-05-01T04:12:37Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-04-30T15:17:01Z",
+      "labels": [
+        "bug"
+      ],
+      "milestone": null,
+      "number": 204,
+      "state": "CLOSED",
+      "title": "Pinning an item incorrectly updates its timestamp instead of keeping original time",
+      "updated_at": "2026-05-01T04:12:37Z",
+      "url": "https://github.com/getyak/daypage/issues/204"
+    },
+    "208": {
+      "assignees": [],
+      "closed_at": "2026-05-01T06:25:07Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-05-01T03:45:44Z",
+      "labels": [
+        "improvement"
+      ],
+      "milestone": null,
+      "number": 208,
+      "state": "CLOSED",
+      "title": "Optimize swipe gesture smoothness for voice/image input to match native feel",
+      "updated_at": "2026-05-01T06:25:07Z",
+      "url": "https://github.com/getyak/daypage/issues/208"
+    },
+    "212": {
+      "assignees": [],
+      "closed_at": "2026-05-01T09:56:08Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-05-01T07:19:11Z",
+      "labels": [
+        "triage"
+      ],
+      "milestone": null,
+      "number": 212,
+      "state": "CLOSED",
+      "title": "他现在点击录制语音，如果是在反馈那边 如果是单机的话 好像会一直闪烁 也就是说单机是不支持 但我希望单机后也会开始录制 然后可以继续暂停 可以参考他目前输入框…",
+      "updated_at": "2026-05-01T09:56:08Z",
+      "url": "https://github.com/getyak/daypage/issues/212"
+    },
+    "213": {
+      "assignees": [],
+      "closed_at": "2026-05-01T09:38:37Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-05-01T09:08:52Z",
+      "labels": [
+        "triage"
+      ],
+      "milestone": null,
+      "number": 213,
+      "state": "CLOSED",
+      "title": "后来觉得现在编译按钮还是隐藏掉比较好 应该还是对用户最好还是没有感觉吧 就让他自己在后台自己去编译 这样的话可能更符合用户的直觉 但现在的话他好像 他他他他就…",
+      "updated_at": "2026-05-01T09:38:37Z",
+      "url": "https://github.com/getyak/daypage/issues/213"
+    },
+    "214": {
+      "assignees": [],
+      "closed_at": "2026-05-01T10:45:34Z",
+      "closed_by": "cubxxw",
+      "comments": 1,
+      "created_at": "2026-05-01T09:11:11Z",
+      "labels": [
+        "triage"
+      ],
+      "milestone": null,
+      "number": 214,
+      "state": "CLOSED",
+      "title": "好像在提交的模式下 在feedback 这个反馈的场景下 它好像并没有一个非常好的 反馈到主页的一种方式 我希望它能有这样的一个 方式吧 或者是 把它作为一个…",
+      "updated_at": "2026-05-01T10:45:34Z",
+      "url": "https://github.com/getyak/daypage/issues/214"
+    },
+    "217": {
+      "assignees": [],
+      "closed_at": null,
+      "closed_by": null,
+      "comments": 1,
+      "created_at": "2026-05-01T10:31:40Z",
+      "labels": [
+        "triage"
+      ],
+      "milestone": null,
+      "number": 217,
+      "state": "OPEN",
+      "title": "一闪一闪的，很迷惑，就是点击一次后，感觉不稳定了深度思考优化",
+      "updated_at": "2026-05-01T10:32:07Z",
+      "url": "https://github.com/getyak/daypage/issues/217"
+    },
+    "219": {
+      "assignees": [],
+      "closed_at": null,
+      "closed_by": null,
+      "comments": 1,
+      "created_at": "2026-05-01T11:01:01Z",
+      "labels": [
+        "triage"
+      ],
+      "milestone": null,
+      "number": 219,
+      "state": "OPEN",
+      "title": "它现在好像就是我点击图片功能好像它并不被去加载图片 好像这个地方是有bug或者是有卡顿的 我希望你们帮我检查一下",
+      "updated_at": "2026-05-01T11:01:05Z",
+      "url": "https://github.com/getyak/daypage/issues/219"
+    }
+  },
+  "last_synced_at": "2026-05-04T04:12:51+00:00",
+  "repo": "getyak/daypage"
+}

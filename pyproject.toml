@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "issue-pulse"
+version = "0.2.0"
+description = "Track GitHub issue state for a repository — incremental sync, JSON cache, Markdown dashboard."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "DayPage" },
+]
+keywords = ["github", "issues", "tracker", "dashboard"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Bug Tracking",
+]
+
+# No third-party deps — issue-pulse uses only the standard library and
+# shells out to the `gh` CLI.
+dependencies = []
+
+[project.scripts]
+issue-pulse = "issue_pulse.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["issue_pulse*"]
