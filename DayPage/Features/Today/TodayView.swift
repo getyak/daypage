@@ -208,7 +208,6 @@ struct TodayView: View {
                                         .padding(.leading, 20)
                                         .padding(.trailing, 20)
                                         .transition(.move(edge: .bottom).combined(with: .opacity))
-                                        .animation(.spring(response: 0.3, dampingFraction: 0.85), value: viewModel.memos.count)
                                     }
                                 }
 
@@ -258,23 +257,28 @@ struct TodayView: View {
                     // just the input bar.
                     inputBarV4
                 }
-                // Submit error toast
+                // Submit error toast — scoped animation lives on the overlay
+                // container so only the toast itself animates, not the whole
+                // ZStack tree. (#217)
                 .overlay(alignment: .top) {
-                    if let err = viewModel.submitError {
-                        Text(err)
-                            .bodySMStyle()
-                            .foregroundColor(DSColor.onError)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 10)
-                            .background(DSColor.error)
-                            .padding(.top, 8)
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                            .onAppear {
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                                    viewModel.submitError = nil
+                    ZStack(alignment: .top) {
+                        if let err = viewModel.submitError {
+                            Text(err)
+                                .bodySMStyle()
+                                .foregroundColor(DSColor.onError)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .background(DSColor.error)
+                                .padding(.top, 8)
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                                .onAppear {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                                        viewModel.submitError = nil
+                                    }
                                 }
-                            }
+                        }
                     }
+                    .animation(.easeInOut(duration: 0.25), value: viewModel.submitError)
                 }
             }
             .navigationBarHidden(true)
@@ -285,7 +289,6 @@ struct TodayView: View {
             .onChange(of: voiceQueue.pendingCount) { count in
                 updateVoiceQueueBanner(count: count)
             }
-            .animation(.easeInOut(duration: 0.25), value: viewModel.submitError)
             // Daily Page full-screen sheet
             .fullScreenCover(isPresented: $showDailyPage) {
                 let dateStr: String = {
