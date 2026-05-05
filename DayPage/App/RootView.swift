@@ -7,15 +7,18 @@ struct RootView: View {
     @ObservedObject private var appSettings = AppSettings.shared
     @State private var hasOnboarded: Bool = UserDefaults.standard.bool(forKey: AppSettings.Keys.hasOnboarded)
     @State private var authSkipped: Bool = UserDefaults.standard.bool(forKey: AppSettings.Keys.authSkipped)
+    // Drives the auth fullScreenCover. Kept as @State (not a derived computed property)
+    // so SwiftUI reliably dismisses the cover when `authService.session` flips to non-nil
+    // — see issue #221, where a derived binding occasionally failed to re-evaluate.
+    @State private var showAuthSheet: Bool = {
+        let skipped = UserDefaults.standard.bool(forKey: AppSettings.Keys.authSkipped)
+        return AuthService.shared.session == nil && !skipped
+    }()
 
     private let sidebarWidth: CGFloat = 280
 
     private var feedbackPanelWidth: CGFloat {
         min(UIScreen.main.bounds.width * 0.85, 360)
-    }
-
-    private var showAuth: Bool {
-        authService.session == nil && !authSkipped
     }
 
     /// Resolve preferredColorScheme from AppSettings.
@@ -31,14 +34,26 @@ struct RootView: View {
         Group {
             if hasOnboarded {
                 mainContent
-                    .fullScreenCover(isPresented: Binding(
-                        get: { showAuth },
-                        set: { if !$0 { authSkipped = UserDefaults.standard.bool(forKey: AppSettings.Keys.authSkipped) } }
-                    )) {
+                    .fullScreenCover(isPresented: $showAuthSheet) {
                         AuthView(onSkip: {
                             UserDefaults.standard.set(true, forKey: AppSettings.Keys.authSkipped)
                             authSkipped = true
+                            showAuthSheet = false
                         })
+                    }
+                    .onChange(of: authService.session?.user.id) { newUserID in
+                        // Sign-in success → dismiss; sign-out → present.
+                        // Keyed on user.id (UUID, Equatable) instead of `Session`
+                        // itself, which isn't guaranteed Equatable across Supabase
+                        // SDK versions.
+                        if newUserID != nil {
+                            showAuthSheet = false
+                        } else {
+                            showAuthSheet = !authSkipped
+                        }
+                    }
+                    .onChange(of: authSkipped) { skipped in
+                        if skipped { showAuthSheet = false }
                     }
             } else {
                 OnboardingView(hasOnboarded: $hasOnboarded)

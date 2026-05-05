@@ -109,7 +109,19 @@ struct AuthView: View {
                 DragGesture(minimumDistance: 0)
                     .updating($applePressed) { _, state, _ in state = true }
                     .onEnded { _ in
-                        Task { try? await authService.signInWithApple() }
+                        Task {
+                            do {
+                                try await authService.signInWithApple()
+                            } catch {
+                                // AuthService already publishes the mapped DPAuthError
+                                // to `authService.error`, which the view above renders.
+                                // Catching here prevents the unhandled-error warning
+                                // and lets us debug-log the failure path explicitly.
+                                #if DEBUG
+                                print("[AuthView] Apple sign-in failed: \(error)")
+                                #endif
+                            }
+                        }
                     }
             )
 
