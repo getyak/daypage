@@ -58,16 +58,16 @@ struct DayStats {
 
         var fillColor: Color {
             switch self {
-            case .empty:  return DSColor.heatmapEmpty
-            case .low:    return DSColor.heatmapLow
-            case .medium: return DSColor.heatmapMid
-            case .high:   return DSColor.heatmapHigh
+            case .empty:  return DSColor.densityNone
+            case .low:    return DSColor.densityLow
+            case .medium: return DSColor.densityMid
+            case .high:   return DSColor.densityHigh
             }
         }
 
         var textColor: Color {
             switch self {
-            case .empty, .low: return DSColor.onSurface
+            case .empty, .low: return DSColor.inkPrimary
             case .medium, .high: return Color.white
             }
         }
@@ -81,15 +81,9 @@ struct DayStats {
             }
         }
 
-        /// 右下角指示器圆点的颜色。
-        /// 今日单元格中，圆点与边框颜色匹配（主色 / 白色），
-        /// 否则与单元格文本颜色一致，以确保在热力图背景上始终有对比度。
+        /// Right-corner dot color — amber accent on today cell, text color otherwise.
         func dotColor(isToday: Bool) -> Color {
-            if isToday {
-                // today border is DSColor.primary (black); use onPrimary so dot is visible
-                return DSColor.onPrimary
-            }
-            return textColor
+            isToday ? Color.white : textColor
         }
     }
 }
@@ -395,11 +389,9 @@ struct ArchiveView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                DSColor.background.ignoresSafeArea()
+                AmbientBackground().ignoresSafeArea()
                 VStack(spacing: 0) {
                     archiveHeader
-
-                    Divider().background(DSColor.outline)
 
                     ScrollView {
                         VStack(spacing: 0) {
@@ -484,72 +476,78 @@ struct ArchiveView: View {
     // MARK: - Archive Header
 
     private var archiveHeader: some View {
-        HStack(spacing: 10) {
-            // 汉堡菜单 — 打开侧边栏
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
             Button {
                 nav.openSidebar()
             } label: {
-                Image(systemName: "line.horizontal.3")
-                    .font(.system(size: 18, weight: .regular))
-                    .foregroundColor(DSColor.onSurface)
-                    .frame(width: 32, height: 32)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Archive")
+                        .font(DSType.serifDisplay28)
+                        .foregroundColor(DSColor.inkPrimary)
+                    Text(viewModel.currentMonthTitle.uppercased())
+                        .font(DSType.mono10)
+                        .foregroundColor(DSColor.inkSubtle)
+                        .tracking(1.0)
+                }
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Open navigation")
             .accessibilityIdentifier("sidebar-menu-button")
 
-            Text("ARCHIVE")
-                .font(.custom("SpaceGrotesk-Bold", size: 20))
-                .foregroundColor(DSColor.onSurface)
-                .kerning(2)
-
             Spacer()
 
             Button(action: { showSearch = true }) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 18, weight: .regular))
-                    .foregroundColor(DSColor.onSurface)
-                    .frame(width: 32, height: 32)
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundColor(DSColor.inkMuted)
+                    .frame(width: 36, height: 36)
+                    .background(DSColor.glassStd)
+                    .background(.ultraThinMaterial, in: Circle())
+                    .overlay(Circle().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                    .clipShape(Circle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel("搜索")
         }
-        .padding(.horizontal, 16)
-        .frame(height: 56)
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
+        .padding(.bottom, 12)
     }
 
     // MARK: - Month Navigation Row
 
     private var monthNavigationRow: some View {
         HStack {
-            // Left arrow
             Button(action: { viewModel.goToPreviousMonth() }) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(DSColor.onSurface)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(DSColor.inkMuted)
                     .frame(width: 32, height: 32)
             }
             .buttonStyle(.plain)
 
-            Text(viewModel.currentMonthTitle)
-                .font(.custom("SpaceGrotesk-Bold", size: 20))
-                .foregroundColor(DSColor.primary)
-                .frame(maxWidth: .infinity, alignment: .center)
+            Spacer()
 
-            Button(action: { viewModel.goToNextMonth() }) {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(DSColor.onSurface)
-                    .frame(width: 32, height: 32)
-            }
-            .buttonStyle(.plain)
-
-            // CALENDAR / LIST toggle
-            HStack(spacing: 0) {
+            // CALENDAR / LIST toggle — glass pill
+            HStack(spacing: 2) {
                 toggleButton("CAL", isSelected: mode == .calendar) { mode = .calendar }
                 toggleButton("LIST", isSelected: mode == .list) { mode = .list }
             }
-            .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
+            .padding(3)
+            .background(DSColor.glassLo)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(Capsule().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+            .clipShape(Capsule())
+
+            Spacer()
+
+            Button(action: { viewModel.goToNextMonth() }) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(DSColor.inkMuted)
+                    .frame(width: 32, height: 32)
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -557,13 +555,12 @@ struct ArchiveView: View {
         Button(action: action) {
             Text(label)
                 .monoLabelStyle(size: 10)
-                .foregroundColor(isSelected ? DSColor.onPrimary : DSColor.onSurfaceVariant)
-                .padding(.horizontal, 10)
+                .foregroundColor(isSelected ? .white : DSColor.inkSubtle)
+                .padding(.horizontal, 12)
                 .padding(.vertical, 6)
-                .background(isSelected ? DSColor.primary : Color.clear)
+                .background(isSelected ? DSColor.amberDeep : Color.clear, in: Capsule())
         }
         .buttonStyle(.plain)
-        .cornerRadius(0)
     }
 
     // MARK: - Calendar Grid
@@ -595,11 +592,13 @@ struct ArchiveView: View {
                 }
             }
         }
-        .background(DSColor.surfaceContainerLow)
+        .background(DSColor.glassLo)
+        .background(.ultraThinMaterial)
         .overlay(
-            Rectangle()
-                .stroke(DSColor.outlineVariant, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(DSColor.glassRim, lineWidth: 0.5)
         )
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     /// 日历单元格的三态分类（US-006）。
@@ -625,36 +624,32 @@ struct ArchiveView: View {
 
             let fillColor: Color = {
                 switch data {
-                case .compiled: return DSColor.primary
-                case .rawOnly:  return DSColor.surfaceContainerLow
-                case .none:     return DSColor.surfaceContainerLow.opacity(0.5)
+                case .compiled: return DSColor.amberDeep
+                case .rawOnly:  return DSColor.densityLow
+                case .none:     return DSColor.densityNone
                 }
             }()
 
             let textColor: Color = {
                 switch data {
-                case .compiled: return DSColor.onPrimary
-                case .rawOnly:  return DSColor.onSurface
-                case .none:     return DSColor.onSurface.opacity(0.5)
+                case .compiled: return Color.white
+                case .rawOnly:  return DSColor.inkPrimary
+                case .none:     return DSColor.inkSubtle
                 }
             }()
 
-            let dotColor: Color = {
-                // 圆点仅在 .rawOnly 状态下出现；保持主色调，以
-                // 呈现"有数据"的积极信号。
-                isToday ? DSColor.primary : DSColor.onSurface
-            }()
+            let dotColor: Color = isToday ? Color.white : DSColor.amberAccent
 
             Button(action: {
                 handleDateTap(dateStr: dateStr)
             }) {
                 ZStack(alignment: .topLeading) {
-                    Rectangle()
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(fillColor)
                         .overlay(
-                            Rectangle()
-                                .stroke(isToday ? DSColor.primary : DSColor.outlineVariant,
-                                        lineWidth: isToday ? 2 : 0.5)
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .stroke(isToday ? DSColor.amberAccent : DSColor.glassRim,
+                                        lineWidth: isToday ? 1.5 : 0.5)
                         )
 
                     Text(String(format: "%02d", day))
@@ -676,9 +671,8 @@ struct ArchiveView: View {
             .frame(maxWidth: .infinity)
             .accessibilityLabel(accessibilityLabel(dateStr: dateStr, state: data))
         } else {
-            Rectangle()
-                .fill(DSColor.surfaceContainerLowest.opacity(0.3))
-                .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 0.5))
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color.clear)
                 .aspectRatio(1, contentMode: .fit)
                 .frame(maxWidth: .infinity)
         }
@@ -698,18 +692,17 @@ struct ArchiveView: View {
         HStack(spacing: 8) {
             Text("Activity:")
                 .monoLabelStyle(size: 9)
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkSubtle)
 
             ForEach([DayStats.DensityLevel.empty, .low, .medium, .high], id: \.label) { level in
-                Rectangle()
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
                     .fill(level.fillColor)
                     .frame(width: 12, height: 12)
-                    .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 0.5))
             }
 
             Text("Higher Density")
                 .monoLabelStyle(size: 9)
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkSubtle)
 
             Spacer()
         }
@@ -720,13 +713,12 @@ struct ArchiveView: View {
     private var monthlySummary: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 16) {
-                Text("\(viewModel.currentMonthTitle) SUMMARY")
-                    .font(.custom("SpaceGrotesk-Bold", size: 11))
-                    .foregroundColor(DSColor.outline)
-                    .kerning(2)
+                Text("\(viewModel.currentMonthTitle) Summary")
+                    .font(DSType.sectionLabel)
+                    .foregroundColor(DSColor.inkSubtle)
                 Rectangle()
-                    .fill(DSColor.outlineVariant)
-                    .frame(height: 1)
+                    .fill(DSColor.inkFaint)
+                    .frame(height: 0.5)
             }
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
@@ -753,28 +745,28 @@ struct ArchiveView: View {
                         .foregroundColor(DSColor.onSurfaceVariant)
                         .padding(.vertical, 8)
                 } else {
-                    VStack(spacing: 4) {
+                    VStack(spacing: 6) {
                         ForEach(filtered, id: \.dateString) { stats in
                             Button(action: { handleDateTap(dateStr: stats.dateString) }) {
                                 HStack {
                                     Text(formatArchiveDate(stats.dateString))
                                         .monoLabelStyle(size: 11)
-                                        .foregroundColor(DSColor.onSurface)
+                                        .foregroundColor(DSColor.inkPrimary)
                                     Spacer()
                                     if stats.photoCount > 0 {
                                         Label("\(stats.photoCount)", systemImage: "photo")
                                             .monoLabelStyle(size: 10)
-                                            .foregroundColor(DSColor.onSurfaceVariant)
+                                            .foregroundColor(DSColor.inkMuted)
                                     }
                                     if stats.uniqueLocations > 0 {
                                         Label("\(stats.uniqueLocations)", systemImage: "mappin")
                                             .monoLabelStyle(size: 10)
-                                            .foregroundColor(DSColor.onSurfaceVariant)
+                                            .foregroundColor(DSColor.inkMuted)
                                     }
                                 }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(DSColor.surfaceContainer)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 10)
+                                .liquidGlassCard(cornerRadius: 10)
                             }
                             .buttonStyle(.plain)
                         }
@@ -783,15 +775,14 @@ struct ArchiveView: View {
             }
 
             // Export / Share actions
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Button(action: exportMarkdown) {
                     Label("导出 Markdown", systemImage: "square.and.arrow.up")
                         .monoLabelStyle(size: 11)
-                        .foregroundColor(DSColor.onSurface)
+                        .foregroundColor(DSColor.inkPrimary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(DSColor.surfaceContainer)
-                        .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
+                        .liquidGlassCard(cornerRadius: 8)
                 }
                 .buttonStyle(.plain)
 
@@ -800,11 +791,10 @@ struct ArchiveView: View {
                 } label: {
                     Label("截图分享", systemImage: "camera")
                         .monoLabelStyle(size: 11)
-                        .foregroundColor(DSColor.onSurface)
+                        .foregroundColor(DSColor.inkPrimary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
-                        .background(DSColor.surfaceContainer)
-                        .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
+                        .liquidGlassCard(cornerRadius: 8)
                 }
                 .buttonStyle(.plain)
 
@@ -821,11 +811,10 @@ struct ArchiveView: View {
         return Button(action: { summaryFilter = filter }) {
             Text(filter.rawValue)
                 .monoLabelStyle(size: 10)
-                .foregroundColor(isSelected ? DSColor.onPrimary : DSColor.onSurfaceVariant)
+                .foregroundColor(isSelected ? Color.white : DSColor.inkSubtle)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(isSelected ? DSColor.primary : DSColor.surfaceContainer)
-                .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
+                .background(isSelected ? DSColor.amberDeep : DSColor.glassLo, in: Capsule())
         }
         .buttonStyle(.plain)
     }
@@ -864,27 +853,21 @@ struct ArchiveView: View {
 
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(value)
-                    .font(.custom("SpaceGrotesk-Bold", size: 48))
-                    .foregroundColor(DSColor.primary)
+                    .font(DSType.serifDisplay32)
+                    .foregroundColor(accentPrimary ? DSColor.amberDeep : DSColor.inkPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                 if let unit {
                     Text(unit.uppercased())
                         .monoLabelStyle(size: 10)
-                        .foregroundColor(DSColor.onSurfaceVariant)
+                        .foregroundColor(DSColor.inkSubtle)
                 }
             }
         }
-        .padding(20)
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 120)
-        .background(DSColor.surfaceContainer)
-        .overlay(alignment: .leading) {
-            Rectangle()
-                .fill(accentPrimary ? DSColor.primary : DSColor.outline)
-                .frame(width: 4)
-        }
-        .cornerRadius(0)
+        .frame(height: 110)
+        .liquidGlassCard(cornerRadius: 12)
     }
 
     // MARK: - System Status Artifact
@@ -893,11 +876,11 @@ struct ArchiveView: View {
         VStack(spacing: 0) {
             // Top divider line
             Rectangle()
-                .fill(DSColor.outlineVariant)
-                .frame(height: 1)
+                .fill(DSColor.inkFaint)
+                .frame(height: 0.5)
 
             ZStack {
-                DSColor.onSurface.opacity(0.96)
+                DSColor.amberDeep.opacity(0.92)
                     .ignoresSafeArea(edges: [])
 
                 VStack(spacing: 16) {
@@ -933,7 +916,7 @@ struct ArchiveView: View {
 
     private var statusTextColor: Color {
         switch viewModel.systemStatus {
-        case .synchronized:       return DSColor.onBackgroundSubtle
+        case .synchronized:       return Color.white.opacity(0.6)
         case .pendingCompilation: return DSColor.warningAmber
         case .offline:            return DSColor.errorRed
         }
@@ -946,7 +929,7 @@ struct ArchiveView: View {
             if viewModel.sortedDays.isEmpty {
                 Text("本月暂无记录")
                     .bodySMStyle()
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkSubtle)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.top, 40)
             } else {
@@ -995,49 +978,40 @@ struct ArchiveView: View {
         return Button(action: {
             handleDateTap(dateStr: stats.dateString)
         }) {
-            HStack(spacing: 0) {
-                Rectangle()
-                    .fill(DSColor.primary)
-                    .frame(width: 4)
-                    .opacity(isMetadataOnly ? 0.8 : 1.0)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(relativeDateLabel(stats.dateString))
+                        .font(DSType.h2)
+                        .foregroundColor(DSColor.inkPrimary)
+                        .opacity(isMetadataOnly ? 0.7 : 1.0)
 
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text(relativeDateLabel(stats.dateString))
-                            .font(.custom("SpaceGrotesk-Bold", size: 15))
-                            .foregroundColor(DSColor.onSurface)
-                            .opacity(isMetadataOnly ? 0.8 : 1.0)
+                    Spacer()
 
-                        Spacer()
-
-                        StatusBadge(
-                            label: stats.isDailyPageCompiled ? "VERIFIED" : "METADATA",
-                            style: stats.isDailyPageCompiled ? .verified : .metadata
-                        )
-                    }
-
-                    if let summary = stats.dailySummary, !summary.isEmpty {
-                        Text(summary)
-                            .bodySMStyle()
-                            .foregroundColor(DSColor.onSurfaceVariant)
-                            .italic()
-                            .lineLimit(2)
-                            .opacity(isMetadataOnly ? 0.8 : 1.0)
-                    }
-
-                    HStack(spacing: 16) {
-                        metaIcon("doc.text", count: stats.memoCount)
-                        metaIcon("photo", count: stats.photoCount)
-                        metaIcon("mic", count: stats.voiceMinutes, unit: "min")
-                    }
-                    .opacity(isMetadataOnly ? 0.8 : 1.0)
+                    StatusBadge(
+                        label: stats.isDailyPageCompiled ? "VERIFIED" : "METADATA",
+                        style: stats.isDailyPageCompiled ? .verified : .metadata
+                    )
                 }
-                .padding(DSSpacing.cardGap)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(DSColor.surfaceContainer)
+
+                if let summary = stats.dailySummary, !summary.isEmpty {
+                    Text(summary)
+                        .font(DSType.serifBody16)
+                        .foregroundColor(DSColor.inkMuted)
+                        .italic()
+                        .lineLimit(2)
+                        .opacity(isMetadataOnly ? 0.7 : 1.0)
+                }
+
+                HStack(spacing: 16) {
+                    metaIcon("doc.text", count: stats.memoCount)
+                    metaIcon("photo", count: stats.photoCount)
+                    metaIcon("mic", count: stats.voiceMinutes, unit: "min")
+                }
+                .opacity(isMetadataOnly ? 0.7 : 1.0)
             }
-            .cornerRadius(DSSpacing.radiusCard)
-            .surfaceElevatedShadow()
+            .padding(DSSpacing.cardGap)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .liquidGlassCard(cornerRadius: DSSpacing.radiusCard)
             .pressableCard()
         }
         .buttonStyle(.plain)
@@ -1047,10 +1021,10 @@ struct ArchiveView: View {
         HStack(spacing: 4) {
             Image(systemName: systemName)
                 .font(.system(size: 10))
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkSubtle)
             Text(unit != nil ? "\(count) \(unit!)" : "\(count)")
                 .monoLabelStyle(size: 11)
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkSubtle)
         }
     }
 }

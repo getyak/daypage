@@ -120,8 +120,7 @@ struct RootView: View {
             FeedbackView()
                 .frame(width: feedbackPanelWidth)
                 .frame(maxHeight: .infinity)
-                .background(DSColor.backgroundWarm)
-                .shadow(color: Color.black.opacity(0.12), radius: 24, x: -8, y: 0)
+                .shadow(color: Color(hex: "2D1E0A").opacity(0.14), radius: 24, x: -8, y: 0)
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .offset(x: nav.isFeedbackPanelOpen ? 0 : feedbackPanelWidth + 40)
                 .gesture(

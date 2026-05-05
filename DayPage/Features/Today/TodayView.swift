@@ -45,74 +45,75 @@ struct TodayView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .top) {
-                DSColor.background.ignoresSafeArea()
+                // V4: Warm ambient canvas — glass surfaces refract against this
+                AmbientBackground()
+                    .ignoresSafeArea()
+
                 VStack(spacing: 0) {
-                    // MARK: Header
-                    HStack(spacing: 12) {
-                        // Hamburger menu — opens sidebar
+                    // MARK: Header — serif date + right-side controls
+                    HStack(alignment: .top, spacing: 0) {
+                        // Left: serif weekday + mono date subline; tap → open sidebar
                         Button {
                             nav.openSidebar()
                         } label: {
-                            Image(systemName: "line.horizontal.3")
-                                .font(.system(size: 18, weight: .regular))
-                                .foregroundColor(DSColor.onSurface)
-                                .frame(width: 32, height: 32)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(weekdayName(currentTime))
+                                    .font(DSType.serifDisplay32)
+                                    .foregroundColor(DSColor.inkPrimary)
+                                Text(headerSubline(currentTime))
+                                    .font(DSType.mono10)
+                                    .foregroundColor(DSColor.inkSubtle)
+                                    .textCase(.uppercase)
+                                    .tracking(1.0)
+                            }
                         }
+                        .buttonStyle(.plain)
                         .accessibilityLabel("Open navigation")
                         .accessibilityIdentifier("sidebar-menu-button")
-
-                        // Brand name
-                        Text("DAYPAGE")
-                            .font(.custom("SpaceGrotesk-Bold", size: 20))
-                            .foregroundColor(DSColor.onSurface)
-                            .kerning(2)
+                        // Long press on the date header → force-refresh On This Day
+                        .onLongPressGesture(minimumDuration: 1.5) {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            if let entry = OnThisDayScheduler.shared.forceRefresh() {
+                                viewModel.onThisDayEntry = entry
+                            } else {
+                                UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                            }
+                        }
 
                         Spacer()
 
-                        // Timestamp badge (long press 1.5s → force-refresh On This Day)
-                        Text(formattedTimestamp(currentTime))
-                            .monoLabelStyle(size: 10)
-                            .foregroundColor(DSColor.onSurfaceVariant)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(DSColor.surfaceContainer)
-                            .onLongPressGesture(minimumDuration: 1.5) {
-                                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                                if let entry = OnThisDayScheduler.shared.forceRefresh() {
-                                    viewModel.onThisDayEntry = entry
-                                } else {
-                                    UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                        // Right: settings + account
+                        HStack(spacing: 8) {
+                            Button {
+                                showSettings = true
+                            } label: {
+                                Image(systemName: "gearshape")
+                                    .font(.system(size: 15, weight: .regular))
+                                    .foregroundColor(DSColor.inkMuted)
+                                    .frame(width: 36, height: 36)
+                                    .background(DSColor.glassStd)
+                                    .background(.ultraThinMaterial, in: Circle())
+                                    .overlay(Circle().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                                    .clipShape(Circle())
+                            }
+                            .accessibilityLabel("设置")
+
+                            if authService.session != nil {
+                                Button {
+                                    showAccountSheet = true
+                                } label: {
+                                    accountAvatar
                                 }
                             }
-
-                        // Settings gear icon — always visible
-                        Button {
-                            showSettings = true
-                        } label: {
-                            Image(systemName: "gearshape")
-                                .font(.system(size: 16, weight: .regular))
-                                .foregroundColor(DSColor.onSurfaceVariant)
-                                .frame(width: 28, height: 28)
                         }
-                        .accessibilityLabel("设置")
-
-                        // Account avatar — shown when logged in
-                        if authService.session != nil {
-                            Button {
-                                showAccountSheet = true
-                            } label: {
-                                accountAvatar
-                            }
-                        }
+                        .padding(.top, 4)
                     }
                     .padding(.horizontal, 20)
-                    .frame(height: 56)
+                    .padding(.top, 16)
+                    .padding(.bottom, 12)
                     .onReceive(headerTimer) { date in
                         currentTime = date
                     }
-
-                    Divider()
-                        .background(DSColor.outline)
 
                     // MARK: Compilation Failed Banner
                     if let failureMsg = viewModel.compilationFailedError {
@@ -198,15 +199,14 @@ struct TodayView: View {
                                             isLast: idx == viewModel.memos.count - 1,
                                             onDelete: { viewModel.deleteMemo(memo) },
                                             onPin: {
-                                    if memo.pinnedAt != nil {
-                                        viewModel.unpinMemo(memo)
-                                    } else {
-                                        viewModel.pinMemo(memo)
-                                    }
-                                }
+                                                if memo.pinnedAt != nil {
+                                                    viewModel.unpinMemo(memo)
+                                                } else {
+                                                    viewModel.pinMemo(memo)
+                                                }
+                                            }
                                         )
-                                        .padding(.leading, 20)
-                                        .padding(.trailing, 20)
+                                        .padding(.horizontal, 20)
                                         .transition(.move(edge: .bottom).combined(with: .opacity))
                                     }
                                 }
@@ -387,11 +387,14 @@ struct TodayView: View {
 
     private var syncBanner: some View {
         Text("Sync your journal across devices →")
-            .font(.custom("Inter-Regular", size: 13))
-            .foregroundColor(Color(hex: "A0A0A0"))
+            .font(DSType.bodySM)
+            .foregroundColor(DSColor.inkMuted)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
-            .background(Color(hex: "1E1E1E"))
+            .padding(.vertical, 10)
+            .padding(.horizontal, 20)
+            .background(DSColor.glassStd)
+            .background(.ultraThinMaterial)
+            .overlay(Rectangle().frame(height: 0.5).foregroundColor(DSColor.glassRim), alignment: .bottom)
             .gesture(
                 DragGesture(minimumDistance: 20)
                     .onEnded { value in
@@ -413,14 +416,12 @@ struct TodayView: View {
         let initial = email.first.map { String($0).uppercased() } ?? "?"
         return ZStack {
             Circle()
-                .fill(Color(hex: "1E1E1E"))
-                .frame(width: 28, height: 28)
-                .overlay(
-                    Circle().stroke(Color(hex: "2A2A2A"), lineWidth: 1)
-                )
+                .fill(DSColor.amberSoft)
+                .frame(width: 36, height: 36)
+                .overlay(Circle().strokeBorder(DSColor.amberRim, lineWidth: 0.5))
             Text(initial)
-                .font(.custom("Inter-Medium", size: 13))
-                .foregroundColor(Color(hex: "A0A0A0"))
+                .font(DSType.labelSM)
+                .foregroundColor(DSColor.amberDeep)
         }
     }
 
@@ -541,12 +542,21 @@ struct TodayView: View {
         }
     }
 
-    private func formattedTimestamp(_ date: Date) -> String {
+    private func weekdayName(_ date: Date) -> String {
         let f = DateFormatter()
-        f.dateFormat = "yyyy.MM.dd // HH:mm"
+        f.dateFormat = "EEEE"
         f.locale = Locale(identifier: "en_US_POSIX")
         f.timeZone = TimeZone.current
         return f.string(from: date)
+    }
+
+    private func headerSubline(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "MMM d · HH:mm"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone.current
+        let count = viewModel.memos.count
+        return "\(f.string(from: date))  ·  \(count) signals"
     }
 }
 
@@ -568,29 +578,34 @@ struct CompilationFailedBanner: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "xmark.circle.fill")
-                .foregroundColor(DSColor.error)
+                .foregroundColor(DSColor.errorRed)
                 .font(.system(size: 14))
             Text(message)
-                .font(.custom("Inter-Regular", size: 13))
-                .foregroundColor(DSColor.onErrorContainer)
+                .font(DSType.bodySM)
+                .foregroundColor(DSColor.inkPrimary)
                 .lineLimit(2)
             Spacer()
             Button("重试") {
                 onRetry()
             }
-            .font(.custom("Inter-Medium", size: 13))
-            .foregroundColor(DSColor.error)
+            .font(DSType.caption)
+            .foregroundColor(DSColor.errorRed)
             Button {
                 onDismiss()
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(DSColor.onErrorContainer)
+                    .foregroundColor(DSColor.inkMuted)
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .background(DSColor.errorContainer)
+        .background(DSColor.errorSoft)
+        .background(.ultraThinMaterial)
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(.horizontal, 20)
+        .padding(.bottom, 4)
     }
 }
 
@@ -605,54 +620,68 @@ struct LocationDraftCard: View {
     let onIgnoreAll: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header row
-            HStack(spacing: 6) {
-                Image(systemName: "location.fill")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(DSColor.primary)
-                Text("检测到位置到达")
-                    .font(.custom("Inter-Medium", size: 13))
-                    .foregroundColor(DSColor.onSurface)
-                Spacer()
-                Button("全部忽略") {
-                    onIgnoreAll()
-                }
-                .font(.custom("Inter-Regular", size: 12))
-                .foregroundColor(DSColor.onSurfaceVariant)
-                Button("全部确认") {
-                    onConfirmAll()
-                }
-                .font(.custom("Inter-Medium", size: 12))
-                .foregroundColor(DSColor.primary)
-            }
-            .padding(.horizontal, 16)
-            .padding(.top, 10)
+        locationDraftContent
+            .padding(.horizontal, 20)
             .padding(.bottom, 8)
+    }
 
-            Divider()
-                .background(DSColor.outlineVariant)
+    private var locationDraftContent: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            draftHeader
+            Divider().background(DSColor.inkFaint)
+            draftRows
+        }
+        .background(DSColor.glassStd)
+        .background(.ultraThinMaterial)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(LinearGradient(colors: [DSColor.glassEdge, Color.clear], startPoint: .top, endPoint: .center), lineWidth: 0.6)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(DSColor.glassRim, lineWidth: 0.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .shadow(color: Color(hex: "2D1E0A").opacity(0.04), radius: 1, x: 0, y: 1)
+        .shadow(color: Color(hex: "2D1E0A").opacity(0.08), radius: 24, x: 0, y: 8)
+    }
 
-            ForEach(drafts) { draft in
+    private var draftHeader: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "location.fill")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(DSColor.amberAccent)
+            Text("检测到位置到达")
+                .font(DSType.caption)
+                .foregroundColor(DSColor.inkPrimary)
+            Spacer()
+            Button("全部忽略") { onIgnoreAll() }
+                .font(DSType.caption)
+                .foregroundColor(DSColor.inkMuted)
+            Button("全部确认") { onConfirmAll() }
+                .font(DSType.caption)
+                .foregroundColor(DSColor.amberAccent)
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+    }
+
+    private var draftRows: some View {
+        ForEach(Array(drafts.enumerated()), id: \.element.id) { idx, draft in
+            VStack(spacing: 0) {
                 LocationDraftRow(
                     draft: draft,
                     onConfirm: { onConfirm(draft) },
                     onIgnore: { onIgnore(draft) }
                 )
-                if draft.id != drafts.last?.id {
+                if idx < drafts.count - 1 {
                     Divider()
-                        .background(DSColor.outlineVariant)
+                        .background(DSColor.inkFaint)
                         .padding(.leading, 16)
                 }
             }
         }
-        .background(DSColor.surfaceContainer)
-        .overlay(
-            Rectangle()
-                .frame(height: 1)
-                .foregroundColor(DSColor.outlineVariant),
-            alignment: .bottom
-        )
     }
 }
 
@@ -666,25 +695,26 @@ private struct LocationDraftRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             Image(systemName: "mappin.circle.fill")
-                .font(.system(size: 20))
-                .foregroundColor(DSColor.primary.opacity(0.7))
+                .font(.system(size: 18))
+                .foregroundColor(DSColor.amberAccent)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(draft.placeName ?? "未知地点")
-                    .font(.custom("Inter-Medium", size: 13))
-                    .foregroundColor(DSColor.onSurface)
+                    .font(DSType.caption)
+                    .foregroundColor(DSColor.inkPrimary)
                     .lineLimit(1)
                 HStack(spacing: 4) {
                     Text(formatTime(draft.arrivalDate))
-                        .font(.custom("JetBrainsMono-Regular", fixedSize: 10))
-                        .foregroundColor(DSColor.onSurfaceVariant)
+                        .font(DSType.mono10)
+                        .foregroundColor(DSColor.inkSubtle)
+                        .textCase(.uppercase)
                     if let dur = durationText {
                         Text("·")
-                            .font(.custom("JetBrainsMono-Regular", fixedSize: 10))
-                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .font(DSType.mono10)
+                            .foregroundColor(DSColor.inkSubtle)
                         Text(dur)
-                            .font(.custom("JetBrainsMono-Regular", fixedSize: 10))
-                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .font(DSType.mono10)
+                            .foregroundColor(DSColor.inkSubtle)
                     }
                 }
             }
@@ -696,20 +726,23 @@ private struct LocationDraftRow: View {
                     onIgnore()
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(DSColor.onSurfaceVariant)
-                        .frame(width: 28, height: 28)
-                        .background(DSColor.surfaceContainerHigh)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(DSColor.inkMuted)
+                        .frame(width: 30, height: 30)
+                        .background(DSColor.glassLo)
+                        .background(.ultraThinMaterial, in: Circle())
+                        .clipShape(Circle())
                 }
 
                 Button {
                     onConfirm()
                 } label: {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundColor(.white)
-                        .frame(width: 28, height: 28)
-                        .background(DSColor.primary)
+                        .frame(width: 30, height: 30)
+                        .background(DSColor.amberAccent)
+                        .clipShape(Circle())
                 }
             }
         }
@@ -738,7 +771,8 @@ private struct LocationDraftRow: View {
 
 // MARK: - TimelineRow
 
-/// Wraps a SwipeableMemoCard with a left timeline column (time + connecting line).
+/// V4: Direct card stack — no left timeline column. Cards float edge-to-edge
+/// over the ambient background, letting the glass surface provide depth.
 struct TimelineRow: View {
     let memo: Memo
     let isLast: Bool
@@ -746,32 +780,7 @@ struct TimelineRow: View {
     var onPin: (() -> Void)? = nil
 
     var body: some View {
-        HStack(alignment: .top, spacing: 0) {
-            // Left timeline column: time label + connecting line
-            VStack(spacing: 0) {
-                Text(RelativeTimeFormatter.relative(memo.created))
-                    .font(.custom("JetBrainsMono-Regular", fixedSize: 10))
-                    .foregroundColor(DSColor.onSurfaceVariant)
-                    .frame(width: 60)
-                    .padding(.top, 10)
-                    .multilineTextAlignment(.center)
-
-                // Connecting line extends to bottom of card
-                if !isLast {
-                    Rectangle()
-                        .fill(DSColor.outlineVariant)
-                        .frame(width: 1)
-                        .frame(maxHeight: .infinity)
-                        .padding(.top, 4)
-                }
-
-                Spacer(minLength: 0)
-            }
-            .frame(width: 40)
-
-            // Swipeable memo card (WeChat-style actions)
-            SwipeableMemoCard(memo: memo, onDelete: onDelete, onPin: onPin)
-                .frame(maxWidth: CGFloat.infinity)
-        }
+        SwipeableMemoCard(memo: memo, onDelete: onDelete, onPin: onPin)
+            .frame(maxWidth: .infinity)
     }
 }

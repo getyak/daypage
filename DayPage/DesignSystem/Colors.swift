@@ -31,9 +31,56 @@ extension Color {
     }
 }
 
-// MARK: - Design System Colors (v3 Warm-White Token System)
+// MARK: - Design System Colors (v4 Liquid Glass + v3 Warm-White)
 
 enum DSColor {
+
+    // MARK: - V4 Liquid Glass Tokens (iOS 26 inspired)
+    // Translucent warm-amber palette for glass surfaces. Use these in new
+    // surfaces; v3 tokens below remain for compatibility while the codebase
+    // migrates.
+
+    /// Page background — warm cream that the ambient glow lights through.
+    static let bgWarm        = Color(hex: "FAF7F2")
+    /// Standard glass fill — pair with `.ultraThinMaterial` for the iOS 26
+    /// refraction look.
+    static let glassStd      = Color(red: 1, green: 252.0/255, blue: 250.0/255, opacity: 0.62)
+    /// Elevated glass — used for sheets, modals, primary cards.
+    static let glassHi       = Color(red: 1, green: 252.0/255, blue: 250.0/255, opacity: 0.85)
+    /// Recessed glass — used for nested rows, secondary chips.
+    static let glassLo       = Color(red: 1, green: 252.0/255, blue: 250.0/255, opacity: 0.35)
+    /// Top-edge highlight that gives glass its "wet" rim.
+    static let glassEdge     = Color.white.opacity(0.55)
+    /// Hairline border — barely-visible warm ink line.
+    static let glassRim      = Color(hex: "2D1E0A").opacity(0.06)
+    /// Stronger hairline for elevated surfaces.
+    static let glassRimD     = Color(hex: "2D1E0A").opacity(0.10)
+
+    /// Primary ink — body copy, headlines.
+    static let inkPrimary    = Color(hex: "241B10")
+    /// Muted ink — secondary copy.
+    static let inkMuted      = Color(hex: "241B10").opacity(0.62)
+    /// Subtle ink — tertiary copy, disabled labels.
+    static let inkSubtle     = Color(hex: "241B10").opacity(0.38)
+    /// Faint ink — separators, decorative strokes.
+    static let inkFaint      = Color(hex: "241B10").opacity(0.18)
+
+    /// Amber accent — primary action, active state.
+    static let amberAccent   = Color(hex: "A8541B")
+    /// Deep amber — strong contrast on light glass.
+    static let amberDeep     = Color(hex: "5D3000")
+    /// Soft amber wash — hover, selected backgrounds.
+    static let amberSoft     = Color(hex: "A8541B").opacity(0.10)
+    /// Amber rim — accent borders, selected outlines.
+    static let amberRim      = Color(hex: "A8541B").opacity(0.22)
+    /// Amber glow — used in ambient light blobs.
+    static let amberGlow     = Color(hex: "E8974D").opacity(0.45)
+
+    // V4 amber-density heatmap (4-step)
+    static let densityNone   = Color(hex: "A8541B").opacity(0.06)
+    static let densityLow    = Color(hex: "A8541B").opacity(0.20)
+    static let densityMid    = Color(hex: "A8541B").opacity(0.45)
+    static let densityHigh   = Color(hex: "A8541B").opacity(0.85)
 
     // MARK: - V3 Warm-White Tokens
 

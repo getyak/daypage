@@ -11,23 +11,29 @@ struct SidebarView: View {
     @State private var showAccountSheet = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            brandHeader
-            Divider()
-                .background(DSColor.borderSubtle)
-                .padding(.bottom, 8)
+        ZStack(alignment: .topLeading) {
+            DSColor.bgWarm.ignoresSafeArea()
 
-            navSection
+            VStack(alignment: .leading, spacing: 0) {
+                brandHeader
 
-            Spacer()
+                Rectangle()
+                    .fill(DSColor.inkFaint)
+                    .frame(height: 0.5)
+                    .padding(.bottom, 8)
 
-            Divider()
-                .background(DSColor.borderSubtle)
+                navSection
 
-            bottomSection
+                Spacer()
+
+                Rectangle()
+                    .fill(DSColor.inkFaint)
+                    .frame(height: 0.5)
+
+                bottomSection
+            }
+            .frame(maxHeight: .infinity)
         }
-        .frame(maxHeight: .infinity)
-        .background(DSColor.backgroundWarm)
         .sheet(isPresented: $showSettings) {
             SettingsView()
         }
@@ -39,14 +45,15 @@ struct SidebarView: View {
     // MARK: - Brand Header
 
     private var brandHeader: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("DAYPAGE")
-                .font(.custom("SpaceGrotesk-Bold", size: 18))
-                .foregroundColor(DSColor.onBackgroundPrimary)
-                .kerning(2)
+        VStack(alignment: .leading, spacing: 3) {
+            Text("DayPage")
+                .font(DSType.serifDisplay32)
+                .foregroundColor(DSColor.inkPrimary)
             Text("your daily log")
-                .font(.custom("Inter-Regular", size: 12))
-                .foregroundColor(DSColor.onBackgroundSubtle)
+                .font(DSType.mono10)
+                .foregroundColor(DSColor.inkSubtle)
+                .textCase(.uppercase)
+                .tracking(1.0)
         }
         .padding(.horizontal, 24)
         .padding(.top, 64)
@@ -78,43 +85,43 @@ struct SidebarView: View {
             }
         } label: {
             HStack(spacing: 12) {
-                // Left accent bar
-                Rectangle()
-                    .fill(isActive ? DSColor.accentAmber : Color.clear)
+                // Left amber accent strip
+                RoundedRectangle(cornerRadius: 1, style: .continuous)
+                    .fill(isActive ? DSColor.amberAccent : Color.clear)
                     .frame(width: 2, height: 20)
 
                 Image(systemName: icon)
                     .font(.system(size: 16, weight: .regular))
                     .frame(width: 20)
                     .foregroundColor(
-                        disabled ? DSColor.onBackgroundSubtle
-                        : isActive ? DSColor.accentAmber
-                        : DSColor.onBackgroundMuted
+                        disabled ? DSColor.inkSubtle
+                        : isActive ? DSColor.amberAccent
+                        : DSColor.inkMuted
                     )
 
                 Text(label)
-                    .font(.custom(isActive ? "Inter-SemiBold" : "Inter-Regular", size: 15))
+                    .font(isActive ? DSType.titleSM : DSType.bodyMD)
                     .foregroundColor(
-                        disabled ? DSColor.onBackgroundSubtle
-                        : isActive ? DSColor.onBackgroundPrimary
-                        : DSColor.onBackgroundMuted
+                        disabled ? DSColor.inkSubtle
+                        : isActive ? DSColor.inkPrimary
+                        : DSColor.inkMuted
                     )
 
                 if disabled {
                     Spacer()
                     Text("Post-MVP")
-                        .font(.custom("JetBrainsMono-Regular", fixedSize: 9))
-                        .foregroundColor(DSColor.onBackgroundSubtle)
+                        .font(DSType.mono9)
+                        .foregroundColor(DSColor.inkSubtle)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
-                        .background(DSColor.borderSubtle)
+                        .background(DSColor.amberSoft, in: Capsule())
                 }
             }
             .padding(.leading, 0)
             .padding(.trailing, 16)
             .padding(.vertical, 11)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isActive ? DSColor.accentSoft : Color.clear)
+            .background(isActive ? DSColor.amberSoft : Color.clear)
             .contentShape(Rectangle())
         }
         .disabled(disabled)
@@ -130,16 +137,14 @@ struct SidebarView: View {
                 showSettings = true
             } label: {
                 HStack(spacing: 12) {
-                    Rectangle()
-                        .fill(Color.clear)
-                        .frame(width: 2, height: 20)
+                    Color.clear.frame(width: 2, height: 20)
                     Image(systemName: "gearshape")
                         .font(.system(size: 16, weight: .regular))
                         .frame(width: 20)
-                        .foregroundColor(DSColor.onBackgroundMuted)
+                        .foregroundColor(DSColor.inkMuted)
                     Text("Settings")
-                        .font(.custom("Inter-Regular", size: 15))
-                        .foregroundColor(DSColor.onBackgroundMuted)
+                        .font(DSType.bodyMD)
+                        .foregroundColor(DSColor.inkMuted)
                 }
                 .padding(.trailing, 16)
                 .padding(.vertical, 11)
@@ -166,21 +171,20 @@ struct SidebarView: View {
             showAccountSheet = true
         } label: {
             HStack(spacing: 12) {
-                Rectangle()
-                    .fill(Color.clear)
-                    .frame(width: 2, height: 20)
+                Color.clear.frame(width: 2, height: 20)
                 ZStack {
                     Circle()
-                        .fill(DSColor.accentSoft)
-                        .frame(width: 26, height: 26)
+                        .fill(DSColor.amberSoft)
+                        .frame(width: 28, height: 28)
+                        .overlay(Circle().strokeBorder(DSColor.amberRim, lineWidth: 0.5))
                     Text(initial)
-                        .font(.custom("Inter-Medium", size: 12))
-                        .foregroundColor(DSColor.accentAmber)
+                        .font(DSType.labelSM)
+                        .foregroundColor(DSColor.amberDeep)
                 }
                 .frame(width: 20)
                 Text(email)
-                    .font(.custom("Inter-Regular", size: 13))
-                    .foregroundColor(DSColor.onBackgroundMuted)
+                    .font(DSType.bodySM)
+                    .foregroundColor(DSColor.inkMuted)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }

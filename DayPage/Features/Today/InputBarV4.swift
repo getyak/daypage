@@ -117,7 +117,7 @@ struct InputBarV4: View {
             }
 
             Rectangle()
-                .fill(DSColor.outlineVariant.opacity(0.5))
+                .fill(DSColor.inkFaint)
                 .frame(height: 0.5)
 
             if !pendingAttachments.isEmpty {
@@ -146,21 +146,30 @@ struct InputBarV4: View {
             }
             .animation(.spring(response: 0.32, dampingFraction: 0.82), value: isComposing)
         }
-        .background(DSColor.backgroundWarm)
+        // V4: transparent dock — ambient page background shows through.
+        // Warm gradient veil fades the list content behind the dock.
+        .background(
+            LinearGradient(
+                colors: [Color.clear, DSColor.bgWarm.opacity(0.92), DSColor.bgWarm],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        )
         .overlay(alignment: .top) {
             if showTooShortToast {
                 HStack(spacing: 6) {
                     Image(systemName: "waveform")
                         .font(.system(size: 11, weight: .semibold))
                     Text("再说久一点 · 至少 1 秒")
-                        .font(.custom("Inter-Regular", size: 11))
+                        .font(DSType.labelSM)
                 }
-                .foregroundColor(DSColor.onSurface)
+                .foregroundColor(DSColor.inkPrimary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
-                .background(DSColor.surfaceContainerHigh)
+                .background(DSColor.glassHi)
+                .background(.ultraThinMaterial, in: Capsule())
                 .clipShape(Capsule())
-                .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 2)
+                .shadow(color: Color(hex: "2D1E0A").opacity(0.08), radius: 8, x: 0, y: 2)
                 .padding(.top, -34)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                 .accessibilityLabel("录音太短，请按住麦克风继续说")
@@ -170,14 +179,15 @@ struct InputBarV4: View {
                     Image(systemName: "hand.tap")
                         .font(.system(size: 11, weight: .semibold))
                     Text("单击打开录音页 · 长按发送语音")
-                        .font(.custom("Inter-Regular", size: 11))
+                        .font(DSType.labelSM)
                 }
-                .foregroundColor(DSColor.onSurface)
+                .foregroundColor(DSColor.inkPrimary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
-                .background(DSColor.surfaceContainerHigh)
+                .background(DSColor.glassHi)
+                .background(.ultraThinMaterial, in: Capsule())
                 .clipShape(Capsule())
-                .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 2)
+                .shadow(color: Color(hex: "2D1E0A").opacity(0.08), radius: 8, x: 0, y: 2)
                 .padding(.top, -34)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                 .accessibilityLabel("单击打开录音页，长按发送语音")
@@ -213,32 +223,15 @@ struct InputBarV4: View {
     // shadow stack approximating the iOS 26 Liquid Glass treatment from the
     // design canvas (inner highlight + soft drop shadow).
 
-    // STREAM dock — three free-floating glass discs.
-    //
-    // No outer container: the page (and any list content behind it) shows
-    // through between the three buttons. Each disc carries its own
-    // ultraThinMaterial fill, fine inner highlight, and a soft warm-amber
-    // drop shadow so the surface reads as elevated glass over the page,
-    // not a solid pill.
+    // STREAM dock — glass capsule wrapping three keys (design spec: glassStyle hi + radius 999).
     private var streamDock: some View {
-        HStack(spacing: 18) {
-            // LEFT — More
-            dockSideButton(
-                systemImage: "plus",
-                accessibilityLabel: "更多附件"
-            ) {
+        HStack(spacing: 6) {
+            // LEFT — More (+)
+            dockSideButton(systemImage: "plus", accessibilityLabel: "更多附件") {
                 showAttachmentMenu = true
             }
 
-            // CENTER — Mic-hero (amber, slightly larger, the only filled CTA)
-            //
-            // Tap (< 0.35s)  → enter Flomo-style continuous recording sheet
-            //                  (VoiceRecordingView, half-screen, pause/resume/save).
-            // Long-press     → WeChat-style press-to-talk, release to send.
-            //
-            // The two paths are intentionally distinct: a tap is for "I want
-            // to talk for a while, control pause/save myself"; a hold is for
-            // "I want to dictate one quick thought and let go to send".
+            // CENTER — amber radial-gradient mic orb (64pt per design)
             PressToTalkButton(
                 onPressStart: handlePressToTalkStart,
                 onReleaseSend: handlePressToTalkReleaseSend,
@@ -246,21 +239,19 @@ struct InputBarV4: View {
                 onReleaseTranscribe: handlePressToTalkReleaseTranscribe,
                 onPhaseChange: { pressToTalkPhase = $0 },
                 onTapShortRelease: handleMicTap,
-                size: 56,
-                idleBackgroundColor: DSColor.accentAmber,
+                size: 64,
+                idleBackgroundColor: DSColor.amberAccent,
                 idleIconColor: .white
             )
-            .frame(width: 56, height: 56)
-            .shadow(color: DSColor.accentAmber.opacity(0.32), radius: 14, x: 0, y: 8)
-            .shadow(color: DSColor.accentAmber.opacity(0.18), radius: 4, x: 0, y: 2)
+            .frame(width: 64, height: 64)
+            // Radial amber orb glow matching design: inner highlight + deep shadow
+            .shadow(color: Color(hex: "5D3000").opacity(0.50), radius: 28, x: 0, y: 12)
+            .shadow(color: Color(hex: "5D3000").opacity(0.20), radius: 4, x: 0, y: 2)
             .accessibilityLabel("麦克风")
             .accessibilityHint("单击进入录音页；长按说话松手发送")
 
-            // RIGHT — Pen (expand text composer)
-            dockSideButton(
-                systemImage: "square.and.pencil",
-                accessibilityLabel: "写文字"
-            ) {
+            // RIGHT — Aa (text expand)
+            dockTextButton(accessibilityLabel: "写文字") {
                 withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
                     userExpandedText = true
                 }
@@ -268,10 +259,18 @@ struct InputBarV4: View {
             }
             .accessibilityIdentifier("expand-text-composer")
         }
+        .padding(6)
+        // Glass capsule container — ultraThinMaterial + rim highlight
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(
+            LinearGradient(
+                colors: [Color.white.opacity(0.55), Color.white.opacity(0.12)],
+                startPoint: .top, endPoint: .bottom),
+            lineWidth: 0.6))
+        .shadow(color: Color(hex: "2D1E0A").opacity(0.10), radius: 24, x: 0, y: 8)
+        .shadow(color: Color(hex: "2D1E0A").opacity(0.06), radius: 4, x: 0, y: 1)
     }
 
-    // Translucent glass disc — 44pt. ultraThinMaterial + warm hairline +
-    // soft drop shadow so it reads as a floating glass coin over the page.
     @ViewBuilder
     private func dockSideButton(
         systemImage: String,
@@ -284,18 +283,31 @@ struct InputBarV4: View {
         } label: {
             Image(systemName: systemImage)
                 .font(.system(size: 18, weight: .regular))
-                .foregroundStyle(DSColor.onBackgroundPrimary)
+                .foregroundStyle(DSColor.inkPrimary)
                 .frame(width: 44, height: 44)
-                .background(
-                    Circle()
-                        .fill(.ultraThinMaterial)
-                )
-                .overlay(
-                    Circle()
-                        .strokeBorder(Color.white.opacity(0.55), lineWidth: 0.5)
-                )
-                .shadow(color: Color.black.opacity(0.10), radius: 10, x: 0, y: 6)
-                .shadow(color: Color.black.opacity(0.04), radius: 2, x: 0, y: 1)
+                .background(Color.clear)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    // "Aa" text-expand key — matches design spec's third dock slot
+    @ViewBuilder
+    private func dockTextButton(
+        accessibilityLabel: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            action()
+        } label: {
+            Text("Aa")
+                .font(.system(size: 16, weight: .medium, design: .serif))
+                .foregroundStyle(DSColor.inkPrimary)
+                .frame(width: 44, height: 44)
+                .background(Color.clear)
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
@@ -314,10 +326,10 @@ struct InputBarV4: View {
         case .transcribing:    raw = "正在转文字…"
         }
         return Text(raw)
-            .font(.custom("JetBrainsMono-Regular", size: 9))
+            .font(DSType.mono9)
             .tracking(1.4)
             .textCase(.uppercase)
-            .foregroundStyle(DSColor.onBackgroundSubtle)
+            .foregroundStyle(DSColor.inkSubtle)
             .frame(height: 12)
             .animation(.easeInOut(duration: 0.18), value: pressToTalkPhase)
     }
@@ -333,11 +345,11 @@ struct InputBarV4: View {
         VStack(spacing: 0) {
             // Text field — full width, no border, generous padding
             TextField("记一笔…", text: $text, axis: .vertical)
-                .font(.custom("Inter-Regular", size: 17))
-                .foregroundStyle(DSColor.onBackgroundPrimary)
+                .font(DSType.serifBody16)
+                .foregroundStyle(DSColor.inkPrimary)
                 .focused($isFocused)
                 .lineLimit(1...8)
-                .tint(DSColor.accentAmber)
+                .tint(DSColor.amberAccent)
                 .padding(.horizontal, 20)
                 .padding(.top, 14)
                 .padding(.bottom, 10)
@@ -363,7 +375,7 @@ struct InputBarV4: View {
                 // Mic — voice-to-text mode in composing
                 toolbarIconButton(
                     systemImage: isComposingTranscribe ? "waveform" : "mic",
-                    tint: isComposingTranscribe ? DSColor.accentAmber : DSColor.onBackgroundMuted,
+                    tint: isComposingTranscribe ? DSColor.amberAccent : DSColor.inkMuted,
                     accessibilityLabel: isComposingTranscribe ? "停止语音转文字" : "语音转文字"
                 ) {
                     handleComposingMicTap()
@@ -386,7 +398,7 @@ struct InputBarV4: View {
                 // Location
                 toolbarIconButton(
                     systemImage: pendingLocation != nil ? "mappin.circle.fill" : "mappin.and.ellipse",
-                    tint: pendingLocation != nil ? DSColor.accentAmber : DSColor.onBackgroundMuted,
+                    tint: pendingLocation != nil ? DSColor.amberAccent : DSColor.inkMuted,
                     accessibilityLabel: pendingLocation != nil ? "清除位置" : "添加位置"
                 ) {
                     pendingLocation != nil ? onClearLocation() : onFetchLocation()
@@ -405,7 +417,7 @@ struct InputBarV4: View {
     @ViewBuilder
     private func toolbarIconButton(
         systemImage: String,
-        tint: Color = DSColor.onBackgroundMuted,
+        tint: Color = DSColor.inkMuted,
         accessibilityLabel: String,
         action: @escaping () -> Void
     ) -> some View {
@@ -421,7 +433,7 @@ struct InputBarV4: View {
     @ViewBuilder
     private func toolbarIconButtonContent(
         systemImage: String,
-        tint: Color = DSColor.onBackgroundMuted
+        tint: Color = DSColor.inkMuted
     ) -> some View {
         Image(systemName: systemImage)
             .font(.system(size: 20, weight: .light))
@@ -466,11 +478,11 @@ struct InputBarV4: View {
             }
             .frame(width: 44, height: 44)
             .background(
-                hasContent ? DSColor.accentAmber : DSColor.accentAmber.opacity(0.18),
+                hasContent ? DSColor.amberAccent : DSColor.amberAccent.opacity(0.18),
                 in: Circle()
             )
             .shadow(
-                color: hasContent ? DSColor.accentAmber.opacity(0.32) : .clear,
+                color: hasContent ? DSColor.amberAccent.opacity(0.32) : .clear,
                 radius: 8, x: 0, y: 4
             )
             .animation(.easeInOut(duration: 0.18), value: hasContent)
@@ -600,15 +612,15 @@ struct InputBarV4: View {
     private func attachmentChip(_ att: PendingAttachment) -> some View {
         let (icon, label) = chipContent(att)
         return HStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 11)).foregroundStyle(DSColor.onBackgroundMuted)
-            Text(label).font(.system(size: 12)).foregroundStyle(DSColor.onBackgroundMuted).lineLimit(1)
+            Image(systemName: icon).font(.system(size: 11)).foregroundStyle(DSColor.inkMuted)
+            Text(label).font(.system(size: 12)).foregroundStyle(DSColor.inkMuted).lineLimit(1)
             Button { onRemoveAttachment(att.id) } label: {
-                Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundStyle(DSColor.onBackgroundSubtle)
+                Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundStyle(DSColor.inkSubtle)
             }.buttonStyle(.plain)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(DSColor.surfaceSunken, in: Capsule())
+        .background(DSColor.glassLo, in: Capsule())
     }
 
     private func chipContent(_ att: PendingAttachment) -> (icon: String, label: String) {
@@ -621,11 +633,11 @@ struct InputBarV4: View {
 
     private func locationChipRow(loc: Memo.Location) -> some View {
         HStack(spacing: 4) {
-            Image(systemName: "mappin").font(.system(size: 10, weight: .semibold)).foregroundStyle(DSColor.accentAmber)
-            Text(locationLabel(loc)).font(.system(size: 12)).foregroundStyle(DSColor.accentAmber).lineLimit(1)
+            Image(systemName: "mappin").font(.system(size: 10, weight: .semibold)).foregroundStyle(DSColor.amberAccent)
+            Text(locationLabel(loc)).font(.system(size: 12)).foregroundStyle(DSColor.amberAccent).lineLimit(1)
             Spacer()
             Button(action: onClearLocation) {
-                Image(systemName: "xmark.circle.fill").font(.system(size: 14)).foregroundStyle(DSColor.onBackgroundSubtle)
+                Image(systemName: "xmark.circle.fill").font(.system(size: 14)).foregroundStyle(DSColor.inkSubtle)
             }.buttonStyle(.plain)
         }
         .padding(.horizontal, 16)

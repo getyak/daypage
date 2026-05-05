@@ -40,6 +40,17 @@ enum DSFonts {
     static func jetBrainsMono(size: CGFloat, weight: Font.Weight = .regular) -> Font {
         .custom(mono, size: size).weight(weight)
     }
+
+    /// Serif body font for memo content / Daily Page narrative.
+    /// "New York" is the iOS system serif; SwiftUI resolves it via `.custom`
+    /// without a UIFont probe. Falls back to Georgia if unavailable.
+    static func newYork(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        Font.system(size: size, weight: weight, design: .serif)
+    }
+
+    static func newYorkItalic(size: CGFloat) -> Font {
+        Font.system(size: size, design: .serif).italic()
+    }
 }
 
 // MARK: - Typography Levels
@@ -92,6 +103,21 @@ enum DSType {
 
     // Mono-9: 9 / JetBrains Mono 400 uppercase (badges)
     static let mono9: Font = DSFonts.jetBrainsMono(size: 9, weight: .regular)
+
+    // MARK: - V4 Liquid Glass Serif Levels
+
+    /// Serif body 16pt — memo card body copy.
+    static let serifBody16: Font = DSFonts.newYork(size: 16, weight: .regular)
+    /// Serif body 18pt — Daily Page card lead summary.
+    static let serifBody18: Font = DSFonts.newYork(size: 18, weight: .regular)
+    /// Serif body 20pt — quoted voice transcript.
+    static let serifBody20: Font = DSFonts.newYork(size: 20, weight: .regular)
+    /// Serif italic 18pt — voice-memo "quote" style.
+    static let serifQuote: Font = DSFonts.newYorkItalic(size: 18)
+    /// Serif display 28pt — Today header date.
+    static let serifDisplay28: Font = DSFonts.newYork(size: 28, weight: .semibold)
+    /// Serif display 32pt — sidebar date / large headers.
+    static let serifDisplay32: Font = DSFonts.newYork(size: 32, weight: .semibold)
 }
 
 // MARK: - View Modifiers
