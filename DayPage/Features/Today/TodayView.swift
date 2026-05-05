@@ -625,6 +625,8 @@ struct LocationDraftCard: View {
             .padding(.bottom, 8)
     }
 
+    // MARK: - Location Draft Content
+
     private var locationDraftContent: some View {
         VStack(alignment: .leading, spacing: 0) {
             draftHeader
@@ -646,6 +648,8 @@ struct LocationDraftCard: View {
         .shadow(color: Color(hex: "2D1E0A").opacity(0.08), radius: 24, x: 0, y: 8)
     }
 
+    // MARK: - Draft Header
+
     private var draftHeader: some View {
         HStack(spacing: 6) {
             Image(systemName: "location.fill")
@@ -666,6 +670,8 @@ struct LocationDraftCard: View {
         .padding(.top, 10)
         .padding(.bottom, 8)
     }
+
+    // MARK: - Draft Rows
 
     private var draftRows: some View {
         ForEach(Array(drafts.enumerated()), id: \.element.id) { idx, draft in
