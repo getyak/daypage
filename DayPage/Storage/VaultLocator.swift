@@ -33,18 +33,22 @@ struct LocalVaultLocator: VaultLocator {
 struct iCloudVaultLocator: VaultLocator {
     let containerID = "iCloud.com.daypage.app"
 
-    private static let _ubiquityContainer: URL? = {
-        FileManager.default.url(forUbiquityContainerIdentifier: "iCloud.com.daypage.app")
-    }()
+    // Resolve the ubiquity container fresh on every access. On cold launch
+    // url(forUbiquityContainerIdentifier:) often returns nil while the daemon
+    // finishes setup; caching the first result would permanently disable iCloud
+    // for the session (issue #230). The call is a cheap metadata lookup.
+    private var ubiquityContainer: URL? {
+        FileManager.default.url(forUbiquityContainerIdentifier: containerID)
+    }
 
     var vaultURL: URL {
-        Self._ubiquityContainer?
+        ubiquityContainer?
             .appendingPathComponent("Documents/vault", isDirectory: true)
             ?? LocalVaultLocator().vaultURL
     }
 
     var isUsingiCloud: Bool {
-        Self._ubiquityContainer != nil
+        ubiquityContainer != nil
     }
 }
 

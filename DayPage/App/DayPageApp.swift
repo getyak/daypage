@@ -73,6 +73,20 @@ struct DayPageApp: App {
             iCloudSyncMonitor.shared.startMonitoring(vaultURL: VaultInitializer.vaultURL)
             iCloudConflictMonitor.shared.startMonitoring(vaultURL: VaultInitializer.vaultURL)
         }
+        // url(forUbiquityContainerIdentifier:) may return nil on first call during
+        // cold launch while the iCloud daemon finishes container setup. Re-probe
+        // off the main thread and swap the locator if iCloud becomes available.
+        Task.detached(priority: .utility) {
+            let icloud = iCloudVaultLocator()
+            guard icloud.isUsingiCloud else { return }
+            await MainActor.run {
+                guard !VaultInitializer.shared.isUsingiCloud else { return }
+                VaultInitializer.shared = icloud
+                VaultInitializer.initializeIfNeeded()
+                iCloudSyncMonitor.shared.startMonitoring(vaultURL: VaultInitializer.vaultURL)
+                iCloudConflictMonitor.shared.startMonitoring(vaultURL: VaultInitializer.vaultURL)
+            }
+        }
         // Eagerly initialize WatchReceiveService so WCSession activates on launch.
         // Without this the lazy singleton never starts and Watch audio transfers are lost.
         _ = WatchReceiveService.shared
