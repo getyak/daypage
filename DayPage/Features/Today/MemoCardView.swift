@@ -3,6 +3,15 @@ import ImageIO
 import AVFoundation
 import MapKit
 
+// MARK: - iCloud Download State
+
+enum AttachmentDownloadState: Equatable {
+    case notDownloaded
+    case downloading
+    case current
+    case failed
+}
+
 // MARK: - MemoCardView
 
 /// A single Memo rendered as a Liquid Glass card in the Today timeline.
@@ -12,41 +21,51 @@ struct MemoCardView: View {
     var onDelete: (() -> Void)? = nil
 
     @State private var showLocationSheet: Bool = false
-    @State private var downloadedURLs: Set<URL> = []
     @State private var thumbnail: UIImage?
-    @State private var pollingURLs: Set<URL> = []
+    @State private var downloadStates: [URL: AttachmentDownloadState] = [:]
 
     // MARK: - iCloud helpers
 
-    private func isAttachmentDownloaded(_ url: URL) -> Bool {
-        guard VaultInitializer.shared.isUsingiCloud else { return true }
+    private func attachmentDownloadState(for url: URL) -> AttachmentDownloadState {
+        guard VaultInitializer.shared.isUsingiCloud else { return .current }
+        if let state = downloadStates[url] { return state }
         guard let values = try? url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey]),
-              let status = values.ubiquitousItemDownloadingStatus else { return true }
-        return status == .current
+              let status = values.ubiquitousItemDownloadingStatus else { return .current }
+        switch status {
+        case .current:          return .current
+        case .downloaded:       return .current
+        case .downloading:      return .downloading
+        case .notDownloaded:    return .notDownloaded
+        @unknown default:       return .notDownloaded
+        }
     }
 
     private func startDownload(_ url: URL) {
         guard VaultInitializer.shared.isUsingiCloud else { return }
-        guard !isAttachmentDownloaded(url) else { return }
+        guard attachmentDownloadState(for: url) == .notDownloaded else { return }
         try? FileManager.default.startDownloadingUbiquitousItem(at: url)
+        downloadStates[url] = .downloading
+        pollDownloadStatus(for: url)
     }
 
     private func pollDownloadStatus(for url: URL) {
-        guard !downloadedURLs.contains(url), !pollingURLs.contains(url) else { return }
-        pollingURLs.insert(url)
+        guard downloadStates[url] == .downloading else { return }
         Task {
             for _ in 0..<30 {
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
                 if isAttachmentDownloaded(url) {
-                    await MainActor.run {
-                        downloadedURLs.insert(url)
-                        pollingURLs.remove(url)
-                    }
+                    await MainActor.run { downloadStates[url] = .current }
                     return
                 }
             }
-            await MainActor.run { pollingURLs.remove(url) }
+            await MainActor.run { downloadStates[url] = .failed }
         }
+    }
+
+    private func isAttachmentDownloaded(_ url: URL) -> Bool {
+        guard let values = try? url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey]),
+              let status = values.ubiquitousItemDownloadingStatus else { return true }
+        return status == .current || status == .downloaded
     }
 
     var body: some View {
@@ -123,20 +142,27 @@ struct MemoCardView: View {
             if memo.type == .voice || (memo.type == .mixed && memo.attachments.contains(where: { $0.kind == "audio" })) {
                 if let att = memo.attachments.first(where: { $0.kind == "audio" }) {
                     let audioURL = VaultInitializer.vaultURL.appendingPathComponent(att.file)
-                    let isReady = isAttachmentDownloaded(audioURL) || downloadedURLs.contains(audioURL)
-                    if isReady {
+                    let audioState = attachmentDownloadState(for: audioURL)
+                    switch audioState {
+                    case .current:
                         VoiceMemoPlayerRow(
                             fileURL: audioURL,
                             duration: att.duration ?? 0,
                             transcript: att.transcript
                         )
                         .padding(.top, 4)
-                    } else {
-                        AudioDownloadPlaceholder()
+                    case .downloading, .notDownloaded, .failed:
+                        AudioDownloadPlaceholder(state: audioState)
                             .padding(.top, 4)
-                            .onAppear { startDownload(audioURL); pollDownloadStatus(for: audioURL) }
-                            .onDisappear { pollingURLs.remove(audioURL) }
-                            .onTapGesture { startDownload(audioURL); pollDownloadStatus(for: audioURL) }
+                            .onAppear {
+                                if audioState == .notDownloaded { startDownload(audioURL) }
+                                else if audioState == .failed { startDownload(audioURL) }
+                            }
+                            .onTapGesture {
+                                if audioState == .notDownloaded || audioState == .failed {
+                                    startDownload(audioURL)
+                                }
+                            }
                     }
                 }
             }
@@ -145,17 +171,25 @@ struct MemoCardView: View {
             if memo.type == .photo || (memo.type == .mixed && memo.attachments.contains(where: { $0.kind == "photo" })) {
                 if let att = memo.attachments.first(where: { $0.kind == "photo" }) {
                     let photoURL = VaultInitializer.vaultURL.appendingPathComponent(att.file)
-                    let isReady = isAttachmentDownloaded(photoURL) || downloadedURLs.contains(photoURL)
-                    if isReady {
+                    let photoState = attachmentDownloadState(for: photoURL)
+                    switch photoState {
+                    case .current:
                         PhotoThumbnailView(fileURL: photoURL, thumbnail: $thumbnail, exifText: photoExifText)
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                             .padding(.horizontal, 14)
                             .padding(.top, 14)
-                    } else {
-                        PhotoDownloadPlaceholder()
+                    case .downloading, .notDownloaded, .failed:
+                        PhotoDownloadPlaceholder(state: photoState)
                             .padding(.top, 4)
-                            .onAppear { startDownload(photoURL); pollDownloadStatus(for: photoURL) }
-                            .onDisappear { pollingURLs.remove(photoURL) }
+                            .onAppear {
+                                if photoState == .notDownloaded { startDownload(photoURL) }
+                                else if photoState == .failed { startDownload(photoURL) }
+                            }
+                            .onTapGesture {
+                                if photoState == .notDownloaded || photoState == .failed {
+                                    startDownload(photoURL)
+                                }
+                            }
                     }
                 }
             }
@@ -699,17 +733,40 @@ struct CompilePromptCard: View {
 // MARK: - Photo Placeholders
 
 struct PhotoDownloadPlaceholder: View {
+    let state: AttachmentDownloadState
+
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(DSColor.glassLo)
                 .frame(maxWidth: .infinity, minHeight: 160)
             VStack(spacing: 8) {
-                ProgressView().tint(DSColor.inkSubtle)
-                Text("Downloading from iCloud…")
-                    .font(DSFonts.jetBrainsMono(size: 10))
-                    .textCase(.uppercase)
-                    .foregroundColor(DSColor.inkSubtle)
+                switch state {
+                case .notDownloaded:
+                    Image(systemName: "icloud.and.arrow.down")
+                        .font(.system(size: 28, weight: .regular))
+                        .foregroundColor(DSColor.inkSubtle)
+                    Text("Tap to download")
+                        .font(DSFonts.jetBrainsMono(size: 10))
+                        .textCase(.uppercase)
+                        .foregroundColor(DSColor.inkSubtle)
+                case .downloading:
+                    ProgressView().tint(DSColor.inkSubtle)
+                    Text("Downloading from iCloud…")
+                        .font(DSFonts.jetBrainsMono(size: 10))
+                        .textCase(.uppercase)
+                        .foregroundColor(DSColor.inkSubtle)
+                case .failed:
+                    Image(systemName: "exclamationmark.icloud")
+                        .font(.system(size: 28, weight: .regular))
+                        .foregroundColor(DSColor.amberAccent)
+                    Text("Download failed — tap to retry")
+                        .font(DSFonts.jetBrainsMono(size: 10))
+                        .textCase(.uppercase)
+                        .foregroundColor(DSColor.inkSubtle)
+                case .current:
+                    EmptyView()
+                }
             }
         }
     }
@@ -781,15 +838,32 @@ struct PhotoThumbnailView: View {
 // MARK: - AudioDownloadPlaceholder
 
 struct AudioDownloadPlaceholder: View {
+    let state: AttachmentDownloadState
+
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(DSColor.glassLo)
                     .frame(width: 36, height: 36)
-                Image(systemName: "icloud.and.arrow.down")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(DSColor.inkSubtle)
+                switch state {
+                case .notDownloaded:
+                    Image(systemName: "icloud.and.arrow.down")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(DSColor.inkSubtle)
+                case .downloading:
+                    ProgressView()
+                        .scaleEffect(0.7)
+                        .tint(DSColor.inkSubtle)
+                case .failed:
+                    Image(systemName: "exclamationmark.icloud")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(DSColor.amberAccent)
+                case .current:
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(DSColor.inkSubtle)
+                }
             }
             HStack(spacing: 2) {
                 ForEach(0..<36, id: \.self) { i in
@@ -800,10 +874,28 @@ struct AudioDownloadPlaceholder: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            Text("--:--")
-                .font(DSFonts.jetBrainsMono(size: 10))
-                .foregroundColor(DSColor.inkSubtle)
-                .frame(width: 36, alignment: .trailing)
+            switch state {
+            case .notDownloaded:
+                Text("icloud")
+                    .font(DSFonts.jetBrainsMono(size: 10))
+                    .foregroundColor(DSColor.inkSubtle)
+                    .frame(width: 36, alignment: .trailing)
+            case .downloading:
+                ProgressView()
+                    .scaleEffect(0.6)
+                    .tint(DSColor.inkSubtle)
+                    .frame(width: 36, alignment: .trailing)
+            case .failed:
+                Text("retry")
+                    .font(DSFonts.jetBrainsMono(size: 10))
+                    .foregroundColor(DSColor.amberAccent)
+                    .frame(width: 36, alignment: .trailing)
+            case .current:
+                Text("--:--")
+                    .font(DSFonts.jetBrainsMono(size: 10))
+                    .foregroundColor(DSColor.inkSubtle)
+                    .frame(width: 36, alignment: .trailing)
+            }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
