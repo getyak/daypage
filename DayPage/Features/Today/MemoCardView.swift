@@ -35,12 +35,8 @@ struct MemoCardView: View {
         ]),
               let status = values.ubiquitousItemDownloadingStatus else { return .current }
         if values.ubiquitousItemIsDownloading == true { return .downloading }
-        switch status {
-        case .current:          return .current
-        case .downloaded:       return .current
-        case .notDownloaded:    return .notDownloaded
-        @unknown default:       return .notDownloaded
-        }
+        if status == .notDownloaded { return .notDownloaded }
+        return .current
     }
 
     private func startDownload(_ url: URL) {
