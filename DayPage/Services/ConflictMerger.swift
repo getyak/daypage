@@ -1,4 +1,5 @@
 import Foundation
+import Sentry
 
 // MARK: - ConflictResolutionInfo
 
@@ -10,6 +11,7 @@ struct ConflictResolutionInfo {
 
 extension Notification.Name {
     static let vaultConflictResolved = Notification.Name("vaultConflictResolved")
+    static let vaultConflictFailed = Notification.Name("vaultConflictFailed")
 }
 
 // MARK: - ConflictMerger
@@ -134,7 +136,9 @@ enum ConflictMerger {
             let info = ConflictResolutionInfo(date: Date(), mergedMemoCount: conflictVersions.count, sourceDevice: device)
             NotificationCenter.default.post(name: .vaultConflictResolved, object: info)
         } catch {
-            // 冲突无法解决；系统将重试。
+            DayPageLogger.shared.error("[ConflictMerger] Failed to resolve conflict at \(primaryURL.lastPathComponent): \(error)")
+            if !Secrets.sentryDSN.isEmpty { SentrySDK.capture(error: error) }
+            NotificationCenter.default.post(name: .vaultConflictFailed, object: primaryURL)
         }
     }
 

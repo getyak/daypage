@@ -7,6 +7,15 @@ import Foundation
 /// 所有写入都是原子的：先写入临时文件，再重命名。
 enum RawStorage {
 
+    // MARK: - Serial write queue
+
+    /// Guards append() against concurrent read-modify-write races.
+    /// Two simultaneous appends (e.g. voice transcription completing
+    /// at the same moment the user taps Send) would otherwise read
+    /// the same file content, each append their memo, and the last
+    /// writer wins — silently dropping one memo.
+    private static let writeQueue = DispatchQueue(label: "com.daypage.rawstorage.write")
+
     // MARK: - Separator
 
     /// 同一天文件内 memo 之间使用的精确分隔符。
@@ -27,25 +36,28 @@ enum RawStorage {
     /// 将单条 Memo 追加到 memo.created 对应的日文件中。
     /// 如果文件不存在则创建。
     /// 使用原子写入（临时文件 + 重命名）以防止损坏。
+    /// 写入操作由 writeQueue 序列化以防止并发追加时数据丢失。
     static func append(_ memo: Memo) throws {
-        let url = fileURL(for: memo.created)
-        let newBlock = memo.toMarkdown()
+        try writeQueue.sync {
+            let url = fileURL(for: memo.created)
+            let newBlock = memo.toMarkdown()
 
-        let existingContent: String
-        if FileManager.default.fileExists(atPath: url.path) {
-            existingContent = try String(contentsOf: url, encoding: .utf8)
-        } else {
-            existingContent = ""
+            let existingContent: String
+            if FileManager.default.fileExists(atPath: url.path) {
+                existingContent = try String(contentsOf: url, encoding: .utf8)
+            } else {
+                existingContent = ""
+            }
+
+            let combined: String
+            if existingContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                combined = newBlock
+            } else {
+                combined = existingContent + memoSeparator + newBlock
+            }
+
+            try atomicWrite(string: combined, to: url)
         }
-
-        let combined: String
-        if existingContent.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            combined = newBlock
-        } else {
-            combined = existingContent + memoSeparator + newBlock
-        }
-
-        try atomicWrite(string: combined, to: url)
     }
 
     // MARK: - Read
