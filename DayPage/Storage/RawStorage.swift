@@ -3,7 +3,7 @@ import Foundation
 // MARK: - RawStorage
 
 /// 读取和写入 Memo 记录到 vault/raw/YYYY-MM-DD.md 文件。
-/// 同一天文件中的多条 memo 由 "\n\n---\n\n" 分隔。
+/// 同一天文件中的多条 memo 由 memoSeparator 分隔。
 /// 所有写入都是原子的：先写入临时文件，再重命名。
 enum RawStorage {
 
@@ -19,7 +19,12 @@ enum RawStorage {
     // MARK: - Separator
 
     /// 同一天文件内 memo 之间使用的精确分隔符。
-    static let memoSeparator = "\n\n---\n\n"
+    /// 使用 HTML 注释而非裸 "---"，避免与 YAML frontmatter 闭合符及
+    /// 用户正文中可能出现的 "---" 冲突（issue #227）。
+    static let memoSeparator = "\n\n<!-- daypage-memo-separator -->\n\n"
+
+    /// 历史分隔符（v1）。仍然保留以便向后兼容已有 vault 文件的解析。
+    static let legacyMemoSeparator = "\n\n---\n\n"
 
     // MARK: - URL helpers
 
@@ -75,10 +80,34 @@ enum RawStorage {
     // MARK: - Parsing
 
     /// Splits file content on the memo separator and parses each block into a Memo.
+    ///
+    /// 兼容性策略（issue #227）：
+    /// 1. 若文件含**当前**分隔符 → 新格式，按当前分隔符切分。
+    /// 2. 否则先尝试将整个文件当作单条 memo 解析 — 这覆盖了所有
+    ///    新格式单 memo 文件，以及旧格式的单 memo 文件（两者磁盘
+    ///    表示相同）。若成功且整段被一条 memo 完整消费，返回该结果。
+    /// 3. 否则回退到历史分隔符 "\n\n---\n\n"，处理旧 vault 文件。
+    /// 该策略既保证旧文件可读，又避免新格式 memo 正文中偶尔出现的
+    /// "---" 被错误切分。
     static func parse(fileContent: String) -> [Memo] {
-        // Split on the separator
-        let blocks = fileContent.components(separatedBy: memoSeparator)
-        return blocks.compactMap { block in
+        if fileContent.contains(memoSeparator) {
+            return splitAndParse(fileContent, separator: memoSeparator)
+        }
+
+        let trimmed = fileContent.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty, let single = Memo.fromMarkdown(trimmed) {
+            return [single]
+        }
+
+        if fileContent.contains(legacyMemoSeparator) {
+            return splitAndParse(fileContent, separator: legacyMemoSeparator)
+        }
+
+        return []
+    }
+
+    private static func splitAndParse(_ content: String, separator: String) -> [Memo] {
+        content.components(separatedBy: separator).compactMap { block -> Memo? in
             let trimmed = block.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmed.isEmpty else { return nil }
             return Memo.fromMarkdown(trimmed)

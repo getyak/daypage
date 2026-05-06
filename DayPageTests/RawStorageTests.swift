@@ -143,6 +143,67 @@ final class RawStorageTests: XCTestCase {
         XCTAssertEqual(memos.count, 2)
     }
 
+    // MARK: - issue #227: memo body containing --- must round-trip
+
+    /// A memo whose body contains a triple-dash line must serialize and parse back
+    /// without being dropped. Before #227 the legacy "\n\n---\n\n" separator
+    /// collided with the YAML frontmatter delimiter and silently lost the memo.
+    func testParse_memoBodyContainingTripleDash_roundtrips() throws {
+        let body = "before\n\n---\n\nafter"
+        let memo = makeMemo(body: body)
+        try RawStorage.append(memo)
+
+        let memos = try RawStorage.read(for: memo.created)
+        XCTAssertEqual(memos.count, 1, "Memo with '---' in body must not be dropped")
+        XCTAssertEqual(memos.first?.body, body, "Body containing '---' must round-trip exactly")
+    }
+
+    /// Two memos written through append/read must round-trip when one of them
+    /// contains a "---" line in its body.
+    func testParse_multipleMemosOneWithTripleDash_allReadBack() throws {
+        let date = Date()
+        var m1 = makeMemo(body: "regular memo")
+        m1.created = date
+        var m2 = makeMemo(body: "with separator-like content\n\n---\n\nstill same memo")
+        m2.created = date
+        var m3 = makeMemo(body: "third memo")
+        m3.created = date
+
+        try RawStorage.append(m1)
+        try RawStorage.append(m2)
+        try RawStorage.append(m3)
+
+        let memos = try RawStorage.read(for: date)
+        XCTAssertEqual(memos.count, 3, "All three memos must be read back")
+        let bodies = memos.map { $0.body }
+        XCTAssertTrue(bodies.contains("regular memo"))
+        XCTAssertTrue(bodies.contains("with separator-like content\n\n---\n\nstill same memo"))
+        XCTAssertTrue(bodies.contains("third memo"))
+    }
+
+    /// A vault file written by an older app version using the legacy "\n\n---\n\n"
+    /// separator must still be parseable so existing users don't lose data.
+    func testParse_oldSeparator_backwardCompatible() {
+        let legacyContent = validMemoBlock() + "\n\n---\n\n" + validMemoBlock()
+        let memos = RawStorage.parse(fileContent: legacyContent)
+        XCTAssertEqual(memos.count, 2, "Files using the legacy separator must still parse")
+    }
+
+    /// The new HTML-comment separator must split memos correctly.
+    func testParse_newSeparator_correctlySplits() {
+        let content = validMemoBlock() + RawStorage.memoSeparator + validMemoBlock() + RawStorage.memoSeparator + validMemoBlock()
+        let memos = RawStorage.parse(fileContent: content)
+        XCTAssertEqual(memos.count, 3, "New separator must split all memos")
+    }
+
+    /// The current separator must not be the legacy one — guards against accidental revert.
+    func testMemoSeparator_isNotLegacyTripleDash() {
+        XCTAssertNotEqual(RawStorage.memoSeparator, "\n\n---\n\n",
+                          "Separator must not be the legacy bare '---' (collides with YAML frontmatter)")
+        XCTAssertTrue(RawStorage.memoSeparator.contains("daypage-memo-separator"),
+                      "Separator should be a unique HTML-comment marker")
+    }
+
     // MARK: - fileURL
 
     func testFileURL_isUnderRawDirectory() {
