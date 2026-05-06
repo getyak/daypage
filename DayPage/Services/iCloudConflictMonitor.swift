@@ -99,8 +99,9 @@ final class iCloudConflictMonitor: ObservableObject {
     // MARK: - Conflict Processing
 
     /// Scans query results for files with unresolved conflicts and triggers resolution.
+    /// Resolution runs off the main thread to avoid UI freezes on large vaults.
     private func processConflicts() {
-        guard !isResolving, let q = query else { return }
+        guard !isResolving, let q = query, let vaultURL = vaultURL else { return }
         q.disableUpdates()
         defer { q.enableUpdates() }
 
@@ -113,11 +114,16 @@ final class iCloudConflictMonitor: ObservableObject {
 
         unresolvedConflictCount = count
 
-        guard count > 0, let vaultURL = vaultURL else { return }
+        guard count > 0 else { return }
 
+        // Move resolution off MainActor. NSFileCoordinator (used inside
+        // ConflictMerger) is thread-safe. isResolving stays true until the
+        // background work completes, providing real re-entrancy protection.
         isResolving = true
-        defer { isResolving = false }
 
-        ConflictMerger.resolveConflictsIfNeeded(in: vaultURL)
+        Task.detached(priority: .utility) {
+            ConflictMerger.resolveConflictsIfNeeded(in: vaultURL)
+            await MainActor.run { self.isResolving = false }
+        }
     }
 }
