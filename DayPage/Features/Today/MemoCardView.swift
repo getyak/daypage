@@ -29,12 +29,15 @@ struct MemoCardView: View {
     private func attachmentDownloadState(for url: URL) -> AttachmentDownloadState {
         guard VaultInitializer.shared.isUsingiCloud else { return .current }
         if let state = downloadStates[url] { return state }
-        guard let values = try? url.resourceValues(forKeys: [.ubiquitousItemDownloadingStatusKey]),
+        guard let values = try? url.resourceValues(forKeys: [
+            .ubiquitousItemDownloadingStatusKey,
+            .ubiquitousItemIsDownloadingKey
+        ]),
               let status = values.ubiquitousItemDownloadingStatus else { return .current }
+        if values.ubiquitousItemIsDownloading == true { return .downloading }
         switch status {
         case .current:          return .current
         case .downloaded:       return .current
-        case .downloading:      return .downloading
         case .notDownloaded:    return .notDownloaded
         @unknown default:       return .notDownloaded
         }
