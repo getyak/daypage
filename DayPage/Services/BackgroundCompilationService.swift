@@ -25,6 +25,10 @@ final class BackgroundCompilationService {
     nonisolated static let failureNotificationCategory = "com.daypage.compilation-failed"
     nonisolated static let failureNotificationAction = "com.daypage.retry-compilation"
 
+    /// Maximum number of missed days to compile per backfill session.
+    /// Prevents API flooding when the app hasn't been opened in a long time.
+    private let maxBackfillDays = 7
+
     // MARK: - Singleton
 
     static let shared = BackgroundCompilationService()
@@ -78,21 +82,40 @@ final class BackgroundCompilationService {
 
     // MARK: - Backfill Check (call from app foreground / scenePhase .active)
 
-    /// 检查昨天的 memo 文件是否存在但没有已编译的 Daily Page。
-    /// 如果有，立即触发编译（补充遗漏的后台运行）。
+    /// Scans all raw memo files and compiles any that have no corresponding Daily Page.
+    /// Caps at `maxBackfillDays` per session to avoid API flooding.
+    /// Today's file is always excluded (not yet ready for compilation).
     func backfillIfNeeded() {
-        let yesterday = Self.calendar.date(byAdding: .day, value: -1, to: Date()) ?? Date()
-        guard shouldCompile(for: yesterday) else { return }
+        let vaultURL = VaultInitializer.vaultURL
+        let rawDir = vaultURL.appendingPathComponent("raw", isDirectory: true)
+        guard let files = try? FileManager.default.contentsOfDirectory(atPath: rawDir.path) else { return }
+
+        let formatter = Self.dateFormatter
+        formatter.timeZone = AppSettings.currentTimeZone()
+        let todayString = formatter.string(from: Date())
+
+        let missedDates: [Date] = files
+            .filter { $0.hasSuffix(".md") && $0 != "\(todayString).md" }
+            .compactMap { filename -> Date? in
+                let dateString = String(filename.dropLast(3)) // remove ".md"
+                guard let date = formatter.date(from: dateString) else { return nil }
+                return shouldCompile(for: date) ? date : nil
+            }
+            .sorted() // oldest first
+
+        guard !missedDates.isEmpty else { return }
 
         Task {
-            NotificationCenter.default.post(name: .compilationDidStart, object: nil)
-            defer { NotificationCenter.default.post(name: .compilationDidEnd, object: nil) }
-            do {
-                try await compileWithRetry(for: yesterday, trigger: "backfill")
-                sendSuccessNotification(for: yesterday)
-            } catch {
-                DayPageLogger.shared.error("[BGCompile] Backfill failed after retries: \(error.localizedDescription)")
-                sendFailureNotification()
+            for date in missedDates.prefix(maxBackfillDays) {
+                NotificationCenter.default.post(name: .compilationDidStart, object: nil)
+                defer { NotificationCenter.default.post(name: .compilationDidEnd, object: nil) }
+                do {
+                    try await compileWithRetry(for: date, trigger: "backfill")
+                    sendSuccessNotification(for: date)
+                } catch {
+                    DayPageLogger.shared.error("[BGCompile] Backfill failed for \(formatter.string(from: date)): \(error.localizedDescription)")
+                    // Continue to next date, don't abort the whole batch
+                }
             }
         }
     }
