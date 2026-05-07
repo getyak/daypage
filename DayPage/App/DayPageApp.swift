@@ -98,10 +98,18 @@ struct DayPageApp: App {
                 .environmentObject(authService)
                 .environmentObject(navModel)
                 .onOpenURL { url in
-                    // 处理 Magic Link 回调 (daypage://...) 和 OTP 深度链接。
-                    // 会话更新由 authStateChanges 监听器处理 — 无需手动赋值。
+                    // Handle Magic Link / OTP deep-link callbacks (daypage://...).
+                    // Session updates are emitted by authStateChanges — no manual assignment needed.
+                    guard url.scheme?.lowercased() == "daypage" else { return }
                     Task {
-                        try? await authService.supabase.auth.session(from: url)
+                        do {
+                            try await authService.supabase.auth.session(from: url)
+                        } catch {
+                            SentrySDK.capture(error: error)
+                            #if DEBUG
+                            print("[DayPageApp] Deep-link auth session error: \(error)")
+                            #endif
+                        }
                     }
                 }
                 .onAppear {

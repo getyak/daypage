@@ -93,6 +93,11 @@
 		A10000073 /* EmailAuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000073 /* EmailAuthView.swift */; };
 		A10000075 /* OTPVerificationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000075 /* OTPVerificationView.swift */; };
 		A10000076 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000076 /* KeychainHelper.swift */; };
+		A10000087 /* AuthRateLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000087 /* AuthRateLimiter.swift */; };
+		A10000091 /* GrainOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000091 /* GrainOverlay.swift */; };
+		A10000086 /* OTPVerificationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000086 /* OTPVerificationViewModel.swift */; };
+		A10000093 /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000093 /* AuthViewModel.swift */; };
+		A10000094 /* SidebarViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000094 /* SidebarViewModel.swift */; };
 		A10000074 /* AccountSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000074 /* AccountSheet.swift */; };
 		T10000001 /* DayDetailViewStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000001 /* DayDetailViewStateTests.swift */; };
 		T10000002 /* ConflictMergerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000002 /* ConflictMergerTests.swift */; };
@@ -207,6 +212,11 @@
 		A20000073 /* EmailAuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailAuthView.swift; sourceTree = "<group>"; };
 		A20000075 /* OTPVerificationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OTPVerificationView.swift; sourceTree = "<group>"; };
 		A20000076 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
+		A20000087 /* AuthRateLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRateLimiter.swift; sourceTree = "<group>"; };
+		A20000091 /* GrainOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrainOverlay.swift; sourceTree = "<group>"; };
+		A20000086 /* OTPVerificationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OTPVerificationViewModel.swift; sourceTree = "<group>"; };
+		A20000093 /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
+		A20000094 /* SidebarViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarViewModel.swift; sourceTree = "<group>"; };
 		A20000074 /* AccountSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSheet.swift; sourceTree = "<group>"; };
 		A30000001 /* DayPage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPage.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		23EA9C83B41565EDB263FB35 /* DayPageWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPageWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -295,6 +305,7 @@
 				A20000002 /* RootView.swift */,
 				A20000080 /* AppNavigationModel.swift */,
 				A20000081 /* SidebarView.swift */,
+				A20000094 /* SidebarViewModel.swift */,
 				A20000024 /* Info.plist */,
 				A20000071 /* DayPage.entitlements */,
 				A20000029 /* Assets.xcassets */,
@@ -310,6 +321,7 @@
 				A20000006 /* Typography.swift */,
 				A20000007 /* Components.swift */,
 				A200000F1 /* GlassSurface.swift */,
+				A20000091 /* GrainOverlay.swift */,
 				A20000041 /* Spacing.swift */,
 				A20000043 /* Interactions.swift */,
 				A20000053 /* InputTokens.swift */,
@@ -338,8 +350,10 @@
 			isa = PBXGroup;
 			children = (
 				A20000072 /* AuthView.swift */,
+				A20000093 /* AuthViewModel.swift */,
 				A20000073 /* EmailAuthView.swift */,
 				A20000075 /* OTPVerificationView.swift */,
+				A20000086 /* OTPVerificationViewModel.swift */,
 				A20000074 /* AccountSheet.swift */,
 			);
 			path = Auth;
@@ -388,6 +402,7 @@
 				A20000078 /* VaultMigrationService.swift */,
 				A20000070 /* AuthService.swift */,
 				A20000076 /* KeychainHelper.swift */,
+				A20000087 /* AuthRateLimiter.swift */,
 				FB1000001 /* FeedbackService.swift */,
 				A20000083 /* WeeklyRecapService.swift */,
 			);
@@ -782,6 +797,7 @@
 				A10000006 /* Typography.swift in Sources */,
 				A10000007 /* Components.swift in Sources */,
 				A100000F1 /* GlassSurface.swift in Sources */,
+				A10000091 /* GrainOverlay.swift in Sources */,
 				A10000041 /* Spacing.swift in Sources */,
 				A10000043 /* Interactions.swift in Sources */,
 				A10000008 /* Memo.swift in Sources */,
@@ -843,7 +859,11 @@
 				A10000072 /* AuthView.swift in Sources */,
 				A10000073 /* EmailAuthView.swift in Sources */,
 				A10000075 /* OTPVerificationView.swift in Sources */,
+				A10000086 /* OTPVerificationViewModel.swift in Sources */,
+				A10000093 /* AuthViewModel.swift in Sources */,
+				A10000094 /* SidebarViewModel.swift in Sources */,
 				A10000076 /* KeychainHelper.swift in Sources */,
+				A10000087 /* AuthRateLimiter.swift in Sources */,
 				A10000074 /* AccountSheet.swift in Sources */,
 				F617270BFC704FF5BBB99FD3 /* AppSettings.swift in Sources */,
 				8C3DEB068D610AAB589EA680 /* TimeZonePickerView.swift in Sources */,

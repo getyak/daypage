@@ -1,5 +1,17 @@
 import SwiftUI
 
+// MARK: - AuthButtonStyle
+
+/// Press-scale style for auth sign-in buttons.
+/// Replaces DragGesture so VoiceOver and Switch Control work correctly.
+private struct AuthButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
 // MARK: - AuthView
 
 struct AuthView: View {
@@ -7,33 +19,17 @@ struct AuthView: View {
     var onSkip: (() -> Void)? = nil
 
     @EnvironmentObject private var authService: AuthService
+    @StateObject private var viewModel = AuthViewModel()
     @State private var showEmailAuth = false
-    @GestureState private var applePressed = false
-    @GestureState private var emailPressed = false
 
     var body: some View {
         ZStack {
-            // 背景
             Color(hex: "0A0A0A")
                 .ignoresSafeArea()
 
-            // 颗粒纹理叠加层
-            Canvas { context, size in
-                let cols = Int(size.width / 3)
-                let rows = Int(size.height / 3)
-                for _ in 0..<(cols * rows / 4) {
-                    let x = CGFloat.random(in: 0..<size.width)
-                    let y = CGFloat.random(in: 0..<size.height)
-                    let dot = Path(ellipseIn: CGRect(x: x, y: y, width: 1, height: 1))
-                    context.fill(dot, with: .color(.white.opacity(0.04)))
-                }
-            }
-            .ignoresSafeArea()
-            .blendMode(.overlay)
-            .allowsHitTesting(false)
+            GrainOverlay()
 
             VStack(spacing: 0) {
-                // 品牌标志 — 上三分之一
                 Spacer()
                     .frame(minHeight: 0)
 
@@ -50,17 +46,17 @@ struct AuthView: View {
 
                 Spacer()
 
-                // 错误信息
-                if let errorText = authService.error?.errorDescription {
+                if let errorText = viewModel.errorMessage {
                     Text(errorText)
                         .font(.system(size: 14))
                         .foregroundColor(Color(hex: "E05A5A"))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
                         .padding(.bottom, 12)
+                        .transition(.opacity)
+                        .animation(.easeInOut(duration: 0.2), value: viewModel.errorMessage)
                 }
 
-                // 按钮 + 跳过
                 VStack(spacing: 0) {
                     buttonStack
 
@@ -73,17 +69,20 @@ struct AuthView: View {
                     }
                     .padding(.top, 16)
                     .padding(.bottom, 32)
+                    .accessibilityLabel("Skip login for now")
                 }
                 .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 0) }
             }
             .padding(.horizontal, 24)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // 加载遮罩层
-            if authService.isLoading {
+            if viewModel.isLoading {
                 ProgressView()
                     .tint(.white)
             }
+        }
+        .task {
+            viewModel.bind(authService: authService)
         }
         .transition(.opacity.animation(.easeOut(duration: 0.4)))
         .sheet(isPresented: $showEmailAuth) {
@@ -95,72 +94,87 @@ struct AuthView: View {
 
     private var buttonStack: some View {
         VStack(spacing: 12) {
-            // 使用 Apple 继续
-            authButton(
-                icon: "apple.logo",
-                label: "Continue with Apple",
-                iconColor: .white,
-                labelColor: .white,
-                background: Color(hex: "1A1A1A"),
-                border: Color(hex: "2A2A2A"),
-                isPressed: applePressed
-            )
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .updating($applePressed) { _, state, _ in state = true }
-                    .onEnded { _ in
-                        Task {
-                            do {
-                                try await authService.signInWithApple()
-                            } catch {
-                                // AuthService already publishes the mapped DPAuthError
-                                // to `authService.error`, which the view above renders.
-                                // Catching here prevents the unhandled-error warning
-                                // and lets us debug-log the failure path explicitly.
-                                #if DEBUG
-                                print("[AuthView] Apple sign-in failed: \(error)")
-                                #endif
-                            }
-                        }
-                    }
-            )
+            Button {
+                Task { await viewModel.signInWithApple() }
+            } label: {
+                authButtonLoadingLabel(
+                    icon: "apple.logo",
+                    label: "Continue with Apple",
+                    iconColor: .white,
+                    labelColor: .white,
+                    background: Color(hex: "1A1A1A"),
+                    border: Color(hex: "2A2A2A"),
+                    isLoading: viewModel.isLoading
+                )
+            }
+            .buttonStyle(AuthButtonStyle())
+            .disabled(viewModel.isLoading)
+            .accessibilityLabel(viewModel.isLoading ? "Signing in with Apple" : "Continue with Apple")
+            .accessibilityHint("Sign in using your Apple ID")
 
-            // 使用邮箱继续
-            authButton(
-                icon: "envelope",
-                label: "Continue with Email",
-                iconColor: Color(hex: "A0A0A0"),
-                labelColor: Color(hex: "A0A0A0"),
-                background: Color(hex: "0A0A0A"),
-                border: Color(hex: "222222"),
-                isPressed: emailPressed
-            )
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .updating($emailPressed) { _, state, _ in state = true }
-                    .onEnded { _ in showEmailAuth = true }
-            )
+            Button {
+                showEmailAuth = true
+            } label: {
+                authButtonLabel(
+                    icon: "envelope",
+                    label: "Continue with Email",
+                    iconColor: Color(hex: "A0A0A0"),
+                    labelColor: Color(hex: "A0A0A0"),
+                    background: Color(hex: "0A0A0A"),
+                    border: Color(hex: "222222")
+                )
+            }
+            .buttonStyle(AuthButtonStyle())
+            .disabled(viewModel.isLoading)
+            .accessibilityLabel("Continue with Email")
+            .accessibilityHint("Sign in using a one-time email code")
         }
     }
 
-    // MARK: - Auth Button
+    // MARK: - Auth Button Labels
 
-    private func authButton(
+    /// Standard auth button with no loading indicator.
+    private func authButtonLabel(
+        icon: String,
+        label: String,
+        iconColor: Color,
+        labelColor: Color,
+        background: Color,
+        border: Color
+    ) -> some View {
+        authButtonLoadingLabel(
+            icon: icon, label: label,
+            iconColor: iconColor, labelColor: labelColor,
+            background: background, border: border,
+            isLoading: false
+        )
+    }
+
+    /// Auth button that shows an inline ProgressView when `isLoading` is true.
+    private func authButtonLoadingLabel(
         icon: String,
         label: String,
         iconColor: Color,
         labelColor: Color,
         background: Color,
         border: Color,
-        isPressed: Bool
+        isLoading: Bool
     ) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon)
-                .foregroundColor(iconColor)
-                .font(.system(size: 17))
-            Text(label)
-                .font(.custom("SpaceGrotesk-Medium", size: 16))
-                .foregroundColor(labelColor)
+        ZStack {
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .foregroundColor(iconColor)
+                    .font(.system(size: 17))
+                Text(label)
+                    .font(.custom("SpaceGrotesk-Medium", size: 16))
+                    .foregroundColor(labelColor)
+            }
+            .opacity(isLoading ? 0 : 1)
+
+            if isLoading {
+                ProgressView()
+                    .tint(.white)
+            }
         }
         .frame(maxWidth: .infinity)
         .frame(height: 54)
@@ -170,7 +184,5 @@ struct AuthView: View {
             RoundedRectangle(cornerRadius: 14)
                 .stroke(border, lineWidth: 1)
         )
-        .scaleEffect(isPressed ? 0.97 : 1.0)
-        .animation(.easeOut(duration: 0.1), value: isPressed)
     }
 }

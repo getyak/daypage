@@ -7,6 +7,7 @@ struct SidebarView: View {
     @EnvironmentObject private var nav: AppNavigationModel
     @EnvironmentObject private var authService: AuthService
 
+    @StateObject private var sidebarVM = SidebarViewModel()
     @State private var showSettings = false
     @State private var showAccountSheet = false
 
@@ -33,6 +34,9 @@ struct SidebarView: View {
                 bottomSection
             }
             .frame(maxHeight: .infinity)
+        }
+        .task {
+            sidebarVM.bind(authService: authService)
         }
         .sheet(isPresented: $showSettings) {
             SettingsView()
@@ -154,7 +158,7 @@ struct SidebarView: View {
             .buttonStyle(.plain)
 
             // Account (when logged in)
-            if authService.session != nil {
+            if sidebarVM.isLoggedIn {
                 accountRow
             }
         }
@@ -164,8 +168,8 @@ struct SidebarView: View {
     }
 
     private var accountRow: some View {
-        let email = authService.session?.user.email ?? ""
-        let initial = email.first.map { String($0).uppercased() } ?? "?"
+        let email = sidebarVM.accountEmail
+        let initial = sidebarVM.accountInitial
 
         return Button {
             showAccountSheet = true

@@ -1,5 +1,16 @@
 import SwiftUI
 
+// MARK: - EmailSubmitButtonStyle
+
+/// Press-scale style for the Send Code button — matches AuthButtonStyle in AuthView.
+private struct EmailSubmitButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
 // MARK: - EmailAuthView
 
 /// 两阶段邮箱登录：
@@ -20,7 +31,7 @@ struct EmailAuthView: View {
     var body: some View {
         ZStack {
             Color(hex: "0A0A0A").ignoresSafeArea()
-            grainOverlay
+            GrainOverlay()
 
             Group {
                 switch viewModel.stage {
@@ -46,98 +57,93 @@ struct EmailAuthView: View {
     // MARK: - Email Stage
 
     private var emailStage: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            backButton
+        // ScrollView ensures the Send Code button stays reachable when the keyboard
+        // is shown on small devices. The VStack's bottom Spacer keeps content
+        // anchored top on large screens.
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 0) {
+                backButton
 
-            Spacer().frame(height: 32)
+                Spacer().frame(height: 32)
 
-            Text("Enter your email")
-                .font(.custom("SpaceGrotesk-Bold", size: 24))
-                .foregroundColor(Color(hex: "F5F0E8"))
+                Text("Enter your email")
+                    .font(.custom("SpaceGrotesk-Bold", size: 24))
+                    .foregroundColor(Color(hex: "F5F0E8"))
 
-            Spacer().frame(height: 8)
+                Spacer().frame(height: 8)
 
-            Text("We'll send you a 6-digit code.")
-                .font(.custom("Inter-Regular", size: 14))
-                .foregroundColor(Color(hex: "6B6B6B"))
+                Text("We'll send you a 6-digit code.")
+                    .font(.custom("Inter-Regular", size: 14))
+                    .foregroundColor(Color(hex: "6B6B6B"))
 
-            Spacer().frame(height: 24)
+                Spacer().frame(height: 24)
 
-            TextField("", text: $viewModel.email, prompt: Text("you@domain.com").foregroundColor(Color(hex: "4A4A4A")))
-                .font(.custom("Inter-Regular", size: 17))
-                .foregroundColor(Color(hex: "F5F0E8"))
-                .textContentType(.emailAddress)
-                .keyboardType(.emailAddress)
-                .autocapitalization(.none)
-                .autocorrectionDisabled()
-                .submitLabel(.send)
-                .focused($emailFocused)
-                .onSubmit {
-                    Task { await viewModel.sendCode() }
-                }
-                .padding(.horizontal, 16)
-                .frame(height: 52)
-                .background(Color(hex: "1E1E1E"))
-                .cornerRadius(12)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color(hex: "2A2A2A"), lineWidth: 1)
-                )
-
-            Spacer().frame(height: 16)
-
-            if let errorMessage = viewModel.errorMessage {
-                Text(errorMessage)
-                    .font(.system(size: 14))
-                    .foregroundColor(Color(hex: "E05A5A"))
-                    .padding(.bottom, 8)
-            }
-
-            Button {
-                Task { await viewModel.sendCode() }
-            } label: {
-                ZStack {
-                    Text("Send Code")
-                        .font(.custom("SpaceGrotesk-Medium", size: 16))
-                        .foregroundColor(viewModel.isValidEmail ? Color(hex: "0A0A0A") : Color(hex: "4A4A4A"))
-                        .opacity(viewModel.isSending ? 0 : 1)
-
-                    if viewModel.isSending {
-                        ProgressView()
-                            .tint(Color(hex: "0A0A0A"))
+                TextField("", text: $viewModel.email, prompt: Text("you@domain.com").foregroundColor(Color(hex: "4A4A4A")))
+                    .font(.custom("Inter-Regular", size: 17))
+                    .foregroundColor(Color(hex: "F5F0E8"))
+                    .textContentType(.emailAddress)
+                    .keyboardType(.emailAddress)
+                    .autocapitalization(.none)
+                    .autocorrectionDisabled()
+                    .submitLabel(.send)
+                    .focused($emailFocused)
+                    .onSubmit {
+                        Task { await viewModel.sendCode() }
                     }
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 54)
-                .background(viewModel.isValidEmail ? Color(hex: "F5F0E8") : Color(hex: "1A1A1A"))
-                .cornerRadius(14)
-            }
-            .disabled(!viewModel.isValidEmail || viewModel.isSending)
+                    .padding(.horizontal, 16)
+                    .frame(height: 52)
+                    .background(Color(hex: "1E1E1E"))
+                    .cornerRadius(12)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color(hex: "2A2A2A"), lineWidth: 1)
+                    )
 
-            Spacer()
+                Spacer().frame(height: 16)
+
+                if let errorMessage = viewModel.errorMessage {
+                    Text(errorMessage)
+                        .font(.system(size: 14))
+                        .foregroundColor(Color(hex: "E05A5A"))
+                        .padding(.bottom, 8)
+                        .transition(.opacity)
+                        .animation(.easeInOut(duration: 0.2), value: viewModel.errorMessage)
+                }
+
+                Button {
+                    Task { await viewModel.sendCode() }
+                } label: {
+                    ZStack {
+                        Text("Send Code")
+                            .font(.custom("SpaceGrotesk-Medium", size: 16))
+                            .foregroundColor(viewModel.isValidEmail ? Color(hex: "0A0A0A") : Color(hex: "4A4A4A"))
+                            .opacity(viewModel.isSending ? 0 : 1)
+
+                        if viewModel.isSending {
+                            ProgressView()
+                                .tint(Color(hex: "0A0A0A"))
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 54)
+                    .background(viewModel.isValidEmail ? Color(hex: "F5F0E8") : Color(hex: "1A1A1A"))
+                    .cornerRadius(14)
+                }
+                .buttonStyle(EmailSubmitButtonStyle())
+                .disabled(!viewModel.isValidEmail || viewModel.isSending)
+                .accessibilityLabel(viewModel.isSending ? "Sending code" : "Send verification code")
+                .accessibilityHint("Sends a 6-digit code to your email")
+
+                Spacer().frame(height: 32)
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 16)
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 16)
+        .scrollDismissesKeyboard(.interactively)
         .onAppear { emailFocused = true }
     }
 
     // MARK: - Pieces
-
-    private var grainOverlay: some View {
-        Canvas { context, size in
-            for _ in 0..<800 {
-                let x = CGFloat.random(in: 0..<size.width)
-                let y = CGFloat.random(in: 0..<size.height)
-                context.fill(
-                    Path(ellipseIn: CGRect(x: x, y: y, width: 1, height: 1)),
-                    with: .color(.white.opacity(0.04))
-                )
-            }
-        }
-        .ignoresSafeArea()
-        .blendMode(.overlay)
-        .allowsHitTesting(false)
-    }
 
     private var backButton: some View {
         Button {
@@ -148,6 +154,7 @@ struct EmailAuthView: View {
                 .font(.system(size: 18, weight: .medium))
                 .padding(.vertical, 6)
         }
+        .accessibilityLabel("Dismiss")
     }
 }
 
@@ -190,8 +197,14 @@ final class EmailAuthViewModel: ObservableObject {
             authService.error = nil
         } catch let err as DPAuthError {
             errorMessage = err.errorDescription
+            #if canImport(UIKit)
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            #endif
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = "发送失败，请稍后再试"
+            #if canImport(UIKit)
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            #endif
         }
     }
 

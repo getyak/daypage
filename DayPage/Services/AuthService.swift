@@ -3,23 +3,24 @@ import Supabase
 import AuthenticationServices
 import CryptoKit
 import Sentry
+import Network
 
 // MARK: - DPAuthError
 
-/// 类型化的、面向用户的认证错误。命名为 `DPAuthError` 以避免与
-/// `Supabase.AuthError` 冲突。视图层应直接渲染 `errorDescription`
-/// — 无需进一步的字符串处理。
+/// Typed, user-facing auth errors. Named `DPAuthError` to avoid collision with
+/// `Supabase.AuthError`. Views render `errorDescription` directly — no extra
+/// string processing required.
 enum DPAuthError: LocalizedError, Equatable {
     case missingCredential
     case serviceUnavailable
     case invalidEmail
-    /// 在客户端或服务器层触发了速率限制。`retryAfter` 是
-    /// 调用者必须等待的秒数才能再次请求。
+    /// Client- or server-side rate limit hit. `retryAfter` is the seconds the
+    /// caller must wait before making another request.
     case rateLimited(retryAfter: Int)
     case otpExpired
     case otpMismatch
-    /// 用户已超出本地 OTP 尝试预算；UI 必须锁定
-    /// 页面 `retryAfter` 秒。
+    /// User exceeded the local OTP-attempt budget; UI must lock the screen for
+    /// `retryAfter` seconds.
     case otpLocked(retryAfter: Int)
     case networkUnavailable
     case unknown(message: String)
@@ -51,9 +52,9 @@ enum DPAuthError: LocalizedError, Equatable {
 
 // MARK: - AuthService
 
-/// 集中式认证服务。管理 Supabase session 生命周期，
-/// 暴露登录/登出方法，向视图发布 session 状态，
-/// 并强制执行客户端速率限制 + OTP 锁定。
+/// Centralised auth service. Manages Supabase session lifecycle, exposes
+/// sign-in / sign-out methods, and publishes session state to views.
+/// Rate-limiting and lockout persistence are delegated to `AuthRateLimiter`.
 @MainActor
 final class AuthService: NSObject, ObservableObject {
 
@@ -66,6 +67,8 @@ final class AuthService: NSObject, ObservableObject {
     @Published var session: Session?
     @Published var isLoading: Bool = false
     @Published var error: DPAuthError?
+    /// `true` while the network path is unavailable (NWPathMonitor).
+    @Published private(set) var isNetworkUnavailable: Bool = false
 
     // MARK: Derived — Login Provider
 
@@ -87,18 +90,15 @@ final class AuthService: NSObject, ObservableObject {
     // MARK: Dependencies
 
     let supabase: SupabaseClient
-    /// 当 Secrets 缺失且我们回退到非功能性占位客户端时为 true。
+    /// `true` when Secrets are missing and we fell back to a non-functional placeholder client.
     let isPlaceholder: Bool
 
     // MARK: Private
 
     private var appleSignInContinuation: CheckedContinuation<ASAuthorization, Error>?
     private var authStateTask: Task<Void, Never>?
-
-    private let defaults: UserDefaults = .standard
-    private let resendCooldown: TimeInterval = 60
-    private let otpFailureLimit: Int = 5
-    private let otpLockDuration: TimeInterval = 30 * 60  // 30 min
+    private let pathMonitor = NWPathMonitor()
+    private let pathMonitorQueue = DispatchQueue(label: "com.daypage.auth.pathmonitor", qos: .utility)
 
     fileprivate static let appleEmailKey = "appleSignInEmail"
 
@@ -120,13 +120,15 @@ final class AuthService: NSObject, ObservableObject {
         isPlaceholder = false
         super.init()
         migrateAppleEmailToKeychain()
+        migrateRateLimiterToKeychain()
         startAuthStateListener()
+        startNetworkMonitor()
     }
 
-    /// 一次性迁移：如果之前的构建将 `appleSignInEmail` 存储在
-    /// UserDefaults 中，将其移至 Keychain 并擦除明文副本。
-    /// 幂等 — 可在每次启动时安全调用。
+    /// One-time migration: move `appleSignInEmail` from UserDefaults to Keychain.
+    /// Idempotent — safe to call on every launch.
     private func migrateAppleEmailToKeychain() {
+        let defaults = UserDefaults.standard
         guard let legacy = defaults.string(forKey: Self.appleEmailKey),
               !legacy.isEmpty else { return }
         if KeychainHelper.get(forKey: Self.appleEmailKey) == nil {
@@ -135,8 +137,45 @@ final class AuthService: NSObject, ObservableObject {
         defaults.removeObject(forKey: Self.appleEmailKey)
     }
 
+    /// One-time migration: move UserDefaults-based rate-limiter keys to Keychain.
+    /// Keys are hashed so we cannot enumerate all emails — we migrate the two
+    /// well-known un-hashed legacy keys and the generic prefix pattern we can find.
+    private func migrateRateLimiterToKeychain() {
+        let defaults = UserDefaults.standard
+        let prefixes = ["auth.otp.lastSentAt.", "auth.otp.failureCount.", "auth.otp.lockUntil."]
+        for (key, value) in defaults.dictionaryRepresentation() {
+            guard prefixes.contains(where: { key.hasPrefix($0) }) else { continue }
+            if let str = value as? String {
+                if KeychainHelper.get(forKey: key) == nil {
+                    KeychainHelper.set(str, forKey: key)
+                }
+            } else if let dbl = value as? Double {
+                if KeychainHelper.get(forKey: key) == nil {
+                    KeychainHelper.set(String(dbl), forKey: key)
+                }
+            }
+            defaults.removeObject(forKey: key)
+        }
+    }
+
     deinit {
         authStateTask?.cancel()
+        pathMonitor.cancel()
+    }
+
+    // MARK: - Network Monitor
+
+    private func startNetworkMonitor() {
+        pathMonitor.pathUpdateHandler = { [weak self] path in
+            let unavailable = path.status == .unsatisfied
+            Task { @MainActor [weak self] in
+                self?.isNetworkUnavailable = unavailable
+                if unavailable {
+                    DayPageLogger.log(level: "WARN", message: "[AuthService] Network path unsatisfied")
+                }
+            }
+        }
+        pathMonitor.start(queue: pathMonitorQueue)
     }
 
     // MARK: - Auth State Listener
@@ -146,15 +185,17 @@ final class AuthService: NSObject, ObservableObject {
         authStateTask?.cancel()
         authStateTask = Task { [weak self] in
             guard let self else { return }
-            for await (_, session) in self.supabase.auth.authStateChanges {
+            for await (event, session) in self.supabase.auth.authStateChanges {
                 if Task.isCancelled { break }
                 await MainActor.run {
                     self.session = session
                     if let session {
                         let sentryUser = Sentry.User(userId: session.user.id.uuidString)
                         SentrySDK.setUser(sentryUser)
+                        DayPageLogger.shared.info("[AuthService] Auth event: \(String(describing: event)), session expires: \(session.expiresAt)")
                     } else {
                         SentrySDK.setUser(nil)
+                        DayPageLogger.shared.info("[AuthService] Auth event: \(String(describing: event)), session cleared")
                     }
                 }
             }
@@ -164,6 +205,11 @@ final class AuthService: NSObject, ObservableObject {
     // MARK: - Apple Sign-In
 
     func signInWithApple() async throws {
+        guard !isNetworkUnavailable else {
+            let err = DPAuthError.networkUnavailable
+            self.error = err
+            throw err
+        }
         isLoading = true
         error = nil
 
@@ -178,8 +224,8 @@ final class AuthService: NSObject, ObservableObject {
             }
 
             if let email = appleCredential.email {
-                // Apple 只在首次登录时返回 `email`，所以我们
-                // 将其持久化到 Keychain（而不是 UserDefaults）以避免 PII 泄露。
+                // Apple only returns `email` on first sign-in, so persist it to
+                // Keychain (not UserDefaults) to avoid PII leakage.
                 KeychainHelper.set(email, forKey: Self.appleEmailKey)
             }
 
@@ -212,38 +258,34 @@ final class AuthService: NSObject, ObservableObject {
 
     // MARK: - Email OTP
 
-    /// 清除 `email` 的客户端重新发送冷却，以便下一次
-    /// `sendOTP` 调用不会被阻止。仅当服务器确认
-    /// 当前验证码已过期时才调用 — 不作为通用绕过。
+    /// Clears the resend cooldown for `email` so the next `sendOTP` call is not
+    /// blocked. Only call when the server confirms the current code has expired.
     func resetResendCooldown(email: String) {
-        defaults.removeObject(forKey: resendKey(for: email))
+        AuthRateLimiter.shared.resetResendCooldown(email: email)
     }
 
-    /// 调用者可以为 `email` 请求新 OTP 之前的剩余秒数。
-    /// 如果冷却已完全过期（或从未设置），返回 0。由
-    /// UI 使用来初始化其重新发送倒计时，即使在表单关闭/重新打开之间也是如此。
+    /// Seconds the caller must wait before requesting a new OTP for `email`.
+    /// Returns 0 when fully expired (or never set). Used by UI to seed its
+    /// resend countdown even after the form is closed and reopened.
     func resendCooldownRemaining(email: String) -> Int {
-        let key = resendKey(for: email)
-        let last = defaults.double(forKey: key)
-        guard last > 0 else { return 0 }
-        let elapsed = Date().timeIntervalSince1970 - last
-        let remaining = resendCooldown - elapsed
-        return remaining > 0 ? Int(remaining.rounded(.up)) : 0
+        AuthRateLimiter.shared.resendCooldownRemaining(email: email)
     }
 
-    /// 请求 6 位邮箱验证码。Supabase 同时发送 magic
-    /// link 和一次性令牌；我们通过 `verifyOTP` 兑换令牌。
-    ///
-    /// 对每个邮箱强制执行 60 秒的客户端冷却，以避免触发
-    /// 服务器速率限制。
+    /// Requests a 6-digit email OTP. Enforces a 60-second client-side cooldown
+    /// per email to avoid triggering server rate limits.
     func sendOTP(email: String) async throws {
         guard !isPlaceholder else {
             let err = DPAuthError.serviceUnavailable
             self.error = err
             throw err
         }
+        guard !isNetworkUnavailable else {
+            let err = DPAuthError.networkUnavailable
+            self.error = err
+            throw err
+        }
 
-        let remaining = resendCooldownRemaining(email: email)
+        let remaining = AuthRateLimiter.shared.resendCooldownRemaining(email: email)
         if remaining > 0 {
             let err = DPAuthError.rateLimited(retryAfter: remaining)
             self.error = err
@@ -256,7 +298,8 @@ final class AuthService: NSObject, ObservableObject {
 
         do {
             try await supabase.auth.signInWithOTP(email: email, shouldCreateUser: true)
-            defaults.set(Date().timeIntervalSince1970, forKey: resendKey(for: email))
+            AuthRateLimiter.shared.recordOTPSent(email: email)
+            DayPageLogger.shared.info("[AuthService] OTP sent successfully")
         } catch {
             let mapped = mapSupabaseError(error)
             self.error = mapped
@@ -264,18 +307,22 @@ final class AuthService: NSObject, ObservableObject {
         }
     }
 
-    /// 将 6 位 OTP 兑换为真实的 session。成功后 Supabase
-    /// SDK 通过 `authStateChanges` 发出 `signedIn`，这将更新 `session`。
-    ///
-    /// 强制执行 5 次尝试 → 30 分钟本地锁定以阻止暴力猜测。
+    /// Redeems a 6-digit OTP for a real session. On success the Supabase SDK
+    /// emits `signedIn` via `authStateChanges`, which updates `session`.
+    /// Enforces 5-attempt → 30-minute local lockout to deter brute-force.
     func verifyOTP(email: String, token: String) async throws {
         guard !isPlaceholder else {
             let err = DPAuthError.serviceUnavailable
             self.error = err
             throw err
         }
+        guard !isNetworkUnavailable else {
+            let err = DPAuthError.networkUnavailable
+            self.error = err
+            throw err
+        }
 
-        if let lockedFor = otpLockRemaining(email: email) {
+        if let lockedFor = AuthRateLimiter.shared.otpLockRemaining(email: email) {
             let err = DPAuthError.otpLocked(retryAfter: lockedFor)
             self.error = err
             throw err
@@ -287,31 +334,23 @@ final class AuthService: NSObject, ObservableObject {
 
         do {
             _ = try await supabase.auth.verifyOTP(email: email, token: token, type: .email)
-            resetOTPFailures(email: email)
-            // 成功后清除任何残留错误，以便监听器流
-            // 可以干净地交接。
+            AuthRateLimiter.shared.resetOTPFailures(email: email)
             self.error = nil
+            DayPageLogger.shared.info("[AuthService] OTP verified successfully")
         } catch {
             let mapped = mapSupabaseError(error)
             if mapped == .otpMismatch || mapped == .otpExpired {
-                incrementOTPFailures(email: email)
-                if let lockedFor = otpLockRemaining(email: email) {
+                AuthRateLimiter.shared.incrementOTPFailures(email: email)
+                if let lockedFor = AuthRateLimiter.shared.otpLockRemaining(email: email) {
                     let lockErr = DPAuthError.otpLocked(retryAfter: lockedFor)
-                    self.error = lockErr   // lockout IS service-level; publish it
+                    self.error = lockErr   // lockout is service-level; publish it
                     throw lockErr
                 }
             }
-            // 对于暂时性故障（不匹配 / 过期 / 网络）不要
-            // 覆盖 authService.error — 视图对这些拥有 localError。
-            // 只发布影响跨视图状态的错误（上面的锁定）。
+            // Transient failures (mismatch / expired / network) are owned by the
+            // view — don't overwrite cross-view service error state.
             throw mapped
         }
-    }
-
-    // MARK: - Legacy Magic-Link (kept for deep-link callbacks)
-
-    func signInWithMagicLink(email: String) async throws {
-        try await sendOTP(email: email)
     }
 
     // MARK: - Sign-Out
@@ -321,14 +360,15 @@ final class AuthService: NSObject, ObservableObject {
         error = nil
         defer { isLoading = false }
         try await supabase.auth.signOut()
-        session = nil   // 监听器会重新确认；本地清除对 UI 立即生效。
+        session = nil   // listener will confirm; local clear takes effect immediately in UI
         SentrySDK.setUser(nil)
+        DayPageLogger.shared.info("[AuthService] User signed out")
     }
 
     // MARK: - Error Mapping
 
-    /// 将任何底层错误（Supabase `AuthError`、`URLError` 或
-    /// 已类型化的 `DPAuthError`）转换为我们单一的域类型。
+    /// Converts any underlying error (Supabase `AuthError`, `URLError`, or an
+    /// already-typed `DPAuthError`) into our single domain type.
     private func mapSupabaseError(_ error: Error) -> DPAuthError {
         if let already = error as? DPAuthError { return already }
 
@@ -338,7 +378,7 @@ final class AuthService: NSObject, ObservableObject {
                  .timedOut, .dataNotAllowed, .internationalRoamingOff:
                 return .networkUnavailable
             default:
-                return .unknown(message: urlError.localizedDescription)
+                return .unknown(message: "请求失败，请稍后再试")
             }
         }
 
@@ -354,16 +394,13 @@ final class AuthService: NSObject, ObservableObject {
             }
             if code == .validationFailed { return .invalidEmail }
 
-            // 当 errorCode 无帮助时，回退到 HTTP 状态码。
+            // Fall back to HTTP status codes when errorCode isn't informative.
             if case let .api(_, _, _, response) = sbError {
                 if response.statusCode == 429 {
                     let retry = parseRetryAfter(from: sbError) ?? 60
                     return .rateLimited(retryAfter: retry)
                 }
                 if response.statusCode == 422 { return .otpMismatch }
-                // 400 with "expired" in message → otpExpired; other 400 OTP
-                // errors (invalid_otp_state, token mismatch, etc.) → otpMismatch
-                // so we never falsely tell a user their code has expired.
                 if response.statusCode == 400 {
                     let msg = sbError.message.lowercased()
                     if msg.contains("expired") { return .otpExpired }
@@ -371,10 +408,13 @@ final class AuthService: NSObject, ObservableObject {
                 }
             }
 
-            return .unknown(message: sbError.message)
+            // Log the raw server message privately but never surface it to the user.
+            DayPageLogger.shared.error("[AuthService] Unmapped auth error (private)")
+            return .unknown(message: "请求失败，请稍后再试")
         }
 
-        return .unknown(message: error.localizedDescription)
+        DayPageLogger.shared.error("[AuthService] Unknown error type (private)")
+        return .unknown(message: "请求失败，请稍后再试")
     }
 
     private func parseRetryAfter(from sbError: Supabase.AuthError) -> Int? {
@@ -384,57 +424,6 @@ final class AuthService: NSObject, ObservableObject {
             return seconds
         }
         return nil
-    }
-
-    // MARK: - Persistent Rate Limit / Lockout Storage
-
-    /// 使用 SHA-256 哈希邮箱，使 UserDefaults 的 key 永远不包含 PII。
-    private func emailHash(_ email: String) -> String {
-        let normalized = email.lowercased().trimmingCharacters(in: .whitespaces)
-        let digest = SHA256.hash(data: Data(normalized.utf8))
-        return digest.map { String(format: "%02x", $0) }.joined()
-    }
-
-    private func resendKey(for email: String) -> String {
-        "auth.otp.lastSentAt.\(emailHash(email))"
-    }
-
-    private func failureCountKey(for email: String) -> String {
-        "auth.otp.failureCount.\(emailHash(email))"
-    }
-
-    private func lockUntilKey(for email: String) -> String {
-        "auth.otp.lockUntil.\(emailHash(email))"
-    }
-
-    /// 如果邮箱当前被锁定，返回剩余锁定秒数，
-    /// 否则返回 nil。惰性清除过期的锁定。
-    private func otpLockRemaining(email: String) -> Int? {
-        let key = lockUntilKey(for: email)
-        let lockUntil = defaults.double(forKey: key)
-        guard lockUntil > 0 else { return nil }
-        let remaining = lockUntil - Date().timeIntervalSince1970
-        if remaining <= 0 {
-            defaults.removeObject(forKey: key)
-            defaults.removeObject(forKey: failureCountKey(for: email))
-            return nil
-        }
-        return Int(remaining.rounded(.up))
-    }
-
-    private func incrementOTPFailures(email: String) {
-        let key = failureCountKey(for: email)
-        let next = defaults.integer(forKey: key) + 1
-        defaults.set(next, forKey: key)
-        if next >= otpFailureLimit {
-            let unlockAt = Date().timeIntervalSince1970 + otpLockDuration
-            defaults.set(unlockAt, forKey: lockUntilKey(for: email))
-        }
-    }
-
-    private func resetOTPFailures(email: String) {
-        defaults.removeObject(forKey: failureCountKey(for: email))
-        defaults.removeObject(forKey: lockUntilKey(for: email))
     }
 }
 
@@ -472,7 +461,6 @@ extension AuthService: ASAuthorizationControllerPresentationContextProviding {
         guard let windowScene = scenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene
             ?? scenes.compactMap({ $0 as? UIWindowScene }).first
         else {
-            // Should never happen: Apple Sign In is only triggered from a foreground scene.
             return UIWindow()
         }
         return windowScene.windows.first(where: { $0.isKeyWindow })
