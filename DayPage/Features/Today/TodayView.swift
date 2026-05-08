@@ -390,6 +390,19 @@ struct TodayView: View {
             )) { target in
                 DayDetailView(dateString: target.dateString)
             }
+            // Fallback "yesterday daily page" cover — opened from the zero-memo
+            // fallback view when yesterday already has a compiled page.
+            .fullScreenCover(item: Binding(
+                get: { fallbackDailyPageDateString.map { OnThisDayNavTarget(dateString: $0) } },
+                set: { fallbackDailyPageDateString = $0?.dateString }
+            )) { target in
+                DailyPageView(
+                    dateString: target.dateString,
+                    onReturnToToday: { _ in
+                        fallbackDailyPageDateString = nil
+                    }
+                )
+            }
             .bannerOverlay()
             .sheet(isPresented: $showAuthSheet) {
                 AuthView()
@@ -448,6 +461,75 @@ struct TodayView: View {
             }
     }
 
+    // MARK: - Fallback Content (zero-memo today)
+
+    /// Shown in the timeline when the user is onboarded but today has no memos.
+    /// Priority is decided by `viewModel.fallbackContent`; each branch falls
+    /// back to existing components instead of inventing a new visual language.
+    @ViewBuilder
+    private var fallbackContentView: some View {
+        switch viewModel.fallbackContent {
+        case .yesterdayDailyPage(let page):
+            yesterdayDailyPageFallback(page)
+        case .onThisDay(let memos):
+            onThisDayFallback(memos: memos)
+        case .weekRecap(let entries):
+            WeeklyRecapSection(entries: entries) { dateString in
+                onThisDayDateString = dateString
+            }
+        case .pureEmpty:
+            EmptyStateView.todayNoSignals()
+                .padding(.horizontal, 20)
+        }
+    }
+
+    @ViewBuilder
+    private func yesterdayDailyPageFallback(_ page: DailyPageModel) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("YESTERDAY")
+                .font(DSType.mono10)
+                .tracking(1.0)
+                .foregroundColor(DSColor.inkSubtle)
+                .padding(.horizontal, 20)
+
+            DailyPageEntryCard(
+                summary: page.summary.isEmpty ? nil : page.summary,
+                onTap: {
+                    fallbackDailyPageDateString = page.dateString
+                }
+            )
+            .padding(.horizontal, 20)
+        }
+    }
+
+    @ViewBuilder
+    private func onThisDayFallback(memos: [Memo]) -> some View {
+        // Prefer the structured `onThisDayEntry` (carries yearsAgo + filePath);
+        // synthesize a lightweight one from memos when the index is cold.
+        let entry = viewModel.onThisDayEntry ?? OnThisDayEntry(
+            originalDate: memos.first?.created ?? Date(),
+            yearsAgo: nil,
+            daysAgo: nil,
+            preview: memos.first?.body.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
+            filePath: ""
+        )
+        OnThisDayCard(
+            entry: entry,
+            onDismiss: { viewModel.onThisDayEntry = nil },
+            onTap: { tapped in
+                onThisDayDateString = Self.dateString(from: tapped.originalDate)
+            }
+        )
+    }
+
+    private static func dateString(from date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone.current
+        return f.string(from: date)
+    }
+
     // MARK: - Swipeable Daily Page Card
 
     /// Daily Page entry card with a left-swipe-to-reveal "重新编译" action.
@@ -502,119 +584,6 @@ struct TodayView: View {
                         }
                     }
             )
-        }
-    }
-
-    // MARK: - Fallback Content View
-
-    /// Fallback content shown on Today when memos isEmpty and hasOnboarded.
-    /// Switches on TodayViewModel.fallbackContent priority chain.
-    @ViewBuilder
-    private var fallbackContentView: some View {
-        switch viewModel.fallbackContent {
-        case .yesterdayDailyPage(let page):
-            VStack(spacing: 8) {
-                HStack(spacing: 6) {
-                    Image(systemName: "calendar.badge.clock")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(DSColor.amberAccent)
-                    Text("昨日 Daily Page")
-                        .font(DSType.caption)
-                        .foregroundColor(DSColor.inkPrimary)
-                    Spacer()
-                    Button {
-                        fallbackDailyPageDateString = page.dateString
-                    } label: {
-                        Text("查看")
-                            .font(DSType.caption)
-                            .foregroundColor(DSColor.amberAccent)
-                    }
-                }
-                Text(page.summary)
-                    .font(DSType.bodySM)
-                    .foregroundColor(DSColor.inkSecondary)
-                    .lineLimit(3)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(16)
-            .liquidGlassCard()
-
-        case .onThisDay(let memos):
-            VStack(spacing: 8) {
-                HStack(spacing: 6) {
-                    Image(systemName: "clock.arrow.circlepath")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(DSColor.amberAccent)
-                    Text("那年今日")
-                        .font(DSType.caption)
-                        .foregroundColor(DSColor.inkPrimary)
-                    Spacer()
-                    if let entry = viewModel.onThisDayEntry {
-                        Button {
-                            let f = DateFormatter()
-                            f.dateFormat = "yyyy-MM-dd"
-                            f.locale = Locale(identifier: "en_US_POSIX")
-                            f.timeZone = TimeZone.current
-                            onThisDayDateString = f.string(from: entry.originalDate)
-                        } label: {
-                            Text("查看 \\(memos.count) 条")
-                                .font(DSType.caption)
-                                .foregroundColor(DSColor.amberAccent)
-                        }
-                    }
-                }
-                ForEach(Array(memos.prefix(3)), id: \\.id) { memo in
-                    Text(memo.body.prefix(60).trimmingCharacters(in: .whitespacesAndNewlines))
-                        .font(DSType.mono10)
-                        .foregroundColor(DSColor.inkMuted)
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-            .padding(16)
-            .liquidGlassCard()
-
-        case .weekRecap(let stats):
-            VStack(spacing: 8) {
-                HStack(spacing: 6) {
-                    Image(systemName: "chart.bar.fill")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(DSColor.amberAccent)
-                    Text("本周回顾")
-                        .font(DSType.caption)
-                        .foregroundColor(DSColor.inkPrimary)
-                    Spacer()
-                    Text("\\(stats.count) 天")
-                        .font(DSType.mono10)
-                        .foregroundColor(DSColor.inkMuted)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 16) {
-                        ForEach(stats) { entry in
-                            VStack(spacing: 4) {
-                                if let summary = entry.summary {
-                                    Text(summary)
-                                        .font(DSType.bodySM)
-                                        .foregroundColor(DSColor.inkPrimary)
-                                        .lineLimit(2)
-                                }
-                                Text(entry.dateString)
-                                    .font(DSType.mono8)
-                                    .foregroundColor(DSColor.inkMuted)
-                            }
-                        }
-                    }
-                }
-            }
-            .padding(16)
-            .liquidGlassCard()
-
-        case .pureEmpty:
-            EmptyStateView.todayBlank {
-                // focus is implicit — the input bar is always visible below
-            }
         }
     }
 

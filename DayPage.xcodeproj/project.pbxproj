@@ -72,6 +72,10 @@
 		A10000082 /* InputBarV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000082 /* InputBarV4.swift */; };
 		A10000083 /* WeeklyRecapService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000083 /* WeeklyRecapService.swift */; };
 		A10000084 /* WeeklyRecapSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000084 /* WeeklyRecapSection.swift */; };
+		A10000200 /* ComposerStateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000200 /* ComposerStateMachine.swift */; };
+		A10000201 /* SpotlightStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000201 /* SpotlightStripView.swift */; };
+		A10000202 /* SmartTemplateRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000202 /* SmartTemplateRow.swift */; };
+		A10000203 /* InlineLensStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000203 /* InlineLensStrip.swift */; };
 		A10000060 /* DailySharePosterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000060 /* DailySharePosterView.swift */; };
 		A10000061 /* PosterRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000061 /* PosterRenderer.swift */; };
 		A10000063 /* SwipeableMemoCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000063 /* SwipeableMemoCard.swift */; };
@@ -217,6 +221,10 @@
 		A20000082 /* InputBarV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputBarV4.swift; sourceTree = "<group>"; };
 		A20000083 /* WeeklyRecapService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapService.swift; sourceTree = "<group>"; };
 		A20000084 /* WeeklyRecapSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapSection.swift; sourceTree = "<group>"; };
+		A20000200 /* ComposerStateMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerStateMachine.swift; sourceTree = "<group>"; };
+		A20000201 /* SpotlightStripView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightStripView.swift; sourceTree = "<group>"; };
+		A20000202 /* SmartTemplateRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartTemplateRow.swift; sourceTree = "<group>"; };
+		A20000203 /* InlineLensStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineLensStrip.swift; sourceTree = "<group>"; };
 		A20000063 /* SwipeableMemoCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeableMemoCard.swift; sourceTree = "<group>"; };
 		A20000064 /* AttachmentMenuSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentMenuSheet.swift; sourceTree = "<group>"; };
 		A20000079 /* iCloudSyncMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iCloudSyncMonitor.swift; sourceTree = "<group>"; };
@@ -525,6 +533,10 @@
 				A20000055 /* PressToTalkButton.swift */,
 				A20000063 /* SwipeableMemoCard.swift */,
 				A20000084 /* WeeklyRecapSection.swift */,
+				A20000200 /* ComposerStateMachine.swift */,
+				A20000201 /* SpotlightStripView.swift */,
+				A20000202 /* SmartTemplateRow.swift */,
+				A20000203 /* InlineLensStrip.swift */,
 				FT1000001 /* DayOrbView.swift */,
 			);
 			path = Today;
@@ -913,6 +925,10 @@
 				A10000082 /* InputBarV4.swift in Sources */,
 				A10000083 /* WeeklyRecapService.swift in Sources */,
 				A10000084 /* WeeklyRecapSection.swift in Sources */,
+				A10000200 /* ComposerStateMachine.swift in Sources */,
+				A10000201 /* SpotlightStripView.swift in Sources */,
+				A10000202 /* SmartTemplateRow.swift in Sources */,
+				A10000203 /* InlineLensStrip.swift in Sources */,
 				A10000052 /* AttachmentMenuPopover.swift in Sources */,
 				A10000064 /* AttachmentMenuSheet.swift in Sources */,
 				A10000053 /* InputTokens.swift in Sources */,

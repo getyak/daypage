@@ -77,10 +77,10 @@ struct SmartTemplateRow: View {
 
                 Text(template.prefix)
                     .font(DSType.serifBody16)
-                    .foregroundStyle(DSColor.inkMuted)
+                    .foregroundColor(DSColor.inkMuted)
                 + Text(template.placeholder)
                     .font(DSType.serifBody16)
-                    .foregroundStyle(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkSubtle)
 
                 Spacer()
             }

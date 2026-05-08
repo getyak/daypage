@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - SpotlightStripView (US-014)
 //
@@ -35,6 +36,8 @@ struct SpotlightStripView: View {
             let text = condition.isEmpty ? temp : "\(temp) \(condition)"
             onInsertText(text)
         case .location(let short, let lat, let lng):
+            // Carry coordinates through; previously dropped to nil/nil and
+            // degraded memos vs. the explicit "fetch location" button.
             let loc = Memo.Location(name: short, lat: lat, lng: lng)
             onInsertLocation(loc)
         case .timeRitual(let emoji, let text):
@@ -42,7 +45,13 @@ struct SpotlightStripView: View {
         case .lastMemoTail(let snippet):
             onInsertText("> \(snippet)")
         case .smartPaste:
-            onInsertText(UIPasteboard.general.string ?? "")
+            // Read pasteboard contents only on explicit user tap. The chip
+            // builder upstream never pre-reads the string (would trigger the
+            // iOS "Pasted from <other app>" privacy banner on every render).
+            let raw = UIPasteboard.general.string ?? ""
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return }
+            onInsertText(String(trimmed.prefix(100)))
         }
     }
 }
@@ -103,7 +112,8 @@ private struct SpotlightChip: View {
             let preview = String(trimmed.prefix(20))
             return trimmed.count > 20 ? "\(preview)…" : preview
         case .smartPaste:
-            return "粘贴剪贴板"
+            // Static label — never previews pasteboard content (privacy).
+            return "剪贴板"
         }
     }
 
