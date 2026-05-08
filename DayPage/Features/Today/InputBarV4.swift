@@ -76,6 +76,22 @@ struct InputBarV4: View {
     /// Spring spec shared by expanding / collapsing transitions (per AC).
     private static let composerSpring = Animation.spring(response: 0.42, dampingFraction: 0.78)
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Animation used for the liquid morph — degrades to a simple fade when
+    /// Reduce Motion is enabled (AC: Reduced Motion 降级).
+    private var morphAnimation: Animation {
+        reduceMotion
+            ? .easeInOut(duration: 0.2)
+            : Self.composerSpring
+    }
+
+    // Geometry IDs for matchedGeometryEffect
+    private enum MorphID: Hashable {
+        case surface   // idle capsule ↔ composing card background
+        case micOrb    // amber orb persists across both states
+    }
+
     /// Recording floor below which a press-and-release is treated as
     /// accidental noise. Capture v2 boundary: respect the user's time —
     /// a sub-second silent clip carries no meaning, drop it with a hint.
@@ -103,12 +119,12 @@ struct InputBarV4: View {
         switch (composerState, next) {
         case (.idle, .expanding):
             composerState = .expanding
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            withAnimation(Self.composerSpring) { composerState = .open }
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            withAnimation(morphAnimation) { composerState = .open }
         case (.open, .collapsing):
             composerState = .collapsing
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            withAnimation(Self.composerSpring) { composerState = .idle }
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            withAnimation(morphAnimation) { composerState = .idle }
         default:
             break
         }
@@ -155,23 +171,21 @@ struct InputBarV4: View {
                 locationChipRow(loc: loc)
             }
 
-            // STREAM dock layout:
-            // - composing → INK-style: full-width text area + icon toolbar row
-            // - idle      → centered three-slot dock with hint label below
-            Group {
-                if isComposing {
-                    composingToolbarLayout
-                } else {
-                    VStack(spacing: 8) {
-                        streamDock
-                        dockHintLabel
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 10)
-                    .padding(.bottom, 14)
+            // Liquid Morph — idle capsule ↔ composing card.
+            // matchedGeometryEffect(id: .surface) carries the background shape
+            // through the spring so every in-between frame is geometrically
+            // continuous (AC: 录屏验证任意一帧截图取出来形状都能解释从哪来).
+            if isComposing {
+                composingCardMorph
+            } else {
+                VStack(spacing: 8) {
+                    streamDockMorph
+                    dockHintLabel
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .padding(.bottom, 14)
             }
-            .animation(Self.composerSpring, value: isComposing)
         }
         // V4: transparent dock — ambient page background shows through.
         // Warm gradient veil fades the list content behind the dock.
@@ -251,14 +265,18 @@ struct InputBarV4: View {
     // design canvas (inner highlight + soft drop shadow).
 
     // STREAM dock — glass capsule wrapping three keys (design spec: glassStyle hi + radius 999).
-    private var streamDock: some View {
+    // US-008: matchedGeometryEffect on the capsule background so it morphs into
+    // the composing card shape. The mic orb also carries its own effect so it
+    // slides to the card's bottom-left corner rather than disappearing.
+    private var streamDockMorph: some View {
         HStack(spacing: 6) {
             // LEFT — More (+)
             dockSideButton(systemImage: "plus", accessibilityLabel: "更多附件") {
                 showAttachmentMenu = true
             }
 
-            // CENTER — amber radial-gradient mic orb (64pt per design)
+            // CENTER — amber mic orb. matchedGeometryEffect makes it travel
+            // to the card bottom-left corner while shrinking 64→28 (AC).
             PressToTalkButton(
                 onPressStart: handlePressToTalkStart,
                 onReleaseSend: handlePressToTalkReleaseSend,
@@ -271,13 +289,13 @@ struct InputBarV4: View {
                 idleIconColor: .white
             )
             .frame(width: 64, height: 64)
-            // Radial amber orb glow matching design: inner highlight + deep shadow
+            .matchedGeometryEffect(id: MorphID.micOrb, in: morphNS)
             .shadow(color: Color(hex: "5D3000").opacity(0.50), radius: 28, x: 0, y: 12)
             .shadow(color: Color(hex: "5D3000").opacity(0.20), radius: 4, x: 0, y: 2)
             .accessibilityLabel("麦克风")
             .accessibilityHint("单击进入录音页；长按说话松手发送")
 
-            // RIGHT — Aa (text expand)
+            // RIGHT — Aa (text expand). Fades out as composer opens (AC: Aa 淡出).
             dockTextButton(accessibilityLabel: "写文字") {
                 transition(to: .expanding)
                 isFocused = true
@@ -285,7 +303,9 @@ struct InputBarV4: View {
             .accessibilityIdentifier("expand-text-composer")
         }
         .padding(6)
-        // Glass capsule container — ultraThinMaterial + rim highlight
+        // Glass capsule — matchedGeometryEffect on the whole HStack so SwiftUI
+        // interpolates position, size, and corner radius to the card shape.
+        .matchedGeometryEffect(id: MorphID.surface, in: morphNS)
         .background(.ultraThinMaterial, in: Capsule())
         .overlay(Capsule().strokeBorder(
             LinearGradient(
@@ -359,42 +379,61 @@ struct InputBarV4: View {
             .animation(.easeInOut(duration: 0.18), value: pressToTalkPhase)
     }
 
-    // MARK: - Composing Toolbar Layout (INK-style)
+    // MARK: - Composing Card Morph (US-008)
     //
-    // Full-width text area on top, then a flat icon toolbar row:
-    //   [mic]  [camera]  [photo]  [location]  ········  [↑ send]
-    // The mic in this mode triggers voice-to-text (fills the text field)
-    // rather than sending a standalone voice memo.
+    // Full-width rounded-rect card that the idle capsule morphs into.
+    // matchedGeometryEffect(id: .surface) connects its background to the capsule's.
+    // matchedGeometryEffect(id: .micOrb) keeps the amber orb alive, shrinking it
+    // to 28×28 and placing it in the bottom-left toolbar as a "voice entry" button.
+    //
+    // Layout:
+    //   ┌────────────────────────────────────┐
+    //   │  TextField (with breathing caret)  │
+    //   ├────────────────────────────────────┤
+    //   │ [⬇] [🎙28] [📷] [🖼] [📍]  ···  [↑] │
+    //   └────────────────────────────────────┘
 
-    private var composingToolbarLayout: some View {
+    private var composingCardMorph: some View {
         VStack(spacing: 0) {
             // Text field — full width, no border, generous padding
-            TextField("记一笔…", text: $text, axis: .vertical)
-                .font(DSType.serifBody16)
-                .foregroundStyle(DSColor.inkPrimary)
-                .focused($isFocused)
-                .lineLimit(1...8)
-                // motion-exception: caret breathing 800ms documented in PRD US-013 / FR-20
-                // Hide native caret and render breathing custom caret overlay below.
-                .tint(.clear)
-                .overlay(alignment: .topLeading) {
-                    if isFocused {
+            ZStack(alignment: .topLeading) {
+                TextField("记一笔…", text: $text, axis: .vertical)
+                    .font(DSType.serifBody16)
+                    .foregroundStyle(DSColor.inkPrimary)
+                    .focused($isFocused)
+                    .lineLimit(1...8)
+                    // Hide native caret; breathing caret below takes over.
+                    .tint(.clear)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 14)
+                    .padding(.bottom, 10)
+                    .onTapGesture { isFocused = true }
+                    .accessibilityIdentifier("memo-input")
+
+                // Aa → caret cross-fade (AC: Aa 淡出 = TextField caret 淡入, 同位置, 200ms).
+                // Both views occupy the same top-leading slot; opacity mirrors isComposing.
+                Group {
+                    if isFocused || !text.isEmpty {
+                        // Caret fades in
                         BreathingCaretView()
-                            .padding(.leading, 20)
-                            .padding(.top, 18)
+                            .transition(.opacity)
+                    } else {
+                        // "Aa" label fades out — same position as the caret so it reads
+                        // as a continuous crossfade rather than two separate elements.
+                        Text("Aa")
+                            .font(DSFonts.serif(size: 16, weight: .medium))
+                            .foregroundStyle(DSColor.inkSubtle)
+                            .transition(.opacity)
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 14)
-                .padding(.bottom, 10)
-                .onTapGesture { isFocused = true }
-                .accessibilityIdentifier("memo-input")
+                .animation(.easeInOut(duration: 0.2), value: isFocused || !text.isEmpty)
+                .padding(.leading, 20)
+                .padding(.top, 18)
+            }
 
             // Icon toolbar row
             HStack(spacing: 0) {
-                // Collapse — dismiss keyboard and return to idle voice dock.
-                // Draft text / attachments / location are preserved so the user
-                // can re-open the composer without losing their work.
+                // Collapse — dismiss keyboard, return to idle capsule.
                 toolbarIconButton(
                     systemImage: "chevron.down",
                     accessibilityLabel: "收起，回到语音模式"
@@ -403,24 +442,35 @@ struct InputBarV4: View {
                     isFocused = false
                 }
 
-                // Mic — voice-to-text mode in composing
-                toolbarIconButton(
-                    systemImage: isComposingTranscribe ? "waveform" : "mic",
-                    tint: isComposingTranscribe ? DSColor.amberAccent : DSColor.inkMuted,
-                    accessibilityLabel: isComposingTranscribe ? "停止语音转文字" : "语音转文字"
-                ) {
+                // Mic orb — morphed from the 64pt idle orb to 28pt here (AC).
+                // Tapping it in composing mode triggers voice-to-text.
+                // matchedGeometryEffect is on the 28pt orb circle so SwiftUI
+                // interpolates size continuously (64→28) without counting the
+                // touch-target padding (44pt frame outside the effect scope).
+                Button {
                     handleComposingMicTap()
+                } label: {
+                    Circle()
+                        .fill(DSColor.amberAccent)
+                        .frame(width: 28, height: 28)
+                        .overlay(
+                            Image(systemName: isComposingTranscribe ? "waveform" : "mic")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.white)
+                        )
+                        .matchedGeometryEffect(id: MorphID.micOrb, in: morphNS)
+                        .shadow(color: DSColor.amberAccent.opacity(0.40), radius: 6, x: 0, y: 2)
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(isComposingTranscribe ? "停止语音转文字" : "语音转文字")
+                .frame(width: 44, height: 44)
 
                 // Camera
                 toolbarIconButton(systemImage: "camera", accessibilityLabel: "拍照") {
                     onCapturePhoto()
                 }
 
-                // Photo library (multi-select) — the icon IS the picker's label,
-                // not a separate button stacked behind a transparent picker.
-                // The previous ZStack + opacity(0.01) overlay broke hit-testing
-                // on iOS 26.x and left the picker unreachable (#219).
+                // Photo library
                 PhotosPicker(selection: $photosPickerItems, matching: .images, photoLibrary: .shared()) {
                     toolbarIconButtonContent(systemImage: "photo.on.rectangle")
                 }
@@ -443,6 +493,23 @@ struct InputBarV4: View {
             .padding(.horizontal, 12)
             .padding(.bottom, 10)
         }
+        // Card — matchedGeometryEffect on the whole VStack mirrors the surface
+        // geometry from the idle capsule for a continuous positional morph.
+        .matchedGeometryEffect(id: MorphID.surface, in: morphNS)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.55), Color.white.opacity(0.12)],
+                        startPoint: .top, endPoint: .bottom),
+                    lineWidth: 0.6)
+        )
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 14)
+        .shadow(color: Color(hex: "2D1E0A").opacity(0.10), radius: 24, x: 0, y: 8)
+        .shadow(color: Color(hex: "2D1E0A").opacity(0.06), radius: 4, x: 0, y: 1)
     }
 
     @ViewBuilder

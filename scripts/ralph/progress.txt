@@ -36,3 +36,4 @@ Issues: getyak/daypage#252 (Today 主页极简) + #250 (Composer 3.0 Liquid Comp
 [2026-05-08T06:47:37Z] Story #US-004: 删除 GlassTabBar，账号头像迁入设置 sheet，右上仅留齿轮 — PASSED
 [2026-05-08T06:50:13Z] Story #US-005: TodayViewModel 新增 TodayFallback 枚举与 fallbackContent 计算属性 — PASSED
 [2026-05-08T06:53:35Z] Story #US-006: 复活 OnThisDayCard 与 WeeklyRecapSection，TodayView 接入 fallback 渲染 — PASSED
+[2026-05-08T06:55:59Z] Story #US-007: InputBarV4 引入 ComposerState 状态机替换 userExpandedText — PASSED
