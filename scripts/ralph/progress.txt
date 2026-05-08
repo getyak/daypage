@@ -17,7 +17,7 @@ Issues: getyak/daypage#252 (Today 主页极简) + #250 (Composer 3.0 Liquid Comp
 - SwipeableMemoCard uses NavigationLink(value: memo.id) + .disabled(revealedSide != nil) to prevent push when swiped
 - GlassErrorBanner managed by ErrorBannerManager singleton; post via ErrorBannerManager.shared.post(...)
 - EmptyStateView has factory methods: .todayBlank(), .todayNoSignals(), .compileLocked(currentCount:), .archiveDayEmpty(), .micPermissionDenied()
-- DayOrbView lives in DayPage/Features/Today/DayOrbView.swift; takes signalCount: Int, size: CGFloat = 200 (本轮要改 default 200 → 140)
+- DayOrbView lives in DayPage/Features/Today/DayOrbView.swift; takes signalCount: Int, size: CGFloat = 140, haloOpacity: CGFloat = 0.15
 - DailyPageMemoVM: lightweight MemoDetailViewModel for archive dates; follows same rewrite() pattern as TodayViewModel
 - MemoDetailView accepts `any MemoDetailViewModel` (protocol); both TodayViewModel and DailyPageMemoVM conform
 
@@ -30,3 +30,5 @@ Issues: getyak/daypage#252 (Today 主页极简) + #250 (Composer 3.0 Liquid Comp
 
 ---
 [2026-05-08T06:43:53Z] Story #US-001: i18n 资源彻查：lproj target membership + L10n.swift 强类型枚举 — PASSED
+[2026-05-08T06:44:37Z] Story #US-002: AmbientBackground 纯化：删 4 团暖色光斑，默认仅 cream 底 — PASSED
+[2026-05-08T07:10:00Z] Story #US-003: Day Orb 收敛：size 140pt + halo opacity 0.15 + orbFill ×0.5 — PASSED

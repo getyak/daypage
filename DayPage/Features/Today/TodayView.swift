@@ -538,7 +538,7 @@ struct TodayView: View {
             Button {
                 // TODO: open Day Drawer (follow-up story)
             } label: {
-                DayOrbView(signalCount: viewModel.signalCount, size: 200)
+                DayOrbView(signalCount: viewModel.signalCount, size: 140)
             }
             .buttonStyle(.plain)
         }

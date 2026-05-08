@@ -8,7 +8,10 @@ import SwiftUI
 
 struct DayOrbView: View {
     let signalCount: Int
-    var size: CGFloat = 200
+    var size: CGFloat = 140
+    var haloOpacity: CGFloat = 0.15
+
+    @State private var breatheScale: CGFloat = 1.0
 
     var body: some View {
         ZStack {
@@ -16,9 +19,18 @@ struct DayOrbView: View {
             orb
         }
         .frame(width: size + 32, height: size + 32)
+        .scaleEffect(breatheScale)
         // Drop shadow: two-layer stack matching the glass card recipe
         .shadow(color: Color(hex: "2D1E0A").opacity(0.08), radius: 4, x: 0, y: 2)
         .shadow(color: Color(hex: "2D1E0A").opacity(0.14), radius: 28, x: 0, y: 12)
+        .onAppear {
+            withAnimation(
+                .easeInOut(duration: 4).repeatForever(autoreverses: true)
+            ) {
+                // Amplitude ×0.7 relative to the original ±0.05 range → ±0.035
+                breatheScale = 1.035
+            }
+        }
     }
 
     // MARK: - Halo
@@ -29,7 +41,7 @@ struct DayOrbView: View {
             .fill(
                 RadialGradient(
                     colors: [
-                        Color(red: 232/255, green: 151/255, blue: 77/255).opacity(0.4),
+                        Color(red: 232/255, green: 151/255, blue: 77/255).opacity(haloOpacity),
                         Color.clear
                     ],
                     center: .center,
@@ -54,16 +66,16 @@ struct DayOrbView: View {
         .frame(width: size, height: size)
     }
 
-    // Radial gradient fill per spec: white 0.85 → rgba(255,206,140,0.4) at 40% → rgba(168,84,27,0.2) at 80%
+    // Radial gradient fill — all stop opacities ×0.5 vs original spec for a lighter orb.
     private var orbFill: some View {
         Circle()
             .fill(
                 RadialGradient(
                     stops: [
-                        .init(color: Color.white.opacity(0.85), location: 0),
-                        .init(color: Color(red: 255/255, green: 206/255, blue: 140/255).opacity(0.4), location: 0.4),
-                        .init(color: Color(red: 168/255, green: 84/255, blue: 27/255).opacity(0.2), location: 0.8),
-                        .init(color: Color(red: 168/255, green: 84/255, blue: 27/255).opacity(0.05), location: 1)
+                        .init(color: Color.white.opacity(0.425), location: 0),
+                        .init(color: Color(red: 255/255, green: 206/255, blue: 140/255).opacity(0.2), location: 0.4),
+                        .init(color: Color(red: 168/255, green: 84/255, blue: 27/255).opacity(0.1), location: 0.8),
+                        .init(color: Color(red: 168/255, green: 84/255, blue: 27/255).opacity(0.025), location: 1)
                     ],
                     center: UnitPoint(x: 0.35, y: 0.30),
                     startRadius: 0,
