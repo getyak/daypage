@@ -45,6 +45,20 @@ enum PendingAttachment: Identifiable {
     }
 }
 
+// MARK: - TodayFallback
+
+typealias DailyPage = DailyPageModel
+typealias WeekStats = [WeeklyRecapEntry]
+
+/// Priority-ordered fallback content shown on Today when 0 memos exist.
+/// Priority: yesterdayDailyPage > onThisDay > weekRecap > pureEmpty
+enum TodayFallback {
+    case yesterdayDailyPage(DailyPage)
+    case onThisDay([Memo])
+    case weekRecap(WeekStats)
+    case pureEmpty
+}
+
 // MARK: - TodayViewModel
 
 /// Manages state for TodayView: loading today's memos, tracking compiled state.
@@ -120,6 +134,26 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
 
     /// Controls presentation of the Settings sheet from banner actions.
     @Published var shouldShowSettings: Bool = false
+
+    /// Yesterday's compiled Daily Page model; nil if not yet compiled.
+    @Published var yesterdayDailyPageModel: DailyPageModel? = nil
+
+    /// Memos from the on-this-day historical date; empty if no entry or file missing.
+    @Published var onThisDayMemos: [Memo] = []
+
+    /// Fallback content for Today when no memos exist, selected by priority.
+    var fallbackContent: TodayFallback {
+        if let page = yesterdayDailyPageModel {
+            return .yesterdayDailyPage(page)
+        }
+        if !onThisDayMemos.isEmpty {
+            return .onThisDay(onThisDayMemos)
+        }
+        if !weeklyRecap.isEmpty {
+            return .weekRecap(weeklyRecap)
+        }
+        return .pureEmpty
+    }
 
     // MARK: Private
 
@@ -319,6 +353,8 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         // Capture value types before leaving the MainActor.
         let capturedDate = date
         let dailyURL = dailyPageURL(for: capturedDate)
+        // Capture the on-this-day file path before going off-actor.
+        let capturedOTDFilePath: String? = onThisDayEntry?.filePath
 
         loadTask?.cancel()
         loadTask = Task.detached(priority: .userInitiated) {
@@ -353,6 +389,32 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 }
             }
 
+            // Load yesterday's compiled daily page for fallback
+            let yesterdayDate = Calendar.current.date(byAdding: .day, value: -1, to: capturedDate) ?? capturedDate
+            let yesterdayDailyURL: URL = {
+                let f = DateFormatter()
+                f.dateFormat = "yyyy-MM-dd"
+                f.locale = Locale(identifier: "en_US_POSIX")
+                f.timeZone = AppSettings.currentTimeZone()
+                let s = f.string(from: yesterdayDate)
+                return VaultInitializer.vaultURL
+                    .appendingPathComponent("wiki/daily/\(s).md")
+            }()
+            var yesterdayPage: DailyPageModel? = nil
+            if FileManager.default.fileExists(atPath: yesterdayDailyURL.path),
+               let content = try? String(contentsOf: yesterdayDailyURL, encoding: .utf8) {
+                yesterdayPage = DailyPageParser.parse(content: content)
+            }
+
+            // Load on-this-day memos for fallback using the file path captured before going off-actor.
+            var otdMemos: [Memo] = []
+            if let filePath = capturedOTDFilePath {
+                let rawURL = VaultInitializer.vaultURL.appendingPathComponent(filePath)
+                if let content = try? String(contentsOf: rawURL, encoding: .utf8) {
+                    otdMemos = RawStorage.parse(fileContent: content)
+                }
+            }
+
             // --- Back on MainActor: update published state ---
             await MainActor.run {
                 switch loadResult {
@@ -373,6 +435,8 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 self.isDailyPageCompiled = dailyExists
                 self.dailyPageSummary = dailyExists ? dailySummary : nil
                 self.weeklyRecap = WeeklyRecapService.shared.entries()
+                self.yesterdayDailyPageModel = yesterdayPage
+                self.onThisDayMemos = otdMemos
                 self.isLoading = false
                 self.checkOnThisDay()
 
