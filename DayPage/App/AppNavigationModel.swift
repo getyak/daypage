@@ -20,30 +20,6 @@ final class AppNavigationModel: ObservableObject {
 
     init() {}
 
-    /// Binding<AppSection> bridging GlassTabBar ↔ selectedTab.
-    var sectionBinding: Binding<AppSection> {
-        Binding(
-            get: {
-                switch self.selectedTab {
-                case .today:    return .today
-                case .archive:  return .archive
-                case .graph:    return .graph
-                case .feedback: return .today
-                }
-            },
-            set: { section in
-                switch section {
-                case .today:   self.navigate(to: .today)
-                case .archive: self.navigate(to: .archive)
-                case .graph:   self.navigate(to: .graph)
-#if DEBUG
-                case .search:  break
-#endif
-                }
-            }
-        )
-    }
-
     func openSidebar() {
         withAnimation(Motion.slide) {
             isSidebarOpen = true

@@ -107,6 +107,8 @@
 		T10000003 /* VaultMigrationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000003 /* VaultMigrationServiceTests.swift */; };
 		T10000004 /* VaultLocatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000004 /* VaultLocatorTests.swift */; };
 		T10000005 /* RawStorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000005 /* RawStorageTests.swift */; };
+		T10000006 /* ComposerContextProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000006 /* ComposerContextProviderTests.swift */; };
+		A10000095 /* ComposerContextProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000095 /* ComposerContextProvider.swift */; };
 		FB0000001 /* FeedbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000001 /* FeedbackService.swift */; };
 		FB0000002 /* FeedbackViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000002 /* FeedbackViewModel.swift */; };
 		FB0000003 /* FeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000003 /* FeedbackView.swift */; };
@@ -122,6 +124,7 @@
 		CJ0000001 /* CJKTextPolish.swift in Sources */ = {isa = PBXBuildFile; fileRef = CJ1000001 /* CJKTextPolish.swift */; };
 		WS0000001 /* WelcomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = WS1000001 /* WelcomeScreen.swift */; };
 		LS0000001 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = LS1000001 /* Localizable.strings */; };
+		LS0000002 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = LS1000004 /* L10n.swift */; };
 		DBB277156934B2FA96E16077 /* WatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5BB61FECBCF7AB756E7A6CE /* WatchApp.swift */; };
 		9034B2964DD6432BD7FA7250 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C98B5757B488F583231EC8F6 /* RootView.swift */; };
 		B197ECDEBDA86D4351A96898 /* RecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B93ED807E07C2171E9F4234B /* RecordingView.swift */; };
@@ -253,6 +256,8 @@
 		T20000003 /* VaultMigrationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultMigrationServiceTests.swift; sourceTree = "<group>"; };
 		T20000004 /* VaultLocatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultLocatorTests.swift; sourceTree = "<group>"; };
 		T20000005 /* RawStorageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawStorageTests.swift; sourceTree = "<group>"; };
+		T20000006 /* ComposerContextProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerContextProviderTests.swift; sourceTree = "<group>"; };
+		A20000095 /* ComposerContextProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerContextProvider.swift; sourceTree = "<group>"; };
 		FB1000001 /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
 		FB1000002 /* FeedbackViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackViewModel.swift; sourceTree = "<group>"; };
 		FB1000003 /* FeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackView.swift; sourceTree = "<group>"; };
@@ -270,6 +275,7 @@
 		LS1000002 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		LS1000003 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		LS1000001 /* Localizable.strings */ = {isa = PBXVariantGroup; children = (LS1000002 /* en */, LS1000003 /* zh-Hans */); name = Localizable.strings; sourceTree = "<group>"; };
+		LS1000004 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
 		F5BB61FECBCF7AB756E7A6CE /* WatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchApp.swift; sourceTree = "<group>"; };
 		C98B5757B488F583231EC8F6 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		B93ED807E07C2171E9F4234B /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
@@ -340,6 +346,7 @@
 			isa = PBXGroup;
 			children = (
 				LS1000001 /* Localizable.strings */,
+				LS1000004 /* L10n.swift */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -465,6 +472,7 @@
 				A20000087 /* AuthRateLimiter.swift */,
 				FB1000001 /* FeedbackService.swift */,
 				A20000083 /* WeeklyRecapService.swift */,
+				A20000095 /* ComposerContextProvider.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -630,6 +638,7 @@
 				T20000003 /* VaultMigrationServiceTests.swift */,
 				T20000004 /* VaultLocatorTests.swift */,
 				T20000005 /* RawStorageTests.swift */,
+				T20000006 /* ComposerContextProviderTests.swift */,
 			);
 			path = DayPageTests;
 			sourceTree = "<group>";
@@ -934,6 +943,7 @@
 				FB0000002 /* FeedbackViewModel.swift in Sources */,
 				FB0000003 /* FeedbackView.swift in Sources */,
 				FB0000004 /* FeedbackContext.swift in Sources */,
+				LS0000002 /* L10n.swift in Sources */,
 				ES0000001 /* EmptyStateView.swift in Sources */,
 				ES0000002 /* GlassErrorBanner.swift in Sources */,
 				ES0000003 /* GlassTabBar.swift in Sources */,
@@ -944,6 +954,7 @@
 				MD0000002 /* MemoDetailViewModel.swift in Sources */,
 				CJ0000001 /* CJKTextPolish.swift in Sources */,
 				WS0000001 /* WelcomeScreen.swift in Sources */,
+				A10000095 /* ComposerContextProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -956,6 +967,7 @@
 				T10000003 /* VaultMigrationServiceTests.swift in Sources */,
 				T10000004 /* VaultLocatorTests.swift in Sources */,
 				T10000005 /* RawStorageTests.swift in Sources */,
+				T10000006 /* ComposerContextProviderTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

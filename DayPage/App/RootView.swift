@@ -154,12 +154,6 @@ struct RootView: View {
                 .allowsHitTesting(nav.isFeedbackPanelOpen)
                 .zIndex(2)
 
-            // Glass pill nav — top-trailing, above all content layers
-            GlassTabBar(active: nav.sectionBinding)
-                .zIndex(3)
-                .opacity(nav.isSidebarOpen || nav.isFeedbackPanelOpen ? 0 : 1)
-                .animation(Motion.fade, value: nav.isSidebarOpen)
-                .animation(Motion.fade, value: nav.isFeedbackPanelOpen)
         }
         // 边缘滑动打开：仅在拖动从左侧 40pt 以内开始时触发
         .gesture(

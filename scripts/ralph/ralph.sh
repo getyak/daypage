@@ -77,23 +77,28 @@ else:
   echo "   Acceptance: $STORY_ACCEPT"
 
   # Build the Claude Code prompt
-  PROMPT="You are implementing a SINGLE user story for the Solo Compass iOS app.
+  PROMPT="You are implementing a SINGLE user story for DayPage iOS app.
 
-PROJECT: Solo Compass (独行罗盘) — living map for solo travelers
-iOS app location: apps/ios/SoloCompass/
-Tech: SwiftUI, MapKit, iOS 17+, MVVM with @Observable
+PROJECT: DayPage — personal daily logging + AI diary compilation
+iOS app target: DayPage.app (Xcode project DayPage.xcodeproj)
+Tech: SwiftUI, iOS 16.0+, MVVM with ObservableObject/@Published/@MainActor
+Key patterns: DSColor/DSFonts/DSType design tokens, RawStorage file-based persistence,
+  NavigationStack with Memo.ID routing, MemoDetailViewModel protocol, GlassSurface
+  modifiers (liquidGlassCard/Pill/Panel), Motion/Haptics/CJKTextPolish utilities
+Read AGENTS.md (repo root) and CLAUDE.md (this dir) for full conventions.
 
 STORY #$STORY_ID: $STORY_NAME
 DESCRIPTION: $STORY_DESC
 ACCEPTANCE CRITERIA: $STORY_ACCEPT
 
-Read the CLAUDE.md for project conventions. Read existing Swift files to understand the codebase.
+Read existing Swift files to understand the codebase before editing.
 Implement ONLY this story. Do NOT touch unrelated code.
 After implementing:
-1. Verify the code compiles conceptually (no Xcode available, but check syntax)
-2. Run any relevant tests
-3. Print a summary of what you changed
-4. The acceptance criteria must be satisfied"
+1. Typecheck: swiftc -typecheck only if needed
+2. Add new Swift files to project.pbxproj (PBXBuildFile + PBXFileReference + PBXGroup + PBXSourcesBuildPhase)
+3. If i18n keys added: update BOTH zh-Hans.lproj AND en.lproj Localizable.strings
+4. Print a summary of what you changed
+5. The acceptance criteria must be satisfied"
 
   echo "   🤖 Running Claude Code..."
 

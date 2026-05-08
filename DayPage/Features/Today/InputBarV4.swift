@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreLocation
+import Photos
 import PhotosUI
 import UIKit
 
@@ -40,6 +41,7 @@ struct InputBarV4: View {
     var isProcessingPhoto: Bool
     var pendingAttachments: [PendingAttachment]
     var onFetchLocation: () -> Void
+    var onSetLocation: ((Memo.Location) -> Void)?
     var onClearLocation: () -> Void
     var onAddPhoto: ([PhotosPickerItem]) -> Void
     var onCapturePhoto: () -> Void
@@ -49,6 +51,7 @@ struct InputBarV4: View {
     var onPressToTalkTranscribe: (String) -> Void
     var onAddFile: () -> Void
     var onSubmit: () -> Void
+    var onAddPhotoAsset: ((PHAsset) -> Void)? = nil
 
     // MARK: Private State
 
@@ -56,7 +59,7 @@ struct InputBarV4: View {
     @State private var showAttachmentMenu: Bool = false
     @State private var photosPickerItems: [PhotosPickerItem] = []
     @State private var pressToTalkPhase: PressToTalkPhase = .idle
-    @State private var userExpandedText: Bool = false
+    @State private var composerState: ComposerState = .idle
     /// True while a "录音太短" hint is visible. Prevents committing a
     /// meaningless one-frame recording while gracefully nudging the user
     /// toward the hold gesture.
@@ -68,10 +71,37 @@ struct InputBarV4: View {
     @State private var micHintToastTask: Task<Void, Never>?
     /// True while composing-mode mic is actively recording for transcription.
     @State private var isComposingTranscribe: Bool = false
+    /// US-015: placeholder suffix shown in secondary color after the template prefix.
+    /// Cleared as soon as the user edits the text beyond the prefix.
+    @State private var templateSuffix: String = ""
+    /// The template that was last tapped, used to detect when the user diverges.
+    @State private var activeTemplate: SmartTemplate? = nil
+    /// The template shown this session — computed once so it doesn't reshuffle on re-render.
+    @State private var currentTemplate: SmartTemplate = SmartTemplate.current()
 
     @StateObject private var voiceService = VoiceService.shared
+    @StateObject private var contextProvider = ComposerContextProvider.shared
 
     @Namespace private var morphNS
+
+    /// Spring spec shared by expanding / collapsing transitions (per AC).
+    private static let composerSpring = Animation.spring(response: 0.42, dampingFraction: 0.78)
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Animation used for the liquid morph — degrades to a simple fade when
+    /// Reduce Motion is enabled (AC: Reduced Motion 降级).
+    private var morphAnimation: Animation {
+        reduceMotion
+            ? .easeInOut(duration: 0.2)
+            : Self.composerSpring
+    }
+
+    // Geometry IDs for matchedGeometryEffect
+    private enum MorphID: Hashable {
+        case surface   // idle capsule ↔ composing card background
+        case micOrb    // amber orb persists across both states
+    }
 
     /// Recording floor below which a press-and-release is treated as
     /// accidental noise. Capture v2 boundary: respect the user's time —
@@ -87,10 +117,34 @@ struct InputBarV4: View {
         return belowFloor && isSilent
     }
 
+    // MARK: - State machine
+
+    /// Central transition function. All state changes must flow through here.
+    /// Transition is debounced: in-flight expanding/collapsing blocks new requests.
+    @MainActor
+    func transition(to next: ComposerState) {
+        // Debounce: reject new transitions while a spring is in-flight.
+        guard composerState != .expanding && composerState != .collapsing else { return }
+        guard composerState != next else { return }
+
+        switch (composerState, next) {
+        case (.idle, .expanding):
+            composerState = .expanding
+            Haptics.soft()
+            withAnimation(morphAnimation) { composerState = .open }
+        case (.open, .collapsing):
+            composerState = .collapsing
+            Haptics.soft()
+            withAnimation(morphAnimation) { composerState = .idle }
+        default:
+            break
+        }
+    }
+
     // MARK: Derived
 
     private var isComposing: Bool {
-        userExpandedText || !text.isEmpty || !pendingAttachments.isEmpty || pendingLocation != nil
+        composerState == .open || composerState == .expanding || !text.isEmpty || !pendingAttachments.isEmpty || pendingLocation != nil
     }
 
     private var overlayMode: RecordingOverlayMode? {
@@ -128,23 +182,21 @@ struct InputBarV4: View {
                 locationChipRow(loc: loc)
             }
 
-            // STREAM dock layout:
-            // - composing → INK-style: full-width text area + icon toolbar row
-            // - idle      → centered three-slot dock with hint label below
-            Group {
-                if isComposing {
-                    composingToolbarLayout
-                } else {
-                    VStack(spacing: 8) {
-                        streamDock
-                        dockHintLabel
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 10)
-                    .padding(.bottom, 14)
+            // Liquid Morph — idle capsule ↔ composing card.
+            // matchedGeometryEffect(id: .surface) carries the background shape
+            // through the spring so every in-between frame is geometrically
+            // continuous (AC: 录屏验证任意一帧截图取出来形状都能解释从哪来).
+            if isComposing {
+                composingCardMorph
+            } else {
+                VStack(spacing: 8) {
+                    streamDockMorph
+                    dockHintLabel
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .padding(.bottom, 14)
             }
-            .animation(.spring(response: 0.32, dampingFraction: 0.82), value: isComposing)
         }
         // V4: transparent dock — ambient page background shows through.
         // Warm gradient veil fades the list content behind the dock.
@@ -210,6 +262,13 @@ struct InputBarV4: View {
             onAddPhoto(newItems)
             photosPickerItems = []
         }
+        .onChange(of: pendingAttachments.count) { newCount in
+            // US-012: medium haptic when an attachment is added; removal haptic
+            // fires at the xmark button so we only trigger here on count increase.
+            if newCount > 0 {
+                Haptics.medium()
+            }
+        }
     }
 
     // MARK: - STREAM Dock (idle state)
@@ -224,14 +283,19 @@ struct InputBarV4: View {
     // design canvas (inner highlight + soft drop shadow).
 
     // STREAM dock — glass capsule wrapping three keys (design spec: glassStyle hi + radius 999).
-    private var streamDock: some View {
+    // US-008: matchedGeometryEffect on the capsule background so it morphs into
+    // the composing card shape. The mic orb also carries its own effect so it
+    // slides to the card's bottom-left corner rather than disappearing.
+    private var streamDockMorph: some View {
         HStack(spacing: 6) {
             // LEFT — More (+)
             dockSideButton(systemImage: "plus", accessibilityLabel: "更多附件") {
                 showAttachmentMenu = true
             }
 
-            // CENTER — amber radial-gradient mic orb (64pt per design)
+            // CENTER — amber mic orb.
+            // US-010: matchedGeometryEffect removed — the composing card no longer
+            // hosts the orb landing target (toolbar moved to .keyboard placement).
             PressToTalkButton(
                 onPressStart: handlePressToTalkStart,
                 onReleaseSend: handlePressToTalkReleaseSend,
@@ -244,23 +308,22 @@ struct InputBarV4: View {
                 idleIconColor: .white
             )
             .frame(width: 64, height: 64)
-            // Radial amber orb glow matching design: inner highlight + deep shadow
             .shadow(color: Color(hex: "5D3000").opacity(0.50), radius: 28, x: 0, y: 12)
             .shadow(color: Color(hex: "5D3000").opacity(0.20), radius: 4, x: 0, y: 2)
             .accessibilityLabel("麦克风")
             .accessibilityHint("单击进入录音页；长按说话松手发送")
 
-            // RIGHT — Aa (text expand)
+            // RIGHT — Aa (text expand). Fades out as composer opens (AC: Aa 淡出).
             dockTextButton(accessibilityLabel: "写文字") {
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-                    userExpandedText = true
-                }
+                transition(to: .expanding)
                 isFocused = true
             }
             .accessibilityIdentifier("expand-text-composer")
         }
         .padding(6)
-        // Glass capsule container — ultraThinMaterial + rim highlight
+        // Glass capsule — matchedGeometryEffect on the whole HStack so SwiftUI
+        // interpolates position, size, and corner radius to the card shape.
+        .matchedGeometryEffect(id: MorphID.surface, in: morphNS)
         .background(.ultraThinMaterial, in: Capsule())
         .overlay(Capsule().strokeBorder(
             LinearGradient(
@@ -278,7 +341,7 @@ struct InputBarV4: View {
         action: @escaping () -> Void
     ) -> some View {
         Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.soft()
             action()
         } label: {
             Image(systemName: systemImage)
@@ -299,7 +362,7 @@ struct InputBarV4: View {
         action: @escaping () -> Void
     ) -> some View {
         Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.soft()
             action()
         } label: {
             Text("Aa")
@@ -334,124 +397,270 @@ struct InputBarV4: View {
             .animation(.easeInOut(duration: 0.18), value: pressToTalkPhase)
     }
 
-    // MARK: - Composing Toolbar Layout (INK-style)
+    // MARK: - Composing Card Morph (US-008 / US-010)
     //
-    // Full-width text area on top, then a flat icon toolbar row:
-    //   [mic]  [camera]  [photo]  [location]  ········  [↑ send]
-    // The mic in this mode triggers voice-to-text (fills the text field)
-    // rather than sending a standalone voice memo.
+    // Full-width rounded-rect card that the idle capsule morphs into.
+    // US-010: The icon toolbar row has been lifted out of this card and moved
+    // into a .toolbar { ToolbarItemGroup(placement: .keyboard) } on the
+    // TextField so it rides attached to the keyboard instead of forming a
+    // second layer beneath it. The card now only contains the text field.
+    //
+    // Layout (composing):
+    //   ┌────────────────────────────────────┐
+    //   │  TextField (with breathing caret)  │
+    //   └────────────────────────────────────┘
+    //   ══════ keyboard appears ══════════════
+    //   │ [⬇] [🎙] [📷] [🖼] [📍]  ···  [↑]  │  ← keyboard toolbar
+    //   ══════════════════════════════════════
 
-    private var composingToolbarLayout: some View {
-        VStack(spacing: 0) {
-            // Text field — full width, no border, generous padding
-            TextField("记一笔…", text: $text, axis: .vertical)
-                .font(DSType.serifBody16)
-                .foregroundStyle(DSColor.inkPrimary)
-                .focused($isFocused)
-                .lineLimit(1...8)
-                // motion-exception: caret breathing 800ms documented in PRD US-013 / FR-20
-                // Hide native caret and render breathing custom caret overlay below.
-                .tint(.clear)
-                .overlay(alignment: .topLeading) {
-                    if isFocused {
-                        BreathingCaretView()
-                            .padding(.leading, 20)
-                            .padding(.top, 18)
+    // MARK: - Drag Handle (US-011)
+    //
+    // 36×4 gray capsule at the card top. Swipe-up > 32pt or single tap
+    // triggers collapse. Matches iOS sheet language.
+
+    private var dragHandle: some View {
+        Capsule()
+            .fill(Color(UIColor.tertiaryLabel))
+            .frame(width: 36, height: 4)
+            .padding(.top, 8)
+            .padding(.bottom, 4)
+            .frame(width: 60)
+            .contentShape(Rectangle())
+            // Single tap — accessibility equivalent of swipe-up
+            .onTapGesture {
+                Haptics.medium()
+                transition(to: .collapsing)
+                isFocused = false
+            }
+            .accessibilityLabel("下拉收起卡片")
+            .accessibilityHint("点击以收起文字输入卡片")
+            .accessibilityAddTraits(.isButton)
+            // Drag gesture — upward translation > 32pt collapses
+            .gesture(
+                DragGesture(minimumDistance: 4)
+                    .onEnded { value in
+                        if value.translation.height < -32 {
+                            Haptics.medium()
+                            transition(to: .collapsing)
+                            isFocused = false
+                        }
                     }
+            )
+    }
+
+    private var composingCardMorph: some View {
+        VStack(spacing: 0) {
+            // US-011: drag-to-collapse handle
+            HStack {
+                Spacer()
+                dragHandle
+                Spacer()
+            }
+
+            // US-014: Context Spotlight Strip — horizontal chip bar above TextField
+            let chips = contextProvider.chips
+            if !chips.isEmpty {
+                SpotlightStripView(
+                    chips: chips,
+                    onInsertText: { value in
+                        if text.isEmpty {
+                            text = value
+                        } else {
+                            text += (text.hasSuffix(" ") ? "" : " ") + value
+                        }
+                    },
+                    onInsertLocation: { loc in
+                        onSetLocation?(loc) ?? onFetchLocation()
+                    }
+                )
+                .padding(.top, 2)
+                Divider()
+                    .background(DSColor.inkFaint)
+                    .padding(.horizontal, 16)
+            }
+
+            // US-016: Inline Lens Strip — recent 24 h thumbnails for one-tap attach.
+            InlineLensStrip { asset in
+                onAddPhotoAsset?(asset)
+            }
+
+            // US-015: Smart Template hint row — only when draft is empty.
+            if text.isEmpty && pendingAttachments.isEmpty {
+                SmartTemplateRow(template: currentTemplate) { tpl in
+                    activeTemplate = tpl
+                    templateSuffix = tpl.placeholder
+                    text = tpl.prefix
+                    isFocused = true
+                    Haptics.soft()
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            // Text field — full width, no border, generous padding
+            ZStack(alignment: .topLeading) {
+                TextField("记一笔…", text: $text, axis: .vertical)
+                    .font(DSType.serifBody16)
+                    .foregroundStyle(DSColor.inkPrimary)
+                    .focused($isFocused)
+                    .lineLimit(1...8)
+                    // Hide native caret; breathing caret below takes over.
+                    .tint(.clear)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 14)
+                    .padding(.bottom, 14)
+                    .onTapGesture { isFocused = true }
+                    .accessibilityIdentifier("memo-input")
+                    // US-010: Keyboard-attached toolbar replaces the in-card
+                    // icon row. Rides up with the keyboard; disappears on dismiss.
+                    .toolbar {
+                        ToolbarItemGroup(placement: .keyboard) {
+                            keyboardToolbarContent
+                        }
+                    }
+                    // US-015: clear placeholder suffix when user edits text.
+                    .onChange(of: text) { newValue in
+                        if let tpl = activeTemplate, !templateSuffix.isEmpty {
+                            if newValue != tpl.prefix {
+                                templateSuffix = ""
+                                activeTemplate = nil
+                            }
+                        }
+                    }
+
+                // Aa → caret cross-fade (AC: Aa 淡出 = TextField caret 淡入, 同位置, 200ms).
+                // Both views occupy the same top-leading slot; opacity mirrors isComposing.
+                Group {
+                    if isFocused || !text.isEmpty {
+                        // Caret fades in
+                        BreathingCaretView()
+                            .transition(.opacity)
+                    } else {
+                        // "Aa" label fades out — same position as the caret so it reads
+                        // as a continuous crossfade rather than two separate elements.
+                        Text("Aa")
+                            .font(DSFonts.serif(size: 16, weight: .medium))
+                            .foregroundStyle(DSColor.inkSubtle)
+                            .transition(.opacity)
+                    }
+                }
+                .animation(.easeInOut(duration: 0.2), value: isFocused || !text.isEmpty)
+                .padding(.leading, 20)
+                .padding(.top, 18)
+
+            }
+
+            // US-015: secondary-style placeholder suffix shown below the text field
+            // while the user hasn't yet typed beyond the template prefix.
+            if !templateSuffix.isEmpty {
+                HStack {
+                    Text(templateSuffix)
+                        .font(DSType.serifBody16)
+                        .foregroundStyle(Color.secondary)
+                        .allowsHitTesting(false)
+                    Spacer()
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 14)
-                .padding(.bottom, 10)
-                .onTapGesture { isFocused = true }
-                .accessibilityIdentifier("memo-input")
-
-            // Icon toolbar row
-            HStack(spacing: 0) {
-                // Collapse — dismiss keyboard and return to idle voice dock.
-                // Draft text / attachments / location are preserved so the user
-                // can re-open the composer without losing their work.
-                toolbarIconButton(
-                    systemImage: "chevron.down",
-                    accessibilityLabel: "收起，回到语音模式"
-                ) {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-                        userExpandedText = false
-                    }
-                    isFocused = false
-                }
-
-                // Mic — voice-to-text mode in composing
-                toolbarIconButton(
-                    systemImage: isComposingTranscribe ? "waveform" : "mic",
-                    tint: isComposingTranscribe ? DSColor.amberAccent : DSColor.inkMuted,
-                    accessibilityLabel: isComposingTranscribe ? "停止语音转文字" : "语音转文字"
-                ) {
-                    handleComposingMicTap()
-                }
-
-                // Camera
-                toolbarIconButton(systemImage: "camera", accessibilityLabel: "拍照") {
-                    onCapturePhoto()
-                }
-
-                // Photo library (multi-select) — the icon IS the picker's label,
-                // not a separate button stacked behind a transparent picker.
-                // The previous ZStack + opacity(0.01) overlay broke hit-testing
-                // on iOS 26.x and left the picker unreachable (#219).
-                PhotosPicker(selection: $photosPickerItems, matching: .images, photoLibrary: .shared()) {
-                    toolbarIconButtonContent(systemImage: "photo.on.rectangle")
-                }
-                .accessibilityLabel("相册")
-
-                // Location
-                toolbarIconButton(
-                    systemImage: pendingLocation != nil ? "mappin.circle.fill" : "mappin.and.ellipse",
-                    tint: pendingLocation != nil ? DSColor.amberAccent : DSColor.inkMuted,
-                    accessibilityLabel: pendingLocation != nil ? "清除位置" : "添加位置"
-                ) {
-                    pendingLocation != nil ? onClearLocation() : onFetchLocation()
-                }
-
-                Spacer()
-
-                // Send button
-                sendButton
+                .padding(.bottom, 8)
+                .transition(.opacity)
+                .animation(.easeInOut(duration: 0.15), value: templateSuffix.isEmpty)
             }
-            .padding(.horizontal, 12)
-            .padding(.bottom, 10)
         }
+        // Card — matchedGeometryEffect on the whole VStack mirrors the surface
+        // geometry from the idle capsule for a continuous positional morph.
+        .matchedGeometryEffect(id: MorphID.surface, in: morphNS)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.55), Color.white.opacity(0.12)],
+                        startPoint: .top, endPoint: .bottom),
+                    lineWidth: 0.6)
+        )
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 14)
+        .shadow(color: Color(hex: "2D1E0A").opacity(0.10), radius: 24, x: 0, y: 8)
+        .shadow(color: Color(hex: "2D1E0A").opacity(0.06), radius: 4, x: 0, y: 1)
     }
 
+    // MARK: - Keyboard Toolbar (US-010)
+    //
+    // Replaces the in-card icon row. Lives in .toolbar(placement: .keyboard)
+    // on the TextField so it floats directly above the keyboard and disappears
+    // when the keyboard is dismissed — no residual height placeholder.
+    //
+    // iPad wide keyboard: ToolbarItemGroup lays items in a single row that
+    // UIKit clips to safe bounds, so no overflow risk.
+
     @ViewBuilder
-    private func toolbarIconButton(
-        systemImage: String,
-        tint: Color = DSColor.inkMuted,
-        accessibilityLabel: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            toolbarIconButtonContent(systemImage: systemImage, tint: tint)
+    private var keyboardToolbarContent: some View {
+        // Collapse — dismiss keyboard, return to idle capsule.
+        Button {
+            transition(to: .collapsing)
+            isFocused = false
+        } label: {
+            Image(systemName: "chevron.down")
+                .font(.system(size: 17, weight: .regular))
+                .foregroundStyle(DSColor.inkMuted)
+        }
+        .accessibilityLabel("收起，回到语音模式")
+
+        // Mic orb — in keyboard toolbar the matchedGeometryEffect is dropped
+        // (toolbar renders outside the SwiftUI namespace tree). A plain amber
+        // circle button provides the same affordance at 28pt visual size.
+        Button {
+            handleComposingMicTap()
+        } label: {
+            Circle()
+                .fill(DSColor.amberAccent)
+                .frame(width: 28, height: 28)
+                .overlay(
+                    Image(systemName: isComposingTranscribe ? "waveform" : "mic")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white)
+                )
+                .shadow(color: DSColor.amberAccent.opacity(0.40), radius: 6, x: 0, y: 2)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(accessibilityLabel)
-    }
+        .accessibilityLabel(isComposingTranscribe ? "停止语音转文字" : "语音转文字")
 
-    /// Bare icon glyph used as the visual label for both `toolbarIconButton`
-    /// (Button-wrapped) and `PhotosPicker` (its own tappable surface).
-    @ViewBuilder
-    private func toolbarIconButtonContent(
-        systemImage: String,
-        tint: Color = DSColor.inkMuted
-    ) -> some View {
-        Image(systemName: systemImage)
-            .font(.system(size: 20, weight: .light))
-            .foregroundStyle(tint)
-            .frame(width: 44, height: 44)
+        // Camera
+        Button {
+            onCapturePhoto()
+        } label: {
+            Image(systemName: "camera")
+                .font(.system(size: 19, weight: .light))
+                .foregroundStyle(DSColor.inkMuted)
+        }
+        .accessibilityLabel("拍照")
+
+        // Photo library
+        PhotosPicker(selection: $photosPickerItems, matching: .images, photoLibrary: .shared()) {
+            Image(systemName: "photo.on.rectangle")
+                .font(.system(size: 19, weight: .light))
+                .foregroundStyle(DSColor.inkMuted)
+        }
+        .accessibilityLabel("相册")
+
+        // Location
+        Button {
+            pendingLocation != nil ? onClearLocation() : onFetchLocation()
+        } label: {
+            Image(systemName: pendingLocation != nil ? "mappin.circle.fill" : "mappin.and.ellipse")
+                .font(.system(size: 19, weight: .light))
+                .foregroundStyle(pendingLocation != nil ? DSColor.amberAccent : DSColor.inkMuted)
+        }
+        .accessibilityLabel(pendingLocation != nil ? "清除位置" : "添加位置")
+
+        Spacer()
+
+        // Send button — reuses the same 5-affordance component
+        sendButton
     }
 
     private func handleComposingMicTap() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        Haptics.soft()
         if isComposingTranscribe {
             // Stop recording and transcribe into text field
             isComposingTranscribe = false
@@ -468,38 +677,63 @@ struct InputBarV4: View {
         }
     }
 
-    // MARK: - Send Button
+    // MARK: - Send Button (US-009: 5 adaptive shapes)
+
+    /// Derives the send-button affordance from current draft content.
+    private var sendAffordance: SendAffordance {
+        let hasText = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasPhoto = pendingAttachments.contains { if case .photo = $0 { return true }; return false }
+        let hasLocation = pendingLocation != nil
+        let totalItems = (hasText ? 1 : 0) + pendingAttachments.count + (hasLocation ? 1 : 0)
+
+        if totalItems == 0 { return .empty }
+        if hasText && hasPhoto { return .textAndPhoto }
+        if hasText { return .textOnly }
+        if hasLocation && !hasText && pendingAttachments.isEmpty { return .locationOnly }
+        return .multimodal(count: totalItems)
+    }
+
+    @State private var breathingOpacity: Double = 1.0
 
     private var sendButton: some View {
-        let hasContent = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let affordance = sendAffordance
+        let isDisabled = isSubmitting || affordance == .empty
         return Button(action: handleSend) {
-            Group {
+            ZStack {
+                // Background layer
+                SendAffordanceBG(affordance: affordance, breathingOpacity: breathingOpacity)
+                    .frame(width: 44, height: 44)
+                // Foreground icon layer
                 if isSubmitting {
                     ProgressView()
                         .progressViewStyle(.circular)
                         .tint(.white)
                         .scaleEffect(0.8)
                 } else {
-                    Image(systemName: "arrow.up")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
+                    SendAffordanceIcon(affordance: affordance, breathingOpacity: breathingOpacity)
                 }
             }
             .frame(width: 44, height: 44)
-            .background(
-                hasContent ? DSColor.amberAccent : DSColor.amberAccent.opacity(0.18),
-                in: Circle()
-            )
             .shadow(
-                color: hasContent ? DSColor.amberAccent.opacity(0.32) : .clear,
+                color: affordance.shadowColor,
                 radius: 8, x: 0, y: 4
             )
-            .animation(.easeInOut(duration: 0.18), value: hasContent)
+            .animation(.spring(response: 0.32, dampingFraction: 0.8), value: affordance)
         }
         .buttonStyle(.plain)
-        .disabled(isSubmitting || !hasContent)
-        .accessibilityLabel("发送")
+        .disabled(isDisabled)
+        .accessibilityLabel(affordance.accessibilityLabel)
         .accessibilityIdentifier("memo-send")
+        .onAppear { startBreathing() }
+        .onChange(of: affordance) { _ in startBreathing() }
+    }
+
+    private func startBreathing() {
+        withAnimation(
+            .easeInOut(duration: 0.8).repeatForever(autoreverses: true)
+        ) {
+            breathingOpacity = 0.45
+        }
     }
 
     // MARK: - Actions
@@ -507,12 +741,12 @@ struct InputBarV4: View {
     private func handleSend() {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) { userExpandedText = false }
+            transition(to: .collapsing)
             isFocused = false
             return
         }
         onSubmit()
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) { userExpandedText = false }
+        transition(to: .collapsing)
     }
 
     /// Single tap on the mic — open the persistent (Flomo-style) recording
@@ -521,13 +755,13 @@ struct InputBarV4: View {
     /// it itself in `.onAppear`.
     /// Also flashes a hint toast so users discover that long-press sends directly.
     private func handleMicTap() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        Haptics.soft()
         flashMicHintToast()
         onStartVoiceRecording()
     }
 
     private func handlePressToTalkStart() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        Haptics.soft()
         Task { await voiceService.startRecording() }
     }
 
@@ -536,12 +770,12 @@ struct InputBarV4: View {
         // Cancel the recording, warn-haptic, and surface the toast — don't
         // commit a meaningless 0:00 voice memo.
         if isRecordingTooShort {
-            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            Haptics.warningNotification()
             voiceService.cancelRecording()
             flashTooShortToast()
             return
         }
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        Haptics.medium()
         Task {
             if let result = await voiceService.stopAndTranscribe() {
                 onPressToTalkSend(result)
@@ -550,7 +784,7 @@ struct InputBarV4: View {
     }
 
     private func handlePressToTalkReleaseCancel() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        Haptics.light()
         voiceService.cancelRecording()
     }
 
@@ -558,7 +792,7 @@ struct InputBarV4: View {
         // Same floor as the send path — a transcribe gesture on a silent
         // sub-second clip would burn an API call and return nothing.
         if isRecordingTooShort {
-            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            Haptics.warningNotification()
             voiceService.cancelRecording()
             flashTooShortToast()
             // Critical: the transcribe branch in PressToTalkButton.onEnded
@@ -569,7 +803,7 @@ struct InputBarV4: View {
             pressToTalkPhase = .idle
             return
         }
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        Haptics.medium()
         Task {
             if let result = await voiceService.stopAndTranscribe(),
                let t = result.transcript, !t.isEmpty {
@@ -623,7 +857,10 @@ struct InputBarV4: View {
         return HStack(spacing: 4) {
             Image(systemName: icon).font(.system(size: 11)).foregroundStyle(DSColor.inkMuted)
             Text(label).font(.system(size: 12)).foregroundStyle(DSColor.inkMuted).lineLimit(1)
-            Button { onRemoveAttachment(att.id) } label: {
+            Button {
+                Haptics.light()
+                onRemoveAttachment(att.id)
+            } label: {
                 Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundStyle(DSColor.inkSubtle)
             }.buttonStyle(.plain)
         }
@@ -660,6 +897,7 @@ struct InputBarV4: View {
         }
         return "Unknown location"
     }
+
 }
 
 // MARK: - BreathingCaretView
@@ -678,6 +916,119 @@ private struct BreathingCaretView: View {
             .opacity(isHigh ? 1.0 : 0.6)
             // motion-exception: caret breathing 800ms documented in PRD US-013 / FR-20
             .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isHigh)
-            .onAppear { isHigh = true }
+            .onAppear {
+                isHigh = true
+                // US-012: 0.15s delay so the haptic fires after the caret visually appears.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    Haptics.rigid(intensity: 0.3)
+                }
+            }
+    }
+}
+
+// MARK: - US-009: Send Affordance (5 shapes)
+
+/// The 5 visual states of the send button, driven by draft composition.
+enum SendAffordance: Equatable {
+    case empty                  // 空态: 浅色 mic.fill 圆环, 呼吸动画
+    case textOnly               // 仅文本: 实心琥珀 arrow.up
+    case textAndPhoto           // 文本+照片: camera.fill + arrow.up 复合
+    case locationOnly           // 仅位置: mappin.and.arrow.up
+    case multimodal(count: Int) // 多模态: 琥珀 ring 带光晕脉动
+
+    var accessibilityLabel: String {
+        switch self {
+        case .empty:              return "按住说"
+        case .textOnly:           return "发送"
+        case .textAndPhoto:       return "记下这一刻"
+        case .locationOnly:       return "标记此处"
+        case .multimodal(let n):  return "发送 \(n) 项"
+        }
+    }
+
+    var shadowColor: Color {
+        switch self {
+        case .empty:     return .clear
+        case .textOnly:  return DSColor.amberAccent.opacity(0.32)
+        case .textAndPhoto: return DSColor.amberAccent.opacity(0.32)
+        case .locationOnly: return DSColor.amberAccent.opacity(0.32)
+        case .multimodal: return DSColor.amberAccent.opacity(0.40)
+        }
+    }
+}
+
+/// The icon layer inside the send button circle.
+private struct SendAffordanceIcon: View {
+    let affordance: SendAffordance
+    let breathingOpacity: Double
+
+    var body: some View {
+        Group {
+            switch affordance {
+            case .empty:
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(DSColor.amberAccent.opacity(breathingOpacity))
+
+            case .textOnly:
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+
+            case .textAndPhoto:
+                // Composite: camera behind, small arrow.up overlaid top-right
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.white)
+                        .offset(x: 5, y: -5)
+                }
+
+            case .locationOnly:
+                Image(systemName: "mappin.and.ellipse")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+
+            case .multimodal:
+                // Amber ring with a small arrow.up in center
+                ZStack {
+                    Circle()
+                        .strokeBorder(Color.white.opacity(0.8), lineWidth: 2)
+                        .frame(width: 28, height: 28)
+                        .opacity(breathingOpacity)
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+            }
+        }
+        .animation(.spring(response: 0.32, dampingFraction: 0.8), value: affordance)
+    }
+}
+
+/// The background circle of the send button.
+private struct SendAffordanceBG: View {
+    let affordance: SendAffordance
+    let breathingOpacity: Double
+
+    var body: some View {
+        Group {
+            switch affordance {
+            case .empty:
+                // Light translucent ring — AC: 空态明确不再用 18% 透明琥珀圆
+                Circle()
+                    .strokeBorder(
+                        DSColor.amberAccent.opacity(breathingOpacity * 0.7),
+                        lineWidth: 1.5
+                    )
+            case .textOnly, .textAndPhoto, .locationOnly:
+                Circle().fill(DSColor.amberAccent)
+            case .multimodal:
+                Circle().fill(DSColor.amberAccent)
+            }
+        }
     }
 }

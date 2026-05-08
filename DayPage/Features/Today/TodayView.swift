@@ -13,7 +13,6 @@ struct TodayView: View {
 
     @Environment(\.scenePhase) private var scenePhase
 
-    @State private var showAccountSheet: Bool = false
     @State private var showSyncBanner: Bool = false
     @State private var showAuthSheet: Bool = false
 
@@ -22,6 +21,9 @@ struct TodayView: View {
 
     /// Whether to show the Daily Page sheet.
     @State private var showDailyPage: Bool = false
+
+    /// Date string for the fallback yesterday daily page sheet.
+    @State private var fallbackDailyPageDateString: String? = nil
 
     /// Whether to show the Settings sheet.
     @State private var showSettings: Bool = false
@@ -84,30 +86,20 @@ struct TodayView: View {
 
                         Spacer()
 
-                        // Right: settings + account
-                        HStack(spacing: 8) {
-                            Button {
-                                showSettings = true
-                            } label: {
-                                Image(systemName: "gearshape")
-                                    .font(.system(size: 15, weight: .regular))
-                                    .foregroundColor(DSColor.inkMuted)
-                                    .frame(width: 36, height: 36)
-                                    .background(DSColor.glassStd)
-                                    .background(.ultraThinMaterial, in: Circle())
-                                    .overlay(Circle().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
-                                    .clipShape(Circle())
-                            }
-                            .accessibilityLabel("设置")
-
-                            if authService.session != nil {
-                                Button {
-                                    showAccountSheet = true
-                                } label: {
-                                    accountAvatar
-                                }
-                            }
+                        // Right: settings gear (28pt glass circle)
+                        Button {
+                            showSettings = true
+                        } label: {
+                            Image(systemName: "gearshape")
+                                .font(.system(size: 14, weight: .regular))
+                                .foregroundColor(DSColor.inkMuted)
+                                .frame(width: 28, height: 28)
+                                .background(DSColor.glassStd)
+                                .background(.ultraThinMaterial, in: Circle())
+                                .overlay(Circle().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                                .clipShape(Circle())
                         }
+                        .accessibilityLabel("设置")
                         .padding(.top, 4)
                     }
                     .padding(.horizontal, 20)
@@ -180,17 +172,16 @@ struct TodayView: View {
                                 // Memo cards (reverse-chronological)
                                 if viewModel.memos.isEmpty && !viewModel.isLoading {
                                     let hasOnboarded = UserDefaults.standard.bool(forKey: AppSettings.Keys.hasOnboarded)
-                                    Group {
-                                        if hasOnboarded {
-                                            EmptyStateView.todayNoSignals()
-                                        } else {
-                                            EmptyStateView.todayBlank {
-                                                // focus is implicit — the input bar is always visible below
-                                            }
+                                    if !hasOnboarded {
+                                        EmptyStateView.todayBlank {
+                                            // focus is implicit — the input bar is always visible below
                                         }
+                                        .padding(.top, 48)
+                                        .padding(.horizontal, 20)
+                                    } else {
+                                        fallbackContentView
+                                            .padding(.top, 24)
                                     }
-                                    .padding(.top, 48)
-                                    .padding(.horizontal, 20)
                                 } else {
                                     ForEach(Array(viewModel.memos.enumerated()), id: \.element.id) { idx, memo in
                                         TimelineRow(
@@ -234,6 +225,20 @@ struct TodayView: View {
                             .padding(.top, 12)
                             .frame(minHeight: geo.size.height * 0.75)
                         }
+                        // US-010: Vignette gradient at the bottom edge fades timeline
+                        // content behind the composer dock, so cards appear to recede
+                        // rather than abruptly stopping at the input bar boundary.
+                        .mask(
+                            VStack(spacing: 0) {
+                                Rectangle()
+                                LinearGradient(
+                                    colors: [Color.black, Color.clear],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                                .frame(height: 40)
+                            }
+                        )
                         .coordinateSpace(name: "todayScroll")
                         .frame(maxHeight: geo.size.height)
                     }
@@ -386,9 +391,6 @@ struct TodayView: View {
                 DayDetailView(dateString: target.dateString)
             }
             .bannerOverlay()
-            .sheet(isPresented: $showAccountSheet) {
-                AccountSheet()
-            }
             .sheet(isPresented: $showAuthSheet) {
                 AuthView()
             }
@@ -444,22 +446,6 @@ struct TodayView: View {
             .onTapGesture {
                 showAuthSheet = true
             }
-    }
-
-    // MARK: - Account Avatar
-
-    private var accountAvatar: some View {
-        let email = authService.session?.user.email ?? ""
-        let initial = email.first.map { String($0).uppercased() } ?? "?"
-        return ZStack {
-            Circle()
-                .fill(DSColor.amberSoft)
-                .frame(width: 36, height: 36)
-                .overlay(Circle().strokeBorder(DSColor.amberRim, lineWidth: 0.5))
-            Text(initial)
-                .font(DSType.labelSM)
-                .foregroundColor(DSColor.amberDeep)
-        }
     }
 
     // MARK: - Swipeable Daily Page Card
@@ -519,6 +505,119 @@ struct TodayView: View {
         }
     }
 
+    // MARK: - Fallback Content View
+
+    /// Fallback content shown on Today when memos isEmpty and hasOnboarded.
+    /// Switches on TodayViewModel.fallbackContent priority chain.
+    @ViewBuilder
+    private var fallbackContentView: some View {
+        switch viewModel.fallbackContent {
+        case .yesterdayDailyPage(let page):
+            VStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: "calendar.badge.clock")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(DSColor.amberAccent)
+                    Text("昨日 Daily Page")
+                        .font(DSType.caption)
+                        .foregroundColor(DSColor.inkPrimary)
+                    Spacer()
+                    Button {
+                        fallbackDailyPageDateString = page.dateString
+                    } label: {
+                        Text("查看")
+                            .font(DSType.caption)
+                            .foregroundColor(DSColor.amberAccent)
+                    }
+                }
+                Text(page.summary)
+                    .font(DSType.bodySM)
+                    .foregroundColor(DSColor.inkSecondary)
+                    .lineLimit(3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(16)
+            .liquidGlassCard()
+
+        case .onThisDay(let memos):
+            VStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(DSColor.amberAccent)
+                    Text("那年今日")
+                        .font(DSType.caption)
+                        .foregroundColor(DSColor.inkPrimary)
+                    Spacer()
+                    if let entry = viewModel.onThisDayEntry {
+                        Button {
+                            let f = DateFormatter()
+                            f.dateFormat = "yyyy-MM-dd"
+                            f.locale = Locale(identifier: "en_US_POSIX")
+                            f.timeZone = TimeZone.current
+                            onThisDayDateString = f.string(from: entry.originalDate)
+                        } label: {
+                            Text("查看 \\(memos.count) 条")
+                                .font(DSType.caption)
+                                .foregroundColor(DSColor.amberAccent)
+                        }
+                    }
+                }
+                ForEach(Array(memos.prefix(3)), id: \\.id) { memo in
+                    Text(memo.body.prefix(60).trimmingCharacters(in: .whitespacesAndNewlines))
+                        .font(DSType.mono10)
+                        .foregroundColor(DSColor.inkMuted)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding(16)
+            .liquidGlassCard()
+
+        case .weekRecap(let stats):
+            VStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: "chart.bar.fill")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(DSColor.amberAccent)
+                    Text("本周回顾")
+                        .font(DSType.caption)
+                        .foregroundColor(DSColor.inkPrimary)
+                    Spacer()
+                    Text("\\(stats.count) 天")
+                        .font(DSType.mono10)
+                        .foregroundColor(DSColor.inkMuted)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 16) {
+                        ForEach(stats) { entry in
+                            VStack(spacing: 4) {
+                                if let summary = entry.summary {
+                                    Text(summary)
+                                        .font(DSType.bodySM)
+                                        .foregroundColor(DSColor.inkPrimary)
+                                        .lineLimit(2)
+                                }
+                                Text(entry.dateString)
+                                    .font(DSType.mono8)
+                                    .foregroundColor(DSColor.inkMuted)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(16)
+            .liquidGlassCard()
+
+        case .pureEmpty:
+            EmptyStateView.todayBlank {
+                // focus is implicit — the input bar is always visible below
+            }
+        }
+    }
+
     // MARK: - Day Orb Hero
 
     /// Hero region shown at the top of Today: serif date + mono signal kicker + 200pt Day Orb.
@@ -538,7 +637,7 @@ struct TodayView: View {
             Button {
                 // TODO: open Day Drawer (follow-up story)
             } label: {
-                DayOrbView(signalCount: viewModel.signalCount, size: 200)
+                DayOrbView(signalCount: viewModel.signalCount, size: 140)
             }
             .buttonStyle(.plain)
         }
@@ -571,6 +670,7 @@ struct TodayView: View {
             isProcessingPhoto: viewModel.isProcessingPhoto,
             pendingAttachments: viewModel.pendingAttachments,
             onFetchLocation: { viewModel.fetchLocation() },
+            onSetLocation: { loc in viewModel.setPendingLocation(loc) },
             onClearLocation: { viewModel.clearPendingLocation() },
             onAddPhoto: { items in
                 for item in items {

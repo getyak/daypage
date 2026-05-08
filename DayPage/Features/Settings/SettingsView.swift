@@ -43,6 +43,10 @@ struct SettingsView: View {
     @State private var showApiKeyEditor = false
     @State private var keyRefreshToken: UUID = UUID()   // bump to force apiKeysSection redraw
 
+    // Account sheet
+    @EnvironmentObject private var authService: AuthService
+    @State private var showAccountSheet = false
+
     // Data section state
     @State private var vaultSizeLabel: String = "计算中…"
     @State private var showExportAlert = false
@@ -55,6 +59,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
+                accountSection
                 apiKeysSection
                 permissionsSection
                 appearanceSection
@@ -72,6 +77,9 @@ struct SettingsView: View {
             }
             .onAppear { computeVaultSize() }
             .bannerOverlay()
+            .sheet(isPresented: $showAccountSheet) {
+                AccountSheet()
+            }
             .sheet(isPresented: $showApiKeyEditor) {
                 apiKeyEditorSheet
             }
