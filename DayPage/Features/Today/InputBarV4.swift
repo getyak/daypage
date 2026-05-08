@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreLocation
+import Photos
 import PhotosUI
 import UIKit
 
@@ -50,6 +51,7 @@ struct InputBarV4: View {
     var onPressToTalkTranscribe: (String) -> Void
     var onAddFile: () -> Void
     var onSubmit: () -> Void
+    var onAddPhotoAsset: ((PHAsset) -> Void)? = nil
 
     // MARK: Private State
 
@@ -475,6 +477,11 @@ struct InputBarV4: View {
                 Divider()
                     .background(DSColor.inkFaint)
                     .padding(.horizontal, 16)
+            }
+
+            // US-016: Inline Lens Strip — recent 24 h thumbnails for one-tap attach.
+            InlineLensStrip { asset in
+                onAddPhotoAsset?(asset)
             }
 
             // US-015: Smart Template hint row — only when draft is empty.

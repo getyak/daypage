@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import UIKit
 import CoreLocation
+import Photos
 import PhotosUI
 
 // MARK: - Pending Attachment
