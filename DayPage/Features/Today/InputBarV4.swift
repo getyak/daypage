@@ -69,6 +69,13 @@ struct InputBarV4: View {
     @State private var micHintToastTask: Task<Void, Never>?
     /// True while composing-mode mic is actively recording for transcription.
     @State private var isComposingTranscribe: Bool = false
+    /// US-015: placeholder suffix shown in secondary color after the template prefix.
+    /// Cleared as soon as the user edits the text beyond the prefix.
+    @State private var templateSuffix: String = ""
+    /// The template that was last tapped, used to detect when the user diverges.
+    @State private var activeTemplate: SmartTemplate? = nil
+    /// The template shown this session — computed once so it doesn't reshuffle on re-render.
+    @State private var currentTemplate: SmartTemplate = SmartTemplate.current()
 
     @StateObject private var voiceService = VoiceService.shared
     @StateObject private var contextProvider = ComposerContextProvider.shared
@@ -470,6 +477,18 @@ struct InputBarV4: View {
                     .padding(.horizontal, 16)
             }
 
+            // US-015: Smart Template hint row — only when draft is empty.
+            if text.isEmpty && pendingAttachments.isEmpty {
+                SmartTemplateRow(template: currentTemplate) { tpl in
+                    activeTemplate = tpl
+                    templateSuffix = tpl.placeholder
+                    text = tpl.prefix
+                    isFocused = true
+                    Haptics.soft()
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
             // Text field — full width, no border, generous padding
             ZStack(alignment: .topLeading) {
                 TextField("记一笔…", text: $text, axis: .vertical)
@@ -489,6 +508,15 @@ struct InputBarV4: View {
                     .toolbar {
                         ToolbarItemGroup(placement: .keyboard) {
                             keyboardToolbarContent
+                        }
+                    }
+                    // US-015: clear placeholder suffix when user edits text.
+                    .onChange(of: text) { newValue in
+                        if let tpl = activeTemplate, !templateSuffix.isEmpty {
+                            if newValue != tpl.prefix {
+                                templateSuffix = ""
+                                activeTemplate = nil
+                            }
                         }
                     }
 
@@ -511,6 +539,23 @@ struct InputBarV4: View {
                 .animation(.easeInOut(duration: 0.2), value: isFocused || !text.isEmpty)
                 .padding(.leading, 20)
                 .padding(.top, 18)
+
+            }
+
+            // US-015: secondary-style placeholder suffix shown below the text field
+            // while the user hasn't yet typed beyond the template prefix.
+            if !templateSuffix.isEmpty {
+                HStack {
+                    Text(templateSuffix)
+                        .font(DSType.serifBody16)
+                        .foregroundStyle(Color.secondary)
+                        .allowsHitTesting(false)
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 8)
+                .transition(.opacity)
+                .animation(.easeInOut(duration: 0.15), value: templateSuffix.isEmpty)
             }
         }
         // Card — matchedGeometryEffect on the whole VStack mirrors the surface
@@ -845,6 +890,7 @@ struct InputBarV4: View {
         }
         return "Unknown location"
     }
+
 }
 
 // MARK: - BreathingCaretView
