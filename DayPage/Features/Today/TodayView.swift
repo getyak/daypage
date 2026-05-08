@@ -505,6 +505,119 @@ struct TodayView: View {
         }
     }
 
+    // MARK: - Fallback Content View
+
+    /// Fallback content shown on Today when memos isEmpty and hasOnboarded.
+    /// Switches on TodayViewModel.fallbackContent priority chain.
+    @ViewBuilder
+    private var fallbackContentView: some View {
+        switch viewModel.fallbackContent {
+        case .yesterdayDailyPage(let page):
+            VStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: "calendar.badge.clock")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(DSColor.amberAccent)
+                    Text("昨日 Daily Page")
+                        .font(DSType.caption)
+                        .foregroundColor(DSColor.inkPrimary)
+                    Spacer()
+                    Button {
+                        fallbackDailyPageDateString = page.dateString
+                    } label: {
+                        Text("查看")
+                            .font(DSType.caption)
+                            .foregroundColor(DSColor.amberAccent)
+                    }
+                }
+                Text(page.summary)
+                    .font(DSType.bodySM)
+                    .foregroundColor(DSColor.inkSecondary)
+                    .lineLimit(3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(16)
+            .liquidGlassCard()
+
+        case .onThisDay(let memos):
+            VStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(DSColor.amberAccent)
+                    Text("那年今日")
+                        .font(DSType.caption)
+                        .foregroundColor(DSColor.inkPrimary)
+                    Spacer()
+                    if let entry = viewModel.onThisDayEntry {
+                        Button {
+                            let f = DateFormatter()
+                            f.dateFormat = "yyyy-MM-dd"
+                            f.locale = Locale(identifier: "en_US_POSIX")
+                            f.timeZone = TimeZone.current
+                            onThisDayDateString = f.string(from: entry.originalDate)
+                        } label: {
+                            Text("查看 \\(memos.count) 条")
+                                .font(DSType.caption)
+                                .foregroundColor(DSColor.amberAccent)
+                        }
+                    }
+                }
+                ForEach(Array(memos.prefix(3)), id: \\.id) { memo in
+                    Text(memo.body.prefix(60).trimmingCharacters(in: .whitespacesAndNewlines))
+                        .font(DSType.mono10)
+                        .foregroundColor(DSColor.inkMuted)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding(16)
+            .liquidGlassCard()
+
+        case .weekRecap(let stats):
+            VStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: "chart.bar.fill")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(DSColor.amberAccent)
+                    Text("本周回顾")
+                        .font(DSType.caption)
+                        .foregroundColor(DSColor.inkPrimary)
+                    Spacer()
+                    Text("\\(stats.count) 天")
+                        .font(DSType.mono10)
+                        .foregroundColor(DSColor.inkMuted)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 16) {
+                        ForEach(stats) { entry in
+                            VStack(spacing: 4) {
+                                if let summary = entry.summary {
+                                    Text(summary)
+                                        .font(DSType.bodySM)
+                                        .foregroundColor(DSColor.inkPrimary)
+                                        .lineLimit(2)
+                                }
+                                Text(entry.dateString)
+                                    .font(DSType.mono8)
+                                    .foregroundColor(DSColor.inkMuted)
+                            }
+                        }
+                    }
+                }
+            }
+            .padding(16)
+            .liquidGlassCard()
+
+        case .pureEmpty:
+            EmptyStateView.todayBlank {
+                // focus is implicit — the input bar is always visible below
+            }
+        }
+    }
+
     // MARK: - Day Orb Hero
 
     /// Hero region shown at the top of Today: serif date + mono signal kicker + 200pt Day Orb.

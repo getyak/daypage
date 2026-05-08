@@ -1,5 +1,14 @@
 import Foundation
 
+// MARK: - ComposerState
+
+enum ComposerState: Equatable {
+    case idle
+    case expanding
+    case open
+    case collapsing
+}
+
 // MARK: - ComposerStateMachine
 
 /// Pure state machine for the text-composer open/close lifecycle.

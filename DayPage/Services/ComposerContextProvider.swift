@@ -5,7 +5,7 @@ import UIKit
 
 enum ContextChip: Identifiable, Equatable {
     case weather(temp: String, condition: String)
-    case location(short: String)
+    case location(short: String, lat: Double?, lng: Double?)
     case timeRitual(emoji: String, text: String)
     case lastMemoTail(snippet: String)
     case smartPaste(value: String)
@@ -13,7 +13,7 @@ enum ContextChip: Identifiable, Equatable {
     var id: String {
         switch self {
         case .weather(let temp, let condition): return "weather-\(temp)-\(condition)"
-        case .location(let short): return "location-\(short)"
+        case .location(let short, _, _): return "location-\(short)"
         case .timeRitual(let emoji, let text): return "ritual-\(emoji)-\(text)"
         case .lastMemoTail(let snippet): return "lastMemo-\(snippet.prefix(20))"
         case .smartPaste(let value): return "paste-\(value.prefix(20))"
@@ -89,7 +89,7 @@ final class ComposerContextProvider: ObservableObject {
         } else {
             return nil
         }
-        return .location(short: short)
+        return .location(short: short, lat: loc.lat, lng: loc.lng)
     }
 
     private func timeRitualChip() -> ContextChip {
@@ -121,10 +121,8 @@ final class ComposerContextProvider: ObservableObject {
     }
 
     private func smartPasteChip() -> ContextChip? {
-        guard let string = UIPasteboard.general.string,
-              !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-        let value = String(string.trimmingCharacters(in: .whitespacesAndNewlines).prefix(100))
-        return .smartPaste(value: value)
+        guard UIPasteboard.general.hasStrings else { return nil }
+        return .smartPaste(value: "")
     }
 }
 
