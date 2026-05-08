@@ -703,7 +703,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 withAnimation(Motion.spring) {
                     memos.insert(memo, at: 0)
                 }
-                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                Haptics.successNotification()
                 pendingLocation = nil
                 pendingAttachments = []
                 // Track save count for sync banner (US-010)

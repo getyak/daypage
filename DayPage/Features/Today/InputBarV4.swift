@@ -119,11 +119,11 @@ struct InputBarV4: View {
         switch (composerState, next) {
         case (.idle, .expanding):
             composerState = .expanding
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            Haptics.soft()
             withAnimation(morphAnimation) { composerState = .open }
         case (.open, .collapsing):
             composerState = .collapsing
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            Haptics.soft()
             withAnimation(morphAnimation) { composerState = .idle }
         default:
             break
@@ -251,6 +251,13 @@ struct InputBarV4: View {
             onAddPhoto(newItems)
             photosPickerItems = []
         }
+        .onChange(of: pendingAttachments.count) { newCount in
+            // US-012: medium haptic when an attachment is added; removal haptic
+            // fires at the xmark button so we only trigger here on count increase.
+            if newCount > 0 {
+                Haptics.medium()
+            }
+        }
     }
 
     // MARK: - STREAM Dock (idle state)
@@ -323,7 +330,7 @@ struct InputBarV4: View {
         action: @escaping () -> Void
     ) -> some View {
         Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.soft()
             action()
         } label: {
             Image(systemName: systemImage)
@@ -344,7 +351,7 @@ struct InputBarV4: View {
         action: @escaping () -> Void
     ) -> some View {
         Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.soft()
             action()
         } label: {
             Text("Aa")
@@ -410,7 +417,7 @@ struct InputBarV4: View {
             .contentShape(Rectangle())
             // Single tap — accessibility equivalent of swipe-up
             .onTapGesture {
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                Haptics.medium()
                 transition(to: .collapsing)
                 isFocused = false
             }
@@ -422,7 +429,7 @@ struct InputBarV4: View {
                 DragGesture(minimumDistance: 4)
                     .onEnded { value in
                         if value.translation.height < -32 {
-                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            Haptics.medium()
                             transition(to: .collapsing)
                             isFocused = false
                         }
@@ -577,7 +584,7 @@ struct InputBarV4: View {
     }
 
     private func handleComposingMicTap() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        Haptics.soft()
         if isComposingTranscribe {
             // Stop recording and transcribe into text field
             isComposingTranscribe = false
@@ -672,13 +679,13 @@ struct InputBarV4: View {
     /// it itself in `.onAppear`.
     /// Also flashes a hint toast so users discover that long-press sends directly.
     private func handleMicTap() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        Haptics.soft()
         flashMicHintToast()
         onStartVoiceRecording()
     }
 
     private func handlePressToTalkStart() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        Haptics.soft()
         Task { await voiceService.startRecording() }
     }
 
@@ -687,12 +694,12 @@ struct InputBarV4: View {
         // Cancel the recording, warn-haptic, and surface the toast — don't
         // commit a meaningless 0:00 voice memo.
         if isRecordingTooShort {
-            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            Haptics.warningNotification()
             voiceService.cancelRecording()
             flashTooShortToast()
             return
         }
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        Haptics.medium()
         Task {
             if let result = await voiceService.stopAndTranscribe() {
                 onPressToTalkSend(result)
@@ -701,7 +708,7 @@ struct InputBarV4: View {
     }
 
     private func handlePressToTalkReleaseCancel() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        Haptics.light()
         voiceService.cancelRecording()
     }
 
@@ -709,7 +716,7 @@ struct InputBarV4: View {
         // Same floor as the send path — a transcribe gesture on a silent
         // sub-second clip would burn an API call and return nothing.
         if isRecordingTooShort {
-            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            Haptics.warningNotification()
             voiceService.cancelRecording()
             flashTooShortToast()
             // Critical: the transcribe branch in PressToTalkButton.onEnded
@@ -720,7 +727,7 @@ struct InputBarV4: View {
             pressToTalkPhase = .idle
             return
         }
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        Haptics.medium()
         Task {
             if let result = await voiceService.stopAndTranscribe(),
                let t = result.transcript, !t.isEmpty {
@@ -774,7 +781,10 @@ struct InputBarV4: View {
         return HStack(spacing: 4) {
             Image(systemName: icon).font(.system(size: 11)).foregroundStyle(DSColor.inkMuted)
             Text(label).font(.system(size: 12)).foregroundStyle(DSColor.inkMuted).lineLimit(1)
-            Button { onRemoveAttachment(att.id) } label: {
+            Button {
+                Haptics.light()
+                onRemoveAttachment(att.id)
+            } label: {
                 Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundStyle(DSColor.inkSubtle)
             }.buttonStyle(.plain)
         }
@@ -829,7 +839,13 @@ private struct BreathingCaretView: View {
             .opacity(isHigh ? 1.0 : 0.6)
             // motion-exception: caret breathing 800ms documented in PRD US-013 / FR-20
             .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isHigh)
-            .onAppear { isHigh = true }
+            .onAppear {
+                isHigh = true
+                // US-012: 0.15s delay so the haptic fires after the caret visually appears.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    Haptics.rigid(intensity: 0.3)
+                }
+            }
     }
 }
 
