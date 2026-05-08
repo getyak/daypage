@@ -190,6 +190,9 @@ final class AuthService: NSObject, ObservableObject {
                 await MainActor.run {
                     self.session = session
                     if let session {
+                        // User authenticated — clear the "skip" flag so the sync
+                        // banner doesn't persist from pre-login state (GH #251).
+                        UserDefaults.standard.set(false, forKey: AppSettings.Keys.authSkipped)
                         let sentryUser = Sentry.User(userId: session.user.id.uuidString)
                         SentrySDK.setUser(sentryUser)
                         DayPageLogger.shared.info("[AuthService] Auth event: \(String(describing: event)), session expires: \(session.expiresAt)")

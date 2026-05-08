@@ -399,15 +399,23 @@ struct TodayView: View {
             .onAppear {
                 evaluateSyncBanner()
             }
+            .onChange(of: authService.session) { _ in
+                evaluateSyncBanner()
+            }
         }
     }
 
     // MARK: - Sync Banner Logic
 
     private func evaluateSyncBanner() {
+        // If user is already authenticated, never show the banner
+        guard authService.session == nil else {
+            showSyncBanner = false
+            return
+        }
         let saveCount = UserDefaults.standard.integer(forKey: AppSettings.Keys.memoSaveCount)
         let authSkipped = UserDefaults.standard.bool(forKey: AppSettings.Keys.authSkipped)
-        guard saveCount >= 3, authService.session == nil, authSkipped else { return }
+        guard saveCount >= 3, authSkipped else { return }
         let lastShown = UserDefaults.standard.object(forKey: AppSettings.Keys.lastSyncBannerDate) as? Date
         let sevenDays: TimeInterval = 7 * 24 * 3600
         if let last = lastShown, Date().timeIntervalSince(last) < sevenDays { return }
