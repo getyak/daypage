@@ -42,3 +42,4 @@ Issues: getyak/daypage#252 (Today 主页极简) + #250 (Composer 3.0 Liquid Comp
 [2026-05-08T07:08:55Z] Story #US-010: Composer 工具栏迁移到 keyboard-attached (.toolbar placement: .keyboard) — PASSED
 [2026-05-08T07:11:56Z] Story #US-011: Drag-to-Collapse Handle: 卡片顶 36x4 capsule 上滑收起 — PASSED
 [2026-05-08T07:14:13Z] Story #US-012: Haptics.swift 扩展 5 级触感阶梯并接入 Composer 流程 — PASSED
+[2026-05-08T07:17:14Z] Story #US-013: ComposerContextProvider 服务：聚合 Weather/Location/lastMemo/Pasteboard — PASSED

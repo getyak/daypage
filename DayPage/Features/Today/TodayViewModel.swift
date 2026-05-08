@@ -755,6 +755,11 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         }
     }
 
+    /// Sets a specific location as the pending location (used by spotlight chip).
+    func setPendingLocation(_ location: Memo.Location) {
+        pendingLocation = location
+    }
+
     /// Clears any pending location so it won't be attached to the next memo.
     func clearPendingLocation() {
         pendingLocation = nil

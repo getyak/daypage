@@ -40,6 +40,7 @@ struct InputBarV4: View {
     var isProcessingPhoto: Bool
     var pendingAttachments: [PendingAttachment]
     var onFetchLocation: () -> Void
+    var onSetLocation: ((Memo.Location) -> Void)?
     var onClearLocation: () -> Void
     var onAddPhoto: ([PhotosPickerItem]) -> Void
     var onCapturePhoto: () -> Void
@@ -70,6 +71,7 @@ struct InputBarV4: View {
     @State private var isComposingTranscribe: Bool = false
 
     @StateObject private var voiceService = VoiceService.shared
+    @StateObject private var contextProvider = ComposerContextProvider.shared
 
     @Namespace private var morphNS
 
@@ -444,6 +446,28 @@ struct InputBarV4: View {
                 Spacer()
                 dragHandle
                 Spacer()
+            }
+
+            // US-014: Context Spotlight Strip — horizontal chip bar above TextField
+            let chips = contextProvider.chips
+            if !chips.isEmpty {
+                SpotlightStripView(
+                    chips: chips,
+                    onInsertText: { value in
+                        if text.isEmpty {
+                            text = value
+                        } else {
+                            text += (text.hasSuffix(" ") ? "" : " ") + value
+                        }
+                    },
+                    onInsertLocation: { loc in
+                        onSetLocation?(loc) ?? onFetchLocation()
+                    }
+                )
+                .padding(.top, 2)
+                Divider()
+                    .background(DSColor.inkFaint)
+                    .padding(.horizontal, 16)
             }
 
             // Text field — full width, no border, generous padding

@@ -557,6 +557,7 @@ struct TodayView: View {
             isProcessingPhoto: viewModel.isProcessingPhoto,
             pendingAttachments: viewModel.pendingAttachments,
             onFetchLocation: { viewModel.fetchLocation() },
+            onSetLocation: { loc in viewModel.setPendingLocation(loc) },
             onClearLocation: { viewModel.clearPendingLocation() },
             onAddPhoto: { items in
                 for item in items {
