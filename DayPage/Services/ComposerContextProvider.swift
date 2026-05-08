@@ -5,18 +5,25 @@ import UIKit
 
 enum ContextChip: Identifiable, Equatable {
     case weather(temp: String, condition: String)
-    case location(short: String)
+    /// Carries `lat`/`lng` so chips reuse the user's real coordinates instead
+    /// of silently nil-ing them (#254 review feedback).
+    case location(short: String, lat: Double?, lng: Double?)
     case timeRitual(emoji: String, text: String)
     case lastMemoTail(snippet: String)
-    case smartPaste(value: String)
+    /// Pasteboard chip is an *opaque availability signal*: it indicates the
+    /// system pasteboard has text without reading the contents, so SwiftUI
+    /// re-renders no longer trigger the "Pasted from <other app>" iOS banner
+    /// or silently load secrets. The actual `.string` is read only when the
+    /// user explicitly taps the chip (see `SpotlightStripView.applyChip`).
+    case smartPaste
 
     var id: String {
         switch self {
         case .weather(let temp, let condition): return "weather-\(temp)-\(condition)"
-        case .location(let short): return "location-\(short)"
+        case .location(let short, _, _): return "location-\(short)"
         case .timeRitual(let emoji, let text): return "ritual-\(emoji)-\(text)"
         case .lastMemoTail(let snippet): return "lastMemo-\(snippet.prefix(20))"
-        case .smartPaste(let value): return "paste-\(value.prefix(20))"
+        case .smartPaste: return "paste-available"
         }
     }
 }
@@ -89,7 +96,9 @@ final class ComposerContextProvider: ObservableObject {
         } else {
             return nil
         }
-        return .location(short: short)
+        // Carry the real coordinates through; `applyChip` rebuilds a Memo.Location
+        // with these instead of writing nil/nil and degrading the memo.
+        return .location(short: short, lat: loc.lat, lng: loc.lng)
     }
 
     private func timeRitualChip() -> ContextChip {
@@ -121,10 +130,18 @@ final class ComposerContextProvider: ObservableObject {
     }
 
     private func smartPasteChip() -> ContextChip? {
-        guard let string = UIPasteboard.general.string,
-              !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
-        let value = String(string.trimmingCharacters(in: .whitespacesAndNewlines).prefix(100))
-        return .smartPaste(value: value)
+        // CRITICAL: never read `UIPasteboard.general.string` here. `chips` is
+        // recomputed on every SwiftUI body re-evaluation (every keystroke,
+        // focus change, attachment update), and reading `.string` triggers
+        // the iOS "DayPage pasted from <other app>" privacy banner *and*
+        // silently loads whatever is on the clipboard (passwords, 2FA codes)
+        // into the chip model without explicit user consent.
+        //
+        // `hasStrings` is the documented availability check that does NOT
+        // count as a paste. The actual content is read on-demand inside
+        // `SpotlightStripView.applyChip` only when the user taps the chip.
+        guard UIPasteboard.general.hasStrings else { return nil }
+        return .smartPaste
     }
 }
 

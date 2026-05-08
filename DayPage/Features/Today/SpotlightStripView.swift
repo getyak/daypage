@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - SpotlightStripView (US-014)
 //
@@ -34,15 +35,23 @@ struct SpotlightStripView: View {
         case .weather(let temp, let condition):
             let text = condition.isEmpty ? temp : "\(temp) \(condition)"
             onInsertText(text)
-        case .location(let short):
-            let loc = Memo.Location(name: short, lat: nil, lng: nil)
+        case .location(let short, let lat, let lng):
+            // Carry coordinates through; previously dropped to nil/nil and
+            // degraded memos vs. the explicit "fetch location" button.
+            let loc = Memo.Location(name: short, lat: lat, lng: lng)
             onInsertLocation(loc)
         case .timeRitual(let emoji, let text):
             onInsertText("\(emoji) \(text)")
         case .lastMemoTail(let snippet):
             onInsertText("> \(snippet)")
-        case .smartPaste(let value):
-            onInsertText(value)
+        case .smartPaste:
+            // Read pasteboard contents only on explicit user tap. The chip
+            // builder upstream never pre-reads the string (would trigger the
+            // iOS "Pasted from <other app>" privacy banner on every render).
+            let raw = UIPasteboard.general.string ?? ""
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return }
+            onInsertText(String(trimmed.prefix(100)))
         }
     }
 }
@@ -94,7 +103,7 @@ private struct SpotlightChip: View {
         switch chip {
         case .weather(let temp, let condition):
             return condition.isEmpty ? temp : "\(temp) \(condition)"
-        case .location(let short):
+        case .location(let short, _, _):
             return short
         case .timeRitual(_, let text):
             return text
@@ -102,10 +111,9 @@ private struct SpotlightChip: View {
             let trimmed = snippet.trimmingCharacters(in: .whitespacesAndNewlines)
             let preview = String(trimmed.prefix(20))
             return trimmed.count > 20 ? "\(preview)…" : preview
-        case .smartPaste(let value):
-            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-            let preview = String(trimmed.prefix(18))
-            return trimmed.count > 18 ? "\(preview)…" : preview
+        case .smartPaste:
+            // Static label — never previews pasteboard content (privacy).
+            return "剪贴板"
         }
     }
 
@@ -113,14 +121,14 @@ private struct SpotlightChip: View {
         switch chip {
         case .weather(let temp, let condition):
             return "插入天气：\(temp) \(condition)"
-        case .location(let short):
+        case .location(let short, _, _):
             return "插入位置：\(short)"
         case .timeRitual(_, let text):
             return "插入时间：\(text)"
         case .lastMemoTail(let snippet):
             return "引用上一条：\(snippet.prefix(20))"
-        case .smartPaste(let value):
-            return "粘贴：\(value.prefix(20))"
+        case .smartPaste:
+            return "粘贴剪贴板内容"
         }
     }
 }

@@ -145,6 +145,40 @@ struct SettingsView: View {
         .presentationDetents([.medium])
     }
 
+    // MARK: - Account Section
+
+    /// Top-of-list row that surfaces the signed-in account and opens the
+    /// existing `AccountSheet` for sign-in / sign-out actions. Added when
+    /// the account avatar was removed from the Today header (#US-004) but
+    /// the corresponding `accountSection` view was never landed.
+    private var accountSection: some View {
+        Section("账号") {
+            Button {
+                showAccountSheet = true
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "person.crop.circle")
+                        .font(.system(size: 22, weight: .regular))
+                        .foregroundColor(DSColor.onSurfaceVariant)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(authService.session?.user.email ?? "未登录")
+                            .font(DSType.bodyMD)
+                            .foregroundColor(DSColor.onBackgroundPrimary)
+                        Text(authService.session == nil ? "点击登录" : "管理账号")
+                            .font(DSType.labelSM)
+                            .foregroundColor(DSColor.onSurfaceVariant)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(DSColor.onSurfaceVariant)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
     // MARK: - API Keys Section
 
     private var apiKeysSection: some View {

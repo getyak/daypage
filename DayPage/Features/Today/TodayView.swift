@@ -390,6 +390,19 @@ struct TodayView: View {
             )) { target in
                 DayDetailView(dateString: target.dateString)
             }
+            // Fallback "yesterday daily page" cover — opened from the zero-memo
+            // fallback view when yesterday already has a compiled page.
+            .fullScreenCover(item: Binding(
+                get: { fallbackDailyPageDateString.map { OnThisDayNavTarget(dateString: $0) } },
+                set: { fallbackDailyPageDateString = $0?.dateString }
+            )) { target in
+                DailyPageView(
+                    dateString: target.dateString,
+                    onReturnToToday: { _ in
+                        fallbackDailyPageDateString = nil
+                    }
+                )
+            }
             .bannerOverlay()
             .sheet(isPresented: $showAuthSheet) {
                 AuthView()
@@ -446,6 +459,75 @@ struct TodayView: View {
             .onTapGesture {
                 showAuthSheet = true
             }
+    }
+
+    // MARK: - Fallback Content (zero-memo today)
+
+    /// Shown in the timeline when the user is onboarded but today has no memos.
+    /// Priority is decided by `viewModel.fallbackContent`; each branch falls
+    /// back to existing components instead of inventing a new visual language.
+    @ViewBuilder
+    private var fallbackContentView: some View {
+        switch viewModel.fallbackContent {
+        case .yesterdayDailyPage(let page):
+            yesterdayDailyPageFallback(page)
+        case .onThisDay(let memos):
+            onThisDayFallback(memos: memos)
+        case .weekRecap(let entries):
+            WeeklyRecapSection(entries: entries) { dateString in
+                onThisDayDateString = dateString
+            }
+        case .pureEmpty:
+            EmptyStateView.todayNoSignals()
+                .padding(.horizontal, 20)
+        }
+    }
+
+    @ViewBuilder
+    private func yesterdayDailyPageFallback(_ page: DailyPageModel) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("YESTERDAY")
+                .font(DSType.mono10)
+                .tracking(1.0)
+                .foregroundColor(DSColor.inkSubtle)
+                .padding(.horizontal, 20)
+
+            DailyPageEntryCard(
+                summary: page.summary.isEmpty ? nil : page.summary,
+                onTap: {
+                    fallbackDailyPageDateString = page.dateString
+                }
+            )
+            .padding(.horizontal, 20)
+        }
+    }
+
+    @ViewBuilder
+    private func onThisDayFallback(memos: [Memo]) -> some View {
+        // Prefer the structured `onThisDayEntry` (carries yearsAgo + filePath);
+        // synthesize a lightweight one from memos when the index is cold.
+        let entry = viewModel.onThisDayEntry ?? OnThisDayEntry(
+            originalDate: memos.first?.created ?? Date(),
+            yearsAgo: nil,
+            daysAgo: nil,
+            preview: memos.first?.body.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
+            filePath: ""
+        )
+        OnThisDayCard(
+            entry: entry,
+            onDismiss: { viewModel.onThisDayEntry = nil },
+            onTap: { tapped in
+                onThisDayDateString = Self.dateString(from: tapped.originalDate)
+            }
+        )
+    }
+
+    private static func dateString(from date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone.current
+        return f.string(from: date)
     }
 
     // MARK: - Swipeable Daily Page Card
