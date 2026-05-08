@@ -29,3 +29,4 @@ Issues: getyak/daypage#252 (Today 主页极简) + #250 (Composer 3.0 Liquid Comp
 - iPhone 17 Simulator 是默认验证机型；任何 UI 改动必须 `xcodebuild -destination 'platform=iOS Simulator,name=iPhone 17' build` 通过
 
 ---
+[2026-05-08T06:43:53Z] Story #US-001: i18n 资源彻查：lproj target membership + L10n.swift 强类型枚举 — PASSED
