@@ -54,7 +54,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "\u4f9d\u8d56 US-002 (AmbientBackground \u7eaf\u5316\u5148\u843d\u5730)"
     },
     {

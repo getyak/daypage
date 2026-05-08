@@ -13,7 +13,6 @@ struct TodayView: View {
 
     @Environment(\.scenePhase) private var scenePhase
 
-    @State private var showAccountSheet: Bool = false
     @State private var showSyncBanner: Bool = false
     @State private var showAuthSheet: Bool = false
 
@@ -84,30 +83,20 @@ struct TodayView: View {
 
                         Spacer()
 
-                        // Right: settings + account
-                        HStack(spacing: 8) {
-                            Button {
-                                showSettings = true
-                            } label: {
-                                Image(systemName: "gearshape")
-                                    .font(.system(size: 15, weight: .regular))
-                                    .foregroundColor(DSColor.inkMuted)
-                                    .frame(width: 36, height: 36)
-                                    .background(DSColor.glassStd)
-                                    .background(.ultraThinMaterial, in: Circle())
-                                    .overlay(Circle().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
-                                    .clipShape(Circle())
-                            }
-                            .accessibilityLabel("设置")
-
-                            if authService.session != nil {
-                                Button {
-                                    showAccountSheet = true
-                                } label: {
-                                    accountAvatar
-                                }
-                            }
+                        // Right: settings gear (28pt glass circle)
+                        Button {
+                            showSettings = true
+                        } label: {
+                            Image(systemName: "gearshape")
+                                .font(.system(size: 14, weight: .regular))
+                                .foregroundColor(DSColor.inkMuted)
+                                .frame(width: 28, height: 28)
+                                .background(DSColor.glassStd)
+                                .background(.ultraThinMaterial, in: Circle())
+                                .overlay(Circle().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                                .clipShape(Circle())
                         }
+                        .accessibilityLabel("设置")
                         .padding(.top, 4)
                     }
                     .padding(.horizontal, 20)
@@ -386,9 +375,6 @@ struct TodayView: View {
                 DayDetailView(dateString: target.dateString)
             }
             .bannerOverlay()
-            .sheet(isPresented: $showAccountSheet) {
-                AccountSheet()
-            }
             .sheet(isPresented: $showAuthSheet) {
                 AuthView()
             }
@@ -444,22 +430,6 @@ struct TodayView: View {
             .onTapGesture {
                 showAuthSheet = true
             }
-    }
-
-    // MARK: - Account Avatar
-
-    private var accountAvatar: some View {
-        let email = authService.session?.user.email ?? ""
-        let initial = email.first.map { String($0).uppercased() } ?? "?"
-        return ZStack {
-            Circle()
-                .fill(DSColor.amberSoft)
-                .frame(width: 36, height: 36)
-                .overlay(Circle().strokeBorder(DSColor.amberRim, lineWidth: 0.5))
-            Text(initial)
-                .font(DSType.labelSM)
-                .foregroundColor(DSColor.amberDeep)
-        }
     }
 
     // MARK: - Swipeable Daily Page Card
