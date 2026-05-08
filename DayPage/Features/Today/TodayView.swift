@@ -22,6 +22,9 @@ struct TodayView: View {
     /// Whether to show the Daily Page sheet.
     @State private var showDailyPage: Bool = false
 
+    /// Date string for the fallback yesterday daily page sheet.
+    @State private var fallbackDailyPageDateString: String? = nil
+
     /// Whether to show the Settings sheet.
     @State private var showSettings: Bool = false
 
@@ -169,17 +172,16 @@ struct TodayView: View {
                                 // Memo cards (reverse-chronological)
                                 if viewModel.memos.isEmpty && !viewModel.isLoading {
                                     let hasOnboarded = UserDefaults.standard.bool(forKey: AppSettings.Keys.hasOnboarded)
-                                    Group {
-                                        if hasOnboarded {
-                                            EmptyStateView.todayNoSignals()
-                                        } else {
-                                            EmptyStateView.todayBlank {
-                                                // focus is implicit — the input bar is always visible below
-                                            }
+                                    if !hasOnboarded {
+                                        EmptyStateView.todayBlank {
+                                            // focus is implicit — the input bar is always visible below
                                         }
+                                        .padding(.top, 48)
+                                        .padding(.horizontal, 20)
+                                    } else {
+                                        fallbackContentView
+                                            .padding(.top, 24)
                                     }
-                                    .padding(.top, 48)
-                                    .padding(.horizontal, 20)
                                 } else {
                                     ForEach(Array(viewModel.memos.enumerated()), id: \.element.id) { idx, memo in
                                         TimelineRow(

@@ -401,9 +401,16 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                     .appendingPathComponent("wiki/daily/\(s).md")
             }()
             var yesterdayPage: DailyPageModel? = nil
+            let yesterdayDateString: String = {
+                let f = DateFormatter()
+                f.dateFormat = "yyyy-MM-dd"
+                f.locale = Locale(identifier: "en_US_POSIX")
+                f.timeZone = AppSettings.currentTimeZone()
+                return f.string(from: yesterdayDate)
+            }()
             if FileManager.default.fileExists(atPath: yesterdayDailyURL.path),
                let content = try? String(contentsOf: yesterdayDailyURL, encoding: .utf8) {
-                yesterdayPage = DailyPageParser.parse(content: content)
+                yesterdayPage = DailyPageParser.parse(content: content, dateString: yesterdayDateString)
             }
 
             // Load on-this-day memos for fallback using the file path captured before going off-actor.

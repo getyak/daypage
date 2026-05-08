@@ -89,7 +89,7 @@
         "Tests pass"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "\u4f9d\u8d56 US-001 (i18n \u4fee\u590d, \u5426\u5219 fallback \u6587\u6848\u4e5f\u4f1a\u66b4\u9732 key)"
     },
     {
