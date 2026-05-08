@@ -225,6 +225,20 @@ struct TodayView: View {
                             .padding(.top, 12)
                             .frame(minHeight: geo.size.height * 0.75)
                         }
+                        // US-010: Vignette gradient at the bottom edge fades timeline
+                        // content behind the composer dock, so cards appear to recede
+                        // rather than abruptly stopping at the input bar boundary.
+                        .mask(
+                            VStack(spacing: 0) {
+                                Rectangle()
+                                LinearGradient(
+                                    colors: [Color.black, Color.clear],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                                .frame(height: 40)
+                            }
+                        )
                         .coordinateSpace(name: "todayScroll")
                         .frame(maxHeight: geo.size.height)
                     }

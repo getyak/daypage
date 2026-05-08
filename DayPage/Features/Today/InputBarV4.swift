@@ -275,8 +275,9 @@ struct InputBarV4: View {
                 showAttachmentMenu = true
             }
 
-            // CENTER — amber mic orb. matchedGeometryEffect makes it travel
-            // to the card bottom-left corner while shrinking 64→28 (AC).
+            // CENTER — amber mic orb.
+            // US-010: matchedGeometryEffect removed — the composing card no longer
+            // hosts the orb landing target (toolbar moved to .keyboard placement).
             PressToTalkButton(
                 onPressStart: handlePressToTalkStart,
                 onReleaseSend: handlePressToTalkReleaseSend,
@@ -289,7 +290,6 @@ struct InputBarV4: View {
                 idleIconColor: .white
             )
             .frame(width: 64, height: 64)
-            .matchedGeometryEffect(id: MorphID.micOrb, in: morphNS)
             .shadow(color: Color(hex: "5D3000").opacity(0.50), radius: 28, x: 0, y: 12)
             .shadow(color: Color(hex: "5D3000").opacity(0.20), radius: 4, x: 0, y: 2)
             .accessibilityLabel("麦克风")
@@ -379,19 +379,21 @@ struct InputBarV4: View {
             .animation(.easeInOut(duration: 0.18), value: pressToTalkPhase)
     }
 
-    // MARK: - Composing Card Morph (US-008)
+    // MARK: - Composing Card Morph (US-008 / US-010)
     //
     // Full-width rounded-rect card that the idle capsule morphs into.
-    // matchedGeometryEffect(id: .surface) connects its background to the capsule's.
-    // matchedGeometryEffect(id: .micOrb) keeps the amber orb alive, shrinking it
-    // to 28×28 and placing it in the bottom-left toolbar as a "voice entry" button.
+    // US-010: The icon toolbar row has been lifted out of this card and moved
+    // into a .toolbar { ToolbarItemGroup(placement: .keyboard) } on the
+    // TextField so it rides attached to the keyboard instead of forming a
+    // second layer beneath it. The card now only contains the text field.
     //
-    // Layout:
+    // Layout (composing):
     //   ┌────────────────────────────────────┐
     //   │  TextField (with breathing caret)  │
-    //   ├────────────────────────────────────┤
-    //   │ [⬇] [🎙28] [📷] [🖼] [📍]  ···  [↑] │
     //   └────────────────────────────────────┘
+    //   ══════ keyboard appears ══════════════
+    //   │ [⬇] [🎙] [📷] [🖼] [📍]  ···  [↑]  │  ← keyboard toolbar
+    //   ══════════════════════════════════════
 
     private var composingCardMorph: some View {
         VStack(spacing: 0) {
@@ -406,9 +408,16 @@ struct InputBarV4: View {
                     .tint(.clear)
                     .padding(.horizontal, 20)
                     .padding(.top, 14)
-                    .padding(.bottom, 10)
+                    .padding(.bottom, 14)
                     .onTapGesture { isFocused = true }
                     .accessibilityIdentifier("memo-input")
+                    // US-010: Keyboard-attached toolbar replaces the in-card
+                    // icon row. Rides up with the keyboard; disappears on dismiss.
+                    .toolbar {
+                        ToolbarItemGroup(placement: .keyboard) {
+                            keyboardToolbarContent
+                        }
+                    }
 
                 // Aa → caret cross-fade (AC: Aa 淡出 = TextField caret 淡入, 同位置, 200ms).
                 // Both views occupy the same top-leading slot; opacity mirrors isComposing.
@@ -430,68 +439,6 @@ struct InputBarV4: View {
                 .padding(.leading, 20)
                 .padding(.top, 18)
             }
-
-            // Icon toolbar row
-            HStack(spacing: 0) {
-                // Collapse — dismiss keyboard, return to idle capsule.
-                toolbarIconButton(
-                    systemImage: "chevron.down",
-                    accessibilityLabel: "收起，回到语音模式"
-                ) {
-                    transition(to: .collapsing)
-                    isFocused = false
-                }
-
-                // Mic orb — morphed from the 64pt idle orb to 28pt here (AC).
-                // Tapping it in composing mode triggers voice-to-text.
-                // matchedGeometryEffect is on the 28pt orb circle so SwiftUI
-                // interpolates size continuously (64→28) without counting the
-                // touch-target padding (44pt frame outside the effect scope).
-                Button {
-                    handleComposingMicTap()
-                } label: {
-                    Circle()
-                        .fill(DSColor.amberAccent)
-                        .frame(width: 28, height: 28)
-                        .overlay(
-                            Image(systemName: isComposingTranscribe ? "waveform" : "mic")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(.white)
-                        )
-                        .matchedGeometryEffect(id: MorphID.micOrb, in: morphNS)
-                        .shadow(color: DSColor.amberAccent.opacity(0.40), radius: 6, x: 0, y: 2)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(isComposingTranscribe ? "停止语音转文字" : "语音转文字")
-                .frame(width: 44, height: 44)
-
-                // Camera
-                toolbarIconButton(systemImage: "camera", accessibilityLabel: "拍照") {
-                    onCapturePhoto()
-                }
-
-                // Photo library
-                PhotosPicker(selection: $photosPickerItems, matching: .images, photoLibrary: .shared()) {
-                    toolbarIconButtonContent(systemImage: "photo.on.rectangle")
-                }
-                .accessibilityLabel("相册")
-
-                // Location
-                toolbarIconButton(
-                    systemImage: pendingLocation != nil ? "mappin.circle.fill" : "mappin.and.ellipse",
-                    tint: pendingLocation != nil ? DSColor.amberAccent : DSColor.inkMuted,
-                    accessibilityLabel: pendingLocation != nil ? "清除位置" : "添加位置"
-                ) {
-                    pendingLocation != nil ? onClearLocation() : onFetchLocation()
-                }
-
-                Spacer()
-
-                // Send button
-                sendButton
-            }
-            .padding(.horizontal, 12)
-            .padding(.bottom, 10)
         }
         // Card — matchedGeometryEffect on the whole VStack mirrors the surface
         // geometry from the idle capsule for a continuous positional morph.
@@ -512,31 +459,79 @@ struct InputBarV4: View {
         .shadow(color: Color(hex: "2D1E0A").opacity(0.06), radius: 4, x: 0, y: 1)
     }
 
+    // MARK: - Keyboard Toolbar (US-010)
+    //
+    // Replaces the in-card icon row. Lives in .toolbar(placement: .keyboard)
+    // on the TextField so it floats directly above the keyboard and disappears
+    // when the keyboard is dismissed — no residual height placeholder.
+    //
+    // iPad wide keyboard: ToolbarItemGroup lays items in a single row that
+    // UIKit clips to safe bounds, so no overflow risk.
+
     @ViewBuilder
-    private func toolbarIconButton(
-        systemImage: String,
-        tint: Color = DSColor.inkMuted,
-        accessibilityLabel: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            toolbarIconButtonContent(systemImage: systemImage, tint: tint)
+    private var keyboardToolbarContent: some View {
+        // Collapse — dismiss keyboard, return to idle capsule.
+        Button {
+            transition(to: .collapsing)
+            isFocused = false
+        } label: {
+            Image(systemName: "chevron.down")
+                .font(.system(size: 17, weight: .regular))
+                .foregroundStyle(DSColor.inkMuted)
+        }
+        .accessibilityLabel("收起，回到语音模式")
+
+        // Mic orb — in keyboard toolbar the matchedGeometryEffect is dropped
+        // (toolbar renders outside the SwiftUI namespace tree). A plain amber
+        // circle button provides the same affordance at 28pt visual size.
+        Button {
+            handleComposingMicTap()
+        } label: {
+            Circle()
+                .fill(DSColor.amberAccent)
+                .frame(width: 28, height: 28)
+                .overlay(
+                    Image(systemName: isComposingTranscribe ? "waveform" : "mic")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white)
+                )
+                .shadow(color: DSColor.amberAccent.opacity(0.40), radius: 6, x: 0, y: 2)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(accessibilityLabel)
-    }
+        .accessibilityLabel(isComposingTranscribe ? "停止语音转文字" : "语音转文字")
 
-    /// Bare icon glyph used as the visual label for both `toolbarIconButton`
-    /// (Button-wrapped) and `PhotosPicker` (its own tappable surface).
-    @ViewBuilder
-    private func toolbarIconButtonContent(
-        systemImage: String,
-        tint: Color = DSColor.inkMuted
-    ) -> some View {
-        Image(systemName: systemImage)
-            .font(.system(size: 20, weight: .light))
-            .foregroundStyle(tint)
-            .frame(width: 44, height: 44)
+        // Camera
+        Button {
+            onCapturePhoto()
+        } label: {
+            Image(systemName: "camera")
+                .font(.system(size: 19, weight: .light))
+                .foregroundStyle(DSColor.inkMuted)
+        }
+        .accessibilityLabel("拍照")
+
+        // Photo library
+        PhotosPicker(selection: $photosPickerItems, matching: .images, photoLibrary: .shared()) {
+            Image(systemName: "photo.on.rectangle")
+                .font(.system(size: 19, weight: .light))
+                .foregroundStyle(DSColor.inkMuted)
+        }
+        .accessibilityLabel("相册")
+
+        // Location
+        Button {
+            pendingLocation != nil ? onClearLocation() : onFetchLocation()
+        } label: {
+            Image(systemName: pendingLocation != nil ? "mappin.circle.fill" : "mappin.and.ellipse")
+                .font(.system(size: 19, weight: .light))
+                .foregroundStyle(pendingLocation != nil ? DSColor.amberAccent : DSColor.inkMuted)
+        }
+        .accessibilityLabel(pendingLocation != nil ? "清除位置" : "添加位置")
+
+        Spacer()
+
+        // Send button — reuses the same 5-affordance component
+        sendButton
     }
 
     private func handleComposingMicTap() {

@@ -166,7 +166,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "\u4f9d\u8d56 US-007 (ComposerState \u72b6\u6001\u673a)"
     },
     {
