@@ -557,38 +557,63 @@ struct InputBarV4: View {
         }
     }
 
-    // MARK: - Send Button
+    // MARK: - Send Button (US-009: 5 adaptive shapes)
+
+    /// Derives the send-button affordance from current draft content.
+    private var sendAffordance: SendAffordance {
+        let hasText = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasPhoto = pendingAttachments.contains { if case .photo = $0 { return true }; return false }
+        let hasLocation = pendingLocation != nil
+        let totalItems = (hasText ? 1 : 0) + pendingAttachments.count + (hasLocation ? 1 : 0)
+
+        if totalItems == 0 { return .empty }
+        if hasText && hasPhoto { return .textAndPhoto }
+        if hasText { return .textOnly }
+        if hasLocation && !hasText && pendingAttachments.isEmpty { return .locationOnly }
+        return .multimodal(count: totalItems)
+    }
+
+    @State private var breathingOpacity: Double = 1.0
 
     private var sendButton: some View {
-        let hasContent = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let affordance = sendAffordance
+        let isDisabled = isSubmitting || affordance == .empty
         return Button(action: handleSend) {
-            Group {
+            ZStack {
+                // Background layer
+                SendAffordanceBG(affordance: affordance, breathingOpacity: breathingOpacity)
+                    .frame(width: 44, height: 44)
+                // Foreground icon layer
                 if isSubmitting {
                     ProgressView()
                         .progressViewStyle(.circular)
                         .tint(.white)
                         .scaleEffect(0.8)
                 } else {
-                    Image(systemName: "arrow.up")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
+                    SendAffordanceIcon(affordance: affordance, breathingOpacity: breathingOpacity)
                 }
             }
             .frame(width: 44, height: 44)
-            .background(
-                hasContent ? DSColor.amberAccent : DSColor.amberAccent.opacity(0.18),
-                in: Circle()
-            )
             .shadow(
-                color: hasContent ? DSColor.amberAccent.opacity(0.32) : .clear,
+                color: affordance.shadowColor,
                 radius: 8, x: 0, y: 4
             )
-            .animation(.easeInOut(duration: 0.18), value: hasContent)
+            .animation(.spring(response: 0.32, dampingFraction: 0.8), value: affordance)
         }
         .buttonStyle(.plain)
-        .disabled(isSubmitting || !hasContent)
-        .accessibilityLabel("发送")
+        .disabled(isDisabled)
+        .accessibilityLabel(affordance.accessibilityLabel)
         .accessibilityIdentifier("memo-send")
+        .onAppear { startBreathing() }
+        .onChange(of: affordance) { _ in startBreathing() }
+    }
+
+    private func startBreathing() {
+        withAnimation(
+            .easeInOut(duration: 0.8).repeatForever(autoreverses: true)
+        ) {
+            breathingOpacity = 0.45
+        }
     }
 
     // MARK: - Actions
@@ -768,5 +793,112 @@ private struct BreathingCaretView: View {
             // motion-exception: caret breathing 800ms documented in PRD US-013 / FR-20
             .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isHigh)
             .onAppear { isHigh = true }
+    }
+}
+
+// MARK: - US-009: Send Affordance (5 shapes)
+
+/// The 5 visual states of the send button, driven by draft composition.
+enum SendAffordance: Equatable {
+    case empty                  // 空态: 浅色 mic.fill 圆环, 呼吸动画
+    case textOnly               // 仅文本: 实心琥珀 arrow.up
+    case textAndPhoto           // 文本+照片: camera.fill + arrow.up 复合
+    case locationOnly           // 仅位置: mappin.and.arrow.up
+    case multimodal(count: Int) // 多模态: 琥珀 ring 带光晕脉动
+
+    var accessibilityLabel: String {
+        switch self {
+        case .empty:              return "按住说"
+        case .textOnly:           return "发送"
+        case .textAndPhoto:       return "记下这一刻"
+        case .locationOnly:       return "标记此处"
+        case .multimodal(let n):  return "发送 \(n) 项"
+        }
+    }
+
+    var shadowColor: Color {
+        switch self {
+        case .empty:     return .clear
+        case .textOnly:  return DSColor.amberAccent.opacity(0.32)
+        case .textAndPhoto: return DSColor.amberAccent.opacity(0.32)
+        case .locationOnly: return DSColor.amberAccent.opacity(0.32)
+        case .multimodal: return DSColor.amberAccent.opacity(0.40)
+        }
+    }
+}
+
+/// The icon layer inside the send button circle.
+private struct SendAffordanceIcon: View {
+    let affordance: SendAffordance
+    let breathingOpacity: Double
+
+    var body: some View {
+        Group {
+            switch affordance {
+            case .empty:
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(DSColor.amberAccent.opacity(breathingOpacity))
+
+            case .textOnly:
+                Image(systemName: "arrow.up")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+
+            case .textAndPhoto:
+                // Composite: camera behind, small arrow.up overlaid top-right
+                ZStack(alignment: .topTrailing) {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.white)
+                        .offset(x: 5, y: -5)
+                }
+
+            case .locationOnly:
+                Image(systemName: "mappin.and.ellipse")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.white)
+
+            case .multimodal:
+                // Amber ring with a small arrow.up in center
+                ZStack {
+                    Circle()
+                        .strokeBorder(Color.white.opacity(0.8), lineWidth: 2)
+                        .frame(width: 28, height: 28)
+                        .opacity(breathingOpacity)
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+            }
+        }
+        .animation(.spring(response: 0.32, dampingFraction: 0.8), value: affordance)
+    }
+}
+
+/// The background circle of the send button.
+private struct SendAffordanceBG: View {
+    let affordance: SendAffordance
+    let breathingOpacity: Double
+
+    var body: some View {
+        Group {
+            switch affordance {
+            case .empty:
+                // Light translucent ring — AC: 空态明确不再用 18% 透明琥珀圆
+                Circle()
+                    .strokeBorder(
+                        DSColor.amberAccent.opacity(breathingOpacity * 0.7),
+                        lineWidth: 1.5
+                    )
+            case .textOnly, .textAndPhoto, .locationOnly:
+                Circle().fill(DSColor.amberAccent)
+            case .multimodal:
+                Circle().fill(DSColor.amberAccent)
+            }
+        }
     }
 }
