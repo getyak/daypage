@@ -1,0 +1,510 @@
+{
+  "project": "DayPage",
+  "branchName": "ralph/v4-liquid-glass",
+  "description": "DayPage v4 Liquid Glass — visual system migration (Source Serif 4 + Source Han Serif cascading fonts, glass surface recipe, Day Orb hero, Glass TabBar, v4 Daily Page) + raw memo tappable into MemoDetailView + experience polish (motion tokens, empty states, glass error banner, CJK punctuation polish, haptics, first-run welcome). Source: tasks/prd-daypage-v4-liquid-glass.md · Linked GitHub Issues: EPIC #245 / #243 #244 #246 #247 #248",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Bundle Source Serif 4 + Source Han Serif SC fonts",
+      "description": "As a developer, I need Latin and CJK serif fonts available in the app bundle so the v4 typography work has its raw materials.",
+      "acceptanceCriteria": [
+        "Add SourceSerif4-Regular.ttf, SourceSerif4-Medium.ttf, SourceSerif4-SemiBold.ttf, SourceSerif4-It.ttf to DayPage/App/Fonts/",
+        "Add SourceHanSerifSC-Regular.otf, SourceHanSerifSC-Medium.otf, SourceHanSerifSC-SemiBold.otf to DayPage/App/Fonts/",
+        "Register all 7 font files in Info.plist UIAppFonts array",
+        "Add all 7 font names to DSFonts.registerAll() in Typography.swift",
+        "App size delta documented in commit message",
+        "Typecheck passes",
+        "iPhone 17 simulator build succeeds"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "Implement DSFonts.serif cascading helper",
+      "description": "As a developer, I need a font factory that returns a UIFontDescriptor.cascadeList font so Latin renders via Source Serif 4 and CJK auto-falls back to Source Han Serif SC.",
+      "acceptanceCriteria": [
+        "Add static func serif(size:weight:italic:) -> Font on DSFonts",
+        "Use UIFontDescriptor with .cascadeList attribute pointing Latin -> CJK",
+        "Helper picks correct PostScript name per weight (Regular/Medium/SemiBold)",
+        "Italic variant uses SourceSerif4-It; CJK behavior documented in code comment",
+        "Falls back gracefully to .systemFont if any face missing",
+        "Typecheck passes",
+        "Tests pass (unit test verifying serif() returns non-nil Font for each weight)"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Migrate DSType.serif* tokens to cascading serif",
+      "description": "As a developer, I need every existing DSType.serif* token routed through DSFonts.serif() so all serif text in the app picks up cascading.",
+      "acceptanceCriteria": [
+        "Replace DSType.serifBody16/serifBody18/serifBody20/serifQuote/serifDisplay28/serifDisplay32 implementations to call DSFonts.serif(...)",
+        "Mark DSFonts.newYork(...) with @available(*, deprecated, renamed: \"serif\") and route it to DSFonts.serif()",
+        "Adjust .lineSpacing in MemoCardView.swift (memo body) and DailyPageView.swift to compensate for Source Serif 4 leading",
+        "Test mixed Chinese+English paragraph renders with matched baseline (visual diff in PR)",
+        "Typecheck passes",
+        "iPhone 17 simulator build succeeds",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-004",
+      "title": "Add DesignSystem/Surfaces.swift with glass modifiers",
+      "description": "As a developer, I need centralized .liquidGlassCard / .liquidGlassPill / .liquidGlassPanel modifiers so every v4 glass surface uses one recipe.",
+      "acceptanceCriteria": [
+        "Create DayPage/DesignSystem/Surfaces.swift",
+        "Define enum GlassTone { case std, hi, lo } mapping to T.glass / T.glassHi / T.glassLo opacities from primitives.jsx:42",
+        "Define ViewModifier liquidGlassCard(cornerRadius:tone:) with backdrop blur 28, saturate 160%, 0.5pt hairline, top inner highlight, bottom soft shadow",
+        "Define liquidGlassPill() (radius 999, tone .hi)",
+        "Define liquidGlassPanel(cornerRadius:) (tone .hi, used for expanded TabBar menu)",
+        "Migrate existing liquidGlassCard call site in MemoCardView.swift:128 to new modifier",
+        "Typecheck passes",
+        "iPhone 17 build succeeds"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "Add DesignSystem/Motion.swift with timing tokens",
+      "description": "As a developer, I need 4 unified animation tokens so animations across the app share one motion language.",
+      "acceptanceCriteria": [
+        "Create DayPage/DesignSystem/Motion.swift",
+        "Define Motion.fade = .easeOut(duration: 0.18)",
+        "Define Motion.rise = .timingCurve(0.2, 0.8, 0.2, 1, duration: 0.24)",
+        "Define Motion.slide = .timingCurve(0.2, 0.8, 0.2, 1, duration: 0.28)",
+        "Define Motion.spring = .spring(response: 0.35, dampingFraction: 0.8)",
+        "Each token has a brief // doc comment describing when to use it",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-006",
+      "title": "Add DesignSystem/Haptics.swift with semantic tiers",
+      "description": "As a developer, I need 4 semantic haptic tokens so we can downshift loud .medium impacts to quiet .light where appropriate.",
+      "acceptanceCriteria": [
+        "Create DayPage/DesignSystem/Haptics.swift",
+        "Define Haptics.tapConfirm() -> UIImpactFeedbackGenerator(.light).impactOccurred()",
+        "Define Haptics.commit() -> UIImpactFeedbackGenerator(.medium).impactOccurred()",
+        "Define Haptics.warn() -> UINotificationFeedbackGenerator().notificationOccurred(.warning)",
+        "Define Haptics.success() -> UINotificationFeedbackGenerator().notificationOccurred(.success)",
+        "Replace UIImpactFeedbackGenerator(style: .medium) calls in SwipeableMemoCard pinPanel/deletePanel actions with Haptics.tapConfirm()",
+        "Typecheck passes",
+        "iPhone 17 build succeeds"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-007",
+      "title": "Replace scattered animation calls with Motion tokens",
+      "description": "As a developer, I want every withAnimation call in the codebase to use a Motion token, so the app has one consistent rhythm.",
+      "acceptanceCriteria": [
+        "Grep for .easeInOut(duration: / .easeOut(duration: / .linear(duration: / .spring( in DayPage/ source",
+        "Replace at least 80% of call sites with Motion.fade / .rise / .slide / .spring",
+        "Each remaining .easeInOut/.spring(...) site has a // motion-exception comment explaining why",
+        "Specifically migrate RecordingOverlayView pulse animations and SwipeableMemoCard snap animations to Motion tokens",
+        "Typecheck passes",
+        "iPhone 17 build succeeds"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Add CJKTextPolish.swift with hair-space + double-punctuation rules",
+      "description": "As a developer, I need a pure render-layer string polish function that fixes CJK-Latin spacing, doubled punctuation, and emoji line height — without modifying persisted vault content.",
+      "acceptanceCriteria": [
+        "Create DayPage/Models/CJKTextPolish.swift with static func polish(_ raw: String) -> String",
+        "Insert U+200A (hair space) between adjacent CJK and Latin characters when neither side is punctuation",
+        "Collapse Chinese-then-ASCII punctuation pairs to the Chinese form (period, comma, exclamation, question)",
+        "Preserve full-width space U+3000 unchanged; do not insert hair space adjacent to it",
+        "Function is pure (no side effects, no IO)",
+        "Add unit tests with 12+ cases: pure Chinese, pure English, CJK+Latin mix, with emoji, full-width punctuation, doubled punctuation, mixed half/full width",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Apply CJKTextPolish at memo render sites",
+      "description": "As a P-Nomad user, I want my mixed-language memos to render with proper CJK-Latin spacing in Today, Memo Detail, and Daily Page — without touching the underlying file.",
+      "acceptanceCriteria": [
+        "Apply CJKTextPolish.polish() to memo body Text in MemoCardView.swift:228 (the body text branch)",
+        "Apply to voice transcript Text and photo caption Text in MemoCardView.swift",
+        "Apply to all serif body Text rendering in DailyPageView.swift",
+        "Do NOT modify RawStorage / Memo persistence — vault/raw/YYYY-MM-DD.md must remain user original input",
+        "Add a code comment at each call site noting it is render-only polish",
+        "Typecheck passes",
+        "iPhone 17 build with sample mixed-language memo renders polished",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-010",
+      "title": "Create EmptyStateView component with bilingual copy",
+      "description": "As a user encountering an empty surface, I want a warm human-written line plus a clear next action — not a blank screen with a generic No-data label.",
+      "acceptanceCriteria": [
+        "Create DayPage/Components/EmptyStateView.swift",
+        "Component takes: title (LocalizedStringKey), subtitle (LocalizedStringKey?), ctaLabel (String?), ctaAction (() -> Void)?, showOrbAccent (Bool)",
+        "When showOrbAccent true, render a small (60pt) Day Orb-style radial gradient behind the title",
+        "Title uses DSType.serifDisplay28; subtitle uses DSType.bodyMD muted",
+        "CTA renders as amberDeep filled pill button using Motion.rise on appearance",
+        "Provide static factory methods: EmptyStateView.todayBlank(), .todayNoSignals(), .compileLocked(currentCount:), .archiveDayEmpty(), .micPermissionDenied()",
+        "Each factory uses bilingual (zh + en) Localizable.strings keys",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "Wire EmptyStateView into Today and Archive surfaces",
+      "description": "As a user opening Today on a quiet day or tapping an empty Archive day, I want to see warm empty-state copy instead of a blank screen.",
+      "acceptanceCriteria": [
+        "TodayView shows EmptyStateView.todayBlank() / .todayNoSignals() when vm.memos.isEmpty (route by hasSeenWelcome flag)",
+        "Archive day-detail shows EmptyStateView.archiveDayEmpty() when no memos for that date",
+        "Compile button area shows EmptyStateView.compileLocked(currentCount:) instead of disabled state when signals < 3",
+        "All copy resolved from Localizable.strings (zh + en bundles)",
+        "Typecheck passes",
+        "iPhone 17 simulator: empty Today + empty Archive day both render the EmptyStateView",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Create GlassErrorBanner component",
+      "description": "As a developer, I need a glass-tone error banner that slides in from the top, auto-dismisses after 5s, and supports retry — for surfacing failures without breaking the v4 visual language.",
+      "acceptanceCriteria": [
+        "Create DayPage/Components/GlassErrorBanner.swift",
+        "Banner takes: icon (Image), title (LocalizedStringKey), subtitle (LocalizedStringKey?), retryLabel (String?), retryAction (() -> Void)?",
+        "Background uses T.errorSoft + backdrop blur 28 (glass-tone, NOT solid red)",
+        "Slides in from top using Motion.slide; auto-dismisses after 5s unless retry/details tapped",
+        "Calls Haptics.warn() on appearance",
+        "Tapping outside dismisses immediately",
+        "Stack manager allows up to 2 simultaneous banners (LIFO order); 3rd+ collapses to a +N more chip",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Wire GlassErrorBanner into 4 failure sources",
+      "description": "As a user, I want compile failures, Whisper transcription failures, and permission denials to surface visibly — without blocking modals.",
+      "acceptanceCriteria": [
+        "CompilationService failure path posts GlassErrorBanner with retry button (re-runs compile)",
+        "VoiceService Whisper failure posts banner explaining audio is saved but transcript failed",
+        "Mic permission denied posts banner with CTA opening UIApplication.openSettingsURLString",
+        "Location permission denied posts banner with same Settings CTA",
+        "All copy in Localizable.strings; no technical jargon (no API 500 etc)",
+        "Typecheck passes",
+        "Manual test: airplane mode + trigger compile -> banner appears -> turn off airplane mode + tap retry -> compile succeeds",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 13,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Create DayOrbView component",
+      "description": "As a developer, I need the signature Day Orb — a radial gradient circle with halo and inner shadows — implemented as a reusable SwiftUI view.",
+      "acceptanceCriteria": [
+        "Create DayPage/Features/Today/DayOrbView.swift",
+        "Component takes: signalCount (Int), size (CGFloat = 200)",
+        "Halo: blurred radial gradient rgba(232,151,77,0.4) -> clear, behind orb, extending +16pt past orb edge",
+        "Orb: radial gradient (white 0.85 -> rgba(255,206,140,0.4) at 40% -> rgba(168,84,27,0.2) at 80%), center at UnitPoint(0.35, 0.30), clipped to Circle",
+        "0.5pt white-60% inner border via .overlay(Circle().strokeBorder)",
+        "Inner shadows + drop shadow per capture.jsx:393-395",
+        "Center: number in DSFonts.spaceGrotesk(size: size * 0.36, weight: .semibold), tracking -2, color amberDeep",
+        "Caption SIGNALS TODAY in DSFonts.jetBrainsMono(size: 9, weight: .medium), tracking 1.4, opacity 0.7",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 14,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Replace Today header heatmap with Day Orb hero",
+      "description": "As a P-Nomad, I want Today to greet me with the Day Orb instead of OnThisDayCard + WeeklyRecapSection.",
+      "acceptanceCriteria": [
+        "TodayView hero region shows: serif date heading -> mono kicker (e.g. 14 APR · 5 SIGNALS) -> DayOrbView(signalCount: vm.signalCount)",
+        "OnThisDayCard removed or hidden from TodayView (relocation tracked in follow-up issue)",
+        "WeeklyRecapSection removed or hidden from TodayView",
+        "Orb size on Today is 200pt; orb tap currently triggers placeholder action (TODO comment for Day Drawer follow-up)",
+        "Typecheck passes",
+        "iPhone 17 screenshot of new hero attached to commit",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 15,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Create MemoDetailView shell with NavigationStack routing",
+      "description": "As a developer, I need NavigationStack routing wired up in TodayView so any memo can push into a MemoDetailView.",
+      "acceptanceCriteria": [
+        "Create DayPage/Features/MemoDetail/MemoDetailView.swift accepting memo: Memo + vm: TodayViewModel",
+        "Wrap TodayView body in NavigationStack with .navigationBarHidden(true)",
+        "Add .navigationDestination(for: Memo.ID.self) that resolves the latest Memo from vm.memos and renders MemoDetailView; show fallback Text Memo no longer exists if not found",
+        "MemoDetailView shell renders: kicker (mono date+time), serif body of memo, placeholder for attachment / metadata sections",
+        "Sidebar drawer behavior unchanged (smoke test: drawer still opens from date tap)",
+        "Typecheck passes",
+        "iPhone 17 build succeeds; manual: nav stack appears once any test NavigationLink is invoked",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 16,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Make SwipeableMemoCard tap into MemoDetailView",
+      "description": "As a P-Reader, I want any memo card in Today to push into MemoDetailView when I tap it, while preserving swipe-to-delete/pin gestures.",
+      "acceptanceCriteria": [
+        "Replace MemoCardView wrapper at SwipeableMemoCard.swift:68 with NavigationLink(value: memo.id) { MemoCardView(...) } + .buttonStyle(.plain)",
+        "Keep .highPriorityGesture(swipeGesture) so swipe still wins over tap when dragged",
+        "Add .simultaneousGesture(TapGesture().onEnded { if revealedSide != nil { snapClose() } }) so tapping a swipe-revealed card closes panel without pushing",
+        "When revealedSide != nil, NavigationLink push is suppressed (use .disabled or guard via a State binding)",
+        "Manual test on iPhone 17: tap memo card -> push detail; swipe memo -> action panels; tap revealed -> snap closed (no push)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 17,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Implement MemoDetailView attachment sections",
+      "description": "As a P-Reader, I want MemoDetailView to render full-size attachments — voice waveform with scrub, full-resolution photo, location map, file row.",
+      "acceptanceCriteria": [
+        "Voice memo: render existing VoiceMemoPlayerRow at full width with waveform + scrub + duration label",
+        "Photo memo: render full-resolution UIImage (load via PhotoLibraryService); tap toggles to fullScreenCover with the image",
+        "Location memo: render existing MapPreviewView (260pt height) + Open in Apple Maps action row",
+        "File memo: render row with file icon, filename, size, Open button",
+        "Metadata section: created (full timestamp), file path (vault/raw/...md), kind-specific fields (duration, EXIF aperture/shutter, transcription provider)",
+        "Typecheck passes",
+        "iPhone 17 manual: open one memo of each kind from Today; all attachments render correctly",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 18,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Add edit-body and delete actions to MemoDetailView",
+      "description": "As a P-Reader, I want to edit a memo body and delete a memo from MemoDetailView, with changes persisted to disk.",
+      "acceptanceCriteria": [
+        "Add Edit body action to top-right toolbar menu; opens inline TextEditor with current body",
+        "Saving body calls TodayViewModel.update(memo:body:) (new method) which writes through RawStorage to vault/raw/YYYY-MM-DD.md",
+        "Add Delete action with confirmation dialog; calls TodayViewModel.delete(memo:) and pops navigation",
+        "Changes propagate to Today/Archive lists via @Published vm.memos (no app restart)",
+        "Calls Haptics.commit() on save success and Haptics.tapConfirm() on delete tap",
+        "Typecheck passes",
+        "Tests pass (unit test for TodayViewModel.update writing to disk)",
+        "iPhone 17 manual: edit body, force-quit app, relaunch -> change persisted",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 19,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Wire Archive memo cards to MemoDetailView",
+      "description": "As a P-Reader, I want the same tap-to-detail behavior in Archive day-detail list as in Today.",
+      "acceptanceCriteria": [
+        "Wrap ArchiveView day-detail memo list in NavigationStack (or hoist the navigationDestination from TodayView to a shared location)",
+        "Same Memo.ID-based push destination resolves to MemoDetailView",
+        "Edits and deletes from Archive-launched detail propagate back to the Archive list",
+        "Long-press on location card in Archive still opens LocationPreviewSheet directly (preserved fast path)",
+        "Typecheck passes",
+        "iPhone 17 manual: from Archive, tap memo -> push detail; edit body -> back -> Archive list shows updated body",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 20,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-021",
+      "title": "Create GlassTabBar component (collapsed pill + expanded menu)",
+      "description": "As a developer, I need a top-right glass pill nav that expands on tap, anchored at top:54 right:16 per primitives.jsx:163.",
+      "acceptanceCriteria": [
+        "Create DayPage/Components/GlassTabBar.swift",
+        "Component takes: @Binding active: AppSection",
+        "Collapsed state: pill with current section icon + label + chevron, padding (top 6, leading 12, bottom 6, trailing 10), liquidGlassPill modifier",
+        "Tap pill -> expanded state (Motion.spring): vertical menu min-width 140pt, padding 4, liquidGlassPanel modifier",
+        "Each menu row: icon + label, padding (top 9, leading 12, bottom 9, trailing 12); active row uses amberDeep background + warm-white foreground; inactive uses inkPrimary",
+        "Tap menu row -> sets active, collapses with Motion.spring",
+        "Tap outside expanded menu (transparent overlay) collapses without changing active",
+        "Search tab hidden for now (gated behind #if DEBUG flag for future)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 21,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-022",
+      "title": "Mount GlassTabBar in RootView and trim Sidebar primary nav",
+      "description": "As a P-Quiet user, I want the glass pill always visible at top-right driving primary navigation, while the sidebar keeps Settings/Account.",
+      "acceptanceCriteria": [
+        "Add sectionBinding computed property on AppNavigationModel exposing currentSection as Binding<AppSection>",
+        "Mount GlassTabBar(active: appNav.sectionBinding) in RootView ZStack overlay at top-trailing",
+        "Hide Today / Archive / Graph rows from SidebarView (comment out or feature-flag); preserve Settings, Account, sync-status, debug entries",
+        "Both sidebar (for settings) and TabBar (for primary) update appNav.currentSection consistently",
+        "Tap sidebar Settings still opens Settings sheet; no regression",
+        "Typecheck passes",
+        "iPhone 17 manual: switch sections via pill; switch to settings via sidebar; both work",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 22,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-023",
+      "title": "Restyle DailyPageView hero card to v4 layout",
+      "description": "As a P-Reader, I want Daily Page to read like a page — status chip, serif title, serif paragraphs, threads, mentions — using the v4 hi-tone glass surface.",
+      "acceptanceCriteria": [
+        "Replace DailyPageView body layout with v4 hero per screens/page.jsx:14-69",
+        "Status row: 8x8 amber circle with shadow (amberGlow radius 6) + mono chip COMPILED N SIGNALS",
+        "Title: DSType.serifDisplay32, tracking -0.6, lineSpacing 2",
+        "Paragraphs: DSType.serifBody16, lineSpacing 8, padding-top 22 between paragraphs",
+        "Hairline divider between title-block / threads / mentions, 0.5pt, 22pt vertical margin",
+        "Hero wrapped in .liquidGlassCard(cornerRadius: 24, tone: .hi) with padding 28",
+        "If CompilationService output lacks threads/mentions, render with stub data and add // TODO referencing follow-up issue",
+        "Typecheck passes",
+        "iPhone 17 screenshot vs screens/page.jsx attached to commit",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 23,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-024",
+      "title": "Add Threads + Mentions sections + FlowLayout for DailyPage",
+      "description": "As a P-Reader, I want the threads list (color-coded) and mentions chips (amber-soft pills wrapping naturally) below the narrative.",
+      "acceptanceCriteria": [
+        "Implement FlowLayout: SwiftUI Layout protocol that wraps subviews when line width exceeded",
+        "Threads section: SubHeading THREADS (Space Grotesk 11pt SemiBold tracking 1.6 uppercase, inkMuted) + list of (color block 4x24pt + serif 16pt label) rows",
+        "Mentions section: SubHeading MENTIONS + FlowLayout of pill chips (Inter 12pt medium, amberDeep text, amberSoft background, amberRim border, capsule shape)",
+        "Threads/mentions data taken from page.threads / page.mentions arrays (use stub if compile output lacks them)",
+        "Typecheck passes",
+        "iPhone 17 manual: open compiled page; threads + mentions render; mentions wrap to second line when many",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 24,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-025",
+      "title": "Add Source Signals list to DailyPageView with push-to-detail",
+      "description": "As a P-Reader, I want to scroll past the page narrative to a list of source signals, and tap any one to push back to its raw memo detail.",
+      "acceptanceCriteria": [
+        "Below hero card add SectionLabel SOURCE SIGNALS and a glass card list (.liquidGlassCard tone:.std, radius 18, padding 4)",
+        "Each row: 28x28 amber-soft tile with kind glyph (T text, V voice, P photo, L location), truncated body (ellipsis-middle, single line), mono timestamp",
+        "Each row tap pushes MemoDetailView for that memo (uses NavigationStack from US-016/US-020)",
+        "Action row above SOURCE SIGNALS: 3 ActionBtn (Regenerate / Add note / Reflect), Reflect disabled with Coming soon tooltip",
+        "Regenerate calls existing compile pipeline; Add note pops back to TodayView with composer focused",
+        "Typecheck passes",
+        "iPhone 17 manual: open page; tap source signal -> push to detail -> back -> page intact",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 25,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-026",
+      "title": "Update RecordingOverlayView with dual-pulse halo",
+      "description": "As a P-Quiet, I want the recording overlay to breathe (dual ring pulse 1.6s with 0.3s phase offset) like capture.jsx:474-475 — the only allowed motion in v4.",
+      "acceptanceCriteria": [
+        "Replace existing RecordingOverlayView pulse animation with two concentric circles",
+        "Outer ring: scale 0.85 -> 1.10, opacity 0.40 -> 0.10, easeInOut, 1.6s duration, .repeatForever, autoreverses true",
+        "Inner ring: same animation curve and duration but delayed 0.3s",
+        "Inner core (110pt) unchanged: radial gradient #FFD9A8 -> #A8541B, glow shadow",
+        "Listening text and timer M:SS positioned per capture.jsx:484-486",
+        "Cancel/Save buttons styled per capture.jsx:488-498",
+        "Typecheck passes",
+        "iPhone 17 manual: hold-to-record -> see dual pulse breathing; release -> overlay dismisses",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 26,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-027",
+      "title": "Create first-run WelcomeScreen",
+      "description": "As a first-launch user, I want exactly one welcome screen — a fading-in Day Orb, one serif line, one Begin button — and never see it again after.",
+      "acceptanceCriteria": [
+        "Create DayPage/Features/Onboarding/WelcomeScreen.swift",
+        "Layout: centered Day Orb (size 156, fades in over 800ms), bilingual serif 32pt line, amberDeep filled pill button with bilingual Begin label",
+        "Begin button calls Haptics.commit() then sets UserDefaults.standard.set(true, forKey: \"hasSeenWelcome\")",
+        "Show only when UserDefaults.standard.bool(forKey: \"hasSeenWelcome\") == false",
+        "Mount in RootView as a fullScreenCover triggered by hasSeenWelcome flag, dismissed when Begin tapped",
+        "Same launch session second tap on app icon does NOT re-show",
+        "Typecheck passes",
+        "iPhone 17 manual: erase app data -> reinstall -> see welcome -> tap Begin -> reach Today; relaunch -> straight to Today (no welcome)",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 27,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-028",
+      "title": "Add text composer caret breathing micro-animation",
+      "description": "As a P-Quiet, I want the text composer caret to subtly breathe (800ms opacity 0.6 to 1.0) when focused — the documented motion exception.",
+      "acceptanceCriteria": [
+        "In TextComposer (Today input), add caret overlay or cursor view that animates opacity 0.6 -> 1.0 every 800ms while focused (.repeatForever, autoreverses)",
+        "Add // motion-exception: caret breathing 800ms documented in PRD US-013 / FR-20 comment at the call site",
+        "Animation stops when composer loses focus",
+        "Does not interfere with native UITextView caret if used; if conflict, hide native caret via .accentColor(.clear) and render the custom breathing caret",
+        "Typecheck passes",
+        "iPhone 17 manual + low brightness: focus composer -> see gentle breathe; tap outside -> animation stops",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 28,
+      "passes": true,
+      "notes": ""
+    }
+  ]
+}

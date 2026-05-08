@@ -91,9 +91,9 @@ extension EmptyStateView {
     /// Today tab — no memos yet.
     static func todayBlank(ctaAction: @escaping () -> Void) -> EmptyStateView {
         EmptyStateView(
-            title: "empty.today.blank.title",
-            subtitle: "empty.today.blank.subtitle",
-            ctaLabel: NSLocalizedString("empty.today.blank.cta", comment: ""),
+            title: L10n.Empty.todayBlankTitle,
+            subtitle: L10n.Empty.todayBlankSubtitle,
+            ctaLabel: L10n.Empty.todayBlankCta,
             ctaAction: ctaAction,
             showOrbAccent: true
         )
@@ -102,21 +102,17 @@ extension EmptyStateView {
     /// Today tab — memos exist but no signal cards generated.
     static func todayNoSignals() -> EmptyStateView {
         EmptyStateView(
-            title: "empty.today.no_signals.title",
-            subtitle: "empty.today.no_signals.subtitle",
+            title: L10n.Empty.todayNoSignalsTitle,
+            subtitle: L10n.Empty.todayNoSignalsSubtitle,
             showOrbAccent: false
         )
     }
 
     /// Compilation locked — not enough memos.
     static func compileLocked(currentCount: Int) -> EmptyStateView {
-        let subtitle = String(
-            format: NSLocalizedString("empty.compile_locked.subtitle", comment: ""),
-            currentCount
-        )
-        return EmptyStateView(
-            title: "empty.compile_locked.title",
-            subtitle: LocalizedStringKey(subtitle),
+        EmptyStateView(
+            title: L10n.Empty.compileLockedTitle,
+            subtitle: L10n.Empty.compileLockedSubtitle(count: currentCount),
             showOrbAccent: false
         )
     }
@@ -124,9 +120,9 @@ extension EmptyStateView {
     /// Archive — selected day has no compiled page.
     static func archiveDayEmpty(ctaAction: @escaping () -> Void) -> EmptyStateView {
         EmptyStateView(
-            title: "empty.archive_day.title",
-            subtitle: "empty.archive_day.subtitle",
-            ctaLabel: NSLocalizedString("empty.archive_day.cta", comment: ""),
+            title: L10n.Empty.archiveDayTitle,
+            subtitle: L10n.Empty.archiveDaySubtitle,
+            ctaLabel: L10n.Empty.archiveDayCta,
             ctaAction: ctaAction,
             showOrbAccent: false
         )
@@ -135,9 +131,9 @@ extension EmptyStateView {
     /// Mic permission denied — recording unavailable.
     static func micPermissionDenied(ctaAction: @escaping () -> Void) -> EmptyStateView {
         EmptyStateView(
-            title: "empty.mic_denied.title",
-            subtitle: "empty.mic_denied.subtitle",
-            ctaLabel: NSLocalizedString("empty.mic_denied.cta", comment: ""),
+            title: L10n.Empty.micDeniedTitle,
+            subtitle: L10n.Empty.micDeniedSubtitle,
+            ctaLabel: L10n.Empty.micDeniedCta,
             ctaAction: ctaAction,
             showOrbAccent: false
         )
