@@ -39,3 +39,4 @@ Issues: getyak/daypage#252 (Today 主页极简) + #250 (Composer 3.0 Liquid Comp
 [2026-05-08T06:55:59Z] Story #US-007: InputBarV4 引入 ComposerState 状态机替换 userExpandedText — PASSED
 [2026-05-08T06:59:54Z] Story #US-008: Liquid Morph: idle 玻璃胶囊 matchedGeometryEffect 生长成 composition card — PASSED
 [2026-05-08T07:04:02Z] Story #US-009: Adaptive Send Affordance：发送按钮 5 形态 (空/文本/文本+图/位置/多模态) — PASSED
+[2026-05-08T07:08:55Z] Story #US-010: Composer 工具栏迁移到 keyboard-attached (.toolbar placement: .keyboard) — PASSED

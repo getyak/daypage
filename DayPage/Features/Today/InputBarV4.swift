@@ -395,8 +395,50 @@ struct InputBarV4: View {
     //   │ [⬇] [🎙] [📷] [🖼] [📍]  ···  [↑]  │  ← keyboard toolbar
     //   ══════════════════════════════════════
 
+    // MARK: - Drag Handle (US-011)
+    //
+    // 36×4 gray capsule at the card top. Swipe-up > 32pt or single tap
+    // triggers collapse. Matches iOS sheet language.
+
+    private var dragHandle: some View {
+        Capsule()
+            .fill(Color(UIColor.tertiaryLabel))
+            .frame(width: 36, height: 4)
+            .padding(.top, 8)
+            .padding(.bottom, 4)
+            .frame(width: 60)
+            .contentShape(Rectangle())
+            // Single tap — accessibility equivalent of swipe-up
+            .onTapGesture {
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                transition(to: .collapsing)
+                isFocused = false
+            }
+            .accessibilityLabel("下拉收起卡片")
+            .accessibilityHint("点击以收起文字输入卡片")
+            .accessibilityAddTraits(.isButton)
+            // Drag gesture — upward translation > 32pt collapses
+            .gesture(
+                DragGesture(minimumDistance: 4)
+                    .onEnded { value in
+                        if value.translation.height < -32 {
+                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            transition(to: .collapsing)
+                            isFocused = false
+                        }
+                    }
+            )
+    }
+
     private var composingCardMorph: some View {
         VStack(spacing: 0) {
+            // US-011: drag-to-collapse handle
+            HStack {
+                Spacer()
+                dragHandle
+                Spacer()
+            }
+
             // Text field — full width, no border, generous padding
             ZStack(alignment: .topLeading) {
                 TextField("记一笔…", text: $text, axis: .vertical)
