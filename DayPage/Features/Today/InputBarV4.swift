@@ -56,7 +56,7 @@ struct InputBarV4: View {
     @State private var showAttachmentMenu: Bool = false
     @State private var photosPickerItems: [PhotosPickerItem] = []
     @State private var pressToTalkPhase: PressToTalkPhase = .idle
-    @State private var userExpandedText: Bool = false
+    @State private var composerState: ComposerState = .idle
     /// True while a "录音太短" hint is visible. Prevents committing a
     /// meaningless one-frame recording while gracefully nudging the user
     /// toward the hold gesture.
@@ -73,6 +73,9 @@ struct InputBarV4: View {
 
     @Namespace private var morphNS
 
+    /// Spring spec shared by expanding / collapsing transitions (per AC).
+    private static let composerSpring = Animation.spring(response: 0.42, dampingFraction: 0.78)
+
     /// Recording floor below which a press-and-release is treated as
     /// accidental noise. Capture v2 boundary: respect the user's time —
     /// a sub-second silent clip carries no meaning, drop it with a hint.
@@ -87,10 +90,34 @@ struct InputBarV4: View {
         return belowFloor && isSilent
     }
 
+    // MARK: - State machine
+
+    /// Central transition function. All state changes must flow through here.
+    /// Transition is debounced: in-flight expanding/collapsing blocks new requests.
+    @MainActor
+    func transition(to next: ComposerState) {
+        // Debounce: reject new transitions while a spring is in-flight.
+        guard composerState != .expanding && composerState != .collapsing else { return }
+        guard composerState != next else { return }
+
+        switch (composerState, next) {
+        case (.idle, .expanding):
+            composerState = .expanding
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            withAnimation(Self.composerSpring) { composerState = .open }
+        case (.open, .collapsing):
+            composerState = .collapsing
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            withAnimation(Self.composerSpring) { composerState = .idle }
+        default:
+            break
+        }
+    }
+
     // MARK: Derived
 
     private var isComposing: Bool {
-        userExpandedText || !text.isEmpty || !pendingAttachments.isEmpty || pendingLocation != nil
+        composerState == .open || composerState == .expanding || !text.isEmpty || !pendingAttachments.isEmpty || pendingLocation != nil
     }
 
     private var overlayMode: RecordingOverlayMode? {
@@ -144,7 +171,7 @@ struct InputBarV4: View {
                     .padding(.bottom, 14)
                 }
             }
-            .animation(.spring(response: 0.32, dampingFraction: 0.82), value: isComposing)
+            .animation(Self.composerSpring, value: isComposing)
         }
         // V4: transparent dock — ambient page background shows through.
         // Warm gradient veil fades the list content behind the dock.
@@ -252,9 +279,7 @@ struct InputBarV4: View {
 
             // RIGHT — Aa (text expand)
             dockTextButton(accessibilityLabel: "写文字") {
-                withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-                    userExpandedText = true
-                }
+                transition(to: .expanding)
                 isFocused = true
             }
             .accessibilityIdentifier("expand-text-composer")
@@ -374,10 +399,7 @@ struct InputBarV4: View {
                     systemImage: "chevron.down",
                     accessibilityLabel: "收起，回到语音模式"
                 ) {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
-                        userExpandedText = false
-                    }
+                    transition(to: .collapsing)
                     isFocused = false
                 }
 
@@ -507,12 +529,12 @@ struct InputBarV4: View {
     private func handleSend() {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) { userExpandedText = false }
+            transition(to: .collapsing)
             isFocused = false
             return
         }
         onSubmit()
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) { userExpandedText = false }
+        transition(to: .collapsing)
     }
 
     /// Single tap on the mic — open the persistent (Flomo-style) recording
