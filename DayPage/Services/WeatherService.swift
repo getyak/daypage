@@ -40,6 +40,9 @@ final class WeatherService {
 
     // MARK: - Public API
 
+    /// 最近一次成功获取的天气字符串（同步，供 UI 快速读取）。
+    var cachedWeatherString: String? { cache?.weather }
+
     /// 返回给定位置的格式化天气字符串，如 "32°C, Overcast Clouds"。
     ///
     /// - Returns: 本地化的天气字符串；如果 API 密钥缺失、网络不可用或调用因任何原因失败，则返回 `nil`。

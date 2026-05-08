@@ -219,7 +219,7 @@
         "Tests pass"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": "\u53ef\u5e76\u884c\u4e8e US-007 ~ US-011"
     },
     {
