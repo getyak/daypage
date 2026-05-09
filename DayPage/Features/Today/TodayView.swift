@@ -154,94 +154,102 @@ struct TodayView: View {
                     // MARK: Day Orb Hero — serif date + mono kicker + orb
                     orbHero
 
-                    // MARK: Timeline (75% of available space)
-                    GeometryReader { geo in
-                        ScrollView {
-                            LazyVStack(spacing: 8) {
-                                // OnThisDayCard removed — relocation tracked in follow-up issue (US-015)
-                                // WeeklyRecapSection removed — relocation tracked in follow-up issue (US-015)
+                    // MARK: Timeline
+                    // Plain ScrollView — no GeometryReader. The previous wrapper
+                    // (`GeometryReader { ScrollView { ... }.frame(minHeight: geo.size.height * 0.75) }
+                    // .frame(maxHeight: geo.size.height)`) created a layout
+                    // feedback loop: GeometryReader sized itself from the parent
+                    // VStack's leftover space, then constrained the ScrollView's
+                    // intrinsic content to ≥75% of that space. When sibling rows
+                    // (banners, orb hero, compile area, input bar) republished
+                    // their @Published state, the VStack's leftover changed,
+                    // GeometryReader handed back a new size, and the whole tree
+                    // measured again — manifesting as a 2–4 s page-wide jitter
+                    // on real devices. (#258)
+                    ScrollView {
+                        LazyVStack(spacing: 8) {
+                            // OnThisDayCard removed — relocation tracked in follow-up issue (US-015)
+                            // WeeklyRecapSection removed — relocation tracked in follow-up issue (US-015)
 
-                                // Daily Page entry card (post-compile). Auto-compile runs
-                                // silently on load; users swipe left to reveal a manual
-                                // "重新编译" action when the AI output needs a redo.
-                                if viewModel.isDailyPageCompiled {
-                                    swipeableDailyPageCard
-                                        .padding(.horizontal, 20)
-                                }
+                            // Daily Page entry card (post-compile). Auto-compile runs
+                            // silently on load; users swipe left to reveal a manual
+                            // "重新编译" action when the AI output needs a redo.
+                            if viewModel.isDailyPageCompiled {
+                                swipeableDailyPageCard
+                                    .padding(.horizontal, 20)
+                            }
 
-                                // Memo cards (reverse-chronological)
-                                if viewModel.memos.isEmpty && !viewModel.isLoading {
-                                    let hasOnboarded = UserDefaults.standard.bool(forKey: AppSettings.Keys.hasOnboarded)
-                                    if !hasOnboarded {
-                                        EmptyStateView.todayBlank {
-                                            // focus is implicit — the input bar is always visible below
-                                        }
-                                        .padding(.top, 48)
-                                        .padding(.horizontal, 20)
-                                    } else {
-                                        fallbackContentView
-                                            .padding(.top, 24)
+                            // Memo cards (reverse-chronological)
+                            if viewModel.memos.isEmpty && !viewModel.isLoading {
+                                let hasOnboarded = UserDefaults.standard.bool(forKey: AppSettings.Keys.hasOnboarded)
+                                if !hasOnboarded {
+                                    EmptyStateView.todayBlank {
+                                        // focus is implicit — the input bar is always visible below
                                     }
+                                    .padding(.top, 48)
+                                    .padding(.horizontal, 20)
                                 } else {
-                                    ForEach(Array(viewModel.memos.enumerated()), id: \.element.id) { idx, memo in
-                                        TimelineRow(
-                                            memo: memo,
-                                            isLast: idx == viewModel.memos.count - 1,
-                                            onDelete: { viewModel.deleteMemo(memo) },
-                                            onPin: {
-                                                if memo.pinnedAt != nil {
-                                                    viewModel.unpinMemo(memo)
-                                                } else {
-                                                    viewModel.pinMemo(memo)
-                                                }
+                                    fallbackContentView
+                                        .padding(.top, 24)
+                                }
+                            } else {
+                                ForEach(Array(viewModel.memos.enumerated()), id: \.element.id) { idx, memo in
+                                    TimelineRow(
+                                        memo: memo,
+                                        isLast: idx == viewModel.memos.count - 1,
+                                        onDelete: { viewModel.deleteMemo(memo) },
+                                        onPin: {
+                                            if memo.pinnedAt != nil {
+                                                viewModel.unpinMemo(memo)
+                                            } else {
+                                                viewModel.pinMemo(memo)
                                             }
-                                        )
-                                        .padding(.horizontal, 20)
-                                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                                    }
+                                        }
+                                    )
+                                    .padding(.horizontal, 20)
+                                    .transition(.move(edge: .bottom).combined(with: .opacity))
                                 }
-
-                                // Loading indicator
-                                if viewModel.isLoading {
-                                    HStack {
-                                        Spacer()
-                                        ProgressView()
-                                            .tint(DSColor.onSurfaceVariant)
-                                        Spacer()
-                                    }
-                                    .padding(.vertical, 20)
-                                }
-
-                                // Load error message
-                                if let error = viewModel.errorMessage {
-                                    Text(error)
-                                        .bodySMStyle()
-                                        .foregroundColor(DSColor.error)
-                                        .padding(.horizontal, 20)
-                                }
-
-                                Spacer(minLength: 16)
                             }
-                            .padding(.top, 12)
-                            .frame(minHeight: geo.size.height * 0.75)
+
+                            // Loading indicator
+                            if viewModel.isLoading {
+                                HStack {
+                                    Spacer()
+                                    ProgressView()
+                                        .tint(DSColor.onSurfaceVariant)
+                                    Spacer()
+                                }
+                                .padding(.vertical, 20)
+                            }
+
+                            // Load error message
+                            if let error = viewModel.errorMessage {
+                                Text(error)
+                                    .bodySMStyle()
+                                    .foregroundColor(DSColor.error)
+                                    .padding(.horizontal, 20)
+                            }
+
+                            Spacer(minLength: 16)
                         }
-                        // US-010: Vignette gradient at the bottom edge fades timeline
-                        // content behind the composer dock, so cards appear to recede
-                        // rather than abruptly stopping at the input bar boundary.
-                        .mask(
-                            VStack(spacing: 0) {
-                                Rectangle()
-                                LinearGradient(
-                                    colors: [Color.black, Color.clear],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                                .frame(height: 40)
-                            }
-                        )
-                        .coordinateSpace(name: "todayScroll")
-                        .frame(maxHeight: geo.size.height)
+                        .padding(.top, 12)
                     }
+                    // US-010: Vignette gradient at the bottom edge fades timeline
+                    // content behind the composer dock, so cards appear to recede
+                    // rather than abruptly stopping at the input bar boundary.
+                    .mask(
+                        VStack(spacing: 0) {
+                            Rectangle()
+                            LinearGradient(
+                                colors: [Color.black, Color.clear],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                            .frame(height: 40)
+                        }
+                    )
+                    .coordinateSpace(name: "todayScroll")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     // MARK: Compile Area
                     // Shows a locked hint when signals < 3, or the compile
