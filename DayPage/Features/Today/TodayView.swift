@@ -100,7 +100,7 @@ struct TodayView: View {
                                 .overlay(Circle().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
                                 .clipShape(Circle())
                         }
-                        .accessibilityLabel("设置")
+                        .accessibilityLabel("Settings")
                         .padding(.top, 4)
                     }
                     .padding(.horizontal, 20)
@@ -330,6 +330,9 @@ struct TodayView: View {
             }
             .onChange(of: voiceQueue.pendingCount) { count in
                 updateVoiceQueueBanner(count: count)
+                // When a transcription finishes (count drops), reload memos so the
+                // newly-written transcript appears in the card without user intervention.
+                viewModel.load()
             }
             // Reload when app returns from background to correct the active date (midnight crossover).
             .onChange(of: scenePhase) { phase in
@@ -535,8 +538,10 @@ struct TodayView: View {
         if !viewModel.memos.isEmpty && !viewModel.isLoading {
             switch viewModel.fallbackContent {
             case .yesterdayDailyPage(let page):
+                earlierDivider
                 yesterdaySection(page).padding(.top, 8)
             case .weekRecap(let entries):
+                earlierDivider
                 WeeklyRecapSection(entries: entries) { dateString in
                     onThisDayDateString = dateString
                 }
@@ -545,6 +550,29 @@ struct TodayView: View {
                 EmptyView()
             }
         }
+    }
+
+    // MARK: - Earlier Divider
+
+    /// Horizontal rule with "EARLIER" label that visually separates today's
+    /// memo list from the history supplement section.
+    private var earlierDivider: some View {
+        HStack(spacing: 0) {
+            Rectangle()
+                .fill(DSColor.inkFaint)
+                .frame(height: 0.5)
+            Text("EARLIER")
+                .font(DSType.mono10)
+                .tracking(1.0)
+                .foregroundColor(DSColor.inkSubtle)
+                .padding(.horizontal, 8)
+            Rectangle()
+                .fill(DSColor.inkFaint)
+                .frame(height: 0.5)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 24)
+        .padding(.bottom, 4)
     }
 
     @ViewBuilder
@@ -605,7 +633,7 @@ struct TodayView: View {
                         .background(DSColor.accentAmber)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("重新编译")
+                .accessibilityLabel("Recompile")
             }
 
             DailyPageEntryCard(
@@ -735,21 +763,45 @@ struct TodayView: View {
         }
     }
 
-    private func weekdayName(_ date: Date) -> String {
+    private static let weekdayFmt: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "EEEE"
         f.locale = Locale(identifier: "en_US_POSIX")
         f.timeZone = TimeZone.current
-        return f.string(from: date)
+        return f
+    }()
+
+    private static let headerDateFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMM d"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone.current
+        return f
+    }()
+
+    private static let headerTimeFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone.current
+        return f
+    }()
+
+    private func weekdayName(_ date: Date) -> String {
+        Self.weekdayFmt.string(from: date)
     }
 
     private func headerSubline(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "MMM d · HH:mm"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
         let count = viewModel.memos.count
-        return "\(f.string(from: date))  ·  \(count) signals"
+        let dateStr = Self.headerDateFmt.string(from: date)
+        switch count {
+        case 0:
+            return "\(dateStr)  ·  \(Self.headerTimeFmt.string(from: date))"
+        case 1:
+            return "\(dateStr)  ·  1 note"
+        default:
+            return "\(dateStr)  ·  \(count) notes"
+        }
     }
 }
 
