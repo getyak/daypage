@@ -2,52 +2,51 @@ import SwiftUI
 
 // MARK: - SwipeableMemoCard
 
-/// WeChat-style swipe-to-reveal wrapper around MemoCardView.
+/// iOS-native swipe-to-reveal wrapper around MemoCardView.
 /// Left swipe → trailing Delete button. Right swipe → leading Pin button.
 ///
-/// Performance fixes (issue #150 Phase 1):
-///  - Removed redundant `settledOffset` @State; offset is now derived from
-///    `revealedSide`, eliminating double view invalidation on every snap.
-///  - Removed deprecated implicit `.animation(_:value:)` modifiers from panels;
-///    opacity is animated via the scoped `withAnimation` in snapOpen/snapClose.
-///  - Tightened spring to Apple HIG values (response: 0.22, dampingFraction: 0.82)
-///    for snappier 1:1 tracking and reduced visible overshoot.
-///  - `PressableCardModifier` in Interactions.swift now uses `LongPressGesture`
-///    instead of `DragGesture(minimumDistance: 0)` to fully eliminate the
-///    dual-DragGesture hit-testing collision that caused frame drops.
+/// Gesture model mirrors iOS Mail / Reminders:
+///  - settledOffset is the resting position; dragDelta rides on top 1:1
+///  - Rubber-band resistance beyond ±panelW gives tactile limit feedback
+///  - Velocity-aware snap: flick opens/closes even with small translation
+///  - snapClose is always reachable: when trailing is open, any rightward
+///    drag or flick collapses it (dx is relative to drag start, not screen zero)
 struct SwipeableMemoCard: View {
 
     let memo: Memo
     var onDelete: (() -> Void)? = nil
     var onPin: (() -> Void)? = nil
 
-    // Which panel is currently revealed (single source of truth for offset)
-    @State private var revealedSide: Side? = nil
+    // Settled resting offset: -panelW = trailing open, 0 = closed, +panelW = leading open
+    @State private var settledOffset: CGFloat = 0
 
-    // Live delta from DragGesture (@GestureState resets automatically when finger lifts)
+    // Live drag translation applied on top of settledOffset
     @GestureState private var dragDelta: CGFloat = 0
 
     private enum Side { case leading, trailing }
 
-    // Panel widths and thresholds
-    private let panelW: CGFloat         = 80
-    private let openThreshold: CGFloat  = 44
-    private let closeThreshold: CGFloat = 20
-
-    // Derived offset — eliminates the redundant `settledOffset` @State that caused
-    // double view invalidation on every snap event.
-    private var currentOffset: CGFloat {
-        let settled: CGFloat = {
-            switch revealedSide {
-            case .trailing: return -panelW
-            case nil:       return 0
-            case .leading:  return panelW
-            }
-        }()
-        return max(-panelW, min(panelW, settled + dragDelta))
+    private var revealedSide: Side? {
+        if settledOffset < -1 { return .trailing }
+        if settledOffset > 1  { return .leading }
+        return nil
     }
 
-    // MARK: - Accessibility label derived from memo body content
+    private let panelW: CGFloat         = 80
+    private let openThreshold: CGFloat  = 40
+    private let closeThreshold: CGFloat = 24
+    private let velOpen: CGFloat        = 250
+    private let velClose: CGFloat       = 180
+
+    // Rubber-band resistance when dragging past the panel edge
+    private let rubberBand: CGFloat = 0.35
+
+    private var currentOffset: CGFloat {
+        let raw = settledOffset + dragDelta
+        if raw > panelW  { return panelW  + (raw - panelW)  * rubberBand }
+        if raw < -panelW { return -panelW + (raw + panelW)  * rubberBand }
+        return raw
+    }
+
     private var accessibilityMemoLabel: String {
         let prefix = memo.body.prefix(50)
         let trimmed = prefix.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -56,17 +55,12 @@ struct SwipeableMemoCard: View {
 
     var body: some View {
         ZStack(alignment: .center) {
-            // Background action panels
             HStack(spacing: 0) {
                 pinPanel
                 Spacer()
                 deletePanel
             }
 
-            // Card — highPriorityGesture wins over PressableCardModifier's
-            // LongPressGesture inside MemoCardView (no drag conflict).
-            // NavigationLink is disabled while a swipe panel is revealed so
-            // tapping a revealed card only snaps it closed, never pushes detail.
             NavigationLink(value: memo.id) {
                 MemoCardView(memo: memo, onDelete: onDelete)
             }
@@ -75,22 +69,19 @@ struct SwipeableMemoCard: View {
             .offset(x: currentOffset)
             .drawingGroup(opaque: false, colorMode: .extendedLinear)
             .highPriorityGesture(swipeGesture)
-            .simultaneousGesture(
-                TapGesture().onEnded {
-                    if revealedSide != nil { snapClose() }
-                }
-            )
+
+            // Invisible tap-to-close overlay: only active when a panel is open.
+            // Lives above the card so it intercepts taps independently of `.disabled`.
+            if revealedSide != nil {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture { snapClose() }
+            }
         }
         .clipped()
-        // MARK: VoiceOver support — expose swipe actions as named accessibility actions
-        // so users who rely on VoiceOver can invoke Delete / Pin without gestures.
         .accessibilityLabel(accessibilityMemoLabel)
-        .accessibilityAction(named: "Delete") {
-            onDelete?()
-        }
-        .accessibilityAction(named: memo.pinnedAt != nil ? "Unpin" : "Pin") {
-            onPin?()
-        }
+        .accessibilityAction(named: "Delete") { onDelete?() }
+        .accessibilityAction(named: memo.pinnedAt != nil ? "Unpin" : "Pin") { onPin?() }
     }
 
     // MARK: - Panels
@@ -112,9 +103,6 @@ struct SwipeableMemoCard: View {
             .frame(maxHeight: .infinity)
             .background(memo.pinnedAt != nil ? DSColor.secondary : DSColor.amberArchival)
         }
-        // Opacity is driven by scoped withAnimation in snapOpen/snapClose.
-        // Removed deprecated implicit .animation(_:value:) to prevent
-        // animation pollution across the entire view subtree.
         .opacity(revealedSide == .leading ? 1 : 0)
     }
 
@@ -133,63 +121,62 @@ struct SwipeableMemoCard: View {
             .frame(maxHeight: .infinity)
             .background(DSColor.error)
         }
-        // Same as pinPanel — opacity driven by scoped withAnimation, no implicit modifier.
         .opacity(revealedSide == .trailing ? 1 : 0)
     }
 
     // MARK: - Gesture
 
     private var swipeGesture: some Gesture {
-        DragGesture(minimumDistance: 10, coordinateSpace: .local)
+        DragGesture(minimumDistance: 8, coordinateSpace: .local)
             .updating($dragDelta) { value, state, _ in
                 let dx = value.translation.width
                 let dy = value.translation.height
-                // Only track horizontal-dominant drags
-                guard abs(dx) > abs(dy) * 0.6 else { return }
+                guard abs(dx) > abs(dy) * 0.85 else { return }
                 state = dx
             }
             .onEnded { value in
                 let dx = value.translation.width
                 let dy = value.translation.height
-                guard abs(dx) > abs(dy) * 0.6 else {
-                    // Vertical drag — stay in current settled position;
-                    // @GestureState resets dragDelta automatically.
-                    return
-                }
+                guard abs(dx) > abs(dy) * 0.85 else { return }
                 let vel = value.predictedEndTranslation.width - value.translation.width
                 decideSnap(dx: dx, velocity: vel)
             }
     }
 
     // MARK: - Snap Logic
+    //
+    // dx is always relative to the drag start position (not screen zero).
+    // When trailing panel is open (settledOffset = -panelW), a rightward drag
+    // produces dx > 0, which correctly triggers snapClose via the first branch.
+    // No coordinate transform needed — this is the fix for the "can't close" bug.
 
     private func decideSnap(dx: CGFloat, velocity: CGFloat) {
         switch revealedSide {
         case nil:
-            if dx < -openThreshold || velocity < -300 {
-                snapOpen(.trailing)
-            } else if dx > openThreshold || velocity > 300 {
-                snapOpen(.leading)
-            } else {
-                snapClose()
-            }
+            if      dx < -openThreshold || velocity < -velOpen  { snapOpen(.trailing) }
+            else if dx >  openThreshold || velocity >  velOpen  { snapOpen(.leading)  }
+            else                                                 { snapClose()         }
         case .trailing:
-            (dx > closeThreshold || velocity > 200) ? snapClose() : snapOpen(.trailing)
+            // Open to left → rightward drag (dx > 0) or rightward flick closes
+            (dx > closeThreshold || velocity > velClose) ? snapClose() : snapOpen(.trailing)
         case .leading:
-            (dx < -closeThreshold || velocity < -200) ? snapClose() : snapOpen(.leading)
+            // Open to right → leftward drag (dx < 0) or leftward flick closes
+            (dx < -closeThreshold || velocity < -velClose) ? snapClose() : snapOpen(.leading)
         }
     }
 
+    // Spring tuned to iOS Mail / Reminders: snappy attack, minimal overshoot
+    private var snapSpring: Animation {
+        .spring(response: 0.28, dampingFraction: 0.86)
+    }
+
     private func snapOpen(_ side: Side) {
-        withAnimation(Motion.spring) {
-            revealedSide = side
-        }
+        let target: CGFloat = side == .trailing ? -panelW : panelW
+        withAnimation(snapSpring) { settledOffset = target }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     func snapClose() {
-        withAnimation(Motion.spring) {
-            revealedSide = nil
-        }
+        withAnimation(snapSpring) { settledOffset = 0 }
     }
 }
