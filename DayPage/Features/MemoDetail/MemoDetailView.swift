@@ -89,8 +89,13 @@ struct MemoDetailView: View {
 
                     // MARK: Serif Body (view or edit)
                     let bodyTrimmed = memo.body.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let isBodyDuplicate = memo.type == .voice &&
-                        memo.attachments.contains(where: { $0.transcript == bodyTrimmed && !bodyTrimmed.isEmpty })
+                    let hasAudio = memo.attachments.contains(where: { $0.kind == "audio" })
+                    let isBodyDuplicate = hasAudio &&
+                        memo.attachments.contains(where: { att in
+                            att.kind == "audio" &&
+                            att.transcript?.trimmingCharacters(in: .whitespacesAndNewlines) == bodyTrimmed &&
+                            !bodyTrimmed.isEmpty
+                        })
 
                     if isEditingBody {
                         VStack(alignment: .leading, spacing: 10) {

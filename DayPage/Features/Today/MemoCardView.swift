@@ -222,8 +222,17 @@ struct MemoCardView: View {
 
             // Body text — serif
             let bodyTrimmed = memo.body.trimmingCharacters(in: .whitespacesAndNewlines)
-            let isBodyDuplicate = memo.type == .voice &&
-                memo.attachments.contains(where: { $0.transcript == bodyTrimmed && !bodyTrimmed.isEmpty })
+            // Suppress body text when it is identical to an audio transcript
+            // already shown in the VoiceMemoPlayerRow above.  The old check used
+            // `memo.type == .voice`, which missed `.mixed` memos containing audio
+            // + text; now we look for any audio attachment kind. (#US-016)
+            let hasAudio = memo.attachments.contains(where: { $0.kind == "audio" })
+            let isBodyDuplicate = hasAudio &&
+                memo.attachments.contains(where: { att in
+                    att.kind == "audio" &&
+                    att.transcript?.trimmingCharacters(in: .whitespacesAndNewlines) == bodyTrimmed &&
+                    !bodyTrimmed.isEmpty
+                })
             if !bodyTrimmed.isEmpty && !isBodyDuplicate {
                 // Render-only polish: CJK/Latin spacing; does not modify vault file.
                 Text(CJKTextPolish.polish(bodyTrimmed))
@@ -267,6 +276,34 @@ struct MemoCardView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .liquidGlassCard(cornerRadius: 18)
+        // Share context menu — long-press the card to share its text content.
+        // Mirrors the accessibility actions already registered on
+        // SwipeableMemoCard so VoiceOver and sighted users have consistent access.
+        .contextMenu {
+            let shareText = shareableText
+            if !shareText.isEmpty {
+                ShareLink(item: shareText) {
+                    Label("Share", systemImage: "square.and.arrow.up")
+                }
+            }
+        }
+    }
+
+    // MARK: - Share text
+
+    /// Builds a plain-text representation of the memo suitable for sharing.
+    /// Prefers the voice transcript when present; falls back to body text.
+    private var shareableText: String {
+        // For voice/mixed memos, use the transcript if available.
+        if let att = memo.attachments.first(where: { $0.kind == "audio" }),
+           let transcript = att.transcript, !transcript.isEmpty {
+            let body = memo.body.trimmingCharacters(in: .whitespacesAndNewlines)
+            if body.isEmpty || body == transcript {
+                return transcript
+            }
+            return "\(transcript)\n\n\(body)"
+        }
+        return memo.body.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     // MARK: - Type chip

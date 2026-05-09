@@ -55,6 +55,7 @@ struct TodayView: View {
 
                 VStack(spacing: 0) {
                     // MARK: Header — serif date + right-side controls
+                    // Note: animation on this VStack drives the orbHero enter/exit transition.
                     HStack(alignment: .top, spacing: 0) {
                         // Left: serif weekday + mono date subline; tap → open sidebar
                         Button {
@@ -152,7 +153,14 @@ struct TodayView: View {
                     }
 
                     // MARK: Day Orb Hero — serif date + mono kicker + orb
-                    orbHero
+                    // Hide when memos exist: the header already shows the date,
+                    // and the 140pt orb wastes prime content space once there
+                    // are signals in the timeline. (#US-016)
+                    if viewModel.memos.isEmpty {
+                        orbHero
+                            .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
+                            .animation(.easeOut(duration: 0.22), value: viewModel.memos.isEmpty)
+                    }
 
                     // MARK: Timeline
                     // Plain ScrollView — no GeometryReader. The previous wrapper
@@ -210,6 +218,11 @@ struct TodayView: View {
                                     .transition(.move(edge: .bottom).combined(with: .opacity))
                                 }
                             }
+
+                            // History supplement — shown at the bottom when today
+                            // already has memos, so the user can still scroll down
+                            // to yesterday's page or the weekly recap. (#US-016)
+                            historySupplement
 
                             // Loading indicator
                             if viewModel.isLoading {
@@ -491,8 +504,10 @@ struct TodayView: View {
         }
     }
 
+    // MARK: - Yesterday Section (shared by fallback and supplement paths)
+
     @ViewBuilder
-    private func yesterdayDailyPageFallback(_ page: DailyPageModel) -> some View {
+    private func yesterdaySection(_ page: DailyPageModel) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("YESTERDAY")
                 .font(DSType.mono10)
@@ -508,6 +523,33 @@ struct TodayView: View {
             )
             .padding(.horizontal, 20)
         }
+    }
+
+    // MARK: - History Supplement (memos present — shown at timeline bottom)
+
+    /// When today already has memos we still show yesterday's compiled page or
+    /// the weekly recap at the bottom of the scroll, so the user can pull down
+    /// to see history. (#US-016)
+    @ViewBuilder
+    private var historySupplement: some View {
+        if !viewModel.memos.isEmpty && !viewModel.isLoading {
+            switch viewModel.fallbackContent {
+            case .yesterdayDailyPage(let page):
+                yesterdaySection(page).padding(.top, 8)
+            case .weekRecap(let entries):
+                WeeklyRecapSection(entries: entries) { dateString in
+                    onThisDayDateString = dateString
+                }
+                .padding(.top, 8)
+            default:
+                EmptyView()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func yesterdayDailyPageFallback(_ page: DailyPageModel) -> some View {
+        yesterdaySection(page)
     }
 
     @ViewBuilder
