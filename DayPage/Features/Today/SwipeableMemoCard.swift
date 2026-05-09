@@ -11,6 +11,10 @@ import SwiftUI
 ///  - Velocity-aware snap: flick opens/closes even with small translation
 ///  - snapClose is always reachable: when trailing is open, any rightward
 ///    drag or flick collapses it (dx is relative to drag start, not screen zero)
+///  - When a panel is revealed, the underlying NavigationLink is disabled,
+///    which also blocks its `.highPriorityGesture`. The Color.clear overlay
+///    therefore re-attaches the same swipeGesture so drag-to-close keeps
+///    working while a panel is open (the overlay also handles tap-to-close).
 struct SwipeableMemoCard: View {
 
     let memo: Memo
@@ -70,12 +74,15 @@ struct SwipeableMemoCard: View {
             .drawingGroup(opaque: false, colorMode: .extendedLinear)
             .highPriorityGesture(swipeGesture)
 
-            // Invisible tap-to-close overlay: only active when a panel is open.
-            // Lives above the card so it intercepts taps independently of `.disabled`.
+            // Invisible tap/drag-to-close overlay: only active when a panel is open.
+            // Lives above the card so it intercepts both taps and drags
+            // independently of `.disabled` on the NavigationLink (which would
+            // otherwise swallow gestures attached to the disabled subtree).
             if revealedSide != nil {
                 Color.clear
                     .contentShape(Rectangle())
                     .onTapGesture { snapClose() }
+                    .highPriorityGesture(swipeGesture)
             }
         }
         .clipped()
