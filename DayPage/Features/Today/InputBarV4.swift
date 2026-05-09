@@ -321,9 +321,12 @@ struct InputBarV4: View {
             .accessibilityIdentifier("expand-text-composer")
         }
         .padding(6)
-        // Glass capsule — matchedGeometryEffect on the whole HStack so SwiftUI
-        // interpolates position, size, and corner radius to the card shape.
-        .matchedGeometryEffect(id: MorphID.surface, in: morphNS)
+        // NOTE: matchedGeometryEffect was removed — the idle Capsule and the
+        // composing RoundedRectangle (20pt) cannot be linearly interpolated
+        // by SwiftUI as a single shape, and sharing one ID across two
+        // mutually-exclusive branches caused the layout system to re-measure
+        // both candidates on every body re-evaluation. The branches simply
+        // cross-fade now via the existing isComposing condition. (#258)
         .background(.ultraThinMaterial, in: Capsule())
         .overlay(Capsule().strokeBorder(
             LinearGradient(
@@ -565,9 +568,7 @@ struct InputBarV4: View {
                 .animation(.easeInOut(duration: 0.15), value: templateSuffix.isEmpty)
             }
         }
-        // Card — matchedGeometryEffect on the whole VStack mirrors the surface
-        // geometry from the idle capsule for a continuous positional morph.
-        .matchedGeometryEffect(id: MorphID.surface, in: morphNS)
+        // NOTE: matchedGeometryEffect removed — see streamDockMorph for context. (#258)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
