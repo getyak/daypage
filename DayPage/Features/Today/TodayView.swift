@@ -55,6 +55,7 @@ struct TodayView: View {
 
                 VStack(spacing: 0) {
                     // MARK: Header — serif date + right-side controls
+                    // Note: animation on this VStack drives the orbHero enter/exit transition.
                     HStack(alignment: .top, spacing: 0) {
                         // Left: serif weekday + mono date subline; tap → open sidebar
                         Button {
@@ -99,7 +100,7 @@ struct TodayView: View {
                                 .overlay(Circle().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
                                 .clipShape(Circle())
                         }
-                        .accessibilityLabel("设置")
+                        .accessibilityLabel("Settings")
                         .padding(.top, 4)
                     }
                     .padding(.horizontal, 20)
@@ -152,7 +153,14 @@ struct TodayView: View {
                     }
 
                     // MARK: Day Orb Hero — serif date + mono kicker + orb
-                    orbHero
+                    // Hide when memos exist: the header already shows the date,
+                    // and the 140pt orb wastes prime content space once there
+                    // are signals in the timeline. (#US-016)
+                    if viewModel.memos.isEmpty {
+                        orbHero
+                            .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
+                            .animation(.easeOut(duration: 0.22), value: viewModel.memos.isEmpty)
+                    }
 
                     // MARK: Timeline
                     // Plain ScrollView — no GeometryReader. The previous wrapper
@@ -210,6 +218,11 @@ struct TodayView: View {
                                     .transition(.move(edge: .bottom).combined(with: .opacity))
                                 }
                             }
+
+                            // History supplement — shown at the bottom when today
+                            // already has memos, so the user can still scroll down
+                            // to yesterday's page or the weekly recap. (#US-016)
+                            historySupplement
 
                             // Loading indicator
                             if viewModel.isLoading {
@@ -317,6 +330,9 @@ struct TodayView: View {
             }
             .onChange(of: voiceQueue.pendingCount) { count in
                 updateVoiceQueueBanner(count: count)
+                // When a transcription finishes (count drops), reload memos so the
+                // newly-written transcript appears in the card without user intervention.
+                viewModel.load()
             }
             // Reload when app returns from background to correct the active date (midnight crossover).
             .onChange(of: scenePhase) { phase in
@@ -491,8 +507,10 @@ struct TodayView: View {
         }
     }
 
+    // MARK: - Yesterday Section (shared by fallback and supplement paths)
+
     @ViewBuilder
-    private func yesterdayDailyPageFallback(_ page: DailyPageModel) -> some View {
+    private func yesterdaySection(_ page: DailyPageModel) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("YESTERDAY")
                 .font(DSType.mono10)
@@ -508,6 +526,58 @@ struct TodayView: View {
             )
             .padding(.horizontal, 20)
         }
+    }
+
+    // MARK: - History Supplement (memos present — shown at timeline bottom)
+
+    /// When today already has memos we still show yesterday's compiled page or
+    /// the weekly recap at the bottom of the scroll, so the user can pull down
+    /// to see history. (#US-016)
+    @ViewBuilder
+    private var historySupplement: some View {
+        if !viewModel.memos.isEmpty && !viewModel.isLoading {
+            switch viewModel.fallbackContent {
+            case .yesterdayDailyPage(let page):
+                earlierDivider
+                yesterdaySection(page).padding(.top, 8)
+            case .weekRecap(let entries):
+                earlierDivider
+                WeeklyRecapSection(entries: entries) { dateString in
+                    onThisDayDateString = dateString
+                }
+                .padding(.top, 8)
+            default:
+                EmptyView()
+            }
+        }
+    }
+
+    // MARK: - Earlier Divider
+
+    /// Horizontal rule with "EARLIER" label that visually separates today's
+    /// memo list from the history supplement section.
+    private var earlierDivider: some View {
+        HStack(spacing: 0) {
+            Rectangle()
+                .fill(DSColor.inkFaint)
+                .frame(height: 0.5)
+            Text("EARLIER")
+                .font(DSType.mono10)
+                .tracking(1.0)
+                .foregroundColor(DSColor.inkSubtle)
+                .padding(.horizontal, 8)
+            Rectangle()
+                .fill(DSColor.inkFaint)
+                .frame(height: 0.5)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 24)
+        .padding(.bottom, 4)
+    }
+
+    @ViewBuilder
+    private func yesterdayDailyPageFallback(_ page: DailyPageModel) -> some View {
+        yesterdaySection(page)
     }
 
     @ViewBuilder
@@ -563,7 +633,7 @@ struct TodayView: View {
                         .background(DSColor.accentAmber)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("重新编译")
+                .accessibilityLabel("Recompile")
             }
 
             DailyPageEntryCard(
@@ -693,21 +763,45 @@ struct TodayView: View {
         }
     }
 
-    private func weekdayName(_ date: Date) -> String {
+    private static let weekdayFmt: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "EEEE"
         f.locale = Locale(identifier: "en_US_POSIX")
         f.timeZone = TimeZone.current
-        return f.string(from: date)
+        return f
+    }()
+
+    private static let headerDateFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMM d"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone.current
+        return f
+    }()
+
+    private static let headerTimeFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone.current
+        return f
+    }()
+
+    private func weekdayName(_ date: Date) -> String {
+        Self.weekdayFmt.string(from: date)
     }
 
     private func headerSubline(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "MMM d · HH:mm"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
         let count = viewModel.memos.count
-        return "\(f.string(from: date))  ·  \(count) signals"
+        let dateStr = Self.headerDateFmt.string(from: date)
+        switch count {
+        case 0:
+            return "\(dateStr)  ·  \(Self.headerTimeFmt.string(from: date))"
+        case 1:
+            return "\(dateStr)  ·  1 note"
+        default:
+            return "\(dateStr)  ·  \(count) notes"
+        }
     }
 }
 

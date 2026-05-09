@@ -747,6 +747,7 @@ struct InputBarV4: View {
             return
         }
         onSubmit()
+        isFocused = false
         transition(to: .collapsing)
     }
 

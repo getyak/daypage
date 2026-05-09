@@ -11,7 +11,7 @@
 
 /* Compile Locked */
 "empty.compile_locked.title" = "Not enough to compile.";
-"empty.compile_locked.subtitle" = "You have %d memo(s). Reach 3 to unlock daily compilation.";
+"empty.compile_locked.subtitle" = "%d of 3 memos captured. Keep going to unlock daily compilation.";
 
 /* Archive Day Empty */
 "empty.archive_day.title" = "No page for this day.";
