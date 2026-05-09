@@ -51,7 +51,7 @@ struct SwipeableMemoCard: View {
     private var accessibilityMemoLabel: String {
         let prefix = memo.body.prefix(50)
         let trimmed = prefix.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "备忘录" : "备忘录：\(trimmed)"
+        return trimmed.isEmpty ? "Memo" : "Memo: \(trimmed)"
     }
 
     var body: some View {
@@ -85,10 +85,10 @@ struct SwipeableMemoCard: View {
         // MARK: VoiceOver support — expose swipe actions as named accessibility actions
         // so users who rely on VoiceOver can invoke Delete / Pin without gestures.
         .accessibilityLabel(accessibilityMemoLabel)
-        .accessibilityAction(named: "删除") {
+        .accessibilityAction(named: "Delete") {
             onDelete?()
         }
-        .accessibilityAction(named: memo.pinnedAt != nil ? "取消置顶" : "置顶") {
+        .accessibilityAction(named: memo.pinnedAt != nil ? "Unpin" : "Pin") {
             onPin?()
         }
     }
