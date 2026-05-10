@@ -22,3 +22,4 @@ Stories: 50
 [2026-05-10T13:37:53Z] Story #US-037: Wave 7c: Chat send message API with SSE streaming — PASSED
 [2026-05-10T13:42:13Z] Story #US-038: Wave 7d: Chat view UI (thread list + thread detail + composer) — PASSED
 [2026-05-10T13:46:06Z] Story #US-039: Wave 7e: Suggested follow-ups + I-don't-know fallback — PASSED
+[2026-05-10T13:49:50Z] Story #US-040: Wave 8a: Conflict detection 集成到 compile-memo FULL 步骤 — PASSED

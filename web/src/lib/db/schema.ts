@@ -435,6 +435,30 @@ export const change_log = pgTable("change_log", {
 export type ChangeLog = typeof change_log.$inferSelect;
 export type NewChangeLog = typeof change_log.$inferInsert;
 
+// ─── US-041: Wave 8b — schema_cluster_log (idempotency for schema-detect) ─────
+
+export const schema_cluster_log = pgTable(
+  "schema_cluster_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    cluster_signature: text("cluster_signature").notNull(),
+    suggested_name: text("suggested_name"),
+    inbox_item_id: uuid("inbox_item_id").references(() => inbox_items.id, {
+      onDelete: "set null",
+    }),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("schema_cluster_log_user").on(t.user_id, t.created_at)]
+);
+
+export type SchemaClusterLog = typeof schema_cluster_log.$inferSelect;
+export type NewSchemaClusterLog = typeof schema_cluster_log.$inferInsert;
+
 // ─── Re-export helper types ────────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
