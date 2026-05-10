@@ -50,8 +50,8 @@
         "Verify in browser using dev-browser skill: open / and confirm warm-white background + correct fonts loaded"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "globals.css rewritten with all \u00a710.3 color/font/radius tokens; Tailwind 4 @theme exposes them as utility classes (bg-bg-warm, text-fg-primary, etc.); layout.tsx updated with Space Grotesk + Inter + JetBrains Mono via next/font/google; body uses bg-bg-warm and font-body; ds-* typography classes defined; typecheck passes"
     },
     {
       "id": "US-004",

@@ -35,3 +35,25 @@ Stories: 50
   - web/AGENTS.md already exists (saying "This is NOT the Next.js you know — read node_modules/next/dist/docs/")
 ---
 [2026-05-10T12:05:00Z] Story #US-002: Wave 0b: Next.js 16 脚手架 (web/ 目录) — PASSED
+[2026-05-10T11:53:30Z] Story #US-002: Wave 0b: Next.js 16 脚手架 (web/ 目录) — PASSED
+
+## 2026-05-10 - US-003
+- Rewrote `web/src/app/globals.css` with full §10.3 Codex design tokens:
+  - All CSS custom properties: --bg-warm, --surface-white, --surface-sunken, --fg-primary/muted/subtle, --accent/hover/soft/border, semantic colors, heatmap, radius
+  - Tailwind 4 `@theme inline` block mapping every token to utility-class variables (bg-bg-warm, text-fg-primary, bg-accent-soft, etc.)
+  - Body set to `background: var(--bg-warm)`, `font-family: Inter`
+  - Typography utility classes: ds-display-lg (Space Grotesk 700 56px), ds-h1 (600 32px), ds-h2 (500 22px), ds-section-label (Inter 600 11px ALL-CAPS), ds-body-md (Inter 400 15px), ds-mono-11 (JetBrains Mono 400 11px)
+  - Motion base: `transition-timing-function: ease-out` on all elements
+- Updated `web/src/app/layout.tsx`:
+  - Replaced Geist fonts with Space_Grotesk + Inter + JetBrains_Mono from next/font/google
+  - CSS variable names: --font-space-grotesk, --font-inter, --font-jetbrains-mono
+  - Body className uses bg-bg-warm + text-fg-primary + font-body Tailwind utilities
+  - Updated page metadata to "DayPage — Codex"
+- Files changed: `web/src/app/globals.css`, `web/src/app/layout.tsx`, `prd.json`
+- **Learnings for future iterations:**
+  - Tailwind 4 uses `--color-*` prefix in @theme for color utilities (e.g. `--color-bg-warm` → `bg-bg-warm` utility)
+  - Tailwind 4 uses `--font-*` prefix for font-family utilities (e.g. `--font-body` → `font-body` class)
+  - next/font/google: Space_Grotesk, Inter, JetBrains_Mono are the correct import names (with underscores)
+  - No external CSS files needed — tokens live entirely in globals.css via CSS custom properties
+---
+[2026-05-10T12:20:00Z] Story #US-003: Wave 0c: 设计 token 系统 (globals.css + Tailwind 4 @theme) — PASSED
