@@ -1,65 +1,81 @@
-import Image from "next/image";
+import { BookOpen, Zap, ArrowRight } from "lucide-react";
+import { Btn, Chip, Card, Icon, Sparkline, SectionLabel } from "@/components/ui";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-bg-warm p-10 flex flex-col gap-10 max-w-2xl mx-auto">
+      <h1 className="ds-h1">Codex UI Primitives</h1>
+
+      {/* Btn */}
+      <section className="flex flex-col gap-3">
+        <SectionLabel>Buttons</SectionLabel>
+        <div className="flex flex-wrap gap-3">
+          <Btn kind="primary">Primary</Btn>
+          <Btn kind="secondary">Secondary</Btn>
+          <Btn kind="soft">Soft</Btn>
+          <Btn kind="ghost">Ghost</Btn>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <div className="flex flex-wrap gap-3">
+          <Btn kind="primary" size="sm">Small Primary</Btn>
+          <Btn kind="secondary" size="sm">Small Secondary</Btn>
+          <Btn kind="primary" pill icon={<Icon as={Zap} size={14} />}>
+            With Icon
+          </Btn>
+          <Btn kind="secondary" iconRight={<Icon as={ArrowRight} size={14} />}>
+            Icon Right
+          </Btn>
         </div>
-      </main>
+        <div className="flex flex-wrap gap-3">
+          <Btn kind="primary" disabled>Disabled</Btn>
+        </div>
+      </section>
+
+      {/* Chip */}
+      <section className="flex flex-col gap-3">
+        <SectionLabel>Chips</SectionLabel>
+        <div className="flex flex-wrap gap-2">
+          <Chip tone="default">Default</Chip>
+          <Chip tone="accent">Accent</Chip>
+          <Chip tone="success">Success</Chip>
+          <Chip tone="warning">Warning</Chip>
+          <Chip tone="error">Error</Chip>
+          <Chip tone="ghost">Ghost</Chip>
+          <Chip tone="accent" onClick={() => {}}>Interactive</Chip>
+        </div>
+      </section>
+
+      {/* Card */}
+      <section className="flex flex-col gap-3">
+        <SectionLabel>Cards</SectionLabel>
+        <div className="flex gap-4">
+          <Card className="flex-1">
+            <p className="ds-body-md">Default card with border and white background.</p>
+          </Card>
+          <Card sunken className="flex-1">
+            <p className="ds-body-md">Sunken card with surface-sunken background.</p>
+          </Card>
+        </div>
+      </section>
+
+      {/* Icon */}
+      <section className="flex flex-col gap-3">
+        <SectionLabel>Icons</SectionLabel>
+        <div className="flex gap-4 items-center">
+          <Icon as={BookOpen} size={20} className="text-accent" />
+          <Icon as={Zap} size={20} className="text-warning" />
+          <Icon as={ArrowRight} size={20} className="text-fg-muted" />
+        </div>
+      </section>
+
+      {/* Sparkline */}
+      <section className="flex flex-col gap-3">
+        <SectionLabel>Sparklines</SectionLabel>
+        <div className="flex gap-6 items-end">
+          <Sparkline values={[2, 5, 3, 8, 6, 9, 4]} />
+          <Sparkline values={[2, 5, 3, 8, 6, 9, 4]} fill />
+          <Sparkline values={[1, 1, 2, 3, 5, 8, 13]} color="var(--success)" fill w={100} h={32} />
+        </div>
+      </section>
     </div>
   );
 }

@@ -174,7 +174,7 @@
         "Verify in browser using dev-browser skill: navigate /home /add /chat /wiki /inbox and confirm sidebar highlight changes"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

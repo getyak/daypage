@@ -142,6 +142,117 @@ body {
   color: var(--fg-muted);
 }
 
+/* ─── Btn ───────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  font-family: var(--font-inter), ui-sans-serif, sans-serif;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background 100ms ease-out, color 100ms ease-out, opacity 100ms ease-out;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* sizes */
+.btn--sm {
+  font-size: 0.8125rem;  /* 13px */
+  padding: 0.3125rem 0.75rem;
+  height: 2rem;
+}
+.btn--md {
+  font-size: 0.9375rem;  /* 15px */
+  padding: 0.5rem 1.125rem;
+  height: 2.5rem;
+}
+
+/* pill */
+.btn--pill { border-radius: 999px; }
+
+/* kinds */
+.btn--primary {
+  background: var(--accent);
+  color: #fff;
+}
+.btn--primary:hover:not(:disabled) { background: var(--accent-hover); }
+
+.btn--secondary {
+  background: transparent;
+  color: var(--accent);
+  border: 1.5px solid var(--accent-border);
+}
+.btn--secondary:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+.btn--soft {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.btn--soft:hover:not(:disabled) {
+  background: var(--accent-border);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--fg-muted);
+}
+.btn--ghost:hover:not(:disabled) {
+  background: var(--surface-sunken);
+  color: var(--fg-primary);
+}
+
+/* icon slot */
+.btn__icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ─── Chip ──────────────────────────────────────────────────────── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-family: var(--font-inter), ui-sans-serif, sans-serif;
+  font-size: 0.75rem;    /* 12px */
+  font-weight: 500;
+  padding: 0.1875rem 0.625rem;
+  border-radius: 999px;
+  border: none;
+  white-space: nowrap;
+  transition: background 100ms ease-out, opacity 100ms ease-out;
+}
+.chip--interactive { cursor: pointer; }
+.chip--interactive:hover { opacity: 0.8; }
+
+.chip--default  { background: var(--surface-sunken); color: var(--fg-muted); }
+.chip--accent   { background: var(--accent-soft);    color: var(--accent); }
+.chip--success  { background: var(--success-soft);   color: var(--success); }
+.chip--warning  { background: var(--warning-soft);   color: var(--warning); }
+.chip--error    { background: var(--error-soft);     color: var(--error); }
+.chip--ghost    { background: transparent; color: var(--fg-subtle); border: 1px solid var(--accent-border); }
+
+/* ─── Card ──────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface-white);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--accent-border);
+  padding: 1rem;
+}
+.card--sunken {
+  background: var(--surface-sunken);
+  border-color: transparent;
+}
+
 /* ─── Motion ────────────────────────────────────────────────────── */
 * {
   transition-timing-function: ease-out;

@@ -85,3 +85,4 @@ Stories: 50
 [2026-05-10T12:30:00Z] Story #US-008: Wave 1d: Drizzle schema 第三批 (annotations + chat_threads + chat_messages + inbox_items + activities + devices + sync_state) — PASSED
 [2026-05-10T12:05:53Z] Story #US-008: Wave 1d: Drizzle schema 第三批 (annotations + chat_threads + chat_messages + inbox_items + activities + devices + sync_state) — PASSED
 [2026-05-10T12:07:17Z] Story #US-009: Wave 0e: Auth.js v5 beta 接入 + Apple OAuth provider — PASSED
+[2026-05-10T12:09:46Z] Story #US-010: Wave 3a: App Layout 骨架 (Sidebar + Topbar + 路由分组) — PASSED
