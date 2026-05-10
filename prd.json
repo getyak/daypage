@@ -818,7 +818,7 @@
         "Verify in browser using dev-browser skill: seed contradiction, click 'Use new', confirm card disappears + badge decrements"
       ],
       "priority": 45,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
