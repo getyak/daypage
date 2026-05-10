@@ -20,3 +20,4 @@ Stories: 50
 [2026-05-10T13:31:16Z] Story #US-036: Wave 7b: Chat thread API (POST/GET /api/chat/threads) — PASSED
 [2026-05-10T13:35:56Z] Story #US-035: Wave 7a: Embedding pipeline 升级 + RAG retrieval helper — PASSED
 [2026-05-10T13:37:53Z] Story #US-037: Wave 7c: Chat send message API with SSE streaming — PASSED
+[2026-05-10T13:42:13Z] Story #US-038: Wave 7d: Chat view UI (thread list + thread detail + composer) — PASSED

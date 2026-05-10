@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const DAILY_TOKEN_LIMIT = 100_000;
+const LOW_SCORE_THRESHOLD = 0.4;
 
 const SendMessageSchema = z.object({
   content: z.string().min(1).max(20_000),
@@ -78,12 +79,54 @@ function buildSystemPrompt(refs: RetrievedPage[]): string {
   return `You are a knowledgeable assistant with access to the user's personal wiki pages. \
 Answer using ONLY the information in the references below. \
 When you use information from a reference, cite it inline as {N} where N is the reference number. \
-If a sentence has no supporting reference, wrap it in *italic* and append [uncited]. \
+IMPORTANT: Any sentence that does not have a supporting reference MUST be wrapped in *italic* and \
+appended with [uncited] — for example: *This fact has no citation.* [uncited] \
 Never invent facts not present in the references. \
 If the references do not contain enough information to answer, say so clearly.
 
 REFERENCES:
 ${refBlock}`;
+}
+
+/** Returns true if retrievePages returned no useful results (0 items or all scores below threshold). */
+export function isLowConfidence(refs: RetrievedPage[]): boolean {
+  if (refs.length === 0) return true;
+  return refs.every((r) => r.score < LOW_SCORE_THRESHOLD);
+}
+
+const IDK_MESSAGE =
+  "I don't know yet — try adding content about that topic first.";
+
+async function generateSuggestedFollowups(
+  userMessage: string,
+  assistantMessage: string
+): Promise<string[]> {
+  try {
+    const context = `User: ${userMessage.slice(0, 500)}\nAssistant: ${assistantMessage.slice(0, 800)}`;
+    const { content } = await dashscope.chat(
+      [
+        {
+          role: "system",
+          content:
+            'You are a helpful assistant. Given the conversation context, suggest 3 short follow-up questions the user might want to ask next. Each question must be under 80 characters and directly relevant to the topic. Return ONLY valid JSON: {"questions": ["q1", "q2", "q3"]}',
+        },
+        { role: "user", content: `Conversation context:\n${context}` },
+      ],
+      { jsonMode: true, temperature: 0.8, maxTokens: 256 }
+    );
+
+    const parsed = JSON.parse(content) as { questions?: unknown };
+    if (
+      parsed &&
+      Array.isArray(parsed.questions) &&
+      parsed.questions.every((q) => typeof q === "string")
+    ) {
+      return (parsed.questions as string[]).slice(0, 3);
+    }
+    return [];
+  } catch {
+    return [];
+  }
 }
 
 // POST /api/chat/threads/:id/messages — send a message and stream the response
@@ -158,6 +201,46 @@ export async function POST(
         send({ type: "step", step: "retrieving" });
         const refs = await retrievePages(userId, content, { topK: 8 });
 
+        // I-don't-know fallback: no results or all scores below threshold
+        if (isLowConfidence(refs)) {
+          const topic = content.slice(0, 60).trim();
+          const idkContent = `I don't know yet — try adding content about "${topic}" first.`;
+
+          const [assistantMsg] = await db
+            .insert(chat_messages)
+            .values({
+              thread_id: threadId,
+              role: "assistant",
+              content: idkContent,
+              citations: null,
+              tokens_in: 0,
+              tokens_out: 0,
+            })
+            .returning({ id: chat_messages.id });
+
+          await db
+            .update(chat_threads)
+            .set({ updated_at: new Date() })
+            .where(eq(chat_threads.id, threadId));
+
+          send({
+            type: "token",
+            content: idkContent,
+          });
+          send({
+            type: "done",
+            message_id: assistantMsg?.id ?? crypto.randomUUID(),
+            user_message_id: userMsgId,
+            citations: [],
+            references: [],
+            tokens_in: 0,
+            tokens_out: 0,
+            suggested_followups: [],
+            idk: true,
+          });
+          return;
+        }
+
         // Step 3: Build prompt
         const systemPrompt = buildSystemPrompt(refs);
         const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
@@ -226,6 +309,10 @@ export async function POST(
           .set({ updated_at: new Date() })
           .where(eq(chat_threads.id, threadId));
 
+        // Generate suggested follow-ups (lightweight, fire after main response)
+        send({ type: "step", step: "suggesting" });
+        const suggestedFollowups = await generateSuggestedFollowups(content, fullContent);
+
         // Emit done with all reference metadata (not just cited ones)
         const allRefs = refs.map((r, i) => ({
           n: i + 1,
@@ -245,6 +332,8 @@ export async function POST(
           references: allRefs,
           tokens_in,
           tokens_out,
+          suggested_followups: suggestedFollowups,
+          idk: false,
         });
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);

@@ -691,7 +691,7 @@
         "Verify in browser using dev-browser skill: create thread, ask question against seeded pages, watch streaming answer + reference cards"
       ],
       "priority": 38,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
