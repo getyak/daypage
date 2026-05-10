@@ -1,0 +1,18 @@
+{
+  "name": "daypage-monorepo",
+  "private": true,
+  "version": "0.0.0",
+  "packageManager": "pnpm@11.0.9",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "web:dev": "pnpm --filter daypage-web dev",
+    "web:build": "pnpm --filter daypage-web build",
+    "web:lint": "pnpm --filter daypage-web lint",
+    "web:typecheck": "pnpm --filter daypage-web typecheck",
+    "db:start": "supabase start",
+    "db:reset": "supabase db reset"
+  }
+}
