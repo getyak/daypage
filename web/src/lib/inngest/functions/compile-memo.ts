@@ -821,7 +821,7 @@ export const compileMemo = inngest.createFunction(
             body_md: op.body_md,
             last_compiled_at: new Date(),
             updated_at: new Date(),
-            // Increment version counter stored in metadata
+            version: sql`${pages.version} + 1`,
           };
           if (op.title) updateSet.title = op.title;
 

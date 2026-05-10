@@ -179,6 +179,7 @@ export const pages = pgTable(
     body_html: text("body_html"),
     metadata: jsonb("metadata"),
     embedding: text("embedding"), // stored as text until pgvector migration; vector(1536) added later
+    version: integer("version").notNull().default(0),
     source_count: integer("source_count").notNull().default(0),
     backlink_count: integer("backlink_count").notNull().default(0),
     last_compiled_at: timestamp("last_compiled_at", { withTimezone: true }),

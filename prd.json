@@ -838,7 +838,7 @@
         "Verify in browser using dev-browser skill: open /settings/agent, toggle ACT-3, refresh, confirm persisted"
       ],
       "priority": 46,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
