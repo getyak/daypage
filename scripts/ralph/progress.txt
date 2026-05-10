@@ -24,3 +24,4 @@ Stories: 50
 [2026-05-10T13:46:06Z] Story #US-039: Wave 7e: Suggested follow-ups + I-don't-know fallback — PASSED
 [2026-05-10T13:49:50Z] Story #US-040: Wave 8a: Conflict detection 集成到 compile-memo FULL 步骤 — PASSED
 [2026-05-10T13:52:21Z] Story #US-041: Wave 8b: Schema detection worker (cluster suggestion → inbox) — PASSED
+[2026-05-10T13:54:01Z] Story #US-042: Wave 8c: Cold storage detection cron — PASSED

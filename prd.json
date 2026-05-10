@@ -759,7 +759,7 @@
         "Tests pass: seed page with old timestamps, run function, verify inbox_item created"
       ],
       "priority": 42,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
