@@ -319,8 +319,8 @@
         "Verify in browser using dev-browser skill: navigate to /add, type text, confirm submit button enables"
       ],
       "priority": 18,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "add/page.tsx rebuilt with Hero block + UnifiedInput client component (textarea + hint chips + Save draft + Add buttons, both disabled when empty) + empty Compile Queue Card + empty Recently Compiled Card; typecheck passes (no new errors)"
     },
     {
       "id": "US-019",
