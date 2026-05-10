@@ -107,3 +107,4 @@ Stories: 50
 [2026-05-10T13:12:00Z] Story #US-031: Wave 5d: Annotation API + 高亮选中 toolbar — PASSED
 [2026-05-10T13:14:12Z] Story #US-032: Wave 5e: Domain 视图 (/(app)/domain/[slug]) — PASSED
 [2026-05-10T13:16:26Z] Story #US-033: Wave 5f: Daily Page worker + cron — PASSED
+[2026-05-10T13:19:48Z] Story #US-034: Wave 6a: Wiki Graph view (静态布局, 与 Codex 一致) — PASSED

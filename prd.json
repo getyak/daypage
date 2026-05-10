@@ -614,7 +614,7 @@
         "Verify in browser using dev-browser skill: with seeded pages + links, navigate to /wiki and switch to Graph mode, see nodes"
       ],
       "priority": 34,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
