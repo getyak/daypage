@@ -212,6 +212,157 @@ export const page_sources = pgTable(
   (t) => [primaryKey({ columns: [t.page_id, t.memo_id] })]
 );
 
+// ─── US-008: Wave 1d — annotations + chat_threads + chat_messages + inbox_items + activities + devices + sync_state ───
+
+export const chatThreadStatusEnum = pgEnum("chat_thread_status", [
+  "active",
+  "archived",
+]);
+
+export const chatMessageRoleEnum = pgEnum("chat_message_role", [
+  "user",
+  "assistant",
+  "system",
+]);
+
+export const inboxItemKindEnum = pgEnum("inbox_item_kind", [
+  "contradiction",
+  "schema",
+  "orphan",
+  "compiled",
+]);
+
+export const inboxItemStatusEnum = pgEnum("inbox_item_status", [
+  "open",
+  "resolved",
+  "dismissed",
+  "snoozed",
+]);
+
+export const devicePlatformEnum = pgEnum("device_platform", [
+  "ios",
+  "web",
+  "android",
+]);
+
+export const annotations = pgTable("annotations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  user_id: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  page_id: uuid("page_id")
+    .notNull()
+    .references(() => pages.id, { onDelete: "cascade" }),
+  anchor: jsonb("anchor").notNull(),
+  tag: text("tag").notNull(),
+  note: text("note"),
+  created_at: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const chat_threads = pgTable("chat_threads", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  user_id: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").notNull().default("New conversation"),
+  status: chatThreadStatusEnum("status").notNull().default("active"),
+  synthesis_page_id: uuid("synthesis_page_id").references(() => pages.id, {
+    onDelete: "set null",
+  }),
+  created_at: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const chat_messages = pgTable("chat_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  thread_id: uuid("thread_id")
+    .notNull()
+    .references(() => chat_threads.id, { onDelete: "cascade" }),
+  role: chatMessageRoleEnum("role").notNull(),
+  content: text("content").notNull(),
+  citations: jsonb("citations"),
+  suggested: jsonb("suggested"),
+  tokens_in: integer("tokens_in"),
+  tokens_out: integer("tokens_out"),
+  created_at: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const inbox_items = pgTable(
+  "inbox_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: inboxItemKindEnum("kind").notNull(),
+    title: text("title").notNull(),
+    body: text("body"),
+    payload: jsonb("payload"),
+    status: inboxItemStatusEnum("status").notNull().default("open"),
+    resolution: jsonb("resolution"),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    resolved_at: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (t) => [index("inbox_user_status").on(t.user_id, t.status)]
+);
+
+export const activities = pgTable(
+  "activities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    verb: text("verb").notNull(),
+    subject: text("subject").notNull(),
+    target_type: text("target_type"),
+    target_id: text("target_id"),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("activities_user_created").on(t.user_id, t.created_at)]
+);
+
+export const devices = pgTable("devices", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  user_id: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  platform: devicePlatformEnum("platform").notNull(),
+  push_token: text("push_token"),
+  last_seen_at: timestamp("last_seen_at", { withTimezone: true }),
+  metadata: jsonb("metadata"),
+  created_at: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const sync_state = pgTable(
+  "sync_state",
+  {
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    device_id: uuid("device_id")
+      .notNull()
+      .references(() => devices.id, { onDelete: "cascade" }),
+    cursor: timestamp("cursor", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.user_id, t.device_id] })]
+);
+
 // ─── Re-export helper types ────────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
@@ -228,3 +379,17 @@ export type PageLink = typeof page_links.$inferSelect;
 export type NewPageLink = typeof page_links.$inferInsert;
 export type PageSource = typeof page_sources.$inferSelect;
 export type NewPageSource = typeof page_sources.$inferInsert;
+export type Annotation = typeof annotations.$inferSelect;
+export type NewAnnotation = typeof annotations.$inferInsert;
+export type ChatThread = typeof chat_threads.$inferSelect;
+export type NewChatThread = typeof chat_threads.$inferInsert;
+export type ChatMessage = typeof chat_messages.$inferSelect;
+export type NewChatMessage = typeof chat_messages.$inferInsert;
+export type InboxItem = typeof inbox_items.$inferSelect;
+export type NewInboxItem = typeof inbox_items.$inferInsert;
+export type Activity = typeof activities.$inferSelect;
+export type NewActivity = typeof activities.$inferInsert;
+export type Device = typeof devices.$inferSelect;
+export type NewDevice = typeof devices.$inferInsert;
+export type SyncState = typeof sync_state.$inferSelect;
+export type NewSyncState = typeof sync_state.$inferInsert;

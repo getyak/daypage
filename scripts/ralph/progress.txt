@@ -61,3 +61,25 @@ Stories: 50
 [2026-05-10T11:58:10Z] Story #US-004: Wave 0d: Supabase 本地 Docker 初始化 — PASSED
 [2026-05-10T11:59:52Z] Story #US-005: Wave 1a: Drizzle ORM 接入 + 配置文件 — PASSED
 [2026-05-10T12:01:39Z] Story #US-006: Wave 1b: Drizzle schema 第一批 (users + memos + memo_attachments) — PASSED
+[2026-05-10T12:04:03Z] Story #US-007: Wave 1c: Drizzle schema 第二批 (domains + pages + page_links + page_sources) — PASSED
+
+## 2026-05-10 - US-008
+- Added 7 new tables to `web/src/lib/db/schema.ts`:
+  - `annotations` (uuid pk, user_id, page_id fk→pages, anchor jsonb, tag, note, created_at)
+  - `chat_threads` (uuid pk, user_id, title, status enum, synthesis_page_id fk→pages nullable, timestamps)
+  - `chat_messages` (uuid pk, thread_id fk→chat_threads, role enum, content, citations jsonb, suggested jsonb, tokens_in/out, created_at)
+  - `inbox_items` (uuid pk, user_id, kind enum, title, body, payload jsonb, status enum, resolution jsonb, created_at, resolved_at) + index inbox_user_status
+  - `activities` (uuid pk, user_id, verb, subject, target_type, target_id, created_at) + index activities_user_created
+  - `devices` (uuid pk, user_id, platform enum, push_token, last_seen_at, metadata jsonb, created_at)
+  - `sync_state` composite pk (user_id, device_id) with cursor timestamptz
+- Added 5 new enums: chat_thread_status, chat_message_role, inbox_item_kind, inbox_item_status, device_platform
+- Added exported TypeScript types for all 7 new tables
+- Generated migration `web/drizzle/migrations/0001_futuristic_apocalypse.sql` (7 new tables + 5 enums + proper FKs + 2 indexes)
+- db:migrate skipped (Docker not running)
+- Files changed: `web/src/lib/db/schema.ts`, `web/drizzle/migrations/0001_futuristic_apocalypse.sql`, `web/drizzle/migrations/meta/` (updated), `prd.json`, `scripts/ralph/progress.txt`
+- **Learnings for future iterations:**
+  - All cascade deletes are on user_id FKs so data auto-cleans on user deletion
+  - sync_state uses composite PK (user_id, device_id) — Drizzle requires primaryKey({ columns: [...] }) syntax
+  - db:generate works without a running database — it only reads schema.ts
+---
+[2026-05-10T12:30:00Z] Story #US-008: Wave 1d: Drizzle schema 第三批 (annotations + chat_threads + chat_messages + inbox_items + activities + devices + sync_state) — PASSED
