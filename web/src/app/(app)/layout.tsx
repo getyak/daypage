@@ -264,7 +264,8 @@ function NavItem({
 function DomainItem({ domain }: { domain: Domain }) {
   const color = domain.color ?? "var(--fg-muted)";
   return (
-    <div
+    <Link
+      href={`/domain/${domain.slug}`}
       style={{
         display: "flex",
         alignItems: "center",
@@ -274,7 +275,10 @@ function DomainItem({ domain }: { domain: Domain }) {
         fontSize: "0.875rem",
         fontWeight: 500,
         color: "var(--fg-muted)",
+        textDecoration: "none",
+        transition: "background 100ms ease-out, color 100ms ease-out",
       }}
+      className="sidebar-nav-item"
     >
       <span
         style={{
@@ -288,6 +292,6 @@ function DomainItem({ domain }: { domain: Domain }) {
       <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {domain.label}
       </span>
-    </div>
+    </Link>
   );
 }

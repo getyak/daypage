@@ -559,7 +559,7 @@
         "Verify in browser using dev-browser skill: open a page with content, select text, click Important, confirm highlight persists after refresh"
       ],
       "priority": 31,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
