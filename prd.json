@@ -577,7 +577,7 @@
         "Verify in browser using dev-browser skill: with seeded domain + pages, navigate to domain page and see content"
       ],
       "priority": 32,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
