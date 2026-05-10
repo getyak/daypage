@@ -875,7 +875,7 @@
         "Tests pass: each guard has a unit test verifying skip behavior"
       ],
       "priority": 48,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
