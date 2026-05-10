@@ -390,7 +390,7 @@
         "Tests pass: mock dashscope, submit memo, verify embedding column populated"
       ],
       "priority": 22,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
