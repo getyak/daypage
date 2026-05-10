@@ -34,3 +34,4 @@ Stories: 50
 [2026-05-10T14:10:53Z] Story #US-049: Wave 9d: ACT-1 Auto-tag domain 实现 + ACT-6 Weekly recap 实现 — PASSED
 [2026-05-10T14:10:53Z] Ralph complete after 14 iterations
 [2026-05-10T14:16:19Z] Story #US-050: Wave 9e: 收尾 — sidebar inbox badge live update via SSE + global SSE auth + smoke test — PASSED
+[2026-05-10T14:16:19Z] Ralph complete after 1 iterations

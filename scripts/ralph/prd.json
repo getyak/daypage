@@ -912,7 +912,7 @@
         "Verify in browser using dev-browser skill: run the documented smoke test end-to-end and confirm all 4 reactive updates work"
       ],
       "priority": 50,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]
