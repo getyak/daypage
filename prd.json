@@ -632,7 +632,7 @@
         "Tests pass: seed pages with known content, query, verify expected page returned with reasonable score"
       ],
       "priority": 35,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

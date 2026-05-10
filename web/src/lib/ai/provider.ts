@@ -63,6 +63,20 @@ export interface LLMProvider {
   ): Promise<ChatResponse>;
 
   /**
+   * Stream a chat completion, calling onChunk for each token chunk.
+   * Resolves with token counts when stream ends.
+   */
+  chatStream(
+    messages: ChatMessage[],
+    onChunk: (chunk: string) => void,
+    opts?: {
+      model?: string;
+      temperature?: number;
+      maxTokens?: number;
+    }
+  ): Promise<{ tokens_in: number; tokens_out: number; model: string }>;
+
+  /**
    * Embed a single string into a dense vector.
    * @param text The text to embed
    * @param opts.model Override the default embedding model

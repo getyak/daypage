@@ -18,3 +18,4 @@ Stories: 50
   - No existing root package.json was present — created fresh
 ---
 [2026-05-10T13:31:16Z] Story #US-036: Wave 7b: Chat thread API (POST/GET /api/chat/threads) — PASSED
+[2026-05-10T13:35:56Z] Story #US-035: Wave 7a: Embedding pipeline 升级 + RAG retrieval helper — PASSED

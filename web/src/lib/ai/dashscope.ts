@@ -116,6 +116,98 @@ export class DashScopeProvider implements LLMProvider {
     return { content, tokens_in, tokens_out, model: responseModel };
   }
 
+  async chatStream(
+    messages: ChatMessage[],
+    onChunk: (chunk: string) => void,
+    opts: { model?: string; temperature?: number; maxTokens?: number } = {}
+  ): Promise<{ tokens_in: number; tokens_out: number; model: string }> {
+    const model = opts.model ?? DEFAULT_CHAT_MODEL;
+    const body: Record<string, unknown> = {
+      model,
+      messages,
+      temperature: opts.temperature ?? 0.7,
+      stream: true,
+      stream_options: { include_usage: true },
+    };
+    if (opts.maxTokens) body.max_tokens = opts.maxTokens;
+
+    const res = await fetchWithTimeout(
+      `${BASE_URL}/chat/completions`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getApiKey()}`,
+        },
+        body: JSON.stringify(body),
+      },
+      60_000
+    );
+
+    if (!res.ok) {
+      const text = await res.text();
+      throw mapHttpError(res.status, text);
+    }
+
+    if (!res.body) {
+      throw new ProviderError("server", "No response body for streaming request");
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let tokens_in = 0;
+    let tokens_out = 0;
+    let responseModel = model;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === "data: [DONE]") continue;
+        if (!trimmed.startsWith("data: ")) continue;
+
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(trimmed.slice(6));
+        } catch {
+          continue;
+        }
+
+        const p = parsed as {
+          choices?: { delta?: { content?: string } }[];
+          usage?: { prompt_tokens?: number; completion_tokens?: number };
+          model?: string;
+        };
+
+        if (p.model) responseModel = p.model;
+
+        const delta = p.choices?.[0]?.delta?.content;
+        if (delta) onChunk(delta);
+
+        if (p.usage) {
+          tokens_in = p.usage.prompt_tokens ?? tokens_in;
+          tokens_out = p.usage.completion_tokens ?? tokens_out;
+        }
+      }
+    }
+
+    await logPrompt({
+      kind: "chat",
+      model: responseModel,
+      tokens_in,
+      tokens_out,
+    }).catch(() => undefined);
+
+    return { tokens_in, tokens_out, model: responseModel };
+  }
+
   async embed(
     text: string,
     opts: { model?: string } = {}
