@@ -16,8 +16,8 @@
         "Typecheck passes (no TS files yet so nothing to check)"
       ],
       "priority": 1,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "pnpm-workspace.yaml + root package.json created; pnpm install succeeds"
     },
     {
       "id": "US-002",

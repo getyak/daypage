@@ -5,3 +5,15 @@ Branch: ralph/v5-codex-web
 PRD: prd.json
 Stories: 50
 ---
+
+## 2026-05-10 - US-001
+- Created `pnpm-workspace.yaml` at repo root listing 'web' and 'packages/*'
+- Created root `package.json` with workspace scripts (web:dev, web:build, web:lint, web:typecheck, db:start, db:reset), packageManager pnpm@11.0.9, engines node>=22/pnpm>=10
+- Verified `pnpm install` succeeds (no workspace packages yet, workspace initialized cleanly)
+- Verified .gitignore already covers web/Next/Supabase/pnpm artifacts (no changes needed)
+- Files changed: `pnpm-workspace.yaml`, `package.json`, `prd.json`
+- **Learnings for future iterations:**
+  - pnpm v11.0.9 is installed at /home/smile/.npm-global/bin/pnpm
+  - .gitignore already has node_modules/, .next/, .pnpm-store/, supabase/.branches/, supabase/.temp/ etc.
+  - No existing root package.json was present — created fresh
+---
