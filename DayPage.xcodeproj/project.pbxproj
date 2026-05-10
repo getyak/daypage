@@ -36,6 +36,9 @@
 		A10000022 /* EntityPageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000022 /* EntityPageService.swift */; };
 		A10000023 /* BackgroundCompilationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000023 /* BackgroundCompilationService.swift */; };
 		A10000025 /* DailyPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000025 /* DailyPageView.swift */; };
+		TH0000001 /* ThreadConversationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = TH1000001 /* ThreadConversationViewModel.swift */; };
+		TH0000002 /* ThreadConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TH1000002 /* ThreadConversationView.swift */; };
+		TH0000003 /* InlineMicButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = TH1000003 /* InlineMicButton.swift */; };
 		A10000026 /* EntityPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000026 /* EntityPageView.swift */; };
 		A10000027 /* SearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000027 /* SearchService.swift */; };
 		A10000028 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000028 /* SearchView.swift */; };
@@ -187,6 +190,9 @@
 		A20000024 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A20000071 /* DayPage.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DayPage.entitlements; sourceTree = "<group>"; };
 		A20000025 /* DailyPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPageView.swift; sourceTree = "<group>"; };
+		TH1000001 /* ThreadConversationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadConversationViewModel.swift; sourceTree = "<group>"; };
+		TH1000002 /* ThreadConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadConversationView.swift; sourceTree = "<group>"; };
+		TH1000003 /* InlineMicButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineMicButton.swift; sourceTree = "<group>"; };
 		A20000026 /* EntityPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntityPageView.swift; sourceTree = "<group>"; };
 		A20000027 /* SearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchService.swift; sourceTree = "<group>"; };
 		A20000028 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
@@ -546,6 +552,9 @@
 			isa = PBXGroup;
 			children = (
 				A20000025 /* DailyPageView.swift */,
+				TH1000001 /* ThreadConversationViewModel.swift */,
+				TH1000002 /* ThreadConversationView.swift */,
+				TH1000003 /* InlineMicButton.swift */,
 			);
 			path = Daily;
 			sourceTree = "<group>";
@@ -905,6 +914,9 @@
 				A10000022 /* EntityPageService.swift in Sources */,
 				A10000023 /* BackgroundCompilationService.swift in Sources */,
 				A10000025 /* DailyPageView.swift in Sources */,
+				TH0000001 /* ThreadConversationViewModel.swift in Sources */,
+				TH0000002 /* ThreadConversationView.swift in Sources */,
+				TH0000003 /* InlineMicButton.swift in Sources */,
 				A10000026 /* EntityPageView.swift in Sources */,
 				A10000027 /* SearchService.swift in Sources */,
 				A10000028 /* SearchView.swift in Sources */,

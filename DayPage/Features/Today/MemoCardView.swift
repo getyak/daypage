@@ -241,9 +241,15 @@ struct MemoCardView: View {
                     .lineSpacing(6)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
                     .padding(.horizontal, 14)
                     .padding(.top, 12)
+                    .contextMenu {
+                        Button {
+                            UIPasteboard.general.string = bodyTrimmed
+                        } label: {
+                            Label("复制", systemImage: "doc.on.doc")
+                        }
+                    }
             }
 
             // Bottom meta row: time + type chip + location
@@ -560,7 +566,13 @@ struct VoiceMemoPlayerRow: View {
                         .foregroundColor(DSColor.inkMuted)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .textSelection(.enabled)
+                        .contextMenu {
+                            Button {
+                                UIPasteboard.general.string = t
+                            } label: {
+                                Label("复制", systemImage: "doc.on.doc")
+                            }
+                        }
                     Text("\"")
                         .font(DSFonts.serif(size: 20, weight: .medium))
                         .foregroundColor(DSColor.amberAccent)
