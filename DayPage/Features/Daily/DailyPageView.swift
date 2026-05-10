@@ -160,6 +160,12 @@ struct DailyPageView: View {
     @State private var recompileError: String? = nil
     @State private var showEditMetadata: Bool = false
 
+    // Thread conversation state — keyed by question string
+    @State private var threadVMs: [String: ThreadConversationViewModel] = [:]
+    // Freeform input area
+    @State private var freeformDraft: String = ""
+    @State private var freeformVM: ThreadConversationViewModel? = nil
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -822,44 +828,118 @@ struct DailyPageView: View {
         }
     }
 
-    // MARK: - Threads (AI Follow-up)
+    // MARK: - Threads (AI Follow-up) — expandable conversation cards
 
     private func threadsSection(model: DailyPageModel) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             Text("THREADS")
                 .sectionLabelStyle()
                 .foregroundColor(DSColor.outline)
 
-            let columns = [GridItem(.flexible()), GridItem(.flexible())]
-            LazyVGrid(columns: columns, spacing: 12) {
-                ForEach(model.followUpQuestions, id: \.self) { question in
-                    Button(action: {
-                        dismiss()
-                        onReturnToToday?(question)
-                    }) {
-                        VStack(alignment: .leading, spacing: 16) {
-                            Text(question)
-                                .bodySMStyle()
-                                .foregroundColor(DSColor.onSurface)
-                                .multilineTextAlignment(.leading)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+            ForEach(model.followUpQuestions, id: \.self) { question in
+                threadCard(question: question, compiledText: model.rawContent)
+            }
 
-                            HStack(spacing: 4) {
-                                Text("CONTINUE")
-                                    .monoLabelStyle(size: 10)
-                                    .foregroundColor(DSColor.amberArchival)
-                                Image(systemName: "arrow.right")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(DSColor.amberArchival)
-                            }
-                        }
-                        .padding(DSSpacing.cardInner)
-                        .background(DSColor.surfaceContainerHigh)
-                        .cornerRadius(DSSpacing.radiusCard)
+            freeformInputArea(compiledText: model.rawContent)
+        }
+    }
+
+    /// Returns (creating if needed) the VM for a given question and renders an expandable card.
+    private func threadCard(question: String, compiledText: String) -> some View {
+        let vm = threadVM(for: question, compiledText: compiledText)
+        return ThreadConversationView(vm: vm)
+            .onTapGesture {
+                // First tap expands and fires the initial question.
+                guard !vm.isExpanded else { return }
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+                    // Collapse all other threads and freeform before expanding.
+                    for key in threadVMs.keys where key != question {
+                        threadVMs[key]?.isExpanded = false
                     }
-                    .buttonStyle(.plain)
+                    freeformVM?.isExpanded = false
+                    vm.isExpanded = true
+                }
+                if vm.messages.isEmpty {
+                    Task { await vm.send(userMessage: question) }
                 }
             }
+    }
+
+    private func threadVM(for question: String, compiledText: String) -> ThreadConversationViewModel {
+        if let existing = threadVMs[question] { return existing }
+        let dateParser = DateFormatter()
+        dateParser.dateFormat = "yyyy-MM-dd"
+        dateParser.locale = Locale(identifier: "en_US_POSIX")
+        let date = dateParser.date(from: dateString) ?? Date()
+        let vm = ThreadConversationViewModel(question: question, compiledPageText: compiledText, date: date)
+        Task { await vm.loadHistory() }
+        threadVMs[question] = vm
+        return vm
+    }
+
+    // MARK: - Freeform input area
+
+    private func freeformInputArea(compiledText: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Freeform VM thread card (visible only after first send)
+            if let fvm = freeformVM, !fvm.messages.isEmpty {
+                ThreadConversationView(vm: fvm)
+            }
+
+            // Input bar
+            HStack(spacing: 8) {
+                TextField("你想聊什么…", text: $freeformDraft)
+                    .font(DSType.bodySM)
+                    .foregroundColor(DSColor.inkPrimary)
+                    .submitLabel(.send)
+                    .onSubmit { sendFreeform(compiledText: compiledText) }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background(DSColor.amberSoft.opacity(0.5))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+
+                InlineMicButton { transcript in freeformDraft = transcript }
+
+                Button(action: { sendFreeform(compiledText: compiledText) }) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(canSendFreeform ? DSColor.amberAccent : DSColor.inkSubtle)
+                }
+                .buttonStyle(.plain)
+                .disabled(!canSendFreeform)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(DSColor.surfaceContainerHigh.opacity(0.8))
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        }
+    }
+
+    private var canSendFreeform: Bool {
+        !freeformDraft.trimmingCharacters(in: .whitespaces).isEmpty
+            && !(freeformVM?.isStreaming ?? false)
+    }
+
+    private func sendFreeform(compiledText: String) {
+        let text = freeformDraft.trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { return }
+        freeformDraft = ""
+
+        if freeformVM == nil {
+            let dateParser = DateFormatter()
+            dateParser.dateFormat = "yyyy-MM-dd"
+            dateParser.locale = Locale(identifier: "en_US_POSIX")
+            let date = dateParser.date(from: dateString) ?? Date()
+            let vm = ThreadConversationViewModel(question: nil, compiledPageText: compiledText, date: date)
+            freeformVM = vm
+            Task {
+                await vm.loadHistory()
+                vm.isExpanded = true
+                await vm.send(userMessage: text)
+            }
+        } else {
+            freeformVM?.isExpanded = true
+            Task { await freeformVM?.send(userMessage: text) }
         }
     }
 

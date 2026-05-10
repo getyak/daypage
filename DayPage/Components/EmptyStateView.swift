@@ -4,7 +4,7 @@ import SwiftUI
 
 struct EmptyStateView: View {
     let title: LocalizedStringKey
-    var subtitle: LocalizedStringKey?
+    var subtitle: String?
     var ctaLabel: String?
     var ctaAction: (() -> Void)?
     var showOrbAccent: Bool = false
