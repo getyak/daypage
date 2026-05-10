@@ -91,3 +91,4 @@ Stories: 50
 [2026-05-10T12:19:27Z] Story #US-013: Wave 1f: API /api/memos/bulk 批量上传 (iOS sync) — PASSED
 [2026-05-10T12:29:27Z] Story #US-016: Wave 3c: Home view 真数据 (Hero + Stats + Recent activity 占位) — PASSED
 [2026-05-10T12:31:38Z] Story #US-017: Wave 3d: Sidebar Domains 动态列表 + Inbox badge 真数据 — PASSED
+[2026-05-10T12:34:11Z] Story #US-018: Wave 4a: Add view 静态 UI (UnifiedInput + 空 Compile Queue) — PASSED
