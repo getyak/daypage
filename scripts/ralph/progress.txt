@@ -25,3 +25,4 @@ Stories: 50
 [2026-05-10T13:49:50Z] Story #US-040: Wave 8a: Conflict detection 集成到 compile-memo FULL 步骤 — PASSED
 [2026-05-10T13:52:21Z] Story #US-041: Wave 8b: Schema detection worker (cluster suggestion → inbox) — PASSED
 [2026-05-10T13:54:01Z] Story #US-042: Wave 8c: Cold storage detection cron — PASSED
+[2026-05-10T13:56:07Z] Story #US-043: Wave 8d: Observer agent daily worker + Home observations card — PASSED
