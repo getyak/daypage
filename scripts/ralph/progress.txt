@@ -102,3 +102,4 @@ Stories: 50
 [2026-05-10T12:55:49Z] Story #US-026: Wave 4i: Add view Compile Queue 实时进度 UI — PASSED
 [2026-05-10T12:59:58Z] Story #US-027: Wave 4j: LIGHT/FULL chip 切换 + Recently Compiled 列表 — PASSED
 [2026-05-10T13:03:12Z] Story #US-028: Wave 5a: Wiki view 路由 + 左侧 nav 静态结构 — PASSED
+[2026-05-10T13:05:26Z] Story #US-029: Wave 5b: API /api/pages + /api/pages/:slug + /api/pages/:id/sources + /api/pages/:id/backlinks — PASSED

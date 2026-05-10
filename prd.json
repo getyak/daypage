@@ -519,7 +519,7 @@
         "Tests pass: cover happy path + 404 + scope isolation for each endpoint"
       ],
       "priority": 29,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

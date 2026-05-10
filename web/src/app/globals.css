@@ -253,6 +253,74 @@ body {
   border-color: transparent;
 }
 
+/* ─── Wiki body (react-markdown output) ─────────────────────────── */
+.wiki-body {
+  font-family: var(--font-inter), ui-sans-serif, sans-serif;
+  font-size: 0.9375rem;
+  line-height: 1.75;
+  color: var(--fg-primary);
+}
+.wiki-body h1, .wiki-body h2, .wiki-body h3,
+.wiki-body h4, .wiki-body h5, .wiki-body h6 {
+  font-family: var(--font-space-grotesk), ui-sans-serif, sans-serif;
+  font-weight: 600;
+  margin: 1.5em 0 0.5em;
+  line-height: 1.3;
+  color: var(--fg-primary);
+}
+.wiki-body h1 { font-size: 1.5rem; }
+.wiki-body h2 { font-size: 1.25rem; }
+.wiki-body h3 { font-size: 1.0625rem; }
+.wiki-body p  { margin: 0.75em 0; }
+.wiki-body a  { color: var(--accent); text-decoration: none; }
+.wiki-body a:hover { text-decoration: underline; }
+.wiki-body ul, .wiki-body ol { padding-left: 1.5em; margin: 0.75em 0; }
+.wiki-body li { margin: 0.25em 0; }
+.wiki-body code {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  background: var(--surface-sunken);
+  padding: 0.125em 0.3125em;
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+}
+.wiki-body pre {
+  background: var(--surface-sunken);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+.wiki-body pre code {
+  background: none;
+  padding: 0;
+  color: var(--fg-primary);
+}
+.wiki-body blockquote {
+  border-left: 3px solid var(--accent-border);
+  padding-left: 1rem;
+  margin: 1em 0;
+  color: var(--fg-muted);
+}
+.wiki-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  font-size: 0.875rem;
+}
+.wiki-body th, .wiki-body td {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--accent-border);
+  text-align: left;
+}
+.wiki-body th { background: var(--surface-sunken); font-weight: 600; }
+.wiki-body hr {
+  border: none;
+  border-top: 1px solid var(--accent-border);
+  margin: 1.5em 0;
+}
+.wiki-body img { max-width: 100%; border-radius: var(--radius-md); }
+
 /* ─── Motion ────────────────────────────────────────────────────── */
 * {
   transition-timing-function: ease-out;
