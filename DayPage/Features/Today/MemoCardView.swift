@@ -543,11 +543,13 @@ struct VoiceMemoPlayerRow: View {
                         }
                 }
                 .frame(height: 24)
+                .allowsHitTesting(false)
 
                 Text(formatDur(isPlaying ? duration * playbackProgress : duration))
                     .font(DSFonts.jetBrainsMono(size: 11))
                     .foregroundColor(DSColor.inkSubtle)
                     .frame(width: 36, alignment: .trailing)
+                    .allowsHitTesting(false)
             }
             .padding(.horizontal, 14)
             .padding(.top, 14)
