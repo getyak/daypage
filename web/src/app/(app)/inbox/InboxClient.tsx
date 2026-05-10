@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import type { InboxItem } from "@/lib/db/schema";
 
 type Kind = "contradiction" | "schema" | "orphan" | "compiled";
@@ -40,6 +41,8 @@ function KindChip({ kind }: { kind: Kind }) {
   return <span className={cls}>{label}</span>;
 }
 
+// ─── Payload types ─────────────────────────────────────────────────────────────
+
 interface ContradictionPayload {
   old_text?: string;
   new_text?: string;
@@ -59,8 +62,173 @@ interface OrphanPayload {
   days_idle?: number;
 }
 
-function ContradictionCard({ item }: { item: InboxItem }) {
+// ─── Action helpers ────────────────────────────────────────────────────────────
+
+async function postAction(
+  itemId: string,
+  endpoint: "resolve" | "dismiss" | "snooze",
+  body?: object
+): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/inbox/${itemId}/${endpoint}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body ?? {}),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// ─── SnoozeMenu ────────────────────────────────────────────────────────────────
+
+interface SnoozeMenuProps {
+  itemId: string;
+  onAction: (itemId: string) => void;
+}
+
+function SnoozeMenu({ itemId, onAction }: SnoozeMenuProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const snooze = useCallback(
+    async (days: number) => {
+      setOpen(false);
+      const until = new Date(Date.now() + days * 86_400_000).toISOString();
+      const ok = await postAction(itemId, "snooze", { until });
+      if (ok) onAction(itemId);
+    },
+    [itemId, onAction]
+  );
+
+  const dismiss = useCallback(async () => {
+    setOpen(false);
+    const ok = await postAction(itemId, "dismiss");
+    if (ok) onAction(itemId);
+  }, [itemId, onAction]);
+
+  return (
+    <div style={{ position: "relative" }} ref={ref}>
+      <button
+        className="btn btn--ghost btn--sm"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="More options"
+        style={{ padding: "0 0.375rem" }}
+      >
+        ···
+      </button>
+      {open && (
+        <>
+          {/* backdrop */}
+          <div
+            style={{ position: "fixed", inset: 0, zIndex: 9 }}
+            onClick={() => setOpen(false)}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: "calc(100% + 4px)",
+              right: 0,
+              zIndex: 10,
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-sm)",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+              minWidth: "160px",
+              padding: "0.25rem",
+              display: "flex",
+              flexDirection: "column",
+              gap: "2px",
+            }}
+          >
+            {[
+              { label: "Snooze 1 day", days: 1 },
+              { label: "Snooze 1 week", days: 7 },
+            ].map(({ label, days }) => (
+              <button
+                key={days}
+                onClick={() => snooze(days)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: "0.4rem 0.625rem",
+                  textAlign: "left",
+                  borderRadius: "var(--radius-sm)",
+                  cursor: "pointer",
+                  fontSize: "0.8125rem",
+                  color: "var(--fg-primary)",
+                  width: "100%",
+                }}
+                onMouseEnter={(e) =>
+                  ((e.currentTarget as HTMLButtonElement).style.background =
+                    "var(--surface-sunken)")
+                }
+                onMouseLeave={(e) =>
+                  ((e.currentTarget as HTMLButtonElement).style.background =
+                    "none")
+                }
+              >
+                {label}
+              </button>
+            ))}
+            <div
+              style={{
+                height: "1px",
+                background: "var(--border)",
+                margin: "0.25rem 0",
+              }}
+            />
+            <button
+              onClick={dismiss}
+              style={{
+                background: "none",
+                border: "none",
+                padding: "0.4rem 0.625rem",
+                textAlign: "left",
+                borderRadius: "var(--radius-sm)",
+                cursor: "pointer",
+                fontSize: "0.8125rem",
+                color: "var(--error)",
+                width: "100%",
+              }}
+              onMouseEnter={(e) =>
+                ((e.currentTarget as HTMLButtonElement).style.background =
+                  "var(--error-soft)")
+              }
+              onMouseLeave={(e) =>
+                ((e.currentTarget as HTMLButtonElement).style.background =
+                  "none")
+              }
+            >
+              Dismiss
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Card components ───────────────────────────────────────────────────────────
+
+function ContradictionCard({
+  item,
+  onAction,
+}: {
+  item: InboxItem;
+  onAction: (id: string) => void;
+}) {
   const payload = (item.payload ?? {}) as ContradictionPayload;
+
+  const resolve = useCallback(
+    async (action: string) => {
+      const ok = await postAction(item.id, "resolve", { action });
+      if (ok) onAction(item.id);
+    },
+    [item.id, onAction]
+  );
+
   return (
     <div
       className="card"
@@ -102,6 +270,7 @@ function ContradictionCard({ item }: { item: InboxItem }) {
             </p>
           )}
         </div>
+        <SnoozeMenu itemId={item.id} onAction={onAction} />
       </div>
 
       {/* Side-by-side old/new compare */}
@@ -163,16 +332,22 @@ function ContradictionCard({ item }: { item: InboxItem }) {
       )}
 
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-        <button className="btn btn--soft btn--sm">Keep both</button>
-        <button className="btn btn--primary btn--sm">Use new</button>
-        <button className="btn btn--secondary btn--sm">Keep mine</button>
+        <button className="btn btn--soft btn--sm" onClick={() => resolve("keep_both")}>
+          Keep both
+        </button>
+        <button className="btn btn--primary btn--sm" onClick={() => resolve("use_new")}>
+          Use new
+        </button>
+        <button className="btn btn--secondary btn--sm" onClick={() => resolve("keep_mine")}>
+          Keep mine
+        </button>
         {payload.page_id && (
           <a
             href={`/wiki/${payload.page_id}`}
             className="btn btn--ghost btn--sm"
             style={{ textDecoration: "none" }}
           >
-            Open page
+            Open both pages
           </a>
         )}
       </div>
@@ -180,8 +355,23 @@ function ContradictionCard({ item }: { item: InboxItem }) {
   );
 }
 
-function SchemaCard({ item }: { item: InboxItem }) {
+function SchemaCard({
+  item,
+  onAction,
+}: {
+  item: InboxItem;
+  onAction: (id: string) => void;
+}) {
   const payload = (item.payload ?? {}) as SchemaPayload;
+
+  const resolve = useCallback(
+    async (action: string) => {
+      const ok = await postAction(item.id, "resolve", { action });
+      if (ok) onAction(item.id);
+    },
+    [item.id, onAction]
+  );
+
   return (
     <div
       className="card"
@@ -193,27 +383,37 @@ function SchemaCard({ item }: { item: InboxItem }) {
         borderLeft: "3px solid var(--accent)",
       }}
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <KindChip kind="schema" />
-          <span className="ds-mono-11" style={{ color: "var(--fg-subtle)" }}>
-            {formatRelative(item.created_at)}
-          </span>
-        </div>
-        <h3
-          className="ds-body-md"
-          style={{ margin: 0, fontWeight: 600, color: "var(--fg-primary)" }}
-        >
-          {item.title}
-        </h3>
-        {item.body && (
-          <p
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: "1rem",
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <KindChip kind="schema" />
+            <span className="ds-mono-11" style={{ color: "var(--fg-subtle)" }}>
+              {formatRelative(item.created_at)}
+            </span>
+          </div>
+          <h3
             className="ds-body-md"
-            style={{ margin: 0, color: "var(--fg-muted)", fontSize: "0.8125rem" }}
+            style={{ margin: 0, fontWeight: 600, color: "var(--fg-primary)" }}
           >
-            {item.body}
-          </p>
-        )}
+            {item.title}
+          </h3>
+          {item.body && (
+            <p
+              className="ds-body-md"
+              style={{ margin: 0, color: "var(--fg-muted)", fontSize: "0.8125rem" }}
+            >
+              {item.body}
+            </p>
+          )}
+        </div>
+        <SnoozeMenu itemId={item.id} onAction={onAction} />
       </div>
 
       {/* Domain name + color preview */}
@@ -257,16 +457,43 @@ function SchemaCard({ item }: { item: InboxItem }) {
       )}
 
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-        <button className="btn btn--primary btn--sm">Create domain</button>
-        <button className="btn btn--secondary btn--sm">Suggest different name</button>
-        <button className="btn btn--ghost btn--sm">Not yet</button>
+        <button
+          className="btn btn--primary btn--sm"
+          onClick={() => resolve("create_domain")}
+        >
+          Create domain
+        </button>
+        <button
+          className="btn btn--secondary btn--sm"
+          onClick={() => resolve("suggest_different_name")}
+        >
+          Suggest different name
+        </button>
+        <button className="btn btn--ghost btn--sm" onClick={() => resolve("not_yet")}>
+          Not yet
+        </button>
       </div>
     </div>
   );
 }
 
-function OrphanCard({ item }: { item: InboxItem }) {
+function OrphanCard({
+  item,
+  onAction,
+}: {
+  item: InboxItem;
+  onAction: (id: string) => void;
+}) {
   const payload = (item.payload ?? {}) as OrphanPayload;
+
+  const resolve = useCallback(
+    async (action: string) => {
+      const ok = await postAction(item.id, "resolve", { action });
+      if (ok) onAction(item.id);
+    },
+    [item.id, onAction]
+  );
+
   return (
     <div
       className="card"
@@ -278,37 +505,54 @@ function OrphanCard({ item }: { item: InboxItem }) {
         borderLeft: "3px solid var(--warning)",
       }}
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <KindChip kind="orphan" />
-          <span className="ds-mono-11" style={{ color: "var(--fg-subtle)" }}>
-            {formatRelative(item.created_at)}
-          </span>
-          {payload.days_idle !== undefined && (
-            <span className="chip chip--warning" style={{ marginLeft: "auto" }}>
-              {payload.days_idle} days idle
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: "1rem",
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem", flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <KindChip kind="orphan" />
+            <span className="ds-mono-11" style={{ color: "var(--fg-subtle)" }}>
+              {formatRelative(item.created_at)}
             </span>
+            {payload.days_idle !== undefined && (
+              <span className="chip chip--warning" style={{ marginLeft: "auto" }}>
+                {payload.days_idle} days idle
+              </span>
+            )}
+          </div>
+          <h3
+            className="ds-body-md"
+            style={{ margin: 0, fontWeight: 600, color: "var(--fg-primary)" }}
+          >
+            {item.title}
+          </h3>
+          {item.body && (
+            <p
+              className="ds-body-md"
+              style={{ margin: 0, color: "var(--fg-muted)", fontSize: "0.8125rem" }}
+            >
+              {item.body}
+            </p>
           )}
         </div>
-        <h3
-          className="ds-body-md"
-          style={{ margin: 0, fontWeight: 600, color: "var(--fg-primary)" }}
-        >
-          {item.title}
-        </h3>
-        {item.body && (
-          <p
-            className="ds-body-md"
-            style={{ margin: 0, color: "var(--fg-muted)", fontSize: "0.8125rem" }}
-          >
-            {item.body}
-          </p>
-        )}
+        <SnoozeMenu itemId={item.id} onAction={onAction} />
       </div>
 
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-        <button className="btn btn--soft btn--sm">Cold-archive</button>
-        <button className="btn btn--ghost btn--sm">Keep</button>
+        <button
+          className="btn btn--soft btn--sm"
+          onClick={() => resolve("cold_archive")}
+        >
+          Cold-archive
+        </button>
+        <button className="btn btn--ghost btn--sm" onClick={() => resolve("keep")}>
+          Keep
+        </button>
         {payload.page_id && (
           <a
             href={`/wiki/${payload.page_id}`}
@@ -323,7 +567,26 @@ function OrphanCard({ item }: { item: InboxItem }) {
   );
 }
 
-function CompiledCard({ item }: { item: InboxItem }) {
+function CompiledCard({
+  item,
+  onAction,
+}: {
+  item: InboxItem;
+  onAction: (id: string) => void;
+}) {
+  const resolve = useCallback(
+    async (action: string) => {
+      const ok = await postAction(item.id, "resolve", { action });
+      if (ok) onAction(item.id);
+    },
+    [item.id, onAction]
+  );
+
+  const dismiss = useCallback(async () => {
+    const ok = await postAction(item.id, "dismiss");
+    if (ok) onAction(item.id);
+  }, [item.id, onAction]);
+
   return (
     <div
       className="card"
@@ -335,54 +598,140 @@ function CompiledCard({ item }: { item: InboxItem }) {
         borderLeft: "3px solid var(--success)",
       }}
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <KindChip kind="compiled" />
-          <span className="ds-mono-11" style={{ color: "var(--fg-subtle)" }}>
-            {formatRelative(item.created_at)}
-          </span>
-        </div>
-        <h3
-          className="ds-body-md"
-          style={{ margin: 0, fontWeight: 600, color: "var(--fg-primary)" }}
-        >
-          {item.title}
-        </h3>
-        {item.body && (
-          <p
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: "1rem",
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <KindChip kind="compiled" />
+            <span className="ds-mono-11" style={{ color: "var(--fg-subtle)" }}>
+              {formatRelative(item.created_at)}
+            </span>
+          </div>
+          <h3
             className="ds-body-md"
-            style={{ margin: 0, color: "var(--fg-muted)", fontSize: "0.8125rem" }}
+            style={{ margin: 0, fontWeight: 600, color: "var(--fg-primary)" }}
           >
-            {item.body}
-          </p>
-        )}
+            {item.title}
+          </h3>
+          {item.body && (
+            <p
+              className="ds-body-md"
+              style={{ margin: 0, color: "var(--fg-muted)", fontSize: "0.8125rem" }}
+            >
+              {item.body}
+            </p>
+          )}
+        </div>
+        <SnoozeMenu itemId={item.id} onAction={onAction} />
       </div>
 
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-        <button className="btn btn--soft btn--sm">View changes</button>
-        <button className="btn btn--ghost btn--sm">Dismiss</button>
+        <button
+          className="btn btn--soft btn--sm"
+          onClick={() => resolve("view_changes")}
+        >
+          View changes
+        </button>
+        <button className="btn btn--ghost btn--sm" onClick={dismiss}>
+          Dismiss
+        </button>
       </div>
     </div>
   );
 }
 
-function InboxCard({ item }: { item: InboxItem }) {
+function InboxCard({
+  item,
+  onAction,
+}: {
+  item: InboxItem;
+  onAction: (id: string) => void;
+}) {
   switch (item.kind) {
     case "contradiction":
-      return <ContradictionCard item={item} />;
+      return <ContradictionCard item={item} onAction={onAction} />;
     case "schema":
-      return <SchemaCard item={item} />;
+      return <SchemaCard item={item} onAction={onAction} />;
     case "orphan":
-      return <OrphanCard item={item} />;
+      return <OrphanCard item={item} onAction={onAction} />;
     case "compiled":
-      return <CompiledCard item={item} />;
+      return <CompiledCard item={item} onAction={onAction} />;
     default:
       return null;
   }
 }
 
-export function InboxClient({ items, counts }: InboxClientProps) {
+// ─── Animated wrapper ──────────────────────────────────────────────────────────
+
+const FADE_MS = 300;
+
+function AnimatedCard({
+  item,
+  removing,
+  onAction,
+}: {
+  item: InboxItem;
+  removing: boolean;
+  onAction: (id: string) => void;
+}) {
+  return (
+    <div
+      style={{
+        transition: `opacity ${FADE_MS}ms ease, transform ${FADE_MS}ms ease, max-height ${FADE_MS}ms ease`,
+        opacity: removing ? 0 : 1,
+        transform: removing ? "translateX(16px)" : "translateX(0)",
+        maxHeight: removing ? "0" : "600px",
+        overflow: "hidden",
+      }}
+    >
+      <InboxCard item={item} onAction={onAction} />
+    </div>
+  );
+}
+
+// ─── Main client component ─────────────────────────────────────────────────────
+
+export function InboxClient({ items: initialItems, counts: initialCounts }: InboxClientProps) {
+  const router = useRouter();
+  const [items, setItems] = useState<InboxItem[]>(initialItems);
+  const [counts, setCounts] = useState(initialCounts);
+  const [removing, setRemoving] = useState<Set<string>>(new Set());
   const [activeFilter, setActiveFilter] = useState<Kind | "all">("all");
+
+  const handleAction = useCallback(
+    (itemId: string) => {
+      // Start fade-out
+      setRemoving((prev) => new Set(prev).add(itemId));
+
+      setTimeout(() => {
+        setItems((prev) => {
+          const removed = prev.find((i) => i.id === itemId);
+          if (!removed) return prev;
+          // Decrement counts
+          setCounts((c) => ({
+            ...c,
+            all: Math.max(0, c.all - 1),
+            [removed.kind]: Math.max(0, (c[removed.kind as Kind] ?? 0) - 1),
+          }));
+          return prev.filter((i) => i.id !== itemId);
+        });
+        setRemoving((prev) => {
+          const next = new Set(prev);
+          next.delete(itemId);
+          return next;
+        });
+        // Refresh RSC (sidebar badge) after card is gone
+        router.refresh();
+      }, FADE_MS + 50);
+    },
+    [router]
+  );
 
   const filtered =
     activeFilter === "all" ? items : items.filter((i) => i.kind === activeFilter);
@@ -427,9 +776,7 @@ export function InboxClient({ items, counts }: InboxClientProps) {
                 <span
                   style={{
                     marginLeft: "0.375rem",
-                    background: isActive
-                      ? "var(--accent)"
-                      : "var(--fg-subtle)",
+                    background: isActive ? "var(--accent)" : "var(--fg-subtle)",
                     color: "#fff",
                     borderRadius: "999px",
                     fontSize: "0.625rem",
@@ -481,7 +828,12 @@ export function InboxClient({ items, counts }: InboxClientProps) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
           {filtered.map((item) => (
-            <InboxCard key={item.id} item={item} />
+            <AnimatedCard
+              key={item.id}
+              item={item}
+              removing={removing.has(item.id)}
+              onAction={handleAction}
+            />
           ))}
         </div>
       )}

@@ -334,6 +334,7 @@ export const inbox_items = pgTable(
       .notNull()
       .defaultNow(),
     resolved_at: timestamp("resolved_at", { withTimezone: true }),
+    snooze_until: timestamp("snooze_until", { withTimezone: true }),
   },
   (t) => [index("inbox_user_status").on(t.user_id, t.status)]
 );

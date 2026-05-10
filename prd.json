@@ -799,7 +799,7 @@
         "Verify in browser using dev-browser skill: seed each kind via SQL, navigate to /inbox, see cards correctly rendered"
       ],
       "priority": 44,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
