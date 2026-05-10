@@ -4,14 +4,19 @@ import { CompileQueue, type Memo } from "./CompileQueue";
 import { auth } from "@/auth";
 import { db } from "@/lib/db/client";
 import { memos, users } from "@/lib/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, or } from "drizzle-orm";
 
-async function fetchInitialPendingMemos(userId: string) {
+async function fetchInitialQueueMemos(userId: string) {
   try {
     return await db
       .select()
       .from(memos)
-      .where(and(eq(memos.user_id, userId), eq(memos.compile_status, "pending")))
+      .where(
+        and(
+          eq(memos.user_id, userId),
+          or(eq(memos.compile_status, "pending"), eq(memos.compile_status, "running"))
+        )
+      )
       .orderBy(desc(memos.created_at))
       .limit(20);
   } catch {
@@ -19,10 +24,38 @@ async function fetchInitialPendingMemos(userId: string) {
   }
 }
 
+async function fetchRecentlyCompiled(userId: string) {
+  try {
+    return await db
+      .select()
+      .from(memos)
+      .where(and(eq(memos.user_id, userId), eq(memos.compile_status, "done")))
+      .orderBy(desc(memos.updated_at))
+      .limit(8);
+  } catch {
+    return [];
+  }
+}
+
+function wordCount(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+function relativeTime(date: Date): string {
+  const diff = Date.now() - date.getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
 export default async function AddPage() {
   const session = await auth();
 
   let initialMemos: Memo[] = [];
+  let recentlyCompiled: Memo[] = [];
 
   if (session?.user?.email) {
     const userRows = await db
@@ -32,8 +65,19 @@ export default async function AddPage() {
       .limit(1);
 
     if (userRows[0]) {
-      const rows = await fetchInitialPendingMemos(userRows[0].id);
-      initialMemos = rows.map((r) => ({
+      const [queueRows, doneRows] = await Promise.all([
+        fetchInitialQueueMemos(userRows[0].id),
+        fetchRecentlyCompiled(userRows[0].id),
+      ]);
+      initialMemos = queueRows.map((r) => ({
+        id: r.id,
+        body: r.body,
+        type: r.type,
+        compile_status: r.compile_status,
+        ingest_mode: r.ingest_mode,
+        created_at: r.created_at.toISOString(),
+      }));
+      recentlyCompiled = doneRows.map((r) => ({
         id: r.id,
         body: r.body,
         type: r.type,
@@ -82,11 +126,72 @@ export default async function AddPage() {
       <section style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
         <p className="ds-section-label">Recently Compiled</p>
         <div className="card" style={{ padding: "1.25rem" }}>
-          <EmptyState
-            icon={<FileText size={20} style={{ color: "var(--fg-subtle)" }} />}
-            message="Nothing compiled yet"
-            sub="Finished items will show up here."
-          />
+          {recentlyCompiled.length === 0 ? (
+            <EmptyState
+              icon={<FileText size={20} style={{ color: "var(--fg-subtle)" }} />}
+              message="Nothing compiled yet"
+              sub="Finished items will show up here."
+            />
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0" }}>
+              {recentlyCompiled.map((memo, i) => {
+                const title = memo.body.slice(0, 90) + (memo.body.length > 90 ? "…" : "");
+                const wc = wordCount(memo.body);
+                const time = relativeTime(new Date(memo.created_at));
+                return (
+                  <div
+                    key={memo.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.75rem",
+                      padding: "0.625rem 0",
+                      borderBottom:
+                        i < recentlyCompiled.length - 1
+                          ? "1px solid var(--surface-border, var(--accent-border))"
+                          : "none",
+                    }}
+                  >
+                    <FileText size={14} style={{ color: "var(--fg-subtle)", flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p
+                        style={{
+                          margin: 0,
+                          fontSize: "0.875rem",
+                          color: "var(--fg-primary)",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {title}
+                      </p>
+                      <p
+                        style={{
+                          margin: "0.125rem 0 0",
+                          fontSize: "0.75rem",
+                          color: "var(--fg-subtle)",
+                        }}
+                      >
+                        {memo.type} · {wc} words · {time}
+                      </p>
+                    </div>
+                    <span
+                      className="chip"
+                      style={{
+                        fontSize: "0.6875rem",
+                        flexShrink: 0,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.04em",
+                      }}
+                    >
+                      {memo.ingest_mode}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </section>
     </div>

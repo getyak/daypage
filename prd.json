@@ -445,7 +445,7 @@
         "Verify in browser using dev-browser skill: open /add, submit a memo, watch network tab for SSE events flowing"
       ],
       "priority": 25,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

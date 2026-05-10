@@ -98,3 +98,4 @@ Stories: 50
 [2026-05-10T12:44:00Z] Story #US-022: Wave 4e: Embed step 实接 DashScope + memo embedding 持久化 — PASSED
 [2026-05-10T12:46:35Z] Story #US-023: Wave 4f: Compile step LIGHT 模式 (生成摘要 + 关键词) — PASSED
 [2026-05-10T12:50:34Z] Story #US-024: Wave 4g: Compile step FULL 模式 (recall + patch existing pages or create new concept) — PASSED
+[2026-05-10T12:52:34Z] Story #US-025: Wave 4h: SSE 进度推送 /api/stream/compile — PASSED
