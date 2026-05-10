@@ -354,7 +354,7 @@
         "Tests pass: mock fetch and verify request body / response parsing / error mapping"
       ],
       "priority": 20,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

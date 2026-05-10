@@ -93,3 +93,4 @@ Stories: 50
 [2026-05-10T12:31:38Z] Story #US-017: Wave 3d: Sidebar Domains 动态列表 + Inbox badge 真数据 — PASSED
 [2026-05-10T12:34:11Z] Story #US-018: Wave 4a: Add view 静态 UI (UnifiedInput + 空 Compile Queue) — PASSED
 [2026-05-10T12:36:24Z] Story #US-019: Wave 4b: Add view 提交连接 /api/memos (基础 text 输入) — PASSED
+[2026-05-10T12:38:43Z] Story #US-020: Wave 4c: AI provider 抽象层 + DashScope client — PASSED
