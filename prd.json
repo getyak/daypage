@@ -408,7 +408,7 @@
         "Tests pass: mock qwen, submit text memo with ingest_mode='light', verify page row + page_sources row"
       ],
       "priority": 23,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

@@ -411,6 +411,29 @@ export const embed_cache = pgTable("embed_cache", {
 export type EmbedCache = typeof embed_cache.$inferSelect;
 export type NewEmbedCache = typeof embed_cache.$inferInsert;
 
+// ─── US-024: Wave 4g — change_log (agent/user mutation audit) ─────────────────
+
+export const change_log = pgTable("change_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  user_id: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  action_kind: text("action_kind").notNull(), // e.g. 'create_page' | 'update_page' | 'create_link' | 'extract_entity'
+  target_type: text("target_type").notNull(), // e.g. 'page' | 'page_link'
+  target_id: text("target_id").notNull(),
+  before: jsonb("before"),
+  after: jsonb("after"),
+  reason: text("reason"),
+  performed_by: text("performed_by").notNull().default("agent"), // 'user' | 'agent'
+  agent_action_id: text("agent_action_id"),
+  created_at: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export type ChangeLog = typeof change_log.$inferSelect;
+export type NewChangeLog = typeof change_log.$inferInsert;
+
 // ─── Re-export helper types ────────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;

@@ -96,3 +96,4 @@ Stories: 50
 [2026-05-10T12:38:43Z] Story #US-020: Wave 4c: AI provider 抽象层 + DashScope client — PASSED
 [2026-05-10T12:41:49Z] Story #US-021: Wave 4d: Inngest 接入 + compile.memo function 骨架 — PASSED
 [2026-05-10T12:44:00Z] Story #US-022: Wave 4e: Embed step 实接 DashScope + memo embedding 持久化 — PASSED
+[2026-05-10T12:46:35Z] Story #US-023: Wave 4f: Compile step LIGHT 模式 (生成摘要 + 关键词) — PASSED
