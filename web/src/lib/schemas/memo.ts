@@ -60,6 +60,20 @@ export const ListMemosQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
 });
 
+export const BulkMemoItemSchema = CreateMemoSchema.extend({
+  id: z.string().uuid("Each memo must have a client-generated UUID"),
+  updated_at: z.string().datetime().optional(),
+});
+
+export const BulkMemosSchema = z.object({
+  memos: z
+    .array(BulkMemoItemSchema)
+    .min(1, "At least one memo required")
+    .max(100, "Maximum 100 memos per bulk request"),
+});
+
 export type CreateMemoInput = z.infer<typeof CreateMemoSchema>;
 export type PatchMemoInput = z.infer<typeof PatchMemoSchema>;
 export type ListMemosQuery = z.infer<typeof ListMemosQuerySchema>;
+export type BulkMemoItem = z.infer<typeof BulkMemoItemSchema>;
+export type BulkMemosInput = z.infer<typeof BulkMemosSchema>;

@@ -212,7 +212,7 @@
         "Tests pass: write web/src/app/api/memos/__tests__/route.test.ts using Vitest covering create + list + 401 + scope isolation"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
