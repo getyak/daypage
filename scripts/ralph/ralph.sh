@@ -39,6 +39,14 @@ for i in $(seq 1 $MAX_ITERATIONS); do
   echo "  Iteration $i / $MAX_ITERATIONS"
   echo "═══════════════════════════════════════════════════════════"
 
+  # Guard: ensure we're on the correct branch (Claude Code may have switched it)
+  TARGET_BRANCH=$(python3 -c "import json; f=open('$PRD_FILE'); print(json.load(f).get('branchName','main'))")
+  CURRENT_BRANCH=$(git branch --show-current)
+  if [ "$CURRENT_BRANCH" != "$TARGET_BRANCH" ]; then
+    echo "   ⚠️ Branch drift: on $CURRENT_BRANCH, expected $TARGET_BRANCH — switching back"
+    git checkout "$TARGET_BRANCH"
+  fi
+
   # Find next incomplete story
   STORY=$(python3 -c "
 import json, sys
@@ -77,28 +85,28 @@ else:
   echo "   Acceptance: $STORY_ACCEPT"
 
   # Build the Claude Code prompt
-  PROMPT="You are implementing a SINGLE user story for DayPage iOS app.
+  PROMPT="You are implementing a SINGLE user story for the DayPage V5 Codex web monorepo.
 
-PROJECT: DayPage — personal daily logging + AI diary compilation
-iOS app target: DayPage.app (Xcode project DayPage.xcodeproj)
-Tech: SwiftUI, iOS 16.0+, MVVM with ObservableObject/@Published/@MainActor
-Key patterns: DSColor/DSFonts/DSType design tokens, RawStorage file-based persistence,
-  NavigationStack with Memo.ID routing, MemoDetailViewModel protocol, GlassSurface
-  modifiers (liquidGlassCard/Pill/Panel), Motion/Haptics/CJKTextPolish utilities
-Read AGENTS.md (repo root) and CLAUDE.md (this dir) for full conventions.
+⚠️ CRITICAL: You are working on branch '$TARGET_BRANCH'. NEVER run git checkout, git switch, git branch, or any command that changes the current branch. NEVER push or pull. Only git add and git commit.
 
-STORY #$STORY_ID: $STORY_NAME
-DESCRIPTION: $STORY_DESC
-ACCEPTANCE CRITERIA: $STORY_ACCEPT
+PROJECT: DayPage V5 Codex — 跨端 AI 知识系统
+Stack: Next.js 16 (App Router), TypeScript strict, Tailwind 4, Supabase, Drizzle ORM, Auth.js v5
+Repo structure: monorepo with web/ (Next.js), packages/ (shared), infra/ (Supabase migrations)
+Key conventions: strict TypeScript, conventional commits, Tailwind utility-first CSS
+Read AGENTS.md (repo root) for full conventions.
+Read the PRD at prd.json for the full project roadmap.
 
-Read existing Swift files to understand the codebase before editing.
+STORY #\$STORY_ID: \$STORY_NAME
+DESCRIPTION: \$STORY_DESC
+ACCEPTANCE CRITERIA: \$STORY_ACCEPT
+
 Implement ONLY this story. Do NOT touch unrelated code.
+Work in the web/ directory for frontend code, packages/ for shared types/logic.
 After implementing:
-1. Typecheck: swiftc -typecheck only if needed
-2. Add new Swift files to project.pbxproj (PBXBuildFile + PBXFileReference + PBXGroup + PBXSourcesBuildPhase)
-3. If i18n keys added: update BOTH zh-Hans.lproj AND en.lproj Localizable.strings
-4. Print a summary of what you changed
-5. The acceptance criteria must be satisfied"
+1. Run typecheck: pnpm typecheck (if monorepo is set up)
+2. Run format: pnpm format (Prettier)
+3. Print a summary of what you changed
+4. The acceptance criteria must be satisfied"
 
   echo "   🤖 Running Claude Code..."
 
