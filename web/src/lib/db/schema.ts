@@ -112,6 +112,7 @@ export const memos = pgTable(
     origin: originEnum("origin").notNull().default("web"),
     vault_path: text("vault_path"),
     compile_error: text("compile_error"),
+    compile_step: text("compile_step"), // current pipeline step: normalize|embed|recall|compile|apply|notify
     embedding: text("embedding"), // JSON-encoded number[] — pgvector vector(1536) pending migration
     updated_at: timestamp("updated_at", { withTimezone: true })
       .notNull()

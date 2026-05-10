@@ -426,7 +426,7 @@
         "Tests pass: mock qwen returning create_page op, submit memo, verify page row created with status='draft' + change_log entry"
       ],
       "priority": 24,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

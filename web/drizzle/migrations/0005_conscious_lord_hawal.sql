@@ -1,0 +1,1 @@
+ALTER TABLE "memos" ADD COLUMN "compile_step" text;
