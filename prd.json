@@ -594,7 +594,7 @@
         "Tests pass: mock qwen, seed memos for a day, run function, verify daily page created with correct sources"
       ],
       "priority": 33,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

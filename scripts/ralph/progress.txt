@@ -106,3 +106,4 @@ Stories: 50
 [2026-05-10T13:09:28Z] Story #US-030: Wave 5c: Wiki page detail UI (含 markdown 渲染 + 右侧 sources/backlinks/provenance) — PASSED
 [2026-05-10T13:12:00Z] Story #US-031: Wave 5d: Annotation API + 高亮选中 toolbar — PASSED
 [2026-05-10T13:14:12Z] Story #US-032: Wave 5e: Domain 视图 (/(app)/domain/[slug]) — PASSED
+[2026-05-10T13:16:26Z] Story #US-033: Wave 5f: Daily Page worker + cron — PASSED

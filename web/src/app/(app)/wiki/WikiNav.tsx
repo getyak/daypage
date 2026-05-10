@@ -13,6 +13,8 @@ import {
   FileText,
 } from "lucide-react";
 
+export type WikiMode = "list" | "graph";
+
 export type WikiPage = {
   id: string;
   slug: string;
@@ -215,7 +217,15 @@ function PageGroup({
   );
 }
 
-export function WikiNav({ initialPages }: { initialPages: WikiPage[] }) {
+export function WikiNav({
+  initialPages,
+  mode,
+  onModeChange,
+}: {
+  initialPages: WikiPage[];
+  mode: WikiMode;
+  onModeChange: (m: WikiMode) => void;
+}) {
   const pathname = usePathname();
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
