@@ -1,8 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { FileText, Loader2, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
+import {
+  FileText,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+  X,
+} from "lucide-react";
 import { useCompileStream, type MemoProgress } from "@/hooks/useCompileStream";
 
 export interface Memo {
@@ -29,6 +36,89 @@ async function recompileMemo(memoId: string): Promise<void> {
   if (!res.ok) throw new Error("Recompile failed");
 }
 
+async function switchIngestMode(
+  memoId: string,
+  mode: "light" | "full",
+): Promise<void> {
+  const res = await fetch(`/api/memos/${memoId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ingest_mode: mode }),
+  });
+  if (!res.ok) throw new Error("Switch failed");
+  // Trigger recompile after mode switch
+  await recompileMemo(memoId);
+}
+
+// --- Toast ---------------------------------------------------------------
+
+interface Toast {
+  id: number;
+  message: string;
+}
+
+let toastCounter = 0;
+
+function ToastContainer({
+  toasts,
+  onDismiss,
+}: {
+  toasts: Toast[];
+  onDismiss: (id: number) => void;
+}) {
+  if (toasts.length === 0) return null;
+  return (
+    <div
+      style={{
+        position: "fixed",
+        bottom: "1.5rem",
+        right: "1.5rem",
+        display: "flex",
+        flexDirection: "column",
+        gap: "0.5rem",
+        zIndex: 9999,
+      }}
+    >
+      {toasts.map((t) => (
+        <div
+          key={t.id}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
+            padding: "0.625rem 1rem",
+            background: "var(--fg-primary)",
+            color: "var(--bg-warm)",
+            borderRadius: "var(--radius-sm)",
+            fontSize: "0.875rem",
+            fontWeight: 500,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.14)",
+            minWidth: "220px",
+          }}
+        >
+          <span style={{ flex: 1 }}>{t.message}</span>
+          <button
+            onClick={() => onDismiss(t.id)}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              color: "inherit",
+              opacity: 0.6,
+              padding: 0,
+              lineHeight: 1,
+            }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// --- EmptyState -----------------------------------------------------------
+
 function EmptyState() {
   return (
     <div
@@ -42,22 +132,45 @@ function EmptyState() {
       }}
     >
       <FileText size={20} style={{ color: "var(--fg-subtle)" }} />
-      <p style={{ margin: 0, fontWeight: 500, color: "var(--fg-muted)", fontSize: "0.9375rem" }}>
+      <p
+        style={{
+          margin: 0,
+          fontWeight: 500,
+          color: "var(--fg-muted)",
+          fontSize: "0.9375rem",
+        }}
+      >
         No items yet
       </p>
-      <p style={{ margin: 0, fontSize: "0.8125rem", color: "var(--fg-subtle)" }}>
+      <p
+        style={{ margin: 0, fontSize: "0.8125rem", color: "var(--fg-subtle)" }}
+      >
         Submitted content will appear here while being compiled.
       </p>
     </div>
   );
 }
 
+// --- CompileQueue --------------------------------------------------------
+
 export function CompileQueue({ initialMemos }: { initialMemos: Memo[] }) {
   const queryClient = useQueryClient();
   const progressMap = useCompileStream();
 
-  // IDs that finished (done) and are staged for auto-removal after 3s
   const [removing, setRemoving] = useState<Set<string>>(new Set());
+  const [toasts, setToasts] = useState<Toast[]>([]);
+
+  const showToast = useCallback((message: string) => {
+    const id = ++toastCounter;
+    setToasts((prev) => [...prev, { id, message }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3000);
+  }, []);
+
+  const dismissToast = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const { data } = useQuery<MemosResponse>({
     queryKey: ["memos", "pending"],
@@ -73,6 +186,26 @@ export function CompileQueue({ initialMemos }: { initialMemos: Memo[] }) {
     },
   });
 
+  const switchModeMutation = useMutation({
+    mutationFn: ({
+      memoId,
+      mode,
+    }: {
+      memoId: string;
+      mode: "light" | "full";
+    }) => switchIngestMode(memoId, mode),
+    onSuccess: (_data, variables) => {
+      showToast(
+        `Switched to ${variables.mode.toUpperCase()} mode — recompiling…`,
+      );
+      void queryClient.invalidateQueries({ queryKey: ["memos", "pending"] });
+      void queryClient.invalidateQueries({ queryKey: ["memos", "done"] });
+    },
+    onError: () => {
+      showToast("Failed to switch mode. Please try again.");
+    },
+  });
+
   // When SSE reports a memo is "done", schedule removal after 3s
   useEffect(() => {
     for (const [memoId, progress] of progressMap.entries()) {
@@ -84,51 +217,74 @@ export function CompileQueue({ initialMemos }: { initialMemos: Memo[] }) {
             next.delete(memoId);
             return next;
           });
-          void queryClient.invalidateQueries({ queryKey: ["memos", "pending"] });
+          void queryClient.invalidateQueries({
+            queryKey: ["memos", "pending"],
+          });
+          void queryClient.invalidateQueries({ queryKey: ["memos", "done"] });
         }, 3000);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [progressMap]);
 
   const items = data?.items ?? [];
 
-  // Filter out items that have been done and removed
   const visible = items.filter((m) => {
     const p = progressMap.get(m.id);
     if (p?.status === "done" && !removing.has(m.id)) return false;
     return true;
   });
 
-  if (visible.length === 0 && items.length === 0) {
-    return <EmptyState />;
-  }
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-      {visible.map((memo) => (
-        <MemoRow
-          key={memo.id}
-          memo={memo}
-          progress={progressMap.get(memo.id)}
-          onRetry={() => recompileMutation.mutate(memo.id)}
-          isRetrying={recompileMutation.isPending && recompileMutation.variables === memo.id}
-        />
-      ))}
-    </div>
+    <>
+      {visible.length === 0 && items.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
+        >
+          {visible.map((memo) => (
+            <MemoRow
+              key={memo.id}
+              memo={memo}
+              progress={progressMap.get(memo.id)}
+              onRetry={() => recompileMutation.mutate(memo.id)}
+              isRetrying={
+                recompileMutation.isPending &&
+                recompileMutation.variables === memo.id
+              }
+              onSwitchMode={(mode) =>
+                switchModeMutation.mutate({ memoId: memo.id, mode })
+              }
+              isSwitching={
+                switchModeMutation.isPending &&
+                switchModeMutation.variables?.memoId === memo.id
+              }
+            />
+          ))}
+        </div>
+      )}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+    </>
   );
 }
+
+// --- MemoRow -------------------------------------------------------------
 
 function MemoRow({
   memo,
   progress,
   onRetry,
   isRetrying,
+  onSwitchMode,
+  isSwitching,
 }: {
   memo: Memo;
   progress: MemoProgress | undefined;
   onRetry: () => void;
   isRetrying: boolean;
+  onSwitchMode: (mode: "light" | "full") => void;
+  isSwitching: boolean;
 }) {
   const preview = memo.body.slice(0, 90) + (memo.body.length > 90 ? "…" : "");
   const date = new Date(memo.created_at).toLocaleTimeString([], {
@@ -136,7 +292,6 @@ function MemoRow({
     minute: "2-digit",
   });
 
-  // Derive effective status from SSE progress or fall back to memo's DB status
   const status = progress?.status ?? memo.compile_status;
   const step = progress?.step;
   const progressPct = progress?.progress;
@@ -145,6 +300,9 @@ function MemoRow({
   const isDone = status === "done";
   const isFailed = status === "failed";
   const isRunning = status === "running";
+
+  const currentMode = memo.ingest_mode as "light" | "full";
+  const nextMode: "light" | "full" = currentMode === "light" ? "full" : "light";
 
   return (
     <div
@@ -157,24 +315,29 @@ function MemoRow({
         background: isDone
           ? "var(--success-soft, #f0fdf4)"
           : isFailed
-          ? "var(--error-soft, #fff1f2)"
-          : "var(--surface-sunken)",
+            ? "var(--error-soft, #fff1f2)"
+            : "var(--surface-sunken)",
         border: `1px solid ${
           isDone
             ? "var(--success-border, #bbf7d0)"
             : isFailed
-            ? "var(--error-border, #fecdd3)"
-            : "var(--surface-border, var(--accent-border))"
+              ? "var(--error-border, #fecdd3)"
+              : "var(--surface-border, var(--accent-border))"
         }`,
         transition: "background 0.3s, border-color 0.3s",
       }}
     >
-      {/* Top row: icon + text + status badge */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
+      {/* Top row: icon + text + mode chip + status chip */}
+      <div
+        style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}
+      >
         {/* Status icon */}
         <div style={{ flexShrink: 0, marginTop: "0.125rem" }}>
           {isDone ? (
-            <CheckCircle2 size={16} style={{ color: "var(--success, #16a34a)" }} />
+            <CheckCircle2
+              size={16}
+              style={{ color: "var(--success, #16a34a)" }}
+            />
           ) : isFailed ? (
             <AlertCircle size={16} style={{ color: "var(--error, #dc2626)" }} />
           ) : (
@@ -202,10 +365,48 @@ function MemoRow({
           >
             {preview}
           </p>
-          <p style={{ margin: "0.25rem 0 0", fontSize: "0.75rem", color: "var(--fg-subtle)" }}>
-            {memo.type} · {memo.ingest_mode} · {date}
+          <p
+            style={{
+              margin: "0.25rem 0 0",
+              fontSize: "0.75rem",
+              color: "var(--fg-subtle)",
+            }}
+          >
+            {memo.type} · {date}
           </p>
         </div>
+
+        {/* LIGHT/FULL mode chip — click to toggle */}
+        <button
+          title={`Switch to ${nextMode.toUpperCase()} mode`}
+          disabled={isSwitching || isDone}
+          onClick={() => onSwitchMode(nextMode)}
+          className="chip"
+          style={{
+            fontSize: "0.6875rem",
+            flexShrink: 0,
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+            cursor: isDone ? "default" : "pointer",
+            opacity: isSwitching ? 0.5 : 1,
+            background:
+              currentMode === "full"
+                ? "var(--accent-soft, #eff6ff)"
+                : "var(--surface-sunken, #fafaf9)",
+            color:
+              currentMode === "full"
+                ? "var(--accent, #2563eb)"
+                : "var(--fg-muted)",
+            border: `1px solid ${
+              currentMode === "full"
+                ? "var(--accent-border, #bfdbfe)"
+                : "var(--surface-border, #e5e4e0)"
+            }`,
+            transition: "opacity 0.2s",
+          }}
+        >
+          {isSwitching ? "…" : currentMode}
+        </button>
 
         {/* Status chip */}
         {isDone ? (
@@ -263,9 +464,15 @@ function MemoRow({
         </div>
       )}
 
-      {/* Done: "X pages updated" line */}
+      {/* Done: "Compilation complete" line */}
       {isDone && (
-        <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--success, #16a34a)" }}>
+        <p
+          style={{
+            margin: 0,
+            fontSize: "0.75rem",
+            color: "var(--success, #16a34a)",
+          }}
+        >
           Compilation complete
         </p>
       )}
@@ -292,7 +499,11 @@ function MemoRow({
             onClick={onRetry}
             disabled={isRetrying}
             className="btn btn--secondary"
-            style={{ fontSize: "0.75rem", padding: "0.25rem 0.625rem", flexShrink: 0 }}
+            style={{
+              fontSize: "0.75rem",
+              padding: "0.25rem 0.625rem",
+              flexShrink: 0,
+            }}
           >
             <RefreshCw size={12} style={{ marginRight: "0.25rem" }} />
             {isRetrying ? "Retrying…" : "Retry"}
