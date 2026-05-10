@@ -1,23 +1,19 @@
 {
-  "project": "DayPage",
-  "branchName": "ralph/today-composer-liquid-refinement",
-  "description": "Today 主页极简优雅重塑 + Composer 3.0 Liquid Composition Surface — 整合 issue #252 + #250: 删 GlassTabBar, AmbientBackground 纯化, Day Orb 收敛, 空数据回退栈, i18n 修复 + L10n.swift, composerState 状态机, Liquid Morph, 5 形态 Adaptive Send, keyboard-attached toolbar, drag handle, 5 级 haptics, Context Spotlight Strip, Smart Templates, Lens Strip, Caret Spotlight, Status Strip",
+  "project": "DayPage V5 Codex",
+  "branchName": "ralph/v5-codex-web",
+  "description": "DayPage V5 终极形态第一阶段：Web (Codex) 骨架 + 后端 API + AI 编译引擎 + Agent 主动行动。覆盖 PRD V5 的 Wave 0-9（Web 端可用 + Agent 可受控行动）。源 PRD: tasks/prd-daypage-v5-codex.md。技术栈: Next.js 16 + TypeScript + Tailwind 4 + Supabase (本地 Docker) + Drizzle 0.45 + Auth.js v5 beta + Inngest + 后端代理 DashScope。",
   "userStories": [
     {
       "id": "US-001",
-      "title": "i18n 资源彻查：lproj target membership + L10n.swift 强类型枚举",
-      "description": "As a 用户, I want 主页文案显示中文/英文翻译而非原始 key, so that 截图不再出现 'empty.today.no_signals.title' 这类暴露字符串.",
+      "title": "Wave 0a: Monorepo 基础设施 (pnpm workspace + 根 package.json)",
+      "description": "As a developer, I need a monorepo skeleton so that web/ and existing iOS code can coexist.",
       "acceptanceCriteria": [
-        "Xcode DayPage target Build Phases Copy Bundle Resources 包含 zh-Hans.lproj 和 en.lproj",
-        "Xcode Project Localizations 启用 Chinese (Simplified) 与 English",
-        "Info.plist 含 CFBundleDevelopmentRegion=zh-Hans 与 CFBundleLocalizations=[zh-Hans, en]",
-        "新增 DayPage/Resources/L10n.swift 提供 L10n.Empty.todayNoSignalsTitle 强类型访问器",
-        "EmptyStateView.todayNoSignals() 改用 L10n.Empty.* 而非裸字面量",
-        "中英文系统语言切换后 hero 下方文案正确变化",
-        "grep -rn 'LocalizedStringKey(\"' DayPage/ 输出为 0 (除 L10n.swift)",
-        "xcodebuild -scheme DayPage -destination 'platform=iOS Simulator,name=iPhone 17' build 通过",
-        "Typecheck passes",
-        "Tests pass"
+        "Create pnpm-workspace.yaml at repo root listing 'web' and 'packages/*'",
+        "Create root package.json with workspace scripts: web:dev, web:build, web:lint, web:typecheck, db:start, db:reset",
+        "Set engines.node >=22, engines.pnpm >=10, packageManager pnpm@11.0.9",
+        "Run `pnpm install` succeeds",
+        ".gitignore already updated for web/Next/Supabase artifacts (verify, no change needed)",
+        "Typecheck passes (no TS files yet so nothing to check)"
       ],
       "priority": 1,
       "passes": false,
@@ -25,15 +21,16 @@
     },
     {
       "id": "US-002",
-      "title": "AmbientBackground 纯化：删 4 团暖色光斑，默认仅 cream 底",
-      "description": "As a 用户, I want 主页背景接近纯色奶油纸感, so that 视觉锚点回到字本身, 不再像 AI 演示稿.",
+      "title": "Wave 0b: Next.js 16 脚手架 (web/ 目录)",
+      "description": "As a developer, I need Next.js 16 with App Router scaffolded in web/ so we can build the Codex UI.",
       "acceptanceCriteria": [
-        "DayPage/DesignSystem/GlassSurface.swift AmbientBackground 默认仅渲染 DSColor.bgWarm (FAF7F2)",
-        "4 团 amber blob 用 @AppStorage('debug.ambientBlobs') 包起来, 默认 false",
-        "TodayView, DailyPageView, MemoDetailView 显式不传开关, 使用默认纯色行为",
-        "iPhone 17 Simulator 截图与改动前并排饱和度肉眼明显下降",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Run `pnpm create next-app@latest web --typescript --tailwind --app --src-dir --use-pnpm --eslint --turbopack --import-alias '@/*' --skip-install --yes`",
+        "Rename web/package.json `name` to 'daypage-web'",
+        "Delete duplicated web/pnpm-workspace.yaml (let it inherit root)",
+        "Add `typecheck` script (tsc --noEmit) to web/package.json",
+        "Run `pnpm install` from repo root succeeds",
+        "Run `pnpm web:typecheck` passes",
+        "Verify in browser using dev-browser skill: `pnpm web:dev` serves http://localhost:3000 and renders default Next page"
       ],
       "priority": 2,
       "passes": false,
@@ -41,36 +38,33 @@
     },
     {
       "id": "US-003",
-      "title": "Day Orb 收敛：size 140pt + halo opacity 0.15 + orbFill ×0.5",
-      "description": "As a 用户, I want Day Orb 从中央巨大琥珀球变为纸上一枚轻晕, so that serif 日期 'Friday MAY 8' 成为视觉主角.",
+      "title": "Wave 0c: 设计 token 系统 (globals.css + Tailwind 4 @theme)",
+      "description": "As a developer, I need Codex design tokens loaded as CSS variables so all components can use them.",
       "acceptanceCriteria": [
-        "DayPage/Features/Today/DayOrbView.swift halo 透明度从 0.4 改为 0.15",
-        "orbFill gradient stops 透明度全部 ×0.5",
-        "DayOrbView 暴露 size: CGFloat = 140 与 haloOpacity: CGFloat = 0.15 参数",
-        "TodayView 调用处显式传 size: 140",
-        "呼吸动画幅度 ×0.7",
-        "iPhone 17 Simulator 截图与改动前并排 orb 明显收敛",
+        "Recreate Codex tokens.css content in web/src/app/globals.css per PRD V5 §10.3 (warm-archival color tokens, font families, spacing/radius)",
+        "Use Tailwind 4 @theme directive to expose tokens as utility classes (bg-warm, accent, fg-primary, etc.)",
+        "Add font imports for Space Grotesk, Inter, JetBrains Mono via next/font",
+        "Set body background to var(--bg-warm) and font-family to Inter",
+        "Define utility classes ds-display-lg, ds-h1, ds-h2, ds-section-label, ds-body-md, ds-mono-11 matching tokens.css",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Verify in browser using dev-browser skill: open / and confirm warm-white background + correct fonts loaded"
       ],
       "priority": 3,
       "passes": false,
-      "notes": "依赖 US-002 (AmbientBackground 纯化先落地)"
+      "notes": ""
     },
     {
       "id": "US-004",
-      "title": "删除 GlassTabBar，账号头像迁入设置 sheet，右上仅留齿轮",
-      "description": "As a 用户, I want 顶部不再出现 [Today ▾] pill 和琥珀色头像, so that 整页只有 sidebar 一套导航语言, 视觉一致.",
+      "title": "Wave 0d: Supabase 本地 Docker 初始化",
+      "description": "As a developer, I need a local Supabase instance running so we can develop against real Postgres.",
       "acceptanceCriteria": [
-        "删除 DayPage/Components/GlassTabBar.swift",
-        "从 RootView.swift / TodayView.swift / AppNavigationModel.swift 中移除所有 GlassTabBar / AppTab 引用",
-        "TodayView 顶部账号头像 (36pt 实心琥珀圆) 移除, 账号入口移到设置 sheet 顶部",
-        "TodayView 顶部右侧仅保留齿轮按钮 (28pt 玻璃圆)",
-        "Archive / Graph 切换通过 sidebar 完成, 回归 path 无歧义",
-        "grep -rn 'GlassTabBar' DayPage/ 输出为 0",
-        "xcodebuild build 通过",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Run `supabase init` creating supabase/config.toml at repo root",
+        "Edit supabase/config.toml: enable pgvector extension under [db.extensions]",
+        "Run `supabase start` succeeds (Docker via OrbStack)",
+        "Confirm `supabase status` outputs DB URL, anon key, service_role key, Studio URL",
+        "Add web/.env.local.example with NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY placeholders",
+        "Add web/.env.local with actual local values (already gitignored)",
+        "Typecheck passes"
       ],
       "priority": 4,
       "passes": false,
@@ -78,53 +72,49 @@
     },
     {
       "id": "US-005",
-      "title": "TodayViewModel 新增 TodayFallback 枚举与 fallbackContent 计算属性",
-      "description": "As a 开发者, I want TodayViewModel 暴露 fallback 内容选择, so that TodayView 在今日 0 memo 时能按优先级渲染存量内容卡.",
+      "title": "Wave 1a: Drizzle ORM 接入 + 配置文件",
+      "description": "As a developer, I need Drizzle ORM configured so we can write type-safe DB schema.",
       "acceptanceCriteria": [
-        "TodayViewModel 新增 enum TodayFallback { case yesterdayDailyPage(DailyPage), onThisDay([Memo]), weekRecap(WeekStats), pureEmpty }",
-        "TodayViewModel.fallbackContent: TodayFallback 计算属性按 yesterdayDailyPage > onThisDay > weekRecap > pureEmpty 优先级返回",
-        "优先级硬编码不可配置",
-        "新增 DayPageTests/TodayViewModelTests.swift 覆盖 4 种 fallback 状态",
-        "Typecheck passes",
-        "Tests pass"
+        "Install drizzle-orm@0.45 + drizzle-kit + postgres + @types/pg in web/",
+        "Create web/drizzle.config.ts pointing to web/src/lib/db/schema.ts and out: web/drizzle/migrations",
+        "Create web/src/lib/db/client.ts exporting `db` (drizzle instance using postgres-js)",
+        "Add web/package.json scripts: db:generate, db:migrate, db:studio (drizzle-kit)",
+        "Typecheck passes"
       ],
       "priority": 5,
       "passes": false,
-      "notes": "依赖 US-001 (i18n 修复, 否则 fallback 文案也会暴露 key)"
+      "notes": ""
     },
     {
       "id": "US-006",
-      "title": "复活 OnThisDayCard 与 WeeklyRecapSection，TodayView 接入 fallback 渲染",
-      "description": "As a 用户, I want 即使今天没记, 主页也能展示昨日 Daily Page / On This Day / 本周回顾中的一张引子卡, so that Today 主页永不空白.",
+      "title": "Wave 1b: Drizzle schema 第一批 (users + memos + memo_attachments)",
+      "description": "As a developer, I need the core memo tables defined so iOS can sync data.",
       "acceptanceCriteria": [
-        "TodayView 在 memos.isEmpty && !isLoading 时按 viewModel.fallbackContent 渲染对应卡",
-        "yesterdayDailyPage 复用 DailyPageEntryCard",
-        "onThisDay 复用 OnThisDayCard.swift (复活当前禁用引用)",
-        "weekRecap 复活 WeeklyRecapSection.swift 并接入",
-        "pureEmpty 仅显示 hero 下方一句小字 (不再独占整屏)",
-        "三种 fallback 卡点击行为: 昨日卡进入 DailyPageView, OnThisDay 进入 MemoDetailView, WeekRecap 进入 ArchiveView 周模式",
-        "原 EmptyStateView.todayNoSignals() 退化为单行小字",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "In web/src/lib/db/schema.ts define `users` table (uuid pk, email unique, apple_sub unique, name, avatar_url, created_at, onboarded_at, settings jsonb)",
+        "Define `memos` table per docs/web/PLAN.md §4 (uuid pk, user_id fk, type enum, body text, created_at, pinned_at, location jsonb, weather, device, source_url, ingest_mode, compile_status, origin, vault_path, updated_at)",
+        "Define `memo_attachments` table (uuid pk, memo_id fk, kind enum, storage_key, filename, mime_type, size_bytes, duration_sec, transcript, ocr_text, exif jsonb)",
+        "Add indexes: memos_user_created (user_id, created_at desc), memos_user_status (user_id, compile_status)",
+        "Run `pnpm --filter daypage-web db:generate` produces migration SQL file",
+        "Run `pnpm --filter daypage-web db:migrate` applies to local supabase",
+        "Verify tables exist in Supabase Studio",
+        "Typecheck passes"
       ],
       "priority": 6,
       "passes": false,
-      "notes": "依赖 US-005 (fallbackContent 计算属性)"
+      "notes": ""
     },
     {
       "id": "US-007",
-      "title": "InputBarV4 引入 ComposerState 状态机替换 userExpandedText",
-      "description": "As a 开发者, I want 用 composerState: .idle / .expanding / .open / .collapsing 替换 userExpandedText: Bool, so that 12 个签名时刻中过渡那一拍能被精确控制.",
+      "title": "Wave 1c: Drizzle schema 第二批 (domains + pages + page_links + page_sources)",
+      "description": "As a developer, I need page tables so AI compile can write structured wiki output.",
       "acceptanceCriteria": [
-        "InputBarV4.swift 新增 enum ComposerState: Equatable { case idle, expanding, open, collapsing }",
-        "删除 userExpandedText: Bool, 所有引用迁移到 state == .open || state == .expanding",
-        "状态转移函数 transition(to: ComposerState) 集中管理, 每次转移触发对应 haptic 与 animation",
-        "expanding / collapsing 持续时间 = .spring(response: 0.42, dampingFraction: 0.78)",
-        ".expanding / .collapsing 期间禁止接受新的状态切换 (防抖)",
-        "新增 DayPageTests/ComposerStateMachineTests.swift 覆盖所有合法/非法转移",
-        "xcodebuild build 通过",
-        "Typecheck passes",
-        "Tests pass"
+        "Define `domains` (uuid pk, user_id fk, slug, label, color, position, created_at, unique(user_id, slug))",
+        "Define `pages` per PLAN.md §4 (uuid pk, user_id fk, slug, type enum, domain_id fk nullable, title, status enum, body_md, body_html, metadata jsonb, embedding vector(1536), source_count, backlink_count, last_compiled_at, timestamps, unique(user_id, slug))",
+        "Define `page_links` (uuid pk, user_id, from_page_id fk, to_page_id fk, via_memo_id fk nullable, weight, rationale, created_at)",
+        "Define `page_sources` composite pk (page_id, memo_id) with contribution + weight",
+        "Add indexes pages_user_type, pages_user_domain",
+        "Generate + run migration",
+        "Typecheck passes"
       ],
       "priority": 7,
       "passes": false,
@@ -132,109 +122,111 @@
     },
     {
       "id": "US-008",
-      "title": "Liquid Morph: idle 玻璃胶囊 matchedGeometryEffect 生长成 composition card",
-      "description": "As a 用户, I want 从 idle 三槽胶囊到 composing 卡片看到形态延续而非两个 view 切换, so that 切换有仪式感.",
+      "title": "Wave 1d: Drizzle schema 第三批 (annotations + chat_threads + chat_messages + inbox_items + activities + devices + sync_state)",
+      "description": "As a developer, I need the remaining tables so chat / inbox / activity / sync features have storage.",
       "acceptanceCriteria": [
-        "用 matchedGeometryEffect(id: 'composer.surface', in: namespace) 把 idle 胶囊 morph 成 composing 圆角矩形",
-        "麦克风 orb 不消失: 64x64 缩到 28x28 并左移到卡片左下角作为切回语音入口",
-        "Aa 按钮淡出 = TextField caret 淡入 (同位置交叉淡入 200ms)",
-        "整段动画 .spring(response: 0.42, dampingFraction: 0.78)",
-        "动画起点触发 UIImpactFeedbackGenerator(.soft)",
-        "录屏验证任意一帧截图取出来形状都能解释从哪来",
-        "Reduced Motion 开启时降级为简单 fade (0.2s)",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Define `annotations` (uuid pk, user_id, page_id fk, anchor jsonb, tag, note, created_at)",
+        "Define `chat_threads` (uuid pk, user_id, title, status enum, synthesis_page_id fk nullable, timestamps)",
+        "Define `chat_messages` (uuid pk, thread_id fk, role enum, content, citations jsonb, suggested jsonb, tokens_in, tokens_out, created_at)",
+        "Define `inbox_items` (uuid pk, user_id, kind enum, title, body, payload jsonb, status enum, resolution jsonb, created_at, resolved_at)",
+        "Define `activities` (uuid pk, user_id, verb, subject, target_type, target_id, created_at)",
+        "Define `devices` (uuid pk, user_id, platform enum, push_token, last_seen_at, metadata jsonb, created_at)",
+        "Define `sync_state` composite pk (user_id, device_id) with cursor timestamptz",
+        "Add indexes inbox_user_status, activities_user_created",
+        "Generate + run migration",
+        "Typecheck passes"
       ],
       "priority": 8,
       "passes": false,
-      "notes": "依赖 US-007 (ComposerState 状态机)"
+      "notes": ""
     },
     {
       "id": "US-009",
-      "title": "Adaptive Send Affordance：发送按钮 5 形态 (空/文本/文本+图/位置/多模态)",
-      "description": "As a 用户, I want 发送按钮根据 draft 形态变形, so that 我能从图形上读出现在发送会做什么.",
+      "title": "Wave 0e: Auth.js v5 beta 接入 + Apple OAuth provider",
+      "description": "As a user, I want to sign in with Apple ID on the web so I can access my own data.",
       "acceptanceCriteria": [
-        "空态: 浅色 mic.fill 圆环 (柔光呼吸 1.6s/cycle), accessibilityLabel='按住说'",
-        "仅文本态: 实心琥珀 arrow.up, accessibilityLabel='发送'",
-        "文本+照片态: camera.fill + arrow.up 复合, accessibilityLabel='记下这一刻'",
-        "仅位置态: mappin.and.arrow.up, accessibilityLabel='标记此处'",
-        "多模态态: 琥珀 ring 带光晕脉动 (1.6s), accessibilityLabel='发送 N 项'",
-        "空态明确不再用 18% 透明琥珀圆",
-        "形态切换 .spring(response: 0.32, dampingFraction: 0.8)",
-        "VoiceOver 朗读对应 label",
+        "Install next-auth@5.0.0-beta.31 in web/",
+        "Create web/src/auth.ts exporting handlers, auth, signIn, signOut using NextAuth() with Apple provider + Email magic link provider",
+        "Create web/src/app/api/auth/[...nextauth]/route.ts re-exporting handlers",
+        "Configure Apple provider with env vars APPLE_CLIENT_ID, APPLE_CLIENT_SECRET, APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_PRIVATE_KEY",
+        "Configure Email provider with SUPABASE_SMTP_* vars (use supabase local Inbucket for dev)",
+        "Create users row on first sign-in (Drizzle adapter or custom callback)",
+        "Add web/middleware.ts redirecting unauthenticated requests away from (app)/* to /login",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Verify in browser using dev-browser skill: visit /login, see 'Sign in with Apple' + email input"
       ],
       "priority": 9,
       "passes": false,
-      "notes": "依赖 US-007 (ComposerState 状态机)"
+      "notes": ""
     },
     {
       "id": "US-010",
-      "title": "Composer 工具栏迁移到 keyboard-attached (.toolbar placement: .keyboard)",
-      "description": "As a 用户, I want 工具栏跟键盘一起浮起, so that 不再形成键盘+工具栏双层堆叠.",
+      "title": "Wave 3a: App Layout 骨架 (Sidebar + Topbar + 路由分组)",
+      "description": "As a user, I want the Codex shell visible so I can navigate between Home/Add/Chat/Wiki/Inbox.",
       "acceptanceCriteria": [
-        "工具栏迁移到 .toolbar { ToolbarItemGroup(placement: .keyboard) { ... } }",
-        "卡片本体停在画面中段, 下方可见 timeline (带 vignette 渐隐遮罩)",
-        "键盘收起时工具栏跟随消失, 无残留高度占位",
-        "iPad 横屏键盘工具栏不溢出",
+        "Create web/src/app/(app)/layout.tsx with 248px sidebar + main column (matching Codex app.css .app grid)",
+        "Create empty page stubs at (app)/home, (app)/add, (app)/chat, (app)/wiki, (app)/inbox each rendering its name as h1",
+        "Sidebar renders: 5 fixed items (Home/Add/Chat/Wiki/Inbox) with lucide icons + active state highlight + Inbox badge slot (hardcoded 0 for now)",
+        "Topbar renders: breadcrumb 'Codex / <currentView>' + date string + Ask + Add buttons (no-op for now)",
+        "Active nav item background matches --accent-soft, text matches --accent",
+        "Sidebar footer shows user email from auth() session + Sign out link",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Verify in browser using dev-browser skill: navigate /home /add /chat /wiki /inbox and confirm sidebar highlight changes"
       ],
       "priority": 10,
       "passes": false,
-      "notes": "依赖 US-007"
+      "notes": ""
     },
     {
       "id": "US-011",
-      "title": "Drag-to-Collapse Handle: 卡片顶 36x4 capsule 上滑收起",
-      "description": "As a 用户, I want 卡片顶边一个 36x4 capsule handle 上滑可收起, so that 与 iOS sheet 语言一致.",
+      "title": "Wave 3b: UI primitives (Btn / Chip / Card / Icon / Sparkline / SectionLabel)",
+      "description": "As a developer, I need reusable components matching Codex visual language so views can be built quickly.",
       "acceptanceCriteria": [
-        "卡片顶部居中 36x4 灰色 capsule",
-        "上滑距离 > 32pt 触发 transition(to: .collapsing) 然后回 .idle",
-        "单击 handle 等价上滑 (accessibility)",
-        "折叠动画与 morph 反向播放",
-        "折叠触发 .medium impact",
+        "Create web/src/components/ui/Btn.tsx supporting kind: primary|secondary|soft|ghost, size: sm|md, pill, icon, iconRight (port from PRD V5 §10.5 Codex primitives spec)",
+        "Create web/src/components/ui/Chip.tsx supporting tone: default|accent|success|warning|error|ghost, onClick",
+        "Create web/src/components/ui/Card.tsx supporting sunken variant",
+        "Create web/src/components/ui/Icon.tsx using lucide-react (install lucide-react@1.14)",
+        "Create web/src/components/ui/Sparkline.tsx (SVG, props: values, w, h, color, fill)",
+        "Create web/src/components/ui/SectionLabel.tsx (uppercase + tracking)",
+        "Add styles in globals.css for .btn, .btn--primary, .chip, .card, etc. matching Codex app.css conventions",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Verify in browser using dev-browser skill: temporarily add a Btn + Chip + Card to /home and confirm visual match Codex"
       ],
       "priority": 11,
       "passes": false,
-      "notes": "依赖 US-007 + US-008"
+      "notes": ""
     },
     {
       "id": "US-012",
-      "title": "Haptics.swift 扩展 5 级触感阶梯并接入 Composer 流程",
-      "description": "As a 用户, I want 不同动作触发不同强度的触感, so that Composer 有材质感.",
+      "title": "Wave 1e: API /api/memos 基础 CRUD",
+      "description": "As iOS / Web client, I need REST endpoints to create, list, get, patch, delete memos.",
       "acceptanceCriteria": [
-        "DayPage/DesignSystem/Haptics.swift 暴露 5 级 API: .soft / .rigid(intensity:) / .medium / .light / .success / .warning",
-        "点 dock 任意键触发 .soft impact",
-        "Caret 首次出现 0.15s 延迟后触发 .rigid 0.3 强度",
-        "添加附件触发 .medium",
-        "删除附件触发 .light",
-        "发送成功触发 .success notification",
-        "录音太短/错误触发 .warning notification",
-        "至少 4 级在 Composer 流程中被实际触发",
+        "Create web/src/app/api/memos/route.ts: GET (list with cursor pagination + since filter) and POST (create with Zod validation)",
+        "Create web/src/app/api/memos/[id]/route.ts: GET, PATCH, DELETE (soft delete)",
+        "All handlers must call auth() and reject 401 if no session, scope queries to current user_id",
+        "Create operation accepts {type, body, created_at?, location?, weather?, device?, origin, ingest_mode?, attachments?[]}",
+        "Use Zod schemas in web/src/lib/schemas/memo.ts (shared with future tRPC layer)",
+        "Return Drizzle-typed memo objects",
+        "Add rate limit: 30 mutations/min per user using @upstash/ratelimit + in-memory fallback for dev",
         "Typecheck passes",
-        "Tests pass"
+        "Tests pass: write web/src/app/api/memos/__tests__/route.test.ts using Vitest covering create + list + 401 + scope isolation"
       ],
       "priority": 12,
       "passes": false,
-      "notes": "可并行于 US-007 ~ US-011"
+      "notes": ""
     },
     {
       "id": "US-013",
-      "title": "ComposerContextProvider 服务：聚合 Weather/Location/lastMemo/Pasteboard",
-      "description": "As a 开发者, I want 一个 ComposerContextProvider 聚合所有上下文源, so that Spotlight Strip 能拿到统一的 chip 数据.",
+      "title": "Wave 1f: API /api/memos/bulk 批量上传 (iOS sync)",
+      "description": "As iOS app, I need to bulk push vault diff so V5 sync uplink works efficiently.",
       "acceptanceCriteria": [
-        "新增 DayPage/Services/ComposerContextProvider.swift @MainActor final class",
-        "整合 WeatherService / LocationService / viewModel.memos.last / UIPasteboard.general",
-        "暴露 var chips: [ContextChip] 计算属性",
-        "ContextChip 类型: .weather(temp, condition) / .location(short) / .timeRitual(emoji, text) / .lastMemoTail(snippet) / .smartPaste(value)",
-        "lastMemoTail 计算缓存 60s 避免重复读 vault",
-        "新增 DayPageTests/ComposerContextProviderTests.swift",
+        "Create web/src/app/api/memos/bulk/route.ts POST handler",
+        "Accept array of memos (max 100), upsert by id (id is UUID generated by iOS)",
+        "On conflict, last-write-wins by updated_at; do not overwrite location if backend already has one with later created_at",
+        "Return {accepted: [ids], skipped: [{id, reason}]}",
+        "Idempotent: same payload twice produces same DB state",
         "Typecheck passes",
-        "Tests pass"
+        "Tests pass: covering upsert, idempotency, scope, max-100 limit"
       ],
       "priority": 13,
       "passes": false,
@@ -242,34 +234,35 @@
     },
     {
       "id": "US-014",
-      "title": "Context Spotlight Strip: TextField 上方横向 chip 带",
-      "description": "As a 用户, I want TextField 上方一条横向 chip 带显示天气/位置/上一条尾巴/智能粘贴, so that 空 Composer 也有现在写什么的引子.",
+      "title": "Wave 1g: API /api/attachments/sign + Supabase Storage 直传",
+      "description": "As a client, I need signed URLs to upload audio/photo/file directly to Supabase Storage.",
       "acceptanceCriteria": [
-        "Spotlight Strip 横向滚动, 每个 chip 28pt 高, 玻璃材质",
-        "数据源走 ComposerContextProvider.chips",
-        "点击 chip 对应内容塞入 draft (位置塞 Memo.Location, 时间塞 prompt, 上一条尾巴塞引用块, 剪贴板塞文本)",
-        "触摸软触感 .soft 0.4",
-        "空 Composer 至少 3 条 chip",
+        "Create Supabase Storage bucket 'memo-attachments' (private, no public access) via supabase migration SQL",
+        "Create web/src/app/api/attachments/sign/route.ts POST: input {memo_id, kind, mime_type, size_bytes}, return {upload_url, storage_key, expires_at}",
+        "Storage key format: `{user_id}/{memo_id}/{uuid}.{ext}`",
+        "Validate: mime_type in allowlist (audio/m4a, image/jpeg, image/png, image/heic, application/pdf), size <=50MB",
+        "Signed URL expiry 5 min",
+        "Create web/src/app/api/attachments/finalize/route.ts POST: input {memo_id, storage_key, kind, ...} writes memo_attachments row",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Tests pass: signing returns valid Supabase URL; finalize creates row"
       ],
       "priority": 14,
       "passes": false,
-      "notes": "依赖 US-013"
+      "notes": ""
     },
     {
       "id": "US-015",
-      "title": "Smart Templates: 12 条时段模板 hardcode",
-      "description": "As a 用户, I want 空 Composer 显示 1 行时段模板, so that 我能一键得到今天怎么写的引子.",
+      "title": "Wave 1h: API /api/domains + /api/inbox + /api/stats + /api/activities (基础)",
+      "description": "As a client, I need read endpoints for sidebar/home content so the UI has real data.",
       "acceptanceCriteria": [
-        "12 条 hardcode 模板按时段映射: 06-11 晨/今天/醒来; 11-17 刚才/中午/想法; 17-22 最某刻/总结/明天; 22-06 回看/未完/梦",
-        "仅在 text.isEmpty && pendingAttachments.isEmpty 时显示",
-        "点击 模板文字塞入 TextField, placeholder 高亮 (.foregroundStyle(.secondary))",
-        "caret 定位到 placeholder 起点",
-        "用户开始打字后 placeholder 消失",
-        "不引入配置文件 / 设置项",
+        "Create web/src/app/api/domains/route.ts: GET list, POST create",
+        "Create web/src/app/api/inbox/route.ts: GET list (filter by kind, status), default status='open'",
+        "Create web/src/app/api/stats/route.ts: GET returns {sources, pages, domains, backlinks, deltas:{sources_week, pages_week, backlinks_week}}",
+        "Create web/src/app/api/activities/route.ts: GET cursor-paginated list, default 20",
+        "All endpoints scoped to auth() user_id",
+        "Empty user returns sensible empty arrays / zero counts",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Tests pass: each endpoint returns 200 with empty data for fresh user, 401 without session"
       ],
       "priority": 15,
       "passes": false,
@@ -277,17 +270,17 @@
     },
     {
       "id": "US-016",
-      "title": "Inline Lens Strip: 最近 4 张照片缩略图 (懒加载相册权限)",
-      "description": "As a 用户, I want TextField 下方一条 56x56 圆角缩略图带, so that 我能一键附加最近 24h 内的照片, 无需跳 PhotosPicker.",
+      "title": "Wave 3c: Home view 真数据 (Hero + Stats + Recent activity 占位)",
+      "description": "As a user, I want the Home page to show my real stats and recent activity so I see live data.",
       "acceptanceCriteria": [
-        "第一次展开 Composer 时 prompt PHPhotoLibrary.requestAuthorization(for: .readWrite)",
-        "拒绝权限后 Strip 隐藏, 不再 prompt (用 @AppStorage('composer.photoPermissionAsked') 标记)",
-        "显示最近 24h 内 4 张缩略图, 按时间倒序",
-        "点击缩略图 直接附加到 pendingAttachments, 不跳 sheet",
-        "缩略图加载用 PHCachingImageManager 避免卡顿, 分辨率 <= 168x168",
-        "无最近照片时 Strip 隐藏 (不显示空态)",
+        "Update web/src/app/(app)/home/page.tsx to fetch /api/stats + /api/activities server-side (RSC)",
+        "Render Hero block with date string + headline (use placeholder text if empty) + 4 buttons (Add / Ask / Inbox)",
+        "Render Stats grid (4 cards: Sources / Wiki pages / Domains / Backlinks) using real numbers from /api/stats",
+        "Render Recent activity Card listing last 6 activities (when=relative time, what=verb+subject, target link)",
+        "Empty state: if stats all zero, show 'Nothing yet — add something to get started' with primary Add button",
+        "Match Codex visual exactly per PRD V5 §3 Home view sketch",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Verify in browser using dev-browser skill: log in, see Home page with zero stats + empty state CTA"
       ],
       "priority": 16,
       "passes": false,
@@ -295,37 +288,632 @@
     },
     {
       "id": "US-017",
-      "title": "Caret Spotlight + Ambient Dim: focus 时背景暗 20%, 卡背 RadialGradient",
-      "description": "As a 用户, I want focus 时背景变暗 20% 同时卡片背后泛起暖白射灯, so that 写作仪式感拉满.",
+      "title": "Wave 3d: Sidebar Domains 动态列表 + Inbox badge 真数据",
+      "description": "As a user, I want the sidebar to show my domains and unread inbox count from real data.",
       "acceptanceCriteria": [
-        "focus 进入时 AmbientBackground 整体透明度 0.8",
-        "Composer 卡片背后 RadialGradient (中心 caret 位置, 半径 240pt, 暖白 0.12 opacity)",
-        "现有 BreathingCaretView 保留并接入",
-        "focus 退出反向动画 0.4s",
-        "Reduced Motion 开启时禁用 dim, 仅静态对比",
+        "Update Sidebar to fetch /api/domains and /api/inbox?status=open server-side via RSC layout",
+        "Render dynamic Domains group below static items with colored dot + label + count per domain",
+        "Inbox item shows badge with count of unresolved inbox_items",
+        "If user has 0 domains, hide the Domains group label entirely",
+        "If badge count is 0, hide the badge",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Verify in browser using dev-browser skill: empty user sees no Domains group; insert a test domain via SQL and confirm it appears"
       ],
       "priority": 17,
       "passes": false,
-      "notes": "依赖 US-002 (AmbientBackground 已纯化)"
+      "notes": ""
     },
     {
       "id": "US-018",
-      "title": "Status Strip: 卡片顶 12pt mono 行 DRAFTING · N PHOTOS · LOC · age",
-      "description": "As a 用户, I want 卡片顶部一行 12pt mono 显示状态副标, so that 我能看到 Composer 的实时状态.",
+      "title": "Wave 4a: Add view 静态 UI (UnifiedInput + 空 Compile Queue)",
+      "description": "As a user, I want the Add page UI so I can type and submit content (compile worker comes later).",
       "acceptanceCriteria": [
-        "字段顺序: <state> · <attachment count> · <location short> · <draft age>",
-        "状态枚举: DRAFTING / SENDING / SENT / ERROR",
-        "发送成功 1.2s 内显示 SENT 然后整个 Composer 折叠回 idle dock",
-        "字体 JetBrains Mono 12pt (已注册)",
-        "XXLarge+ Dynamic Type 时省略 location 字段",
+        "Update web/src/app/(app)/add/page.tsx",
+        "Render Hero block (section label + headline + sub)",
+        "Render UnifiedInput: textarea + hint chips (URL/File/Voice/Bookmarklet/auto-detect) + Save draft + Add buttons",
+        "Render empty Compile Queue Card with placeholder 'No items yet'",
+        "Render empty Recently Compiled Card",
+        "Submit button is disabled when textarea empty",
+        "Match Codex Add view visual per PRD V5 §3",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Verify in browser using dev-browser skill: navigate to /add, type text, confirm submit button enables"
       ],
       "priority": 18,
       "passes": false,
-      "notes": "依赖 US-007 (state) + US-013 (location 来源)"
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Wave 4b: Add view 提交连接 /api/memos (基础 text 输入)",
+      "description": "As a user, I want submitting the Add form to actually create a memo via the API.",
+      "acceptanceCriteria": [
+        "On submit, POST to /api/memos with {type:'text', body, origin:'web'}; auto-detect type:'url' if body matches /^https?:\\/\\//",
+        "Use TanStack Query (install @tanstack/react-query@5.100) mutation with optimistic update",
+        "On success, clear textarea and prepend new memo to local Compile Queue list (status='pending')",
+        "On failure, show inline error + Retry button + keep textarea content",
+        "Compile Queue Card now lists the user's pending memos (fetched via /api/memos?compile_status=pending)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill: submit a text memo, confirm it appears in queue and DB row exists"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Wave 4c: AI provider 抽象层 + DashScope client",
+      "description": "As a developer, I need a unified LLM client so compile worker can call qwen models.",
+      "acceptanceCriteria": [
+        "Create web/src/lib/ai/provider.ts exporting interface LLMProvider with chat(), embed(), transcribe()",
+        "Create web/src/lib/ai/dashscope.ts implementing provider via OpenAI-compatible endpoint (https://dashscope.aliyuncs.com/compatible-mode/v1)",
+        "Use env var DASHSCOPE_API_KEY (server-only, never client)",
+        "Models: qwen-plus for chat, text-embedding-v3 for embed, paraformer for transcribe",
+        "Return typed responses; on error throw ProviderError with code (rate_limit/timeout/auth/server)",
+        "Add token logging side-effect: every call writes a row to prompt_log table (create new table for this)",
+        "Typecheck passes",
+        "Tests pass: mock fetch and verify request body / response parsing / error mapping"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-021",
+      "title": "Wave 4d: Inngest 接入 + compile.memo function 骨架",
+      "description": "As a developer, I need a background worker so compile pipeline can run async.",
+      "acceptanceCriteria": [
+        "Install inngest@3.x in web/",
+        "Create web/src/lib/inngest/client.ts exporting `inngest` Inngest client with id 'daypage'",
+        "Create web/src/lib/inngest/functions/compile-memo.ts: function triggered by event 'memo/created' with steps: normalize, embed, recall, compile, apply, notify",
+        "For now each step just logs and updates memos.compile_status (pending → running → done); no real LLM calls yet",
+        "Create web/src/app/api/inngest/route.ts mounting Inngest serve handler",
+        "When /api/memos POST creates a memo, send event {name:'memo/created', data:{memo_id}}",
+        "Add npm script `dev:inngest` running `npx inngest-cli@latest dev`",
+        "Typecheck passes",
+        "Verify: submit a memo via Add page, observe inngest dev dashboard at http://localhost:8288 shows function ran, memo compile_status updated to 'done'"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-022",
+      "title": "Wave 4e: Embed step 实接 DashScope + memo embedding 持久化",
+      "description": "As the compile pipeline, I need to actually embed memo text so RAG and recall work.",
+      "acceptanceCriteria": [
+        "Add embedding vector(1536) column to memos table (new migration)",
+        "In compile-memo function 'embed' step: chunk body into <=512-token segments, embed each, average to single vector, write to memos.embedding",
+        "If body empty (e.g. voice without transcript), skip embed",
+        "Cache: hash(body) → if same hash already embedded in last 7 days, reuse from a new embed_cache table",
+        "On API error, set memos.compile_status='failed' + memos.compile_error",
+        "Typecheck passes",
+        "Tests pass: mock dashscope, submit memo, verify embedding column populated"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-023",
+      "title": "Wave 4f: Compile step LIGHT 模式 (生成摘要 + 关键词)",
+      "description": "As a user, I want LIGHT-mode memos to get a summary and tags so I can browse them later.",
+      "acceptanceCriteria": [
+        "In compile-memo function 'compile' step, if memo.ingest_mode='light', call qwen-plus with a structured prompt asking for {summary: string, keywords: string[], suggested_domain: string|null}",
+        "Use prompt template at web/src/lib/ai/prompts/compile-light.md (versioned)",
+        "Apply: write a new source-type page with title=truncated body OR summary, body_md=summary, metadata={keywords, source_memo_id}",
+        "Link page to memo via page_sources",
+        "Update memo.compile_status='done'",
+        "If LLM returns invalid JSON, retry once with stricter prompt; on second fail mark compile_status='failed'",
+        "Typecheck passes",
+        "Tests pass: mock qwen, submit text memo with ingest_mode='light', verify page row + page_sources row"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-024",
+      "title": "Wave 4g: Compile step FULL 模式 (recall + patch existing pages or create new concept)",
+      "description": "As a user, I want FULL-mode memos to actually update my wiki, not just create source pages.",
+      "acceptanceCriteria": [
+        "In compile-memo 'recall' step: vector-search top-8 existing pages by cosine similarity to memo.embedding (only same user, status='live')",
+        "In 'compile' step (FULL mode): pass memo body + retrieved pages as context to qwen-plus with prompt at compile-full.md asking for tool-calling JSON: {operations: [{op: 'update_page'|'create_page'|'create_link'|'extract_entity', ...}]}",
+        "In 'apply' step: execute operations in DB transaction, write change_log table (create new table) for each",
+        "Each new page gets status='draft'; existing page updates increment a version counter",
+        "Validate: every cited page_id in operations must exist; reject invalid",
+        "Update memo.compile_status='done'",
+        "Typecheck passes",
+        "Tests pass: mock qwen returning create_page op, submit memo, verify page row created with status='draft' + change_log entry"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-025",
+      "title": "Wave 4h: SSE 进度推送 /api/stream/compile",
+      "description": "As a user, I want to see live compile progress so I know the system is working.",
+      "acceptanceCriteria": [
+        "Create web/src/app/api/stream/compile/route.ts using Next.js streaming response (text/event-stream)",
+        "On connect, scope to current user (via auth())",
+        "Subscribe to Postgres LISTEN/NOTIFY channel 'compile_progress' OR poll memos every 2s for status changes",
+        "Send SSE events {type:'progress', memo_id, status, step?, progress?}",
+        "Compile worker emits NOTIFY after each pipeline step",
+        "Heartbeat ping every 15s to keep connection alive",
+        "Close connection cleanly on client disconnect",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill: open /add, submit a memo, watch network tab for SSE events flowing"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-026",
+      "title": "Wave 4i: Add view Compile Queue 实时进度 UI",
+      "description": "As a user, I want progress bars in the Compile Queue so I see compilation happen.",
+      "acceptanceCriteria": [
+        "Create web/src/hooks/useCompileStream.ts subscribing to /api/stream/compile via EventSource, updating local state per memo_id",
+        "Compile Queue Card uses this hook to render progress bar 0-100% per item",
+        "Step labels render (e.g. 'Embedding...', 'Compiling...')",
+        "On done, item shows green check + 'X pages updated' + auto-removes from queue after 3s",
+        "On failed, item shows red badge + error step name + Retry button (calls POST /api/memos/:id/recompile)",
+        "Add /api/memos/:id/recompile endpoint that re-sends inngest event",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill: submit memo, watch progress bar fill, confirm completion state"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-027",
+      "title": "Wave 4j: LIGHT/FULL chip 切换 + Recently Compiled 列表",
+      "description": "As a user, I want to switch a memo's compile tier and see what was recently compiled.",
+      "acceptanceCriteria": [
+        "Each Compile Queue item has a Chip showing current ingest_mode (LIGHT/FULL)",
+        "Click chip: PATCH /api/memos/:id with {ingest_mode: 'full'|'light'}, then trigger recompile",
+        "Toast confirms switch",
+        "Add 'Recently compiled' Card below queue: fetch /api/memos?compile_status=done&limit=8, ordered by updated_at desc",
+        "Each row shows: icon, title (truncated 90 chars), subtitle (type · word_count · created_at relative), mode chip, time",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill: submit memo, after compile completes, see it in Recently compiled; click LIGHT chip to switch and observe re-compile"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-028",
+      "title": "Wave 5a: Wiki view 路由 + 左侧 nav 静态结构",
+      "description": "As a user, I want the Wiki page layout so I can navigate between page groups.",
+      "acceptanceCriteria": [
+        "Update web/src/app/(app)/wiki/page.tsx with 3-column layout: 240px nav + flex-1 page + 280px aside",
+        "WikiNav component fetches /api/pages grouped by type (concept/source/entity/synthesis/daily)",
+        "Each group is collapsible (state persisted in localStorage)",
+        "Each row shows title + meta (source_count or 'draft' tag or conflict warning icon)",
+        "Active page highlighted",
+        "Top of nav: search input (no-op for now) + List/Graph mode toggle (Graph greyed out for later wave)",
+        "Empty state: if user has no pages, show 'Your wiki will grow here as AI compiles your memos'",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill: navigate to /wiki, see empty groups + search bar"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-029",
+      "title": "Wave 5b: API /api/pages + /api/pages/:slug + /api/pages/:id/sources + /api/pages/:id/backlinks",
+      "description": "As a client, I need page CRUD and detail endpoints so Wiki view can show page content.",
+      "acceptanceCriteria": [
+        "GET /api/pages?type=&domain=&q= returns paginated list",
+        "GET /api/pages/:slug returns single page (404 if not user's)",
+        "POST /api/pages creates synthesis page (input: {title, body_md, type:'synthesis', source_thread_id?})",
+        "PATCH /api/pages/:id updates title / domain_id / status",
+        "DELETE /api/pages/:id soft-deletes (status='archived', or sets deleted_at)",
+        "GET /api/pages/:id/sources returns memos that contributed (joined via page_sources)",
+        "GET /api/pages/:id/backlinks returns pages that link TO this page (via page_links)",
+        "All scoped to user_id",
+        "Typecheck passes",
+        "Tests pass: cover happy path + 404 + scope isolation for each endpoint"
+      ],
+      "priority": 29,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-030",
+      "title": "Wave 5c: Wiki page detail UI (含 markdown 渲染 + 右侧 sources/backlinks/provenance)",
+      "description": "As a user, I want to read a wiki page with sources and backlinks visible.",
+      "acceptanceCriteria": [
+        "Create web/src/app/(app)/wiki/[slug]/page.tsx fetching /api/pages/:slug + sources + backlinks server-side",
+        "Render header: type chip + domain chip + 'updated X ago' chip + Annotate + Ask buttons + h1 title + byline (compiled from N sources · M backlinks · slug)",
+        "Render body using react-markdown@10 + remark-gfm + rehype-sanitize",
+        "Right aside: 3 blocks (Sources / Backlinks / Provenance) matching Codex visual",
+        "Each source row links to source memo detail (route stub OK for now)",
+        "Each backlink row links to /wiki/[slug]",
+        "Provenance block shows static text 'Last compiled X ago' for now",
+        "If page not found, render 'This page does not exist'",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill: insert a test page via SQL, navigate to /wiki/<slug>, confirm renders"
+      ],
+      "priority": 30,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-031",
+      "title": "Wave 5d: Annotation API + 高亮选中 toolbar",
+      "description": "As a user, I want to highlight text on a wiki page and tag it as important/questionable.",
+      "acceptanceCriteria": [
+        "POST /api/annotations creates annotation (input: {page_id, anchor:{section_idx,char_start,char_end,text}, tag, note?})",
+        "DELETE /api/annotations/:id removes annotation",
+        "GET /api/pages/:id/annotations returns all annotations for a page",
+        "Wiki page detail loads annotations + renders selected text wrapped in <mark class='user-mark' data-tag='...'> via remark plugin or DOM post-processing",
+        "On text selection, show floating toolbar with 3 buttons: Important / Questionable / Custom tag (modal)",
+        "Click button → POST annotation → re-fetch and re-render",
+        "Different tags get different colors (important=accent-soft, questionable=warning-soft)",
+        "Click existing highlight to delete",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill: open a page with content, select text, click Important, confirm highlight persists after refresh"
+      ],
+      "priority": 31,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-032",
+      "title": "Wave 5e: Domain 视图 (/(app)/domain/[slug])",
+      "description": "As a user, I want to click a domain in sidebar and see its overview.",
+      "acceptanceCriteria": [
+        "Create web/src/app/(app)/domain/[slug]/page.tsx",
+        "Fetch domain by slug + pages where domain_id matches",
+        "Render: domain title (editable inline) + color picker chip + page count + activity stats (this week)",
+        "Render Pages list grouped by type",
+        "Sidebar Domain link routes to /domain/<slug>",
+        "PATCH /api/domains/:id supports renaming + color change",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill: with seeded domain + pages, navigate to domain page and see content"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-033",
+      "title": "Wave 5f: Daily Page worker + cron",
+      "description": "As a user, I want a daily diary page auto-generated each night summarizing the day's memos.",
+      "acceptanceCriteria": [
+        "Create inngest scheduled function 'daily-page' running at 00:30 UTC daily (will be per-user-timezone in later wave)",
+        "For each user with >=1 memo today, aggregate memos created in last 24h, call qwen-plus with prompt at daily-page.md to produce structured page (sections: Highlights / Locations / Themes / Mood)",
+        "Create or upsert page with type='daily', slug='daily/YYYY-MM-DD', title='YYYY-MM-DD Daily', status='live', body_md=result",
+        "Link via page_sources to all memos of that day",
+        "Idempotent: re-running same day overwrites the existing daily page",
+        "Typecheck passes",
+        "Tests pass: mock qwen, seed memos for a day, run function, verify daily page created with correct sources"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-034",
+      "title": "Wave 6a: Wiki Graph view (静态布局, 与 Codex 一致)",
+      "description": "As a user, I want a graph visualization so I can see how my pages connect.",
+      "acceptanceCriteria": [
+        "Add /(app)/wiki Graph mode toggle: when active, render WikiGraph component",
+        "WikiGraph fetches /api/pages + /api/page_links (new endpoint that returns all links for current user)",
+        "Layout: simple force-directed using d3-force or react-force-graph-2d (install one, prefer d3-force for SVG control)",
+        "Node colors per type: concept=accent, draft=warning, entity=accent-hover, source=fg-muted, synthesis=success",
+        "Edges between linked pages (page_links table)",
+        "Click node → highlight node + 1-hop neighbors + show right-aside detail card with title + type + sources count + 'Open page' button",
+        "Pan + zoom with mouse",
+        "Empty state: if user has 0 pages, show 'Add and compile some content to start growing your graph'",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill: with seeded pages + links, navigate to /wiki and switch to Graph mode, see nodes"
+      ],
+      "priority": 34,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-035",
+      "title": "Wave 7a: Embedding pipeline 升级 + RAG retrieval helper",
+      "description": "As a developer, I need a robust retrieval function so chat can find relevant pages.",
+      "acceptanceCriteria": [
+        "Create web/src/lib/ai/rag.ts exporting retrievePages(userId, queryText, opts:{topK=8, domain?, excludePrivate=true})",
+        "Embed query via DashScope text-embedding-v3",
+        "Vector search pages.embedding using pgvector cosine similarity (HNSW index)",
+        "Add HNSW index on pages.embedding via migration",
+        "Return [{page_id, slug, title, type, body_md, score}], filtered by user_id and not deleted",
+        "If page.private=true, exclude unless opts.includePrivate",
+        "Typecheck passes",
+        "Tests pass: seed pages with known content, query, verify expected page returned with reasonable score"
+      ],
+      "priority": 35,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-036",
+      "title": "Wave 7b: Chat thread API (POST/GET /api/chat/threads)",
+      "description": "As a user, I want chat thread persistence so my conversations are saved.",
+      "acceptanceCriteria": [
+        "POST /api/chat/threads creates new thread {id, title:'New conversation', status:'active'}",
+        "GET /api/chat/threads lists user's threads ordered by updated_at desc, with optional status filter",
+        "GET /api/chat/threads/:id returns thread + messages array",
+        "PATCH /api/chat/threads/:id updates title or status",
+        "DELETE /api/chat/threads/:id soft-deletes",
+        "Auto-title: when first user message sent, schedule a small qwen call to summarize into <60 char title; update thread.title",
+        "Typecheck passes",
+        "Tests pass: create + list + scope isolation"
+      ],
+      "priority": 36,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-037",
+      "title": "Wave 7c: Chat send message API with SSE streaming",
+      "description": "As a user, I want chat answers to stream in real-time so I see progress.",
+      "acceptanceCriteria": [
+        "POST /api/chat/threads/:id/messages with {content} as SSE stream response (text/event-stream)",
+        "Step 1: write user message to chat_messages",
+        "Step 2: call retrievePages(userId, content, topK=8)",
+        "Step 3: build prompt with system instruction (cite with {n} format only, refuse if no context, never invent), user message, references",
+        "Step 4: call DashScope qwen-plus with stream=true; for each chunk emit SSE {type:'token', content:chunk}",
+        "Step 5: after stream end, parse {n} citation tokens, validate each n maps to a retrieved page; emit {type:'done', citations:[...], message_id}",
+        "Step 6: write assistant message to chat_messages with content + citations + tokens_in/out",
+        "Step 7: enforce per-user 100k tokens/day limit; reject 429 if exceeded",
+        "Typecheck passes",
+        "Tests pass: mock qwen stream, verify SSE events flow + citations parsed correctly"
+      ],
+      "priority": 37,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-038",
+      "title": "Wave 7d: Chat view UI (thread list + thread detail + composer)",
+      "description": "As a user, I want a complete chat interface matching Codex design.",
+      "acceptanceCriteria": [
+        "Update web/src/app/(app)/chat/page.tsx: shows thread list (left) + 'Select a conversation or start new' empty state",
+        "Create /(app)/chat/[id]/page.tsx with chat layout: main thread + 280px references sidebar matching Codex visual",
+        "Render messages: user (right-aligned) + assistant (left-aligned with role label)",
+        "Citation tokens {n} render as clickable .cite badges",
+        "Click .cite badge highlights matching reference card in right sidebar",
+        "Composer: textarea with Enter=send, Shift+Enter=newline + Send button",
+        "On send, POST to /api/chat/threads/:id/messages + consume SSE stream; tokens append to assistant bubble in real-time",
+        "Right sidebar: References list showing each cited page (number + type + title + excerpt); click → open page in new tab",
+        "Save as synthesis page button (no-op for now, wire in later wave)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill: create thread, ask question against seeded pages, watch streaming answer + reference cards"
+      ],
+      "priority": 38,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-039",
+      "title": "Wave 7e: Suggested follow-ups + I-don't-know fallback",
+      "description": "As a user, I want suggested next questions and honest 'I don't know' answers.",
+      "acceptanceCriteria": [
+        "After assistant message complete, fire a 2nd lightweight qwen call with prompt at suggested-followups.md (input: thread context, output: 3 short questions)",
+        "Render 3 chips below assistant message; click → fills composer + sends",
+        "If retrievePages returns 0 results OR all scores < 0.4 threshold, skip LLM call and write canned assistant message: 'I don't know yet — try adding content about <topic> first.' + suggested 'Add' link",
+        "System prompt enforces: any sentence without {n} citation must be wrapped in italic + tagged [uncited]",
+        "Typecheck passes",
+        "Tests pass: verify low-score query returns I-don't-know without LLM call"
+      ],
+      "priority": 39,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-040",
+      "title": "Wave 8a: Conflict detection 集成到 compile-memo FULL 步骤",
+      "description": "As a user, I want the system to detect contradictions between new content and existing pages.",
+      "acceptanceCriteria": [
+        "In compile-memo FULL step, after recall, run a conflict-check sub-prompt: given new memo body + top-3 retrieved pages, ask qwen 'are there any factual contradictions? respond with JSON {conflicts: [{page_id, old_text, new_text, summary}]}'",
+        "For each detected conflict, write inbox_items row with kind='contradiction', payload={old_text, new_text, page_id, memo_id}",
+        "Add inbox row title='Two takes on <topic>' (qwen-generated)",
+        "Inbox badge in sidebar updates (already wired)",
+        "Typecheck passes",
+        "Tests pass: seed page with statement, submit memo with contradicting statement, verify inbox_item created"
+      ],
+      "priority": 40,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-041",
+      "title": "Wave 8b: Schema detection worker (cluster suggestion → inbox)",
+      "description": "As a user, I want the system to suggest new domains when it sees a clear cluster of related memos.",
+      "acceptanceCriteria": [
+        "Create inngest function 'schema-detect' triggered every 50 new memos per user (use a counter table or modulo on new_memo event)",
+        "Fetch user's last 200 memos with embeddings",
+        "Run HDBSCAN clustering (use 'density-clustering' npm pkg or simple kNN-based clustering since we don't need full HDBSCAN at first)",
+        "Identify clusters of >=8 memos NOT already mapped to existing domain",
+        "For each unmapped cluster, call qwen with cluster's memo titles to suggest a domain name",
+        "Write inbox_item kind='schema' with payload={cluster_memo_ids, suggested_name, suggested_color}",
+        "Idempotent: same cluster signature in last 7 days does not re-suggest",
+        "Typecheck passes",
+        "Tests pass: seed 10 memos all about 'distributed systems', run function, verify inbox_item with suggested name"
+      ],
+      "priority": 41,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-042",
+      "title": "Wave 8c: Cold storage detection cron",
+      "description": "As a user, I want suggestions to archive pages I haven't touched in 90+ days.",
+      "acceptanceCriteria": [
+        "Create inngest scheduled function 'orphan-detect' running daily at 04:00 UTC",
+        "For each user, find pages with last_compiled_at + 90 days < now AND backlink_count = 0 AND not recently viewed (need to add page_views table or use updated_at)",
+        "For each such page, write inbox_item kind='orphan' with payload={page_id, page_title, days_idle}",
+        "Cap: max 5 orphan suggestions per user per day to avoid spam",
+        "Idempotent: skip pages already in open inbox_item",
+        "Typecheck passes",
+        "Tests pass: seed page with old timestamps, run function, verify inbox_item created"
+      ],
+      "priority": 42,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-043",
+      "title": "Wave 8d: Observer agent daily worker + Home observations card",
+      "description": "As a user, I want the system to surface 'what it noticed' on Home so AI feels alive.",
+      "acceptanceCriteria": [
+        "Create inngest scheduled function 'observer-scan' running daily at 03:00 UTC per user",
+        "Aggregate signals: cluster growth (>=3x in past week), new entity emerged (>=3 mentions), dormant topic (no activity in 30d but has many backlinks), unresolved contradiction count",
+        "For each non-trivial signal, call qwen to write a 2-paragraph observation in user-facing prose, with 2-3 action button labels",
+        "Save to a new observations table (uuid, user_id, lead, body, actions jsonb, created_at, dismissed_at)",
+        "Cap: max 2 new observations per user per scan",
+        "Update GET /api/observations endpoint returning latest undismissed observations",
+        "Update Home view to render top 2 observations in 'What the system noticed' Card (already designed in Codex)",
+        "Each observation has Dismiss button (PATCH sets dismissed_at)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill: insert a test observation row via SQL, see it on Home"
+      ],
+      "priority": 43,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-044",
+      "title": "Wave 8e: Inbox view UI + filter chips + contradiction old/new compare",
+      "description": "As a user, I want to triage AI suggestions in a dedicated inbox view.",
+      "acceptanceCriteria": [
+        "Update /(app)/inbox/page.tsx",
+        "Render section label 'Inbox · N items' + headline + sub",
+        "5 filter chips: All / Contradictions / Schema / Orphans / Compiled (count beside each)",
+        "Each card: kind chip + time + title + body + actions row",
+        "CONTRADICTION cards include side-by-side old/new compare panes matching Codex visual",
+        "SCHEMA cards include suggested domain name + color preview",
+        "ORPHAN cards include 'days idle' meta",
+        "COMPILED cards include 'view changes' link",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill: seed each kind via SQL, navigate to /inbox, see cards correctly rendered"
+      ],
+      "priority": 44,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-045",
+      "title": "Wave 8f: Inbox 处理 actions + snooze/dismiss",
+      "description": "As a user, I want to act on inbox items so the suggestion gets resolved.",
+      "acceptanceCriteria": [
+        "POST /api/inbox/:id/resolve with {action: string, payload?: any} writes inbox_items.status='resolved' + resolution + executes the action (e.g. for SCHEMA accept: create domain row + assign cluster memos)",
+        "POST /api/inbox/:id/dismiss sets status='dismissed'",
+        "POST /api/inbox/:id/snooze with {until: timestamp} sets status='snoozed' + a snooze_until column",
+        "Snoozed items reappear when current time > snooze_until (handled by cron or query filter)",
+        "Inbox card actions: CONTRADICTION 4 buttons (Keep both / Use new / Keep mine / Open both pages); SCHEMA 3 buttons (Create page / Suggest different name / Not yet); ORPHAN 3 buttons (Cold-archive / Keep / Open page); COMPILED 2 buttons (View changes / Dismiss)",
+        "Each card has '...' menu with Snooze 1d / Snooze 1w / Dismiss / Resolve as...",
+        "After action, card disappears with fade animation + sidebar badge updates",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill: seed contradiction, click 'Use new', confirm card disappears + badge decrements"
+      ],
+      "priority": 45,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-046",
+      "title": "Wave 9a: Agent permissions schema + Settings → Agent page",
+      "description": "As a user, I want to control which AI actions are allowed.",
+      "acceptanceCriteria": [
+        "Add agent_permissions jsonb column to users.settings or new agent_permissions table",
+        "8 action keys per PRD V5 §7.2: ACT-1 auto_tag_domain, ACT-2 auto_archive_cold, ACT-3 auto_merge_entities, ACT-4 auto_promote_drafts, ACT-5 auto_fetch_external, ACT-6 auto_weekly_recap, ACT-7 auto_cross_link, ACT-8 auto_send_digest",
+        "Defaults: ACT-1, ACT-6, ACT-8 = ON; rest = OFF",
+        "Create web/src/app/(app)/settings/agent/page.tsx with toggle list",
+        "Each toggle: label + risk badge (low/med) + 1-line description + switch",
+        "PATCH /api/settings/agent updates permissions",
+        "Add 'Pause all AI agents' kill-switch toggle at top",
+        "When kill-switch on, all Actor functions check this and skip work",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill: open /settings/agent, toggle ACT-3, refresh, confirm persisted"
+      ],
+      "priority": 46,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-047",
+      "title": "Wave 9b: Agent audit log + change_log + Undo API",
+      "description": "As a user, I want to see what AI did and undo any action.",
+      "acceptanceCriteria": [
+        "Ensure change_log table exists (id, user_id, action_kind, target_type, target_id, before jsonb, after jsonb, reason, performed_by enum:'user'|'agent', agent_action_id text, created_at)",
+        "Every page/entity/link mutation writes a change_log row before applying",
+        "Create web/src/app/(app)/settings/activity/page.tsx fetching /api/activity-log paginated",
+        "Filter chips: All / by action_kind / by performed_by",
+        "Each row has Undo button (POST /api/activity-log/:id/undo) which applies before state",
+        "Undo only works if no later mutation depends on this state (else show 'Cannot undo: 2 newer changes depend on this')",
+        "Typecheck passes",
+        "Tests pass: seed change_log entries, undo a page update, verify before state restored"
+      ],
+      "priority": 47,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-048",
+      "title": "Wave 9c: Agent safety 6 重栅栏完整实施",
+      "description": "As a system, I need all 6 safety guards enforced so Actor agents never run wild.",
+      "acceptanceCriteria": [
+        "Guard 1: All Actor functions read user.agent_permissions before running; skip if not authorized",
+        "Guard 2: All Actor + Observer mutations write change_log + activity rows",
+        "Guard 3: Undo path verified working in US-047",
+        "Guard 4: Add notification_throttle table (user_id, kind, count, window_start); inbox creators check 'sent <=3 of this kind in last 24h' before creating",
+        "Guard 5: Add helper isUserSleepWindow(userId) checking user's timezone (default UTC) is between 22:00-08:00; push notification senders skip if true",
+        "Guard 6: Settings → Agent page kill-switch (already in US-046); when on, ALL Actor + observation functions early-return",
+        "Add web/src/lib/agent/guards.ts as central enforcement helper",
+        "Typecheck passes",
+        "Tests pass: each guard has a unit test verifying skip behavior"
+      ],
+      "priority": 48,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-049",
+      "title": "Wave 9d: ACT-1 Auto-tag domain 实现 + ACT-6 Weekly recap 实现",
+      "description": "As a user with default permissions, I want my new memos to get auto-tagged and a weekly digest.",
+      "acceptanceCriteria": [
+        "ACT-1: in compile-memo function 'apply' step, if user.agent_permissions.auto_tag_domain && memo has no domain, find best-matching domain (vector match on memo embedding vs domain centroid embeddings, threshold >0.6) and set memo.domain_id",
+        "ACT-6: create inngest scheduled function 'weekly-recap' running Sundays 18:00 user-local-time (use user.timezone or UTC)",
+        "Aggregate week's memos + new pages + locations + activity, call qwen with weekly-recap.md prompt",
+        "Save as page (type='synthesis', slug='recap/weekly/YYYY-WNN', status='draft')",
+        "Send web push notification (if device registered) and email digest if user.agent_permissions.auto_send_digest (ACT-8)",
+        "Both ACT-1 and ACT-6 write change_log + activity rows",
+        "Typecheck passes",
+        "Tests pass: ACT-1 assigns correct domain; ACT-6 creates draft recap page"
+      ],
+      "priority": 49,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-050",
+      "title": "Wave 9e: 收尾 — sidebar inbox badge live update via SSE + global SSE auth + smoke test",
+      "description": "As a user, I want sidebar badges and inbox to update in real-time across the app.",
+      "acceptanceCriteria": [
+        "Create /api/stream/global SSE endpoint: emits {type:'inbox_added'|'inbox_resolved'|'compile_done', payload}",
+        "Sidebar component subscribes; badge count increments/decrements live",
+        "Inbox view subscribes; new items appear at top with fade-in",
+        "Home observations subscribes; new card slides in",
+        "Verify SSE auth: invalid session returns 401 immediately; expired session closes connection cleanly",
+        "Run full smoke test: log in, submit a memo, watch (a) compile queue progress (b) new page appear in wiki nav (c) sidebar inbox badge if conflict detected (d) home observation if signal triggered",
+        "Document smoke test as docs/web/SMOKE-TEST.md with steps",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill: run the documented smoke test end-to-end and confirm all 4 reactive updates work"
+      ],
+      "priority": 50,
+      "passes": false,
+      "notes": ""
     }
   ]
 }

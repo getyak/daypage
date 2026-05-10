@@ -1,0 +1,331 @@
+{
+  "project": "DayPage",
+  "branchName": "ralph/today-composer-liquid-refinement",
+  "description": "Today 主页极简优雅重塑 + Composer 3.0 Liquid Composition Surface — 整合 issue #252 + #250: 删 GlassTabBar, AmbientBackground 纯化, Day Orb 收敛, 空数据回退栈, i18n 修复 + L10n.swift, composerState 状态机, Liquid Morph, 5 形态 Adaptive Send, keyboard-attached toolbar, drag handle, 5 级 haptics, Context Spotlight Strip, Smart Templates, Lens Strip, Caret Spotlight, Status Strip",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "i18n 资源彻查：lproj target membership + L10n.swift 强类型枚举",
+      "description": "As a 用户, I want 主页文案显示中文/英文翻译而非原始 key, so that 截图不再出现 'empty.today.no_signals.title' 这类暴露字符串.",
+      "acceptanceCriteria": [
+        "Xcode DayPage target Build Phases Copy Bundle Resources 包含 zh-Hans.lproj 和 en.lproj",
+        "Xcode Project Localizations 启用 Chinese (Simplified) 与 English",
+        "Info.plist 含 CFBundleDevelopmentRegion=zh-Hans 与 CFBundleLocalizations=[zh-Hans, en]",
+        "新增 DayPage/Resources/L10n.swift 提供 L10n.Empty.todayNoSignalsTitle 强类型访问器",
+        "EmptyStateView.todayNoSignals() 改用 L10n.Empty.* 而非裸字面量",
+        "中英文系统语言切换后 hero 下方文案正确变化",
+        "grep -rn 'LocalizedStringKey(\"' DayPage/ 输出为 0 (除 L10n.swift)",
+        "xcodebuild -scheme DayPage -destination 'platform=iOS Simulator,name=iPhone 17' build 通过",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "AmbientBackground 纯化：删 4 团暖色光斑，默认仅 cream 底",
+      "description": "As a 用户, I want 主页背景接近纯色奶油纸感, so that 视觉锚点回到字本身, 不再像 AI 演示稿.",
+      "acceptanceCriteria": [
+        "DayPage/DesignSystem/GlassSurface.swift AmbientBackground 默认仅渲染 DSColor.bgWarm (FAF7F2)",
+        "4 团 amber blob 用 @AppStorage('debug.ambientBlobs') 包起来, 默认 false",
+        "TodayView, DailyPageView, MemoDetailView 显式不传开关, 使用默认纯色行为",
+        "iPhone 17 Simulator 截图与改动前并排饱和度肉眼明显下降",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-003",
+      "title": "Day Orb 收敛：size 140pt + halo opacity 0.15 + orbFill ×0.5",
+      "description": "As a 用户, I want Day Orb 从中央巨大琥珀球变为纸上一枚轻晕, so that serif 日期 'Friday MAY 8' 成为视觉主角.",
+      "acceptanceCriteria": [
+        "DayPage/Features/Today/DayOrbView.swift halo 透明度从 0.4 改为 0.15",
+        "orbFill gradient stops 透明度全部 ×0.5",
+        "DayOrbView 暴露 size: CGFloat = 140 与 haloOpacity: CGFloat = 0.15 参数",
+        "TodayView 调用处显式传 size: 140",
+        "呼吸动画幅度 ×0.7",
+        "iPhone 17 Simulator 截图与改动前并排 orb 明显收敛",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "依赖 US-002 (AmbientBackground 纯化先落地)"
+    },
+    {
+      "id": "US-004",
+      "title": "删除 GlassTabBar，账号头像迁入设置 sheet，右上仅留齿轮",
+      "description": "As a 用户, I want 顶部不再出现 [Today ▾] pill 和琥珀色头像, so that 整页只有 sidebar 一套导航语言, 视觉一致.",
+      "acceptanceCriteria": [
+        "删除 DayPage/Components/GlassTabBar.swift",
+        "从 RootView.swift / TodayView.swift / AppNavigationModel.swift 中移除所有 GlassTabBar / AppTab 引用",
+        "TodayView 顶部账号头像 (36pt 实心琥珀圆) 移除, 账号入口移到设置 sheet 顶部",
+        "TodayView 顶部右侧仅保留齿轮按钮 (28pt 玻璃圆)",
+        "Archive / Graph 切换通过 sidebar 完成, 回归 path 无歧义",
+        "grep -rn 'GlassTabBar' DayPage/ 输出为 0",
+        "xcodebuild build 通过",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-005",
+      "title": "TodayViewModel 新增 TodayFallback 枚举与 fallbackContent 计算属性",
+      "description": "As a 开发者, I want TodayViewModel 暴露 fallback 内容选择, so that TodayView 在今日 0 memo 时能按优先级渲染存量内容卡.",
+      "acceptanceCriteria": [
+        "TodayViewModel 新增 enum TodayFallback { case yesterdayDailyPage(DailyPage), onThisDay([Memo]), weekRecap(WeekStats), pureEmpty }",
+        "TodayViewModel.fallbackContent: TodayFallback 计算属性按 yesterdayDailyPage > onThisDay > weekRecap > pureEmpty 优先级返回",
+        "优先级硬编码不可配置",
+        "新增 DayPageTests/TodayViewModelTests.swift 覆盖 4 种 fallback 状态",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "依赖 US-001 (i18n 修复, 否则 fallback 文案也会暴露 key)"
+    },
+    {
+      "id": "US-006",
+      "title": "复活 OnThisDayCard 与 WeeklyRecapSection，TodayView 接入 fallback 渲染",
+      "description": "As a 用户, I want 即使今天没记, 主页也能展示昨日 Daily Page / On This Day / 本周回顾中的一张引子卡, so that Today 主页永不空白.",
+      "acceptanceCriteria": [
+        "TodayView 在 memos.isEmpty && !isLoading 时按 viewModel.fallbackContent 渲染对应卡",
+        "yesterdayDailyPage 复用 DailyPageEntryCard",
+        "onThisDay 复用 OnThisDayCard.swift (复活当前禁用引用)",
+        "weekRecap 复活 WeeklyRecapSection.swift 并接入",
+        "pureEmpty 仅显示 hero 下方一句小字 (不再独占整屏)",
+        "三种 fallback 卡点击行为: 昨日卡进入 DailyPageView, OnThisDay 进入 MemoDetailView, WeekRecap 进入 ArchiveView 周模式",
+        "原 EmptyStateView.todayNoSignals() 退化为单行小字",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "依赖 US-005 (fallbackContent 计算属性)"
+    },
+    {
+      "id": "US-007",
+      "title": "InputBarV4 引入 ComposerState 状态机替换 userExpandedText",
+      "description": "As a 开发者, I want 用 composerState: .idle / .expanding / .open / .collapsing 替换 userExpandedText: Bool, so that 12 个签名时刻中过渡那一拍能被精确控制.",
+      "acceptanceCriteria": [
+        "InputBarV4.swift 新增 enum ComposerState: Equatable { case idle, expanding, open, collapsing }",
+        "删除 userExpandedText: Bool, 所有引用迁移到 state == .open || state == .expanding",
+        "状态转移函数 transition(to: ComposerState) 集中管理, 每次转移触发对应 haptic 与 animation",
+        "expanding / collapsing 持续时间 = .spring(response: 0.42, dampingFraction: 0.78)",
+        ".expanding / .collapsing 期间禁止接受新的状态切换 (防抖)",
+        "新增 DayPageTests/ComposerStateMachineTests.swift 覆盖所有合法/非法转移",
+        "xcodebuild build 通过",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "Liquid Morph: idle 玻璃胶囊 matchedGeometryEffect 生长成 composition card",
+      "description": "As a 用户, I want 从 idle 三槽胶囊到 composing 卡片看到形态延续而非两个 view 切换, so that 切换有仪式感.",
+      "acceptanceCriteria": [
+        "用 matchedGeometryEffect(id: 'composer.surface', in: namespace) 把 idle 胶囊 morph 成 composing 圆角矩形",
+        "麦克风 orb 不消失: 64x64 缩到 28x28 并左移到卡片左下角作为切回语音入口",
+        "Aa 按钮淡出 = TextField caret 淡入 (同位置交叉淡入 200ms)",
+        "整段动画 .spring(response: 0.42, dampingFraction: 0.78)",
+        "动画起点触发 UIImpactFeedbackGenerator(.soft)",
+        "录屏验证任意一帧截图取出来形状都能解释从哪来",
+        "Reduced Motion 开启时降级为简单 fade (0.2s)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "依赖 US-007 (ComposerState 状态机)"
+    },
+    {
+      "id": "US-009",
+      "title": "Adaptive Send Affordance：发送按钮 5 形态 (空/文本/文本+图/位置/多模态)",
+      "description": "As a 用户, I want 发送按钮根据 draft 形态变形, so that 我能从图形上读出现在发送会做什么.",
+      "acceptanceCriteria": [
+        "空态: 浅色 mic.fill 圆环 (柔光呼吸 1.6s/cycle), accessibilityLabel='按住说'",
+        "仅文本态: 实心琥珀 arrow.up, accessibilityLabel='发送'",
+        "文本+照片态: camera.fill + arrow.up 复合, accessibilityLabel='记下这一刻'",
+        "仅位置态: mappin.and.arrow.up, accessibilityLabel='标记此处'",
+        "多模态态: 琥珀 ring 带光晕脉动 (1.6s), accessibilityLabel='发送 N 项'",
+        "空态明确不再用 18% 透明琥珀圆",
+        "形态切换 .spring(response: 0.32, dampingFraction: 0.8)",
+        "VoiceOver 朗读对应 label",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "依赖 US-007 (ComposerState 状态机)"
+    },
+    {
+      "id": "US-010",
+      "title": "Composer 工具栏迁移到 keyboard-attached (.toolbar placement: .keyboard)",
+      "description": "As a 用户, I want 工具栏跟键盘一起浮起, so that 不再形成键盘+工具栏双层堆叠.",
+      "acceptanceCriteria": [
+        "工具栏迁移到 .toolbar { ToolbarItemGroup(placement: .keyboard) { ... } }",
+        "卡片本体停在画面中段, 下方可见 timeline (带 vignette 渐隐遮罩)",
+        "键盘收起时工具栏跟随消失, 无残留高度占位",
+        "iPad 横屏键盘工具栏不溢出",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "依赖 US-007"
+    },
+    {
+      "id": "US-011",
+      "title": "Drag-to-Collapse Handle: 卡片顶 36x4 capsule 上滑收起",
+      "description": "As a 用户, I want 卡片顶边一个 36x4 capsule handle 上滑可收起, so that 与 iOS sheet 语言一致.",
+      "acceptanceCriteria": [
+        "卡片顶部居中 36x4 灰色 capsule",
+        "上滑距离 > 32pt 触发 transition(to: .collapsing) 然后回 .idle",
+        "单击 handle 等价上滑 (accessibility)",
+        "折叠动画与 morph 反向播放",
+        "折叠触发 .medium impact",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "依赖 US-007 + US-008"
+    },
+    {
+      "id": "US-012",
+      "title": "Haptics.swift 扩展 5 级触感阶梯并接入 Composer 流程",
+      "description": "As a 用户, I want 不同动作触发不同强度的触感, so that Composer 有材质感.",
+      "acceptanceCriteria": [
+        "DayPage/DesignSystem/Haptics.swift 暴露 5 级 API: .soft / .rigid(intensity:) / .medium / .light / .success / .warning",
+        "点 dock 任意键触发 .soft impact",
+        "Caret 首次出现 0.15s 延迟后触发 .rigid 0.3 强度",
+        "添加附件触发 .medium",
+        "删除附件触发 .light",
+        "发送成功触发 .success notification",
+        "录音太短/错误触发 .warning notification",
+        "至少 4 级在 Composer 流程中被实际触发",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "可并行于 US-007 ~ US-011"
+    },
+    {
+      "id": "US-013",
+      "title": "ComposerContextProvider 服务：聚合 Weather/Location/lastMemo/Pasteboard",
+      "description": "As a 开发者, I want 一个 ComposerContextProvider 聚合所有上下文源, so that Spotlight Strip 能拿到统一的 chip 数据.",
+      "acceptanceCriteria": [
+        "新增 DayPage/Services/ComposerContextProvider.swift @MainActor final class",
+        "整合 WeatherService / LocationService / viewModel.memos.last / UIPasteboard.general",
+        "暴露 var chips: [ContextChip] 计算属性",
+        "ContextChip 类型: .weather(temp, condition) / .location(short) / .timeRitual(emoji, text) / .lastMemoTail(snippet) / .smartPaste(value)",
+        "lastMemoTail 计算缓存 60s 避免重复读 vault",
+        "新增 DayPageTests/ComposerContextProviderTests.swift",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Context Spotlight Strip: TextField 上方横向 chip 带",
+      "description": "As a 用户, I want TextField 上方一条横向 chip 带显示天气/位置/上一条尾巴/智能粘贴, so that 空 Composer 也有现在写什么的引子.",
+      "acceptanceCriteria": [
+        "Spotlight Strip 横向滚动, 每个 chip 28pt 高, 玻璃材质",
+        "数据源走 ComposerContextProvider.chips",
+        "点击 chip 对应内容塞入 draft (位置塞 Memo.Location, 时间塞 prompt, 上一条尾巴塞引用块, 剪贴板塞文本)",
+        "触摸软触感 .soft 0.4",
+        "空 Composer 至少 3 条 chip",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "依赖 US-013"
+    },
+    {
+      "id": "US-015",
+      "title": "Smart Templates: 12 条时段模板 hardcode",
+      "description": "As a 用户, I want 空 Composer 显示 1 行时段模板, so that 我能一键得到今天怎么写的引子.",
+      "acceptanceCriteria": [
+        "12 条 hardcode 模板按时段映射: 06-11 晨/今天/醒来; 11-17 刚才/中午/想法; 17-22 最某刻/总结/明天; 22-06 回看/未完/梦",
+        "仅在 text.isEmpty && pendingAttachments.isEmpty 时显示",
+        "点击 模板文字塞入 TextField, placeholder 高亮 (.foregroundStyle(.secondary))",
+        "caret 定位到 placeholder 起点",
+        "用户开始打字后 placeholder 消失",
+        "不引入配置文件 / 设置项",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Inline Lens Strip: 最近 4 张照片缩略图 (懒加载相册权限)",
+      "description": "As a 用户, I want TextField 下方一条 56x56 圆角缩略图带, so that 我能一键附加最近 24h 内的照片, 无需跳 PhotosPicker.",
+      "acceptanceCriteria": [
+        "第一次展开 Composer 时 prompt PHPhotoLibrary.requestAuthorization(for: .readWrite)",
+        "拒绝权限后 Strip 隐藏, 不再 prompt (用 @AppStorage('composer.photoPermissionAsked') 标记)",
+        "显示最近 24h 内 4 张缩略图, 按时间倒序",
+        "点击缩略图 直接附加到 pendingAttachments, 不跳 sheet",
+        "缩略图加载用 PHCachingImageManager 避免卡顿, 分辨率 <= 168x168",
+        "无最近照片时 Strip 隐藏 (不显示空态)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Caret Spotlight + Ambient Dim: focus 时背景暗 20%, 卡背 RadialGradient",
+      "description": "As a 用户, I want focus 时背景变暗 20% 同时卡片背后泛起暖白射灯, so that 写作仪式感拉满.",
+      "acceptanceCriteria": [
+        "focus 进入时 AmbientBackground 整体透明度 0.8",
+        "Composer 卡片背后 RadialGradient (中心 caret 位置, 半径 240pt, 暖白 0.12 opacity)",
+        "现有 BreathingCaretView 保留并接入",
+        "focus 退出反向动画 0.4s",
+        "Reduced Motion 开启时禁用 dim, 仅静态对比",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "依赖 US-002 (AmbientBackground 已纯化)"
+    },
+    {
+      "id": "US-018",
+      "title": "Status Strip: 卡片顶 12pt mono 行 DRAFTING · N PHOTOS · LOC · age",
+      "description": "As a 用户, I want 卡片顶部一行 12pt mono 显示状态副标, so that 我能看到 Composer 的实时状态.",
+      "acceptanceCriteria": [
+        "字段顺序: <state> · <attachment count> · <location short> · <draft age>",
+        "状态枚举: DRAFTING / SENDING / SENT / ERROR",
+        "发送成功 1.2s 内显示 SENT 然后整个 Composer 折叠回 idle dock",
+        "字体 JetBrains Mono 12pt (已注册)",
+        "XXLarge+ Dynamic Type 时省略 location 字段",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "依赖 US-007 (state) + US-013 (location 来源)"
+    }
+  ]
+}

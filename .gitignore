@@ -172,9 +172,38 @@ Icon
 crash.log
 
 # -----------------------------------------------------------------------------
-# Node（如果未来加 JS 工具链如 swift-format 通过 npm 装）
+# Node / pnpm / Next.js / Web 端构建产物
 # -----------------------------------------------------------------------------
 node_modules/
+.pnpm-store/
+.pnpm-debug.log*
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+
+# Turbopack / Turborepo
+.turbo/
+
+# Drizzle
+drizzle/meta/
+
+# Supabase 本地（数据库快照不入仓，但 migrations/seed/config 入仓）
+web/supabase/.branches/
+web/supabase/.temp/
+supabase/.branches/
+supabase/.temp/
+
+# 测试 / 覆盖率
+coverage/
+.nyc_output/
+
+# Vercel
+.vercel/
+
+# TypeScript 增量构建
+*.tsbuildinfo
 
 # -----------------------------------------------------------------------------
 # Python（scripts/ 下的辅助脚本，例如 update_testflight_changelog.py）

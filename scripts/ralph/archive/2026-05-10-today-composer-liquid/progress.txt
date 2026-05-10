@@ -1,0 +1,47 @@
+# Ralph Progress Log
+Started: Fri May  8 12:55:00 UTC 2026
+Branch: ralph/today-composer-liquid-refinement
+PRD: tasks/prd-today-composer-liquid-refinement.md
+Issues: getyak/daypage#252 (Today 主页极简) + #250 (Composer 3.0 Liquid Composition)
+---
+
+## Codebase Patterns
+
+### 沿用 v4 Liquid Glass 的既有模式
+- Motion tokens live in DayPage/DesignSystem/Motion.swift; always use Motion.fade/rise/slide/spring instead of raw animation values
+- Haptics tokens live in DayPage/DesignSystem/Haptics.swift; use Haptics.tapConfirm/commit/warn/success instead of UIImpactFeedbackGenerator directly
+- Glass surfaces in DayPage/DesignSystem/Surfaces.swift; use .liquidGlassCard/.liquidGlassPill/.liquidGlassPanel modifiers
+- DSFonts.serif(size:weight:italic:) returns cascading Latin→CJK font; never use DSFonts.newYork (deprecated)
+- CJKTextPolish.polish() is render-only; never apply before persisting to vault/raw/
+- NavigationStack with navigationDestination(for: Memo.ID.self) in TodayView drives all memo detail navigation
+- SwipeableMemoCard uses NavigationLink(value: memo.id) + .disabled(revealedSide != nil) to prevent push when swiped
+- GlassErrorBanner managed by ErrorBannerManager singleton; post via ErrorBannerManager.shared.post(...)
+- EmptyStateView has factory methods: .todayBlank(), .todayNoSignals(), .compileLocked(currentCount:), .archiveDayEmpty(), .micPermissionDenied()
+- DayOrbView lives in DayPage/Features/Today/DayOrbView.swift; takes signalCount: Int, size: CGFloat = 140, haloOpacity: CGFloat = 0.15
+- DailyPageMemoVM: lightweight MemoDetailViewModel for archive dates; follows same rewrite() pattern as TodayViewModel
+- MemoDetailView accepts `any MemoDetailViewModel` (protocol); both TodayViewModel and DailyPageMemoVM conform
+
+### 本轮新增的硬性规则
+- 删除文件前必须 `grep -rn '<SymbolName>' DayPage/` 确认无残留引用
+- 修改 i18n key 必须同时更新 zh-Hans.lproj 和 en.lproj 两份
+- 状态机转移函数禁止抛错；非法转移用 assert + log 兜底
+- 所有 Composer 动画必须支持 Reduced Motion 降级（fade-only 0.2s）
+- iPhone 17 Simulator 是默认验证机型；任何 UI 改动必须 `xcodebuild -destination 'platform=iOS Simulator,name=iPhone 17' build` 通过
+
+---
+[2026-05-08T06:43:53Z] Story #US-001: i18n 资源彻查：lproj target membership + L10n.swift 强类型枚举 — PASSED
+[2026-05-08T06:44:37Z] Story #US-002: AmbientBackground 纯化：删 4 团暖色光斑，默认仅 cream 底 — PASSED
+[2026-05-08T07:10:00Z] Story #US-003: Day Orb 收敛：size 140pt + halo opacity 0.15 + orbFill ×0.5 — PASSED
+[2026-05-08T06:45:47Z] Story #US-003: Day Orb 收敛：size 140pt + halo opacity 0.15 + orbFill ×0.5 — PASSED
+[2026-05-08T06:47:37Z] Story #US-004: 删除 GlassTabBar，账号头像迁入设置 sheet，右上仅留齿轮 — PASSED
+[2026-05-08T06:50:13Z] Story #US-005: TodayViewModel 新增 TodayFallback 枚举与 fallbackContent 计算属性 — PASSED
+[2026-05-08T06:53:35Z] Story #US-006: 复活 OnThisDayCard 与 WeeklyRecapSection，TodayView 接入 fallback 渲染 — PASSED
+[2026-05-08T06:55:59Z] Story #US-007: InputBarV4 引入 ComposerState 状态机替换 userExpandedText — PASSED
+[2026-05-08T06:59:54Z] Story #US-008: Liquid Morph: idle 玻璃胶囊 matchedGeometryEffect 生长成 composition card — PASSED
+[2026-05-08T07:04:02Z] Story #US-009: Adaptive Send Affordance：发送按钮 5 形态 (空/文本/文本+图/位置/多模态) — PASSED
+[2026-05-08T07:08:55Z] Story #US-010: Composer 工具栏迁移到 keyboard-attached (.toolbar placement: .keyboard) — PASSED
+[2026-05-08T07:11:56Z] Story #US-011: Drag-to-Collapse Handle: 卡片顶 36x4 capsule 上滑收起 — PASSED
+[2026-05-08T07:14:13Z] Story #US-012: Haptics.swift 扩展 5 级触感阶梯并接入 Composer 流程 — PASSED
+[2026-05-08T07:17:14Z] Story #US-013: ComposerContextProvider 服务：聚合 Weather/Location/lastMemo/Pasteboard — PASSED
+[2026-05-08T07:20:22Z] Story #US-014: Context Spotlight Strip: TextField 上方横向 chip 带 — PASSED
+[2026-05-08T07:23:05Z] Story #US-015: Smart Templates: 12 条时段模板 hardcode — PASSED
