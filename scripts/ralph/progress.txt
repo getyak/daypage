@@ -100,3 +100,4 @@ Stories: 50
 [2026-05-10T12:50:34Z] Story #US-024: Wave 4g: Compile step FULL 模式 (recall + patch existing pages or create new concept) — PASSED
 [2026-05-10T12:52:34Z] Story #US-025: Wave 4h: SSE 进度推送 /api/stream/compile — PASSED
 [2026-05-10T12:55:49Z] Story #US-026: Wave 4i: Add view Compile Queue 实时进度 UI — PASSED
+[2026-05-10T12:59:58Z] Story #US-027: Wave 4j: LIGHT/FULL chip 切换 + Recently Compiled 列表 — PASSED

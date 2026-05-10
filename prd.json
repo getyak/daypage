@@ -480,7 +480,7 @@
         "Verify in browser using dev-browser skill: submit memo, after compile completes, see it in Recently compiled; click LIGHT chip to switch and observe re-compile"
       ],
       "priority": 27,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
