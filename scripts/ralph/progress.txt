@@ -57,3 +57,4 @@ Stories: 50
   - No external CSS files needed — tokens live entirely in globals.css via CSS custom properties
 ---
 [2026-05-10T12:20:00Z] Story #US-003: Wave 0c: 设计 token 系统 (globals.css + Tailwind 4 @theme) — PASSED
+[2026-05-10T11:55:46Z] Story #US-003: Wave 0c: 设计 token 系统 (globals.css + Tailwind 4 @theme) — PASSED
