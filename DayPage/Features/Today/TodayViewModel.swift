@@ -641,10 +641,14 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         submitMemoTask = Task {
             defer { isSubmitting = false }
 
-            let weatherString = await weatherService.currentWeather(at: loc)
-
-            // Derive location from first photo EXIF if no pending location
+            // Auto-fetch location for every memo when not already set by the user.
+            // Falls back silently on denial or timeout — location is best-effort metadata.
             var memoLocation: Memo.Location? = loc
+            if memoLocation == nil {
+                memoLocation = try? await locationService.currentLocation(timeout: 3)
+            }
+
+            // Derive location from first photo EXIF when GPS is still missing
             if memoLocation == nil {
                 for att in snapshotAttachments {
                     if case .photo(let r) = att,
@@ -655,6 +659,8 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                     }
                 }
             }
+
+            let weatherString = await weatherService.currentWeather(at: memoLocation)
 
             // Determine created date: prefer first photo EXIF date when text is absent
             var created = Date()
