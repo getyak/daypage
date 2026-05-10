@@ -373,7 +373,7 @@
         "Verify: submit a memo via Add page, observe inngest dev dashboard at http://localhost:8288 shows function ran, memo compile_status updated to 'done'"
       ],
       "priority": 21,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

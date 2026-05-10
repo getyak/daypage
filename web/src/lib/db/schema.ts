@@ -11,8 +11,26 @@ import {
   index,
   unique,
   primaryKey,
+  customType,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+
+// vector(1536) stored as text until pgvector migration lands
+const vectorText = customType<{ data: number[]; driverData: string }>({
+  dataType() {
+    return "text";
+  },
+  toDriver(val: number[]): string {
+    return JSON.stringify(val);
+  },
+  fromDriver(val: string): number[] {
+    try {
+      return JSON.parse(val) as number[];
+    } catch {
+      return [];
+    }
+  },
+});
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
@@ -93,6 +111,8 @@ export const memos = pgTable(
       .default("pending"),
     origin: originEnum("origin").notNull().default("web"),
     vault_path: text("vault_path"),
+    compile_error: text("compile_error"),
+    embedding: text("embedding"), // JSON-encoded number[] — pgvector vector(1536) pending migration
     updated_at: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow()
@@ -376,6 +396,20 @@ export const prompt_log = pgTable("prompt_log", {
     .notNull()
     .defaultNow(),
 });
+
+// ─── US-022: Wave 4e — embed_cache (hash → embedding, 7-day TTL) ─────────────
+
+export const embed_cache = pgTable("embed_cache", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  body_hash: text("body_hash").notNull().unique(),
+  embedding: text("embedding").notNull(), // JSON-encoded number[]
+  created_at: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export type EmbedCache = typeof embed_cache.$inferSelect;
+export type NewEmbedCache = typeof embed_cache.$inferInsert;
 
 // ─── Re-export helper types ────────────────────────────────────────────────────
 
