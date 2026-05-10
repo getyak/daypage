@@ -229,7 +229,7 @@
         "Tests pass: covering upsert, idempotency, scope, max-100 limit"
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
