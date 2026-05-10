@@ -539,7 +539,7 @@
         "Verify in browser using dev-browser skill: insert a test page via SQL, navigate to /wiki/<slug>, confirm renders"
       ],
       "priority": 30,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db/client";
-import { pages, users, page_sources, page_links, memos, domains } from "@/lib/db/schema";
+import { pages, users, page_sources, page_links, memos, domains, annotations } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import ReactMarkdown from "react-markdown";
@@ -9,6 +9,7 @@ import rehypeSanitize from "rehype-sanitize";
 import Link from "next/link";
 import { WikiNav, type WikiPage } from "../WikiNav";
 import { asc } from "drizzle-orm";
+import AnnotationLayer, { type Annotation } from "./AnnotationLayer";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -189,6 +190,23 @@ async function fetchBacklinks(userId: string, pageId: string): Promise<BacklinkR
   }
 }
 
+async function fetchAnnotations(userId: string, pageId: string): Promise<Annotation[]> {
+  try {
+    const rows = await db
+      .select()
+      .from(annotations)
+      .where(and(eq(annotations.page_id, pageId), eq(annotations.user_id, userId)))
+      .orderBy(asc(annotations.created_at));
+    return rows.map((r) => ({
+      ...r,
+      anchor: r.anchor as Annotation["anchor"],
+      created_at: r.created_at.toISOString(),
+    }));
+  } catch {
+    return [];
+  }
+}
+
 async function fetchNavPages(userId: string): Promise<WikiPage[]> {
   try {
     const rows = await db
@@ -281,9 +299,10 @@ export default async function WikiSlugPage({ params }: Props) {
     );
   }
 
-  const [sources, backlinks] = await Promise.all([
+  const [sources, backlinks, pageAnnotations] = await Promise.all([
     fetchSources(userId, page.id),
     fetchBacklinks(userId, page.id),
+    fetchAnnotations(userId, page.id),
   ]);
 
   const typeStyle = TYPE_COLORS[page.type] ?? TYPE_COLORS.concept;
@@ -391,13 +410,13 @@ export default async function WikiSlugPage({ params }: Props) {
 
             {/* Actions pushed right */}
             <div style={{ marginLeft: "auto", display: "flex", gap: "0.5rem" }}>
-              <button
+              <span
                 className="btn btn--ghost btn--sm"
-                title="Annotate (coming soon)"
-                disabled
+                title="Select text in the body to annotate"
+                style={{ cursor: "default", opacity: 0.6, fontSize: "0.75rem" }}
               >
-                Annotate
-              </button>
+                Select text to annotate
+              </span>
               <button
                 className="btn btn--soft btn--sm"
                 title="Ask about this page (coming soon)"
