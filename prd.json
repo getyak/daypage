@@ -650,7 +650,7 @@
         "Tests pass: create + list + scope isolation"
       ],
       "priority": 36,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
