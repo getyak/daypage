@@ -17,3 +17,21 @@ Stories: 50
   - .gitignore already has node_modules/, .next/, .pnpm-store/, supabase/.branches/, supabase/.temp/ etc.
   - No existing root package.json was present — created fresh
 ---
+[2026-05-10T11:51:10Z] Story #US-001: Wave 0a: Monorepo 基础设施 (pnpm workspace + 根 package.json) — PASSED
+
+## 2026-05-10 - US-002
+- Ran `pnpm create next-app@latest web --typescript --tailwind --app --src-dir --use-pnpm --eslint --turbopack --import-alias '@/*' --skip-install --yes` → created web/ directory with Next.js 16.2.6
+- Renamed web/package.json `name` from 'web' to 'daypage-web'
+- Deleted web/pnpm-workspace.yaml (inherits from root)
+- Added `typecheck` script (`tsc --noEmit`) to web/package.json
+- Ran `pnpm install` from repo root — succeeded (351 packages added)
+- Ran `pnpm web:typecheck` — passes
+- Verified dev server: `pnpm web:dev` serves HTTP 200 at localhost:3000
+- Files changed: `web/` (new Next.js scaffold), `prd.json`
+- **Learnings for future iterations:**
+  - `pnpm create next-app` with `--skip-install` is needed since pnpm install is done from root
+  - `pnpm approve-builds --all` is needed to allow sharp and unrs-resolver postinstall scripts
+  - Next.js 16 uses App Router by default with `--app` flag; src/ dir with `--src-dir`
+  - web/AGENTS.md already exists (saying "This is NOT the Next.js you know — read node_modules/next/dist/docs/")
+---
+[2026-05-10T12:05:00Z] Story #US-002: Wave 0b: Next.js 16 脚手架 (web/ 目录) — PASSED
