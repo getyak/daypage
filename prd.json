@@ -499,7 +499,7 @@
         "Verify in browser using dev-browser skill: navigate to /wiki, see empty groups + search bar"
       ],
       "priority": 28,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
