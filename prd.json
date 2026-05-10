@@ -100,7 +100,7 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -117,8 +117,8 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "All US-006 + US-007 tables defined in schema.ts (schema.ts was empty after US-006 commit); migration generated at drizzle/migrations/0000_unique_true_believers.sql; embedding stored as text pending pgvector migration (US-022); typecheck passes; db:migrate skipped (Docker not running)"
     },
     {
       "id": "US-008",

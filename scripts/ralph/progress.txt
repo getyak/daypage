@@ -60,3 +60,4 @@ Stories: 50
 [2026-05-10T11:55:46Z] Story #US-003: Wave 0c: 设计 token 系统 (globals.css + Tailwind 4 @theme) — PASSED
 [2026-05-10T11:58:10Z] Story #US-004: Wave 0d: Supabase 本地 Docker 初始化 — PASSED
 [2026-05-10T11:59:52Z] Story #US-005: Wave 1a: Drizzle ORM 接入 + 配置文件 — PASSED
+[2026-05-10T12:01:39Z] Story #US-006: Wave 1b: Drizzle schema 第一批 (users + memos + memo_attachments) — PASSED
