@@ -247,7 +247,7 @@
         "Tests pass: signing returns valid Supabase URL; finalize creates row"
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -265,7 +265,7 @@
         "Tests pass: each endpoint returns 200 with empty data for fresh user, 401 without session"
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
