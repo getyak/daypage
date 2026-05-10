@@ -856,7 +856,7 @@
         "Tests pass: seed change_log entries, undo a page update, verify before state restored"
       ],
       "priority": 47,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
