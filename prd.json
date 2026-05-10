@@ -670,7 +670,7 @@
         "Tests pass: mock qwen stream, verify SSE events flow + citations parsed correctly"
       ],
       "priority": 37,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
