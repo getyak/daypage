@@ -83,3 +83,4 @@ Stories: 50
   - db:generate works without a running database — it only reads schema.ts
 ---
 [2026-05-10T12:30:00Z] Story #US-008: Wave 1d: Drizzle schema 第三批 (annotations + chat_threads + chat_messages + inbox_items + activities + devices + sync_state) — PASSED
+[2026-05-10T12:05:53Z] Story #US-008: Wave 1d: Drizzle schema 第三批 (annotations + chat_threads + chat_messages + inbox_items + activities + devices + sync_state) — PASSED
