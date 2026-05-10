@@ -7,6 +7,7 @@ import {
   page_sources,
   page_links,
   change_log,
+  inbox_items,
 } from "@/lib/db/schema";
 import { eq, and, gte, ne, sql } from "drizzle-orm";
 import { dashscope } from "@/lib/ai/dashscope";
@@ -21,12 +22,17 @@ const FULL_RECALL_TOP_K = 8;
 // Load prompt templates once at module level
 const COMPILE_LIGHT_PROMPT = fs.readFileSync(
   path.join(process.cwd(), "src/lib/ai/prompts/compile-light.md"),
-  "utf-8"
+  "utf-8",
 );
 
 const COMPILE_FULL_PROMPT = fs.readFileSync(
   path.join(process.cwd(), "src/lib/ai/prompts/compile-full.md"),
-  "utf-8"
+  "utf-8",
+);
+
+const CONFLICT_CHECK_PROMPT = fs.readFileSync(
+  path.join(process.cwd(), "src/lib/ai/prompts/conflict-check.md"),
+  "utf-8",
 );
 
 // ─── LIGHT mode types ─────────────────────────────────────────────────────────
@@ -120,13 +126,13 @@ function buildFullPrompt(memoBody: string, recalled: RecalledPage[]): string {
       : recalled
           .map(
             (p, i) =>
-              `[${i + 1}] id=${p.id} slug=${p.slug} type=${p.type}\nTitle: ${p.title}\n---\n${p.body_md ?? "(empty)"}`
+              `[${i + 1}] id=${p.id} slug=${p.slug} type=${p.type}\nTitle: ${p.title}\n---\n${p.body_md ?? "(empty)"}`,
           )
           .join("\n\n");
 
   return COMPILE_FULL_PROMPT.replace("{{MEMO_BODY}}", memoBody).replace(
     "{{RETRIEVED_PAGES}}",
-    pagesSection
+    pagesSection,
   );
 }
 
@@ -158,6 +164,55 @@ function cosineSim(a: number[], b: number[]): number {
   }
   const denom = Math.sqrt(normA) * Math.sqrt(normB);
   return denom === 0 ? 0 : dot / denom;
+}
+
+// ─── Conflict check types ─────────────────────────────────────────────────────
+
+type ConflictItem = {
+  page_id: string;
+  old_text: string;
+  new_text: string;
+  summary: string;
+};
+
+type ConflictCheckResult = {
+  conflicts: ConflictItem[];
+};
+
+function buildConflictPrompt(
+  memoBody: string,
+  top3Pages: RecalledPage[],
+): string {
+  const pagesSection =
+    top3Pages.length === 0
+      ? "(none)"
+      : top3Pages
+          .map(
+            (p) =>
+              `id=${p.id} slug=${p.slug}\nTitle: ${p.title}\n---\n${p.body_md ?? "(empty)"}`,
+          )
+          .join("\n\n");
+
+  return CONFLICT_CHECK_PROMPT.replace("{{MEMO_BODY}}", memoBody).replace(
+    "{{TOP_PAGES}}",
+    pagesSection,
+  );
+}
+
+function parseConflictResult(raw: string): ConflictCheckResult {
+  const stripped = raw
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/```\s*$/i, "")
+    .trim();
+
+  const parsed = JSON.parse(stripped) as Record<string, unknown>;
+
+  if (!Array.isArray(parsed.conflicts)) {
+    throw new Error("Missing conflicts array in conflict-check result");
+  }
+
+  return { conflicts: parsed.conflicts as ConflictItem[] };
 }
 
 // ─── Slug helpers ─────────────────────────────────────────────────────────────
@@ -213,7 +268,7 @@ export const compileMemo = inngest.createFunction(
       try {
         const bodyHash = hashText(memo.body);
         const cacheCutoff = new Date(
-          Date.now() - EMBED_CACHE_TTL_DAYS * 24 * 60 * 60 * 1000
+          Date.now() - EMBED_CACHE_TTL_DAYS * 24 * 60 * 60 * 1000,
         );
 
         const [cached] = await db
@@ -222,8 +277,8 @@ export const compileMemo = inngest.createFunction(
           .where(
             and(
               eq(embed_cache.body_hash, bodyHash),
-              gte(embed_cache.created_at, cacheCutoff)
-            )
+              gte(embed_cache.created_at, cacheCutoff),
+            ),
           )
           .limit(1);
 
@@ -243,10 +298,16 @@ export const compileMemo = inngest.createFunction(
 
           await db
             .insert(embed_cache)
-            .values({ body_hash: bodyHash, embedding: JSON.stringify(embedding) })
+            .values({
+              body_hash: bodyHash,
+              embedding: JSON.stringify(embedding),
+            })
             .onConflictDoUpdate({
               target: embed_cache.body_hash,
-              set: { embedding: JSON.stringify(embedding), created_at: new Date() },
+              set: {
+                embedding: JSON.stringify(embedding),
+                created_at: new Date(),
+              },
             });
         }
 
@@ -316,8 +377,8 @@ export const compileMemo = inngest.createFunction(
           and(
             eq(pages.user_id, memo.user_id),
             ne(pages.status, "archived"),
-            sql`${pages.embedding} IS NOT NULL`
-          )
+            sql`${pages.embedding} IS NOT NULL`,
+          ),
         );
 
       // Score and rank
@@ -336,7 +397,7 @@ export const compileMemo = inngest.createFunction(
         .slice(0, FULL_RECALL_TOP_K);
 
       console.log(
-        `[compile-memo] recall: found ${scored.length} candidate pages`
+        `[compile-memo] recall: found ${scored.length} candidate pages`,
       );
 
       return scored.map(({ id, slug, title, type, body_md, embedding }) => ({
@@ -347,6 +408,102 @@ export const compileMemo = inngest.createFunction(
         body_md,
         embedding,
       })) as RecalledPage[];
+    });
+
+    // ── conflict-check ────────────────────────────────────────────────────────
+    // For FULL mode only: check for factual contradictions between the new memo
+    // and the top-3 recalled pages. Detected conflicts are written to inbox_items.
+    await step.run("conflict-check", async () => {
+      if (recalledPages.length === 0) {
+        console.log(
+          `[compile-memo] conflict-check: skipping (no recalled pages)`,
+        );
+        return;
+      }
+
+      const [memo] = await db
+        .select({
+          body: memos.body,
+          user_id: memos.user_id,
+          ingest_mode: memos.ingest_mode,
+        })
+        .from(memos)
+        .where(eq(memos.id, memo_id))
+        .limit(1);
+
+      if (!memo || memo.ingest_mode !== "full" || !memo.body.trim()) {
+        console.log(
+          `[compile-memo] conflict-check: skipping (not FULL mode or empty body)`,
+        );
+        return;
+      }
+
+      const top3 = recalledPages.slice(0, 3);
+      const promptContent = buildConflictPrompt(memo.body, top3);
+
+      let conflictResult: ConflictCheckResult;
+      try {
+        const res = await dashscope.chat(
+          [
+            {
+              role: "system",
+              content:
+                "You are a factual consistency auditor. Respond with valid JSON only.",
+            },
+            { role: "user", content: promptContent },
+          ],
+          { jsonMode: true, temperature: 0.1, maxTokens: 512 },
+        );
+        conflictResult = parseConflictResult(res.content);
+      } catch (err: unknown) {
+        // Non-fatal: log and continue — conflict detection failure does not block compilation
+        console.warn(
+          `[compile-memo] conflict-check: error (non-fatal) — ${String(err)}`,
+        );
+        return;
+      }
+
+      if (conflictResult.conflicts.length === 0) {
+        console.log(`[compile-memo] conflict-check: no conflicts found`);
+        return;
+      }
+
+      console.log(
+        `[compile-memo] conflict-check: ${conflictResult.conflicts.length} conflict(s) detected`,
+      );
+
+      for (const conflict of conflictResult.conflicts) {
+        // Validate that the page_id is one of the recalled pages to avoid hallucinations
+        const matchedPage = top3.find((p) => p.id === conflict.page_id);
+        if (!matchedPage) {
+          console.warn(
+            `[compile-memo] conflict-check: unknown page_id ${conflict.page_id}, skipping`,
+          );
+          continue;
+        }
+
+        const title = `Two takes on: ${conflict.summary.slice(0, 80)}`;
+
+        await db.insert(inbox_items).values({
+          user_id: memo.user_id,
+          kind: "contradiction",
+          title,
+          body: conflict.summary,
+          payload: {
+            old_text: conflict.old_text,
+            new_text: conflict.new_text,
+            page_id: conflict.page_id,
+            page_title: matchedPage.title,
+            page_slug: matchedPage.slug,
+            memo_id,
+          },
+          status: "open",
+        });
+
+        console.log(
+          `[compile-memo] conflict-check: inbox item created for page ${conflict.page_id}`,
+        );
+      }
     });
 
     // ── compile ───────────────────────────────────────────────────────────────
@@ -384,7 +541,7 @@ export const compileMemo = inngest.createFunction(
               { role: "system", content: systemPrompt },
               { role: "user", content: promptContent },
             ],
-            { jsonMode: true, temperature: 0.3, maxTokens: 512 }
+            { jsonMode: true, temperature: 0.3, maxTokens: 512 },
           );
           raw = res.content;
         } catch (err: unknown) {
@@ -405,7 +562,7 @@ export const compileMemo = inngest.createFunction(
           lightResult = parseLightResult(raw);
         } catch {
           console.warn(
-            `[compile-memo] compile: invalid JSON on first attempt, retrying`
+            `[compile-memo] compile: invalid JSON on first attempt, retrying`,
           );
           const stricterPrompt = `${promptContent}\n\nIMPORTANT: Return ONLY the JSON object. No explanation. No markdown. No code fences.`;
           let raw2: string;
@@ -415,7 +572,7 @@ export const compileMemo = inngest.createFunction(
                 { role: "system", content: systemPrompt },
                 { role: "user", content: stricterPrompt },
               ],
-              { jsonMode: true, temperature: 0.1, maxTokens: 512 }
+              { jsonMode: true, temperature: 0.1, maxTokens: 512 },
             );
             raw2 = res2.content;
           } catch (err: unknown) {
@@ -460,7 +617,7 @@ export const compileMemo = inngest.createFunction(
             { role: "system", content: systemPrompt },
             { role: "user", content: promptContent },
           ],
-          { jsonMode: true, temperature: 0.3, maxTokens: 2048 }
+          { jsonMode: true, temperature: 0.3, maxTokens: 2048 },
         );
         raw = res.content;
       } catch (err: unknown) {
@@ -489,7 +646,7 @@ export const compileMemo = inngest.createFunction(
               { role: "system", content: systemPrompt },
               { role: "user", content: stricterPrompt },
             ],
-            { jsonMode: true, temperature: 0.1, maxTokens: 2048 }
+            { jsonMode: true, temperature: 0.1, maxTokens: 2048 },
           );
           raw2 = res2.content;
         } catch (err: unknown) {
@@ -536,7 +693,7 @@ export const compileMemo = inngest.createFunction(
             fullResult.operations.some(
               (o) =>
                 (o.op === "create_page" || o.op === "extract_entity") &&
-                o.slug === from
+                o.slug === from,
             );
           const toValid =
             recalledIds.has(to) ||
@@ -544,11 +701,11 @@ export const compileMemo = inngest.createFunction(
             fullResult.operations.some(
               (o) =>
                 (o.op === "create_page" || o.op === "extract_entity") &&
-                o.slug === to
+                o.slug === to,
             );
           if (!fromValid || !toValid) {
             console.warn(
-              `[compile-memo] create_link references unknown page(s): ${from} → ${to}, skipping link`
+              `[compile-memo] create_link references unknown page(s): ${from} → ${to}, skipping link`,
             );
           }
         }
@@ -644,13 +801,19 @@ export const compileMemo = inngest.createFunction(
         if (op.op === "update_page") {
           // Fetch before-state for change_log
           const [before] = await db
-            .select({ title: pages.title, body_md: pages.body_md, status: pages.status })
+            .select({
+              title: pages.title,
+              body_md: pages.body_md,
+              status: pages.status,
+            })
             .from(pages)
             .where(eq(pages.id, op.page_id))
             .limit(1);
 
           if (!before) {
-            console.warn(`[compile-memo] update_page: page ${op.page_id} not found, skipping`);
+            console.warn(
+              `[compile-memo] update_page: page ${op.page_id} not found, skipping`,
+            );
             continue;
           }
 
@@ -735,7 +898,7 @@ export const compileMemo = inngest.createFunction(
 
           if (!fromId || !toId) {
             console.warn(
-              `[compile-memo] create_link: cannot resolve IDs ${op.from_page_id} → ${op.to_page_id}, skipping`
+              `[compile-memo] create_link: cannot resolve IDs ${op.from_page_id} → ${op.to_page_id}, skipping`,
             );
             continue;
           }
@@ -774,7 +937,10 @@ export const compileMemo = inngest.createFunction(
 
       // Update source_count on all recalled pages that were updated
       const updatedPageIds = result.operations
-        .filter((o): o is Extract<FullOperation, { op: "update_page" }> => o.op === "update_page")
+        .filter(
+          (o): o is Extract<FullOperation, { op: "update_page" }> =>
+            o.op === "update_page",
+        )
         .map((o) => o.page_id);
 
       for (const pid of updatedPageIds) {
@@ -797,5 +963,5 @@ export const compileMemo = inngest.createFunction(
     });
 
     return { memo_id, status: "done" };
-  }
+  },
 );

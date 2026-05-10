@@ -707,7 +707,7 @@
         "Tests pass: verify low-score query returns I-don't-know without LLM call"
       ],
       "priority": 39,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -723,7 +723,7 @@
         "Tests pass: seed page with statement, submit memo with contradicting statement, verify inbox_item created"
       ],
       "priority": 40,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
