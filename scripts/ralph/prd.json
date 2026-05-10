@@ -1,11 +1,11 @@
 {
   "project": "DayPage V5 Codex",
   "branchName": "ralph/v5-codex-web",
-  "description": "DayPage V5 终极形态第一阶段：Web (Codex) 骨架 + 后端 API + AI 编译引擎 + Agent 主动行动。覆盖 PRD V5 的 Wave 0-9（Web 端可用 + Agent 可受控行动）。源 PRD: tasks/prd-daypage-v5-codex.md。技术栈: Next.js 16 + TypeScript + Tailwind 4 + Supabase (本地 Docker) + Drizzle 0.45 + Auth.js v5 beta + Inngest + 后端代理 DashScope。",
+  "description": "DayPage V5 \u7ec8\u6781\u5f62\u6001\u7b2c\u4e00\u9636\u6bb5\uff1aWeb (Codex) \u9aa8\u67b6 + \u540e\u7aef API + AI \u7f16\u8bd1\u5f15\u64ce + Agent \u4e3b\u52a8\u884c\u52a8\u3002\u8986\u76d6 PRD V5 \u7684 Wave 0-9\uff08Web \u7aef\u53ef\u7528 + Agent \u53ef\u53d7\u63a7\u884c\u52a8\uff09\u3002\u6e90 PRD: tasks/prd-daypage-v5-codex.md\u3002\u6280\u672f\u6808: Next.js 16 + TypeScript + Tailwind 4 + Supabase (\u672c\u5730 Docker) + Drizzle 0.45 + Auth.js v5 beta + Inngest + \u540e\u7aef\u4ee3\u7406 DashScope\u3002",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Wave 0a: Monorepo 基础设施 (pnpm workspace + 根 package.json)",
+      "title": "Wave 0a: Monorepo \u57fa\u7840\u8bbe\u65bd (pnpm workspace + \u6839 package.json)",
       "description": "As a developer, I need a monorepo skeleton so that web/ and existing iOS code can coexist.",
       "acceptanceCriteria": [
         "Create pnpm-workspace.yaml at repo root listing 'web' and 'packages/*'",
@@ -16,12 +16,12 @@
         "Typecheck passes (no TS files yet so nothing to check)"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-002",
-      "title": "Wave 0b: Next.js 16 脚手架 (web/ 目录)",
+      "title": "Wave 0b: Next.js 16 \u811a\u624b\u67b6 (web/ \u76ee\u5f55)",
       "description": "As a developer, I need Next.js 16 with App Router scaffolded in web/ so we can build the Codex UI.",
       "acceptanceCriteria": [
         "Run `pnpm create next-app@latest web --typescript --tailwind --app --src-dir --use-pnpm --eslint --turbopack --import-alias '@/*' --skip-install --yes`",
@@ -33,15 +33,15 @@
         "Verify in browser using dev-browser skill: `pnpm web:dev` serves http://localhost:3000 and renders default Next page"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-003",
-      "title": "Wave 0c: 设计 token 系统 (globals.css + Tailwind 4 @theme)",
+      "title": "Wave 0c: \u8bbe\u8ba1 token \u7cfb\u7edf (globals.css + Tailwind 4 @theme)",
       "description": "As a developer, I need Codex design tokens loaded as CSS variables so all components can use them.",
       "acceptanceCriteria": [
-        "Recreate Codex tokens.css content in web/src/app/globals.css per PRD V5 §10.3 (warm-archival color tokens, font families, spacing/radius)",
+        "Recreate Codex tokens.css content in web/src/app/globals.css per PRD V5 \u00a710.3 (warm-archival color tokens, font families, spacing/radius)",
         "Use Tailwind 4 @theme directive to expose tokens as utility classes (bg-warm, accent, fg-primary, etc.)",
         "Add font imports for Space Grotesk, Inter, JetBrains Mono via next/font",
         "Set body background to var(--bg-warm) and font-family to Inter",
@@ -50,12 +50,12 @@
         "Verify in browser using dev-browser skill: open / and confirm warm-white background + correct fonts loaded"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-004",
-      "title": "Wave 0d: Supabase 本地 Docker 初始化",
+      "title": "Wave 0d: Supabase \u672c\u5730 Docker \u521d\u59cb\u5316",
       "description": "As a developer, I need a local Supabase instance running so we can develop against real Postgres.",
       "acceptanceCriteria": [
         "Run `supabase init` creating supabase/config.toml at repo root",
@@ -67,12 +67,12 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-005",
-      "title": "Wave 1a: Drizzle ORM 接入 + 配置文件",
+      "title": "Wave 1a: Drizzle ORM \u63a5\u5165 + \u914d\u7f6e\u6587\u4ef6",
       "description": "As a developer, I need Drizzle ORM configured so we can write type-safe DB schema.",
       "acceptanceCriteria": [
         "Install drizzle-orm@0.45 + drizzle-kit + postgres + @types/pg in web/",
@@ -82,16 +82,16 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Wave 1b: Drizzle schema 第一批 (users + memos + memo_attachments)",
+      "title": "Wave 1b: Drizzle schema \u7b2c\u4e00\u6279 (users + memos + memo_attachments)",
       "description": "As a developer, I need the core memo tables defined so iOS can sync data.",
       "acceptanceCriteria": [
         "In web/src/lib/db/schema.ts define `users` table (uuid pk, email unique, apple_sub unique, name, avatar_url, created_at, onboarded_at, settings jsonb)",
-        "Define `memos` table per docs/web/PLAN.md §4 (uuid pk, user_id fk, type enum, body text, created_at, pinned_at, location jsonb, weather, device, source_url, ingest_mode, compile_status, origin, vault_path, updated_at)",
+        "Define `memos` table per docs/web/PLAN.md \u00a74 (uuid pk, user_id fk, type enum, body text, created_at, pinned_at, location jsonb, weather, device, source_url, ingest_mode, compile_status, origin, vault_path, updated_at)",
         "Define `memo_attachments` table (uuid pk, memo_id fk, kind enum, storage_key, filename, mime_type, size_bytes, duration_sec, transcript, ocr_text, exif jsonb)",
         "Add indexes: memos_user_created (user_id, created_at desc), memos_user_status (user_id, compile_status)",
         "Run `pnpm --filter daypage-web db:generate` produces migration SQL file",
@@ -100,16 +100,16 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-007",
-      "title": "Wave 1c: Drizzle schema 第二批 (domains + pages + page_links + page_sources)",
+      "title": "Wave 1c: Drizzle schema \u7b2c\u4e8c\u6279 (domains + pages + page_links + page_sources)",
       "description": "As a developer, I need page tables so AI compile can write structured wiki output.",
       "acceptanceCriteria": [
         "Define `domains` (uuid pk, user_id fk, slug, label, color, position, created_at, unique(user_id, slug))",
-        "Define `pages` per PLAN.md §4 (uuid pk, user_id fk, slug, type enum, domain_id fk nullable, title, status enum, body_md, body_html, metadata jsonb, embedding vector(1536), source_count, backlink_count, last_compiled_at, timestamps, unique(user_id, slug))",
+        "Define `pages` per PLAN.md \u00a74 (uuid pk, user_id fk, slug, type enum, domain_id fk nullable, title, status enum, body_md, body_html, metadata jsonb, embedding vector(1536), source_count, backlink_count, last_compiled_at, timestamps, unique(user_id, slug))",
         "Define `page_links` (uuid pk, user_id, from_page_id fk, to_page_id fk, via_memo_id fk nullable, weight, rationale, created_at)",
         "Define `page_sources` composite pk (page_id, memo_id) with contribution + weight",
         "Add indexes pages_user_type, pages_user_domain",
@@ -117,12 +117,12 @@
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-008",
-      "title": "Wave 1d: Drizzle schema 第三批 (annotations + chat_threads + chat_messages + inbox_items + activities + devices + sync_state)",
+      "title": "Wave 1d: Drizzle schema \u7b2c\u4e09\u6279 (annotations + chat_threads + chat_messages + inbox_items + activities + devices + sync_state)",
       "description": "As a developer, I need the remaining tables so chat / inbox / activity / sync features have storage.",
       "acceptanceCriteria": [
         "Define `annotations` (uuid pk, user_id, page_id fk, anchor jsonb, tag, note, created_at)",
@@ -137,12 +137,12 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-009",
-      "title": "Wave 0e: Auth.js v5 beta 接入 + Apple OAuth provider",
+      "title": "Wave 0e: Auth.js v5 beta \u63a5\u5165 + Apple OAuth provider",
       "description": "As a user, I want to sign in with Apple ID on the web so I can access my own data.",
       "acceptanceCriteria": [
         "Install next-auth@5.0.0-beta.31 in web/",
@@ -156,12 +156,12 @@
         "Verify in browser using dev-browser skill: visit /login, see 'Sign in with Apple' + email input"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-010",
-      "title": "Wave 3a: App Layout 骨架 (Sidebar + Topbar + 路由分组)",
+      "title": "Wave 3a: App Layout \u9aa8\u67b6 (Sidebar + Topbar + \u8def\u7531\u5206\u7ec4)",
       "description": "As a user, I want the Codex shell visible so I can navigate between Home/Add/Chat/Wiki/Inbox.",
       "acceptanceCriteria": [
         "Create web/src/app/(app)/layout.tsx with 248px sidebar + main column (matching Codex app.css .app grid)",
@@ -174,7 +174,7 @@
         "Verify in browser using dev-browser skill: navigate /home /add /chat /wiki /inbox and confirm sidebar highlight changes"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -182,7 +182,7 @@
       "title": "Wave 3b: UI primitives (Btn / Chip / Card / Icon / Sparkline / SectionLabel)",
       "description": "As a developer, I need reusable components matching Codex visual language so views can be built quickly.",
       "acceptanceCriteria": [
-        "Create web/src/components/ui/Btn.tsx supporting kind: primary|secondary|soft|ghost, size: sm|md, pill, icon, iconRight (port from PRD V5 §10.5 Codex primitives spec)",
+        "Create web/src/components/ui/Btn.tsx supporting kind: primary|secondary|soft|ghost, size: sm|md, pill, icon, iconRight (port from PRD V5 \u00a710.5 Codex primitives spec)",
         "Create web/src/components/ui/Chip.tsx supporting tone: default|accent|success|warning|error|ghost, onClick",
         "Create web/src/components/ui/Card.tsx supporting sunken variant",
         "Create web/src/components/ui/Icon.tsx using lucide-react (install lucide-react@1.14)",
@@ -193,12 +193,12 @@
         "Verify in browser using dev-browser skill: temporarily add a Btn + Chip + Card to /home and confirm visual match Codex"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-012",
-      "title": "Wave 1e: API /api/memos 基础 CRUD",
+      "title": "Wave 1e: API /api/memos \u57fa\u7840 CRUD",
       "description": "As iOS / Web client, I need REST endpoints to create, list, get, patch, delete memos.",
       "acceptanceCriteria": [
         "Create web/src/app/api/memos/route.ts: GET (list with cursor pagination + since filter) and POST (create with Zod validation)",
@@ -212,12 +212,12 @@
         "Tests pass: write web/src/app/api/memos/__tests__/route.test.ts using Vitest covering create + list + 401 + scope isolation"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-013",
-      "title": "Wave 1f: API /api/memos/bulk 批量上传 (iOS sync)",
+      "title": "Wave 1f: API /api/memos/bulk \u6279\u91cf\u4e0a\u4f20 (iOS sync)",
       "description": "As iOS app, I need to bulk push vault diff so V5 sync uplink works efficiently.",
       "acceptanceCriteria": [
         "Create web/src/app/api/memos/bulk/route.ts POST handler",
@@ -229,12 +229,12 @@
         "Tests pass: covering upsert, idempotency, scope, max-100 limit"
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-014",
-      "title": "Wave 1g: API /api/attachments/sign + Supabase Storage 直传",
+      "title": "Wave 1g: API /api/attachments/sign + Supabase Storage \u76f4\u4f20",
       "description": "As a client, I need signed URLs to upload audio/photo/file directly to Supabase Storage.",
       "acceptanceCriteria": [
         "Create Supabase Storage bucket 'memo-attachments' (private, no public access) via supabase migration SQL",
@@ -247,12 +247,12 @@
         "Tests pass: signing returns valid Supabase URL; finalize creates row"
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-015",
-      "title": "Wave 1h: API /api/domains + /api/inbox + /api/stats + /api/activities (基础)",
+      "title": "Wave 1h: API /api/domains + /api/inbox + /api/stats + /api/activities (\u57fa\u7840)",
       "description": "As a client, I need read endpoints for sidebar/home content so the UI has real data.",
       "acceptanceCriteria": [
         "Create web/src/app/api/domains/route.ts: GET list, POST create",
@@ -265,30 +265,30 @@
         "Tests pass: each endpoint returns 200 with empty data for fresh user, 401 without session"
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-016",
-      "title": "Wave 3c: Home view 真数据 (Hero + Stats + Recent activity 占位)",
+      "title": "Wave 3c: Home view \u771f\u6570\u636e (Hero + Stats + Recent activity \u5360\u4f4d)",
       "description": "As a user, I want the Home page to show my real stats and recent activity so I see live data.",
       "acceptanceCriteria": [
         "Update web/src/app/(app)/home/page.tsx to fetch /api/stats + /api/activities server-side (RSC)",
         "Render Hero block with date string + headline (use placeholder text if empty) + 4 buttons (Add / Ask / Inbox)",
         "Render Stats grid (4 cards: Sources / Wiki pages / Domains / Backlinks) using real numbers from /api/stats",
         "Render Recent activity Card listing last 6 activities (when=relative time, what=verb+subject, target link)",
-        "Empty state: if stats all zero, show 'Nothing yet — add something to get started' with primary Add button",
-        "Match Codex visual exactly per PRD V5 §3 Home view sketch",
+        "Empty state: if stats all zero, show 'Nothing yet \u2014 add something to get started' with primary Add button",
+        "Match Codex visual exactly per PRD V5 \u00a73 Home view sketch",
         "Typecheck passes",
         "Verify in browser using dev-browser skill: log in, see Home page with zero stats + empty state CTA"
       ],
       "priority": 16,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-017",
-      "title": "Wave 3d: Sidebar Domains 动态列表 + Inbox badge 真数据",
+      "title": "Wave 3d: Sidebar Domains \u52a8\u6001\u5217\u8868 + Inbox badge \u771f\u6570\u636e",
       "description": "As a user, I want the sidebar to show my domains and unread inbox count from real data.",
       "acceptanceCriteria": [
         "Update Sidebar to fetch /api/domains and /api/inbox?status=open server-side via RSC layout",
@@ -300,12 +300,12 @@
         "Verify in browser using dev-browser skill: empty user sees no Domains group; insert a test domain via SQL and confirm it appears"
       ],
       "priority": 17,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-018",
-      "title": "Wave 4a: Add view 静态 UI (UnifiedInput + 空 Compile Queue)",
+      "title": "Wave 4a: Add view \u9759\u6001 UI (UnifiedInput + \u7a7a Compile Queue)",
       "description": "As a user, I want the Add page UI so I can type and submit content (compile worker comes later).",
       "acceptanceCriteria": [
         "Update web/src/app/(app)/add/page.tsx",
@@ -314,17 +314,17 @@
         "Render empty Compile Queue Card with placeholder 'No items yet'",
         "Render empty Recently Compiled Card",
         "Submit button is disabled when textarea empty",
-        "Match Codex Add view visual per PRD V5 §3",
+        "Match Codex Add view visual per PRD V5 \u00a73",
         "Typecheck passes",
         "Verify in browser using dev-browser skill: navigate to /add, type text, confirm submit button enables"
       ],
       "priority": 18,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-019",
-      "title": "Wave 4b: Add view 提交连接 /api/memos (基础 text 输入)",
+      "title": "Wave 4b: Add view \u63d0\u4ea4\u8fde\u63a5 /api/memos (\u57fa\u7840 text \u8f93\u5165)",
       "description": "As a user, I want submitting the Add form to actually create a memo via the API.",
       "acceptanceCriteria": [
         "On submit, POST to /api/memos with {type:'text', body, origin:'web'}; auto-detect type:'url' if body matches /^https?:\\/\\//",
@@ -336,12 +336,12 @@
         "Verify in browser using dev-browser skill: submit a text memo, confirm it appears in queue and DB row exists"
       ],
       "priority": 19,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-020",
-      "title": "Wave 4c: AI provider 抽象层 + DashScope client",
+      "title": "Wave 4c: AI provider \u62bd\u8c61\u5c42 + DashScope client",
       "description": "As a developer, I need a unified LLM client so compile worker can call qwen models.",
       "acceptanceCriteria": [
         "Create web/src/lib/ai/provider.ts exporting interface LLMProvider with chat(), embed(), transcribe()",
@@ -354,18 +354,18 @@
         "Tests pass: mock fetch and verify request body / response parsing / error mapping"
       ],
       "priority": 20,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-021",
-      "title": "Wave 4d: Inngest 接入 + compile.memo function 骨架",
+      "title": "Wave 4d: Inngest \u63a5\u5165 + compile.memo function \u9aa8\u67b6",
       "description": "As a developer, I need a background worker so compile pipeline can run async.",
       "acceptanceCriteria": [
         "Install inngest@3.x in web/",
         "Create web/src/lib/inngest/client.ts exporting `inngest` Inngest client with id 'daypage'",
         "Create web/src/lib/inngest/functions/compile-memo.ts: function triggered by event 'memo/created' with steps: normalize, embed, recall, compile, apply, notify",
-        "For now each step just logs and updates memos.compile_status (pending → running → done); no real LLM calls yet",
+        "For now each step just logs and updates memos.compile_status (pending \u2192 running \u2192 done); no real LLM calls yet",
         "Create web/src/app/api/inngest/route.ts mounting Inngest serve handler",
         "When /api/memos POST creates a memo, send event {name:'memo/created', data:{memo_id}}",
         "Add npm script `dev:inngest` running `npx inngest-cli@latest dev`",
@@ -373,29 +373,29 @@
         "Verify: submit a memo via Add page, observe inngest dev dashboard at http://localhost:8288 shows function ran, memo compile_status updated to 'done'"
       ],
       "priority": 21,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-022",
-      "title": "Wave 4e: Embed step 实接 DashScope + memo embedding 持久化",
+      "title": "Wave 4e: Embed step \u5b9e\u63a5 DashScope + memo embedding \u6301\u4e45\u5316",
       "description": "As the compile pipeline, I need to actually embed memo text so RAG and recall work.",
       "acceptanceCriteria": [
         "Add embedding vector(1536) column to memos table (new migration)",
         "In compile-memo function 'embed' step: chunk body into <=512-token segments, embed each, average to single vector, write to memos.embedding",
         "If body empty (e.g. voice without transcript), skip embed",
-        "Cache: hash(body) → if same hash already embedded in last 7 days, reuse from a new embed_cache table",
+        "Cache: hash(body) \u2192 if same hash already embedded in last 7 days, reuse from a new embed_cache table",
         "On API error, set memos.compile_status='failed' + memos.compile_error",
         "Typecheck passes",
         "Tests pass: mock dashscope, submit memo, verify embedding column populated"
       ],
       "priority": 22,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-023",
-      "title": "Wave 4f: Compile step LIGHT 模式 (生成摘要 + 关键词)",
+      "title": "Wave 4f: Compile step LIGHT \u6a21\u5f0f (\u751f\u6210\u6458\u8981 + \u5173\u952e\u8bcd)",
       "description": "As a user, I want LIGHT-mode memos to get a summary and tags so I can browse them later.",
       "acceptanceCriteria": [
         "In compile-memo function 'compile' step, if memo.ingest_mode='light', call qwen-plus with a structured prompt asking for {summary: string, keywords: string[], suggested_domain: string|null}",
@@ -408,12 +408,12 @@
         "Tests pass: mock qwen, submit text memo with ingest_mode='light', verify page row + page_sources row"
       ],
       "priority": 23,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-024",
-      "title": "Wave 4g: Compile step FULL 模式 (recall + patch existing pages or create new concept)",
+      "title": "Wave 4g: Compile step FULL \u6a21\u5f0f (recall + patch existing pages or create new concept)",
       "description": "As a user, I want FULL-mode memos to actually update my wiki, not just create source pages.",
       "acceptanceCriteria": [
         "In compile-memo 'recall' step: vector-search top-8 existing pages by cosine similarity to memo.embedding (only same user, status='live')",
@@ -426,12 +426,12 @@
         "Tests pass: mock qwen returning create_page op, submit memo, verify page row created with status='draft' + change_log entry"
       ],
       "priority": 24,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-025",
-      "title": "Wave 4h: SSE 进度推送 /api/stream/compile",
+      "title": "Wave 4h: SSE \u8fdb\u5ea6\u63a8\u9001 /api/stream/compile",
       "description": "As a user, I want to see live compile progress so I know the system is working.",
       "acceptanceCriteria": [
         "Create web/src/app/api/stream/compile/route.ts using Next.js streaming response (text/event-stream)",
@@ -445,12 +445,12 @@
         "Verify in browser using dev-browser skill: open /add, submit a memo, watch network tab for SSE events flowing"
       ],
       "priority": 25,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-026",
-      "title": "Wave 4i: Add view Compile Queue 实时进度 UI",
+      "title": "Wave 4i: Add view Compile Queue \u5b9e\u65f6\u8fdb\u5ea6 UI",
       "description": "As a user, I want progress bars in the Compile Queue so I see compilation happen.",
       "acceptanceCriteria": [
         "Create web/src/hooks/useCompileStream.ts subscribing to /api/stream/compile via EventSource, updating local state per memo_id",
@@ -463,29 +463,29 @@
         "Verify in browser using dev-browser skill: submit memo, watch progress bar fill, confirm completion state"
       ],
       "priority": 26,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-027",
-      "title": "Wave 4j: LIGHT/FULL chip 切换 + Recently Compiled 列表",
+      "title": "Wave 4j: LIGHT/FULL chip \u5207\u6362 + Recently Compiled \u5217\u8868",
       "description": "As a user, I want to switch a memo's compile tier and see what was recently compiled.",
       "acceptanceCriteria": [
         "Each Compile Queue item has a Chip showing current ingest_mode (LIGHT/FULL)",
         "Click chip: PATCH /api/memos/:id with {ingest_mode: 'full'|'light'}, then trigger recompile",
         "Toast confirms switch",
         "Add 'Recently compiled' Card below queue: fetch /api/memos?compile_status=done&limit=8, ordered by updated_at desc",
-        "Each row shows: icon, title (truncated 90 chars), subtitle (type · word_count · created_at relative), mode chip, time",
+        "Each row shows: icon, title (truncated 90 chars), subtitle (type \u00b7 word_count \u00b7 created_at relative), mode chip, time",
         "Typecheck passes",
         "Verify in browser using dev-browser skill: submit memo, after compile completes, see it in Recently compiled; click LIGHT chip to switch and observe re-compile"
       ],
       "priority": 27,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-028",
-      "title": "Wave 5a: Wiki view 路由 + 左侧 nav 静态结构",
+      "title": "Wave 5a: Wiki view \u8def\u7531 + \u5de6\u4fa7 nav \u9759\u6001\u7ed3\u6784",
       "description": "As a user, I want the Wiki page layout so I can navigate between page groups.",
       "acceptanceCriteria": [
         "Update web/src/app/(app)/wiki/page.tsx with 3-column layout: 240px nav + flex-1 page + 280px aside",
@@ -499,7 +499,7 @@
         "Verify in browser using dev-browser skill: navigate to /wiki, see empty groups + search bar"
       ],
       "priority": 28,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -519,16 +519,16 @@
         "Tests pass: cover happy path + 404 + scope isolation for each endpoint"
       ],
       "priority": 29,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-030",
-      "title": "Wave 5c: Wiki page detail UI (含 markdown 渲染 + 右侧 sources/backlinks/provenance)",
+      "title": "Wave 5c: Wiki page detail UI (\u542b markdown \u6e32\u67d3 + \u53f3\u4fa7 sources/backlinks/provenance)",
       "description": "As a user, I want to read a wiki page with sources and backlinks visible.",
       "acceptanceCriteria": [
         "Create web/src/app/(app)/wiki/[slug]/page.tsx fetching /api/pages/:slug + sources + backlinks server-side",
-        "Render header: type chip + domain chip + 'updated X ago' chip + Annotate + Ask buttons + h1 title + byline (compiled from N sources · M backlinks · slug)",
+        "Render header: type chip + domain chip + 'updated X ago' chip + Annotate + Ask buttons + h1 title + byline (compiled from N sources \u00b7 M backlinks \u00b7 slug)",
         "Render body using react-markdown@10 + remark-gfm + rehype-sanitize",
         "Right aside: 3 blocks (Sources / Backlinks / Provenance) matching Codex visual",
         "Each source row links to source memo detail (route stub OK for now)",
@@ -539,12 +539,12 @@
         "Verify in browser using dev-browser skill: insert a test page via SQL, navigate to /wiki/<slug>, confirm renders"
       ],
       "priority": 30,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-031",
-      "title": "Wave 5d: Annotation API + 高亮选中 toolbar",
+      "title": "Wave 5d: Annotation API + \u9ad8\u4eae\u9009\u4e2d toolbar",
       "description": "As a user, I want to highlight text on a wiki page and tag it as important/questionable.",
       "acceptanceCriteria": [
         "POST /api/annotations creates annotation (input: {page_id, anchor:{section_idx,char_start,char_end,text}, tag, note?})",
@@ -552,19 +552,19 @@
         "GET /api/pages/:id/annotations returns all annotations for a page",
         "Wiki page detail loads annotations + renders selected text wrapped in <mark class='user-mark' data-tag='...'> via remark plugin or DOM post-processing",
         "On text selection, show floating toolbar with 3 buttons: Important / Questionable / Custom tag (modal)",
-        "Click button → POST annotation → re-fetch and re-render",
+        "Click button \u2192 POST annotation \u2192 re-fetch and re-render",
         "Different tags get different colors (important=accent-soft, questionable=warning-soft)",
         "Click existing highlight to delete",
         "Typecheck passes",
         "Verify in browser using dev-browser skill: open a page with content, select text, click Important, confirm highlight persists after refresh"
       ],
       "priority": 31,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-032",
-      "title": "Wave 5e: Domain 视图 (/(app)/domain/[slug])",
+      "title": "Wave 5e: Domain \u89c6\u56fe (/(app)/domain/[slug])",
       "description": "As a user, I want to click a domain in sidebar and see its overview.",
       "acceptanceCriteria": [
         "Create web/src/app/(app)/domain/[slug]/page.tsx",
@@ -577,7 +577,7 @@
         "Verify in browser using dev-browser skill: with seeded domain + pages, navigate to domain page and see content"
       ],
       "priority": 32,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -594,12 +594,12 @@
         "Tests pass: mock qwen, seed memos for a day, run function, verify daily page created with correct sources"
       ],
       "priority": 33,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-034",
-      "title": "Wave 6a: Wiki Graph view (静态布局, 与 Codex 一致)",
+      "title": "Wave 6a: Wiki Graph view (\u9759\u6001\u5e03\u5c40, \u4e0e Codex \u4e00\u81f4)",
       "description": "As a user, I want a graph visualization so I can see how my pages connect.",
       "acceptanceCriteria": [
         "Add /(app)/wiki Graph mode toggle: when active, render WikiGraph component",
@@ -607,19 +607,19 @@
         "Layout: simple force-directed using d3-force or react-force-graph-2d (install one, prefer d3-force for SVG control)",
         "Node colors per type: concept=accent, draft=warning, entity=accent-hover, source=fg-muted, synthesis=success",
         "Edges between linked pages (page_links table)",
-        "Click node → highlight node + 1-hop neighbors + show right-aside detail card with title + type + sources count + 'Open page' button",
+        "Click node \u2192 highlight node + 1-hop neighbors + show right-aside detail card with title + type + sources count + 'Open page' button",
         "Pan + zoom with mouse",
         "Empty state: if user has 0 pages, show 'Add and compile some content to start growing your graph'",
         "Typecheck passes",
         "Verify in browser using dev-browser skill: with seeded pages + links, navigate to /wiki and switch to Graph mode, see nodes"
       ],
       "priority": 34,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-035",
-      "title": "Wave 7a: Embedding pipeline 升级 + RAG retrieval helper",
+      "title": "Wave 7a: Embedding pipeline \u5347\u7ea7 + RAG retrieval helper",
       "description": "As a developer, I need a robust retrieval function so chat can find relevant pages.",
       "acceptanceCriteria": [
         "Create web/src/lib/ai/rag.ts exporting retrievePages(userId, queryText, opts:{topK=8, domain?, excludePrivate=true})",
@@ -632,7 +632,7 @@
         "Tests pass: seed pages with known content, query, verify expected page returned with reasonable score"
       ],
       "priority": 35,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -650,7 +650,7 @@
         "Tests pass: create + list + scope isolation"
       ],
       "priority": 36,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -670,7 +670,7 @@
         "Tests pass: mock qwen stream, verify SSE events flow + citations parsed correctly"
       ],
       "priority": 37,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -685,13 +685,13 @@
         "Click .cite badge highlights matching reference card in right sidebar",
         "Composer: textarea with Enter=send, Shift+Enter=newline + Send button",
         "On send, POST to /api/chat/threads/:id/messages + consume SSE stream; tokens append to assistant bubble in real-time",
-        "Right sidebar: References list showing each cited page (number + type + title + excerpt); click → open page in new tab",
+        "Right sidebar: References list showing each cited page (number + type + title + excerpt); click \u2192 open page in new tab",
         "Save as synthesis page button (no-op for now, wire in later wave)",
         "Typecheck passes",
         "Verify in browser using dev-browser skill: create thread, ask question against seeded pages, watch streaming answer + reference cards"
       ],
       "priority": 38,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -700,19 +700,19 @@
       "description": "As a user, I want suggested next questions and honest 'I don't know' answers.",
       "acceptanceCriteria": [
         "After assistant message complete, fire a 2nd lightweight qwen call with prompt at suggested-followups.md (input: thread context, output: 3 short questions)",
-        "Render 3 chips below assistant message; click → fills composer + sends",
-        "If retrievePages returns 0 results OR all scores < 0.4 threshold, skip LLM call and write canned assistant message: 'I don't know yet — try adding content about <topic> first.' + suggested 'Add' link",
+        "Render 3 chips below assistant message; click \u2192 fills composer + sends",
+        "If retrievePages returns 0 results OR all scores < 0.4 threshold, skip LLM call and write canned assistant message: 'I don't know yet \u2014 try adding content about <topic> first.' + suggested 'Add' link",
         "System prompt enforces: any sentence without {n} citation must be wrapped in italic + tagged [uncited]",
         "Typecheck passes",
         "Tests pass: verify low-score query returns I-don't-know without LLM call"
       ],
       "priority": 39,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-040",
-      "title": "Wave 8a: Conflict detection 集成到 compile-memo FULL 步骤",
+      "title": "Wave 8a: Conflict detection \u96c6\u6210\u5230 compile-memo FULL \u6b65\u9aa4",
       "description": "As a user, I want the system to detect contradictions between new content and existing pages.",
       "acceptanceCriteria": [
         "In compile-memo FULL step, after recall, run a conflict-check sub-prompt: given new memo body + top-3 retrieved pages, ask qwen 'are there any factual contradictions? respond with JSON {conflicts: [{page_id, old_text, new_text, summary}]}'",
@@ -723,12 +723,12 @@
         "Tests pass: seed page with statement, submit memo with contradicting statement, verify inbox_item created"
       ],
       "priority": 40,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-041",
-      "title": "Wave 8b: Schema detection worker (cluster suggestion → inbox)",
+      "title": "Wave 8b: Schema detection worker (cluster suggestion \u2192 inbox)",
       "description": "As a user, I want the system to suggest new domains when it sees a clear cluster of related memos.",
       "acceptanceCriteria": [
         "Create inngest function 'schema-detect' triggered every 50 new memos per user (use a counter table or modulo on new_memo event)",
@@ -742,7 +742,7 @@
         "Tests pass: seed 10 memos all about 'distributed systems', run function, verify inbox_item with suggested name"
       ],
       "priority": 41,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -759,7 +759,7 @@
         "Tests pass: seed page with old timestamps, run function, verify inbox_item created"
       ],
       "priority": 42,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -779,7 +779,7 @@
         "Verify in browser using dev-browser skill: insert a test observation row via SQL, see it on Home"
       ],
       "priority": 43,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -788,7 +788,7 @@
       "description": "As a user, I want to triage AI suggestions in a dedicated inbox view.",
       "acceptanceCriteria": [
         "Update /(app)/inbox/page.tsx",
-        "Render section label 'Inbox · N items' + headline + sub",
+        "Render section label 'Inbox \u00b7 N items' + headline + sub",
         "5 filter chips: All / Contradictions / Schema / Orphans / Compiled (count beside each)",
         "Each card: kind chip + time + title + body + actions row",
         "CONTRADICTION cards include side-by-side old/new compare panes matching Codex visual",
@@ -799,12 +799,12 @@
         "Verify in browser using dev-browser skill: seed each kind via SQL, navigate to /inbox, see cards correctly rendered"
       ],
       "priority": 44,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-045",
-      "title": "Wave 8f: Inbox 处理 actions + snooze/dismiss",
+      "title": "Wave 8f: Inbox \u5904\u7406 actions + snooze/dismiss",
       "description": "As a user, I want to act on inbox items so the suggestion gets resolved.",
       "acceptanceCriteria": [
         "POST /api/inbox/:id/resolve with {action: string, payload?: any} writes inbox_items.status='resolved' + resolution + executes the action (e.g. for SCHEMA accept: create domain row + assign cluster memos)",
@@ -818,16 +818,16 @@
         "Verify in browser using dev-browser skill: seed contradiction, click 'Use new', confirm card disappears + badge decrements"
       ],
       "priority": 45,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-046",
-      "title": "Wave 9a: Agent permissions schema + Settings → Agent page",
+      "title": "Wave 9a: Agent permissions schema + Settings \u2192 Agent page",
       "description": "As a user, I want to control which AI actions are allowed.",
       "acceptanceCriteria": [
         "Add agent_permissions jsonb column to users.settings or new agent_permissions table",
-        "8 action keys per PRD V5 §7.2: ACT-1 auto_tag_domain, ACT-2 auto_archive_cold, ACT-3 auto_merge_entities, ACT-4 auto_promote_drafts, ACT-5 auto_fetch_external, ACT-6 auto_weekly_recap, ACT-7 auto_cross_link, ACT-8 auto_send_digest",
+        "8 action keys per PRD V5 \u00a77.2: ACT-1 auto_tag_domain, ACT-2 auto_archive_cold, ACT-3 auto_merge_entities, ACT-4 auto_promote_drafts, ACT-5 auto_fetch_external, ACT-6 auto_weekly_recap, ACT-7 auto_cross_link, ACT-8 auto_send_digest",
         "Defaults: ACT-1, ACT-6, ACT-8 = ON; rest = OFF",
         "Create web/src/app/(app)/settings/agent/page.tsx with toggle list",
         "Each toggle: label + risk badge (low/med) + 1-line description + switch",
@@ -838,7 +838,7 @@
         "Verify in browser using dev-browser skill: open /settings/agent, toggle ACT-3, refresh, confirm persisted"
       ],
       "priority": 46,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -856,12 +856,12 @@
         "Tests pass: seed change_log entries, undo a page update, verify before state restored"
       ],
       "priority": 47,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-048",
-      "title": "Wave 9c: Agent safety 6 重栅栏完整实施",
+      "title": "Wave 9c: Agent safety 6 \u91cd\u6805\u680f\u5b8c\u6574\u5b9e\u65bd",
       "description": "As a system, I need all 6 safety guards enforced so Actor agents never run wild.",
       "acceptanceCriteria": [
         "Guard 1: All Actor functions read user.agent_permissions before running; skip if not authorized",
@@ -869,18 +869,18 @@
         "Guard 3: Undo path verified working in US-047",
         "Guard 4: Add notification_throttle table (user_id, kind, count, window_start); inbox creators check 'sent <=3 of this kind in last 24h' before creating",
         "Guard 5: Add helper isUserSleepWindow(userId) checking user's timezone (default UTC) is between 22:00-08:00; push notification senders skip if true",
-        "Guard 6: Settings → Agent page kill-switch (already in US-046); when on, ALL Actor + observation functions early-return",
+        "Guard 6: Settings \u2192 Agent page kill-switch (already in US-046); when on, ALL Actor + observation functions early-return",
         "Add web/src/lib/agent/guards.ts as central enforcement helper",
         "Typecheck passes",
         "Tests pass: each guard has a unit test verifying skip behavior"
       ],
       "priority": 48,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-049",
-      "title": "Wave 9d: ACT-1 Auto-tag domain 实现 + ACT-6 Weekly recap 实现",
+      "title": "Wave 9d: ACT-1 Auto-tag domain \u5b9e\u73b0 + ACT-6 Weekly recap \u5b9e\u73b0",
       "description": "As a user with default permissions, I want my new memos to get auto-tagged and a weekly digest.",
       "acceptanceCriteria": [
         "ACT-1: in compile-memo function 'apply' step, if user.agent_permissions.auto_tag_domain && memo has no domain, find best-matching domain (vector match on memo embedding vs domain centroid embeddings, threshold >0.6) and set memo.domain_id",
@@ -893,12 +893,12 @@
         "Tests pass: ACT-1 assigns correct domain; ACT-6 creates draft recap page"
       ],
       "priority": 49,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
       "id": "US-050",
-      "title": "Wave 9e: 收尾 — sidebar inbox badge live update via SSE + global SSE auth + smoke test",
+      "title": "Wave 9e: \u6536\u5c3e \u2014 sidebar inbox badge live update via SSE + global SSE auth + smoke test",
       "description": "As a user, I want sidebar badges and inbox to update in real-time across the app.",
       "acceptanceCriteria": [
         "Create /api/stream/global SSE endpoint: emits {type:'inbox_added'|'inbox_resolved'|'compile_done', payload}",

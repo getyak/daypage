@@ -122,20 +122,7 @@ After implementing:
     
     echo "   ✅ Story #$STORY_ID implemented successfully"
 
-    # Git add + commit
-    cd "$REPO_ROOT"
-    if git diff --quiet && git diff --cached --quiet; then
-      echo "   ⚠️ No changes to commit"
-    else
-      git add -A
-      git commit -m "feat(ios): story #$STORY_ID — $STORY_NAME
-
-Implemented: $STORY_DESC
-Acceptance: $STORY_ACCEPT"
-      echo "   📝 Committed: story #$STORY_ID"
-    fi
-
-    # Mark story as passes: true
+    # Mark story as passes: true (BEFORE commit so it's included)
     python3 -c "
 import json
 with open('$PRD_FILE') as f:
@@ -151,6 +138,19 @@ with open('$PRD_FILE', 'w') as f:
 
     # Log progress
     echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] Story #$STORY_ID: $STORY_NAME — PASSED" >> "$PROGRESS_FILE"
+
+    # Git add + commit (includes PRD mark AND progress)
+    cd "$REPO_ROOT"
+    if git diff --quiet && git diff --cached --quiet; then
+      echo "   ⚠️ No changes to commit"
+    else
+      git add -A
+      git commit -m "feat(web): story #$STORY_ID — $STORY_NAME
+
+Implemented: $STORY_DESC
+Acceptance: $STORY_ACCEPT"
+      echo "   📝 Committed: story #$STORY_ID"
+    fi
 
   else
     echo "   ❌ Story #$STORY_ID FAILED"
