@@ -283,7 +283,7 @@
         "Verify in browser using dev-browser skill: log in, see Home page with zero stats + empty state CTA"
       ],
       "priority": 16,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -300,8 +300,8 @@
         "Verify in browser using dev-browser skill: empty user sees no Domains group; insert a test domain via SQL and confirm it appears"
       ],
       "priority": 17,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "layout.tsx updated: fetchSidebarData() queries domains + inbox_items count directly via Drizzle in RSC; Domains group hidden when empty; Inbox badge shown only when count > 0; typecheck passes (no new errors)"
     },
     {
       "id": "US-018",
