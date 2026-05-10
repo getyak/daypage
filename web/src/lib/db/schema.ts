@@ -363,6 +363,20 @@ export const sync_state = pgTable(
   (t) => [primaryKey({ columns: [t.user_id, t.device_id] })]
 );
 
+// ─── US-020: Wave 4c — prompt_log (AI token usage tracking) ──────────────────
+
+export const prompt_log = pgTable("prompt_log", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  user_id: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+  kind: text("kind").notNull(), // 'chat' | 'embed' | 'transcribe'
+  model: text("model").notNull(),
+  tokens_in: integer("tokens_in").notNull().default(0),
+  tokens_out: integer("tokens_out").notNull().default(0),
+  created_at: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 // ─── Re-export helper types ────────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
@@ -393,3 +407,5 @@ export type Device = typeof devices.$inferSelect;
 export type NewDevice = typeof devices.$inferInsert;
 export type SyncState = typeof sync_state.$inferSelect;
 export type NewSyncState = typeof sync_state.$inferInsert;
+export type PromptLog = typeof prompt_log.$inferSelect;
+export type NewPromptLog = typeof prompt_log.$inferInsert;
