@@ -258,17 +258,13 @@ export default async function WikiSlugPage({ params }: Props) {
 
   if (!page) {
     return (
-      <div
-        style={{
-          display: "flex",
-          height: "100%",
-          minHeight: "calc(100vh - 52px)",
-        }}
-      >
-        <WikiNav initialPages={navPages} />
+      <div className="wiki">
+        <aside className="wiki__nav">
+          <WikiNav initialPages={navPages} />
+        </aside>
         <main
+          className="wiki__page"
           style={{
-            flex: 1,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -287,14 +283,6 @@ export default async function WikiSlugPage({ params }: Props) {
             </Link>
           </div>
         </main>
-        <aside
-          style={{
-            width: "280px",
-            flexShrink: 0,
-            borderLeft: "1px solid var(--accent-border)",
-            background: "var(--surface-white)",
-          }}
-        />
       </div>
     );
   }
@@ -308,43 +296,15 @@ export default async function WikiSlugPage({ params }: Props) {
   const typeStyle = TYPE_COLORS[page.type] ?? TYPE_COLORS.concept;
 
   return (
-    <div
-      style={{
-        display: "flex",
-        height: "100%",
-        minHeight: "calc(100vh - 52px)",
-      }}
-    >
-      {/* Left nav: 240px */}
-      <WikiNav initialPages={navPages} />
+    <div className="wiki">
+      <aside className="wiki__nav">
+        <WikiNav initialPages={navPages} />
+      </aside>
 
-      {/* Main content */}
-      <main
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
+      <main className="wiki__page">
         {/* Header */}
-        <div
-          style={{
-            padding: "1.75rem 2rem 1.25rem",
-            borderBottom: "1px solid var(--accent-border)",
-          }}
-        >
-          {/* Chips row */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.375rem",
-              marginBottom: "0.875rem",
-              flexWrap: "wrap",
-            }}
-          >
-            {/* Type chip */}
+        <header className="wiki-page-header">
+          <div className="wiki-page-meta">
             <span
               style={{
                 fontSize: "0.6875rem",
@@ -360,7 +320,6 @@ export default async function WikiSlugPage({ params }: Props) {
               {page.type}
             </span>
 
-            {/* Domain chip */}
             {page.domain_label && (
               <span
                 style={{
@@ -376,29 +335,13 @@ export default async function WikiSlugPage({ params }: Props) {
               </span>
             )}
 
-            {/* Status chip (draft) */}
             {page.status === "draft" && (
-              <span
-                style={{
-                  fontSize: "0.6875rem",
-                  fontWeight: 600,
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                  padding: "0.1875rem 0.5rem",
-                  borderRadius: "999px",
-                  background: "var(--warning-soft)",
-                  color: "var(--warning)",
-                }}
-              >
-                draft
-              </span>
+              <span className="chip chip--warning">draft</span>
             )}
 
-            {/* Updated chip */}
             <span
               style={{
                 fontSize: "0.6875rem",
-                fontWeight: 400,
                 padding: "0.1875rem 0.5rem",
                 borderRadius: "999px",
                 background: "var(--surface-sunken)",
@@ -408,7 +351,6 @@ export default async function WikiSlugPage({ params }: Props) {
               updated {relativeTime(page.updated_at)}
             </span>
 
-            {/* Actions pushed right */}
             <div style={{ marginLeft: "auto", display: "flex", gap: "0.5rem" }}>
               <span
                 className="btn btn--ghost btn--sm"
@@ -427,247 +369,209 @@ export default async function WikiSlugPage({ params }: Props) {
             </div>
           </div>
 
-          {/* Title */}
-          <h1
-            className="ds-h1"
-            style={{ margin: "0 0 0.5rem", lineHeight: 1.2 }}
-          >
-            {page.title}
-          </h1>
+          <h1 className="wiki-page-title">{page.title}</h1>
 
-          {/* Byline */}
-          <p
-            className="ds-body-md"
-            style={{
-              color: "var(--fg-subtle)",
-              margin: 0,
-              fontSize: "0.8125rem",
-            }}
-          >
-            compiled from {page.source_count} source
-            {page.source_count !== 1 ? "s" : ""} · {page.backlink_count}{" "}
-            backlink{page.backlink_count !== 1 ? "s" : ""} ·{" "}
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem" }}>
-              {page.slug}
+          <div className="wiki-page-byline">
+            <span>
+              compiled from {page.source_count} source
+              {page.source_count !== 1 ? "s" : ""}
             </span>
-          </p>
-        </div>
+            <span>
+              {page.backlink_count} backlink
+              {page.backlink_count !== 1 ? "s" : ""}
+            </span>
+            <span>id {page.type}/{page.slug}</span>
+          </div>
+        </header>
 
-        {/* Body */}
-        <div
-          style={{
-            flex: 1,
-            padding: "1.75rem 2rem 3rem",
-            maxWidth: "740px",
-          }}
-        >
-          {page.body_md ? (
-            <div className="wiki-body">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeSanitize]}
+        {/* Two-column body */}
+        <div className="wiki-body__layout">
+          <div className="wiki-body__main">
+            {page.body_md ? (
+              <div className="wiki-body">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeSanitize]}
+                >
+                  {page.body_md}
+                </ReactMarkdown>
+              </div>
+            ) : (
+              <p
+                className="ds-body-md"
+                style={{ color: "var(--fg-subtle)", fontStyle: "italic" }}
               >
-                {page.body_md}
-              </ReactMarkdown>
+                No content yet.
+              </p>
+            )}
+          </div>
+
+          <aside className="wiki-aside">
+            {/* Sources */}
+            <div className="aside-block">
+              <div className="aside-block__head">
+                <p
+                  className="ds-section-label"
+                  style={{ color: "var(--fg-subtle)" }}
+                >
+                  Sources
+                </p>
+                <span className="meta" style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--fg-subtle)" }}>
+                  {sources.length}
+                </span>
+              </div>
+              {sources.length === 0 ? (
+                <p style={{ color: "var(--fg-subtle)", fontSize: "0.8125rem" }}>
+                  No sources linked.
+                </p>
+              ) : (
+                sources.map((s) => (
+                  <div key={s.memo_id} className="aside-row">
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.375rem",
+                          marginBottom: "0.1875rem",
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: "0.625rem",
+                            fontWeight: 600,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.04em",
+                            color: "var(--fg-subtle)",
+                            background: "var(--surface-sunken)",
+                            padding: "0.0625rem 0.3125rem",
+                            borderRadius: "999px",
+                          }}
+                        >
+                          {s.memo.type}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "0.6875rem",
+                            color: "var(--fg-subtle)",
+                          }}
+                        >
+                          {relativeTime(s.memo.created_at)}
+                        </span>
+                      </div>
+                      <p
+                        style={{
+                          fontSize: "0.8125rem",
+                          color: "var(--fg-muted)",
+                          margin: 0,
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {truncate(s.memo.body, 100)}
+                      </p>
+                      {s.contribution && (
+                        <p
+                          style={{
+                            fontSize: "0.75rem",
+                            color: "var(--fg-subtle)",
+                            fontStyle: "italic",
+                            margin: "0.1875rem 0 0",
+                          }}
+                        >
+                          {s.contribution}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
-          ) : (
-            <p
-              className="ds-body-md"
-              style={{ color: "var(--fg-subtle)", fontStyle: "italic" }}
-            >
-              No content yet.
-            </p>
-          )}
+
+            {/* Backlinks */}
+            <div className="aside-block">
+              <div className="aside-block__head">
+                <p
+                  className="ds-section-label"
+                  style={{ color: "var(--fg-subtle)" }}
+                >
+                  Backlinks
+                </p>
+                <span className="meta" style={{ fontFamily: "var(--font-mono)", fontSize: "10px", color: "var(--fg-subtle)" }}>
+                  {backlinks.length}
+                </span>
+              </div>
+              {backlinks.length === 0 ? (
+                <p style={{ color: "var(--fg-subtle)", fontSize: "0.8125rem" }}>
+                  No pages link here yet.
+                </p>
+              ) : (
+                backlinks.map((b) => (
+                  <Link
+                    key={b.link_id}
+                    href={`/wiki/${b.from_page.slug}`}
+                    className="aside-row"
+                    style={{ textDecoration: "none" }}
+                  >
+                    <span
+                      style={{
+                        flex: 1,
+                        color: "var(--accent)",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {b.from_page.title}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "0.6875rem",
+                        color: "var(--fg-subtle)",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {b.from_page.type}
+                    </span>
+                  </Link>
+                ))
+              )}
+            </div>
+
+            {/* Provenance */}
+            <div className="aside-block">
+              <div className="aside-block__head">
+                <p
+                  className="ds-section-label"
+                  style={{ color: "var(--fg-subtle)" }}
+                >
+                  Provenance
+                </p>
+              </div>
+              <p
+                style={{
+                  color: "var(--fg-muted)",
+                  fontSize: "0.8125rem",
+                  margin: 0,
+                }}
+              >
+                {page.last_compiled_at
+                  ? `Last compiled ${relativeTime(page.last_compiled_at)}`
+                  : "Not yet compiled"}
+              </p>
+              <p
+                style={{
+                  color: "var(--fg-subtle)",
+                  fontSize: "0.75rem",
+                  marginTop: "0.375rem",
+                  marginBottom: 0,
+                }}
+              >
+                Created {relativeTime(page.updated_at)}
+              </p>
+            </div>
+          </aside>
         </div>
       </main>
-
-      {/* Right aside: 280px */}
-      <aside
-        style={{
-          width: "280px",
-          flexShrink: 0,
-          borderLeft: "1px solid var(--accent-border)",
-          background: "var(--surface-white)",
-          overflowY: "auto",
-          display: "flex",
-          flexDirection: "column",
-          gap: 0,
-        }}
-      >
-        {/* Sources block */}
-        <AsideBlock label={`Sources · ${sources.length}`}>
-          {sources.length === 0 ? (
-            <p style={{ color: "var(--fg-subtle)", fontSize: "0.8125rem" }}>
-              No sources linked.
-            </p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-              {sources.map((s) => (
-                <div
-                  key={s.memo_id}
-                  style={{
-                    padding: "0.5rem 0.625rem",
-                    borderRadius: "var(--radius-sm)",
-                    background: "var(--surface-sunken)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "0.1875rem",
-                  }}
-                >
-                  {/* Memo type + time */}
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.375rem",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: "0.625rem",
-                        fontWeight: 600,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.04em",
-                        color: "var(--fg-subtle)",
-                        background: "var(--surface-white)",
-                        padding: "0.0625rem 0.3125rem",
-                        borderRadius: "999px",
-                      }}
-                    >
-                      {s.memo.type}
-                    </span>
-                    <span
-                      style={{ fontSize: "0.6875rem", color: "var(--fg-subtle)" }}
-                    >
-                      {relativeTime(s.memo.created_at)}
-                    </span>
-                  </div>
-                  {/* Memo excerpt */}
-                  <p
-                    style={{
-                      fontSize: "0.8125rem",
-                      color: "var(--fg-muted)",
-                      margin: 0,
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {truncate(s.memo.body, 100)}
-                  </p>
-                  {/* Contribution note */}
-                  {s.contribution && (
-                    <p
-                      style={{
-                        fontSize: "0.75rem",
-                        color: "var(--fg-subtle)",
-                        fontStyle: "italic",
-                        margin: 0,
-                      }}
-                    >
-                      {s.contribution}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </AsideBlock>
-
-        {/* Backlinks block */}
-        <AsideBlock label={`Backlinks · ${backlinks.length}`}>
-          {backlinks.length === 0 ? (
-            <p style={{ color: "var(--fg-subtle)", fontSize: "0.8125rem" }}>
-              No pages link here yet.
-            </p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
-              {backlinks.map((b) => (
-                <Link
-                  key={b.link_id}
-                  href={`/wiki/${b.from_page.slug}`}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                    padding: "0.375rem 0.5rem",
-                    borderRadius: "var(--radius-sm)",
-                    textDecoration: "none",
-                    background: "var(--surface-sunken)",
-                    transition: "background 100ms ease-out",
-                  }}
-                >
-                  <span
-                    style={{
-                      flex: 1,
-                      fontSize: "0.8125rem",
-                      color: "var(--accent)",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {b.from_page.title}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "0.6875rem",
-                      color: "var(--fg-subtle)",
-                      flexShrink: 0,
-                    }}
-                  >
-                    {b.from_page.type}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </AsideBlock>
-
-        {/* Provenance block */}
-        <AsideBlock label="Provenance">
-          <p style={{ color: "var(--fg-muted)", fontSize: "0.8125rem", margin: 0 }}>
-            {page.last_compiled_at
-              ? `Last compiled ${relativeTime(page.last_compiled_at)}`
-              : "Not yet compiled"}
-          </p>
-          <p
-            style={{
-              color: "var(--fg-subtle)",
-              fontSize: "0.75rem",
-              marginTop: "0.375rem",
-              marginBottom: 0,
-            }}
-          >
-            Created {relativeTime(page.updated_at)}
-          </p>
-        </AsideBlock>
-      </aside>
-    </div>
-  );
-}
-
-// ─── AsideBlock ───────────────────────────────────────────────────────────────
-
-function AsideBlock({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      style={{
-        padding: "1.25rem 1rem",
-        borderBottom: "1px solid var(--accent-border)",
-      }}
-    >
-      <p
-        className="ds-section-label"
-        style={{ color: "var(--fg-subtle)", marginBottom: "0.625rem" }}
-      >
-        {label}
-      </p>
-      {children}
     </div>
   );
 }
