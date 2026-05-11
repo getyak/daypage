@@ -17,9 +17,9 @@ async function resolveUserId(email: string): Promise<string | null> {
   return rows[0]?.id ?? null;
 }
 
-type RouteContext = { params: Promise<{ id: string }> };
+type RouteContext = { params: Promise<{ slug: string }> };
 
-// GET /api/pages/:id/annotations
+// GET /api/pages/:slug/annotations
 export async function GET(_req: NextRequest, ctx: RouteContext) {
   const session = await auth();
   if (!session?.user?.email) return unauthorized();
@@ -27,23 +27,25 @@ export async function GET(_req: NextRequest, ctx: RouteContext) {
   const userId = await resolveUserId(session.user.email);
   if (!userId) return unauthorized();
 
-  const { id } = await ctx.params;
+  const { slug } = await ctx.params;
 
-  // Verify page belongs to user
+  // Resolve page id from slug (scoped to user)
   const pageRows = await db
     .select({ id: pages.id })
     .from(pages)
-    .where(and(eq(pages.id, id), eq(pages.user_id, userId)))
+    .where(and(eq(pages.slug, slug), eq(pages.user_id, userId)))
     .limit(1);
 
   if (!pageRows.length) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const pageId = pageRows[0].id;
+
   const rows = await db
     .select()
     .from(annotations)
-    .where(and(eq(annotations.page_id, id), eq(annotations.user_id, userId)))
+    .where(and(eq(annotations.page_id, pageId), eq(annotations.user_id, userId)))
     .orderBy(asc(annotations.created_at));
 
   return NextResponse.json({ annotations: rows });

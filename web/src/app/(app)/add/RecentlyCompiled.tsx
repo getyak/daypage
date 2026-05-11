@@ -45,36 +45,10 @@ export function RecentlyCompiled({ initialMemos }: { initialMemos: Memo[] }) {
 
   if (items.length === 0) {
     return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "0.5rem",
-          padding: "2rem 1rem",
-          textAlign: "center",
-        }}
-      >
-        <FileText size={20} style={{ color: "var(--fg-subtle)" }} />
-        <p
-          style={{
-            margin: 0,
-            fontWeight: 500,
-            color: "var(--fg-muted)",
-            fontSize: "0.9375rem",
-          }}
-        >
-          Nothing compiled yet
-        </p>
-        <p
-          style={{
-            margin: 0,
-            fontSize: "0.8125rem",
-            color: "var(--fg-subtle)",
-          }}
-        >
-          Finished items will show up here.
-        </p>
+      <div className="empty-card">
+        <FileText size={20} className="empty-card__icon" />
+        <div className="empty-card__title">Nothing compiled yet</div>
+        <div className="empty-card__hint">Finished items will appear here.</div>
       </div>
     );
   }

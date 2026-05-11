@@ -7,8 +7,6 @@ import {
   ChevronDown,
   ChevronRight,
   Search,
-  List,
-  Network,
   AlertTriangle,
   FileText,
 } from "lucide-react";
@@ -74,67 +72,51 @@ function PageRow({ page, isActive }: { page: WikiPage; isActive: boolean }) {
   return (
     <Link
       href={`/wiki/${page.slug}`}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "0.5rem",
-        padding: "0.3125rem 0.75rem 0.3125rem 1.25rem",
-        borderRadius: "var(--radius-sm)",
-        textDecoration: "none",
-        background: isActive ? "var(--accent-soft)" : "transparent",
-        transition: "background 100ms ease-out",
-      }}
+      className={isActive ? "wiki__nav-item is-active" : "wiki__nav-item"}
     >
-      <FileText
-        size={13}
-        style={{ color: "var(--fg-subtle)", flexShrink: 0 }}
-      />
       <span
         style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.5rem",
+          minWidth: 0,
           flex: 1,
-          fontSize: "0.8125rem",
-          fontWeight: isActive ? 500 : 400,
-          color: isActive ? "var(--accent)" : "var(--fg-primary)",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
         }}
       >
-        {page.title}
+        <FileText size={13} style={{ flexShrink: 0, opacity: 0.7 }} />
+        <span
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {page.title}
+        </span>
       </span>
       <span
         style={{
-          display: "flex",
+          display: "inline-flex",
           alignItems: "center",
-          gap: "0.25rem",
+          gap: "0.375rem",
           flexShrink: 0,
         }}
       >
         {isDraft && (
           <span
+            className="chip chip--warning"
             style={{
               fontSize: "0.625rem",
-              fontWeight: 600,
-              color: "var(--warning)",
-              background: "var(--warning-soft)",
               padding: "0.0625rem 0.3125rem",
-              borderRadius: "999px",
-              letterSpacing: "0.03em",
               textTransform: "uppercase",
+              letterSpacing: "0.03em",
             }}
           >
             draft
           </span>
         )}
         {page.source_count > 0 && !isDraft && (
-          <span
-            style={{
-              fontSize: "0.6875rem",
-              color: "var(--fg-subtle)",
-            }}
-          >
-            {page.source_count}
-          </span>
+          <span className="meta">{page.source_count}</span>
         )}
         {page.backlink_count > 1 && (
           <AlertTriangle
@@ -163,47 +145,34 @@ function PageGroup({
   if (pagesInGroup.length === 0) return null;
 
   return (
-    <div>
+    <div className="wiki__group">
       <button
         onClick={() => onToggle(type)}
+        className="wiki__group-head"
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "0.375rem",
           width: "100%",
-          padding: "0.3125rem 0.75rem",
           background: "transparent",
           border: "none",
           cursor: "pointer",
-          borderRadius: "var(--radius-sm)",
         }}
       >
-        {collapsed ? (
-          <ChevronRight size={13} style={{ color: "var(--fg-subtle)" }} />
-        ) : (
-          <ChevronDown size={13} style={{ color: "var(--fg-subtle)" }} />
-        )}
         <span
-          className="ds-section-label"
-          style={{ flex: 1, textAlign: "left", color: "var(--fg-subtle)" }}
+          style={{ display: "inline-flex", alignItems: "center", gap: "0.375rem" }}
         >
-          {TYPE_LABELS[type]}
+          {collapsed ? (
+            <ChevronRight size={13} style={{ color: "var(--fg-subtle)" }} />
+          ) : (
+            <ChevronDown size={13} style={{ color: "var(--fg-subtle)" }} />
+          )}
+          <span className="ds-section-label" style={{ color: "var(--fg-subtle)" }}>
+            {TYPE_LABELS[type]}
+          </span>
         </span>
-        <span
-          style={{
-            fontSize: "0.6875rem",
-            color: "var(--fg-subtle)",
-            background: "var(--surface-sunken)",
-            padding: "0.0625rem 0.3125rem",
-            borderRadius: "999px",
-          }}
-        >
-          {pagesInGroup.length}
-        </span>
+        <span className="meta">{pagesInGroup.length}</span>
       </button>
 
       {!collapsed && (
-        <div style={{ marginBottom: "0.25rem" }}>
+        <div>
           {pagesInGroup.map((page) => (
             <PageRow
               key={page.id}
@@ -219,12 +188,10 @@ function PageGroup({
 
 export function WikiNav({
   initialPages,
-  mode,
-  onModeChange,
 }: {
   initialPages: WikiPage[];
-  mode: WikiMode;
-  onModeChange: (m: WikiMode) => void;
+  mode?: WikiMode;
+  onModeChange?: (m: WikiMode) => void;
 }) {
   const pathname = usePathname();
   const [query, setQuery] = useState("");
@@ -234,16 +201,13 @@ export function WikiNav({
     setCollapsed(loadCollapsed());
   }, []);
 
-  const toggleGroup = useCallback(
-    (type: WikiPage["type"]) => {
-      setCollapsed((prev) => {
-        const next = { ...prev, [type]: !prev[type] };
-        saveCollapsed(next);
-        return next;
-      });
-    },
-    []
-  );
+  const toggleGroup = useCallback((type: WikiPage["type"]) => {
+    setCollapsed((prev) => {
+      const next = { ...prev, [type]: !prev[type] };
+      saveCollapsed(next);
+      return next;
+    });
+  }, []);
 
   const filtered = query.trim()
     ? initialPages.filter((p) =>
@@ -262,144 +226,60 @@ export function WikiNav({
   const totalPages = initialPages.length;
 
   return (
-    <div
-      style={{
-        width: "240px",
-        flexShrink: 0,
-        borderRight: "1px solid var(--accent-border)",
-        background: "var(--surface-white)",
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        overflowY: "auto",
-      }}
-    >
-      {/* Search + mode toggle */}
-      <div
-        style={{
-          padding: "0.875rem 0.75rem 0.625rem",
-          borderBottom: "1px solid var(--accent-border)",
-          display: "flex",
-          flexDirection: "column",
-          gap: "0.5rem",
-        }}
-      >
-        {/* Search */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.375rem",
-            background: "var(--surface-sunken)",
-            borderRadius: "var(--radius-sm)",
-            padding: "0.375rem 0.625rem",
-          }}
-        >
-          <Search size={13} style={{ color: "var(--fg-subtle)", flexShrink: 0 }} />
-          <input
-            type="text"
-            placeholder="Search pages..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            style={{
-              flex: 1,
-              border: "none",
-              background: "transparent",
-              outline: "none",
-              fontSize: "0.8125rem",
-              color: "var(--fg-primary)",
-            }}
+    <>
+      <div className="wiki__search">
+        <Search size={13} style={{ color: "var(--fg-subtle)", flexShrink: 0 }} />
+        <input
+          type="text"
+          placeholder="Search wiki"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
+
+      {totalPages === 0 ? (
+        <>
+          {(["concept", "synthesis", "entity", "source"] as const).map((type) => (
+            <div key={type} className="wiki__group" style={{ marginTop: 18 }}>
+              <div className="wiki__group-head">
+                <span
+                  className="ds-section-label"
+                  style={{ color: "var(--fg-subtle)" }}
+                >
+                  {TYPE_LABELS[type] ?? type}
+                </span>
+                <span
+                  className="ds-mono-11"
+                  style={{ color: "var(--fg-subtle)" }}
+                >
+                  0
+                </span>
+              </div>
+              <div
+                style={{
+                  padding: "6px 10px",
+                  fontSize: 12,
+                  color: "var(--fg-subtle)",
+                  fontStyle: "italic",
+                }}
+              >
+                —
+              </div>
+            </div>
+          ))}
+        </>
+      ) : (
+        TYPE_ORDER.map((type) => (
+          <PageGroup
+            key={type}
+            type={type}
+            pagesInGroup={grouped[type]}
+            activePath={pathname}
+            collapsed={!!collapsed[type]}
+            onToggle={toggleGroup}
           />
-        </div>
-
-        {/* List / Graph toggle */}
-        <div
-          style={{
-            display: "flex",
-            gap: "0.25rem",
-          }}
-        >
-          <button
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.3125rem",
-              padding: "0.3125rem 0.625rem",
-              borderRadius: "var(--radius-sm)",
-              border: "none",
-              cursor: "pointer",
-              fontSize: "0.75rem",
-              fontWeight: 500,
-              background: "var(--accent-soft)",
-              color: "var(--accent)",
-              flex: 1,
-              justifyContent: "center",
-            }}
-          >
-            <List size={13} />
-            List
-          </button>
-          <button
-            disabled
-            title="Coming soon"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.3125rem",
-              padding: "0.3125rem 0.625rem",
-              borderRadius: "var(--radius-sm)",
-              border: "none",
-              cursor: "not-allowed",
-              fontSize: "0.75rem",
-              fontWeight: 500,
-              background: "transparent",
-              color: "var(--fg-subtle)",
-              opacity: 0.5,
-              flex: 1,
-              justifyContent: "center",
-            }}
-          >
-            <Network size={13} />
-            Graph
-          </button>
-        </div>
-      </div>
-
-      {/* Page groups */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: "0.625rem 0",
-        }}
-      >
-        {totalPages === 0 ? (
-          <div
-            style={{
-              padding: "1.5rem 1rem",
-              textAlign: "center",
-            }}
-          >
-            <p
-              className="ds-body-md"
-              style={{ color: "var(--fg-subtle)", fontSize: "0.8125rem" }}
-            >
-              Your wiki will grow here as AI compiles your memos
-            </p>
-          </div>
-        ) : (
-          TYPE_ORDER.map((type) => (
-            <PageGroup
-              key={type}
-              type={type}
-              pagesInGroup={grouped[type]}
-              activePath={pathname}
-              collapsed={!!collapsed[type]}
-              onToggle={toggleGroup}
-            />
-          ))
-        )}
-      </div>
-    </div>
+        ))
+      )}
+    </>
   );
 }

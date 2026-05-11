@@ -3,6 +3,10 @@ import { db } from "@/lib/db/client";
 import { pages, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { asc } from "drizzle-orm";
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { BookOpen } from "lucide-react";
+import { Btn } from "@/components/ui";
 import { WikiNav, type WikiPage } from "./WikiNav";
 
 async function resolveUserId(email: string): Promise<string | null> {
@@ -43,8 +47,22 @@ async function fetchUserPages(userId: string): Promise<WikiPage[]> {
   }
 }
 
-export default async function WikiPage() {
+export default async function WikiPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ id?: string }>;
+}) {
   const session = await auth();
+
+  const sp = searchParams ? await searchParams : undefined;
+  if (sp?.id) {
+    const row = await db
+      .select({ slug: pages.slug })
+      .from(pages)
+      .where(eq(pages.id, sp.id))
+      .limit(1);
+    if (row[0]) redirect(`/wiki/${row[0].slug}`);
+  }
 
   let userPages: WikiPage[] = [];
 
@@ -56,40 +74,13 @@ export default async function WikiPage() {
   }
 
   return (
-    <div
-      style={{
-        display: "flex",
-        height: "100%",
-        minHeight: "calc(100vh - 52px)",
-      }}
-    >
-      {/* Left nav: 240px */}
-      <WikiNav initialPages={userPages} />
-
-      {/* Main content area */}
-      <main
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
+    <div className="wiki">
+      <aside className="wiki__nav">
+        <WikiNav initialPages={userPages} />
+      </aside>
+      <main className="wiki__page">
         <WikiMainContent hasPages={userPages.length > 0} />
       </main>
-
-      {/* Right aside: 280px */}
-      <aside
-        style={{
-          width: "280px",
-          flexShrink: 0,
-          borderLeft: "1px solid var(--accent-border)",
-          background: "var(--surface-white)",
-          overflowY: "auto",
-        }}
-      >
-        <WikiAside />
-      </aside>
     </div>
   );
 }
@@ -98,49 +89,33 @@ function WikiMainContent({ hasPages }: { hasPages: boolean }) {
   if (!hasPages) {
     return (
       <div
+        className="empty-card"
         style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "3rem 2rem",
-          textAlign: "center",
-          gap: "1rem",
+          padding: "48px 32px",
+          maxWidth: 560,
+          margin: "80px auto 0",
         }}
       >
-        <div
-          style={{
-            width: "48px",
-            height: "48px",
-            borderRadius: "var(--radius-md)",
-            background: "var(--surface-sunken)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "1.5rem",
-          }}
-        >
-          📖
+        <BookOpen size={24} className="empty-card__icon" />
+        <div className="empty-card__title" style={{ fontSize: 16 }}>
+          Your wiki hasn&apos;t been compiled yet
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-          <h2 className="ds-h2" style={{ margin: 0 }}>
-            Your wiki is empty
-          </h2>
-          <p
-            className="ds-body-md"
-            style={{ color: "var(--fg-muted)", margin: 0, maxWidth: "360px" }}
-          >
-            Your wiki will grow here as AI compiles your memos. Add content from
-            the{" "}
-            <a
-              href="/add"
-              style={{ color: "var(--accent)", textDecoration: "none" }}
-            >
-              Add
-            </a>{" "}
-            page to get started.
-          </p>
+        <div className="empty-card__hint">
+          I&apos;ll build pages from your memos as you add them. Drop a thought,
+          paste a link, or voice a note — I&apos;ll surface concepts and entities
+          here.
+        </div>
+        <div className="flex gap-12" style={{ marginTop: 16 }}>
+          <Link href="/add">
+            <Btn kind="primary" size="sm">
+              Add your first memo
+            </Btn>
+          </Link>
+          <Link href="/chat">
+            <Btn kind="ghost" size="sm">
+              Ask me to draft
+            </Btn>
+          </Link>
         </div>
       </div>
     );
@@ -149,7 +124,6 @@ function WikiMainContent({ hasPages }: { hasPages: boolean }) {
   return (
     <div
       style={{
-        flex: 1,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -157,39 +131,12 @@ function WikiMainContent({ hasPages }: { hasPages: boolean }) {
         padding: "3rem 2rem",
         textAlign: "center",
         gap: "0.5rem",
+        minHeight: "60vh",
       }}
     >
       <p className="ds-body-md" style={{ color: "var(--fg-subtle)" }}>
-        Select a page from the left to read it
+        Pick a page from the left, or search.
       </p>
-    </div>
-  );
-}
-
-function WikiAside() {
-  return (
-    <div
-      style={{
-        padding: "1.25rem 1rem",
-        display: "flex",
-        flexDirection: "column",
-        gap: "1.25rem",
-      }}
-    >
-      <div>
-        <p
-          className="ds-section-label"
-          style={{ color: "var(--fg-subtle)", marginBottom: "0.5rem" }}
-        >
-          About
-        </p>
-        <p
-          className="ds-body-md"
-          style={{ color: "var(--fg-muted)", fontSize: "0.8125rem" }}
-        >
-          Select a page to see sources, backlinks, and provenance.
-        </p>
-      </div>
     </div>
   );
 }

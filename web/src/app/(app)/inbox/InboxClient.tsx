@@ -2,6 +2,9 @@
 
 import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { Inbox } from "lucide-react";
+import { Btn } from "@/components/ui";
 import type { InboxItem } from "@/lib/db/schema";
 
 type Kind = "contradiction" | "schema" | "orphan" | "compiled";
@@ -230,108 +233,30 @@ function ContradictionCard({
   );
 
   return (
-    <div
-      className="card"
-      style={{
-        padding: "1.25rem",
-        display: "flex",
-        flexDirection: "column",
-        gap: "1rem",
-        borderLeft: "3px solid var(--error)",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: "1rem",
-        }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <KindChip kind="contradiction" />
-            <span className="ds-mono-11" style={{ color: "var(--fg-subtle)" }}>
-              {formatRelative(item.created_at)}
-            </span>
-          </div>
-          <h3
-            className="ds-body-md"
-            style={{ margin: 0, fontWeight: 600, color: "var(--fg-primary)" }}
-          >
-            {item.title}
-          </h3>
-          {item.body && (
-            <p
-              className="ds-body-md"
-              style={{ margin: 0, color: "var(--fg-muted)", fontSize: "0.8125rem" }}
-            >
-              {item.body}
-            </p>
-          )}
-        </div>
+    <div className="card inbox-card">
+      <div className="inbox-card__head">
+        <KindChip kind="contradiction" />
+        <span className="inbox-card__time">{formatRelative(item.created_at)}</span>
         <SnoozeMenu itemId={item.id} onAction={onAction} />
       </div>
+      <div className="inbox-card__title">{item.title}</div>
+      {item.body && <div className="inbox-card__body">{item.body}</div>}
 
       {/* Side-by-side old/new compare */}
       {(payload.old_text || payload.new_text) && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
-          <div
-            style={{
-              background: "var(--error-soft)",
-              borderRadius: "var(--radius-sm)",
-              padding: "0.75rem",
-            }}
-          >
-            <p
-              className="ds-section-label"
-              style={{ color: "var(--error)", marginBottom: "0.375rem" }}
-            >
-              Old
-            </p>
-            <p
-              className="ds-body-md"
-              style={{
-                margin: 0,
-                fontSize: "0.8125rem",
-                color: "var(--fg-primary)",
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
-              }}
-            >
-              {payload.old_text ?? "—"}
-            </p>
+        <div className="inbox-conflict">
+          <div className="conflict-pane">
+            <div className="conflict-pane__lbl">Old</div>
+            <div>{payload.old_text ?? "—"}</div>
           </div>
-          <div
-            style={{
-              background: "var(--success-soft)",
-              borderRadius: "var(--radius-sm)",
-              padding: "0.75rem",
-            }}
-          >
-            <p
-              className="ds-section-label"
-              style={{ color: "var(--success)", marginBottom: "0.375rem" }}
-            >
-              New
-            </p>
-            <p
-              className="ds-body-md"
-              style={{
-                margin: 0,
-                fontSize: "0.8125rem",
-                color: "var(--fg-primary)",
-                whiteSpace: "pre-wrap",
-                wordBreak: "break-word",
-              }}
-            >
-              {payload.new_text ?? "—"}
-            </p>
+          <div className="conflict-pane conflict-pane--new">
+            <div className="conflict-pane__lbl">New</div>
+            <div>{payload.new_text ?? "—"}</div>
           </div>
         </div>
       )}
 
-      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+      <div className="inbox-card__actions">
         <button className="btn btn--soft btn--sm" onClick={() => resolve("keep_both")}>
           Keep both
         </button>
@@ -343,7 +268,7 @@ function ContradictionCard({
         </button>
         {payload.page_id && (
           <a
-            href={`/wiki/${payload.page_id}`}
+            href={`/wiki?id=${payload.page_id}`}
             className="btn btn--ghost btn--sm"
             style={{ textDecoration: "none" }}
           >
@@ -373,48 +298,14 @@ function SchemaCard({
   );
 
   return (
-    <div
-      className="card"
-      style={{
-        padding: "1.25rem",
-        display: "flex",
-        flexDirection: "column",
-        gap: "1rem",
-        borderLeft: "3px solid var(--accent)",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: "1rem",
-        }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <KindChip kind="schema" />
-            <span className="ds-mono-11" style={{ color: "var(--fg-subtle)" }}>
-              {formatRelative(item.created_at)}
-            </span>
-          </div>
-          <h3
-            className="ds-body-md"
-            style={{ margin: 0, fontWeight: 600, color: "var(--fg-primary)" }}
-          >
-            {item.title}
-          </h3>
-          {item.body && (
-            <p
-              className="ds-body-md"
-              style={{ margin: 0, color: "var(--fg-muted)", fontSize: "0.8125rem" }}
-            >
-              {item.body}
-            </p>
-          )}
-        </div>
+    <div className="card inbox-card">
+      <div className="inbox-card__head">
+        <KindChip kind="schema" />
+        <span className="inbox-card__time">{formatRelative(item.created_at)}</span>
         <SnoozeMenu itemId={item.id} onAction={onAction} />
       </div>
+      <div className="inbox-card__title">{item.title}</div>
+      {item.body && <div className="inbox-card__body">{item.body}</div>}
 
       {/* Domain name + color preview */}
       {payload.suggested_name && (
@@ -424,6 +315,7 @@ function SchemaCard({
             alignItems: "center",
             gap: "0.75rem",
             padding: "0.75rem",
+            marginTop: "0.75rem",
             background: "var(--accent-soft)",
             borderRadius: "var(--radius-sm)",
           }}
@@ -456,7 +348,7 @@ function SchemaCard({
         </div>
       )}
 
-      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+      <div className="inbox-card__actions">
         <button
           className="btn btn--primary btn--sm"
           onClick={() => resolve("create_domain")}
@@ -495,55 +387,21 @@ function OrphanCard({
   );
 
   return (
-    <div
-      className="card"
-      style={{
-        padding: "1.25rem",
-        display: "flex",
-        flexDirection: "column",
-        gap: "1rem",
-        borderLeft: "3px solid var(--warning)",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: "1rem",
-        }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem", flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <KindChip kind="orphan" />
-            <span className="ds-mono-11" style={{ color: "var(--fg-subtle)" }}>
-              {formatRelative(item.created_at)}
-            </span>
-            {payload.days_idle !== undefined && (
-              <span className="chip chip--warning" style={{ marginLeft: "auto" }}>
-                {payload.days_idle} days idle
-              </span>
-            )}
-          </div>
-          <h3
-            className="ds-body-md"
-            style={{ margin: 0, fontWeight: 600, color: "var(--fg-primary)" }}
-          >
-            {item.title}
-          </h3>
-          {item.body && (
-            <p
-              className="ds-body-md"
-              style={{ margin: 0, color: "var(--fg-muted)", fontSize: "0.8125rem" }}
-            >
-              {item.body}
-            </p>
-          )}
-        </div>
+    <div className="card inbox-card">
+      <div className="inbox-card__head">
+        <KindChip kind="orphan" />
+        {payload.days_idle !== undefined && (
+          <span className="chip chip--warning">
+            {payload.days_idle} days idle
+          </span>
+        )}
+        <span className="inbox-card__time">{formatRelative(item.created_at)}</span>
         <SnoozeMenu itemId={item.id} onAction={onAction} />
       </div>
+      <div className="inbox-card__title">{item.title}</div>
+      {item.body && <div className="inbox-card__body">{item.body}</div>}
 
-      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+      <div className="inbox-card__actions">
         <button
           className="btn btn--soft btn--sm"
           onClick={() => resolve("cold_archive")}
@@ -555,7 +413,7 @@ function OrphanCard({
         </button>
         {payload.page_id && (
           <a
-            href={`/wiki/${payload.page_id}`}
+            href={`/wiki?id=${payload.page_id}`}
             className="btn btn--secondary btn--sm"
             style={{ textDecoration: "none" }}
           >
@@ -588,50 +446,16 @@ function CompiledCard({
   }, [item.id, onAction]);
 
   return (
-    <div
-      className="card"
-      style={{
-        padding: "1.25rem",
-        display: "flex",
-        flexDirection: "column",
-        gap: "1rem",
-        borderLeft: "3px solid var(--success)",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: "1rem",
-        }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <KindChip kind="compiled" />
-            <span className="ds-mono-11" style={{ color: "var(--fg-subtle)" }}>
-              {formatRelative(item.created_at)}
-            </span>
-          </div>
-          <h3
-            className="ds-body-md"
-            style={{ margin: 0, fontWeight: 600, color: "var(--fg-primary)" }}
-          >
-            {item.title}
-          </h3>
-          {item.body && (
-            <p
-              className="ds-body-md"
-              style={{ margin: 0, color: "var(--fg-muted)", fontSize: "0.8125rem" }}
-            >
-              {item.body}
-            </p>
-          )}
-        </div>
+    <div className="card inbox-card">
+      <div className="inbox-card__head">
+        <KindChip kind="compiled" />
+        <span className="inbox-card__time">{formatRelative(item.created_at)}</span>
         <SnoozeMenu itemId={item.id} onAction={onAction} />
       </div>
+      <div className="inbox-card__title">{item.title}</div>
+      {item.body && <div className="inbox-card__body">{item.body}</div>}
 
-      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+      <div className="inbox-card__actions">
         <button
           className="btn btn--soft btn--sm"
           onClick={() => resolve("view_changes")}
@@ -752,15 +576,20 @@ export function InboxClient({ items: initialItems, counts: initialCounts }: Inbo
       <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
         <p className="ds-section-label">Inbox</p>
         <h1 className="ds-h1" style={{ margin: 0 }}>
-          Inbox · {totalCount} {totalCount === 1 ? "item" : "items"}
+          Decisions I&apos;d like you to weigh in on.
         </h1>
-        <p className="ds-body-md" style={{ color: "var(--fg-muted)", margin: 0 }}>
-          AI suggestions, detected contradictions, and schema proposals.
+        <p
+          className="ds-body-md"
+          style={{ color: "var(--fg-muted)", marginTop: 8, maxWidth: "42em" }}
+        >
+          Contradictions, structural suggestions, and finished work. The wiki keeps
+          moving while you&apos;re away — but anything that would change{" "}
+          <em>what you believe</em> waits here for you.
         </p>
       </div>
 
       {/* Filter chips */}
-      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+      <div className="inbox-filters">
         {KIND_CHIPS.map(({ key, label }) => {
           const count = counts[key] ?? 0;
           const isActive = activeFilter === key;
@@ -796,34 +625,29 @@ export function InboxClient({ items: initialItems, counts: initialCounts }: Inbo
       {/* Item list */}
       {filtered.length === 0 ? (
         <div
-          style={{
-            padding: "3rem 2rem",
-            textAlign: "center",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "0.75rem",
-          }}
+          className="empty-card"
+          style={{ padding: "48px 32px", maxWidth: 560, margin: "0 auto" }}
         >
-          <div
-            style={{
-              width: "48px",
-              height: "48px",
-              borderRadius: "var(--radius-md)",
-              background: "var(--surface-sunken)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "1.5rem",
-            }}
-          >
-            ✓
+          <Inbox size={24} className="empty-card__icon" />
+          <div className="empty-card__title" style={{ fontSize: 16 }}>
+            Nothing waiting on you — yet.
           </div>
-          <p className="ds-body-md" style={{ color: "var(--fg-muted)", margin: 0 }}>
-            {activeFilter === "all"
-              ? "All caught up — no open items."
-              : `No open ${activeFilter} items.`}
-          </p>
+          <div className="empty-card__hint">
+            When I find a contradiction in your sources, propose a new domain, or
+            finish compiling a page, it&apos;ll land here.
+          </div>
+          <div className="flex gap-12" style={{ marginTop: 16 }}>
+            <Link href="/add">
+              <Btn kind="primary" size="sm">
+                Add a memo
+              </Btn>
+            </Link>
+            <Link href="/wiki">
+              <Btn kind="ghost" size="sm">
+                Browse wiki
+              </Btn>
+            </Link>
+          </div>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>

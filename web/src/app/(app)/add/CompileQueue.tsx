@@ -9,6 +9,7 @@ import {
   AlertCircle,
   RefreshCw,
   X,
+  Inbox,
 } from "lucide-react";
 import { useCompileStream, type MemoProgress } from "@/hooks/useCompileStream";
 
@@ -121,32 +122,12 @@ function ToastContainer({
 
 function EmptyState() {
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: "0.5rem",
-        padding: "2rem 1rem",
-        textAlign: "center",
-      }}
-    >
-      <FileText size={20} style={{ color: "var(--fg-subtle)" }} />
-      <p
-        style={{
-          margin: 0,
-          fontWeight: 500,
-          color: "var(--fg-muted)",
-          fontSize: "0.9375rem",
-        }}
-      >
-        No items yet
-      </p>
-      <p
-        style={{ margin: 0, fontSize: "0.8125rem", color: "var(--fg-subtle)" }}
-      >
-        Submitted content will appear here while being compiled.
-      </p>
+    <div className="empty-card">
+      <Inbox size={20} className="empty-card__icon" />
+      <div className="empty-card__title">Nothing in the queue</div>
+      <div className="empty-card__hint">
+        Paste a URL above or press <kbd>⌘N</kbd> from anywhere to add something.
+      </div>
     </div>
   );
 }
@@ -240,9 +221,7 @@ export function CompileQueue({ initialMemos }: { initialMemos: Memo[] }) {
       {visible.length === 0 && items.length === 0 ? (
         <EmptyState />
       ) : (
-        <div
-          style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
-        >
+        <div>
           {visible.map((memo) => (
             <MemoRow
               key={memo.id}
@@ -304,212 +283,78 @@ function MemoRow({
   const currentMode = memo.ingest_mode as "light" | "full";
   const nextMode: "light" | "full" = currentMode === "light" ? "full" : "light";
 
+  const iconClass = isRunning ? "queue-item__icon is-fetching" : "queue-item__icon";
+
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "0.5rem",
-        padding: "0.75rem",
-        borderRadius: "var(--radius-sm)",
-        background: isDone
-          ? "var(--success-soft, #f0fdf4)"
-          : isFailed
-            ? "var(--error-soft, #fff1f2)"
-            : "var(--surface-sunken)",
-        border: `1px solid ${
-          isDone
-            ? "var(--success-border, #bbf7d0)"
-            : isFailed
-              ? "var(--error-border, #fecdd3)"
-              : "var(--surface-border, var(--accent-border))"
-        }`,
-        transition: "background 0.3s, border-color 0.3s",
-      }}
-    >
-      {/* Top row: icon + text + mode chip + status chip */}
-      <div
-        style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}
-      >
-        {/* Status icon */}
-        <div style={{ flexShrink: 0, marginTop: "0.125rem" }}>
-          {isDone ? (
-            <CheckCircle2
-              size={16}
-              style={{ color: "var(--success, #16a34a)" }}
-            />
-          ) : isFailed ? (
-            <AlertCircle size={16} style={{ color: "var(--error, #dc2626)" }} />
-          ) : (
-            <Loader2
-              size={16}
-              style={{
-                color: "var(--accent)",
-                animation: isRunning ? "spin 1s linear infinite" : "none",
-              }}
-            />
-          )}
-        </div>
+    <div className="queue-item">
+      {/* Status icon */}
+      <div className={iconClass}>
+        {isDone ? (
+          <CheckCircle2 size={16} />
+        ) : isFailed ? (
+          <AlertCircle size={16} />
+        ) : (
+          <Loader2
+            size={16}
+            style={{ animation: isRunning ? "spin 1s linear infinite" : "none" }}
+          />
+        )}
+      </div>
 
-        {/* Body preview */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p
-            style={{
-              margin: 0,
-              fontSize: "0.875rem",
-              color: "var(--fg-primary)",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {preview}
-          </p>
-          <p
-            style={{
-              margin: "0.25rem 0 0",
-              fontSize: "0.75rem",
-              color: "var(--fg-subtle)",
-            }}
-          >
-            {memo.type} · {date}
-          </p>
+      {/* Title + subtitle */}
+      <div className="queue-item__main">
+        <div className="queue-item__title">{preview}</div>
+        <div className="queue-item__sub">
+          {memo.type} · {date}
+          {isFailed && errorMsg ? ` · ${errorMsg}` : ""}
+          {isDone ? " · Compilation complete" : ""}
+          {!isDone && !isFailed && step ? ` · ${step}` : ""}
         </div>
+      </div>
 
-        {/* LIGHT/FULL mode chip — click to toggle */}
+      {/* Progress bar (always reserves the column; full=done, 0=failed) */}
+      <div className="queue-progress" aria-hidden={isDone || isFailed}>
+        <div
+          className="queue-progress__bar"
+          style={{
+            width: isDone ? "100%" : isFailed ? "0%" : `${progressPct ?? 0}%`,
+          }}
+        />
+      </div>
+
+      {/* Right rail: mode chip + (failed → Retry) */}
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
         <button
+          type="button"
           title={`Switch to ${nextMode.toUpperCase()} mode`}
           disabled={isSwitching || isDone}
           onClick={() => onSwitchMode(nextMode)}
-          className="chip"
+          className={
+            currentMode === "full"
+              ? "chip chip--accent chip--interactive"
+              : "chip chip--ghost chip--interactive"
+          }
           style={{
-            fontSize: "0.6875rem",
-            flexShrink: 0,
             textTransform: "uppercase",
             letterSpacing: "0.06em",
             cursor: isDone ? "default" : "pointer",
             opacity: isSwitching ? 0.5 : 1,
-            background:
-              currentMode === "full"
-                ? "var(--accent-soft, #eff6ff)"
-                : "var(--surface-sunken, #fafaf9)",
-            color:
-              currentMode === "full"
-                ? "var(--accent, #2563eb)"
-                : "var(--fg-muted)",
-            border: `1px solid ${
-              currentMode === "full"
-                ? "var(--accent-border, #bfdbfe)"
-                : "var(--surface-border, #e5e4e0)"
-            }`,
-            transition: "opacity 0.2s",
           }}
         >
-          {isSwitching ? "…" : currentMode}
+          {isSwitching ? "…" : currentMode.toUpperCase()}
         </button>
-
-        {/* Status chip */}
-        {isDone ? (
-          <span
-            className="chip"
-            style={{
-              fontSize: "0.75rem",
-              flexShrink: 0,
-              background: "var(--success-soft, #dcfce7)",
-              color: "var(--success, #16a34a)",
-              border: "1px solid var(--success-border, #bbf7d0)",
-            }}
-          >
-            Done
-          </span>
-        ) : isFailed ? (
-          <span
-            className="chip"
-            style={{
-              fontSize: "0.75rem",
-              flexShrink: 0,
-              background: "var(--error-soft, #fff1f2)",
-              color: "var(--error, #dc2626)",
-              border: "1px solid var(--error-border, #fecdd3)",
-            }}
-          >
-            {step ?? "Failed"}
-          </span>
-        ) : (
-          <span className="chip" style={{ fontSize: "0.75rem", flexShrink: 0 }}>
-            {step ?? status}
-          </span>
-        )}
-      </div>
-
-      {/* Progress bar (shown when running or pending) */}
-      {!isDone && !isFailed && (
-        <div
-          style={{
-            height: "3px",
-            borderRadius: "2px",
-            background: "var(--accent-border)",
-            overflow: "hidden",
-          }}
-        >
-          <div
-            style={{
-              height: "100%",
-              width: `${progressPct ?? 0}%`,
-              background: "var(--accent)",
-              transition: "width 0.4s ease-out",
-              borderRadius: "2px",
-            }}
-          />
-        </div>
-      )}
-
-      {/* Done: "Compilation complete" line */}
-      {isDone && (
-        <p
-          style={{
-            margin: 0,
-            fontSize: "0.75rem",
-            color: "var(--success, #16a34a)",
-          }}
-        >
-          Compilation complete
-        </p>
-      )}
-
-      {/* Failed: error + Retry button */}
-      {isFailed && (
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          {errorMsg && (
-            <p
-              style={{
-                margin: 0,
-                fontSize: "0.75rem",
-                color: "var(--error, #dc2626)",
-                flex: 1,
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {errorMsg}
-            </p>
-          )}
+        {isFailed && (
           <button
+            type="button"
             onClick={onRetry}
             disabled={isRetrying}
-            className="btn btn--secondary"
-            style={{
-              fontSize: "0.75rem",
-              padding: "0.25rem 0.625rem",
-              flexShrink: 0,
-            }}
+            className="btn btn--secondary btn--sm"
           >
             <RefreshCw size={12} style={{ marginRight: "0.25rem" }} />
             {isRetrying ? "Retrying…" : "Retry"}
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

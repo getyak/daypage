@@ -2,20 +2,25 @@ import { ReactNode } from "react";
 import { auth, signOut } from "@/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Home, Plus, MessageSquare, BookOpen, Inbox } from "lucide-react";
+import { Plus } from "lucide-react";
 import { headers } from "next/headers";
 import { db } from "@/lib/db/client";
 import { users, domains, inbox_items } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import type { Domain } from "@/lib/db/schema";
+import { NavItem, NavItemLink, type NavIconName } from "./_components/NavItem";
+import { SystemRow } from "./_components/SystemRow";
+import { TopbarDate } from "./_components/TopbarDate";
 
-const NAV_ITEMS = [
-  { href: "/home", label: "Home", icon: Home },
-  { href: "/add", label: "Add", icon: Plus },
-  { href: "/chat", label: "Chat", icon: MessageSquare },
-  { href: "/wiki", label: "Wiki", icon: BookOpen },
-  { href: "/inbox", label: "Inbox", icon: Inbox },
-] as const;
+type NavSpec = { href: string; label: string; iconName: NavIconName; meta?: string };
+
+const NAV_ITEMS: ReadonlyArray<NavSpec> = [
+  { href: "/home", label: "Home", iconName: "home", meta: "⌘1" },
+  { href: "/add", label: "Add", iconName: "plus", meta: "⌘N" },
+  { href: "/chat", label: "Chat", iconName: "message", meta: "⌘K" },
+  { href: "/wiki", label: "Wiki", iconName: "book", meta: "⌘W" },
+  { href: "/inbox", label: "Inbox", iconName: "inbox" },
+];
 
 function getViewLabel(pathname: string): string {
   for (const item of NAV_ITEMS) {
@@ -89,85 +94,85 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       }}
     >
       {/* Sidebar */}
-      <aside
-        style={{
-          borderRight: "1px solid var(--accent-border)",
-          background: "var(--surface-white)",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        {/* Logo */}
-        <div
-          style={{
-            padding: "1.25rem 1rem 1rem",
-            borderBottom: "1px solid var(--accent-border)",
-          }}
-        >
-          <span className="ds-h2" style={{ color: "var(--accent)" }}>
-            Codex
-          </span>
+      <aside className="sb">
+        {/* Brand */}
+        <div className="sb__brand">
+          <div className="sb__brand-mark">CODEX</div>
+          <div className="sb__brand-tag">v0.4 · private</div>
         </div>
 
-        {/* Nav items */}
-        <nav style={{ flex: 1, padding: "0.75rem 0.5rem", display: "flex", flexDirection: "column", gap: "2px", overflowY: "auto" }}>
-          {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-            const isInbox = label === "Inbox";
-            return (
-              <NavItem
-                key={href}
-                href={href}
-                label={label}
-                Icon={Icon}
-                badge={isInbox && openInboxCount > 0 ? openInboxCount : undefined}
-              />
-            );
-          })}
+        {/* Primary nav */}
+        {NAV_ITEMS.map(({ href, label, iconName, meta }) => {
+          const isInbox = label === "Inbox";
+          const badge = isInbox && openInboxCount > 0 ? openInboxCount : undefined;
+          return (
+            <NavItem
+              key={href}
+              href={href}
+              label={label}
+              iconName={iconName}
+              badge={badge}
+              meta={badge === undefined ? meta : undefined}
+            />
+          );
+        })}
 
-          {/* Dynamic Domains group */}
+        {/* Domains group */}
+        <div className="sb__group-label">
+          <span>Domains</span>
           {userDomains.length > 0 && (
-            <div style={{ marginTop: "0.75rem" }}>
-              <p
-                className="ds-section-label"
-                style={{
-                  padding: "0 0.75rem",
-                  marginBottom: "0.25rem",
-                  color: "var(--fg-subtle)",
-                }}
-              >
-                Domains
-              </p>
-              {userDomains.map((domain) => (
-                <DomainItem key={domain.id} domain={domain} />
-              ))}
-            </div>
+            <span className="count">{userDomains.length}</span>
           )}
-        </nav>
+        </div>
+        {userDomains.length > 0 ? (
+          userDomains.map((domain) => {
+            const color = domain.color ?? "var(--fg-muted)";
+            return (
+              <NavItemLink key={domain.id} href={`/domain/${domain.slug}`}>
+                <span
+                  className="sb__domain-dot"
+                  style={{ background: color }}
+                />
+                <span className="sb__domain-label">{domain.label}</span>
+              </NavItemLink>
+            );
+          })
+        ) : (
+          <Link href="/settings/domains" className="sb__domain sb__domain--add">
+            <span className="sb__domain-icon">
+              <Plus size={12} />
+            </span>
+            <span className="sb__domain-label">New domain</span>
+          </Link>
+        )}
 
-        {/* Footer */}
-        <div
-          style={{
-            borderTop: "1px solid var(--accent-border)",
-            padding: "0.875rem 1rem",
-            display: "flex",
-            flexDirection: "column",
-            gap: "0.375rem",
+        <div className="sb__spacer" />
+
+        {/* System group */}
+        <div className="sb__group-label">
+          <span>System</span>
+        </div>
+        <SystemRow iconName="settings" label="Settings" disabled title="coming soon" />
+        <SystemRow
+          iconName="user"
+          label={
+            session.user.name ??
+            session.user.email?.split("@")[0] ??
+            "account"
+          }
+          title={session.user.email ?? undefined}
+          meta="free"
+        />
+
+        {/* Sign out — server action form */}
+        <form
+          action={async () => {
+            "use server";
+            await signOut({ redirectTo: "/login" });
           }}
         >
-          <p className="ds-mono-11" style={{ color: "var(--fg-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {session.user.email}
-          </p>
-          <form
-            action={async () => {
-              "use server";
-              await signOut({ redirectTo: "/login" });
-            }}
-          >
-            <button type="submit" className="btn btn--ghost btn--sm" style={{ padding: 0, height: "auto", fontSize: "0.75rem", color: "var(--fg-subtle)" }}>
-              Sign out
-            </button>
-          </form>
-        </div>
+          <SystemRow iconName="logout" label="Sign out" as="button" />
+        </form>
       </aside>
 
       {/* Main column */}
@@ -193,10 +198,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             </span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <span className="ds-mono-11">
-              {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
-            </span>
-            <Link href="/add" className="btn btn--soft btn--sm">Ask</Link>
+            <TopbarDate />
+            <Link href="/chat" className="btn btn--soft btn--sm">Ask</Link>
             <Link href="/add" className="btn btn--primary btn--sm">Add</Link>
           </div>
         </header>
@@ -210,88 +213,3 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   );
 }
 
-function NavItem({
-  href,
-  label,
-  Icon,
-  badge,
-}: {
-  href: string;
-  label: string;
-  Icon: React.ComponentType<{ size?: number }>;
-  badge?: number;
-}) {
-  return (
-    <Link
-      href={href}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "0.625rem",
-        padding: "0.5rem 0.75rem",
-        borderRadius: "var(--radius-sm)",
-        fontSize: "0.9375rem",
-        fontWeight: 500,
-        color: "var(--fg-muted)",
-        textDecoration: "none",
-        transition: "background 100ms ease-out, color 100ms ease-out",
-      }}
-      className="sidebar-nav-item"
-    >
-      <Icon size={18} />
-      <span style={{ flex: 1 }}>{label}</span>
-      {badge !== undefined && (
-        <span
-          style={{
-            background: "var(--accent)",
-            color: "#fff",
-            fontSize: "0.6875rem",
-            fontWeight: 600,
-            lineHeight: 1,
-            padding: "0.1875rem 0.4375rem",
-            borderRadius: "999px",
-            minWidth: "1.25rem",
-            textAlign: "center",
-          }}
-        >
-          {badge > 99 ? "99+" : badge}
-        </span>
-      )}
-    </Link>
-  );
-}
-
-function DomainItem({ domain }: { domain: Domain }) {
-  const color = domain.color ?? "var(--fg-muted)";
-  return (
-    <Link
-      href={`/domain/${domain.slug}`}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "0.625rem",
-        padding: "0.4375rem 0.75rem",
-        borderRadius: "var(--radius-sm)",
-        fontSize: "0.875rem",
-        fontWeight: 500,
-        color: "var(--fg-muted)",
-        textDecoration: "none",
-        transition: "background 100ms ease-out, color 100ms ease-out",
-      }}
-      className="sidebar-nav-item"
-    >
-      <span
-        style={{
-          width: "8px",
-          height: "8px",
-          borderRadius: "50%",
-          background: color,
-          flexShrink: 0,
-        }}
-      />
-      <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {domain.label}
-      </span>
-    </Link>
-  );
-}

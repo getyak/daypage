@@ -78,11 +78,10 @@ export default async function AddPage() {
   }
 
   return (
-    <div
+    <main
+      className="page"
       style={{
         maxWidth: "760px",
-        margin: "0 auto",
-        padding: "2rem 1.5rem",
         display: "flex",
         flexDirection: "column",
         gap: "2rem",
@@ -92,16 +91,27 @@ export default async function AddPage() {
       <div
         style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}
       >
-        <p className="ds-section-label">Add</p>
-        <h1 className="ds-h1" style={{ margin: 0 }}>
-          Capture something
+        <div className="ds-section-label" style={{ color: "var(--accent)" }}>
+          Add to the wiki
+        </div>
+        <h1
+          className="hero-headline"
+          style={{ fontSize: 32, marginTop: 8, margin: 0 }}
+        >
+          Drop something in.{" "}
+          <span className="accent">I&apos;ll figure out the rest.</span>
         </h1>
         <p
-          className="ds-body-md"
-          style={{ color: "var(--fg-muted)", margin: 0 }}
+          className="hero-sub"
+          style={{
+            marginTop: 4,
+            color: "var(--fg-muted)",
+            marginBottom: 0,
+          }}
         >
-          Paste a link, write a thought, drop a file, or record your voice — the
-          system will handle the rest.
+          Paste a link, type a thought, drop a file. I read the content first
+          and decide whether it&apos;s worth a full compile or a lightweight
+          summary — you can override either way.
         </p>
       </div>
 
@@ -127,6 +137,6 @@ export default async function AddPage() {
           <RecentlyCompiled initialMemos={recentlyCompiled} />
         </div>
       </section>
-    </div>
+    </main>
   );
 }
