@@ -3,7 +3,8 @@ import { db } from "@/lib/db/client";
 import { users, chat_threads } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import Link from "next/link";
-import { ThreadList } from "./ThreadList";
+import { MessageSquare } from "lucide-react";
+import { NewButton } from "./ThreadList";
 
 async function resolveUserId(email: string): Promise<string | null> {
   const rows = await db
@@ -59,25 +60,29 @@ export default async function ChatPage() {
           }}
         >
           <p className="ds-section-label">Conversations</p>
-          <ThreadList.NewButton />
+          <NewButton />
         </div>
 
         <div style={{ flex: 1, overflowY: "auto" }}>
           {threads.length === 0 ? (
             <div
               style={{
-                padding: "2rem 1rem",
-                textAlign: "center",
                 display: "flex",
                 flexDirection: "column",
-                gap: "0.75rem",
                 alignItems: "center",
+                gap: 12,
+                padding: "40px 20px",
+                color: "var(--fg-subtle)",
               }}
             >
-              <p className="ds-body-md" style={{ color: "var(--fg-muted)" }}>
+              <MessageSquare size={16} />
+              <div
+                className="ds-caption"
+                style={{ textAlign: "center", color: "var(--fg-muted)" }}
+              >
                 No conversations yet
-              </p>
-              <ThreadList.NewButton label="Start one" />
+              </div>
+              <NewButton kind="secondary" label="Start one" />
             </div>
           ) : (
             <ul style={{ listStyle: "none", margin: 0, padding: "0.5rem" }}>
@@ -122,20 +127,34 @@ export default async function ChatPage() {
       </aside>
 
       {/* Empty state */}
-      <main
-        style={{
-          flex: 1,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexDirection: "column",
-          gap: "1rem",
-        }}
-      >
-        <p className="ds-h2" style={{ color: "var(--fg-muted)" }}>
-          Select a conversation or start new
-        </p>
-        <ThreadList.NewButton kind="primary" label="New conversation" />
+      <main style={{ flex: 1, overflowY: "auto" }}>
+        <div
+          className="empty-card"
+          style={{
+            padding: "48px 32px",
+            maxWidth: 560,
+            margin: "100px auto 0",
+          }}
+        >
+          <MessageSquare size={24} className="empty-card__icon" />
+          <div className="empty-card__title" style={{ fontSize: 16 }}>
+            Ask your wiki anything
+          </div>
+          <div className="empty-card__hint">
+            I answer only from what you&apos;ve already captured. Numbers in my
+            reply link back to the source. I&apos;ll say &ldquo;I don&apos;t know
+            yet&rdquo; before I make something up.
+          </div>
+          <div style={{ marginTop: 16 }}>
+            <NewButton kind="primary" label="Start a conversation" />
+          </div>
+          <div
+            className="ds-caption"
+            style={{ marginTop: 12, color: "var(--fg-muted)" }}
+          >
+            Try: &ldquo;What did I read about Raft this month?&rdquo;
+          </div>
+        </div>
       </main>
     </div>
   );

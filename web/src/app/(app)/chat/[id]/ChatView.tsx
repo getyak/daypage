@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Btn } from "@/components/ui";
 import type { Citation } from "./page";
 
 interface Message {
@@ -192,385 +193,179 @@ export function ChatView({ threadId, threadTitle, initialMessages, threads }: Ch
     }
   }
 
+  const lastAssistant = [...messages].reverse().find(
+    (m) => m.role === "assistant" && !m.streaming
+  );
+
   return (
-    <div style={{ display: "flex", height: "calc(100vh - 52px)" }}>
-      {/* Thread list sidebar */}
-      <aside
-        style={{
-          width: "280px",
-          flexShrink: 0,
-          borderRight: "1px solid var(--accent-border)",
-          background: "var(--surface-white)",
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
-        <div
-          style={{
-            padding: "1rem",
-            borderBottom: "1px solid var(--accent-border)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <p className="ds-section-label">Conversations</p>
-          <button
-            type="button"
-            className="btn btn--soft btn--sm"
-            onClick={handleNewThread}
-          >
-            New
-          </button>
-        </div>
-        <ul style={{ listStyle: "none", margin: 0, padding: "0.5rem", flex: 1, overflowY: "auto" }}>
-          {threads.map((t) => (
-            <li key={t.id}>
-              <Link
-                href={`/chat/${t.id}`}
-                style={{
-                  display: "block",
-                  padding: "0.625rem 0.75rem",
-                  borderRadius: "var(--radius-sm)",
-                  textDecoration: "none",
-                  color: "var(--fg-primary)",
-                  background: t.id === threadId ? "var(--accent-soft)" : undefined,
-                  transition: "background 100ms ease-out",
-                }}
-                className={t.id !== threadId ? "sidebar-nav-item" : undefined}
-              >
-                <p
-                  style={{
-                    fontSize: "0.875rem",
-                    fontWeight: t.id === threadId ? 600 : 500,
-                    margin: 0,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    color: t.id === threadId ? "var(--accent)" : "var(--fg-primary)",
-                  }}
-                >
-                  {t.title}
-                </p>
-                <p className="ds-mono-11" style={{ margin: "0.125rem 0 0" }}>
-                  {formatRelative(t.updated_at)}
-                </p>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </aside>
-
-      {/* Main chat area */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-        {/* Thread header */}
-        <div
-          style={{
-            padding: "0.75rem 1.5rem",
-            borderBottom: "1px solid var(--accent-border)",
-            background: "var(--surface-white)",
-            flexShrink: 0,
-          }}
-        >
-          <p style={{ fontWeight: 600, fontSize: "0.9375rem", margin: 0, color: "var(--fg-primary)" }}>
-            {threadTitle}
-          </p>
-        </div>
-
-        {/* Messages + References */}
-        <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-          {/* Messages */}
-          <div
-            style={{
-              flex: 1,
-              overflowY: "auto",
-              padding: "1.5rem",
-              display: "flex",
-              flexDirection: "column",
-              gap: "1.25rem",
-            }}
-          >
-            {messages.length === 0 && (
-              <div
-                style={{
-                  textAlign: "center",
-                  marginTop: "4rem",
-                  color: "var(--fg-muted)",
-                }}
-              >
-                <p className="ds-body-md">Ask anything from your wiki</p>
+    <div className="chat">
+      <div className="chat__main">
+        <div className="chat__header">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+            <div>
+              <div className="chat__title">{threadTitle}</div>
+              <div className="chat__meta">
+                {messages.length} messages · drawing from {currentRefs.length} pages
               </div>
-            )}
+            </div>
+            <Btn kind="ghost" size="sm" onClick={() => void handleNewThread()}>
+              New conversation
+            </Btn>
+          </div>
+        </div>
 
-            {messages.map((msg) => (
-              <MessageBubble
-                key={msg.id}
-                msg={msg}
-                onCiteClick={(n) => setActiveRef(activeRef === n ? null : n)}
-                activeRef={activeRef}
-                onFollowupClick={(q) => {
+        <div className="chat__thread">
+          {messages.length === 0 && (
+            <div style={{ padding: "32px 0", textAlign: "center", color: "var(--fg-muted)" }}>
+              <p className="ds-body-md">Ask anything from your wiki</p>
+            </div>
+          )}
+          {messages.map((msg) => (
+            <div key={msg.id} className={`msg msg--${msg.role}`}>
+              <div className="msg__role">{msg.role === "user" ? "You" : "Codex"}</div>
+              <div className="msg__body">
+                <p>
+                  {renderContent(
+                    msg.content,
+                    (n) => setActiveRef(activeRef === n ? null : n),
+                    activeRef
+                  )}
+                  {msg.streaming && (
+                    <span
+                      style={{
+                        display: "inline-block",
+                        width: "0.5rem",
+                        height: "1em",
+                        background: "var(--fg-muted)",
+                        borderRadius: "1px",
+                        marginLeft: "2px",
+                        verticalAlign: "text-bottom",
+                        animation: "blink 1s step-end infinite",
+                      }}
+                    />
+                  )}
+                </p>
+              </div>
+            </div>
+          ))}
+          {error && (
+            <div
+              style={{
+                background: "var(--error-soft)",
+                color: "var(--error)",
+                borderRadius: "var(--radius-sm)",
+                padding: "0.75rem 1rem",
+                fontSize: "0.875rem",
+                margin: "8px 0",
+              }}
+            >
+              {error}
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
+
+        {lastAssistant?.suggested_followups?.length ? (
+          <div className="chat__followups">
+            {lastAssistant.suggested_followups.map((q: string, i: number) => (
+              <button
+                key={i}
+                type="button"
+                className="chip chip--ghost chip--interactive"
+                onClick={() => {
                   setInput(q);
                   textareaRef.current?.focus();
                   void sendMessage(q);
                 }}
-              />
-            ))}
-
-            {error && (
-              <div
-                style={{
-                  background: "var(--error-soft)",
-                  color: "var(--error)",
-                  borderRadius: "var(--radius-sm)",
-                  padding: "0.75rem 1rem",
-                  fontSize: "0.875rem",
-                }}
               >
-                {error}
-              </div>
-            )}
-
-            <div ref={bottomRef} />
+                ✦ {q}
+              </button>
+            ))}
           </div>
+        ) : null}
 
-          {/* References sidebar */}
-          {currentRefs.length > 0 && (
-            <aside
-              style={{
-                width: "280px",
-                flexShrink: 0,
-                borderLeft: "1px solid var(--accent-border)",
-                background: "var(--surface-white)",
-                overflowY: "auto",
-                padding: "1rem",
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.75rem",
-              }}
-            >
-              <p className="ds-section-label">References</p>
-              {currentRefs.map((ref) => (
-                <a
-                  key={ref.n}
-                  href={`/wiki/${ref.slug}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  style={{
-                    display: "block",
-                    textDecoration: "none",
-                    borderRadius: "var(--radius-sm)",
-                    border: `1px solid ${activeRef === ref.n ? "var(--accent)" : "var(--accent-border)"}`,
-                    background: activeRef === ref.n ? "var(--accent-soft)" : "var(--surface-white)",
-                    padding: "0.625rem 0.75rem",
-                    transition: "border-color 100ms ease-out, background 100ms ease-out",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.375rem",
-                      marginBottom: "0.25rem",
-                    }}
-                  >
-                    <span
-                      style={{
-                        background: "var(--accent)",
-                        color: "#fff",
-                        fontFamily: "var(--font-jetbrains-mono)",
-                        fontSize: "0.625rem",
-                        fontWeight: 700,
-                        padding: "0.125rem 0.375rem",
-                        borderRadius: "999px",
-                        lineHeight: 1.4,
-                      }}
-                    >
-                      {ref.n}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "0.6875rem",
-                        fontWeight: 500,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.06em",
-                        color: "var(--fg-subtle)",
-                      }}
-                    >
-                      {ref.type}
-                    </span>
-                  </div>
-                  <p
-                    style={{
-                      fontSize: "0.8125rem",
-                      fontWeight: 600,
-                      color: "var(--fg-primary)",
-                      margin: "0 0 0.25rem",
-                    }}
-                  >
-                    {ref.title}
-                  </p>
-                  {ref.excerpt && (
-                    <p
-                      style={{
-                        fontSize: "0.75rem",
-                        color: "var(--fg-muted)",
-                        margin: 0,
-                        lineHeight: 1.5,
-                        display: "-webkit-box",
-                        WebkitLineClamp: 3,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden",
-                      }}
-                    >
-                      {ref.excerpt}
-                    </p>
-                  )}
-                </a>
-              ))}
-            </aside>
-          )}
-        </div>
-
-        {/* Composer */}
-        <div
-          style={{
-            borderTop: "1px solid var(--accent-border)",
-            background: "var(--surface-white)",
-            padding: "1rem 1.5rem",
-            flexShrink: 0,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              gap: "0.625rem",
-              alignItems: "flex-end",
-            }}
-          >
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask a question… (Enter to send, Shift+Enter for newline)"
-              rows={3}
-              disabled={sending}
-              style={{
-                flex: 1,
-                resize: "none",
-                border: "1px solid var(--accent-border)",
-                borderRadius: "var(--radius-sm)",
-                padding: "0.625rem 0.75rem",
-                fontFamily: "var(--font-inter)",
-                fontSize: "0.9375rem",
-                lineHeight: 1.5,
-                background: "var(--bg-warm)",
-                color: "var(--fg-primary)",
-                outline: "none",
-              }}
-            />
-            <button
-              type="button"
-              className="btn btn--primary btn--md"
-              onClick={() => void sendMessage(input)}
-              disabled={sending || !input.trim()}
-              style={{ flexShrink: 0 }}
-            >
-              {sending ? "…" : "Send"}
-            </button>
-          </div>
-          <p className="ds-mono-11" style={{ marginTop: "0.375rem" }}>
-            Answers are grounded in your wiki. Citations appear as {"{N}"} tokens.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MessageBubble({
-  msg,
-  onCiteClick,
-  activeRef,
-  onFollowupClick,
-}: {
-  msg: Message;
-  onCiteClick: (n: number) => void;
-  activeRef: number | null;
-  onFollowupClick: (q: string) => void;
-}) {
-  const isUser = msg.role === "user";
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: isUser ? "flex-end" : "flex-start",
-        gap: "0.375rem",
-      }}
-    >
-      {!isUser && (
-        <span
-          style={{
-            fontSize: "0.6875rem",
-            fontWeight: 600,
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
-            color: "var(--fg-subtle)",
-          }}
-        >
-          Assistant
-        </span>
-      )}
-
-      <div
-        style={{
-          maxWidth: "75%",
-          padding: "0.75rem 1rem",
-          borderRadius: "var(--radius-md)",
-          background: isUser ? "var(--accent)" : "var(--surface-white)",
-          color: isUser ? "#fff" : "var(--fg-primary)",
-          border: isUser ? "none" : "1px solid var(--accent-border)",
-          fontSize: "0.9375rem",
-          lineHeight: 1.65,
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
-        }}
-      >
-        {renderContent(msg.content, onCiteClick, activeRef)}
-        {msg.streaming && (
-          <span
-            style={{
-              display: "inline-block",
-              width: "0.5rem",
-              height: "1em",
-              background: "var(--fg-muted)",
-              borderRadius: "1px",
-              marginLeft: "2px",
-              verticalAlign: "text-bottom",
-              animation: "blink 1s step-end infinite",
-            }}
+        <div className="chat__input-wrap">
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            rows={1}
+            placeholder="Ask the wiki anything…"
+            disabled={sending}
           />
-        )}
+          <Btn kind="ghost" size="sm" aria-label="Attach" disabled title="coming soon">
+            📎
+          </Btn>
+          <Btn
+            kind="primary"
+            size="sm"
+            onClick={() => void sendMessage(input)}
+            disabled={sending || !input.trim()}
+          >
+            {sending ? "…" : "Ask"}
+          </Btn>
+        </div>
+        <div className="chat__disclaimer">Answers come from your wiki only.</div>
       </div>
 
-      {/* Suggested follow-ups */}
-      {!isUser && !msg.streaming && msg.suggested_followups && msg.suggested_followups.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.375rem", maxWidth: "75%" }}>
-          {msg.suggested_followups.map((q, i) => (
-            <button
-              key={i}
-              type="button"
-              className="chip chip--ghost chip--interactive"
-              onClick={() => onFollowupClick(q)}
-              style={{ fontSize: "0.8125rem", textAlign: "left", cursor: "pointer" }}
-            >
-              {q}
-            </button>
-          ))}
-        </div>
-      )}
+      <aside className="cites">
+        <p className="ds-section-label" style={{ marginBottom: 12 }}>
+          References
+        </p>
+        {currentRefs.length === 0 ? (
+          <p className="ds-mono-11" style={{ color: "var(--fg-subtle)" }}>
+            None yet. Ask a question to surface sources.
+          </p>
+        ) : (
+          <div>
+            {currentRefs.map((c) => (
+              <Link
+                key={c.n}
+                href={`/wiki/${c.slug}`}
+                className={"cite-card" + (activeRef === c.n ? " is-active" : "")}
+                style={{ display: "block", textDecoration: "none" }}
+                onMouseEnter={() => setActiveRef(c.n)}
+              >
+                <div className="cite-card__num">
+                  [{c.n}] {c.type}
+                </div>
+                <div className="cite-card__title">{c.title}</div>
+                {c.excerpt && <div className="cite-card__excerpt">{c.excerpt}</div>}
+              </Link>
+            ))}
+          </div>
+        )}
+        {threads.length > 1 && (
+          <div style={{ marginTop: 24, paddingTop: 16, borderTop: "1px solid var(--accent-border)" }}>
+            <p className="ds-section-label" style={{ marginBottom: 8 }}>
+              Other conversations
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {threads
+                .filter((t) => t.id !== threadId)
+                .slice(0, 5)
+                .map((t) => (
+                  <Link
+                    key={t.id}
+                    href={`/chat/${t.id}`}
+                    style={{
+                      fontSize: 12,
+                      color: "var(--fg-muted)",
+                      textDecoration: "none",
+                      padding: "4px 0",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {t.title}
+                  </Link>
+                ))}
+            </div>
+          </div>
+        )}
+      </aside>
     </div>
   );
 }
@@ -595,27 +390,8 @@ function renderContent(
         <button
           key={i}
           type="button"
-          className="cite"
+          className={"cite" + (activeRef === n ? " is-active" : "")}
           onClick={() => onCiteClick(n)}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: "1.125rem",
-            height: "1.125rem",
-            borderRadius: "50%",
-            background: activeRef === n ? "var(--accent)" : "var(--accent-soft)",
-            color: activeRef === n ? "#fff" : "var(--accent)",
-            fontSize: "0.5625rem",
-            fontWeight: 700,
-            border: "none",
-            cursor: "pointer",
-            verticalAlign: "super",
-            lineHeight: 1,
-            padding: 0,
-            marginLeft: "1px",
-            transition: "background 100ms ease-out, color 100ms ease-out",
-          }}
         >
           {n}
         </button>
@@ -629,16 +405,3 @@ function renderContent(
   return result;
 }
 
-function formatRelative(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = Date.now();
-  const diff = now - date.getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return date.toLocaleDateString();
-}

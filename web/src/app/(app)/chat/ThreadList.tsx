@@ -4,11 +4,13 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 interface NewButtonProps {
-  kind?: "primary" | "soft" | "ghost";
+  kind?: "primary" | "soft" | "ghost" | "secondary";
   label?: string;
 }
 
-function NewButton({ kind = "soft", label = "New" }: NewButtonProps) {
+// Named export so it can be imported directly from server components without
+// going through a namespace object (which breaks across the RSC boundary).
+export function NewButton({ kind = "soft", label = "New" }: NewButtonProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -44,4 +46,3 @@ function NewButton({ kind = "soft", label = "New" }: NewButtonProps) {
   );
 }
 
-export const ThreadList = { NewButton };
