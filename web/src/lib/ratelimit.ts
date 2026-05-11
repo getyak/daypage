@@ -38,22 +38,34 @@ function inMemoryCheck(
 // ── Upstash limiter (lazy-initialised) ───────────────────────────────────────
 
 let upstash: Ratelimit | null = null;
+let upstashInit: Promise<Ratelimit | null> | null = null;
 
-function getUpstash(): Ratelimit | null {
+async function getUpstash(): Promise<Ratelimit | null> {
   if (upstash) return upstash;
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return null;
+  if (upstashInit) return upstashInit;
 
-  // Dynamic require so the module can still be imported when Redis is absent
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { Redis } = require("@upstash/redis") as typeof import("@upstash/redis");
-  upstash = new Ratelimit({
-    redis: new Redis({ url, token }),
-    limiter: Ratelimit.slidingWindow(30, "60 s"),
-    prefix: "daypage:mutations",
-  });
-  return upstash;
+  // Resolve via `eval` so bundlers (Turbopack/webpack) cannot statically see
+  // the specifier. The package is only required in production when Upstash
+  // env vars are configured.
+  upstashInit = (async () => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
+      const dynamicImport = new Function("s", "return import(s)") as (s: string) => Promise<unknown>;
+      const mod = (await dynamicImport("@upstash/redis")) as { Redis: new (cfg: { url: string; token: string }) => unknown };
+      upstash = new Ratelimit({
+        redis: new mod.Redis({ url, token }) as never,
+        limiter: Ratelimit.slidingWindow(30, "60 s"),
+        prefix: "daypage:mutations",
+      });
+      return upstash;
+    } catch {
+      return null;
+    }
+  })();
+  return upstashInit;
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -63,7 +75,7 @@ export async function checkMutationRateLimit(userId: string): Promise<{
   remaining: number;
   reset: number;
 }> {
-  const limiter = getUpstash();
+  const limiter = await getUpstash();
   if (limiter) {
     const r = await limiter.limit(userId);
     return { success: r.success, remaining: r.remaining, reset: r.reset };
