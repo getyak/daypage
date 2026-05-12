@@ -34,13 +34,23 @@ echo "🚀 Ralph starting — Tool: $TOOL, Max iterations: $MAX_ITERATIONS"
 echo "📋 PRD: $PRD_FILE"
 echo ""
 
+# Cache TARGET_BRANCH at start (NEVER re-read from PRD — Claude Code may overwrite it)
+TARGET_BRANCH=$(python3 -c "import json; f=open('$PRD_FILE'); print(json.load(f).get('branchName','main'))")
+echo "🎯 Target branch: $TARGET_BRANCH"
+
+# Verify we're on the correct branch BEFORE first iteration
+CURRENT_BRANCH=$(git branch --show-current)
+if [ "$CURRENT_BRANCH" != "$TARGET_BRANCH" ]; then
+  echo "   ⚠️ Not on target branch ($CURRENT_BRANCH ≠ $TARGET_BRANCH) — switching"
+  git checkout "$TARGET_BRANCH"
+fi
+
 for i in $(seq 1 $MAX_ITERATIONS); do
   echo "═══════════════════════════════════════════════════════════"
   echo "  Iteration $i / $MAX_ITERATIONS"
   echo "═══════════════════════════════════════════════════════════"
 
   # Guard: ensure we're on the correct branch (Claude Code may have switched it)
-  TARGET_BRANCH=$(python3 -c "import json; f=open('$PRD_FILE'); print(json.load(f).get('branchName','main'))")
   CURRENT_BRANCH=$(git branch --show-current)
   if [ "$CURRENT_BRANCH" != "$TARGET_BRANCH" ]; then
     echo "   ⚠️ Branch drift: on $CURRENT_BRANCH, expected $TARGET_BRANCH — switching back"
