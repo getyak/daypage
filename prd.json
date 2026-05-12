@@ -970,7 +970,7 @@
         "Document workflow in docs/qa/visual-regression.md"
       ],
       "priority": 66,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
