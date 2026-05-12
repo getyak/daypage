@@ -1,6 +1,3 @@
-// UI primitives demo — preserved here for reference.
-// This folder is prefixed with `_` so Next.js does NOT route to it.
-// To view, copy the file into `app/page.tsx` or a real route temporarily.
 import { BookOpen, Zap, ArrowRight } from "lucide-react";
 import { Btn, Chip, Card, Icon, Sparkline, SectionLabel } from "@/components/ui";
 
