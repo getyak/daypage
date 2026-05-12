@@ -706,7 +706,7 @@
         "After one run: `find /tmp/daypage-ios-screenshots -size +0c | xargs md5 | awk '{print $4}' | sort -u | wc -l` \u2248 file count"
       ],
       "priority": 47,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
