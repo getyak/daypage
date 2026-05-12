@@ -11,6 +11,7 @@ import type { Domain } from "@/lib/db/schema";
 import { NavItem, NavItemLink, type NavIconName } from "./_components/NavItem";
 import { SystemRow } from "./_components/SystemRow";
 import { TopbarDate } from "./_components/TopbarDate";
+import { NewDomainButton } from "./_components/NewDomainButton";
 
 type NavSpec = { href: string; label: string; iconName: NavIconName; meta?: string };
 
@@ -124,27 +125,19 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             <span className="count">{userDomains.length}</span>
           )}
         </div>
-        {userDomains.length > 0 ? (
-          userDomains.map((domain) => {
-            const color = domain.color ?? "var(--fg-muted)";
-            return (
-              <NavItemLink key={domain.id} href={`/domain/${domain.slug}`}>
-                <span
-                  className="sb__domain-dot"
-                  style={{ background: color }}
-                />
-                <span className="sb__domain-label">{domain.label}</span>
-              </NavItemLink>
-            );
-          })
-        ) : (
-          <Link href="/settings/domains" className="sb__domain sb__domain--add">
-            <span className="sb__domain-icon">
-              <Plus size={12} />
-            </span>
-            <span className="sb__domain-label">New domain</span>
-          </Link>
-        )}
+        {userDomains.map((domain) => {
+          const color = domain.color ?? "var(--fg-muted)";
+          return (
+            <NavItemLink key={domain.id} href={`/domain/${domain.slug}`}>
+              <span
+                className="sb__domain-dot"
+                style={{ background: color }}
+              />
+              <span className="sb__domain-label">{domain.label}</span>
+            </NavItemLink>
+          );
+        })}
+        <NewDomainButton />
 
         <div className="sb__spacer" />
 
