@@ -1,37 +1,15 @@
-# DayPage V5 Codex — Ralph Progress Log
-Started: 2026-05-10T11:49:16Z
+# DayPage 三端测试发现修复 — Ralph Progress Log
+Started: 2026-05-12T06:21:39Z
 Tool: claude
-Branch: ralph/v5-codex-web
-PRD: prd.json
-Stories: 50
+Branch: ralph/test-findings-fix
+PRD: prd.json (68 stories, tri-platform: iOS + Web + Watch)
 ---
 
-## 2026-05-10 - US-001
-- Created `pnpm-workspace.yaml` at repo root listing 'web' and 'packages/*'
-- Created root `package.json` with workspace scripts (web:dev, web:build, web:lint, web:typecheck, db:start, db:reset), packageManager pnpm@11.0.9, engines node>=22/pnpm>=10
-- Verified `pnpm install` succeeds (no workspace packages yet, workspace initialized cleanly)
-- Verified .gitignore already covers web/Next/Supabase/pnpm artifacts (no changes needed)
-- Files changed: `pnpm-workspace.yaml`, `package.json`, `prd.json`
-- **Learnings for future iterations:**
-  - pnpm v11.0.9 is installed at /home/smile/.npm-global/bin/pnpm
-  - .gitignore already has node_modules/, .next/, .pnpm-store/, supabase/.branches/, supabase/.temp/ etc.
-  - No existing root package.json was present — created fresh
+## Codebase Patterns
+- iOS: SwiftUI + file-based YAML/Markdown persistence, no SPM deps, iOS 16.0+
+- Web: Next.js 16 App Router, TypeScript strict, Tailwind 4, Supabase, Drizzle ORM, Auth.js v5, pnpm
+- Watch: watchOS SwiftUI companion, DayPageWatch/
+- QA reports: docs/qa/test-findings-2026-05-12/
+- iOS build: xcodebuild -scheme DayPage build
+- Web build: pnpm typecheck && pnpm format
 ---
-[2026-05-10T13:31:16Z] Story #US-036: Wave 7b: Chat thread API (POST/GET /api/chat/threads) — PASSED
-[2026-05-10T13:35:56Z] Story #US-035: Wave 7a: Embedding pipeline 升级 + RAG retrieval helper — PASSED
-[2026-05-10T13:37:53Z] Story #US-037: Wave 7c: Chat send message API with SSE streaming — PASSED
-[2026-05-10T13:42:13Z] Story #US-038: Wave 7d: Chat view UI (thread list + thread detail + composer) — PASSED
-[2026-05-10T13:46:06Z] Story #US-039: Wave 7e: Suggested follow-ups + I-don't-know fallback — PASSED
-[2026-05-10T13:49:50Z] Story #US-040: Wave 8a: Conflict detection 集成到 compile-memo FULL 步骤 — PASSED
-[2026-05-10T13:52:21Z] Story #US-041: Wave 8b: Schema detection worker (cluster suggestion → inbox) — PASSED
-[2026-05-10T13:54:01Z] Story #US-042: Wave 8c: Cold storage detection cron — PASSED
-[2026-05-10T13:56:07Z] Story #US-043: Wave 8d: Observer agent daily worker + Home observations card — PASSED
-[2026-05-10T13:58:40Z] Story #US-044: Wave 8e: Inbox view UI + filter chips + contradiction old/new compare — PASSED
-[2026-05-10T14:02:26Z] Story #US-045: Wave 8f: Inbox 处理 actions + snooze/dismiss — PASSED
-[2026-05-10T14:03:30Z] Story #US-046: Wave 9a: Agent permissions schema + Settings → Agent page — PASSED
-[2026-05-10T14:05:50Z] Story #US-047: Wave 9b: Agent audit log + change_log + Undo API — PASSED
-[2026-05-10T14:08:32Z] Story #US-048: Wave 9c: Agent safety 6 重栅栏完整实施 — PASSED
-[2026-05-10T14:10:53Z] Story #US-049: Wave 9d: ACT-1 Auto-tag domain 实现 + ACT-6 Weekly recap 实现 — PASSED
-[2026-05-10T14:10:53Z] Ralph complete after 14 iterations
-[2026-05-10T14:16:19Z] Story #US-050: Wave 9e: 收尾 — sidebar inbox badge live update via SSE + global SSE auth + smoke test — PASSED
-[2026-05-10T14:16:19Z] Ralph complete after 1 iterations
