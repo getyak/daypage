@@ -393,7 +393,7 @@ private struct DetailLocationSection: View {
                         Image(systemName: "map.fill")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(DSColor.amberDeep)
-                        Text("Open in Apple Maps")
+                        Text(NSLocalizedString("memo.detail.location.open_maps", comment: ""))
                             .font(DSType.bodySM)
                             .foregroundColor(DSColor.amberDeep)
                         Spacer()
