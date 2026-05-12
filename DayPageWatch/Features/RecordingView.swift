@@ -6,9 +6,13 @@ import os
 // MARK: - RecordingView
 
 /// Full recording UI backed by AVAudioRecorder (16 kHz / M4A).
+/// When idle, rotating the Digital Crown adjusts the max recording duration (30–180 s).
 struct RecordingView: View {
 
     @StateObject private var model = WatchRecordingModel()
+
+    /// Proxy value for the Digital Crown — mirrors model.maxDuration as a Double.
+    @State private var crownValue: Double = 60
 
     var body: some View {
         VStack(spacing: 12) {
@@ -34,6 +38,14 @@ struct RecordingView: View {
                     .accessibilityLabel("Recording time: \(model.elapsed) of \(model.maxDuration) seconds")
             }
 
+            // Duration picker hint — only visible while idle
+            if model.state == .idle {
+                Text("Limit: \(model.maxDuration)s")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("Recording limit: \(model.maxDuration) seconds. Rotate crown to adjust.")
+            }
+
             Spacer()
 
             // Main action button
@@ -50,6 +62,19 @@ struct RecordingView: View {
                 .foregroundStyle(.secondary)
 
             Spacer()
+        }
+        .focusable(model.state == .idle)
+        .digitalCrownRotation(
+            $crownValue,
+            from: 30,
+            through: 180,
+            by: 10,
+            sensitivity: .low,
+            isContinuous: false,
+            isHapticFeedbackEnabled: true
+        )
+        .onChange(of: crownValue) { newValue in
+            model.maxDuration = Int(newValue)
         }
     }
 
@@ -106,8 +131,8 @@ final class WatchRecordingModel: NSObject, ObservableObject {
     @Published var state: State = .idle
     @Published var elapsed: Int = 0
 
-    /// Maximum recording duration in seconds (configurable; UI shows countdown).
-    let maxDuration: Int = 60
+    /// Maximum recording duration in seconds — adjusted via Digital Crown when idle.
+    @Published var maxDuration: Int = 60
 
     private var recorder: AVAudioRecorder?
     private var timer: Timer?
