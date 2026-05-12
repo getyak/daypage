@@ -18,6 +18,37 @@ struct RecordingView: View {
     @Environment(\.isLuminanceReduced) private var isLuminanceReduced
 
     var body: some View {
+        if model.isMicPermissionDenied {
+            micPermissionDeniedView
+        } else {
+            recordingContent
+        }
+    }
+
+    // MARK: - Mic permission denied view
+
+    private var micPermissionDeniedView: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "mic.slash.fill")
+                .font(.system(size: 32))
+                .foregroundStyle(.red)
+                .accessibilityHidden(true)
+            Text("麦克风已被拒绝")
+                .font(.headline)
+                .multilineTextAlignment(.center)
+            Text("请在 iPhone 上 Watch app → DayPage → 隐私 → 启用麦克风")
+                .font(.caption2)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("麦克风权限已被拒绝。请在 iPhone 上 Watch app → DayPage → 隐私 → 启用麦克风")
+    }
+
+    // MARK: - Normal recording content
+
+    private var recordingContent: some View {
         VStack(spacing: 12) {
             Spacer()
 
@@ -113,6 +144,9 @@ struct RecordingView: View {
         .onChange(of: crownValue) { newValue in
             model.maxDuration = Int(newValue)
         }
+        .onAppear {
+            model.checkMicPermission()
+        }
     }
 
     private var statusText: String {
@@ -169,6 +203,7 @@ final class WatchRecordingModel: NSObject, ObservableObject {
 
     @Published var state: State = .idle
     @Published var elapsed: Int = 0
+    @Published var isMicPermissionDenied: Bool = false
 
     /// Maximum recording duration in seconds — adjusted via Digital Crown when idle.
     @Published var maxDuration: Int = 60
@@ -188,9 +223,20 @@ final class WatchRecordingModel: NSObject, ObservableObject {
         WKInterfaceDevice.current().play(hapticType)
     }
 
+    // MARK: - Permission
+
+    func checkMicPermission() {
+        let permission = AVAudioApplication.shared.recordPermission
+        isMicPermissionDenied = (permission == .denied)
+    }
+
     // MARK: - Start
 
     func start() {
+        // Re-check permission before attempting to record.
+        checkMicPermission()
+        guard !isMicPermissionDenied else { return }
+
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.playAndRecord, mode: .default)
