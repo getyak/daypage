@@ -50,3 +50,4 @@ PRD: prd.json (68 stories, tri-platform: iOS + Web + Watch)
 [2026-05-12T07:33:34Z] Story #US-034: [iOS P2-5] Localize 'Open in Apple Maps' button — PASSED
 [2026-05-12T07:33:57Z] Story #US-035: [iOS P2-6] Rewrite '正在编辑 N 条 memo' pill copy — PASSED
 [2026-05-12T07:35:16Z] Story #US-036: [Web P2-1] Remap Cmd+N to non-conflicting shortcut — PASSED
+[2026-05-12T07:37:36Z] Story #US-037: [Web P2-2] Add <nav> landmark inside sidebar — PASSED
