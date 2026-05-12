@@ -42,3 +42,4 @@ PRD: prd.json (68 stories, tri-platform: iOS + Web + Watch)
 [2026-05-12T07:16:44Z] Story #US-026: [Watch P1-5] Add Watch AppIcon set with all required sizes — PASSED
 [2026-05-12T07:18:09Z] Story #US-027: [Watch P1-2] Delete dead-stub ComplicationProvider — PASSED
 [2026-05-12T07:19:34Z] Story #US-028: [Watch P1-3] Register StartRecordingIntent via AppShortcutsProvider — PASSED
+[2026-05-12T07:21:10Z] Story #US-029: [Watch P1-4] Fix WKExtendedRuntimeSession usage (delegate + reason + cancellable) — PASSED
