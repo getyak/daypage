@@ -555,10 +555,12 @@ struct VoiceMemoPlayerRow: View {
             .padding(.top, 14)
             .padding(.bottom, 6)
 
-            // Transcript (italic serif quote style)
+            // Transcript (italic serif quote style — typographic curly quotes
+            // rather than ASCII " to read as a real pull-quote when mixed
+            // with CJK text).
             if let t = transcript, !t.isEmpty {
                 HStack(alignment: .top, spacing: 6) {
-                    Text("\"")
+                    Text("\u{201C}")
                         .font(DSFonts.serif(size: 20, weight: .medium))
                         .foregroundColor(DSColor.amberAccent)
                         .offset(y: -2)
@@ -575,7 +577,7 @@ struct VoiceMemoPlayerRow: View {
                                 Label("复制", systemImage: "doc.on.doc")
                             }
                         }
-                    Text("\"")
+                    Text("\u{201D}")
                         .font(DSFonts.serif(size: 20, weight: .medium))
                         .foregroundColor(DSColor.amberAccent)
                         .offset(y: -2)

@@ -212,7 +212,7 @@ struct InputBarV4: View {
                 HStack(spacing: 6) {
                     Image(systemName: "waveform")
                         .font(.system(size: 11, weight: .semibold))
-                    Text("再说久一点 · 至少 1 秒")
+                    Text(NSLocalizedString("input.toast.too_short", comment: ""))
                         .font(DSType.labelSM)
                 }
                 .foregroundColor(DSColor.inkPrimary)
@@ -224,13 +224,13 @@ struct InputBarV4: View {
                 .shadow(color: Color(hex: "2D1E0A").opacity(0.08), radius: 8, x: 0, y: 2)
                 .padding(.top, -34)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
-                .accessibilityLabel("录音太短，请按住麦克风继续说")
+                .accessibilityLabel(NSLocalizedString("input.a11y.too_short", comment: ""))
                 .accessibilityHidden(!showTooShortToast)
             } else if showMicHintToast {
                 HStack(spacing: 6) {
                     Image(systemName: "hand.tap")
                         .font(.system(size: 11, weight: .semibold))
-                    Text("单击打开录音页 · 长按发送语音")
+                    Text(NSLocalizedString("input.toast.mic_hint", comment: ""))
                         .font(DSType.labelSM)
                 }
                 .foregroundColor(DSColor.inkPrimary)
@@ -242,7 +242,7 @@ struct InputBarV4: View {
                 .shadow(color: Color(hex: "2D1E0A").opacity(0.08), radius: 8, x: 0, y: 2)
                 .padding(.top, -34)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
-                .accessibilityLabel("单击打开录音页，长按发送语音")
+                .accessibilityLabel(NSLocalizedString("input.a11y.mic_hint", comment: ""))
                 .accessibilityHidden(!showMicHintToast)
             }
         }
@@ -289,7 +289,7 @@ struct InputBarV4: View {
     private var streamDockMorph: some View {
         HStack(spacing: 6) {
             // LEFT — More (+)
-            dockSideButton(systemImage: "plus", accessibilityLabel: "更多附件") {
+            dockSideButton(systemImage: "plus", accessibilityLabel: NSLocalizedString("input.a11y.more_attachments", comment: "")) {
                 showAttachmentMenu = true
             }
 
@@ -310,11 +310,11 @@ struct InputBarV4: View {
             .frame(width: 64, height: 64)
             .shadow(color: Color(hex: "5D3000").opacity(0.50), radius: 28, x: 0, y: 12)
             .shadow(color: Color(hex: "5D3000").opacity(0.20), radius: 4, x: 0, y: 2)
-            .accessibilityLabel("麦克风")
-            .accessibilityHint("单击进入录音页；长按说话松手发送")
+            .accessibilityLabel(NSLocalizedString("input.a11y.mic", comment: ""))
+            .accessibilityHint(NSLocalizedString("input.a11y.mic_hint_full", comment: ""))
 
             // RIGHT — Aa (text expand). Fades out as composer opens (AC: Aa 淡出).
-            dockTextButton(accessibilityLabel: "写文字") {
+            dockTextButton(accessibilityLabel: NSLocalizedString("input.a11y.write_text", comment: "")) {
                 transition(to: .expanding)
                 isFocused = true
             }
@@ -384,12 +384,12 @@ struct InputBarV4: View {
     private var dockHintLabel: some View {
         let raw: String
         switch pressToTalkPhase {
-        case .idle:            raw = "单击打开录音页 · 长按发送语音"
-        case .preRecording:    raw = "再按住一下"
-        case .recording:       raw = "上滑取消 · 左滑转文字 · 松开发送"
-        case .cancelArmed:     raw = "松开取消"
-        case .transcribeArmed: raw = "松开转文字"
-        case .transcribing:    raw = "正在转文字…"
+        case .idle:            raw = NSLocalizedString("input.hint.idle", comment: "")
+        case .preRecording:    raw = NSLocalizedString("input.hint.pre_recording", comment: "")
+        case .recording:       raw = NSLocalizedString("input.hint.recording", comment: "")
+        case .cancelArmed:     raw = NSLocalizedString("input.hint.cancel_armed", comment: "")
+        case .transcribeArmed: raw = NSLocalizedString("input.hint.transcribe_armed", comment: "")
+        case .transcribing:    raw = NSLocalizedString("input.hint.transcribing", comment: "")
         }
         return Text(raw)
             .font(DSType.mono9)
