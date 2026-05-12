@@ -87,15 +87,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "248px 1fr",
-        minHeight: "100vh",
-      }}
-    >
-      {/* Sidebar */}
-      <aside className="sb">
+    <div className="flex min-h-screen">
+      {/* Sidebar — hidden on mobile, visible on lg+ */}
+      <aside className="sb hidden lg:flex w-[248px] shrink-0">
         {/* Brand */}
         <div className="sb__brand">
           <div className="sb__brand-mark">CODEX</div>
@@ -168,8 +162,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         </form>
       </aside>
 
-      {/* Main column */}
-      <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+      {/* Main column — full width on mobile, calc on lg+ */}
+      <div className="flex flex-col min-h-screen w-full lg:w-[calc(100%-248px)]">
         {/* Topbar */}
         <header
           style={{
