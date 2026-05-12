@@ -999,7 +999,7 @@
         "Document watchOS visual regression in docs/qa/visual-regression.md"
       ],
       "priority": 68,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]
