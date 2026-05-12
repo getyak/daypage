@@ -20,3 +20,4 @@ PRD: prd.json (68 stories, tri-platform: iOS + Web + Watch)
 [2026-05-12T06:33:45Z] Story #US-004: Add i18n key coverage unit test — PASSED
 [2026-05-12T06:35:06Z] Story #US-005: [iOS P0-3] Fix i18n bundle registration so all keys resolve to translations — PASSED
 [2026-05-12T06:37:11Z] Story #US-006: [iOS P0-1] Fix fresh-launch blank screen by consolidating RootView state — PASSED
+[2026-05-12T06:39:37Z] Story #US-007: [Web P0-1] Fix /add Inngest 401 by adding dev mock fallback — PASSED

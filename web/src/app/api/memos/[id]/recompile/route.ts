@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db/client";
 import { memos, users } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
-import { inngest } from "@/lib/inngest/client";
+import { sendEvent } from "@/lib/inngest/client";
 
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -46,7 +46,7 @@ export async function POST(_req: NextRequest, ctx: RouteContext) {
     .where(and(eq(memos.id, id), eq(memos.user_id, userId)));
 
   // Re-trigger compilation pipeline
-  await inngest.send({ name: "memo/created", data: { memo_id: id } });
+  await sendEvent({ name: "memo/created", data: { memo_id: id } });
 
   return NextResponse.json({ ok: true });
 }
