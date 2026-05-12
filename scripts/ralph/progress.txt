@@ -54,3 +54,4 @@ PRD: prd.json (68 stories, tri-platform: iOS + Web + Watch)
 [2026-05-12T07:39:30Z] Story #US-038: [Web P2-3] Wire up Ask button to actual chat overlay or /chat route — PASSED
 [2026-05-12T07:40:53Z] Story #US-039: [Web P2-4] Raise secondary action color contrast to WCAG AA — PASSED
 [2026-05-12T07:43:39Z] Story #US-040: [Watch P2-1] Make WatchTransferService async and await session activation — PASSED
+[2026-05-12T07:45:01Z] Story #US-041: [Watch P2-2] Ensure RecordingView timer stops on .failed state — PASSED
