@@ -22,10 +22,10 @@ struct RecordingView: View {
             Spacer()
 
             // Waveform icon — static in AOD to reduce OLED burn-in / power draw
-            Image(systemName: model.state == .recording ? "waveform" : "waveform.circle")
+            Image(systemName: (model.state == .recording || model.state == .confirmStop) ? "waveform" : "waveform.circle")
                 .font(.system(size: 36))
-                .foregroundStyle(model.state == .recording ? .red : .tint)
-                .accessibilityLabel(model.state == .recording ? "Recording in progress" : "Ready to record")
+                .foregroundStyle(model.state == .confirmStop ? .orange : (model.state == .recording ? .red : .tint))
+                .accessibilityLabel(model.state == .recording ? "Recording in progress" : (model.state == .confirmStop ? "Confirming stop" : "Ready to record"))
 
             // Elapsed time or status
             // In AOD the timer already ticks at 1 Hz — suppress the numeric animation
@@ -37,10 +37,10 @@ struct RecordingView: View {
                 .privacySensitive(false)
 
             // Countdown bar — hidden in AOD (animated content wastes power on OLED)
-            if model.state == .recording && !isLuminanceReduced {
+            if (model.state == .recording || model.state == .confirmStop) && !isLuminanceReduced {
                 ProgressView(value: Double(model.elapsed), total: Double(model.maxDuration))
                     .progressViewStyle(.linear)
-                    .tint(model.elapsed >= model.maxDuration - 10 ? .red : .green)
+                    .tint(model.state == .confirmStop ? .orange : (model.elapsed >= model.maxDuration - 10 ? .red : .green))
                     .accessibilityLabel("Recording time: \(model.elapsed) of \(model.maxDuration) seconds")
             }
 
@@ -63,17 +63,34 @@ struct RecordingView: View {
 
             // Main action button — hidden in AOD (buttons are not tappable in AOD)
             if !isLuminanceReduced {
-                Button(action: handleTap) {
-                    Image(systemName: model.state == .recording ? "stop.circle.fill" : "mic.circle.fill")
-                        .font(.system(size: 48))
-                        .foregroundStyle(model.state == .recording ? .red : .green)
+                if case .confirmStop = model.state {
+                    // 2-second cancel window before processing begins
+                    Button(action: { model.cancelStop() }) {
+                        Image(systemName: "arrow.uturn.backward.circle.fill")
+                            .font(.system(size: 48))
+                            .foregroundStyle(.orange)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Cancel stop — keep recording")
+                } else {
+                    Button(action: handleTap) {
+                        Image(systemName: model.state == .recording ? "stop.circle.fill" : "mic.circle.fill")
+                            .font(.system(size: 48))
+                            .foregroundStyle(model.state == .recording ? .red : .green)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(model.state == .recording ? "Stop recording" : "Start recording")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(model.state == .recording ? "Stop recording" : "Start recording")
 
-                Text(model.state == .recording ? "Tap to stop" : "Tap to record")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                if case .confirmStop = model.state {
+                    Text("Tap to cancel")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                } else {
+                    Text(model.state == .recording ? "Tap to stop" : "Tap to record")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Spacer()
@@ -107,6 +124,8 @@ struct RecordingView: View {
             return remaining <= 10
                 ? ":\(remaining)s left"
                 : formattedTime(model.elapsed)
+        case .confirmStop:
+            return "Stopping..."
         case .processing:
             return "Saving..."
         case .uploading:
@@ -123,7 +142,7 @@ struct RecordingView: View {
         case .idle:
             model.start()
         case .recording:
-            model.stopAndTransfer()
+            model.requestStop()
         case .failed:
             model.reset()
         default:
@@ -144,7 +163,7 @@ struct RecordingView: View {
 final class WatchRecordingModel: NSObject, ObservableObject {
 
     enum State: Equatable {
-        case idle, recording, processing, uploading, done
+        case idle, recording, confirmStop, processing, uploading, done
         case failed(String)
     }
 
@@ -159,6 +178,7 @@ final class WatchRecordingModel: NSObject, ObservableObject {
     private var currentFileURL: URL?
     private var extSession: WKExtendedRuntimeSession?
     private var autoResetTask: Task<Void, Never>?
+    private var confirmStopTask: Task<Void, Never>?
 
     private let logger = Logger(subsystem: "com.daypage.watch", category: "RecordingModel")
 
@@ -251,8 +271,34 @@ final class WatchRecordingModel: NSObject, ObservableObject {
         }
     }
 
+    /// Enter a 2-second confirmation window before actually stopping.
+    /// Prevents accidental stop on a single tap.
+    func requestStop() {
+        guard state == .recording else { return }
+        state = .confirmStop
+        haptic(.click)
+
+        confirmStopTask?.cancel()
+        confirmStopTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard let self, !Task.isCancelled, self.state == .confirmStop else { return }
+            self.stopAndTransfer()
+        }
+    }
+
+    /// Cancel the pending stop and resume recording.
+    func cancelStop() {
+        guard state == .confirmStop else { return }
+        confirmStopTask?.cancel()
+        confirmStopTask = nil
+        state = .recording
+        haptic(.click)
+    }
+
     /// Reset from .failed back to .idle so the user can try again.
     func reset() {
+        confirmStopTask?.cancel()
+        confirmStopTask = nil
         stopTimer()
         recorder?.stop()
         recorder = nil
@@ -276,9 +322,11 @@ final class WatchRecordingModel: NSObject, ObservableObject {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
-                guard let self, self.state == .recording else { return }
+                guard let self, self.state == .recording || self.state == .confirmStop else { return }
                 self.elapsed += 1
                 if self.elapsed >= self.maxDuration {
+                    // Time's up — cancel any pending confirm and stop immediately
+                    self.confirmStopTask?.cancel()
                     self.stopAndTransfer()
                 }
             }
@@ -331,9 +379,10 @@ extension WatchRecordingModel: WKExtendedRuntimeSessionDelegate {
         Logger(subsystem: "com.daypage.watch", category: "RecordingModel")
             .warning("WKExtendedRuntimeSession invalidated — reason: \(reason.rawValue), error: \(msg)")
 
-        // If invalidated while recording, stop cleanly on the main actor.
+        // If invalidated while recording or awaiting confirmation, stop cleanly on the main actor.
         Task { @MainActor [weak self] in
-            guard let self, self.state == .recording else { return }
+            guard let self, self.state == .recording || self.state == .confirmStop else { return }
+            self.confirmStopTask?.cancel()
             self.stopAndTransfer()
         }
     }
@@ -351,7 +400,8 @@ extension WatchRecordingModel: WKExtendedRuntimeSessionDelegate {
         Logger(subsystem: "com.daypage.watch", category: "RecordingModel")
             .warning("WKExtendedRuntimeSession will expire — stopping recording")
         Task { @MainActor [weak self] in
-            guard let self, self.state == .recording else { return }
+            guard let self, self.state == .recording || self.state == .confirmStop else { return }
+            self.confirmStopTask?.cancel()
             self.stopAndTransfer()
         }
     }
