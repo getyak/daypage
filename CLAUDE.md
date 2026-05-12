@@ -10,7 +10,7 @@ DayPage: a personal logging tool centered on daily raw data capture. Users dump,
 
 | Layer | Choice | Notes |
 |---|---|---|
-| Platform | **iOS 16.0+**, Swift 5 | Single Xcode target `DayPage.app`, no SPM dependencies |
+| Platform | **iOS 16.0+**, Swift 5 | Single Xcode target `DayPage.app`; SPM dependencies: **Supabase** (supabase-swift), **Sentry** (sentry-cocoa) |
 | UI | **SwiftUI** (pure) | `UITabBarAppearance` is the only UIKit touchpoint (`RootView.swift`) |
 | Navigation | **Sidebar** | Left drawer (280pt) — Today / Archive / Graph (disabled, Post-MVP); no bottom TabBar |
 | State | `ObservableObject` + `@Published` + `@StateObject`, `@MainActor` services | No `@Observable` macro (Swift 5 constraint) |
