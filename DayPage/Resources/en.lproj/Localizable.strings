@@ -43,3 +43,36 @@
 "error.location_denied.title" = "Location access denied.";
 "error.location_denied.subtitle" = "Open Settings to allow location access for your memos.";
 "error.location_denied.cta" = "Open Settings";
+
+/* OnboardingView — US-019 */
+
+/* WelcomePage */
+"onboarding.welcome.slogan" = "Dump today, let AI compile tomorrow";
+"onboarding.welcome.begin" = "Get Started";
+
+/* PermissionsPage */
+"onboarding.permissions.title" = "Allow Access";
+"onboarding.permissions.subtitle" = "These permissions help DayPage serve you better. You can change them any time in Settings.";
+"onboarding.permissions.mic.title" = "Microphone";
+"onboarding.permissions.mic.description" = "AI-transcribes your voice memos";
+"onboarding.permissions.location.title" = "Location";
+"onboarding.permissions.location.description" = "Automatically records where you are";
+"onboarding.permissions.notifications.title" = "Notifications";
+"onboarding.permissions.notifications.description" = "Notifies you when today's compilation is ready";
+"onboarding.permissions.status.unknown" = "Grant";
+"onboarding.permissions.status.granted" = "Granted";
+"onboarding.permissions.status.denied" = "Denied";
+"onboarding.permissions.next" = "Next";
+
+/* ApiKeysPage */
+"onboarding.apikeys.title" = "Configure API Keys";
+"onboarding.apikeys.subtitle" = "Enter your API keys, or skip to configure them later in Settings.";
+"onboarding.apikeys.deepseek.label" = "DeepSeek (AI Compilation)";
+"onboarding.apikeys.openai.label" = "OpenAI Whisper (Voice Transcription)";
+"onboarding.apikeys.openweather.label" = "OpenWeather (Weather)";
+"onboarding.apikeys.paste" = "Paste";
+"onboarding.apikeys.complete" = "Start Using DayPage";
+
+/* WelcomeScreen */
+"welcome.slogan" = "Every day deserves a record.";
+"welcome.begin" = "Begin";

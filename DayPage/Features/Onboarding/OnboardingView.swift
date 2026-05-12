@@ -53,7 +53,7 @@ private struct WelcomePage: View {
                     .h1()
                     .foregroundColor(DSColor.onBackgroundPrimary)
 
-                Text("Dump today, let AI compile tomorrow")
+                Text("onboarding.welcome.slogan", bundle: .main)
                     .bodyText()
                     .foregroundColor(DSColor.onBackgroundMuted)
                     .multilineTextAlignment(.center)
@@ -62,7 +62,7 @@ private struct WelcomePage: View {
             Spacer()
 
             Button(action: onNext) {
-                Text("开始")
+                Text("onboarding.welcome.begin", bundle: .main)
                     .bodyText()
                     .foregroundColor(DSColor.surfaceWhite)
                     .frame(maxWidth: .infinity)
@@ -90,9 +90,9 @@ private struct PermissionsPage: View {
         case unknown, granted, denied
         var label: String {
             switch self {
-            case .unknown: return "授权"
-            case .granted: return "已授权"
-            case .denied: return "已拒绝"
+            case .unknown: return NSLocalizedString("onboarding.permissions.status.unknown", comment: "")
+            case .granted: return NSLocalizedString("onboarding.permissions.status.granted", comment: "")
+            case .denied: return NSLocalizedString("onboarding.permissions.status.denied", comment: "")
             }
         }
         var color: Color {
@@ -108,11 +108,11 @@ private struct PermissionsPage: View {
         VStack(spacing: 24) {
             Spacer()
 
-            Text("开放权限")
+            Text("onboarding.permissions.title", bundle: .main)
                 .h1()
                 .foregroundColor(DSColor.onBackgroundPrimary)
 
-            Text("以下权限让 DayPage 更好地服务你，可随时在系统设置中更改")
+            Text("onboarding.permissions.subtitle", bundle: .main)
                 .captionText()
                 .foregroundColor(DSColor.onBackgroundMuted)
                 .multilineTextAlignment(.center)
@@ -121,8 +121,8 @@ private struct PermissionsPage: View {
             VStack(spacing: 12) {
                 permissionCard(
                     icon: "mic.fill",
-                    title: "麦克风",
-                    description: "录音后用 AI 转写成文字",
+                    title: NSLocalizedString("onboarding.permissions.mic.title", comment: ""),
+                    description: NSLocalizedString("onboarding.permissions.mic.description", comment: ""),
                     status: micStatus
                 ) {
                     requestMicrophone()
@@ -130,8 +130,8 @@ private struct PermissionsPage: View {
 
                 permissionCard(
                     icon: "location.fill",
-                    title: "位置",
-                    description: "自动记录你在哪里",
+                    title: NSLocalizedString("onboarding.permissions.location.title", comment: ""),
+                    description: NSLocalizedString("onboarding.permissions.location.description", comment: ""),
                     status: locationStatus
                 ) {
                     requestLocation()
@@ -139,8 +139,8 @@ private struct PermissionsPage: View {
 
                 permissionCard(
                     icon: "bell.fill",
-                    title: "通知",
-                    description: "每日编译完成后提醒你",
+                    title: NSLocalizedString("onboarding.permissions.notifications.title", comment: ""),
+                    description: NSLocalizedString("onboarding.permissions.notifications.description", comment: ""),
                     status: notifStatus
                 ) {
                     requestNotifications()
@@ -150,7 +150,7 @@ private struct PermissionsPage: View {
             Spacer()
 
             Button(action: onNext) {
-                Text("下一步")
+                Text("onboarding.permissions.next", bundle: .main)
                     .bodyText()
                     .foregroundColor(DSColor.surfaceWhite)
                     .frame(maxWidth: .infinity)
@@ -265,35 +265,35 @@ private struct ApiKeysPage: View {
             VStack(spacing: 24) {
                 Spacer(minLength: 48)
 
-                Text("配置 API Key")
+                Text("onboarding.apikeys.title", bundle: .main)
                     .h1()
                     .foregroundColor(DSColor.onBackgroundPrimary)
 
-                Text("填入你的 API Key，或跳过稍后在设置中配置")
+                Text("onboarding.apikeys.subtitle", bundle: .main)
                     .captionText()
                     .foregroundColor(DSColor.onBackgroundMuted)
                     .multilineTextAlignment(.center)
 
                 VStack(spacing: 12) {
                     apiKeyField(
-                        label: "DeepSeek (AI 编译)",
+                        label: NSLocalizedString("onboarding.apikeys.deepseek.label", comment: ""),
                         placeholder: "sk-...",
                         text: $deepSeekKey
                     )
                     apiKeyField(
-                        label: "OpenAI Whisper (语音转写)",
+                        label: NSLocalizedString("onboarding.apikeys.openai.label", comment: ""),
                         placeholder: "sk-...",
                         text: $openAIKey
                     )
                     apiKeyField(
-                        label: "OpenWeather (天气)",
+                        label: NSLocalizedString("onboarding.apikeys.openweather.label", comment: ""),
                         placeholder: "xxxxxxxx",
                         text: $openWeatherKey
                     )
                 }
 
                 Button(action: saveAndComplete) {
-                    Text("开始使用")
+                    Text("onboarding.apikeys.complete", bundle: .main)
                         .bodyText()
                         .foregroundColor(DSColor.surfaceWhite)
                         .frame(maxWidth: .infinity)
