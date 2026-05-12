@@ -8,6 +8,7 @@ import Link from "next/link";
 import { BookOpen } from "lucide-react";
 import { Btn } from "@/components/ui";
 import { WikiNav, type WikiPage } from "./WikiNav";
+import { WikiPageShell } from "./WikiPageShell";
 
 async function resolveUserId(email: string): Promise<string | null> {
   const rows = await db
@@ -74,14 +75,10 @@ export default async function WikiPage({
   }
 
   return (
-    <div className="wiki">
-      <aside className="wiki__nav">
-        <WikiNav initialPages={userPages} />
-      </aside>
-      <main className="wiki__page">
-        <WikiMainContent hasPages={userPages.length > 0} />
-      </main>
-    </div>
+    <WikiPageShell
+      nav={<WikiNav initialPages={userPages} />}
+      main={<WikiMainContent hasPages={userPages.length > 0} />}
+    />
   );
 }
 

@@ -26,3 +26,4 @@ PRD: prd.json (68 stories, tri-platform: iOS + Web + Watch)
 [2026-05-12T06:45:07Z] Story #US-010: [Web P0-3] Replace bare 404 on /domain/[slug] with branded empty state — PASSED
 [2026-05-12T06:47:30Z] Story #US-011: [Web P0-4 part 1] Hide sidebar on mobile breakpoint — PASSED
 [2026-05-12T06:49:40Z] Story #US-012: [Web P0-4 part 2] Add mobile hamburger + Sheet drawer for sidebar — PASSED
+[2026-05-12T06:51:33Z] Story #US-013: [Web P0-4 part 3] Fix Inbox/Wiki/Chat second panel on mobile — PASSED

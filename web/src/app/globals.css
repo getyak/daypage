@@ -640,6 +640,9 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
 
 /* ---------- Chat ---------- */
 .chat { display: grid; grid-template-columns: 1fr 360px; gap: 24px; height: 100%; min-height: 0; padding: 24px 32px 32px; }
+.chat--mobile-refs .chat__main { display: none; }
+.chat--mobile-refs .cites { display: block; }
+.chat--mobile-chat .cites { display: none; }
 .chat__main { display: flex; flex-direction: column; min-height: 0; }
 .chat__header { padding-bottom: 14px; border-bottom: 1px solid var(--accent-border); margin-bottom: 18px; }
 .chat__title { font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: -0.2px; color: var(--fg-primary); }
@@ -782,4 +785,62 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
 .wiki-body a:hover {
   border-bottom: 1px solid currentColor;
   text-decoration: none;
+}
+
+/* === US-013: Mobile single-column for Wiki / Chat secondary panels === */
+/* Mobile tab bar shared by wiki and chat */
+.mobile-tab-bar {
+  display: none;
+  gap: 0;
+  border-bottom: 1px solid var(--accent-border);
+  background: var(--bg-warm);
+}
+.mobile-tab-bar__btn {
+  flex: 1;
+  padding: 10px 0;
+  border: none;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 140ms, border-color 140ms;
+}
+.mobile-tab-bar__btn.is-active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+@media (max-width: 1023px) {
+  /* Wiki: single-column */
+  .wiki { grid-template-columns: 1fr; }
+  .wiki__nav { border-right: none; border-bottom: 1px solid var(--accent-border); }
+  .wiki--show-page .wiki__nav { display: none; }
+  .wiki--show-nav .wiki__page { display: none; }
+  .mobile-tab-bar { display: flex; }
+
+  /* Wiki body inner layout: single-column */
+  .wiki-body__layout { grid-template-columns: 1fr; }
+  .wiki-aside { position: static; }
+
+  /* Chat [id]: single-column */
+  .chat { grid-template-columns: 1fr; padding: 16px; gap: 0; }
+  .cites { border-radius: 0; }
+  /* Mobile tab hiding handled via .chat--mobile-chat / .chat--mobile-refs modifier classes */
+  .chat--mobile-chat .cites { display: none; }
+  .chat--mobile-refs .chat__main { display: none; }
+  .chat--mobile-refs .cites { display: block; }
+
+  /* Chat index: single-column */
+  .chat-index { display: flex; flex-direction: column; height: calc(100vh - 52px); }
+  .chat-index__aside { width: 100% !important; border-right: none !important; border-bottom: 1px solid var(--accent-border); }
+  .chat-index--show-main .chat-index__aside { display: none; }
+  .chat-index--show-list .chat-index__main { display: none; }
+
+  /* Inbox conflict: single-column on narrow screens */
+  .inbox-conflict { grid-template-columns: 1fr; }
 }
