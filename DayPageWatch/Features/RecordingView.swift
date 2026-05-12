@@ -207,7 +207,8 @@ final class WatchRecordingModel: NSObject, ObservableObject {
             .appendingPathComponent("com.daypage.watch", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let stamp = DateFormatter.watchFileStamp.string(from: Date())
-        return dir.appendingPathComponent("watch_\(stamp).m4a")
+        let uuid = UUID().uuidString
+        return dir.appendingPathComponent("watch_\(stamp)_\(uuid).m4a")
     }
 
     private func startTimer() {
