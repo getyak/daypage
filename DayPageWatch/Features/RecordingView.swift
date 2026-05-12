@@ -1,5 +1,7 @@
 import SwiftUI
 import AVFoundation
+import WatchKit
+import os
 
 // MARK: - RecordingView
 
@@ -16,12 +18,21 @@ struct RecordingView: View {
             Image(systemName: model.state == .recording ? "waveform" : "waveform.circle")
                 .font(.system(size: 36))
                 .foregroundStyle(model.state == .recording ? .red : .tint)
+                .accessibilityLabel(model.state == .recording ? "Recording in progress" : "Ready to record")
 
             // Elapsed time or status
             Text(statusText)
                 .font(.title3.monospacedDigit())
                 .contentTransition(.numericText())
                 .animation(.default, value: model.elapsed)
+
+            // Countdown bar — only visible while recording
+            if model.state == .recording {
+                ProgressView(value: Double(model.elapsed), total: Double(model.maxDuration))
+                    .progressViewStyle(.linear)
+                    .tint(model.elapsed >= model.maxDuration - 10 ? .red : .green)
+                    .accessibilityLabel("Recording time: \(model.elapsed) of \(model.maxDuration) seconds")
+            }
 
             Spacer()
 
@@ -32,6 +43,7 @@ struct RecordingView: View {
                     .foregroundStyle(model.state == .recording ? .red : .green)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel(model.state == .recording ? "Stop recording" : "Start recording")
 
             Text(model.state == .recording ? "Tap to stop" : "Tap to record")
                 .font(.caption2)
@@ -46,7 +58,10 @@ struct RecordingView: View {
         case .idle:
             return "Ready"
         case .recording:
-            return formattedTime(model.elapsed)
+            let remaining = model.maxDuration - model.elapsed
+            return remaining <= 10
+                ? ":\(remaining)s left"
+                : formattedTime(model.elapsed)
         case .processing:
             return "Saving..."
         case .uploading:
@@ -64,6 +79,8 @@ struct RecordingView: View {
             model.start()
         case .recording:
             model.stopAndTransfer()
+        case .failed:
+            model.reset()
         default:
             break
         }
@@ -79,7 +96,7 @@ struct RecordingView: View {
 // MARK: - WatchRecordingModel
 
 @MainActor
-final class WatchRecordingModel: ObservableObject {
+final class WatchRecordingModel: NSObject, ObservableObject {
 
     enum State: Equatable {
         case idle, recording, processing, uploading, done
@@ -89,9 +106,15 @@ final class WatchRecordingModel: ObservableObject {
     @Published var state: State = .idle
     @Published var elapsed: Int = 0
 
+    /// Maximum recording duration in seconds (configurable; UI shows countdown).
+    let maxDuration: Int = 60
+
     private var recorder: AVAudioRecorder?
     private var timer: Timer?
     private var currentFileURL: URL?
+    private var extSession: WKExtendedRuntimeSession?
+
+    private let logger = Logger(subsystem: "com.daypage.watch", category: "RecordingModel")
 
     // MARK: - Start
 
@@ -101,9 +124,17 @@ final class WatchRecordingModel: ObservableObject {
             try session.setCategory(.playAndRecord, mode: .default)
             try session.setActive(true)
         } catch {
+            logger.error("Audio session setup failed: \(error.localizedDescription)")
             state = .failed("Audio session error")
             return
         }
+
+        // Request a WKExtendedRuntimeSession so the recording is not forcibly
+        // suspended by the system after the display turns off.
+        let ext = WKExtendedRuntimeSession()
+        ext.delegate = self
+        ext.start()
+        extSession = ext
 
         let url = makeFileURL()
         currentFileURL = url
@@ -125,7 +156,9 @@ final class WatchRecordingModel: ObservableObject {
             startTimer()
             state = .recording
         } catch {
-            state = .failed("Record start failed: \(error.localizedDescription)")
+            logger.error("AVAudioRecorder init failed: \(error.localizedDescription)")
+            state = .failed("Record start failed")
+            invalidateExtSession()
         }
     }
 
@@ -140,6 +173,9 @@ final class WatchRecordingModel: ObservableObject {
         rec.stop()
         recorder = nil
         state = .uploading
+        invalidateExtSession()
+
+        deactivateAudioSession()
 
         // Transfer via WCSession — file cleanup happens inside WatchTransferService
         // once session(_:didFinish:error:) confirms the transfer is complete.
@@ -152,6 +188,16 @@ final class WatchRecordingModel: ObservableObject {
                 }
             }
         }
+    }
+
+    /// Reset from .failed back to .idle so the user can try again.
+    func reset() {
+        stopTimer()
+        recorder?.stop()
+        recorder = nil
+        invalidateExtSession()
+        state = .idle
+        elapsed = 0
     }
 
     // MARK: - Helpers
@@ -167,9 +213,12 @@ final class WatchRecordingModel: ObservableObject {
     private func startTimer() {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard self?.state == .recording else { return }
-                self?.elapsed += 1
+            Task { @MainActor [weak self] in
+                guard let self, self.state == .recording else { return }
+                self.elapsed += 1
+                if self.elapsed >= self.maxDuration {
+                    self.stopAndTransfer()
+                }
             }
         }
     }
@@ -177,6 +226,59 @@ final class WatchRecordingModel: ObservableObject {
     private func stopTimer() {
         timer?.invalidate()
         timer = nil
+    }
+
+    private func invalidateExtSession() {
+        extSession?.invalidate()
+        extSession = nil
+    }
+
+    private func deactivateAudioSession() {
+        do {
+            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        } catch {
+            logger.error("Failed to deactivate audio session: \(error.localizedDescription)")
+        }
+    }
+}
+
+// MARK: - WKExtendedRuntimeSessionDelegate
+
+extension WatchRecordingModel: WKExtendedRuntimeSessionDelegate {
+
+    nonisolated func extendedRuntimeSession(
+        _ extendedRuntimeSession: WKExtendedRuntimeSession,
+        didInvalidateWith reason: WKExtendedRuntimeSessionInvalidationReason,
+        error: Error?
+    ) {
+        let msg = error.map { $0.localizedDescription } ?? "no error"
+        // Logger is nonisolated-safe (sendable)
+        Logger(subsystem: "com.daypage.watch", category: "RecordingModel")
+            .warning("WKExtendedRuntimeSession invalidated — reason: \(reason.rawValue), error: \(msg)")
+
+        // If invalidated while recording, stop cleanly on the main actor.
+        Task { @MainActor [weak self] in
+            guard let self, self.state == .recording else { return }
+            self.stopAndTransfer()
+        }
+    }
+
+    nonisolated func extendedRuntimeSessionDidStart(
+        _ extendedRuntimeSession: WKExtendedRuntimeSession
+    ) {
+        Logger(subsystem: "com.daypage.watch", category: "RecordingModel")
+            .info("WKExtendedRuntimeSession started")
+    }
+
+    nonisolated func extendedRuntimeSessionWillExpire(
+        _ extendedRuntimeSession: WKExtendedRuntimeSession
+    ) {
+        Logger(subsystem: "com.daypage.watch", category: "RecordingModel")
+            .warning("WKExtendedRuntimeSession will expire — stopping recording")
+        Task { @MainActor [weak self] in
+            guard let self, self.state == .recording else { return }
+            self.stopAndTransfer()
+        }
     }
 }
 
