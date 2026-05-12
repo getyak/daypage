@@ -266,16 +266,17 @@ struct TodayView: View {
                     // US-010: Vignette gradient at the bottom edge fades timeline
                     // content behind the composer dock, so cards appear to recede
                     // rather than abruptly stopping at the input bar boundary.
-                    .mask(
-                        VStack(spacing: 0) {
-                            Rectangle()
-                            LinearGradient(
-                                colors: [Color.black, Color.clear],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                            .frame(height: 40)
-                        }
+                    // Note: overlay+allowsHitTesting(false) preserves scroll gestures;
+                    // .mask() on a ScrollView blocks hit-testing and breaks scrolling.
+                    .overlay(
+                        LinearGradient(
+                            colors: [Color.clear, DSColor.bgWarm],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: 40)
+                        .allowsHitTesting(false),
+                        alignment: .bottom
                     )
                     .coordinateSpace(name: "todayScroll")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
