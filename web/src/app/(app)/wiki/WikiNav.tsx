@@ -232,6 +232,7 @@ export function WikiNav({
         <input
           type="text"
           placeholder="Search wiki"
+          aria-label="Search wiki"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />

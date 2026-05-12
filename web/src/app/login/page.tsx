@@ -38,6 +38,7 @@ export default function LoginPage() {
             name="email"
             required
             placeholder="your@email.com"
+            aria-label="Email address"
             className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-accent-border bg-surface-white text-fg-primary text-sm outline-none focus:ring-2 focus:ring-accent/30"
             suppressHydrationWarning
           />
@@ -63,6 +64,7 @@ export default function LoginPage() {
               name="email"
               defaultValue="dev@daypage.local"
               placeholder="dev@daypage.local"
+              aria-label="Dev email address"
               className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-accent-border bg-surface-sunken text-fg-primary text-sm outline-none"
               suppressHydrationWarning
             />
