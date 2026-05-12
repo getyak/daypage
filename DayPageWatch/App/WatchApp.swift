@@ -1,6 +1,7 @@
 import SwiftUI
 import WatchConnectivity
 import WatchKit
+import os
 
 @main
 struct DayPageWatchApp: App {
@@ -23,11 +24,13 @@ struct DayPageWatchApp: App {
 
     static let shared = WatchSessionManager()
 
+    private let logger = Logger(subsystem: "com.daypage.watch", category: "WatchSessionManager")
+
     private override init() {}
 
     func activate() {
         guard WCSession.isSupported() else {
-            print("[WatchSessionManager] WCSession not supported on this device")
+            logger.error("WCSession not supported on this device")
             return
         }
         let session = WCSession.default
@@ -44,18 +47,11 @@ extension WatchSessionManager: WCSessionDelegate {
                  activationDidCompleteWith activationState: WCSessionActivationState,
                  error: Error?) {
         if let error {
-            print("[WatchSessionManager] activation error: \(error.localizedDescription)")
+            logger.error("Activation error: \(error.localizedDescription)")
         } else {
-            print("[WatchSessionManager] activated with state: \(activationState.rawValue)")
+            logger.info("Activated with state: \(activationState.rawValue)")
         }
     }
-
-    #if os(iOS)
-    func sessionDidBecomeInactive(_ session: WCSession) {}
-    func sessionDidDeactivate(_ session: WCSession) {
-        WCSession.default.activate()
-    }
-    #endif
 
     /// Forward file transfer completion to WatchTransferService so it can
     /// call the per-file completion handler and clean up the source file.

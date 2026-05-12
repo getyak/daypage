@@ -1,5 +1,6 @@
 import Foundation
 import WatchConnectivity
+import os
 
 // MARK: - WatchTransferService
 
@@ -13,6 +14,8 @@ import WatchConnectivity
     /// Per-file completion handlers keyed by file URL, so concurrent transfers are safe.
     private var pendingCompletions: [URL: (Bool) -> Void] = [:]
 
+    private let logger = Logger(subsystem: "com.daypage.watch", category: "WatchTransferService")
+
     private override init() {
         super.init()
         // Do NOT set WCSession.default.delegate here — WatchSessionManager owns the delegate
@@ -22,7 +25,7 @@ import WatchConnectivity
     /// Transfer an audio file to the companion iPhone.
     func transferAudioFile(_ fileURL: URL, completion: @escaping (Bool) -> Void) {
         guard WCSession.default.activationState == .activated else {
-            print("[WatchTransferService] WCSession not activated")
+            logger.error("WCSession not activated — cannot transfer \(fileURL.lastPathComponent)")
             completion(false)
             return
         }
@@ -37,20 +40,24 @@ import WatchConnectivity
         ]
 
         WCSession.default.transferFile(fileURL, metadata: metadata)
-        print("[WatchTransferService] Queued transfer for \(fileURL.lastPathComponent)")
+        logger.info("Queued transfer for \(fileURL.lastPathComponent)")
     }
 
     /// Called by WatchSessionManager when a file transfer finishes.
     func handleTransferFinished(fileURL: URL, error: Error?) {
         guard let completion = pendingCompletions.removeValue(forKey: fileURL) else { return }
         if let error {
-            print("[WatchTransferService] Transfer failed: \(error.localizedDescription)")
+            logger.error("Transfer failed for \(fileURL.lastPathComponent): \(error.localizedDescription)")
             completion(false)
         } else {
-            print("[WatchTransferService] Transfer succeeded: \(fileURL.lastPathComponent)")
+            logger.info("Transfer succeeded: \(fileURL.lastPathComponent)")
             completion(true)
         }
         // Safe to remove the source file now that the transfer is confirmed finished.
-        try? FileManager.default.removeItem(at: fileURL)
+        do {
+            try FileManager.default.removeItem(at: fileURL)
+        } catch {
+            logger.warning("Failed to remove transferred file \(fileURL.lastPathComponent): \(error.localizedDescription)")
+        }
     }
 }
