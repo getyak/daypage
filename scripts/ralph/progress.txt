@@ -45,3 +45,4 @@ PRD: prd.json (68 stories, tri-platform: iOS + Web + Watch)
 [2026-05-12T07:21:10Z] Story #US-029: [Watch P1-4] Fix WKExtendedRuntimeSession usage (delegate + reason + cancellable) — PASSED
 [2026-05-12T07:23:01Z] Story #US-030: [iOS P2-1] Remove duplicate 'Tuesday' title — PASSED
 [2026-05-12T07:24:47Z] Story #US-031: [iOS P2-2] Rewrite awkward 'slide pad' input bar copy — PASSED
+[2026-05-12T07:27:15Z] Story #US-032: [iOS P2-3] Use locale-aware 12h/24h time format in header — PASSED
