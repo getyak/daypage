@@ -23,3 +23,4 @@ PRD: prd.json (68 stories, tri-platform: iOS + Web + Watch)
 [2026-05-12T06:39:37Z] Story #US-007: [Web P0-1] Fix /add Inngest 401 by adding dev mock fallback — PASSED
 [2026-05-12T06:42:09Z] Story #US-008: [Web P0-2] Fix sidebar 'New domain' dead link — PASSED
 [2026-05-12T06:43:51Z] Story #US-009: [Web P2-5 + P0-3 prep] Add dev bypass seed script — PASSED
+[2026-05-12T06:45:07Z] Story #US-010: [Web P0-3] Replace bare 404 on /domain/[slug] with branded empty state — PASSED
