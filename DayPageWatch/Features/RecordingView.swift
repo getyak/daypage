@@ -52,6 +52,13 @@ struct RecordingView: View {
                     .accessibilityLabel("Recording limit: \(model.maxDuration) seconds. Rotate crown to adjust.")
             }
 
+            // Tap-anywhere hint shown in failed state
+            if case .failed = model.state {
+                Text("Tap anywhere to retry")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
             Spacer()
 
             // Main action button — hidden in AOD (buttons are not tappable in AOD)
@@ -70,6 +77,11 @@ struct RecordingView: View {
             }
 
             Spacer()
+        }
+        // Tapping anywhere in .failed state dismisses back to .idle
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if case .failed = model.state { model.reset() }
         }
         .focusable(model.state == .idle)
         .digitalCrownRotation(
@@ -146,6 +158,7 @@ final class WatchRecordingModel: NSObject, ObservableObject {
     private var timer: Timer?
     private var currentFileURL: URL?
     private var extSession: WKExtendedRuntimeSession?
+    private var autoResetTask: Task<Void, Never>?
 
     private let logger = Logger(subsystem: "com.daypage.watch", category: "RecordingModel")
 
@@ -229,6 +242,7 @@ final class WatchRecordingModel: NSObject, ObservableObject {
             Task { @MainActor in
                 if success {
                     self?.state = .done
+                    self?.scheduleAutoReset()
                 } else {
                     self?.state = .failed("Transfer failed")
                     self?.haptic(.failure)
