@@ -19,6 +19,8 @@ export type MemoProgress = {
 };
 
 // Subscribes to /api/stream/compile and maintains a map of memo_id → progress state.
+// The server closes the stream after MAX_IDLE_POLLS consecutive empty polls; on "idle"
+// the client closes immediately so networkidle can settle quickly.
 export function useCompileStream(): Map<string, MemoProgress> {
   const [progressMap, setProgressMap] = useState<Map<string, MemoProgress>>(
     new Map()
@@ -31,7 +33,15 @@ export function useCompileStream(): Map<string, MemoProgress> {
 
     es.onmessage = (event: MessageEvent<string>) => {
       try {
-        const data = JSON.parse(event.data) as CompileProgressEvent | { type: "ping" | "error" };
+        const data = JSON.parse(event.data) as CompileProgressEvent | { type: "ping" | "error" | "idle" };
+
+        // Server signals no in-flight work — close immediately so networkidle can settle
+        if (data.type === "idle") {
+          es.close();
+          esRef.current = null;
+          return;
+        }
+
         if (data.type !== "progress") return;
 
         const { memo_id, status, step, progress, error } = data as CompileProgressEvent;

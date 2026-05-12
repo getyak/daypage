@@ -36,3 +36,4 @@ PRD: prd.json (68 stories, tri-platform: iOS + Web + Watch)
 [2026-05-12T07:03:47Z] Story #US-020: [iOS P1-4] Remove duplicate top chrome (system back link) — PASSED
 [2026-05-12T07:04:46Z] Story #US-021: [iOS P1-5] Create DayPageDateFormatter singleton for unified timestamps — PASSED
 [2026-05-12T07:06:26Z] Story #US-022: [Web P1-1] Fix /login hydration mismatch on email input — PASSED
+[2026-05-12T07:09:52Z] Story #US-023: [Web P1-2] Close streaming connections on empty data so networkidle ≤ 2s — PASSED
