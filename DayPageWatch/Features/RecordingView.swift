@@ -302,6 +302,19 @@ final class WatchRecordingModel: NSObject, ObservableObject {
             logger.error("Failed to deactivate audio session: \(error.localizedDescription)")
         }
     }
+
+    /// After .done, wait 2 seconds then return to .idle so the user can record again.
+    func scheduleAutoReset() {
+        autoResetTask?.cancel()
+        autoResetTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard let self, !Task.isCancelled else { return }
+            if case .done = self.state {
+                self.state = .idle
+                self.elapsed = 0
+            }
+        }
+    }
 }
 
 // MARK: - WKExtendedRuntimeSessionDelegate

@@ -64,3 +64,4 @@ PRD: prd.json (68 stories, tri-platform: iOS + Web + Watch)
 [2026-05-12T07:55:35Z] Story #US-048: [iOS P3-3] Collapse detail page map to ≤ 25% screen by default — PASSED
 [2026-05-12T07:57:00Z] Story #US-049: [iOS P3-4] Remove test residual state.png screenshot — PASSED
 [2026-05-12T07:59:14Z] Story #US-050: [iOS P3-5] Add pressed-state feedback to input bar buttons — PASSED
+[2026-05-12T08:00:42Z] Story #US-051: [iOS P3-6] Increase Settings gear icon contrast — PASSED
