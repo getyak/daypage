@@ -14,3 +14,4 @@ PRD: prd.json (68 stories, tri-platform: iOS + Web + Watch)
 - Web build: pnpm typecheck && pnpm format
 ---
 [2026-05-12T06:24:17Z] Story #US-001: Create DayPageTests target with Swift Testing — PASSED
+[2026-05-12T06:25:36Z] Story #US-002: Add multi-memo parser unit tests (fails until US-003 fixes parser) — PASSED
