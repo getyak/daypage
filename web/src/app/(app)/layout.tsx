@@ -204,7 +204,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
             <TopbarDate />
-            <Link href="/chat" className="btn btn--soft btn--sm">Ask</Link>
+            <Link href="/chat" className="btn btn--soft btn--sm" aria-label="Ask — open chat">Ask</Link>
             <Link href="/add" className="btn btn--primary btn--sm">Add</Link>
           </div>
         </header>
