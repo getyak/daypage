@@ -96,20 +96,22 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       </div>
 
       {/* Primary nav */}
-      {NAV_ITEMS.map(({ href, label, iconName, meta }) => {
-        const isInbox = label === "Inbox";
-        const badge = isInbox && openInboxCount > 0 ? openInboxCount : undefined;
-        return (
-          <NavItem
-            key={href}
-            href={href}
-            label={label}
-            iconName={iconName}
-            badge={badge}
-            meta={badge === undefined ? meta : undefined}
-          />
-        );
-      })}
+      <nav aria-label="Main navigation">
+        {NAV_ITEMS.map(({ href, label, iconName, meta }) => {
+          const isInbox = label === "Inbox";
+          const badge = isInbox && openInboxCount > 0 ? openInboxCount : undefined;
+          return (
+            <NavItem
+              key={href}
+              href={href}
+              label={label}
+              iconName={iconName}
+              badge={badge}
+              meta={badge === undefined ? meta : undefined}
+            />
+          );
+        })}
+      </nav>
 
       {/* Domains group */}
       <div className="sb__group-label">
