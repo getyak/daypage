@@ -70,3 +70,4 @@ PRD: prd.json (68 stories, tri-platform: iOS + Web + Watch)
 [2026-05-12T08:05:29Z] Story #US-055: [Web P3-3] Widen Chat right column to ≥ 400px or hide on narrow — PASSED
 [2026-05-12T08:07:24Z] Story #US-056: [Web P3-4] Subset web fonts to reduce woff2 weight — PASSED
 [2026-05-12T08:09:08Z] Story #US-057: [Web P3-5] Add bottom padding to sidebar Sign out — PASSED
+[2026-05-12T08:10:41Z] Story #US-058: [Watch P3-1] Replace print with os.Logger across Watch target — PASSED
