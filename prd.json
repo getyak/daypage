@@ -732,7 +732,7 @@
         "Or rename state.png to a numbered stable name"
       ],
       "priority": 49,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
