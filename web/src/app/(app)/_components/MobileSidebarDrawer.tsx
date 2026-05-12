@@ -129,3 +129,6 @@ export function HamburgerButton() {
     </button>
   );
 }
+
+// Re-export under the name layout.tsx expects.
+export { MobileDrawerProvider as MobileSidebarDrawer };

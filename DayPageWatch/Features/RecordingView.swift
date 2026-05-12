@@ -52,22 +52,63 @@ struct RecordingView: View {
         VStack(spacing: 12) {
             Spacer()
 
-            // Waveform icon — static in AOD to reduce OLED burn-in / power draw
+            // Waveform icon + elapsed time
+            recordingStatusHeader
+
+            // Progress bar (recording) + duration hint (idle)
+            recordingProgressSection
+
+            Spacer()
+
+            // Action button row
+            recordingActionButton
+
+            Spacer()
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if case .failed = model.state { model.reset() }
+        }
+        .focusable(model.state == .idle)
+        .digitalCrownRotation(
+            $crownValue,
+            from: 30,
+            through: 180,
+            by: 10,
+            sensitivity: .low,
+            isContinuous: false,
+            isHapticFeedbackEnabled: true
+        )
+        .onChange(of: crownValue) { newValue in
+            model.maxDuration = Int(newValue)
+        }
+        .onAppear {
+            model.checkMicPermission()
+        }
+    }
+
+    // MARK: Recording subviews
+
+    /// Waveform icon + elapsed / status text — static in AOD to reduce OLED burn-in.
+    private var recordingStatusHeader: some View {
+        Group {
             Image(systemName: (model.state == .recording || model.state == .confirmStop) ? "waveform" : "waveform.circle")
                 .font(.system(size: 36))
                 .foregroundStyle(model.state == .confirmStop ? .orange : (model.state == .recording ? .red : .tint))
                 .accessibilityLabel(model.state == .recording ? "Recording in progress" : (model.state == .confirmStop ? "Confirming stop" : "Ready to record"))
 
-            // Elapsed time or status
-            // In AOD the timer already ticks at 1 Hz — suppress the numeric animation
-            // so no frame-level updates run between ticks.
             Text(statusText)
                 .font(.title3.monospacedDigit())
                 .contentTransition(.numericText())
                 .animation(isLuminanceReduced ? nil : .default, value: model.elapsed)
                 .privacySensitive(false)
+        }
+    }
 
-            // Countdown bar — hidden in AOD (animated content wastes power on OLED)
+    /// Countdown bar (recording/confirmStop) or duration hint (idle).
+    /// Hidden entirely when the watch is in AOD mode.
+    private var recordingProgressSection: some View {
+        Group {
             if (model.state == .recording || model.state == .confirmStop) && !isLuminanceReduced {
                 ProgressView(value: Double(model.elapsed), total: Double(model.maxDuration))
                     .progressViewStyle(.linear)
@@ -75,7 +116,6 @@ struct RecordingView: View {
                     .accessibilityLabel("Recording time: \(model.elapsed) of \(model.maxDuration) seconds")
             }
 
-            // Duration picker hint — only visible while idle, hidden in AOD
             if model.state == .idle && !isLuminanceReduced {
                 Text("Limit: \(model.maxDuration)s")
                     .font(.caption2)
@@ -83,19 +123,20 @@ struct RecordingView: View {
                     .accessibilityLabel("Recording limit: \(model.maxDuration) seconds. Rotate crown to adjust.")
             }
 
-            // Tap-anywhere hint shown in failed state
             if case .failed = model.state {
                 Text("Tap anywhere to retry")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
+        }
+    }
 
-            Spacer()
-
-            // Main action button — hidden in AOD (buttons are not tappable in AOD)
+    /// Main action button — start / stop / confirm-stop / cancel.
+    /// Button row is hidden in AOD (buttons are not tappable).
+    private var recordingActionButton: some View {
+        Group {
             if !isLuminanceReduced {
                 if case .confirmStop = model.state {
-                    // 2-second cancel window before processing begins
                     Button(action: { model.cancelStop() }) {
                         Image(systemName: "arrow.uturn.backward.circle.fill")
                             .font(.system(size: 48))
@@ -123,29 +164,6 @@ struct RecordingView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-
-            Spacer()
-        }
-        // Tapping anywhere in .failed state dismisses back to .idle
-        .contentShape(Rectangle())
-        .onTapGesture {
-            if case .failed = model.state { model.reset() }
-        }
-        .focusable(model.state == .idle)
-        .digitalCrownRotation(
-            $crownValue,
-            from: 30,
-            through: 180,
-            by: 10,
-            sensitivity: .low,
-            isContinuous: false,
-            isHapticFeedbackEnabled: true
-        )
-        .onChange(of: crownValue) { newValue in
-            model.maxDuration = Int(newValue)
-        }
-        .onAppear {
-            model.checkMicPermission()
         }
     }
 
