@@ -31,3 +31,4 @@ PRD: prd.json (68 stories, tri-platform: iOS + Web + Watch)
 [2026-05-12T06:54:37Z] Story #US-015: [Watch P1-1] Share Watch schemes so CI can build them — PASSED
 [2026-05-12T06:56:22Z] Story #US-016: [iOS P1-1 part 1] Add dark color variants to DSColor tokens — PASSED
 [2026-05-12T06:58:07Z] Story #US-017: [iOS P1-1 part 2] Verify dark mode across all four main screens — PASSED
+[2026-05-12T07:00:28Z] Story #US-018: [iOS P1-2] Consolidate Today loading state to single skeleton — PASSED
