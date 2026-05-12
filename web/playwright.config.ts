@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
-  testDir: "./e2e",
+  testDir: "./tests",
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 1 : undefined,
@@ -14,7 +14,7 @@ export default defineConfig({
     trace: "on-first-retry",
     screenshot: "on",
   },
-  snapshotDir: "./e2e/snapshots",
+  snapshotDir: "./tests/__screenshots__",
   expect: {
     toHaveScreenshot: {
       // Allow up to 0.2% pixel difference for anti-aliasing / font rendering

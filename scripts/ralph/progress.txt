@@ -73,3 +73,4 @@ PRD: prd.json (68 stories, tri-platform: iOS + Web + Watch)
 [2026-05-12T08:10:41Z] Story #US-058: [Watch P3-1] Replace print with os.Logger across Watch target — PASSED
 [2026-05-12T08:12:14Z] Story #US-059: [Watch P3-4] Add WKHapticType feedback on record start/stop/fail — PASSED
 [2026-05-12T08:14:40Z] Story #US-066: [Cross part 1] iOS UI screenshot baseline + diff in verify-daypage — PASSED
+[2026-05-12T08:16:24Z] Story #US-067: [Cross part 2] Web Playwright screenshot baseline + diff in CI — PASSED
