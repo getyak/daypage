@@ -76,3 +76,36 @@
 /* WelcomeScreen */
 "welcome.slogan" = "每一天，都值得留下来";
 "welcome.begin" = "开始";
+
+/* MemoDetailView — US-033 (iOS P2-4) */
+
+/* Section labels */
+"memo.detail.section.voice" = "语音";
+"memo.detail.section.photo" = "照片";
+"memo.detail.section.location" = "位置";
+"memo.detail.section.files" = "文件";
+"memo.detail.section.metadata" = "元数据";
+
+/* Metadata field labels */
+"memo.detail.meta.created" = "创建于";
+"memo.detail.meta.file" = "文件";
+"memo.detail.meta.kind" = "类型";
+"memo.detail.meta.duration" = "时长";
+"memo.detail.meta.transcription" = "转写";
+"memo.detail.meta.aperture" = "光圈";
+"memo.detail.meta.shutter" = "快门";
+"memo.detail.meta.iso" = "ISO";
+"memo.detail.meta.focal_length" = "焦距";
+"memo.detail.meta.dimensions" = "尺寸";
+"memo.detail.meta.coordinates" = "坐标";
+"memo.detail.meta.place" = "地点";
+"memo.detail.meta.weather" = "天气";
+
+/* Metadata field values */
+"memo.detail.meta.transcription.pending" = "转写中";
+"memo.detail.meta.transcription.provider" = "OpenAI Whisper";
+
+/* Location */
+"memo.detail.location.no_coordinates" = "无坐标";
+"memo.detail.location.open_maps" = "在 Apple 地图中打开";
+"memo.detail.photo.tap_fullscreen" = "点击查看全屏";

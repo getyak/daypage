@@ -76,3 +76,36 @@
 /* WelcomeScreen */
 "welcome.slogan" = "Every day deserves a record.";
 "welcome.begin" = "Begin";
+
+/* MemoDetailView — US-033 (iOS P2-4) */
+
+/* Section labels */
+"memo.detail.section.voice" = "Voice";
+"memo.detail.section.photo" = "Photo";
+"memo.detail.section.location" = "Location";
+"memo.detail.section.files" = "Files";
+"memo.detail.section.metadata" = "Metadata";
+
+/* Metadata field labels */
+"memo.detail.meta.created" = "Created";
+"memo.detail.meta.file" = "File";
+"memo.detail.meta.kind" = "Kind";
+"memo.detail.meta.duration" = "Duration";
+"memo.detail.meta.transcription" = "Transcription";
+"memo.detail.meta.aperture" = "Aperture";
+"memo.detail.meta.shutter" = "Shutter";
+"memo.detail.meta.iso" = "ISO";
+"memo.detail.meta.focal_length" = "Focal Length";
+"memo.detail.meta.dimensions" = "Dimensions";
+"memo.detail.meta.coordinates" = "Coordinates";
+"memo.detail.meta.place" = "Place";
+"memo.detail.meta.weather" = "Weather";
+
+/* Metadata field values */
+"memo.detail.meta.transcription.pending" = "Pending";
+"memo.detail.meta.transcription.provider" = "OpenAI Whisper";
+
+/* Location */
+"memo.detail.location.no_coordinates" = "No coordinates";
+"memo.detail.location.open_maps" = "Open in Apple Maps";
+"memo.detail.photo.tap_fullscreen" = "Tap to view full screen";
