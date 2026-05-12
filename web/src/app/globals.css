@@ -671,7 +671,7 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
   background: var(--bg-warm);
   border-right: 1px solid var(--accent-border);
   flex-direction: column;
-  padding: 22px 14px 14px;
+  padding: 22px 14px 20px;
   gap: 4px; overflow-y: auto;
   height: 100vh; position: sticky; top: 0;
 }
