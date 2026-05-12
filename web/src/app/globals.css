@@ -654,7 +654,7 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
 .msg--user .msg__role { color: var(--accent); }
 .msg__body p { font-size: 15px; line-height: 1.6; margin: 0 0 10px; color: var(--fg-primary); }
 .msg__body p:last-child { margin-bottom: 0; }
-.cite { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; padding: 0 4px; margin: 0 2px; font-family: var(--font-mono); font-size: 9px; font-weight: 700; background: var(--accent-soft); color: var(--accent); border-radius: 999px; cursor: pointer; vertical-align: 1px; }
+.cite { display: inline-flex; align-items: center; justify-content: center; min-width: 16px; height: 16px; padding: 0 4px; margin: 0 2px; font-family: var(--font-mono); font-size: 9px; font-weight: 500; background: var(--accent-soft); color: var(--accent); border-radius: 999px; cursor: pointer; vertical-align: 1px; }
 .cite.is-active { background: var(--accent); color: white; }
 .chat__followups { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 0 6px; }
 .chat__input-wrap { border-top: 1px solid var(--accent-border); padding-top: 14px; }
