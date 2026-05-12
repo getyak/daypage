@@ -115,6 +115,7 @@
 		T10000004 /* VaultLocatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000004 /* VaultLocatorTests.swift */; };
 		T10000005 /* RawStorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000005 /* RawStorageTests.swift */; };
 		T10000006 /* ComposerContextProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000006 /* ComposerContextProviderTests.swift */; };
+		T10000007 /* SmokeTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000007 /* SmokeTest.swift */; };
 		A10000095 /* ComposerContextProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000095 /* ComposerContextProvider.swift */; };
 		FB0000001 /* FeedbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000001 /* FeedbackService.swift */; };
 		FB0000002 /* FeedbackViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000002 /* FeedbackViewModel.swift */; };
@@ -271,6 +272,7 @@
 		T20000004 /* VaultLocatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultLocatorTests.swift; sourceTree = "<group>"; };
 		T20000005 /* RawStorageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawStorageTests.swift; sourceTree = "<group>"; };
 		T20000006 /* ComposerContextProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerContextProviderTests.swift; sourceTree = "<group>"; };
+		T20000007 /* SmokeTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmokeTest.swift; sourceTree = "<group>"; };
 		A20000095 /* ComposerContextProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerContextProvider.swift; sourceTree = "<group>"; };
 		FB1000001 /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
 		FB1000002 /* FeedbackViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackViewModel.swift; sourceTree = "<group>"; };

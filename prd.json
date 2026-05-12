@@ -1,7 +1,7 @@
 {
-  "project": "DayPage 三端测试发现修复",
+  "project": "DayPage \u4e09\u7aef\u6d4b\u8bd5\u53d1\u73b0\u4fee\u590d",
   "branchName": "ralph/test-findings-fix",
-  "description": "Fix all 60 issues found in 2026-05-12 cross-platform deep test (iOS / V5 Codex Web / DayPageWatch). 8 P0 blockers + 14 P1 + 17 P2 + 21 P3. Source PRD: tasks/prd-test-findings-fix.md. Test reports: /tmp/daypage-{ios,web,watch,final}-test-report.md. Ordered by dependency: infra → P0 fixes → P1 → P2 → P3.",
+  "description": "Fix all 60 issues found in 2026-05-12 cross-platform deep test (iOS / V5 Codex Web / DayPageWatch). 8 P0 blockers + 14 P1 + 17 P2 + 21 P3. Source PRD: tasks/prd-test-findings-fix.md. Test reports: /tmp/daypage-{ios,web,watch,final}-test-report.md. Ordered by dependency: infra \u2192 P0 fixes \u2192 P1 \u2192 P2 \u2192 P3.",
   "userStories": [
     {
       "id": "US-001",
@@ -10,12 +10,12 @@
       "acceptanceCriteria": [
         "Create DayPageTests target in DayPage.xcodeproj using Swift Testing (iOS 16+, Xcode 16+)",
         "Add empty SmokeTest.swift with one @Test func that asserts true == true",
-        "Run `xcodebuild -scheme DayPage test -destination 'platform=iOS Simulator,name=iPhone 17'` — exits 0",
+        "Run `xcodebuild -scheme DayPage test -destination 'platform=iOS Simulator,name=iPhone 17'` \u2014 exits 0",
         "Add DayPageTests scheme to xcshareddata so CI can run it",
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -25,7 +25,7 @@
       "acceptanceCriteria": [
         "Add ParserTests.swift in DayPageTests target",
         "Add fixture: 4 memos separated by `<!-- daypage-memo-separator -->` with YAML front-matter each",
-        "Test 1: parse(fileContent:) returns 4 Memo objects (currently fails — that's expected)",
+        "Test 1: parse(fileContent:) returns 4 Memo objects (currently fails \u2014 that's expected)",
         "Test 2: parsed Memo objects do NOT contain 'id:', 'type:', 'created:' in their body",
         "Mark tests with .knownIssue or skip until US-003 completes",
         "Build passes, tests compile",
@@ -61,7 +61,7 @@
         "Test enumerates all known LocalizedStringKey identifiers used in app (manually list known keys for now)",
         "For each key: assert NSLocalizedString(key, comment:) returns translation different from key string itself",
         "Run in en and zh-Hans locales (use Bundle.localizations array)",
-        "Currently this test fails — that's expected, US-005 will fix it",
+        "Currently this test fails \u2014 that's expected, US-005 will fix it",
         "Mark with .knownIssue or skip until US-005 completes",
         "Typecheck passes"
       ],
@@ -79,7 +79,7 @@
         "Run `xcrun simctl get_app_container booted com.daypage.DayPage app` and confirm both .lproj dirs exist inside .app",
         "Empty state screens (0 memo, compile_locked) show localized text, no raw keys",
         "I18nTests from US-004 all pass (remove .knownIssue mark)",
-        "Verify in iOS Simulator with system language set to zh-Hans AND en — both render localized",
+        "Verify in iOS Simulator with system language set to zh-Hans AND en \u2014 both render localized",
         "Typecheck passes",
         "Tests pass"
       ],
@@ -94,7 +94,7 @@
       "acceptanceCriteria": [
         "Refactor RootView.swift to use single enum-driven state: `enum AppPhase { onboarding, auth, ready }` replacing three @State bools",
         "Replace stacked fullScreenCover with switch on AppPhase",
-        "Run 20 consecutive fresh launches (uninstall + install each time) in iPhone 17 simulator — all 20 show complete Today view",
+        "Run 20 consecutive fresh launches (uninstall + install each time) in iPhone 17 simulator \u2014 all 20 show complete Today view",
         "Today view first-frame screenshot file size > 800KB (not 74KB blank)",
         "Verify in iOS Simulator",
         "Typecheck passes"
@@ -106,12 +106,12 @@
     {
       "id": "US-007",
       "title": "[Web P0-1] Fix /add Inngest 401 by adding dev mock fallback",
-      "description": "As a user, I want submitting a memo to succeed so the memo→compile→page pipeline works.",
+      "description": "As a user, I want submitting a memo to succeed so the memo\u2192compile\u2192page pipeline works.",
       "acceptanceCriteria": [
         "Modify web/src/lib/inngest-client.ts (or equivalent) to use mock client when INNGEST_EVENT_KEY is missing AND DEV_AUTH_BYPASS is true",
-        "Mock client simulates send() with local synchronous compile (≤ 5s)",
+        "Mock client simulates send() with local synchronous compile (\u2264 5s)",
         ".env.example documents INNGEST_EVENT_KEY with note about pnpm dev:inngest",
-        "Manual: /add input 'test' → click Add → button returns to default → memo appears in /inbox",
+        "Manual: /add input 'test' \u2192 click Add \u2192 button returns to default \u2192 memo appears in /inbox",
         "Console shows 0 `Inngest API Error: 401`",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
@@ -202,7 +202,7 @@
       "acceptanceCriteria": [
         "At < lg: second panel becomes full-width single column with tab navigation between sections",
         "At >= lg: original side-by-side layout preserved",
-        "Playwright tests run at 375 / 768 / 1024 / 1440 — main path passes at all four",
+        "Playwright tests run at 375 / 768 / 1024 / 1440 \u2014 main path passes at all four",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
@@ -217,7 +217,7 @@
       "acceptanceCriteria": [
         "DayPage/Services/WatchReceiveService.swift `session(_:didReceive:)`: after successful file move, call `VoiceAttachmentQueue.shared.enqueue(audioPath: destURL.path, memoDate: Date())`",
         "Add observer test if VoiceAttachmentQueue API is testable",
-        "Manual (requires watchOS SDK installed): record 5s on Watch → iPhone vault/raw/<today>.md gets new memo (type: voice) + Whisper transcript appears + Today view shows it",
+        "Manual (requires watchOS SDK installed): record 5s on Watch \u2192 iPhone vault/raw/<today>.md gets new memo (type: voice) + Whisper transcript appears + Today view shows it",
         "Typecheck passes"
       ],
       "priority": 14,
@@ -229,7 +229,7 @@
       "title": "[Watch P1-1] Share Watch schemes so CI can build them",
       "description": "As a developer, I want DayPageWatch schemes shared so CI and fresh clones can build the Watch app.",
       "acceptanceCriteria": [
-        "Open Xcode → Product → Scheme → Manage Schemes → check 'Shared' for DayPageWatch and DayPageWatch (Notification)",
+        "Open Xcode \u2192 Product \u2192 Scheme \u2192 Manage Schemes \u2192 check 'Shared' for DayPageWatch and DayPageWatch (Notification)",
         "Both .xcscheme files appear in DayPage.xcodeproj/xcshareddata/xcschemes/",
         "Commit them",
         "`xcodebuild -list` on fresh clone shows both schemes",
@@ -246,7 +246,7 @@
       "acceptanceCriteria": [
         "DayPage/App/DSColor.swift: inkPrimary, inkSecondary, glassStd, glassRim, ambient* all provide dark variants via Color(light:dark:) or .colorset",
         "Build passes",
-        "Manual check: switch simulator to dark mode + app themeMode .auto → backgrounds and ink shift to dark palette",
+        "Manual check: switch simulator to dark mode + app themeMode .auto \u2192 backgrounds and ink shift to dark palette",
         "Typecheck passes"
       ],
       "priority": 16,
@@ -261,7 +261,7 @@
         "Take light and dark screenshots of Today, Archive, Memo Detail, Onboarding",
         "Compare: dark screenshots are visually distinct (background luminance < 30%) from light",
         "No text-on-bg contrast failures (manual check)",
-        "Verify in iOS Simulator (toggle Appearance: Light → Dark)",
+        "Verify in iOS Simulator (toggle Appearance: Light \u2192 Dark)",
         "Typecheck passes"
       ],
       "priority": 17,
@@ -275,7 +275,7 @@
       "acceptanceCriteria": [
         "TodayViewModel exposes `enum LoadState { loading, partial, ready }` aggregating vault + AI compile + On This Day",
         "UI shows skeleton while loading, full content when ready",
-        "Cold launch to ready state ≤ 3s P95 over 5 runs in iPhone 17 simulator",
+        "Cold launch to ready state \u2264 3s P95 over 5 runs in iPhone 17 simulator",
         "Verify in iOS Simulator",
         "Typecheck passes"
       ],
@@ -292,7 +292,7 @@
         "Add zh-Hans and en translations to Localizable.strings",
         "zh-Hans system: Onboarding all-Chinese (slogan + button + title)",
         "en system: Onboarding all-English",
-        "Verify in iOS Simulator (toggle Language: Chinese Simplified → English)",
+        "Verify in iOS Simulator (toggle Language: Chinese Simplified \u2192 English)",
         "Typecheck passes"
       ],
       "priority": 19,
@@ -302,10 +302,10 @@
     {
       "id": "US-020",
       "title": "[iOS P1-4] Remove duplicate top chrome (system back link)",
-      "description": "As a user, I want only one top header, so I don't see both '◀ Settings' and the app header.",
+      "description": "As a user, I want only one top header, so I don't see both '\u25c0 Settings' and the app header.",
       "acceptanceCriteria": [
-        "Today view top no longer shows '◀ Settings' system back link",
-        "After deeplink → Memo detail → back, top shows only app header",
+        "Today view top no longer shows '\u25c0 Settings' system back link",
+        "After deeplink \u2192 Memo detail \u2192 back, top shows only app header",
         "Inspect NavigationStack / NavigationView nesting, remove redundant wrapper",
         "Verify in iOS Simulator",
         "Typecheck passes"
@@ -320,10 +320,10 @@
       "description": "As a user, I want all timestamps to use my local timezone consistently, so 13:30 Beijing doesn't show as 11:30 elsewhere.",
       "acceptanceCriteria": [
         "Add DayPageDateFormatter.swift singleton with shortTime() / fullDate() using user's current locale & timezone",
-        "Replace all Date → String rendering in Memo cards and detail pages to go through it",
+        "Replace all Date \u2192 String rendering in Memo cards and detail pages to go through it",
         "Vault stores `created` as ISO 8601 UTC (no change)",
         "Memo card right-corner time and detail bottom time match for same memo",
-        "Test in simulator with timezone set to America/New_York, Asia/Tokyo, Asia/Shanghai — display adapts",
+        "Test in simulator with timezone set to America/New_York, Asia/Tokyo, Asia/Shanghai \u2014 display adapts",
         "Verify in iOS Simulator",
         "Typecheck passes"
       ],
@@ -349,12 +349,12 @@
     },
     {
       "id": "US-023",
-      "title": "[Web P1-2] Close streaming connections on empty data so networkidle ≤ 2s",
+      "title": "[Web P1-2] Close streaming connections on empty data so networkidle \u2264 2s",
       "description": "As a user, I want /home to be interactive within 2s, so 4G/3G doesn't feel sluggish.",
       "acceptanceCriteria": [
         "Identify streaming endpoint (likely /api/stream or /api/activities) keeping connection alive",
         "Auto-close EventSource after consecutive empty events (e.g. 2x empty within 1s)",
-        "Playwright measures /home networkidle P95 ≤ 2s over 5 runs",
+        "Playwright measures /home networkidle P95 \u2264 2s over 5 runs",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
@@ -431,7 +431,7 @@
         "Add DayPageWatchShortcuts.swift with `struct DayPageWatchShortcuts: AppShortcutsProvider` listing StartRecordingIntent",
         "Set static appShortcuts array with proper phrase / shortTitle / systemImageName",
         "Build Watch target passes",
-        "Manual (requires watchOS SDK): watchOS Settings → Action Button → DayPage → Start Recording is selectable",
+        "Manual (requires watchOS SDK): watchOS Settings \u2192 Action Button \u2192 DayPage \u2192 Start Recording is selectable",
         "Typecheck passes"
       ],
       "priority": 28,
@@ -446,7 +446,7 @@
         "StartRecordingIntent.swift: WKExtendedRuntimeSession init takes proper reason",
         "Set extSession.delegate to handle didInvalidateWith error",
         "Replace 30s Task.sleep hardcode with user-controllable stop or 60s configurable max",
-        "Errors not swallowed by try? — log to os.Logger",
+        "Errors not swallowed by try? \u2014 log to os.Logger",
         "Build Watch target passes",
         "Typecheck passes"
       ],
@@ -459,7 +459,7 @@
       "title": "[iOS P2-1] Remove duplicate 'Tuesday' title",
       "description": "As a user, I want only one date title on Today, so I don't see redundancy.",
       "acceptanceCriteria": [
-        "TodayView.swift: remove the serif 'Tuesday / MAY 12 · 11:05' line OR the hero 'Tuesday / 12 MAY · 0 SIGNALS' — keep one",
+        "TodayView.swift: remove the serif 'Tuesday / MAY 12 \u00b7 11:05' line OR the hero 'Tuesday / 12 MAY \u00b7 0 SIGNALS' \u2014 keep one",
         "Recommendation: keep hero, replace top with brand or time-only",
         "Verify in iOS Simulator",
         "Typecheck passes"
@@ -471,9 +471,9 @@
     {
       "id": "US-031",
       "title": "[iOS P2-2] Rewrite awkward 'slide pad' input bar copy",
-      "description": "As a Chinese user, I want natural-sounding hints under the input bar, not '滑音盘'.",
+      "description": "As a Chinese user, I want natural-sounding hints under the input bar, not '\u6ed1\u97f3\u76d8'.",
       "acceptanceCriteria": [
-        "Localizable.strings zh-Hans: revise input bar hint to natural Chinese (e.g. '轻触切换键盘 · 长按发送语音')",
+        "Localizable.strings zh-Hans: revise input bar hint to natural Chinese (e.g. '\u8f7b\u89e6\u5207\u6362\u952e\u76d8 \u00b7 \u957f\u6309\u53d1\u9001\u8bed\u97f3')",
         "en parallel reviewed",
         "Verify in iOS Simulator",
         "Typecheck passes"
@@ -503,7 +503,7 @@
       "acceptanceCriteria": [
         "Add i18n keys: detail.created, detail.kind, detail.place, detail.weather (en + zh-Hans)",
         "Replace hardcoded labels in detail view",
-        "zh-Hans: 创建于 / 类型 / 位置 / 天气",
+        "zh-Hans: \u521b\u5efa\u4e8e / \u7c7b\u578b / \u4f4d\u7f6e / \u5929\u6c14",
         "en: CREATED / KIND / PLACE / WEATHER",
         "Verify in iOS Simulator",
         "Typecheck passes"
@@ -518,7 +518,7 @@
       "description": "As a Chinese user, I want the map button in Chinese.",
       "acceptanceCriteria": [
         "Add i18n key: detail.openInAppleMaps",
-        "zh-Hans: '在 Apple 地图中打开'",
+        "zh-Hans: '\u5728 Apple \u5730\u56fe\u4e2d\u6253\u5f00'",
         "en: 'Open in Apple Maps'",
         "Verify in iOS Simulator",
         "Typecheck passes"
@@ -529,8 +529,8 @@
     },
     {
       "id": "US-035",
-      "title": "[iOS P2-6] Rewrite '正在编辑 N 条 memo' pill copy",
-      "description": "As a user, I want the bottom pill to show a clear state (e.g. 'Today · 4 NOTES'), not 'editing all memos'.",
+      "title": "[iOS P2-6] Rewrite '\u6b63\u5728\u7f16\u8f91 N \u6761 memo' pill copy",
+      "description": "As a user, I want the bottom pill to show a clear state (e.g. 'Today \u00b7 4 NOTES'), not 'editing all memos'.",
       "acceptanceCriteria": [
         "Replace pill content/binding to render today's memo count summary, not editing state",
         "Or: if pill is genuinely an editing indicator, only show during active edit",
@@ -546,8 +546,8 @@
       "title": "[Web P2-1] Remap Cmd+N to non-conflicting shortcut",
       "description": "As a user, I want advertised shortcut badges to actually work, not be intercepted by browser.",
       "acceptanceCriteria": [
-        "Change ⌘N → ⌥N or 'g a' for /add route",
-        "Verify ⌘W / ⌘K / ⌘1 — also remap if browser-intercepted",
+        "Change \u2318N \u2192 \u2325N or 'g a' for /add route",
+        "Verify \u2318W / \u2318K / \u23181 \u2014 also remap if browser-intercepted",
         "Update sidebar badges to display new shortcuts",
         "Pressing new shortcut on /home navigates to /add",
         "Typecheck passes",
@@ -563,7 +563,7 @@
       "description": "As a screen reader user, I want a navigation landmark to jump to.",
       "acceptanceCriteria": [
         "Wrap sidebar nav links in `<nav aria-label=\"Main navigation\">` inside `<aside>`",
-        "Lighthouse a11y score ≥ 95 on /home",
+        "Lighthouse a11y score \u2265 95 on /home",
         "axe-core: no critical issues",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
@@ -577,7 +577,7 @@
       "title": "[Web P2-3] Wire up Ask button to actual chat overlay or /chat route",
       "description": "As a user, I want the Ask button to do something visible when clicked.",
       "acceptanceCriteria": [
-        "Click Ask → either opens chat overlay (Sheet) or navigates to /chat",
+        "Click Ask \u2192 either opens chat overlay (Sheet) or navigates to /chat",
         "Pick whichever matches product intent (recommend overlay so /home stays focused)",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
@@ -591,7 +591,7 @@
       "title": "[Web P2-4] Raise secondary action color contrast to WCAG AA",
       "description": "As a low-vision user, I want secondary buttons like 'OPEN IN INBOX / KEEP THINKING' to be readable.",
       "acceptanceCriteria": [
-        "Text contrast ratio ≥ 4.5:1 for normal text, ≥ 3:1 for large bold",
+        "Text contrast ratio \u2265 4.5:1 for normal text, \u2265 3:1 for large bold",
         "Either deepen text color to ~#5a4a3a or add outline border",
         "Verify with axe-core or Stark on /home",
         "Typecheck passes",
@@ -608,7 +608,7 @@
       "acceptanceCriteria": [
         "WatchTransferService.transferAudioFile signature changes to async, internally awaits WCSession activation if not activated yet",
         "Failed path does not delete source file (preserve for retry)",
-        "Manual test: cold launch + record + stop within 0.5s — transfer succeeds",
+        "Manual test: cold launch + record + stop within 0.5s \u2014 transfer succeeds",
         "Typecheck passes"
       ],
       "priority": 40,
@@ -634,7 +634,7 @@
       "description": "As a user, I want music/Siri to resume after Watch recording ends.",
       "acceptanceCriteria": [
         "Replace `setActive(false)` with `setActive(false, options: .notifyOthersOnDeactivation)`",
-        "Remove try? — log errors via os.Logger instead",
+        "Remove try? \u2014 log errors via os.Logger instead",
         "Typecheck passes"
       ],
       "priority": 42,
@@ -703,7 +703,7 @@
       "acceptanceCriteria": [
         "verify-daypage skill (or test script) compares MD5 of new screenshot against previous before writing",
         "If identical: skip write, log 'dedupe'",
-        "After one run: `find /tmp/daypage-ios-screenshots -size +0c | xargs md5 | awk '{print $4}' | sort -u | wc -l` ≈ file count"
+        "After one run: `find /tmp/daypage-ios-screenshots -size +0c | xargs md5 | awk '{print $4}' | sort -u | wc -l` \u2248 file count"
       ],
       "priority": 47,
       "passes": false,
@@ -711,10 +711,10 @@
     },
     {
       "id": "US-048",
-      "title": "[iOS P3-3] Collapse detail page map to ≤ 25% screen by default",
+      "title": "[iOS P3-3] Collapse detail page map to \u2264 25% screen by default",
       "description": "As a user, I want text content visible first on Memo detail, not buried below a half-screen map.",
       "acceptanceCriteria": [
-        "Detail view: map default height ≤ 25% screen",
+        "Detail view: map default height \u2264 25% screen",
         "Tap map area expands to 50% or full",
         "Verify in iOS Simulator",
         "Typecheck passes"
@@ -738,7 +738,7 @@
     {
       "id": "US-050",
       "title": "[iOS P3-5] Add pressed-state feedback to input bar buttons",
-      "description": "As a user, I want visual feedback when I tap +/🎙/Aa buttons.",
+      "description": "As a user, I want visual feedback when I tap +/\ud83c\udf99/Aa buttons.",
       "acceptanceCriteria": [
         "Three input bar buttons use PressableButtonStyle with scaleEffect 0.95 + opacity 0.7 on press",
         "Verify in iOS Simulator",
@@ -753,7 +753,7 @@
       "title": "[iOS P3-6] Increase Settings gear icon contrast",
       "description": "As a user, I want to find Settings on a light beige background.",
       "acceptanceCriteria": [
-        "Settings gear icon contrast ratio ≥ 3:1 against background",
+        "Settings gear icon contrast ratio \u2265 3:1 against background",
         "Either deepen stroke color or add subtle shadow / circular tint",
         "Verify in iOS Simulator",
         "Typecheck passes"
@@ -792,7 +792,7 @@
     },
     {
       "id": "US-054",
-      "title": "[Web P3-2] Fix heading hierarchy on /home (H1 → H2 → H3)",
+      "title": "[Web P3-2] Fix heading hierarchy on /home (H1 \u2192 H2 \u2192 H3)",
       "description": "As a screen reader / SEO user, I want a coherent heading structure.",
       "acceptanceCriteria": [
         "Only 1 H1 per page",
@@ -808,10 +808,10 @@
     },
     {
       "id": "US-055",
-      "title": "[Web P3-3] Widen Chat right column to ≥ 400px or hide on narrow",
+      "title": "[Web P3-3] Widen Chat right column to \u2265 400px or hide on narrow",
       "description": "As a desktop user, I want the Chat right intro column readable, not squeezed to 280px.",
       "acceptanceCriteria": [
-        "Chat right column ≥ 400px at 1440x900, or hidden below a threshold",
+        "Chat right column \u2265 400px at 1440x900, or hidden below a threshold",
         "Verify in browser using dev-browser skill at 1440x900",
         "Typecheck passes"
       ],
@@ -825,8 +825,8 @@
       "description": "As a mobile user, I want lighter font payload for faster first paint.",
       "acceptanceCriteria": [
         "Subset 3 woff2 files using next/font/local with `display: 'swap'` and limited glyph ranges, or fonttools subset",
-        "Total font transfer ≤ 60KB (current 103KB)",
-        "Lighthouse performance score ≥ 90 on /home",
+        "Total font transfer \u2264 60KB (current 103KB)",
+        "Lighthouse performance score \u2265 90 on /home",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
@@ -839,7 +839,7 @@
       "title": "[Web P3-5] Add bottom padding to sidebar Sign out",
       "description": "As a user, I want Sign out spaced from viewport bottom, not stuck to the edge.",
       "acceptanceCriteria": [
-        "Sign out has ≥ 16px from viewport bottom",
+        "Sign out has \u2265 16px from viewport bottom",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
@@ -877,7 +877,7 @@
     },
     {
       "id": "US-060",
-      "title": "[Watch P3-5] Close recording state machine (.done → .idle after 2s)",
+      "title": "[Watch P3-5] Close recording state machine (.done \u2192 .idle after 2s)",
       "description": "As a user, I want to record a second memo immediately without killing the app.",
       "acceptanceCriteria": [
         "RecordingView state machine: 2s after .done, automatically transition to .idle",
@@ -896,7 +896,7 @@
       "description": "As a user who denied mic permission, I want clear instructions on how to enable it.",
       "acceptanceCriteria": [
         "RecordingView detects AVAudioApplication.shared.recordPermission == .denied",
-        "Shows text: 'Open iPhone Watch app → DayPage → Privacy → Enable microphone' (i18n keys for en/zh-Hans)",
+        "Shows text: 'Open iPhone Watch app \u2192 DayPage \u2192 Privacy \u2192 Enable microphone' (i18n keys for en/zh-Hans)",
         "Build Watch target passes",
         "Typecheck passes"
       ],
@@ -950,7 +950,7 @@
       "title": "[Watch P3-6] Add subtle confirmation between .recording and .processing",
       "description": "As a user, I want misfires not to instantly lose recordings.",
       "acceptanceCriteria": [
-        "Either require second tap before .recording → .processing, OR show 2s cancel-window in .processing with 'Tap to cancel' affordance",
+        "Either require second tap before .recording \u2192 .processing, OR show 2s cancel-window in .processing with 'Tap to cancel' affordance",
         "Pick whichever is more idiomatic for watchOS",
         "Build Watch target passes",
         "Typecheck passes"
@@ -964,7 +964,7 @@
       "title": "[Cross part 1] iOS UI screenshot baseline + diff in verify-daypage",
       "description": "As an engineering team, I want every iOS PR to surface UI regressions automatically.",
       "acceptanceCriteria": [
-        "Update verify-daypage skill: capture baseline screenshots for Today/Archive/Graph × light/dark × empty/with-memos × en/zh = 24 frames",
+        "Update verify-daypage skill: capture baseline screenshots for Today/Archive/Graph \u00d7 light/dark \u00d7 empty/with-memos \u00d7 en/zh = 24 frames",
         "Store baselines under docs/qa/baselines-ios/",
         "On PR: compare current run against baseline, generate diff images for any frame with > 0.1% pixel diff",
         "Document workflow in docs/qa/visual-regression.md"
@@ -978,7 +978,7 @@
       "title": "[Cross part 2] Web Playwright screenshot baseline + diff in CI",
       "description": "As an engineering team, I want Web UI changes flagged with visual diff in PR review.",
       "acceptanceCriteria": [
-        "Add Playwright test web/tests/visual.spec.ts: capture screenshots for /home /inbox /chat /wiki /add /login × desktop(1440) + mobile(375) = 12 frames using toHaveScreenshot()",
+        "Add Playwright test web/tests/visual.spec.ts: capture screenshots for /home /inbox /chat /wiki /add /login \u00d7 desktop(1440) + mobile(375) = 12 frames using toHaveScreenshot()",
         "Store baselines under web/tests/__screenshots__/",
         "GitHub Actions workflow runs Playwright on PR, uploads diff artifacts on failure",
         "Document workflow in docs/qa/visual-regression.md",
@@ -994,7 +994,7 @@
       "description": "As an engineering team, I want Watch UI changes verified once watchOS SDK is available.",
       "acceptanceCriteria": [
         "Prerequisite: watchOS 26.4 SDK installed via Xcode Components",
-        "Capture RecordingView × idle/recording/done/failed = 4 baseline screenshots",
+        "Capture RecordingView \u00d7 idle/recording/done/failed = 4 baseline screenshots",
         "Store under docs/qa/baselines-watch/",
         "Document watchOS visual regression in docs/qa/visual-regression.md"
       ],

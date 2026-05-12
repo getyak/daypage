@@ -13,3 +13,4 @@ PRD: prd.json (68 stories, tri-platform: iOS + Web + Watch)
 - iOS build: xcodebuild -scheme DayPage build
 - Web build: pnpm typecheck && pnpm format
 ---
+[2026-05-12T06:24:17Z] Story #US-001: Create DayPageTests target with Swift Testing — PASSED
