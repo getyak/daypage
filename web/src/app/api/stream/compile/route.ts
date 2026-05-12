@@ -9,6 +9,8 @@ export const runtime = "nodejs";
 
 const POLL_INTERVAL_MS = 2000;
 const HEARTBEAT_INTERVAL_MS = 15000;
+// Close the stream after this many consecutive idle polls (no in-flight memos, no changes)
+const MAX_IDLE_POLLS = 3;
 
 function sseEvent(data: Record<string, unknown>): string {
   return `data: ${JSON.stringify(data)}\n\n`;
@@ -57,6 +59,7 @@ export async function GET(req: NextRequest) {
 
       // Poll loop
       let lastHeartbeat = Date.now();
+      let idlePolls = 0;
 
       while (!closed) {
         const now = Date.now();
@@ -84,10 +87,17 @@ export async function GET(req: NextRequest) {
               )
             );
 
+          let hadChange = false;
+          let hasInFlight = false;
+
           for (const row of rows) {
+            if (row.compile_status === "pending" || row.compile_status === "running") {
+              hasInFlight = true;
+            }
             const prev = lastSeen.get(row.id);
             const curr = row.compile_status;
             if (prev !== curr) {
+              hadChange = true;
               lastSeen.set(row.id, curr);
 
               // Map status → step label + progress
@@ -101,6 +111,18 @@ export async function GET(req: NextRequest) {
                 error: row.compile_error ?? undefined,
               });
             }
+          }
+
+          // Auto-close when idle: no in-flight work and no changes for MAX_IDLE_POLLS cycles
+          if (!hasInFlight && !hadChange) {
+            idlePolls++;
+            if (idlePolls >= MAX_IDLE_POLLS) {
+              send({ type: "idle" });
+              closed = true;
+              break;
+            }
+          } else {
+            idlePolls = 0;
           }
         } catch (err) {
           // DB error — emit error event and continue

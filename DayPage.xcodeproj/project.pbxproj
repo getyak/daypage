@@ -115,6 +115,7 @@
 		T10000004 /* VaultLocatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000004 /* VaultLocatorTests.swift */; };
 		T10000005 /* RawStorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000005 /* RawStorageTests.swift */; };
 		T10000006 /* ComposerContextProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000006 /* ComposerContextProviderTests.swift */; };
+		T10000007 /* SmokeTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000007 /* SmokeTest.swift */; };
 		A10000095 /* ComposerContextProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000095 /* ComposerContextProvider.swift */; };
 		FB0000001 /* FeedbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000001 /* FeedbackService.swift */; };
 		FB0000002 /* FeedbackViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000002 /* FeedbackViewModel.swift */; };
@@ -138,7 +139,6 @@
 		E4AC46FA495D4BD178789A14 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0881AB423FF6F12FCDE27C5B /* Assets.xcassets */; };
 		347B8BDADCBDDB2EDE830E66 /* WatchTransferService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */; };
 		E20A68158C940060066B2B73 /* WatchReceiveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11E0748715A251EE4A0168A /* WatchReceiveService.swift */; };
-		CDECDD256BBEAFE826A5CC25 /* ComplicationProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1F70542CC9FB914BF77567F /* ComplicationProvider.swift */; };
 		A46C6A46A2D76FF5DBFBD6C6 /* StartRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE91252BA9167A50BFF79FF0 /* StartRecordingIntent.swift */; };
 /* End PBXBuildFile section */
 
@@ -271,6 +271,7 @@
 		T20000004 /* VaultLocatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultLocatorTests.swift; sourceTree = "<group>"; };
 		T20000005 /* RawStorageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawStorageTests.swift; sourceTree = "<group>"; };
 		T20000006 /* ComposerContextProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerContextProviderTests.swift; sourceTree = "<group>"; };
+		T20000007 /* SmokeTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmokeTest.swift; sourceTree = "<group>"; };
 		A20000095 /* ComposerContextProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerContextProvider.swift; sourceTree = "<group>"; };
 		FB1000001 /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
 		FB1000002 /* FeedbackViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackViewModel.swift; sourceTree = "<group>"; };
@@ -297,7 +298,6 @@
 		2748059CC689A341C7CAAACC /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchTransferService.swift; sourceTree = "<group>"; };
 		F11E0748715A251EE4A0168A /* WatchReceiveService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchReceiveService.swift; sourceTree = "<group>"; };
-		C1F70542CC9FB914BF77567F /* ComplicationProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplicationProvider.swift; sourceTree = "<group>"; };
 		FE91252BA9167A50BFF79FF0 /* StartRecordingIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartRecordingIntent.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -705,7 +705,6 @@
 		4D6CD27C159EBD1C3B99E5A0 /* Complication */ = {
 			isa = PBXGroup;
 			children = (
-				C1F70542CC9FB914BF77567F /* ComplicationProvider.swift */,
 				FE91252BA9167A50BFF79FF0 /* StartRecordingIntent.swift */,
 			);
 			path = Complication;
@@ -1007,7 +1006,6 @@
 				9034B2964DD6432BD7FA7250 /* RootView.swift in Sources */,
 				B197ECDEBDA86D4351A96898 /* RecordingView.swift in Sources */,
 				347B8BDADCBDDB2EDE830E66 /* WatchTransferService.swift in Sources */,
-				CDECDD256BBEAFE826A5CC25 /* ComplicationProvider.swift in Sources */,
 				A46C6A46A2D76FF5DBFBD6C6 /* StartRecordingIntent.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

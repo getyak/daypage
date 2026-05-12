@@ -149,7 +149,79 @@ export default async function DomainPage({
 
   const { slug } = await params;
   const domain = await fetchDomain(userId, slug);
-  if (!domain) notFound();
+  if (!domain) {
+    return (
+      <div style={{ padding: "2rem 2.5rem", maxWidth: "900px" }}>
+        <p
+          className="ds-section-label"
+          style={{ color: "var(--fg-subtle)", marginBottom: "1.25rem" }}
+        >
+          <Link href="/home" style={{ color: "inherit", textDecoration: "none" }}>
+            Codex
+          </Link>
+          {" / Domains"}
+        </p>
+        <div
+          style={{
+            marginTop: "2rem",
+            padding: "3rem 2rem",
+            background: "var(--surface-sunken)",
+            borderRadius: "var(--radius-card)",
+            border: "1px solid var(--accent-border)",
+            textAlign: "center",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "1rem",
+          }}
+        >
+          <p
+            style={{
+              fontSize: "2rem",
+              margin: 0,
+              lineHeight: 1,
+            }}
+          >
+            🗂️
+          </p>
+          <h2
+            style={{
+              margin: 0,
+              fontSize: "1.125rem",
+              fontWeight: 600,
+              fontFamily: "var(--font-space-grotesk)",
+              color: "var(--fg-primary)",
+            }}
+          >
+            Domain not found
+          </h2>
+          <p
+            className="ds-body-md"
+            style={{ color: "var(--fg-muted)", margin: 0, maxWidth: "360px" }}
+          >
+            <code
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: "0.875rem",
+                background: "var(--surface-white)",
+                border: "1px solid var(--accent-border)",
+                borderRadius: "var(--radius-sm)",
+                padding: "0.125rem 0.375rem",
+              }}
+            >
+              {slug}
+            </code>{" "}
+            doesn&apos;t exist. Create a new domain or go back to Home.
+          </p>
+          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", justifyContent: "center" }}>
+            <Link href="/home" className="btn btn--secondary btn--sm">
+              ← Back to Home
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const [domainPages, activityThisWeek] = await Promise.all([
     fetchDomainPages(userId, domain.id),

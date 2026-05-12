@@ -11,6 +11,7 @@ import {
   sessions,
   verificationTokens,
 } from "@/lib/db/schema";
+import { seedDevUser } from "@/lib/seed-dev";
 
 // Dev-only credentials login for E2E. Toggle with NODE_ENV=development
 // or E2E_DEV_LOGIN=1. Never enabled in production builds.

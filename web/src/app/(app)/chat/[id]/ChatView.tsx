@@ -40,6 +40,8 @@ interface ChatViewProps {
   threads: ThreadSummary[];
 }
 
+type MobileTab = "chat" | "refs";
+
 export function ChatView({ threadId, threadTitle, initialMessages, threads }: ChatViewProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
@@ -48,6 +50,7 @@ export function ChatView({ threadId, threadTitle, initialMessages, threads }: Ch
   const [error, setError] = useState<string | null>(null);
   const [activeRef, setActiveRef] = useState<number | null>(null);
   const [currentRefs, setCurrentRefs] = useState<Reference[]>([]);
+  const [mobileTab, setMobileTab] = useState<MobileTab>("chat");
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 

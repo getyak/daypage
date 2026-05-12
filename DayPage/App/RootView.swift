@@ -1,20 +1,31 @@
 import SwiftUI
 
+// Single enum driving which full-screen modal is presented, replacing three
+// independent @State bools that could race and produce a blank launch screen.
+private enum AppPhase: Equatable {
+    case onboarding
+    case welcome
+    case auth
+    case ready
+}
+
 struct RootView: View {
     @EnvironmentObject private var authService: AuthService
     @EnvironmentObject private var nav: AppNavigationModel
     @StateObject private var bannerCenter = BannerCenter.shared
     @ObservedObject private var appSettings = AppSettings.shared
-    @State private var hasOnboarded: Bool = UserDefaults.standard.bool(forKey: AppSettings.Keys.hasOnboarded)
-    @State private var hasSeenWelcome: Bool = UserDefaults.standard.bool(forKey: "hasSeenWelcome")
-    @State private var authSkipped: Bool = UserDefaults.standard.bool(forKey: AppSettings.Keys.authSkipped)
-    // Drives the auth fullScreenCover. Kept as @State (not a derived computed property)
-    // so SwiftUI reliably dismisses the cover when `authService.session` flips to non-nil
-    // — see issue #221, where a derived binding occasionally failed to re-evaluate.
-    @State private var showAuthSheet: Bool = {
-        let skipped = UserDefaults.standard.bool(forKey: AppSettings.Keys.authSkipped)
-        return AuthService.shared.session == nil && !skipped
-    }()
+
+    @State private var phase: AppPhase = RootView.initialPhase()
+
+    private static func initialPhase() -> AppPhase {
+        let hasOnboarded = UserDefaults.standard.bool(forKey: AppSettings.Keys.hasOnboarded)
+        guard hasOnboarded else { return .onboarding }
+        let hasSeenWelcome = UserDefaults.standard.bool(forKey: "hasSeenWelcome")
+        guard hasSeenWelcome else { return .welcome }
+        let authSkipped = UserDefaults.standard.bool(forKey: AppSettings.Keys.authSkipped)
+        if AuthService.shared.session == nil && !authSkipped { return .auth }
+        return .ready
+    }
 
     private let sidebarWidth: CGFloat = 280
 
@@ -22,7 +33,6 @@ struct RootView: View {
         min(UIScreen.main.bounds.width * 0.85, 360)
     }
 
-    /// Resolve preferredColorScheme from AppSettings.
     private var resolvedColorScheme: ColorScheme? {
         switch appSettings.themeMode {
         case .system: return nil
@@ -32,56 +42,68 @@ struct RootView: View {
     }
 
     var body: some View {
-        Group {
-            if hasOnboarded {
-                mainContent
-                    .fullScreenCover(isPresented: $showAuthSheet) {
-                        AuthView(onSkip: {
-                            UserDefaults.standard.set(true, forKey: AppSettings.Keys.authSkipped)
-                            authSkipped = true
-                            showAuthSheet = false
-                        })
-                    }
-                    .onChange(of: authService.session != nil) { hasSession in
-                        // Watch the stable boolean rather than session?.user.id.
-                        // During Supabase's internal signedIn transition the listener
-                        // can emit a transient nil session, causing user.id to flash
-                        // nil→UUID→nil→UUID and toggle showAuthSheet twice (RC1).
-                        // `session != nil` is monotonically stable per sign-in event.
-                        if hasSession {
-                            showAuthSheet = false
-                        } else {
-                            showAuthSheet = !authSkipped
-                        }
-                    }
-                    .onAppear {
-                        // The @State initializer captures session synchronously at
-                        // view construction time. If AuthService's async listener
-                        // hasn't delivered the restored session yet, showAuthSheet
-                        // starts as true even for already-signed-in users. Re-check
-                        // once the view appears by which time the listener has
-                        // typically fired (RC3 — lazy re-check path).
-                        if authService.session != nil { showAuthSheet = false }
-                    }
-                    .onChange(of: authSkipped) { skipped in
-                        if skipped { showAuthSheet = false }
-                    }
-                    .fullScreenCover(isPresented: Binding(
-                        get: { !hasSeenWelcome },
-                        set: { if !$0 { hasSeenWelcome = true } }
-                    )) {
-                        WelcomeScreen(hasSeenWelcome: $hasSeenWelcome)
-                    }
-            } else {
-                OnboardingView(hasOnboarded: $hasOnboarded)
+        mainContent
+            .fullScreenCover(isPresented: Binding(
+                get: { phase != .ready },
+                set: { _ in }   // dismissal is handled by the content view callbacks
+            )) {
+                phaseContent
             }
+            .onChange(of: authService.session != nil) { hasSession in
+                // Supabase's signedIn transition can emit a transient nil session
+                // (RC1). Only act when we're in auth phase or already signed in.
+                if hasSession {
+                    if phase == .auth { phase = .ready }
+                } else {
+                    let skipped = UserDefaults.standard.bool(forKey: AppSettings.Keys.authSkipped)
+                    if phase == .ready && !skipped { phase = .auth }
+                }
+            }
+            .onAppear {
+                // Async session restoration: re-evaluate once the view appears in
+                // case AuthService's listener fires after @State initialisation (RC3).
+                if phase == .auth && authService.session != nil { phase = .ready }
+            }
+            .preferredColorScheme(resolvedColorScheme)
+            .tint(appSettings.accentColor.color)
+    }
+
+    @ViewBuilder
+    private var phaseContent: some View {
+        switch phase {
+        case .onboarding:
+            OnboardingView(hasOnboarded: Binding(
+                get: { false },
+                set: { completed in if completed { advanceFromOnboarding() } }
+            ))
+        case .welcome:
+            WelcomeScreen(hasSeenWelcome: Binding(
+                get: { false },
+                set: { seen in if seen { advanceFromWelcome() } }
+            ))
+        case .auth:
+            AuthView(onSkip: {
+                UserDefaults.standard.set(true, forKey: AppSettings.Keys.authSkipped)
+                phase = .ready
+            })
+        case .ready:
+            EmptyView()
         }
-        .preferredColorScheme(resolvedColorScheme)
-        // Apply user-selected accent color to all SwiftUI tintable controls
-        // (Button highlight, Toggle, Picker selection, TextField cursor) app-wide.
-        // AppSettings.accentColor setter calls objectWillChange.send(), so RootView
-        // re-renders immediately when the user changes this in Settings.
-        .tint(appSettings.accentColor.color)
+    }
+
+    private func advanceFromOnboarding() {
+        let hasSeenWelcome = UserDefaults.standard.bool(forKey: "hasSeenWelcome")
+        if !hasSeenWelcome {
+            phase = .welcome
+        } else {
+            let authSkipped = UserDefaults.standard.bool(forKey: AppSettings.Keys.authSkipped)
+            phase = (authService.session == nil && !authSkipped) ? .auth : .ready
+        }
+    }
+
+    private func advanceFromWelcome() {
+        let authSkipped = UserDefaults.standard.bool(forKey: AppSettings.Keys.authSkipped)
+        phase = (authService.session == nil && !authSkipped) ? .auth : .ready
     }
 
     // MARK: - Main Content with Sidebar Overlay

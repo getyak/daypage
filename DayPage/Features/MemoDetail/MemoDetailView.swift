@@ -211,7 +211,7 @@ private struct DetailVoiceSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("Voice")
+            sectionLabel(NSLocalizedString("memo.detail.section.voice", comment: ""))
             let audioURL = VaultInitializer.vaultURL.appendingPathComponent(attachment.file)
             VoiceMemoPlayerRow(
                 fileURL: audioURL,
@@ -239,7 +239,7 @@ private struct DetailPhotoSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("Photo")
+            sectionLabel(NSLocalizedString("memo.detail.section.photo", comment: ""))
 
             ZStack(alignment: .bottom) {
                 Group {
@@ -293,7 +293,7 @@ private struct DetailPhotoSection: View {
             HStack(spacing: 4) {
                 Image(systemName: "arrow.up.left.and.arrow.down.right")
                     .font(.system(size: 10, weight: .medium))
-                Text("Tap to view full screen")
+                Text(NSLocalizedString("memo.detail.photo.tap_fullscreen", comment: ""))
                     .font(DSFonts.jetBrainsMono(size: 10))
                     .tracking(0.4)
             }
@@ -343,7 +343,7 @@ private struct DetailLocationSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("Location")
+            sectionLabel(NSLocalizedString("memo.detail.section.location", comment: ""))
 
             VStack(alignment: .leading, spacing: 0) {
                 // Map preview
@@ -361,7 +361,7 @@ private struct DetailLocationSection: View {
                             Image(systemName: "map")
                                 .font(.system(size: 28))
                                 .foregroundColor(DSColor.inkSubtle)
-                            Text("No coordinates")
+                            Text(NSLocalizedString("memo.detail.location.no_coordinates", comment: ""))
                                 .font(DSType.bodySM)
                                 .foregroundColor(DSColor.inkSubtle)
                         }
@@ -393,7 +393,7 @@ private struct DetailLocationSection: View {
                         Image(systemName: "map.fill")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(DSColor.amberDeep)
-                        Text("Open in Apple Maps")
+                        Text(NSLocalizedString("memo.detail.location.open_maps", comment: ""))
                             .font(DSType.bodySM)
                             .foregroundColor(DSColor.amberDeep)
                         Spacer()

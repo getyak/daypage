@@ -34,13 +34,23 @@ echo "🚀 Ralph starting — Tool: $TOOL, Max iterations: $MAX_ITERATIONS"
 echo "📋 PRD: $PRD_FILE"
 echo ""
 
+# Cache TARGET_BRANCH at start (NEVER re-read from PRD — Claude Code may overwrite it)
+TARGET_BRANCH=$(python3 -c "import json; f=open('$PRD_FILE'); print(json.load(f).get('branchName','main'))")
+echo "🎯 Target branch: $TARGET_BRANCH"
+
+# Verify we're on the correct branch BEFORE first iteration
+CURRENT_BRANCH=$(git branch --show-current)
+if [ "$CURRENT_BRANCH" != "$TARGET_BRANCH" ]; then
+  echo "   ⚠️ Not on target branch ($CURRENT_BRANCH ≠ $TARGET_BRANCH) — switching"
+  git checkout "$TARGET_BRANCH"
+fi
+
 for i in $(seq 1 $MAX_ITERATIONS); do
   echo "═══════════════════════════════════════════════════════════"
   echo "  Iteration $i / $MAX_ITERATIONS"
   echo "═══════════════════════════════════════════════════════════"
 
   # Guard: ensure we're on the correct branch (Claude Code may have switched it)
-  TARGET_BRANCH=$(python3 -c "import json; f=open('$PRD_FILE'); print(json.load(f).get('branchName','main'))")
   CURRENT_BRANCH=$(git branch --show-current)
   if [ "$CURRENT_BRANCH" != "$TARGET_BRANCH" ]; then
     echo "   ⚠️ Branch drift: on $CURRENT_BRANCH, expected $TARGET_BRANCH — switching back"
@@ -85,28 +95,33 @@ else:
   echo "   Acceptance: $STORY_ACCEPT"
 
   # Build the Claude Code prompt
-  PROMPT="You are implementing a SINGLE user story for the DayPage V5 Codex web monorepo.
+  PROMPT="You are fixing a SINGLE bug/issue from the DayPage tri-platform QA test findings (2026-05-12).
 
 ⚠️ CRITICAL: You are working on branch '$TARGET_BRANCH'. NEVER run git checkout, git switch, git branch, or any command that changes the current branch. NEVER push or pull. Only git add and git commit.
 
-PROJECT: DayPage V5 Codex — 跨端 AI 知识系统
-Stack: Next.js 16 (App Router), TypeScript strict, Tailwind 4, Supabase, Drizzle ORM, Auth.js v5
-Repo structure: monorepo with web/ (Next.js), packages/ (shared), infra/ (Supabase migrations)
-Key conventions: strict TypeScript, conventional commits, Tailwind utility-first CSS
-Read AGENTS.md (repo root) for full conventions.
-Read the PRD at prd.json for the full project roadmap.
+PROJECT: DayPage — 三端测试发现修复 (iOS + V5 Codex Web + DayPageWatch)
+Three targets in this repo:
+  - DayPage/ (iOS SwiftUI app, iOS 16.0+, file-based YAML+Markdown persistence, no SPM deps)
+  - web/ (Next.js 16 App Router, TypeScript strict, Tailwind 4, Supabase, Drizzle ORM, Auth.js v5, pnpm)
+  - DayPageWatch/ (watchOS SwiftUI companion app)
+Key conventions: Read AGENTS.md for iOS conventions, CLAUDE.md for web conventions.
+QA test reports: docs/qa/test-findings-2026-05-12/*.md
+Original PRD context: tasks/prd-test-findings-fix.md
+Read the PRD at prd.json for the full roadmap of all 68 stories.
 
 STORY #\$STORY_ID: \$STORY_NAME
 DESCRIPTION: \$STORY_DESC
 ACCEPTANCE CRITERIA: \$STORY_ACCEPT
 
 Implement ONLY this story. Do NOT touch unrelated code.
-Work in the web/ directory for frontend code, packages/ for shared types/logic.
+Determine which target(s) this story affects (iOS/Web/Watch) and work in the appropriate directory.
 After implementing:
-1. Run typecheck: pnpm typecheck (if monorepo is set up)
-2. Run format: pnpm format (Prettier)
-3. Print a summary of what you changed
-4. The acceptance criteria must be satisfied"
+1. iOS stories: run 'xcodebuild -scheme DayPage build' to verify (skip if story is pure config/docs)
+2. Web stories: run 'pnpm typecheck' and 'pnpm format' to verify
+3. Watch stories: run 'xcodebuild -scheme DayPageWatch build' if applicable
+4. Print a summary of what you changed
+5. The acceptance criteria must be satisfied
+6. If the story adds tests, run them and confirm they pass"
 
   echo "   🤖 Running Claude Code..."
 
@@ -145,7 +160,7 @@ with open('$PRD_FILE', 'w') as f:
       echo "   ⚠️ No changes to commit"
     else
       git add -A
-      git commit -m "feat(web): story #$STORY_ID — $STORY_NAME
+      git commit -m "fix: story #$STORY_ID — $STORY_NAME
 
 Implemented: $STORY_DESC
 Acceptance: $STORY_ACCEPT"

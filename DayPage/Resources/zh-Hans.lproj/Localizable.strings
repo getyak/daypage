@@ -43,3 +43,69 @@
 "error.location_denied.title" = "定位权限被拒绝。";
 "error.location_denied.subtitle" = "请前往「设置」开启定位权限，以便为备忘添加位置。";
 "error.location_denied.cta" = "打开设置";
+
+/* OnboardingView — US-019 */
+
+/* WelcomePage */
+"onboarding.welcome.slogan" = "今天的碎片，明天的故事";
+"onboarding.welcome.begin" = "开始";
+
+/* PermissionsPage */
+"onboarding.permissions.title" = "开放权限";
+"onboarding.permissions.subtitle" = "以下权限让 DayPage 更好地服务你，可随时在系统设置中更改";
+"onboarding.permissions.mic.title" = "麦克风";
+"onboarding.permissions.mic.description" = "录音后用 AI 转写成文字";
+"onboarding.permissions.location.title" = "位置";
+"onboarding.permissions.location.description" = "自动记录你在哪里";
+"onboarding.permissions.notifications.title" = "通知";
+"onboarding.permissions.notifications.description" = "每日编译完成后提醒你";
+"onboarding.permissions.status.unknown" = "授权";
+"onboarding.permissions.status.granted" = "已授权";
+"onboarding.permissions.status.denied" = "已拒绝";
+"onboarding.permissions.next" = "下一步";
+
+/* ApiKeysPage */
+"onboarding.apikeys.title" = "配置 API Key";
+"onboarding.apikeys.subtitle" = "填入你的 API Key，或跳过稍后在设置中配置";
+"onboarding.apikeys.deepseek.label" = "DeepSeek（AI 编译）";
+"onboarding.apikeys.openai.label" = "OpenAI Whisper（语音转写）";
+"onboarding.apikeys.openweather.label" = "OpenWeather（天气）";
+"onboarding.apikeys.paste" = "粘贴";
+"onboarding.apikeys.complete" = "开始使用";
+
+/* WelcomeScreen */
+"welcome.slogan" = "每一天，都值得留下来";
+"welcome.begin" = "开始";
+
+/* MemoDetailView — US-033 (iOS P2-4) */
+
+/* Section labels */
+"memo.detail.section.voice" = "语音";
+"memo.detail.section.photo" = "照片";
+"memo.detail.section.location" = "位置";
+"memo.detail.section.files" = "文件";
+"memo.detail.section.metadata" = "元数据";
+
+/* Metadata field labels */
+"memo.detail.meta.created" = "创建于";
+"memo.detail.meta.file" = "文件";
+"memo.detail.meta.kind" = "类型";
+"memo.detail.meta.duration" = "时长";
+"memo.detail.meta.transcription" = "转写";
+"memo.detail.meta.aperture" = "光圈";
+"memo.detail.meta.shutter" = "快门";
+"memo.detail.meta.iso" = "ISO";
+"memo.detail.meta.focal_length" = "焦距";
+"memo.detail.meta.dimensions" = "尺寸";
+"memo.detail.meta.coordinates" = "坐标";
+"memo.detail.meta.place" = "地点";
+"memo.detail.meta.weather" = "天气";
+
+/* Metadata field values */
+"memo.detail.meta.transcription.pending" = "转写中";
+"memo.detail.meta.transcription.provider" = "OpenAI Whisper";
+
+/* Location */
+"memo.detail.location.no_coordinates" = "无坐标";
+"memo.detail.location.open_maps" = "在 Apple 地图中打开";
+"memo.detail.photo.tap_fullscreen" = "点击查看全屏";

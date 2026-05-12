@@ -308,12 +308,14 @@ export default function AnnotationLayer({
             </h3>
             <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
               <label
+                htmlFor="custom-tag-input"
                 className="ds-section-label"
                 style={{ color: "var(--fg-subtle)" }}
               >
                 Tag name
               </label>
               <input
+                id="custom-tag-input"
                 autoFocus
                 value={customTagInput}
                 onChange={(e) => setCustomTagInput(e.target.value)}

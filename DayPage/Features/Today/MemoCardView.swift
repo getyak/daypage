@@ -432,7 +432,7 @@ struct LocationPreviewSheet: View {
                         Image(systemName: "map.fill")
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(DSColor.amberDeep)
-                        Text("Open in Apple Maps")
+                        Text(NSLocalizedString("memo.detail.location.open_maps", comment: ""))
                             .font(DSType.titleSM)
                             .foregroundColor(DSColor.amberDeep)
                         Spacer()

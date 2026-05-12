@@ -5,7 +5,7 @@ import { memos, memo_attachments } from "@/lib/db/schema";
 import { eq, and, lt, gte, desc } from "drizzle-orm";
 import { CreateMemoSchema, ListMemosQuerySchema } from "@/lib/schemas/memo";
 import { checkMutationRateLimit } from "@/lib/ratelimit";
-import { inngest } from "@/lib/inngest/client";
+import { sendEvent } from "@/lib/inngest/client";
 
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (memo) {
-    await inngest.send({ name: "memo/created", data: { memo_id: memo.id } });
+    await sendEvent({ name: "memo/created", data: { memo_id: memo.id } });
   }
 
   return NextResponse.json(memo, { status: 201 });
