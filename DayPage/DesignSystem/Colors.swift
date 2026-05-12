@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Color Token Extensions
 
@@ -29,6 +30,13 @@ extension Color {
             opacity: Double(a) / 255
         )
     }
+
+    /// Adaptive color that switches between light and dark variants automatically.
+    init(light: Color, dark: Color) {
+        self = Color(UIColor { traits in
+            UIColor(traits.userInterfaceStyle == .dark ? dark : light)
+        })
+    }
 }
 
 // MARK: - Design System Colors (v4 Liquid Glass + v3 Warm-White)
@@ -40,30 +48,36 @@ enum DSColor {
     // surfaces; v3 tokens below remain for compatibility while the codebase
     // migrates.
 
-    /// Page background — warm cream that the ambient glow lights through.
-    static let bgWarm        = Color(hex: "FAF7F2")
-    /// Standard glass fill — pair with `.ultraThinMaterial` for the iOS 26
-    /// refraction look.
-    static let glassStd      = Color(red: 1, green: 252.0/255, blue: 250.0/255, opacity: 0.62)
+    /// Page background — warm cream in light, deep charcoal-brown in dark.
+    static let bgWarm        = Color(light: Color(hex: "FAF7F2"), dark: Color(hex: "1A1410"))
+    /// Standard glass fill — adaptive opacity glass layer.
+    static let glassStd      = Color(light: Color(red: 1, green: 252/255, blue: 250/255, opacity: 0.62),
+                                     dark: Color(red: 30/255, green: 22/255, blue: 14/255, opacity: 0.62))
     /// Elevated glass — used for sheets, modals, primary cards.
-    static let glassHi       = Color(red: 1, green: 252.0/255, blue: 250.0/255, opacity: 0.85)
+    static let glassHi       = Color(light: Color(red: 1, green: 252/255, blue: 250/255, opacity: 0.85),
+                                     dark: Color(red: 38/255, green: 28/255, blue: 18/255, opacity: 0.85))
     /// Recessed glass — used for nested rows, secondary chips.
-    static let glassLo       = Color(red: 1, green: 252.0/255, blue: 250.0/255, opacity: 0.35)
+    static let glassLo       = Color(light: Color(red: 1, green: 252/255, blue: 250/255, opacity: 0.35),
+                                     dark: Color(red: 26/255, green: 18/255, blue: 10/255, opacity: 0.35))
     /// Top-edge highlight that gives glass its "wet" rim.
-    static let glassEdge     = Color.white.opacity(0.55)
-    /// Hairline border — barely-visible warm ink line.
-    static let glassRim      = Color(hex: "2D1E0A").opacity(0.06)
+    static let glassEdge     = Color(light: Color.white.opacity(0.55), dark: Color.white.opacity(0.12))
+    /// Hairline border — adaptive warm ink line.
+    static let glassRim      = Color(light: Color(hex: "2D1E0A").opacity(0.06),
+                                     dark: Color(hex: "F5ECD8").opacity(0.08))
     /// Stronger hairline for elevated surfaces.
-    static let glassRimD     = Color(hex: "2D1E0A").opacity(0.10)
+    static let glassRimD     = Color(light: Color(hex: "2D1E0A").opacity(0.10),
+                                     dark: Color(hex: "F5ECD8").opacity(0.14))
 
     /// Primary ink — body copy, headlines.
-    static let inkPrimary    = Color(hex: "241B10")
+    static let inkPrimary    = Color(light: Color(hex: "241B10"), dark: Color(hex: "F0E8DC"))
+    /// Secondary ink — used alongside inkPrimary for subtly de-emphasized text.
+    static let inkSecondary  = Color(light: Color(hex: "241B10").opacity(0.75), dark: Color(hex: "F0E8DC").opacity(0.75))
     /// Muted ink — secondary copy.
-    static let inkMuted      = Color(hex: "241B10").opacity(0.62)
+    static let inkMuted      = Color(light: Color(hex: "241B10").opacity(0.62), dark: Color(hex: "F0E8DC").opacity(0.62))
     /// Subtle ink — tertiary copy, disabled labels.
-    static let inkSubtle     = Color(hex: "241B10").opacity(0.38)
+    static let inkSubtle     = Color(light: Color(hex: "241B10").opacity(0.38), dark: Color(hex: "F0E8DC").opacity(0.38))
     /// Faint ink — separators, decorative strokes.
-    static let inkFaint      = Color(hex: "241B10").opacity(0.18)
+    static let inkFaint      = Color(light: Color(hex: "241B10").opacity(0.18), dark: Color(hex: "F0E8DC").opacity(0.18))
 
     /// Amber accent — primary action, active state.
     static let amberAccent   = Color(hex: "A8541B")
@@ -84,19 +98,19 @@ enum DSColor {
 
     // MARK: - V3 Warm-White Tokens
 
-    /// 页面 / 屏幕背景 — 暖色调米白
-    static let backgroundWarm = Color(hex: "FAF8F6")
+    /// 页面 / 屏幕背景 — 暖色调米白 / 深暖棕
+    static let backgroundWarm = Color(light: Color(hex: "FAF8F6"), dark: Color(hex: "1A1612"))
     /// 纯白表面（卡片、弹出面板）
-    static let surfaceWhite = Color(hex: "FFFFFF")
-    /// 下凹表面 — 微暖灰色
-    static let surfaceSunken = Color(hex: "F3F0EB")
+    static let surfaceWhite = Color(light: Color(hex: "FFFFFF"), dark: Color(hex: "242018"))
+    /// 下凹表面 — 微暖灰色 / 深凹表面
+    static let surfaceSunken = Color(light: Color(hex: "F3F0EB"), dark: Color(hex: "131210"))
 
     /// 暖色背景主文本
-    static let onBackgroundPrimary = Color(hex: "2B2822")
+    static let onBackgroundPrimary = Color(light: Color(hex: "2B2822"), dark: Color(hex: "EDE6DC"))
     /// 次要 / 弱化文本
-    static let onBackgroundMuted = Color(hex: "6B6560")
+    static let onBackgroundMuted = Color(light: Color(hex: "6B6560"), dark: Color(hex: "A09890"))
     /// 第三级细微文本
-    static let onBackgroundSubtle = Color(hex: "A39F99")
+    static let onBackgroundSubtle = Color(light: Color(hex: "A39F99"), dark: Color(hex: "6A6460"))
 
     /// 强调色 — 深琥珀棕（替代 #000000 主色）
     static let accentAmber = Color(hex: "5D3000")
