@@ -12,6 +12,7 @@ import { NavItem, NavItemLink, type NavIconName } from "./_components/NavItem";
 import { SystemRow } from "./_components/SystemRow";
 import { TopbarDate } from "./_components/TopbarDate";
 import { NewDomainButton } from "./_components/NewDomainButton";
+import { MobileSidebarDrawer } from "./_components/MobileSidebarDrawer";
 
 type NavSpec = { href: string; label: string; iconName: NavIconName; meta?: string };
 
@@ -86,81 +87,94 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     }
   }
 
+  const sidebarContent = (
+    <>
+      {/* Brand */}
+      <div className="sb__brand">
+        <div className="sb__brand-mark">CODEX</div>
+        <div className="sb__brand-tag">v0.4 · private</div>
+      </div>
+
+      {/* Primary nav */}
+      {NAV_ITEMS.map(({ href, label, iconName, meta }) => {
+        const isInbox = label === "Inbox";
+        const badge = isInbox && openInboxCount > 0 ? openInboxCount : undefined;
+        return (
+          <NavItem
+            key={href}
+            href={href}
+            label={label}
+            iconName={iconName}
+            badge={badge}
+            meta={badge === undefined ? meta : undefined}
+          />
+        );
+      })}
+
+      {/* Domains group */}
+      <div className="sb__group-label">
+        <span>Domains</span>
+        {userDomains.length > 0 && (
+          <span className="count">{userDomains.length}</span>
+        )}
+      </div>
+      {userDomains.map((domain) => {
+        const color = domain.color ?? "var(--fg-muted)";
+        return (
+          <NavItemLink key={domain.id} href={`/domain/${domain.slug}`}>
+            <span
+              className="sb__domain-dot"
+              style={{ background: color }}
+            />
+            <span className="sb__domain-label">{domain.label}</span>
+          </NavItemLink>
+        );
+      })}
+      <NewDomainButton />
+
+      <div className="sb__spacer" />
+
+      {/* System group */}
+      <div className="sb__group-label">
+        <span>System</span>
+      </div>
+      <SystemRow iconName="settings" label="Settings" disabled title="coming soon" />
+      <SystemRow
+        iconName="user"
+        label={
+          session.user.name ??
+          session.user.email?.split("@")[0] ??
+          "account"
+        }
+        title={session.user.email ?? undefined}
+        meta="free"
+      />
+
+      {/* Sign out — server action form */}
+      <form
+        action={async () => {
+          "use server";
+          await signOut({ redirectTo: "/login" });
+        }}
+      >
+        <SystemRow iconName="logout" label="Sign out" as="button" />
+      </form>
+    </>
+  );
+
   return (
     <div className="flex min-h-screen">
       {/* Sidebar — hidden on mobile, visible on lg+ */}
       <aside className="sb hidden lg:flex w-[248px] shrink-0">
-        {/* Brand */}
-        <div className="sb__brand">
-          <div className="sb__brand-mark">CODEX</div>
-          <div className="sb__brand-tag">v0.4 · private</div>
-        </div>
-
-        {/* Primary nav */}
-        {NAV_ITEMS.map(({ href, label, iconName, meta }) => {
-          const isInbox = label === "Inbox";
-          const badge = isInbox && openInboxCount > 0 ? openInboxCount : undefined;
-          return (
-            <NavItem
-              key={href}
-              href={href}
-              label={label}
-              iconName={iconName}
-              badge={badge}
-              meta={badge === undefined ? meta : undefined}
-            />
-          );
-        })}
-
-        {/* Domains group */}
-        <div className="sb__group-label">
-          <span>Domains</span>
-          {userDomains.length > 0 && (
-            <span className="count">{userDomains.length}</span>
-          )}
-        </div>
-        {userDomains.map((domain) => {
-          const color = domain.color ?? "var(--fg-muted)";
-          return (
-            <NavItemLink key={domain.id} href={`/domain/${domain.slug}`}>
-              <span
-                className="sb__domain-dot"
-                style={{ background: color }}
-              />
-              <span className="sb__domain-label">{domain.label}</span>
-            </NavItemLink>
-          );
-        })}
-        <NewDomainButton />
-
-        <div className="sb__spacer" />
-
-        {/* System group */}
-        <div className="sb__group-label">
-          <span>System</span>
-        </div>
-        <SystemRow iconName="settings" label="Settings" disabled title="coming soon" />
-        <SystemRow
-          iconName="user"
-          label={
-            session.user.name ??
-            session.user.email?.split("@")[0] ??
-            "account"
-          }
-          title={session.user.email ?? undefined}
-          meta="free"
-        />
-
-        {/* Sign out — server action form */}
-        <form
-          action={async () => {
-            "use server";
-            await signOut({ redirectTo: "/login" });
-          }}
-        >
-          <SystemRow iconName="logout" label="Sign out" as="button" />
-        </form>
+        {sidebarContent}
       </aside>
+
+      {/* Mobile drawer — rendered only on < lg via CSS */}
+      <MobileSidebarDrawer>
+        <aside className="sb" style={{ width: "100%", height: "100%" }}>
+          {sidebarContent}
+        </aside>
+      </MobileSidebarDrawer>
 
       {/* Main column — full width on mobile, calc on lg+ */}
       <div className="flex flex-col min-h-screen w-full lg:w-[calc(100%-248px)]">
@@ -173,11 +187,13 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: "0 1.5rem",
+            padding: "0 1rem 0 1rem",
             flexShrink: 0,
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            {/* Hamburger — visible on mobile only, rendered inside MobileSidebarDrawer */}
+            <span className="mobile-menu-btn-placeholder" />
             <span className="ds-section-label">Codex</span>
             <span style={{ color: "var(--fg-subtle)", fontSize: "0.75rem" }}>/</span>
             <span style={{ fontSize: "0.875rem", fontWeight: 500, color: "var(--fg-primary)" }}>
