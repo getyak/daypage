@@ -14,32 +14,38 @@ struct RecordingView: View {
     /// Proxy value for the Digital Crown — mirrors model.maxDuration as a Double.
     @State private var crownValue: Double = 60
 
+    /// True when the watch is in Always-On Display (AOD) low-luminance mode.
+    @Environment(\.isLuminanceReduced) private var isLuminanceReduced
+
     var body: some View {
         VStack(spacing: 12) {
             Spacer()
 
-            // Waveform icon
+            // Waveform icon — static in AOD to reduce OLED burn-in / power draw
             Image(systemName: model.state == .recording ? "waveform" : "waveform.circle")
                 .font(.system(size: 36))
                 .foregroundStyle(model.state == .recording ? .red : .tint)
                 .accessibilityLabel(model.state == .recording ? "Recording in progress" : "Ready to record")
 
             // Elapsed time or status
+            // In AOD the timer already ticks at 1 Hz — suppress the numeric animation
+            // so no frame-level updates run between ticks.
             Text(statusText)
                 .font(.title3.monospacedDigit())
                 .contentTransition(.numericText())
-                .animation(.default, value: model.elapsed)
+                .animation(isLuminanceReduced ? nil : .default, value: model.elapsed)
+                .privacySensitive(false)
 
-            // Countdown bar — only visible while recording
-            if model.state == .recording {
+            // Countdown bar — hidden in AOD (animated content wastes power on OLED)
+            if model.state == .recording && !isLuminanceReduced {
                 ProgressView(value: Double(model.elapsed), total: Double(model.maxDuration))
                     .progressViewStyle(.linear)
                     .tint(model.elapsed >= model.maxDuration - 10 ? .red : .green)
                     .accessibilityLabel("Recording time: \(model.elapsed) of \(model.maxDuration) seconds")
             }
 
-            // Duration picker hint — only visible while idle
-            if model.state == .idle {
+            // Duration picker hint — only visible while idle, hidden in AOD
+            if model.state == .idle && !isLuminanceReduced {
                 Text("Limit: \(model.maxDuration)s")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -48,18 +54,20 @@ struct RecordingView: View {
 
             Spacer()
 
-            // Main action button
-            Button(action: handleTap) {
-                Image(systemName: model.state == .recording ? "stop.circle.fill" : "mic.circle.fill")
-                    .font(.system(size: 48))
-                    .foregroundStyle(model.state == .recording ? .red : .green)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(model.state == .recording ? "Stop recording" : "Start recording")
+            // Main action button — hidden in AOD (buttons are not tappable in AOD)
+            if !isLuminanceReduced {
+                Button(action: handleTap) {
+                    Image(systemName: model.state == .recording ? "stop.circle.fill" : "mic.circle.fill")
+                        .font(.system(size: 48))
+                        .foregroundStyle(model.state == .recording ? .red : .green)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(model.state == .recording ? "Stop recording" : "Start recording")
 
-            Text(model.state == .recording ? "Tap to stop" : "Tap to record")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                Text(model.state == .recording ? "Tap to stop" : "Tap to record")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
 
             Spacer()
         }
