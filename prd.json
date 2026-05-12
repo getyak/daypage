@@ -872,8 +872,8 @@
         "Typecheck passes"
       ],
       "priority": 59,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Haptic feedback already implemented in WatchRecordingModel: .recording\u2192play(.start), .processing\u2192play(.stop), .failed\u2192play(.failure). Implemented via commit 25d359b."
     },
     {
       "id": "US-060",
@@ -887,8 +887,8 @@
         "Typecheck passes"
       ],
       "priority": 60,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Auto-reset implemented in scheduleAutoReset() \u2014 2s after .done transitions to .idle. .failed taps call model.reset() which sets state = .idle."
     },
     {
       "id": "US-061",
@@ -901,8 +901,8 @@
         "Typecheck passes"
       ],
       "priority": 61,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented: micPermissionDeniedView detects AVAudioApplication.shared.recordPermission == .denied and shows guidance text."
     },
     {
       "id": "US-062",
@@ -914,8 +914,8 @@
         "Typecheck passes"
       ],
       "priority": 62,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented: all SF Symbol buttons have .accessibilityLabel() in RecordingView (waveform icon, stop/start button, cancel button)."
     },
     {
       "id": "US-063",
@@ -928,8 +928,8 @@
         "Typecheck passes"
       ],
       "priority": 63,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented: .focusable() + .digitalCrownRotation binding crownValue 30-180s adjusts maxDuration."
     },
     {
       "id": "US-064",
@@ -942,8 +942,8 @@
         "Typecheck passes"
       ],
       "priority": 64,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented: isLuminanceReduced env var suppresses animations, hides progress bar and buttons in AOD mode."
     },
     {
       "id": "US-065",
@@ -956,8 +956,8 @@
         "Typecheck passes"
       ],
       "priority": 65,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "Implemented: .confirmStop state intercepts stop tap with 2s cancel window before transitioning to .processing."
     },
     {
       "id": "US-066",
