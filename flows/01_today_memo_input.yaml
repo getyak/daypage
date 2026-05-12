@@ -1,43 +1,39 @@
 appId: com.daypage.app
 ---
-# Flow 01: Today View — 验证输入框可用
+# Flow 01: Today View — verify memo input + submit pipeline
 - launchApp:
     arguments:
       hasOnboarded: "true"
       authSkipped: "true"
-      inputBarVariant: "v3"
 - takeScreenshot: launch
 
-# 等待 Today View 加载（品牌文字 DAYPAGE 可见）
 - extendedWaitUntil:
     visible: "DAYPAGE"
     timeout: 10000
-
 - takeScreenshot: today_view_loaded
 
-# Tap the pen button on the STREAM dock to expand the text composer
-# (InputBarV4 idle dock shows mic-hero centered, pen on the right).
+# Expand text composer (tap pen button; skip if V4 dock already expanded)
 - tapOn:
     id: "expand-text-composer"
     optional: true
-
-# Wait for the composer expand animation to finish
 - waitForAnimationToEnd
 
-# Tap the TextField (accessibilityIdentifier="memo-input")
+# Wait for memo-input to become visible (may need composer expansion)
+- extendedWaitUntil:
+    visible:
+      id: "memo-input"
+    timeout: 8000
+- takeScreenshot: composer_expanded
+
+# Type and send a memo
 - tapOn:
     id: "memo-input"
-
-- inputText: "UI测试：今天天气很好，适合写代码"
+- inputText: "UI test: hello world"
 - takeScreenshot: after_input
+- assertVisible: "UI test: hello world"
 
-# Verify the typed text is visible inside the composer
-- assertVisible: "UI测试：今天天气很好，适合写代码"
-- takeScreenshot: text_visible_in_input
-
-# Send the memo (accessibilityIdentifier="memo-send", label "发送")
 - tapOn:
     id: "memo-send"
     optional: true
-
+- waitForAnimationToEnd
 - takeScreenshot: after_send

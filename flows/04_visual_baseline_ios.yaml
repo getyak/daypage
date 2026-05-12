@@ -1,9 +1,8 @@
 appId: com.daypage.app
 ---
-# Flow 04: Visual Baseline — iOS UI screenshot capture
-# Captures 24 baseline screenshots:
-# Today / Archive / Graph  ×  light/dark  ×  empty/with-memos  ×  en/zh
-# Screenshots land in maestro-results/baseline/ under their stable names.
+# Flow 04: Visual Baseline — iOS UI screenshot capture (simplified)
+# Captures Today/Archive/Graph screenshots via TabView taps
+# 8 variants × 3 tabs = 24 screenshots
 
 # ─────────────────────────────────────────────
 # LIGHT · EMPTY · EN
@@ -15,23 +14,13 @@ appId: com.daypage.app
       forceLocale: "en"
       forceTheme: "light"
       loadFixture: "empty"
-
 - extendedWaitUntil:
     visible: "DAYPAGE"
     timeout: 10000
-
 - takeScreenshot: baseline/today_light_empty_en
-
-- tapOn:
-    id: "sidebar-menu-button"
-- waitForAnimationToEnd
 - tapOn: "Archive"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/archive_light_empty_en
-
-- tapOn:
-    id: "sidebar-menu-button"
-- waitForAnimationToEnd
 - tapOn: "Graph"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_light_empty_en
@@ -46,23 +35,13 @@ appId: com.daypage.app
       forceLocale: "en"
       forceTheme: "light"
       loadFixture: "with_memos"
-
 - extendedWaitUntil:
     visible: "DAYPAGE"
     timeout: 10000
-
 - takeScreenshot: baseline/today_light_memos_en
-
-- tapOn:
-    id: "sidebar-menu-button"
-- waitForAnimationToEnd
 - tapOn: "Archive"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/archive_light_memos_en
-
-- tapOn:
-    id: "sidebar-menu-button"
-- waitForAnimationToEnd
 - tapOn: "Graph"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_light_memos_en
@@ -77,23 +56,13 @@ appId: com.daypage.app
       forceLocale: "en"
       forceTheme: "dark"
       loadFixture: "empty"
-
 - extendedWaitUntil:
     visible: "DAYPAGE"
     timeout: 10000
-
 - takeScreenshot: baseline/today_dark_empty_en
-
-- tapOn:
-    id: "sidebar-menu-button"
-- waitForAnimationToEnd
 - tapOn: "Archive"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/archive_dark_empty_en
-
-- tapOn:
-    id: "sidebar-menu-button"
-- waitForAnimationToEnd
 - tapOn: "Graph"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_dark_empty_en
@@ -108,23 +77,13 @@ appId: com.daypage.app
       forceLocale: "en"
       forceTheme: "dark"
       loadFixture: "with_memos"
-
 - extendedWaitUntil:
     visible: "DAYPAGE"
     timeout: 10000
-
 - takeScreenshot: baseline/today_dark_memos_en
-
-- tapOn:
-    id: "sidebar-menu-button"
-- waitForAnimationToEnd
 - tapOn: "Archive"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/archive_dark_memos_en
-
-- tapOn:
-    id: "sidebar-menu-button"
-- waitForAnimationToEnd
 - tapOn: "Graph"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_dark_memos_en
@@ -139,23 +98,13 @@ appId: com.daypage.app
       forceLocale: "zh-Hans"
       forceTheme: "light"
       loadFixture: "empty"
-
 - extendedWaitUntil:
     visible: "DAYPAGE"
     timeout: 10000
-
 - takeScreenshot: baseline/today_light_empty_zh
-
-- tapOn:
-    id: "sidebar-menu-button"
-- waitForAnimationToEnd
 - tapOn: "Archive"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/archive_light_empty_zh
-
-- tapOn:
-    id: "sidebar-menu-button"
-- waitForAnimationToEnd
 - tapOn: "Graph"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_light_empty_zh
@@ -170,23 +119,13 @@ appId: com.daypage.app
       forceLocale: "zh-Hans"
       forceTheme: "light"
       loadFixture: "with_memos"
-
 - extendedWaitUntil:
     visible: "DAYPAGE"
     timeout: 10000
-
 - takeScreenshot: baseline/today_light_memos_zh
-
-- tapOn:
-    id: "sidebar-menu-button"
-- waitForAnimationToEnd
 - tapOn: "Archive"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/archive_light_memos_zh
-
-- tapOn:
-    id: "sidebar-menu-button"
-- waitForAnimationToEnd
 - tapOn: "Graph"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_light_memos_zh
@@ -201,23 +140,13 @@ appId: com.daypage.app
       forceLocale: "zh-Hans"
       forceTheme: "dark"
       loadFixture: "empty"
-
 - extendedWaitUntil:
     visible: "DAYPAGE"
     timeout: 10000
-
 - takeScreenshot: baseline/today_dark_empty_zh
-
-- tapOn:
-    id: "sidebar-menu-button"
-- waitForAnimationToEnd
 - tapOn: "Archive"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/archive_dark_empty_zh
-
-- tapOn:
-    id: "sidebar-menu-button"
-- waitForAnimationToEnd
 - tapOn: "Graph"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_dark_empty_zh
@@ -232,23 +161,13 @@ appId: com.daypage.app
       forceLocale: "zh-Hans"
       forceTheme: "dark"
       loadFixture: "with_memos"
-
 - extendedWaitUntil:
     visible: "DAYPAGE"
     timeout: 10000
-
 - takeScreenshot: baseline/today_dark_memos_zh
-
-- tapOn:
-    id: "sidebar-menu-button"
-- waitForAnimationToEnd
 - tapOn: "Archive"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/archive_dark_memos_zh
-
-- tapOn:
-    id: "sidebar-menu-button"
-- waitForAnimationToEnd
 - tapOn: "Graph"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_dark_memos_zh
