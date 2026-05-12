@@ -13,6 +13,32 @@
 "empty.compile_locked.title" = "Not enough to compile.";
 "empty.compile_locked.subtitle" = "%d of 3 memos captured. Keep going to unlock daily compilation.";
 
+/* Compile-locked dock hint (shown above the input bar) */
+"compile.dock.locked" = "%1$d / 3 memos · %2$d more to unlock";
+
+/* InputBarV4 — press-to-talk hint states */
+"input.hint.idle"            = "Hold to record · Release to transcribe";
+"input.hint.pre_recording"   = "Hold a moment longer";
+"input.hint.recording"       = "Swipe up to cancel · Left to transcribe · Release to send";
+"input.hint.cancel_armed"    = "Release to cancel";
+"input.hint.transcribe_armed" = "Release to transcribe";
+"input.hint.transcribing"    = "Transcribing…";
+
+/* InputBarV4 — capsule toasts */
+"input.toast.too_short"      = "Hold a little longer · at least 1 second";
+"input.toast.mic_hint"       = "Tap to open recorder · Hold to send voice";
+
+/* InputBarV4 — accessibility */
+"input.a11y.too_short"       = "Recording too short. Hold the mic and keep speaking.";
+"input.a11y.mic_hint"        = "Tap to open recorder; hold to send voice";
+"input.a11y.more_attachments" = "More attachments";
+"input.a11y.mic"             = "Microphone";
+"input.a11y.mic_hint_full"   = "Tap to open the recorder; press-and-hold to send a voice memo";
+"input.a11y.write_text"      = "Write text";
+
+/* DailyPage swipe action */
+"today.action.recompile"     = "Recompile";
+
 /* Archive Day Empty */
 "empty.archive_day.title" = "No page for this day.";
 "empty.archive_day.subtitle" = "This day hasn't been compiled yet. Head to Today to add memos first.";

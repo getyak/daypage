@@ -56,7 +56,10 @@ struct TodayView: View {
                 VStack(spacing: 0) {
                     // MARK: Header — serif date + right-side controls
                     // Note: animation on this VStack drives the orbHero enter/exit transition.
-                    HStack(alignment: .top, spacing: 0) {
+                    // `alignment: .firstTextBaseline` puts the 28pt settings gear
+                    // on the same cap-height baseline as the "Tuesday" serif title
+                    // rather than floating mid-row. (#today-polish)
+                    HStack(alignment: .firstTextBaseline, spacing: 0) {
                         // Left: serif weekday + mono date subline; tap → open sidebar
                         Button {
                             nav.openSidebar()
@@ -87,7 +90,19 @@ struct TodayView: View {
 
                         Spacer()
 
-                        // Right: settings gear (28pt glass circle)
+                        // Right: settings gear (28pt glass circle).
+                        // alignmentGuide pulls the gear's vertical center onto
+                        // the serif title's first-text-baseline so it doesn't
+                        // float below the cap-height of "Tuesday".
+                        //
+                        // Math (DSType.serifDisplay32): the circle's geometric
+                        // center sits ~14pt below its top edge. The serif's
+                        // first-text-baseline sits ~8pt below cap-height. The
+                        // +6 offset slides the circle so its center lands on
+                        // the title's cap-height midline rather than below the
+                        // baseline. Empirically tuned — revisit if
+                        // serifDisplay32's point size or the 28pt circle
+                        // diameter changes.
                         Button {
                             showSettings = true
                         } label: {
@@ -101,7 +116,8 @@ struct TodayView: View {
                                 .clipShape(Circle())
                         }
                         .accessibilityLabel("Settings")
-                        .padding(.top, 4)
+                        .accessibilityIdentifier("settings-gear-button")
+                        .alignmentGuide(.firstTextBaseline) { d in d[VerticalAlignment.center] + 6 }
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 16)
@@ -265,26 +281,37 @@ struct TodayView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     // MARK: Compile Area
-                    // Shows a locked hint when signals < 3, or the compile
-                    // button when ready. Hidden once today's page is compiled.
+                    // When < 3 memos: show a single-line mono dock hint
+                    // ("N / 3 memos · M more to unlock") sitting directly above
+                    // the input bar — it belongs to the composer dock, not to
+                    // the timeline. When ≥ 3 memos: show the compile button.
+                    // Hidden entirely once today's page is compiled.
                     if !viewModel.isDailyPageCompiled && !viewModel.memos.isEmpty {
-                        HStack {
-                            Spacer()
-                            if viewModel.memos.count < 3 {
-                                EmptyStateView.compileLocked(currentCount: viewModel.memos.count)
-                                    .padding(.horizontal, 20)
-                                    .padding(.vertical, 8)
-                            } else {
+                        if viewModel.memos.count < 3 {
+                            Text(L10n.Empty.compileDockLocked(
+                                current: viewModel.memos.count,
+                                remaining: max(0, 3 - viewModel.memos.count)
+                            ))
+                                .font(DSType.mono10)
+                                .foregroundColor(DSColor.inkSubtle)
+                                .textCase(.uppercase)
+                                .tracking(0.8)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 6)
+                                .accessibilityIdentifier("compile-dock-hint")
+                        } else {
+                            HStack {
+                                Spacer()
                                 CompileFooterButton(
                                     memoCount: viewModel.memos.count,
                                     isCompiling: viewModel.isCompiling,
                                     isVisible: true,
                                     onTap: { viewModel.compile() }
                                 )
+                                Spacer()
                             }
-                            Spacer()
+                            .padding(.bottom, 4)
                         }
-                        .padding(.bottom, 4)
                     }
 
                     // MARK: Input Bar — single canonical surface (V4).
@@ -625,7 +652,7 @@ struct TodayView: View {
                     }
                     viewModel.compile()
                 } label: {
-                    Text("重新编译")
+                    Text(NSLocalizedString("today.action.recompile", comment: ""))
                         .font(.custom("Inter-Medium", size: 13))
                         .foregroundColor(.white)
                         .frame(width: 80)

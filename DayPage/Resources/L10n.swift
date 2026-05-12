@@ -19,6 +19,11 @@ enum L10n {
             String(format: NSLocalizedString("empty.compile_locked.subtitle", comment: ""), count)
         }
 
+        /// Compact dock hint shown above the input bar when memos < 3.
+        static func compileDockLocked(current: Int, remaining: Int) -> String {
+            String(format: NSLocalizedString("compile.dock.locked", comment: ""), current, remaining)
+        }
+
         // Archive Day Empty
         static let archiveDayTitle    = LocalizedStringKey("empty.archive_day.title")
         static let archiveDaySubtitle = NSLocalizedString("empty.archive_day.subtitle", comment: "")

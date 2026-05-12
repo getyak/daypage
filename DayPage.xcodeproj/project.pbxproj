@@ -840,6 +840,7 @@
 				AF0000011 /* JetBrainsMono-Regular.ttf in Resources */,
 				AF0000012 /* JetBrainsMono-Medium.ttf in Resources */,
 				A10000029 /* Assets.xcassets in Resources */,
+				LS0000001 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

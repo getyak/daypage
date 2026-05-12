@@ -159,12 +159,26 @@ struct RootView: View {
                     .zIndex(1)
             }
 
+            // Feedback panel — always mounted so the in-memory draft (input
+            // text, pending images) survives close/reopen. The shadow is gated
+            // on `isFeedbackPanelOpen` and the offset includes a 60pt cushion
+            // so the 24pt blur + 8pt x-offset never bleeds back onto the
+            // timeline (previously surfaced as a chevron-shaped sliver on the
+            // right edge of memo cards).
+            //
+            // Math: shadow extends `radius(24) + |x|(8) = 32pt` past the
+            // panel's left edge. Offsetting the panel by `width + 60` parks
+            // its left edge 60pt off-screen, leaving 28pt of margin over the
+            // max shadow extent. If the shadow params ever grow, bump 60 too.
             FeedbackView()
                 .frame(width: feedbackPanelWidth)
                 .frame(maxHeight: .infinity)
-                .shadow(color: Color(hex: "2D1E0A").opacity(0.14), radius: 24, x: -8, y: 0)
+                .shadow(
+                    color: Color(hex: "2D1E0A").opacity(nav.isFeedbackPanelOpen ? 0.14 : 0),
+                    radius: 24, x: -8, y: 0
+                )
                 .frame(maxWidth: .infinity, alignment: .trailing)
-                .offset(x: nav.isFeedbackPanelOpen ? 0 : feedbackPanelWidth + 40)
+                .offset(x: nav.isFeedbackPanelOpen ? 0 : feedbackPanelWidth + 60)
                 .gesture(
                     DragGesture(minimumDistance: 20)
                         .onEnded { value in

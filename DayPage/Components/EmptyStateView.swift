@@ -109,6 +109,15 @@ extension EmptyStateView {
     }
 
     /// Compilation locked — not enough memos.
+    ///
+    /// **Orphaned.** Today screen no longer renders this as a card. The
+    /// compile-locked hint now lives as a single-line mono `Text` directly
+    /// above the input bar (see `TodayView` Compile Area). Kept temporarily
+    /// for the SwiftUI preview at the bottom of this file. Remove (along
+    /// with the preview and the `compileLockedTitle`/`compileLockedSubtitle`
+    /// L10n accessors) one release cycle after 2026-05-12 if no new caller
+    /// appears.
+    @available(*, deprecated, message: "Replaced by inline `compile.dock.locked` Text in TodayView. Pending removal — see doc comment.")
     static func compileLocked(currentCount: Int) -> EmptyStateView {
         EmptyStateView(
             title: L10n.Empty.compileLockedTitle,
@@ -156,12 +165,9 @@ extension EmptyStateView {
     }
 }
 
-#Preview("Compile Locked") {
-    ZStack {
-        AmbientBackground()
-        EmptyStateView.compileLocked(currentCount: 2)
-    }
-}
+// Compile Locked preview removed — the screen no longer renders this card.
+// The live state is now a single-line mono Text above the input bar (see
+// `compile.dock.locked` in Localizable.strings, used by TodayView).
 
 #Preview("Archive Day Empty") {
     ZStack {

@@ -13,6 +13,32 @@
 "empty.compile_locked.title" = "备忘不够，还无法编译。";
 "empty.compile_locked.subtitle" = "当前 %d 条备忘，累计 3 条后可解锁每日编译。";
 
+/* Compile-locked dock hint (shown above the input bar) */
+"compile.dock.locked" = "%1$d / 3 条备忘 · 再写 %2$d 条解锁每日编译";
+
+/* InputBarV4 — press-to-talk hint states */
+"input.hint.idle"            = "按住录音 · 松手转文字";
+"input.hint.pre_recording"   = "再按住一下";
+"input.hint.recording"       = "上滑取消 · 左滑转文字 · 松开发送";
+"input.hint.cancel_armed"    = "松开取消";
+"input.hint.transcribe_armed" = "松开转文字";
+"input.hint.transcribing"    = "正在转文字…";
+
+/* InputBarV4 — capsule toasts */
+"input.toast.too_short"      = "再说久一点 · 至少 1 秒";
+"input.toast.mic_hint"       = "单击打开录音页 · 长按发送语音";
+
+/* InputBarV4 — accessibility */
+"input.a11y.too_short"       = "录音太短，请按住麦克风继续说";
+"input.a11y.mic_hint"        = "单击打开录音页，长按发送语音";
+"input.a11y.more_attachments" = "更多附件";
+"input.a11y.mic"             = "麦克风";
+"input.a11y.mic_hint_full"   = "单击进入录音页；长按说话松手发送";
+"input.a11y.write_text"      = "写文字";
+
+/* DailyPage swipe action */
+"today.action.recompile"     = "重新编译";
+
 /* Archive Day Empty */
 "empty.archive_day.title" = "这一天还没有日记页。";
 "empty.archive_day.subtitle" = "这天尚未编译。先去「今天」添加备忘吧。";
