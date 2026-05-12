@@ -73,8 +73,15 @@ extension WatchReceiveService: WCSessionDelegate {
 
             DayPageLogger.log(level: "INFO", message: "WatchReceiveService saved watch audio to: \(destURL.lastPathComponent)")
 
+            // Vault-relative path: raw/assets/watch_<filename>
+            let vaultRoot = VaultInitializer.vaultURL
+            let audioPath = destURL.path.hasPrefix(vaultRoot.path)
+                ? String(destURL.path.dropFirst(vaultRoot.path.count + 1))
+                : "raw/assets/\(destURL.lastPathComponent)"
+
             Task { @MainActor in
                 self.lastReceivedFile = destURL
+                VoiceAttachmentQueue.shared.enqueue(audioPath: audioPath, memoDate: Date())
             }
         } catch {
             DayPageLogger.log(level: "ERROR", message: "WatchReceiveService failed to move file: \(error.localizedDescription)")

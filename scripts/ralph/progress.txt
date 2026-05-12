@@ -27,3 +27,4 @@ PRD: prd.json (68 stories, tri-platform: iOS + Web + Watch)
 [2026-05-12T06:47:30Z] Story #US-011: [Web P0-4 part 1] Hide sidebar on mobile breakpoint — PASSED
 [2026-05-12T06:49:40Z] Story #US-012: [Web P0-4 part 2] Add mobile hamburger + Sheet drawer for sidebar — PASSED
 [2026-05-12T06:51:33Z] Story #US-013: [Web P0-4 part 3] Fix Inbox/Wiki/Chat second panel on mobile — PASSED
+[2026-05-12T06:53:09Z] Story #US-014: [Watch P0-1] Wire WatchReceiveService to VoiceAttachmentQueue — PASSED
