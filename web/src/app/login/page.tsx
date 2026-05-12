@@ -39,6 +39,7 @@ export default function LoginPage() {
             required
             placeholder="your@email.com"
             className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-accent-border bg-surface-white text-fg-primary text-sm outline-none focus:ring-2 focus:ring-accent/30"
+            suppressHydrationWarning
           />
           <button type="submit" className="btn btn--secondary btn--md w-full">
             Send magic link
@@ -63,6 +64,7 @@ export default function LoginPage() {
               defaultValue="dev@daypage.local"
               placeholder="dev@daypage.local"
               className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-accent-border bg-surface-sunken text-fg-primary text-sm outline-none"
+              suppressHydrationWarning
             />
             <button
               type="submit"
