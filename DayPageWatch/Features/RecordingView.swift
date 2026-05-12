@@ -149,6 +149,12 @@ final class WatchRecordingModel: NSObject, ObservableObject {
 
     private let logger = Logger(subsystem: "com.daypage.watch", category: "RecordingModel")
 
+    // MARK: - Haptic Feedback
+
+    private func haptic(_ hapticType: WKHapticType) {
+        WKInterfaceDevice.current().play(hapticType)
+    }
+
     // MARK: - Start
 
     func start() {
@@ -159,6 +165,7 @@ final class WatchRecordingModel: NSObject, ObservableObject {
         } catch {
             logger.error("Audio session setup failed: \(error.localizedDescription)")
             state = .failed("Audio session error")
+            haptic(.failure)
             return
         }
 
@@ -188,9 +195,11 @@ final class WatchRecordingModel: NSObject, ObservableObject {
             elapsed = 0
             startTimer()
             state = .recording
+            haptic(.start)
         } catch {
             logger.error("AVAudioRecorder init failed: \(error.localizedDescription)")
             state = .failed("Record start failed")
+            haptic(.failure)
             invalidateExtSession()
         }
     }
@@ -200,15 +209,19 @@ final class WatchRecordingModel: NSObject, ObservableObject {
     func stopAndTransfer() {
         guard let rec = recorder, let url = currentFileURL else {
             state = .failed("No active recording")
+            haptic(.failure)
             return
         }
         stopTimer()
         rec.stop()
         recorder = nil
-        state = .uploading
+        state = .processing
+        haptic(.stop)
         invalidateExtSession()
 
         deactivateAudioSession()
+
+        state = .uploading
 
         // Transfer via WCSession — file cleanup happens inside WatchTransferService
         // once session(_:didFinish:error:) confirms the transfer is complete.
@@ -218,6 +231,7 @@ final class WatchRecordingModel: NSObject, ObservableObject {
                     self?.state = .done
                 } else {
                     self?.state = .failed("Transfer failed")
+                    self?.haptic(.failure)
                 }
             }
         }
