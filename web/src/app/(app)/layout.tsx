@@ -12,7 +12,7 @@ import { NavItem, NavItemLink, type NavIconName } from "./_components/NavItem";
 import { SystemRow } from "./_components/SystemRow";
 import { TopbarDate } from "./_components/TopbarDate";
 import { NewDomainButton } from "./_components/NewDomainButton";
-import { MobileSidebarDrawer } from "./_components/MobileSidebarDrawer";
+import { MobileSidebarDrawer, HamburgerButton } from "./_components/MobileSidebarDrawer";
 
 type NavSpec = { href: string; label: string; iconName: NavIconName; meta?: string };
 
@@ -171,12 +171,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         {sidebarContent}
       </aside>
 
-      {/* Mobile drawer — rendered only on < lg via CSS */}
-      <MobileSidebarDrawer>
+      {/* Mobile drawer — sidebar prop → fixed drawer panel. children → main content. */}
+      <MobileSidebarDrawer sidebar={
         <aside className="sb" style={{ width: "100%", height: "100%" }}>
           {sidebarContent}
         </aside>
-      </MobileSidebarDrawer>
+      }>
 
       {/* Main column — full width on mobile, calc on lg+ */}
       <div className="flex flex-col min-h-screen w-full lg:w-[calc(100%-248px)]">
@@ -194,8 +194,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            {/* Hamburger — visible on mobile only, rendered inside MobileSidebarDrawer */}
-            <span className="mobile-menu-btn-placeholder" />
+            {/* Hamburger — visible on mobile only, inside MobileSidebarDrawer context */}
+            <HamburgerButton />
             <span className="ds-section-label">Codex</span>
             <span style={{ color: "var(--fg-subtle)", fontSize: "0.75rem" }}>/</span>
             <span style={{ fontSize: "0.875rem", fontWeight: 500, color: "var(--fg-primary)" }}>
@@ -214,6 +214,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
+      </MobileSidebarDrawer>
     </div>
   );
 }
