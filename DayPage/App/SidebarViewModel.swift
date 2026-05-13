@@ -109,15 +109,16 @@ final class SidebarViewModel: ObservableObject {
     }
 
     /// Count memos in a single raw daily file. Memos are separated by the
-    /// canonical `\n\n---\n\n` delimiter (see Models/Memo.swift). Empty file
-    /// or read failure → 0.
+    /// canonical `<!-- daypage-memo-separator -->` delimiter (see
+    /// RawStorage.swift). Empty file or read failure → 0.
     nonisolated private static func countMemos(at url: URL, fileManager: FileManager) -> Int {
         guard let data = try? Data(contentsOf: url),
               let text = String(data: data, encoding: .utf8) else { return 0 }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return 0 }
-        // Each `\n\n---\n\n` boundary adds one memo on top of the first.
-        let separator = "\n\n---\n\n"
-        return trimmed.components(separatedBy: separator).count
+        // Try the canonical separator first, fall back to the legacy `---` form.
+        let modern = trimmed.components(separatedBy: RawStorage.memoSeparator)
+        if modern.count > 1 { return modern.count }
+        return trimmed.components(separatedBy: RawStorage.legacyMemoSeparator).count
     }
 }
