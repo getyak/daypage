@@ -843,4 +843,21 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
 
   /* Inbox conflict: single-column on narrow screens */
   .inbox-conflict { grid-template-columns: 1fr; }
+
+  /* Home page: stack hero, drop domain grid to 2-up, reflow activity rows */
+  .hero { grid-template-columns: 1fr; gap: 16px; }
+  .hero-headline { font-size: 32px; }
+  .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .activity-row { grid-template-columns: 72px 1fr; row-gap: 6px; }
+  .activity-row .what + * { grid-column: 1 / -1; }
+  .observation { flex-direction: column; gap: 8px; }
+  .observation__lead { width: auto; padding-top: 0; }
+}
+
+/* Home page: tighter breakpoints for narrow phones */
+@media (max-width: 640px) {
+  .page { padding: 20px 16px 64px; }
+  .stats { grid-template-columns: 1fr; }
+  .grid-4 { grid-template-columns: 1fr; }
+  .hero-headline { font-size: 28px; letter-spacing: -0.2px; }
 }
