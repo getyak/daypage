@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { auth, signOut } from "@/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { Plus } from "lucide-react";
 import { headers } from "next/headers";
 import { db } from "@/lib/db/client";
 import { users, domains, inbox_items } from "@/lib/db/schema";
@@ -164,51 +165,57 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   );
 
   return (
-    <MobileSidebarDrawer sidebar={sidebarContent}>
-      <div className="flex min-h-screen">
-        {/* Sidebar — hidden on mobile, visible on lg+ */}
-        <aside className="sb hidden lg:flex w-[248px] shrink-0">
+    <div className="flex min-h-screen">
+      {/* Sidebar — hidden on mobile, visible on lg+ */}
+      <aside className="sb hidden lg:flex w-[248px] shrink-0">
+        {sidebarContent}
+      </aside>
+
+      {/* Mobile drawer — sidebar prop → fixed drawer panel. children → main content. */}
+      <MobileSidebarDrawer sidebar={
+        <aside className="sb" style={{ width: "100%", height: "100%" }}>
           {sidebarContent}
         </aside>
+      }>
 
-        {/* Main column — full width on mobile, calc on lg+ */}
-        <div className="flex flex-col min-h-screen w-full lg:w-[calc(100%-248px)]">
-          {/* Topbar */}
-          <header
-            style={{
-              height: "52px",
-              borderBottom: "1px solid var(--accent-border)",
-              background: "var(--surface-white)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "0 1rem 0 1rem",
-              flexShrink: 0,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              {/* Hamburger — visible on mobile only, opens the drawer via context */}
-              <HamburgerButton />
-              <span className="ds-section-label">Codex</span>
-              <span style={{ color: "var(--fg-subtle)", fontSize: "0.75rem" }}>/</span>
-              <span style={{ fontSize: "0.875rem", fontWeight: 500, color: "var(--fg-primary)" }}>
-                {viewLabel}
-              </span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <TopbarDate />
-              <Link href="/chat" className="btn btn--soft btn--sm" aria-label="Ask — open chat">Ask</Link>
-              <Link href="/add" className="btn btn--primary btn--sm">Add</Link>
-            </div>
-          </header>
+      {/* Main column — full width on mobile, calc on lg+ */}
+      <div className="flex flex-col min-h-screen w-full lg:w-[calc(100%-248px)]">
+        {/* Topbar */}
+        <header
+          style={{
+            height: "52px",
+            borderBottom: "1px solid var(--accent-border)",
+            background: "var(--surface-white)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "0 1rem 0 1rem",
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            {/* Hamburger — visible on mobile only, inside MobileSidebarDrawer context */}
+            <HamburgerButton />
+            <span className="ds-section-label">Codex</span>
+            <span style={{ color: "var(--fg-subtle)", fontSize: "0.75rem" }}>/</span>
+            <span style={{ fontSize: "0.875rem", fontWeight: 500, color: "var(--fg-primary)" }}>
+              {viewLabel}
+            </span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <TopbarDate />
+            <Link href="/chat" className="btn btn--soft btn--sm" aria-label="Ask — open chat">Ask</Link>
+            <Link href="/add" className="btn btn--primary btn--sm">Add</Link>
+          </div>
+        </header>
 
-          {/* Page content */}
-          <main style={{ flex: 1, overflowY: "auto" }}>
-            {children}
-          </main>
-        </div>
+        {/* Page content */}
+        <main style={{ flex: 1, overflowY: "auto" }}>
+          {children}
+        </main>
       </div>
-    </MobileSidebarDrawer>
+      </MobileSidebarDrawer>
+    </div>
   );
 }
 
