@@ -490,6 +490,10 @@ struct ArchiveView: View {
             .onAppear {
                 viewModel.loadMonth()
                 Task { await preScanVault() }
+                consumePendingArchiveDate()
+            }
+            .onChange(of: nav.pendingArchiveDate) { _ in
+                consumePendingArchiveDate()
             }
             .fullScreenCover(isPresented: $showDayDetail) {
                 if let dateStr = selectedDateString {
@@ -515,6 +519,21 @@ struct ArchiveView: View {
     private func handleDateTap(dateStr: String) {
         selectedDateString = dateStr
         showDayDetail = true
+    }
+
+    /// Consume any pending deep-link from the sidebar's Recent row. Cleared
+    /// after consumption so re-tapping the same row in the drawer still
+    /// triggers a new presentation.
+    private func consumePendingArchiveDate() {
+        guard let dateStr = nav.pendingArchiveDate else { return }
+        nav.pendingArchiveDate = nil
+        selectedDateString = dateStr
+        // Defer the cover so SwiftUI commits the tab switch first; presenting
+        // a fullScreenCover during the same runloop as the tab change can
+        // race and skip the animation on some iOS 16 builds.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            showDayDetail = true
+        }
     }
 
     // MARK: - Vault Pre-Scan (US-006)

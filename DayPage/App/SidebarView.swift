@@ -23,9 +23,24 @@ struct SidebarView: View {
                     .frame(height: 0.5)
                     .padding(.bottom, 8)
 
-                navSection
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        navSection
+                            .padding(.top, 4)
 
-                Spacer()
+                        if !sidebarVM.recentDays.isEmpty {
+                            recentSection
+                                .padding(.top, 18)
+                        }
+
+                        // Always show feedback row at the bottom of the
+                        // scrollable area so it stays reachable even when the
+                        // Recent list grows.
+                        feedbackSection
+                            .padding(.top, 18)
+                    }
+                    .padding(.bottom, 24)
+                }
 
                 Rectangle()
                     .fill(DSColor.inkFaint)
@@ -37,6 +52,11 @@ struct SidebarView: View {
         }
         .task {
             sidebarVM.bind(authService: authService)
+        }
+        .onChange(of: nav.isSidebarOpen) { isOpen in
+            // Refresh the recent-day list every time the drawer opens so the
+            // user sees the latest activity without having to relaunch.
+            if isOpen { sidebarVM.refreshRecentDays() }
         }
         .sheet(isPresented: $showSettings) {
             SettingsView()
@@ -66,9 +86,20 @@ struct SidebarView: View {
 
     // MARK: - Nav Items
 
-    // Primary nav (Today/Archive/Graph) moved to GlassTabBar pill — sidebar keeps Feedback only.
+    /// Primary nav: Today / Archive / Graph. Graph is gated behind a Post-MVP
+    /// chip until the knowledge-graph feature ships (PRD NG-3).
     private var navSection: some View {
         VStack(alignment: .leading, spacing: 2) {
+            navItem(tab: .today, icon: "square.and.pencil", label: "Today")
+            navItem(tab: .archive, icon: "archivebox", label: "Archive")
+            navItem(tab: .graph, icon: "point.3.connected.trianglepath.dotted", label: "Graph", disabled: true)
+        }
+        .padding(.horizontal, 12)
+    }
+
+    private var feedbackSection: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            sectionLabel("Support")
             navItem(tab: .feedback, icon: "bubble.left.and.exclamationmark.bubble.right", label: "Feedback")
         }
         .padding(.horizontal, 12)
@@ -76,7 +107,7 @@ struct SidebarView: View {
 
     @ViewBuilder
     private func navItem(tab: AppTab, icon: String, label: String, disabled: Bool = false) -> some View {
-        let isActive = nav.selectedTab == tab
+        let isActive = nav.selectedTab == tab && tab != .feedback
 
         Button {
             guard !disabled else { return }
@@ -128,6 +159,72 @@ struct SidebarView: View {
         }
         .disabled(disabled)
         .buttonStyle(.plain)
+    }
+
+    // MARK: - Recent Section
+
+    /// "Commit history" style list: the most recent days that actually have
+    /// memos, tapping a row jumps straight to that day's detail view in
+    /// Archive. Refreshed on every sidebar open via `refreshRecentDays()`.
+    private var recentSection: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            sectionLabel("Recent")
+
+            ForEach(sidebarVM.recentDays) { day in
+                recentRow(day: day)
+            }
+        }
+        .padding(.horizontal, 12)
+    }
+
+    private func recentRow(day: RecentDay) -> some View {
+        Button {
+            nav.openArchive(at: day.dateString)
+        } label: {
+            HStack(spacing: 12) {
+                Color.clear.frame(width: 2, height: 20)
+
+                Image(systemName: "circle.fill")
+                    .font(.system(size: 6))
+                    .frame(width: 20)
+                    .foregroundColor(DSColor.amberAccent.opacity(0.75))
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(Self.formatRowTitle(day.dateString))
+                        .font(DSType.bodySM)
+                        .foregroundColor(DSColor.inkPrimary)
+                    Text(day.dateString)
+                        .font(DSType.mono9)
+                        .foregroundColor(DSColor.inkSubtle)
+                        .tracking(0.5)
+                        .textCase(.uppercase)
+                }
+
+                Spacer()
+
+                Text("\(day.memoCount)")
+                    .font(DSType.mono10)
+                    .foregroundColor(DSColor.inkMuted)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(DSColor.amberSoft, in: Capsule())
+            }
+            .padding(.trailing, 16)
+            .padding(.vertical, 7)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text)
+            .font(DSType.mono9)
+            .foregroundColor(DSColor.inkSubtle)
+            .tracking(1.2)
+            .textCase(.uppercase)
+            .padding(.leading, 34)  // align with row text column (2 + 12 + 20)
+            .padding(.bottom, 4)
     }
 
     // MARK: - Bottom Section
@@ -197,4 +294,40 @@ struct SidebarView: View {
         }
         .buttonStyle(.plain)
     }
+
+    // MARK: - Date Formatting
+
+    /// Renders the row title as "Today" / "Yesterday" / weekday name to keep
+    /// the list scannable; falls back to month-day for older entries.
+    private static func formatRowTitle(_ dateString: String) -> String {
+        guard let date = isoFormatter.date(from: dateString) else { return dateString }
+        let cal = Calendar.current
+        if cal.isDateInToday(date) { return "Today" }
+        if cal.isDateInYesterday(date) { return "Yesterday" }
+        let daysAgo = cal.dateComponents([.day], from: cal.startOfDay(for: date), to: cal.startOfDay(for: Date())).day ?? 0
+        if daysAgo < 7 { return weekdayFormatter.string(from: date) }
+        return monthDayFormatter.string(from: date)
+    }
+
+    private static let isoFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        f.timeZone = TimeZone.current
+        return f
+    }()
+
+    private static let weekdayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US")
+        f.dateFormat = "EEEE"
+        return f
+    }()
+
+    private static let monthDayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US")
+        f.dateFormat = "MMM d"
+        return f
+    }()
 }
