@@ -558,24 +558,16 @@ struct TodayView: View {
 
     // MARK: - History Supplement (memos present — shown at timeline bottom)
 
-    /// When today already has memos we still show yesterday's compiled page or
-    /// the weekly recap at the bottom of the scroll, so the user can pull down
-    /// to see history. (#US-016)
+    /// History supplement rendered below today's raw memos. Previously this
+    /// only showed yesterday's compiled page or the weekly recap; now it owns
+    /// the full historical timeline (#276) — this week's other days, last
+    /// week, week-before-last, and older months as expandable cards.
     @ViewBuilder
     private var historySupplement: some View {
-        if !viewModel.memos.isEmpty && !viewModel.isLoading {
-            switch viewModel.fallbackContent {
-            case .yesterdayDailyPage(let page):
-                earlierDivider
-                yesterdaySection(page).padding(.top, 8)
-            case .weekRecap(let entries):
-                earlierDivider
-                WeeklyRecapSection(entries: entries) { dateString in
-                    onThisDayDateString = dateString
-                }
-                .padding(.top, 8)
-            default:
-                EmptyView()
+        if !viewModel.memos.isEmpty && !viewModel.isLoading && !viewModel.timelineSections.isEmpty {
+            earlierDivider
+            ForEach(viewModel.timelineSections) { section in
+                TimelineSectionView(section: section)
             }
         }
     }
