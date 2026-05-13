@@ -161,9 +161,15 @@ struct TimelineDayCard: View {
     private func toggle() {
         if !hasLoaded {
             // First expand: parse the day's file once and cache. Subsequent
-            // toggles just flip the flag — no extra I/O.
-            loadedMemos = TimelineService.memos(for: entry)
-            hasLoaded = true
+            // toggles just flip the flag — no extra I/O. Load off-main to
+            // avoid blocking the UI thread on synchronous file I/O.
+            Task {
+                let memos = TimelineService.memos(for: entry)
+                await MainActor.run {
+                    loadedMemos = memos
+                    hasLoaded = true
+                }
+            }
         }
         withAnimation(.easeInOut(duration: 0.22)) {
             isExpanded.toggle()

@@ -62,7 +62,7 @@ struct TimelineSection: Identifiable, Equatable {
             let f = DateFormatter()
             f.dateFormat = "yyyy-MM"
             f.locale = Locale(identifier: "en_US_POSIX")
-            f.timeZone = TimeZone.current
+            f.timeZone = AppSettings.currentTimeZone()
             return "month-\(f.string(from: date))"
         }
     }
@@ -98,7 +98,7 @@ enum TimelineService {
         let fmt = DateFormatter()
         fmt.dateFormat = "yyyy-MM-dd"
         fmt.locale = Locale(identifier: "en_US_POSIX")
-        fmt.timeZone = TimeZone.current
+        fmt.timeZone = AppSettings.currentTimeZone()
 
         let dailyDir = VaultInitializer.vaultURL.appendingPathComponent("wiki/daily")
 
@@ -219,7 +219,7 @@ enum TimelineService {
     private static func systemCalendar() -> Calendar {
         var cal = Calendar(identifier: .gregorian)
         cal.firstWeekday = Calendar.current.firstWeekday
-        cal.timeZone = TimeZone.current
+        cal.timeZone = AppSettings.currentTimeZone()
         return cal
     }
 
