@@ -38,9 +38,10 @@ export default async function ChatPage() {
   }
 
   return (
-    <div style={{ display: "flex", height: "calc(100vh - 52px)" }}>
+    <div className="chat-index" style={{ display: "flex", height: "calc(100vh - 52px)" }}>
       {/* Thread list sidebar */}
       <aside
+        className="chat-index__aside"
         style={{
           width: "280px",
           flexShrink: 0,

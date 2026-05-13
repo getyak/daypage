@@ -2,7 +2,6 @@ import { ReactNode } from "react";
 import { auth, signOut } from "@/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Plus } from "lucide-react";
 import { headers } from "next/headers";
 import { db } from "@/lib/db/client";
 import { users, domains, inbox_items } from "@/lib/db/schema";
