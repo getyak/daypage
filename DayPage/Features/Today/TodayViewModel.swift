@@ -82,8 +82,14 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
 
     /// Compiled day-pages from this week (Monday → yesterday), newest first.
     /// Populated in `load()` and refreshed whenever today's data reloads.
-    /// Drives the "Weekly Recap" section beneath today's raw memos.
+    /// Used only by the empty-today `fallbackContent` path now that the full
+    /// historical timeline (`timelineSections`) renders beneath today's memos.
     @Published var weeklyRecap: [WeeklyRecapEntry] = []
+
+    /// Full historical timeline grouped into bands (this-week-others, last
+    /// week, week-before-last, then by month). Drives the scrollable history
+    /// list under today's raw memos. Excludes today — today renders above.
+    @Published var timelineSections: [TimelineSection] = []
 
     /// Whether the view is currently loading memos.
     @Published var isLoading: Bool = false
@@ -423,6 +429,11 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 }
             }
 
+            // Build the historical timeline (this-week-others / last week /
+            // week-before-last / older months). Off-main: scans every raw
+            // day file once and parses summaries for compiled days.
+            let timeline = TimelineService.sections(referenceDate: capturedDate)
+
             // --- Back on MainActor: update published state ---
             await MainActor.run {
                 switch loadResult {
@@ -443,6 +454,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 self.isDailyPageCompiled = dailyExists
                 self.dailyPageSummary = dailyExists ? dailySummary : nil
                 self.weeklyRecap = WeeklyRecapService.shared.entries()
+                self.timelineSections = timeline
                 self.yesterdayDailyPageModel = yesterdayPage
                 self.onThisDayMemos = otdMemos
                 self.isLoading = false
