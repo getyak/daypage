@@ -2,8 +2,7 @@ import { inngest } from "@/lib/inngest/client";
 import { db } from "@/lib/db/client";
 import { users, memos, pages, page_sources } from "@/lib/db/schema";
 import { eq, and, gte, lt, sql } from "drizzle-orm";
-import { dashscope } from "@/lib/ai/dashscope";
-import { ProviderError } from "@/lib/ai/provider";
+import { llm, ProviderError } from "@/lib/ai";
 import fs from "fs";
 import path from "path";
 
@@ -118,7 +117,7 @@ async function processUserDailyPage(
   let dailyResult: DailyPageResult;
 
   try {
-    const res = await dashscope.chat(
+    const res = await llm.chat(
       [
         { role: "system", content: systemPrompt },
         { role: "user", content: promptContent },
@@ -130,7 +129,7 @@ async function processUserDailyPage(
     // Retry once with stricter prompt
     if (err instanceof SyntaxError || err instanceof Error && err.message.startsWith("Invalid")) {
       const stricterPrompt = `${promptContent}\n\nIMPORTANT: Return ONLY the JSON object. No explanation. No markdown fences.`;
-      const res2 = await dashscope.chat(
+      const res2 = await llm.chat(
         [
           { role: "system", content: systemPrompt },
           { role: "user", content: stricterPrompt },

@@ -38,6 +38,10 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      // Some browser extensions (e.g. Immersive Translate) inject attributes
+      // onto <html> before React hydrates, causing a top-level mismatch warning.
+      // Suppressing only on <html> is the React/Next recommended workaround.
+      suppressHydrationWarning
     >
       <body className="min-h-full bg-bg-warm text-fg-primary font-body">
         <QueryProvider>{children}</QueryProvider>

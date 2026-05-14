@@ -10,9 +10,8 @@ import {
   inbox_items,
 } from "@/lib/db/schema";
 import { eq, and, gte, ne, sql } from "drizzle-orm";
-import { dashscope } from "@/lib/ai/dashscope";
+import { llm, ProviderError } from "@/lib/ai";
 import { chunkText, averageEmbeddings, hashText } from "@/lib/ai/embed-utils";
-import { ProviderError } from "@/lib/ai/provider";
 import fs from "fs";
 import path from "path";
 
@@ -291,7 +290,7 @@ export const compileMemo = inngest.createFunction(
           const chunks = chunkText(memo.body);
           const embeddings: number[][] = [];
           for (const chunk of chunks) {
-            const result = await dashscope.embed(chunk);
+            const result = await llm.embed(chunk);
             embeddings.push(result.embedding);
           }
           embedding = averageEmbeddings(embeddings);
@@ -443,7 +442,7 @@ export const compileMemo = inngest.createFunction(
 
       let conflictResult: ConflictCheckResult;
       try {
-        const res = await dashscope.chat(
+        const res = await llm.chat(
           [
             {
               role: "system",
@@ -536,7 +535,7 @@ export const compileMemo = inngest.createFunction(
 
         let raw: string;
         try {
-          const res = await dashscope.chat(
+          const res = await llm.chat(
             [
               { role: "system", content: systemPrompt },
               { role: "user", content: promptContent },
@@ -567,7 +566,7 @@ export const compileMemo = inngest.createFunction(
           const stricterPrompt = `${promptContent}\n\nIMPORTANT: Return ONLY the JSON object. No explanation. No markdown. No code fences.`;
           let raw2: string;
           try {
-            const res2 = await dashscope.chat(
+            const res2 = await llm.chat(
               [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: stricterPrompt },
@@ -612,7 +611,7 @@ export const compileMemo = inngest.createFunction(
 
       let raw: string;
       try {
-        const res = await dashscope.chat(
+        const res = await llm.chat(
           [
             { role: "system", content: systemPrompt },
             { role: "user", content: promptContent },
@@ -641,7 +640,7 @@ export const compileMemo = inngest.createFunction(
         const stricterPrompt = `${promptContent}\n\nIMPORTANT: Return ONLY the JSON object. No explanation. No markdown. No code fences.`;
         let raw2: string;
         try {
-          const res2 = await dashscope.chat(
+          const res2 = await llm.chat(
             [
               { role: "system", content: systemPrompt },
               { role: "user", content: stricterPrompt },

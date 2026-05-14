@@ -46,6 +46,8 @@ DayPage/
   Config/           GeneratedSecrets (gitignored)
 ```
 
+**CODEX frontend**: lives in this repo's `web/` directory (Next.js) — the same app served at `localhost:3000`. Its env vars (e.g. `DASHSCOPE_API_KEY`) must be configured in `web/.env.local`, not in the iOS-side `Config/GeneratedSecrets.swift`.
+
 **Pipeline**: Today (raw input) → AI compilation → Daily Page (structured diary) → Entity Pages → Graph (Post-MVP knowledge network).
 
 ## Coding Conventions

@@ -12,6 +12,7 @@ import { SystemRow } from "./_components/SystemRow";
 import { TopbarDate } from "./_components/TopbarDate";
 import { NewDomainButton } from "./_components/NewDomainButton";
 import { MobileSidebarDrawer, HamburgerButton } from "./_components/MobileSidebarDrawer";
+import { DesktopSidebarShell } from "./_components/DesktopSidebarShell";
 
 type NavSpec = { href: string; label: string; iconName: NavIconName; meta?: string };
 
@@ -165,20 +166,16 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen">
-      {/* Sidebar — hidden on mobile, visible on lg+ */}
-      <aside className="sb hidden lg:flex w-[248px] shrink-0">
-        {sidebarContent}
-      </aside>
+      {/* Sidebar — hidden on mobile, visible on lg+ (collapsible via DesktopSidebarShell) */}
+      <DesktopSidebarShell>{sidebarContent}</DesktopSidebarShell>
 
-      {/* Mobile drawer — sidebar prop → fixed drawer panel. children → main content. */}
-      <MobileSidebarDrawer sidebar={
-        <aside className="sb" style={{ width: "100%", height: "100%" }}>
-          {sidebarContent}
-        </aside>
-      }>
+      {/* Mobile drawer — sidebar prop → fixed drawer panel. children → main content.
+          Pass the bare content; MobileSidebarDrawer wraps it in <aside class="sb">. */}
+      <MobileSidebarDrawer sidebar={sidebarContent}>
 
-      {/* Main column — full width on mobile, calc on lg+ */}
-      <div className="flex flex-col min-h-screen w-full lg:w-[calc(100%-248px)]">
+      {/* Main column — fills the remaining space next to the (collapsible) sidebar.
+          Using flex-1 + min-w-0 avoids hard-coding sidebar width here. */}
+      <div className="flex flex-col min-h-screen flex-1 min-w-0">
         {/* Topbar */}
         <header
           style={{

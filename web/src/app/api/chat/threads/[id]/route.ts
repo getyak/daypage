@@ -4,7 +4,7 @@ import { db } from "@/lib/db/client";
 import { users, chat_threads, chat_messages } from "@/lib/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
-import { dashscope } from "@/lib/ai/dashscope";
+import { llm } from "@/lib/ai";
 
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -141,7 +141,7 @@ export async function autoTitleThread(
 
     if (!thread || thread.title !== "New conversation") return;
 
-    const { content } = await dashscope.chat([
+    const { content } = await llm.chat([
       {
         role: "system",
         content:

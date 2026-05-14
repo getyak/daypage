@@ -1,6 +1,7 @@
 // ─── RAG retrieval helper ─────────────────────────────────────────────────────
-// Server-only. Embeds a query via DashScope and retrieves the most relevant
-// pages from the user's wiki by cosine similarity.
+// Server-only. Embeds a query via the unified LLM façade (OpenAI
+// text-embedding-3-small) and retrieves the most relevant pages from the
+// user's wiki by cosine similarity.
 //
 // Note: embeddings are stored as JSON-encoded text (vector(1536) pending the
 // pgvector migration in 0006_pgvector_hnsw.sql). Once that migration is
@@ -11,7 +12,8 @@ import "server-only";
 import { db } from "@/lib/db/client";
 import { pages } from "@/lib/db/schema";
 import { and, eq, ne, sql } from "drizzle-orm";
-import { dashscope } from "./dashscope";
+import { llm } from "./index";
+import { ProviderError } from "./provider";
 
 export interface RetrievedPage {
   page_id: string;
@@ -64,8 +66,21 @@ export async function retrievePages(
 
   if (!queryText.trim()) return [];
 
-  // Embed the query
-  const { embedding: queryVec } = await dashscope.embed(queryText);
+  // Embed the query. If the embedding provider is unavailable (auth, rate limit,
+  // upstream error), gracefully degrade to "no RAG results" so chat still works.
+  let queryVec: number[];
+  try {
+    const res = await llm.embed(queryText);
+    queryVec = res.embedding;
+  } catch (err) {
+    if (err instanceof ProviderError) {
+      console.warn(
+        `[rag] embed failed (${err.code}): ${err.message} — returning no results`
+      );
+      return [];
+    }
+    throw err;
+  }
   if (queryVec.length === 0) return [];
 
   // Fetch all live pages for this user that have an embedding stored.
