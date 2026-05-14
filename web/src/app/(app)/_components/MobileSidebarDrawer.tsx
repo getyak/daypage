@@ -32,11 +32,12 @@ export function MobileDrawerProvider({
 
   return (
     <DrawerCtx.Provider value={{ open: () => setIsOpen(true) }}>
-      {/* Backdrop */}
+      {/* Backdrop — mobile/tablet only; desktop already has a permanent sidebar */}
       {isOpen && (
         <div
           onClick={() => setIsOpen(false)}
           aria-hidden="true"
+          className="lg:hidden"
           style={{
             position: "fixed",
             inset: 0,
@@ -46,11 +47,13 @@ export function MobileDrawerProvider({
         />
       )}
 
-      {/* Drawer panel */}
+      {/* Drawer panel — mobile/tablet only; hidden entirely on lg+ */}
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Navigation menu"
+        aria-hidden={!isOpen}
+        className="lg:hidden"
         style={{
           position: "fixed",
           top: 0,
@@ -62,6 +65,7 @@ export function MobileDrawerProvider({
           transform: isOpen ? "translateX(0)" : "translateX(-100%)",
           transition: "transform 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94)",
           willChange: "transform",
+          visibility: isOpen ? "visible" : "hidden",
         }}
       >
         {/* Close button */}

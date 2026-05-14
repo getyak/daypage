@@ -7,8 +7,7 @@ import {
   schema_cluster_log,
 } from "@/lib/db/schema";
 import { eq, and, gte, sql } from "drizzle-orm";
-import { dashscope } from "@/lib/ai/dashscope";
-import { ProviderError } from "@/lib/ai/provider";
+import { llm, ProviderError } from "@/lib/ai";
 import { createHash } from "crypto";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -102,7 +101,7 @@ ${titleList}
 
 Respond with JSON only: {"name": "Domain Name", "color": "blue"}`;
 
-  const res = await dashscope.chat(
+  const res = await llm.chat(
     [
       {
         role: "system",

@@ -5,7 +5,7 @@ import { db } from "@/lib/db/client";
 import { users, chat_threads, chat_messages, prompt_log } from "@/lib/db/schema";
 import { eq, and, gte, sum } from "drizzle-orm";
 import { z } from "zod";
-import { dashscope } from "@/lib/ai/dashscope";
+import { llm } from "@/lib/ai";
 import { retrievePages, type RetrievedPage } from "@/lib/ai/rag";
 
 export const dynamic = "force-dynamic";
@@ -103,7 +103,7 @@ async function generateSuggestedFollowups(
 ): Promise<string[]> {
   try {
     const context = `User: ${userMessage.slice(0, 500)}\nAssistant: ${assistantMessage.slice(0, 800)}`;
-    const { content } = await dashscope.chat(
+    const { content } = await llm.chat(
       [
         {
           role: "system",
@@ -259,11 +259,11 @@ export async function POST(
           messages.push({ role: h.role as "user" | "assistant", content: h.content });
         }
 
-        // Step 4: Stream from DashScope
+        // Step 4: Stream from LLM (DeepSeek)
         send({ type: "step", step: "generating" });
         let fullContent = "";
 
-        const { tokens_in, tokens_out } = await dashscope.chatStream(
+        const { tokens_in, tokens_out } = await llm.chatStream(
           messages,
           (chunk) => {
             if (closed) return;
@@ -358,7 +358,7 @@ export async function POST(
 
 async function autoTitleThread(threadId: string, userId: string, firstUserMessage: string) {
   try {
-    const { content } = await dashscope.chat([
+    const { content } = await llm.chat([
       {
         role: "system",
         content:

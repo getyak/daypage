@@ -696,6 +696,48 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
 .sb__domain-count { font-family: var(--font-mono); font-size: 10px; color: var(--fg-subtle); letter-spacing: 0.4px; }
 .sb__spacer { flex: 1; }
 
+/* ---------- Sidebar collapse (desktop icon-only mode) ---------- */
+.sb__collapse-btn {
+  position: sticky;
+  bottom: 0;
+  align-self: stretch;
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-small);
+  background: var(--bg-warm);
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: color 140ms ease-out, background 140ms ease-out;
+}
+.sb__collapse-btn:hover { color: var(--fg-primary); background: var(--surface-sunken); }
+.sb__collapse-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.sb[data-collapsed="true"] {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.sb[data-collapsed="true"] .sb__brand { justify-content: center; padding-left: 0; padding-right: 0; }
+.sb[data-collapsed="true"] .sb__brand-tag,
+.sb[data-collapsed="true"] .sb__item-label,
+.sb[data-collapsed="true"] .sb__item-meta,
+.sb[data-collapsed="true"] .sb__item-badge,
+.sb[data-collapsed="true"] .sb__group-label,
+.sb[data-collapsed="true"] .sb__domain-label,
+.sb[data-collapsed="true"] .sb__domain-count {
+  display: none;
+}
+.sb[data-collapsed="true"] .sb__item,
+.sb[data-collapsed="true"] .sb__domain {
+  justify-content: center;
+  padding-left: 6px;
+  padding-right: 6px;
+  gap: 0;
+}
+
 /* ---------- Mobile drawer ---------- */
 .mobile-menu-btn { display: none; }
 @media (max-width: 1023px) {
