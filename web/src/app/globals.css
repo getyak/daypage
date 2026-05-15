@@ -501,8 +501,8 @@ body {
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 
 /* === Add page input === */
-.add-input { position: relative; background: var(--surface-white); border: 1.5px solid var(--accent-border); border-radius: var(--radius-card); padding: 18px 20px; transition: border-color 140ms ease-out, background 140ms ease-out; }
-.add-input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.add-input { position: relative; background: var(--surface-white); border: 1.5px solid var(--accent-border); border-radius: var(--radius-card); padding: 18px 20px; transition: border-color 140ms ease-out, background 140ms ease-out, box-shadow 140ms ease-out; }
+.add-input:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .add-input.is-dragging { border-color: var(--accent); border-style: dashed; background: var(--accent-soft); }
 .add-input.is-dragging textarea::placeholder { color: var(--accent); }
 .add-input.is-dragging::after {
@@ -524,7 +524,7 @@ body {
 }
 .add-input__hints .chip { transition: background 120ms ease-out, border-color 120ms ease-out, color 120ms ease-out; }
 .add-input__hints .chip:not(:disabled):hover { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
-.add-input textarea { width: 100%; border: none; outline: none; resize: none; min-height: 72px; max-height: 320px; font-family: var(--font-body); font-size: 16px; line-height: 1.55; color: var(--fg-primary); background: transparent; overflow-y: auto; }
+.add-input textarea { width: 100%; border: none; outline: none; resize: none; max-height: 320px; font-family: var(--font-body); font-size: 16px; line-height: 1.55; color: var(--fg-primary); background: transparent; overflow-y: auto; display: block; transition: height 120ms ease-out; }
 .add-input textarea::placeholder { color: var(--fg-subtle); }
 .add-input__row { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; gap: 12px; }
 .add-input__hints { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -544,6 +544,74 @@ body {
 }
 .add-input__meta svg { flex-shrink: 0; }
 .add-input__meta span { flex: 1; min-width: 0; }
+
+/* Attachment preview row */
+.add-input__attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.add-input__attachment {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px 6px 6px;
+  background: var(--surface-sunken, var(--accent-soft));
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  max-width: 100%;
+}
+.add-input__attachment-thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--surface-white);
+}
+.add-input__attachment-thumb--file {
+  display: grid;
+  place-items: center;
+  color: var(--fg-muted);
+  border: 1px solid var(--accent-border);
+}
+.add-input__attachment-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.2;
+}
+.add-input__attachment-name {
+  font-size: 13px;
+  color: var(--fg-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+.add-input__attachment-size {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-subtle);
+  letter-spacing: 0.4px;
+}
+.add-input__attachment-remove {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background 120ms ease-out, color 120ms ease-out;
+}
+.add-input__attachment-remove:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
 
 /* === Add page: empty states === */
 .empty-card {
