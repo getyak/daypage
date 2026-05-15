@@ -1,10 +1,32 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link2, FileText, Mic, Bookmark, Sparkles, Send } from "lucide-react";
+import {
+  Link2,
+  FileText,
+  Image as ImageIcon,
+  Mic,
+  Bookmark,
+  Sparkles,
+  Send,
+  X,
+} from "lucide-react";
 
 const URL_RE = /^https?:\/\//;
+const TEXTAREA_MAX = 320;
+
+type Attachment = {
+  id: string;
+  file: File;
+  previewUrl?: string;
+};
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 102.4) / 10} KB`;
+  return `${Math.round(bytes / 1024 / 102.4) / 10} MB`;
+}
 
 async function createMemo(body: string) {
   const type = URL_RE.test(body.trim()) ? "url" : "text";
@@ -24,10 +46,55 @@ export function UnifiedInput() {
   const [body, setBody] = useState("");
   const [savedDraftAt, setSavedDraftAt] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const queryClient = useQueryClient();
-  const empty = body.trim().length === 0;
+  const empty = body.trim().length === 0 && attachments.length === 0;
+
+  // Autosize textarea on mount and whenever body changes — avoids the
+  // first-keystroke jump from CSS min-height to scrollHeight.
+  useEffect(() => {
+    const ta = taRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, TEXTAREA_MAX) + "px";
+  }, [body]);
+
+  // Revoke any remaining object URLs on unmount.
+  // Per-item revoke also runs in removeAttachment / mutation success.
+  const attachmentsRef = useRef<Attachment[]>([]);
+  useEffect(() => {
+    attachmentsRef.current = attachments;
+  }, [attachments]);
+  useEffect(() => {
+    return () => {
+      for (const a of attachmentsRef.current) {
+        if (a.previewUrl) URL.revokeObjectURL(a.previewUrl);
+      }
+    };
+  }, []);
+
+  function addFiles(files: File[]) {
+    if (files.length === 0) return;
+    const next: Attachment[] = files.map((file) => ({
+      id: `${file.name}-${file.size}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      file,
+      previewUrl: file.type.startsWith("image/")
+        ? URL.createObjectURL(file)
+        : undefined,
+    }));
+    setAttachments((prev) => [...prev, ...next]);
+  }
+
+  function removeAttachment(id: string) {
+    setAttachments((prev) => {
+      const target = prev.find((a) => a.id === id);
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((a) => a.id !== id);
+    });
+  }
 
   function handleSaveDraft() {
     if (typeof window !== "undefined") {
@@ -44,6 +111,10 @@ export function UnifiedInput() {
     mutationFn: createMemo,
     onSuccess: (newMemo) => {
       setBody("");
+      for (const a of attachments) {
+        if (a.previewUrl) URL.revokeObjectURL(a.previewUrl);
+      }
+      setAttachments([]);
       // Prepend the new pending memo to the compile queue cache
       queryClient.setQueryData<{ items: unknown[] }>(
         ["memos", "pending"],
@@ -58,7 +129,11 @@ export function UnifiedInput() {
 
   function handleSubmit() {
     if (empty) return;
-    mutation.mutate(body);
+    // Append attachment filenames to body — server contract is text-only;
+    // real binary upload is tracked separately.
+    const attachmentLines = attachments.map((a) => `file: ${a.file.name}`);
+    const combined = [body.trim(), ...attachmentLines].filter(Boolean).join("\n");
+    mutation.mutate(combined);
   }
 
   return (
@@ -77,28 +152,55 @@ export function UnifiedInput() {
         e.preventDefault();
         setDragging(false);
         const files = Array.from(e.dataTransfer.files);
-        if (files.length > 0) {
-          setBody(
-            (b) =>
-              (b ? b + "\n" : "") +
-              files.map((f) => `file: ${f.name}`).join("\n"),
-          );
-        }
+        addFiles(files);
       }}
     >
-      {/* Textarea — auto-grow on input */}
+      {/* Textarea — height is driven by useEffect to avoid first-keystroke jump */}
       <textarea
         ref={taRef}
         value={body}
-        onChange={(e) => {
-          setBody(e.target.value);
-          const t = e.target;
-          t.style.height = "auto";
-          t.style.height = Math.min(t.scrollHeight, 320) + "px";
-        }}
+        onChange={(e) => setBody(e.target.value)}
         placeholder="Paste a URL, drop a file, or just type something…"
         rows={3}
       />
+
+      {/* Attachment preview row */}
+      {attachments.length > 0 && (
+        <div className="add-input__attachments">
+          {attachments.map((a) => (
+            <div key={a.id} className="add-input__attachment">
+              {a.previewUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={a.previewUrl}
+                  alt={a.file.name}
+                  className="add-input__attachment-thumb"
+                />
+              ) : (
+                <div className="add-input__attachment-thumb add-input__attachment-thumb--file">
+                  <FileText size={18} />
+                </div>
+              )}
+              <div className="add-input__attachment-meta">
+                <span className="add-input__attachment-name" title={a.file.name}>
+                  {a.file.name}
+                </span>
+                <span className="add-input__attachment-size">
+                  {formatSize(a.file.size)}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="add-input__attachment-remove"
+                aria-label={`Remove ${a.file.name}`}
+                onClick={() => removeAttachment(a.id)}
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Inline error */}
       {mutation.isError && (
@@ -132,18 +234,27 @@ export function UnifiedInput() {
         </div>
       )}
 
-      {/* Hidden file input — triggered by the File hint chip */}
+      {/* Hidden file inputs — triggered by Photo / File hint chips */}
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const files = Array.from(e.target.files ?? []);
+          addFiles(files);
+          if (e.target) e.target.value = "";
+        }}
+      />
       <input
         ref={fileInputRef}
         type="file"
+        multiple
         style={{ display: "none" }}
         onChange={(e) => {
-          // Minimum viable: announce the picked file name in textarea so user sees a response.
-          const f = e.target.files?.[0];
-          if (f) {
-            setBody((prev) => (prev ? prev + "\n" : "") + `file: ${f.name}`);
-          }
-          // Reset so picking the same file twice still fires onChange
+          const files = Array.from(e.target.files ?? []);
+          addFiles(files);
           if (e.target) e.target.value = "";
         }}
       />
@@ -163,7 +274,16 @@ export function UnifiedInput() {
             <Link2 size={12} />
             URL
           </button>
-          {/* File — triggers hidden file input */}
+          {/* Photo — triggers image picker (with mobile camera capture) */}
+          <button
+            type="button"
+            className="chip chip--ghost chip--interactive"
+            onClick={() => photoInputRef.current?.click()}
+          >
+            <ImageIcon size={12} />
+            Photo
+          </button>
+          {/* File — triggers any-type file picker */}
           <button
             type="button"
             className="chip chip--ghost chip--interactive"
