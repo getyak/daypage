@@ -303,7 +303,7 @@
         "Verify in iPhone 17 Simulator: airplane mode \u2192 tap compile \u2192 see 'Network error' + Retry"
       ],
       "priority": 20,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -319,7 +319,7 @@
         "Verify in iPhone 17 Simulator"
       ],
       "priority": 21,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -334,7 +334,7 @@
         "Verify in iPhone 17 Simulator"
       ],
       "priority": 22,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
