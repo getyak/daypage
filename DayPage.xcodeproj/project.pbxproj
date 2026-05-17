@@ -7,10 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		14188AFE740A834ADF7A41F4 /* DayPageWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		326A14114B34412568007B4A /* DayPageWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FB6C74A43193A3DD725723 /* DayPageWidgetBundle.swift */; };
 		347B8BDADCBDDB2EDE830E66 /* WatchTransferService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */; };
 		457A17AB7F3B4BE7C2E77026 /* StartRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF24DE1810B0DA979103772 /* StartRecordingIntent.swift */; };
+		485EFA11789212D87CB1B74B /* StartRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF24DE1810B0DA979103772 /* StartRecordingIntent.swift */; };
 		8C3DEB068D610AAB589EA680 /* TimeZonePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73FCD3E2EC4D7257BA7A22BD /* TimeZonePickerView.swift */; };
 		9034B2964DD6432BD7FA7250 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C98B5757B488F583231EC8F6 /* RootView.swift */; };
+		97FA675FF46459D5CE5E8CF3 /* QuickCaptureControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 519B9B12CB68C0E6E2A06292 /* QuickCaptureControl.swift */; };
+		9B0FAA7690FA2EEED5AB7A96 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BAC7527E8128E6A865349FB9 /* Foundation.framework */; };
 		9D559EA9D4B9F2C77D942935 /* DayPageShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FD3383348F15CB7B4E82E53 /* DayPageShortcuts.swift */; };
 		A10000001 /* DayPageApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000001 /* DayPageApp.swift */; };
 		A10000002 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000002 /* RootView.swift */; };
@@ -118,6 +123,7 @@
 		DS0000002 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000002 /* Haptics.swift */; };
 		E20A68158C940060066B2B73 /* WatchReceiveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11E0748715A251EE4A0168A /* WatchReceiveService.swift */; };
 		E4AC46FA495D4BD178789A14 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0881AB423FF6F12FCDE27C5B /* Assets.xcassets */; };
+		EA575F353C6AFD5EA7FF9A6F /* QuickCaptureWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7909ED56F96754E4C4FA21CC /* QuickCaptureWidget.swift */; };
 		ES0000001 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000001 /* EmptyStateView.swift */; };
 		ES0000002 /* GlassErrorBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000002 /* GlassErrorBanner.swift */; };
 		ES0000003 /* GlassTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000003 /* GlassTabBar.swift */; };
@@ -146,6 +152,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		CBEB8ECF74B1AB7DC2D95CE9 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AB0000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F41799EE1E17028D50445A2A;
+			remoteInfo = DayPageWidget;
+		};
 		D13961FCE75D846CB11E2A04 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = AB0000001 /* Project object */;
@@ -162,14 +175,31 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		7C2E6E11E8E832D610477AF4 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				14188AFE740A834ADF7A41F4 /* DayPageWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		068FB068A000B6E61B1D8032 /* AppSettings.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		0881AB423FF6F12FCDE27C5B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		23EA9C83B41565EDB263FB35 /* DayPageWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPageWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2748059CC689A341C7CAAACC /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		2EF24DE1810B0DA979103772 /* StartRecordingIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StartRecordingIntent.swift; sourceTree = "<group>"; };
+		519B9B12CB68C0E6E2A06292 /* QuickCaptureControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuickCaptureControl.swift; sourceTree = "<group>"; };
 		5FD3383348F15CB7B4E82E53 /* DayPageShortcuts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DayPageShortcuts.swift; sourceTree = "<group>"; };
+		71FB6C74A43193A3DD725723 /* DayPageWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DayPageWidgetBundle.swift; sourceTree = "<group>"; };
 		73FCD3E2EC4D7257BA7A22BD /* TimeZonePickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimeZonePickerView.swift; sourceTree = "<group>"; };
+		7909ED56F96754E4C4FA21CC /* QuickCaptureWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuickCaptureWidget.swift; sourceTree = "<group>"; };
 		A20000001 /* DayPageApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPageApp.swift; sourceTree = "<group>"; };
 		A20000002 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		A20000003 /* VaultInitializer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultInitializer.swift; sourceTree = "<group>"; };
@@ -271,11 +301,14 @@
 		AF1000010 /* Inter-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Inter-Bold.ttf"; sourceTree = "<group>"; };
 		AF1000011 /* JetBrainsMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "JetBrainsMono-Regular.ttf"; sourceTree = "<group>"; };
 		AF1000012 /* JetBrainsMono-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "JetBrainsMono-Medium.ttf"; sourceTree = "<group>"; };
+		B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DayPageWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B93ED807E07C2171E9F4234B /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
+		BAC7527E8128E6A865349FB9 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		C98B5757B488F583231EC8F6 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		CJ1000001 /* CJKTextPolish.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CJKTextPolish.swift; sourceTree = "<group>"; };
 		DS1000001 /* Motion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Motion.swift; sourceTree = "<group>"; };
 		DS1000002 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
+		E54B333332A1175CD3B31883 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		ES1000001 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		ES1000002 /* GlassErrorBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassErrorBanner.swift; sourceTree = "<group>"; };
 		ES1000003 /* GlassTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassTabBar.swift; sourceTree = "<group>"; };
@@ -314,6 +347,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		6A99596F83AB190CB3A4DD27 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9B0FAA7690FA2EEED5AB7A96 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A40000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -348,6 +389,26 @@
 				B93ED807E07C2171E9F4234B /* RecordingView.swift */,
 			);
 			path = Features;
+			sourceTree = "<group>";
+		};
+		1FD1A3B1D736CCDDB8DD7C7E /* DayPageWidget */ = {
+			isa = PBXGroup;
+			children = (
+				71FB6C74A43193A3DD725723 /* DayPageWidgetBundle.swift */,
+				7909ED56F96754E4C4FA21CC /* QuickCaptureWidget.swift */,
+				519B9B12CB68C0E6E2A06292 /* QuickCaptureControl.swift */,
+				E54B333332A1175CD3B31883 /* Info.plist */,
+			);
+			name = DayPageWidget;
+			path = DayPageWidget;
+			sourceTree = "<group>";
+		};
+		2F3BCA9F2B06A0AA7A285E16 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				DDC3A975D8D575CF6FC10A43 /* iOS */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		4D6CD27C159EBD1C3B99E5A0 /* Complication */ = {
@@ -510,6 +571,7 @@
 				A30000001 /* DayPage.app */,
 				T30000001 /* DayPageTests.xctest */,
 				23EA9C83B41565EDB263FB35 /* DayPageWatch.app */,
+				B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -646,6 +708,8 @@
 				A50000001 /* DayPage */,
 				T50000001 /* DayPageTests */,
 				6E1BF02CE381B436F22B52D5 /* DayPageWatch */,
+				2F3BCA9F2B06A0AA7A285E16 /* Frameworks */,
+				1FD1A3B1D736CCDDB8DD7C7E /* DayPageWidget */,
 			);
 			sourceTree = "<group>";
 		};
@@ -676,6 +740,14 @@
 			);
 			name = Intents;
 			path = Intents;
+			sourceTree = "<group>";
+		};
+		DDC3A975D8D575CF6FC10A43 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				BAC7527E8128E6A865349FB9 /* Foundation.framework */,
+			);
+			name = iOS;
 			sourceTree = "<group>";
 		};
 		E649E3AC4D392A4CEDD41728 /* Services */ = {
@@ -765,10 +837,12 @@
 				A90000001 /* Sources */,
 				A40000001 /* Frameworks */,
 				AA0000001 /* Resources */,
+				7C2E6E11E8E832D610477AF4 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				FFEEA26F4357519F4BB9DD72 /* PBXTargetDependency */,
 			);
 			name = DayPage;
 			packageProductDependencies = (
@@ -778,6 +852,23 @@
 			productName = DayPage;
 			productReference = A30000001 /* DayPage.app */;
 			productType = "com.apple.product-type.application";
+		};
+		F41799EE1E17028D50445A2A /* DayPageWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D8F19491724741839C0063D3 /* Build configuration list for PBXNativeTarget "DayPageWidget" */;
+			buildPhases = (
+				1EDB2FF3A97D15EE4AB4262A /* Sources */,
+				6A99596F83AB190CB3A4DD27 /* Frameworks */,
+				1C35A048962A1C9561696C85 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DayPageWidget;
+			productName = DayPageWidget;
+			productReference = B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 		T70000001 /* DayPageTests */ = {
 			isa = PBXNativeTarget;
@@ -836,11 +927,19 @@
 				A70000001 /* DayPage */,
 				T70000001 /* DayPageTests */,
 				69BEA0675AFA233657A8AD39 /* DayPageWatch */,
+				F41799EE1E17028D50445A2A /* DayPageWidget */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		1C35A048962A1C9561696C85 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		9E11D4E4CB1FFC4EC7D9A07A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -893,6 +992,17 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		1EDB2FF3A97D15EE4AB4262A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				326A14114B34412568007B4A /* DayPageWidgetBundle.swift in Sources */,
+				EA575F353C6AFD5EA7FF9A6F /* QuickCaptureWidget.swift in Sources */,
+				97FA675FF46459D5CE5E8CF3 /* QuickCaptureControl.swift in Sources */,
+				485EFA11789212D87CB1B74B /* StartRecordingIntent.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		4705AC05FAC24B4000886F57 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1041,6 +1151,12 @@
 			target = 69BEA0675AFA233657A8AD39 /* DayPageWatch */;
 			targetProxy = D13961FCE75D846CB11E2A04 /* PBXContainerItemProxy */;
 		};
+		FFEEA26F4357519F4BB9DD72 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = DayPageWidget;
+			target = F41799EE1E17028D50445A2A /* DayPageWidget */;
+			targetProxy = CBEB8ECF74B1AB7DC2D95CE9 /* PBXContainerItemProxy */;
+		};
 		T75000001 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = A70000001 /* DayPage */;
@@ -1061,6 +1177,67 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		01460ECDA7F310419AA361A7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6RG2F8YY59;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DayPageWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.app.DayPageWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = EXTENSION;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		32BEBCA130BE5F4B0EF36D54 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6RG2F8YY59;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DayPageWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.app.DayPageWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = EXTENSION;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		33B764539AC733ABA92320CE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1361,6 +1538,15 @@
 			buildConfigurations = (
 				AC0000001 /* Debug */,
 				AC0000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D8F19491724741839C0063D3 /* Build configuration list for PBXNativeTarget "DayPageWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				32BEBCA130BE5F4B0EF36D54 /* Release */,
+				01460ECDA7F310419AA361A7 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

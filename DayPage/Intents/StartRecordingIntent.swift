@@ -1,6 +1,6 @@
 import AppIntents
 import Foundation
-#if canImport(UIKit)
+#if canImport(UIKit) && !EXTENSION
 import UIKit
 #endif
 
@@ -20,11 +20,21 @@ import UIKit
 // kicked off by TodayView observing `AppNavigationModel.pendingRecordingTrigger`
 // after the URL is handled in DayPageApp.onOpenURL.
 //
-// We deliberately route through the existing daypage://record URL scheme
-// rather than calling the recorder directly so:
-//   1. The Widget extension never has to link the full app target.
-//   2. There is a single deep-link handler in DayPageApp to maintain.
-//   3. The same code path works when the user manually pastes the URL.
+// Behaviour by call site:
+//   • Inside the main app process — `UIApplication.shared.open` is available;
+//     we open the deep link explicitly so the URL handler runs uniformly.
+//   • Inside the Widget extension process — `UIApplication.shared` is banned
+//     by the linker. We rely on `openAppWhenRun = true` plus WidgetKit's
+//     built-in behaviour: tapping a `Button(intent:)` or `ControlWidgetButton`
+//     foregrounds the app, and `DayPageApp.onAppear` / cold-launch flow can
+//     pick up the pending trigger via the URL scheme set by the Widget's
+//     `widgetURL(_:)` modifier (or, for the parameter-less control widget,
+//     we just rely on the app being foregrounded plus a one-shot trigger
+//     stored in shared UserDefaults — see WidgetBridge).
+//
+// Routing everything through the daypage://record URL keeps a single
+// deep-link handler in DayPageApp.onOpenURL to maintain, and the same code
+// path works when the user manually pastes the URL.
 
 @available(iOS 16.0, *)
 struct StartRecordingIntent: AppIntent {
@@ -43,13 +53,18 @@ struct StartRecordingIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        // Route through the deep-link handler. URL scheme is registered in
-        // the main app's Info.plist (CFBundleURLSchemes = ["daypage"]).
+        // When invoked from inside the main app process (Siri / Shortcuts /
+        // Spotlight) we can open the URL ourselves so the handler runs
+        // immediately. In the extension process `UIApplication.shared` is
+        // unavailable; `openAppWhenRun = true` plus the widget's `widgetURL`
+        // (set on the Button surface) take care of foregrounding + deep link.
+        #if !EXTENSION
         if let url = URL(string: "daypage://record") {
             #if canImport(UIKit)
             await UIApplication.shared.open(url)
             #endif
         }
+        #endif
         return .result()
     }
 }
