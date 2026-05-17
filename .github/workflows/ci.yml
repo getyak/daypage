@@ -222,13 +222,21 @@ jobs:
       # works around this without touching app source.
       - name: Preset onboarding / auth flags for Maestro
         run: |
+          # RootView.initialPhase() checks THREE gates in order:
+          #   hasOnboarded → hasSeenWelcome → (authSkipped || session)
+          # All three must pass to land on TodayView. Missing any one and
+          # Maestro can't reach sidebar-menu-button / memo-input.
           xcrun simctl spawn "$SIMULATOR_UDID" \
             defaults write com.daypage.app hasOnboarded -bool YES
+          xcrun simctl spawn "$SIMULATOR_UDID" \
+            defaults write com.daypage.app hasSeenWelcome -bool YES
           xcrun simctl spawn "$SIMULATOR_UDID" \
             defaults write com.daypage.app authSkipped -bool YES
           # Sanity print so the CI log shows the values that took effect.
           xcrun simctl spawn "$SIMULATOR_UDID" \
             defaults read com.daypage.app hasOnboarded || true
+          xcrun simctl spawn "$SIMULATOR_UDID" \
+            defaults read com.daypage.app hasSeenWelcome || true
           xcrun simctl spawn "$SIMULATOR_UDID" \
             defaults read com.daypage.app authSkipped || true
 
