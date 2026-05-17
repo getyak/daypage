@@ -396,7 +396,7 @@
         "Verify in iPhone 17 Simulator"
       ],
       "priority": 26,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
