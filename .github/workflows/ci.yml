@@ -213,6 +213,40 @@ jobs:
           echo "Installing: $APP"
           xcrun simctl install "$SIMULATOR_UDID" "$APP"
 
+      # Preset UserDefaults so the Maestro flows skip onboarding + auth and land
+      # directly on TodayView. Maestro's iOS LaunchAppHandler.swift (in the
+      # XCUITest runner) only calls XCUIApplication.activate() — it does NOT
+      # forward `launchApp.arguments` from the YAML, so the values that flows
+      # 01/02/04 pass (`hasOnboarded: "true"`, `authSkipped: "true"`) are
+      # silently dropped. Writing directly to the simulator's defaults database
+      # works around this without touching app source.
+      - name: Preset onboarding / auth flags for Maestro
+        run: |
+          xcrun simctl spawn "$SIMULATOR_UDID" \
+            defaults write com.daypage.app hasOnboarded -bool YES
+          xcrun simctl spawn "$SIMULATOR_UDID" \
+            defaults write com.daypage.app authSkipped -bool YES
+          # Sanity print so the CI log shows the values that took effect.
+          xcrun simctl spawn "$SIMULATOR_UDID" \
+            defaults read com.daypage.app hasOnboarded || true
+          xcrun simctl spawn "$SIMULATOR_UDID" \
+            defaults read com.daypage.app authSkipped || true
+
+      # Diagnostic: cold-launch the app once and screenshot what the user
+      # actually sees. Maestro's debug-output only captures snapshots on
+      # element-not-found, so when the issue is "wrong screen rendered" we
+      # have nothing to debug from. This step writes diag-after-launch.png
+      # which the upload-artifact step at the bottom always picks up.
+      - name: Diagnostic — screenshot first-launch state
+        run: |
+          mkdir -p maestro-results
+          xcrun simctl launch "$SIMULATOR_UDID" com.daypage.app || true
+          sleep 4
+          xcrun simctl io "$SIMULATOR_UDID" screenshot \
+            maestro-results/diag-after-launch.png || true
+          xcrun simctl terminate "$SIMULATOR_UDID" com.daypage.app || true
+          ls -la maestro-results/
+
       - name: Run Maestro flows
         id: maestro
         env:
