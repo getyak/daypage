@@ -84,3 +84,4 @@ All stories pass: true
 [2026-05-17T10:13:29Z] Ralph complete after 30 iterations
 [2026-05-17T10:13:30Z] Story #US-003: Move DSFonts.registerAll() to background thread — PASSED
 [2026-05-17T10:14:08Z] Story #US-004: Persist Today draftText with @SceneStorage — PASSED
+[2026-05-17T10:15:33Z] Story #US-005: Show 'Restored unsent draft' banner on relaunch — PASSED
