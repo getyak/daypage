@@ -5,11 +5,11 @@ import Sentry
 // MARK: - CompilationStage
 
 /// Progress stages published during a compile run.
-enum CompilationStage: Equatable {
-    case idle
-    case loadingMemos
-    case callingAI
-    case writingOutput
+enum CompilationStage: String, CaseIterable, Equatable {
+    case extracting
+    case compiling
+    case formatting
+    case done
 }
 
 // MARK: - CompilationService
