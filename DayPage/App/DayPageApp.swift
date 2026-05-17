@@ -166,6 +166,18 @@ struct DayPageApp: App {
                         return
                     }
 
+                    // daypage://memo/new?text=… — pre-fill Today's draft input.
+                    if url.host?.lowercased() == "memo",
+                       url.pathComponents.dropFirst().first?.lowercased() == "new" {
+                        navModel.navigate(to: .today)
+                        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                           let text = components.queryItems?.first(where: { $0.name == "text" })?.value,
+                           !text.isEmpty {
+                            navModel.pendingDraftText = text
+                        }
+                        return
+                    }
+
                     // Handle Magic Link / OTP deep-link callbacks.
                     // Session updates are emitted by authStateChanges — no manual assignment needed.
                     Task {

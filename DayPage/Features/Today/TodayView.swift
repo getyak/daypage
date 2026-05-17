@@ -404,6 +404,12 @@ struct TodayView: View {
                     viewModel.load()
                 }
             }
+            // US-017: consume pending draft text from daypage://memo/new?text=…
+            .onChange(of: nav.pendingDraftText) { text in
+                guard let text else { return }
+                draftText = text
+                nav.pendingDraftText = nil
+            }
             // Bridge the ViewModel settings flag to the View-local sheet binding.
             .onChange(of: viewModel.shouldShowSettings) { show in
                 if show {
