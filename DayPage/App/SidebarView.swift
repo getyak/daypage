@@ -69,7 +69,7 @@ struct SidebarView: View {
     // MARK: - Brand Header
 
     private var brandHeader: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 8) {
             Text("DayPage")
                 .font(DSType.serifDisplay32)
                 .foregroundColor(DSColor.inkPrimary)
@@ -78,10 +78,41 @@ struct SidebarView: View {
                 .foregroundColor(DSColor.inkSubtle)
                 .textCase(.uppercase)
                 .tracking(1.0)
+            activityDots
         }
         .padding(.horizontal, 24)
         .padding(.top, 64)
         .padding(.bottom, 24)
+    }
+
+    /// 7 circles representing memo activity for the last 7 days (today on the right).
+    private var activityDots: some View {
+        let days = last7DayCounts()
+        return HStack(spacing: 5) {
+            ForEach(0..<7, id: \.self) { i in
+                let count = i < days.count ? days[i] : 0
+                Circle()
+                    .fill(count > 0 ? DSColor.amberAccent : DSColor.inkFaint)
+                    .frame(width: 8, height: 8)
+                    .opacity(count > 0 ? min(0.4 + Double(count) * 0.15, 1.0) : 0.25)
+            }
+        }
+        .padding(.top, 2)
+    }
+
+    /// Returns memo counts for the last 7 days (index 0 = 6 days ago, index 6 = today).
+    private func last7DayCounts() -> [Int] {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let isoFmt = DateFormatter()
+        isoFmt.locale = Locale(identifier: "en_US_POSIX")
+        isoFmt.dateFormat = "yyyy-MM-dd"
+
+        return (0..<7).reversed().map { daysAgo in
+            guard let date = cal.date(byAdding: .day, value: -daysAgo, to: today) else { return 0 }
+            let dateStr = isoFmt.string(from: date)
+            return sidebarVM.recentDays.first(where: { $0.dateString == dateStr })?.memoCount ?? 0
+        }
     }
 
     // MARK: - Nav Items

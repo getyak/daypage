@@ -350,7 +350,7 @@
         "Verify in iPhone 17 Simulator: header looks identical"
       ],
       "priority": 23,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -365,7 +365,7 @@
         "Verify in iPhone 17 Simulator"
       ],
       "priority": 24,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -381,7 +381,7 @@
         "Verify in iPhone 17 Simulator: all sections still expand/collapse"
       ],
       "priority": 25,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -411,7 +411,7 @@
         "Verify in iPhone 17 Simulator"
       ],
       "priority": 27,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -455,7 +455,7 @@
         "Verify in iPhone 17 Simulator at AX5"
       ],
       "priority": 30,
-      "passes": false,
+      "passes": true,
       "notes": ""
     }
   ]

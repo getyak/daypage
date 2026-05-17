@@ -487,6 +487,17 @@ struct ArchiveView: View {
                 }
             }
             .navigationBarHidden(true)
+            // US-030: left-edge swipe (within first 20pt) opens sidebar
+            .gesture(
+                DragGesture(minimumDistance: 20, coordinateSpace: .local)
+                    .onEnded { value in
+                        guard value.startLocation.x < 20,
+                              value.translation.width > 40,
+                              abs(value.translation.width) > abs(value.translation.height) * 1.2
+                        else { return }
+                        nav.openSidebar()
+                    }
+            )
             .onAppear {
                 viewModel.loadMonth()
                 Task { await preScanVault() }

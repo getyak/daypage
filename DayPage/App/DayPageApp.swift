@@ -107,6 +107,8 @@ struct DayPageApp: App {
         // accessibility IDs. We translate the strings explicitly here, before
         // RootView.initialPhase() reads them.
         DayPageApp.bridgeLaunchArgumentsToDefaults()
+        // US-006: auto-clear stale draft (>30 days old) before any view reads SceneStorage
+        DraftStorage.clearIfExpired()
 
         // 初始化 Sentry 崩溃报告（DSN 为空时无操作）
         if !Secrets.sentryDSN.isEmpty {
