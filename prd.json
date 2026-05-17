@@ -104,7 +104,7 @@
         "Verify in iPhone 17 Simulator: long-press feels snappier"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -119,7 +119,7 @@
         "Verify in iPhone 17 Simulator"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -135,7 +135,7 @@
         "Verify in iPhone 17 Simulator: send a memo with photo, undo, both gone"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -151,7 +151,7 @@
         "Verify in iPhone 17 Simulator: fresh install shows overlay; second launch does not"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -167,7 +167,7 @@
         "Verify in iPhone 17 Simulator: pick 5 large photos, keep typing while they load"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -181,7 +181,7 @@
         "Verify in iPhone 17 Simulator"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -197,7 +197,7 @@
         "Verify in iPhone 17 Simulator with Network Link Conditioner '100% Loss'"
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -212,7 +212,7 @@
         "Verify in iPhone 17 Simulator"
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -228,7 +228,7 @@
         "Verify in iPhone 17 Simulator"
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

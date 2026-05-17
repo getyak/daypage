@@ -98,6 +98,46 @@ struct RecordingOverlayView: View {
                     }
                 }
 
+                // Directional gesture arrows (US-008)
+                if mode == .recording {
+                    HStack(spacing: 80) {
+                        VStack(spacing: 4) {
+                            Image(systemName: "arrow.left")
+                                .font(.system(size: 14, weight: .semibold))
+                            Text("Cancel")
+                                .font(DSFonts.inter(size: 11, weight: .medium))
+                        }
+                        .foregroundColor(Color.white.opacity(0.55))
+
+                        VStack(spacing: 4) {
+                            Image(systemName: "arrow.right")
+                                .font(.system(size: 14, weight: .semibold))
+                            Text("Transcribe")
+                                .font(DSFonts.inter(size: 11, weight: .medium))
+                        }
+                        .foregroundColor(Color.white.opacity(0.55))
+                    }
+                    .padding(.top, 8)
+                } else if mode == .cancelArmed {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.left")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("Release to cancel")
+                            .font(DSFonts.inter(size: 12, weight: .medium))
+                    }
+                    .foregroundColor(DSColor.errorRed)
+                    .padding(.top, 8)
+                } else if mode == .transcribeArmed {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 14, weight: .semibold))
+                        Text("Release to transcribe")
+                            .font(DSFonts.inter(size: 12, weight: .medium))
+                    }
+                    .foregroundColor(Color(red: 0.30, green: 0.55, blue: 1.0))
+                    .padding(.top, 8)
+                }
+
                 // Status + timer
                 VStack(spacing: 6) {
                     Text(statusText)

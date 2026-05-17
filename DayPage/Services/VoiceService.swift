@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import Speech
 import Sentry
 
 // MARK: - Recording State
@@ -245,6 +246,47 @@ final class VoiceService: NSObject, ObservableObject {
     // MARK: - Whisper Transcription
 
     func transcribeAudio(at url: URL) async -> String? {
+        // US-013: If offline, skip Whisper and try on-device SFSpeechRecognizer
+        if !NetworkMonitor.shared.isOnline {
+            return await transcribeAudioOffline(at: url)
+        }
+        return await transcribeAudioWhisper(at: url)
+    }
+
+    // MARK: - On-device fallback (US-013)
+
+    private func transcribeAudioOffline(at url: URL) async -> String? {
+        guard SFSpeechRecognizer.authorizationStatus() == .authorized ||
+              SFSpeechRecognizer.authorizationStatus() == .notDetermined else { return nil }
+
+        // Request permission if not yet determined
+        if SFSpeechRecognizer.authorizationStatus() == .notDetermined {
+            let granted = await withCheckedContinuation { cont in
+                SFSpeechRecognizer.requestAuthorization { status in
+                    cont.resume(returning: status == .authorized)
+                }
+            }
+            guard granted else { return nil }
+        }
+
+        guard let recognizer = SFSpeechRecognizer(), recognizer.isAvailable else { return nil }
+
+        let request = SFSpeechURLRecognitionRequest(url: url)
+        request.shouldReportPartialResults = false
+        request.requiresOnDeviceRecognition = true
+
+        return await withCheckedContinuation { cont in
+            recognizer.recognitionTask(with: request) { result, error in
+                if let result, result.isFinal {
+                    cont.resume(returning: result.bestTranscription.formattedString)
+                } else if error != nil {
+                    cont.resume(returning: nil)
+                }
+            }
+        }
+    }
+
+    private func transcribeAudioWhisper(at url: URL) async -> String? {
         let apiKey = Secrets.resolvedOpenAIWhisperApiKey
         guard !apiKey.isEmpty else { return nil }
 

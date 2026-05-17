@@ -20,6 +20,7 @@ struct SwipeableMemoCard: View {
     let memo: Memo
     var onDelete: (() -> Void)? = nil
     var onPin: (() -> Void)? = nil
+    var onRetranscribe: ((Memo, Memo.Attachment) -> Void)? = nil
 
     // Settled resting offset: -panelW = trailing open, 0 = closed, +panelW = leading open
     @State private var settledOffset: CGFloat = 0

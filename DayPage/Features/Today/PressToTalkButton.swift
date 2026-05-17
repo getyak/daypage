@@ -80,7 +80,7 @@ struct PressToTalkButton: View {
 
     /// Duration (seconds) that separates a "tap" from a "hold". Under this threshold
     /// the gesture is treated as a tap → persistent recording bar.
-    private let longPressThreshold: TimeInterval = 0.35
+    private let longPressThreshold: TimeInterval = 0.25
 
     /// Duration of the pulsing ring animation cycle (one full scale-up + fade-out).
     private let ringAnimationDuration: TimeInterval = 0.8
@@ -139,7 +139,7 @@ struct PressToTalkButton: View {
                 if currentPhase == .preRecording,
                    let start = pressStartTime,
                    Date().timeIntervalSince(start) >= longPressThreshold {
-                    emitHaptic(InputTokens.pressDownHaptic)
+                    emitHaptic(.heavy)
                     stopRingPulse()
                     onPressStart()
                     currentPhase = .recording
