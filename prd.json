@@ -60,7 +60,7 @@
         "Verify in iPhone 17 Simulator: type 200 chars CN, kill app, relaunch, draft still there"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
