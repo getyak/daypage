@@ -232,6 +232,21 @@ jobs:
           xcrun simctl spawn "$SIMULATOR_UDID" \
             defaults read com.daypage.app authSkipped || true
 
+      # Diagnostic: cold-launch the app once and screenshot what the user
+      # actually sees. Maestro's debug-output only captures snapshots on
+      # element-not-found, so when the issue is "wrong screen rendered" we
+      # have nothing to debug from. This step writes diag-after-launch.png
+      # which the upload-artifact step at the bottom always picks up.
+      - name: Diagnostic — screenshot first-launch state
+        run: |
+          mkdir -p maestro-results
+          xcrun simctl launch "$SIMULATOR_UDID" com.daypage.app || true
+          sleep 4
+          xcrun simctl io "$SIMULATOR_UDID" screenshot \
+            maestro-results/diag-after-launch.png || true
+          xcrun simctl terminate "$SIMULATOR_UDID" com.daypage.app || true
+          ls -la maestro-results/
+
       - name: Run Maestro flows
         id: maestro
         env:
