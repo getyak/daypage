@@ -77,3 +77,4 @@ PRD: prd.json (68 stories, tri-platform: iOS + Web + Watch)
 [2026-05-12T08:17:42Z] Story #US-068: [Cross part 3] Watch UI screenshot baseline (after SDK installed) — PASSED
 All stories pass: true
 [2026-05-17T10:10:22Z] Story #US-028: Archive month calendar heatmap colors — PASSED
+[2026-05-17T10:11:08Z] Story #US-001: Add HapticFeedback unified wrapper — PASSED
