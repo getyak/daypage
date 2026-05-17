@@ -2,6 +2,16 @@ import Foundation
 import Network
 import Sentry
 
+// MARK: - CompilationStage
+
+/// Progress stages published during a compile run.
+enum CompilationStage: Equatable {
+    case idle
+    case loadingMemos
+    case callingAI
+    case writingOutput
+}
+
 // MARK: - CompilationService
 
 /// 通过 DeepSeek LLM API 将今天的原始备忘录编译为结构化的每日页面。
@@ -18,12 +28,16 @@ import Sentry
 ///   try await service.compile(for: Date())
 ///
 @MainActor
-final class CompilationService {
+final class CompilationService: ObservableObject {
 
     // MARK: Singleton
 
     static let shared = CompilationService()
     private init() {}
+
+    // MARK: - Published Stage
+
+    @Published var stage: CompilationStage = .idle
 
     // MARK: - Compile
 
@@ -46,7 +60,12 @@ final class CompilationService {
         let dateString = dateFormatter.string(from: date)
 
         // 1. 加载原始备忘录
+        stage = .loadingMemos
         let memos = try RawStorage.read(for: date)
+        guard !memos.isEmpty else {
+            stage = .idle
+            throw CompilationError.emptyInput
+        }
         let rawContent = rawFileContent(for: date)
 
         // 2. 加载 hot.md 上下文
@@ -63,9 +82,11 @@ final class CompilationService {
         // 4. 调用 DeepSeek API（带重试）
         let apiKey = Secrets.resolvedDeepSeekApiKey
         guard !apiKey.isEmpty else {
+            stage = .idle
             throw CompilationError.missingApiKey
         }
 
+        stage = .callingAI
         let compiledText = try await callDeepSeekWithRetry(
             prompt: prompt,
             apiKey: apiKey,
@@ -76,6 +97,7 @@ final class CompilationService {
         let (dailyPageText, entityInstructions, hotCacheText) = try parseStructuredOutputWithHot(compiledText)
 
         // 6. 写入每日页面（如已有则先备份）
+        stage = .writingOutput
         let dailyURL = dailyPageURL(for: dateString)
         try backupIfExists(at: dailyURL, dateString: dateString)
         try writeFile(content: dailyPageText, to: dailyURL)
@@ -95,6 +117,8 @@ final class CompilationService {
             memoCount: memos.count,
             status: "success"
         )
+
+        stage = .idle
     }
 
     // MARK: - URL Helpers
