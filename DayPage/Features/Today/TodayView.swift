@@ -37,6 +37,9 @@ struct TodayView: View {
     /// Whether the daily page card is swiped open to reveal the recompile action.
     @State private var dailyPageRevealed: Bool = false
 
+    /// Session-only flag: true once the "restored unsent draft" banner has been shown this session.
+    @State private var draftRestoredBannerShown: Bool = false
+
     /// Live drag offset for the daily page card (negative = pulled left).
     @GestureState private var dailyPageDrag: CGFloat = 0
 
@@ -355,6 +358,7 @@ struct TodayView: View {
             .onAppear {
                 viewModel.load()
                 updateVoiceQueueBanner(count: voiceQueue.pendingCount)
+                showDraftRestoredBannerIfNeeded()
             }
             .onChange(of: voiceQueue.pendingCount) { count in
                 updateVoiceQueueBanner(count: count)
@@ -781,6 +785,16 @@ struct TodayView: View {
     }
 
     // MARK: - Helpers
+
+    private func showDraftRestoredBannerIfNeeded() {
+        guard !draftRestoredBannerShown, !draftText.isEmpty else { return }
+        draftRestoredBannerShown = true
+        bannerCenter.show(AppBannerModel(
+            kind: .info,
+            title: "恢复了未发送的草稿",
+            autoDismiss: true
+        ))
+    }
 
     private func updateVoiceQueueBanner(count: Int) {
         if count > 0 {
