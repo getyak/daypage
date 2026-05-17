@@ -313,6 +313,13 @@ struct DailyPageView: View {
         do {
             try await CompilationService.shared.compile(for: date, trigger: "manual")
             loadPage()
+            // US-022: show success banner with memo count
+            let count = model?.memoCount ?? rawMemos.count
+            BannerCenter.shared.show(AppBannerModel(
+                kind: .success,
+                title: "✓ Compiled \(count) memos",
+                autoDismiss: true
+            ))
         } catch {
             recompileError = error.localizedDescription
         }
