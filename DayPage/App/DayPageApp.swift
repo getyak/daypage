@@ -47,11 +47,67 @@ final class AppNotificationDelegate: NSObject, UNUserNotificationCenterDelegate 
 @main
 struct DayPageApp: App {
 
+    // MARK: - UI Test Launch Bridge
+
+    /// Allow-list of UserDefaults keys that can be set via launch arguments.
+    /// Limiting which keys are bridgeable avoids unexpected runtime overrides
+    /// from a stray Shortcut or Xcode "Edit Scheme" argument leaking into
+    /// production code paths.
+    private static let bridgeableBoolKeys: Set<String> = [
+        AppSettings.Keys.hasOnboarded,
+        AppSettings.Keys.authSkipped
+    ]
+
+    /// Parses `-key value` and `key=value` pairs from `ProcessInfo.arguments`
+    /// and writes typed bools into `UserDefaults.standard`, but only for keys
+    /// in `bridgeableBoolKeys`. Maestro / XCUITest pass values as raw strings
+    /// ("true"/"false") which iOS would otherwise drop on the floor.
+    private static func bridgeLaunchArgumentsToDefaults() {
+        let args = ProcessInfo.processInfo.arguments
+        var i = 0
+        while i < args.count {
+            let arg = args[i]
+            // Form 1: "-key" "value"
+            if arg.hasPrefix("-"), i + 1 < args.count {
+                let key = String(arg.dropFirst())
+                let value = args[i + 1]
+                applyBridged(key: key, value: value)
+                i += 2
+                continue
+            }
+            // Form 2: "key=value"
+            if let eq = arg.firstIndex(of: "="), !arg.hasPrefix("-") {
+                let key = String(arg[..<eq])
+                let value = String(arg[arg.index(after: eq)...])
+                applyBridged(key: key, value: value)
+            }
+            i += 1
+        }
+    }
+
+    private static func applyBridged(key: String, value: String) {
+        guard bridgeableBoolKeys.contains(key) else { return }
+        let truthy = ["1", "true", "yes", "YES", "True", "TRUE"].contains(value)
+        UserDefaults.standard.set(truthy, forKey: key)
+    }
+
+
     private let notificationDelegate = AppNotificationDelegate()
     @StateObject private var authService = AuthService.shared
     @StateObject private var navModel = AppNavigationModel()
 
     init() {
+        // UI-testing launch arguments → UserDefaults bridge.
+        // Maestro flows (and any XCUITest) pass flags like `hasOnboarded=true`
+        // via `xcrun simctl launch ... -hasOnboarded YES`. iOS auto-merges
+        // `-key value` pairs into NSUserDefaults' "argument domain", but only
+        // when values are typed (YES/NO, numbers, JSON). Maestro emits raw
+        // strings ("true") which the argument domain rejects silently, so the
+        // App keeps showing onboarding/auth and Maestro can't find the Today
+        // accessibility IDs. We translate the strings explicitly here, before
+        // RootView.initialPhase() reads them.
+        DayPageApp.bridgeLaunchArgumentsToDefaults()
+
         // 初始化 Sentry 崩溃报告（DSN 为空时无操作）
         if !Secrets.sentryDSN.isEmpty {
             SentrySDK.start { options in
