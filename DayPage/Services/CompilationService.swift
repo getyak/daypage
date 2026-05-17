@@ -614,6 +614,12 @@ enum CompilationError: LocalizedError {
     case parseError(String)
     case fileSystemError(String)
     case offline
+    // US-019 additions
+    case networkTimeout
+    case apiRateLimited
+    case emptyInput
+    case parseFailure(String)
+    case unknown(Error)
 
     var errorDescription: String? {
         switch self {
@@ -636,6 +642,16 @@ enum CompilationError: LocalizedError {
             return "文件写入失败：\(msg)"
         case .offline:
             return "当前离线，已加入队列，联网后自动编译"
+        case .networkTimeout:
+            return "网络请求超时，请检查网络后重试"
+        case .apiRateLimited:
+            return "API 请求频率超限（429），请稍后重试"
+        case .emptyInput:
+            return "今日暂无记录，无法编译"
+        case .parseFailure(let msg):
+            return "AI 返回解析失败：\(msg)"
+        case .unknown(let err):
+            return "未知错误：\(err.localizedDescription)"
         }
     }
 }
