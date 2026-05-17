@@ -441,7 +441,7 @@
         "Verify in iPhone 17 Simulator with CN / EN / mixed / emoji query"
       ],
       "priority": 29,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
