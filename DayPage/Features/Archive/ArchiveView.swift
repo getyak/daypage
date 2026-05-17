@@ -46,10 +46,10 @@ struct DayStats {
     var voiceMinutes: Int { voiceSeconds / 60 }
     var densityLevel: DensityLevel {
         switch memoCount {
-        case 0: return .empty
-        case 1...2: return .low
-        case 3...5: return .medium
-        default: return .high
+        case 0:    return .empty
+        case 1...3: return .low
+        case 4...7: return .medium
+        default:   return .high
         }
     }
 
@@ -704,7 +704,11 @@ struct ArchiveView: View {
             let isToday = viewModel.isCurrentMonthAndYear && day == viewModel.today
             let data = cellState(for: dateStr)
 
+            // Heatmap color from cached memo-count bucket; fall back to
+            // pre-scanned file-existence state for days not yet loaded.
+            let density = viewModel.dayStats[dateStr]?.densityLevel
             let fillColor: Color = {
+                if let d = density { return d.fillColor }
                 switch data {
                 case .compiled: return DSColor.amberDeep
                 case .rawOnly:  return DSColor.densityLow
@@ -713,6 +717,7 @@ struct ArchiveView: View {
             }()
 
             let textColor: Color = {
+                if let d = density { return d.textColor }
                 switch data {
                 case .compiled: return Color.white
                 case .rawOnly:  return DSColor.inkPrimary
