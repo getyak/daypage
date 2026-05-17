@@ -154,11 +154,13 @@ struct DailyPageView: View {
     @State private var selectedEntitySlug: String? = nil
     @State private var selectedEntityType: String = "themes"
 
-    // US-017: Recompile & Edit Metadata
+    // US-017/US-021: Recompile & Edit Metadata
     @State private var showRecompileConfirm: Bool = false
     @State private var isRecompiling: Bool = false
     @State private var recompileError: String? = nil
     @State private var showEditMetadata: Bool = false
+    /// "Last compiled at HH:MM" derived from the daily file's modification date.
+    @State private var lastCompiledTimeLabel: String? = nil
 
     // Thread conversation state — keyed by question string
     @State private var threadVMs: [String: ThreadConversationViewModel] = [:]
@@ -258,7 +260,11 @@ struct DailyPageView: View {
                 Task { await recompile() }
             }
         } message: {
-            Text("将重新调用 AI 编译今日日记，当前内容将备份至 .trash 目录。")
+            if let t = lastCompiledTimeLabel {
+                Text("将重新调用 AI 编译今日日记，当前内容将备份至 .trash 目录。\n上次编译于 \(t)")
+            } else {
+                Text("将重新调用 AI 编译今日日记，当前内容将备份至 .trash 目录。")
+            }
         }
         .alert("编译失败", isPresented: Binding(
             get: { recompileError != nil },
@@ -1036,6 +1042,14 @@ struct DailyPageView: View {
                 let content = try String(contentsOf: url, encoding: .utf8)
                 rawText = content
                 model = DailyPageParser.parse(content: content, dateString: dateString)
+                // US-021: derive "Last compiled at HH:MM" from file modification date
+                if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+                   let modDate = attrs[.modificationDate] as? Date {
+                    let tf = DateFormatter()
+                    tf.dateFormat = "HH:mm"
+                    tf.locale = Locale(identifier: "en_US_POSIX")
+                    lastCompiledTimeLabel = tf.string(from: modDate)
+                }
             } catch {
                 DayPageLogger.shared.error("DailyPageView: load daily \(url.path) errno=\(errno): \(error)")
                 model = nil
