@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 // MARK: - PressableCardModifier
 
@@ -28,7 +27,7 @@ struct PressableCardModifier: ViewModifier {
                 if pressing {
                     if !isPressed {
                         isPressed = true
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        HapticFeedback.light()
                     }
                 } else {
                     // 手指抬起或被高优先级手势取消时释放按压状态

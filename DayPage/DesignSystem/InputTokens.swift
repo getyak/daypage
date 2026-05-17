@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 // MARK: - InputTokens
 //
@@ -20,23 +19,23 @@ enum InputTokens {
     /// 从 80pt 降低到 60pt 以匹配 cancelSwipeThreshold。
     static let transcribeSwipeThreshold: CGFloat = 60
 
-    // MARK: - Haptic Intensities
+    // MARK: - Haptic Actions
 
     /// 按下时触发（录音开始）。
-    static let pressDownHaptic: UIImpactFeedbackGenerator.FeedbackStyle = .light
+    static let pressDownHaptic: () -> Void = HapticFeedback.light
 
     /// 原位释放时触发（立即发送）。
-    static let sendReleaseHaptic: UIImpactFeedbackGenerator.FeedbackStyle = .medium
+    static let sendReleaseHaptic: () -> Void = HapticFeedback.medium
 
     /// 拖动进入取消预备区域时触发。
-    static let cancelArmHaptic: UIImpactFeedbackGenerator.FeedbackStyle = .heavy
+    static let cancelArmHaptic: () -> Void = HapticFeedback.heavy
 
     /// 拖动进入转写预备区域时触发。
-    static let transcribeArmHaptic: UIImpactFeedbackGenerator.FeedbackStyle = .medium
+    static let transcribeArmHaptic: () -> Void = HapticFeedback.medium
 
     /// 取消预备手势释放时触发（录音已丢弃）。
-    static let cancelReleaseHaptic: UIImpactFeedbackGenerator.FeedbackStyle = .light
+    static let cancelReleaseHaptic: () -> Void = HapticFeedback.light
 
     /// 转写预备手势释放时触发（文本已填充，未发送）。
-    static let transcribeReleaseHaptic: UIImpactFeedbackGenerator.FeedbackStyle = .medium
+    static let transcribeReleaseHaptic: () -> Void = HapticFeedback.medium
 }
