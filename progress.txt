@@ -1,11 +1,9 @@
-# DayPage v4 Liquid Glass - Ralph Progress Log
+# DayPage v6 Deep Experience - Ralph Progress Log
 
-Source PRD: tasks/prd-daypage-v4-liquid-glass.md
-Linked GitHub Issues: EPIC #245 / #243 #244 #246 #247 #248
-Branch: ralph/v4-liquid-glass
-Start: 2026-05-07
+Source PRD: tasks/prd-daypage-v6-deep-experience.md
+Branch: ralph/v6-deep-experience
+Start: 2026-05-17
 
-Previous run (sentry-linear) archived at: archive/2026-05-07-sentry-linear/
+Previous run (test-findings-fix) archived at: archive/2026-05-17-test-findings-fix/
 
 ---
-
