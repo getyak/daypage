@@ -98,9 +98,20 @@ struct DayPageApp: App {
                 .environmentObject(authService)
                 .environmentObject(navModel)
                 .onOpenURL { url in
-                    // Handle Magic Link / OTP deep-link callbacks (daypage://...).
-                    // Session updates are emitted by authStateChanges — no manual assignment needed.
                     guard url.scheme?.lowercased() == "daypage" else { return }
+
+                    // System-level Quick Capture entry points (Widget / Control
+                    // Center / Siri / Shortcuts / AppIntent) open the App via
+                    // daypage://record. Switch to Today and bump the trigger so
+                    // TodayView opens the voice recorder.
+                    if url.host?.lowercased() == "record" {
+                        navModel.navigate(to: .today)
+                        navModel.pendingRecordingTrigger = UUID()
+                        return
+                    }
+
+                    // Handle Magic Link / OTP deep-link callbacks.
+                    // Session updates are emitted by authStateChanges — no manual assignment needed.
                     Task {
                         do {
                             try await authService.supabase.auth.session(from: url)

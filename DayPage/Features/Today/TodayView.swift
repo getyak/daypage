@@ -465,9 +465,20 @@ struct TodayView: View {
             }
             .onAppear {
                 evaluateSyncBanner()
+                // Handle a Quick Capture trigger that fired before TodayView
+                // appeared (cold launch via Widget / Siri / URL scheme).
+                if nav.pendingRecordingTrigger != nil {
+                    viewModel.isShowingVoiceRecorder = true
+                    nav.pendingRecordingTrigger = nil
+                }
             }
             .onChange(of: authService.session) { _ in
                 evaluateSyncBanner()
+            }
+            .onChange(of: nav.pendingRecordingTrigger) { newValue in
+                guard newValue != nil else { return }
+                viewModel.isShowingVoiceRecorder = true
+                nav.pendingRecordingTrigger = nil
             }
         }
     }
