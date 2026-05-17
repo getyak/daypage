@@ -322,7 +322,10 @@ struct TodayView: View {
                                     memoCount: viewModel.memos.count,
                                     isCompiling: viewModel.isCompiling,
                                     isVisible: true,
-                                    onTap: { viewModel.compile() }
+                                    stage: CompilationService.shared.stage,
+                                    errorMessage: viewModel.submitError,
+                                    onTap: { viewModel.compile() },
+                                    onRetry: { viewModel.compile() }
                                 )
                                 Spacer()
                             }
