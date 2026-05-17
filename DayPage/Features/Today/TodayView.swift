@@ -80,11 +80,11 @@ struct TodayView: View {
                         .accessibilityIdentifier("sidebar-menu-button")
                         // Long press on the date header → force-refresh On This Day
                         .onLongPressGesture(minimumDuration: 1.5) {
-                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            HapticFeedback.medium()
                             if let entry = OnThisDayScheduler.shared.forceRefresh() {
                                 viewModel.onThisDayEntry = entry
                             } else {
-                                UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                                HapticFeedback.warning()
                             }
                         }
 

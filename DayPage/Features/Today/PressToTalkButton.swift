@@ -248,9 +248,7 @@ struct PressToTalkButton: View {
     }
 
     private func emitHaptic(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
-        let g = UIImpactFeedbackGenerator(style: style)
-        g.prepare()
-        g.impactOccurred()
+        HapticFeedback.impact(style: style)
     }
 
     // MARK: - Visual Style

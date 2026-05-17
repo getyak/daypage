@@ -29,7 +29,7 @@ final class AuthViewModel: ObservableObject {
             isLoading = false
             errorMessage = err.errorDescription
             #if canImport(UIKit)
-            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            HapticFeedback.error()
             #endif
         } catch {
             isLoading = false
@@ -37,7 +37,7 @@ final class AuthViewModel: ObservableObject {
             // anything reaching here is a genuine failure mapped through DPAuthError.
             errorMessage = "登录失败，请稍后再试"
             #if canImport(UIKit)
-            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            HapticFeedback.error()
             #endif
         }
     }

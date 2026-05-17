@@ -809,7 +809,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 try await compilationService.compile(for: date, trigger: "manual") { _, _ in }
                 checkDailyPage()
                 await OnThisDayIndex.shared.rebuildIndex()
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                HapticFeedback.success()
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .success,
                     title: "今日 Daily Page 已生成",
@@ -822,7 +822,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                     autoDismiss: true
                 ))
             } catch CompilationError.missingApiKey {
-                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                HapticFeedback.error()
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .error,
                     title: "DeepSeek API Key 未配置",
@@ -831,7 +831,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                     }
                 ))
             } catch CompilationError.apiError(let code, _) where code == 401 {
-                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                HapticFeedback.error()
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .error,
                     title: "API Key 无效或已过期",
@@ -840,14 +840,14 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                     }
                 ))
             } catch CompilationError.parseError {
-                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                HapticFeedback.error()
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .error,
                     title: "AI 返回格式异常",
                     primaryAction: BannerAction(label: "查看日志") { }
                 ))
             } catch {
-                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                HapticFeedback.error()
                 GlassErrorBannerStack.shared.push(
                     GlassErrorBannerItem(
                         icon: Image(systemName: "wifi.slash"),

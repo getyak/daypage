@@ -180,7 +180,7 @@ struct SwipeableMemoCard: View {
     private func snapOpen(_ side: Side) {
         let target: CGFloat = side == .trailing ? -panelW : panelW
         withAnimation(snapSpring) { settledOffset = target }
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        HapticFeedback.light()
     }
 
     func snapClose() {

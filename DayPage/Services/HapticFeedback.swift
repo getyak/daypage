@@ -16,6 +16,20 @@ enum HapticFeedback {
         impact(.heavy)
     }
 
+    static func soft() {
+        impact(.soft)
+    }
+
+    static func rigid(intensity: CGFloat = 1.0) {
+        let generator = UIImpactFeedbackGenerator(style: .rigid)
+        generator.prepare()
+        generator.impactOccurred(intensity: intensity)
+    }
+
+    static func impact(style: UIImpactFeedbackGenerator.FeedbackStyle) {
+        impact(style)
+    }
+
     // MARK: - Notification
 
     static func success() {
