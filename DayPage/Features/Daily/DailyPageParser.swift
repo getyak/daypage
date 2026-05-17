@@ -166,7 +166,8 @@ enum DailyPageParser {
                    let innerRange = Range(match.range(at: 1), in: raw) {
                     let inner = String(raw[innerRange])
                     name = inner.contains("|") ? String(inner.split(separator: "|").last ?? Substring(inner)) : inner.replacingOccurrences(of: "-", with: " ").capitalized
-                    let afterLink = String(raw[Range(match.range, in: raw)!.upperBound...])
+                    guard let fullMatchRange = Range(match.range, in: raw) else { continue }
+                    let afterLink = String(raw[fullMatchRange.upperBound...])
                         .trimmingCharacters(in: CharacterSet(charactersIn: ": ").union(.whitespaces))
                     note = afterLink.trimmingCharacters(in: .whitespaces)
                 }

@@ -14,7 +14,7 @@ struct CompileFooterButton: View {
     /// 是否渲染按钮。为 `false` 时，视图以弹性动画缩小至零尺寸。
     let isVisible: Bool
     /// 当前编译阶段（US-020）。
-    var stage: CompilationStage = .idle
+    var stage: CompilationStage = .extracting
     /// 编译失败时的错误描述（US-020）。nil 表示无错误。
     var errorMessage: String? = nil
     /// 用户点击立即编译时触发。编译中忽略。
@@ -112,10 +112,10 @@ struct CompileFooterButton: View {
     /// Human-readable label for the current compilation stage.
     private var stageLabel: String {
         switch stage {
-        case .idle:          return "准备编译 \(memoCount) 条 memo"
-        case .loadingMemos:  return "读取 \(memoCount) 条 memo…"
-        case .callingAI:     return "AI 正在编译…"
-        case .writingOutput: return "写入 Daily Page…"
+        case .extracting:  return "读取 \(memoCount) 条 memo…"
+        case .compiling:   return "AI 正在编译…"
+        case .formatting:  return "写入 Daily Page…"
+        case .done:        return "准备编译 \(memoCount) 条 memo"
         }
     }
 }
