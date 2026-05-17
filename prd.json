@@ -242,7 +242,7 @@
         "Typecheck passes"
       ],
       "priority": 16,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -258,7 +258,7 @@
         "Verify in iPhone 17 Simulator: xcrun simctl openurl booted daypage://memo/new?text=hello"
       ],
       "priority": 17,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
