@@ -24,6 +24,13 @@ final class AppNavigationModel: ObservableObject {
     /// sidebar still triggers the navigation.
     @Published var pendingArchiveDate: String? = nil
 
+    /// Bumped to a new UUID by system-level entry points (URL scheme,
+    /// AppIntent, Widget, ControlWidget, Siri) that want to immediately
+    /// open the voice recorder on Today. TodayView observes the change and
+    /// flips its `isShowingVoiceRecorder` flag. We use a UUID instead of a
+    /// bool so repeated triggers from the same widget tap re-fire.
+    @Published var pendingRecordingTrigger: UUID? = nil
+
     init() {}
 
     func openSidebar() {

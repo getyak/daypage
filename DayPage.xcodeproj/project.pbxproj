@@ -7,19 +7,23 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		SPM00001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = SPM00002 /* Supabase */; };
-		SPM00004 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = SPM00005 /* Sentry */; };
+		14188AFE740A834ADF7A41F4 /* DayPageWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		326A14114B34412568007B4A /* DayPageWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FB6C74A43193A3DD725723 /* DayPageWidgetBundle.swift */; };
+		347B8BDADCBDDB2EDE830E66 /* WatchTransferService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */; };
+		457A17AB7F3B4BE7C2E77026 /* StartRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF24DE1810B0DA979103772 /* StartRecordingIntent.swift */; };
+		485EFA11789212D87CB1B74B /* StartRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF24DE1810B0DA979103772 /* StartRecordingIntent.swift */; };
 		8C3DEB068D610AAB589EA680 /* TimeZonePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73FCD3E2EC4D7257BA7A22BD /* TimeZonePickerView.swift */; };
+		9034B2964DD6432BD7FA7250 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C98B5757B488F583231EC8F6 /* RootView.swift */; };
+		97FA675FF46459D5CE5E8CF3 /* QuickCaptureControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 519B9B12CB68C0E6E2A06292 /* QuickCaptureControl.swift */; };
+		9B0FAA7690FA2EEED5AB7A96 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BAC7527E8128E6A865349FB9 /* Foundation.framework */; };
+		9D559EA9D4B9F2C77D942935 /* DayPageShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FD3383348F15CB7B4E82E53 /* DayPageShortcuts.swift */; };
 		A10000001 /* DayPageApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000001 /* DayPageApp.swift */; };
 		A10000002 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000002 /* RootView.swift */; };
 		A10000003 /* VaultInitializer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000003 /* VaultInitializer.swift */; };
 		A10000004 /* GeneratedSecrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000004 /* GeneratedSecrets.swift */; };
-		A100000B4 /* SecretsRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000B4 /* SecretsRuntime.swift */; };
 		A10000005 /* Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000005 /* Colors.swift */; };
 		A10000006 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000006 /* Typography.swift */; };
 		A10000007 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000007 /* Components.swift */; };
-		A100000F1 /* GlassSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000F1 /* GlassSurface.swift */; };
-		A100000F2 /* Surfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000F2 /* Surfaces.swift */; };
 		A10000008 /* Memo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000008 /* Memo.swift */; };
 		A10000009 /* RawStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000009 /* RawStorage.swift */; };
 		A10000010 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010 /* TodayView.swift */; };
@@ -36,9 +40,6 @@
 		A10000022 /* EntityPageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000022 /* EntityPageService.swift */; };
 		A10000023 /* BackgroundCompilationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000023 /* BackgroundCompilationService.swift */; };
 		A10000025 /* DailyPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000025 /* DailyPageView.swift */; };
-		TH0000001 /* ThreadConversationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = TH1000001 /* ThreadConversationViewModel.swift */; };
-		TH0000002 /* ThreadConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TH1000002 /* ThreadConversationView.swift */; };
-		TH0000003 /* InlineMicButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = TH1000003 /* InlineMicButton.swift */; };
 		A10000026 /* EntityPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000026 /* EntityPageView.swift */; };
 		A10000027 /* SearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000027 /* SearchService.swift */; };
 		A10000028 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000028 /* SearchView.swift */; };
@@ -68,23 +69,41 @@
 		A10000054 /* RecordingOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000054 /* RecordingOverlayView.swift */; };
 		A10000055 /* PressToTalkButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000055 /* PressToTalkButton.swift */; };
 		A10000056 /* VaultLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000056 /* VaultLocator.swift */; };
-		A10000079 /* iCloudSyncMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000079 /* iCloudSyncMonitor.swift */; };
-		A10000085 /* iCloudConflictMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000085 /* iCloudConflictMonitor.swift */; };
-		A10000080 /* AppNavigationModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000080 /* AppNavigationModel.swift */; };
-		A10000081 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000081 /* SidebarView.swift */; };
-		A10000082 /* InputBarV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000082 /* InputBarV4.swift */; };
-		A10000083 /* WeeklyRecapService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000083 /* WeeklyRecapService.swift */; };
-		A10000301 /* TimelineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000301 /* TimelineService.swift */; };
-		A10000084 /* WeeklyRecapSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000084 /* WeeklyRecapSection.swift */; };
-		A10000302 /* TimelineSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000302 /* TimelineSectionView.swift */; };
-		A10000200 /* ComposerStateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000200 /* ComposerStateMachine.swift */; };
-		A10000201 /* SpotlightStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000201 /* SpotlightStripView.swift */; };
-		A10000202 /* SmartTemplateRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000202 /* SmartTemplateRow.swift */; };
-		A10000203 /* InlineLensStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000203 /* InlineLensStrip.swift */; };
 		A10000060 /* DailySharePosterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000060 /* DailySharePosterView.swift */; };
 		A10000061 /* PosterRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000061 /* PosterRenderer.swift */; };
 		A10000063 /* SwipeableMemoCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000063 /* SwipeableMemoCard.swift */; };
 		A10000064 /* AttachmentMenuSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000064 /* AttachmentMenuSheet.swift */; };
+		A10000070 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000070 /* AuthService.swift */; };
+		A10000072 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000072 /* AuthView.swift */; };
+		A10000073 /* EmailAuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000073 /* EmailAuthView.swift */; };
+		A10000074 /* AccountSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000074 /* AccountSheet.swift */; };
+		A10000075 /* OTPVerificationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000075 /* OTPVerificationView.swift */; };
+		A10000076 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000076 /* KeychainHelper.swift */; };
+		A10000077 /* ConflictMerger.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000077 /* ConflictMerger.swift */; };
+		A10000078 /* VaultMigrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000078 /* VaultMigrationService.swift */; };
+		A10000079 /* iCloudSyncMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000079 /* iCloudSyncMonitor.swift */; };
+		A10000080 /* AppNavigationModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000080 /* AppNavigationModel.swift */; };
+		A10000081 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000081 /* SidebarView.swift */; };
+		A10000082 /* InputBarV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000082 /* InputBarV4.swift */; };
+		A10000083 /* WeeklyRecapService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000083 /* WeeklyRecapService.swift */; };
+		A10000084 /* WeeklyRecapSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000084 /* WeeklyRecapSection.swift */; };
+		A10000085 /* iCloudConflictMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000085 /* iCloudConflictMonitor.swift */; };
+		A10000086 /* OTPVerificationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000086 /* OTPVerificationViewModel.swift */; };
+		A10000087 /* AuthRateLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000087 /* AuthRateLimiter.swift */; };
+		A10000091 /* GrainOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000091 /* GrainOverlay.swift */; };
+		A10000093 /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000093 /* AuthViewModel.swift */; };
+		A10000094 /* SidebarViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000094 /* SidebarViewModel.swift */; };
+		A10000095 /* ComposerContextProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000095 /* ComposerContextProvider.swift */; };
+		A100000B4 /* SecretsRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000B4 /* SecretsRuntime.swift */; };
+		A100000F1 /* GlassSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000F1 /* GlassSurface.swift */; };
+		A100000F2 /* Surfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000F2 /* Surfaces.swift */; };
+		A10000200 /* ComposerStateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000200 /* ComposerStateMachine.swift */; };
+		A10000201 /* SpotlightStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000201 /* SpotlightStripView.swift */; };
+		A10000202 /* SmartTemplateRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000202 /* SmartTemplateRow.swift */; };
+		A10000203 /* InlineLensStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000203 /* InlineLensStrip.swift */; };
+		A10000301 /* TimelineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000301 /* TimelineService.swift */; };
+		A10000302 /* TimelineSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000302 /* TimelineSectionView.swift */; };
+		A46C6A46A2D76FF5DBFBD6C6 /* StartRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE91252BA9167A50BFF79FF0 /* StartRecordingIntent.swift */; };
 		AF0000001 /* SpaceGrotesk-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000001 /* SpaceGrotesk-Light.ttf */; };
 		AF0000002 /* SpaceGrotesk-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000002 /* SpaceGrotesk-Regular.ttf */; };
 		AF0000003 /* SpaceGrotesk-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000003 /* SpaceGrotesk-Medium.ttf */; };
@@ -97,60 +116,48 @@
 		AF0000010 /* Inter-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000010 /* Inter-Bold.ttf */; };
 		AF0000011 /* JetBrainsMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000011 /* JetBrainsMono-Regular.ttf */; };
 		AF0000012 /* JetBrainsMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000012 /* JetBrainsMono-Medium.ttf */; };
+		B197ECDEBDA86D4351A96898 /* RecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B93ED807E07C2171E9F4234B /* RecordingView.swift */; };
+		CJ0000001 /* CJKTextPolish.swift in Sources */ = {isa = PBXBuildFile; fileRef = CJ1000001 /* CJKTextPolish.swift */; };
+		DBB277156934B2FA96E16077 /* WatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5BB61FECBCF7AB756E7A6CE /* WatchApp.swift */; };
+		DS0000001 /* Motion.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000001 /* Motion.swift */; };
+		DS0000002 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000002 /* Haptics.swift */; };
+		E20A68158C940060066B2B73 /* WatchReceiveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11E0748715A251EE4A0168A /* WatchReceiveService.swift */; };
+		E4AC46FA495D4BD178789A14 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0881AB423FF6F12FCDE27C5B /* Assets.xcassets */; };
+		EA575F353C6AFD5EA7FF9A6F /* QuickCaptureWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7909ED56F96754E4C4FA21CC /* QuickCaptureWidget.swift */; };
+		ES0000001 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000001 /* EmptyStateView.swift */; };
+		ES0000002 /* GlassErrorBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000002 /* GlassErrorBanner.swift */; };
+		ES0000003 /* GlassTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000003 /* GlassTabBar.swift */; };
 		F617270BFC704FF5BBB99FD3 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 068FB068A000B6E61B1D8032 /* AppSettings.swift */; };
-		A10000070 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000070 /* AuthService.swift */; };
-		A10000072 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000072 /* AuthView.swift */; };
-		A10000073 /* EmailAuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000073 /* EmailAuthView.swift */; };
-		A10000075 /* OTPVerificationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000075 /* OTPVerificationView.swift */; };
-		A10000076 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000076 /* KeychainHelper.swift */; };
-		A10000087 /* AuthRateLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000087 /* AuthRateLimiter.swift */; };
-		A10000091 /* GrainOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000091 /* GrainOverlay.swift */; };
-		A10000086 /* OTPVerificationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000086 /* OTPVerificationViewModel.swift */; };
-		A10000093 /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000093 /* AuthViewModel.swift */; };
-		A10000094 /* SidebarViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000094 /* SidebarViewModel.swift */; };
-		A10000074 /* AccountSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000074 /* AccountSheet.swift */; };
-		T10000001 /* DayDetailViewStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000001 /* DayDetailViewStateTests.swift */; };
-		T10000002 /* ConflictMergerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000002 /* ConflictMergerTests.swift */; };
-		A10000077 /* ConflictMerger.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000077 /* ConflictMerger.swift */; };
-		A10000078 /* VaultMigrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000078 /* VaultMigrationService.swift */; };
-		T10000003 /* VaultMigrationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000003 /* VaultMigrationServiceTests.swift */; };
-		T10000004 /* VaultLocatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000004 /* VaultLocatorTests.swift */; };
-		T10000005 /* RawStorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000005 /* RawStorageTests.swift */; };
-		T10000006 /* ComposerContextProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000006 /* ComposerContextProviderTests.swift */; };
-		T10000007 /* SmokeTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000007 /* SmokeTest.swift */; };
-		A10000095 /* ComposerContextProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000095 /* ComposerContextProvider.swift */; };
 		FB0000001 /* FeedbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000001 /* FeedbackService.swift */; };
 		FB0000002 /* FeedbackViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000002 /* FeedbackViewModel.swift */; };
 		FB0000003 /* FeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000003 /* FeedbackView.swift */; };
 		FB0000004 /* FeedbackContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000004 /* FeedbackContext.swift */; };
-		ES0000001 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000001 /* EmptyStateView.swift */; };
-		ES0000002 /* GlassErrorBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000002 /* GlassErrorBanner.swift */; };
-		ES0000003 /* GlassTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000003 /* GlassTabBar.swift */; };
-		DS0000001 /* Motion.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000001 /* Motion.swift */; };
-		DS0000002 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000002 /* Haptics.swift */; };
 		FT0000001 /* DayOrbView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FT1000001 /* DayOrbView.swift */; };
-		MD0000001 /* MemoDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = MD1000001 /* MemoDetailView.swift */; };
-		MD0000002 /* MemoDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = MD1000002 /* MemoDetailViewModel.swift */; };
-		CJ0000001 /* CJKTextPolish.swift in Sources */ = {isa = PBXBuildFile; fileRef = CJ1000001 /* CJKTextPolish.swift */; };
-		WS0000001 /* WelcomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = WS1000001 /* WelcomeScreen.swift */; };
 		LS0000001 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = LS1000001 /* Localizable.strings */; };
 		LS0000002 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = LS1000004 /* L10n.swift */; };
-		DBB277156934B2FA96E16077 /* WatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5BB61FECBCF7AB756E7A6CE /* WatchApp.swift */; };
-		9034B2964DD6432BD7FA7250 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C98B5757B488F583231EC8F6 /* RootView.swift */; };
-		B197ECDEBDA86D4351A96898 /* RecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B93ED807E07C2171E9F4234B /* RecordingView.swift */; };
-		E4AC46FA495D4BD178789A14 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0881AB423FF6F12FCDE27C5B /* Assets.xcassets */; };
-		347B8BDADCBDDB2EDE830E66 /* WatchTransferService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */; };
-		E20A68158C940060066B2B73 /* WatchReceiveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11E0748715A251EE4A0168A /* WatchReceiveService.swift */; };
-		A46C6A46A2D76FF5DBFBD6C6 /* StartRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE91252BA9167A50BFF79FF0 /* StartRecordingIntent.swift */; };
+		MD0000001 /* MemoDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = MD1000001 /* MemoDetailView.swift */; };
+		MD0000002 /* MemoDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = MD1000002 /* MemoDetailViewModel.swift */; };
+		SPM00001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = SPM00002 /* Supabase */; };
+		SPM00004 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = SPM00005 /* Sentry */; };
+		T10000001 /* DayDetailViewStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000001 /* DayDetailViewStateTests.swift */; };
+		T10000002 /* ConflictMergerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000002 /* ConflictMergerTests.swift */; };
+		T10000003 /* VaultMigrationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000003 /* VaultMigrationServiceTests.swift */; };
+		T10000004 /* VaultLocatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000004 /* VaultLocatorTests.swift */; };
+		T10000005 /* RawStorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000005 /* RawStorageTests.swift */; };
+		T10000006 /* ComposerContextProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000006 /* ComposerContextProviderTests.swift */; };
+		TH0000001 /* ThreadConversationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = TH1000001 /* ThreadConversationViewModel.swift */; };
+		TH0000002 /* ThreadConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TH1000002 /* ThreadConversationView.swift */; };
+		TH0000003 /* InlineMicButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = TH1000003 /* InlineMicButton.swift */; };
+		WS0000001 /* WelcomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = WS1000001 /* WelcomeScreen.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		T76000001 /* PBXContainerItemProxy */ = {
+		CBEB8ECF74B1AB7DC2D95CE9 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = AB0000001 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = A70000001;
-			remoteInfo = DayPage;
+			remoteGlobalIDString = F41799EE1E17028D50445A2A;
+			remoteInfo = DayPageWidget;
 		};
 		D13961FCE75D846CB11E2A04 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -159,21 +166,47 @@
 			remoteGlobalIDString = 69BEA0675AFA233657A8AD39;
 			remoteInfo = DayPageWatch;
 		};
+		T76000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = AB0000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A70000001;
+			remoteInfo = DayPage;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		7C2E6E11E8E832D610477AF4 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				14188AFE740A834ADF7A41F4 /* DayPageWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		068FB068A000B6E61B1D8032 /* AppSettings.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		0881AB423FF6F12FCDE27C5B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		23EA9C83B41565EDB263FB35 /* DayPageWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPageWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2748059CC689A341C7CAAACC /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		2EF24DE1810B0DA979103772 /* StartRecordingIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StartRecordingIntent.swift; sourceTree = "<group>"; };
+		519B9B12CB68C0E6E2A06292 /* QuickCaptureControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuickCaptureControl.swift; sourceTree = "<group>"; };
+		5FD3383348F15CB7B4E82E53 /* DayPageShortcuts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DayPageShortcuts.swift; sourceTree = "<group>"; };
+		71FB6C74A43193A3DD725723 /* DayPageWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DayPageWidgetBundle.swift; sourceTree = "<group>"; };
 		73FCD3E2EC4D7257BA7A22BD /* TimeZonePickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimeZonePickerView.swift; sourceTree = "<group>"; };
+		7909ED56F96754E4C4FA21CC /* QuickCaptureWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuickCaptureWidget.swift; sourceTree = "<group>"; };
 		A20000001 /* DayPageApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPageApp.swift; sourceTree = "<group>"; };
 		A20000002 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		A20000003 /* VaultInitializer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultInitializer.swift; sourceTree = "<group>"; };
 		A20000004 /* GeneratedSecrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedSecrets.swift; sourceTree = "<group>"; };
-		A200000B4 /* SecretsRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecretsRuntime.swift; sourceTree = "<group>"; };
 		A20000005 /* Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Colors.swift; sourceTree = "<group>"; };
 		A20000006 /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
 		A20000007 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
-		A200000F1 /* GlassSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassSurface.swift; sourceTree = "<group>"; };
-		A200000F2 /* Surfaces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Surfaces.swift; sourceTree = "<group>"; };
 		A20000008 /* Memo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Memo.swift; sourceTree = "<group>"; };
 		A20000009 /* RawStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawStorage.swift; sourceTree = "<group>"; };
 		A20000010 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
@@ -190,11 +223,7 @@
 		A20000022 /* EntityPageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntityPageService.swift; sourceTree = "<group>"; };
 		A20000023 /* BackgroundCompilationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundCompilationService.swift; sourceTree = "<group>"; };
 		A20000024 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		A20000071 /* DayPage.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DayPage.entitlements; sourceTree = "<group>"; };
 		A20000025 /* DailyPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPageView.swift; sourceTree = "<group>"; };
-		TH1000001 /* ThreadConversationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadConversationViewModel.swift; sourceTree = "<group>"; };
-		TH1000002 /* ThreadConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadConversationView.swift; sourceTree = "<group>"; };
-		TH1000003 /* InlineMicButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineMicButton.swift; sourceTree = "<group>"; };
 		A20000026 /* EntityPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntityPageView.swift; sourceTree = "<group>"; };
 		A20000027 /* SearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchService.swift; sourceTree = "<group>"; };
 		A20000028 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
@@ -226,34 +255,40 @@
 		A20000056 /* VaultLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultLocator.swift; sourceTree = "<group>"; };
 		A20000060 /* DailySharePosterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailySharePosterView.swift; sourceTree = "<group>"; };
 		A20000061 /* PosterRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PosterRenderer.swift; sourceTree = "<group>"; };
+		A20000063 /* SwipeableMemoCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeableMemoCard.swift; sourceTree = "<group>"; };
+		A20000064 /* AttachmentMenuSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentMenuSheet.swift; sourceTree = "<group>"; };
+		A20000070 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
+		A20000071 /* DayPage.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DayPage.entitlements; sourceTree = "<group>"; };
+		A20000072 /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
+		A20000073 /* EmailAuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailAuthView.swift; sourceTree = "<group>"; };
+		A20000074 /* AccountSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSheet.swift; sourceTree = "<group>"; };
+		A20000075 /* OTPVerificationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OTPVerificationView.swift; sourceTree = "<group>"; };
+		A20000076 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
+		A20000077 /* ConflictMerger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictMerger.swift; sourceTree = "<group>"; };
+		A20000078 /* VaultMigrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultMigrationService.swift; sourceTree = "<group>"; };
+		A20000079 /* iCloudSyncMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iCloudSyncMonitor.swift; sourceTree = "<group>"; };
+		A20000080 /* AppNavigationModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNavigationModel.swift; sourceTree = "<group>"; };
+		A20000081 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		A20000082 /* InputBarV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputBarV4.swift; sourceTree = "<group>"; };
 		A20000083 /* WeeklyRecapService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapService.swift; sourceTree = "<group>"; };
-		A20000301 /* TimelineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineService.swift; sourceTree = "<group>"; };
 		A20000084 /* WeeklyRecapSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapSection.swift; sourceTree = "<group>"; };
-		A20000302 /* TimelineSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineSectionView.swift; sourceTree = "<group>"; };
+		A20000085 /* iCloudConflictMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iCloudConflictMonitor.swift; sourceTree = "<group>"; };
+		A20000086 /* OTPVerificationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OTPVerificationViewModel.swift; sourceTree = "<group>"; };
+		A20000087 /* AuthRateLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRateLimiter.swift; sourceTree = "<group>"; };
+		A20000091 /* GrainOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrainOverlay.swift; sourceTree = "<group>"; };
+		A20000093 /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
+		A20000094 /* SidebarViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarViewModel.swift; sourceTree = "<group>"; };
+		A20000095 /* ComposerContextProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerContextProvider.swift; sourceTree = "<group>"; };
+		A200000B4 /* SecretsRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecretsRuntime.swift; sourceTree = "<group>"; };
+		A200000F1 /* GlassSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassSurface.swift; sourceTree = "<group>"; };
+		A200000F2 /* Surfaces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Surfaces.swift; sourceTree = "<group>"; };
 		A20000200 /* ComposerStateMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerStateMachine.swift; sourceTree = "<group>"; };
 		A20000201 /* SpotlightStripView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotlightStripView.swift; sourceTree = "<group>"; };
 		A20000202 /* SmartTemplateRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartTemplateRow.swift; sourceTree = "<group>"; };
 		A20000203 /* InlineLensStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineLensStrip.swift; sourceTree = "<group>"; };
-		A20000063 /* SwipeableMemoCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeableMemoCard.swift; sourceTree = "<group>"; };
-		A20000064 /* AttachmentMenuSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentMenuSheet.swift; sourceTree = "<group>"; };
-		A20000079 /* iCloudSyncMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iCloudSyncMonitor.swift; sourceTree = "<group>"; };
-		A20000085 /* iCloudConflictMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iCloudConflictMonitor.swift; sourceTree = "<group>"; };
-		A20000080 /* AppNavigationModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNavigationModel.swift; sourceTree = "<group>"; };
-		A20000081 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
-		A20000070 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
-		A20000072 /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
-		A20000073 /* EmailAuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailAuthView.swift; sourceTree = "<group>"; };
-		A20000075 /* OTPVerificationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OTPVerificationView.swift; sourceTree = "<group>"; };
-		A20000076 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
-		A20000087 /* AuthRateLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRateLimiter.swift; sourceTree = "<group>"; };
-		A20000091 /* GrainOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrainOverlay.swift; sourceTree = "<group>"; };
-		A20000086 /* OTPVerificationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OTPVerificationViewModel.swift; sourceTree = "<group>"; };
-		A20000093 /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
-		A20000094 /* SidebarViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarViewModel.swift; sourceTree = "<group>"; };
-		A20000074 /* AccountSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSheet.swift; sourceTree = "<group>"; };
+		A20000301 /* TimelineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineService.swift; sourceTree = "<group>"; };
+		A20000302 /* TimelineSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineSectionView.swift; sourceTree = "<group>"; };
 		A30000001 /* DayPage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPage.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		23EA9C83B41565EDB263FB35 /* DayPageWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPageWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF1000001 /* SpaceGrotesk-Light.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Light.ttf"; sourceTree = "<group>"; };
 		AF1000002 /* SpaceGrotesk-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Regular.ttf"; sourceTree = "<group>"; };
 		AF1000003 /* SpaceGrotesk-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Medium.ttf"; sourceTree = "<group>"; };
@@ -266,46 +301,60 @@
 		AF1000010 /* Inter-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Inter-Bold.ttf"; sourceTree = "<group>"; };
 		AF1000011 /* JetBrainsMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "JetBrainsMono-Regular.ttf"; sourceTree = "<group>"; };
 		AF1000012 /* JetBrainsMono-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "JetBrainsMono-Medium.ttf"; sourceTree = "<group>"; };
-		T20000001 /* DayDetailViewStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayDetailViewStateTests.swift; sourceTree = "<group>"; };
-		T20000002 /* ConflictMergerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictMergerTests.swift; sourceTree = "<group>"; };
-		T30000001 /* DayPageTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DayPageTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		A20000077 /* ConflictMerger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictMerger.swift; sourceTree = "<group>"; };
-		A20000078 /* VaultMigrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultMigrationService.swift; sourceTree = "<group>"; };
-		T20000003 /* VaultMigrationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultMigrationServiceTests.swift; sourceTree = "<group>"; };
-		T20000004 /* VaultLocatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultLocatorTests.swift; sourceTree = "<group>"; };
-		T20000005 /* RawStorageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawStorageTests.swift; sourceTree = "<group>"; };
-		T20000006 /* ComposerContextProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerContextProviderTests.swift; sourceTree = "<group>"; };
-		T20000007 /* SmokeTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmokeTest.swift; sourceTree = "<group>"; };
-		A20000095 /* ComposerContextProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerContextProvider.swift; sourceTree = "<group>"; };
+		B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DayPageWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B93ED807E07C2171E9F4234B /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
+		BAC7527E8128E6A865349FB9 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		C98B5757B488F583231EC8F6 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		CJ1000001 /* CJKTextPolish.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CJKTextPolish.swift; sourceTree = "<group>"; };
+		DS1000001 /* Motion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Motion.swift; sourceTree = "<group>"; };
+		DS1000002 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
+		E54B333332A1175CD3B31883 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		ES1000001 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
+		ES1000002 /* GlassErrorBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassErrorBanner.swift; sourceTree = "<group>"; };
+		ES1000003 /* GlassTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassTabBar.swift; sourceTree = "<group>"; };
+		F11E0748715A251EE4A0168A /* WatchReceiveService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchReceiveService.swift; sourceTree = "<group>"; };
+		F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchTransferService.swift; sourceTree = "<group>"; };
+		F5BB61FECBCF7AB756E7A6CE /* WatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchApp.swift; sourceTree = "<group>"; };
 		FB1000001 /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
 		FB1000002 /* FeedbackViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackViewModel.swift; sourceTree = "<group>"; };
 		FB1000003 /* FeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackView.swift; sourceTree = "<group>"; };
 		FB1000004 /* FeedbackContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackContext.swift; sourceTree = "<group>"; };
-		ES1000001 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
-		ES1000002 /* GlassErrorBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassErrorBanner.swift; sourceTree = "<group>"; };
-		ES1000003 /* GlassTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassTabBar.swift; sourceTree = "<group>"; };
-		DS1000001 /* Motion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Motion.swift; sourceTree = "<group>"; };
-		DS1000002 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
+		FE91252BA9167A50BFF79FF0 /* StartRecordingIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartRecordingIntent.swift; sourceTree = "<group>"; };
 		FT1000001 /* DayOrbView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayOrbView.swift; sourceTree = "<group>"; };
-		MD1000001 /* MemoDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoDetailView.swift; sourceTree = "<group>"; };
-		MD1000002 /* MemoDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoDetailViewModel.swift; sourceTree = "<group>"; };
-		CJ1000001 /* CJKTextPolish.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CJKTextPolish.swift; sourceTree = "<group>"; };
-		WS1000001 /* WelcomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeScreen.swift; sourceTree = "<group>"; };
 		LS1000002 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		LS1000003 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
-		LS1000001 /* Localizable.strings */ = {isa = PBXVariantGroup; children = (LS1000002 /* en */, LS1000003 /* zh-Hans */); name = Localizable.strings; sourceTree = "<group>"; };
 		LS1000004 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
-		F5BB61FECBCF7AB756E7A6CE /* WatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchApp.swift; sourceTree = "<group>"; };
-		C98B5757B488F583231EC8F6 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
-		B93ED807E07C2171E9F4234B /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
-		0881AB423FF6F12FCDE27C5B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		2748059CC689A341C7CAAACC /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchTransferService.swift; sourceTree = "<group>"; };
-		F11E0748715A251EE4A0168A /* WatchReceiveService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchReceiveService.swift; sourceTree = "<group>"; };
-		FE91252BA9167A50BFF79FF0 /* StartRecordingIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartRecordingIntent.swift; sourceTree = "<group>"; };
+		MD1000001 /* MemoDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoDetailView.swift; sourceTree = "<group>"; };
+		MD1000002 /* MemoDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoDetailViewModel.swift; sourceTree = "<group>"; };
+		T20000001 /* DayDetailViewStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayDetailViewStateTests.swift; sourceTree = "<group>"; };
+		T20000002 /* ConflictMergerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictMergerTests.swift; sourceTree = "<group>"; };
+		T20000003 /* VaultMigrationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultMigrationServiceTests.swift; sourceTree = "<group>"; };
+		T20000004 /* VaultLocatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultLocatorTests.swift; sourceTree = "<group>"; };
+		T20000005 /* RawStorageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawStorageTests.swift; sourceTree = "<group>"; };
+		T20000006 /* ComposerContextProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerContextProviderTests.swift; sourceTree = "<group>"; };
+		T30000001 /* DayPageTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DayPageTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		TH1000001 /* ThreadConversationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadConversationViewModel.swift; sourceTree = "<group>"; };
+		TH1000002 /* ThreadConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadConversationView.swift; sourceTree = "<group>"; };
+		TH1000003 /* InlineMicButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineMicButton.swift; sourceTree = "<group>"; };
+		WS1000001 /* WelcomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeScreen.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		3EB5769AA1DE988ED54D7EAF /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6A99596F83AB190CB3A4DD27 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9B0FAA7690FA2EEED5AB7A96 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A40000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -322,16 +371,66 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		3EB5769AA1DE988ED54D7EAF /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		169A033458595BA06BEA3D5F /* App */ = {
+			isa = PBXGroup;
+			children = (
+				F5BB61FECBCF7AB756E7A6CE /* WatchApp.swift */,
+				C98B5757B488F583231EC8F6 /* RootView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		199F425FF62768ECA9FD1FB9 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				B93ED807E07C2171E9F4234B /* RecordingView.swift */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		1FD1A3B1D736CCDDB8DD7C7E /* DayPageWidget */ = {
+			isa = PBXGroup;
+			children = (
+				71FB6C74A43193A3DD725723 /* DayPageWidgetBundle.swift */,
+				7909ED56F96754E4C4FA21CC /* QuickCaptureWidget.swift */,
+				519B9B12CB68C0E6E2A06292 /* QuickCaptureControl.swift */,
+				E54B333332A1175CD3B31883 /* Info.plist */,
+			);
+			name = DayPageWidget;
+			path = DayPageWidget;
+			sourceTree = "<group>";
+		};
+		2F3BCA9F2B06A0AA7A285E16 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				DDC3A975D8D575CF6FC10A43 /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		4D6CD27C159EBD1C3B99E5A0 /* Complication */ = {
+			isa = PBXGroup;
+			children = (
+				FE91252BA9167A50BFF79FF0 /* StartRecordingIntent.swift */,
+			);
+			path = Complication;
+			sourceTree = "<group>";
+		};
+		6E1BF02CE381B436F22B52D5 /* DayPageWatch */ = {
+			isa = PBXGroup;
+			children = (
+				169A033458595BA06BEA3D5F /* App */,
+				199F425FF62768ECA9FD1FB9 /* Features */,
+				E8860B4D47FA22FF858763A5 /* Resources */,
+				4D6CD27C159EBD1C3B99E5A0 /* Complication */,
+				E649E3AC4D392A4CEDD41728 /* Services */,
+			);
+			path = DayPageWatch;
+			sourceTree = "<group>";
+		};
 		A50000001 /* DayPage */ = {
 			isa = PBXGroup;
 			children = (
@@ -346,27 +445,9 @@
 				A50000020 /* Utilities */,
 				ES5000002 /* Resources */,
 				A50000009 /* Products */,
+				CACBEB57B683CFE3B3FC434A /* Intents */,
 			);
 			path = DayPage;
-			sourceTree = "<group>";
-		};
-		ES5000001 /* Components */ = {
-			isa = PBXGroup;
-			children = (
-				ES1000001 /* EmptyStateView.swift */,
-				ES1000002 /* GlassErrorBanner.swift */,
-				ES1000003 /* GlassTabBar.swift */,
-			);
-			path = Components;
-			sourceTree = "<group>";
-		};
-		ES5000002 /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				LS1000001 /* Localizable.strings */,
-				LS1000004 /* L10n.swift */,
-			);
-			path = Resources;
 			sourceTree = "<group>";
 		};
 		A50000002 /* App */ = {
@@ -419,38 +500,6 @@
 				MD5000001 /* MemoDetail */,
 			);
 			path = Features;
-			sourceTree = "<group>";
-		};
-		MD5000001 /* MemoDetail */ = {
-			isa = PBXGroup;
-			children = (
-				MD1000001 /* MemoDetailView.swift */,
-				MD1000002 /* MemoDetailViewModel.swift */,
-			);
-			path = MemoDetail;
-			sourceTree = "<group>";
-		};
-		A50000021 /* Auth */ = {
-			isa = PBXGroup;
-			children = (
-				A20000072 /* AuthView.swift */,
-				A20000093 /* AuthViewModel.swift */,
-				A20000073 /* EmailAuthView.swift */,
-				A20000075 /* OTPVerificationView.swift */,
-				A20000086 /* OTPVerificationViewModel.swift */,
-				A20000074 /* AccountSheet.swift */,
-			);
-			path = Auth;
-			sourceTree = "<group>";
-		};
-		A50000022 /* Feedback */ = {
-			isa = PBXGroup;
-			children = (
-				FB1000002 /* FeedbackViewModel.swift */,
-				FB1000003 /* FeedbackView.swift */,
-				FB1000004 /* FeedbackContext.swift */,
-			);
-			path = Feedback;
 			sourceTree = "<group>";
 		};
 		A50000005 /* Models */ = {
@@ -522,6 +571,7 @@
 				A30000001 /* DayPage.app */,
 				T30000001 /* DayPageTests.xctest */,
 				23EA9C83B41565EDB263FB35 /* DayPageWatch.app */,
+				B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -629,12 +679,37 @@
 			path = Utilities;
 			sourceTree = "<group>";
 		};
+		A50000021 /* Auth */ = {
+			isa = PBXGroup;
+			children = (
+				A20000072 /* AuthView.swift */,
+				A20000093 /* AuthViewModel.swift */,
+				A20000073 /* EmailAuthView.swift */,
+				A20000075 /* OTPVerificationView.swift */,
+				A20000086 /* OTPVerificationViewModel.swift */,
+				A20000074 /* AccountSheet.swift */,
+			);
+			path = Auth;
+			sourceTree = "<group>";
+		};
+		A50000022 /* Feedback */ = {
+			isa = PBXGroup;
+			children = (
+				FB1000002 /* FeedbackViewModel.swift */,
+				FB1000003 /* FeedbackView.swift */,
+				FB1000004 /* FeedbackContext.swift */,
+			);
+			path = Feedback;
+			sourceTree = "<group>";
+		};
 		A60000001 = {
 			isa = PBXGroup;
 			children = (
 				A50000001 /* DayPage */,
 				T50000001 /* DayPageTests */,
 				6E1BF02CE381B436F22B52D5 /* DayPageWatch */,
+				2F3BCA9F2B06A0AA7A285E16 /* Frameworks */,
+				1FD1A3B1D736CCDDB8DD7C7E /* DayPageWidget */,
 			);
 			sourceTree = "<group>";
 		};
@@ -657,6 +732,69 @@
 			path = Fonts;
 			sourceTree = "<group>";
 		};
+		CACBEB57B683CFE3B3FC434A /* Intents */ = {
+			isa = PBXGroup;
+			children = (
+				2EF24DE1810B0DA979103772 /* StartRecordingIntent.swift */,
+				5FD3383348F15CB7B4E82E53 /* DayPageShortcuts.swift */,
+			);
+			name = Intents;
+			path = Intents;
+			sourceTree = "<group>";
+		};
+		DDC3A975D8D575CF6FC10A43 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				BAC7527E8128E6A865349FB9 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		E649E3AC4D392A4CEDD41728 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		E8860B4D47FA22FF858763A5 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				2748059CC689A341C7CAAACC /* Info.plist */,
+				0881AB423FF6F12FCDE27C5B /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		ES5000001 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				ES1000001 /* EmptyStateView.swift */,
+				ES1000002 /* GlassErrorBanner.swift */,
+				ES1000003 /* GlassTabBar.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		ES5000002 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				LS1000001 /* Localizable.strings */,
+				LS1000004 /* L10n.swift */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		MD5000001 /* MemoDetail */ = {
+			isa = PBXGroup;
+			children = (
+				MD1000001 /* MemoDetailView.swift */,
+				MD1000002 /* MemoDetailViewModel.swift */,
+			);
+			path = MemoDetail;
+			sourceTree = "<group>";
+		};
 		T50000001 /* DayPageTests */ = {
 			isa = PBXGroup;
 			children = (
@@ -670,102 +808,9 @@
 			path = DayPageTests;
 			sourceTree = "<group>";
 		};
-		6E1BF02CE381B436F22B52D5 /* DayPageWatch */ = {
-			isa = PBXGroup;
-			children = (
-				169A033458595BA06BEA3D5F /* App */,
-				199F425FF62768ECA9FD1FB9 /* Features */,
-				E8860B4D47FA22FF858763A5 /* Resources */,
-				4D6CD27C159EBD1C3B99E5A0 /* Complication */,
-				E649E3AC4D392A4CEDD41728 /* Services */,
-			);
-			path = DayPageWatch;
-			sourceTree = "<group>";
-		};
-		169A033458595BA06BEA3D5F /* App */ = {
-			isa = PBXGroup;
-			children = (
-				F5BB61FECBCF7AB756E7A6CE /* WatchApp.swift */,
-				C98B5757B488F583231EC8F6 /* RootView.swift */,
-			);
-			path = App;
-			sourceTree = "<group>";
-		};
-		199F425FF62768ECA9FD1FB9 /* Features */ = {
-			isa = PBXGroup;
-			children = (
-				B93ED807E07C2171E9F4234B /* RecordingView.swift */,
-			);
-			path = Features;
-			sourceTree = "<group>";
-		};
-		E8860B4D47FA22FF858763A5 /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				2748059CC689A341C7CAAACC /* Info.plist */,
-				0881AB423FF6F12FCDE27C5B /* Assets.xcassets */,
-			);
-			path = Resources;
-			sourceTree = "<group>";
-		};
-		4D6CD27C159EBD1C3B99E5A0 /* Complication */ = {
-			isa = PBXGroup;
-			children = (
-				FE91252BA9167A50BFF79FF0 /* StartRecordingIntent.swift */,
-			);
-			path = Complication;
-			sourceTree = "<group>";
-		};
-		E649E3AC4D392A4CEDD41728 /* Services */ = {
-			isa = PBXGroup;
-			children = (
-				F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */,
-			);
-			path = Services;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		A70000001 /* DayPage */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = A80000001 /* Build configuration list for PBXNativeTarget "DayPage" */;
-			buildPhases = (
-				AE0000001 /* Generate Secrets */,
-				A90000001 /* Sources */,
-				A40000001 /* Frameworks */,
-				AA0000001 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = DayPage;
-			packageProductDependencies = (
-				SPM00002 /* Supabase */,
-				SPM00005 /* Sentry */,
-			);
-			productName = DayPage;
-			productReference = A30000001 /* DayPage.app */;
-			productType = "com.apple.product-type.application";
-		};
-		T70000001 /* DayPageTests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = T80000001 /* Build configuration list for PBXNativeTarget "DayPageTests" */;
-			buildPhases = (
-				T90000001 /* Sources */,
-				T40000001 /* Frameworks */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				T75000001 /* PBXTargetDependency */,
-			);
-			name = DayPageTests;
-			productName = DayPageTests;
-			productReference = T30000001 /* DayPageTests.xctest */;
-			productType = "com.apple.product-type.bundle.unit-test";
-		};
 		69BEA0675AFA233657A8AD39 /* DayPageWatch */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 0D6D80FCABFECB20FC046750 /* Build configuration list for PBXNativeTarget "DayPageWatch" */;
@@ -783,6 +828,64 @@
 			productName = DayPageWatch;
 			productReference = 23EA9C83B41565EDB263FB35 /* DayPageWatch.app */;
 			productType = "com.apple.product-type.application.watchapp2";
+		};
+		A70000001 /* DayPage */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A80000001 /* Build configuration list for PBXNativeTarget "DayPage" */;
+			buildPhases = (
+				AE0000001 /* Generate Secrets */,
+				A90000001 /* Sources */,
+				A40000001 /* Frameworks */,
+				AA0000001 /* Resources */,
+				7C2E6E11E8E832D610477AF4 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FFEEA26F4357519F4BB9DD72 /* PBXTargetDependency */,
+			);
+			name = DayPage;
+			packageProductDependencies = (
+				SPM00002 /* Supabase */,
+				SPM00005 /* Sentry */,
+			);
+			productName = DayPage;
+			productReference = A30000001 /* DayPage.app */;
+			productType = "com.apple.product-type.application";
+		};
+		F41799EE1E17028D50445A2A /* DayPageWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D8F19491724741839C0063D3 /* Build configuration list for PBXNativeTarget "DayPageWidget" */;
+			buildPhases = (
+				1EDB2FF3A97D15EE4AB4262A /* Sources */,
+				6A99596F83AB190CB3A4DD27 /* Frameworks */,
+				1C35A048962A1C9561696C85 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DayPageWidget;
+			productName = DayPageWidget;
+			productReference = B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		T70000001 /* DayPageTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = T80000001 /* Build configuration list for PBXNativeTarget "DayPageTests" */;
+			buildPhases = (
+				T90000001 /* Sources */,
+				T40000001 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				T75000001 /* PBXTargetDependency */,
+			);
+			name = DayPageTests;
+			productName = DayPageTests;
+			productReference = T30000001 /* DayPageTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -824,11 +927,27 @@
 				A70000001 /* DayPage */,
 				T70000001 /* DayPageTests */,
 				69BEA0675AFA233657A8AD39 /* DayPageWatch */,
+				F41799EE1E17028D50445A2A /* DayPageWidget */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		1C35A048962A1C9561696C85 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9E11D4E4CB1FFC4EC7D9A07A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E4AC46FA495D4BD178789A14 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AA0000001 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -847,14 +966,6 @@
 				AF0000012 /* JetBrainsMono-Medium.ttf in Resources */,
 				A10000029 /* Assets.xcassets in Resources */,
 				LS0000001 /* Localizable.strings in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		9E11D4E4CB1FFC4EC7D9A07A /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				E4AC46FA495D4BD178789A14 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -881,6 +992,29 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		1EDB2FF3A97D15EE4AB4262A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				326A14114B34412568007B4A /* DayPageWidgetBundle.swift in Sources */,
+				EA575F353C6AFD5EA7FF9A6F /* QuickCaptureWidget.swift in Sources */,
+				97FA675FF46459D5CE5E8CF3 /* QuickCaptureControl.swift in Sources */,
+				485EFA11789212D87CB1B74B /* StartRecordingIntent.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4705AC05FAC24B4000886F57 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DBB277156934B2FA96E16077 /* WatchApp.swift in Sources */,
+				9034B2964DD6432BD7FA7250 /* RootView.swift in Sources */,
+				B197ECDEBDA86D4351A96898 /* RecordingView.swift in Sources */,
+				347B8BDADCBDDB2EDE830E66 /* WatchTransferService.swift in Sources */,
+				A46C6A46A2D76FF5DBFBD6C6 /* StartRecordingIntent.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		A90000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -991,6 +1125,8 @@
 				CJ0000001 /* CJKTextPolish.swift in Sources */,
 				WS0000001 /* WelcomeScreen.swift in Sources */,
 				A10000095 /* ComposerContextProvider.swift in Sources */,
+				457A17AB7F3B4BE7C2E77026 /* StartRecordingIntent.swift in Sources */,
+				9D559EA9D4B9F2C77D942935 /* DayPageShortcuts.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1007,66 +1143,128 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		4705AC05FAC24B4000886F57 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				DBB277156934B2FA96E16077 /* WatchApp.swift in Sources */,
-				9034B2964DD6432BD7FA7250 /* RootView.swift in Sources */,
-				B197ECDEBDA86D4351A96898 /* RecordingView.swift in Sources */,
-				347B8BDADCBDDB2EDE830E66 /* WatchTransferService.swift in Sources */,
-				A46C6A46A2D76FF5DBFBD6C6 /* StartRecordingIntent.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		T75000001 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = A70000001 /* DayPage */;
-			targetProxy = T76000001 /* PBXContainerItemProxy */;
-		};
 		AF08A5AA36824D34EF184641 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 69BEA0675AFA233657A8AD39 /* DayPageWatch */;
 			targetProxy = D13961FCE75D846CB11E2A04 /* PBXContainerItemProxy */;
 		};
+		FFEEA26F4357519F4BB9DD72 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = DayPageWidget;
+			target = F41799EE1E17028D50445A2A /* DayPageWidget */;
+			targetProxy = CBEB8ECF74B1AB7DC2D95CE9 /* PBXContainerItemProxy */;
+		};
+		T75000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A70000001 /* DayPage */;
+			targetProxy = T76000001 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		SPM00003 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/supabase/supabase-swift";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.0.0;
-			};
+/* Begin PBXVariantGroup section */
+		LS1000001 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				LS1000002 /* en */,
+				LS1000003 /* zh-Hans */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
 		};
-		SPM00006 /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/getsentry/sentry-cocoa";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 8.36.0;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		SPM00002 /* Supabase */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = SPM00003 /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = Supabase;
-		};
-		SPM00005 /* Sentry */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = SPM00006 /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
-			productName = Sentry;
-		};
-/* End XCSwiftPackageProductDependency section */
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		01460ECDA7F310419AA361A7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6RG2F8YY59;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DayPageWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.app.DayPageWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = EXTENSION;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		32BEBCA130BE5F4B0EF36D54 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6RG2F8YY59;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DayPageWidget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.app.DayPageWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = EXTENSION;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		33B764539AC733ABA92320CE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 6RG2F8YY59;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DayPageWatch/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+			};
+			name = Debug;
+		};
 		AC0000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1220,7 +1418,6 @@
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6RG2F8YY59;
-				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.daypage.app";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = DayPage/App/Info.plist;
@@ -1232,9 +1429,36 @@
 				MARKETING_VERSION = 0.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.daypage.app";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		EE270A0C68FDC7F8C8261410 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6RG2F8YY59;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = DayPageWatch/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.watchkitapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
 			};
 			name = Release;
 		};
@@ -1288,62 +1512,18 @@
 			};
 			name = Release;
 		};
-		33B764539AC733ABA92320CE /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = 6RG2F8YY59;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = DayPageWatch/Resources/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 0.0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.watchkitapp;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = watchos;
-				SKIP_INSTALL = YES;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 9.0;
-			};
-			name = Debug;
-		};
-		EE270A0C68FDC7F8C8261410 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 6RG2F8YY59;
-				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = DayPageWatch/Resources/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				MARKETING_VERSION = 0.0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.watchkitapp;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = watchos;
-				SKIP_INSTALL = YES;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 9.0;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		0D6D80FCABFECB20FC046750 /* Build configuration list for PBXNativeTarget "DayPageWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				33B764539AC733ABA92320CE /* Debug */,
+				EE270A0C68FDC7F8C8261410 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		A80000001 /* Build configuration list for PBXNativeTarget "DayPage" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -1362,6 +1542,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		D8F19491724741839C0063D3 /* Build configuration list for PBXNativeTarget "DayPageWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				32BEBCA130BE5F4B0EF36D54 /* Release */,
+				01460ECDA7F310419AA361A7 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		T80000001 /* Build configuration list for PBXNativeTarget "DayPageTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -1371,16 +1560,39 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		0D6D80FCABFECB20FC046750 /* Build configuration list for PBXNativeTarget "DayPageWatch" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				33B764539AC733ABA92320CE /* Debug */,
-				EE270A0C68FDC7F8C8261410 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		SPM00003 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
+		SPM00006 /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/getsentry/sentry-cocoa";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.36.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		SPM00002 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = SPM00003 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+		SPM00005 /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = SPM00006 /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = AB0000001 /* Project object */;
 }
