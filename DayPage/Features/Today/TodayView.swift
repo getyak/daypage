@@ -16,8 +16,8 @@ struct TodayView: View {
     @State private var showSyncBanner: Bool = false
     @State private var showAuthSheet: Bool = false
 
-    /// 输入栏中的草稿文本。
-    @State private var draftText: String = ""
+    /// 输入栏中的草稿文本。SceneStorage persists the draft across backgrounding and process kills.
+    @SceneStorage("today.draftText") private var draftText: String = ""
 
     /// Whether to show the Daily Page sheet.
     @State private var showDailyPage: Bool = false
