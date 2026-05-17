@@ -12,6 +12,7 @@ struct DailyPageView: View {
 
     @Environment(\.dismiss) private var dismiss
     @StateObject private var memoVM = DailyPageMemoVM()
+    @ObservedObject private var compilationService = CompilationService.shared
     @State private var selectedTab: DailyPageTab = .digest
     @State private var model: DailyPageModel? = nil
     @State private var rawText: String = ""
@@ -119,16 +120,16 @@ struct DailyPageView: View {
             }
         }
         .onAppear { loadPage() }
-        .alert("重新编译", isPresented: $showRecompileConfirm) {
-            Button("取消", role: .cancel) {}
-            Button("重新编译", role: .destructive) {
+        .alert("Recompile today?", isPresented: $showRecompileConfirm) {
+            Button("Cancel", role: .cancel) {}
+            Button("Recompile", role: .destructive) {
                 Task { await recompile() }
             }
         } message: {
             if let t = lastCompiledTimeLabel {
-                Text("将重新调用 AI 编译今日日记，当前内容将备份至 .trash 目录。\n上次编译于 \(t)")
+                Text("Last compiled at \(t)")
             } else {
-                Text("将重新调用 AI 编译今日日记，当前内容将备份至 .trash 目录。")
+                Text("AI will recompile today's memos into a new daily page.")
             }
         }
         .alert("编译失败", isPresented: Binding(
@@ -176,13 +177,13 @@ struct DailyPageView: View {
         }
 
         do {
+            let memoCount = rawMemos.count
             try await CompilationService.shared.compile(for: date, trigger: "manual")
             loadPage()
             // US-022: show success banner with memo count
-            let count = model?.memoCount ?? rawMemos.count
             BannerCenter.shared.show(AppBannerModel(
                 kind: .success,
-                title: "✓ Compiled \(count) memos",
+                title: "✓ Compiled \(memoCount) memos into today's page",
                 autoDismiss: true
             ))
         } catch {
@@ -579,6 +580,35 @@ struct DailyPageView: View {
                 .background(DSColor.surfaceContainerHigh)
                 .padding(.bottom, 24)
 
+            // US-020: compilation progress / error feedback
+            if isRecompiling {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                        .tint(DSColor.primary)
+                    Text(compilationStageLabel(compilationService.compilationProgress))
+                        .monoLabelStyle(size: 10)
+                        .foregroundColor(DSColor.primary)
+                    Spacer()
+                }
+                .padding(.bottom, 16)
+            } else if let errMsg = recompileError {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(errMsg)
+                        .font(DSType.bodySM)
+                        .foregroundColor(.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button(action: { Task { await recompile() } }) {
+                        Text("RETRY →")
+                            .monoLabelStyle(size: 10)
+                            .foregroundColor(DSColor.primary)
+                            .underline()
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.bottom, 16)
+            }
+
             HStack {
                 Text("Compiled from \(model.memoCount) raw entries".uppercased())
                     .monoLabelStyle(size: 10)
@@ -595,6 +625,15 @@ struct DailyPageView: View {
                 .buttonStyle(.plain)
             }
             .padding(.bottom, 24)
+        }
+    }
+
+    private func compilationStageLabel(_ stage: CompilationStage) -> String {
+        switch stage {
+        case .extracting: return "Extracting memos…"
+        case .compiling:  return "Compiling with AI…"
+        case .formatting: return "Formatting output…"
+        case .done:       return "Done"
         }
     }
 
