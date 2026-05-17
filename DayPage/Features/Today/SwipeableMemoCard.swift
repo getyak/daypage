@@ -20,6 +20,7 @@ struct SwipeableMemoCard: View {
     let memo: Memo
     var onDelete: (() -> Void)? = nil
     var onPin: (() -> Void)? = nil
+    var onRetranscribe: ((Memo, Memo.Attachment) -> Void)? = nil
 
     // Settled resting offset: -panelW = trailing open, 0 = closed, +panelW = leading open
     @State private var settledOffset: CGFloat = 0
@@ -180,7 +181,7 @@ struct SwipeableMemoCard: View {
     private func snapOpen(_ side: Side) {
         let target: CGFloat = side == .trailing ? -panelW : panelW
         withAnimation(snapSpring) { settledOffset = target }
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        HapticFeedback.light()
     }
 
     func snapClose() {

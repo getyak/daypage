@@ -2,6 +2,16 @@ import Foundation
 import Network
 import Sentry
 
+// MARK: - CompilationStage
+
+/// Progress stages published during a compile run.
+enum CompilationStage: String, CaseIterable, Equatable {
+    case extracting
+    case compiling
+    case formatting
+    case done
+}
+
 // MARK: - CompilationService
 
 /// 通过 DeepSeek LLM API 将今天的原始备忘录编译为结构化的每日页面。
@@ -18,12 +28,17 @@ import Sentry
 ///   try await service.compile(for: Date())
 ///
 @MainActor
-final class CompilationService {
+final class CompilationService: ObservableObject {
 
     // MARK: Singleton
 
     static let shared = CompilationService()
     private init() {}
+
+    // MARK: - Published Stage
+
+    @Published var stage: CompilationStage = .extracting
+    @Published var compilationProgress: CompilationStage = .extracting
 
     // MARK: - Compile
 
@@ -45,8 +60,18 @@ final class CompilationService {
         let startTime = Date()
         let dateString = dateFormatter.string(from: date)
 
-        // 1. 加载原始备忘录
-        let memos = try RawStorage.read(for: date)
+        // 1. 加载原始备忘录 (extracting)
+        stage = .extracting
+        compilationProgress = .extracting
+        let memos: [Memo]
+        do {
+            memos = try RawStorage.read(for: date)
+        } catch {
+            throw CompilationError.parseFailure("读取原始备忘录失败：\(error.localizedDescription)")
+        }
+        guard !memos.isEmpty else {
+            throw CompilationError.emptyInput
+        }
         let rawContent = rawFileContent(for: date)
 
         // 2. 加载 hot.md 上下文
@@ -60,25 +85,51 @@ final class CompilationService {
             memoCount: memos.count
         )
 
-        // 4. 调用 DeepSeek API（带重试）
+        // 4. 调用 DeepSeek API（带重试）(compiling)
         let apiKey = Secrets.resolvedDeepSeekApiKey
         guard !apiKey.isEmpty else {
             throw CompilationError.missingApiKey
         }
 
-        let compiledText = try await callDeepSeekWithRetry(
-            prompt: prompt,
-            apiKey: apiKey,
-            onRetry: onRetry
-        )
+        stage = .compiling
+        compilationProgress = .compiling
+        let compiledText: String
+        do {
+            compiledText = try await callDeepSeekWithRetry(
+                prompt: prompt,
+                apiKey: apiKey,
+                onRetry: onRetry
+            )
+        } catch let err as CompilationError {
+            throw err
+        } catch let urlErr as URLError where urlErr.code == .timedOut {
+            throw CompilationError.networkTimeout
+        } catch {
+            throw CompilationError.unknown(error)
+        }
 
-        // 5. 解析结构化输出（每日页面 + 实体更新指令 + 热缓存）
-        let (dailyPageText, entityInstructions, hotCacheText) = try parseStructuredOutputWithHot(compiledText)
+        // 5. 解析结构化输出（formatting）
+        stage = .formatting
+        compilationProgress = .formatting
+        let (dailyPageText, entityInstructions, hotCacheText): (String, [EntityUpdateInstruction], String)
+        do {
+            (dailyPageText, entityInstructions, hotCacheText) = try parseStructuredOutputWithHot(compiledText)
+        } catch let err as CompilationError {
+            throw err
+        } catch {
+            throw CompilationError.parseFailure(error.localizedDescription)
+        }
 
         // 6. 写入每日页面（如已有则先备份）
         let dailyURL = dailyPageURL(for: dateString)
-        try backupIfExists(at: dailyURL, dateString: dateString)
-        try writeFile(content: dailyPageText, to: dailyURL)
+        do {
+            try backupIfExists(at: dailyURL, dateString: dateString)
+            try writeFile(content: dailyPageText, to: dailyURL)
+        } catch let err as CompilationError {
+            throw err
+        } catch {
+            throw CompilationError.fileSystemError(error.localizedDescription)
+        }
 
         // 7. 应用实体更新
         try EntityPageService.shared.apply(instructions: entityInstructions, date: dateString)
@@ -95,6 +146,9 @@ final class CompilationService {
             memoCount: memos.count,
             status: "success"
         )
+
+        stage = .done
+        compilationProgress = .done
     }
 
     // MARK: - URL Helpers
@@ -333,18 +387,24 @@ final class CompilationService {
                 return try await callDeepSeek(prompt: prompt, apiKey: apiKey)
             } catch let error as CompilationError {
                 switch error {
+                case .apiError(let code, _) where code == 429:
+                    lastError = CompilationError.apiRateLimited
                 case .apiError(let code, _) where code == 401 || code == 403 || code == 400:
                     throw error // 不重试认证/请求格式错误
-                case .parseError:
-                    throw error // 不重试解析错误
-                case .missingApiKey:
+                case .parseError(let msg):
+                    throw CompilationError.parseFailure(msg) // 不重试解析错误
+                case .parseFailure:
+                    throw error
+                case .missingApiKey, .invalidURL:
                     throw error
                 default:
                     lastError = error
                 }
             } catch let urlError as URLError {
                 switch urlError.code {
-                case .timedOut, .notConnectedToInternet, .networkConnectionLost:
+                case .timedOut:
+                    lastError = CompilationError.networkTimeout
+                case .notConnectedToInternet, .networkConnectionLost:
                     lastError = urlError
                 default:
                     throw urlError
@@ -590,6 +650,12 @@ enum CompilationError: LocalizedError {
     case parseError(String)
     case fileSystemError(String)
     case offline
+    // US-019 additions
+    case networkTimeout
+    case apiRateLimited
+    case emptyInput
+    case parseFailure(String)
+    case unknown(Error)
 
     var errorDescription: String? {
         switch self {
@@ -612,6 +678,16 @@ enum CompilationError: LocalizedError {
             return "文件写入失败：\(msg)"
         case .offline:
             return "当前离线，已加入队列，联网后自动编译"
+        case .networkTimeout:
+            return "网络请求超时，请检查网络后重试"
+        case .apiRateLimited:
+            return "API 请求频率超限（429），请稍后重试"
+        case .emptyInput:
+            return "今日暂无记录，无法编译"
+        case .parseFailure(let msg):
+            return "AI 返回解析失败：\(msg)"
+        case .unknown(let err):
+            return "未知错误：\(err.localizedDescription)"
         }
     }
 }

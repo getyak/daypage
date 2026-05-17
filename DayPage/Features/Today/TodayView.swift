@@ -16,8 +16,8 @@ struct TodayView: View {
     @State private var showSyncBanner: Bool = false
     @State private var showAuthSheet: Bool = false
 
-    /// 输入栏中的草稿文本。
-    @State private var draftText: String = ""
+    /// 输入栏中的草稿文本。SceneStorage persists the draft across backgrounding and process kills.
+    @SceneStorage("today.draftText") private var draftText: String = ""
 
     /// Whether to show the Daily Page sheet.
     @State private var showDailyPage: Bool = false
@@ -36,6 +36,20 @@ struct TodayView: View {
 
     /// Whether the daily page card is swiped open to reveal the recompile action.
     @State private var dailyPageRevealed: Bool = false
+
+    /// Session-only flag: true once the "restored unsent draft" banner has been shown this session.
+    @State private var draftRestoredBannerShown: Bool = false
+
+    // US-006: Date the draft was last modified, stored in UserDefaults.
+    // If the draft is older than 30 days it is auto-cleared on next launch.
+    @AppStorage("today.draftDate") private var draftDate: Double = 0
+
+    // US-009: Text to restore if undo is tapped within 5s of submit.
+    @State private var undoText: String? = nil
+    @State private var undoTask: Task<Void, Never>? = nil
+
+    // US-010: First-run tutorial overlay
+    @State private var showTutorial: Bool = false
 
     /// Live drag offset for the daily page card (negative = pulled left).
     @GestureState private var dailyPageDrag: CGFloat = 0
@@ -80,11 +94,11 @@ struct TodayView: View {
                         .accessibilityIdentifier("sidebar-menu-button")
                         // Long press on the date header → force-refresh On This Day
                         .onLongPressGesture(minimumDuration: 1.5) {
-                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                            HapticFeedback.medium()
                             if let entry = OnThisDayScheduler.shared.forceRefresh() {
                                 viewModel.onThisDayEntry = entry
                             } else {
-                                UINotificationFeedbackGenerator().notificationOccurred(.warning)
+                                HapticFeedback.warning()
                             }
                         }
 
@@ -228,7 +242,8 @@ struct TodayView: View {
                                             } else {
                                                 viewModel.pinMemo(memo)
                                             }
-                                        }
+                                        },
+                                        onRetranscribe: { m, att in viewModel.retranscribe(memo: m, attachment: att) }
                                     )
                                     .padding(.horizontal, 20)
                                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -307,7 +322,10 @@ struct TodayView: View {
                                     memoCount: viewModel.memos.count,
                                     isCompiling: viewModel.isCompiling,
                                     isVisible: true,
-                                    onTap: { viewModel.compile() }
+                                    stage: CompilationService.shared.stage,
+                                    errorMessage: viewModel.submitError,
+                                    onTap: { viewModel.compile() },
+                                    onRetry: { viewModel.compile() }
                                 )
                                 Spacer()
                             }
@@ -322,6 +340,19 @@ struct TodayView: View {
                     // just the input bar.
                     inputBarV4
                 }
+                // US-009: Undo pill shown for 5s after memo submit
+                .overlay(alignment: .bottom) {
+                    if let text = undoText {
+                        UndoPillView {
+                            draftText = text
+                            undoText = nil
+                            undoTask?.cancel()
+                        }
+                        .padding(.bottom, 96)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+                .animation(Motion.rise, value: undoText != nil)
                 // Submit error toast — scoped animation lives on the overlay
                 // container so only the toast itself animates, not the whole
                 // ZStack tree. (#217)
@@ -347,14 +378,33 @@ struct TodayView: View {
                 }
             }
             .navigationBarHidden(true)
+            // US-030: left-edge swipe (within first 20pt) opens sidebar
+            .gesture(
+                DragGesture(minimumDistance: 20, coordinateSpace: .local)
+                    .onEnded { value in
+                        guard value.startLocation.x < 20,
+                              value.translation.width > 40,
+                              abs(value.translation.width) > abs(value.translation.height) * 1.2
+                        else { return }
+                        nav.openSidebar()
+                    }
+            )
             .navigationDestination(for: UUID.self) { memoID in
                 if let memo = viewModel.memos.first(where: { $0.id == memoID }) {
                     MemoDetailView(memo: memo, vm: viewModel)
                 }
             }
             .onAppear {
+                clearDraftIfExpired()
                 viewModel.load()
                 updateVoiceQueueBanner(count: voiceQueue.pendingCount)
+                showDraftRestoredBannerIfNeeded()
+                if InputBarTutorialOverlay.shouldShow {
+                    showTutorial = true
+                }
+            }
+            .onChange(of: draftText) { _ in
+                draftDate = Date().timeIntervalSince1970
             }
             .onChange(of: voiceQueue.pendingCount) { count in
                 updateVoiceQueueBanner(count: count)
@@ -367,6 +417,12 @@ struct TodayView: View {
                 if phase == .active {
                     viewModel.load()
                 }
+            }
+            // US-017: consume pending draft text from daypage://memo/new?text=…
+            .onChange(of: nav.pendingDraftText) { text in
+                guard let text else { return }
+                draftText = text
+                nav.pendingDraftText = nil
             }
             // Bridge the ViewModel settings flag to the View-local sheet binding.
             .onChange(of: viewModel.shouldShowSettings) { show in
@@ -456,6 +512,15 @@ struct TodayView: View {
                 )
             }
             .bannerOverlay()
+            // US-010: First-run input bar tutorial
+            .overlay {
+                if showTutorial {
+                    InputBarTutorialOverlay(isPresented: $showTutorial)
+                        .ignoresSafeArea()
+                        .transition(.opacity)
+                }
+            }
+            .animation(.easeInOut(duration: 0.22), value: showTutorial)
             .sheet(isPresented: $showAuthSheet) {
                 AuthView()
             }
@@ -763,6 +828,7 @@ struct TodayView: View {
                 let body = draftText
                 draftText = ""
                 viewModel.submitCombinedMemo(body: body)
+                showUndoPill(for: body)
             },
             onPressToTalkTranscribe: { transcript in
                 if draftText.isEmpty {
@@ -772,15 +838,50 @@ struct TodayView: View {
                 }
             },
             onAddFile: { viewModel.startFilePicker() },
+            batchPhotoProgress: viewModel.batchPhotoProgress,
+            batchPhotoTotal: viewModel.batchPhotoTotal,
             onSubmit: {
                 let body = draftText
                 draftText = ""
                 viewModel.submitCombinedMemo(body: body)
+                showUndoPill(for: body)
             }
         )
     }
 
     // MARK: - Helpers
+
+    // US-009: Show undo pill for 5 seconds after submitting a memo.
+    private func showUndoPill(for text: String) {
+        guard !text.isEmpty else { return }
+        undoTask?.cancel()
+        undoText = text
+        undoTask = Task {
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            guard !Task.isCancelled else { return }
+            undoText = nil
+        }
+    }
+
+    // US-006: Clear draft when it's more than 30 days old.
+    private func clearDraftIfExpired() {
+        guard !draftText.isEmpty, draftDate > 0 else { return }
+        let age = Date().timeIntervalSince1970 - draftDate
+        if age > 30 * 24 * 3600 {
+            draftText = ""
+            draftDate = 0
+        }
+    }
+
+    private func showDraftRestoredBannerIfNeeded() {
+        guard !draftRestoredBannerShown, !draftText.isEmpty else { return }
+        draftRestoredBannerShown = true
+        bannerCenter.show(AppBannerModel(
+            kind: .info,
+            title: "恢复了未发送的草稿",
+            autoDismiss: true
+        ))
+    }
 
     private func updateVoiceQueueBanner(count: Int) {
         if count > 0 {
@@ -1060,9 +1161,10 @@ struct TimelineRow: View {
     let isLast: Bool
     var onDelete: (() -> Void)? = nil
     var onPin: (() -> Void)? = nil
+    var onRetranscribe: ((Memo, Memo.Attachment) -> Void)? = nil
 
     var body: some View {
-        SwipeableMemoCard(memo: memo, onDelete: onDelete, onPin: onPin)
+        SwipeableMemoCard(memo: memo, onDelete: onDelete, onPin: onPin, onRetranscribe: onRetranscribe)
             .frame(maxWidth: .infinity)
     }
 }

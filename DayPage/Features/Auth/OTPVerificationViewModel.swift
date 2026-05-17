@@ -93,7 +93,7 @@ final class OTPVerificationViewModel: ObservableObject {
             try await authService.verifyOTP(email: email, token: code)
             isVerifying = false
             #if canImport(UIKit)
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            HapticFeedback.success()
             #endif
             await animateSuccess()
             onVerified?()
@@ -102,14 +102,14 @@ final class OTPVerificationViewModel: ObservableObject {
             localError = err
             clearCode()
             #if canImport(UIKit)
-            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            HapticFeedback.error()
             #endif
         } catch {
             isVerifying = false
             localError = .unknown(message: "")
             clearCode()
             #if canImport(UIKit)
-            UINotificationFeedbackGenerator().notificationOccurred(.error)
+            HapticFeedback.error()
             #endif
         }
     }

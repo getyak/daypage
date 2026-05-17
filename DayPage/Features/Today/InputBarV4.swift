@@ -52,6 +52,9 @@ struct InputBarV4: View {
     var onAddFile: () -> Void
     var onSubmit: () -> Void
     var onAddPhotoAsset: ((PHAsset) -> Void)? = nil
+    // US-012: batch photo progress bar
+    var batchPhotoProgress: Double = 0
+    var batchPhotoTotal: Int = 0
 
     // MARK: Private State
 
@@ -176,6 +179,19 @@ struct InputBarV4: View {
 
             if !pendingAttachments.isEmpty {
                 attachmentPreviewRow
+            }
+
+            // US-012: batch progress bar when processing >3 photos
+            if isProcessingPhoto && batchPhotoTotal > 3 {
+                VStack(spacing: 4) {
+                    ProgressView(value: batchPhotoProgress)
+                        .tint(DSColor.amberAccent)
+                        .padding(.horizontal, 16)
+                    Text("Processing \(Int(batchPhotoProgress * Double(batchPhotoTotal))) / \(batchPhotoTotal) photos")
+                        .font(DSFonts.inter(size: 11))
+                        .foregroundColor(DSColor.inkMuted)
+                }
+                .padding(.vertical, 4)
             }
 
             if let loc = pendingLocation {

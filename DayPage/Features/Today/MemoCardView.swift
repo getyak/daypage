@@ -19,6 +19,8 @@ struct MemoCardView: View {
 
     let memo: Memo
     var onDelete: (() -> Void)? = nil
+    // US-014: called when user retries transcription for a failed voice attachment
+    var onRetranscribe: ((Memo, Memo.Attachment) -> Void)? = nil
 
     @State private var showLocationSheet: Bool = false
     @State private var thumbnail: UIImage?
@@ -152,7 +154,8 @@ struct MemoCardView: View {
                         VoiceMemoPlayerRow(
                             fileURL: audioURL,
                             duration: att.duration ?? 0,
-                            transcript: att.transcript
+                            transcript: att.transcript,
+                            onRetranscribe: { onRetranscribe?(memo, att) }
                         )
                         .padding(.top, 4)
                     case .downloading, .notDownloaded, .failed:
@@ -509,8 +512,11 @@ struct VoiceMemoPlayerRow: View {
     let fileURL: URL
     let duration: TimeInterval
     let transcript: String?
+    // US-014: called when user taps retry on a failed transcript
+    var onRetranscribe: (() -> Void)? = nil
 
     @State private var isPlaying: Bool = false
+    @State private var isRetranscribing: Bool = false
     @State private var player: AVAudioPlayer?
     @State private var playbackProgress: Double = 0
     @State private var progressTimer: Timer?
@@ -584,15 +590,34 @@ struct VoiceMemoPlayerRow: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.bottom, 4)
-            } else if transcript == nil && VoiceAttachmentQueue.shared.pendingCount > 0 {
-                HStack(spacing: 6) {
-                    ProgressView().scaleEffect(0.7).tint(DSColor.inkSubtle)
-                    Text("Transcribing…")
-                        .font(DSType.bodySM)
-                        .foregroundColor(DSColor.inkSubtle)
+            } else if transcript == nil {
+                if VoiceAttachmentQueue.shared.pendingCount > 0 || isRetranscribing {
+                    HStack(spacing: 6) {
+                        ProgressView().scaleEffect(0.7).tint(DSColor.inkSubtle)
+                        Text("Transcribing…")
+                            .font(DSType.bodySM)
+                            .foregroundColor(DSColor.inkSubtle)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 6)
+                } else {
+                    // US-014: retry button for failed transcription
+                    Button {
+                        isRetranscribing = true
+                        onRetranscribe?()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 12, weight: .semibold))
+                            Text("Retry transcription")
+                                .font(DSType.bodySM)
+                        }
+                        .foregroundColor(DSColor.amberAccent)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 6)
                 }
-                .padding(.horizontal, 14)
-                .padding(.bottom, 6)
             }
         }
         .onDisappear { stopPlayback() }

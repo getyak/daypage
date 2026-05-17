@@ -115,6 +115,10 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     /// Whether AI compilation is in progress.
     @Published var isCompiling: Bool = false
 
+    // US-012: batch photo progress (0...1), only meaningful when isProcessingPhoto + batchTotal > 3
+    @Published var batchPhotoProgress: Double = 0
+    @Published var batchPhotoTotal: Int = 0
+
     /// Whether background (auto/backfill) compilation is in progress.
     @Published var isBackgroundCompiling: Bool = false
 
@@ -530,6 +534,34 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         submitCombinedMemo(body: "")
     }
 
+    // MARK: - Retranscribe (US-014)
+
+    /// Re-runs transcription for a failed voice attachment and updates the memo on disk.
+    func retranscribe(memo: Memo, attachment: Memo.Attachment) {
+        let audioURL = VaultInitializer.vaultURL.appendingPathComponent(attachment.file)
+        Task {
+            guard let transcript = await voiceService.transcribeAudio(at: audioURL),
+                  !transcript.isEmpty else { return }
+            // Update the attachment in memory and persist
+            guard let memoIdx = memos.firstIndex(where: { $0.id == memo.id }) else { return }
+            var updated = memos[memoIdx]
+            var atts = updated.attachments
+            if let attIdx = atts.firstIndex(where: { $0.file == attachment.file }) {
+                atts[attIdx] = Memo.Attachment(
+                    file: attachment.file,
+                    kind: attachment.kind,
+                    duration: attachment.duration,
+                    transcript: transcript
+                )
+            }
+            updated.attachments = atts
+            var newMemos = memos
+            newMemos[memoIdx] = updated
+            try? rewrite(memos: newMemos)
+            withAnimation { memos = newMemos }
+        }
+    }
+
     /// Opens the voice recording sheet.
     func startVoiceRecording() {
         isShowingVoiceRecorder = true
@@ -587,7 +619,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         isProcessingPhoto = true
         cameraPhotoTask = Task {
             defer { isProcessingPhoto = false }
-            guard let result = photoService.processImageData(data) else {
+            guard let result = await photoService.processImageDataAsync(data) else {
                 submitError = "照片处理失败，请重试"
                 return
             }
@@ -601,7 +633,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         isProcessingPhoto = true
         cameraPhotoTask = Task {
             defer { isProcessingPhoto = false }
-            guard let result = photoService.processImageData(data) else {
+            guard let result = await photoService.processImageDataAsync(data) else {
                 submitError = "照片处理失败，请重试"
                 return
             }
@@ -614,13 +646,23 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     func addPhotosAndSubmit(items: [PhotosPickerItem]) {
         guard !items.isEmpty else { return }
         isProcessingPhoto = true
+        // US-012: expose batch progress when > 3 photos
+        batchPhotoTotal = items.count
+        batchPhotoProgress = 0
         submitTask = Task {
-            defer { isProcessingPhoto = false }
+            defer {
+                isProcessingPhoto = false
+                batchPhotoTotal = 0
+                batchPhotoProgress = 0
+            }
             var processed = false
-            for item in items {
+            for (idx, item) in items.enumerated() {
                 guard let result = await photoService.processPickerItem(item) else { continue }
                 pendingAttachments.append(.photo(result))
                 processed = true
+                if batchPhotoTotal > 3 {
+                    batchPhotoProgress = Double(idx + 1) / Double(batchPhotoTotal)
+                }
             }
             if processed {
                 submitCombinedMemo(body: "")
@@ -809,7 +851,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 try await compilationService.compile(for: date, trigger: "manual") { _, _ in }
                 checkDailyPage()
                 await OnThisDayIndex.shared.rebuildIndex()
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                HapticFeedback.success()
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .success,
                     title: "今日 Daily Page 已生成",
@@ -822,7 +864,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                     autoDismiss: true
                 ))
             } catch CompilationError.missingApiKey {
-                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                HapticFeedback.error()
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .error,
                     title: "DeepSeek API Key 未配置",
@@ -831,7 +873,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                     }
                 ))
             } catch CompilationError.apiError(let code, _) where code == 401 {
-                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                HapticFeedback.error()
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .error,
                     title: "API Key 无效或已过期",
@@ -840,14 +882,14 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                     }
                 ))
             } catch CompilationError.parseError {
-                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                HapticFeedback.error()
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .error,
                     title: "AI 返回格式异常",
                     primaryAction: BannerAction(label: "查看日志") { }
                 ))
             } catch {
-                UINotificationFeedbackGenerator().notificationOccurred(.error)
+                HapticFeedback.error()
                 GlassErrorBannerStack.shared.push(
                     GlassErrorBannerItem(
                         icon: Image(systemName: "wifi.slash"),

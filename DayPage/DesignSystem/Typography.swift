@@ -255,6 +255,8 @@ struct BodyMDModifier: ViewModifier {
         content
             .font(DSFonts.inter(size: adjusted, weight: .regular))
             .lineSpacing(4)
+            .dynamicTypeSize(.xSmall ... .xxxLarge)
+            .minimumScaleFactor(0.85)
     }
 }
 
@@ -267,6 +269,8 @@ struct BodySMModifier: ViewModifier {
         content
             .font(DSFonts.inter(size: adjusted, weight: .regular))
             .lineSpacing(3)
+            .dynamicTypeSize(.xSmall ... .xxxLarge)
+            .minimumScaleFactor(0.85)
     }
 }
 

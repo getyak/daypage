@@ -107,6 +107,8 @@ struct DayPageApp: App {
         // accessibility IDs. We translate the strings explicitly here, before
         // RootView.initialPhase() reads them.
         DayPageApp.bridgeLaunchArgumentsToDefaults()
+        // US-006: auto-clear stale draft (>30 days old) before any view reads SceneStorage
+        DraftStorage.clearIfExpired()
 
         // 初始化 Sentry 崩溃报告（DSN 为空时无操作）
         if !Secrets.sentryDSN.isEmpty {
@@ -118,7 +120,7 @@ struct DayPageApp: App {
                 options.attachViewHierarchy = true
             }
         }
-        DSFonts.registerAll()
+        Task.detached(priority: .utility) { DSFonts.registerAll() }
         VaultInitializer.initializeIfNeeded()
         // 在 SwiftUI 渲染之前注册后台任务处理器
         BackgroundCompilationService.shared.registerTask()
@@ -163,6 +165,18 @@ struct DayPageApp: App {
                     if url.host?.lowercased() == "record" {
                         navModel.navigate(to: .today)
                         navModel.pendingRecordingTrigger = UUID()
+                        return
+                    }
+
+                    // daypage://memo/new?text=… — pre-fill Today's draft input.
+                    if url.host?.lowercased() == "memo",
+                       url.pathComponents.dropFirst().first?.lowercased() == "new" {
+                        navModel.navigate(to: .today)
+                        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                           let text = components.queryItems?.first(where: { $0.name == "text" })?.value,
+                           !text.isEmpty {
+                            navModel.pendingDraftText = text
+                        }
                         return
                     }
 

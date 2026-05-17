@@ -51,11 +51,24 @@ final class PhotoService {
         guard let data = try? await item.loadTransferable(type: Data.self) else {
             return nil
         }
-        return processImageData(data)
+        // US-011: Heavy processing off main thread
+        return await processImageDataAsync(data)
     }
 
     /// 处理原始图像 Data（来自 PHPicker 或相机拍摄）。
+    /// Runs CPU-heavy EXIF extraction and thumbnail generation off the main thread.
     func processImageData(_ data: Data) -> PhotoPickerResult? {
+        processImageDataSync(data)
+    }
+
+    /// Async variant — runs entirely on a utility background thread, returns on MainActor.
+    func processImageDataAsync(_ data: Data) async -> PhotoPickerResult? {
+        await Task.detached(priority: .utility) {
+            self.processImageDataSync(data)
+        }.value
+    }
+
+    private func processImageDataSync(_ data: Data) -> PhotoPickerResult? {
         let assetsURL = VaultInitializer.vaultURL
             .appendingPathComponent("raw")
             .appendingPathComponent("assets")

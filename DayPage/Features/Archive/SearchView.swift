@@ -1,24 +1,143 @@
 import SwiftUI
+import Combine
+
+// MARK: - SearchViewModel
+
+@MainActor
+final class SearchViewModel: ObservableObject {
+    @Published var query: String = ""
+    @Published var results: [SearchResult] = []
+    @Published var hasSearched: Bool = false
+
+    // MARK: Recent searches — persisted via UserDefaults
+    private let recentKey = "search.recentQueries"
+    private let maxRecent = 10
+
+    var recentSearches: [String] {
+        get { UserDefaults.standard.stringArray(forKey: recentKey) ?? [] }
+        set {
+            var trimmed = newValue.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            if trimmed.count > maxRecent { trimmed = Array(trimmed.prefix(maxRecent)) }
+            UserDefaults.standard.set(trimmed, forKey: recentKey)
+        }
+    }
+
+    // MARK: Frequent entities — derived from vault memo bodies
+    func topEntities(limit: Int = 5) -> [String] {
+        let rawDir = VaultInitializer.vaultURL.appendingPathComponent("raw")
+        let fm = FileManager.default
+        guard let files = try? fm.contentsOfDirectory(at: rawDir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else { return [] }
+        let mdFiles = files.filter { $0.pathExtension == "md" }
+
+        var freq: [String: Int] = [:]
+        let pattern = try? NSRegularExpression(pattern: #"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]"#)
+        for url in mdFiles {
+            guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            let ns = content as NSString
+            let matches = pattern?.matches(in: content, range: NSRange(location: 0, length: ns.length)) ?? []
+            for match in matches {
+                if let r = Range(match.range(at: 1), in: content) {
+                    let entity = String(content[r]).trimmingCharacters(in: .whitespaces)
+                    if !entity.isEmpty { freq[entity, default: 0] += 1 }
+                }
+            }
+        }
+        return freq.sorted { $0.value > $1.value }.prefix(limit).map { $0.key }
+    }
+
+    // MARK: Save a query to recent history (dedup + prepend)
+    func recordSearch(_ q: String) {
+        let trimmed = q.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        var list = recentSearches.filter { $0 != trimmed }
+        list.insert(trimmed, at: 0)
+        recentSearches = list
+    }
+
+    func removeRecentSearch(_ q: String) {
+        recentSearches = recentSearches.filter { $0 != q }
+        objectWillChange.send()
+    }
+
+    func clearRecentSearches() {
+        recentSearches = []
+        objectWillChange.send()
+    }
+
+    // MARK: Result grouping
+
+    enum Section: Equatable {
+        case today
+        case thisWeek
+        case thisMonth
+        case earlier
+
+        var title: String {
+            switch self {
+            case .today:     return "今天"
+            case .thisWeek:  return "本周"
+            case .thisMonth: return "本月"
+            case .earlier:   return "更早"
+            }
+        }
+    }
+
+    struct GroupedResults {
+        let section: Section
+        let results: [SearchResult]
+    }
+
+    func groupedResults() -> [GroupedResults] {
+        let cal = Calendar.current
+        let now = Date()
+        let todayStart = cal.startOfDay(for: now)
+        let weekStart = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)) ?? todayStart
+        let monthStart = cal.date(from: cal.dateComponents([.year, .month], from: now)) ?? todayStart
+
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+
+        var groups: [Section: [SearchResult]] = [:]
+        for r in results {
+            guard let date = fmt.date(from: r.dateString) else {
+                groups[.earlier, default: []].append(r)
+                continue
+            }
+            let section: Section
+            if date >= todayStart {
+                section = .today
+            } else if date >= weekStart {
+                section = .thisWeek
+            } else if date >= monthStart {
+                section = .thisMonth
+            } else {
+                section = .earlier
+            }
+            groups[section, default: []].append(r)
+        }
+
+        let order: [Section] = [.today, .thisWeek, .thisMonth, .earlier]
+        return order.compactMap { s in
+            guard let items = groups[s], !items.isEmpty else { return nil }
+            return GroupedResults(section: s, results: items)
+        }
+    }
+}
 
 // MARK: - SearchView
 
-/// 从 ``ArchiveView`` 呈现的全屏搜索面板。
-/// 运行内存中的 ``SearchService`` 查询，带 150 毫秒防抖，
-/// 并将选中的日期传回父视图以打开 Daily Page。
 struct SearchView: View {
 
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isInputFocused: Bool
 
-    @State private var keyword: String = ""
-    @State private var results: [SearchResult] = []
-    @State private var hasSearched: Bool = false
-    @State private var searchTask: Task<Void, Never>? = nil
+    @StateObject private var vm = SearchViewModel()
 
     @State private var filters: SearchFilters = SearchFilters.empty
     @State private var showFilters: Bool = false
+    @State private var cancellable: AnyCancellable? = nil
 
-    /// 当用户点击某条命中时，以 "yyyy-MM-dd" 格式调用。
     var onSelect: (String) -> Void
 
     var body: some View {
@@ -48,11 +167,31 @@ struct SearchView: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     isInputFocused = true
                 }
+                setupDebounce()
             }
             .onDisappear {
-                searchTask?.cancel()
+                cancellable?.cancel()
             }
         }
+    }
+
+    // MARK: - Setup Combine debounce
+
+    private func setupDebounce() {
+        cancellable = vm.$query
+            .debounce(for: .milliseconds(200), scheduler: DispatchQueue.main)
+            .sink { [self] q in
+                Task { @MainActor in
+                    runSearch(keyword: q)
+                }
+            }
+    }
+
+    private func runSearch(keyword: String) {
+        let trimmed = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hits = SearchService.search(keyword: trimmed, filters: filters)
+        vm.results = hits
+        vm.hasSearched = !trimmed.isEmpty || filters.isActive
     }
 
     // MARK: - Search Bar
@@ -64,20 +203,22 @@ struct SearchView: View {
                     .font(.system(size: 14, weight: .regular))
                     .foregroundColor(DSColor.onSurfaceVariant)
 
-                TextField("搜索 memo、地点或日期", text: $keyword)
+                TextField("搜索 memo、地点或日期", text: $vm.query)
                     .font(.custom("Inter-Regular", size: 14))
                     .foregroundColor(DSColor.onSurface)
                     .textInputAutocapitalization(.never)
                     .disableAutocorrection(true)
                     .focused($isInputFocused)
                     .submitLabel(.search)
-                    .onChange(of: keyword) { _ in scheduleSearch() }
+                    .onSubmit {
+                        vm.recordSearch(vm.query)
+                    }
 
-                if !keyword.isEmpty {
+                if !vm.query.isEmpty {
                     Button(action: {
-                        keyword = ""
-                        results = []
-                        hasSearched = false
+                        vm.query = ""
+                        vm.results = []
+                        vm.hasSearched = false
                         isInputFocused = true
                     }) {
                         Image(systemName: "xmark.circle.fill")
@@ -92,7 +233,6 @@ struct SearchView: View {
             .background(DSColor.surfaceContainer)
             .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
 
-            // Filter toggle button
             Button(action: {
                 isInputFocused = false
                 showFilters.toggle()
@@ -116,7 +256,6 @@ struct SearchView: View {
 
     private var filterPanel: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Date range row
             HStack(spacing: 8) {
                 Image(systemName: "calendar")
                     .font(.system(size: 12))
@@ -161,7 +300,7 @@ struct SearchView: View {
                     Button(action: {
                         filters.startDate = nil
                         filters.endDate = nil
-                        scheduleSearch()
+                        runSearch(keyword: vm.query)
                     }) {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 12))
@@ -171,7 +310,6 @@ struct SearchView: View {
                 }
             }
 
-            // Type multi-select row
             HStack(spacing: 8) {
                 Image(systemName: "tag")
                     .font(.system(size: 12))
@@ -192,7 +330,6 @@ struct SearchView: View {
                 }
             }
 
-            // Location filter row
             HStack(spacing: 8) {
                 Image(systemName: "mappin")
                     .font(.system(size: 12))
@@ -210,12 +347,12 @@ struct SearchView: View {
                         .foregroundColor(DSColor.onSurface)
                         .textInputAutocapitalization(.never)
                         .disableAutocorrection(true)
-                        .onChange(of: filters.locationQuery) { _ in scheduleSearch() }
+                        .onChange(of: filters.locationQuery) { _ in runSearch(keyword: vm.query) }
 
                     if !filters.locationQuery.isEmpty {
                         Button(action: {
                             filters.locationQuery = ""
-                            scheduleSearch()
+                            runSearch(keyword: vm.query)
                         }) {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.system(size: 12))
@@ -230,13 +367,12 @@ struct SearchView: View {
                 .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
             }
 
-            // Clear all filters
             if filters.isActive {
                 HStack {
                     Spacer()
                     Button(action: {
                         filters = .empty
-                        scheduleSearch()
+                        runSearch(keyword: vm.query)
                     }) {
                         Text("清除全部筛选")
                             .monoLabelStyle(size: 10)
@@ -259,7 +395,7 @@ struct SearchView: View {
             } else {
                 filters.types.insert(type)
             }
-            scheduleSearch()
+            runSearch(keyword: vm.query)
         }) {
             HStack(spacing: 4) {
                 Image(systemName: type.iconName)
@@ -283,53 +419,148 @@ struct SearchView: View {
 
     @ViewBuilder
     private var contentArea: some View {
-        if !hasSearched {
-            idleState
-        } else if results.isEmpty {
-            emptyState
+        if !vm.hasSearched {
+            emptyQueryState
+        } else if vm.results.isEmpty {
+            emptyResultState
         } else {
-            resultList
+            groupedResultList
         }
     }
 
-    private var idleState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 32, weight: .regular))
-                .foregroundColor(DSColor.outlineVariant)
-            Text("输入关键词检索所有归档内容")
-                .bodySMStyle()
-                .foregroundColor(DSColor.onSurfaceVariant)
-            Text("支持 memo 正文、位置名、日期")
+    // MARK: - Empty-query state (recent searches + frequent entities)
+
+    private var emptyQueryState: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                let recent = vm.recentSearches
+                let entities = vm.topEntities(limit: 5)
+
+                if !recent.isEmpty {
+                    sectionHeader(title: "最近搜索", trailing: AnyView(
+                        Button(action: { vm.clearRecentSearches() }) {
+                            Text("清除")
+                                .monoLabelStyle(size: 10)
+                                .foregroundColor(DSColor.primary)
+                        }
+                        .buttonStyle(.plain)
+                    ))
+
+                    ForEach(recent, id: \.self) { q in
+                        recentSearchRow(q)
+                    }
+                }
+
+                if !entities.isEmpty {
+                    sectionHeader(title: "高频实体", trailing: AnyView(EmptyView()))
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(entities, id: \.self) { entity in
+                                entityChip(entity)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                    }
+                }
+
+                if recent.isEmpty && entities.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 32, weight: .regular))
+                            .foregroundColor(DSColor.outlineVariant)
+                        Text("输入关键词检索所有归档内容")
+                            .bodySMStyle()
+                            .foregroundColor(DSColor.onSurfaceVariant)
+                        Text("支持 memo 正文、位置名、日期")
+                            .monoLabelStyle(size: 10)
+                            .foregroundColor(DSColor.outline)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 80)
+                }
+            }
+            .padding(.bottom, 24)
+        }
+    }
+
+    private func sectionHeader(title: String, trailing: AnyView) -> some View {
+        HStack {
+            Text(title)
                 .monoLabelStyle(size: 10)
+                .foregroundColor(DSColor.onSurfaceVariant)
+            Spacer()
+            trailing
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
+        .padding(.bottom, 4)
+    }
+
+    private func recentSearchRow(_ q: String) -> some View {
+        HStack {
+            Image(systemName: "clock")
+                .font(.system(size: 12))
                 .foregroundColor(DSColor.outline)
 
-            if filters.isActive {
-                Text("已启用筛选条件，点击搜索框输入关键词")
-                    .monoLabelStyle(size: 10)
-                    .foregroundColor(DSColor.primary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
-                    .padding(.top, 4)
+            Button(action: {
+                vm.query = q
+                runSearch(keyword: q)
+            }) {
+                Text(q)
+                    .font(.custom("Inter-Regular", size: 14))
+                    .foregroundColor(DSColor.onSurface)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .buttonStyle(.plain)
+
+            Button(action: { vm.removeRecentSearch(q) }) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11))
+                    .foregroundColor(DSColor.outline)
+            }
+            .buttonStyle(.plain)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.top, 80)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+        .background(DSColor.background)
+        Divider()
+            .padding(.leading, 52)
+            .background(DSColor.outlineVariant.opacity(0.5))
     }
 
-    private var emptyState: some View {
+    private func entityChip(_ entity: String) -> some View {
+        Button(action: {
+            vm.query = entity
+            runSearch(keyword: entity)
+        }) {
+            Text(entity)
+                .font(.custom("Inter-Regular", size: 13))
+                .foregroundColor(DSColor.onSurface)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(DSColor.surfaceContainer)
+                .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Empty result state
+
+    private var emptyResultState: some View {
         VStack(spacing: 12) {
             Image(systemName: "tray")
                 .font(.system(size: 32, weight: .regular))
                 .foregroundColor(DSColor.outlineVariant)
-            if keyword.isEmpty && filters.isActive {
+            if vm.query.isEmpty && filters.isActive {
                 Text("当前筛选条件下无匹配结果")
                     .bodySMStyle()
                     .foregroundColor(DSColor.onSurfaceVariant)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
             } else {
-                Text("未找到「\(keyword)」的匹配结果")
+                Text("未找到「\(vm.query)」的匹配结果")
                     .bodySMStyle()
                     .foregroundColor(DSColor.onSurfaceVariant)
                     .multilineTextAlignment(.center)
@@ -340,11 +571,17 @@ struct SearchView: View {
         .padding(.top, 80)
     }
 
-    private var resultList: some View {
+    // MARK: - Grouped result list
+
+    private var groupedResultList: some View {
         ScrollView {
-            LazyVStack(spacing: 8) {
+            LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                let groups = vm.groupedResults()
+                let total = vm.results.count
+
+                // Total count header
                 HStack {
-                    Text("\(results.count) 条结果")
+                    Text("\(total) 条结果")
                         .monoLabelStyle(size: 10)
                         .foregroundColor(DSColor.onSurfaceVariant)
                     Spacer()
@@ -356,10 +593,28 @@ struct SearchView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
+                .padding(.bottom, 8)
 
-                ForEach(results) { result in
-                    resultRow(result)
+                ForEach(groups, id: \.section) { group in
+                    Section {
+                        ForEach(group.results) { result in
+                            resultRow(result)
+                                .padding(.horizontal, 20)
+                                .padding(.bottom, 8)
+                        }
+                    } header: {
+                        HStack {
+                            Text(group.section.title)
+                                .monoLabelStyle(size: 10)
+                                .foregroundColor(DSColor.onSurfaceVariant)
+                            Rectangle()
+                                .fill(DSColor.outlineVariant)
+                                .frame(height: 1)
+                        }
                         .padding(.horizontal, 20)
+                        .padding(.vertical, 8)
+                        .background(DSColor.background)
+                    }
                 }
             }
             .padding(.bottom, 24)
@@ -367,7 +622,10 @@ struct SearchView: View {
     }
 
     private func resultRow(_ result: SearchResult) -> some View {
-        Button(action: { onSelect(result.dateString) }) {
+        Button(action: {
+            vm.recordSearch(vm.query)
+            onSelect(result.dateString)
+        }) {
             HStack(spacing: 0) {
                 Rectangle()
                     .fill(DSColor.primary)
@@ -385,11 +643,9 @@ struct SearchView: View {
                         )
                     }
 
-                    Text(result.snippet)
-                        .bodySMStyle()
-                        .foregroundColor(DSColor.onSurface)
+                    highlightedSnippet(result.snippet, keyword: vm.query)
                         .lineLimit(2)
-                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
                     HStack(spacing: 6) {
                         Image(systemName: matchIcon(for: result.matchKind))
@@ -413,28 +669,50 @@ struct SearchView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(DSColor.surfaceContainer)
             }
-            .cornerRadius(0)
         }
         .buttonStyle(.plain)
     }
 
-    // MARK: - Search execution
+    // MARK: - Keyword highlight via AttributedString
 
-    private func scheduleSearch() {
-        searchTask?.cancel()
-        let currentKeyword = keyword
-        let currentFilters = filters
-        searchTask = Task {
-            try? await Task.sleep(nanoseconds: 150_000_000)
-            if Task.isCancelled { return }
-            let hits = SearchService.search(keyword: currentKeyword, filters: currentFilters)
-            if Task.isCancelled { return }
-            await MainActor.run {
-                self.results = hits
-                let active = !currentKeyword.trimmingCharacters(in: .whitespaces).isEmpty || currentFilters.isActive
-                self.hasSearched = active
-            }
+    @ViewBuilder
+    private func highlightedSnippet(_ snippet: String, keyword: String) -> some View {
+        let trimmed = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            Text(snippet)
+                .bodySMStyle()
+                .foregroundColor(DSColor.onSurface)
+        } else {
+            Text(buildHighlightedString(snippet, keyword: trimmed))
+                .bodySMStyle()
         }
+    }
+
+    private func buildHighlightedString(_ text: String, keyword: String) -> AttributedString {
+        var attributed = AttributedString(text)
+        attributed.foregroundColor = UIColor(DSColor.onSurface)
+
+        let loweredText = text.lowercased()
+        let loweredKeyword = keyword.lowercased()
+
+        var searchStart = loweredText.startIndex
+        while searchStart < loweredText.endIndex,
+              let range = loweredText.range(of: loweredKeyword, range: searchStart..<loweredText.endIndex) {
+            // Map the range from lowercased string to the original text
+            let offset = loweredText.distance(from: loweredText.startIndex, to: range.lowerBound)
+            let length = loweredText.distance(from: range.lowerBound, to: range.upperBound)
+
+            let attrStart = attributed.index(attributed.startIndex, offsetByCharacters: offset)
+            let attrEnd = attributed.index(attrStart, offsetByCharacters: length)
+            let attrRange = attrStart..<attrEnd
+
+            attributed[attrRange].backgroundColor = UIColor.systemYellow
+            attributed[attrRange].foregroundColor = UIColor.black
+
+            searchStart = range.upperBound
+        }
+
+        return attributed
     }
 
     // MARK: - Formatting helpers
@@ -465,6 +743,12 @@ struct SearchView: View {
         case .date:     return "DATE"
         }
     }
+}
+
+// MARK: - SearchViewModel.GroupedResults: Identifiable
+
+extension SearchViewModel.GroupedResults: Identifiable {
+    var id: SearchViewModel.Section { section }
 }
 
 // MARK: - Memo.MemoType + UI helpers

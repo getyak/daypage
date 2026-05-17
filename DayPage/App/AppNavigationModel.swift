@@ -31,6 +31,10 @@ final class AppNavigationModel: ObservableObject {
     /// bool so repeated triggers from the same widget tap re-fire.
     @Published var pendingRecordingTrigger: UUID? = nil
 
+    /// Pre-filled draft text delivered via `daypage://memo/new?text=…`.
+    /// TodayView consumes this once and resets it to nil.
+    @Published var pendingDraftText: String? = nil
+
     init() {}
 
     func openSidebar() {
