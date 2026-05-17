@@ -1,5 +1,6 @@
 import Foundation
 import Sentry
+import WidgetKit
 
 // MARK: - RawStorage
 
@@ -69,6 +70,8 @@ enum RawStorage {
             crumb.message = "append memo \(memo.id) to \(url.lastPathComponent)"
             crumb.level = .info
             SentrySDK.addBreadcrumb(crumb)
+
+            WidgetCenter.shared.reloadAllTimelines()
         }
     }
 
