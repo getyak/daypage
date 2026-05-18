@@ -838,14 +838,14 @@ struct TodayView: View {
                 }
             },
             onAddFile: { viewModel.startFilePicker() },
-            batchPhotoProgress: viewModel.batchPhotoProgress,
-            batchPhotoTotal: viewModel.batchPhotoTotal,
             onSubmit: {
                 let body = draftText
                 draftText = ""
                 viewModel.submitCombinedMemo(body: body)
                 showUndoPill(for: body)
-            }
+            },
+            batchPhotoProgress: viewModel.batchPhotoProgress,
+            batchPhotoTotal: viewModel.batchPhotoTotal
         )
     }
 

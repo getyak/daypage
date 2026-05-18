@@ -7,11 +7,21 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		09C6E4728050D69F54949DD1 /* HapticFeedbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84FFEA3DDB8DCB528A4189BF /* HapticFeedbackTests.swift */; };
 		14188AFE740A834ADF7A41F4 /* DayPageWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		1530E7C28C23499CFC14C498 /* HapticFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB12D96218034D3E4555B8AA /* HapticFeedback.swift */; };
+		1719257FE85120ED06CAB183 /* HeroBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF29E708CBF93A6DD500484C /* HeroBannerView.swift */; };
+		17B5829B738952DA183B1B90 /* DailyPageMetadataEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CF7E0148C3A6933A903247D /* DailyPageMetadataEditView.swift */; };
 		326A14114B34412568007B4A /* DayPageWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FB6C74A43193A3DD725723 /* DayPageWidgetBundle.swift */; };
 		347B8BDADCBDDB2EDE830E66 /* WatchTransferService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */; };
+		3C0AE791CCB255E33198C9F9 /* UndoPillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12641793A8F375B34321E87A /* UndoPillView.swift */; };
 		457A17AB7F3B4BE7C2E77026 /* StartRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF24DE1810B0DA979103772 /* StartRecordingIntent.swift */; };
 		485EFA11789212D87CB1B74B /* StartRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF24DE1810B0DA979103772 /* StartRecordingIntent.swift */; };
+		4A862A4AB3CC3961B771EBC5 /* InputBarTutorialOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 912420086719F3FFFB45FE7A /* InputBarTutorialOverlay.swift */; };
+		60D39385300C46D08D8BF03C /* DraftStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC21412D29A6FB268CE43C58 /* DraftStorage.swift */; };
+		6CE74562753F924A0718DC46 /* DailyPageHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57C69070389BADB6984C1A1A /* DailyPageHeader.swift */; };
+		73BECCAED0BDBEFB612B15E4 /* DailyPageParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 371058C9DAB9A11AE7EAC835 /* DailyPageParser.swift */; };
+		7BB7402C51CCBACF56E7F83A /* DailyPageModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08FF205E680406EC7E4B83DB /* DailyPageModel.swift */; };
 		8C3DEB068D610AAB589EA680 /* TimeZonePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73FCD3E2EC4D7257BA7A22BD /* TimeZonePickerView.swift */; };
 		9034B2964DD6432BD7FA7250 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C98B5757B488F583231EC8F6 /* RootView.swift */; };
 		97FA675FF46459D5CE5E8CF3 /* QuickCaptureControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 519B9B12CB68C0E6E2A06292 /* QuickCaptureControl.swift */; };
@@ -128,6 +138,7 @@
 		ES0000002 /* GlassErrorBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000002 /* GlassErrorBanner.swift */; };
 		ES0000003 /* GlassTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000003 /* GlassTabBar.swift */; };
 		F617270BFC704FF5BBB99FD3 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 068FB068A000B6E61B1D8032 /* AppSettings.swift */; };
+		F9DD1FD8D9003975FAD95E17 /* DailyPageSummarySection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4EBD94EB4FD71CC10D478F3 /* DailyPageSummarySection.swift */; };
 		FB0000001 /* FeedbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000001 /* FeedbackService.swift */; };
 		FB0000002 /* FeedbackViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000002 /* FeedbackViewModel.swift */; };
 		FB0000003 /* FeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000003 /* FeedbackView.swift */; };
@@ -192,14 +203,21 @@
 /* Begin PBXFileReference section */
 		068FB068A000B6E61B1D8032 /* AppSettings.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		0881AB423FF6F12FCDE27C5B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		08FF205E680406EC7E4B83DB /* DailyPageModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DailyPageModel.swift; sourceTree = "<group>"; };
+		0CF7E0148C3A6933A903247D /* DailyPageMetadataEditView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DailyPageMetadataEditView.swift; sourceTree = "<group>"; };
+		12641793A8F375B34321E87A /* UndoPillView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UndoPillView.swift; sourceTree = "<group>"; };
 		23EA9C83B41565EDB263FB35 /* DayPageWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPageWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2748059CC689A341C7CAAACC /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		2EF24DE1810B0DA979103772 /* StartRecordingIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StartRecordingIntent.swift; sourceTree = "<group>"; };
+		371058C9DAB9A11AE7EAC835 /* DailyPageParser.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DailyPageParser.swift; sourceTree = "<group>"; };
 		519B9B12CB68C0E6E2A06292 /* QuickCaptureControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuickCaptureControl.swift; sourceTree = "<group>"; };
+		57C69070389BADB6984C1A1A /* DailyPageHeader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DailyPageHeader.swift; sourceTree = "<group>"; };
 		5FD3383348F15CB7B4E82E53 /* DayPageShortcuts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DayPageShortcuts.swift; sourceTree = "<group>"; };
 		71FB6C74A43193A3DD725723 /* DayPageWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DayPageWidgetBundle.swift; sourceTree = "<group>"; };
 		73FCD3E2EC4D7257BA7A22BD /* TimeZonePickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimeZonePickerView.swift; sourceTree = "<group>"; };
 		7909ED56F96754E4C4FA21CC /* QuickCaptureWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuickCaptureWidget.swift; sourceTree = "<group>"; };
+		84FFEA3DDB8DCB528A4189BF /* HapticFeedbackTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticFeedbackTests.swift; sourceTree = "<group>"; };
+		912420086719F3FFFB45FE7A /* InputBarTutorialOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InputBarTutorialOverlay.swift; sourceTree = "<group>"; };
 		A20000001 /* DayPageApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPageApp.swift; sourceTree = "<group>"; };
 		A20000002 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		A20000003 /* VaultInitializer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultInitializer.swift; sourceTree = "<group>"; };
@@ -289,6 +307,7 @@
 		A20000301 /* TimelineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineService.swift; sourceTree = "<group>"; };
 		A20000302 /* TimelineSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineSectionView.swift; sourceTree = "<group>"; };
 		A30000001 /* DayPage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPage.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A4EBD94EB4FD71CC10D478F3 /* DailyPageSummarySection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DailyPageSummarySection.swift; sourceTree = "<group>"; };
 		AF1000001 /* SpaceGrotesk-Light.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Light.ttf"; sourceTree = "<group>"; };
 		AF1000002 /* SpaceGrotesk-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Regular.ttf"; sourceTree = "<group>"; };
 		AF1000003 /* SpaceGrotesk-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Medium.ttf"; sourceTree = "<group>"; };
@@ -304,11 +323,14 @@
 		B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DayPageWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B93ED807E07C2171E9F4234B /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
 		BAC7527E8128E6A865349FB9 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		BB12D96218034D3E4555B8AA /* HapticFeedback.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticFeedback.swift; sourceTree = "<group>"; };
 		C98B5757B488F583231EC8F6 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		CJ1000001 /* CJKTextPolish.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CJKTextPolish.swift; sourceTree = "<group>"; };
+		DC21412D29A6FB268CE43C58 /* DraftStorage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DraftStorage.swift; sourceTree = "<group>"; };
 		DS1000001 /* Motion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Motion.swift; sourceTree = "<group>"; };
 		DS1000002 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		E54B333332A1175CD3B31883 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		EF29E708CBF93A6DD500484C /* HeroBannerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HeroBannerView.swift; sourceTree = "<group>"; };
 		ES1000001 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		ES1000002 /* GlassErrorBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassErrorBanner.swift; sourceTree = "<group>"; };
 		ES1000003 /* GlassTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassTabBar.swift; sourceTree = "<group>"; };
@@ -541,6 +563,7 @@
 				A20000083 /* WeeklyRecapService.swift */,
 				A20000301 /* TimelineService.swift */,
 				A20000095 /* ComposerContextProvider.swift */,
+				BB12D96218034D3E4555B8AA /* HapticFeedback.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -600,6 +623,9 @@
 				A20000202 /* SmartTemplateRow.swift */,
 				A20000203 /* InlineLensStrip.swift */,
 				FT1000001 /* DayOrbView.swift */,
+				DC21412D29A6FB268CE43C58 /* DraftStorage.swift */,
+				912420086719F3FFFB45FE7A /* InputBarTutorialOverlay.swift */,
+				12641793A8F375B34321E87A /* UndoPillView.swift */,
 			);
 			path = Today;
 			sourceTree = "<group>";
@@ -611,6 +637,12 @@
 				TH1000001 /* ThreadConversationViewModel.swift */,
 				TH1000002 /* ThreadConversationView.swift */,
 				TH1000003 /* InlineMicButton.swift */,
+				57C69070389BADB6984C1A1A /* DailyPageHeader.swift */,
+				0CF7E0148C3A6933A903247D /* DailyPageMetadataEditView.swift */,
+				08FF205E680406EC7E4B83DB /* DailyPageModel.swift */,
+				371058C9DAB9A11AE7EAC835 /* DailyPageParser.swift */,
+				A4EBD94EB4FD71CC10D478F3 /* DailyPageSummarySection.swift */,
+				EF29E708CBF93A6DD500484C /* HeroBannerView.swift */,
 			);
 			path = Daily;
 			sourceTree = "<group>";
@@ -804,6 +836,7 @@
 				T20000004 /* VaultLocatorTests.swift */,
 				T20000005 /* RawStorageTests.swift */,
 				T20000006 /* ComposerContextProviderTests.swift */,
+				84FFEA3DDB8DCB528A4189BF /* HapticFeedbackTests.swift */,
 			);
 			path = DayPageTests;
 			sourceTree = "<group>";
@@ -1127,6 +1160,16 @@
 				A10000095 /* ComposerContextProvider.swift in Sources */,
 				457A17AB7F3B4BE7C2E77026 /* StartRecordingIntent.swift in Sources */,
 				9D559EA9D4B9F2C77D942935 /* DayPageShortcuts.swift in Sources */,
+				6CE74562753F924A0718DC46 /* DailyPageHeader.swift in Sources */,
+				17B5829B738952DA183B1B90 /* DailyPageMetadataEditView.swift in Sources */,
+				7BB7402C51CCBACF56E7F83A /* DailyPageModel.swift in Sources */,
+				73BECCAED0BDBEFB612B15E4 /* DailyPageParser.swift in Sources */,
+				F9DD1FD8D9003975FAD95E17 /* DailyPageSummarySection.swift in Sources */,
+				1719257FE85120ED06CAB183 /* HeroBannerView.swift in Sources */,
+				60D39385300C46D08D8BF03C /* DraftStorage.swift in Sources */,
+				4A862A4AB3CC3961B771EBC5 /* InputBarTutorialOverlay.swift in Sources */,
+				3C0AE791CCB255E33198C9F9 /* UndoPillView.swift in Sources */,
+				1530E7C28C23499CFC14C498 /* HapticFeedback.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1140,6 +1183,7 @@
 				T10000004 /* VaultLocatorTests.swift in Sources */,
 				T10000005 /* RawStorageTests.swift in Sources */,
 				T10000006 /* ComposerContextProviderTests.swift in Sources */,
+				09C6E4728050D69F54949DD1 /* HapticFeedbackTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
