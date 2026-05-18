@@ -92,7 +92,7 @@ platform :ios do
 
     match(
       type:              "appstore",
-      readonly:          true,
+      readonly:          false,
       git_url:           ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
       app_identifier:    "com.daypage.app.DayPageWidget",
       keychain_name:     "ci_keychain",
@@ -173,7 +173,7 @@ platform :ios do
 
     match(
       type:              "appstore",
-      readonly:          true,
+      readonly:          false,
       git_url:           ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
       app_identifier:    "com.daypage.app.DayPageWidget",
       keychain_name:     "ci_keychain",
