@@ -498,6 +498,7 @@ struct SearchView: View {
         .padding(.bottom, 4)
     }
 
+    @ViewBuilder
     private func recentSearchRow(_ q: String) -> some View {
         HStack {
             Image(systemName: "clock")

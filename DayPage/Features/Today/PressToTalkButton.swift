@@ -139,7 +139,7 @@ struct PressToTalkButton: View {
                 if currentPhase == .preRecording,
                    let start = pressStartTime,
                    Date().timeIntervalSince(start) >= longPressThreshold {
-                    emitHaptic(.heavy)
+                    emitHaptic(HapticFeedback.heavy)
                     stopRingPulse()
                     onPressStart()
                     currentPhase = .recording
@@ -247,8 +247,10 @@ struct PressToTalkButton: View {
         return .recording
     }
 
-    private func emitHaptic(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
-        HapticFeedback.impact(style: style)
+    /// V6 InputTokens express haptic intent as `() -> Void` closures that
+    /// already bind to the right HapticFeedback.* call, so we just invoke.
+    private func emitHaptic(_ haptic: () -> Void) {
+        haptic()
     }
 
     // MARK: - Visual Style

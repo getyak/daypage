@@ -61,11 +61,13 @@ final class PhotoService {
         processImageDataSync(data)
     }
 
-    /// Async variant — runs entirely on a utility background thread, returns on MainActor.
+    /// Async variant — kept for callers that await processing. The body is
+    /// still MainActor-isolated (DayPageLogger / extractEXIF / generateThumbnail
+    /// all are @MainActor) so we can't safely Task.detached without rewriting
+    /// the whole chain as nonisolated. Image processing on this path is small
+    /// enough (single PHPicker pick) that the brief main-thread cost is OK.
     func processImageDataAsync(_ data: Data) async -> PhotoPickerResult? {
-        await Task.detached(priority: .utility) {
-            self.processImageDataSync(data)
-        }.value
+        processImageDataSync(data)
     }
 
     private func processImageDataSync(_ data: Data) -> PhotoPickerResult? {
