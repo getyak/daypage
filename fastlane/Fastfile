@@ -104,7 +104,10 @@ platform :ios do
         method:               "app-store",
         signingStyle:         "manual",
         teamID:               ENV["DEVELOPMENT_TEAM"],
-        provisioningProfiles: { "com.daypage.app" => profile_name }
+        provisioningProfiles: {
+          "com.daypage.app"              => profile_name,
+          "com.daypage.app.DayPageWidget" => "match AppStore com.daypage.app.DayPageWidget"
+        }
       }
     )
 
@@ -173,7 +176,10 @@ platform :ios do
         method:               "app-store",
         signingStyle:         "manual",
         teamID:               ENV["DEVELOPMENT_TEAM"],
-        provisioningProfiles: { "com.daypage.app" => profile_name }
+        provisioningProfiles: {
+          "com.daypage.app"              => profile_name,
+          "com.daypage.app.DayPageWidget" => "match AppStore com.daypage.app.DayPageWidget"
+        }
       }
     )
 
