@@ -90,6 +90,15 @@ platform :ios do
       keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
     )
 
+    match(
+      type:              "appstore",
+      readonly:          true,
+      git_url:           ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
+      app_identifier:    "com.daypage.app.DayPageWidget",
+      keychain_name:     "ci_keychain",
+      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
+    )
+
     profile_name = ENV["sigh_com.daypage.app_appstore_profile-name"] || "match AppStore com.daypage.app"
     build_app(
       scheme:           "DayPage",
@@ -99,6 +108,7 @@ platform :ios do
       clean:            false,
       output_directory: "build",
       output_name:      "DayPage.ipa",
+      xcargs:           "PROVISIONING_PROFILE_SPECIFIER='#{profile_name}'",
       export_options:   {
         method:               "app-store",
         signingStyle:         "manual",
@@ -161,6 +171,15 @@ platform :ios do
       keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
     )
 
+    match(
+      type:              "appstore",
+      readonly:          true,
+      git_url:           ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
+      app_identifier:    "com.daypage.app.DayPageWidget",
+      keychain_name:     "ci_keychain",
+      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
+    )
+
     profile_name = ENV["sigh_com.daypage.app_appstore_profile-name"] || "match AppStore com.daypage.app"
     build_app(
       scheme:           "DayPage",
@@ -170,6 +189,7 @@ platform :ios do
       clean:            false,
       output_directory: "build",
       output_name:      "DayPage.ipa",
+      xcargs:           "PROVISIONING_PROFILE_SPECIFIER='#{profile_name}'",
       export_options:   {
         method:               "app-store",
         signingStyle:         "manual",
