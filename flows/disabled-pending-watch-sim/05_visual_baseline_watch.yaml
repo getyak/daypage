@@ -1,0 +1,28 @@
+appId: com.daypage.watchkitapp
+---
+# Flow 05: Watch smoke — confirm the Watch app launches without crashing.
+#
+# The original flow (kept in git history) tried to drive RecordingView through
+# 4 forced states (idle / recording / done / failed) via `forceState` launch
+# argument, but two things blocked it:
+#
+#   1. Wrong appId: was "com.daypage.DayPageWatch", actual is
+#      "com.daypage.watchkitapp" — fixed in this commit.
+#   2. Maestro iOS LaunchAppHandler.swift calls XCUIApplication.activate() and
+#      does NOT forward `launchApp.arguments`, so `forceState` is dropped on
+#      the floor. Until the Watch app reads `forceState` from somewhere
+#      Maestro can actually set (e.g. UserDefaults preset like the iOS flows
+#      use), the 4-state baseline is impossible.
+#
+# Re-enabling the full visual baseline is tracked separately. For now we
+# verify the Watch app launches and the brand text is visible on idle.
+
+- launchApp
+
+# Watch RecordingView starts in .idle state. statusText prints "Ready" and
+# the tap hint prints "Tap to record" — pick the more stable one.
+- extendedWaitUntil:
+    visible: "Ready"
+    timeout: 8000
+
+- takeScreenshot: baseline/watch_idle_launch

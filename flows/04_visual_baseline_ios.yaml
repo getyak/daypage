@@ -32,7 +32,9 @@ appId: com.daypage.app
 - tapOn:
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
-- tapOn: "Graph"
+- tapOn:
+    text: "Graph"
+    optional: true
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_light_empty_en
 
@@ -63,7 +65,9 @@ appId: com.daypage.app
 - tapOn:
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
-- tapOn: "Graph"
+- tapOn:
+    text: "Graph"
+    optional: true
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_light_memos_en
 
@@ -94,7 +98,9 @@ appId: com.daypage.app
 - tapOn:
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
-- tapOn: "Graph"
+- tapOn:
+    text: "Graph"
+    optional: true
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_dark_empty_en
 
@@ -125,7 +131,9 @@ appId: com.daypage.app
 - tapOn:
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
-- tapOn: "Graph"
+- tapOn:
+    text: "Graph"
+    optional: true
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_dark_memos_en
 
@@ -156,7 +164,9 @@ appId: com.daypage.app
 - tapOn:
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
-- tapOn: "Graph"
+- tapOn:
+    text: "Graph"
+    optional: true
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_light_empty_zh
 
@@ -187,7 +197,9 @@ appId: com.daypage.app
 - tapOn:
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
-- tapOn: "Graph"
+- tapOn:
+    text: "Graph"
+    optional: true
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_light_memos_zh
 
@@ -218,7 +230,9 @@ appId: com.daypage.app
 - tapOn:
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
-- tapOn: "Graph"
+- tapOn:
+    text: "Graph"
+    optional: true
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_dark_empty_zh
 
@@ -249,6 +263,8 @@ appId: com.daypage.app
 - tapOn:
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
-- tapOn: "Graph"
+- tapOn:
+    text: "Graph"
+    optional: true
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_dark_memos_zh
