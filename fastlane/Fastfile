@@ -99,7 +99,6 @@ platform :ios do
       clean:            false,
       output_directory: "build",
       output_name:      "DayPage.ipa",
-      xcargs:           "PROVISIONING_PROFILE_SPECIFIER='#{profile_name}'",
       export_options:   {
         method:               "app-store",
         signingStyle:         "manual",
@@ -171,7 +170,6 @@ platform :ios do
       clean:            false,
       output_directory: "build",
       output_name:      "DayPage.ipa",
-      xcargs:           "PROVISIONING_PROFILE_SPECIFIER='#{profile_name}'",
       export_options:   {
         method:               "app-store",
         signingStyle:         "manual",
