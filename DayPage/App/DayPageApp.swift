@@ -107,6 +107,8 @@ struct DayPageApp: App {
         // accessibility IDs. We translate the strings explicitly here, before
         // RootView.initialPhase() reads them.
         DayPageApp.bridgeLaunchArgumentsToDefaults()
+        // US-002: silently migrate any API keys stored in UserDefaults to Keychain
+        KeychainHelper.migrateAPIKeysFromUserDefaultsIfNeeded()
         // US-006: auto-clear stale draft (>30 days old) before any view reads SceneStorage
         DraftStorage.clearIfExpired()
 
@@ -121,6 +123,7 @@ struct DayPageApp: App {
             }
         }
         Task.detached(priority: .utility) { DSFonts.registerAll() }
+        Task.detached(priority: .background) { RawStorage.pruneTrashOlderThan(days: 7) }
         VaultInitializer.initializeIfNeeded()
         // 在 SwiftUI 渲染之前注册后台任务处理器
         BackgroundCompilationService.shared.registerTask()

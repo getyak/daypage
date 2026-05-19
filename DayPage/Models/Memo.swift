@@ -39,6 +39,8 @@ struct Memo: Identifiable, Equatable {
     var weather: String?
     var device: String?
     var attachments: [Attachment]
+    var mood: String?
+    var entityMentions: [String]
     var body: String
 
     // MARK: Init
@@ -52,6 +54,8 @@ struct Memo: Identifiable, Equatable {
         weather: String? = nil,
         device: String? = nil,
         attachments: [Attachment] = [],
+        mood: String? = nil,
+        entityMentions: [String] = [],
         body: String = ""
     ) {
         self.id = id
@@ -62,6 +66,8 @@ struct Memo: Identifiable, Equatable {
         self.weather = weather
         self.device = device
         self.attachments = attachments
+        self.mood = mood
+        self.entityMentions = entityMentions
         self.body = body
     }
 }
@@ -104,6 +110,19 @@ extension Memo {
 
         if let d = device {
             lines.append("device: \(yamlQuote(d))")
+        }
+
+        if let m = mood {
+            lines.append("mood: \(yamlQuote(m))")
+        }
+
+        if entityMentions.isEmpty {
+            lines.append("entity_mentions: []")
+        } else {
+            lines.append("entity_mentions:")
+            for entity in entityMentions {
+                lines.append("  - \(yamlQuote(entity))")
+            }
         }
 
         if attachments.isEmpty {
@@ -185,6 +204,8 @@ extension Memo {
 
         let weather = fm.scalar("weather")
         let device = fm.scalar("device")
+        let mood = fm.scalar("mood")
+        let entityMentions = fm.sequence("entity_mentions")
 
         var attachments: [Attachment] = []
         if let attList = fm.sequenceOfMappings("attachments") {
@@ -206,6 +227,8 @@ extension Memo {
             weather: weather,
             device: device,
             attachments: attachments,
+            mood: mood,
+            entityMentions: entityMentions,
             body: body
         )
     }
@@ -227,6 +250,14 @@ extension ISO8601DateFormatter {
     static let memo: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    /// Parses a plain date string (yyyy-MM-dd) by treating it as midnight UTC.
+    static let dayOnly: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withFullDate, .withDashSeparatorInDate]
+        f.timeZone = TimeZone(secondsFromGMT: 0)
         return f
     }()
 }
@@ -323,6 +354,37 @@ struct YAMLParser {
             }
         }
         if !current.isEmpty { items.append(current) }
+        return inBlock ? items : nil
+    }
+
+    // MARK: Sequence of scalars
+
+    /// 返回顶级序列键的 [String]（标量值）数组，如果不存在则返回 nil。
+    /// 解析如下格式：
+    ///   key:
+    ///     - value1
+    ///     - value2
+    func sequence(_ key: String) -> [String]? {
+        var inBlock = false
+        var items: [String] = []
+
+        for line in lines {
+            if !inBlock {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                if trimmed == "\(key):" || trimmed == "\(key): []" {
+                    if trimmed.hasSuffix("[]") { return [] }
+                    inBlock = true
+                    continue
+                }
+            } else {
+                if line.hasPrefix("  - ") {
+                    let value = String(line.dropFirst(4)).trimmingCharacters(in: .whitespaces)
+                    items.append(yamlUnquote(value))
+                } else {
+                    break
+                }
+            }
+        }
         return inBlock ? items : nil
     }
 

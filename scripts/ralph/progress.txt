@@ -1,88 +1,12 @@
-# DayPage 三端测试发现修复 — Ralph Progress Log
-Started: 2026-05-12T06:21:39Z
+# DayPage v7 — Ralph Progress Log
+Started: 2026-05-19 06:37
 Tool: claude
-Branch: ralph/test-findings-fix
-PRD: prd.json (68 stories, tri-platform: iOS + Web + Watch)
+PRD: prd-v7-audit.json (25 stories)
+Branch: ralph/v7-deep-audit
 ---
-
-## Codebase Patterns
-- iOS: SwiftUI + file-based YAML/Markdown persistence, no SPM deps, iOS 16.0+
-- Web: Next.js 16 App Router, TypeScript strict, Tailwind 4, Supabase, Drizzle ORM, Auth.js v5, pnpm
-- Watch: watchOS SwiftUI companion, DayPageWatch/
-- QA reports: docs/qa/test-findings-2026-05-12/
-- iOS build: xcodebuild -scheme DayPage build
-- Web build: pnpm typecheck && pnpm format
----
-[2026-05-12T06:24:17Z] Story #US-001: Create DayPageTests target with Swift Testing — PASSED
-[2026-05-12T06:25:36Z] Story #US-002: Add multi-memo parser unit tests (fails until US-003 fixes parser) — PASSED
-
-[2026-05-12T06:30:37Z] Story #US-003: [iOS P0-2] Fix RawStorage parser to handle multi-memo files correctly — PASSED (recovered from main drift)
-[2026-05-12T06:33:45Z] Story #US-004: Add i18n key coverage unit test — PASSED
-[2026-05-12T06:35:06Z] Story #US-005: [iOS P0-3] Fix i18n bundle registration so all keys resolve to translations — PASSED
-[2026-05-12T06:37:11Z] Story #US-006: [iOS P0-1] Fix fresh-launch blank screen by consolidating RootView state — PASSED
-[2026-05-12T06:39:37Z] Story #US-007: [Web P0-1] Fix /add Inngest 401 by adding dev mock fallback — PASSED
-[2026-05-12T06:42:09Z] Story #US-008: [Web P0-2] Fix sidebar 'New domain' dead link — PASSED
-[2026-05-12T06:43:51Z] Story #US-009: [Web P2-5 + P0-3 prep] Add dev bypass seed script — PASSED
-[2026-05-12T06:45:07Z] Story #US-010: [Web P0-3] Replace bare 404 on /domain/[slug] with branded empty state — PASSED
-[2026-05-12T06:47:30Z] Story #US-011: [Web P0-4 part 1] Hide sidebar on mobile breakpoint — PASSED
-[2026-05-12T06:49:40Z] Story #US-012: [Web P0-4 part 2] Add mobile hamburger + Sheet drawer for sidebar — PASSED
-[2026-05-12T06:51:33Z] Story #US-013: [Web P0-4 part 3] Fix Inbox/Wiki/Chat second panel on mobile — PASSED
-[2026-05-12T06:53:09Z] Story #US-014: [Watch P0-1] Wire WatchReceiveService to VoiceAttachmentQueue — PASSED
-[2026-05-12T06:54:37Z] Story #US-015: [Watch P1-1] Share Watch schemes so CI can build them — PASSED
-[2026-05-12T06:56:22Z] Story #US-016: [iOS P1-1 part 1] Add dark color variants to DSColor tokens — PASSED
-[2026-05-12T06:58:07Z] Story #US-017: [iOS P1-1 part 2] Verify dark mode across all four main screens — PASSED
-[2026-05-12T07:00:28Z] Story #US-018: [iOS P1-2] Consolidate Today loading state to single skeleton — PASSED
-[2026-05-12T07:02:16Z] Story #US-019: [iOS P1-3] Localize Onboarding copy (no mixed CN/EN) — PASSED
-[2026-05-12T07:03:47Z] Story #US-020: [iOS P1-4] Remove duplicate top chrome (system back link) — PASSED
-[2026-05-12T07:04:46Z] Story #US-021: [iOS P1-5] Create DayPageDateFormatter singleton for unified timestamps — PASSED
-[2026-05-12T07:06:26Z] Story #US-022: [Web P1-1] Fix /login hydration mismatch on email input — PASSED
-[2026-05-12T07:09:52Z] Story #US-023: [Web P1-2] Close streaming connections on empty data so networkidle ≤ 2s — PASSED
-[2026-05-12T07:12:54Z] Story #US-024: [Web P1-3] Add branded not-found.tsx (global + app) — PASSED
-[2026-05-12T07:15:27Z] Story #US-025: [Web P1-4] Rename _design-demo to design-demo (public route) — PASSED
-[2026-05-12T07:16:44Z] Story #US-026: [Watch P1-5] Add Watch AppIcon set with all required sizes — PASSED
-[2026-05-12T07:18:09Z] Story #US-027: [Watch P1-2] Delete dead-stub ComplicationProvider — PASSED
-[2026-05-12T07:19:34Z] Story #US-028: [Watch P1-3] Register StartRecordingIntent via AppShortcutsProvider — PASSED
-[2026-05-12T07:21:10Z] Story #US-029: [Watch P1-4] Fix WKExtendedRuntimeSession usage (delegate + reason + cancellable) — PASSED
-[2026-05-12T07:23:01Z] Story #US-030: [iOS P2-1] Remove duplicate 'Tuesday' title — PASSED
-[2026-05-12T07:24:47Z] Story #US-031: [iOS P2-2] Rewrite awkward 'slide pad' input bar copy — PASSED
-[2026-05-12T07:27:15Z] Story #US-032: [iOS P2-3] Use locale-aware 12h/24h time format in header — PASSED
-[2026-05-12T07:29:01Z] Story #US-033: [iOS P2-4] Localize Memo detail metadata labels (CREATED/KIND/PLACE/WEATHER) — PASSED
-[2026-05-12T07:33:34Z] Story #US-034: [iOS P2-5] Localize 'Open in Apple Maps' button — PASSED
-[2026-05-12T07:33:57Z] Story #US-035: [iOS P2-6] Rewrite '正在编辑 N 条 memo' pill copy — PASSED
-[2026-05-12T07:35:16Z] Story #US-036: [Web P2-1] Remap Cmd+N to non-conflicting shortcut — PASSED
-[2026-05-12T07:37:36Z] Story #US-037: [Web P2-2] Add <nav> landmark inside sidebar — PASSED
-[2026-05-12T07:39:30Z] Story #US-038: [Web P2-3] Wire up Ask button to actual chat overlay or /chat route — PASSED
-[2026-05-12T07:40:53Z] Story #US-039: [Web P2-4] Raise secondary action color contrast to WCAG AA — PASSED
-[2026-05-12T07:43:39Z] Story #US-040: [Watch P2-1] Make WatchTransferService async and await session activation — PASSED
-[2026-05-12T07:45:01Z] Story #US-041: [Watch P2-2] Ensure RecordingView timer stops on .failed state — PASSED
-[2026-05-12T07:46:29Z] Story #US-042: [Watch P2-3] Pass notifyOthersOnDeactivation to AVAudioSession — PASSED
-[2026-05-12T07:47:39Z] Story #US-043: [Watch P2-4] Remove #if os(iOS) dead code from WatchApp — PASSED
-[2026-05-12T07:48:44Z] Story #US-044: [Watch P2-5] Append UUID to Watch recording filenames — PASSED
-[2026-05-12T07:50:16Z] Story #US-045: [Watch P2-6] Clean tmp/com.daypage.watch/ on app startup — PASSED
-[2026-05-12T07:51:56Z] Story #US-046: [iOS P3-1] Replace 0-memo hero orb with empty illustration + CTA — PASSED
-[2026-05-12T07:54:02Z] Story #US-047: [iOS P3-2] Dedupe screenshot capture by hashing previous frame — PASSED
-[2026-05-12T07:55:35Z] Story #US-048: [iOS P3-3] Collapse detail page map to ≤ 25% screen by default — PASSED
-[2026-05-12T07:57:00Z] Story #US-049: [iOS P3-4] Remove test residual state.png screenshot — PASSED
-[2026-05-12T07:59:14Z] Story #US-050: [iOS P3-5] Add pressed-state feedback to input bar buttons — PASSED
-[2026-05-12T08:00:42Z] Story #US-051: [iOS P3-6] Increase Settings gear icon contrast — PASSED
-[2026-05-12T08:01:56Z] Story #US-053: [Web P3-1] Add aria-label or <label> to inputs missing one — PASSED
-[2026-05-12T08:03:52Z] Story #US-054: [Web P3-2] Fix heading hierarchy on /home (H1 → H2 → H3) — PASSED
-[2026-05-12T08:05:29Z] Story #US-055: [Web P3-3] Widen Chat right column to ≥ 400px or hide on narrow — PASSED
-[2026-05-12T08:07:24Z] Story #US-056: [Web P3-4] Subset web fonts to reduce woff2 weight — PASSED
-[2026-05-12T08:09:08Z] Story #US-057: [Web P3-5] Add bottom padding to sidebar Sign out — PASSED
-[2026-05-12T08:10:41Z] Story #US-058: [Watch P3-1] Replace print with os.Logger across Watch target — PASSED
-[2026-05-12T08:12:14Z] Story #US-059: [Watch P3-4] Add WKHapticType feedback on record start/stop/fail — PASSED
-[2026-05-12T08:14:40Z] Story #US-066: [Cross part 1] iOS UI screenshot baseline + diff in verify-daypage — PASSED
-[2026-05-12T08:16:24Z] Story #US-067: [Cross part 2] Web Playwright screenshot baseline + diff in CI — PASSED
-[2026-05-12T08:17:42Z] Story #US-068: [Cross part 3] Watch UI screenshot baseline (after SDK installed) — PASSED
-All stories pass: true
-[2026-05-17T10:10:22Z] Story #US-028: Archive month calendar heatmap colors — PASSED
-[2026-05-17T10:11:08Z] Story #US-001: Add HapticFeedback unified wrapper — PASSED
-[2026-05-17T10:11:26Z] Story #US-029: SearchView 200ms debounce + grouped results + keyword highlight — PASSED
-[2026-05-17T10:12:54Z] Story #US-002: Replace direct haptic calls with HapticFeedback wrapper — PASSED
-[2026-05-17T10:13:29Z] Story #US-002: Replace direct haptic calls with HapticFeedback wrapper — PASSED
-[2026-05-17T10:13:29Z] Ralph complete after 30 iterations
-[2026-05-17T10:13:30Z] Story #US-003: Move DSFonts.registerAll() to background thread — PASSED
-[2026-05-17T10:14:08Z] Story #US-004: Persist Today draftText with @SceneStorage — PASSED
-[2026-05-17T10:15:33Z] Story #US-005: Show 'Restored unsent draft' banner on relaunch — PASSED
-[2026-05-17T10:15:33Z] Ralph complete after 10 iterations
+[2026-05-19T06:41:19Z] Story #US-001: 立即轮换全部泄露的 API Key — PASSED
+[2026-05-19T06:43:58Z] Story #US-002: 将 API Key 从 UserDefaults 迁移到 Keychain — PASSED
+[2026-05-19T06:45:50Z] Story #US-003: 修复 NotificationCenter 观察者累积泄漏 — PASSED
+[2026-05-19T06:47:28Z] Story #US-004: Task 体补 @MainActor 注解（并发安全） — PASSED
+[2026-05-19T06:50:52Z] Story #US-005: 修复 atomicWrite 临时文件孤儿问题 — PASSED
+[2026-05-19T06:50:52Z] Ralph complete after 6 iterations

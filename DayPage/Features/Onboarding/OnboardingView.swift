@@ -336,16 +336,15 @@ private struct ApiKeysPage: View {
     }
 
     private func saveAndComplete() {
-        // API keys are in a generated file; we write to UserDefaults as a runtime override
-        // (GeneratedSecrets.swift reads from environment; store in UserDefaults for runtime use)
+        // US-002: API keys are stored in Keychain (not UserDefaults) to prevent iCloud backup exposure.
         if !deepSeekKey.isEmpty {
-            UserDefaults.standard.set(deepSeekKey, forKey: AppSettings.Keys.runtimeDeepSeekKey)
+            KeychainHelper.setAPIKey(deepSeekKey, for: "deepSeekApiKey")
         }
         if !openAIKey.isEmpty {
-            UserDefaults.standard.set(openAIKey, forKey: AppSettings.Keys.runtimeOpenAIKey)
+            KeychainHelper.setAPIKey(openAIKey, for: "openAIWhisperApiKey")
         }
         if !openWeatherKey.isEmpty {
-            UserDefaults.standard.set(openWeatherKey, forKey: AppSettings.Keys.runtimeOpenWeatherKey)
+            KeychainHelper.setAPIKey(openWeatherKey, for: "openWeatherApiKey")
         }
         onComplete()
     }

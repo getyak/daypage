@@ -10,6 +10,7 @@ struct TodayView: View {
     @StateObject private var bannerCenter = BannerCenter.shared
     @StateObject private var voiceQueue = VoiceAttachmentQueue.shared
     @StateObject private var migrationService = VaultMigrationService.shared
+    @StateObject private var compilationService = CompilationService.shared
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -94,6 +95,7 @@ struct TodayView: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Open navigation")
+                        .accessibilityHint("Opens the sidebar navigation drawer")
                         .accessibilityIdentifier("sidebar-menu-button")
                         // Long press on the date header → force-refresh On This Day
                         .onLongPressGesture(minimumDuration: 1.5) {
@@ -133,7 +135,10 @@ struct TodayView: View {
                                 .clipShape(Circle())
                         }
                         .accessibilityLabel("Settings")
+                        .accessibilityHint("Opens app settings")
                         .accessibilityIdentifier("settings-gear-button")
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                         .alignmentGuide(.firstTextBaseline) { d in d[VerticalAlignment.center] + 6 }
                     }
                     .padding(.horizontal, 20)
@@ -141,6 +146,13 @@ struct TodayView: View {
                     .padding(.bottom, 12)
                     .onReceive(headerTimer) { date in
                         currentTime = date
+                    }
+
+                    // MARK: Compilation Progress Bar
+                    if viewModel.isCompiling {
+                        CompilationProgressBar(stage: compilationService.stage)
+                            .transition(.opacity)
+                            .animation(Motion.fade, value: viewModel.isCompiling)
                     }
 
                     // MARK: Compilation Failed Banner
@@ -192,7 +204,7 @@ struct TodayView: View {
                     if viewModel.memos.isEmpty {
                         orbHero
                             .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
-                            .animation(.easeOut(duration: 0.22), value: viewModel.memos.isEmpty)
+                            .animation(Motion.dismiss, value: viewModel.memos.isEmpty)
                     }
 
                     // MARK: Timeline
@@ -220,8 +232,15 @@ struct TodayView: View {
                                     .padding(.horizontal, 20)
                             }
 
+                            // Skeleton placeholder while the initial load is in flight
+                            if viewModel.loadState == .loading && viewModel.memos.isEmpty {
+                                MemoListSkeleton()
+                                    .padding(.horizontal, 20)
+                                    .transition(.opacity)
+                            }
+
                             // Memo cards (reverse-chronological)
-                            if viewModel.memos.isEmpty && !viewModel.isLoading {
+                            if viewModel.memos.isEmpty && viewModel.loadState == .ready {
                                 let hasOnboarded = UserDefaults.standard.bool(forKey: AppSettings.Keys.hasOnboarded)
                                 if !hasOnboarded {
                                     EmptyStateView.todayBlank {
@@ -274,15 +293,15 @@ struct TodayView: View {
                             // to yesterday's page or the weekly recap. (#US-016)
                             historySupplement
 
-                            // Loading indicator
-                            if viewModel.isLoading {
+                            // Skeleton while reloading with existing memos visible
+                            if viewModel.loadState == .loading && !viewModel.memos.isEmpty {
                                 HStack {
                                     Spacer()
                                     ProgressView()
-                                        .tint(DSColor.onSurfaceVariant)
+                                        .tint(DSColor.inkSubtle)
                                     Spacer()
                                 }
-                                .padding(.vertical, 20)
+                                .padding(.vertical, 8)
                             }
 
                             // Load error message
@@ -341,7 +360,7 @@ struct TodayView: View {
                                     memoCount: viewModel.memos.count,
                                     isCompiling: viewModel.isCompiling,
                                     isVisible: true,
-                                    stage: CompilationService.shared.stage,
+                                    stage: compilationService.stage,
                                     errorMessage: viewModel.submitError,
                                     onTap: { viewModel.compile() },
                                     onRetry: { viewModel.compile() }
@@ -387,7 +406,8 @@ struct TodayView: View {
                                 .padding(.top, 8)
                                 .transition(.move(edge: .top).combined(with: .opacity))
                                 .onAppear {
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                                    Task { @MainActor in
+                                        try? await Task.sleep(for: .seconds(3))
                                         viewModel.submitError = nil
                                     }
                                 }
@@ -539,7 +559,7 @@ struct TodayView: View {
                         .transition(.opacity)
                 }
             }
-            .animation(.easeInOut(duration: 0.22), value: showTutorial)
+            .animation(Motion.dismiss, value: showTutorial)
             .sheet(isPresented: $showAuthSheet) {
                 AuthView()
             }
@@ -663,7 +683,7 @@ struct TodayView: View {
     /// week, week-before-last, and older months as expandable cards.
     @ViewBuilder
     private var historySupplement: some View {
-        if !viewModel.memos.isEmpty && !viewModel.isLoading && !viewModel.timelineSections.isEmpty {
+        if !viewModel.memos.isEmpty && viewModel.loadState == .ready && !viewModel.timelineSections.isEmpty {
             earlierDivider
             ForEach(viewModel.timelineSections) { section in
                 TimelineSectionView(section: section)
@@ -806,6 +826,8 @@ struct TodayView: View {
                 DayOrbView(signalCount: viewModel.signalCount, size: 140)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Today's orb, \(viewModel.signalCount) signals")
+            .accessibilityHint("Tap to open today's day drawer")
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
@@ -990,13 +1012,19 @@ struct CompilationFailedBanner: View {
             }
             .font(DSType.caption)
             .foregroundColor(DSColor.errorRed)
+            .accessibilityLabel("重试编译")
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
             Button {
                 onDismiss()
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(DSColor.inkMuted)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
+            .accessibilityLabel("关闭错误提示")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -1062,9 +1090,15 @@ struct LocationDraftCard: View {
             Button("全部忽略") { onIgnoreAll() }
                 .font(DSType.caption)
                 .foregroundColor(DSColor.inkMuted)
+                .accessibilityLabel("忽略所有位置记录")
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
             Button("全部确认") { onConfirmAll() }
                 .font(DSType.caption)
                 .foregroundColor(DSColor.amberAccent)
+                .accessibilityLabel("确认所有位置记录")
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
         }
         .padding(.horizontal, 16)
         .padding(.top, 10)
@@ -1139,6 +1173,9 @@ private struct LocationDraftRow: View {
                         .background(.ultraThinMaterial, in: Circle())
                         .clipShape(Circle())
                 }
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+                .accessibilityLabel("忽略此位置")
 
                 Button {
                     onConfirm()
@@ -1150,6 +1187,9 @@ private struct LocationDraftRow: View {
                         .background(DSColor.amberAccent)
                         .clipShape(Circle())
                 }
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+                .accessibilityLabel("确认此位置")
             }
         }
         .padding(.horizontal, 16)
@@ -1172,6 +1212,57 @@ private struct LocationDraftRow: View {
         if mins < 60 { return "停留 \(mins) 分钟" }
         let h = mins / 60; let m = mins % 60
         return m == 0 ? "停留 \(h) 小时" : "停留 \(h) 小时 \(m) 分钟"
+    }
+}
+
+// MARK: - CompilationProgressBar
+
+/// Thin progress strip shown at the top of TodayView while AI compilation runs.
+struct CompilationProgressBar: View {
+    let stage: CompilationStage
+
+    private var progress: Double {
+        switch stage {
+        case .extracting: return 0.25
+        case .compiling:  return 0.60
+        case .formatting: return 0.85
+        case .done:       return 1.00
+        }
+    }
+
+    private var label: String {
+        switch stage {
+        case .extracting: return "读取记录…"
+        case .compiling:  return "AI 编译中…"
+        case .formatting: return "整理格式…"
+        case .done:       return "完成"
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 4) {
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(DSColor.glassStd)
+                        .frame(height: 3)
+                    Capsule()
+                        .fill(DSColor.accentAmber)
+                        .frame(width: geo.size.width * progress, height: 3)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: progress)
+                }
+            }
+            .frame(height: 3)
+
+            Text(label)
+                .font(DSType.mono10)
+                .foregroundColor(DSColor.inkSubtle)
+                .textCase(.uppercase)
+                .tracking(0.8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 6)
     }
 }
 

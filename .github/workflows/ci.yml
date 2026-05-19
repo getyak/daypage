@@ -67,6 +67,59 @@ jobs:
           echo "══════════════════════════════════════════"
           exit $OVERALL
 
+  secrets-audit:
+    name: Secrets Hygiene Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify GeneratedSecrets.swift is gitignored
+        run: |
+          if git ls-files --error-unmatch DayPage/Config/GeneratedSecrets.swift 2>/dev/null; then
+            echo "::error::GeneratedSecrets.swift is tracked by git — remove it and add to .gitignore"
+            exit 1
+          fi
+          echo "✅ GeneratedSecrets.swift is correctly gitignored"
+
+      - name: Verify .env is gitignored
+        run: |
+          if git ls-files --error-unmatch .env 2>/dev/null; then
+            echo "::error::.env is tracked by git — remove it immediately (contains production secrets)"
+            exit 1
+          fi
+          echo "✅ .env is correctly gitignored"
+
+      - name: Check .env.example covers all keys used by generate_secrets.sh
+        run: |
+          # Extract keys read by the script
+          SCRIPT_KEYS=$(grep -E '^[A-Z_]+=\$\(read_env_value ' scripts/generate_secrets.sh \
+            | sed 's/.*read_env_value "\(.*\)".*/\1/' | sort)
+          # Extract keys declared in .env.example
+          EXAMPLE_KEYS=$(grep -E '^[A-Z_]+=' .env.example | cut -d= -f1 | sort)
+          MISSING=$(comm -23 <(echo "$SCRIPT_KEYS") <(echo "$EXAMPLE_KEYS"))
+          if [ -n "$MISSING" ]; then
+            echo "::error::.env.example is missing keys used by generate_secrets.sh: $MISSING"
+            exit 1
+          fi
+          echo "✅ .env.example covers all keys: $SCRIPT_KEYS"
+
+      - name: Scan for hardcoded secrets patterns
+        run: |
+          FAIL=0
+          # Look for real key prefixes in tracked Swift/YAML/JSON files (not .env.example or gitignored paths)
+          for PATTERN in "sk-[0-9a-f]{32}" "sk-proj-[A-Za-z0-9_-]{40}" "ghp_[A-Za-z0-9]{36}" "lin_api_[A-Za-z0-9]{40}"; do
+            HITS=$(git grep -rE "$PATTERN" -- '*.swift' '*.yml' '*.yaml' '*.json' '*.plist' 2>/dev/null | grep -v '\.env\.example' || true)
+            if [ -n "$HITS" ]; then
+              echo "::error::Hardcoded secret pattern '$PATTERN' found in tracked files:"
+              echo "$HITS"
+              FAIL=1
+            fi
+          done
+          if [ "$FAIL" -eq 1 ]; then exit 1; fi
+          echo "✅ No hardcoded secret patterns found in tracked files"
+
   build:
     name: Xcode Build (no signing)
     runs-on: macos-15

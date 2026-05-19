@@ -873,8 +873,8 @@ struct InputBarV4: View {
     private func attachmentChip(_ att: PendingAttachment) -> some View {
         let (icon, label) = chipContent(att)
         return HStack(spacing: 4) {
-            Image(systemName: icon).font(.system(size: 11)).foregroundStyle(DSColor.inkMuted)
-            Text(label).font(.system(size: 12)).foregroundStyle(DSColor.inkMuted).lineLimit(1)
+            Image(systemName: icon).font(DSType.mono11).foregroundStyle(DSColor.inkMuted)
+            Text(label).font(DSType.labelSM).foregroundStyle(DSColor.inkMuted).lineLimit(1)
             Button {
                 Haptics.light()
                 onRemoveAttachment(att.id)
@@ -898,7 +898,7 @@ struct InputBarV4: View {
     private func locationChipRow(loc: Memo.Location) -> some View {
         HStack(spacing: 4) {
             Image(systemName: "mappin").font(.system(size: 10, weight: .semibold)).foregroundStyle(DSColor.amberAccent)
-            Text(locationLabel(loc)).font(.system(size: 12)).foregroundStyle(DSColor.amberAccent).lineLimit(1)
+            Text(locationLabel(loc)).font(DSType.labelSM).foregroundStyle(DSColor.amberAccent).lineLimit(1)
             Spacer()
             Button(action: onClearLocation) {
                 Image(systemName: "xmark.circle.fill").font(.system(size: 14)).foregroundStyle(DSColor.inkSubtle)

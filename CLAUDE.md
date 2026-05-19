@@ -11,7 +11,7 @@ DayPage: a personal logging tool centered on daily raw data capture. Users dump,
 | Layer | Choice | Notes |
 |---|---|---|
 | Platform | **iOS 16.0+**, Swift 5 | Single Xcode target `DayPage.app`; direct SPM deps: **Supabase** (supabase-swift), **Sentry** (sentry-cocoa); transitive: swift-clocks, swift-concurrency-extras, swift-http-types, xctest-dynamic-overlay |
-| UI | **SwiftUI** (pure) | `UITabBarAppearance` is the only UIKit touchpoint (`RootView.swift`) |
+| UI | **SwiftUI** (pure) | `UITabBarAppearance` is the primary UIKit touchpoint (`RootView.swift`). `UIViewControllerRepresentable` wrappers (`ShareSheet`, `CameraPickerView`, `DocumentPickerView`) are used where SwiftUI has no native equivalent (`UIActivityViewController`, `UIImagePickerController`, `UIDocumentPickerViewController`). |
 | Navigation | **Sidebar** | Left drawer (280pt) — Today / Archive / Graph (disabled, Post-MVP); no bottom TabBar |
 | State | `ObservableObject` + `@Published` + `@StateObject`, `@MainActor` services | No `@Observable` macro (Swift 5 constraint) |
 | Persistence | **File system** — YAML front-matter + Markdown | `vault/raw/YYYY-MM-DD.md`, multi-memo separated by `\n\n---\n\n`. Atomic writes via `FileManager.replaceItem`. No Core Data / SwiftData |

@@ -4,6 +4,7 @@ import UIKit
 import CoreLocation
 import Photos
 import PhotosUI
+import Combine
 
 // MARK: - Pending Attachment
 
@@ -60,6 +61,17 @@ enum TodayFallback {
     case pureEmpty
 }
 
+// MARK: - LoadState
+
+/// Unified loading state for TodayView, replacing multiple independent boolean flags.
+/// Drives skeleton vs. content rendering so all three async sources (vault, compiled
+/// daily page, On This Day) present as a single coordinated load rather than popping
+/// in separately.
+enum LoadState: Equatable {
+    case loading
+    case ready
+}
+
 // MARK: - TodayViewModel
 
 /// Manages state for TodayView: loading today's memos, tracking compiled state.
@@ -91,8 +103,8 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     /// list under today's raw memos. Excludes today — today renders above.
     @Published var timelineSections: [TimelineSection] = []
 
-    /// Whether the view is currently loading memos.
-    @Published var isLoading: Bool = false
+    /// Unified load state — drives skeleton vs. content in TodayView.
+    @Published var loadState: LoadState = .loading
 
     /// Error message to display if loading fails.
     @Published var errorMessage: String? = nil
@@ -185,6 +197,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     private var submitMemoTask: Task<Void, Never>?
     private var locationTask: Task<Void, Never>?
     private var compilationTask: Task<Void, Never>?
+    private var cancellables = Set<AnyCancellable>()
 
     // MARK: Init
 
@@ -206,59 +219,51 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     }
 
     private func observeCompilationFailure() {
-        NotificationCenter.default.addObserver(
-            forName: .compilationDidFail,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
+        NotificationCenter.default
+            .publisher(for: .compilationDidFail)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
                 self?.compilationFailedError = "后台编译失败，请检查网络或 API Key 后重试"
             }
-        }
-        NotificationCenter.default.addObserver(
-            forName: .compilationDidStart,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
+            .store(in: &cancellables)
+
+        NotificationCenter.default
+            .publisher(for: .compilationDidStart)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
                 self?.isBackgroundCompiling = true
             }
-        }
-        NotificationCenter.default.addObserver(
-            forName: .compilationDidEnd,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
+            .store(in: &cancellables)
+
+        NotificationCenter.default
+            .publisher(for: .compilationDidEnd)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
                 self?.isBackgroundCompiling = false
             }
-        }
+            .store(in: &cancellables)
     }
 
     private func observeOnThisDay() {
-        NotificationCenter.default.addObserver(
-            forName: .onThisDayShouldShow,
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            Task { @MainActor [weak self] in
+        NotificationCenter.default
+            .publisher(for: .onThisDayShouldShow)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] notification in
                 self?.onThisDayEntry = notification.object as? OnThisDayEntry
             }
-        }
+            .store(in: &cancellables)
     }
 
     /// Reloads memos whenever iCloud conflict resolution rewrites today's raw file.
     /// Without this observer the UI shows stale in-memory memos after a merge.
     private func observeConflictResolution() {
-        NotificationCenter.default.addObserver(
-            forName: .vaultConflictResolved,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
+        NotificationCenter.default
+            .publisher(for: .vaultConflictResolved)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
                 self?.load()
             }
-        }
+            .store(in: &cancellables)
     }
 
     // MARK: - Delete / Pin Memo
@@ -358,7 +363,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     func load() {
         // Refresh to today in case the app has been backgrounded overnight.
         date = Date()
-        isLoading = true
+        loadState = .loading
         errorMessage = nil
 
         // Capture value types before leaving the MainActor.
@@ -461,7 +466,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 self.timelineSections = timeline
                 self.yesterdayDailyPageModel = yesterdayPage
                 self.onThisDayMemos = otdMemos
-                self.isLoading = false
+                self.loadState = .ready
                 self.checkOnThisDay()
 
                 // Auto-compile on load when today has uncompiled memos. The compile
@@ -497,7 +502,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         isProcessingPhoto = true
         submitError = nil
 
-        photoTask = Task {
+        photoTask = Task { @MainActor in
             defer { isProcessingPhoto = false }
 
             guard let result = await photoService.processPickerItem(item) else {
@@ -539,7 +544,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     /// Re-runs transcription for a failed voice attachment and updates the memo on disk.
     func retranscribe(memo: Memo, attachment: Memo.Attachment) {
         let audioURL = VaultInitializer.vaultURL.appendingPathComponent(attachment.file)
-        Task {
+        Task { @MainActor in
             guard let transcript = await voiceService.transcribeAudio(at: audioURL),
                   !transcript.isEmpty else { return }
             // Update the attachment in memory and persist
@@ -617,7 +622,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     func addCameraPhoto(_ image: UIImage) {
         guard let data = image.jpegData(compressionQuality: 0.9) else { return }
         isProcessingPhoto = true
-        cameraPhotoTask = Task {
+        cameraPhotoTask = Task { @MainActor in
             defer { isProcessingPhoto = false }
             guard let result = await photoService.processImageDataAsync(data) else {
                 submitError = "照片处理失败，请重试"
@@ -631,7 +636,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     func addCameraPhotoAndSubmit(_ image: UIImage) {
         guard let data = image.jpegData(compressionQuality: 0.9) else { return }
         isProcessingPhoto = true
-        cameraPhotoTask = Task {
+        cameraPhotoTask = Task { @MainActor in
             defer { isProcessingPhoto = false }
             guard let result = await photoService.processImageDataAsync(data) else {
                 submitError = "照片处理失败，请重试"
@@ -649,7 +654,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         // US-012: expose batch progress when > 3 photos
         batchPhotoTotal = items.count
         batchPhotoProgress = 0
-        submitTask = Task {
+        submitTask = Task { @MainActor in
             defer {
                 isProcessingPhoto = false
                 batchPhotoTotal = 0
@@ -692,7 +697,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         let loc = pendingLocation
         let snapshotAttachments = attachments
 
-        submitMemoTask = Task {
+        submitMemoTask = Task { @MainActor in
             defer { isSubmitting = false }
 
             // Auto-fetch location for every memo when not already set by the user.
@@ -786,7 +791,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         isLocating = true
         submitError = nil
 
-        locationTask = Task {
+        locationTask = Task { @MainActor in
             defer { isLocating = false }
             do {
                 let loc = try await locationService.currentLocation(timeout: 3)
@@ -837,7 +842,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         submitError = nil
 
         compilationTask?.cancel()
-        compilationTask = Task {
+        compilationTask = Task { @MainActor in
             defer {
                 isCompiling = false
                 compilationTask = nil

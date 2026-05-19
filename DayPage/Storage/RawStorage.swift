@@ -179,6 +179,32 @@ enum RawStorage {
         if let error = writeError { throw error }
     }
 
+    // MARK: - Trash TTL Cleanup
+
+    /// Removes backup files older than `days` days from every `.trash` directory
+    /// under vault/wiki/daily/ and vault/wiki/ (hot cache backups).
+    /// Safe to call on a background thread.
+    static func pruneTrashOlderThan(days: Int = 7) {
+        let fm = FileManager.default
+        let cutoff = Date().addingTimeInterval(-Double(days) * 24 * 3600)
+
+        let trashDirs: [URL] = [
+            VaultInitializer.vaultURL.appendingPathComponent("wiki/daily/.trash"),
+            VaultInitializer.vaultURL.appendingPathComponent("wiki/.trash"),
+        ]
+
+        for dir in trashDirs {
+            guard fm.fileExists(atPath: dir.path) else { continue }
+            guard let entries = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: [.creationDateKey]) else { continue }
+            for entry in entries {
+                guard let attrs = try? entry.resourceValues(forKeys: [.creationDateKey]),
+                      let created = attrs.creationDate,
+                      created < cutoff else { continue }
+                try? fm.removeItem(at: entry)
+            }
+        }
+    }
+
     // MARK: - Date formatter
 
     // Computed so that a change to AppSettings.preferredTimeZone takes effect
