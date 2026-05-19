@@ -181,13 +181,19 @@ enum DSType {
 
 struct H1Modifier: ViewModifier {
     func body(content: Content) -> some View {
-        content.font(DSType.h1)
+        content
+            .font(DSType.h1)
+            .dynamicTypeSize(.xSmall ... .accessibility2)
+            .minimumScaleFactor(0.80)
     }
 }
 
 struct H2Modifier: ViewModifier {
     func body(content: Content) -> some View {
-        content.font(DSType.h2)
+        content
+            .font(DSType.h2)
+            .dynamicTypeSize(.xSmall ... .accessibility2)
+            .minimumScaleFactor(0.80)
     }
 }
 
