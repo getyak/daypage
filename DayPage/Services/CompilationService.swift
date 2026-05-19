@@ -275,6 +275,7 @@ final class CompilationService: ObservableObject {
 
         ## Date
         \(dateString)
+        \(dateContextNote(for: dateString))
 
         ## Short-term memory context (hot.md)
         <hot_cache>
@@ -312,7 +313,7 @@ final class CompilationService: ObservableObject {
         type: daily
         date: \(dateString)
         location_primary: <primary location name or "Unknown">
-        mood: <one-word mood in Chinese>
+        mood: <one-word mood in Chinese inferred from memo tone and content, e.g. 平静、焦虑、愉快、疲惫、充实、迷茫、兴奋>
         entries_count: \(memoCount)
         summary: "<one-sentence summary in Chinese, max 50 chars>"
         cover: <optional: vault-relative path of the best photo attachment from today's memos, e.g. "raw/assets/photo_20260414_093000.jpg"; omit the line entirely if no photos exist>
@@ -364,6 +365,24 @@ final class CompilationService: ObservableObject {
         - Output ONLY the JSON object, no additional commentary
         - Ensure the JSON is valid (escape quotes and newlines properly inside strings)
         """
+    }
+
+    // MARK: - Date Context
+
+    /// Returns a short natural-language note about the day type so the LLM can
+    /// tone the narrative appropriately (weekend vs. weekday vs. public holiday).
+    private func dateContextNote(for dateString: String) -> String {
+        guard let date = ISO8601DateFormatter.dayOnly.date(from: dateString) else { return "" }
+        let cal = Calendar.current
+        let weekday = cal.component(.weekday, from: date)
+        // weekday: 1=Sun, 7=Sat
+        switch weekday {
+        case 1: return "Day type: Sunday (weekend — relaxed tone expected)"
+        case 7: return "Day type: Saturday (weekend — relaxed tone expected)"
+        default:
+            let dayNames = ["", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+            return "Day type: \(dayNames[weekday]) (weekday — may involve work/routine context)"
+        }
     }
 
     // MARK: - DeepSeek API (with retry)
