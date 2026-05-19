@@ -46,7 +46,7 @@ final class VoiceAttachmentQueue: ObservableObject {
     }
 
     private init() {
-        updatePublished()
+        updateCount()
         observeNetworkChanges()
         observeAppActive()
     }
