@@ -52,6 +52,11 @@ struct SettingsView: View {
     @State private var showExportAlert = false
     @State private var exportResult: String? = nil
 
+    // Obsidian export
+    @State private var isExportingObsidian = false
+    @State private var obsidianExportURL: URL? = nil
+    @State private var showObsidianShareSheet = false
+
     // Confirmation dialogs for destructive operations
     @State private var showCleanupConfirm = false
     @State private var showClearSampleConfirm = false
@@ -82,6 +87,14 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showApiKeyEditor) {
                 apiKeyEditorSheet
+            }
+            .sheet(isPresented: $showObsidianShareSheet, onDismiss: {
+                obsidianExportURL = nil
+            }) {
+                if let url = obsidianExportURL {
+                    ShareSheet(activityItems: [url])
+                        .ignoresSafeArea()
+                }
             }
         }
     }
@@ -666,6 +679,19 @@ struct SettingsView: View {
             }
             .foregroundColor(DSColor.onSurfaceVariant)
 
+            Button(action: { Task { await exportObsidianVault() } }) {
+                if isExportingObsidian {
+                    HStack {
+                        Label("导出中…", systemImage: "square.and.arrow.up")
+                        Spacer()
+                        ProgressView().scaleEffect(0.8)
+                    }
+                } else {
+                    Label("导出日记 (Obsidian 兼容)", systemImage: "square.and.arrow.up")
+                }
+            }
+            .disabled(isExportingObsidian)
+
             if SampleDataSeeder.hasSeededSamples {
                 Button(role: .destructive, action: { showClearSampleConfirm = true }) {
                     Label("清除示例数据", systemImage: "trash")
@@ -892,6 +918,25 @@ struct SettingsView: View {
         bannerCenter.show(.init(kind: .info, title: "导出功能在 Archive 页面可用"))
     }
 
+    // MARK: - Obsidian Export
+
+    private func exportObsidianVault() async {
+        isExportingObsidian = true
+        defer { isExportingObsidian = false }
+
+        let result = await Task.detached(priority: .userInitiated) {
+            ObsidianExporter.buildZip()
+        }.value
+
+        switch result {
+        case .success(let zipURL):
+            obsidianExportURL = zipURL
+            showObsidianShareSheet = true
+        case .failure(let error):
+            bannerCenter.show(.init(kind: .error, title: "导出失败：\(error.localizedDescription)", autoDismiss: true))
+        }
+    }
+
     private func openSettings() {
         if let url = URL(string: UIApplication.openSettingsURLString) {
             UIApplication.shared.open(url)
@@ -947,6 +992,101 @@ private enum APITestResult {
         switch self {
         case .success(let m), .failure(let m): return m
         }
+    }
+}
+
+// MARK: - ShareSheet
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+// MARK: - ObsidianExporter
+
+/// Builds an Obsidian-compatible Markdown ZIP from vault/wiki/daily/*.md.
+/// Runs on a background thread; returns the temporary zip URL on success.
+enum ObsidianExporter {
+
+    static func buildZip() -> Result<URL, Error> {
+        let fm = FileManager.default
+        let dailyDir = VaultInitializer.vaultURL
+            .appendingPathComponent("wiki")
+            .appendingPathComponent("daily")
+
+        // Gather daily pages
+        let pages: [URL]
+        do {
+            pages = try fm.contentsOfDirectory(at: dailyDir, includingPropertiesForKeys: nil)
+                .filter { $0.pathExtension == "md" && !$0.lastPathComponent.hasPrefix(".") }
+                .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        } catch {
+            return .failure(error)
+        }
+
+        guard !pages.isEmpty else {
+            return .failure(NSError(domain: "ObsidianExporter", code: 1,
+                                   userInfo: [NSLocalizedDescriptionKey: "没有已编译的日记页面可导出"]))
+        }
+
+        // Build a temporary directory containing all pages
+        let tmpDir = fm.temporaryDirectory.appendingPathComponent("daypage_export_\(Int(Date().timeIntervalSince1970))")
+        let docsDir = tmpDir.appendingPathComponent("DayPage")
+        let dailyOutDir = docsDir.appendingPathComponent("Daily")
+        do {
+            try fm.createDirectory(at: dailyOutDir, withIntermediateDirectories: true)
+        } catch {
+            return .failure(error)
+        }
+
+        // Copy and add Obsidian-compatible frontmatter aliases
+        for page in pages {
+            guard var content = try? String(contentsOf: page, encoding: .utf8) else { continue }
+            // Inject aliases field into frontmatter for Obsidian link resolution
+            content = injectObsidianAlias(into: content, filename: page.deletingPathExtension().lastPathComponent)
+            let dest = dailyOutDir.appendingPathComponent(page.lastPathComponent)
+            try? content.write(to: dest, atomically: true, encoding: .utf8)
+        }
+
+        // Also copy the wiki index if it exists
+        let indexSrc = VaultInitializer.vaultURL.appendingPathComponent("wiki/index.md")
+        if fm.fileExists(atPath: indexSrc.path) {
+            try? fm.copyItem(at: indexSrc, to: docsDir.appendingPathComponent("index.md"))
+        }
+
+        // Share the directory directly — UIActivityViewController accepts a folder URL,
+        // iOS will offer it as a zip when sharing via Files/AirDrop/etc.
+        return .success(docsDir)
+    }
+
+    private static func injectObsidianAlias(into content: String, filename: String) -> String {
+        guard content.hasPrefix("---") else { return content }
+        let lines = content.components(separatedBy: "\n")
+        var result: [String] = []
+        var injected = false
+        var inFrontmatter = false
+
+        for (i, line) in lines.enumerated() {
+            if i == 0 && line.trimmingCharacters(in: .whitespaces) == "---" {
+                inFrontmatter = true
+                result.append(line)
+                continue
+            }
+            if inFrontmatter && line.trimmingCharacters(in: .whitespaces) == "---" {
+                if !injected {
+                    result.append("aliases: [\"\(filename)\"]")
+                    injected = true
+                }
+                inFrontmatter = false
+            }
+            result.append(line)
+        }
+        return result.joined(separator: "\n")
     }
 }
 
