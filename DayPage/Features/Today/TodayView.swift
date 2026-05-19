@@ -147,6 +147,13 @@ struct TodayView: View {
                         currentTime = date
                     }
 
+                    // MARK: Compilation Progress Bar
+                    if viewModel.isCompiling {
+                        CompilationProgressBar(stage: CompilationService.shared.stage)
+                            .transition(.opacity)
+                            .animation(Motion.fade, value: viewModel.isCompiling)
+                    }
+
                     // MARK: Compilation Failed Banner
                     if let failureMsg = viewModel.compilationFailedError {
                         CompilationFailedBanner(message: failureMsg) {
@@ -1204,6 +1211,57 @@ private struct LocationDraftRow: View {
         if mins < 60 { return "停留 \(mins) 分钟" }
         let h = mins / 60; let m = mins % 60
         return m == 0 ? "停留 \(h) 小时" : "停留 \(h) 小时 \(m) 分钟"
+    }
+}
+
+// MARK: - CompilationProgressBar
+
+/// Thin progress strip shown at the top of TodayView while AI compilation runs.
+struct CompilationProgressBar: View {
+    let stage: CompilationStage
+
+    private var progress: Double {
+        switch stage {
+        case .extracting: return 0.25
+        case .compiling:  return 0.60
+        case .formatting: return 0.85
+        case .done:       return 1.00
+        }
+    }
+
+    private var label: String {
+        switch stage {
+        case .extracting: return "读取记录…"
+        case .compiling:  return "AI 编译中…"
+        case .formatting: return "整理格式…"
+        case .done:       return "完成"
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 4) {
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(DSColor.glassStd)
+                        .frame(height: 3)
+                    Capsule()
+                        .fill(DSColor.accentAmber)
+                        .frame(width: geo.size.width * progress, height: 3)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: progress)
+                }
+            }
+            .frame(height: 3)
+
+            Text(label)
+                .font(DSType.mono10)
+                .foregroundColor(DSColor.inkSubtle)
+                .textCase(.uppercase)
+                .tracking(0.8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 6)
     }
 }
 
