@@ -51,17 +51,32 @@ final class EntityPageService {
         var newlyCreated: [(type: String, slug: String, name: String)] = []
 
         for instruction in instructions {
-            let url = entityURL(type: instruction.entityType, slug: instruction.entitySlug)
+            // Resolve the canonical slug: fuzzy-match against existing pages first,
+            // then fall back to numeric-suffix deduplication for new conflicting names.
+            let resolvedSlug = resolveSlug(
+                proposed: instruction.entitySlug,
+                displayName: instruction.displayName,
+                type: instruction.entityType
+            )
+            let resolvedInstruction = EntityUpdateInstruction(
+                entityType: instruction.entityType,
+                entitySlug: resolvedSlug,
+                section: instruction.section,
+                content: instruction.content,
+                displayName: instruction.displayName
+            )
+
+            let url = entityURL(type: resolvedInstruction.entityType, slug: resolvedInstruction.entitySlug)
             let exists = FileManager.default.fileExists(atPath: url.path)
 
             if exists {
-                try appendToEntityPage(url: url, instruction: instruction, date: date)
+                try appendToEntityPage(url: url, instruction: resolvedInstruction, date: date)
             } else {
-                try createEntityPage(url: url, instruction: instruction, date: date)
+                try createEntityPage(url: url, instruction: resolvedInstruction, date: date)
                 newlyCreated.append((
-                    type: instruction.entityType,
-                    slug: instruction.entitySlug,
-                    name: instruction.displayName
+                    type: resolvedInstruction.entityType,
+                    slug: resolvedInstruction.entitySlug,
+                    name: resolvedInstruction.displayName
                 ))
             }
         }
@@ -73,6 +88,86 @@ final class EntityPageService {
 
         // 同时为已有实体递增 occurrence_count
         // （已在 appendToEntityPage 中通过 frontmatter 更新处理）
+    }
+
+    // MARK: - Slug Resolution
+
+    /// Resolves a proposed slug to a canonical one by:
+    /// 1. Fuzzy-matching against existing pages (edit-distance ≤ 2 or shared prefix ≥ 6 chars).
+    /// 2. If no fuzzy match, returning the proposed slug unchanged when no conflict exists.
+    /// 3. If a conflict exists with a *different* display name, appending a numeric suffix.
+    private func resolveSlug(proposed: String, displayName: String, type: String) -> String {
+        let dir = VaultInitializer.vaultURL
+            .appendingPathComponent("wiki")
+            .appendingPathComponent(type)
+        let fm = FileManager.default
+        guard let entries = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else {
+            return proposed
+        }
+
+        // Build list of existing slugs in this entity type directory.
+        let existingSlugs = entries
+            .filter { $0.pathExtension == "md" }
+            .map { $0.deletingPathExtension().lastPathComponent }
+
+        // 1. Exact match — reuse directly.
+        if existingSlugs.contains(proposed) {
+            return proposed
+        }
+
+        // 2. Fuzzy match — find a close existing slug.
+        if let fuzzyMatch = existingSlugs.first(where: { isFuzzyMatch(proposed, $0) }) {
+            return fuzzyMatch
+        }
+
+        // 3. No conflict at all — use as-is.
+        return proposed
+    }
+
+    /// Returns true if two slugs are similar enough to be considered the same entity.
+    /// Criteria: edit distance ≤ 2, OR shared prefix of ≥ 6 characters.
+    private func isFuzzyMatch(_ a: String, _ b: String) -> Bool {
+        if levenshtein(a, b) <= 2 { return true }
+        let prefixLen = min(a.count, b.count, 6)
+        if prefixLen >= 6 && a.prefix(prefixLen) == b.prefix(prefixLen) { return true }
+        return false
+    }
+
+    /// Minimal Levenshtein distance (capped at 3 for performance).
+    private func levenshtein(_ s: String, _ t: String) -> Int {
+        let sArr = Array(s), tArr = Array(t)
+        let m = sArr.count, n = tArr.count
+        guard m > 0 else { return n }
+        guard n > 0 else { return m }
+        if abs(m - n) > 3 { return 4 } // fast bail-out
+        var row = Array(0...n)
+        for i in 1...m {
+            var prev = row[0]
+            row[0] = i
+            for j in 1...n {
+                let old = row[j]
+                row[j] = sArr[i-1] == tArr[j-1]
+                    ? prev
+                    : 1 + min(prev, row[j], row[j-1])
+                prev = old
+            }
+        }
+        return row[n]
+    }
+
+    /// Returns a slug with an appended numeric suffix that doesn't collide with
+    /// any existing file in the entity type directory (e.g. "coffee-2", "coffee-3").
+    func deduplicatedSlug(base: String, type: String) -> String {
+        let dir = VaultInitializer.vaultURL
+            .appendingPathComponent("wiki")
+            .appendingPathComponent(type)
+        var candidate = base
+        var counter = 2
+        while FileManager.default.fileExists(atPath: dir.appendingPathComponent("\(candidate).md").path) {
+            candidate = "\(base)-\(counter)"
+            counter += 1
+        }
+        return candidate
     }
 
     // MARK: - Create Entity Page
