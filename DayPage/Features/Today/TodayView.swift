@@ -387,7 +387,8 @@ struct TodayView: View {
                                 .padding(.top, 8)
                                 .transition(.move(edge: .top).combined(with: .opacity))
                                 .onAppear {
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                                    Task { @MainActor in
+                                        try? await Task.sleep(for: .seconds(3))
                                         viewModel.submitError = nil
                                     }
                                 }

@@ -491,7 +491,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         isProcessingPhoto = true
         submitError = nil
 
-        photoTask = Task {
+        photoTask = Task { @MainActor in
             defer { isProcessingPhoto = false }
 
             guard let result = await photoService.processPickerItem(item) else {
@@ -533,7 +533,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     /// Re-runs transcription for a failed voice attachment and updates the memo on disk.
     func retranscribe(memo: Memo, attachment: Memo.Attachment) {
         let audioURL = VaultInitializer.vaultURL.appendingPathComponent(attachment.file)
-        Task {
+        Task { @MainActor in
             guard let transcript = await voiceService.transcribeAudio(at: audioURL),
                   !transcript.isEmpty else { return }
             // Update the attachment in memory and persist
@@ -611,7 +611,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     func addCameraPhoto(_ image: UIImage) {
         guard let data = image.jpegData(compressionQuality: 0.9) else { return }
         isProcessingPhoto = true
-        cameraPhotoTask = Task {
+        cameraPhotoTask = Task { @MainActor in
             defer { isProcessingPhoto = false }
             guard let result = await photoService.processImageDataAsync(data) else {
                 submitError = "照片处理失败，请重试"
@@ -625,7 +625,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     func addCameraPhotoAndSubmit(_ image: UIImage) {
         guard let data = image.jpegData(compressionQuality: 0.9) else { return }
         isProcessingPhoto = true
-        cameraPhotoTask = Task {
+        cameraPhotoTask = Task { @MainActor in
             defer { isProcessingPhoto = false }
             guard let result = await photoService.processImageDataAsync(data) else {
                 submitError = "照片处理失败，请重试"
@@ -643,7 +643,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         // US-012: expose batch progress when > 3 photos
         batchPhotoTotal = items.count
         batchPhotoProgress = 0
-        submitTask = Task {
+        submitTask = Task { @MainActor in
             defer {
                 isProcessingPhoto = false
                 batchPhotoTotal = 0
@@ -686,7 +686,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         let loc = pendingLocation
         let snapshotAttachments = attachments
 
-        submitMemoTask = Task {
+        submitMemoTask = Task { @MainActor in
             defer { isSubmitting = false }
 
             // Auto-fetch location for every memo when not already set by the user.
@@ -780,7 +780,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         isLocating = true
         submitError = nil
 
-        locationTask = Task {
+        locationTask = Task { @MainActor in
             defer { isLocating = false }
             do {
                 let loc = try await locationService.currentLocation(timeout: 3)
@@ -831,7 +831,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         submitError = nil
 
         compilationTask?.cancel()
-        compilationTask = Task {
+        compilationTask = Task { @MainActor in
             defer {
                 isCompiling = false
                 compilationTask = nil
