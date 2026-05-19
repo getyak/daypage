@@ -196,7 +196,7 @@ struct TodayView: View {
                     if viewModel.memos.isEmpty {
                         orbHero
                             .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
-                            .animation(.easeOut(duration: 0.22), value: viewModel.memos.isEmpty)
+                            .animation(Motion.dismiss, value: viewModel.memos.isEmpty)
                     }
 
                     // MARK: Timeline
@@ -551,7 +551,7 @@ struct TodayView: View {
                         .transition(.opacity)
                 }
             }
-            .animation(.easeInOut(duration: 0.22), value: showTutorial)
+            .animation(Motion.dismiss, value: showTutorial)
             .sheet(isPresented: $showAuthSheet) {
                 AuthView()
             }
