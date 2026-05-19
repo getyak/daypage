@@ -102,11 +102,17 @@ platform :ios do
 
     profile_name        = ENV["sigh_com.daypage.app_appstore_profile-name"] || "match AppStore com.daypage.app"
     widget_profile_name = "match AppStore com.daypage.app.DayPageWidget"
-    # Per-target xcargs so the widget extension uses its own profile rather
-    # than inheriting the main app's. A bare `PROVISIONING_PROFILE_SPECIFIER`
-    # applies to every target and breaks the widget signing
-    # ("Provisioning profile ... has app ID 'com.daypage.app', which does
-    # not match the bundle ID 'com.daypage.app.DayPageWidget'").
+    # Do NOT pass a bare `PROVISIONING_PROFILE_SPECIFIER` via xcargs — it
+    # applies globally and forces the widget target to use the main app's
+    # profile (mismatched bundle id, fails). The project.pbxproj already has
+    # `PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.daypage.app.DayPageWidget"`
+    # on the DayPageWidget target's Release config, so per-target signing is
+    # already correct. We only need export_options.provisioningProfiles to
+    # tell -exportArchive which profile to embed for each bundle id.
+    #
+    # Conditional xcargs syntax `PROVISIONING_PROFILE_SPECIFIER[target=...]=...`
+    # is an .xcconfig-only form; xcodebuild on the command line interprets the
+    # whole `[target=...]=value` as the *value*, so we can't use it that way.
     build_app(
       scheme:           "DayPage",
       project:          "DayPage.xcodeproj",
@@ -115,10 +121,6 @@ platform :ios do
       clean:            false,
       output_directory: "build",
       output_name:      "DayPage.ipa",
-      xcargs:           [
-        "PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*][target=DayPage]='#{profile_name}'",
-        "PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*][target=DayPageWidget]='#{widget_profile_name}'"
-      ].join(" "),
       export_options:   {
         method:               "app-store",
         signingStyle:         "manual",
@@ -193,11 +195,17 @@ platform :ios do
 
     profile_name        = ENV["sigh_com.daypage.app_appstore_profile-name"] || "match AppStore com.daypage.app"
     widget_profile_name = "match AppStore com.daypage.app.DayPageWidget"
-    # Per-target xcargs so the widget extension uses its own profile rather
-    # than inheriting the main app's. A bare `PROVISIONING_PROFILE_SPECIFIER`
-    # applies to every target and breaks the widget signing
-    # ("Provisioning profile ... has app ID 'com.daypage.app', which does
-    # not match the bundle ID 'com.daypage.app.DayPageWidget'").
+    # Do NOT pass a bare `PROVISIONING_PROFILE_SPECIFIER` via xcargs — it
+    # applies globally and forces the widget target to use the main app's
+    # profile (mismatched bundle id, fails). The project.pbxproj already has
+    # `PROVISIONING_PROFILE_SPECIFIER = "match AppStore com.daypage.app.DayPageWidget"`
+    # on the DayPageWidget target's Release config, so per-target signing is
+    # already correct. We only need export_options.provisioningProfiles to
+    # tell -exportArchive which profile to embed for each bundle id.
+    #
+    # Conditional xcargs syntax `PROVISIONING_PROFILE_SPECIFIER[target=...]=...`
+    # is an .xcconfig-only form; xcodebuild on the command line interprets the
+    # whole `[target=...]=value` as the *value*, so we can't use it that way.
     build_app(
       scheme:           "DayPage",
       project:          "DayPage.xcodeproj",
@@ -206,10 +214,6 @@ platform :ios do
       clean:            false,
       output_directory: "build",
       output_name:      "DayPage.ipa",
-      xcargs:           [
-        "PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*][target=DayPage]='#{profile_name}'",
-        "PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*][target=DayPageWidget]='#{widget_profile_name}'"
-      ].join(" "),
       export_options:   {
         method:               "app-store",
         signingStyle:         "manual",
