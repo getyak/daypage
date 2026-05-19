@@ -223,8 +223,8 @@ struct PhotoSnapshot: Equatable {
         else { return nil }
         var parts: [String] = []
         if let f = exif[kCGImagePropertyExifFNumber as String] as? Double { parts.append("f/\(f)") }
-        if let e = exif[kCGImagePropertyExifExposureTime as String] as? Double {
-            let denom = Int(1.0 / e)
+        if let e = exif[kCGImagePropertyExifExposureTime as String] as? Double, e > 0, e.isFinite {
+            let denom = Int((1.0 / e).rounded())
             parts.append("1/\(denom)s")
         }
         if let iso = (exif[kCGImagePropertyExifISOSpeedRatings as String] as? [Int])?.first { parts.append("ISO \(iso)") }
