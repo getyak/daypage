@@ -61,13 +61,62 @@ final class PhotoService {
         processImageDataSync(data)
     }
 
-    /// Async variant — kept for callers that await processing. The body is
-    /// still MainActor-isolated (DayPageLogger / extractEXIF / generateThumbnail
-    /// all are @MainActor) so we can't safely Task.detached without rewriting
-    /// the whole chain as nonisolated. Image processing on this path is small
-    /// enough (single PHPicker pick) that the brief main-thread cost is OK.
+    /// Async variant — runs CPU-heavy HEIC→JPEG conversion + EXIF extraction
+    /// off the main thread via Task.detached, then marshals the result back.
     func processImageDataAsync(_ data: Data) async -> PhotoPickerResult? {
-        processImageDataSync(data)
+        let assetsURL = VaultInitializer.vaultURL
+            .appendingPathComponent("raw")
+            .appendingPathComponent("assets")
+        do { try FileManager.default.createDirectory(at: assetsURL, withIntermediateDirectories: true, attributes: nil) }
+        catch { DayPageLogger.shared.error("PhotoService: createDirectory: \(error)") }
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd_HHmmss"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone.current
+        let timestamp = formatter.string(from: Date())
+        let filename = "IMG_\(timestamp).jpg"
+        let fileURL = assetsURL.appendingPathComponent(filename)
+
+        // Run HEIC decode + EXIF extraction + thumbnail generation on a background thread.
+        return await Task.detached(priority: .userInitiated) {
+            // Convert HEIC/HEIF to JPEG on background thread to avoid blocking main.
+            let jpegData: Data
+            if let src = CGImageSourceCreateWithData(data as CFData, nil),
+               let cgImg = CGImageSourceCreateImageAtIndex(src, 0, nil) {
+                let mutableData = NSMutableData()
+                if let dest = CGImageDestinationCreateWithData(mutableData, "public.jpeg" as CFString, 1, nil) {
+                    CGImageDestinationAddImage(dest, cgImg, [kCGImageDestinationLossyCompressionQuality: 0.88] as CFDictionary)
+                    if CGImageDestinationFinalize(dest) {
+                        jpegData = mutableData as Data
+                    } else {
+                        jpegData = data
+                    }
+                } else {
+                    jpegData = data
+                }
+            } else {
+                jpegData = data
+            }
+
+            // Write atomically.
+            let tmpURL = assetsURL.appendingPathComponent(".\(UUID().uuidString).tmp")
+            do {
+                try jpegData.write(to: tmpURL, options: .atomic)
+                _ = try? FileManager.default.replaceItemAt(fileURL, withItemAt: tmpURL)
+                if !FileManager.default.fileExists(atPath: fileURL.path) {
+                    try FileManager.default.moveItem(at: tmpURL, to: fileURL)
+                }
+            } catch {
+                try? FileManager.default.removeItem(at: tmpURL)
+                return nil
+            }
+
+            let exif = self.extractEXIFBackground(from: jpegData)
+            let thumbnail = self.generateThumbnailBackground(from: jpegData)
+            let relativePath = "raw/assets/\(filename)"
+            return PhotoPickerResult(filePath: relativePath, fileURL: fileURL, exif: exif, thumbnail: thumbnail)
+        }.value
     }
 
     private func processImageDataSync(_ data: Data) -> PhotoPickerResult? {
@@ -119,6 +168,56 @@ final class PhotoService {
             exif: exif,
             thumbnail: thumbnail
         )
+    }
+
+    // Nonisolated versions safe to call from Task.detached
+    nonisolated private func extractEXIFBackground(from data: Data) -> PhotoEXIF? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+        else { return nil }
+
+        var exif = PhotoEXIF()
+        if let exifDict = properties[kCGImagePropertyExifDictionary] as? [CFString: Any] {
+            if let fnum = exifDict[kCGImagePropertyExifFNumber] as? Double {
+                exif.aperture = String(format: "f/%.1f", fnum)
+            }
+            if let shutterExp = exifDict[kCGImagePropertyExifExposureTime] as? Double, shutterExp > 0 {
+                let denom = Int(round(1.0 / shutterExp))
+                exif.shutterSpeed = denom > 1 ? "1/\(denom)s" : String(format: "%.1fs", shutterExp)
+            }
+            if let isoArr = exifDict[kCGImagePropertyExifISOSpeedRatings] as? [Int], let isoVal = isoArr.first {
+                exif.iso = "ISO \(isoVal)"
+            }
+            if let fl = exifDict[kCGImagePropertyExifFocalLength] as? Double {
+                exif.focalLength = "\(Int(fl))mm"
+            }
+            if let dateStr = exifDict[kCGImagePropertyExifDateTimeOriginal] as? String {
+                let df = DateFormatter()
+                df.dateFormat = "yyyy:MM:dd HH:mm:ss"
+                df.locale = Locale(identifier: "en_US_POSIX")
+                exif.capturedAt = df.date(from: dateStr)
+            }
+        }
+        if let gpsDict = properties[kCGImagePropertyGPSDictionary] as? [CFString: Any] {
+            let latRef = (gpsDict[kCGImagePropertyGPSLatitudeRef] as? String) ?? "N"
+            let lngRef = (gpsDict[kCGImagePropertyGPSLongitudeRef] as? String) ?? "E"
+            if let lat = gpsDict[kCGImagePropertyGPSLatitude] as? Double { exif.gpsLat = latRef == "S" ? -lat : lat }
+            if let lng = gpsDict[kCGImagePropertyGPSLongitude] as? Double { exif.gpsLng = lngRef == "W" ? -lng : lng }
+        }
+        return exif
+    }
+
+    nonisolated private func generateThumbnailBackground(from data: Data, maxDimension: CGFloat = 200) -> UIImage? {
+        let opts: [CFString: Any] = [
+            kCGImageSourceShouldCacheImmediately: false,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxDimension
+        ]
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let cgThumb = CGImageSourceCreateThumbnailAtIndex(source, 0, opts as CFDictionary)
+        else { return UIImage(data: data) }
+        return UIImage(cgImage: cgThumb)
     }
 
     // MARK: - EXIF Extraction
