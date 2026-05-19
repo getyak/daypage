@@ -4,3 +4,4 @@ Tool: claude
 PRD: prd-v7-audit.json (25 stories)
 Branch: ralph/v7-deep-audit
 ---
+[2026-05-19T06:41:19Z] Story #US-001: 立即轮换全部泄露的 API Key — PASSED

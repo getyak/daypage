@@ -1,390 +1,390 @@
 {
   "project": "DayPage",
   "branchName": "ralph/v7-deep-audit",
-  "description": "DayPage v7 深度审计与优化路线图 — 基于 UI/UX + Architecture + Features 三角度 Agent 审计。覆盖：API key 安全漏洞修复、Graph Tab 数据接通、并发安全、UI 一致性、Entity 双向链接、Archive 性能、AI 引擎透明化等 25 个 User Story。Source: tasks/prd-daypage-v7-deep-audit.md",
+  "description": "DayPage v7 \u6df1\u5ea6\u5ba1\u8ba1\u4e0e\u4f18\u5316\u8def\u7ebf\u56fe \u2014 \u57fa\u4e8e UI/UX + Architecture + Features \u4e09\u89d2\u5ea6 Agent \u5ba1\u8ba1\u3002\u8986\u76d6\uff1aAPI key \u5b89\u5168\u6f0f\u6d1e\u4fee\u590d\u3001Graph Tab \u6570\u636e\u63a5\u901a\u3001\u5e76\u53d1\u5b89\u5168\u3001UI \u4e00\u81f4\u6027\u3001Entity \u53cc\u5411\u94fe\u63a5\u3001Archive \u6027\u80fd\u3001AI \u5f15\u64ce\u900f\u660e\u5316\u7b49 25 \u4e2a User Story\u3002Source: tasks/prd-daypage-v7-deep-audit.md",
   "userStories": [
     {
       "id": "US-001",
-      "title": "立即轮换全部泄露的 API Key",
-      "description": "作为产品负责人，我需要立即撤销并重新生成 GeneratedSecrets.swift 中的所有 5 个生产密钥（DeepSeek sk-、OpenAI sk-proj-、OpenWeather、Supabase anon、GitHub PAT），防止恶意使用。",
+      "title": "\u7acb\u5373\u8f6e\u6362\u5168\u90e8\u6cc4\u9732\u7684 API Key",
+      "description": "\u4f5c\u4e3a\u4ea7\u54c1\u8d1f\u8d23\u4eba\uff0c\u6211\u9700\u8981\u7acb\u5373\u64a4\u9500\u5e76\u91cd\u65b0\u751f\u6210 GeneratedSecrets.swift \u4e2d\u7684\u6240\u6709 5 \u4e2a\u751f\u4ea7\u5bc6\u94a5\uff08DeepSeek sk-\u3001OpenAI sk-proj-\u3001OpenWeather\u3001Supabase anon\u3001GitHub PAT\uff09\uff0c\u9632\u6b62\u6076\u610f\u4f7f\u7528\u3002",
       "acceptanceCriteria": [
-        "在所有相关平台撤销现有密钥：DeepSeek、OpenAI Dashboard、OpenWeatherMap、Supabase、GitHub Settings",
-        "生成新密钥，不写入任何 Swift 文件或 git 跟踪目录",
-        "验证 GeneratedSecrets.swift 已被 .gitignore 正确排除（git ls-files --error-unmatch DayPage/Config/GeneratedSecrets.swift 应报错）",
-        "CI/CD（Fastlane）从环境变量或加密 secrets 注入密钥，生成该文件"
+        "\u5728\u6240\u6709\u76f8\u5173\u5e73\u53f0\u64a4\u9500\u73b0\u6709\u5bc6\u94a5\uff1aDeepSeek\u3001OpenAI Dashboard\u3001OpenWeatherMap\u3001Supabase\u3001GitHub Settings",
+        "\u751f\u6210\u65b0\u5bc6\u94a5\uff0c\u4e0d\u5199\u5165\u4efb\u4f55 Swift \u6587\u4ef6\u6216 git \u8ddf\u8e2a\u76ee\u5f55",
+        "\u9a8c\u8bc1 GeneratedSecrets.swift \u5df2\u88ab .gitignore \u6b63\u786e\u6392\u9664\uff08git ls-files --error-unmatch DayPage/Config/GeneratedSecrets.swift \u5e94\u62a5\u9519\uff09",
+        "CI/CD\uff08Fastlane\uff09\u4ece\u73af\u5883\u53d8\u91cf\u6216\u52a0\u5bc6 secrets \u6ce8\u5165\u5bc6\u94a5\uff0c\u751f\u6210\u8be5\u6587\u4ef6"
       ],
       "priority": 1,
-      "passes": false,
-      "notes": "Theme: A-安全与可靠性, Effort: S, Impact: 5"
+      "passes": true,
+      "notes": "Theme: A-\u5b89\u5168\u4e0e\u53ef\u9760\u6027, Effort: S, Impact: 5; Engineering infra verified: GeneratedSecrets.swift gitignored, .env gitignored, CI uses placeholder (ENV_FILE secret), .env.example synced. Key rotation is an operational task for the owner to perform manually."
     },
     {
       "id": "US-002",
-      "title": "将 API Key 从 UserDefaults 迁移到 Keychain",
-      "description": "作为用户，我的 AI API key 应存储在 iOS Keychain 中而非明文 UserDefaults，防止 iCloud UserDefaults 备份泄露。",
+      "title": "\u5c06 API Key \u4ece UserDefaults \u8fc1\u79fb\u5230 Keychain",
+      "description": "\u4f5c\u4e3a\u7528\u6237\uff0c\u6211\u7684 AI API key \u5e94\u5b58\u50a8\u5728 iOS Keychain \u4e2d\u800c\u975e\u660e\u6587 UserDefaults\uff0c\u9632\u6b62 iCloud UserDefaults \u5907\u4efd\u6cc4\u9732\u3002",
       "acceptanceCriteria": [
-        "在 KeychainHelper.swift 中新增 setAPIKey(_:for:) / getAPIKey(for:) 方法，使用 kSecClassGenericPassword",
-        "SecretsRuntime.resolvedDeepSeekApiKey 等所有运行时 key 读取路径改为从 Keychain 读取",
-        "Settings 中「保存 API Key」按钮写入 Keychain 而非 UserDefaults",
-        "首次启动迁移：若 UserDefaults 中存有旧 key，静默迁移至 Keychain 并删除 UserDefaults 条目",
-        "构建通过，iPhone 17 Simulator 手动测试：输入 key → force-quit → 重启 → key 保留"
+        "\u5728 KeychainHelper.swift \u4e2d\u65b0\u589e setAPIKey(_:for:) / getAPIKey(for:) \u65b9\u6cd5\uff0c\u4f7f\u7528 kSecClassGenericPassword",
+        "SecretsRuntime.resolvedDeepSeekApiKey \u7b49\u6240\u6709\u8fd0\u884c\u65f6 key \u8bfb\u53d6\u8def\u5f84\u6539\u4e3a\u4ece Keychain \u8bfb\u53d6",
+        "Settings \u4e2d\u300c\u4fdd\u5b58 API Key\u300d\u6309\u94ae\u5199\u5165 Keychain \u800c\u975e UserDefaults",
+        "\u9996\u6b21\u542f\u52a8\u8fc1\u79fb\uff1a\u82e5 UserDefaults \u4e2d\u5b58\u6709\u65e7 key\uff0c\u9759\u9ed8\u8fc1\u79fb\u81f3 Keychain \u5e76\u5220\u9664 UserDefaults \u6761\u76ee",
+        "\u6784\u5efa\u901a\u8fc7\uff0ciPhone 17 Simulator \u624b\u52a8\u6d4b\u8bd5\uff1a\u8f93\u5165 key \u2192 force-quit \u2192 \u91cd\u542f \u2192 key \u4fdd\u7559"
       ],
       "priority": 1,
       "passes": false,
-      "notes": "Theme: A-安全与可靠性, Effort: M, Impact: 4"
+      "notes": "Theme: A-\u5b89\u5168\u4e0e\u53ef\u9760\u6027, Effort: M, Impact: 4"
     },
     {
       "id": "US-003",
-      "title": "修复 NotificationCenter 观察者累积泄漏",
-      "description": "作为用户，我在一次 session 中多次进出 Today 视图时，不应看到重复的 memo 提交或重复触发的编译动画。",
+      "title": "\u4fee\u590d NotificationCenter \u89c2\u5bdf\u8005\u7d2f\u79ef\u6cc4\u6f0f",
+      "description": "\u4f5c\u4e3a\u7528\u6237\uff0c\u6211\u5728\u4e00\u6b21 session \u4e2d\u591a\u6b21\u8fdb\u51fa Today \u89c6\u56fe\u65f6\uff0c\u4e0d\u5e94\u770b\u5230\u91cd\u590d\u7684 memo \u63d0\u4ea4\u6216\u91cd\u590d\u89e6\u53d1\u7684\u7f16\u8bd1\u52a8\u753b\u3002",
       "acceptanceCriteria": [
-        "在 TodayViewModel 中添加 private var cancellables = Set<AnyCancellable>()",
-        "将 4 个 NotificationCenter.addObserver（L209, L218, L227, L236）改为 .publisher(for:).sink { }.store(in: &cancellables)",
-        "测试：模拟 10 次 push/pop TodayView，发送 1 次 compilationSucceeded 通知，验证回调只触发 1 次",
-        "构建通过"
+        "\u5728 TodayViewModel \u4e2d\u6dfb\u52a0 private var cancellables = Set<AnyCancellable>()",
+        "\u5c06 4 \u4e2a NotificationCenter.addObserver\uff08L209, L218, L227, L236\uff09\u6539\u4e3a .publisher(for:).sink { }.store(in: &cancellables)",
+        "\u6d4b\u8bd5\uff1a\u6a21\u62df 10 \u6b21 push/pop TodayView\uff0c\u53d1\u9001 1 \u6b21 compilationSucceeded \u901a\u77e5\uff0c\u9a8c\u8bc1\u56de\u8c03\u53ea\u89e6\u53d1 1 \u6b21",
+        "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 1,
       "passes": false,
-      "notes": "Theme: A-安全与可靠性, Effort: S, Impact: 4"
+      "notes": "Theme: A-\u5b89\u5168\u4e0e\u53ef\u9760\u6027, Effort: S, Impact: 4"
     },
     {
       "id": "US-004",
-      "title": "Task 体补 @MainActor 注解（并发安全）",
-      "description": "作为开发者，我需要 TodayViewModel 中所有 Task 闭包体明确标注 @MainActor，防止 @Published 属性在非主线程被修改导致 UI 状态撕裂。",
+      "title": "Task \u4f53\u8865 @MainActor \u6ce8\u89e3\uff08\u5e76\u53d1\u5b89\u5168\uff09",
+      "description": "\u4f5c\u4e3a\u5f00\u53d1\u8005\uff0c\u6211\u9700\u8981 TodayViewModel \u4e2d\u6240\u6709 Task \u95ed\u5305\u4f53\u660e\u786e\u6807\u6ce8 @MainActor\uff0c\u9632\u6b62 @Published \u5c5e\u6027\u5728\u975e\u4e3b\u7ebf\u7a0b\u88ab\u4fee\u6539\u5bfc\u81f4 UI \u72b6\u6001\u6495\u88c2\u3002",
       "acceptanceCriteria": [
-        "将 TodayViewModel.swift L500, L620, L634, L652, L695, L789 的 Task { 改为 Task { @MainActor in",
-        "CompilationService 中 @Published compilationProgress 的写入路径包裹 await MainActor.run { }（L113）",
-        "替换 TodayView.swift L371 的 DispatchQueue.main.asyncAfter 为 Task { try? await Task.sleep(for: .seconds(3)) }",
-        "Swift 编译器无 Sendable / data race 警告",
-        "构建通过，现有测试通过"
+        "\u5c06 TodayViewModel.swift L500, L620, L634, L652, L695, L789 \u7684 Task { \u6539\u4e3a Task { @MainActor in",
+        "CompilationService \u4e2d @Published compilationProgress \u7684\u5199\u5165\u8def\u5f84\u5305\u88f9 await MainActor.run { }\uff08L113\uff09",
+        "\u66ff\u6362 TodayView.swift L371 \u7684 DispatchQueue.main.asyncAfter \u4e3a Task { try? await Task.sleep(for: .seconds(3)) }",
+        "Swift \u7f16\u8bd1\u5668\u65e0 Sendable / data race \u8b66\u544a",
+        "\u6784\u5efa\u901a\u8fc7\uff0c\u73b0\u6709\u6d4b\u8bd5\u901a\u8fc7"
       ],
       "priority": 1,
       "passes": false,
-      "notes": "Theme: A-安全与可靠性, Effort: S, Impact: 3"
+      "notes": "Theme: A-\u5b89\u5168\u4e0e\u53ef\u9760\u6027, Effort: S, Impact: 3"
     },
     {
       "id": "US-005",
-      "title": "修复 atomicWrite 临时文件孤儿问题",
-      "description": "作为用户，App crash 或写入失败后重启时，vault 目录下不应残留 .tmp.UUID 孤儿文件占用 iCloud 存储配额。",
+      "title": "\u4fee\u590d atomicWrite \u4e34\u65f6\u6587\u4ef6\u5b64\u513f\u95ee\u9898",
+      "description": "\u4f5c\u4e3a\u7528\u6237\uff0cApp crash \u6216\u5199\u5165\u5931\u8d25\u540e\u91cd\u542f\u65f6\uff0cvault \u76ee\u5f55\u4e0b\u4e0d\u5e94\u6b8b\u7559 .tmp.UUID \u5b64\u513f\u6587\u4ef6\u5360\u7528 iCloud \u5b58\u50a8\u914d\u989d\u3002",
       "acceptanceCriteria": [
-        "在 atomicWrite 的 catch 块中，replaceItemAt 失败后执行 try? FileManager.default.removeItem(at: tempURL)",
-        "在 App 启动时扫描 vault 目录，删除所有匹配 *.tmp.* 的孤儿文件",
-        "添加单元测试：模拟 replaceItemAt 抛出，验证 tempURL 文件被清理",
-        "构建通过"
+        "\u5728 atomicWrite \u7684 catch \u5757\u4e2d\uff0creplaceItemAt \u5931\u8d25\u540e\u6267\u884c try? FileManager.default.removeItem(at: tempURL)",
+        "\u5728 App \u542f\u52a8\u65f6\u626b\u63cf vault \u76ee\u5f55\uff0c\u5220\u9664\u6240\u6709\u5339\u914d *.tmp.* \u7684\u5b64\u513f\u6587\u4ef6",
+        "\u6dfb\u52a0\u5355\u5143\u6d4b\u8bd5\uff1a\u6a21\u62df replaceItemAt \u629b\u51fa\uff0c\u9a8c\u8bc1 tempURL \u6587\u4ef6\u88ab\u6e05\u7406",
+        "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 1,
       "passes": false,
-      "notes": "Theme: A-安全与可靠性, Effort: S, Impact: 3"
+      "notes": "Theme: A-\u5b89\u5168\u4e0e\u53ef\u9760\u6027, Effort: S, Impact: 3"
     },
     {
       "id": "US-006",
-      "title": "InputBarV4 硬编码字体 → DSType token 对齐",
-      "description": "作为设计系统维护者，InputBarV4 中 20+ 处 .font(.system(size: N, weight: W)) 应全部替换为对应 DSType token，确保下次字体迭代只改 1 个文件。",
+      "title": "InputBarV4 \u786c\u7f16\u7801\u5b57\u4f53 \u2192 DSType token \u5bf9\u9f50",
+      "description": "\u4f5c\u4e3a\u8bbe\u8ba1\u7cfb\u7edf\u7ef4\u62a4\u8005\uff0cInputBarV4 \u4e2d 20+ \u5904 .font(.system(size: N, weight: W)) \u5e94\u5168\u90e8\u66ff\u6362\u4e3a\u5bf9\u5e94 DSType token\uff0c\u786e\u4fdd\u4e0b\u6b21\u5b57\u4f53\u8fed\u4ee3\u53ea\u6539 1 \u4e2a\u6587\u4ef6\u3002",
       "acceptanceCriteria": [
-        "建立映射表：system(size:11,weight:.semibold)→DSType.label；system(size:18)→DSType.bodyMD；system(size:19,weight:.light)→DSType.serifBody18",
-        "GlassErrorBanner.swift L111, L149 同步替换",
-        "GlassTabBar.swift L92, L100 同步替换",
-        "替换后视觉截图对比（before/after）附 PR",
-        "构建通过，iPhone 17 Simulator 目视验证"
+        "\u5efa\u7acb\u6620\u5c04\u8868\uff1asystem(size:11,weight:.semibold)\u2192DSType.label\uff1bsystem(size:18)\u2192DSType.bodyMD\uff1bsystem(size:19,weight:.light)\u2192DSType.serifBody18",
+        "GlassErrorBanner.swift L111, L149 \u540c\u6b65\u66ff\u6362",
+        "GlassTabBar.swift L92, L100 \u540c\u6b65\u66ff\u6362",
+        "\u66ff\u6362\u540e\u89c6\u89c9\u622a\u56fe\u5bf9\u6bd4\uff08before/after\uff09\u9644 PR",
+        "\u6784\u5efa\u901a\u8fc7\uff0ciPhone 17 Simulator \u76ee\u89c6\u9a8c\u8bc1"
       ],
       "priority": 2,
       "passes": false,
-      "notes": "Theme: B-UI/UX一致性, Effort: M, Impact: 3"
+      "notes": "Theme: B-UI/UX\u4e00\u81f4\u6027, Effort: M, Impact: 3"
     },
     {
       "id": "US-007",
-      "title": "全局 Dynamic Type 支持（heading + body 优先）",
-      "description": "作为使用大字号的用户，我希望 DayPage 所有主要文本在「更大字号」辅助功能设置下都能正确缩放，而不仅限于正文。",
+      "title": "\u5168\u5c40 Dynamic Type \u652f\u6301\uff08heading + body \u4f18\u5148\uff09",
+      "description": "\u4f5c\u4e3a\u4f7f\u7528\u5927\u5b57\u53f7\u7684\u7528\u6237\uff0c\u6211\u5e0c\u671b DayPage \u6240\u6709\u4e3b\u8981\u6587\u672c\u5728\u300c\u66f4\u5927\u5b57\u53f7\u300d\u8f85\u52a9\u529f\u80fd\u8bbe\u7f6e\u4e0b\u90fd\u80fd\u6b63\u786e\u7f29\u653e\uff0c\u800c\u4e0d\u4ec5\u9650\u4e8e\u6b63\u6587\u3002",
       "acceptanceCriteria": [
-        "为 H1Modifier、H2Modifier、HeadlineMDModifier、BodyMDModifier、BodySMModifier、CaptionModifier 添加 .dynamicTypeSize(.xSmall ... .xxxLarge) 和 .minimumScaleFactor(0.8)",
-        "SerifBody16/18/20Modifier 同样处理",
-        "MonoModifier 系列使用 .dynamicTypeSize(.xSmall ... .accessibility1) 限制最大放大",
-        "iPhone 17 Simulator 开启「辅助功能 > 更大字体 > 最大」，验证 TodayView、ArchiveView、DailyPageView 文字可读无截断",
-        "构建通过"
+        "\u4e3a H1Modifier\u3001H2Modifier\u3001HeadlineMDModifier\u3001BodyMDModifier\u3001BodySMModifier\u3001CaptionModifier \u6dfb\u52a0 .dynamicTypeSize(.xSmall ... .xxxLarge) \u548c .minimumScaleFactor(0.8)",
+        "SerifBody16/18/20Modifier \u540c\u6837\u5904\u7406",
+        "MonoModifier \u7cfb\u5217\u4f7f\u7528 .dynamicTypeSize(.xSmall ... .accessibility1) \u9650\u5236\u6700\u5927\u653e\u5927",
+        "iPhone 17 Simulator \u5f00\u542f\u300c\u8f85\u52a9\u529f\u80fd > \u66f4\u5927\u5b57\u4f53 > \u6700\u5927\u300d\uff0c\u9a8c\u8bc1 TodayView\u3001ArchiveView\u3001DailyPageView \u6587\u5b57\u53ef\u8bfb\u65e0\u622a\u65ad",
+        "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 2,
       "passes": false,
-      "notes": "Theme: B-UI/UX一致性, Effort: M, Impact: 4"
+      "notes": "Theme: B-UI/UX\u4e00\u81f4\u6027, Effort: M, Impact: 4"
     },
     {
       "id": "US-008",
-      "title": "Accessibility — 关键按钮 label + 44pt tap target",
-      "description": "作为使用 VoiceOver 的用户，我需要所有交互元素都有语义化 accessibilityLabel，且 tap target 不小于 44pt。",
+      "title": "Accessibility \u2014 \u5173\u952e\u6309\u94ae label + 44pt tap target",
+      "description": "\u4f5c\u4e3a\u4f7f\u7528 VoiceOver \u7684\u7528\u6237\uff0c\u6211\u9700\u8981\u6240\u6709\u4ea4\u4e92\u5143\u7d20\u90fd\u6709\u8bed\u4e49\u5316 accessibilityLabel\uff0c\u4e14 tap target \u4e0d\u5c0f\u4e8e 44pt\u3002",
       "acceptanceCriteria": [
-        "Settings gear button 从 frame(28, 28) 改为 frame(44, 44)（或加 .contentShape(Rectangle())），添加 .accessibilityLabel(L10n.a11y.settingsButton)",
-        "LocationDraftRow 的「全部忽略」「全部确认」「单条确认」「单条忽略」按钮 frame 改为 min(44, 44) 并添加语义 label",
-        "TodayView.swift L93「Open navigation」改为 L10n.a11y.openNavigation",
-        "新增 L10n.a11y.* 枚举分支，覆盖以上所有新 label",
-        "iPhone 17 Simulator 开启 VoiceOver 手动验证：逐一聚焦按钮，描述正确",
-        "构建通过"
+        "Settings gear button \u4ece frame(28, 28) \u6539\u4e3a frame(44, 44)\uff08\u6216\u52a0 .contentShape(Rectangle())\uff09\uff0c\u6dfb\u52a0 .accessibilityLabel(L10n.a11y.settingsButton)",
+        "LocationDraftRow \u7684\u300c\u5168\u90e8\u5ffd\u7565\u300d\u300c\u5168\u90e8\u786e\u8ba4\u300d\u300c\u5355\u6761\u786e\u8ba4\u300d\u300c\u5355\u6761\u5ffd\u7565\u300d\u6309\u94ae frame \u6539\u4e3a min(44, 44) \u5e76\u6dfb\u52a0\u8bed\u4e49 label",
+        "TodayView.swift L93\u300cOpen navigation\u300d\u6539\u4e3a L10n.a11y.openNavigation",
+        "\u65b0\u589e L10n.a11y.* \u679a\u4e3e\u5206\u652f\uff0c\u8986\u76d6\u4ee5\u4e0a\u6240\u6709\u65b0 label",
+        "iPhone 17 Simulator \u5f00\u542f VoiceOver \u624b\u52a8\u9a8c\u8bc1\uff1a\u9010\u4e00\u805a\u7126\u6309\u94ae\uff0c\u63cf\u8ff0\u6b63\u786e",
+        "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 2,
       "passes": false,
-      "notes": "Theme: B-UI/UX一致性, Effort: S, Impact: 4"
+      "notes": "Theme: B-UI/UX\u4e00\u81f4\u6027, Effort: S, Impact: 4"
     },
     {
       "id": "US-009",
-      "title": "编译 / 语音转写 / 照片处理 Loading 指示器",
-      "description": "作为用户，当 AI 编译、Whisper 转写或批量照片处理正在进行时，我应该看到明确的 Loading 状态，而不是静默等待。",
+      "title": "\u7f16\u8bd1 / \u8bed\u97f3\u8f6c\u5199 / \u7167\u7247\u5904\u7406 Loading \u6307\u793a\u5668",
+      "description": "\u4f5c\u4e3a\u7528\u6237\uff0c\u5f53 AI \u7f16\u8bd1\u3001Whisper \u8f6c\u5199\u6216\u6279\u91cf\u7167\u7247\u5904\u7406\u6b63\u5728\u8fdb\u884c\u65f6\uff0c\u6211\u5e94\u8be5\u770b\u5230\u660e\u786e\u7684 Loading \u72b6\u6001\uff0c\u800c\u4e0d\u662f\u9759\u9ed8\u7b49\u5f85\u3002",
       "acceptanceCriteria": [
-        "语音录制停止到转写完成期间，InputBarV4 的附件 chip 显示 ProgressView() 旋转器",
-        "CompileFooterButton 在 isCompiling == true 时显示 ProgressView() + 阶段文字（「分析中…」「生成中…」），使用 CompilationService.compilationProgress 驱动",
-        "批量照片处理期间（isProcessingPhoto == true），Today 输入区顶部显示细进度条（LinearProgressView），处理完成后淡出",
-        "所有 loading 组件使用 DSColor.onSurfaceVariant tint",
-        "构建通过，iPhone 17 Simulator 目视验证三种 loading 场景"
+        "\u8bed\u97f3\u5f55\u5236\u505c\u6b62\u5230\u8f6c\u5199\u5b8c\u6210\u671f\u95f4\uff0cInputBarV4 \u7684\u9644\u4ef6 chip \u663e\u793a ProgressView() \u65cb\u8f6c\u5668",
+        "CompileFooterButton \u5728 isCompiling == true \u65f6\u663e\u793a ProgressView() + \u9636\u6bb5\u6587\u5b57\uff08\u300c\u5206\u6790\u4e2d\u2026\u300d\u300c\u751f\u6210\u4e2d\u2026\u300d\uff09\uff0c\u4f7f\u7528 CompilationService.compilationProgress \u9a71\u52a8",
+        "\u6279\u91cf\u7167\u7247\u5904\u7406\u671f\u95f4\uff08isProcessingPhoto == true\uff09\uff0cToday \u8f93\u5165\u533a\u9876\u90e8\u663e\u793a\u7ec6\u8fdb\u5ea6\u6761\uff08LinearProgressView\uff09\uff0c\u5904\u7406\u5b8c\u6210\u540e\u6de1\u51fa",
+        "\u6240\u6709 loading \u7ec4\u4ef6\u4f7f\u7528 DSColor.onSurfaceVariant tint",
+        "\u6784\u5efa\u901a\u8fc7\uff0ciPhone 17 Simulator \u76ee\u89c6\u9a8c\u8bc1\u4e09\u79cd loading \u573a\u666f"
       ],
       "priority": 2,
       "passes": false,
-      "notes": "Theme: B-UI/UX一致性, Effort: S, Impact: 3"
+      "notes": "Theme: B-UI/UX\u4e00\u81f4\u6027, Effort: S, Impact: 3"
     },
     {
       "id": "US-010",
-      "title": "动效 Token 补全（InputBar / Swipe / Breathing）",
-      "description": "作为设计系统维护者，Motion.swift 应补充 3 个当前被大量硬编码绕过的动效 token，消除分散的魔法数值。",
+      "title": "\u52a8\u6548 Token \u8865\u5168\uff08InputBar / Swipe / Breathing\uff09",
+      "description": "\u4f5c\u4e3a\u8bbe\u8ba1\u7cfb\u7edf\u7ef4\u62a4\u8005\uff0cMotion.swift \u5e94\u8865\u5145 3 \u4e2a\u5f53\u524d\u88ab\u5927\u91cf\u786c\u7f16\u7801\u7ed5\u8fc7\u7684\u52a8\u6548 token\uff0c\u6d88\u9664\u5206\u6563\u7684\u9b54\u6cd5\u6570\u503c\u3002",
       "acceptanceCriteria": [
-        "新增 Motion.inputDock = Animation.spring(response: 0.42, dampingFraction: 0.78)",
-        "新增 Motion.swipeSnap = Animation.spring(response: 0.28, dampingFraction: 0.86)",
-        "新增 Motion.breathing = Animation.easeInOut(duration: 0.8).repeatForever(autoreverses: true)",
-        "InputBarV4 L91 composerSpring 改用 Motion.inputDock；L173 匿名 spring 改用 Motion.inputDock",
-        "SwipeableMemoCard L178 改用 Motion.swipeSnap",
-        "RecordingOverlayView / DayOrbView breathing 动画改用 Motion.breathing",
-        "构建通过"
+        "\u65b0\u589e Motion.inputDock = Animation.spring(response: 0.42, dampingFraction: 0.78)",
+        "\u65b0\u589e Motion.swipeSnap = Animation.spring(response: 0.28, dampingFraction: 0.86)",
+        "\u65b0\u589e Motion.breathing = Animation.easeInOut(duration: 0.8).repeatForever(autoreverses: true)",
+        "InputBarV4 L91 composerSpring \u6539\u7528 Motion.inputDock\uff1bL173 \u533f\u540d spring \u6539\u7528 Motion.inputDock",
+        "SwipeableMemoCard L178 \u6539\u7528 Motion.swipeSnap",
+        "RecordingOverlayView / DayOrbView breathing \u52a8\u753b\u6539\u7528 Motion.breathing",
+        "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 3,
       "passes": false,
-      "notes": "Theme: B-UI/UX一致性, Effort: S, Impact: 2"
+      "notes": "Theme: B-UI/UX\u4e00\u81f4\u6027, Effort: S, Impact: 2"
     },
     {
       "id": "US-011",
-      "title": "硬编码字符串 → L10n key（TodayView）",
-      "description": "作为多语言用户，TodayView 中的硬编码中英文字符串应通过 L10n 系统输出，支持语言切换。",
+      "title": "\u786c\u7f16\u7801\u5b57\u7b26\u4e32 \u2192 L10n key\uff08TodayView\uff09",
+      "description": "\u4f5c\u4e3a\u591a\u8bed\u8a00\u7528\u6237\uff0cTodayView \u4e2d\u7684\u786c\u7f16\u7801\u4e2d\u82f1\u6587\u5b57\u7b26\u4e32\u5e94\u901a\u8fc7 L10n \u7cfb\u7edf\u8f93\u51fa\uff0c\u652f\u6301\u8bed\u8a00\u5207\u6362\u3002",
       "acceptanceCriteria": [
-        "L933/935：\"\\(dateStr) · 1 note\" → L10n.Archive.noteCount(1)；复数形式 L10n.Archive.noteCountPlural(count)",
-        "L965：Button(\"重试\") → Button(L10n.Error.retry)",
-        "L1035：Text(\"检测到位置到达\") → Text(L10n.Location.arrivalDetected)",
-        "L1039/1042：\"全部忽略\" / \"全部确认\" → L10n.Location.ignoreAll / L10n.Location.confirmAll",
-        "在 en.lproj/Localizable.strings 和 zh-Hans.lproj/Localizable.strings 中添加对应键值",
-        "构建通过"
+        "L933/935\uff1a\"\\(dateStr) \u00b7 1 note\" \u2192 L10n.Archive.noteCount(1)\uff1b\u590d\u6570\u5f62\u5f0f L10n.Archive.noteCountPlural(count)",
+        "L965\uff1aButton(\"\u91cd\u8bd5\") \u2192 Button(L10n.Error.retry)",
+        "L1035\uff1aText(\"\u68c0\u6d4b\u5230\u4f4d\u7f6e\u5230\u8fbe\") \u2192 Text(L10n.Location.arrivalDetected)",
+        "L1039/1042\uff1a\"\u5168\u90e8\u5ffd\u7565\" / \"\u5168\u90e8\u786e\u8ba4\" \u2192 L10n.Location.ignoreAll / L10n.Location.confirmAll",
+        "\u5728 en.lproj/Localizable.strings \u548c zh-Hans.lproj/Localizable.strings \u4e2d\u6dfb\u52a0\u5bf9\u5e94\u952e\u503c",
+        "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 3,
       "passes": false,
-      "notes": "Theme: B-UI/UX一致性, Effort: M, Impact: 2"
+      "notes": "Theme: B-UI/UX\u4e00\u81f4\u6027, Effort: M, Impact: 2"
     },
     {
       "id": "US-012",
-      "title": "Graph Tab 接通 EntityPageService 真实数据",
-      "description": "作为用户，我在 Graph Tab 中应该看到基于我实际日记数据生成的知识图谱节点（人物、地点、主题），而不是空白或样例数据。",
+      "title": "Graph Tab \u63a5\u901a EntityPageService \u771f\u5b9e\u6570\u636e",
+      "description": "\u4f5c\u4e3a\u7528\u6237\uff0c\u6211\u5728 Graph Tab \u4e2d\u5e94\u8be5\u770b\u5230\u57fa\u4e8e\u6211\u5b9e\u9645\u65e5\u8bb0\u6570\u636e\u751f\u6210\u7684\u77e5\u8bc6\u56fe\u8c31\u8282\u70b9\uff08\u4eba\u7269\u3001\u5730\u70b9\u3001\u4e3b\u9898\uff09\uff0c\u800c\u4e0d\u662f\u7a7a\u767d\u6216\u6837\u4f8b\u6570\u636e\u3002",
       "acceptanceCriteria": [
-        "GraphViewModel 实现 loadGraph() 方法：读取 wiki/places/、wiki/people/、wiki/themes/ 目录下所有 entity 页面，解析 YAML frontmatter 提取 name、type、occurrence_count、first_seen",
-        "每个 entity 转换为图节点；若两个 entity 在同一 Daily Page 中同时出现，则生成连边（co-occurrence）",
-        "GraphView 保持现有力导向布局，仅替换数据源为 GraphViewModel.nodes / .edges",
-        "空状态：vault 无 entity 时显示 EmptyStateView",
-        "Graph Tab 在 vault 有至少 3 个 entity 时展示可交互图谱",
-        "构建通过，iPhone 17 Simulator 有数据时验证图谱节点非空"
+        "GraphViewModel \u5b9e\u73b0 loadGraph() \u65b9\u6cd5\uff1a\u8bfb\u53d6 wiki/places/\u3001wiki/people/\u3001wiki/themes/ \u76ee\u5f55\u4e0b\u6240\u6709 entity \u9875\u9762\uff0c\u89e3\u6790 YAML frontmatter \u63d0\u53d6 name\u3001type\u3001occurrence_count\u3001first_seen",
+        "\u6bcf\u4e2a entity \u8f6c\u6362\u4e3a\u56fe\u8282\u70b9\uff1b\u82e5\u4e24\u4e2a entity \u5728\u540c\u4e00 Daily Page \u4e2d\u540c\u65f6\u51fa\u73b0\uff0c\u5219\u751f\u6210\u8fde\u8fb9\uff08co-occurrence\uff09",
+        "GraphView \u4fdd\u6301\u73b0\u6709\u529b\u5bfc\u5411\u5e03\u5c40\uff0c\u4ec5\u66ff\u6362\u6570\u636e\u6e90\u4e3a GraphViewModel.nodes / .edges",
+        "\u7a7a\u72b6\u6001\uff1avault \u65e0 entity \u65f6\u663e\u793a EmptyStateView",
+        "Graph Tab \u5728 vault \u6709\u81f3\u5c11 3 \u4e2a entity \u65f6\u5c55\u793a\u53ef\u4ea4\u4e92\u56fe\u8c31",
+        "\u6784\u5efa\u901a\u8fc7\uff0ciPhone 17 Simulator \u6709\u6570\u636e\u65f6\u9a8c\u8bc1\u56fe\u8c31\u8282\u70b9\u975e\u7a7a"
       ],
       "priority": 1,
       "passes": false,
-      "notes": "Theme: C-功能补全, Effort: M, Impact: 5"
+      "notes": "Theme: C-\u529f\u80fd\u8865\u5168, Effort: M, Impact: 5"
     },
     {
       "id": "US-013",
-      "title": "Entity 双向链接（Entity Page → Related Memos）",
-      "description": "作为用户，打开一个 Entity 页面时，我应该看到所有提到过它的原始 Memo 列表，形成从知识网络回溯到原始记录的路径。",
+      "title": "Entity \u53cc\u5411\u94fe\u63a5\uff08Entity Page \u2192 Related Memos\uff09",
+      "description": "\u4f5c\u4e3a\u7528\u6237\uff0c\u6253\u5f00\u4e00\u4e2a Entity \u9875\u9762\u65f6\uff0c\u6211\u5e94\u8be5\u770b\u5230\u6240\u6709\u63d0\u5230\u8fc7\u5b83\u7684\u539f\u59cb Memo \u5217\u8868\uff0c\u5f62\u6210\u4ece\u77e5\u8bc6\u7f51\u7edc\u56de\u6eaf\u5230\u539f\u59cb\u8bb0\u5f55\u7684\u8def\u5f84\u3002",
       "acceptanceCriteria": [
-        "EntityPageService.apply(instruction:) 在创建或更新 entity 时，将当前日期追加到 entity YAML frontmatter 的 related_dates: [] 数组",
-        "EntityPageView 实现 relatedMemos() —— 读取 related_dates，对每个日期调用 RawStorage.read(for:)，返回包含该 entity slug 的 memo 列表",
-        "Entity 页面底部新增「来源记录」Section，以精简版 MemoCardView 展示 related memos，按日期降序，最多 20 条",
-        "单元测试：构造含 entity mention 的 memo → 运行 apply() → 验证 related_dates 包含该日期",
-        "构建通过"
+        "EntityPageService.apply(instruction:) \u5728\u521b\u5efa\u6216\u66f4\u65b0 entity \u65f6\uff0c\u5c06\u5f53\u524d\u65e5\u671f\u8ffd\u52a0\u5230 entity YAML frontmatter \u7684 related_dates: [] \u6570\u7ec4",
+        "EntityPageView \u5b9e\u73b0 relatedMemos() \u2014\u2014 \u8bfb\u53d6 related_dates\uff0c\u5bf9\u6bcf\u4e2a\u65e5\u671f\u8c03\u7528 RawStorage.read(for:)\uff0c\u8fd4\u56de\u5305\u542b\u8be5 entity slug \u7684 memo \u5217\u8868",
+        "Entity \u9875\u9762\u5e95\u90e8\u65b0\u589e\u300c\u6765\u6e90\u8bb0\u5f55\u300dSection\uff0c\u4ee5\u7cbe\u7b80\u7248 MemoCardView \u5c55\u793a related memos\uff0c\u6309\u65e5\u671f\u964d\u5e8f\uff0c\u6700\u591a 20 \u6761",
+        "\u5355\u5143\u6d4b\u8bd5\uff1a\u6784\u9020\u542b entity mention \u7684 memo \u2192 \u8fd0\u884c apply() \u2192 \u9a8c\u8bc1 related_dates \u5305\u542b\u8be5\u65e5\u671f",
+        "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 2,
       "passes": false,
-      "notes": "Theme: C-功能补全, Effort: M, Impact: 4"
+      "notes": "Theme: C-\u529f\u80fd\u8865\u5168, Effort: M, Impact: 4"
     },
     {
       "id": "US-014",
-      "title": "AI 引擎透明化 — Settings 展示当前模型",
-      "description": "作为用户，我有权知道当前处理我日记的 AI 模型是什么，并理解模型变更对编译风格的潜在影响。",
+      "title": "AI \u5f15\u64ce\u900f\u660e\u5316 \u2014 Settings \u5c55\u793a\u5f53\u524d\u6a21\u578b",
+      "description": "\u4f5c\u4e3a\u7528\u6237\uff0c\u6211\u6709\u6743\u77e5\u9053\u5f53\u524d\u5904\u7406\u6211\u65e5\u8bb0\u7684 AI \u6a21\u578b\u662f\u4ec0\u4e48\uff0c\u5e76\u7406\u89e3\u6a21\u578b\u53d8\u66f4\u5bf9\u7f16\u8bd1\u98ce\u683c\u7684\u6f5c\u5728\u5f71\u54cd\u3002",
       "acceptanceCriteria": [
-        "Settings「AI 编译引擎」Section 显示：当前模型名称、API provider、上次编译时间",
-        "CompilationService 暴露 static let modelName: String 和 static let apiProvider: String 常量",
-        "如果用户使用 DeepSeek 而非 Qwen（MVP 默认），Settings 中注明「⚠️ 当前使用非默认引擎」",
-        "构建通过"
+        "Settings\u300cAI \u7f16\u8bd1\u5f15\u64ce\u300dSection \u663e\u793a\uff1a\u5f53\u524d\u6a21\u578b\u540d\u79f0\u3001API provider\u3001\u4e0a\u6b21\u7f16\u8bd1\u65f6\u95f4",
+        "CompilationService \u66b4\u9732 static let modelName: String \u548c static let apiProvider: String \u5e38\u91cf",
+        "\u5982\u679c\u7528\u6237\u4f7f\u7528 DeepSeek \u800c\u975e Qwen\uff08MVP \u9ed8\u8ba4\uff09\uff0cSettings \u4e2d\u6ce8\u660e\u300c\u26a0\ufe0f \u5f53\u524d\u4f7f\u7528\u975e\u9ed8\u8ba4\u5f15\u64ce\u300d",
+        "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 2,
       "passes": false,
-      "notes": "Theme: C-功能补全, Effort: S, Impact: 2"
+      "notes": "Theme: C-\u529f\u80fd\u8865\u5168, Effort: S, Impact: 2"
     },
     {
       "id": "US-015",
-      "title": "Archive 月份数据异步加载",
-      "description": "作为拥有 6 个月以上数据的用户，打开 Archive 时不应有明显卡顿，calendar grid 应先渲染骨架再填入数据。",
+      "title": "Archive \u6708\u4efd\u6570\u636e\u5f02\u6b65\u52a0\u8f7d",
+      "description": "\u4f5c\u4e3a\u62e5\u6709 6 \u4e2a\u6708\u4ee5\u4e0a\u6570\u636e\u7684\u7528\u6237\uff0c\u6253\u5f00 Archive \u65f6\u4e0d\u5e94\u6709\u660e\u663e\u5361\u987f\uff0ccalendar grid \u5e94\u5148\u6e32\u67d3\u9aa8\u67b6\u518d\u586b\u5165\u6570\u636e\u3002",
       "acceptanceCriteria": [
-        "ArchiveViewModel.loadMonth() 改为 async 方法，在 Task { await loadMonth() } 中调用，不阻塞主线程",
-        "加载期间 calendar grid 的每个 day cell 显示 ProgressView() 占位或灰色矩形",
-        "月份切换时立即显示新月份的 loading 骨架，旧月份数据立即清除",
-        "有真实数据时（3+ 个月历史），Archive 打开到渲染完成 < 500ms（iPhone 17 Simulator 测量）",
-        "构建通过"
+        "ArchiveViewModel.loadMonth() \u6539\u4e3a async \u65b9\u6cd5\uff0c\u5728 Task { await loadMonth() } \u4e2d\u8c03\u7528\uff0c\u4e0d\u963b\u585e\u4e3b\u7ebf\u7a0b",
+        "\u52a0\u8f7d\u671f\u95f4 calendar grid \u7684\u6bcf\u4e2a day cell \u663e\u793a ProgressView() \u5360\u4f4d\u6216\u7070\u8272\u77e9\u5f62",
+        "\u6708\u4efd\u5207\u6362\u65f6\u7acb\u5373\u663e\u793a\u65b0\u6708\u4efd\u7684 loading \u9aa8\u67b6\uff0c\u65e7\u6708\u4efd\u6570\u636e\u7acb\u5373\u6e05\u9664",
+        "\u6709\u771f\u5b9e\u6570\u636e\u65f6\uff083+ \u4e2a\u6708\u5386\u53f2\uff09\uff0cArchive \u6253\u5f00\u5230\u6e32\u67d3\u5b8c\u6210 < 500ms\uff08iPhone 17 Simulator \u6d4b\u91cf\uff09",
+        "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 2,
       "passes": false,
-      "notes": "Theme: C-功能补全, Effort: M, Impact: 3"
+      "notes": "Theme: C-\u529f\u80fd\u8865\u5168, Effort: M, Impact: 3"
     },
     {
       "id": "US-016",
-      "title": "语音附件 Retry 闭环",
-      "description": "作为用户，当 Whisper 转写失败后，我应该能在 Today 页面的语音附件 chip 上直接点击「重试」重新发起转写，而不是丢弃录音。",
+      "title": "\u8bed\u97f3\u9644\u4ef6 Retry \u95ed\u73af",
+      "description": "\u4f5c\u4e3a\u7528\u6237\uff0c\u5f53 Whisper \u8f6c\u5199\u5931\u8d25\u540e\uff0c\u6211\u5e94\u8be5\u80fd\u5728 Today \u9875\u9762\u7684\u8bed\u97f3\u9644\u4ef6 chip \u4e0a\u76f4\u63a5\u70b9\u51fb\u300c\u91cd\u8bd5\u300d\u91cd\u65b0\u53d1\u8d77\u8f6c\u5199\uff0c\u800c\u4e0d\u662f\u4e22\u5f03\u5f55\u97f3\u3002",
       "acceptanceCriteria": [
-        "语音附件转写失败时，Attachment 标记 transcriptionStatus: .failed（新增枚举 case）",
-        "InputBarV4 附件 chip 在 transcriptionStatus == .failed 时显示红色边框 + 「↺」重试图标",
-        "点击重试图标调用 TodayViewModel.retranscribeVoiceAttachment(id:)，触发 VoiceService.transcribeAudio(at:) 重试",
-        "重试中显示 chip 内 ProgressView()；成功后 chip 切回正常态 + transcript 显示前 20 字",
-        "构建通过，手动测试：断网录音 → 失败红边 → 联网点重试 → 成功"
+        "\u8bed\u97f3\u9644\u4ef6\u8f6c\u5199\u5931\u8d25\u65f6\uff0cAttachment \u6807\u8bb0 transcriptionStatus: .failed\uff08\u65b0\u589e\u679a\u4e3e case\uff09",
+        "InputBarV4 \u9644\u4ef6 chip \u5728 transcriptionStatus == .failed \u65f6\u663e\u793a\u7ea2\u8272\u8fb9\u6846 + \u300c\u21ba\u300d\u91cd\u8bd5\u56fe\u6807",
+        "\u70b9\u51fb\u91cd\u8bd5\u56fe\u6807\u8c03\u7528 TodayViewModel.retranscribeVoiceAttachment(id:)\uff0c\u89e6\u53d1 VoiceService.transcribeAudio(at:) \u91cd\u8bd5",
+        "\u91cd\u8bd5\u4e2d\u663e\u793a chip \u5185 ProgressView()\uff1b\u6210\u529f\u540e chip \u5207\u56de\u6b63\u5e38\u6001 + transcript \u663e\u793a\u524d 20 \u5b57",
+        "\u6784\u5efa\u901a\u8fc7\uff0c\u624b\u52a8\u6d4b\u8bd5\uff1a\u65ad\u7f51\u5f55\u97f3 \u2192 \u5931\u8d25\u7ea2\u8fb9 \u2192 \u8054\u7f51\u70b9\u91cd\u8bd5 \u2192 \u6210\u529f"
       ],
       "priority": 2,
       "passes": false,
-      "notes": "Theme: C-功能补全, Effort: S, Impact: 3"
+      "notes": "Theme: C-\u529f\u80fd\u8865\u5168, Effort: S, Impact: 3"
     },
     {
       "id": "US-017",
-      "title": "Memo 数据模型补 mood + entity mentions 字段",
-      "description": "作为开发者，Memo struct 应内置 mood 和 entityMentions 字段，为知识图谱的精确双向链接和情绪时间线提供结构化数据基础。",
+      "title": "Memo \u6570\u636e\u6a21\u578b\u8865 mood + entity mentions \u5b57\u6bb5",
+      "description": "\u4f5c\u4e3a\u5f00\u53d1\u8005\uff0cMemo struct \u5e94\u5185\u7f6e mood \u548c entityMentions \u5b57\u6bb5\uff0c\u4e3a\u77e5\u8bc6\u56fe\u8c31\u7684\u7cbe\u786e\u53cc\u5411\u94fe\u63a5\u548c\u60c5\u7eea\u65f6\u95f4\u7ebf\u63d0\u4f9b\u7ed3\u6784\u5316\u6570\u636e\u57fa\u7840\u3002",
       "acceptanceCriteria": [
-        "Memo struct 新增 var mood: MoodLevel? = nil（枚举：.positive/.neutral/.negative/.intense）",
-        "Memo struct 新增 var entityMentions: [String] = []（从 body 中 [[EntitySlug]] 语法提取的 slug 数组）",
-        "RawStorage YAML 解析器新增 mood: 和 entities: frontmatter 键支持",
-        "TodayViewModel.submitCombinedMemo() 在写入前从 body 文本提取 [[...]] 模式填充 entityMentions",
-        "向后兼容：旧文件无这两个字段时，解析为 nil/[]，不报错",
-        "单元测试：构造含 [[Tokyo]] 的 memo body → 验证 entityMentions == [\"Tokyo\"]",
-        "构建通过"
+        "Memo struct \u65b0\u589e var mood: MoodLevel? = nil\uff08\u679a\u4e3e\uff1a.positive/.neutral/.negative/.intense\uff09",
+        "Memo struct \u65b0\u589e var entityMentions: [String] = []\uff08\u4ece body \u4e2d [[EntitySlug]] \u8bed\u6cd5\u63d0\u53d6\u7684 slug \u6570\u7ec4\uff09",
+        "RawStorage YAML \u89e3\u6790\u5668\u65b0\u589e mood: \u548c entities: frontmatter \u952e\u652f\u6301",
+        "TodayViewModel.submitCombinedMemo() \u5728\u5199\u5165\u524d\u4ece body \u6587\u672c\u63d0\u53d6 [[...]] \u6a21\u5f0f\u586b\u5145 entityMentions",
+        "\u5411\u540e\u517c\u5bb9\uff1a\u65e7\u6587\u4ef6\u65e0\u8fd9\u4e24\u4e2a\u5b57\u6bb5\u65f6\uff0c\u89e3\u6790\u4e3a nil/[]\uff0c\u4e0d\u62a5\u9519",
+        "\u5355\u5143\u6d4b\u8bd5\uff1a\u6784\u9020\u542b [[Tokyo]] \u7684 memo body \u2192 \u9a8c\u8bc1 entityMentions == [\"Tokyo\"]",
+        "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 2,
       "passes": false,
-      "notes": "Theme: C-功能补全, Effort: M, Impact: 3"
+      "notes": "Theme: C-\u529f\u80fd\u8865\u5168, Effort: M, Impact: 3"
     },
     {
       "id": "US-018",
-      "title": "批量 HEIC 照片转换移离主线程",
-      "description": "作为用户，选择 5 张以上 HEIC 格式照片时，Today 页面不应出现明显卡顿或 UI 冻结。",
+      "title": "\u6279\u91cf HEIC \u7167\u7247\u8f6c\u6362\u79fb\u79bb\u4e3b\u7ebf\u7a0b",
+      "description": "\u4f5c\u4e3a\u7528\u6237\uff0c\u9009\u62e9 5 \u5f20\u4ee5\u4e0a HEIC \u683c\u5f0f\u7167\u7247\u65f6\uff0cToday \u9875\u9762\u4e0d\u5e94\u51fa\u73b0\u660e\u663e\u5361\u987f\u6216 UI \u51bb\u7ed3\u3002",
       "acceptanceCriteria": [
-        "PhotoService.processPickerItem() 中 HEIC → JPEG 转换移入 Task.detached(priority: .userInitiated) { }（脱离 MainActor）",
-        "转换完成后通过 await MainActor.run { } 回主线程更新 UI 状态",
-        "测试：选择 5 张 12MP HEIC 图片，Timeline 动画帧率 ≥ 55fps（Instruments Time Profiler 验证无主线程卡顿 >16ms）",
-        "构建通过"
+        "PhotoService.processPickerItem() \u4e2d HEIC \u2192 JPEG \u8f6c\u6362\u79fb\u5165 Task.detached(priority: .userInitiated) { }\uff08\u8131\u79bb MainActor\uff09",
+        "\u8f6c\u6362\u5b8c\u6210\u540e\u901a\u8fc7 await MainActor.run { } \u56de\u4e3b\u7ebf\u7a0b\u66f4\u65b0 UI \u72b6\u6001",
+        "\u6d4b\u8bd5\uff1a\u9009\u62e9 5 \u5f20 12MP HEIC \u56fe\u7247\uff0cTimeline \u52a8\u753b\u5e27\u7387 \u2265 55fps\uff08Instruments Time Profiler \u9a8c\u8bc1\u65e0\u4e3b\u7ebf\u7a0b\u5361\u987f >16ms\uff09",
+        "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 2,
       "passes": false,
-      "notes": "Theme: C-功能补全, Effort: S, Impact: 2"
+      "notes": "Theme: C-\u529f\u80fd\u8865\u5168, Effort: S, Impact: 2"
     },
     {
       "id": "US-019",
-      "title": "Markdown Export（Obsidian 兼容）",
-      "description": "作为数字游民用户，我希望能将 DayPage 的 vault 内容一键导出为标准 Markdown 格式（.md 文件打包），兼容 Obsidian 导入。",
+      "title": "Markdown Export\uff08Obsidian \u517c\u5bb9\uff09",
+      "description": "\u4f5c\u4e3a\u6570\u5b57\u6e38\u6c11\u7528\u6237\uff0c\u6211\u5e0c\u671b\u80fd\u5c06 DayPage \u7684 vault \u5185\u5bb9\u4e00\u952e\u5bfc\u51fa\u4e3a\u6807\u51c6 Markdown \u683c\u5f0f\uff08.md \u6587\u4ef6\u6253\u5305\uff09\uff0c\u517c\u5bb9 Obsidian \u5bfc\u5165\u3002",
       "acceptanceCriteria": [
-        "Settings「数据」Section 新增「导出 Vault」按钮",
-        "点击后生成 daypage-export-YYYY-MM-DD.zip，包含 raw/ 和 daily/ 所有 .md 文件，保持目录结构",
-        "导出进行中显示 ProgressView() + 「正在打包...」文字",
-        "完成后弹出系统 Share Sheet（UIActivityViewController）",
-        "导出文件中的 YAML frontmatter 格式与 Obsidian 兼容",
-        "构建通过，iPhone 17 手动验证：导出 → 文件 App 可预览 .md 内容"
+        "Settings\u300c\u6570\u636e\u300dSection \u65b0\u589e\u300c\u5bfc\u51fa Vault\u300d\u6309\u94ae",
+        "\u70b9\u51fb\u540e\u751f\u6210 daypage-export-YYYY-MM-DD.zip\uff0c\u5305\u542b raw/ \u548c daily/ \u6240\u6709 .md \u6587\u4ef6\uff0c\u4fdd\u6301\u76ee\u5f55\u7ed3\u6784",
+        "\u5bfc\u51fa\u8fdb\u884c\u4e2d\u663e\u793a ProgressView() + \u300c\u6b63\u5728\u6253\u5305...\u300d\u6587\u5b57",
+        "\u5b8c\u6210\u540e\u5f39\u51fa\u7cfb\u7edf Share Sheet\uff08UIActivityViewController\uff09",
+        "\u5bfc\u51fa\u6587\u4ef6\u4e2d\u7684 YAML frontmatter \u683c\u5f0f\u4e0e Obsidian \u517c\u5bb9",
+        "\u6784\u5efa\u901a\u8fc7\uff0ciPhone 17 \u624b\u52a8\u9a8c\u8bc1\uff1a\u5bfc\u51fa \u2192 \u6587\u4ef6 App \u53ef\u9884\u89c8 .md \u5185\u5bb9"
       ],
       "priority": 3,
       "passes": false,
-      "notes": "Theme: C-功能补全, Effort: M, Impact: 3"
+      "notes": "Theme: C-\u529f\u80fd\u8865\u5168, Effort: M, Impact: 3"
     },
     {
       "id": "US-020",
-      "title": "TodayViewModel 核心路径单元测试",
-      "description": "作为开发者，TodayViewModel 的 submitCombinedMemo()、load()、compile() 三条核心路径应有单元测试覆盖，以便重构时有安全网。",
+      "title": "TodayViewModel \u6838\u5fc3\u8def\u5f84\u5355\u5143\u6d4b\u8bd5",
+      "description": "\u4f5c\u4e3a\u5f00\u53d1\u8005\uff0cTodayViewModel \u7684 submitCombinedMemo()\u3001load()\u3001compile() \u4e09\u6761\u6838\u5fc3\u8def\u5f84\u5e94\u6709\u5355\u5143\u6d4b\u8bd5\u8986\u76d6\uff0c\u4ee5\u4fbf\u91cd\u6784\u65f6\u6709\u5b89\u5168\u7f51\u3002",
       "acceptanceCriteria": [
-        "新建 DayPageTests/TodayViewModelTests.swift（Swift Testing）",
-        "测试 submitCombinedMemo()：纯文字 memo → 验证 RawStorage 写入；语音 memo（mock VoiceService）→ 验证附件字段；location memo → 验证 location frontmatter",
-        "测试 load()：空 vault → 验证 memos 为空；有 3 条 memo 的文件 → 验证解析正确",
-        "测试 compile()：mock CompilationService 返回成功 → 验证 dailyPageModel 更新；返回失败 → 验证 compilationFailedError 设置",
-        "至少 12 个 test case，覆盖 happy path + error path",
-        "全部测试通过 (xcodebuild test -scheme DayPage)"
+        "\u65b0\u5efa DayPageTests/TodayViewModelTests.swift\uff08Swift Testing\uff09",
+        "\u6d4b\u8bd5 submitCombinedMemo()\uff1a\u7eaf\u6587\u5b57 memo \u2192 \u9a8c\u8bc1 RawStorage \u5199\u5165\uff1b\u8bed\u97f3 memo\uff08mock VoiceService\uff09\u2192 \u9a8c\u8bc1\u9644\u4ef6\u5b57\u6bb5\uff1blocation memo \u2192 \u9a8c\u8bc1 location frontmatter",
+        "\u6d4b\u8bd5 load()\uff1a\u7a7a vault \u2192 \u9a8c\u8bc1 memos \u4e3a\u7a7a\uff1b\u6709 3 \u6761 memo \u7684\u6587\u4ef6 \u2192 \u9a8c\u8bc1\u89e3\u6790\u6b63\u786e",
+        "\u6d4b\u8bd5 compile()\uff1amock CompilationService \u8fd4\u56de\u6210\u529f \u2192 \u9a8c\u8bc1 dailyPageModel \u66f4\u65b0\uff1b\u8fd4\u56de\u5931\u8d25 \u2192 \u9a8c\u8bc1 compilationFailedError \u8bbe\u7f6e",
+        "\u81f3\u5c11 12 \u4e2a test case\uff0c\u8986\u76d6 happy path + error path",
+        "\u5168\u90e8\u6d4b\u8bd5\u901a\u8fc7 (xcodebuild test -scheme DayPage)"
       ],
       "priority": 2,
       "passes": false,
-      "notes": "Theme: D-技术债务, Effort: L, Impact: 2"
+      "notes": "Theme: D-\u6280\u672f\u503a\u52a1, Effort: L, Impact: 2"
     },
     {
       "id": "US-021",
-      "title": "TodayView 拆分子视图",
-      "description": "作为开发者，1170 行的 TodayView 应拆分为独立子视图组件，每个文件不超过 300 行，减少 PR 冲突和 AI 辅助编码的上下文窗口压力。",
+      "title": "TodayView \u62c6\u5206\u5b50\u89c6\u56fe",
+      "description": "\u4f5c\u4e3a\u5f00\u53d1\u8005\uff0c1170 \u884c\u7684 TodayView \u5e94\u62c6\u5206\u4e3a\u72ec\u7acb\u5b50\u89c6\u56fe\u7ec4\u4ef6\uff0c\u6bcf\u4e2a\u6587\u4ef6\u4e0d\u8d85\u8fc7 300 \u884c\uff0c\u51cf\u5c11 PR \u51b2\u7a81\u548c AI \u8f85\u52a9\u7f16\u7801\u7684\u4e0a\u4e0b\u6587\u7a97\u53e3\u538b\u529b\u3002",
       "acceptanceCriteria": [
-        "提取 TodayOrbHeaderView（Day Orb + 日期标题区，约 120 行）到独立文件",
-        "提取 TodayMemoListView（memo 列表 + SwipeableMemoCard，约 200 行）到独立文件",
-        "提取 LocationDraftCard + LocationDraftRow 到 DayPage/Features/Today/LocationDraft/ 子目录",
-        "TodayView.swift 主文件压缩到 ≤ 350 行",
-        "无功能改变：拆分前后 iPhone 17 Simulator 截图目视一致",
-        "构建通过，现有测试通过"
+        "\u63d0\u53d6 TodayOrbHeaderView\uff08Day Orb + \u65e5\u671f\u6807\u9898\u533a\uff0c\u7ea6 120 \u884c\uff09\u5230\u72ec\u7acb\u6587\u4ef6",
+        "\u63d0\u53d6 TodayMemoListView\uff08memo \u5217\u8868 + SwipeableMemoCard\uff0c\u7ea6 200 \u884c\uff09\u5230\u72ec\u7acb\u6587\u4ef6",
+        "\u63d0\u53d6 LocationDraftCard + LocationDraftRow \u5230 DayPage/Features/Today/LocationDraft/ \u5b50\u76ee\u5f55",
+        "TodayView.swift \u4e3b\u6587\u4ef6\u538b\u7f29\u5230 \u2264 350 \u884c",
+        "\u65e0\u529f\u80fd\u6539\u53d8\uff1a\u62c6\u5206\u524d\u540e iPhone 17 Simulator \u622a\u56fe\u76ee\u89c6\u4e00\u81f4",
+        "\u6784\u5efa\u901a\u8fc7\uff0c\u73b0\u6709\u6d4b\u8bd5\u901a\u8fc7"
       ],
       "priority": 3,
       "passes": false,
-      "notes": "Theme: D-技术债务, Effort: L, Impact: 2"
+      "notes": "Theme: D-\u6280\u672f\u503a\u52a1, Effort: L, Impact: 2"
     },
     {
       "id": "US-022",
-      "title": "CompilationService.compile() 函数分解",
-      "description": "作为开发者，compile() 的 152 行单体函数应分解为 5 个职责单一的私有方法，提高可测试性。",
+      "title": "CompilationService.compile() \u51fd\u6570\u5206\u89e3",
+      "description": "\u4f5c\u4e3a\u5f00\u53d1\u8005\uff0ccompile() \u7684 152 \u884c\u5355\u4f53\u51fd\u6570\u5e94\u5206\u89e3\u4e3a 5 \u4e2a\u804c\u8d23\u5355\u4e00\u7684\u79c1\u6709\u65b9\u6cd5\uff0c\u63d0\u9ad8\u53ef\u6d4b\u8bd5\u6027\u3002",
       "acceptanceCriteria": [
-        "提取 prepareMemoContext() async throws -> CompilationContext",
-        "提取 buildPrompt(context:) -> [ChatMessage]",
-        "提取 callLLM(messages:) async throws -> String",
-        "提取 parseCompilationOutput(_:) throws -> DailyPageModel",
-        "提取 persistResults(_:for:) async throws",
-        "所有方法有 // throws: CompilationError.X 注释",
-        "构建通过，编译功能端到端手动测试正常"
+        "\u63d0\u53d6 prepareMemoContext() async throws -> CompilationContext",
+        "\u63d0\u53d6 buildPrompt(context:) -> [ChatMessage]",
+        "\u63d0\u53d6 callLLM(messages:) async throws -> String",
+        "\u63d0\u53d6 parseCompilationOutput(_:) throws -> DailyPageModel",
+        "\u63d0\u53d6 persistResults(_:for:) async throws",
+        "\u6240\u6709\u65b9\u6cd5\u6709 // throws: CompilationError.X \u6ce8\u91ca",
+        "\u6784\u5efa\u901a\u8fc7\uff0c\u7f16\u8bd1\u529f\u80fd\u7aef\u5230\u7aef\u624b\u52a8\u6d4b\u8bd5\u6b63\u5e38"
       ],
       "priority": 3,
       "passes": false,
-      "notes": "Theme: D-技术债务, Effort: M, Impact: 1"
+      "notes": "Theme: D-\u6280\u672f\u503a\u52a1, Effort: M, Impact: 1"
     },
     {
       "id": "US-023",
-      "title": ".trash 备份文件 7 天 TTL 自动清理",
-      "description": "作为用户，iCloud Drive 中的 DayPage vault 不应随时间无限增长，每日编译备份应在 7 天后自动删除。",
+      "title": ".trash \u5907\u4efd\u6587\u4ef6 7 \u5929 TTL \u81ea\u52a8\u6e05\u7406",
+      "description": "\u4f5c\u4e3a\u7528\u6237\uff0ciCloud Drive \u4e2d\u7684 DayPage vault \u4e0d\u5e94\u968f\u65f6\u95f4\u65e0\u9650\u589e\u957f\uff0c\u6bcf\u65e5\u7f16\u8bd1\u5907\u4efd\u5e94\u5728 7 \u5929\u540e\u81ea\u52a8\u5220\u9664\u3002",
       "acceptanceCriteria": [
-        "在 BackgroundCompilationService 中新增 performTrashCleanup() 方法，扫描 vault/.trash/ 目录",
-        "删除修改时间早于 7 天前的所有 .md 备份文件",
-        "清理操作在后台 Task 中执行，不阻塞编译主流程",
-        "首次运行时若 .trash/ 超过 50 个文件，记录 warning 日志并触发全量清理",
-        "构建通过"
+        "\u5728 BackgroundCompilationService \u4e2d\u65b0\u589e performTrashCleanup() \u65b9\u6cd5\uff0c\u626b\u63cf vault/.trash/ \u76ee\u5f55",
+        "\u5220\u9664\u4fee\u6539\u65f6\u95f4\u65e9\u4e8e 7 \u5929\u524d\u7684\u6240\u6709 .md \u5907\u4efd\u6587\u4ef6",
+        "\u6e05\u7406\u64cd\u4f5c\u5728\u540e\u53f0 Task \u4e2d\u6267\u884c\uff0c\u4e0d\u963b\u585e\u7f16\u8bd1\u4e3b\u6d41\u7a0b",
+        "\u9996\u6b21\u8fd0\u884c\u65f6\u82e5 .trash/ \u8d85\u8fc7 50 \u4e2a\u6587\u4ef6\uff0c\u8bb0\u5f55 warning \u65e5\u5fd7\u5e76\u89e6\u53d1\u5168\u91cf\u6e05\u7406",
+        "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 3,
       "passes": false,
-      "notes": "Theme: D-技术债务, Effort: S, Impact: 1"
+      "notes": "Theme: D-\u6280\u672f\u503a\u52a1, Effort: S, Impact: 1"
     },
     {
       "id": "US-024",
-      "title": "编译输出结构化增强 — mood + 日期感知",
-      "description": "作为用户，AI 编译的 Daily Page 应包含当天的情绪评估（mood），并在节假日/特殊日期时自动调整叙事语气。",
+      "title": "\u7f16\u8bd1\u8f93\u51fa\u7ed3\u6784\u5316\u589e\u5f3a \u2014 mood + \u65e5\u671f\u611f\u77e5",
+      "description": "\u4f5c\u4e3a\u7528\u6237\uff0cAI \u7f16\u8bd1\u7684 Daily Page \u5e94\u5305\u542b\u5f53\u5929\u7684\u60c5\u7eea\u8bc4\u4f30\uff08mood\uff09\uff0c\u5e76\u5728\u8282\u5047\u65e5/\u7279\u6b8a\u65e5\u671f\u65f6\u81ea\u52a8\u8c03\u6574\u53d9\u4e8b\u8bed\u6c14\u3002",
       "acceptanceCriteria": [
-        "System prompt 增加：输出 YAML frontmatter 中必须包含 mood: positive|neutral|negative|intense",
-        "DailyPageModel 新增 var mood: MoodLevel?（与 US-017 共用枚举）",
-        "DailyPageView 在标题下方显示 mood 情绪指示器（小彩色圆点，4 种颜色对应 4 种 mood）",
-        "编译 prompt 注入当天日期（包括星期）：「今天是 {weekday}，{date}」",
-        "单元测试：mock LLM 返回含 mood: positive 的输出 → 验证 DailyPageModel.mood == .positive",
-        "构建通过"
+        "System prompt \u589e\u52a0\uff1a\u8f93\u51fa YAML frontmatter \u4e2d\u5fc5\u987b\u5305\u542b mood: positive|neutral|negative|intense",
+        "DailyPageModel \u65b0\u589e var mood: MoodLevel?\uff08\u4e0e US-017 \u5171\u7528\u679a\u4e3e\uff09",
+        "DailyPageView \u5728\u6807\u9898\u4e0b\u65b9\u663e\u793a mood \u60c5\u7eea\u6307\u793a\u5668\uff08\u5c0f\u5f69\u8272\u5706\u70b9\uff0c4 \u79cd\u989c\u8272\u5bf9\u5e94 4 \u79cd mood\uff09",
+        "\u7f16\u8bd1 prompt \u6ce8\u5165\u5f53\u5929\u65e5\u671f\uff08\u5305\u62ec\u661f\u671f\uff09\uff1a\u300c\u4eca\u5929\u662f {weekday}\uff0c{date}\u300d",
+        "\u5355\u5143\u6d4b\u8bd5\uff1amock LLM \u8fd4\u56de\u542b mood: positive \u7684\u8f93\u51fa \u2192 \u9a8c\u8bc1 DailyPageModel.mood == .positive",
+        "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 3,
       "passes": false,
-      "notes": "Theme: E-AI能力升级, Effort: M, Impact: 3"
+      "notes": "Theme: E-AI\u80fd\u529b\u5347\u7ea7, Effort: M, Impact: 3"
     },
     {
       "id": "US-025",
-      "title": "Entity Slug 去重与模糊匹配",
-      "description": "作为用户，当 AI 先后生成 joma-coffee 和 joma_coffee 两个变体时，知识图谱不应产生重复节点，而应合并到同一 entity 页面。",
+      "title": "Entity Slug \u53bb\u91cd\u4e0e\u6a21\u7cca\u5339\u914d",
+      "description": "\u4f5c\u4e3a\u7528\u6237\uff0c\u5f53 AI \u5148\u540e\u751f\u6210 joma-coffee \u548c joma_coffee \u4e24\u4e2a\u53d8\u4f53\u65f6\uff0c\u77e5\u8bc6\u56fe\u8c31\u4e0d\u5e94\u4ea7\u751f\u91cd\u590d\u8282\u70b9\uff0c\u800c\u5e94\u5408\u5e76\u5230\u540c\u4e00 entity \u9875\u9762\u3002",
       "acceptanceCriteria": [
-        "EntityPageService 在 apply() 前执行 slug 归一化：小写、_ → -、移除特殊字符",
-        "归一化后若目标文件已存在，执行 update 而非 create",
-        "可选增强：实现编辑距离 ≤ 2 的模糊匹配（Levenshtein），自动合并近似 slug",
-        "单元测试：apply(slug: \"joma_coffee\") + apply(slug: \"joma-coffee\") → wiki 目录中只有 1 个文件",
-        "构建通过"
+        "EntityPageService \u5728 apply() \u524d\u6267\u884c slug \u5f52\u4e00\u5316\uff1a\u5c0f\u5199\u3001_ \u2192 -\u3001\u79fb\u9664\u7279\u6b8a\u5b57\u7b26",
+        "\u5f52\u4e00\u5316\u540e\u82e5\u76ee\u6807\u6587\u4ef6\u5df2\u5b58\u5728\uff0c\u6267\u884c update \u800c\u975e create",
+        "\u53ef\u9009\u589e\u5f3a\uff1a\u5b9e\u73b0\u7f16\u8f91\u8ddd\u79bb \u2264 2 \u7684\u6a21\u7cca\u5339\u914d\uff08Levenshtein\uff09\uff0c\u81ea\u52a8\u5408\u5e76\u8fd1\u4f3c slug",
+        "\u5355\u5143\u6d4b\u8bd5\uff1aapply(slug: \"joma_coffee\") + apply(slug: \"joma-coffee\") \u2192 wiki \u76ee\u5f55\u4e2d\u53ea\u6709 1 \u4e2a\u6587\u4ef6",
+        "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 3,
       "passes": false,
-      "notes": "Theme: E-AI能力升级, Effort: M, Impact: 2"
+      "notes": "Theme: E-AI\u80fd\u529b\u5347\u7ea7, Effort: M, Impact: 2"
     }
   ]
 }
