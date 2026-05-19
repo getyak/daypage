@@ -205,7 +205,10 @@ extension Memo {
         let weather = fm.scalar("weather")
         let device = fm.scalar("device")
         let mood = fm.scalar("mood")
-        let entityMentions = fm.sequence("entity_mentions")
+        // YAMLParser.sequence(_:) returns Optional<[String]>; the Memo init
+        // takes a non-optional [String], so default to an empty array when the
+        // key is missing or explicitly `entity_mentions: []`.
+        let entityMentions = fm.sequence("entity_mentions") ?? []
 
         var attachments: [Attachment] = []
         if let attList = fm.sequenceOfMappings("attachments") {
