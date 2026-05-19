@@ -99,26 +99,35 @@ private func drawAspectFill(_ image: UIImage, in rect: CGRect, ctx: CGContext) {
     ctx.restoreGState()
 }
 
+// All DateFormatters use en_US_POSIX so the rendered card layout is
+// locale-stable — RTL locales (Arabic / Hebrew) would otherwise break the
+// left-aligned typography on Polaroid footers. (#302 Evaluator MEDIUM)
+private let posixLocale = Locale(identifier: "en_US_POSIX")
+
 private func headerDate(from date: Date) -> String {
     let f = DateFormatter()
+    f.locale = posixLocale
     f.dateFormat = "yyyy·MM·dd"
     return f.string(from: date)
 }
 
 private func headerTime(from date: Date) -> String {
     let f = DateFormatter()
+    f.locale = posixLocale
     f.dateFormat = "HH:mm"
     return f.string(from: date)
 }
 
 private func handwrittenDate(from date: Date) -> String {
     let f = DateFormatter()
+    f.locale = posixLocale
     f.dateFormat = "MMM d, yyyy"
     return f.string(from: date)
 }
 
 private func parseDailyDate(_ s: String) -> Date {
     let f = DateFormatter()
+    f.locale = posixLocale
     f.dateFormat = "yyyy-MM-dd"
     return f.date(from: s) ?? Date()
 }
@@ -210,7 +219,9 @@ enum MinimalMemoTemplate: PosterTemplate {
         let inset = CardGeom.inset
 
         let body = truncate(s.body.trimmingCharacters(in: .whitespacesAndNewlines), to: 360)
-        let bodyFont = UIFont.systemFont(ofSize: 46, weight: .regular)
+        // 52pt at 1080-wide canvas = ~4.8% of width. Smaller fonts (46pt) tested
+        // illegible at 1x thumbnail scale during Evaluator review. (#302)
+        let bodyFont = UIFont.systemFont(ofSize: 52, weight: .regular)
         let bodyPara = NSMutableParagraphStyle()
         bodyPara.lineHeightMultiple = 1.32
         let bodyAttr = NSAttributedString(string: body, attributes: [
@@ -310,7 +321,8 @@ enum MinimalDailyTemplate: PosterTemplate {
             ])
 
         let summaryText = truncate(s.summary, to: 220)
-        let summaryFont = UIFont.systemFont(ofSize: 40, weight: .regular)
+        // 46pt summary — bumped from 40pt for thumbnail legibility (#302).
+        let summaryFont = UIFont.systemFont(ofSize: 46, weight: .regular)
         let summaryPara = NSMutableParagraphStyle()
         summaryPara.lineHeightMultiple = 1.35
         let summaryAttr = NSAttributedString(string: summaryText, attributes: [
@@ -433,9 +445,11 @@ enum MinimalMonthlyTemplate: PosterTemplate {
 
             var y = inset
 
+            // truncate(to: 24) covers e.g. "SEPTEMBER 2025"; longer locale variants
+            // get an ellipsis instead of overlapping the brand mark. (#302)
             drawMinimalHeader(at: CGPoint(x: inset, y: y),
                                width: W - inset * 2,
-                               rightText: s.monthTitle,
+                               rightText: truncate(s.monthTitle, to: 24),
                                ctx: cg)
             y += 96 + 88
 
@@ -812,8 +826,11 @@ enum PolaroidDailyTemplate: PosterTemplate {
                 ])
             dateAttr.draw(at: CGPoint(x: photoX, y: y))
 
+            // One brand per card — consolidate watermark to entry count only.
+            // Removed redundant "DAYPAGE.APP" since the polaroid frame is itself
+            // the brand signature. (#302 Evaluator MEDIUM)
             let entriesAttr = NSAttributedString(
-                string: "\(s.memoCount) ENTRIES · DAYPAGE.APP",
+                string: "\(s.memoCount) ENTRIES",
                 attributes: [
                     .font: UIFont.monospacedSystemFont(ofSize: 20, weight: .regular),
                     .foregroundColor: PolaroidPalette.inkMuted.withAlphaComponent(0.75),

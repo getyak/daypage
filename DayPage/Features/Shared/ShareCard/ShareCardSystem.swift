@@ -51,17 +51,22 @@ struct MemoSnapshot: Equatable {
     let voiceDurationSeconds: Double?
     let memoType: String
 
-    static func from(_ memo: Memo, coverImage: UIImage? = nil) -> MemoSnapshot {
+    /// Build a snapshot, eagerly loading the first photo attachment so the
+    /// Polaroid template renders an actual image — Evaluator HIGH must-fix:
+    /// before this, both call sites passed coverImage:nil and Polaroid memos
+    /// only ever showed a grey placeholder.
+    static func from(_ memo: Memo) -> MemoSnapshot {
         let voiceDuration = memo.attachments
             .first(where: { $0.kind == "audio" })?
             .duration
+        let cover = ShareCardImageLoader.firstPhoto(in: memo)
         return MemoSnapshot(
             id: memo.id,
             body: memo.body,
             createdAt: memo.created,
             locationName: memo.location?.name,
             weather: memo.weather,
-            coverImage: coverImage,
+            coverImage: cover,
             voiceDurationSeconds: voiceDuration,
             memoType: memo.type.rawValue.uppercased()
         )
@@ -77,17 +82,58 @@ struct DailySnapshot: Equatable {
     let coverImage: UIImage?
     let highlights: [String]
 
-    static func from(_ model: DailyPageModel, coverImage: UIImage? = nil) -> DailySnapshot {
+    static func from(_ model: DailyPageModel) -> DailySnapshot {
         let highlights = Array(model.sections.prefix(3).map { $0.title })
+        let cover = ShareCardImageLoader.daily(model: model)
         return DailySnapshot(
             dateString: model.dateString,
             weekday: model.weekday.uppercased(),
             summary: model.summary,
             locationPrimary: model.locationPrimary,
             memoCount: model.memoCount,
-            coverImage: coverImage,
+            coverImage: cover,
             highlights: highlights
         )
+    }
+}
+
+// MARK: - ShareCardImageLoader
+//
+// Centralised, downsampled image loading from the vault. Returns `nil` on any
+// failure (missing file, decode error) so renderers fall back to placeholder.
+// Downsamples to ≤ 1500px on the long edge — bigger than the 1080 canvas to
+// allow aspect-fill cropping without blur, smaller than full-res so memory
+// stays under ~10MB per share-sheet open.
+
+enum ShareCardImageLoader {
+
+    private static let maxDimension: CGFloat = 1500
+
+    static func firstPhoto(in memo: Memo) -> UIImage? {
+        guard let att = memo.attachments.first(where: { $0.kind == "photo" }) else { return nil }
+        return loadDownsampled(relativePath: att.file)
+    }
+
+    static func daily(model: DailyPageModel) -> UIImage? {
+        guard let rel = model.coverAssetPath, !rel.isEmpty else { return nil }
+        return loadDownsampled(relativePath: rel)
+    }
+
+    private static func loadDownsampled(relativePath: String) -> UIImage? {
+        let url = VaultInitializer.vaultURL.appendingPathComponent(relativePath)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+
+        let opts: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxDimension
+        ]
+        guard
+            let src = CGImageSourceCreateWithURL(url as CFURL, nil),
+            let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary)
+        else { return nil }
+        return UIImage(cgImage: cg)
     }
 }
 
