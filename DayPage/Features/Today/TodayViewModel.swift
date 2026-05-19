@@ -4,6 +4,7 @@ import UIKit
 import CoreLocation
 import Photos
 import PhotosUI
+import Combine
 
 // MARK: - Pending Attachment
 
@@ -185,6 +186,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     private var submitMemoTask: Task<Void, Never>?
     private var locationTask: Task<Void, Never>?
     private var compilationTask: Task<Void, Never>?
+    private var cancellables = Set<AnyCancellable>()
 
     // MARK: Init
 
@@ -206,59 +208,51 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     }
 
     private func observeCompilationFailure() {
-        NotificationCenter.default.addObserver(
-            forName: .compilationDidFail,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
+        NotificationCenter.default
+            .publisher(for: .compilationDidFail)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
                 self?.compilationFailedError = "后台编译失败，请检查网络或 API Key 后重试"
             }
-        }
-        NotificationCenter.default.addObserver(
-            forName: .compilationDidStart,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
+            .store(in: &cancellables)
+
+        NotificationCenter.default
+            .publisher(for: .compilationDidStart)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
                 self?.isBackgroundCompiling = true
             }
-        }
-        NotificationCenter.default.addObserver(
-            forName: .compilationDidEnd,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
+            .store(in: &cancellables)
+
+        NotificationCenter.default
+            .publisher(for: .compilationDidEnd)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
                 self?.isBackgroundCompiling = false
             }
-        }
+            .store(in: &cancellables)
     }
 
     private func observeOnThisDay() {
-        NotificationCenter.default.addObserver(
-            forName: .onThisDayShouldShow,
-            object: nil,
-            queue: .main
-        ) { [weak self] notification in
-            Task { @MainActor [weak self] in
+        NotificationCenter.default
+            .publisher(for: .onThisDayShouldShow)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] notification in
                 self?.onThisDayEntry = notification.object as? OnThisDayEntry
             }
-        }
+            .store(in: &cancellables)
     }
 
     /// Reloads memos whenever iCloud conflict resolution rewrites today's raw file.
     /// Without this observer the UI shows stale in-memory memos after a merge.
     private func observeConflictResolution() {
-        NotificationCenter.default.addObserver(
-            forName: .vaultConflictResolved,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in
+        NotificationCenter.default
+            .publisher(for: .vaultConflictResolved)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
                 self?.load()
             }
-        }
+            .store(in: &cancellables)
     }
 
     // MARK: - Delete / Pin Memo
