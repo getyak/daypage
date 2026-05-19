@@ -38,7 +38,7 @@ struct SettingsView: View {
 
     // API key editing sheet
     @State private var editingKeyName: String = ""
-    @State private var editingKeyUD: String = ""        // UserDefaults key name
+    @State private var editingKeyID: String = ""        // Keychain identifier
     @State private var editingKeyValue: String = ""
     @State private var showApiKeyEditor = false
     @State private var keyRefreshToken: UUID = UUID()   // bump to force apiKeysSection redraw
@@ -131,9 +131,9 @@ struct SettingsView: View {
                     Button("保存") {
                         let trimmed = editingKeyValue.trimmingCharacters(in: .whitespaces)
                         if trimmed.isEmpty {
-                            UserDefaults.standard.removeObject(forKey: editingKeyUD)
+                            KeychainHelper.deleteAPIKey(for: editingKeyID)
                         } else {
-                            UserDefaults.standard.set(trimmed, forKey: editingKeyUD)
+                            KeychainHelper.setAPIKey(trimmed, for: editingKeyID)
                         }
                         keyRefreshToken = UUID()
                         showApiKeyEditor = false
@@ -186,7 +186,7 @@ struct SettingsView: View {
             let _ = keyRefreshToken  // read token so SwiftUI re-evaluates when key is saved
             apiKeyRow(
                 name: "DeepSeek",
-                udKey: AppSettings.Keys.runtimeDeepSeekKey,
+                keychainID: "deepSeekApiKey",
                 key: Secrets.resolvedDeepSeekApiKey,
                 isTesting: deepSeekTesting,
                 result: deepSeekResult,
@@ -194,7 +194,7 @@ struct SettingsView: View {
             )
             apiKeyRow(
                 name: "OpenAI Whisper",
-                udKey: AppSettings.Keys.runtimeOpenAIKey,
+                keychainID: "openAIWhisperApiKey",
                 key: Secrets.resolvedOpenAIWhisperApiKey,
                 isTesting: whisperTesting,
                 result: whisperResult,
@@ -202,7 +202,7 @@ struct SettingsView: View {
             )
             apiKeyRow(
                 name: "OpenWeatherMap",
-                udKey: AppSettings.Keys.runtimeOpenWeatherKey,
+                keychainID: "openWeatherApiKey",
                 key: Secrets.resolvedOpenWeatherApiKey,
                 isTesting: weatherTesting,
                 result: weatherResult,
@@ -214,7 +214,7 @@ struct SettingsView: View {
     @ViewBuilder
     private func apiKeyRow(
         name: String,
-        udKey: String,
+        keychainID: String,
         key: String,
         isTesting: Bool,
         result: APITestResult?,
@@ -239,8 +239,8 @@ struct SettingsView: View {
                 // Edit button — always visible
                 Button {
                     editingKeyName = name
-                    editingKeyUD = udKey
-                    editingKeyValue = UserDefaults.standard.string(forKey: udKey) ?? ""
+                    editingKeyID = keychainID
+                    editingKeyValue = KeychainHelper.getAPIKey(for: keychainID) ?? ""
                     showApiKeyEditor = true
                 } label: {
                     Image(systemName: "pencil")

@@ -9,6 +9,78 @@ import Security
 enum KeychainHelper {
 
     private static let service = "com.daypage.auth"
+    private static let apiKeyService = "com.daypage.apikeys"
+
+    // MARK: - API Key Storage (US-002)
+
+    /// Stores an API key securely in Keychain under the `com.daypage.apikeys` service.
+    static func setAPIKey(_ value: String, for identifier: String) {
+        let data = Data(value.utf8)
+        let base: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: apiKeyService,
+            kSecAttrAccount as String: identifier,
+        ]
+        SecItemDelete(base as CFDictionary)
+        var attrs = base
+        attrs[kSecValueData as String] = data
+        attrs[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        SecItemAdd(attrs as CFDictionary, nil)
+    }
+
+    /// Retrieves an API key from Keychain. Returns `nil` if not found or empty.
+    static func getAPIKey(for identifier: String) -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: apiKeyService,
+            kSecAttrAccount as String: identifier,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        var out: AnyObject?
+        guard
+            SecItemCopyMatching(query as CFDictionary, &out) == errSecSuccess,
+            let data = out as? Data,
+            let value = String(data: data, encoding: .utf8),
+            !value.isEmpty
+        else {
+            return nil
+        }
+        return value
+    }
+
+    /// Deletes an API key from Keychain.
+    static func deleteAPIKey(for identifier: String) {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: apiKeyService,
+            kSecAttrAccount as String: identifier,
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
+
+    /// Migrates any API keys stored in UserDefaults to Keychain, then removes them from UserDefaults.
+    /// Safe to call multiple times — no-ops if the key is already in Keychain or absent from UserDefaults.
+    static func migrateAPIKeysFromUserDefaultsIfNeeded() {
+        let migrations: [(udKey: String, keychainId: String)] = [
+            ("runtimeDeepSeekKey",    "deepSeekApiKey"),
+            ("runtimeOpenAIKey",      "openAIWhisperApiKey"),
+            ("runtimeOpenWeatherKey", "openWeatherApiKey"),
+        ]
+        for (udKey, keychainId) in migrations {
+            guard
+                let existing = UserDefaults.standard.string(forKey: udKey),
+                !existing.isEmpty
+            else { continue }
+            // Only migrate if Keychain doesn't already have a value
+            if getAPIKey(for: keychainId) == nil {
+                setAPIKey(existing, for: keychainId)
+            }
+            UserDefaults.standard.removeObject(forKey: udKey)
+        }
+    }
+
+    // MARK: - Auth Token Storage
 
     static func set(_ value: String, forKey key: String) {
         let data = Data(value.utf8)

@@ -128,7 +128,9 @@ extension AppSettings {
         static let memoSaveCount      = "memoSaveCount"
         static let lastSyncBannerDate = "lastSyncBannerDate"
         static let onThisDayDismissed = "onThisDayDismissedDate"
-        // Runtime API keys (entered during onboarding, stored in UserDefaults)
+        // Runtime API keys — US-002: migrated to Keychain (com.daypage.apikeys).
+        // These string literals are kept only for the one-time UserDefaults → Keychain migration
+        // performed by KeychainHelper.migrateAPIKeysFromUserDefaultsIfNeeded() at launch.
         static let runtimeDeepSeekKey    = "runtimeDeepSeekKey"
         static let runtimeOpenAIKey      = "runtimeOpenAIKey"
         static let runtimeOpenWeatherKey = "runtimeOpenWeatherKey"
