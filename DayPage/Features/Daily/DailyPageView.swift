@@ -116,7 +116,7 @@ struct DailyPageView: View {
                             // Issue #302: share daily page as card.
                             if let m = model {
                                 Button {
-                                    sharePayload = .daily(DailySnapshot.from(m))
+                                    sharePayload = .daily(DailySnapshot.from(m, rawMemos: rawMemos))
                                 } label: {
                                     Label("分享为卡片", systemImage: "square.and.arrow.up.on.square")
                                 }
@@ -131,6 +131,24 @@ struct DailyPageView: View {
                                     ))
                                 } label: {
                                     Label("分享为引用", systemImage: "quote.opening")
+                                }
+                                let photoMemos = rawMemos.filter { $0.attachments.contains { $0.kind == "photo" } }
+                                if let firstPhoto = photoMemos.first,
+                                   let snap = PhotoSnapshot.from(firstPhoto) {
+                                    Button {
+                                        sharePayload = .photo(snap)
+                                    } label: {
+                                        Label("分享照片", systemImage: "photo.on.rectangle")
+                                    }
+                                }
+                                let voiceMemos = rawMemos.filter { $0.attachments.contains { $0.kind == "audio" } }
+                                if let firstVoice = voiceMemos.first,
+                                   let snap = VoiceSnapshot.from(firstVoice) {
+                                    Button {
+                                        sharePayload = .voice(snap)
+                                    } label: {
+                                        Label("分享语音日记", systemImage: "mic.badge.plus")
+                                    }
                                 }
                             }
                         } label: {

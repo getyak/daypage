@@ -304,6 +304,7 @@ enum MinimalDailyTemplate: PosterTemplate {
     private static func draw(_ s: DailySnapshot) -> UIImage {
         let W = CardGeom.width
         let inset = CardGeom.inset
+        let bodyW = W - inset * 2
 
         let dateAttr = NSAttributedString(
             string: s.dateString,
@@ -320,9 +321,9 @@ enum MinimalDailyTemplate: PosterTemplate {
                 .kern: 4
             ])
 
-        let summaryText = truncate(s.summary, to: 220)
-        // 46pt summary — bumped from 40pt for thumbnail legibility (#302).
-        let summaryFont = UIFont.systemFont(ofSize: 46, weight: .regular)
+        // Summary: 400 chars at 38pt to leave room for section bodies
+        let summaryText = truncate(s.summary, to: 400)
+        let summaryFont = UIFont.systemFont(ofSize: 38, weight: .regular)
         let summaryPara = NSMutableParagraphStyle()
         summaryPara.lineHeightMultiple = 1.35
         let summaryAttr = NSAttributedString(string: summaryText, attributes: [
@@ -330,12 +331,45 @@ enum MinimalDailyTemplate: PosterTemplate {
             .foregroundColor: MinimalPalette.ink,
             .paragraphStyle: summaryPara
         ])
-        let summaryMeasure = summaryAttr.measure(width: W - inset * 2)
-        let highlightsBlockH: CGFloat = s.highlights.isEmpty ? 0 : CGFloat(s.highlights.count) * 76 + 48
+        let summaryMeasure = summaryAttr.measure(width: bodyW)
+
+        // Section blocks: title + body preview, 32px inter-section gap
+        let sectionFont = UIFont.systemFont(ofSize: 30, weight: .medium)
+        let bodyPreviewFont = UIFont.systemFont(ofSize: 24, weight: .regular)
+        let bodyPreviewPara = NSMutableParagraphStyle()
+        bodyPreviewPara.lineHeightMultiple = 1.32
+        let numColW: CGFloat = 70
+
+        var sectionBlockH: CGFloat = 0
+        let sections = Array(s.sections.prefix(3))
+        var sectionMeasures: [CGFloat] = []
+        for sec in sections {
+            let preview = sec.bodyPreview.isEmpty ? "" : truncate(sec.bodyPreview, to: 120)
+            if preview.isEmpty {
+                sectionMeasures.append(0)
+            } else {
+                let attr = NSAttributedString(string: preview, attributes: [
+                    .font: bodyPreviewFont,
+                    .foregroundColor: MinimalPalette.inkMuted,
+                    .paragraphStyle: bodyPreviewPara
+                ])
+                sectionMeasures.append(ceil(attr.measure(width: bodyW - numColW).height))
+            }
+        }
+        if !sections.isEmpty {
+            sectionBlockH += 48 + 2 // top divider gap + line
+            for (i, _) in sections.enumerated() {
+                sectionBlockH += 40 // title row
+                let ph = sectionMeasures[i]
+                if ph > 0 { sectionBlockH += 8 + ph }
+                if i < sections.count - 1 { sectionBlockH += 32 }
+            }
+            sectionBlockH += 48 // bottom divider gap
+        }
 
         let baseH = inset + 320 + 64 +
-                    ceil(summaryMeasure.height) + 80 +
-                    highlightsBlockH + 80 +
+                    ceil(summaryMeasure.height) + 48 +
+                    sectionBlockH +
                     80 + 96 + 80
 
         let size = CGSize(width: W, height: max(1400, baseH))
@@ -349,7 +383,7 @@ enum MinimalDailyTemplate: PosterTemplate {
             var y = inset
 
             drawMinimalHeader(at: CGPoint(x: inset, y: y),
-                               width: W - inset * 2,
+                               width: bodyW,
                                rightText: "DAILY PAGE",
                                ctx: cg)
             y += 96 + 56
@@ -360,15 +394,32 @@ enum MinimalDailyTemplate: PosterTemplate {
             y += 168
 
             MinimalPalette.inkFaint.setFill()
-            cg.fill(CGRect(x: inset, y: y, width: W - inset * 2, height: 2))
+            cg.fill(CGRect(x: inset, y: y, width: bodyW, height: 2))
             y += 56
 
-            summaryAttr.draw(with: CGRect(x: inset, y: y, width: W - inset * 2, height: summaryMeasure.height),
+            summaryAttr.draw(with: CGRect(x: inset, y: y, width: bodyW, height: summaryMeasure.height),
                              options: [.usesLineFragmentOrigin], context: nil)
-            y += ceil(summaryMeasure.height) + 56
+            y += ceil(summaryMeasure.height) + 32
 
-            if !s.highlights.isEmpty {
-                for (idx, item) in s.highlights.enumerated() {
+            // Compact location line below summary
+            if !s.locationPrimary.isEmpty {
+                let locLine = NSAttributedString(string: "📍 " + truncate(s.locationPrimary, to: 40), attributes: [
+                    .font: UIFont.monospacedSystemFont(ofSize: 22, weight: .regular),
+                    .foregroundColor: MinimalPalette.inkMuted,
+                    .kern: 1
+                ])
+                locLine.draw(at: CGPoint(x: inset, y: y))
+                y += 40
+            }
+            y += 16
+
+            if !sections.isEmpty {
+                // Section divider
+                MinimalPalette.inkFaint.setFill()
+                cg.fill(CGRect(x: inset, y: y, width: bodyW, height: 2))
+                y += 24
+
+                for (idx, sec) in sections.enumerated() {
                     let num = NSAttributedString(
                         string: String(format: "%02d", idx + 1),
                         attributes: [
@@ -376,47 +427,53 @@ enum MinimalDailyTemplate: PosterTemplate {
                             .foregroundColor: MinimalPalette.accent,
                             .kern: 1
                         ])
-                    num.draw(at: CGPoint(x: inset, y: y + 6))
+                    num.draw(at: CGPoint(x: inset, y: y + 5))
 
                     let title = NSAttributedString(
-                        string: truncate(item, to: 60),
+                        string: truncate(sec.title, to: 56),
                         attributes: [
-                            .font: UIFont.systemFont(ofSize: 30, weight: .medium),
+                            .font: sectionFont,
                             .foregroundColor: MinimalPalette.ink
                         ])
-                    title.draw(at: CGPoint(x: inset + 70, y: y))
-                    y += 60
+                    title.draw(at: CGPoint(x: inset + numColW, y: y))
+                    y += 40
 
-                    if idx < s.highlights.count - 1 {
-                        MinimalPalette.inkFaint.setFill()
-                        cg.fill(CGRect(x: inset + 70, y: y, width: W - inset * 2 - 70, height: 1))
-                        y += 16
+                    let preview = sec.bodyPreview.isEmpty ? "" : truncate(sec.bodyPreview, to: 120)
+                    if !preview.isEmpty {
+                        let bodyAttr = NSAttributedString(string: preview, attributes: [
+                            .font: bodyPreviewFont,
+                            .foregroundColor: MinimalPalette.inkMuted,
+                            .paragraphStyle: bodyPreviewPara
+                        ])
+                        let bh = sectionMeasures[idx]
+                        bodyAttr.draw(
+                            with: CGRect(x: inset + numColW, y: y + 8, width: bodyW - numColW, height: bh),
+                            options: [.usesLineFragmentOrigin], context: nil
+                        )
+                        y += 8 + bh
                     }
+
+                    if idx < sections.count - 1 { y += 32 }
                 }
+
+                y += 24
+                MinimalPalette.inkFaint.setFill()
+                cg.fill(CGRect(x: inset, y: y, width: bodyW, height: 2))
                 y += 48
             }
 
-            let statsLineY = y + 16
-            let countAttr = NSAttributedString(
-                string: "\(s.memoCount) ENTRIES",
-                attributes: [
-                    .font: UIFont.monospacedSystemFont(ofSize: 22, weight: .regular),
-                    .foregroundColor: MinimalPalette.inkMuted,
-                    .kern: 1.5
-                ])
-            countAttr.draw(at: CGPoint(x: inset, y: statsLineY))
-
-            if !s.locationPrimary.isEmpty {
-                let locAttr = NSAttributedString(
-                    string: truncate(s.locationPrimary.uppercased(), to: 26),
-                    attributes: [
-                        .font: UIFont.monospacedSystemFont(ofSize: 22, weight: .regular),
-                        .foregroundColor: MinimalPalette.inkMuted,
-                        .kern: 1.5
-                    ])
-                let lw = locAttr.size().width
-                locAttr.draw(at: CGPoint(x: W - inset - lw, y: statsLineY))
-            }
+            // Richer stats line
+            var statParts = ["\(s.memoCount) entries"]
+            if s.photoCount > 0 { statParts.append("\(s.photoCount) photos") }
+            if s.voiceCount > 0 { statParts.append("\(s.voiceCount) voice") }
+            if !s.locationPrimary.isEmpty { statParts.append(truncate(s.locationPrimary, to: 20)) }
+            let statsText = statParts.joined(separator: " · ")
+            let statsAttr = NSAttributedString(string: statsText.uppercased(), attributes: [
+                .font: UIFont.monospacedSystemFont(ofSize: 22, weight: .regular),
+                .foregroundColor: MinimalPalette.inkMuted,
+                .kern: 1.5
+            ])
+            statsAttr.draw(at: CGPoint(x: inset, y: y + 16))
 
             drawMinimalFooter(in: size, ctx: cg)
         }
@@ -739,8 +796,8 @@ enum PolaroidDailyTemplate: PosterTemplate {
         let photoH: CGFloat = 620
         let photoTop = frameTop + 80
 
-        let summaryText = truncate(s.summary, to: 160)
-        let summaryFont = UIFont.systemFont(ofSize: 38, weight: .regular)
+        let summaryText = truncate(s.summary, to: 260)
+        let summaryFont = UIFont.systemFont(ofSize: 36, weight: .regular)
         let summaryPara = NSMutableParagraphStyle()
         summaryPara.lineHeightMultiple = 1.30
         let italicFont: UIFont = {
@@ -755,11 +812,40 @@ enum PolaroidDailyTemplate: PosterTemplate {
         ])
         let summaryMeasure = summaryAttr.measure(width: photoW)
 
+        let bodyPreviewFont = UIFont.systemFont(ofSize: 24, weight: .regular)
+        let bodyPreviewPara = NSMutableParagraphStyle()
+        bodyPreviewPara.lineHeightMultiple = 1.30
+        let sections = Array(s.sections.prefix(3))
+        var sectionMeasures: [CGFloat] = []
+        for sec in sections {
+            let preview = sec.bodyPreview.isEmpty ? "" : truncate(sec.bodyPreview, to: 120)
+            if preview.isEmpty {
+                sectionMeasures.append(0)
+            } else {
+                let attr = NSAttributedString(string: preview, attributes: [
+                    .font: bodyPreviewFont,
+                    .foregroundColor: PolaroidPalette.inkMuted,
+                    .paragraphStyle: bodyPreviewPara
+                ])
+                sectionMeasures.append(ceil(attr.measure(width: photoW - 28).height))
+            }
+        }
+
+        var sectionsH: CGFloat = 0
+        if !sections.isEmpty {
+            for (i, _) in sections.enumerated() {
+                sectionsH += 44
+                let ph = sectionMeasures[i]
+                if ph > 0 { sectionsH += 8 + ph }
+                if i < sections.count - 1 { sectionsH += 24 }
+            }
+            sectionsH += 16
+        }
+
         let captionBlock = ceil(summaryMeasure.height) + 24
-        let highlightsBlock: CGFloat = s.highlights.isEmpty ? 0 : CGFloat(s.highlights.count) * 60 + 24
         let dateBlock: CGFloat = 110
         let frameBottomPad: CGFloat = 96
-        let frameHeight = 80 + photoH + 56 + captionBlock + 32 + highlightsBlock + 32 + dateBlock + frameBottomPad
+        let frameHeight = 80 + photoH + 56 + captionBlock + 32 + sectionsH + 32 + dateBlock + frameBottomPad
         let totalH = frameTop + frameHeight + outerInset
 
         let size = CGSize(width: W, height: totalH)
@@ -806,15 +892,32 @@ enum PolaroidDailyTemplate: PosterTemplate {
                              options: [.usesLineFragmentOrigin], context: nil)
             y += ceil(summaryMeasure.height) + 32
 
-            for h in s.highlights {
+            for (idx, sec) in sections.enumerated() {
                 PolaroidPalette.accent.setFill()
-                cg.fill(CGRect(x: photoX, y: y + 18, width: 12, height: 12))
-                let attr = NSAttributedString(string: truncate(h, to: 56), attributes: [
-                    .font: UIFont.systemFont(ofSize: 28, weight: .regular),
+                cg.fill(CGRect(x: photoX, y: y + 16, width: 8, height: 8))
+                let titleAttr = NSAttributedString(string: truncate(sec.title, to: 50), attributes: [
+                    .font: UIFont.systemFont(ofSize: 28, weight: .medium),
                     .foregroundColor: PolaroidPalette.ink
                 ])
-                attr.draw(at: CGPoint(x: photoX + 36, y: y))
-                y += 60
+                titleAttr.draw(at: CGPoint(x: photoX + 28, y: y))
+                y += 44
+
+                let preview = sec.bodyPreview.isEmpty ? "" : truncate(sec.bodyPreview, to: 120)
+                if !preview.isEmpty {
+                    let bodyAttr = NSAttributedString(string: preview, attributes: [
+                        .font: bodyPreviewFont,
+                        .foregroundColor: PolaroidPalette.inkMuted,
+                        .paragraphStyle: bodyPreviewPara
+                    ])
+                    let bh = sectionMeasures[idx]
+                    bodyAttr.draw(
+                        with: CGRect(x: photoX + 28, y: y + 8, width: photoW - 28, height: bh),
+                        options: [.usesLineFragmentOrigin], context: nil
+                    )
+                    y += 8 + bh
+                }
+
+                if idx < sections.count - 1 { y += 24 }
             }
             y += 32
 
@@ -826,18 +929,18 @@ enum PolaroidDailyTemplate: PosterTemplate {
                 ])
             dateAttr.draw(at: CGPoint(x: photoX, y: y))
 
-            // One brand per card — consolidate watermark to entry count only.
-            // Removed redundant "DAYPAGE.APP" since the polaroid frame is itself
-            // the brand signature. (#302 Evaluator MEDIUM)
-            let entriesAttr = NSAttributedString(
-                string: "\(s.memoCount) ENTRIES",
+            var statParts = ["\(s.memoCount) entries"]
+            if s.photoCount > 0 { statParts.append("\(s.photoCount) photos") }
+            if s.voiceCount > 0 { statParts.append("\(s.voiceCount) voice") }
+            let statsAttr = NSAttributedString(
+                string: statParts.joined(separator: " · ").uppercased(),
                 attributes: [
                     .font: UIFont.monospacedSystemFont(ofSize: 20, weight: .regular),
                     .foregroundColor: PolaroidPalette.inkMuted.withAlphaComponent(0.75),
                     .kern: 1.5
                 ])
-            let esz = entriesAttr.size()
-            entriesAttr.draw(at: CGPoint(x: frameRect.maxX - photoSide - esz.width, y: y + 30))
+            let esz = statsAttr.size()
+            statsAttr.draw(at: CGPoint(x: frameRect.maxX - photoSide - esz.width, y: y + 30))
         }
     }
 }
@@ -1030,6 +1133,390 @@ enum PolaroidQuoteTemplate: PosterTemplate {
             ])
             let wmsz = wm.size()
             wm.draw(at: CGPoint(x: frameRect.maxX - photoSide - wmsz.width, y: footerY + 60))
+        }
+    }
+}
+
+// MARK: - MinimalPhotoTemplate
+
+enum MinimalPhotoTemplate: PosterTemplate {
+    static func render(_ payload: SharePayload) -> UIImage {
+        guard case .photo(let s) = payload else { return UIImage() }
+        return draw(s)
+    }
+
+    private static func draw(_ s: PhotoSnapshot) -> UIImage {
+        let W = CardGeom.width
+        let inset = CardGeom.inset
+        let bodyW = W - inset * 2
+
+        let photoH: CGFloat = W * 0.6
+        let captionText = truncate(s.caption.trimmingCharacters(in: .whitespacesAndNewlines), to: 240)
+        let captionFont = UIFont.systemFont(ofSize: 44, weight: .regular)
+        let captionPara = NSMutableParagraphStyle()
+        captionPara.lineHeightMultiple = 1.32
+        let captionAttr = NSAttributedString(string: captionText, attributes: [
+            .font: captionFont,
+            .foregroundColor: MinimalPalette.ink,
+            .paragraphStyle: captionPara
+        ])
+        let captionMeasure = captionAttr.measure(width: bodyW)
+
+        let totalH = inset + 96 + 64 + photoH + 64 + ceil(captionMeasure.height) + 48 + 60 + 80 + 96 + 80
+        let size = CGSize(width: W, height: max(1400, totalH))
+        let renderer = UIGraphicsImageRenderer(size: size, format: imageFormat1x())
+
+        return renderer.image { ctx in
+            let cg = ctx.cgContext
+            MinimalPalette.bg.setFill()
+            cg.fill(CGRect(origin: .zero, size: size))
+
+            var y = inset
+            drawMinimalHeader(at: CGPoint(x: inset, y: y), width: bodyW, rightText: s.time, ctx: cg)
+            y += 96 + 64
+
+            let photoRect = CGRect(x: inset, y: y, width: bodyW, height: photoH)
+            drawAspectFill(s.image, in: photoRect, ctx: cg)
+            cg.setStrokeColor(MinimalPalette.inkFaint.cgColor)
+            cg.setLineWidth(2)
+            cg.stroke(photoRect)
+            y += photoH + 64
+
+            if !captionText.isEmpty {
+                captionAttr.draw(
+                    with: CGRect(x: inset, y: y, width: bodyW, height: captionMeasure.height),
+                    options: [.usesLineFragmentOrigin], context: nil
+                )
+                y += ceil(captionMeasure.height) + 48
+            }
+
+            var metaParts: [String] = []
+            if let exif = s.exif, !exif.isEmpty { metaParts.append(exif) }
+            if let loc = s.location, !loc.isEmpty { metaParts.append(loc) }
+            if !metaParts.isEmpty {
+                let metaAttr = NSAttributedString(
+                    string: truncate(metaParts.joined(separator: "  ·  ").uppercased(), to: 80),
+                    attributes: [
+                        .font: UIFont.monospacedSystemFont(ofSize: 22, weight: .regular),
+                        .foregroundColor: MinimalPalette.inkMuted,
+                        .kern: 1.5
+                    ])
+                metaAttr.draw(at: CGPoint(x: inset, y: y))
+            }
+
+            drawMinimalFooter(in: size, ctx: cg)
+        }
+    }
+}
+
+// MARK: - PolaroidPhotoTemplate
+
+enum PolaroidPhotoTemplate: PosterTemplate {
+    static func render(_ payload: SharePayload) -> UIImage {
+        guard case .photo(let s) = payload else { return UIImage() }
+        return draw(s)
+    }
+
+    private static func draw(_ s: PhotoSnapshot) -> UIImage {
+        let W = CardGeom.width
+        let outerInset: CGFloat = 64
+        let frameLeft = outerInset
+        let frameWidth = W - outerInset * 2
+        let frameTop = outerInset
+        let photoSide: CGFloat = 64
+        let photoX = frameLeft + photoSide
+        let photoW = frameWidth - photoSide * 2
+        let photoH = photoW
+
+        let captionText = truncate(s.caption.trimmingCharacters(in: .whitespacesAndNewlines), to: 160)
+        let captionFont = UIFont.systemFont(ofSize: 38, weight: .regular)
+        let captionPara = NSMutableParagraphStyle()
+        captionPara.lineHeightMultiple = 1.30
+        let italicFont: UIFont = {
+            let d = UIFontDescriptor(name: captionFont.fontName, size: captionFont.pointSize)
+                .withSymbolicTraits(.traitItalic)
+            return d.flatMap { UIFont(descriptor: $0, size: captionFont.pointSize) } ?? captionFont
+        }()
+        let captionAttr = NSAttributedString(string: captionText, attributes: [
+            .font: italicFont,
+            .foregroundColor: PolaroidPalette.ink,
+            .paragraphStyle: captionPara
+        ])
+        let captionMeasure = captionAttr.measure(width: photoW)
+        let captionBlock = captionText.isEmpty ? 0 : ceil(captionMeasure.height) + 32
+
+        let photoTop = frameTop + 80
+        let frameHeight = 80 + photoH + 56 + captionBlock + 80 + 100 + 88
+        let totalH = frameTop + frameHeight + outerInset
+        let size = CGSize(width: W, height: totalH)
+        let renderer = UIGraphicsImageRenderer(size: size, format: imageFormat1x())
+
+        return renderer.image { ctx in
+            let cg = ctx.cgContext
+            PolaroidPalette.paper.setFill()
+            cg.fill(CGRect(origin: .zero, size: size))
+
+            let frameRect = CGRect(x: frameLeft, y: frameTop, width: frameWidth, height: frameHeight)
+            cg.saveGState()
+            cg.setShadow(offset: CGSize(width: 0, height: 20), blur: 40, color: PolaroidPalette.paperShadow.cgColor)
+            fillRoundedRect(frameRect, radius: 8, color: PolaroidPalette.frame, in: cg)
+            cg.restoreGState()
+
+            let photoRect = CGRect(x: photoX, y: photoTop, width: photoW, height: photoH)
+            drawAspectFill(s.image, in: photoRect, ctx: cg)
+
+            var y = photoRect.maxY + 56
+
+            if !captionText.isEmpty {
+                captionAttr.draw(
+                    with: CGRect(x: photoX, y: y, width: photoW, height: captionMeasure.height),
+                    options: [.usesLineFragmentOrigin], context: nil
+                )
+                y += ceil(captionMeasure.height) + 32
+            }
+
+            var metaParts: [String] = []
+            if let loc = s.location, !loc.isEmpty { metaParts.append(loc) }
+            if let exif = s.exif, !exif.isEmpty { metaParts.append(exif) }
+            if !metaParts.isEmpty {
+                let metaAttr = NSAttributedString(
+                    string: truncate(metaParts.joined(separator: " · "), to: 60).uppercased(),
+                    attributes: [
+                        .font: UIFont.monospacedSystemFont(ofSize: 22, weight: .regular),
+                        .foregroundColor: PolaroidPalette.inkMuted,
+                        .kern: 2
+                    ])
+                metaAttr.draw(at: CGPoint(x: photoX, y: y))
+                y += 56
+            }
+
+            let timeAttr = NSAttributedString(
+                string: s.time,
+                attributes: [
+                    .font: UIFont.editorialTitle(size: 56),
+                    .foregroundColor: PolaroidPalette.pencil
+                ])
+            timeAttr.draw(at: CGPoint(x: photoX, y: y + 16))
+
+            let wm = NSAttributedString(string: "daypage.app", attributes: [
+                .font: UIFont.monospacedSystemFont(ofSize: 20, weight: .regular),
+                .foregroundColor: PolaroidPalette.inkMuted.withAlphaComponent(0.7),
+                .kern: 1.5
+            ])
+            let wmSize = wm.size()
+            wm.draw(at: CGPoint(x: frameRect.maxX - photoSide - wmSize.width, y: y + 40))
+        }
+    }
+}
+
+// MARK: - MinimalVoiceTemplate
+
+enum MinimalVoiceTemplate: PosterTemplate {
+    static func render(_ payload: SharePayload) -> UIImage {
+        guard case .voice(let s) = payload else { return UIImage() }
+        return draw(s)
+    }
+
+    private static func draw(_ s: VoiceSnapshot) -> UIImage {
+        let W = CardGeom.width
+        let inset = CardGeom.inset
+        let bodyW = W - inset * 2
+
+        let transcriptText = s.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        let transcriptFont = UIFont.systemFont(ofSize: 44, weight: .regular)
+        let transcriptPara = NSMutableParagraphStyle()
+        transcriptPara.lineHeightMultiple = 1.35
+        let transcriptAttr = NSAttributedString(string: transcriptText, attributes: [
+            .font: transcriptFont,
+            .foregroundColor: MinimalPalette.ink,
+            .paragraphStyle: transcriptPara
+        ])
+        let transcriptMeasure = transcriptAttr.measure(width: bodyW)
+
+        let totalH = inset + 96 + 64 + 220 + 64 + ceil(transcriptMeasure.height) + 80 + 80 + 96 + 80
+        let size = CGSize(width: W, height: max(1300, totalH))
+        let renderer = UIGraphicsImageRenderer(size: size, format: imageFormat1x())
+
+        return renderer.image { ctx in
+            let cg = ctx.cgContext
+            UIColor(red: 0.965, green: 0.949, blue: 0.925, alpha: 1).setFill()
+            cg.fill(CGRect(origin: .zero, size: size))
+
+            var y = inset
+            drawMinimalHeader(at: CGPoint(x: inset, y: y), width: bodyW, rightText: s.time, ctx: cg)
+            y += 96 + 64
+
+            // Icon + duration row
+            let waveAttr = NSAttributedString(string: "◉", attributes: [
+                .font: UIFont.systemFont(ofSize: 120, weight: .ultraLight),
+                .foregroundColor: MinimalPalette.accent
+            ])
+            waveAttr.draw(at: CGPoint(x: inset, y: y))
+
+            let durAttr = NSAttributedString(string: s.duration, attributes: [
+                .font: UIFont.monospacedSystemFont(ofSize: 96, weight: .bold),
+                .foregroundColor: MinimalPalette.ink,
+                .kern: 2
+            ])
+            durAttr.draw(at: CGPoint(x: inset + 160, y: y + 20))
+            y += 160
+
+            // Waveform decoration
+            let dashHeights: [CGFloat] = [24, 40, 56, 32, 64, 28, 48, 36, 60, 20]
+            let dashAlphas: [CGFloat] = [0.6, 0.4, 0.8, 0.3, 0.9, 0.5, 0.7, 0.45, 0.85, 0.35]
+            let dashW: CGFloat = 12
+            let dashGap: CGFloat = 10
+            for i in 0..<10 {
+                let h = dashHeights[i]
+                let dx = inset + CGFloat(i) * (dashW + dashGap)
+                let dy = y + (64 - h) / 2
+                fillRoundedRect(CGRect(x: dx, y: dy, width: dashW, height: h), radius: 6,
+                                color: MinimalPalette.accent.withAlphaComponent(dashAlphas[i]), in: cg)
+            }
+            y += 64 + 48
+
+            MinimalPalette.inkFaint.setFill()
+            cg.fill(CGRect(x: inset, y: y, width: bodyW, height: 2))
+            y += 40
+
+            if !transcriptText.isEmpty {
+                transcriptAttr.draw(
+                    with: CGRect(x: inset, y: y, width: bodyW, height: transcriptMeasure.height),
+                    options: [.usesLineFragmentOrigin], context: nil
+                )
+                y += ceil(transcriptMeasure.height) + 56
+            }
+
+            var metaParts: [String] = ["VOICE MEMO"]
+            if let loc = s.location, !loc.isEmpty { metaParts.append(loc) }
+            let metaAttr = NSAttributedString(
+                string: metaParts.joined(separator: "  ·  ").uppercased(),
+                attributes: [
+                    .font: UIFont.monospacedSystemFont(ofSize: 22, weight: .regular),
+                    .foregroundColor: MinimalPalette.inkMuted,
+                    .kern: 1.5
+                ])
+            metaAttr.draw(at: CGPoint(x: inset, y: y))
+
+            drawMinimalFooter(in: size, ctx: cg)
+        }
+    }
+}
+
+// MARK: - PolaroidVoiceTemplate
+
+enum PolaroidVoiceTemplate: PosterTemplate {
+    static func render(_ payload: SharePayload) -> UIImage {
+        guard case .voice(let s) = payload else { return UIImage() }
+        return draw(s)
+    }
+
+    private static func draw(_ s: VoiceSnapshot) -> UIImage {
+        let W = CardGeom.width
+        let outerInset: CGFloat = 64
+        let frameLeft = outerInset
+        let frameWidth = W - outerInset * 2
+        let frameTop = outerInset
+        let photoSide: CGFloat = 64
+        let photoX = frameLeft + photoSide
+        let photoW = frameWidth - photoSide * 2
+        let photoH: CGFloat = 520
+
+        let transcriptText = s.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        let captionFont = UIFont.systemFont(ofSize: 36, weight: .regular)
+        let captionPara = NSMutableParagraphStyle()
+        captionPara.lineHeightMultiple = 1.32
+        let italicFont: UIFont = {
+            let d = UIFontDescriptor(name: captionFont.fontName, size: captionFont.pointSize)
+                .withSymbolicTraits(.traitItalic)
+            return d.flatMap { UIFont(descriptor: $0, size: captionFont.pointSize) } ?? captionFont
+        }()
+        let captionAttr = NSAttributedString(string: transcriptText, attributes: [
+            .font: italicFont,
+            .foregroundColor: PolaroidPalette.ink,
+            .paragraphStyle: captionPara
+        ])
+        let captionMeasure = captionAttr.measure(width: photoW)
+        let captionBlock = transcriptText.isEmpty ? 0 : ceil(captionMeasure.height) + 32
+
+        let frameHeight = 80 + photoH + 56 + captionBlock + 80 + 100 + 88
+        let totalH = frameTop + frameHeight + outerInset
+        let size = CGSize(width: W, height: totalH)
+        let renderer = UIGraphicsImageRenderer(size: size, format: imageFormat1x())
+
+        return renderer.image { ctx in
+            let cg = ctx.cgContext
+            PolaroidPalette.paper.setFill()
+            cg.fill(CGRect(origin: .zero, size: size))
+
+            let frameRect = CGRect(x: frameLeft, y: frameTop, width: frameWidth, height: frameHeight)
+            cg.saveGState()
+            cg.setShadow(offset: CGSize(width: 0, height: 20), blur: 40, color: PolaroidPalette.paperShadow.cgColor)
+            fillRoundedRect(frameRect, radius: 8, color: PolaroidPalette.frame, in: cg)
+            cg.restoreGState()
+
+            let photoTop = frameTop + 80
+            let photoRect = CGRect(x: photoX, y: photoTop, width: photoW, height: photoH)
+            PolaroidPalette.placeholderBg.setFill()
+            cg.fill(photoRect)
+
+            let playAttr = NSAttributedString(string: "▶", attributes: [
+                .font: UIFont.systemFont(ofSize: 140, weight: .ultraLight),
+                .foregroundColor: PolaroidPalette.accent.withAlphaComponent(0.45)
+            ])
+            let psz = playAttr.size()
+            playAttr.draw(at: CGPoint(x: photoRect.midX - psz.width / 2, y: photoRect.minY + 60))
+
+            let durAttr = NSAttributedString(string: s.duration, attributes: [
+                .font: UIFont.monospacedSystemFont(ofSize: 96, weight: .bold),
+                .foregroundColor: PolaroidPalette.ink
+            ])
+            let dsz = durAttr.size()
+            durAttr.draw(at: CGPoint(x: photoRect.midX - dsz.width / 2, y: photoRect.minY + 260))
+
+            let labelAttr = NSAttributedString(string: "VOICE MEMO", attributes: [
+                .font: UIFont.monospacedSystemFont(ofSize: 22, weight: .regular),
+                .foregroundColor: PolaroidPalette.inkMuted,
+                .kern: 4
+            ])
+            let lsz = labelAttr.size()
+            labelAttr.draw(at: CGPoint(x: photoRect.midX - lsz.width / 2, y: photoRect.minY + 400))
+
+            var y = photoRect.maxY + 56
+
+            if !transcriptText.isEmpty {
+                captionAttr.draw(
+                    with: CGRect(x: photoX, y: y, width: photoW, height: captionMeasure.height),
+                    options: [.usesLineFragmentOrigin], context: nil
+                )
+                y += ceil(captionMeasure.height) + 32
+            }
+
+            if let loc = s.location, !loc.isEmpty {
+                let locAttr = NSAttributedString(string: loc.uppercased(), attributes: [
+                    .font: UIFont.monospacedSystemFont(ofSize: 22, weight: .regular),
+                    .foregroundColor: PolaroidPalette.inkMuted,
+                    .kern: 2
+                ])
+                locAttr.draw(at: CGPoint(x: photoX, y: y))
+                y += 56
+            }
+
+            let timeAttr = NSAttributedString(
+                string: s.time,
+                attributes: [
+                    .font: UIFont.editorialTitle(size: 56),
+                    .foregroundColor: PolaroidPalette.pencil
+                ])
+            timeAttr.draw(at: CGPoint(x: photoX, y: y + 16))
+
+            let wm = NSAttributedString(string: "daypage.app", attributes: [
+                .font: UIFont.monospacedSystemFont(ofSize: 20, weight: .regular),
+                .foregroundColor: PolaroidPalette.inkMuted.withAlphaComponent(0.7),
+                .kern: 1.5
+            ])
+            let wmSz = wm.size()
+            wm.draw(at: CGPoint(x: frameRect.maxX - photoSide - wmSz.width, y: y + 40))
         }
     }
 }
