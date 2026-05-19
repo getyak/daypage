@@ -94,6 +94,7 @@ struct TodayView: View {
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Open navigation")
+                        .accessibilityHint("Opens the sidebar navigation drawer")
                         .accessibilityIdentifier("sidebar-menu-button")
                         // Long press on the date header → force-refresh On This Day
                         .onLongPressGesture(minimumDuration: 1.5) {
@@ -133,7 +134,10 @@ struct TodayView: View {
                                 .clipShape(Circle())
                         }
                         .accessibilityLabel("Settings")
+                        .accessibilityHint("Opens app settings")
                         .accessibilityIdentifier("settings-gear-button")
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                         .alignmentGuide(.firstTextBaseline) { d in d[VerticalAlignment.center] + 6 }
                     }
                     .padding(.horizontal, 20)
@@ -814,6 +818,8 @@ struct TodayView: View {
                 DayOrbView(signalCount: viewModel.signalCount, size: 140)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Today's orb, \(viewModel.signalCount) signals")
+            .accessibilityHint("Tap to open today's day drawer")
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
@@ -998,13 +1004,19 @@ struct CompilationFailedBanner: View {
             }
             .font(DSType.caption)
             .foregroundColor(DSColor.errorRed)
+            .accessibilityLabel("重试编译")
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
             Button {
                 onDismiss()
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(DSColor.inkMuted)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
+            .accessibilityLabel("关闭错误提示")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -1070,9 +1082,15 @@ struct LocationDraftCard: View {
             Button("全部忽略") { onIgnoreAll() }
                 .font(DSType.caption)
                 .foregroundColor(DSColor.inkMuted)
+                .accessibilityLabel("忽略所有位置记录")
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
             Button("全部确认") { onConfirmAll() }
                 .font(DSType.caption)
                 .foregroundColor(DSColor.amberAccent)
+                .accessibilityLabel("确认所有位置记录")
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
         }
         .padding(.horizontal, 16)
         .padding(.top, 10)
@@ -1147,6 +1165,9 @@ private struct LocationDraftRow: View {
                         .background(.ultraThinMaterial, in: Circle())
                         .clipShape(Circle())
                 }
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+                .accessibilityLabel("忽略此位置")
 
                 Button {
                     onConfirm()
@@ -1158,6 +1179,9 @@ private struct LocationDraftRow: View {
                         .background(DSColor.amberAccent)
                         .clipShape(Circle())
                 }
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+                .accessibilityLabel("确认此位置")
             }
         }
         .padding(.horizontal, 16)

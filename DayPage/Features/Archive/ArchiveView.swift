@@ -604,6 +604,9 @@ struct ArchiveView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("搜索")
+            .accessibilityHint("搜索历史记录")
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
         }
         .padding(.horizontal, 20)
         .padding(.top, 16)
@@ -618,9 +621,12 @@ struct ArchiveView: View {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(DSColor.inkMuted)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("上个月")
+            .accessibilityHint("切换到上一个月")
 
             Spacer()
 
@@ -641,9 +647,12 @@ struct ArchiveView: View {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(DSColor.inkMuted)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("下个月")
+            .accessibilityHint("切换到下一个月")
         }
     }
 

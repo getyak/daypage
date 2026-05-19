@@ -716,6 +716,13 @@ struct SettingsView: View {
                     .foregroundColor(DSColor.onSurfaceVariant)
                     .font(.caption)
             }
+            HStack {
+                Label("AI 编译引擎", systemImage: "cpu")
+                Spacer()
+                Text(aiModelName)
+                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .font(.system(size: 12, design: .monospaced))
+            }
         }
     }
 
@@ -899,6 +906,10 @@ struct SettingsView: View {
 
     private var buildNumber: String {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "—"
+    }
+
+    private var aiModelName: String {
+        Secrets.deepSeekModel.isEmpty ? "deepseek-v4-pro" : Secrets.deepSeekModel
     }
 
     private var locationAuthLabel: String {
