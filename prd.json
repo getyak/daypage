@@ -166,7 +166,7 @@
         "构建通过"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Theme: B-UI/UX一致性, Effort: M, Impact: 2"
     },
     {
@@ -182,8 +182,8 @@
         "构建通过，iPhone 17 Simulator 有数据时验证图谱节点非空"
       ],
       "priority": 1,
-      "passes": false,
-      "notes": "Theme: C-功能补全, Effort: M, Impact: 5"
+      "passes": true,
+      "notes": "Theme: C-功能补全, Effort: M, Impact: 5 | Already implemented on main"
     },
     {
       "id": "US-013",
@@ -197,7 +197,7 @@
         "构建通过"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Theme: C-功能补全, Effort: M, Impact: 4"
     },
     {
@@ -226,8 +226,8 @@
         "构建通过"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": "Theme: C-功能补全, Effort: M, Impact: 3"
+      "passes": true,
+      "notes": "Theme: C-功能补全, Effort: M, Impact: 3 | Already implemented on main"
     },
     {
       "id": "US-016",
