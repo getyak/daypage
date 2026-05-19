@@ -123,6 +123,7 @@ struct DayPageApp: App {
             }
         }
         Task.detached(priority: .utility) { DSFonts.registerAll() }
+        Task.detached(priority: .background) { RawStorage.pruneTrashOlderThan(days: 7) }
         VaultInitializer.initializeIfNeeded()
         // 在 SwiftUI 渲染之前注册后台任务处理器
         BackgroundCompilationService.shared.registerTask()
