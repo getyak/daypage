@@ -272,27 +272,68 @@ struct EntityPageView: View {
     // MARK: - Load
 
     private func loadEntity() {
-        // Capture value types before leaving the MainActor.
         let url = VaultInitializer.vaultURL
             .appendingPathComponent("wiki")
             .appendingPathComponent(entityType)
             .appendingPathComponent("\(entitySlug).md")
         let slug = entitySlug
+        let rawDir = VaultInitializer.vaultURL.appendingPathComponent("raw")
 
-        // Move blocking file I/O off the main thread so the UI stays responsive.
         Task.detached(priority: .userInitiated) {
             let rawContent: String?
             do { rawContent = try String(contentsOf: url, encoding: .utf8) }
             catch { rawContent = nil }
 
-            if let rawContent {
-                // EntityPageParser is a pure function — safe to call on a background thread.
-                let parsed = EntityPageParser.parse(content: rawContent, slug: slug)
-                await MainActor.run { self.model = parsed }
-            } else {
+            guard let rawContent else {
                 await MainActor.run { self.notFound = true }
+                return
+            }
+
+            var parsed = EntityPageParser.parse(content: rawContent, slug: slug)
+
+            // Scan vault/raw/*.md for any memo file that references this slug,
+            // then merge those dates into relatedDates.
+            let backlinked = Self.scanRawMemos(in: rawDir, mentioning: slug)
+            if !backlinked.isEmpty {
+                let merged = Array(Set(parsed.relatedDates + backlinked)).sorted(by: >)
+                parsed = EntityModel(
+                    name: parsed.name,
+                    entityType: parsed.entityType,
+                    firstSeen: parsed.firstSeen,
+                    occurrenceCount: parsed.occurrenceCount,
+                    sections: parsed.sections,
+                    relatedDates: merged
+                )
+            }
+
+            await MainActor.run { self.model = parsed }
+        }
+    }
+
+    /// Scans all `vault/raw/YYYY-MM-DD.md` files and returns the date strings
+    /// of files whose content mentions `slug` (as a bare slug or inside a wikilink).
+    private static func scanRawMemos(in rawDir: URL, mentioning slug: String) -> [String] {
+        guard let items = try? FileManager.default.contentsOfDirectory(
+            at: rawDir,
+            includingPropertiesForKeys: nil,
+            options: .skipsHiddenFiles
+        ) else { return [] }
+
+        let datePattern = try? NSRegularExpression(pattern: #"^\d{4}-\d{2}-\d{2}$"#)
+        var found: [String] = []
+
+        for item in items {
+            guard item.pathExtension == "md" else { continue }
+            let dateStr = item.deletingPathExtension().lastPathComponent
+            guard let pat = datePattern,
+                  pat.firstMatch(in: dateStr, range: NSRange(location: 0, length: (dateStr as NSString).length)) != nil
+            else { continue }
+            guard let content = try? String(contentsOf: item, encoding: .utf8) else { continue }
+            if content.contains(slug) {
+                found.append(dateStr)
             }
         }
+        return found
     }
 }
 

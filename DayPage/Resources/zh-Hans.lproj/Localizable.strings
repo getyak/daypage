@@ -103,6 +103,34 @@
 "welcome.slogan" = "每一天，都值得留下来";
 "welcome.begin" = "开始";
 
+/* TodayView — US-011 */
+
+/* Sync banner */
+"today.sync.banner" = "跨设备同步你的日记 →";
+
+/* Section headers */
+"today.section.yesterday" = "YESTERDAY";
+"today.section.earlier" = "EARLIER";
+
+/* LocationDraftCard */
+"today.location_draft.header" = "检测到位置到达";
+"today.location_draft.ignore_all" = "全部忽略";
+"today.location_draft.confirm_all" = "全部确认";
+"today.location_draft.unknown_place" = "未知地点";
+"today.location_draft.still_here" = "仍在此处";
+"today.location_draft.stayed_minutes" = "停留 %d 分钟";
+"today.location_draft.stayed_hours" = "停留 %d 小时";
+"today.location_draft.stayed_hours_minutes" = "停留 %d 小时 %d 分钟";
+
+/* CompilationFailedBanner */
+"today.compile_failed.retry" = "重试";
+"today.compile_failed.retry_a11y" = "重试编译";
+"today.compile_failed.dismiss_a11y" = "关闭错误提示";
+
+/* Banners */
+"today.banner.draft_restored" = "恢复了未发送的草稿";
+"today.banner.voice_queue" = "你有 %d 条语音待转写";
+
 /* MemoDetailView — US-033 (iOS P2-4) */
 
 /* Section labels */

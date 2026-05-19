@@ -87,7 +87,7 @@
         "构建通过，iPhone 17 Simulator 目视验证"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Theme: B-UI/UX一致性, Effort: M, Impact: 3"
     },
     {
@@ -118,7 +118,7 @@
         "构建通过"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Theme: B-UI/UX一致性, Effort: S, Impact: 4"
     },
     {
@@ -211,7 +211,7 @@
         "构建通过"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Theme: C-功能补全, Effort: S, Impact: 2"
     },
     {
@@ -241,7 +241,7 @@
         "构建通过，手动测试：断网录音 → 失败红边 → 联网点重试 → 成功"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Theme: C-功能补全, Effort: S, Impact: 3"
     },
     {
@@ -258,7 +258,7 @@
         "构建通过"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Theme: C-功能补全, Effort: M, Impact: 3"
     },
     {
