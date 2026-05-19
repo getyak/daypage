@@ -79,7 +79,6 @@
 		A10000054 /* RecordingOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000054 /* RecordingOverlayView.swift */; };
 		A10000055 /* PressToTalkButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000055 /* PressToTalkButton.swift */; };
 		A10000056 /* VaultLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000056 /* VaultLocator.swift */; };
-		A10000060 /* DailySharePosterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000060 /* DailySharePosterView.swift */; };
 		A10000061 /* PosterRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000061 /* PosterRenderer.swift */; };
 		A10000063 /* SwipeableMemoCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000063 /* SwipeableMemoCard.swift */; };
 		A10000064 /* AttachmentMenuSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000064 /* AttachmentMenuSheet.swift */; };
@@ -138,6 +137,7 @@
 		ES0000002 /* GlassErrorBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000002 /* GlassErrorBanner.swift */; };
 		ES0000003 /* GlassTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000003 /* GlassTabBar.swift */; };
 		F617270BFC704FF5BBB99FD3 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 068FB068A000B6E61B1D8032 /* AppSettings.swift */; };
+		F69AA7BDCB1C041959C26EB4 /* ShareCardSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986C8E3E042E690BA4CCC12D /* ShareCardSystem.swift */; };
 		F9DD1FD8D9003975FAD95E17 /* DailyPageSummarySection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4EBD94EB4FD71CC10D478F3 /* DailyPageSummarySection.swift */; };
 		FB0000001 /* FeedbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000001 /* FeedbackService.swift */; };
 		FB0000002 /* FeedbackViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000002 /* FeedbackViewModel.swift */; };
@@ -218,6 +218,7 @@
 		7909ED56F96754E4C4FA21CC /* QuickCaptureWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuickCaptureWidget.swift; sourceTree = "<group>"; };
 		84FFEA3DDB8DCB528A4189BF /* HapticFeedbackTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticFeedbackTests.swift; sourceTree = "<group>"; };
 		912420086719F3FFFB45FE7A /* InputBarTutorialOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InputBarTutorialOverlay.swift; sourceTree = "<group>"; };
+		986C8E3E042E690BA4CCC12D /* ShareCardSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShareCardSystem.swift; path = ShareCard/ShareCardSystem.swift; sourceTree = "<group>"; };
 		A20000001 /* DayPageApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPageApp.swift; sourceTree = "<group>"; };
 		A20000002 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		A20000003 /* VaultInitializer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultInitializer.swift; sourceTree = "<group>"; };
@@ -271,7 +272,6 @@
 		A20000054 /* RecordingOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingOverlayView.swift; sourceTree = "<group>"; };
 		A20000055 /* PressToTalkButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PressToTalkButton.swift; sourceTree = "<group>"; };
 		A20000056 /* VaultLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultLocator.swift; sourceTree = "<group>"; };
-		A20000060 /* DailySharePosterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailySharePosterView.swift; sourceTree = "<group>"; };
 		A20000061 /* PosterRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PosterRenderer.swift; sourceTree = "<group>"; };
 		A20000063 /* SwipeableMemoCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeableMemoCard.swift; sourceTree = "<group>"; };
 		A20000064 /* AttachmentMenuSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentMenuSheet.swift; sourceTree = "<group>"; };
@@ -451,6 +451,14 @@
 				E649E3AC4D392A4CEDD41728 /* Services */,
 			);
 			path = DayPageWatch;
+			sourceTree = "<group>";
+		};
+		8664207AF5BA4660FF0E134F /* ShareCard */ = {
+			isa = PBXGroup;
+			children = (
+				986C8E3E042E690BA4CCC12D /* ShareCardSystem.swift */,
+			);
+			name = ShareCard;
 			sourceTree = "<group>";
 		};
 		A50000001 /* DayPage */ = {
@@ -688,8 +696,8 @@
 			isa = PBXGroup;
 			children = (
 				A20000037 /* AppBanner.swift */,
-				A20000060 /* DailySharePosterView.swift */,
 				A20000061 /* PosterRenderer.swift */,
+				8664207AF5BA4660FF0E134F /* ShareCard */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -1099,7 +1107,6 @@
 				A10000032 /* PassiveLocationService.swift in Sources */,
 				A10000036 /* DayPageLogger.swift in Sources */,
 				A10000037 /* AppBanner.swift in Sources */,
-				A10000060 /* DailySharePosterView.swift in Sources */,
 				A10000061 /* PosterRenderer.swift in Sources */,
 				A10000038 /* NetworkMonitor.swift in Sources */,
 				A10000039 /* VoiceAttachmentQueue.swift in Sources */,
@@ -1170,6 +1177,7 @@
 				4A862A4AB3CC3961B771EBC5 /* InputBarTutorialOverlay.swift in Sources */,
 				3C0AE791CCB255E33198C9F9 /* UndoPillView.swift in Sources */,
 				1530E7C28C23499CFC14C498 /* HapticFeedback.swift in Sources */,
+				F69AA7BDCB1C041959C26EB4 /* ShareCardSystem.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

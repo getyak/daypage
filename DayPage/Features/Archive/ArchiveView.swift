@@ -439,6 +439,9 @@ struct ArchiveView: View {
     @State private var summaryFilter: MonthlySummaryFilter = .all
     @State private var showShareSheet: Bool = false
     @State private var shareItems: [Any] = []
+
+    /// Issue #302: monthly summary → share-card sheet.
+    @State private var sharePayload: SharePayload? = nil
     @Environment(\.colorScheme) private var colorScheme
 
     // MARK: - Pre-scanned vault sets (US-006)
@@ -902,6 +905,10 @@ struct ArchiveView: View {
         .sheet(isPresented: $showShareSheet) {
             ShareSheetView(activityItems: shareItems)
         }
+        // Issue #302: card-style monthly share.
+        .sheet(item: $sharePayload) { payload in
+            ShareCardSheet(payload: payload)
+        }
     }
 
     private func filterChip(_ filter: MonthlySummaryFilter) -> some View {
@@ -932,15 +939,19 @@ struct ArchiveView: View {
 
     @MainActor
     private func shareScreenshot() async {
-        let image = PosterRenderer.render(
-            monthTitle: viewModel.currentMonthTitle,
-            totalEntries: viewModel.totalEntries,
-            totalPhotos: viewModel.totalPhotos,
-            totalVoiceMinutes: viewModel.totalVoiceMinutes,
-            totalLocations: viewModel.totalLocations
+        // Issue #302: route through the new ShareCardSheet so users get the full
+        // template gallery (Minimal / Polaroid, etc.) rather than a single fixed
+        // poster. The legacy `PosterRenderer` remains as the Minimal-Monthly
+        // template implementation under PosterDispatcher.
+        sharePayload = .monthly(
+            MonthlySnapshot(
+                monthTitle: viewModel.currentMonthTitle,
+                totalEntries: viewModel.totalEntries,
+                totalPhotos: viewModel.totalPhotos,
+                totalVoiceMinutes: viewModel.totalVoiceMinutes,
+                totalLocations: viewModel.totalLocations
+            )
         )
-        shareItems = [image]
-        showShareSheet = true
     }
 
     private func summaryCard(_ label: String, value: String, unit: String? = nil, accentPrimary: Bool) -> some View {
@@ -1154,18 +1165,6 @@ fileprivate enum ArchiveVaultScan {
         }
         return out
     }
-}
-
-// MARK: - ShareSheetView
-
-private struct ShareSheetView: UIViewControllerRepresentable {
-    let activityItems: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 // MARK: - ArtifactGeometricView

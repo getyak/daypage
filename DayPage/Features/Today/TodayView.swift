@@ -51,6 +51,9 @@ struct TodayView: View {
     // US-010: First-run tutorial overlay
     @State private var showTutorial: Bool = false
 
+    // Issue #302: share-card sheet payload. Set by long-press on a memo.
+    @State private var sharePayload: SharePayload? = nil
+
     /// Live drag offset for the daily page card (negative = pulled left).
     @GestureState private var dailyPageDrag: CGFloat = 0
 
@@ -243,7 +246,10 @@ struct TodayView: View {
                                                 viewModel.pinMemo(memo)
                                             }
                                         },
-                                        onRetranscribe: { m, att in viewModel.retranscribe(memo: m, attachment: att) }
+                                        onRetranscribe: { m, att in viewModel.retranscribe(memo: m, attachment: att) },
+                                        onShare: {
+                                            sharePayload = .memo(MemoSnapshot.from(memo))
+                                        }
                                     )
                                     .padding(.horizontal, 20)
                                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -527,6 +533,10 @@ struct TodayView: View {
             // iCloud migration progress sheet — shown during vault migration
             .sheet(isPresented: $migrationService.isMigrating) {
                 MigrationProgressSheet(service: migrationService)
+            }
+            // Issue #302: share-card sheet, opened via long-press on a memo.
+            .sheet(item: $sharePayload) { payload in
+                ShareCardSheet(payload: payload)
             }
             .onAppear {
                 evaluateSyncBanner()
@@ -1162,9 +1172,20 @@ struct TimelineRow: View {
     var onDelete: (() -> Void)? = nil
     var onPin: (() -> Void)? = nil
     var onRetranscribe: ((Memo, Memo.Attachment) -> Void)? = nil
+    /// Issue #302: long-press → "分享为卡片" entry.
+    var onShare: (() -> Void)? = nil
 
     var body: some View {
         SwipeableMemoCard(memo: memo, onDelete: onDelete, onPin: onPin, onRetranscribe: onRetranscribe)
             .frame(maxWidth: .infinity)
+            .contextMenu {
+                if let onShare {
+                    Button {
+                        onShare()
+                    } label: {
+                        Label("分享为卡片", systemImage: "square.and.arrow.up.on.square")
+                    }
+                }
+            }
     }
 }
