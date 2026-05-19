@@ -220,8 +220,15 @@ struct TodayView: View {
                                     .padding(.horizontal, 20)
                             }
 
+                            // Skeleton placeholder while the initial load is in flight
+                            if viewModel.loadState == .loading && viewModel.memos.isEmpty {
+                                MemoListSkeleton()
+                                    .padding(.horizontal, 20)
+                                    .transition(.opacity)
+                            }
+
                             // Memo cards (reverse-chronological)
-                            if viewModel.memos.isEmpty && !viewModel.isLoading {
+                            if viewModel.memos.isEmpty && viewModel.loadState == .ready {
                                 let hasOnboarded = UserDefaults.standard.bool(forKey: AppSettings.Keys.hasOnboarded)
                                 if !hasOnboarded {
                                     EmptyStateView.todayBlank {
@@ -274,15 +281,15 @@ struct TodayView: View {
                             // to yesterday's page or the weekly recap. (#US-016)
                             historySupplement
 
-                            // Loading indicator
-                            if viewModel.isLoading {
+                            // Skeleton while reloading with existing memos visible
+                            if viewModel.loadState == .loading && !viewModel.memos.isEmpty {
                                 HStack {
                                     Spacer()
                                     ProgressView()
-                                        .tint(DSColor.onSurfaceVariant)
+                                        .tint(DSColor.inkSubtle)
                                     Spacer()
                                 }
-                                .padding(.vertical, 20)
+                                .padding(.vertical, 8)
                             }
 
                             // Load error message
@@ -664,7 +671,7 @@ struct TodayView: View {
     /// week, week-before-last, and older months as expandable cards.
     @ViewBuilder
     private var historySupplement: some View {
-        if !viewModel.memos.isEmpty && !viewModel.isLoading && !viewModel.timelineSections.isEmpty {
+        if !viewModel.memos.isEmpty && viewModel.loadState == .ready && !viewModel.timelineSections.isEmpty {
             earlierDivider
             ForEach(viewModel.timelineSections) { section in
                 TimelineSectionView(section: section)

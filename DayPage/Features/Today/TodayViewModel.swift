@@ -61,6 +61,17 @@ enum TodayFallback {
     case pureEmpty
 }
 
+// MARK: - LoadState
+
+/// Unified loading state for TodayView, replacing multiple independent boolean flags.
+/// Drives skeleton vs. content rendering so all three async sources (vault, compiled
+/// daily page, On This Day) present as a single coordinated load rather than popping
+/// in separately.
+enum LoadState: Equatable {
+    case loading
+    case ready
+}
+
 // MARK: - TodayViewModel
 
 /// Manages state for TodayView: loading today's memos, tracking compiled state.
@@ -92,8 +103,8 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     /// list under today's raw memos. Excludes today — today renders above.
     @Published var timelineSections: [TimelineSection] = []
 
-    /// Whether the view is currently loading memos.
-    @Published var isLoading: Bool = false
+    /// Unified load state — drives skeleton vs. content in TodayView.
+    @Published var loadState: LoadState = .loading
 
     /// Error message to display if loading fails.
     @Published var errorMessage: String? = nil
@@ -352,7 +363,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     func load() {
         // Refresh to today in case the app has been backgrounded overnight.
         date = Date()
-        isLoading = true
+        loadState = .loading
         errorMessage = nil
 
         // Capture value types before leaving the MainActor.
@@ -455,7 +466,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 self.timelineSections = timeline
                 self.yesterdayDailyPageModel = yesterdayPage
                 self.onThisDayMemos = otdMemos
-                self.isLoading = false
+                self.loadState = .ready
                 self.checkOnThisDay()
 
                 // Auto-compile on load when today has uncompiled memos. The compile
