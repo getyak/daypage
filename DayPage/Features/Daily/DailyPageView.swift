@@ -25,6 +25,9 @@ struct DailyPageView: View {
     @State private var isRecompiling: Bool = false
     @State private var recompileError: String? = nil
     @State private var showEditMetadata: Bool = false
+
+    /// Issue #302: share-card sheet payload.
+    @State private var sharePayload: SharePayload? = nil
     /// "Last compiled at HH:MM" derived from the daily file's modification date.
     @State private var lastCompiledTimeLabel: String? = nil
 
@@ -110,6 +113,26 @@ struct DailyPageView: View {
                             } label: {
                                 Label("编辑元数据", systemImage: "pencil")
                             }
+                            // Issue #302: share daily page as card.
+                            if let m = model {
+                                Button {
+                                    sharePayload = .daily(DailySnapshot.from(m))
+                                } label: {
+                                    Label("分享为卡片", systemImage: "square.and.arrow.up.on.square")
+                                }
+                                Button {
+                                    var attrib = m.dateString
+                                    if !m.locationPrimary.isEmpty {
+                                        attrib += " · " + m.locationPrimary
+                                    }
+                                    sharePayload = .quote(QuoteSnapshot(
+                                        text: m.summary,
+                                        attribution: attrib
+                                    ))
+                                } label: {
+                                    Label("分享为引用", systemImage: "quote.opening")
+                                }
+                            }
                         } label: {
                             Image(systemName: "ellipsis.circle")
                                 .font(.system(size: 18, weight: .regular))
@@ -159,6 +182,10 @@ struct DailyPageView: View {
                     rawMemos: rawMemos
                 )
             }
+        }
+        // Issue #302: share-card sheet entry.
+        .sheet(item: $sharePayload) { payload in
+            ShareCardSheet(payload: payload)
         }
     }
 
