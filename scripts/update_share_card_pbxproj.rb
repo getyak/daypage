@@ -21,7 +21,8 @@ raise "Target '#{TARGET_NAME}' not found" unless target
 
 # ── Removals ──
 REMOVALS = [
-  "Features/Shared/DailySharePosterView.swift"
+  "Features/Shared/DailySharePosterView.swift",
+  "Features/Shared/PosterRenderer.swift"
 ].freeze
 
 REMOVALS.each do |rel|
@@ -43,7 +44,8 @@ end
 
 # ── Additions ──
 ADDS = [
-  ["Features/Shared/ShareCard", "ShareCardSystem.swift"]
+  ["Features/Shared/ShareCard", "ShareCardSystem.swift"],
+  ["Features/Shared/ShareCard", "PosterTemplates.swift"]
 ].freeze
 
 def find_or_create_group(project, root_name, sub_path)

@@ -137,117 +137,20 @@ protocol PosterTemplate {
 
 enum PosterDispatcher {
 
-    /// Wave 1 returns the placeholder. Wave 2/3 will swap in real templates
-    /// per (payload, style) combination.
+    /// Routes (payload, style) → concrete `PosterTemplate.render`. Adding a new
+    /// style means: extend `PosterStyle`, add 4 new template enums, add a row
+    /// in this switch.
     static func render(payload: SharePayload, style: PosterStyle) -> UIImage {
-        return PlaceholderTemplate.render(payload, style: style)
-    }
-}
-
-// MARK: - PlaceholderTemplate
-
-private enum PlaceholderTemplate {
-
-    static func render(_ payload: SharePayload, style: PosterStyle) -> UIImage {
-        let width: CGFloat = 390
-        let height: CGFloat = 520
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 3
-        let renderer = UIGraphicsImageRenderer(
-            size: CGSize(width: width, height: height),
-            format: format
-        )
-
-        return renderer.image { ctx in
-            let cg = ctx.cgContext
-
-            let bg: UIColor = style == .polaroid
-                ? UIColor(red: 0.984, green: 0.973, blue: 0.949, alpha: 1)
-                : UIColor(red: 0.976, green: 0.973, blue: 0.949, alpha: 1)
-            bg.setFill()
-            cg.fill(CGRect(x: 0, y: 0, width: width, height: height))
-
-            let mono = UIFont.monospacedSystemFont(ofSize: 11, weight: .regular)
-            let title = UIFont.systemFont(ofSize: 20, weight: .bold)
-            let ink = UIColor(red: 0.14, green: 0.11, blue: 0.06, alpha: 1)
-            let muted = UIColor(red: 0.43, green: 0.38, blue: 0.32, alpha: 1)
-
-            let header = NSAttributedString(
-                string: "DAYPAGE",
-                attributes: [.font: title, .foregroundColor: ink, .kern: 2]
-            )
-            header.draw(at: CGPoint(x: 24, y: 32))
-
-            let styleTag = NSAttributedString(
-                string: "STYLE · \(style.rawValue.uppercased())",
-                attributes: [.font: mono, .foregroundColor: muted, .kern: 0.5]
-            )
-            let tagSize = styleTag.size()
-            styleTag.draw(at: CGPoint(x: width - 24 - tagSize.width, y: 38))
-
-            muted.withAlphaComponent(0.25).setFill()
-            cg.fill(CGRect(x: 24, y: 76, width: width - 48, height: 1))
-
-            let label = "PREVIEW · \(payload.kindLabel)"
-            let labelAttr = NSAttributedString(
-                string: label,
-                attributes: [.font: mono, .foregroundColor: muted, .kern: 0.5]
-            )
-            labelAttr.draw(at: CGPoint(x: 24, y: 96))
-
-            let bodyText = payload.previewText.truncated(to: 280)
-            let bodyFont = UIFont.systemFont(ofSize: 17, weight: .regular)
-            let para = NSMutableParagraphStyle()
-            para.lineHeightMultiple = 1.35
-            let bodyAttr = NSAttributedString(
-                string: bodyText,
-                attributes: [
-                    .font: bodyFont,
-                    .foregroundColor: ink,
-                    .paragraphStyle: para
-                ]
-            )
-            let bodyRect = CGRect(x: 24, y: 124, width: width - 48, height: 320)
-            bodyAttr.draw(with: bodyRect, options: [.usesLineFragmentOrigin], context: nil)
-
-            let footer = NSAttributedString(
-                string: "daypage.app",
-                attributes: [.font: mono, .foregroundColor: muted.withAlphaComponent(0.6), .kern: 1]
-            )
-            let fSize = footer.size()
-            footer.draw(at: CGPoint(x: (width - fSize.width) / 2, y: height - 36))
+        switch (style, payload) {
+        case (.minimal,  .memo):    return MinimalMemoTemplate.render(payload)
+        case (.minimal,  .daily):   return MinimalDailyTemplate.render(payload)
+        case (.minimal,  .monthly): return MinimalMonthlyTemplate.render(payload)
+        case (.minimal,  .quote):   return MinimalQuoteTemplate.render(payload)
+        case (.polaroid, .memo):    return PolaroidMemoTemplate.render(payload)
+        case (.polaroid, .daily):   return PolaroidDailyTemplate.render(payload)
+        case (.polaroid, .monthly): return PolaroidMonthlyTemplate.render(payload)
+        case (.polaroid, .quote):   return PolaroidQuoteTemplate.render(payload)
         }
-    }
-}
-
-private extension SharePayload {
-
-    var kindLabel: String {
-        switch self {
-        case .memo:    return "MEMO"
-        case .daily:   return "DAILY PAGE"
-        case .monthly: return "MONTHLY"
-        case .quote:   return "QUOTE"
-        }
-    }
-
-    var previewText: String {
-        switch self {
-        case .memo(let s):    return s.body
-        case .daily(let s):   return s.summary
-        case .monthly(let s): return "\(s.monthTitle) — \(s.totalEntries) entries"
-        case .quote(let s):   return "\u{201C}\(s.text)\u{201D} — \(s.attribution)"
-        }
-    }
-}
-
-private extension String {
-
-    /// Grapheme-safe truncation so emoji / CJK aren't sliced mid-codepoint.
-    func truncated(to n: Int) -> String {
-        guard count > n else { return self }
-        let endIdx = index(startIndex, offsetBy: n)
-        return String(self[..<endIdx]) + "\u{2026}"
     }
 }
 
@@ -390,8 +293,14 @@ struct ShareCardSheet: View {
 
     @MainActor
     private func rerender() async {
-        let img = PosterDispatcher.render(payload: payload, style: style)
+        // Off-main rendering keeps the UI responsive on long memos. Rendering at
+        // 1080 width is ~10-30ms but CJK + many highlights can spike it.
+        let snapshot = (payload, style)
+        let img = await Task.detached(priority: .userInitiated) {
+            PosterDispatcher.render(payload: snapshot.0, style: snapshot.1)
+        }.value
         renderedImage = img
+        Haptics.soft()
     }
 
     private func saveToPhotos() {

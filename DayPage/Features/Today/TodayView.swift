@@ -249,6 +249,19 @@ struct TodayView: View {
                                         onRetranscribe: { m, att in viewModel.retranscribe(memo: m, attachment: att) },
                                         onShare: {
                                             sharePayload = .memo(MemoSnapshot.from(memo))
+                                        },
+                                        onShareAsQuote: {
+                                            // Build attribution from date + location.
+                                            let df = DateFormatter()
+                                            df.dateFormat = "yyyy-MM-dd"
+                                            var attrib = df.string(from: memo.created)
+                                            if let loc = memo.location?.name, !loc.isEmpty {
+                                                attrib += " · " + loc
+                                            }
+                                            sharePayload = .quote(QuoteSnapshot(
+                                                text: memo.body,
+                                                attribution: attrib
+                                            ))
                                         }
                                     )
                                     .padding(.horizontal, 20)
@@ -1172,8 +1185,10 @@ struct TimelineRow: View {
     var onDelete: (() -> Void)? = nil
     var onPin: (() -> Void)? = nil
     var onRetranscribe: ((Memo, Memo.Attachment) -> Void)? = nil
-    /// Issue #302: long-press → "分享为卡片" entry.
+    /// Issue #302: long-press → "分享为卡片"
     var onShare: (() -> Void)? = nil
+    /// Issue #302: long-press → "分享为引用"
+    var onShareAsQuote: (() -> Void)? = nil
 
     var body: some View {
         SwipeableMemoCard(memo: memo, onDelete: onDelete, onPin: onPin, onRetranscribe: onRetranscribe)
@@ -1184,6 +1199,13 @@ struct TimelineRow: View {
                         onShare()
                     } label: {
                         Label("分享为卡片", systemImage: "square.and.arrow.up.on.square")
+                    }
+                }
+                if let onShareAsQuote {
+                    Button {
+                        onShareAsQuote()
+                    } label: {
+                        Label("分享为引用", systemImage: "quote.opening")
                     }
                 }
             }

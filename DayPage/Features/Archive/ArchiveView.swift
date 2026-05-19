@@ -939,10 +939,9 @@ struct ArchiveView: View {
 
     @MainActor
     private func shareScreenshot() async {
-        // Issue #302: route through the new ShareCardSheet so users get the full
-        // template gallery (Minimal / Polaroid, etc.) rather than a single fixed
-        // poster. The legacy `PosterRenderer` remains as the Minimal-Monthly
-        // template implementation under PosterDispatcher.
+        // Issue #302: route through ShareCardSheet so users get the full template
+        // gallery (Minimal × 4 + Polaroid × 4). The legacy PosterRenderer.swift
+        // has been removed — its logic now lives in `MinimalMonthlyTemplate`.
         sharePayload = .monthly(
             MonthlySnapshot(
                 monthTitle: viewModel.currentMonthTitle,

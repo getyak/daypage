@@ -79,7 +79,6 @@
 		A10000054 /* RecordingOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000054 /* RecordingOverlayView.swift */; };
 		A10000055 /* PressToTalkButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000055 /* PressToTalkButton.swift */; };
 		A10000056 /* VaultLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000056 /* VaultLocator.swift */; };
-		A10000061 /* PosterRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000061 /* PosterRenderer.swift */; };
 		A10000063 /* SwipeableMemoCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000063 /* SwipeableMemoCard.swift */; };
 		A10000064 /* AttachmentMenuSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000064 /* AttachmentMenuSheet.swift */; };
 		A10000070 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000070 /* AuthService.swift */; };
@@ -126,6 +125,7 @@
 		AF0000011 /* JetBrainsMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000011 /* JetBrainsMono-Regular.ttf */; };
 		AF0000012 /* JetBrainsMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000012 /* JetBrainsMono-Medium.ttf */; };
 		B197ECDEBDA86D4351A96898 /* RecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B93ED807E07C2171E9F4234B /* RecordingView.swift */; };
+		C80B52CC8945CDC4EE87DCBB /* PosterTemplates.swift in Sources */ = {isa = PBXBuildFile; fileRef = A381FA327A37AE0DD740D61D /* PosterTemplates.swift */; };
 		CJ0000001 /* CJKTextPolish.swift in Sources */ = {isa = PBXBuildFile; fileRef = CJ1000001 /* CJKTextPolish.swift */; };
 		DBB277156934B2FA96E16077 /* WatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5BB61FECBCF7AB756E7A6CE /* WatchApp.swift */; };
 		DS0000001 /* Motion.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000001 /* Motion.swift */; };
@@ -217,6 +217,7 @@
 		73FCD3E2EC4D7257BA7A22BD /* TimeZonePickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimeZonePickerView.swift; sourceTree = "<group>"; };
 		7909ED56F96754E4C4FA21CC /* QuickCaptureWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuickCaptureWidget.swift; sourceTree = "<group>"; };
 		84FFEA3DDB8DCB528A4189BF /* HapticFeedbackTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticFeedbackTests.swift; sourceTree = "<group>"; };
+		8F07950D8A46BAC7B9CCB1ED /* ShareCardSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShareCardSystem.swift; path = ShareCard/ShareCardSystem.swift; sourceTree = "<group>"; };
 		912420086719F3FFFB45FE7A /* InputBarTutorialOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InputBarTutorialOverlay.swift; sourceTree = "<group>"; };
 		986C8E3E042E690BA4CCC12D /* ShareCardSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShareCardSystem.swift; path = ShareCard/ShareCardSystem.swift; sourceTree = "<group>"; };
 		A20000001 /* DayPageApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPageApp.swift; sourceTree = "<group>"; };
@@ -272,7 +273,6 @@
 		A20000054 /* RecordingOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingOverlayView.swift; sourceTree = "<group>"; };
 		A20000055 /* PressToTalkButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PressToTalkButton.swift; sourceTree = "<group>"; };
 		A20000056 /* VaultLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultLocator.swift; sourceTree = "<group>"; };
-		A20000061 /* PosterRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PosterRenderer.swift; sourceTree = "<group>"; };
 		A20000063 /* SwipeableMemoCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeableMemoCard.swift; sourceTree = "<group>"; };
 		A20000064 /* AttachmentMenuSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentMenuSheet.swift; sourceTree = "<group>"; };
 		A20000070 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
@@ -307,6 +307,7 @@
 		A20000301 /* TimelineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineService.swift; sourceTree = "<group>"; };
 		A20000302 /* TimelineSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineSectionView.swift; sourceTree = "<group>"; };
 		A30000001 /* DayPage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPage.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A381FA327A37AE0DD740D61D /* PosterTemplates.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PosterTemplates.swift; path = ShareCard/PosterTemplates.swift; sourceTree = "<group>"; };
 		A4EBD94EB4FD71CC10D478F3 /* DailyPageSummarySection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DailyPageSummarySection.swift; sourceTree = "<group>"; };
 		AF1000001 /* SpaceGrotesk-Light.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Light.ttf"; sourceTree = "<group>"; };
 		AF1000002 /* SpaceGrotesk-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Regular.ttf"; sourceTree = "<group>"; };
@@ -457,6 +458,8 @@
 			isa = PBXGroup;
 			children = (
 				986C8E3E042E690BA4CCC12D /* ShareCardSystem.swift */,
+				8F07950D8A46BAC7B9CCB1ED /* ShareCardSystem.swift */,
+				A381FA327A37AE0DD740D61D /* PosterTemplates.swift */,
 			);
 			name = ShareCard;
 			sourceTree = "<group>";
@@ -696,7 +699,6 @@
 			isa = PBXGroup;
 			children = (
 				A20000037 /* AppBanner.swift */,
-				A20000061 /* PosterRenderer.swift */,
 				8664207AF5BA4660FF0E134F /* ShareCard */,
 			);
 			path = Shared;
@@ -1107,7 +1109,6 @@
 				A10000032 /* PassiveLocationService.swift in Sources */,
 				A10000036 /* DayPageLogger.swift in Sources */,
 				A10000037 /* AppBanner.swift in Sources */,
-				A10000061 /* PosterRenderer.swift in Sources */,
 				A10000038 /* NetworkMonitor.swift in Sources */,
 				A10000039 /* VoiceAttachmentQueue.swift in Sources */,
 				A10000045 /* OnThisDayIndex.swift in Sources */,
@@ -1178,6 +1179,7 @@
 				3C0AE791CCB255E33198C9F9 /* UndoPillView.swift in Sources */,
 				1530E7C28C23499CFC14C498 /* HapticFeedback.swift in Sources */,
 				F69AA7BDCB1C041959C26EB4 /* ShareCardSystem.swift in Sources */,
+				C80B52CC8945CDC4EE87DCBB /* PosterTemplates.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

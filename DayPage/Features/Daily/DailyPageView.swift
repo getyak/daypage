@@ -120,6 +120,18 @@ struct DailyPageView: View {
                                 } label: {
                                     Label("分享为卡片", systemImage: "square.and.arrow.up.on.square")
                                 }
+                                Button {
+                                    var attrib = m.dateString
+                                    if !m.locationPrimary.isEmpty {
+                                        attrib += " · " + m.locationPrimary
+                                    }
+                                    sharePayload = .quote(QuoteSnapshot(
+                                        text: m.summary,
+                                        attribution: attrib
+                                    ))
+                                } label: {
+                                    Label("分享为引用", systemImage: "quote.opening")
+                                }
                             }
                         } label: {
                             Image(systemName: "ellipsis.circle")
