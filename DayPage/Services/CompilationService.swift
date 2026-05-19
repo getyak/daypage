@@ -373,7 +373,8 @@ final class CompilationService: ObservableObject {
     /// tone the narrative appropriately (weekend vs. weekday vs. public holiday).
     private func dateContextNote(for dateString: String) -> String {
         guard let date = ISO8601DateFormatter.dayOnly.date(from: dateString) else { return "" }
-        let cal = Calendar.current
+        var cal = Calendar.current
+        cal.timeZone = TimeZone(secondsFromGMT: 0)!
         let weekday = cal.component(.weekday, from: date)
         // weekday: 1=Sun, 7=Sat
         switch weekday {

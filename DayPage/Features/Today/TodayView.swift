@@ -10,6 +10,7 @@ struct TodayView: View {
     @StateObject private var bannerCenter = BannerCenter.shared
     @StateObject private var voiceQueue = VoiceAttachmentQueue.shared
     @StateObject private var migrationService = VaultMigrationService.shared
+    @StateObject private var compilationService = CompilationService.shared
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -149,7 +150,7 @@ struct TodayView: View {
 
                     // MARK: Compilation Progress Bar
                     if viewModel.isCompiling {
-                        CompilationProgressBar(stage: CompilationService.shared.stage)
+                        CompilationProgressBar(stage: compilationService.stage)
                             .transition(.opacity)
                             .animation(Motion.fade, value: viewModel.isCompiling)
                     }
@@ -359,7 +360,7 @@ struct TodayView: View {
                                     memoCount: viewModel.memos.count,
                                     isCompiling: viewModel.isCompiling,
                                     isVisible: true,
-                                    stage: CompilationService.shared.stage,
+                                    stage: compilationService.stage,
                                     errorMessage: viewModel.submitError,
                                     onTap: { viewModel.compile() },
                                     onRetry: { viewModel.compile() }

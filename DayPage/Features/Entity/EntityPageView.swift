@@ -329,7 +329,7 @@ struct EntityPageView: View {
                   pat.firstMatch(in: dateStr, range: NSRange(location: 0, length: (dateStr as NSString).length)) != nil
             else { continue }
             guard let content = try? String(contentsOf: item, encoding: .utf8) else { continue }
-            if content.contains(slug) {
+            if content.contains("[[\(slug)]]") {
                 found.append(dateStr)
             }
         }

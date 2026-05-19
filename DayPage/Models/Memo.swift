@@ -357,6 +357,37 @@ struct YAMLParser {
         return inBlock ? items : nil
     }
 
+    // MARK: Sequence of scalars
+
+    /// 返回顶级序列键的 [String]（标量值）数组，如果不存在则返回 nil。
+    /// 解析如下格式：
+    ///   key:
+    ///     - value1
+    ///     - value2
+    func sequence(_ key: String) -> [String]? {
+        var inBlock = false
+        var items: [String] = []
+
+        for line in lines {
+            if !inBlock {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                if trimmed == "\(key):" || trimmed == "\(key): []" {
+                    if trimmed.hasSuffix("[]") { return [] }
+                    inBlock = true
+                    continue
+                }
+            } else {
+                if line.hasPrefix("  - ") {
+                    let value = String(line.dropFirst(4)).trimmingCharacters(in: .whitespaces)
+                    items.append(yamlUnquote(value))
+                } else {
+                    break
+                }
+            }
+        }
+        return inBlock ? items : nil
+    }
+
     // MARK: Private helpers
 
     private func extractValue(from line: String, key: String) -> String? {
