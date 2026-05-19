@@ -137,6 +137,7 @@
 		ES0000002 /* GlassErrorBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000002 /* GlassErrorBanner.swift */; };
 		ES0000003 /* GlassTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000003 /* GlassTabBar.swift */; };
 		F617270BFC704FF5BBB99FD3 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 068FB068A000B6E61B1D8032 /* AppSettings.swift */; };
+		F66780AF157611A4283937FE /* MemoListSkeleton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0995108F7E2E8994F114A240 /* MemoListSkeleton.swift */; };
 		F69AA7BDCB1C041959C26EB4 /* ShareCardSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986C8E3E042E690BA4CCC12D /* ShareCardSystem.swift */; };
 		F9DD1FD8D9003975FAD95E17 /* DailyPageSummarySection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4EBD94EB4FD71CC10D478F3 /* DailyPageSummarySection.swift */; };
 		FB0000001 /* FeedbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000001 /* FeedbackService.swift */; };
@@ -204,6 +205,7 @@
 		068FB068A000B6E61B1D8032 /* AppSettings.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		0881AB423FF6F12FCDE27C5B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		08FF205E680406EC7E4B83DB /* DailyPageModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DailyPageModel.swift; sourceTree = "<group>"; };
+		0995108F7E2E8994F114A240 /* MemoListSkeleton.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoListSkeleton.swift; sourceTree = "<group>"; };
 		0CF7E0148C3A6933A903247D /* DailyPageMetadataEditView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DailyPageMetadataEditView.swift; sourceTree = "<group>"; };
 		12641793A8F375B34321E87A /* UndoPillView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UndoPillView.swift; sourceTree = "<group>"; };
 		23EA9C83B41565EDB263FB35 /* DayPageWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPageWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -815,6 +817,7 @@
 				ES1000001 /* EmptyStateView.swift */,
 				ES1000002 /* GlassErrorBanner.swift */,
 				ES1000003 /* GlassTabBar.swift */,
+				0995108F7E2E8994F114A240 /* MemoListSkeleton.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -1180,6 +1183,7 @@
 				1530E7C28C23499CFC14C498 /* HapticFeedback.swift in Sources */,
 				F69AA7BDCB1C041959C26EB4 /* ShareCardSystem.swift in Sources */,
 				C80B52CC8945CDC4EE87DCBB /* PosterTemplates.swift in Sources */,
+				F66780AF157611A4283937FE /* MemoListSkeleton.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
