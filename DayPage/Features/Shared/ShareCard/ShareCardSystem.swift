@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import Photos
+import ImageIO
 
 // MARK: - SharePayload
 //
@@ -14,6 +15,8 @@ enum SharePayload: Identifiable, Equatable {
     case daily(DailySnapshot)
     case monthly(MonthlySnapshot)
     case quote(QuoteSnapshot)
+    case photo(PhotoSnapshot)
+    case voice(VoiceSnapshot)
 
     var id: String {
         switch self {
@@ -21,6 +24,8 @@ enum SharePayload: Identifiable, Equatable {
         case .daily(let s):   return "daily-\(s.dateString)"
         case .monthly(let s): return "monthly-\(s.monthTitle)"
         case .quote(let s):   return "quote-\(s.id.uuidString)"
+        case .photo(let s):   return "photo-\(s.id.uuidString)"
+        case .voice(let s):   return "voice-\(s.id.uuidString)"
         }
     }
 
@@ -35,6 +40,10 @@ enum SharePayload: Identifiable, Equatable {
             return "Monthly summary card: \(s.monthTitle), \(s.totalEntries) entries"
         case .quote(let s):
             return "Quote card: \(s.text.prefix(80))"
+        case .photo(let s):
+            return "Photo card: \(s.caption.prefix(80))"
+        case .voice(let s):
+            return "Voice memo card, duration \(s.duration)"
         }
     }
 }
@@ -81,10 +90,25 @@ struct DailySnapshot: Equatable {
     let memoCount: Int
     let coverImage: UIImage?
     let highlights: [String]
+    let sections: [SectionPreview]
+    let photoCount: Int
+    let voiceCount: Int
+    let locationEntries: [String]
 
-    static func from(_ model: DailyPageModel) -> DailySnapshot {
+    struct SectionPreview: Equatable {
+        let title: String
+        let bodyPreview: String
+    }
+
+    static func from(_ model: DailyPageModel, rawMemos: [Memo] = []) -> DailySnapshot {
         let highlights = Array(model.sections.prefix(3).map { $0.title })
         let cover = ShareCardImageLoader.daily(model: model)
+        let sections = model.sections.map {
+            SectionPreview(title: $0.title, bodyPreview: String($0.body.prefix(120)))
+        }
+        let locEntries = model.locations.map { "\($0.time) · \($0.name)" }
+        let photoCount = rawMemos.reduce(0) { $0 + $1.attachments.filter { $0.kind == "photo" }.count }
+        let voiceCount = rawMemos.reduce(0) { $0 + $1.attachments.filter { $0.kind == "audio" }.count }
         return DailySnapshot(
             dateString: model.dateString,
             weekday: model.weekday.uppercased(),
@@ -92,7 +116,11 @@ struct DailySnapshot: Equatable {
             locationPrimary: model.locationPrimary,
             memoCount: model.memoCount,
             coverImage: cover,
-            highlights: highlights
+            highlights: highlights,
+            sections: sections,
+            photoCount: photoCount,
+            voiceCount: voiceCount,
+            locationEntries: locEntries
         )
     }
 }
@@ -157,6 +185,80 @@ struct QuoteSnapshot: Equatable {
     }
 }
 
+struct PhotoSnapshot: Equatable {
+    let id: UUID
+    let image: UIImage
+    let caption: String
+    let location: String?
+    let time: String
+    let exif: String?
+
+    static func ==(lhs: PhotoSnapshot, rhs: PhotoSnapshot) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    static func from(_ memo: Memo) -> PhotoSnapshot? {
+        guard memo.attachments.first(where: { $0.kind == "photo" }) != nil,
+              let img = ShareCardImageLoader.firstPhoto(in: memo) else { return nil }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "HH:mm"
+        let exif = buildExif(memo)
+        return PhotoSnapshot(
+            id: memo.id,
+            image: img,
+            caption: memo.body,
+            location: memo.location?.name,
+            time: f.string(from: memo.created),
+            exif: exif
+        )
+    }
+
+    private static func buildExif(_ memo: Memo) -> String? {
+        guard let att = memo.attachments.first(where: { $0.kind == "photo" }) else { return nil }
+        let url = VaultInitializer.vaultURL.appendingPathComponent(att.file)
+        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [String: Any],
+              let exif = props[kCGImagePropertyExifDictionary as String] as? [String: Any]
+        else { return nil }
+        var parts: [String] = []
+        if let f = exif[kCGImagePropertyExifFNumber as String] as? Double { parts.append("f/\(f)") }
+        if let e = exif[kCGImagePropertyExifExposureTime as String] as? Double, e > 0, e.isFinite {
+            let denom = Int((1.0 / e).rounded())
+            parts.append("1/\(denom)s")
+        }
+        if let iso = (exif[kCGImagePropertyExifISOSpeedRatings as String] as? [Int])?.first { parts.append("ISO \(iso)") }
+        if let fl = exif[kCGImagePropertyExifFocalLength as String] as? Double { parts.append("\(Int(fl))mm") }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+}
+
+struct VoiceSnapshot: Equatable {
+    let id: UUID
+    let duration: String
+    let transcript: String
+    let time: String
+    let location: String?
+
+    static func from(_ memo: Memo) -> VoiceSnapshot? {
+        guard let att = memo.attachments.first(where: { $0.kind == "audio" }),
+              let dur = att.duration else { return nil }
+        let mins = Int(dur) / 60
+        let secs = Int(dur) % 60
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "HH:mm"
+        let transcript = att.transcript.map { String($0.prefix(200)) } ?? String(memo.body.prefix(200))
+        return VoiceSnapshot(
+            id: memo.id,
+            duration: "\(mins):\(String(format: "%02d", secs))",
+            transcript: transcript,
+            time: f.string(from: memo.created),
+            location: memo.location?.name
+        )
+    }
+}
+
 // MARK: - PosterStyle
 
 enum PosterStyle: String, CaseIterable, Identifiable {
@@ -192,10 +294,14 @@ enum PosterDispatcher {
         case (.minimal,  .daily):   return MinimalDailyTemplate.render(payload)
         case (.minimal,  .monthly): return MinimalMonthlyTemplate.render(payload)
         case (.minimal,  .quote):   return MinimalQuoteTemplate.render(payload)
+        case (.minimal,  .photo):   return MinimalPhotoTemplate.render(payload)
+        case (.minimal,  .voice):   return MinimalVoiceTemplate.render(payload)
         case (.polaroid, .memo):    return PolaroidMemoTemplate.render(payload)
         case (.polaroid, .daily):   return PolaroidDailyTemplate.render(payload)
         case (.polaroid, .monthly): return PolaroidMonthlyTemplate.render(payload)
         case (.polaroid, .quote):   return PolaroidQuoteTemplate.render(payload)
+        case (.polaroid, .photo):   return PolaroidPhotoTemplate.render(payload)
+        case (.polaroid, .voice):   return PolaroidVoiceTemplate.render(payload)
         }
     }
 }

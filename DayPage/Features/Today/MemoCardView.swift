@@ -26,6 +26,7 @@ struct MemoCardView: View {
     @State private var thumbnail: UIImage?
     @State private var downloadStates: [URL: AttachmentDownloadState] = [:]
     @State private var downloadTask: Task<Void, Never>? = nil
+    @State private var sharePayload: SharePayload? = nil
 
     // MARK: - iCloud helpers
 
@@ -285,16 +286,37 @@ struct MemoCardView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .liquidGlassCard(cornerRadius: 18)
-        // Share context menu — long-press the card to share its text content.
-        // Mirrors the accessibility actions already registered on
-        // SwipeableMemoCard so VoiceOver and sighted users have consistent access.
         .contextMenu {
             let shareText = shareableText
             if !shareText.isEmpty {
                 ShareLink(item: shareText) {
-                    Label("Share", systemImage: "square.and.arrow.up")
+                    Label("分享文本", systemImage: "square.and.arrow.up")
                 }
             }
+            Button {
+                sharePayload = .memo(MemoSnapshot.from(memo))
+            } label: {
+                Label("分享为卡片", systemImage: "rectangle.on.rectangle")
+            }
+            if memo.attachments.contains(where: { $0.kind == "photo" }),
+               let snap = PhotoSnapshot.from(memo) {
+                Button {
+                    sharePayload = .photo(snap)
+                } label: {
+                    Label("分享照片卡", systemImage: "photo.on.rectangle")
+                }
+            }
+            if memo.attachments.contains(where: { $0.kind == "audio" }),
+               let snap = VoiceSnapshot.from(memo) {
+                Button {
+                    sharePayload = .voice(snap)
+                } label: {
+                    Label("分享语音卡", systemImage: "mic.badge.plus")
+                }
+            }
+        }
+        .sheet(item: $sharePayload) { payload in
+            ShareCardSheet(payload: payload)
         }
     }
 
