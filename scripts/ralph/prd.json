@@ -102,7 +102,7 @@
         "构建通过"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Theme: B-UI/UX一致性, Effort: M, Impact: 4"
     },
     {
@@ -133,7 +133,7 @@
         "构建通过，iPhone 17 Simulator 目视验证三种 loading 场景"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Theme: B-UI/UX一致性, Effort: S, Impact: 3"
     },
     {
@@ -150,7 +150,7 @@
         "构建通过"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Theme: B-UI/UX一致性, Effort: S, Impact: 2"
     },
     {
@@ -272,7 +272,7 @@
         "构建通过"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Theme: C-功能补全, Effort: S, Impact: 2"
     },
     {
@@ -288,7 +288,7 @@
         "构建通过，iPhone 17 手动验证：导出 → 文件 App 可预览 .md 内容"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Theme: C-功能补全, Effort: M, Impact: 3"
     },
     {
@@ -352,7 +352,7 @@
         "构建通过"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Theme: D-技术债务, Effort: S, Impact: 1"
     },
     {
@@ -368,7 +368,7 @@
         "构建通过"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Theme: E-AI能力升级, Effort: M, Impact: 3"
     },
     {
@@ -383,7 +383,7 @@
         "构建通过"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Theme: E-AI能力升级, Effort: M, Impact: 2"
     }
   ]
