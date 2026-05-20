@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 const STORAGE_KEY = 'codex.add.draft.v1';
 
@@ -24,17 +24,38 @@ interface UseAddDraftReturn {
 export function useAddDraft(): UseAddDraftReturn {
   const [draft, setDraftState] = useState<AddDraft | null>(null);
   const [restoredAt, setRestoredAt] = useState<string | null>(null);
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    let localDraftFound = false;
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed: AddDraft = JSON.parse(raw);
         setDraftState(parsed);
         setRestoredAt(parsed.savedAt);
+        localDraftFound = true;
       }
     } catch {
       // ignore malformed storage data
+    }
+
+    if (process.env.NEXT_PUBLIC_CODEX_DRAFT_SYNC === 'true') {
+      if (!localDraftFound) {
+        // fetch from server only if no local draft
+        fetch('/api/drafts/add')
+          .then(r => r.ok ? r.json() : null)
+          .then((serverDraft: AddDraft | null) => {
+            if (serverDraft?.text) {
+              setDraftState(serverDraft);
+              setRestoredAt(serverDraft.savedAt);
+              try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(serverDraft));
+              } catch { /* ignore */ }
+            }
+          })
+          .catch(() => { /* ignore network errors */ });
+      }
     }
   }, []);
 
@@ -45,6 +66,17 @@ export function useAddDraft(): UseAddDraftReturn {
       // ignore storage quota errors
     }
     setDraftState(next);
+
+    if (process.env.NEXT_PUBLIC_CODEX_DRAFT_SYNC === 'true') {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+      syncTimerRef.current = setTimeout(() => {
+        fetch('/api/drafts/add', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(next),
+        }).catch(() => { /* ignore sync errors */ });
+      }, 1500);
+    }
   }, []);
 
   const setDraft = useCallback(
