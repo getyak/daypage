@@ -279,6 +279,23 @@ struct MemoCardView: View {
                     }
                     .foregroundColor(DSColor.inkSubtle)
                 }
+
+                Spacer(minLength: 4)
+
+                // Primary share entry — issue #309 W1-①.
+                // contextMenu below stays as a power-user override that lets
+                // you force a specific card type or send plain text.
+                Button {
+                    sharePayload = SharePayload.auto(from: memo)
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(DSColor.inkSubtle)
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("分享这条 memo")
             }
             .padding(.horizontal, 14)
             .padding(.top, 10)
@@ -287,23 +304,25 @@ struct MemoCardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .liquidGlassCard(cornerRadius: 18)
         .contextMenu {
+            // Tap the button above for the smart default; long-press here to
+            // override the template or send plain text.
             let shareText = shareableText
             if !shareText.isEmpty {
                 ShareLink(item: shareText) {
-                    Label("分享文本", systemImage: "square.and.arrow.up")
+                    Label("分享文本", systemImage: "doc.plaintext")
                 }
             }
             Button {
                 sharePayload = .memo(MemoSnapshot.from(memo))
             } label: {
-                Label("分享为卡片", systemImage: "rectangle.on.rectangle")
+                Label("强制文字卡", systemImage: "rectangle.on.rectangle")
             }
             if memo.attachments.contains(where: { $0.kind == "photo" }),
                let snap = PhotoSnapshot.from(memo) {
                 Button {
                     sharePayload = .photo(snap)
                 } label: {
-                    Label("分享照片卡", systemImage: "photo.on.rectangle")
+                    Label("强制照片卡", systemImage: "photo.on.rectangle")
                 }
             }
             if memo.attachments.contains(where: { $0.kind == "audio" }),
@@ -311,7 +330,7 @@ struct MemoCardView: View {
                 Button {
                     sharePayload = .voice(snap)
                 } label: {
-                    Label("分享语音卡", systemImage: "mic.badge.plus")
+                    Label("强制语音卡", systemImage: "mic.badge.plus")
                 }
             }
         }

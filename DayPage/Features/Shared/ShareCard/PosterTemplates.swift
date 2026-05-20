@@ -705,21 +705,51 @@ enum PolaroidMemoTemplate: PosterTemplate {
             fillRoundedRect(frameRect, radius: 8, color: PolaroidPalette.frame, in: cg)
             cg.restoreGState()
 
-            // Photo
+            // Photo (or text-only fallback when memo has no photo attachment)
             let photoRect = CGRect(x: photoX, y: photoTop, width: photoW, height: photoH)
             if let cover = s.coverImage {
                 drawAspectFill(cover, in: photoRect, ctx: cg)
             } else {
-                PolaroidPalette.placeholderBg.setFill()
+                // Issue #309 W1-③: instead of a grey placeholder with just an
+                // initial letter, give text-only memos a real visual hook —
+                // soft accent wash + giant first letter (kept as anchor) +
+                // an emphasised first sentence so the card carries content,
+                // not emptiness. Polaroid still reads as "frame + caption"
+                // below, this just makes the "photo" area meaningful.
+                let wash = PolaroidPalette.accent.withAlphaComponent(0.08)
+                wash.setFill()
                 cg.fill(photoRect)
-                let initial = s.body.first.map { String($0) } ?? "·"
+
+                let trimmed = s.body.trimmingCharacters(in: .whitespacesAndNewlines)
+                let initial = trimmed.first.map { String($0) } ?? "·"
                 let initAttr = NSAttributedString(string: initial, attributes: [
-                    .font: UIFont.editorialTitle(size: 320),
-                    .foregroundColor: PolaroidPalette.ink.withAlphaComponent(0.20)
+                    .font: UIFont.editorialTitle(size: 360),
+                    .foregroundColor: PolaroidPalette.accent.withAlphaComponent(0.22)
                 ])
                 let isz = initAttr.size()
                 initAttr.draw(at: CGPoint(x: photoRect.midX - isz.width / 2,
-                                           y: photoRect.midY - isz.height / 2))
+                                           y: photoRect.midY - isz.height / 2 - 40))
+
+                // First sentence, centred under the initial. Truncated to fit
+                // one line so we never blow out the square photo region.
+                let firstSentence = trimmed
+                    .components(separatedBy: CharacterSet(charactersIn: "。.!?！？\n"))
+                    .first(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) ?? ""
+                let quoteText = truncate(firstSentence.trimmingCharacters(in: .whitespaces), to: 28)
+                if !quoteText.isEmpty {
+                    let quotePara = NSMutableParagraphStyle()
+                    quotePara.alignment = .center
+                    let quoteAttr = NSAttributedString(string: "\u{201C}\(quoteText)\u{201D}", attributes: [
+                        .font: UIFont.systemFont(ofSize: 38, weight: .medium),
+                        .foregroundColor: PolaroidPalette.ink.withAlphaComponent(0.62),
+                        .paragraphStyle: quotePara
+                    ])
+                    let qrect = CGRect(x: photoRect.minX + 24,
+                                       y: photoRect.maxY - 120,
+                                       width: photoRect.width - 48,
+                                       height: 80)
+                    quoteAttr.draw(with: qrect, options: [.usesLineFragmentOrigin], context: nil)
+                }
             }
 
             var y = photoRect.maxY + 56
@@ -941,6 +971,16 @@ enum PolaroidDailyTemplate: PosterTemplate {
                 ])
             let esz = statsAttr.size()
             statsAttr.draw(at: CGPoint(x: frameRect.maxX - photoSide - esz.width, y: y + 30))
+
+            // Brand watermark — left side, mirrors the stats line on the right
+            // so a shared Daily card is unambiguously DayPage (issue #309 W1-④).
+            // The other 11 templates already render this; Daily was the gap.
+            let wm = NSAttributedString(string: "daypage.app", attributes: [
+                .font: UIFont.monospacedSystemFont(ofSize: 20, weight: .regular),
+                .foregroundColor: PolaroidPalette.inkMuted.withAlphaComponent(0.7),
+                .kern: 1.5
+            ])
+            wm.draw(at: CGPoint(x: photoX, y: y + 30))
         }
     }
 }

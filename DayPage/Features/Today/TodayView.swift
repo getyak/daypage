@@ -267,7 +267,9 @@ struct TodayView: View {
                                         },
                                         onRetranscribe: { m, att in viewModel.retranscribe(memo: m, attachment: att) },
                                         onShare: {
-                                            sharePayload = .memo(MemoSnapshot.from(memo))
+                                            // Smart default — auto picks photo/voice/memo
+                                            // based on attachments (issue #309 W1-②).
+                                            sharePayload = SharePayload.auto(from: memo)
                                         },
                                         onShareAsQuote: {
                                             // Build attribution from date + location.
