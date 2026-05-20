@@ -80,6 +80,7 @@
 		A10000055 /* PressToTalkButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000055 /* PressToTalkButton.swift */; };
 		A10000056 /* VaultLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000056 /* VaultLocator.swift */; };
 		A10000063 /* SwipeableMemoCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000063 /* SwipeableMemoCard.swift */; };
+		A10000400 /* HorizontalPanGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000400 /* HorizontalPanGesture.swift */; };
 		A10000064 /* AttachmentMenuSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000064 /* AttachmentMenuSheet.swift */; };
 		A10000070 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000070 /* AuthService.swift */; };
 		A10000072 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000072 /* AuthView.swift */; };
@@ -276,6 +277,7 @@
 		A20000055 /* PressToTalkButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PressToTalkButton.swift; sourceTree = "<group>"; };
 		A20000056 /* VaultLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultLocator.swift; sourceTree = "<group>"; };
 		A20000063 /* SwipeableMemoCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeableMemoCard.swift; sourceTree = "<group>"; };
+		A20000400 /* HorizontalPanGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HorizontalPanGesture.swift; sourceTree = "<group>"; };
 		A20000064 /* AttachmentMenuSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentMenuSheet.swift; sourceTree = "<group>"; };
 		A20000070 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		A20000071 /* DayPage.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DayPage.entitlements; sourceTree = "<group>"; };
@@ -629,6 +631,7 @@
 				A20000054 /* RecordingOverlayView.swift */,
 				A20000055 /* PressToTalkButton.swift */,
 				A20000063 /* SwipeableMemoCard.swift */,
+				A20000400 /* HorizontalPanGesture.swift */,
 				A20000084 /* WeeklyRecapSection.swift */,
 				A20000302 /* TimelineSectionView.swift */,
 				A20000200 /* ComposerStateMachine.swift */,
@@ -1134,6 +1137,7 @@
 				A10000055 /* PressToTalkButton.swift in Sources */,
 				A10000056 /* VaultLocator.swift in Sources */,
 				A10000063 /* SwipeableMemoCard.swift in Sources */,
+				A10000400 /* HorizontalPanGesture.swift in Sources */,
 				A10000042 /* RelativeTimeFormatter.swift in Sources */,
 				A10000079 /* iCloudSyncMonitor.swift in Sources */,
 				A10000085 /* iCloudConflictMonitor.swift in Sources */,

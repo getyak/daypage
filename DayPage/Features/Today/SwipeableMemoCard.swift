@@ -1,20 +1,28 @@
 import SwiftUI
 
 // MARK: - SwipeableMemoCard
-
-/// iOS-native swipe-to-reveal wrapper around MemoCardView.
-/// Left swipe → trailing Delete button. Right swipe → leading Pin button.
-///
-/// Gesture model mirrors iOS Mail / Reminders:
-///  - settledOffset is the resting position; dragDelta rides on top 1:1
-///  - Rubber-band resistance beyond ±panelW gives tactile limit feedback
-///  - Velocity-aware snap: flick opens/closes even with small translation
-///  - snapClose is always reachable: when trailing is open, any rightward
-///    drag or flick collapses it (dx is relative to drag start, not screen zero)
-///  - When a panel is revealed, the underlying NavigationLink is disabled,
-///    which also blocks its `.highPriorityGesture`. The Color.clear overlay
-///    therefore re-attaches the same swipeGesture so drag-to-close keeps
-///    working while a panel is open (the overlay also handles tap-to-close).
+//
+// iOS-native swipe-to-reveal wrapper around MemoCardView, built on a UIKit
+// UIPanGestureRecognizer (see HorizontalPanGesture.swift) so the parent
+// ScrollView keeps full ownership of vertical drags. Mirrors iOS Mail,
+// Reminders, and Things 3 swipe-to-reveal behavior.
+//
+//  - Left swipe → trailing Delete button
+//  - Right swipe → leading Pin button
+//
+// Gesture model:
+//  - settledOffset is the resting position; dragDelta rides on top 1:1.
+//  - Rubber-band resistance beyond ±panelW gives tactile limit feedback.
+//  - Velocity-aware snap: a flick opens/closes even with small translation.
+//  - snapClose is always reachable: when trailing is open, any rightward
+//    drag or flick collapses it (dx is relative to drag start).
+//
+// Why no SwiftUI DragGesture: SwiftUI's DragGesture + simultaneousGesture
+// activates on the very first touch event and cannot relinquish gesture
+// ownership back to UIScrollView. That broke vertical timeline scrolling
+// whenever a finger landed on a card. The UIKit recognizer's
+// gestureRecognizerShouldBegin gate is the only correct way to express
+// "stay pending until direction is confirmed."
 struct SwipeableMemoCard: View {
 
     let memo: Memo
@@ -30,30 +38,15 @@ struct SwipeableMemoCard: View {
     // Settled resting offset: -panelW = trailing open, 0 = closed, +panelW = leading open
     @State private var settledOffset: CGFloat = 0
 
-    // Combined gesture state.
-    //
-    // `delta` is the live horizontal translation that rides on top of
-    // settledOffset (the visible card offset).
-    //
-    // `moved` is true once the finger has moved past touchSlop in any
-    // direction. It disables the NavigationLink mid-touch so that finger-up
-    // after a near-vertical drag, a sub-threshold horizontal swipe, or a
-    // pure ScrollView pan no longer mis-routes into the memo detail page.
-    //
-    // Both live in a single GestureState tuple so they are guaranteed to
-    // update from the same .updating callback and reset together when the
-    // gesture ends (GestureState reset is automatic — no race with view
-    // rebuilds).
-    //
-    // Why we need `moved`: the swipe DragGesture sits on the same view tree
-    // as NavigationLink via .simultaneousGesture. SwiftUI's internal tap
-    // recognizer inside NavigationLink does not respect our horizontal-
-    // dominance guard — to it, any press-and-release is a tap. We have to
-    // disable the link before it sees the up event.
-    @GestureState private var drag: (delta: CGFloat, moved: Bool) = (0, false)
+    // Live horizontal translation from the active UIKit pan. Distinct from
+    // settledOffset so we can apply rubber-band on the sum without losing
+    // either piece of state mid-drag.
+    @State private var dragDelta: CGFloat = 0
 
-    private var dragDelta: CGFloat { drag.delta }
-    private var isDraggingTouch: Bool { drag.moved }
+    // True while UIPanGestureRecognizer is in began/changed. Used to disable
+    // the NavigationLink so the tap that fires on lift after a real swipe
+    // never routes to the detail page.
+    @State private var isPanActive: Bool = false
 
     private enum Side { case leading, trailing }
 
@@ -66,8 +59,9 @@ struct SwipeableMemoCard: View {
     private let panelW: CGFloat         = 80
     private let openThreshold: CGFloat  = 40
     private let closeThreshold: CGFloat = 24
-    private let velOpen: CGFloat        = 250
-    private let velClose: CGFloat       = 180
+    // UIKit reports real velocity in pt/s; flick thresholds raised accordingly.
+    private let velOpen: CGFloat        = 600
+    private let velClose: CGFloat       = 500
 
     // Rubber-band resistance when dragging past the panel edge
     private let rubberBand: CGFloat = 0.35
@@ -97,47 +91,45 @@ struct SwipeableMemoCard: View {
                 MemoCardView(memo: memo, onDelete: onDelete)
             }
             .buttonStyle(.plain)
-            // Disable the NavigationLink while a touch is being dragged or a
-            // side panel is open. Disabling the link makes its internal tap
-            // recognizer inert, so finger-up after a near-vertical scroll or
-            // a sub-threshold horizontal swipe no longer mis-routes into the
-            // memo detail page. Without this guard, simultaneousGesture lets
-            // both the swipe and the NavigationLink tap fire from the same
-            // touch sequence.
-            .disabled(revealedSide != nil || isDraggingTouch || isSelectionMode)
+            // Disable the NavigationLink while a horizontal pan is active or
+            // a side panel is open. UIKit already cancels its own tap chain
+            // when our pan begins, but SwiftUI's NavigationLink uses a
+            // separate recognizer that this explicit guard catches.
+            .disabled(revealedSide != nil || isPanActive || isSelectionMode)
             .offset(x: isSelectionMode ? 0 : currentOffset)
-            // simultaneousGesture (not highPriorityGesture): the parent
-            // ScrollView must keep ownership of vertical drags. highPriority
-            // locks gesture ownership on first touch — even with a direction
-            // guard in .updating, ScrollView never gets a chance to claim a
-            // vertical swipe, so the timeline freezes on tall voice memo
-            // cards. simultaneous lets both recognizers see the touch; the
-            // .updating closure below filters to horizontal-dominant deltas.
-            //
-            // drawingGroup removed: it forced Metal offscreen rasterization
-            // on every Timer-driven waveform progress tick (0.1 s) while a
-            // voice memo was playing — compounding scroll jank instead of
-            // improving it.
-            // Suppress the swipe entirely in selection mode — the parent
-            // TimelineRow handles tap-to-toggle and a stray drag would feel
-            // wrong against the selection chrome. SwiftUI's
-            // simultaneousGesture(_:including:) takes a GestureMask, and
-            // .subviews lets the gesture exist in the view tree but never
-            // claim input — cleaner than wrapping the whole NavigationLink
-            // in a conditional branch which would tear down state.
-            .simultaneousGesture(swipeGesture, including: isSelectionMode ? .subviews : .all)
+            // UIKit pan attached as a background layer. PassthroughView
+            // returns nil from hitTest, so taps and vertical drags fall
+            // through unimpeded — only when shouldBegin confirms a
+            // horizontal pan does this layer claim the touch and the
+            // surrounding UIScrollView's pan get cancelled by UIKit's
+            // standard arbitration. This is the entire reason we ditched
+            // SwiftUI DragGesture + simultaneousGesture.
+            .background(
+                HorizontalPanGesture(
+                    isActive: $isPanActive,
+                    onChanged: handlePanChanged,
+                    onEnded: handlePanEnded,
+                    onCancelled: handlePanCancelled,
+                    isEnabled: !isSelectionMode
+                )
+            )
 
-            // Invisible tap/drag-to-close overlay: only active when a panel is open.
-            // Lives above the card so it intercepts both taps and drags
-            // independently of `.disabled` on the NavigationLink (which would
-            // otherwise swallow gestures attached to the disabled subtree).
-            // When a panel is already revealed, horizontal interaction is the
-            // expected mode, so highPriority is appropriate here.
+            // Invisible tap/drag-to-close overlay: only active when a panel
+            // is open. Lives above the card so it intercepts both taps and
+            // drags independently of `.disabled` on the NavigationLink.
             if revealedSide != nil {
                 Color.clear
                     .contentShape(Rectangle())
                     .onTapGesture { snapClose() }
-                    .highPriorityGesture(swipeGesture)
+                    .background(
+                        HorizontalPanGesture(
+                            isActive: $isPanActive,
+                            onChanged: handlePanChanged,
+                            onEnded: handlePanEnded,
+                            onCancelled: handlePanCancelled,
+                            isEnabled: true
+                        )
+                    )
             }
         }
         .clipped()
@@ -195,55 +187,24 @@ struct SwipeableMemoCard: View {
         .opacity(revealedSide == .trailing ? 1 : 0)
     }
 
-    // MARK: - Gesture
+    // MARK: - Pan callbacks
+    //
+    // The UIKit recognizer handles direction-lock and slop before these
+    // fire; by the time onChanged runs, the touch is already confirmed
+    // horizontal and we can apply translation 1:1.
 
-    // Direction & activation thresholds.
-    //
-    // touchSlop 4: once a finger has moved at least 4 pt in any direction,
-    // we treat the interaction as a drag, not a tap. This is what disables
-    // the NavigationLink mid-touch so finger-up doesn't mis-route. 4 pt
-    // matches UIKit's UIScrollView pan slop and is below the iOS tap
-    // tolerance (~10 pt for system tap recognizers), so legitimate taps —
-    // which barely move — still register.
-    //
-    // swipeMinDistance 12: |dx| must reach this before we actually start
-    // translating the card. Lower values made the card visibly tug during
-    // brief touches.
-    //
-    // horizontalDominance 1.5: |dx| must be 1.5× |dy| before we treat the
-    // touch as a horizontal swipe (≈56° from vertical). Shallower drags
-    // are forwarded to the parent ScrollView (see simultaneousGesture).
-    private static let touchSlop: CGFloat = 4
-    private static let swipeMinDistance: CGFloat = 12
-    private static let horizontalDominance: CGFloat = 1.5
+    private func handlePanChanged(_ translation: CGFloat) {
+        dragDelta = translation
+    }
 
-    private var swipeGesture: some Gesture {
-        // minimumDistance 0 so .updating fires from the very first move
-        // event — we need the chance to flip `moved` to true before
-        // NavigationLink's internal tap recognizer can fire on touch-up.
-        // The touchSlop guard inside the closure filters out finger-press-
-        // without-movement so genuine taps still register.
-        DragGesture(minimumDistance: 0, coordinateSpace: .local)
-            .updating($drag) { value, state, _ in
-                let dx = value.translation.width
-                let dy = value.translation.height
-                let exceededSlop = abs(dx) > Self.touchSlop || abs(dy) > Self.touchSlop
-                let isHorizontalSwipe =
-                    abs(dx) > Self.swipeMinDistance &&
-                    abs(dx) > abs(dy) * Self.horizontalDominance
-                state = (
-                    delta: isHorizontalSwipe ? dx : 0,
-                    moved: exceededSlop
-                )
-            }
-            .onEnded { value in
-                let dx = value.translation.width
-                let dy = value.translation.height
-                guard abs(dx) > Self.swipeMinDistance,
-                      abs(dx) > abs(dy) * Self.horizontalDominance else { return }
-                let vel = value.predictedEndTranslation.width - value.translation.width
-                decideSnap(dx: dx, velocity: vel)
-            }
+    private func handlePanEnded(_ translation: CGFloat, _ velocity: CGFloat) {
+        dragDelta = 0
+        decideSnap(dx: translation, velocity: velocity)
+    }
+
+    private func handlePanCancelled() {
+        // Snap back to the prior resting state without touching settledOffset.
+        dragDelta = 0
     }
 
     // MARK: - Snap Logic
