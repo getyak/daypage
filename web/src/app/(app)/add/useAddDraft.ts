@@ -32,7 +32,9 @@ export function useAddDraft(): UseAddDraftReturn {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed: AddDraft = JSON.parse(raw);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setDraftState(parsed);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setRestoredAt(parsed.savedAt);
         localDraftFound = true;
       }

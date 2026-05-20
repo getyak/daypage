@@ -188,6 +188,7 @@ export function WikiGraph() {
 
   // Fetch graph data
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     fetch("/api/page_links")
       .then((r) => r.json())

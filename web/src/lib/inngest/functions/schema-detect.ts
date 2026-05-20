@@ -141,7 +141,6 @@ export async function detectSchemaForUser(userId: string): Promise<{
       id: memos.id,
       body: memos.body,
       embedding: memos.embedding,
-      domain_id: null as string | null, // fetched below
     })
     .from(memos)
     .where(

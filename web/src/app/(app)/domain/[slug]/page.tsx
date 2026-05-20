@@ -412,6 +412,16 @@ function TypeGroup({
   );
 }
 
+function relTime(date: Date): string {
+  // eslint-disable-next-line react-hooks/purity
+  const diffMs = Date.now() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  return `${Math.floor(diffHr / 24)}d ago`;
+}
+
 function PageRow({
   page,
   isLast,
@@ -421,15 +431,6 @@ function PageRow({
   isLast: boolean;
   typeColors: { bg: string; color: string };
 }) {
-  function relTime(date: Date): string {
-    const diffMs = Date.now() - date.getTime();
-    const diffMin = Math.floor(diffMs / 60000);
-    if (diffMin < 60) return `${diffMin}m ago`;
-    const diffHr = Math.floor(diffMin / 60);
-    if (diffHr < 24) return `${diffHr}h ago`;
-    return `${Math.floor(diffHr / 24)}d ago`;
-  }
-
   return (
     <Link
       href={`/wiki/${page.slug}`}

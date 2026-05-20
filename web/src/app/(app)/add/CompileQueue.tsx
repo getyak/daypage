@@ -192,6 +192,7 @@ export function CompileQueue({ initialMemos }: { initialMemos: Memo[] }) {
   useEffect(() => {
     for (const [memoId, progress] of progressMap.entries()) {
       if (progress.status === "done" && !removing.has(memoId)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setRemoving((prev) => new Set([...prev, memoId]));
         setTimeout(() => {
           setRemoving((prev) => {

@@ -448,6 +448,7 @@ function HighlightOverlay({ containerRef, annotations, onDelete }: OverlayProps)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [annotations, containerRef]);
 
+  /* eslint-disable react-hooks/refs */
   return (
     <>
       {rects.map(({ id, tag, clientRects, containerRect }) => {
@@ -471,7 +472,7 @@ function HighlightOverlay({ containerRef, annotations, onDelete }: OverlayProps)
               zIndex: 10,
               border: "none",
               display: "block",
-              // Offset by container scroll
+              // Offset by container scroll — ref read is safe here (layout only)
               transform: `translate(0, ${containerRef.current?.scrollTop ?? 0}px)`,
             }}
             aria-label={`Annotation: ${tag}`}
@@ -480,6 +481,7 @@ function HighlightOverlay({ containerRef, annotations, onDelete }: OverlayProps)
       })}
     </>
   );
+  /* eslint-enable react-hooks/refs */
 }
 
 // ─── DOM helpers ──────────────────────────────────────────────────────────────

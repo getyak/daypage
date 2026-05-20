@@ -84,11 +84,11 @@ function mockSession(email: string) {
   vi.mocked(auth).mockResolvedValue({
     user: { email, name: "Test User", image: null },
     expires: "2099-01-01",
-  } as Awaited<ReturnType<typeof auth>>);
+  } as unknown as Awaited<ReturnType<typeof auth>>);
 }
 
 function mockNoSession() {
-  vi.mocked(auth).mockResolvedValue(null);
+  vi.mocked(auth).mockResolvedValue(null as unknown as Awaited<ReturnType<typeof auth>>);
 }
 
 // Chain-builder for db.select().from().where().limit().orderBy() etc.

@@ -28,7 +28,7 @@ async function resolveUserId(email: string): Promise<string | null> {
 
 const ResolveSchema = z.object({
   action: z.string().min(1),
-  payload: z.record(z.unknown()).optional(),
+  payload: z.record(z.string(), z.unknown()).optional(),
 });
 
 type RouteContext = { params: Promise<{ id: string }> };

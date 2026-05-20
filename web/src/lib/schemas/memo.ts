@@ -35,7 +35,7 @@ export const CreateMemoSchema = z.object({
         duration_sec: z.number().optional(),
         transcript: z.string().optional(),
         ocr_text: z.string().optional(),
-        exif: z.record(z.unknown()).optional(),
+        exif: z.record(z.string(), z.unknown()).optional(),
       })
     )
     .optional(),

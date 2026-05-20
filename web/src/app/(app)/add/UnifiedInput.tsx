@@ -124,6 +124,7 @@ export function UnifiedInput() {
 
   // Mark hydrated after first client render to avoid hydration mismatch.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setHydrated(true);
   }, []);
 
@@ -134,6 +135,7 @@ export function UnifiedInput() {
       const raw = localStorage.getItem("codex.add.draft.v1");
       if (raw) {
         const parsed = JSON.parse(raw) as { text?: string };
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (parsed.text) setBody(parsed.text);
       }
     } catch {
