@@ -14,6 +14,9 @@ import {
 } from "lucide-react";
 import { useAddDraft } from "./useAddDraft";
 
+const isMac =
+  typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
+
 const URL_RE = /^https?:\/\//;
 const TEXTAREA_MAX = 320;
 
@@ -218,9 +221,22 @@ export function UnifiedInput() {
         onChange={(e) => setBody(e.target.value)}
         onBlur={handleBlur}
         onFocus={handleFocus}
+        onKeyDown={(e) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !empty && !mutation.isPending) {
+            e.preventDefault();
+            handleSubmit();
+          }
+        }}
         placeholder="Paste a URL, drop a file, or just type something…"
         rows={3}
       />
+      {/* Keyboard shortcut hint */}
+      <div
+        className="ds-mono-11"
+        style={{ color: "var(--fg-subtle)", marginTop: "0.25rem", userSelect: "none" }}
+      >
+        {isMac ? "⌘ + Enter to submit" : "Ctrl + Enter to submit"}
+      </div>
 
       {/* Attachment preview row */}
       {attachments.length > 0 && (

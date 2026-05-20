@@ -4,3 +4,4 @@ Tool: claude
 ---
 [2026-05-20T11:32:56Z] Story #US-001: 新增 useAddDraft hook（localStorage 草稿持久化） — PASSED
 [2026-05-20T11:35:52Z] Story #US-002: Wire Save draft + 自动回填 to UnifiedInput — PASSED
+[2026-05-20T11:37:20Z] Story #US-003: ⌘/Ctrl + Enter 触发 Add 提交 — PASSED
