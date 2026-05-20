@@ -72,13 +72,26 @@ struct SwipeableMemoCard: View {
             .buttonStyle(.plain)
             .disabled(revealedSide != nil)
             .offset(x: currentOffset)
-            .drawingGroup(opaque: false, colorMode: .extendedLinear)
-            .highPriorityGesture(swipeGesture)
+            // simultaneousGesture (not highPriorityGesture): the parent
+            // ScrollView must keep ownership of vertical drags. highPriority
+            // locks gesture ownership on first touch — even with a direction
+            // guard in .updating, ScrollView never gets a chance to claim a
+            // vertical swipe, so the timeline freezes on tall voice memo
+            // cards. simultaneous lets both recognizers see the touch; the
+            // .updating closure below filters to horizontal-dominant deltas.
+            //
+            // drawingGroup removed: it forced Metal offscreen rasterization
+            // on every Timer-driven waveform progress tick (0.1 s) while a
+            // voice memo was playing — compounding scroll jank instead of
+            // improving it.
+            .simultaneousGesture(swipeGesture)
 
             // Invisible tap/drag-to-close overlay: only active when a panel is open.
             // Lives above the card so it intercepts both taps and drags
             // independently of `.disabled` on the NavigationLink (which would
             // otherwise swallow gestures attached to the disabled subtree).
+            // When a panel is already revealed, horizontal interaction is the
+            // expected mode, so highPriority is appropriate here.
             if revealedSide != nil {
                 Color.clear
                     .contentShape(Rectangle())
@@ -134,18 +147,34 @@ struct SwipeableMemoCard: View {
 
     // MARK: - Gesture
 
+    // Direction filter constants.
+    //
+    // minimumDistance 12: large enough that brief taps and the start of a
+    // vertical scroll don't register as a horizontal swipe attempt. 8 was
+    // too eager — paired with simultaneousGesture below, ScrollView still
+    // wins vertical gestures, but a higher threshold keeps casual touches
+    // from briefly tugging the card.
+    //
+    // horizontalDominance 1.5: |dx| must be 1.5× |dy| before we treat the
+    // touch as a horizontal swipe. The previous 0.85 ratio meant a 45° drag
+    // would still pull the card sideways, fighting vertical scrolling. 1.5
+    // corresponds to roughly 56° from vertical — gestures shallower than
+    // that are forwarded to ScrollView.
+    private static let swipeMinDistance: CGFloat = 12
+    private static let horizontalDominance: CGFloat = 1.5
+
     private var swipeGesture: some Gesture {
-        DragGesture(minimumDistance: 8, coordinateSpace: .local)
+        DragGesture(minimumDistance: Self.swipeMinDistance, coordinateSpace: .local)
             .updating($dragDelta) { value, state, _ in
                 let dx = value.translation.width
                 let dy = value.translation.height
-                guard abs(dx) > abs(dy) * 0.85 else { return }
+                guard abs(dx) > abs(dy) * Self.horizontalDominance else { return }
                 state = dx
             }
             .onEnded { value in
                 let dx = value.translation.width
                 let dy = value.translation.height
-                guard abs(dx) > abs(dy) * 0.85 else { return }
+                guard abs(dx) > abs(dy) * Self.horizontalDominance else { return }
                 let vel = value.predictedEndTranslation.width - value.translation.width
                 decideSnap(dx: dx, velocity: vel)
             }
