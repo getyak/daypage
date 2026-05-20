@@ -1560,3 +1560,178 @@ enum PolaroidVoiceTemplate: PosterTemplate {
         }
     }
 }
+
+// MARK: - MinimalCollageTemplate
+//
+// Multi-memo collage in IG-Story aspect (1080 × 1920). One template covers
+// both PosterStyle.minimal and .polaroid because the IG-tall canvas can't
+// accommodate Polaroid frame chrome around 6 stacked items without dropping
+// each thumbnail below useful size — PosterDispatcher routes both styles
+// here.
+
+enum MinimalCollageTemplate: PosterTemplate {
+    static func render(_ payload: SharePayload) -> UIImage {
+        guard case .collage(let s) = payload else { return UIImage() }
+        return draw(s)
+    }
+
+    private static func draw(_ s: CollageSnapshot) -> UIImage {
+        let W: CGFloat = 1080
+        let H: CGFloat = 1920
+        let inset: CGFloat = 72
+        let bodyW = W - inset * 2
+
+        let size = CGSize(width: W, height: H)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: size, format: format)
+
+        return renderer.image { ctx in
+            let cg = ctx.cgContext
+
+            MinimalPalette.bg.setFill()
+            cg.fill(CGRect(origin: .zero, size: size))
+
+            var y: CGFloat = inset
+
+            let brand = NSAttributedString(string: "DAYPAGE", attributes: [
+                .font: UIFont.systemFont(ofSize: 42, weight: .heavy),
+                .foregroundColor: MinimalPalette.ink,
+                .kern: 7
+            ])
+            brand.draw(at: CGPoint(x: inset, y: y))
+
+            let countText = "\(s.items.count) MEMOS"
+            let count = NSAttributedString(string: countText, attributes: [
+                .font: UIFont.monospacedSystemFont(ofSize: 26, weight: .regular),
+                .foregroundColor: MinimalPalette.inkMuted,
+                .kern: 2
+            ])
+            let cSize = count.size()
+            count.draw(at: CGPoint(x: inset + bodyW - cSize.width, y: y + 12))
+
+            y += 70
+
+            let date = NSAttributedString(string: s.dateLabel, attributes: [
+                .font: UIFont.editorialTitle(size: 110),
+                .foregroundColor: MinimalPalette.ink,
+                .kern: -1
+            ])
+            date.draw(at: CGPoint(x: inset, y: y))
+            y += 130
+
+            var subParts: [String] = [s.weekday]
+            if let loc = s.primaryLocation, !loc.isEmpty {
+                subParts.append(loc.uppercased())
+            }
+            let sub = NSAttributedString(string: subParts.joined(separator: "  ·  "), attributes: [
+                .font: UIFont.monospacedSystemFont(ofSize: 24, weight: .regular),
+                .foregroundColor: MinimalPalette.inkMuted,
+                .kern: 2
+            ])
+            sub.draw(at: CGPoint(x: inset, y: y))
+            y += 50
+
+            MinimalPalette.inkFaint.setFill()
+            cg.fill(CGRect(x: inset, y: y, width: bodyW, height: 2))
+            y += 56
+
+            let bodyTop = y
+            let footerHeight: CGFloat = 200
+            let bodyBottom = H - footerHeight
+            let availableH = bodyBottom - bodyTop
+            let interGap: CGFloat = 28
+            let n = CGFloat(s.items.count)
+            let rowH = max(180, (availableH - interGap * (n - 1)) / n)
+
+            for (idx, item) in s.items.enumerated() {
+                let rowY = bodyTop + CGFloat(idx) * (rowH + interGap)
+                drawCollageRow(item: item,
+                                rect: CGRect(x: inset, y: rowY, width: bodyW, height: rowH),
+                                ctx: cg)
+            }
+
+            let wmY = H - inset - 40
+            MinimalPalette.inkFaint.setFill()
+            cg.fill(CGRect(x: inset, y: wmY - 32, width: bodyW, height: 2))
+            let wm = NSAttributedString(string: "daypage.app", attributes: [
+                .font: UIFont.monospacedSystemFont(ofSize: 22, weight: .regular),
+                .foregroundColor: MinimalPalette.inkMuted,
+                .kern: 3
+            ])
+            let wmSize = wm.size()
+            wm.draw(at: CGPoint(x: (W - wmSize.width) / 2, y: wmY))
+        }
+    }
+
+    private static func drawCollageRow(item: CollageSnapshot.Item,
+                                        rect: CGRect,
+                                        ctx cg: CGContext) {
+        let thumbSide: CGFloat = min(200, rect.height)
+        let thumbRect = CGRect(x: rect.minX, y: rect.minY, width: thumbSide, height: thumbSide)
+        let textX = thumbRect.maxX + 32
+        let textW = rect.maxX - textX
+
+        if let img = item.thumbnail {
+            drawAspectFill(img, in: thumbRect, ctx: cg)
+            cg.setStrokeColor(MinimalPalette.inkFaint.cgColor)
+            cg.setLineWidth(2)
+            cg.stroke(thumbRect)
+        } else {
+            let bg = MinimalPalette.accent.withAlphaComponent(0.08)
+            fillRoundedRect(thumbRect, radius: 12, color: bg, in: cg)
+            let glyph: String
+            switch item.kind {
+            case .text:  glyph = "\u{201C}"
+            case .photo: glyph = "\u{25A2}"
+            case .voice: glyph = "\u{25B6}"
+            case .mixed: glyph = "\u{2756}"
+            }
+            let glyphAttr = NSAttributedString(string: glyph, attributes: [
+                .font: UIFont.systemFont(ofSize: 120, weight: .medium),
+                .foregroundColor: MinimalPalette.accent.withAlphaComponent(0.35)
+            ])
+            let gSize = glyphAttr.size()
+            glyphAttr.draw(at: CGPoint(
+                x: thumbRect.midX - gSize.width / 2,
+                y: thumbRect.midY - gSize.height / 2
+            ))
+        }
+
+        let kindLabel: String = {
+            switch item.kind {
+            case .text:  return "TEXT"
+            case .photo: return "PHOTO"
+            case .voice: return "VOICE"
+            case .mixed: return "MIXED"
+            }
+        }()
+        let meta = NSAttributedString(string: "\(item.time)  ·  \(kindLabel)", attributes: [
+            .font: UIFont.monospacedSystemFont(ofSize: 22, weight: .regular),
+            .foregroundColor: MinimalPalette.inkMuted,
+            .kern: 2
+        ])
+        meta.draw(at: CGPoint(x: textX, y: rect.minY + 4))
+
+        let bodyFont = UIFont.systemFont(ofSize: 30, weight: .regular)
+        let bodyPara = NSMutableParagraphStyle()
+        bodyPara.lineHeightMultiple = 1.28
+        bodyPara.lineBreakMode = .byTruncatingTail
+        let bodyAttr = NSAttributedString(
+            string: item.preview.isEmpty ? "(no text)" : item.preview,
+            attributes: [
+                .font: bodyFont,
+                .foregroundColor: item.preview.isEmpty ? MinimalPalette.inkFaint : MinimalPalette.ink,
+                .paragraphStyle: bodyPara
+            ]
+        )
+        let bodyRect = CGRect(x: textX,
+                              y: rect.minY + 40,
+                              width: textW,
+                              height: rect.height - 40)
+        bodyAttr.draw(with: bodyRect,
+                      options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],
+                      context: nil)
+    }
+}

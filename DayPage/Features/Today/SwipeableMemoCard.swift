@@ -21,6 +21,11 @@ struct SwipeableMemoCard: View {
     var onDelete: (() -> Void)? = nil
     var onPin: (() -> Void)? = nil
     var onRetranscribe: ((Memo, Memo.Attachment) -> Void)? = nil
+    /// Issue #309 W2: in multi-select mode, both the NavigationLink tap
+    /// and the swipe gesture must be inert — the only valid interaction is
+    /// the tap-to-toggle handled by the parent TimelineRow. Both panels
+    /// are also auto-closed when entering this mode.
+    var isSelectionMode: Bool = false
 
     // Settled resting offset: -panelW = trailing open, 0 = closed, +panelW = leading open
     @State private var settledOffset: CGFloat = 0
@@ -99,8 +104,8 @@ struct SwipeableMemoCard: View {
             // memo detail page. Without this guard, simultaneousGesture lets
             // both the swipe and the NavigationLink tap fire from the same
             // touch sequence.
-            .disabled(revealedSide != nil || isDraggingTouch)
-            .offset(x: currentOffset)
+            .disabled(revealedSide != nil || isDraggingTouch || isSelectionMode)
+            .offset(x: isSelectionMode ? 0 : currentOffset)
             // simultaneousGesture (not highPriorityGesture): the parent
             // ScrollView must keep ownership of vertical drags. highPriority
             // locks gesture ownership on first touch — even with a direction
@@ -113,7 +118,14 @@ struct SwipeableMemoCard: View {
             // on every Timer-driven waveform progress tick (0.1 s) while a
             // voice memo was playing — compounding scroll jank instead of
             // improving it.
-            .simultaneousGesture(swipeGesture)
+            // Suppress the swipe entirely in selection mode — the parent
+            // TimelineRow handles tap-to-toggle and a stray drag would feel
+            // wrong against the selection chrome. SwiftUI's
+            // simultaneousGesture(_:including:) takes a GestureMask, and
+            // .subviews lets the gesture exist in the view tree but never
+            // claim input — cleaner than wrapping the whole NavigationLink
+            // in a conditional branch which would tear down state.
+            .simultaneousGesture(swipeGesture, including: isSelectionMode ? .subviews : .all)
 
             // Invisible tap/drag-to-close overlay: only active when a panel is open.
             // Lives above the card so it intercepts both taps and drags
@@ -132,6 +144,15 @@ struct SwipeableMemoCard: View {
         .accessibilityLabel(accessibilityMemoLabel)
         .accessibilityAction(named: "Delete") { onDelete?() }
         .accessibilityAction(named: memo.pinnedAt != nil ? "Unpin" : "Pin") { onPin?() }
+        // Entering selection mode mid-swipe (panel revealed) would leave a
+        // dangling open panel that the user can't close — selection-mode
+        // gestures don't reach the close overlay. Force-close on transition
+        // so the card is visually flush when selection chrome appears.
+        .onChange(of: isSelectionMode) { newValue in
+            if newValue, revealedSide != nil {
+                snapClose()
+            }
+        }
     }
 
     // MARK: - Panels

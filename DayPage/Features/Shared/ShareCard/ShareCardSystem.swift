@@ -17,6 +17,10 @@ enum SharePayload: Identifiable, Equatable {
     case quote(QuoteSnapshot)
     case photo(PhotoSnapshot)
     case voice(VoiceSnapshot)
+    // Multi-memo collage: 2–6 memos rendered as a vertical IG-Story-style
+    // stack with a shared header (date · location · count). Triggered by
+    // the Today multi-select toolbar's "分享 N 项". Issue #309 W2.
+    case collage(CollageSnapshot)
 
     var id: String {
         switch self {
@@ -26,6 +30,7 @@ enum SharePayload: Identifiable, Equatable {
         case .quote(let s):   return "quote-\(s.id.uuidString)"
         case .photo(let s):   return "photo-\(s.id.uuidString)"
         case .voice(let s):   return "voice-\(s.id.uuidString)"
+        case .collage(let s): return "collage-\(s.id.uuidString)"
         }
     }
 
@@ -44,6 +49,8 @@ enum SharePayload: Identifiable, Equatable {
             return "Photo card: \(s.caption.prefix(80))"
         case .voice(let s):
             return "Voice memo card, duration \(s.duration)"
+        case .collage(let s):
+            return "Collage card with \(s.items.count) memos from \(s.dateLabel)"
         }
     }
 
@@ -281,6 +288,107 @@ struct VoiceSnapshot: Equatable {
     }
 }
 
+// MARK: - CollageSnapshot
+//
+// One CollageSnapshot bundles 2–6 memos plus a shared header (date / primary
+// location / total count) so a renderer can produce a single composite share
+// image instead of N separate cards.
+//
+// Each item is a thin preview: 80-char body excerpt, optional thumbnail
+// (first photo, downsampled), short type label, time. The full MemoSnapshot
+// is intentionally NOT carried — Collage cards are designed for at-a-glance
+// readability at IG-Story size, not for reproducing every byte of every memo.
+
+struct CollageSnapshot: Equatable {
+    let id: UUID
+    let dateLabel: String      // e.g. "2026·05·20"
+    let weekday: String        // e.g. "WEDNESDAY"
+    let primaryLocation: String?
+    let items: [Item]
+
+    struct Item: Equatable {
+        let id: UUID
+        let preview: String     // 80-char excerpt of memo body / transcript
+        let kind: Kind          // text / photo / voice / mixed
+        let time: String        // HH:mm
+        let thumbnail: UIImage? // first photo if any, downsampled
+
+        enum Kind: String, Equatable {
+            case text, photo, voice, mixed
+        }
+    }
+
+    /// Maximum number of memos a single collage can hold. Beyond this the
+    /// IG-story canvas runs out of vertical room before the watermark and
+    /// individual items shrink below readable thumbnail size. The caller
+    /// (Today multi-select toolbar) gates the share button on `.items.count
+    /// >= 2 && .items.count <= maxItems`.
+    static let maxItems = 6
+
+    static func from(_ memos: [Memo]) -> CollageSnapshot {
+        // Sort by created date ascending so the collage reads chronologically
+        // top-to-bottom — matches the timeline order users see in Today.
+        let sorted = memos.sorted { $0.created < $1.created }
+
+        let primary = sorted
+            .compactMap { $0.location?.name }
+            .first { !$0.isEmpty }
+
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.dateFormat = "yyyy·MM·dd"
+        let weekdayDF = DateFormatter()
+        weekdayDF.locale = Locale(identifier: "en_US_POSIX")
+        weekdayDF.dateFormat = "EEEE"
+        let timeDF = DateFormatter()
+        timeDF.locale = Locale(identifier: "en_US_POSIX")
+        timeDF.dateFormat = "HH:mm"
+
+        let firstDate = sorted.first?.created ?? Date()
+
+        let items: [Item] = sorted.prefix(maxItems).map { memo in
+            let hasPhoto = memo.attachments.contains { $0.kind == "photo" }
+            let hasAudio = memo.attachments.contains { $0.kind == "audio" }
+            let kind: Item.Kind = {
+                if hasPhoto && hasAudio { return .mixed }
+                if hasPhoto { return .photo }
+                if hasAudio { return .voice }
+                return .text
+            }()
+
+            // For voice memos prefer transcript over body if transcript exists
+            // and body is empty (the typical capture shape).
+            let rawText: String = {
+                if hasAudio, memo.body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                   let t = memo.attachments.first(where: { $0.kind == "audio" })?.transcript {
+                    return t
+                }
+                return memo.body
+            }()
+            let trimmed = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let preview = trimmed.count > 80
+                ? String(trimmed.prefix(80)) + "\u{2026}"
+                : trimmed
+
+            return Item(
+                id: memo.id,
+                preview: preview,
+                kind: kind,
+                time: timeDF.string(from: memo.created),
+                thumbnail: hasPhoto ? ShareCardImageLoader.firstPhoto(in: memo) : nil
+            )
+        }
+
+        return CollageSnapshot(
+            id: UUID(),
+            dateLabel: df.string(from: firstDate),
+            weekday: weekdayDF.string(from: firstDate).uppercased(),
+            primaryLocation: primary,
+            items: items
+        )
+    }
+}
+
 // MARK: - PosterStyle
 
 enum PosterStyle: String, CaseIterable, Identifiable {
@@ -310,6 +418,12 @@ enum PosterDispatcher {
     /// Routes (payload, style) → concrete `PosterTemplate.render`. Adding a new
     /// style means: extend `PosterStyle`, add 4 new template enums, add a row
     /// in this switch.
+    ///
+    /// Collage currently only has one template (Minimal). Selecting Polaroid
+    /// from the style picker on a collage payload falls back to the Minimal
+    /// renderer — the IG-Story-tall canvas doesn't have room for the
+    /// Polaroid frame chrome around 6 stacked items, and trying to honour
+    /// the style would shrink each item below readable thumbnail size.
     static func render(payload: SharePayload, style: PosterStyle) -> UIImage {
         switch (style, payload) {
         case (.minimal,  .memo):    return MinimalMemoTemplate.render(payload)
@@ -318,12 +432,14 @@ enum PosterDispatcher {
         case (.minimal,  .quote):   return MinimalQuoteTemplate.render(payload)
         case (.minimal,  .photo):   return MinimalPhotoTemplate.render(payload)
         case (.minimal,  .voice):   return MinimalVoiceTemplate.render(payload)
+        case (.minimal,  .collage): return MinimalCollageTemplate.render(payload)
         case (.polaroid, .memo):    return PolaroidMemoTemplate.render(payload)
         case (.polaroid, .daily):   return PolaroidDailyTemplate.render(payload)
         case (.polaroid, .monthly): return PolaroidMonthlyTemplate.render(payload)
         case (.polaroid, .quote):   return PolaroidQuoteTemplate.render(payload)
         case (.polaroid, .photo):   return PolaroidPhotoTemplate.render(payload)
         case (.polaroid, .voice):   return PolaroidVoiceTemplate.render(payload)
+        case (.polaroid, .collage): return MinimalCollageTemplate.render(payload)
         }
     }
 }
