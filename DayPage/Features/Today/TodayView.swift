@@ -55,6 +55,18 @@ struct TodayView: View {
     // Issue #302: share-card sheet payload. Set by long-press on a memo.
     @State private var sharePayload: SharePayload? = nil
 
+    // Issue #309 W2: multi-select mode. When non-nil, the timeline is in
+    // selection mode: card taps toggle membership instead of navigating,
+    // swipe panels are disabled, and a top action bar lets the user share
+    // the selection as a collage. Reset to nil to leave the mode.
+    //
+    // Set is session-scoped — switching tabs or backgrounding the app
+    // clears it implicitly (TodayView re-renders fresh). We don't persist
+    // across launches; selection is always an immediate action.
+    @State private var selectedMemoIds: Set<UUID>? = nil
+
+    private var isInSelectionMode: Bool { selectedMemoIds != nil }
+
     /// Live drag offset for the daily page card (negative = pulled left).
     @GestureState private var dailyPageDrag: CGFloat = 0
 
@@ -207,6 +219,19 @@ struct TodayView: View {
                             .animation(Motion.dismiss, value: viewModel.memos.isEmpty)
                     }
 
+                    // MARK: Selection toolbar (issue #309 W2)
+                    // Renders only while in multi-select mode, between the
+                    // header and the timeline. Lifted out of the ScrollView
+                    // so it stays pinned during scroll and never overlaps a
+                    // selected card's chrome.
+                    if let selected = selectedMemoIds {
+                        selectionToolbar(selectedIds: selected)
+                            .padding(.horizontal, 20)
+                            .padding(.top, 8)
+                            .padding(.bottom, 4)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
                     // MARK: Timeline
                     // Plain ScrollView — no GeometryReader. The previous wrapper
                     // (`GeometryReader { ScrollView { ... }.frame(minHeight: geo.size.height * 0.75) }
@@ -283,6 +308,25 @@ struct TodayView: View {
                                                 text: memo.body,
                                                 attribution: attrib
                                             ))
+                                        },
+                                        onEnterSelectionMode: {
+                                            Haptics.tapConfirm()
+                                            selectedMemoIds = [memo.id]
+                                        },
+                                        isSelectionMode: isInSelectionMode,
+                                        isSelected: selectedMemoIds?.contains(memo.id) ?? false,
+                                        onToggleSelection: {
+                                            guard var set = selectedMemoIds else { return }
+                                            if set.contains(memo.id) {
+                                                set.remove(memo.id)
+                                            } else if set.count < CollageSnapshot.maxItems {
+                                                set.insert(memo.id)
+                                            } else {
+                                                // At cap — buzz to let the user know and skip the toggle.
+                                                Haptics.warn()
+                                                return
+                                            }
+                                            selectedMemoIds = set
                                         }
                                     )
                                     .padding(.horizontal, 20)
@@ -835,6 +879,70 @@ struct TodayView: View {
         .padding(.vertical, 12)
     }
 
+    /// Issue #309 W2: top action bar shown while in multi-select mode.
+    /// Layout:
+    ///   [Cancel]  N selected  [Share N]
+    ///
+    /// Share is disabled unless 2 ≤ count ≤ maxItems. The "selected" count
+    /// uses an explicit `selected.count` argument rather than reading the
+    /// optional state again so the view recomputes when the set changes.
+    @ViewBuilder
+    private func selectionToolbar(selectedIds selected: Set<UUID>) -> some View {
+        let count = selected.count
+        let canShare = count >= 2 && count <= CollageSnapshot.maxItems
+        HStack(spacing: 12) {
+            Button("取消") {
+                Haptics.soft()
+                selectedMemoIds = nil
+            }
+            .font(DSType.mono10)
+            .tracking(1.0)
+            .textCase(.uppercase)
+            .foregroundColor(DSColor.inkSubtle)
+
+            Spacer()
+
+            Text(count == 0 ? "选择 memo" : "已选 \(count)")
+                .font(DSType.mono10)
+                .tracking(1.5)
+                .textCase(.uppercase)
+                .foregroundColor(DSColor.inkPrimary)
+
+            Spacer()
+
+            Button {
+                guard canShare else { return }
+                Haptics.tapConfirm()
+                let memos = viewModel.memos.filter { selected.contains($0.id) }
+                sharePayload = .collage(CollageSnapshot.from(memos))
+                // Exit selection mode after triggering — sheet replaces the
+                // foreground; keeping the toolbar around would feel orphaned.
+                selectedMemoIds = nil
+            } label: {
+                Text(count >= 2 ? "分享 \(count) 项" : "至少 2 项")
+                    .font(DSType.mono10)
+                    .tracking(1.0)
+                    .textCase(.uppercase)
+                    .foregroundColor(canShare ? .white : DSColor.inkSubtle)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(
+                        canShare ? DSColor.amberDeep : DSColor.glassLo,
+                        in: Capsule()
+                    )
+            }
+            .buttonStyle(.plain)
+            .disabled(!canShare)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(DSColor.inkFaint.opacity(0.6), lineWidth: 0.5)
+        )
+    }
+
     private func orbKicker(_ date: Date) -> String {
         let f = DateFormatter()
         f.dateFormat = "d MMM"
@@ -1282,11 +1390,58 @@ struct TimelineRow: View {
     var onShare: (() -> Void)? = nil
     /// Issue #302: long-press → "分享为引用"
     var onShareAsQuote: (() -> Void)? = nil
+    /// Issue #309 W2: long-press → "多选". Enters selection mode and
+    /// seeds the selection with the long-pressed memo. nil hides the menu
+    /// item (e.g. when already in selection mode).
+    var onEnterSelectionMode: (() -> Void)? = nil
+    /// Issue #309 W2: selection mode props. When isSelectionMode is true,
+    /// the card renders with a selection indicator overlay and a tap
+    /// toggles membership instead of navigating to the detail view.
+    var isSelectionMode: Bool = false
+    var isSelected: Bool = false
+    var onToggleSelection: (() -> Void)? = nil
 
     var body: some View {
-        SwipeableMemoCard(memo: memo, onDelete: onDelete, onPin: onPin, onRetranscribe: onRetranscribe)
+        ZStack(alignment: .topTrailing) {
+            // In selection mode the inner NavigationLink must be disabled
+            // (otherwise a tap routes to detail). We pass isSelectionMode
+            // down so SwipeableMemoCard can mute its swipe gesture too —
+            // both behaviors live on a single flag at the card root.
+            SwipeableMemoCard(
+                memo: memo,
+                onDelete: onDelete,
+                onPin: onPin,
+                onRetranscribe: onRetranscribe,
+                isSelectionMode: isSelectionMode
+            )
             .frame(maxWidth: .infinity)
-            .contextMenu {
+            // Selection mode taps anywhere on the row toggle membership.
+            // contentShape is the row's full bounding rect — without it the
+            // glass card's rounded corners would leak taps through gaps.
+            .contentShape(Rectangle())
+            .onTapGesture {
+                guard isSelectionMode else { return }
+                Haptics.soft()
+                onToggleSelection?()
+            }
+            // Dimmer when in selection mode but not selected — pulls focus
+            // toward the picked memos without hiding the others completely.
+            .opacity(isSelectionMode && !isSelected ? 0.55 : 1)
+            .animation(.easeInOut(duration: 0.18), value: isSelected)
+            .animation(.easeInOut(duration: 0.18), value: isSelectionMode)
+
+            // Selection circle indicator, top-trailing.
+            if isSelectionMode {
+                selectionIndicator
+                    .padding(.top, 14)
+                    .padding(.trailing, 18)
+                    .transition(.opacity)
+            }
+        }
+        .contextMenu {
+            // Hide the menu while in selection mode — long-pressing a card
+            // mid-selection should not open another menu over the toolbar.
+            if !isSelectionMode {
                 if let onShare {
                     Button {
                         onShare()
@@ -1301,6 +1456,33 @@ struct TimelineRow: View {
                         Label("分享为引用", systemImage: "quote.opening")
                     }
                 }
+                if let onEnterSelectionMode {
+                    Button {
+                        onEnterSelectionMode()
+                    } label: {
+                        Label("多选", systemImage: "checkmark.circle")
+                    }
+                }
             }
+        }
+    }
+
+    private var selectionIndicator: some View {
+        ZStack {
+            Circle()
+                .fill(isSelected ? DSColor.amberDeep : Color.white.opacity(0.9))
+                .frame(width: 26, height: 26)
+                .shadow(color: Color.black.opacity(0.15), radius: 3, x: 0, y: 1)
+            if isSelected {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 13, weight: .heavy))
+                    .foregroundColor(.white)
+            } else {
+                Circle()
+                    .strokeBorder(DSColor.inkSubtle.opacity(0.4), lineWidth: 1.5)
+                    .frame(width: 26, height: 26)
+            }
+        }
+        .accessibilityLabel(isSelected ? "已选中" : "未选中")
     }
 }
