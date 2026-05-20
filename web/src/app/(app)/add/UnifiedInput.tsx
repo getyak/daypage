@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Link2,
@@ -11,14 +11,27 @@ import {
   Sparkles,
   Send,
   X,
+  Copy,
+  Check,
 } from "lucide-react";
 import { useAddDraft } from "./useAddDraft";
+import { Dialog } from "../_components/Dialog";
 
 const isMac =
   typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
 
 const URL_RE = /^https?:\/\//;
 const TEXTAREA_MAX = 320;
+
+// US-008: URL validation helper
+function isValidUrl(s: string): boolean {
+  try {
+    new URL(s);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function relativeTime(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -78,18 +91,34 @@ async function createMemo(payload: MemoPayload) {
   return res.json() as Promise<MemoItem>;
 }
 
+// US-007: Bookmarklet JS source
+const BOOKMARKLET_SOURCE = `javascript:void(open('http://localhost:3000/add?url='+encodeURIComponent(location.href)+'&title='+encodeURIComponent(document.title)))`;
+
 export function UnifiedInput() {
   const [body, setBody] = useState("");
   const [draftToastVisible, setDraftToastVisible] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  // US-007: bookmarklet modal state
+  const [bookmarkletOpen, setBookmarkletOpen] = useState(false);
+  const [bookmarkletCopied, setBookmarkletCopied] = useState(false);
+  // US-008: input mode toggle
+  const [inputMode, setInputMode] = useState<"text" | "url">("text");
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queryClient = useQueryClient();
   const empty = body.trim().length === 0 && attachments.length === 0;
+
+  // US-009: derive photo/file active state from attachments
+  const photoActive = attachments.some((a) => a.file.type.startsWith("image/"));
+  const fileActive = attachments.some((a) => !a.file.type.startsWith("image/"));
+
+  // US-008: URL mode validity (computed here, used in render and submit)
+  const urlModeInvalid = inputMode === "url" && !isValidUrl(body.trim());
 
   const { saveDraft, clearDraft, restoredAt } = useAddDraft();
 
@@ -112,8 +141,7 @@ export function UnifiedInput() {
     }
   }, [hydrated]);
 
-  // Autosize textarea on mount and whenever body changes — avoids the
-  // first-keystroke jump from CSS min-height to scrollHeight.
+  // Autosize textarea on mount and whenever body changes
   useEffect(() => {
     const ta = taRef.current;
     if (!ta) return;
@@ -122,7 +150,6 @@ export function UnifiedInput() {
   }, [body]);
 
   // Revoke any remaining object URLs on unmount.
-  // Per-item revoke also runs in removeAttachment / mutation success.
   const attachmentsRef = useRef<Attachment[]>([]);
   useEffect(() => {
     attachmentsRef.current = attachments;
@@ -135,7 +162,8 @@ export function UnifiedInput() {
     };
   }, []);
 
-  function addFiles(files: File[]) {
+  // US-010: memoized callbacks
+  const addFiles = useCallback((files: File[]) => {
     if (files.length === 0) return;
     const next: Attachment[] = files.map((file) => ({
       id: `${file.name}-${file.size}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -145,46 +173,45 @@ export function UnifiedInput() {
         : undefined,
     }));
     setAttachments((prev) => [...prev, ...next]);
-  }
+  }, []);
 
-  function removeAttachment(id: string) {
+  const removeAttachment = useCallback((id: string) => {
     setAttachments((prev) => {
       const target = prev.find((a) => a.id === id);
       if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
       return prev.filter((a) => a.id !== id);
     });
-  }
+  }, []);
 
-  function showDraftToast() {
+  const showDraftToast = useCallback(() => {
     setDraftToastVisible(true);
     setTimeout(() => setDraftToastVisible(false), 2500);
-  }
+  }, []);
 
-  function handleSaveDraft() {
+  const handleSaveDraft = useCallback(() => {
     saveDraft({ text: body, mode: "text", attachmentRef: null, savedAt: new Date().toISOString() });
     showDraftToast();
-  }
+  }, [body, saveDraft, showDraftToast]);
 
-  function handleDiscardDraft() {
+  const handleDiscardDraft = useCallback(() => {
     clearDraft();
     setBody("");
-  }
+  }, [clearDraft]);
 
-  // Clear draft when textarea is emptied and blurred for >1s.
-  function handleBlur() {
+  const handleBlur = useCallback(() => {
     if (body.trim() === "") {
       blurTimerRef.current = setTimeout(() => {
         clearDraft();
       }, 1000);
     }
-  }
+  }, [body, clearDraft]);
 
-  function handleFocus() {
+  const handleFocus = useCallback(() => {
     if (blurTimerRef.current !== null) {
       clearTimeout(blurTimerRef.current);
       blurTimerRef.current = null;
     }
-  }
+  }, []);
 
   const [failToast, setFailToast] = useState(false);
 
@@ -208,12 +235,12 @@ export function UnifiedInput() {
     },
     onSuccess: (newMemo, _payload, context) => {
       setBody("");
+      setInputMode("text");
       clearDraft();
       for (const a of attachments) {
         if (a.previewUrl) URL.revokeObjectURL(a.previewUrl);
       }
       setAttachments([]);
-      // Swap temp item for the real memo returned by the server
       queryClient.setQueryData<MemosCache>(["memos", "pending"], (old) => {
         if (!old) return { items: [newMemo], next_cursor: null, has_more: false };
         const items = old.items.map((m) =>
@@ -223,7 +250,6 @@ export function UnifiedInput() {
       });
     },
     onError: (_err, _payload, context) => {
-      // Remove the temp item
       if (context?.tempId) {
         queryClient.setQueryData<MemosCache>(["memos", "pending"], (old) => {
           if (!old) return old;
@@ -235,14 +261,39 @@ export function UnifiedInput() {
     },
   });
 
-  function handleSubmit() {
+  // US-008: Add button disabled logic (after mutation is defined)
+  const addDisabled = empty || mutation.isPending || urlModeInvalid;
+
+  const handleSubmit = useCallback(() => {
     if (empty) return;
     const attachmentLines = attachments.map((a) => `file: ${a.file.name}`);
     const combined = [body.trim(), ...attachmentLines].filter(Boolean).join("\n");
     const type = URL_RE.test(combined.trim()) ? "url" : "text";
     const tempId = `temp-${crypto.randomUUID()}`;
     mutation.mutate({ body: combined, type, tempId });
-  }
+  }, [empty, attachments, body, mutation]);
+
+  // US-007: copy bookmarklet source to clipboard
+  const handleCopyBookmarklet = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(BOOKMARKLET_SOURCE);
+      setBookmarkletCopied(true);
+      setTimeout(() => setBookmarkletCopied(false), 2000);
+    } catch {
+      // fallback: select the pre text
+    }
+  }, []);
+
+  // US-008: toggle URL mode
+  const handleUrlToggle = useCallback(() => {
+    setInputMode((prev) => (prev === "url" ? "text" : "url"));
+  }, []);
+
+  // Determine textarea placeholder based on mode
+  const textareaPlaceholder =
+    inputMode === "url"
+      ? "https://… paste the link you want to save"
+      : "Paste a URL, drop a file, or just type something…";
 
   return (
     <div
@@ -252,7 +303,6 @@ export function UnifiedInput() {
         setDragging(true);
       }}
       onDragLeave={(e) => {
-        // Only cancel when truly leaving the wrapper (avoid child leave events)
         if (e.currentTarget === e.target) setDragging(false);
       }}
       onDragOver={(e) => e.preventDefault()}
@@ -263,7 +313,7 @@ export function UnifiedInput() {
         addFiles(files);
       }}
     >
-      {/* Textarea — height is driven by useEffect to avoid first-keystroke jump */}
+      {/* Textarea */}
       <textarea
         ref={taRef}
         value={body}
@@ -271,12 +321,12 @@ export function UnifiedInput() {
         onBlur={handleBlur}
         onFocus={handleFocus}
         onKeyDown={(e) => {
-          if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !empty && !mutation.isPending) {
+          if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !addDisabled) {
             e.preventDefault();
             handleSubmit();
           }
         }}
-        placeholder="Paste a URL, drop a file, or just type something…"
+        placeholder={textareaPlaceholder}
         rows={3}
       />
       {/* Keyboard shortcut hint */}
@@ -382,12 +432,13 @@ export function UnifiedInput() {
         </div>
       )}
 
-      {/* Hidden file inputs — triggered by Photo / File hint chips */}
+      {/* Hidden file inputs */}
+      {/* US-009: single file only, capture="environment" for photo */}
       <input
         ref={photoInputRef}
         type="file"
         accept="image/*"
-        multiple
+        capture="environment"
         style={{ display: "none" }}
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);
@@ -395,10 +446,10 @@ export function UnifiedInput() {
           if (e.target) e.target.value = "";
         }}
       />
+      {/* US-009: single file only (no multiple) */}
       <input
         ref={fileInputRef}
         type="file"
-        multiple
         style={{ display: "none" }}
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);
@@ -407,7 +458,7 @@ export function UnifiedInput() {
         }}
       />
 
-      {/* Restored draft hint — shown after hydration when a saved draft exists */}
+      {/* Restored draft hint */}
       {hydrated && restoredAt && (
         <div
           style={{
@@ -435,40 +486,52 @@ export function UnifiedInput() {
         </div>
       )}
 
-      {/* Action row — 4 capture chips on the left, save/add on the right */}
+      {/* Action row */}
       <div className="add-input__row">
         <div className="add-input__hints">
-          {/* URL — opens prompt and appends */}
+          {/* US-008: URL mode toggle — highlighted when active */}
           <button
             type="button"
             className="chip chip--ghost chip--interactive"
-            onClick={() => {
-              const url = window.prompt("Paste URL");
-              if (url) setBody((b) => (b ? b + "\n" + url : url));
-            }}
+            onClick={handleUrlToggle}
+            style={
+              inputMode === "url"
+                ? { background: "var(--accent-soft)", color: "var(--accent)" }
+                : undefined
+            }
           >
             <Link2 size={12} />
             URL
           </button>
-          {/* Photo — triggers image picker (with mobile camera capture) */}
+          {/* US-009: Photo — highlighted when image attachment present */}
           <button
             type="button"
             className="chip chip--ghost chip--interactive"
             onClick={() => photoInputRef.current?.click()}
+            style={
+              photoActive
+                ? { background: "var(--accent-soft)", color: "var(--accent)" }
+                : undefined
+            }
           >
             <ImageIcon size={12} />
             Photo
           </button>
-          {/* File — triggers any-type file picker */}
+          {/* US-009: File — highlighted when non-image attachment present */}
           <button
             type="button"
             className="chip chip--ghost chip--interactive"
             onClick={() => fileInputRef.current?.click()}
+            style={
+              fileActive
+                ? { background: "var(--accent-soft)", color: "var(--accent)" }
+                : undefined
+            }
           >
             <FileText size={12} />
             File
           </button>
-          {/* Voice — still disabled, MediaRecorder TODO */}
+          {/* Voice — still disabled */}
           <button
             type="button"
             className="chip chip--ghost chip--interactive"
@@ -479,16 +542,11 @@ export function UnifiedInput() {
             <Mic size={12} />
             Voice
           </button>
-          {/* Bookmarklet — shows a prompt the user can copy from */}
+          {/* US-007: Bookmarklet — opens modal */}
           <button
             type="button"
             className="chip chip--ghost chip--interactive"
-            onClick={() => {
-              window.prompt(
-                "Copy this bookmarklet to your bookmark bar:",
-                "javascript:void(open('http://localhost:3000/add?url='+encodeURIComponent(location.href)))"
-              );
-            }}
+            onClick={() => setBookmarkletOpen(true)}
           >
             <Bookmark size={12} />
             Bookmarklet
@@ -498,6 +556,15 @@ export function UnifiedInput() {
           {draftToastVisible && (
             <span className="ds-mono-11" style={{ color: "var(--fg-subtle)" }}>
               Draft saved
+            </span>
+          )}
+          {/* US-008: Show hint when URL mode is active and input is invalid */}
+          {urlModeInvalid && body.trim().length > 0 && (
+            <span
+              className="ds-mono-11"
+              style={{ color: "var(--error, #c53030)" }}
+            >
+              Enter a valid URL
             </span>
           )}
           <button
@@ -511,7 +578,7 @@ export function UnifiedInput() {
           <button
             type="button"
             className="btn btn--primary btn--sm"
-            disabled={empty || mutation.isPending}
+            disabled={addDisabled}
             onClick={handleSubmit}
           >
             {mutation.isPending ? "Adding…" : "Add"}
@@ -520,11 +587,90 @@ export function UnifiedInput() {
         </div>
       </div>
 
-      {/* Meta line — moved out of hints, separate row at the bottom */}
+      {/* Meta line */}
       <div className="add-input__meta">
         <Sparkles size={11} />
         <span>Type, paste or drop — I auto-detect what it is.</span>
       </div>
+
+      {/* US-007: Bookmarklet modal */}
+      <Dialog
+        open={bookmarkletOpen}
+        onClose={() => setBookmarkletOpen(false)}
+        title="Save to Codex — Bookmarklet"
+      >
+        <p style={{ margin: "0 0 1rem", fontSize: "0.875rem", color: "var(--fg-secondary, #555)" }}>
+          Drag the link below to your bookmarks bar. Then click it on any page to send it to Codex.
+        </p>
+        {/* Draggable bookmarklet link */}
+        <div style={{ marginBottom: "1rem", textAlign: "center" }}>
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a
+            href={BOOKMARKLET_SOURCE}
+            draggable="true"
+            onClick={(e) => e.preventDefault()}
+            style={{
+              display: "inline-block",
+              padding: "0.5rem 1rem",
+              background: "var(--accent-soft, #eef2ff)",
+              color: "var(--accent, #4f46e5)",
+              borderRadius: "var(--radius-sm, 4px)",
+              fontWeight: 600,
+              fontSize: "0.9375rem",
+              textDecoration: "none",
+              border: "2px dashed var(--accent, #4f46e5)",
+              cursor: "grab",
+            }}
+          >
+            📎 Save to Codex
+          </a>
+        </div>
+        {/* Source code block + copy button */}
+        <div style={{ position: "relative", marginBottom: "0.75rem" }}>
+          <pre
+            style={{
+              margin: 0,
+              padding: "0.625rem 0.75rem",
+              background: "var(--surface-2, #f7f7f7)",
+              borderRadius: "var(--radius-sm, 4px)",
+              fontSize: "0.75rem",
+              overflowX: "auto",
+              wordBreak: "break-all",
+              whiteSpace: "pre-wrap",
+              color: "var(--fg-secondary, #555)",
+              paddingRight: "2.5rem",
+            }}
+          >
+            {BOOKMARKLET_SOURCE}
+          </pre>
+          <button
+            type="button"
+            onClick={handleCopyBookmarklet}
+            aria-label="Copy bookmarklet source"
+            style={{
+              position: "absolute",
+              top: "0.375rem",
+              right: "0.375rem",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "var(--surface-1, #fff)",
+              border: "1px solid var(--border, #e2e8f0)",
+              borderRadius: "var(--radius-sm, 4px)",
+              cursor: "pointer",
+              padding: "0.25rem",
+              color: bookmarkletCopied ? "var(--accent, #4f46e5)" : "var(--fg-subtle)",
+            }}
+          >
+            {bookmarkletCopied ? <Check size={14} /> : <Copy size={14} />}
+          </button>
+        </div>
+        {bookmarkletCopied && (
+          <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--accent, #4f46e5)" }}>
+            Copied to clipboard!
+          </p>
+        )}
+      </Dialog>
     </div>
   );
 }
