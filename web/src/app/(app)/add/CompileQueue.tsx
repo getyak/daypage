@@ -303,7 +303,25 @@ function MemoRow({
 
       {/* Title + subtitle */}
       <div className="queue-item__main">
-        <div className="queue-item__title">{preview}</div>
+        <div className="queue-item__title">
+          {preview}
+          {status === "pending" && (
+            <span
+              className="ds-mono-11"
+              style={{
+                marginLeft: "0.5rem",
+                padding: "0.1rem 0.35rem",
+                background: "var(--surface-3, #ececec)",
+                borderRadius: "var(--radius-sm)",
+                color: "var(--fg-subtle)",
+                letterSpacing: "0.06em",
+                verticalAlign: "middle",
+              }}
+            >
+              QUEUED
+            </span>
+          )}
+        </div>
         <div className="queue-item__sub">
           {memo.type} · {date}
           {isFailed && errorMsg ? ` · ${errorMsg}` : ""}

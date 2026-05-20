@@ -6,3 +6,4 @@ Tool: claude
 [2026-05-20T11:35:52Z] Story #US-002: Wire Save draft + 自动回填 to UnifiedInput — PASSED
 [2026-05-20T11:37:20Z] Story #US-003: ⌘/Ctrl + Enter 触发 Add 提交 — PASSED
 [2026-05-20T11:39:33Z] Story #US-004: 面包屑改为 usePathname 派生（SSR/CSR 一致） — PASSED
+[2026-05-20T11:43:29Z] Story #US-005: POST /api/memos 后乐观插入 QUEUED 条目 — PASSED

@@ -43,8 +43,29 @@ function formatSize(bytes: number): string {
   return `${Math.round(bytes / 1024 / 102.4) / 10} MB`;
 }
 
-async function createMemo(body: string) {
-  const type = URL_RE.test(body.trim()) ? "url" : "text";
+interface MemoPayload {
+  body: string;
+  type: "text" | "url";
+  tempId: string;
+}
+
+interface MemoItem {
+  id: string;
+  body: string;
+  type: string;
+  compile_status: string;
+  ingest_mode: string;
+  created_at: string;
+}
+
+interface MemosCache {
+  items: MemoItem[];
+  next_cursor?: string | null;
+  has_more?: boolean;
+}
+
+async function createMemo(payload: MemoPayload) {
+  const { body, type } = payload;
   const res = await fetch("/api/memos", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -54,7 +75,7 @@ async function createMemo(body: string) {
     const data = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(data.error ?? `Request failed (${res.status})`);
   }
-  return res.json();
+  return res.json() as Promise<MemoItem>;
 }
 
 export function UnifiedInput() {
@@ -165,34 +186,62 @@ export function UnifiedInput() {
     }
   }
 
+  const [failToast, setFailToast] = useState(false);
+
   const mutation = useMutation({
     mutationFn: createMemo,
-    onSuccess: (newMemo) => {
+    onMutate: (payload) => {
+      const tempItem: MemoItem = {
+        id: payload.tempId,
+        body: payload.body,
+        type: payload.type,
+        compile_status: "pending",
+        ingest_mode: "light",
+        created_at: new Date().toISOString(),
+      };
+      queryClient.setQueryData<MemosCache>(["memos", "pending"], (old) => ({
+        items: [tempItem, ...(old?.items ?? [])],
+        next_cursor: old?.next_cursor ?? null,
+        has_more: old?.has_more ?? false,
+      }));
+      return { tempId: payload.tempId };
+    },
+    onSuccess: (newMemo, _payload, context) => {
       setBody("");
       clearDraft();
       for (const a of attachments) {
         if (a.previewUrl) URL.revokeObjectURL(a.previewUrl);
       }
       setAttachments([]);
-      // Prepend the new pending memo to the compile queue cache
-      queryClient.setQueryData<{ items: unknown[] }>(
-        ["memos", "pending"],
-        (old) => ({
-          items: [newMemo, ...(old?.items ?? [])],
-          next_cursor: null,
-          has_more: false,
-        })
-      );
+      // Swap temp item for the real memo returned by the server
+      queryClient.setQueryData<MemosCache>(["memos", "pending"], (old) => {
+        if (!old) return { items: [newMemo], next_cursor: null, has_more: false };
+        const items = old.items.map((m) =>
+          m.id === context?.tempId ? newMemo : m
+        );
+        return { ...old, items };
+      });
+    },
+    onError: (_err, _payload, context) => {
+      // Remove the temp item
+      if (context?.tempId) {
+        queryClient.setQueryData<MemosCache>(["memos", "pending"], (old) => {
+          if (!old) return old;
+          return { ...old, items: old.items.filter((m) => m.id !== context.tempId) };
+        });
+      }
+      setFailToast(true);
+      setTimeout(() => setFailToast(false), 3000);
     },
   });
 
   function handleSubmit() {
     if (empty) return;
-    // Append attachment filenames to body — server contract is text-only;
-    // real binary upload is tracked separately.
     const attachmentLines = attachments.map((a) => `file: ${a.file.name}`);
     const combined = [body.trim(), ...attachmentLines].filter(Boolean).join("\n");
-    mutation.mutate(combined);
+    const type = URL_RE.test(combined.trim()) ? "url" : "text";
+    const tempId = `temp-${crypto.randomUUID()}`;
+    mutation.mutate({ body: combined, type, tempId });
   }
 
   return (
@@ -273,6 +322,31 @@ export function UnifiedInput() {
               </button>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Submit failure toast */}
+      {failToast && (
+        <div
+          role="alert"
+          style={{
+            position: "fixed",
+            bottom: "1.5rem",
+            right: "1.5rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.75rem",
+            padding: "0.625rem 1rem",
+            background: "var(--fg-primary)",
+            color: "var(--bg-warm)",
+            borderRadius: "var(--radius-sm)",
+            fontSize: "0.875rem",
+            fontWeight: 500,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.14)",
+            zIndex: 9999,
+          }}
+        >
+          Failed to submit, try again
         </div>
       )}
 
