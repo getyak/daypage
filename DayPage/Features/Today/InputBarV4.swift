@@ -150,6 +150,20 @@ struct InputBarV4: View {
         composerState == .open || composerState == .expanding || !text.isEmpty || !pendingAttachments.isEmpty || pendingLocation != nil
     }
 
+    /// Whether the visible content layer should render the expanded composer.
+    /// Unlike `isComposing`, this excludes the `.expanding` transient — so the
+    /// branch swap happens *inside* the spring's withAnimation block (when
+    /// state lands on `.open`) instead of snapping at the start of expansion.
+    /// Content-bearing predicates (text/attachments/location) still force the
+    /// composer on, so externally-set drafts surface immediately. (#314)
+    private var showsComposerContent: Bool {
+        composerState == .open
+            || composerState == .collapsing
+            || !text.isEmpty
+            || !pendingAttachments.isEmpty
+            || pendingLocation != nil
+    }
+
     private var overlayMode: RecordingOverlayMode? {
         switch pressToTalkPhase {
         case .idle, .preRecording: return nil
@@ -198,21 +212,13 @@ struct InputBarV4: View {
                 locationChipRow(loc: loc)
             }
 
-            // Liquid Morph — idle capsule ↔ composing card.
-            // matchedGeometryEffect(id: .surface) carries the background shape
-            // through the spring so every in-between frame is geometrically
-            // continuous (AC: 录屏验证任意一帧截图取出来形状都能解释从哪来).
-            if isComposing {
-                composingCardMorph
-            } else {
-                VStack(spacing: 8) {
-                    streamDockMorph
-                    dockHintLabel
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
-                .padding(.bottom, 14)
-            }
+            // Morphing surface (#314): a single rounded-rect background that
+            // grows from the compact pill geometry into the expanded composer.
+            // The shape is always present — only its corner radius and the
+            // intrinsic height of its content change, so SwiftUI can animate
+            // every in-between frame continuously rather than swapping two
+            // unrelated shapes.
+            morphingInputSurface
         }
         // V4: transparent dock — ambient page background shows through.
         // Warm gradient veil fades the list content behind the dock.
@@ -287,22 +293,106 @@ struct InputBarV4: View {
         }
     }
 
-    // MARK: - STREAM Dock (idle state)
+    // MARK: - Morphing Input Surface (#314)
     //
-    // Centered three-slot capsule, faithful to VariationStream.jsx:
-    //   - 40pt `+` (more)        opens attachment menu
-    //   - 56×44 amber mic-hero   tap = Flomo record · long-press = WeChat send
-    //   - 40pt pen               expands to text composer
+    // A single rounded surface that smoothly morphs between the compact pill
+    // (idle) and the expanded composer panel. The previous implementation
+    // cross-faded two unrelated shapes (Capsule ↔ RoundedRectangle), which read
+    // as a hard component swap. Here we keep ONE RoundedRectangle whose
+    // cornerRadius is interpolated by a single Double (`expansionProgress`
+    // 0 → 1) so the surface itself stays geometrically continuous while its
+    // internal layout reflows from pill to panel.
     //
-    // The capsule itself is wrapped in `.ultraThinMaterial` with a layered
-    // shadow stack approximating the iOS 26 Liquid Glass treatment from the
-    // design canvas (inner highlight + soft drop shadow).
+    // Layout strategy: only one inner content branch is mounted at a time
+    // (compact dock OR composer), so intrinsic height comes from the active
+    // branch. The surrounding spring animation block animates the height
+    // change; the shared cornerRadius animation keeps shape identity.
 
-    // STREAM dock — glass capsule wrapping three keys (design spec: glassStyle hi + radius 999).
-    // US-008: matchedGeometryEffect on the capsule background so it morphs into
-    // the composing card shape. The mic orb also carries its own effect so it
-    // slides to the card's bottom-left corner rather than disappearing.
-    private var streamDockMorph: some View {
+    /// Corner radius for the compact pill state. Equal to half the pill's
+    /// intrinsic height (~64pt) so the rounded-rect renders as a true capsule.
+    private static let pillCornerRadius: CGFloat = 32
+    /// Corner radius for the expanded composer card.
+    private static let cardCornerRadius: CGFloat = 24
+
+    /// Fraction of the morph from pill (0) to card (1). The `.expanding` and
+    /// `.collapsing` states deliberately match their *starting* progress —
+    /// `transition(to:)` sets one of those non-animatedly, then sets the final
+    /// state inside `withAnimation(morphAnimation)`. SwiftUI then springs the
+    /// progress between the two values, driving corner radius, content
+    /// opacity and the surface height in one continuous motion (#314).
+    private var expansionProgress: Double {
+        switch composerState {
+        case .idle:       return 0
+        case .expanding:  return 0   // start of the expand spring
+        case .open:       return 1
+        case .collapsing: return 1   // start of the collapse spring
+        }
+    }
+
+    /// Interpolated corner radius driven by `expansionProgress`.
+    private var morphCornerRadius: CGFloat {
+        let progress = showsComposerContent
+            ? max(CGFloat(expansionProgress), 1.0)
+            : CGFloat(expansionProgress)
+        return Self.pillCornerRadius + (Self.cardCornerRadius - Self.pillCornerRadius) * progress
+    }
+
+    private var morphingInputSurface: some View {
+        ZStack {
+            // Single rounded surface — its cornerRadius interpolates between
+            // pill (32pt) and card (24pt). Material + border + shadow live on
+            // this one shape so they never get swapped mid-animation.
+            RoundedRectangle(cornerRadius: morphCornerRadius, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: morphCornerRadius, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.55), Color.white.opacity(0.12)],
+                                startPoint: .top, endPoint: .bottom
+                            ),
+                            lineWidth: 0.6
+                        )
+                )
+                .shadow(color: Color(hex: "2D1E0A").opacity(0.10), radius: 24, x: 0, y: 8)
+                .shadow(color: Color(hex: "2D1E0A").opacity(0.06), radius: 4, x: 0, y: 1)
+
+            // Inner content — only one branch mounted at a time so the
+            // intrinsic height of the surface matches the active layout.
+            // The branch swap is wrapped in the same spring animation that
+            // drives cornerRadius, so the height change and the shape change
+            // settle together (one continuous spring rather than two).
+            if showsComposerContent {
+                composerContent
+                    .transition(.opacity)
+            } else {
+                dockContent
+                    .transition(.opacity)
+            }
+        }
+        .padding(.horizontal, 16)
+        // The compact pill carries a tight hint label below; we render it
+        // here (outside the surface) so the surface itself stays geometric.
+        .overlay(alignment: .bottom) {
+            if !showsComposerContent {
+                dockHintLabel
+                    .padding(.bottom, -22)
+                    .transition(.opacity)
+            }
+        }
+        .padding(.top, 10)
+        .padding(.bottom, showsComposerContent ? 14 : 30)
+        // Drive the content branch swap with the same spring that
+        // `transition(to:)` uses for composerState. This catches external
+        // triggers too — e.g. a draft prefilled from a URL scheme flips
+        // `text` non-empty without going through `transition(to:)`.
+        .animation(morphAnimation, value: showsComposerContent)
+    }
+
+    // STREAM dock — three keys laid out inside the morphing surface.
+    // Background/border/shadow live on the surface, not here, so the
+    // pill ↔ card morph stays geometrically continuous (#314).
+    private var dockContent: some View {
         HStack(spacing: 6) {
             // LEFT — More (+)
             dockSideButton(systemImage: "plus", accessibilityLabel: NSLocalizedString("input.a11y.more_attachments", comment: "")) {
@@ -310,8 +400,6 @@ struct InputBarV4: View {
             }
 
             // CENTER — amber mic orb.
-            // US-010: matchedGeometryEffect removed — the composing card no longer
-            // hosts the orb landing target (toolbar moved to .keyboard placement).
             PressToTalkButton(
                 onPressStart: handlePressToTalkStart,
                 onReleaseSend: handlePressToTalkReleaseSend,
@@ -329,7 +417,7 @@ struct InputBarV4: View {
             .accessibilityLabel(NSLocalizedString("input.a11y.mic", comment: ""))
             .accessibilityHint(NSLocalizedString("input.a11y.mic_hint_full", comment: ""))
 
-            // RIGHT — Aa (text expand). Fades out as composer opens (AC: Aa 淡出).
+            // RIGHT — Aa (text expand).
             dockTextButton(accessibilityLabel: NSLocalizedString("input.a11y.write_text", comment: "")) {
                 transition(to: .expanding)
                 isFocused = true
@@ -337,20 +425,6 @@ struct InputBarV4: View {
             .accessibilityIdentifier("expand-text-composer")
         }
         .padding(6)
-        // NOTE: matchedGeometryEffect was removed — the idle Capsule and the
-        // composing RoundedRectangle (20pt) cannot be linearly interpolated
-        // by SwiftUI as a single shape, and sharing one ID across two
-        // mutually-exclusive branches caused the layout system to re-measure
-        // both candidates on every body re-evaluation. The branches simply
-        // cross-fade now via the existing isComposing condition. (#258)
-        .background(.ultraThinMaterial, in: Capsule())
-        .overlay(Capsule().strokeBorder(
-            LinearGradient(
-                colors: [Color.white.opacity(0.55), Color.white.opacity(0.12)],
-                startPoint: .top, endPoint: .bottom),
-            lineWidth: 0.6))
-        .shadow(color: Color(hex: "2D1E0A").opacity(0.10), radius: 24, x: 0, y: 8)
-        .shadow(color: Color(hex: "2D1E0A").opacity(0.06), radius: 4, x: 0, y: 1)
     }
 
     @ViewBuilder
@@ -467,7 +541,11 @@ struct InputBarV4: View {
             )
     }
 
-    private var composingCardMorph: some View {
+    // Composer content rendered inside the morphing surface (#314).
+    // Background/border/shadow now live on the shared surface so the pill ↔
+    // card morph stays geometrically continuous; this view only contributes
+    // intrinsic height + interior layout.
+    private var composerContent: some View {
         VStack(spacing: 0) {
             // US-011: drag-to-collapse handle
             HStack {
@@ -584,21 +662,8 @@ struct InputBarV4: View {
                 .animation(.easeInOut(duration: 0.15), value: templateSuffix.isEmpty)
             }
         }
-        // NOTE: matchedGeometryEffect removed — see streamDockMorph for context. (#258)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.55), Color.white.opacity(0.12)],
-                        startPoint: .top, endPoint: .bottom),
-                    lineWidth: 0.6)
-        )
-        .padding(.horizontal, 16)
-        .padding(.top, 10)
-        .padding(.bottom, 14)
-        .shadow(color: Color(hex: "2D1E0A").opacity(0.10), radius: 24, x: 0, y: 8)
-        .shadow(color: Color(hex: "2D1E0A").opacity(0.06), radius: 4, x: 0, y: 1)
+        // Background / border / shadow intentionally not applied here —
+        // morphingInputSurface owns the single shared shape (#314).
     }
 
     // MARK: - Keyboard Toolbar (US-010)
