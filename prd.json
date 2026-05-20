@@ -1,11 +1,11 @@
 {
   "project": "DayPage Codex (web)",
   "branchName": "ralph/codex-add-page-polish",
-  "description": "Codex /add page polish \u2014 \u4fee\u590d 2026-05-20 \u7aef\u5230\u7aef\u6d4b\u8bd5\u62a5\u544a\u4e2d\u53d1\u73b0\u7684 9 \u4e2a\u7f3a\u9677\uff08\u8349\u7a3f\u4e22\u5931\u3001SSR/CSR \u9996\u5e27\u4e0d\u4e00\u81f4\u3001\u2318+Enter\u3001\u5361\u7247\u8df3\u8be6\u60c5\u3001Bookmarklet \u8bef\u9644\u56fe\u3001URL/Photo/File \u6a21\u5f0f\u6309\u94ae\u7b49\uff09\uff0c\u5e76\u8865\u9f50\u5df2\u89c4\u5212\u4f46\u672a\u5b9e\u73b0\u7684\u8f85\u52a9\u4ea4\u4e92\u3002Source: tasks/prd-codex-add-page-polish.md",
+  "description": "Codex /add page polish — 修复 2026-05-20 端到端测试报告中发现的 9 个缺陷（草稿丢失、SSR/CSR 首帧不一致、⌘+Enter、卡片跳详情、Bookmarklet 误附图、URL/Photo/File 模式按钮等），并补齐已规划但未实现的辅助交互。Source: tasks/prd-codex-add-page-polish.md",
   "userStories": [
     {
       "id": "US-001",
-      "title": "\u65b0\u589e useAddDraft hook\uff08localStorage \u8349\u7a3f\u6301\u4e45\u5316\uff09",
+      "title": "新增 useAddDraft hook（localStorage 草稿持久化）",
       "description": "As a developer, I need a self-contained hook that reads/writes the draft to localStorage so US-002+ can rely on it.",
       "acceptanceCriteria": [
         "Create web/src/app/(app)/add/useAddDraft.ts exporting useAddDraft()",
@@ -21,12 +21,12 @@
     },
     {
       "id": "US-002",
-      "title": "Wire Save draft + \u81ea\u52a8\u56de\u586b to UnifiedInput",
+      "title": "Wire Save draft + 自动回填 to UnifiedInput",
       "description": "As a user, I want my draft to survive a page refresh so I never lose what I was writing.",
       "acceptanceCriteria": [
         "web/src/app/(app)/add/UnifiedInput.tsx uses useAddDraft()",
         "Clicking Save draft writes current textarea text + mode to localStorage and shows existing 'Draft saved' toast",
-        "On mount (after hydration), if a non-empty draft exists, prefill textarea and show subtle hint 'Restored draft \u00b7 {relative time}'",
+        "On mount (after hydration), if a non-empty draft exists, prefill textarea and show subtle hint 'Restored draft · {relative time}'",
         "Show a 'Discard draft' button next to the hint; clicking it clears the draft and empties the textarea",
         "Successful POST /api/memos (201) clears the draft",
         "Clearing textarea and blurring for >1s clears the draft",
@@ -40,13 +40,13 @@
     },
     {
       "id": "US-003",
-      "title": "\u2318/Ctrl + Enter \u89e6\u53d1 Add \u63d0\u4ea4",
+      "title": "⌘/Ctrl + Enter 触发 Add 提交",
       "description": "As a keyboard user, I want Cmd/Ctrl+Enter inside the textarea to submit the memo.",
       "acceptanceCriteria": [
         "Add onKeyDown to UnifiedInput textarea: when (metaKey || ctrlKey) && key === 'Enter', call the same submit handler as the Add button",
         "Shortcut is a no-op when Add button is disabled (empty content or submitting)",
         "Shift+Enter still inserts newline as before",
-        "Hint line below textarea shows '\u2318 + Enter to submit' on macOS, 'Ctrl + Enter to submit' otherwise",
+        "Hint line below textarea shows '⌘ + Enter to submit' on macOS, 'Ctrl + Enter to submit' otherwise",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
@@ -56,12 +56,12 @@
     },
     {
       "id": "US-004",
-      "title": "\u9762\u5305\u5c51\u6539\u4e3a usePathname \u6d3e\u751f\uff08SSR/CSR \u4e00\u81f4\uff09",
+      "title": "面包屑改为 usePathname 派生（SSR/CSR 一致）",
       "description": "As a user, I want the breadcrumb to display CODEX / Add immediately when I navigate to /add, with no flash of stale value.",
       "acceptanceCriteria": [
         "In web/src/app/(app)/layout.tsx (or whichever component renders the breadcrumb), source the current segment from usePathname() / useSelectedLayoutSegment() instead of any cookie/store",
         "Server-rendered breadcrumb matches client-rendered breadcrumb on first paint (no hydration mismatch warning)",
-        "Navigating /home \u2192 /add updates the breadcrumb without requiring a refresh",
+        "Navigating /home → /add updates the breadcrumb without requiring a refresh",
         "Console remains 0 errors / 0 warnings",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
@@ -72,7 +72,7 @@
     },
     {
       "id": "US-005",
-      "title": "POST /api/memos \u540e\u4e50\u89c2\u63d2\u5165 QUEUED \u6761\u76ee",
+      "title": "POST /api/memos 后乐观插入 QUEUED 条目",
       "description": "As a user, when I submit a memo I want it to appear in the Compile Queue immediately with a QUEUED label.",
       "acceptanceCriteria": [
         "After POST /api/memos resolves with 201, prepend the new memo into the react-query cache used by CompileQueue (queryKey starting with 'memos' and compile_status='pending')",
@@ -89,7 +89,7 @@
     },
     {
       "id": "US-006",
-      "title": "Compile Queue / Recently Compiled \u5361\u7247\u6574\u4f53\u53ef\u70b9\u51fb\u8df3\u8be6\u60c5",
+      "title": "Compile Queue / Recently Compiled 卡片整体可点击跳详情",
       "description": "As a user, clicking the body of a queue card should navigate to that memo's detail page.",
       "acceptanceCriteria": [
         "In web/src/app/(app)/add/CompileQueue.tsx and RecentlyCompiled.tsx, wrap each card body in a Next.js <Link> pointing to the existing memo detail route (grep for current memo detail link usage to confirm path; if none, use /wiki/[slug] as default)",
@@ -105,11 +105,11 @@
     },
     {
       "id": "US-007",
-      "title": "Bookmarklet \u6309\u94ae\u6539\u4e3a\u811a\u672c\u6307\u5f15 Modal",
+      "title": "Bookmarklet 按钮改为脚本指引 Modal",
       "description": "As a user, clicking Bookmarklet should show me a draggable bookmark link + script, not silently attach a fake PNG.",
       "acceptanceCriteria": [
         "Remove the dev-only code that auto-attaches IMG_3836.PNG when the Bookmarklet button is clicked",
-        "Clicking Bookmarklet opens a modal containing: (a) a draggable <a href='javascript:...'> labeled '\ud83d\udcce Save to Codex'; (b) a <pre> block with the bookmarklet source + one-click copy button; (c) one-paragraph instructions on dragging it to the bookmarks bar",
+        "Clicking Bookmarklet opens a modal containing: (a) a draggable <a href='javascript:...'> labeled '📎 Save to Codex'; (b) a <pre> block with the bookmarklet source + one-click copy button; (c) one-paragraph instructions on dragging it to the bookmarks bar",
         "Modal closes via Esc, backdrop click, and explicit close button",
         "No write to textarea state or attachment state from the Bookmarklet flow",
         "Reuse existing UI primitives from web/src/components/ui/ (Card/Btn/Icon); if a Dialog primitive doesn't exist, add a minimal one in web/src/app/(app)/_components/Dialog.tsx",
@@ -122,12 +122,12 @@
     },
     {
       "id": "US-008",
-      "title": "URL \u6309\u94ae\u6539\u4e3a\u5207\u6362 URL \u8f93\u5165\u6a21\u5f0f",
+      "title": "URL 按钮改为切换 URL 输入模式",
       "description": "As a user, clicking URL should switch the input into URL mode (placeholder + validation), not auto-paste the current page URL.",
       "acceptanceCriteria": [
         "Remove the behavior that fills textarea with window.location.href when URL button is clicked",
         "Clicking URL toggles a 'url' mode on UnifiedInput: button shows active state (same style as Photo/File active)",
-        "When mode === 'url', placeholder becomes 'https://\u2026 paste the link you want to save'",
+        "When mode === 'url', placeholder becomes 'https://… paste the link you want to save'",
         "When mode === 'url' and textarea content is not a valid URL (new URL() throws), Add button is disabled and hint shows 'Enter a valid URL'",
         "Clicking URL again returns to default 'text' mode without clearing existing text",
         "Mode switching never clears already-typed text",
@@ -140,14 +140,14 @@
     },
     {
       "id": "US-009",
-      "title": "Photo / File \u6309\u94ae\u63a5\u5165\u6587\u4ef6\u9009\u62e9 + \u9644\u4ef6\u5361\u7247",
+      "title": "Photo / File 按钮接入文件选择 + 附件卡片",
       "description": "As a user, clicking Photo opens camera/photo picker and clicking File opens a file picker; selected attachment shows on the form.",
       "acceptanceCriteria": [
         "Photo button triggers a hidden <input type='file' accept='image/*' capture='environment'>",
         "File button triggers a hidden <input type='file'> (no accept restriction; single file only)",
-        "After selection, render an attachment card under the textarea: thumbnail (for images) or generic icon, file name, size (formatted as KB/MB), and a \u2715 remove button",
+        "After selection, render an attachment card under the textarea: thumbnail (for images) or generic icon, file name, size (formatted as KB/MB), and a ✕ remove button",
         "Removing the attachment also clears the active mode (button no longer highlighted)",
-        "On submit, attachment is included in the request (use the same path the backend already expects; if no upload endpoint exists yet, leave a TODO and submit text-only \u2014 must not break typecheck)",
+        "On submit, attachment is included in the request (use the same path the backend already expects; if no upload endpoint exists yet, leave a TODO and submit text-only — must not break typecheck)",
         "Show a spinner on the attachment card while uploading; on failure, toast 'Upload failed, try again'",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
@@ -158,7 +158,7 @@
     },
     {
       "id": "US-010",
-      "title": "UnifiedInput \u6e32\u67d3\u6027\u80fd\u52a0\u56fa",
+      "title": "UnifiedInput 渲染性能加固",
       "description": "As an automation user, I want mode-button clicks to respond in <300ms with no occasional 30s freezes.",
       "acceptanceCriteria": [
         "Audit UnifiedInput for hot-path issues: remove any deep-clone / JSON.stringify of full form state inside onChange / onClick handlers",
@@ -173,11 +173,11 @@
     },
     {
       "id": "US-011",
-      "title": "/add \u9875\u9762\u56de\u5f52 E2E \u7528\u4f8b\u96c6",
+      "title": "/add 页面回归 E2E 用例集",
       "description": "As a maintainer, I want Playwright coverage for every fix in this PRD so regressions are caught automatically.",
       "acceptanceCriteria": [
-        "Create or extend web/e2e/add.spec.ts with tests for: draft restore after reload, \u2318+Enter submit, card click navigates to detail, breadcrumb first-paint shows 'Add', new submission shows QUEUED immediately, Bookmarklet opens modal (and does NOT attach a file), URL button toggles mode without auto-filling, Photo/File pickers attach and remove",
-        "All new tests pass locally via the project's e2e command (pnpm test:e2e or playwright test \u2014 use whichever the package.json defines)",
+        "Create or extend web/e2e/add.spec.ts with tests for: draft restore after reload, ⌘+Enter submit, card click navigates to detail, breadcrumb first-paint shows 'Add', new submission shows QUEUED immediately, Bookmarklet opens modal (and does NOT attach a file), URL button toggles mode without auto-filling, Photo/File pickers attach and remove",
+        "All new tests pass locally via the project's e2e command (pnpm test:e2e or playwright test — use whichever the package.json defines)",
         "No existing e2e test regresses",
         "Typecheck passes"
       ],
@@ -187,7 +187,7 @@
     },
     {
       "id": "US-012",
-      "title": "(\u53ef\u9009/\u9ed8\u8ba4\u5173\u95ed) \u8349\u7a3f\u670d\u52a1\u7aef\u540c\u6b65\u9aa8\u67b6",
+      "title": "(可选/默认关闭) 草稿服务端同步骨架",
       "description": "As a multi-device user, I'd like drafts to sync across devices when the feature flag is on. This story only lays the skeleton; the flag stays off by default.",
       "acceptanceCriteria": [
         "Add NEXT_PUBLIC_CODEX_DRAFT_SYNC env (documented in web/.env.example), default unset/false",
