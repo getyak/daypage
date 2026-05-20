@@ -4,6 +4,7 @@
 # Usage: ./ralph.sh [--tool claude] [max_iterations]
 
 set -e
+set -o pipefail
 
 TOOL="claude"
 MAX_ITERATIONS=10
