@@ -36,6 +36,11 @@
 "input.a11y.mic_hint_full"   = "Tap to open the recorder; press-and-hold to send a voice memo";
 "input.a11y.write_text"      = "Write text";
 
+/* Dock button labels — shown next to each icon */
+"input.dock.more"            = "More";
+"input.dock.record"          = "Record";
+"input.dock.text"            = "Text";
+
 /* DailyPage swipe action */
 "today.action.recompile"     = "Recompile";
 
