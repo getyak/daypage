@@ -338,50 +338,58 @@ struct InputBarV4: View {
     }
 
     private var morphingInputSurface: some View {
-        ZStack {
-            // Single rounded surface — its cornerRadius interpolates between
-            // pill (32pt) and card (24pt). Material + border + shadow live on
-            // this one shape so they never get swapped mid-animation.
-            RoundedRectangle(cornerRadius: morphCornerRadius, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
-                    RoundedRectangle(cornerRadius: morphCornerRadius, style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [Color.white.opacity(0.55), Color.white.opacity(0.12)],
-                                startPoint: .top, endPoint: .bottom
-                            ),
-                            lineWidth: 0.6
-                        )
-                )
-                .shadow(color: Color(hex: "2D1E0A").opacity(0.10), radius: 24, x: 0, y: 8)
-                .shadow(color: Color(hex: "2D1E0A").opacity(0.06), radius: 4, x: 0, y: 1)
+        // Idle pill = navigation-bar feel: narrow, tight, soft shadow.
+        // Expanded composer fills available width to host editor + actions.
+        let idle = !showsComposerContent
+        let horizontalInset: CGFloat = idle ? 56 : 16
+        let shadowLargeOpacity = idle ? 0.05 : 0.10
+        let shadowLargeRadius: CGFloat = idle ? 12 : 24
+        let shadowLargeY: CGFloat = idle ? 4 : 8
 
-            // Inner content — only one branch mounted at a time so the
-            // intrinsic height of the surface matches the active layout.
-            // The branch swap is wrapped in the same spring animation that
-            // drives cornerRadius, so the height change and the shape change
-            // settle together (one continuous spring rather than two).
-            if showsComposerContent {
-                composerContent
-                    .transition(.opacity)
-            } else {
-                dockContent
-                    .transition(.opacity)
+        return VStack(spacing: 6) {
+            ZStack {
+                // Single rounded surface — its cornerRadius interpolates between
+                // pill (32pt) and card (24pt). Material + border + shadow live on
+                // this one shape so they never get swapped mid-animation.
+                RoundedRectangle(cornerRadius: morphCornerRadius, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: morphCornerRadius, style: .continuous)
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [Color.white.opacity(0.55), Color.white.opacity(0.12)],
+                                    startPoint: .top, endPoint: .bottom
+                                ),
+                                lineWidth: 0.6
+                            )
+                    )
+                    .shadow(color: Color(hex: "2D1E0A").opacity(shadowLargeOpacity), radius: shadowLargeRadius, x: 0, y: shadowLargeY)
+                    .shadow(color: Color(hex: "2D1E0A").opacity(0.06), radius: 4, x: 0, y: 1)
+
+                // Inner content — only one branch mounted at a time so the
+                // intrinsic height of the surface matches the active layout.
+                // The branch swap is wrapped in the same spring animation that
+                // drives cornerRadius, so the height change and the shape change
+                // settle together (one continuous spring rather than two).
+                if showsComposerContent {
+                    composerContent
+                        .transition(.opacity)
+                } else {
+                    dockContent
+                        .transition(.opacity)
+                }
             }
-        }
-        .padding(.horizontal, 16)
-        // The compact pill carries a tight hint label below; we render it
-        // here (outside the surface) so the surface itself stays geometric.
-        .overlay(alignment: .bottom) {
+            .padding(.horizontal, horizontalInset)
+
+            // Hint label sits in the same VStack as the surface — keeps it close
+            // to the dock without forcing extra bottom padding on the surface.
             if !showsComposerContent {
                 dockHintLabel
-                    .padding(.bottom, -22)
                     .transition(.opacity)
             }
         }
         .padding(.top, 10)
-        .padding(.bottom, showsComposerContent ? 14 : 30)
+        .padding(.bottom, showsComposerContent ? 14 : 12)
         // Drive the content branch swap with the same spring that
         // `transition(to:)` uses for composerState. This catches external
         // triggers too — e.g. a draft prefilled from a URL scheme flips
