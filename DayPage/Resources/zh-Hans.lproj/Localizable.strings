@@ -36,6 +36,11 @@
 "input.a11y.mic_hint_full"   = "单击进入录音页；长按说话松手发送";
 "input.a11y.write_text"      = "写文字";
 
+/* Dock button labels — shown next to each icon */
+"input.dock.more"            = "更多";
+"input.dock.record"          = "录音";
+"input.dock.text"            = "文字";
+
 /* DailyPage swipe action */
 "today.action.recompile"     = "重新编译";
 
