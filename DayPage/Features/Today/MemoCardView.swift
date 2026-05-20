@@ -562,14 +562,16 @@ struct VoiceMemoPlayerRow: View {
                 .buttonStyle(.plain)
                 .disabled(fileError)
 
-                ZStack(alignment: .leading) {
-                    waveformBars(count: 40, color: DSColor.inkFaint)
-                    waveformBars(count: 40, color: DSColor.amberAccent)
-                        .mask(alignment: .leading) {
-                            Rectangle()
-                                .scaleEffect(x: CGFloat(playbackProgress), y: 1, anchor: .leading)
-                        }
-                }
+                // Waveform is split into a static base layer + a progress-driven
+                // mask layer. The base layer never re-renders during playback;
+                // only the Rectangle inside the mask updates its scaleEffect
+                // every 100 ms. Without this split, both 40-bar ForEach layers
+                // were diffed on every progressTimer tick, dominating scroll
+                // jank on tall voice memo cards.
+                WaveformView(
+                    heights: waveformHeights,
+                    progress: playbackProgress
+                )
                 .frame(height: 24)
                 .allowsHitTesting(false)
 
@@ -650,14 +652,6 @@ struct VoiceMemoPlayerRow: View {
         return (0..<40).map { i in CGFloat(3 + ((seed >> i) & 0x1F) % 20) }
     }
 
-    private func waveformBars(count: Int, color: Color) -> some View {
-        HStack(spacing: 2) {
-            ForEach(Array(waveformHeights.prefix(count).enumerated()), id: \.offset) { _, h in
-                RoundedRectangle(cornerRadius: 1).fill(color).frame(width: 2.5, height: h)
-            }
-        }
-    }
-
     private func togglePlayback() {
         isPlaying ? stopPlayback() : startPlayback()
     }
@@ -675,7 +669,16 @@ struct VoiceMemoPlayerRow: View {
             progressTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [self] _ in
                 Task { @MainActor in
                     guard let p = player, p.isPlaying else { stopPlayback(); return }
-                    playbackProgress = p.currentTime / p.duration
+                    // Disable implicit animation: if a parent withAnimation()
+                    // block is still in flight when this assignment runs (e.g.
+                    // a swipe spring), SwiftUI would otherwise interpolate
+                    // playbackProgress across multiple frames per tick and
+                    // schedule extra layout passes during the swipe.
+                    var tx = Transaction()
+                    tx.disablesAnimations = true
+                    withTransaction(tx) {
+                        playbackProgress = p.currentTime / p.duration
+                    }
                 }
             }
         } catch { fileError = true }
@@ -690,6 +693,66 @@ struct VoiceMemoPlayerRow: View {
     private func formatDur(_ secs: TimeInterval) -> String {
         let t = Int(secs)
         return String(format: "%02d:%02d", t / 60, t % 60)
+    }
+}
+
+// MARK: - WaveformView
+//
+// Extracted from VoiceMemoPlayerRow so that the 40-bar base layer is built
+// once per cell (Equatable diff on `heights`) and only the progress mask
+// re-renders on the 100 ms playback timer. The .transaction modifier strips
+// any implicit animation propagated from the parent (cell mount, list
+// shuffle, layout pass), keeping the mask scale change instantaneous and
+// preventing SwiftUI from interpolating progress between ticks — which used
+// to interleave dozens of intermediate render passes with scroll gestures.
+private struct WaveformView: View, Equatable {
+
+    let heights: [CGFloat]
+    let progress: Double
+
+    // Equatable: only re-diff when progress or the underlying heights change.
+    // heights is a value-typed [CGFloat], so == is structural; cheap because
+    // we have 40 elements.
+    static func == (lhs: WaveformView, rhs: WaveformView) -> Bool {
+        lhs.heights == rhs.heights && lhs.progress == rhs.progress
+    }
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            WaveformBars(heights: heights, color: DSColor.inkFaint)
+                .equatable()
+            WaveformBars(heights: heights, color: DSColor.amberAccent)
+                .equatable()
+                .mask(alignment: .leading) {
+                    GeometryReader { geo in
+                        Rectangle()
+                            .frame(width: max(0, geo.size.width * CGFloat(progress)))
+                    }
+                }
+                .transaction { $0.animation = nil }
+        }
+    }
+}
+
+// Base bar layer — Equatable so SwiftUI skips the ForEach diff when the
+// heights array is unchanged (always, for a given fileURL).
+private struct WaveformBars: View, Equatable {
+
+    let heights: [CGFloat]
+    let color: Color
+
+    static func == (lhs: WaveformBars, rhs: WaveformBars) -> Bool {
+        lhs.color == rhs.color && lhs.heights == rhs.heights
+    }
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(Array(heights.enumerated()), id: \.offset) { _, h in
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(color)
+                    .frame(width: 2.5, height: h)
+            }
+        }
     }
 }
 
