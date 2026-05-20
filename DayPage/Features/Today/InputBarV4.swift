@@ -293,151 +293,132 @@ struct InputBarV4: View {
         }
     }
 
-    // MARK: - Morphing Input Surface (#314)
+    // MARK: - Input Surface (idle Capsule ↔ composer RoundedRectangle)
     //
-    // A single rounded surface that smoothly morphs between the compact pill
-    // (idle) and the expanded composer panel. The previous implementation
-    // cross-faded two unrelated shapes (Capsule ↔ RoundedRectangle), which read
-    // as a hard component swap. Here we keep ONE RoundedRectangle whose
-    // cornerRadius is interpolated by a single Double (`expansionProgress`
-    // 0 → 1) so the surface itself stays geometrically continuous while its
-    // internal layout reflows from pill to panel.
-    //
-    // Layout strategy: only one inner content branch is mounted at a time
-    // (compact dock OR composer), so intrinsic height comes from the active
-    // branch. The surrounding spring animation block animates the height
-    // change; the shared cornerRadius animation keeps shape identity.
-
-    /// Corner radius for the compact pill state. Equal to half the pill's
-    /// intrinsic height (~64pt) so the rounded-rect renders as a true capsule.
-    private static let pillCornerRadius: CGFloat = 32
-    /// Corner radius for the expanded composer card.
-    private static let cardCornerRadius: CGFloat = 24
-
-    /// Fraction of the morph from pill (0) to card (1). The `.expanding` and
-    /// `.collapsing` states deliberately match their *starting* progress —
-    /// `transition(to:)` sets one of those non-animatedly, then sets the final
-    /// state inside `withAnimation(morphAnimation)`. SwiftUI then springs the
-    /// progress between the two values, driving corner radius, content
-    /// opacity and the surface height in one continuous motion (#314).
-    private var expansionProgress: Double {
-        switch composerState {
-        case .idle:       return 0
-        case .expanding:  return 0   // start of the expand spring
-        case .open:       return 1
-        case .collapsing: return 1   // start of the collapse spring
-        }
-    }
-
-    /// Interpolated corner radius driven by `expansionProgress`.
-    private var morphCornerRadius: CGFloat {
-        let progress = showsComposerContent
-            ? max(CGFloat(expansionProgress), 1.0)
-            : CGFloat(expansionProgress)
-        return Self.pillCornerRadius + (Self.cardCornerRadius - Self.pillCornerRadius) * progress
-    }
+    // Idle and composer carry their own backgrounds so each can use the shape
+    // that actually fits — a true Capsule for the idle three-button pill (so
+    // the half-circle end caps read as a real pill, not a small card), and a
+    // 24pt RoundedRectangle for the expanded composer card. Linearly morphing
+    // between Capsule and RoundedRectangle is not geometrically meaningful
+    // (#258); the two branches cross-fade inside one VStack and the existing
+    // spring animates the height change.
 
     private var morphingInputSurface: some View {
-        // Idle pill = navigation-bar feel: narrow, tight, soft shadow.
-        // Expanded composer fills available width to host editor + actions.
-        let idle = !showsComposerContent
-        let horizontalInset: CGFloat = idle ? 56 : 16
-        let shadowLargeOpacity = idle ? 0.05 : 0.10
-        let shadowLargeRadius: CGFloat = idle ? 12 : 24
-        let shadowLargeY: CGFloat = idle ? 4 : 8
-
-        return VStack(spacing: 6) {
-            ZStack {
-                // Single rounded surface — its cornerRadius interpolates between
-                // pill (32pt) and card (24pt). Material + border + shadow live on
-                // this one shape so they never get swapped mid-animation.
-                RoundedRectangle(cornerRadius: morphCornerRadius, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: morphCornerRadius, style: .continuous)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [Color.white.opacity(0.55), Color.white.opacity(0.12)],
-                                    startPoint: .top, endPoint: .bottom
-                                ),
-                                lineWidth: 0.6
+        // Two visually distinct shapes — Capsule for idle (carried on
+        // dockContent itself), RoundedRectangle 24pt for the expanded
+        // composer. A linear morph between them is not geometrically
+        // meaningful (#258), so the two branches cross-fade inside the
+        // same VStack and the surrounding spring animates the height change.
+        VStack(spacing: 6) {
+            if showsComposerContent {
+                composerContent
+                    .background(
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .fill(.ultraThinMaterial)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                                    .strokeBorder(
+                                        LinearGradient(
+                                            colors: [Color.white.opacity(0.55), Color.white.opacity(0.12)],
+                                            startPoint: .top, endPoint: .bottom
+                                        ),
+                                        lineWidth: 0.6
+                                    )
                             )
+                            .shadow(color: Color(hex: "2D1E0A").opacity(0.10), radius: 24, x: 0, y: 8)
+                            .shadow(color: Color(hex: "2D1E0A").opacity(0.06), radius: 4, x: 0, y: 1)
                     )
-                    .shadow(color: Color(hex: "2D1E0A").opacity(shadowLargeOpacity), radius: shadowLargeRadius, x: 0, y: shadowLargeY)
-                    .shadow(color: Color(hex: "2D1E0A").opacity(0.06), radius: 4, x: 0, y: 1)
-
-                // Inner content — only one branch mounted at a time so the
-                // intrinsic height of the surface matches the active layout.
-                // The branch swap is wrapped in the same spring animation that
-                // drives cornerRadius, so the height change and the shape change
-                // settle together (one continuous spring rather than two).
-                if showsComposerContent {
-                    composerContent
-                        .transition(.opacity)
-                } else {
-                    dockContent
-                        .transition(.opacity)
-                }
-            }
-            .padding(.horizontal, horizontalInset)
-
-            // Hint label sits in the same VStack as the surface — keeps it close
-            // to the dock without forcing extra bottom padding on the surface.
-            if !showsComposerContent {
+                    .padding(.horizontal, 16)
+                    .transition(.opacity)
+            } else {
+                dockContent
+                    .transition(.opacity)
                 dockHintLabel
                     .transition(.opacity)
             }
         }
         .padding(.top, 10)
-        .padding(.bottom, showsComposerContent ? 14 : 12)
-        // Drive the content branch swap with the same spring that
-        // `transition(to:)` uses for composerState. This catches external
-        // triggers too — e.g. a draft prefilled from a URL scheme flips
-        // `text` non-empty without going through `transition(to:)`.
+        .padding(.bottom, showsComposerContent ? 14 : 8)
         .animation(morphAnimation, value: showsComposerContent)
     }
 
-    // STREAM dock — three keys laid out inside the morphing surface.
-    // Background/border/shadow live on the surface, not here, so the
-    // pill ↔ card morph stays geometrically continuous (#314).
+    // Idle dock — three equal-weight icon+label keys inside a true Capsule.
+    // Width is content-driven (HStack hugs its children), so the pill sits
+    // centered with generous horizontal breathing room on either side. The
+    // capsule background lives on this view (not on the morphing surface)
+    // because the expanded composer uses a different shape entirely (#258).
     private var dockContent: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             // LEFT — More (+)
-            dockSideButton(systemImage: "plus", accessibilityLabel: NSLocalizedString("input.a11y.more_attachments", comment: "")) {
+            dockLabelButton(
+                systemImage: "plus",
+                title: NSLocalizedString("input.dock.more", comment: ""),
+                accessibilityLabel: NSLocalizedString("input.a11y.more_attachments", comment: "")
+            ) {
                 showAttachmentMenu = true
             }
 
-            // CENTER — amber mic orb.
-            PressToTalkButton(
-                onPressStart: handlePressToTalkStart,
-                onReleaseSend: handlePressToTalkReleaseSend,
-                onReleaseCancel: handlePressToTalkReleaseCancel,
-                onReleaseTranscribe: handlePressToTalkReleaseTranscribe,
-                onPhaseChange: { pressToTalkPhase = $0 },
-                onTapShortRelease: handleMicTap,
-                size: 64,
-                idleBackgroundColor: DSColor.amberAccent,
-                idleIconColor: .white
-            )
-            .frame(width: 64, height: 64)
-            .shadow(color: Color(hex: "5D3000").opacity(0.50), radius: 28, x: 0, y: 12)
-            .shadow(color: Color(hex: "5D3000").opacity(0.20), radius: 4, x: 0, y: 2)
+            // CENTER — mic. Press-to-talk is still the hero gesture but the
+            // visual weight is restrained to match the icon+label siblings:
+            // a 22pt mic glyph paired with a "Record" label inside the same
+            // capsule tap target. PressToTalkButton sits behind the HStack as
+            // the gesture host; the visual is the HStack itself.
+            HStack(spacing: 6) {
+                PressToTalkButton(
+                    onPressStart: handlePressToTalkStart,
+                    onReleaseSend: handlePressToTalkReleaseSend,
+                    onReleaseCancel: handlePressToTalkReleaseCancel,
+                    onReleaseTranscribe: handlePressToTalkReleaseTranscribe,
+                    onPhaseChange: { pressToTalkPhase = $0 },
+                    onTapShortRelease: handleMicTap,
+                    size: 22,
+                    idleBackgroundColor: .clear,
+                    idleIconColor: DSColor.inkPrimary
+                )
+                .frame(width: 22, height: 22)
+                Text(NSLocalizedString("input.dock.record", comment: ""))
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundStyle(DSColor.inkPrimary)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .contentShape(Capsule())
             .accessibilityLabel(NSLocalizedString("input.a11y.mic", comment: ""))
             .accessibilityHint(NSLocalizedString("input.a11y.mic_hint_full", comment: ""))
 
-            // RIGHT — Aa (text expand).
-            dockTextButton(accessibilityLabel: NSLocalizedString("input.a11y.write_text", comment: "")) {
+            // RIGHT — Text composer expand
+            dockLabelButton(
+                systemImage: "square.and.pencil",
+                title: NSLocalizedString("input.dock.text", comment: ""),
+                accessibilityLabel: NSLocalizedString("input.a11y.write_text", comment: "")
+            ) {
                 transition(to: .expanding)
                 isFocused = true
             }
             .accessibilityIdentifier("expand-text-composer")
         }
-        .padding(6)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 6)
+        .background(
+            Capsule(style: .continuous)
+                .fill(Color.white.opacity(0.92))
+                .overlay(
+                    Capsule(style: .continuous)
+                        .strokeBorder(Color(hex: "2D1E0A").opacity(0.06), lineWidth: 0.5)
+                )
+                .shadow(color: Color(hex: "2D1E0A").opacity(0.06), radius: 10, x: 0, y: 3)
+                .shadow(color: Color(hex: "2D1E0A").opacity(0.04), radius: 2, x: 0, y: 1)
+        )
     }
 
+    // Icon + text label key — Get-style: SF Symbol on the left, label on the
+    // right, both centered as a single tap target. Used for the "+ More" and
+    // "✎ Text" slots; mic uses an analogous layout but routes through
+    // PressToTalkButton so it can host the long-press gesture.
     @ViewBuilder
-    private func dockSideButton(
+    private func dockLabelButton(
         systemImage: String,
+        title: String,
         accessibilityLabel: String,
         action: @escaping () -> Void
     ) -> some View {
@@ -445,33 +426,16 @@ struct InputBarV4: View {
             Haptics.soft()
             action()
         } label: {
-            Image(systemName: systemImage)
-                .font(.system(size: 18, weight: .regular))
-                .foregroundStyle(DSColor.inkPrimary)
-                .frame(width: 44, height: 44)
-                .background(Color.clear)
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(accessibilityLabel)
-    }
-
-    // "Aa" text-expand key — matches design spec's third dock slot
-    @ViewBuilder
-    private func dockTextButton(
-        accessibilityLabel: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button {
-            Haptics.soft()
-            action()
-        } label: {
-            Text("Aa")
-                .font(DSFonts.serif(size: 16, weight: .medium))
-                .foregroundStyle(DSColor.inkPrimary)
-                .frame(width: 44, height: 44)
-                .background(Color.clear)
-                .contentShape(Circle())
+            HStack(spacing: 6) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 15, weight: .regular))
+                Text(title)
+                    .font(.system(size: 14, weight: .regular))
+            }
+            .foregroundStyle(DSColor.inkPrimary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
