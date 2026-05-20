@@ -331,7 +331,10 @@ struct InputBarV4: View {
 
     /// Interpolated corner radius driven by `expansionProgress`.
     private var morphCornerRadius: CGFloat {
-        Self.pillCornerRadius + (Self.cardCornerRadius - Self.pillCornerRadius) * CGFloat(expansionProgress)
+        let progress = showsComposerContent
+            ? max(CGFloat(expansionProgress), 1.0)
+            : CGFloat(expansionProgress)
+        return Self.pillCornerRadius + (Self.cardCornerRadius - Self.pillCornerRadius) * progress
     }
 
     private var morphingInputSurface: some View {
