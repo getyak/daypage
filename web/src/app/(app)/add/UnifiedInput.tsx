@@ -12,9 +12,21 @@ import {
   Send,
   X,
 } from "lucide-react";
+import { useAddDraft } from "./useAddDraft";
 
 const URL_RE = /^https?:\/\//;
 const TEXTAREA_MAX = 320;
+
+function relativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const secs = Math.floor(diffMs / 1000);
+  if (secs < 60) return "just now";
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
 type Attachment = {
   id: string;
@@ -44,14 +56,37 @@ async function createMemo(body: string) {
 
 export function UnifiedInput() {
   const [body, setBody] = useState("");
-  const [savedDraftAt, setSavedDraftAt] = useState<number | null>(null);
+  const [draftToastVisible, setDraftToastVisible] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const blurTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queryClient = useQueryClient();
   const empty = body.trim().length === 0 && attachments.length === 0;
+
+  const { saveDraft, clearDraft, restoredAt } = useAddDraft();
+
+  // Mark hydrated after first client render to avoid hydration mismatch.
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  // Prefill from draft on mount (after hydration).
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      const raw = localStorage.getItem("codex.add.draft.v1");
+      if (raw) {
+        const parsed = JSON.parse(raw) as { text?: string };
+        if (parsed.text) setBody(parsed.text);
+      }
+    } catch {
+      // ignore malformed storage
+    }
+  }, [hydrated]);
 
   // Autosize textarea on mount and whenever body changes — avoids the
   // first-keystroke jump from CSS min-height to scrollHeight.
@@ -96,14 +131,34 @@ export function UnifiedInput() {
     });
   }
 
+  function showDraftToast() {
+    setDraftToastVisible(true);
+    setTimeout(() => setDraftToastVisible(false), 2500);
+  }
+
   function handleSaveDraft() {
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage.setItem("daypage:add-draft", body);
-        setSavedDraftAt(Date.now());
-      } catch {
-        // ignore quota errors
-      }
+    saveDraft({ text: body, mode: "text", attachmentRef: null, savedAt: new Date().toISOString() });
+    showDraftToast();
+  }
+
+  function handleDiscardDraft() {
+    clearDraft();
+    setBody("");
+  }
+
+  // Clear draft when textarea is emptied and blurred for >1s.
+  function handleBlur() {
+    if (body.trim() === "") {
+      blurTimerRef.current = setTimeout(() => {
+        clearDraft();
+      }, 1000);
+    }
+  }
+
+  function handleFocus() {
+    if (blurTimerRef.current !== null) {
+      clearTimeout(blurTimerRef.current);
+      blurTimerRef.current = null;
     }
   }
 
@@ -111,6 +166,7 @@ export function UnifiedInput() {
     mutationFn: createMemo,
     onSuccess: (newMemo) => {
       setBody("");
+      clearDraft();
       for (const a of attachments) {
         if (a.previewUrl) URL.revokeObjectURL(a.previewUrl);
       }
@@ -160,6 +216,8 @@ export function UnifiedInput() {
         ref={taRef}
         value={body}
         onChange={(e) => setBody(e.target.value)}
+        onBlur={handleBlur}
+        onFocus={handleFocus}
         placeholder="Paste a URL, drop a file, or just type something…"
         rows={3}
       />
@@ -259,6 +317,34 @@ export function UnifiedInput() {
         }}
       />
 
+      {/* Restored draft hint — shown after hydration when a saved draft exists */}
+      {hydrated && restoredAt && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            padding: "0.375rem 0.75rem",
+            marginTop: "0.5rem",
+            background: "var(--surface-2, #f7f7f7)",
+            borderRadius: "var(--radius-sm)",
+            fontSize: "0.8125rem",
+            color: "var(--fg-subtle)",
+          }}
+        >
+          <span style={{ flex: 1 }}>
+            Restored draft · {relativeTime(restoredAt)}
+          </span>
+          <button
+            type="button"
+            className="btn btn--secondary btn--sm"
+            onClick={handleDiscardDraft}
+          >
+            Discard draft
+          </button>
+        </div>
+      )}
+
       {/* Action row — 4 capture chips on the left, save/add on the right */}
       <div className="add-input__row">
         <div className="add-input__hints">
@@ -319,7 +405,7 @@ export function UnifiedInput() {
           </button>
         </div>
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-          {savedDraftAt !== null && (
+          {draftToastVisible && (
             <span className="ds-mono-11" style={{ color: "var(--fg-subtle)" }}>
               Draft saved
             </span>
