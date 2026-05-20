@@ -1,0 +1,390 @@
+{
+  "project": "DayPage",
+  "branchName": "ralph/v7-deep-audit",
+  "description": "DayPage v7 深度审计与优化路线图 — 基于 UI/UX + Architecture + Features 三角度 Agent 审计。覆盖：API key 安全漏洞修复、Graph Tab 数据接通、并发安全、UI 一致性、Entity 双向链接、Archive 性能、AI 引擎透明化等 25 个 User Story。Source: tasks/prd-daypage-v7-deep-audit.md",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "立即轮换全部泄露的 API Key",
+      "description": "作为产品负责人，我需要立即撤销并重新生成 GeneratedSecrets.swift 中的所有 5 个生产密钥（DeepSeek sk-、OpenAI sk-proj-、OpenWeather、Supabase anon、GitHub PAT），防止恶意使用。",
+      "acceptanceCriteria": [
+        "在所有相关平台撤销现有密钥：DeepSeek、OpenAI Dashboard、OpenWeatherMap、Supabase、GitHub Settings",
+        "生成新密钥，不写入任何 Swift 文件或 git 跟踪目录",
+        "验证 GeneratedSecrets.swift 已被 .gitignore 正确排除（git ls-files --error-unmatch DayPage/Config/GeneratedSecrets.swift 应报错）",
+        "CI/CD（Fastlane）从环境变量或加密 secrets 注入密钥，生成该文件"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Theme: A-安全与可靠性, Effort: S, Impact: 5"
+    },
+    {
+      "id": "US-002",
+      "title": "将 API Key 从 UserDefaults 迁移到 Keychain",
+      "description": "作为用户，我的 AI API key 应存储在 iOS Keychain 中而非明文 UserDefaults，防止 iCloud UserDefaults 备份泄露。",
+      "acceptanceCriteria": [
+        "在 KeychainHelper.swift 中新增 setAPIKey(_:for:) / getAPIKey(for:) 方法，使用 kSecClassGenericPassword",
+        "SecretsRuntime.resolvedDeepSeekApiKey 等所有运行时 key 读取路径改为从 Keychain 读取",
+        "Settings 中「保存 API Key」按钮写入 Keychain 而非 UserDefaults",
+        "首次启动迁移：若 UserDefaults 中存有旧 key，静默迁移至 Keychain 并删除 UserDefaults 条目",
+        "构建通过，iPhone 17 Simulator 手动测试：输入 key → force-quit → 重启 → key 保留"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Theme: A-安全与可靠性, Effort: M, Impact: 4"
+    },
+    {
+      "id": "US-003",
+      "title": "修复 NotificationCenter 观察者累积泄漏",
+      "description": "作为用户，我在一次 session 中多次进出 Today 视图时，不应看到重复的 memo 提交或重复触发的编译动画。",
+      "acceptanceCriteria": [
+        "在 TodayViewModel 中添加 private var cancellables = Set<AnyCancellable>()",
+        "将 4 个 NotificationCenter.addObserver（L209, L218, L227, L236）改为 .publisher(for:).sink { }.store(in: &cancellables)",
+        "测试：模拟 10 次 push/pop TodayView，发送 1 次 compilationSucceeded 通知，验证回调只触发 1 次",
+        "构建通过"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Theme: A-安全与可靠性, Effort: S, Impact: 4"
+    },
+    {
+      "id": "US-004",
+      "title": "Task 体补 @MainActor 注解（并发安全）",
+      "description": "作为开发者，我需要 TodayViewModel 中所有 Task 闭包体明确标注 @MainActor，防止 @Published 属性在非主线程被修改导致 UI 状态撕裂。",
+      "acceptanceCriteria": [
+        "将 TodayViewModel.swift L500, L620, L634, L652, L695, L789 的 Task { 改为 Task { @MainActor in",
+        "CompilationService 中 @Published compilationProgress 的写入路径包裹 await MainActor.run { }（L113）",
+        "替换 TodayView.swift L371 的 DispatchQueue.main.asyncAfter 为 Task { try? await Task.sleep(for: .seconds(3)) }",
+        "Swift 编译器无 Sendable / data race 警告",
+        "构建通过，现有测试通过"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Theme: A-安全与可靠性, Effort: S, Impact: 3"
+    },
+    {
+      "id": "US-005",
+      "title": "修复 atomicWrite 临时文件孤儿问题",
+      "description": "作为用户，App crash 或写入失败后重启时，vault 目录下不应残留 .tmp.UUID 孤儿文件占用 iCloud 存储配额。",
+      "acceptanceCriteria": [
+        "在 atomicWrite 的 catch 块中，replaceItemAt 失败后执行 try? FileManager.default.removeItem(at: tempURL)",
+        "在 App 启动时扫描 vault 目录，删除所有匹配 *.tmp.* 的孤儿文件",
+        "添加单元测试：模拟 replaceItemAt 抛出，验证 tempURL 文件被清理",
+        "构建通过"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Theme: A-安全与可靠性, Effort: S, Impact: 3"
+    },
+    {
+      "id": "US-006",
+      "title": "InputBarV4 硬编码字体 → DSType token 对齐",
+      "description": "作为设计系统维护者，InputBarV4 中 20+ 处 .font(.system(size: N, weight: W)) 应全部替换为对应 DSType token，确保下次字体迭代只改 1 个文件。",
+      "acceptanceCriteria": [
+        "建立映射表：system(size:11,weight:.semibold)→DSType.label；system(size:18)→DSType.bodyMD；system(size:19,weight:.light)→DSType.serifBody18",
+        "GlassErrorBanner.swift L111, L149 同步替换",
+        "GlassTabBar.swift L92, L100 同步替换",
+        "替换后视觉截图对比（before/after）附 PR",
+        "构建通过，iPhone 17 Simulator 目视验证"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Theme: B-UI/UX一致性, Effort: M, Impact: 3"
+    },
+    {
+      "id": "US-007",
+      "title": "全局 Dynamic Type 支持（heading + body 优先）",
+      "description": "作为使用大字号的用户，我希望 DayPage 所有主要文本在「更大字号」辅助功能设置下都能正确缩放，而不仅限于正文。",
+      "acceptanceCriteria": [
+        "为 H1Modifier、H2Modifier、HeadlineMDModifier、BodyMDModifier、BodySMModifier、CaptionModifier 添加 .dynamicTypeSize(.xSmall ... .xxxLarge) 和 .minimumScaleFactor(0.8)",
+        "SerifBody16/18/20Modifier 同样处理",
+        "MonoModifier 系列使用 .dynamicTypeSize(.xSmall ... .accessibility1) 限制最大放大",
+        "iPhone 17 Simulator 开启「辅助功能 > 更大字体 > 最大」，验证 TodayView、ArchiveView、DailyPageView 文字可读无截断",
+        "构建通过"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Theme: B-UI/UX一致性, Effort: M, Impact: 4"
+    },
+    {
+      "id": "US-008",
+      "title": "Accessibility — 关键按钮 label + 44pt tap target",
+      "description": "作为使用 VoiceOver 的用户，我需要所有交互元素都有语义化 accessibilityLabel，且 tap target 不小于 44pt。",
+      "acceptanceCriteria": [
+        "Settings gear button 从 frame(28, 28) 改为 frame(44, 44)（或加 .contentShape(Rectangle())），添加 .accessibilityLabel(L10n.a11y.settingsButton)",
+        "LocationDraftRow 的「全部忽略」「全部确认」「单条确认」「单条忽略」按钮 frame 改为 min(44, 44) 并添加语义 label",
+        "TodayView.swift L93「Open navigation」改为 L10n.a11y.openNavigation",
+        "新增 L10n.a11y.* 枚举分支，覆盖以上所有新 label",
+        "iPhone 17 Simulator 开启 VoiceOver 手动验证：逐一聚焦按钮，描述正确",
+        "构建通过"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Theme: B-UI/UX一致性, Effort: S, Impact: 4"
+    },
+    {
+      "id": "US-009",
+      "title": "编译 / 语音转写 / 照片处理 Loading 指示器",
+      "description": "作为用户，当 AI 编译、Whisper 转写或批量照片处理正在进行时，我应该看到明确的 Loading 状态，而不是静默等待。",
+      "acceptanceCriteria": [
+        "语音录制停止到转写完成期间，InputBarV4 的附件 chip 显示 ProgressView() 旋转器",
+        "CompileFooterButton 在 isCompiling == true 时显示 ProgressView() + 阶段文字（「分析中…」「生成中…」），使用 CompilationService.compilationProgress 驱动",
+        "批量照片处理期间（isProcessingPhoto == true），Today 输入区顶部显示细进度条（LinearProgressView），处理完成后淡出",
+        "所有 loading 组件使用 DSColor.onSurfaceVariant tint",
+        "构建通过，iPhone 17 Simulator 目视验证三种 loading 场景"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Theme: B-UI/UX一致性, Effort: S, Impact: 3"
+    },
+    {
+      "id": "US-010",
+      "title": "动效 Token 补全（InputBar / Swipe / Breathing）",
+      "description": "作为设计系统维护者，Motion.swift 应补充 3 个当前被大量硬编码绕过的动效 token，消除分散的魔法数值。",
+      "acceptanceCriteria": [
+        "新增 Motion.inputDock = Animation.spring(response: 0.42, dampingFraction: 0.78)",
+        "新增 Motion.swipeSnap = Animation.spring(response: 0.28, dampingFraction: 0.86)",
+        "新增 Motion.breathing = Animation.easeInOut(duration: 0.8).repeatForever(autoreverses: true)",
+        "InputBarV4 L91 composerSpring 改用 Motion.inputDock；L173 匿名 spring 改用 Motion.inputDock",
+        "SwipeableMemoCard L178 改用 Motion.swipeSnap",
+        "RecordingOverlayView / DayOrbView breathing 动画改用 Motion.breathing",
+        "构建通过"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Theme: B-UI/UX一致性, Effort: S, Impact: 2"
+    },
+    {
+      "id": "US-011",
+      "title": "硬编码字符串 → L10n key（TodayView）",
+      "description": "作为多语言用户，TodayView 中的硬编码中英文字符串应通过 L10n 系统输出，支持语言切换。",
+      "acceptanceCriteria": [
+        "L933/935：\"\\(dateStr) · 1 note\" → L10n.Archive.noteCount(1)；复数形式 L10n.Archive.noteCountPlural(count)",
+        "L965：Button(\"重试\") → Button(L10n.Error.retry)",
+        "L1035：Text(\"检测到位置到达\") → Text(L10n.Location.arrivalDetected)",
+        "L1039/1042：\"全部忽略\" / \"全部确认\" → L10n.Location.ignoreAll / L10n.Location.confirmAll",
+        "在 en.lproj/Localizable.strings 和 zh-Hans.lproj/Localizable.strings 中添加对应键值",
+        "构建通过"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Theme: B-UI/UX一致性, Effort: M, Impact: 2"
+    },
+    {
+      "id": "US-012",
+      "title": "Graph Tab 接通 EntityPageService 真实数据",
+      "description": "作为用户，我在 Graph Tab 中应该看到基于我实际日记数据生成的知识图谱节点（人物、地点、主题），而不是空白或样例数据。",
+      "acceptanceCriteria": [
+        "GraphViewModel 实现 loadGraph() 方法：读取 wiki/places/、wiki/people/、wiki/themes/ 目录下所有 entity 页面，解析 YAML frontmatter 提取 name、type、occurrence_count、first_seen",
+        "每个 entity 转换为图节点；若两个 entity 在同一 Daily Page 中同时出现，则生成连边（co-occurrence）",
+        "GraphView 保持现有力导向布局，仅替换数据源为 GraphViewModel.nodes / .edges",
+        "空状态：vault 无 entity 时显示 EmptyStateView",
+        "Graph Tab 在 vault 有至少 3 个 entity 时展示可交互图谱",
+        "构建通过，iPhone 17 Simulator 有数据时验证图谱节点非空"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Theme: C-功能补全, Effort: M, Impact: 5 | Already implemented on main"
+    },
+    {
+      "id": "US-013",
+      "title": "Entity 双向链接（Entity Page → Related Memos）",
+      "description": "作为用户，打开一个 Entity 页面时，我应该看到所有提到过它的原始 Memo 列表，形成从知识网络回溯到原始记录的路径。",
+      "acceptanceCriteria": [
+        "EntityPageService.apply(instruction:) 在创建或更新 entity 时，将当前日期追加到 entity YAML frontmatter 的 related_dates: [] 数组",
+        "EntityPageView 实现 relatedMemos() —— 读取 related_dates，对每个日期调用 RawStorage.read(for:)，返回包含该 entity slug 的 memo 列表",
+        "Entity 页面底部新增「来源记录」Section，以精简版 MemoCardView 展示 related memos，按日期降序，最多 20 条",
+        "单元测试：构造含 entity mention 的 memo → 运行 apply() → 验证 related_dates 包含该日期",
+        "构建通过"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Theme: C-功能补全, Effort: M, Impact: 4"
+    },
+    {
+      "id": "US-014",
+      "title": "AI 引擎透明化 — Settings 展示当前模型",
+      "description": "作为用户，我有权知道当前处理我日记的 AI 模型是什么，并理解模型变更对编译风格的潜在影响。",
+      "acceptanceCriteria": [
+        "Settings「AI 编译引擎」Section 显示：当前模型名称、API provider、上次编译时间",
+        "CompilationService 暴露 static let modelName: String 和 static let apiProvider: String 常量",
+        "如果用户使用 DeepSeek 而非 Qwen（MVP 默认），Settings 中注明「⚠️ 当前使用非默认引擎」",
+        "构建通过"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Theme: C-功能补全, Effort: S, Impact: 2"
+    },
+    {
+      "id": "US-015",
+      "title": "Archive 月份数据异步加载",
+      "description": "作为拥有 6 个月以上数据的用户，打开 Archive 时不应有明显卡顿，calendar grid 应先渲染骨架再填入数据。",
+      "acceptanceCriteria": [
+        "ArchiveViewModel.loadMonth() 改为 async 方法，在 Task { await loadMonth() } 中调用，不阻塞主线程",
+        "加载期间 calendar grid 的每个 day cell 显示 ProgressView() 占位或灰色矩形",
+        "月份切换时立即显示新月份的 loading 骨架，旧月份数据立即清除",
+        "有真实数据时（3+ 个月历史），Archive 打开到渲染完成 < 500ms（iPhone 17 Simulator 测量）",
+        "构建通过"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Theme: C-功能补全, Effort: M, Impact: 3 | Already implemented on main"
+    },
+    {
+      "id": "US-016",
+      "title": "语音附件 Retry 闭环",
+      "description": "作为用户，当 Whisper 转写失败后，我应该能在 Today 页面的语音附件 chip 上直接点击「重试」重新发起转写，而不是丢弃录音。",
+      "acceptanceCriteria": [
+        "语音附件转写失败时，Attachment 标记 transcriptionStatus: .failed（新增枚举 case）",
+        "InputBarV4 附件 chip 在 transcriptionStatus == .failed 时显示红色边框 + 「↺」重试图标",
+        "点击重试图标调用 TodayViewModel.retranscribeVoiceAttachment(id:)，触发 VoiceService.transcribeAudio(at:) 重试",
+        "重试中显示 chip 内 ProgressView()；成功后 chip 切回正常态 + transcript 显示前 20 字",
+        "构建通过，手动测试：断网录音 → 失败红边 → 联网点重试 → 成功"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Theme: C-功能补全, Effort: S, Impact: 3"
+    },
+    {
+      "id": "US-017",
+      "title": "Memo 数据模型补 mood + entity mentions 字段",
+      "description": "作为开发者，Memo struct 应内置 mood 和 entityMentions 字段，为知识图谱的精确双向链接和情绪时间线提供结构化数据基础。",
+      "acceptanceCriteria": [
+        "Memo struct 新增 var mood: MoodLevel? = nil（枚举：.positive/.neutral/.negative/.intense）",
+        "Memo struct 新增 var entityMentions: [String] = []（从 body 中 [[EntitySlug]] 语法提取的 slug 数组）",
+        "RawStorage YAML 解析器新增 mood: 和 entities: frontmatter 键支持",
+        "TodayViewModel.submitCombinedMemo() 在写入前从 body 文本提取 [[...]] 模式填充 entityMentions",
+        "向后兼容：旧文件无这两个字段时，解析为 nil/[]，不报错",
+        "单元测试：构造含 [[Tokyo]] 的 memo body → 验证 entityMentions == [\"Tokyo\"]",
+        "构建通过"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Theme: C-功能补全, Effort: M, Impact: 3"
+    },
+    {
+      "id": "US-018",
+      "title": "批量 HEIC 照片转换移离主线程",
+      "description": "作为用户，选择 5 张以上 HEIC 格式照片时，Today 页面不应出现明显卡顿或 UI 冻结。",
+      "acceptanceCriteria": [
+        "PhotoService.processPickerItem() 中 HEIC → JPEG 转换移入 Task.detached(priority: .userInitiated) { }（脱离 MainActor）",
+        "转换完成后通过 await MainActor.run { } 回主线程更新 UI 状态",
+        "测试：选择 5 张 12MP HEIC 图片，Timeline 动画帧率 ≥ 55fps（Instruments Time Profiler 验证无主线程卡顿 >16ms）",
+        "构建通过"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Theme: C-功能补全, Effort: S, Impact: 2"
+    },
+    {
+      "id": "US-019",
+      "title": "Markdown Export（Obsidian 兼容）",
+      "description": "作为数字游民用户，我希望能将 DayPage 的 vault 内容一键导出为标准 Markdown 格式（.md 文件打包），兼容 Obsidian 导入。",
+      "acceptanceCriteria": [
+        "Settings「数据」Section 新增「导出 Vault」按钮",
+        "点击后生成 daypage-export-YYYY-MM-DD.zip，包含 raw/ 和 daily/ 所有 .md 文件，保持目录结构",
+        "导出进行中显示 ProgressView() + 「正在打包...」文字",
+        "完成后弹出系统 Share Sheet（UIActivityViewController）",
+        "导出文件中的 YAML frontmatter 格式与 Obsidian 兼容",
+        "构建通过，iPhone 17 手动验证：导出 → 文件 App 可预览 .md 内容"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Theme: C-功能补全, Effort: M, Impact: 3"
+    },
+    {
+      "id": "US-020",
+      "title": "TodayViewModel 核心路径单元测试",
+      "description": "作为开发者，TodayViewModel 的 submitCombinedMemo()、load()、compile() 三条核心路径应有单元测试覆盖，以便重构时有安全网。",
+      "acceptanceCriteria": [
+        "新建 DayPageTests/TodayViewModelTests.swift（Swift Testing）",
+        "测试 submitCombinedMemo()：纯文字 memo → 验证 RawStorage 写入；语音 memo（mock VoiceService）→ 验证附件字段；location memo → 验证 location frontmatter",
+        "测试 load()：空 vault → 验证 memos 为空；有 3 条 memo 的文件 → 验证解析正确",
+        "测试 compile()：mock CompilationService 返回成功 → 验证 dailyPageModel 更新；返回失败 → 验证 compilationFailedError 设置",
+        "至少 12 个 test case，覆盖 happy path + error path",
+        "全部测试通过 (xcodebuild test -scheme DayPage)"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Theme: D-技术债务, Effort: L, Impact: 2"
+    },
+    {
+      "id": "US-021",
+      "title": "TodayView 拆分子视图",
+      "description": "作为开发者，1170 行的 TodayView 应拆分为独立子视图组件，每个文件不超过 300 行，减少 PR 冲突和 AI 辅助编码的上下文窗口压力。",
+      "acceptanceCriteria": [
+        "提取 TodayOrbHeaderView（Day Orb + 日期标题区，约 120 行）到独立文件",
+        "提取 TodayMemoListView（memo 列表 + SwipeableMemoCard，约 200 行）到独立文件",
+        "提取 LocationDraftCard + LocationDraftRow 到 DayPage/Features/Today/LocationDraft/ 子目录",
+        "TodayView.swift 主文件压缩到 ≤ 350 行",
+        "无功能改变：拆分前后 iPhone 17 Simulator 截图目视一致",
+        "构建通过，现有测试通过"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Theme: D-技术债务, Effort: L, Impact: 2"
+    },
+    {
+      "id": "US-022",
+      "title": "CompilationService.compile() 函数分解",
+      "description": "作为开发者，compile() 的 152 行单体函数应分解为 5 个职责单一的私有方法，提高可测试性。",
+      "acceptanceCriteria": [
+        "提取 prepareMemoContext() async throws -> CompilationContext",
+        "提取 buildPrompt(context:) -> [ChatMessage]",
+        "提取 callLLM(messages:) async throws -> String",
+        "提取 parseCompilationOutput(_:) throws -> DailyPageModel",
+        "提取 persistResults(_:for:) async throws",
+        "所有方法有 // throws: CompilationError.X 注释",
+        "构建通过，编译功能端到端手动测试正常"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Theme: D-技术债务, Effort: M, Impact: 1"
+    },
+    {
+      "id": "US-023",
+      "title": ".trash 备份文件 7 天 TTL 自动清理",
+      "description": "作为用户，iCloud Drive 中的 DayPage vault 不应随时间无限增长，每日编译备份应在 7 天后自动删除。",
+      "acceptanceCriteria": [
+        "在 BackgroundCompilationService 中新增 performTrashCleanup() 方法，扫描 vault/.trash/ 目录",
+        "删除修改时间早于 7 天前的所有 .md 备份文件",
+        "清理操作在后台 Task 中执行，不阻塞编译主流程",
+        "首次运行时若 .trash/ 超过 50 个文件，记录 warning 日志并触发全量清理",
+        "构建通过"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Theme: D-技术债务, Effort: S, Impact: 1"
+    },
+    {
+      "id": "US-024",
+      "title": "编译输出结构化增强 — mood + 日期感知",
+      "description": "作为用户，AI 编译的 Daily Page 应包含当天的情绪评估（mood），并在节假日/特殊日期时自动调整叙事语气。",
+      "acceptanceCriteria": [
+        "System prompt 增加：输出 YAML frontmatter 中必须包含 mood: positive|neutral|negative|intense",
+        "DailyPageModel 新增 var mood: MoodLevel?（与 US-017 共用枚举）",
+        "DailyPageView 在标题下方显示 mood 情绪指示器（小彩色圆点，4 种颜色对应 4 种 mood）",
+        "编译 prompt 注入当天日期（包括星期）：「今天是 {weekday}，{date}」",
+        "单元测试：mock LLM 返回含 mood: positive 的输出 → 验证 DailyPageModel.mood == .positive",
+        "构建通过"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Theme: E-AI能力升级, Effort: M, Impact: 3"
+    },
+    {
+      "id": "US-025",
+      "title": "Entity Slug 去重与模糊匹配",
+      "description": "作为用户，当 AI 先后生成 joma-coffee 和 joma_coffee 两个变体时，知识图谱不应产生重复节点，而应合并到同一 entity 页面。",
+      "acceptanceCriteria": [
+        "EntityPageService 在 apply() 前执行 slug 归一化：小写、_ → -、移除特殊字符",
+        "归一化后若目标文件已存在，执行 update 而非 create",
+        "可选增强：实现编辑距离 ≤ 2 的模糊匹配（Levenshtein），自动合并近似 slug",
+        "单元测试：apply(slug: \"joma_coffee\") + apply(slug: \"joma-coffee\") → wiki 目录中只有 1 个文件",
+        "构建通过"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Theme: E-AI能力升级, Effort: M, Impact: 2"
+    }
+  ]
+}
