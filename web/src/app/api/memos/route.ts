@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
         filename: a.filename ?? null,
         mime_type: a.mime_type ?? null,
         size_bytes: a.size_bytes ?? null,
-        duration_sec: a.duration_sec ? String(a.duration_sec) : null,
+        duration_sec: a.duration_sec ?? null,
         transcript: a.transcript ?? null,
         ocr_text: a.ocr_text ?? null,
         exif: a.exif ?? null,

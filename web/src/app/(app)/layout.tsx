@@ -2,7 +2,6 @@ import { ReactNode } from "react";
 import { auth, signOut } from "@/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { headers } from "next/headers";
 import { db } from "@/lib/db/client";
 import { users, domains, inbox_items } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
@@ -13,6 +12,7 @@ import { TopbarDate } from "./_components/TopbarDate";
 import { NewDomainButton } from "./_components/NewDomainButton";
 import { MobileSidebarDrawer, HamburgerButton } from "./_components/MobileSidebarDrawer";
 import { DesktopSidebarShell } from "./_components/DesktopSidebarShell";
+import { BreadcrumbLabel } from "./_components/BreadcrumbLabel";
 
 type NavSpec = { href: string; label: string; iconName: NavIconName; meta?: string };
 
@@ -23,13 +23,6 @@ const NAV_ITEMS: ReadonlyArray<NavSpec> = [
   { href: "/wiki", label: "Wiki", iconName: "book", meta: "⌘W" },
   { href: "/inbox", label: "Inbox", iconName: "inbox" },
 ];
-
-function getViewLabel(pathname: string): string {
-  for (const item of NAV_ITEMS) {
-    if (pathname.startsWith(item.href)) return item.label;
-  }
-  return "Home";
-}
 
 async function resolveUserId(email: string): Promise<string | null> {
   const rows = await db
@@ -70,10 +63,6 @@ async function fetchSidebarData(userId: string): Promise<{
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-
-  const headersList = await headers();
-  const pathname = headersList.get("x-pathname") ?? "/home";
-  const viewLabel = getViewLabel(pathname);
 
   let userDomains: Domain[] = [];
   let openInboxCount = 0;
@@ -194,9 +183,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             <HamburgerButton />
             <span className="ds-section-label">Codex</span>
             <span style={{ color: "var(--fg-subtle)", fontSize: "0.75rem" }}>/</span>
-            <span style={{ fontSize: "0.875rem", fontWeight: 500, color: "var(--fg-primary)" }}>
-              {viewLabel}
-            </span>
+            <BreadcrumbLabel />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
             <TopbarDate />

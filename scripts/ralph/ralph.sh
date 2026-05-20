@@ -4,6 +4,7 @@
 # Usage: ./ralph.sh [--tool claude] [max_iterations]
 
 set -e
+set -o pipefail
 
 TOOL="claude"
 MAX_ITERATIONS=10
@@ -95,33 +96,26 @@ else:
   echo "   Acceptance: $STORY_ACCEPT"
 
   # Build the Claude Code prompt
-  PROMPT="You are fixing a SINGLE bug/issue from the DayPage tri-platform QA test findings (2026-05-12).
+  PROMPT="You are implementing a SINGLE user story from the DayPage Codex /add page polish PRD.
 
 ⚠️ CRITICAL: You are working on branch '$TARGET_BRANCH'. NEVER run git checkout, git switch, git branch, or any command that changes the current branch. NEVER push or pull. Only git add and git commit.
 
-PROJECT: DayPage — 三端测试发现修复 (iOS + V5 Codex Web + DayPageWatch)
-Three targets in this repo:
-  - DayPage/ (iOS SwiftUI app, iOS 16.0+, file-based YAML+Markdown persistence, no SPM deps)
-  - web/ (Next.js 16 App Router, TypeScript strict, Tailwind 4, Supabase, Drizzle ORM, Auth.js v5, pnpm)
-  - DayPageWatch/ (watchOS SwiftUI companion app)
-Key conventions: Read AGENTS.md for iOS conventions, CLAUDE.md for web conventions.
-QA test reports: docs/qa/test-findings-2026-05-12/*.md
-Original PRD context: tasks/prd-test-findings-fix.md
-Read the PRD at prd.json for the full roadmap of all 68 stories.
+PROJECT: DayPage Codex web app
+Primary target for this PRD: web/ (Next.js App Router, TypeScript strict, Tailwind, pnpm). Read CLAUDE.md / AGENTS.md for repo conventions.
+PRD source: tasks/prd-codex-add-page-polish.md. Current machine-readable PRD: prd.json.
 
-STORY #\$STORY_ID: \$STORY_NAME
-DESCRIPTION: \$STORY_DESC
-ACCEPTANCE CRITERIA: \$STORY_ACCEPT
+STORY #$STORY_ID: $STORY_NAME
+DESCRIPTION: $STORY_DESC
+ACCEPTANCE CRITERIA:
+$STORY_ACCEPT
 
-Implement ONLY this story. Do NOT touch unrelated code.
-Determine which target(s) this story affects (iOS/Web/Watch) and work in the appropriate directory.
+Implement ONLY this story. Do NOT touch unrelated code. Prefer small, focused changes in web/src/app/(app)/add and adjacent shared components.
 After implementing:
-1. iOS stories: run 'xcodebuild -scheme DayPage build' to verify (skip if story is pure config/docs)
-2. Web stories: run 'pnpm typecheck' and 'pnpm format' to verify
-3. Watch stories: run 'xcodebuild -scheme DayPageWatch build' if applicable
+1. Run pnpm typecheck (or the narrowest equivalent if the repo defines one)
+2. Run pnpm format / format check as appropriate
+3. For UI stories, add or update tests where existing patterns make it practical
 4. Print a summary of what you changed
-5. The acceptance criteria must be satisfied
-6. If the story adds tests, run them and confirm they pass"
+5. The acceptance criteria must be satisfied"
 
   echo "   🤖 Running Claude Code..."
 

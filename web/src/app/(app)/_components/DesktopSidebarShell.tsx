@@ -24,6 +24,7 @@ export function DesktopSidebarShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (raw === "true") setCollapsed(true);
     } catch {
       // localStorage may be unavailable (private mode, SSR snapshot mismatch)

@@ -2,6 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText } from "lucide-react";
+import Link from "next/link";
 import type { Memo } from "./CompileQueue";
 
 interface MemosResponse {
@@ -61,8 +62,16 @@ export function RecentlyCompiled({ initialMemos }: { initialMemos: Memo[] }) {
         const wc = wordCount(memo.body);
         const time = relativeTime(new Date(memo.created_at));
         return (
-          <div
+          <Link
             key={memo.id}
+            href={`/memos/${memo.id}`}
+            aria-label={`View memo: ${title}`}
+            onKeyDown={(e) => {
+              if (e.key === " ") {
+                e.preventDefault();
+                e.currentTarget.click();
+              }
+            }}
             style={{
               display: "flex",
               alignItems: "center",
@@ -72,7 +81,11 @@ export function RecentlyCompiled({ initialMemos }: { initialMemos: Memo[] }) {
                 i < items.length - 1
                   ? "1px solid var(--surface-border, var(--accent-border))"
                   : "none",
+              cursor: "pointer",
+              textDecoration: "none",
+              color: "inherit",
             }}
+            className="recently-compiled-item"
           >
             <FileText
               size={14}
@@ -135,7 +148,7 @@ export function RecentlyCompiled({ initialMemos }: { initialMemos: Memo[] }) {
             >
               {time}
             </span>
-          </div>
+          </Link>
         );
       })}
     </div>

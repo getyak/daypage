@@ -198,6 +198,7 @@ export function WikiNav({
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCollapsed(loadCollapsed());
   }, []);
 
