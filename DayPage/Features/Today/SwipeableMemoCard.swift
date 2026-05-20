@@ -1,21 +1,77 @@
 import SwiftUI
 
+// MARK: - SwipePhysics
+//
+// All numeric constants for the swipe-to-reveal interaction live here so the
+// motion language is auditable in one place and easy to tune. Names are
+// chosen to map to the four-stage gesture vocabulary:
+//
+//   peek      — finger moves but the action is not yet committable.
+//   reveal    — the user has crossed the open threshold; icon + label sit on
+//                a settled panel; releasing snaps the panel open.
+//   rubber    — drag continues past the panel; resistance grows with distance.
+//
+// Tuned against Apple Mail / Notes / Reminders for snappy attack and minimal
+// overshoot, while keeping the panel surface visually quiet at small offsets.
+private enum SwipePhysics {
+
+    /// Width of the action panel on each side. Matches the iOS Mail / Notes
+    /// trailing action width so the card never reveals more than one action
+    /// at a time and the affordance reads as a single tap target.
+    static let panelWidth: CGFloat = 84
+
+    /// Translation past which a release snaps open (vs. snap back closed).
+    /// Apple Notes uses ~40pt; we follow the same ratio to panelWidth so a
+    /// confident half-swipe always opens but a hesitant brush snaps back.
+    static let openThreshold: CGFloat = 40
+
+    /// Translation while open past which a release snaps closed. Lower than
+    /// openThreshold because the user has already paid the gesture cost of
+    /// opening — closing should feel lighter.
+    static let closeThreshold: CGFloat = 24
+
+    /// Velocity (pt/s) past which a flick alone opens the panel, regardless
+    /// of translation. UIKit reports real velocity so we use the same
+    /// numeric scale as iOS Mail (~600 pt/s).
+    static let velocityOpen: CGFloat = 600
+
+    /// Velocity past which a flick alone closes the panel.
+    static let velocityClose: CGFloat = 500
+
+    /// Resistance coefficient applied to drag past the panel edge. 0.25 is
+    /// firmer than the previous 0.35 so the limit reads as a real wall while
+    /// still allowing a tactile overdrag.
+    static let rubberBand: CGFloat = 0.25
+
+    /// Spring used for snap-open / snap-close. Same response as iOS Mail
+    /// (~0.28s) with damping that lets the panel settle in one cycle.
+    static let snapSpring: Animation = .spring(response: 0.28, dampingFraction: 0.86)
+
+    /// Eased curve used in place of `snapSpring` when Reduce Motion is on.
+    /// No bounce, slightly shorter so the user can still feel the commit.
+    static let reducedSnap: Animation = .easeOut(duration: 0.22)
+}
+
 // MARK: - SwipeableMemoCard
 //
 // iOS-native swipe-to-reveal wrapper around MemoCardView, built on a UIKit
 // UIPanGestureRecognizer (see HorizontalPanGesture.swift) so the parent
 // ScrollView keeps full ownership of vertical drags. Mirrors iOS Mail,
-// Reminders, and Things 3 swipe-to-reveal behavior.
+// Reminders, and Things 3 swipe-to-reveal behavior, with iOS-26-flavored
+// visual choreography: the action surface deepens in tone as the drag
+// progresses, the icon scales up, and the label only resolves once the
+// open threshold is crossed.
 //
-//  - Left swipe → trailing Delete button
-//  - Right swipe → leading Pin button
+//  - Left swipe → trailing Delete action (two-step: reveal then tap, so a
+//    destructive action always requires explicit confirmation).
+//  - Right swipe → leading Pin/Unpin action.
 //
 // Gesture model:
 //  - settledOffset is the resting position; dragDelta rides on top 1:1.
 //  - Rubber-band resistance beyond ±panelW gives tactile limit feedback.
 //  - Velocity-aware snap: a flick opens/closes even with small translation.
-//  - snapClose is always reachable: when trailing is open, any rightward
-//    drag or flick collapses it (dx is relative to drag start).
+//  - Threshold-cross haptic tick fires during the drag (not just at button
+//    tap), matching the Apple Notes "you've armed an action" feel.
 //
 // Why no SwiftUI DragGesture: SwiftUI's DragGesture + simultaneousGesture
 // activates on the very first touch event and cannot relinquish gesture
@@ -48,7 +104,13 @@ struct SwipeableMemoCard: View {
     // never routes to the detail page.
     @State private var isPanActive: Bool = false
 
-    private enum Side { case leading, trailing }
+    // Tracks which threshold the live drag has already crossed so the
+    // mid-drag haptic tick fires once per cross, not once per frame.
+    @State private var armedSide: Side? = nil
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    fileprivate enum Side { case leading, trailing }
 
     private var revealedSide: Side? {
         if settledOffset < -1 { return .trailing }
@@ -56,21 +118,22 @@ struct SwipeableMemoCard: View {
         return nil
     }
 
-    private let panelW: CGFloat         = 80
-    private let openThreshold: CGFloat  = 40
-    private let closeThreshold: CGFloat = 24
-    // UIKit reports real velocity in pt/s; flick thresholds raised accordingly.
-    private let velOpen: CGFloat        = 600
-    private let velClose: CGFloat       = 500
-
-    // Rubber-band resistance when dragging past the panel edge
-    private let rubberBand: CGFloat = 0.35
-
     private var currentOffset: CGFloat {
         let raw = settledOffset + dragDelta
-        if raw > panelW  { return panelW  + (raw - panelW)  * rubberBand }
-        if raw < -panelW { return -panelW + (raw + panelW)  * rubberBand }
+        let w = SwipePhysics.panelWidth
+        if raw > w  { return w  + (raw - w)  * SwipePhysics.rubberBand }
+        if raw < -w { return -w + (raw + w)  * SwipePhysics.rubberBand }
         return raw
+    }
+
+    /// Normalized reveal progress used by the panel choreography. Positive
+    /// when the leading (right-swipe → pin) panel is being revealed and
+    /// negative for the trailing (left-swipe → delete) panel. Lightly
+    /// over-clamped at ±1.4 so a small rubber-band overdrag still nudges
+    /// scale/opacity without blowing them out.
+    private var revealProgress: CGFloat {
+        let p = currentOffset / SwipePhysics.panelWidth
+        return max(-1.4, min(1.4, p))
     }
 
     private var accessibilityMemoLabel: String {
@@ -79,12 +142,27 @@ struct SwipeableMemoCard: View {
         return trimmed.isEmpty ? "Memo" : "Memo: \(trimmed)"
     }
 
+    private var snapAnimation: Animation {
+        reduceMotion ? SwipePhysics.reducedSnap : SwipePhysics.snapSpring
+    }
+
     var body: some View {
         ZStack(alignment: .center) {
+            // Action surfaces sit behind the card. Each is clipped to the
+            // card's outer corner radius so the panel reads as a nested
+            // glass surface rather than an abutting colored rectangle.
             HStack(spacing: 0) {
-                pinPanel
-                Spacer()
-                deletePanel
+                SwipeActionPanel(
+                    kind: .leading(isPinned: memo.pinnedAt != nil),
+                    progress: max(0, revealProgress),
+                    onTap: handlePinTap
+                )
+                Spacer(minLength: 0)
+                SwipeActionPanel(
+                    kind: .trailing,
+                    progress: max(0, -revealProgress),
+                    onTap: handleDeleteTap
+                )
             }
 
             NavigationLink(value: memo.id) {
@@ -147,44 +225,18 @@ struct SwipeableMemoCard: View {
         }
     }
 
-    // MARK: - Panels
+    // MARK: - Action handlers
 
-    private var pinPanel: some View {
-        Button(action: {
-            Haptics.tapConfirm()
-            snapClose()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { onPin?() }
-        }) {
-            VStack(spacing: 4) {
-                Image(systemName: memo.pinnedAt != nil ? "pin.slash.fill" : "pin.fill")
-                    .font(.system(size: 16, weight: .semibold))
-                Text(memo.pinnedAt != nil ? "取消置顶" : "置顶")
-                    .font(.custom("Inter-Medium", size: 11))
-            }
-            .foregroundColor(.white)
-            .frame(width: panelW)
-            .frame(maxHeight: .infinity)
-            .background(memo.pinnedAt != nil ? DSColor.secondary : DSColor.amberArchival)
-        }
-        .opacity(revealedSide == .leading ? 1 : 0)
+    private func handlePinTap() {
+        Haptics.tapConfirm()
+        snapClose()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { onPin?() }
     }
 
-    private var deletePanel: some View {
-        Button(action: {
-            Haptics.warn()
-            snapClose()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { onDelete?() }
-        }) {
-            VStack(spacing: 4) {
-                Image(systemName: "trash.fill").font(.system(size: 16, weight: .semibold))
-                Text("删除").font(.custom("Inter-Medium", size: 11))
-            }
-            .foregroundColor(.white)
-            .frame(width: panelW)
-            .frame(maxHeight: .infinity)
-            .background(DSColor.error)
-        }
-        .opacity(revealedSide == .trailing ? 1 : 0)
+    private func handleDeleteTap() {
+        Haptics.warn()
+        snapClose()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { onDelete?() }
     }
 
     // MARK: - Pan callbacks
@@ -195,16 +247,39 @@ struct SwipeableMemoCard: View {
 
     private func handlePanChanged(_ translation: CGFloat) {
         dragDelta = translation
+        updateThresholdHaptics()
     }
 
     private func handlePanEnded(_ translation: CGFloat, _ velocity: CGFloat) {
         dragDelta = 0
         decideSnap(dx: translation, velocity: velocity)
+        armedSide = nil
     }
 
     private func handlePanCancelled() {
         // Snap back to the prior resting state without touching settledOffset.
         dragDelta = 0
+        armedSide = nil
+    }
+
+    /// Fires a soft tick the first time a drag crosses the open threshold
+    /// in each direction. Subsequent frames inside the same band don't
+    /// re-trigger. Mirrors the Apple Notes "armed" feedback that tells the
+    /// user "release now and the action will fire."
+    private func updateThresholdHaptics() {
+        let offset = currentOffset
+        let armingSide: Side?
+        if offset > SwipePhysics.openThreshold {
+            armingSide = .leading
+        } else if offset < -SwipePhysics.openThreshold {
+            armingSide = .trailing
+        } else {
+            armingSide = nil
+        }
+        if armingSide != armedSide {
+            armedSide = armingSide
+            if armingSide != nil { Haptics.soft() }
+        }
     }
 
     // MARK: - Snap Logic
@@ -215,32 +290,144 @@ struct SwipeableMemoCard: View {
     // No coordinate transform needed — this is the fix for the "can't close" bug.
 
     private func decideSnap(dx: CGFloat, velocity: CGFloat) {
+        let openT = SwipePhysics.openThreshold
+        let closeT = SwipePhysics.closeThreshold
+        let vOpen = SwipePhysics.velocityOpen
+        let vClose = SwipePhysics.velocityClose
         switch revealedSide {
         case nil:
-            if      dx < -openThreshold || velocity < -velOpen  { snapOpen(.trailing) }
-            else if dx >  openThreshold || velocity >  velOpen  { snapOpen(.leading)  }
-            else                                                 { snapClose()         }
+            if      dx < -openT || velocity < -vOpen  { snapOpen(.trailing) }
+            else if dx >  openT || velocity >  vOpen  { snapOpen(.leading)  }
+            else                                       { snapClose()         }
         case .trailing:
-            // Open to left → rightward drag (dx > 0) or rightward flick closes
-            (dx > closeThreshold || velocity > velClose) ? snapClose() : snapOpen(.trailing)
+            (dx > closeT || velocity > vClose) ? snapClose() : snapOpen(.trailing)
         case .leading:
-            // Open to right → leftward drag (dx < 0) or leftward flick closes
-            (dx < -closeThreshold || velocity < -velClose) ? snapClose() : snapOpen(.leading)
+            (dx < -closeT || velocity < -vClose) ? snapClose() : snapOpen(.leading)
         }
     }
 
-    // Spring tuned to iOS Mail / Reminders: snappy attack, minimal overshoot
-    private var snapSpring: Animation {
-        .spring(response: 0.28, dampingFraction: 0.86)
-    }
-
     private func snapOpen(_ side: Side) {
-        let target: CGFloat = side == .trailing ? -panelW : panelW
-        withAnimation(snapSpring) { settledOffset = target }
+        let target: CGFloat = side == .trailing ? -SwipePhysics.panelWidth : SwipePhysics.panelWidth
+        withAnimation(snapAnimation) { settledOffset = target }
         HapticFeedback.light()
     }
 
     func snapClose() {
-        withAnimation(snapSpring) { settledOffset = 0 }
+        withAnimation(snapAnimation) { settledOffset = 0 }
+    }
+}
+
+// MARK: - SwipeActionPanel
+//
+// Visual surface for one side of the swipe action drawer. Sits behind the
+// card and is clipped to the card's 18pt outer corner radius via the
+// surrounding `.clipped()` on the ZStack, so the panel reads as a nested
+// glass surface rather than a bright abutting rectangle.
+//
+// Choreography (driven by `progress`, 0…1+):
+//
+//   0.00 – 0.30   Icon at 0.6× scale, label hidden, soft tone.
+//   0.30 – 1.00   Icon grows to 1.0×, label fades in, tone deepens.
+//
+// The button is a full-bleed tap target so a user who has revealed the
+// panel can hit it without precise aim — matches Apple Mail / Notes.
+private struct SwipeActionPanel: View {
+
+    enum Kind {
+        case leading(isPinned: Bool)
+        case trailing
+    }
+
+    let kind: Kind
+    let progress: CGFloat
+    let onTap: () -> Void
+
+    // Choreography breakpoints
+    private let labelFadeStart: CGFloat = 0.30
+    private let iconScaleMin: CGFloat = 0.6
+    private let iconScaleMax: CGFloat = 1.0
+
+    var body: some View {
+        Button(action: onTap) {
+            ZStack {
+                background
+                content
+            }
+            .frame(width: SwipePhysics.panelWidth)
+            .frame(maxHeight: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        // Hide entirely when fully closed so VoiceOver doesn't announce a
+        // tap target the user can't see, and disable hit testing so a
+        // stray tap on the (still-laid-out) panel behind the card doesn't
+        // route into the action when the panel is meant to be invisible.
+        .opacity(progress > 0.02 ? 1 : 0)
+        .allowsHitTesting(progress > 0.02)
+        .accessibilityHidden(progress <= 0.02)
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    // MARK: - Subviews
+
+    private var background: some View {
+        // Base tone deepens as the panel is revealed. A single brand color
+        // with an opacity ramp reads as a continuous surface waking up,
+        // rather than two distinct fills swapping.
+        baseColor.opacity(0.55 + 0.45 * min(1, progress))
+    }
+
+    private var content: some View {
+        VStack(spacing: 6) {
+            Image(systemName: iconName)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(.white)
+                .scaleEffect(iconScale)
+
+            Text(label)
+                .font(.custom("Inter-Medium", size: 11))
+                .foregroundColor(.white)
+                .opacity(labelOpacity)
+        }
+    }
+
+    // MARK: - Visual derivations
+
+    private var iconName: String {
+        switch kind {
+        case .leading(let isPinned): return isPinned ? "pin.slash.fill" : "pin.fill"
+        case .trailing:              return "trash.fill"
+        }
+    }
+
+    private var label: String {
+        switch kind {
+        case .leading(let isPinned): return isPinned ? "取消置顶" : "置顶"
+        case .trailing:              return "删除"
+        }
+    }
+
+    private var baseColor: Color {
+        switch kind {
+        case .leading(let isPinned): return isPinned ? DSColor.secondary : DSColor.amberArchival
+        case .trailing:              return DSColor.error
+        }
+    }
+
+    private var iconScale: CGFloat {
+        let clamped = max(0, min(1, progress))
+        return iconScaleMin + (iconScaleMax - iconScaleMin) * clamped
+    }
+
+    private var labelOpacity: Double {
+        let clamped = max(0, min(1, (progress - labelFadeStart) / (1 - labelFadeStart)))
+        return Double(clamped)
+    }
+
+    private var accessibilityLabel: String {
+        switch kind {
+        case .leading(let isPinned): return isPinned ? "Unpin memo" : "Pin memo"
+        case .trailing:              return "Delete memo"
+        }
     }
 }
