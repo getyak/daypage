@@ -46,6 +46,28 @@ enum SharePayload: Identifiable, Equatable {
             return "Voice memo card, duration \(s.duration)"
         }
     }
+
+    // MARK: - Smart dispatch
+    //
+    // Pick the most visually compelling default template for a memo, ranked
+    // by sharability: photo > voice > plain text. Falls back to .memo if
+    // the richer snapshots can't be built (missing files, decode failures).
+    //
+    // Users can still switch poster style inside ShareCardSheet — this only
+    // chooses the *initial* payload so a tap stops forcing a content-type
+    // decision before the sheet opens (issue #309 W1-②).
+    static func auto(from memo: Memo) -> SharePayload {
+        let hasPhoto = memo.attachments.contains { $0.kind == "photo" }
+        let hasVoice = memo.attachments.contains { $0.kind == "audio" }
+
+        if hasPhoto, let snap = PhotoSnapshot.from(memo) {
+            return .photo(snap)
+        }
+        if hasVoice, let snap = VoiceSnapshot.from(memo) {
+            return .voice(snap)
+        }
+        return .memo(MemoSnapshot.from(memo))
+    }
 }
 
 // MARK: - Snapshots
