@@ -851,9 +851,14 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
 .wiki__nav-item:focus-visible,
 .queue-item:focus-visible,
 .inbox-card:focus-visible,
-.cite-card:focus-visible {
+.cite-card:focus-visible,
+.recently-compiled-item:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+.recently-compiled-item:hover {
+  background: var(--surface-sunken);
 }
 
 /* === R9b: Hover/active polish === */

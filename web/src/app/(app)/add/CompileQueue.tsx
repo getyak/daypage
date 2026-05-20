@@ -11,6 +11,7 @@ import {
   X,
   Inbox,
 } from "lucide-react";
+import Link from "next/link";
 import { useCompileStream, type MemoProgress } from "@/hooks/useCompileStream";
 
 export interface Memo {
@@ -286,7 +287,11 @@ function MemoRow({
   const iconClass = isRunning ? "queue-item__icon is-fetching" : "queue-item__icon";
 
   return (
-    <div className="queue-item">
+    <Link
+      href={`/memos/${memo.id}`}
+      className="queue-item"
+      aria-label={`View memo: ${preview}`}
+    >
       {/* Status icon */}
       <div className={iconClass}>
         {isDone ? (
@@ -341,12 +346,19 @@ function MemoRow({
       </div>
 
       {/* Right rail: mode chip + (failed → Retry) */}
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+      <div
+        style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           type="button"
           title={`Switch to ${nextMode.toUpperCase()} mode`}
           disabled={isSwitching || isDone}
-          onClick={() => onSwitchMode(nextMode)}
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            onSwitchMode(nextMode);
+          }}
           className={
             currentMode === "full"
               ? "chip chip--accent chip--interactive"
@@ -364,7 +376,11 @@ function MemoRow({
         {isFailed && (
           <button
             type="button"
-            onClick={onRetry}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onRetry();
+            }}
             disabled={isRetrying}
             className="btn btn--secondary btn--sm"
           >
@@ -373,6 +389,6 @@ function MemoRow({
           </button>
         )}
       </div>
-    </div>
+    </Link>
   );
 }
