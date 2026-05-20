@@ -66,6 +66,12 @@ export function RecentlyCompiled({ initialMemos }: { initialMemos: Memo[] }) {
             key={memo.id}
             href={`/memos/${memo.id}`}
             aria-label={`View memo: ${title}`}
+            onKeyDown={(e) => {
+              if (e.key === " ") {
+                e.preventDefault();
+                e.currentTarget.click();
+              }
+            }}
             style={{
               display: "flex",
               alignItems: "center",
@@ -78,7 +84,6 @@ export function RecentlyCompiled({ initialMemos }: { initialMemos: Memo[] }) {
               cursor: "pointer",
               textDecoration: "none",
               color: "inherit",
-              outline: "none",
             }}
             className="recently-compiled-item"
           >

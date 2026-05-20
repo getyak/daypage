@@ -291,6 +291,12 @@ function MemoRow({
       href={`/memos/${memo.id}`}
       className="queue-item"
       aria-label={`View memo: ${preview}`}
+      onKeyDown={(e) => {
+        if (e.key === " ") {
+          e.preventDefault();
+          e.currentTarget.click();
+        }
+      }}
     >
       {/* Status icon */}
       <div className={iconClass}>
