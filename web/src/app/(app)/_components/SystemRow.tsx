@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Settings, User, LogOut } from "lucide-react";
 
 const ICONS = {
@@ -17,6 +19,7 @@ export function SystemRow({
   disabled = false,
   title,
   as = "div",
+  href,
 }: {
   iconName: SystemIconName;
   label: string;
@@ -24,8 +27,11 @@ export function SystemRow({
   disabled?: boolean;
   title?: string;
   as?: "div" | "button";
+  href?: string;
 }) {
   const Icon = ICONS[iconName];
+  const pathname = usePathname();
+  const isActive = href ? pathname === href || pathname.startsWith(`${href}/`) : false;
 
   const inner = (
     <>
@@ -52,6 +58,19 @@ export function SystemRow({
       >
         {inner}
       </button>
+    );
+  }
+
+  if (href && !disabled) {
+    return (
+      <Link
+        href={href}
+        className={`sb__item${isActive ? " is-active" : ""}`}
+        title={title}
+        aria-current={isActive ? "page" : undefined}
+      >
+        {inner}
+      </Link>
     );
   }
 
