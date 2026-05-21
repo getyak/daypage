@@ -25,8 +25,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DayPage — Codex",
-  description: "Your personal AI knowledge system",
+  title: "DayPage",
+  description: "AI-assisted journaling for anyone who wants to record their day.",
 };
 
 export default function RootLayout({

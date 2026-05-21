@@ -225,7 +225,7 @@ export function ChatView({ threadId, threadTitle, initialMessages, threads }: Ch
           )}
           {messages.map((msg) => (
             <div key={msg.id} className={`msg msg--${msg.role}`}>
-              <div className="msg__role">{msg.role === "user" ? "You" : "Codex"}</div>
+              <div className="msg__role">{msg.role === "user" ? "You" : "DayPage"}</div>
               <div className="msg__body">
                 <p>
                   {renderContent(

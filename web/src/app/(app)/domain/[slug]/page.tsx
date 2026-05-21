@@ -157,7 +157,7 @@ export default async function DomainPage({
           style={{ color: "var(--fg-subtle)", marginBottom: "1.25rem" }}
         >
           <Link href="/home" style={{ color: "inherit", textDecoration: "none" }}>
-            Codex
+            DayPage
           </Link>
           {" / Domains"}
         </p>
@@ -249,7 +249,7 @@ export default async function DomainPage({
           href="/home"
           style={{ color: "inherit", textDecoration: "none" }}
         >
-          Codex
+          DayPage
         </Link>
         {" / Domains"}
       </p>

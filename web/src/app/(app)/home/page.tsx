@@ -6,7 +6,7 @@ import { Btn, Card, Chip, Icon, SectionLabel, Sparkline } from "@/components/ui"
 
 const openInboxCount = 4;
 
-// ── Mock data (mirrors design's CODEX namespace) ──────────────────────
+// ── Mock data (mirrors design's DayPage namespace) ────────────────────
 type Observation = {
   lead: string;
   body: string[];
