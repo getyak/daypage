@@ -129,7 +129,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       <div className="sb__group-label">
         <span>System</span>
       </div>
-      <SystemRow iconName="settings" label="Settings" disabled title="coming soon" />
+      <SystemRow iconName="settings" label="Settings" href="/settings" />
       <SystemRow
         iconName="user"
         label={
