@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { SettingsClient } from "./SettingsClient";
 
 export const metadata = {
-  title: "Settings · Codex",
+  title: "Settings · DayPage",
 };
 
 export default async function SettingsPage() {

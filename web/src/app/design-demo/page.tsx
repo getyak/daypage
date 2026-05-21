@@ -4,7 +4,7 @@ import { Btn, Chip, Card, Icon, Sparkline, SectionLabel } from "@/components/ui"
 export default function DesignDemo() {
   return (
     <div className="min-h-screen bg-bg-warm p-10 flex flex-col gap-10 max-w-2xl mx-auto">
-      <h1 className="ds-h1">Codex UI Primitives</h1>
+      <h1 className="ds-h1">DayPage UI Primitives</h1>
 
       {/* Btn */}
       <section className="flex flex-col gap-3">

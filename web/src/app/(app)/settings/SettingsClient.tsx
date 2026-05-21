@@ -190,7 +190,7 @@ export function SettingsClient({ user, signOutAction }: SettingsClientProps) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `codex-settings-${new Date().toISOString().slice(0, 10)}.json`;
+      a.download = `daypage-settings-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -229,7 +229,7 @@ export function SettingsClient({ user, signOutAction }: SettingsClientProps) {
           <h1 className="hero-headline" style={{ fontSize: 36 }}>
             Settings
             <br />
-            <span className="accent">tune Codex to your rhythm.</span>
+            <span className="accent">tune DayPage to your rhythm.</span>
           </h1>
           <p className="hero-sub">
             Changes are saved instantly on this device. Account-wide sync is on the roadmap.
@@ -262,7 +262,7 @@ export function SettingsClient({ user, signOutAction }: SettingsClientProps) {
       </header>
 
       {/* Profile */}
-      <Section icon={UserIcon} title="Profile" hint="Your account on Codex.">
+      <Section icon={UserIcon} title="Profile" hint="Your account on DayPage.">
         <Card>
           <div className="settings-profile">
             <div className="settings-avatar" aria-hidden>
@@ -288,7 +288,7 @@ export function SettingsClient({ user, signOutAction }: SettingsClientProps) {
       </Section>
 
       {/* Appearance */}
-      <Section icon={Palette} title="Appearance" hint="How Codex looks on this device.">
+      <Section icon={Palette} title="Appearance" hint="How DayPage looks on this device.">
         <Card>
           <Row
             label="Theme"
@@ -487,7 +487,7 @@ export function SettingsClient({ user, signOutAction }: SettingsClientProps) {
       <Section icon={Info} title="About">
         <Card>
           <Row
-            label="Codex"
+            label="DayPage"
             description="v0.4 · private build · built on Next.js"
             control={
               <Chip tone="default">

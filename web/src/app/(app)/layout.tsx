@@ -80,7 +80,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     <>
       {/* Brand */}
       <div className="sb__brand">
-        <div className="sb__brand-mark">CODEX</div>
+        <div className="sb__brand-mark">DAYPAGE</div>
         <div className="sb__brand-tag">v0.4 · private</div>
       </div>
 
@@ -181,7 +181,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
             {/* Hamburger — visible on mobile only, inside MobileSidebarDrawer context */}
             <HamburgerButton />
-            <span className="ds-section-label">Codex</span>
+            <span className="ds-section-label">DayPage</span>
             <span style={{ color: "var(--fg-subtle)", fontSize: "0.75rem" }}>/</span>
             <BreadcrumbLabel />
           </div>

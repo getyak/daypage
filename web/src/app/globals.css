@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* ─── Codex Design Tokens ───────────────────────────────────────── */
+/* ─── DayPage Design Tokens ─────────────────────────────────────── */
 :root {
   /* Backgrounds */
   --bg-warm:        #FAF8F6;

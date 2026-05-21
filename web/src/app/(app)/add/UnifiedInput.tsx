@@ -599,10 +599,10 @@ export function UnifiedInput() {
       <Dialog
         open={bookmarkletOpen}
         onClose={() => setBookmarkletOpen(false)}
-        title="Save to Codex — Bookmarklet"
+        title="Save to DayPage — Bookmarklet"
       >
         <p style={{ margin: "0 0 1rem", fontSize: "0.875rem", color: "var(--fg-secondary, #555)" }}>
-          Drag the link below to your bookmarks bar. Then click it on any page to send it to Codex.
+          Drag the link below to your bookmarks bar. Then click it on any page to send it to DayPage.
         </p>
         {/* Draggable bookmarklet link */}
         <div style={{ marginBottom: "1rem", textAlign: "center" }}>
@@ -624,7 +624,7 @@ export function UnifiedInput() {
               cursor: "grab",
             }}
           >
-            📎 Save to Codex
+            📎 Save to DayPage
           </a>
         </div>
         {/* Source code block + copy button */}
