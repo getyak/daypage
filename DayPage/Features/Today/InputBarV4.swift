@@ -150,20 +150,6 @@ struct InputBarV4: View {
         composerState == .open || composerState == .expanding || !text.isEmpty || !pendingAttachments.isEmpty || pendingLocation != nil
     }
 
-    /// Whether the visible content layer should render the expanded composer.
-    /// Unlike `isComposing`, this excludes the `.expanding` transient — so the
-    /// branch swap happens *inside* the spring's withAnimation block (when
-    /// state lands on `.open`) instead of snapping at the start of expansion.
-    /// Content-bearing predicates (text/attachments/location) still force the
-    /// composer on, so externally-set drafts surface immediately. (#314)
-    private var showsComposerContent: Bool {
-        composerState == .open
-            || composerState == .collapsing
-            || !text.isEmpty
-            || !pendingAttachments.isEmpty
-            || pendingLocation != nil
-    }
-
     private var overlayMode: RecordingOverlayMode? {
         switch pressToTalkPhase {
         case .idle, .preRecording: return nil
@@ -212,13 +198,21 @@ struct InputBarV4: View {
                 locationChipRow(loc: loc)
             }
 
-            // Morphing surface (#314): a single rounded-rect background that
-            // grows from the compact pill geometry into the expanded composer.
-            // The shape is always present — only its corner radius and the
-            // intrinsic height of its content change, so SwiftUI can animate
-            // every in-between frame continuously rather than swapping two
-            // unrelated shapes.
-            morphingInputSurface
+            // Liquid Morph — idle capsule ↔ composing card.
+            // matchedGeometryEffect(id: .surface) carries the background shape
+            // through the spring so every in-between frame is geometrically
+            // continuous (AC: 录屏验证任意一帧截图取出来形状都能解释从哪来).
+            if isComposing {
+                composingCardMorph
+            } else {
+                VStack(spacing: 8) {
+                    streamDockMorph
+                    dockHintLabel
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .padding(.bottom, 14)
+            }
         }
         // V4: transparent dock — ambient page background shows through.
         // Warm gradient veil fades the list content behind the dock.
@@ -293,132 +287,75 @@ struct InputBarV4: View {
         }
     }
 
-    // MARK: - Input Surface (idle Capsule ↔ composer RoundedRectangle)
+    // MARK: - STREAM Dock (idle state)
     //
-    // Idle and composer carry their own backgrounds so each can use the shape
-    // that actually fits — a true Capsule for the idle three-button pill (so
-    // the half-circle end caps read as a real pill, not a small card), and a
-    // 24pt RoundedRectangle for the expanded composer card. Linearly morphing
-    // between Capsule and RoundedRectangle is not geometrically meaningful
-    // (#258); the two branches cross-fade inside one VStack and the existing
-    // spring animates the height change.
+    // Centered three-slot capsule, faithful to VariationStream.jsx:
+    //   - 40pt `+` (more)        opens attachment menu
+    //   - 56×44 amber mic-hero   tap = Flomo record · long-press = WeChat send
+    //   - 40pt pen               expands to text composer
+    //
+    // The capsule itself is wrapped in `.ultraThinMaterial` with a layered
+    // shadow stack approximating the iOS 26 Liquid Glass treatment from the
+    // design canvas (inner highlight + soft drop shadow).
 
-    private var morphingInputSurface: some View {
-        // Two visually distinct shapes — Capsule for idle (carried on
-        // dockContent itself), RoundedRectangle 24pt for the expanded
-        // composer. A linear morph between them is not geometrically
-        // meaningful (#258), so the two branches cross-fade inside the
-        // same VStack and the surrounding spring animates the height change.
-        VStack(spacing: 6) {
-            if showsComposerContent {
-                composerContent
-                    .background(
-                        RoundedRectangle(cornerRadius: 24, style: .continuous)
-                            .fill(.ultraThinMaterial)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                                    .strokeBorder(
-                                        LinearGradient(
-                                            colors: [Color.white.opacity(0.55), Color.white.opacity(0.12)],
-                                            startPoint: .top, endPoint: .bottom
-                                        ),
-                                        lineWidth: 0.6
-                                    )
-                            )
-                            .shadow(color: Color(hex: "2D1E0A").opacity(0.10), radius: 24, x: 0, y: 8)
-                            .shadow(color: Color(hex: "2D1E0A").opacity(0.06), radius: 4, x: 0, y: 1)
-                    )
-                    .padding(.horizontal, 16)
-                    .transition(.opacity)
-            } else {
-                dockContent
-                    .transition(.opacity)
-                dockHintLabel
-                    .transition(.opacity)
-            }
-        }
-        .padding(.top, 10)
-        .padding(.bottom, showsComposerContent ? 14 : 8)
-        .animation(morphAnimation, value: showsComposerContent)
-    }
-
-    // Idle dock — three equal-weight icon+label keys inside a true Capsule.
-    // Width is content-driven (HStack hugs its children), so the pill sits
-    // centered with generous horizontal breathing room on either side. The
-    // capsule background lives on this view (not on the morphing surface)
-    // because the expanded composer uses a different shape entirely (#258).
-    private var dockContent: some View {
-        HStack(spacing: 4) {
+    // STREAM dock — glass capsule wrapping three keys (design spec: glassStyle hi + radius 999).
+    // US-008: matchedGeometryEffect on the capsule background so it morphs into
+    // the composing card shape. The mic orb also carries its own effect so it
+    // slides to the card's bottom-left corner rather than disappearing.
+    private var streamDockMorph: some View {
+        HStack(spacing: 6) {
             // LEFT — More (+)
-            dockLabelButton(
-                systemImage: "plus",
-                title: NSLocalizedString("input.dock.more", comment: ""),
-                accessibilityLabel: NSLocalizedString("input.a11y.more_attachments", comment: "")
-            ) {
+            dockSideButton(systemImage: "plus", accessibilityLabel: NSLocalizedString("input.a11y.more_attachments", comment: "")) {
                 showAttachmentMenu = true
             }
 
-            // CENTER — mic. Press-to-talk is still the hero gesture but the
-            // visual weight is restrained to match the icon+label siblings:
-            // a 22pt mic glyph paired with a "Record" label inside the same
-            // capsule tap target. PressToTalkButton sits behind the HStack as
-            // the gesture host; the visual is the HStack itself.
-            HStack(spacing: 6) {
-                PressToTalkButton(
-                    onPressStart: handlePressToTalkStart,
-                    onReleaseSend: handlePressToTalkReleaseSend,
-                    onReleaseCancel: handlePressToTalkReleaseCancel,
-                    onReleaseTranscribe: handlePressToTalkReleaseTranscribe,
-                    onPhaseChange: { pressToTalkPhase = $0 },
-                    onTapShortRelease: handleMicTap,
-                    size: 22,
-                    idleBackgroundColor: .clear,
-                    idleIconColor: DSColor.inkPrimary
-                )
-                .frame(width: 22, height: 22)
-                Text(NSLocalizedString("input.dock.record", comment: ""))
-                    .font(.system(size: 14, weight: .regular))
-                    .foregroundStyle(DSColor.inkPrimary)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .contentShape(Capsule())
+            // CENTER — amber mic orb.
+            // US-010: matchedGeometryEffect removed — the composing card no longer
+            // hosts the orb landing target (toolbar moved to .keyboard placement).
+            PressToTalkButton(
+                onPressStart: handlePressToTalkStart,
+                onReleaseSend: handlePressToTalkReleaseSend,
+                onReleaseCancel: handlePressToTalkReleaseCancel,
+                onReleaseTranscribe: handlePressToTalkReleaseTranscribe,
+                onPhaseChange: { pressToTalkPhase = $0 },
+                onTapShortRelease: handleMicTap,
+                size: 64,
+                idleBackgroundColor: DSColor.amberAccent,
+                idleIconColor: .white
+            )
+            .frame(width: 64, height: 64)
+            .shadow(color: Color(hex: "5D3000").opacity(0.50), radius: 28, x: 0, y: 12)
+            .shadow(color: Color(hex: "5D3000").opacity(0.20), radius: 4, x: 0, y: 2)
             .accessibilityLabel(NSLocalizedString("input.a11y.mic", comment: ""))
             .accessibilityHint(NSLocalizedString("input.a11y.mic_hint_full", comment: ""))
 
-            // RIGHT — Text composer expand
-            dockLabelButton(
-                systemImage: "square.and.pencil",
-                title: NSLocalizedString("input.dock.text", comment: ""),
-                accessibilityLabel: NSLocalizedString("input.a11y.write_text", comment: "")
-            ) {
+            // RIGHT — Aa (text expand). Fades out as composer opens (AC: Aa 淡出).
+            dockTextButton(accessibilityLabel: NSLocalizedString("input.a11y.write_text", comment: "")) {
                 transition(to: .expanding)
                 isFocused = true
             }
             .accessibilityIdentifier("expand-text-composer")
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 6)
-        .background(
-            Capsule(style: .continuous)
-                .fill(Color.white.opacity(0.92))
-                .overlay(
-                    Capsule(style: .continuous)
-                        .strokeBorder(Color(hex: "2D1E0A").opacity(0.06), lineWidth: 0.5)
-                )
-                .shadow(color: Color(hex: "2D1E0A").opacity(0.06), radius: 10, x: 0, y: 3)
-                .shadow(color: Color(hex: "2D1E0A").opacity(0.04), radius: 2, x: 0, y: 1)
-        )
+        .padding(6)
+        // NOTE: matchedGeometryEffect was removed — the idle Capsule and the
+        // composing RoundedRectangle (20pt) cannot be linearly interpolated
+        // by SwiftUI as a single shape, and sharing one ID across two
+        // mutually-exclusive branches caused the layout system to re-measure
+        // both candidates on every body re-evaluation. The branches simply
+        // cross-fade now via the existing isComposing condition. (#258)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(
+            LinearGradient(
+                colors: [Color.white.opacity(0.55), Color.white.opacity(0.12)],
+                startPoint: .top, endPoint: .bottom),
+            lineWidth: 0.6))
+        .shadow(color: Color(hex: "2D1E0A").opacity(0.10), radius: 24, x: 0, y: 8)
+        .shadow(color: Color(hex: "2D1E0A").opacity(0.06), radius: 4, x: 0, y: 1)
     }
 
-    // Icon + text label key — Get-style: SF Symbol on the left, label on the
-    // right, both centered as a single tap target. Used for the "+ More" and
-    // "✎ Text" slots; mic uses an analogous layout but routes through
-    // PressToTalkButton so it can host the long-press gesture.
     @ViewBuilder
-    private func dockLabelButton(
+    private func dockSideButton(
         systemImage: String,
-        title: String,
         accessibilityLabel: String,
         action: @escaping () -> Void
     ) -> some View {
@@ -426,16 +363,33 @@ struct InputBarV4: View {
             Haptics.soft()
             action()
         } label: {
-            HStack(spacing: 6) {
-                Image(systemName: systemImage)
-                    .font(.system(size: 15, weight: .regular))
-                Text(title)
-                    .font(.system(size: 14, weight: .regular))
-            }
-            .foregroundStyle(DSColor.inkPrimary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .contentShape(Capsule())
+            Image(systemName: systemImage)
+                .font(.system(size: 18, weight: .regular))
+                .foregroundStyle(DSColor.inkPrimary)
+                .frame(width: 44, height: 44)
+                .background(Color.clear)
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(accessibilityLabel)
+    }
+
+    // "Aa" text-expand key — matches design spec's third dock slot
+    @ViewBuilder
+    private func dockTextButton(
+        accessibilityLabel: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button {
+            Haptics.soft()
+            action()
+        } label: {
+            Text("Aa")
+                .font(DSFonts.serif(size: 16, weight: .medium))
+                .foregroundStyle(DSColor.inkPrimary)
+                .frame(width: 44, height: 44)
+                .background(Color.clear)
+                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
@@ -513,11 +467,7 @@ struct InputBarV4: View {
             )
     }
 
-    // Composer content rendered inside the morphing surface (#314).
-    // Background/border/shadow now live on the shared surface so the pill ↔
-    // card morph stays geometrically continuous; this view only contributes
-    // intrinsic height + interior layout.
-    private var composerContent: some View {
+    private var composingCardMorph: some View {
         VStack(spacing: 0) {
             // US-011: drag-to-collapse handle
             HStack {
@@ -634,8 +584,21 @@ struct InputBarV4: View {
                 .animation(.easeInOut(duration: 0.15), value: templateSuffix.isEmpty)
             }
         }
-        // Background / border / shadow intentionally not applied here —
-        // morphingInputSurface owns the single shared shape (#314).
+        // NOTE: matchedGeometryEffect removed — see streamDockMorph for context. (#258)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.55), Color.white.opacity(0.12)],
+                        startPoint: .top, endPoint: .bottom),
+                    lineWidth: 0.6)
+        )
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 14)
+        .shadow(color: Color(hex: "2D1E0A").opacity(0.10), radius: 24, x: 0, y: 8)
+        .shadow(color: Color(hex: "2D1E0A").opacity(0.06), radius: 4, x: 0, y: 1)
     }
 
     // MARK: - Keyboard Toolbar (US-010)
