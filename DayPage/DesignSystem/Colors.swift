@@ -144,66 +144,92 @@ enum DSColor {
 
     static let amberArchival = Color(hex: "5D3000")
 
-    // MARK: - Legacy tokens (kept for compile compatibility; migrate to v3 tokens above)
+    // MARK: - Legacy tokens (v1 Material black-and-white era)
+    //
+    // These were imported from a generic Material Design palette before
+    // the v4 Liquid Glass + warm-amber language was established. The pure
+    // black `primary` and gray `surface*` were visually hostile to the
+    // warm-cream glass surfaces, so all callers have been re-pointed at
+    // v4 tokens via the mapping below. NEW code MUST NOT use these — go
+    // straight to the v4 tokens (amberAccent / glassStd / inkPrimary ...).
+    //
+    // Migration map (use when editing a file that still calls these):
+    //
+    //   primary               → amberDeep            (or amberAccent for interactive)
+    //   onPrimary             → Color.white
+    //   surface / background  → bgWarm
+    //   surfaceContainer*     → glassLo / glassStd / glassHi (by density)
+    //   onSurface             → inkPrimary
+    //   onSurfaceVariant      → inkMuted
+    //   outline               → glassRim
+    //   outlineVariant        → inkFaint
+    //   error / onError       → errorRed / Color.white
+    //   errorContainer        → errorSoft
+    //   warning               → warningAmber
+    //   warningContainer      → warningSoft
+    //
+    // Phase B will physically delete each of these once its call sites
+    // have been migrated. For now they are kept as aliases so existing
+    // call sites keep compiling against the corrected visual values.
 
-    static let primary = Color(hex: "000000")
-    static let onPrimary = Color(hex: "e2e2e2")
-    static let primaryContainer = Color(hex: "3b3b3b")
-    static let onPrimaryContainer = Color(hex: "ffffff")
-    static let primaryFixed = Color(hex: "5e5e5e")
-    static let primaryFixedDim = Color(hex: "474747")
-    static let onPrimaryFixed = Color(hex: "ffffff")
-    static let onPrimaryFixedVariant = Color(hex: "e2e2e2")
+    static let primary = amberDeep
+    static let onPrimary = Color.white
+    static let primaryContainer = amberAccent
+    static let onPrimaryContainer = Color.white
+    static let primaryFixed = amberDeep
+    static let primaryFixedDim = amberAccent
+    static let onPrimaryFixed = Color.white
+    static let onPrimaryFixedVariant = Color.white.opacity(0.85)
 
-    static let secondary = Color(hex: "5f5e5e")
-    static let onSecondary = Color(hex: "ffffff")
-    static let secondaryContainer = Color(hex: "d6d4d3")
-    static let onSecondaryContainer = Color(hex: "1b1c1c")
-    static let secondaryFixed = Color(hex: "c8c6c6")
-    static let secondaryFixedDim = Color(hex: "acabab")
-    static let onSecondaryFixed = Color(hex: "1b1c1c")
-    static let onSecondaryFixedVariant = Color(hex: "3b3b3b")
+    static let secondary = inkMuted
+    static let onSecondary = Color.white
+    static let secondaryContainer = glassLo
+    static let onSecondaryContainer = inkPrimary
+    static let secondaryFixed = glassStd
+    static let secondaryFixedDim = glassLo
+    static let onSecondaryFixed = inkPrimary
+    static let onSecondaryFixedVariant = inkMuted
 
-    static let tertiary = Color(hex: "3b3b3c")
-    static let onTertiary = Color(hex: "e3e2e2")
-    static let tertiaryContainer = Color(hex: "747474")
-    static let onTertiaryContainer = Color(hex: "ffffff")
-    static let tertiaryFixed = Color(hex: "5e5e5e")
-    static let tertiaryFixedDim = Color(hex: "464747")
-    static let onTertiaryFixed = Color(hex: "ffffff")
-    static let onTertiaryFixedVariant = Color(hex: "e3e2e2")
+    static let tertiary = amberAccent
+    static let onTertiary = Color.white
+    static let tertiaryContainer = amberSoft
+    static let onTertiaryContainer = amberDeep
+    static let tertiaryFixed = amberSoft
+    static let tertiaryFixedDim = amberRim
+    static let onTertiaryFixed = amberDeep
+    static let onTertiaryFixedVariant = amberDeep
 
-    static let surface = Color(hex: "f9f9f9")
-    static let surfaceDim = Color(hex: "dadada")
-    static let surfaceBright = Color(hex: "f9f9f9")
-    static let surfaceContainerLowest = Color(hex: "ffffff")
-    static let surfaceContainerLow = Color(hex: "f3f3f3")
-    static let surfaceContainer = Color(hex: "eeeeee")
-    static let surfaceContainerHigh = Color(hex: "e8e8e8")
-    static let surfaceContainerHighest = Color(hex: "e2e2e2")
+    static let surface = bgWarm
+    static let surfaceDim = glassLo
+    static let surfaceBright = bgWarm
+    static let surfaceContainerLowest = surfaceWhite
+    static let surfaceContainerLow = glassLo
+    static let surfaceContainer = glassStd
+    static let surfaceContainerHigh = glassHi
+    static let surfaceContainerHighest = glassHi
 
-    static let onSurface = Color(hex: "1b1b1b")
-    static let onSurfaceVariant = Color(hex: "474747")
-    static let inverseSurface = Color(hex: "303030")
-    static let inverseOnSurface = Color(hex: "f1f1f1")
+    static let onSurface = inkPrimary
+    static let onSurfaceVariant = inkMuted
+    static let inverseSurface = inkPrimary
+    static let inverseOnSurface = bgWarm
 
-    static let background = Color(hex: "f9f9f9")
-    static let onBackground = Color(hex: "1b1b1b")
+    static let background = bgWarm
+    static let onBackground = inkPrimary
 
-    static let outline = Color(hex: "777777")
-    static let outlineVariant = Color(hex: "c6c6c6")
+    static let outline = glassRim
+    static let outlineVariant = inkFaint
 
-    static let error = Color(hex: "ba1a1a")
-    static let onError = Color(hex: "ffffff")
-    static let errorContainer = Color(hex: "ffdad6")
-    static let onErrorContainer = Color(hex: "410002")
+    static let error = errorRed
+    static let onError = Color.white
+    static let errorContainer = errorSoft
+    static let onErrorContainer = errorRed
 
-    static let warning = Color(hex: "B45309")
-    static let warningContainer = Color(hex: "FEF3C7")
-    static let onWarningContainer = Color(hex: "78350F")
+    static let warning = warningAmber
+    static let warningContainer = warningSoft
+    static let onWarningContainer = warningAmber
 
-    static let surfaceTint = Color(hex: "5e5e5e")
-    static let inversePrimary = Color(hex: "c6c6c6")
+    static let surfaceTint = amberAccent
+    static let inversePrimary = amberSoft
 }
 
 // MARK: - Surface Elevated Shadow ViewModifier

@@ -1,6 +1,14 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Motion Tokens
+//
+// Tokens are the canonical animation curves used across the app.
+// To honor the system "Reduce Motion" accessibility setting, prefer
+// `.dsAnimation(...)` on the call site (or use `Motion.respectReduceMotion(_:)`)
+// rather than `withAnimation(Motion.spring)` directly — the helper
+// downgrades to an instant `.linear(duration: 0.001)` when the user
+// has Reduce Motion enabled in Settings → Accessibility.
 
 enum Motion {
     // Quick opacity transitions (toasts, overlays).
@@ -17,4 +25,25 @@ enum Motion {
     static let breathing: Animation = .easeInOut(duration: 1.8).repeatForever(autoreverses: true)
     // Back-swipe navigation gesture following deceleration.
     static let swipeBack: Animation = .timingCurve(0.4, 0.0, 0.2, 1, duration: 0.30)
+
+    // MARK: - Reduce-Motion Helpers
+
+    /// Returns the given animation, or a near-instant equivalent when the
+    /// user has enabled "Reduce Motion" in iOS Settings → Accessibility.
+    static func respectReduceMotion(_ base: Animation) -> Animation {
+        UIAccessibility.isReduceMotionEnabled
+            ? .linear(duration: 0.001)
+            : base
+    }
+}
+
+extension View {
+    /// Apply a DayPage animation that automatically respects the
+    /// user's Reduce Motion accessibility setting. Use this in place of
+    /// `.animation(Motion.xxx, value:)` for any motion that involves
+    /// translation, scale, or parallax (i.e. could cause vestibular
+    /// discomfort). Pure opacity fades may keep using the raw token.
+    func dsAnimation<V: Equatable>(_ animation: Animation, value: V) -> some View {
+        self.animation(Motion.respectReduceMotion(animation), value: value)
+    }
 }
