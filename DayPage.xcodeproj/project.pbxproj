@@ -131,6 +131,12 @@
 		DBB277156934B2FA96E16077 /* WatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5BB61FECBCF7AB756E7A6CE /* WatchApp.swift */; };
 		DS0000001 /* Motion.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000001 /* Motion.swift */; };
 		DS0000002 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000002 /* Haptics.swift */; };
+		DS0000010 /* Radius.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000010 /* Radius.swift */; };
+		DS0000011 /* Elevation.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000011 /* Elevation.swift */; };
+		DS0000012 /* DSButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000012 /* DSButton.swift */; };
+		DS0000013 /* DSChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000013 /* DSChip.swift */; };
+		DS0000014 /* DSBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000014 /* DSBanner.swift */; };
+		DS0000015 /* DSNavRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000015 /* DSNavRow.swift */; };
 		E20A68158C940060066B2B73 /* WatchReceiveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11E0748715A251EE4A0168A /* WatchReceiveService.swift */; };
 		E4AC46FA495D4BD178789A14 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0881AB423FF6F12FCDE27C5B /* Assets.xcassets */; };
 		EA575F353C6AFD5EA7FF9A6F /* QuickCaptureWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7909ED56F96754E4C4FA21CC /* QuickCaptureWidget.swift */; };
@@ -334,6 +340,12 @@
 		DC21412D29A6FB268CE43C58 /* DraftStorage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DraftStorage.swift; sourceTree = "<group>"; };
 		DS1000001 /* Motion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Motion.swift; sourceTree = "<group>"; };
 		DS1000002 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
+		DS1000010 /* Radius.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Radius.swift; sourceTree = "<group>"; };
+		DS1000011 /* Elevation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Elevation.swift; sourceTree = "<group>"; };
+		DS1000012 /* DSButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSButton.swift; sourceTree = "<group>"; };
+		DS1000013 /* DSChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSChip.swift; sourceTree = "<group>"; };
+		DS1000014 /* DSBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSBanner.swift; sourceTree = "<group>"; };
+		DS1000015 /* DSNavRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSNavRow.swift; sourceTree = "<group>"; };
 		E54B333332A1175CD3B31883 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		EF29E708CBF93A6DD500484C /* HeroBannerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HeroBannerView.swift; sourceTree = "<group>"; };
 		ES1000001 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
@@ -517,6 +529,12 @@
 				A20000053 /* InputTokens.swift */,
 				DS1000001 /* Motion.swift */,
 				DS1000002 /* Haptics.swift */,
+				DS1000010 /* Radius.swift */,
+				DS1000011 /* Elevation.swift */,
+				DS1000012 /* DSButton.swift */,
+				DS1000013 /* DSChip.swift */,
+				DS1000014 /* DSBanner.swift */,
+				DS1000015 /* DSNavRow.swift */,
 			);
 			path = DesignSystem;
 			sourceTree = "<group>";
@@ -1167,6 +1185,12 @@
 				ES0000003 /* GlassTabBar.swift in Sources */,
 				DS0000001 /* Motion.swift in Sources */,
 				DS0000002 /* Haptics.swift in Sources */,
+				DS0000010 /* Radius.swift in Sources */,
+				DS0000011 /* Elevation.swift in Sources */,
+				DS0000012 /* DSButton.swift in Sources */,
+				DS0000013 /* DSChip.swift in Sources */,
+				DS0000014 /* DSBanner.swift in Sources */,
+				DS0000015 /* DSNavRow.swift in Sources */,
 				FT0000001 /* DayOrbView.swift in Sources */,
 				MD0000001 /* MemoDetailView.swift in Sources */,
 				MD0000002 /* MemoDetailViewModel.swift in Sources */,

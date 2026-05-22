@@ -1,118 +1,45 @@
 import SwiftUI
 
-// MARK: - Global Corner Radius Override
-// All DS components use cornerRadius(0). UIKit bridging views should also
-// have their layer.cornerRadius set to 0 at init.
+// MARK: - Components.swift (slimmed)
+//
+// This file used to host the v1 Material black-and-white component set
+// (PrimaryStampButton, SecondaryOutlineButton, FieldChip, TimeChip,
+// CardContainer, SectionHeading, SurfaceElevatedShadow). Those structs
+// had no external callers and conflicted with the v4 Liquid Glass +
+// warm-amber language, so they were removed during the design-system
+// converge sweep. The replacements live under DesignSystem/Components/:
+//
+//   PrimaryStampButton  → Button { … }.buttonStyle(.dsPrimary)
+//   SecondaryOutlineBtn → Button { … }.buttonStyle(.dsSecondary)
+//   FieldChip / TimeChip → DSChip(label:, icon:, kind:)
+//   CardContainer       → ZStack { … }.liquidGlassCard()
+//   SectionHeading      → use DSType.sectionLabel directly
+//   SurfaceElevatedShadow → .elevation(.glass)
+//
+// The three structs below survived because they have live callers in
+// Archive / Daily / Entity views. They have been rewritten on top of
+// DS tokens so their visual language matches the rest of the app.
 
-// MARK: - Primary Stamp Button
+// MARK: - Status Badge
 
-struct PrimaryStampButton: View {
-    let title: String
-    let action: () -> Void
-    var isEnabled: Bool = true
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .sectionLabelStyle()
-                .foregroundColor(DSColor.onPrimary)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .frame(maxWidth: .infinity)
-                .background(isEnabled ? DSColor.primary : DSColor.onSurfaceVariant)
-                .cornerRadius(0)
-        }
-        .disabled(!isEnabled)
-    }
+enum BadgeStyle {
+    case verified
+    case metadata
 }
 
-// MARK: - Secondary Outline Button
-
-struct SecondaryOutlineButton: View {
-    let title: String
-    let action: () -> Void
-    var isEnabled: Bool = true
-
-    var body: some View {
-        Button(action: action) {
-            Text(title)
-                .sectionLabelStyle()
-                .foregroundColor(isEnabled ? DSColor.primary : DSColor.onSurfaceVariant)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
-                .frame(maxWidth: .infinity)
-                .background(DSColor.surface)
-                .cornerRadius(0)
-                .overlay(
-                    Rectangle()
-                        .stroke(isEnabled ? DSColor.primary : DSColor.outlineVariant, lineWidth: 1)
-                )
-        }
-        .disabled(!isEnabled)
-    }
-}
-
-// MARK: - Field Chip
-
-struct FieldChip: View {
+struct StatusBadge: View {
     let label: String
-    let value: String
-    var onTap: (() -> Void)?
+    let style: BadgeStyle
 
     var body: some View {
-        Button(action: { onTap?() }) {
-            HStack(spacing: 4) {
-                Text(label)
-                    .monoLabelStyle(size: 9)
-                    .foregroundColor(DSColor.onSurfaceVariant)
-                Text(value)
-                    .monoLabelStyle(size: 9)
-                    .foregroundColor(DSColor.onSurface)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(DSColor.surfaceContainerHigh)
-            .cornerRadius(0)
-        }
-        .buttonStyle(.plain)
+        DSChip(
+            label: label,
+            kind: style == .verified ? .primary : .mono
+        )
     }
 }
 
-// MARK: - Time Chip
-
-struct TimeChip: View {
-    let time: String
-
-    var body: some View {
-        Text(time)
-            .monoLabelStyle(size: 10)
-            .foregroundColor(DSColor.onSurfaceVariant)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
-            .background(DSColor.surfaceContainer)
-            .cornerRadius(0)
-    }
-}
-
-// MARK: - Section Heading with Horizontal Rule
-
-struct SectionHeading: View {
-    let title: String
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Text(title)
-                .sectionLabelStyle()
-                .foregroundColor(DSColor.onSurface)
-                .fixedSize()
-            Rectangle()
-                .fill(DSColor.outlineVariant)
-                .frame(height: 1)
-        }
-    }
-}
-
-// MARK: - Wikilink Text
+// MARK: - Wikilink Text (single-link inline)
 
 struct WikilinkText: View {
     let text: String
@@ -121,17 +48,18 @@ struct WikilinkText: View {
     var body: some View {
         Text(text)
             .bodySMStyle()
-            .foregroundColor(DSColor.amberArchival)
-            .underline(false)
+            .foregroundColor(DSColor.amberAccent)
             .onTapGesture { onTap?() }
     }
 }
 
 // MARK: - Wikilink Body Text
+//
+// Renders a paragraph that may contain [[slug]] or [[slug|display]]
+// wiki-links. Links render in amber; tapping any of them triggers the
+// callback with the *first* link's inner slug — sufficient for
+// single-entity paragraphs which is the common case.
 
-/// 渲染可能包含 [[slug]] 或 [[slug|显示名称]] 维基链接的文本块。
-/// 维基链接以琥珀色渲染；点击任何维基链接都会触发第一个
-/// 找到的链接的回调，这对于大多数单实体段落来说已经足够。
 struct WikilinkBodyText: View {
     let text: String
     let onWikilinkTap: (String) -> Void
@@ -176,11 +104,11 @@ struct WikilinkBodyText: View {
             if seg.isLink {
                 return acc + Text(seg.content)
                     .font(.custom("Inter-Medium", size: 15))
-                    .foregroundColor(DSColor.amberArchival)
+                    .foregroundColor(DSColor.amberAccent)
             } else {
                 return acc + Text(seg.content)
                     .font(.custom("Inter-Regular", size: 15))
-                    .foregroundColor(DSColor.onSurface)
+                    .foregroundColor(DSColor.inkPrimary)
             }
         }
 
@@ -194,49 +122,5 @@ struct WikilinkBodyText: View {
                 .lineSpacing(3)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-    }
-}
-
-// MARK: - Status Badge
-
-enum BadgeStyle {
-    case verified    // black bg / white text
-    case metadata    // gray bg / gray text
-}
-
-struct StatusBadge: View {
-    let label: String
-    let style: BadgeStyle
-
-    var body: some View {
-        Text(label)
-            .monoLabelStyle(size: 9)
-            .foregroundColor(style == .verified ? DSColor.onPrimary : DSColor.onSurfaceVariant)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
-            .background(style == .verified ? DSColor.primary : DSColor.surfaceContainerHigh)
-            .cornerRadius(0)
-    }
-}
-
-// MARK: - Card Container (surface-container with optional left border)
-
-struct CardContainer<Content: View>: View {
-    let content: () -> Content
-    var leadingBorderColor: Color?
-
-    var body: some View {
-        HStack(spacing: 0) {
-            if let borderColor = leadingBorderColor {
-                Rectangle()
-                    .fill(borderColor)
-                    .frame(width: 4)
-            }
-            content()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
-                .background(DSColor.surfaceContainer)
-        }
-        .cornerRadius(0)
     }
 }
