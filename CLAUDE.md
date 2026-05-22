@@ -12,7 +12,7 @@ DayPage: a personal logging tool centered on daily raw data capture. Users dump,
 |---|---|---|
 | Platform | **iOS 16.0+**, Swift 5 | Single Xcode target `DayPage.app`; direct SPM deps: **Supabase** (supabase-swift), **Sentry** (sentry-cocoa); transitive: swift-clocks, swift-concurrency-extras, swift-http-types, xctest-dynamic-overlay |
 | UI | **SwiftUI** (pure) | `UITabBarAppearance` is the primary UIKit touchpoint (`RootView.swift`). `UIViewControllerRepresentable` wrappers (`ShareSheet`, `CameraPickerView`, `DocumentPickerView`) are used where SwiftUI has no native equivalent (`UIActivityViewController`, `UIImagePickerController`, `UIDocumentPickerViewController`). |
-| Navigation | **Sidebar** | Left drawer (280pt) — Today / Archive / Graph (disabled, Post-MVP); no bottom TabBar |
+| Navigation | **Sidebar** | Left drawer (280pt) — Today / Archive / Graph; no bottom TabBar |
 | State | `ObservableObject` + `@Published` + `@StateObject`, `@MainActor` services | No `@Observable` macro (Swift 5 constraint) |
 | Persistence | **File system** — YAML front-matter + Markdown | `vault/raw/YYYY-MM-DD.md`, multi-memo separated by `\n\n---\n\n`. Atomic writes via `FileManager.replaceItem`. No Core Data / SwiftData |
 | YAML / Markdown | Hand-written parser in `Models/Memo.swift` | No external Markdown library |
@@ -40,7 +40,7 @@ DayPage/
   Features/
     Today/          TodayView + TodayViewModel (268 lines)
     Archive/        ArchiveView (655 lines, calendar + list)
-    Graph/          GraphView (18-line placeholder — Post-MVP, see PRD NG-3)
+    Graph/          GraphView + GraphViewModel (force-layout knowledge graph, node tap → EntityPage, search + date filter; ~594 lines)
   Models/           Memo, Attachment, YAML parser
   Services/         RawStorage, Location, Weather, Photo, Voice, Compilation, BackgroundCompilation
   Config/           GeneratedSecrets (gitignored)
@@ -48,7 +48,7 @@ DayPage/
 
 **CODEX frontend**: lives in this repo's `web/` directory (Next.js) — the same app served at `localhost:3000`. Its env vars (e.g. `DASHSCOPE_API_KEY`) must be configured in `web/.env.local`, not in the iOS-side `Config/GeneratedSecrets.swift`.
 
-**Pipeline**: Today (raw input) → AI compilation → Daily Page (structured diary) → Entity Pages → Graph (Post-MVP knowledge network).
+**Pipeline**: Today (raw input) → AI compilation → Daily Page (structured diary) → Entity Pages → Graph (knowledge graph view).
 
 ## Coding Conventions
 
@@ -66,8 +66,6 @@ Design assets have been removed. **Use the current source code as the authoritat
 
 - Navigation: left sidebar drawer (`RootView.swift`), no bottom TabBar
 - For new design decisions, discuss with the user first, then open a GitHub issue, implement on a branch, and PR
-
-Graph Tab has **no design** (Post-MVP, PRD NG-3) — keep the placeholder.
 
 ## Testing
 
