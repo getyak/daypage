@@ -61,6 +61,14 @@ struct InputBarV4: View {
     @FocusState private var isFocused: Bool
     @State private var showAttachmentMenu: Bool = false
     @State private var photosPickerItems: [PhotosPickerItem] = []
+    /// Triggers the system Photos picker from the "+" attachment menu.
+    /// The inline 相册 button in the bottom strip uses its own
+    /// `PhotosPicker { … }` wrapper, but the popover's 相册 tile is a
+    /// plain Button — we can't wrap a PhotosPicker around a tile inside
+    /// the popover (a Sheet inside a Sheet behaves badly), so we use
+    /// the `.photosPicker(isPresented:)` modifier instead and let the
+    /// popover flip this flag after dismissing itself.
+    @State private var showPhotosPicker: Bool = false
     @State private var pressToTalkPhase: PressToTalkPhase = .idle
     @State private var composerState: ComposerState = .idle
     /// True while a "录音太短" hint is visible. Prevents committing a
@@ -266,13 +274,32 @@ struct InputBarV4: View {
         .sheet(isPresented: $showAttachmentMenu) {
             AttachmentMenuPopover(
                 onCapturePhoto: { showAttachmentMenu = false; onCapturePhoto() },
-                onPickPhoto: { showAttachmentMenu = false },
+                onPickPhoto: {
+                    // Bug fix (#332 follow-up): the popover's 相册 tile used to
+                    // close the sheet and do nothing else, which is why uploads
+                    // never started. We can't wrap a PhotosPicker around the tile
+                    // (sheet-in-sheet behaves badly), so we dismiss the popover
+                    // and then flip a flag that the `.photosPicker(isPresented:)`
+                    // modifier below picks up. The 0.35s delay lets the popover's
+                    // dismiss animation finish before iOS tries to present the
+                    // photo picker on top of it.
+                    showAttachmentMenu = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        showPhotosPicker = true
+                    }
+                },
                 onAddFile: { showAttachmentMenu = false; onAddFile() },
                 onAddLocation: { showAttachmentMenu = false; onFetchLocation() },
                 isLocating: isLocating,
                 hasPendingLocation: pendingLocation != nil
             )
         }
+        .photosPicker(
+            isPresented: $showPhotosPicker,
+            selection: $photosPickerItems,
+            matching: .images,
+            photoLibrary: .shared()
+        )
         .onChange(of: photosPickerItems) { newItems in
             guard !newItems.isEmpty else { return }
             onAddPhoto(newItems)
