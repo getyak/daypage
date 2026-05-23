@@ -284,12 +284,25 @@ final class VoiceService: NSObject, ObservableObject {
         final class TaskBox {
             let lock = NSLock()
             var task: SFSpeechRecognitionTask?
+            var continuation: CheckedContinuation<String?, Never>?
             var didResume: Bool = false
         }
         let box = TaskBox()
 
         return await Self.withTimeout(seconds: 30) {
             await withCheckedContinuation { (cont: CheckedContinuation<String?, Never>) in
+                box.lock.lock()
+                box.continuation = cont
+                // If the timeout already fired before we stored the continuation
+                // (extremely unlikely but possible), resume immediately.
+                let raceLost = box.didResume
+                box.lock.unlock()
+
+                if raceLost {
+                    cont.resume(returning: nil)
+                    return
+                }
+
                 let task = recognizer.recognitionTask(with: request) { result, error in
                     let resumeValue: String?
                     if let result, result.isFinal {
@@ -304,28 +317,27 @@ final class VoiceService: NSObject, ObservableObject {
                     box.lock.lock()
                     let alreadyResumed = box.didResume
                     if !alreadyResumed { box.didResume = true }
+                    let cont = box.continuation
                     box.lock.unlock()
 
-                    if !alreadyResumed {
+                    if !alreadyResumed, let cont {
                         cont.resume(returning: resumeValue)
                     }
                 }
                 box.lock.lock()
                 box.task = task
-                // If the timeout already fired before we stored the task (extremely
-                // unlikely but possible), cancel immediately so we don't leak it.
-                let raceLost = box.didResume
                 box.lock.unlock()
-                if raceLost { task.cancel() }
             }
         } onTimeout: {
-            // Timeout fired: cancel the recognition task. Any subsequent callback
-            // will see `didResume == true` and skip resuming.
+            // Timeout fired: cancel the recognition task and resume the continuation
+            // directly so `withCheckedContinuation` doesn't hang forever.
             box.lock.lock()
             let task = box.task
+            let cont = box.continuation
             box.didResume = true
             box.lock.unlock()
             task?.cancel()
+            cont?.resume(returning: nil)
         }
     }
 
