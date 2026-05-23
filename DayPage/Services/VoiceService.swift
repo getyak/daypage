@@ -275,14 +275,69 @@ final class VoiceService: NSObject, ObservableObject {
         request.shouldReportPartialResults = false
         request.requiresOnDeviceRecognition = true
 
-        return await withCheckedContinuation { cont in
-            recognizer.recognitionTask(with: request) { result, error in
-                if let result, result.isFinal {
-                    cont.resume(returning: result.bestTranscription.formattedString)
-                } else if error != nil {
+        // Hold the recognition task on a NSLock-protected box so the recognitionTask
+        // callback (any thread) and the timeout path can coordinate cancellation
+        // without double-resuming the continuation or leaking the task.
+        // Without this, audio that produces only partial results (or no terminal
+        // callback at all) would hang `stopAndTranscribe()` forever and freeze
+        // the UI in `.processing`.
+        final class TaskBox {
+            let lock = NSLock()
+            var task: SFSpeechRecognitionTask?
+            var continuation: CheckedContinuation<String?, Never>?
+            var didResume: Bool = false
+        }
+        let box = TaskBox()
+
+        return await Self.withTimeout(seconds: 30) {
+            await withCheckedContinuation { (cont: CheckedContinuation<String?, Never>) in
+                box.lock.lock()
+                box.continuation = cont
+                // If the timeout already fired before we stored the continuation
+                // (extremely unlikely but possible), resume immediately.
+                let raceLost = box.didResume
+                box.lock.unlock()
+
+                if raceLost {
                     cont.resume(returning: nil)
+                    return
                 }
+
+                let task = recognizer.recognitionTask(with: request) { result, error in
+                    let resumeValue: String?
+                    if let result, result.isFinal {
+                        resumeValue = result.bestTranscription.formattedString
+                    } else if error != nil {
+                        resumeValue = nil
+                    } else {
+                        // Non-terminal callback (partial result without isFinal). Wait for next.
+                        return
+                    }
+
+                    box.lock.lock()
+                    let alreadyResumed = box.didResume
+                    if !alreadyResumed { box.didResume = true }
+                    let cont = box.continuation
+                    box.lock.unlock()
+
+                    if !alreadyResumed, let cont {
+                        cont.resume(returning: resumeValue)
+                    }
+                }
+                box.lock.lock()
+                box.task = task
+                box.lock.unlock()
             }
+        } onTimeout: {
+            // Timeout fired: cancel the recognition task and resume the continuation
+            // directly so `withCheckedContinuation` doesn't hang forever.
+            box.lock.lock()
+            let task = box.task
+            let cont = box.continuation
+            box.didResume = true
+            box.lock.unlock()
+            task?.cancel()
+            cont?.resume(returning: nil)
         }
     }
 
@@ -420,6 +475,38 @@ final class VoiceService: NSObject, ObservableObject {
     private func stopMeteringTimer() {
         meteringTimer?.invalidate()
         meteringTimer = nil
+    }
+}
+
+// MARK: - Timeout Helper
+
+extension VoiceService {
+    /// Race `operation` against a timeout. Returns the operation's result if it
+    /// completes within `seconds`, otherwise invokes `onTimeout` (for cleanup
+    /// such as cancelling an in-flight task) and returns `nil`.
+    ///
+    /// The losing branch is cancelled via Swift structured concurrency so the
+    /// caller never has to manage task lifetimes manually.
+    static func withTimeout<T>(
+        seconds: TimeInterval,
+        operation: @escaping @Sendable () async -> T?,
+        onTimeout: @escaping @Sendable () -> Void = {}
+    ) async -> T? {
+        await withTaskGroup(of: T?.self) { group in
+            group.addTask {
+                await operation()
+            }
+            group.addTask {
+                let ns = UInt64(max(0, seconds) * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: ns)
+                onTimeout()
+                return nil
+            }
+            // Take the first finished branch and cancel the rest.
+            let first = await group.next() ?? nil
+            group.cancelAll()
+            return first
+        }
     }
 }
 
