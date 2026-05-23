@@ -655,27 +655,27 @@ struct TodayView: View {
     }
 
     private var syncBanner: some View {
-        Text("Sync your journal across devices →")
-            .font(DSType.bodySM)
-            .foregroundColor(DSColor.inkMuted)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 10)
-            .padding(.horizontal, 20)
-            .background(DSColor.glassStd)
-            .background(.ultraThinMaterial)
-            .overlay(Rectangle().frame(height: 0.5).foregroundColor(DSColor.glassRim), alignment: .bottom)
-            .gesture(
-                DragGesture(minimumDistance: 20)
-                    .onEnded { value in
-                        if value.translation.height < -10 {
-                            withAnimation { showSyncBanner = false }
-                            UserDefaults.standard.set(Date(), forKey: AppSettings.Keys.lastSyncBannerDate)
-                        }
-                    }
-            )
-            .onTapGesture {
-                showAuthSheet = true
+        DSBanner(
+            kind: .info,
+            title: "Sync your journal across devices",
+            subtitle: "Sign in to back up your notes",
+            primaryAction: (label: "Sync", action: { showAuthSheet = true }),
+            onDismiss: {
+                withAnimation { showSyncBanner = false }
+                UserDefaults.standard.set(Date(), forKey: AppSettings.Keys.lastSyncBannerDate)
             }
+        )
+        .padding(.horizontal, DSSpacing.pageMargin)
+        .padding(.bottom, DSSpacing.xs)
+        .gesture(
+            DragGesture(minimumDistance: 20)
+                .onEnded { value in
+                    if value.translation.height < -10 {
+                        withAnimation { showSyncBanner = false }
+                        UserDefaults.standard.set(Date(), forKey: AppSettings.Keys.lastSyncBannerDate)
+                    }
+                }
+        )
     }
 
     // MARK: - Fallback Content (zero-memo today)
@@ -1102,48 +1102,22 @@ private struct OnThisDayNavTarget: Identifiable {
 // MARK: - CompilationFailedBanner
 
 /// Red banner shown when background compilation failed after all retries.
+/// Delegates to the shared DSBanner so the visual language matches every
+/// other banner in the app (syncBanner, LocationDraftCard header, etc.).
 struct CompilationFailedBanner: View {
     let message: String
     let onRetry: () -> Void
     let onDismiss: () -> Void
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "xmark.circle.fill")
-                .foregroundColor(DSColor.errorRed)
-                .font(.system(size: 14))
-            Text(message)
-                .font(DSType.bodySM)
-                .foregroundColor(DSColor.inkPrimary)
-                .lineLimit(2)
-            Spacer()
-            Button("重试") {
-                onRetry()
-            }
-            .font(DSType.caption)
-            .foregroundColor(DSColor.errorRed)
-            .accessibilityLabel("重试编译")
-            .frame(minWidth: 44, minHeight: 44)
-            .contentShape(Rectangle())
-            Button {
-                onDismiss()
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(DSColor.inkMuted)
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .accessibilityLabel("关闭错误提示")
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(DSColor.errorSoft)
-        .background(.ultraThinMaterial)
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(DSColor.glassRim, lineWidth: 0.5))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .padding(.horizontal, 20)
-        .padding(.bottom, 4)
+        DSBanner(
+            kind: .error,
+            title: message,
+            primaryAction: (label: "重试", action: onRetry),
+            onDismiss: onDismiss
+        )
+        .padding(.horizontal, DSSpacing.pageMargin)
+        .padding(.bottom, DSSpacing.xs)
     }
 }
 

@@ -111,9 +111,14 @@ struct SettingsView: View {
                 SecureField("sk-... 或直接粘贴", text: $editingKeyValue)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                    .padding(12)
-                    .background(Color(.systemGray6))
-                    .cornerRadius(8)
+                    .padding(DSSpacing.md)
+                    .background(DSColor.glassLo)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous)
+                            .strokeBorder(DSColor.glassRim, lineWidth: 0.5)
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous))
                     .padding(.horizontal)
 
                 HStack {
