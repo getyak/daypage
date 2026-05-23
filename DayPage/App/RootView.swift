@@ -150,9 +150,12 @@ struct RootView: View {
                 .shadow(color: Color.black.opacity(0.10), radius: 20, x: 6, y: 0)
                 .offset(x: nav.isSidebarOpen ? 0 : -sidebarWidth)
 
-            // Right-side feedback panel — overlay + sliding panel
+            // Right-side feedback panel — same scrim treatment as the sidebar
+            // so both drawers feel like they belong to the same elevation tier.
             if nav.isFeedbackPanelOpen {
-                Color.black.opacity(0.28)
+                Rectangle()
+                    .fill(Color.black.opacity(0.42))
+                    .background(.ultraThinMaterial)
                     .ignoresSafeArea()
                     .onTapGesture { nav.closeFeedbackPanel() }
                     .transition(.opacity)

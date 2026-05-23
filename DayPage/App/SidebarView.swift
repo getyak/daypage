@@ -13,7 +13,25 @@ struct SidebarView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            DSColor.bgWarm.ignoresSafeArea()
+            // Liquid Glass drawer — warm cream base + ultraThinMaterial blur
+            // gives the sidebar the "floating panel above the timeline" feel
+            // that matches Today's ambient glass language. RootView's scrim
+            // sits behind this layer so the drawer reads as elevated.
+            ZStack {
+                DSColor.bgWarm
+                Rectangle()
+                    .fill(DSColor.glassHi)
+                    .background(.ultraThinMaterial)
+            }
+            .ignoresSafeArea()
+            .overlay(alignment: .trailing) {
+                // Hairline rim along the right edge — separates the drawer
+                // from the dimmed timeline behind the scrim.
+                Rectangle()
+                    .fill(DSColor.glassRimD)
+                    .frame(width: 0.5)
+                    .ignoresSafeArea(edges: .vertical)
+            }
 
             VStack(alignment: .leading, spacing: 0) {
                 brandHeader
