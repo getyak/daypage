@@ -135,13 +135,12 @@ struct SidebarView: View {
 
     // MARK: - Nav Items
 
-    /// Primary nav: Today / Archive / Graph. Graph is gated behind a Post-MVP
-    /// chip until the knowledge-graph feature ships (PRD NG-3).
+    /// Primary nav: Today / Archive / Graph.
     private var navSection: some View {
         VStack(alignment: .leading, spacing: 2) {
             navItem(tab: .today, icon: "square.and.pencil", label: "Today")
             navItem(tab: .archive, icon: "archivebox", label: "Archive")
-            navItem(tab: .graph, icon: "point.3.connected.trianglepath.dotted", label: "Graph", disabled: true)
+            navItem(tab: .graph, icon: "point.3.connected.trianglepath.dotted", label: "Graph")
         }
         .padding(.horizontal, 12)
     }
