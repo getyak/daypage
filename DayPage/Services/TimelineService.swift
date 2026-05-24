@@ -88,18 +88,31 @@ enum TimelineService {
     /// All days that contain at least one raw memo, newest-first. Includes
     /// today when today has memos; callers exclude it via `group(...)` when
     /// rendering the timeline separately from the active composer day.
+    ///
+    /// Backed by `TimelineIndex` (O(1) cached read). The expensive disk scan
+    /// lives in `scanAllEntries()` and runs only on index rebuild, not on every
+    /// call. `referenceDate` is retained for source-compatibility with existing
+    /// call sites; ordering is date-based inside the index.
+    @MainActor
     static func entries(referenceDate: Date = Date()) -> [TimelineDayEntry] {
+        TimelineIndex.shared.entries()
+    }
+
+    /// The actual full scan of `vault/raw/*.md`: reads + parses every day file
+    /// and pairs each with its compiled daily-page summary. This is the
+    /// expensive O(total memos) operation that `TimelineIndex` caches; it runs
+    /// only on rebuild, never on the per-call hot path.
+    ///
+    /// `nonisolated` so `TimelineIndex` can run it inside `Task.detached` off
+    /// the main actor.
+    nonisolated static func scanAllEntries() -> [TimelineDayEntry] {
         let rawDir = VaultInitializer.vaultURL.appendingPathComponent("raw")
         let fm = FileManager.default
         guard let enumerator = fm.enumerator(at: rawDir, includingPropertiesForKeys: nil) else {
             return []
         }
 
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM-dd"
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        fmt.timeZone = AppSettings.currentTimeZone()
-
+        let fmt = scanDateFormatter()
         let dailyDir = VaultInitializer.vaultURL.appendingPathComponent("wiki/daily")
 
         var result: [TimelineDayEntry] = []
@@ -112,27 +125,60 @@ enum TimelineService {
             let memos = RawStorage.parse(fileContent: content)
             guard !memos.isEmpty else { continue }
 
-            // Daily page summary (if compiled). Missing file is normal — skip silently.
-            var summary: String? = nil
-            let dailyURL = dailyDir.appendingPathComponent("\(stem).md")
-            if let dailyContent = try? String(contentsOf: dailyURL, encoding: .utf8) {
-                summary = FrontmatterParser.extractField("summary", from: dailyContent)
-            }
-
             result.append(TimelineDayEntry(
                 dateString: stem,
                 date: date,
                 memoCount: memos.count,
-                summary: summary
+                summary: summary(forDateString: stem, dailyDir: dailyDir)
             ))
         }
 
         return result.sorted { $0.date > $1.date }
     }
 
+    /// Scans a single day file by `yyyy-MM-dd` stem. Returns nil when the file
+    /// is missing or has no parseable memos (the day should be absent from the
+    /// timeline). Used by `TimelineIndex` for O(today) incremental updates.
+    nonisolated static func scanEntry(forDateString stem: String) -> TimelineDayEntry? {
+        let fmt = scanDateFormatter()
+        guard let date = fmt.date(from: stem) else { return nil }
+
+        let rawURL = VaultInitializer.vaultURL
+            .appendingPathComponent("raw")
+            .appendingPathComponent("\(stem).md")
+        guard let content = try? String(contentsOf: rawURL, encoding: .utf8) else { return nil }
+        let memos = RawStorage.parse(fileContent: content)
+        guard !memos.isEmpty else { return nil }
+
+        let dailyDir = VaultInitializer.vaultURL.appendingPathComponent("wiki/daily")
+        return TimelineDayEntry(
+            dateString: stem,
+            date: date,
+            memoCount: memos.count,
+            summary: summary(forDateString: stem, dailyDir: dailyDir)
+        )
+    }
+
+    /// Reads the compiled daily-page `summary:` for a day, if compiled.
+    /// Missing file is normal (day not yet AI-compiled) — returns nil silently.
+    nonisolated private static func summary(forDateString stem: String, dailyDir: URL) -> String? {
+        let dailyURL = dailyDir.appendingPathComponent("\(stem).md")
+        guard let dailyContent = try? String(contentsOf: dailyURL, encoding: .utf8) else { return nil }
+        return FrontmatterParser.extractField("summary", from: dailyContent)
+    }
+
+    nonisolated private static func scanDateFormatter() -> DateFormatter {
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        fmt.timeZone = AppSettings.currentTimeZone()
+        return fmt
+    }
+
     /// Groups timeline entries into the four bands described above, hiding any
     /// section whose `days` list is empty. The "today" entry is excluded from
     /// every section — the view layer renders today separately at the top.
+    @MainActor
     static func sections(referenceDate: Date = Date()) -> [TimelineSection] {
         let all = entries(referenceDate: referenceDate)
         return group(entries: all, referenceDate: referenceDate)

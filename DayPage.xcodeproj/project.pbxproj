@@ -112,6 +112,7 @@
 		A10000202 /* SmartTemplateRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000202 /* SmartTemplateRow.swift */; };
 		A10000203 /* InlineLensStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000203 /* InlineLensStrip.swift */; };
 		A10000301 /* TimelineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000301 /* TimelineService.swift */; };
+		A10000350 /* TimelineIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000350 /* TimelineIndex.swift */; };
 		A10000302 /* TimelineSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000302 /* TimelineSectionView.swift */; };
 		A46C6A46A2D76FF5DBFBD6C6 /* StartRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE91252BA9167A50BFF79FF0 /* StartRecordingIntent.swift */; };
 		AF0000001 /* SpaceGrotesk-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000001 /* SpaceGrotesk-Light.ttf */; };
@@ -164,6 +165,7 @@
 		T10000003 /* VaultMigrationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000003 /* VaultMigrationServiceTests.swift */; };
 		T10000004 /* VaultLocatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000004 /* VaultLocatorTests.swift */; };
 		T10000005 /* RawStorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000005 /* RawStorageTests.swift */; };
+		T10000050 /* TimelineIndexTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000050 /* TimelineIndexTests.swift */; };
 		T10000006 /* ComposerContextProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000006 /* ComposerContextProviderTests.swift */; };
 		TH0000001 /* ThreadConversationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = TH1000001 /* ThreadConversationViewModel.swift */; };
 		TH0000002 /* ThreadConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TH1000002 /* ThreadConversationView.swift */; };
@@ -317,6 +319,7 @@
 		A20000202 /* SmartTemplateRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartTemplateRow.swift; sourceTree = "<group>"; };
 		A20000203 /* InlineLensStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineLensStrip.swift; sourceTree = "<group>"; };
 		A20000301 /* TimelineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineService.swift; sourceTree = "<group>"; };
+		A20000350 /* TimelineIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineIndex.swift; sourceTree = "<group>"; };
 		A20000302 /* TimelineSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineSectionView.swift; sourceTree = "<group>"; };
 		A30000001 /* DayPage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPage.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A381FA327A37AE0DD740D61D /* PosterTemplates.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PosterTemplates.swift; path = ShareCard/PosterTemplates.swift; sourceTree = "<group>"; };
@@ -372,6 +375,7 @@
 		T20000003 /* VaultMigrationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultMigrationServiceTests.swift; sourceTree = "<group>"; };
 		T20000004 /* VaultLocatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultLocatorTests.swift; sourceTree = "<group>"; };
 		T20000005 /* RawStorageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawStorageTests.swift; sourceTree = "<group>"; };
+		T20000050 /* TimelineIndexTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineIndexTests.swift; sourceTree = "<group>"; };
 		T20000006 /* ComposerContextProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerContextProviderTests.swift; sourceTree = "<group>"; };
 		T30000001 /* DayPageTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DayPageTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		TH1000001 /* ThreadConversationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadConversationViewModel.swift; sourceTree = "<group>"; };
@@ -598,6 +602,7 @@
 				FB1000001 /* FeedbackService.swift */,
 				A20000083 /* WeeklyRecapService.swift */,
 				A20000301 /* TimelineService.swift */,
+				A20000350 /* TimelineIndex.swift */,
 				A20000095 /* ComposerContextProvider.swift */,
 				BB12D96218034D3E4555B8AA /* HapticFeedback.swift */,
 			);
@@ -872,6 +877,7 @@
 				T20000003 /* VaultMigrationServiceTests.swift */,
 				T20000004 /* VaultLocatorTests.swift */,
 				T20000005 /* RawStorageTests.swift */,
+				T20000050 /* TimelineIndexTests.swift */,
 				T20000006 /* ComposerContextProviderTests.swift */,
 				84FFEA3DDB8DCB528A4189BF /* HapticFeedbackTests.swift */,
 			);
@@ -1146,6 +1152,7 @@
 				A10000082 /* InputBarV4.swift in Sources */,
 				A10000083 /* WeeklyRecapService.swift in Sources */,
 				A10000301 /* TimelineService.swift in Sources */,
+				A10000350 /* TimelineIndex.swift in Sources */,
 				A10000084 /* WeeklyRecapSection.swift in Sources */,
 				A10000302 /* TimelineSectionView.swift in Sources */,
 				A10000200 /* ComposerStateMachine.swift in Sources */,
@@ -1228,6 +1235,7 @@
 				T10000003 /* VaultMigrationServiceTests.swift in Sources */,
 				T10000004 /* VaultLocatorTests.swift in Sources */,
 				T10000005 /* RawStorageTests.swift in Sources */,
+				T10000050 /* TimelineIndexTests.swift in Sources */,
 				T10000006 /* ComposerContextProviderTests.swift in Sources */,
 				09C6E4728050D69F54949DD1 /* HapticFeedbackTests.swift in Sources */,
 			);

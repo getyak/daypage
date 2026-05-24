@@ -206,6 +206,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         observeCompilationFailure()
         observeOnThisDay()
         observeConflictResolution()
+        observeTimelineIndex()
     }
 
     deinit {
@@ -262,6 +263,21 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.load()
+            }
+            .store(in: &cancellables)
+    }
+
+    /// Refreshes the displayed timeline sections whenever the index changes —
+    /// after a background rebuild completes (cold launch) or any incremental
+    /// write updates a day. Reads are O(1) from the in-memory index, so this is
+    /// cheap to run on every update (issue #345).
+    private func observeTimelineIndex() {
+        NotificationCenter.default
+            .publisher(for: .timelineIndexDidUpdate)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.timelineSections = TimelineService.sections(referenceDate: self.date)
             }
             .store(in: &cancellables)
     }
@@ -430,11 +446,6 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 }
             }
 
-            // Build the historical timeline (this-week-others / last week /
-            // week-before-last / older months). Off-main: scans every raw
-            // day file once and parses summaries for compiled days.
-            let timeline = TimelineService.sections(referenceDate: capturedDate)
-
             // --- Back on MainActor: update published state ---
             await MainActor.run {
                 switch loadResult {
@@ -455,7 +466,9 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 self.isDailyPageCompiled = dailyExists
                 self.dailyPageSummary = dailyExists ? dailySummary : nil
                 self.weeklyRecap = WeeklyRecapService.shared.entries()
-                self.timelineSections = timeline
+                // O(1) read from TimelineIndex (cached); the expensive scan now
+                // happens only on index rebuild, off this hot path.
+                self.timelineSections = TimelineService.sections(referenceDate: capturedDate)
                 self.yesterdayDailyPageModel = yesterdayPage
                 self.onThisDayMemos = otdMemos
                 self.loadState = .ready

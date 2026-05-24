@@ -95,6 +95,7 @@ struct DayPageApp: App {
     private let notificationDelegate = AppNotificationDelegate()
     @StateObject private var authService = AuthService.shared
     @StateObject private var navModel = AppNavigationModel()
+    @Environment(\.scenePhase) private var scenePhase
 
     init() {
         // UI-testing launch arguments → UserDefaults bridge.
@@ -133,6 +134,10 @@ struct DayPageApp: App {
         Task { @MainActor in
             iCloudSyncMonitor.shared.startMonitoring(vaultURL: VaultInitializer.vaultURL)
             iCloudConflictMonitor.shared.startMonitoring(vaultURL: VaultInitializer.vaultURL)
+            // Build the timeline metadata index off the main thread so the
+            // first Today load reads it instead of scanning the whole vault
+            // (issue #345). Cheap no-op until the background scan completes.
+            TimelineIndex.shared.warmUp()
         }
         // url(forUbiquityContainerIdentifier:) may return nil on first call during
         // cold launch while the iCloud daemon finishes container setup. Re-probe
@@ -207,6 +212,15 @@ struct DayPageApp: App {
                     // 在首次启动且完成引导后填充示例数据
                     if UserDefaults.standard.bool(forKey: AppSettings.Keys.hasOnboarded) {
                         SampleDataSeeder.seedIfNeeded()
+                    }
+                }
+                .onChange(of: scenePhase) { phase in
+                    // Returning to the foreground may follow an external vault
+                    // change (iCloud sync, Obsidian, another device). Cheaply
+                    // re-check the raw/ mtime and rebuild the index only if it
+                    // actually changed (issue #345).
+                    if phase == .active {
+                        TimelineIndex.shared.refreshIfExternallyModified()
                     }
                 }
         }
