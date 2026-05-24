@@ -114,7 +114,8 @@ final class BackgroundCompilationService {
                 NotificationCenter.default.post(name: .compilationDidStart, object: nil)
                 defer { NotificationCenter.default.post(name: .compilationDidEnd, object: nil) }
                 do {
-                    try await compileWithRetry(for: date, trigger: "backfill")
+                    // Foreground backfill: full exponential backoff (no iOS BGTask budget).
+                    try await compileWithRetry(for: date, trigger: "backfill", delays: Self.foregroundRetryDelays)
                     sendSuccessNotification(for: date)
                 } catch {
                     DayPageLogger.shared.error("[BGCompile] Backfill failed for \(formatter.string(from: date)): \(error.localizedDescription)")
@@ -130,58 +131,93 @@ final class BackgroundCompilationService {
         // 为下一夜重新调度
         scheduleIfNeeded()
 
-        // 设置过期处理器 — 系统正在回收任务
-        task.expirationHandler = {
-            task.setTaskCompleted(success: false)
-        }
-
         let yesterday = Self.calendar.date(byAdding: .day, value: -1, to: Date()) ?? Date()
 
         guard shouldCompile(for: yesterday) else {
+            // No expirationHandler needed — we complete synchronously here.
             task.setTaskCompleted(success: true)
             return
         }
 
-        // Run the compilation directly in this async context.
-        // Previously a bare Task{} was used here, causing handleBackgroundTask to return
-        // before compilation finished — the system considered the BGAppRefreshTask done
-        // immediately, potentially killing the process mid-compile.
-        var taskSucceeded = false
-        defer { task.setTaskCompleted(success: taskSucceeded) }
-
-        let transaction = Secrets.sentryDSN.isEmpty ? nil
-            : SentrySDK.startTransaction(name: "background.compilation", operation: "task")
-        NotificationCenter.default.post(name: .compilationDidStart, object: nil)
-        defer { NotificationCenter.default.post(name: .compilationDidEnd, object: nil) }
-        do {
-            try await compileWithRetry(for: yesterday, trigger: "auto")
-            transaction?.finish()
-            if !Secrets.sentryDSN.isEmpty { SentrySDK.flush(timeout: 5) }
-            sendSuccessNotification(for: yesterday)
-            taskSucceeded = true
-        } catch {
-            DayPageLogger.shared.error("[BGCompile] Background compile failed after retries: \(error.localizedDescription)")
-            transaction?.finish(status: .internalError)
-            if !Secrets.sentryDSN.isEmpty { SentrySDK.flush(timeout: 5) }
-            sendFailureNotification()
-            // taskSucceeded remains false — defer will call setTaskCompleted(success: false)
+        // iOS gives BGAppRefreshTask roughly a 30-second runtime budget. We must:
+        //   1. Run compilation as a child Task so we can hold a cancellable handle.
+        //   2. Wire expirationHandler to cancel that Task (Task.sleep responds to
+        //      cancellation, and CompilationService's URLSession calls observe it too).
+        //   3. Report completion exactly once based on the child Task's outcome.
+        //
+        // Previously: expirationHandler only called setTaskCompleted, leaving the
+        // outer Task running with up to 750s of sleep — guaranteed to be killed by
+        // iOS mid-compile. Now we use a single-attempt retry policy (no sleep) for
+        // background runs; the full backoff lives in the foreground backfill path.
+        let bgTask: Task<Bool, Never> = Task { @MainActor [weak self] in
+            guard let self else { return false }
+            let transaction = Secrets.sentryDSN.isEmpty ? nil
+                : SentrySDK.startTransaction(name: "background.compilation", operation: "task")
+            NotificationCenter.default.post(name: .compilationDidStart, object: nil)
+            defer { NotificationCenter.default.post(name: .compilationDidEnd, object: nil) }
+            do {
+                // Background: single attempt only — must fit in iOS ~30s budget.
+                try await self.compileWithRetry(for: yesterday, trigger: "auto", delays: Self.backgroundRetryDelays)
+                transaction?.finish()
+                if !Secrets.sentryDSN.isEmpty { SentrySDK.flush(timeout: 5) }
+                self.sendSuccessNotification(for: yesterday)
+                return true
+            } catch is CancellationError {
+                DayPageLogger.shared.warn("[BGCompile] Background compile cancelled by iOS expiration")
+                transaction?.finish(status: .cancelled)
+                if !Secrets.sentryDSN.isEmpty { SentrySDK.flush(timeout: 5) }
+                return false
+            } catch {
+                DayPageLogger.shared.error("[BGCompile] Background compile failed after retries: \(error.localizedDescription)")
+                transaction?.finish(status: .internalError)
+                if !Secrets.sentryDSN.isEmpty { SentrySDK.flush(timeout: 5) }
+                self.sendFailureNotification()
+                return false
+            }
         }
+
+        // expirationHandler runs on a system thread when iOS reclaims the budget.
+        // Cancel the outer Task so any in-flight sleep / network awaits unwind
+        // promptly; the bgTask body returns false and we report completion below.
+        task.expirationHandler = {
+            bgTask.cancel()
+        }
+
+        let success = await bgTask.value
+        task.setTaskCompleted(success: success)
     }
 
     // MARK: - Private: Retry Logic
 
-    /// 使用指数退避重试编译：30s → 2min → 10min。
-    /// 如果所有 3 次尝试都失败则抛出错误。
-    private func compileWithRetry(for date: Date, trigger: String) async throws {
-        let delays: [UInt64] = [0, 30, 120, 600]
+    /// Foreground (backfill) retry schedule: immediate, then 30s → 2min → 10min.
+    /// Total wall time up to ~12.5 min — only safe when the app is in the foreground.
+    nonisolated static let foregroundRetryDelays: [UInt64] = [0, 30, 120, 600]
+
+    /// Background (BGAppRefreshTask) retry schedule: single immediate attempt.
+    /// iOS grants only ~30s for BGAppRefreshTask; any sleep would consume the
+    /// budget before retrying anyway. Failed background runs fall back to the
+    /// foreground backfill path the next time the user opens the app.
+    nonisolated static let backgroundRetryDelays: [UInt64] = [0]
+
+    /// 按提供的 `delays`（秒）序列重试编译。`delays[i] > 0` 表示该次尝试前 sleep 多少秒。
+    /// 每次 sleep 前会检查 Task cancellation，使 iOS expirationHandler 触发的取消能立即生效。
+    /// 如果所有尝试都失败则抛出最后一个错误；如被取消则抛出 `CancellationError`。
+    private func compileWithRetry(for date: Date, trigger: String, delays: [UInt64]) async throws {
         var lastError: Error?
         for (attempt, delaySecs) in delays.enumerated() {
+            // Honor cancellation before any work — including before the first
+            // attempt — so an expired BGTask never even fires the API request.
+            try Task.checkCancellation()
             if delaySecs > 0 {
                 try await Task.sleep(nanoseconds: delaySecs * 1_000_000_000)
             }
+            try Task.checkCancellation()
             do {
                 try await CompilationService.shared.compile(for: date, trigger: trigger)
                 return
+            } catch is CancellationError {
+                // Propagate cancellation up without logging as failure.
+                throw CancellationError()
             } catch {
                 lastError = error
                 DayPageLogger.shared.warn("[BGCompile] Attempt \(attempt + 1) failed: \(error.localizedDescription)")
