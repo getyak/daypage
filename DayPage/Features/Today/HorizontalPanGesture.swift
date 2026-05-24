@@ -70,9 +70,12 @@ struct HorizontalPanGesture: UIViewRepresentable {
         var parent: HorizontalPanGesture
         weak var recognizer: UIPanGestureRecognizer?
 
-        // 10pt direction-lock matches Apple's internal swipe recognizers.
-        // Below this we stay Possible so UIScrollView keeps ownership.
-        private let directionLockDistance: CGFloat = 10
+        // 6pt direction-lock: tightened from 10pt so UIKit's pan can enter
+        // Began before SwiftUI's ambient DragGestures (sidebar edge swipe,
+        // feedback-panel close) finish their own arbitration window. Still
+        // safely below UIScrollView's vertical pan threshold, so a slow
+        // vertical drag still hands ownership to the timeline scroll.
+        private let directionLockDistance: CGFloat = 6
         // |dx| must dominate |dy| by 1.2× — slightly more permissive than
         // Mail (1.5×) because our cards are wider and a shallow horizontal
         // flick should still register.
