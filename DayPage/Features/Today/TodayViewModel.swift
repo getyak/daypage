@@ -380,20 +380,6 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
 
         loadTask?.cancel()
         loadTask = Task.detached(priority: .userInitiated) {
-            // Inline helper — DateFormatter is not Sendable, so do not capture self.
-            func extractSummaryOffMain(from content: String) -> String? {
-                for line in content.components(separatedBy: "\n") {
-                    let trimmed = line.trimmingCharacters(in: .whitespaces)
-                    if trimmed.hasPrefix("summary:") {
-                        let value = String(trimmed.dropFirst("summary:".count))
-                            .trimmingCharacters(in: .whitespaces)
-                            .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-                        return value.isEmpty ? nil : value
-                    }
-                }
-                return nil
-            }
-
             // --- Off-main disk I/O ---
             let loadResult: Result<[Memo], Error>
             do {
@@ -407,7 +393,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
             var dailySummary: String? = nil
             if dailyExists {
                 if let content = try? String(contentsOf: dailyURL, encoding: .utf8) {
-                    dailySummary = extractSummaryOffMain(from: content)
+                    dailySummary = FrontmatterParser.extractField("summary", from: content)
                 }
             }
 
@@ -940,7 +926,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         // Extract summary from frontmatter if available
         do {
             let content = try String(contentsOf: dailyURL, encoding: .utf8)
-            dailyPageSummary = extractSummary(from: content)
+            dailyPageSummary = FrontmatterParser.extractField("summary", from: content)
         } catch {
             DayPageLogger.shared.error("TodayViewModel: read daily: \(error)")
         }
@@ -958,18 +944,4 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
             .appendingPathComponent("\(dateStr).md")
     }
 
-    /// Parses the `summary:` frontmatter field from a Daily Page file.
-    private func extractSummary(from content: String) -> String? {
-        let lines = content.components(separatedBy: "\n")
-        for line in lines {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("summary:") {
-                let value = String(trimmed.dropFirst("summary:".count))
-                    .trimmingCharacters(in: .whitespaces)
-                    .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-                return value.isEmpty ? nil : value
-            }
-        }
-        return nil
-    }
 }
