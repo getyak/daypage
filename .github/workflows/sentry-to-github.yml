@@ -1,0 +1,165 @@
+name: Sentry → GitHub Issue Sync
+
+# Triggered by a repository_dispatch event sent from a Sentry Custom
+# Integration (Sentry → Settings → Custom Integrations → Webhooks).
+#
+# Why this exists: Sentry's native "Create a new GitHub issue" alert action
+# is gated behind the Team plan. This workflow reproduces the same behaviour
+# on the free Developer tier using a webhook + GitHub's own Issues API.
+#
+# Dedup contract: every issue body embeds an HTML comment
+#   <!-- sentry-fingerprint: <id> -->
+# Re-runs search open issues for that exact marker and skip creation if a
+# matching live issue is found.
+
+on:
+  repository_dispatch:
+    types: [sentry_issue]
+
+# Need write access to issues; nothing else.
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  create-github-issue:
+    name: Create GitHub Issue from Sentry Event
+    runs-on: ubuntu-latest
+
+    steps:
+      # -----------------------------------------------------------------
+      # Step 1 — Normalise payload
+      # Sentry's webhook fields are flat strings; we lift them into shell
+      # vars with sane defaults so downstream steps don't have to handle
+      # null. Falling back to "unknown" rather than aborting keeps the
+      # pipeline resilient to Sentry schema changes.
+      # -----------------------------------------------------------------
+      - name: Extract payload fields
+        id: payload
+        env:
+          FINGERPRINT: ${{ github.event.client_payload.fingerprint }}
+          TITLE: ${{ github.event.client_payload.title }}
+          CULPRIT: ${{ github.event.client_payload.culprit }}
+          SENTRY_URL: ${{ github.event.client_payload.url }}
+          COUNT: ${{ github.event.client_payload.count }}
+          USER_COUNT: ${{ github.event.client_payload.userCount }}
+          ENVIRONMENT: ${{ github.event.client_payload.environment }}
+          ISSUE_ID: ${{ github.event.client_payload.issue_id }}
+        run: |
+          {
+            echo "fingerprint=${FINGERPRINT:-unknown}"
+            echo "title=${TITLE:-Untitled Sentry event}"
+            echo "culprit=${CULPRIT:-unknown}"
+            echo "sentry_url=${SENTRY_URL:-}"
+            echo "count=${COUNT:-0}"
+            echo "user_count=${USER_COUNT:-0}"
+            echo "environment=${ENVIRONMENT:-unknown}"
+            echo "issue_id=${ISSUE_ID:-unknown}"
+          } >> "$GITHUB_OUTPUT"
+
+      # -----------------------------------------------------------------
+      # Step 2 — Dedup check
+      # Search open issues whose body contains the fingerprint marker.
+      # gh's --search uses GitHub's issue search syntax, which does
+      # full-text match on body; the HTML comment we embed in Step 4 is
+      # the dedup key.
+      # -----------------------------------------------------------------
+      - name: Check for existing issue
+        id: dedup
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FINGERPRINT: ${{ steps.payload.outputs.fingerprint }}
+        run: |
+          MARKER="sentry-fingerprint: ${FINGERPRINT}"
+          # --json + jq guarantees we count actual matches, not noise from
+          # gh's TTY output. Use --state open so a previously-closed issue
+          # with the same fingerprint gets a fresh ticket (the regression
+          # is itself signal worth re-surfacing).
+          HITS=$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --search "in:body \"${MARKER}\"" \
+            --json number \
+            --jq 'length')
+          echo "Existing open issues with fingerprint ${FINGERPRINT}: ${HITS}"
+          if [ "${HITS}" -gt 0 ]; then
+            echo "duplicate=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "duplicate=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # -----------------------------------------------------------------
+      # Step 3 — Decide labels
+      # Severity is encoded as a label rather than a project field so it
+      # works without GitHub Projects setup. userCount-based mapping
+      # mirrors the previous Linear pipeline so historical priority
+      # decisions stay consistent.
+      # -----------------------------------------------------------------
+      - name: Resolve severity label
+        id: severity
+        if: steps.dedup.outputs.duplicate == 'false'
+        env:
+          USER_COUNT: ${{ steps.payload.outputs.user_count }}
+        run: |
+          UC="${USER_COUNT:-0}"
+          if [ "$UC" -ge 10 ]; then
+            echo "label=severity:urgent" >> "$GITHUB_OUTPUT"
+          elif [ "$UC" -ge 3 ]; then
+            echo "label=severity:high" >> "$GITHUB_OUTPUT"
+          else
+            echo "label=severity:medium" >> "$GITHUB_OUTPUT"
+          fi
+
+      # -----------------------------------------------------------------
+      # Step 4 — Create the GitHub issue
+      # The fingerprint marker is wrapped in an HTML comment so it stays
+      # invisible in the rendered issue but searchable by Step 2 on the
+      # next webhook for the same Sentry group.
+      # -----------------------------------------------------------------
+      - name: Create GitHub issue
+        if: steps.dedup.outputs.duplicate == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FINGERPRINT: ${{ steps.payload.outputs.fingerprint }}
+          TITLE: ${{ steps.payload.outputs.title }}
+          CULPRIT: ${{ steps.payload.outputs.culprit }}
+          SENTRY_URL: ${{ steps.payload.outputs.sentry_url }}
+          COUNT: ${{ steps.payload.outputs.count }}
+          USER_COUNT: ${{ steps.payload.outputs.user_count }}
+          ENVIRONMENT: ${{ steps.payload.outputs.environment }}
+          ISSUE_ID: ${{ steps.payload.outputs.issue_id }}
+          SEVERITY_LABEL: ${{ steps.severity.outputs.label }}
+        run: |
+          BODY=$(cat <<EOF
+          ## Sentry Error Report
+
+          **Error:** ${TITLE}
+
+          **Culprit:** \`${CULPRIT}\`
+
+          | Field | Value |
+          |---|---|
+          | Environment | \`${ENVIRONMENT}\` |
+          | Occurrences | ${COUNT} |
+          | Affected Users | ${USER_COUNT} |
+          | Sentry Issue ID | ${ISSUE_ID} |
+
+          **Sentry URL:** ${SENTRY_URL}
+
+          ---
+
+          <!-- sentry-fingerprint: ${FINGERPRINT} -->
+          EOF
+          )
+
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "[Sentry] ${TITLE}" \
+            --body "$BODY" \
+            --label "sentry,bug,auto,${SEVERITY_LABEL}"
+
+      - name: Report duplicate skip
+        if: steps.dedup.outputs.duplicate == 'true'
+        env:
+          FINGERPRINT: ${{ steps.payload.outputs.fingerprint }}
+        run: echo "Open issue already exists for fingerprint ${FINGERPRINT} — skipping."
