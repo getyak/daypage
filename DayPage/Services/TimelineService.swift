@@ -116,7 +116,7 @@ enum TimelineService {
             var summary: String? = nil
             let dailyURL = dailyDir.appendingPathComponent("\(stem).md")
             if let dailyContent = try? String(contentsOf: dailyURL, encoding: .utf8) {
-                summary = extractSummary(from: dailyContent)
+                summary = FrontmatterParser.extractField("summary", from: dailyContent)
             }
 
             result.append(TimelineDayEntry(
@@ -223,20 +223,4 @@ enum TimelineService {
         return cal
     }
 
-    /// Parse `summary:` from a Daily Page frontmatter. Same surface as
-    /// `WeeklyRecapService.extractSummary` and `TodayViewModel.extractSummary`
-    /// — duplicated rather than shared to avoid creating a public API surface
-    /// on those types just for parsing.
-    private static func extractSummary(from content: String) -> String? {
-        for line in content.components(separatedBy: "\n") {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("summary:") {
-                let value = String(trimmed.dropFirst("summary:".count))
-                    .trimmingCharacters(in: .whitespaces)
-                    .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-                return value.isEmpty ? nil : value
-            }
-        }
-        return nil
-    }
 }

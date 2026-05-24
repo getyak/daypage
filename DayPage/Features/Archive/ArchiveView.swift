@@ -183,19 +183,6 @@ final class ArchiveViewModel: ObservableObject {
                 content.components(separatedBy: "\n\n---\n\n").count
             }
 
-            func extractSummary(from content: String) -> String? {
-                for line in content.components(separatedBy: "\n") {
-                    let trimmed = line.trimmingCharacters(in: .whitespaces)
-                    if trimmed.hasPrefix("summary:") {
-                        let value = String(trimmed.dropFirst("summary:".count))
-                            .trimmingCharacters(in: .whitespaces)
-                            .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-                        return value.isEmpty ? nil : value
-                    }
-                }
-                return nil
-            }
-
             // DateFormatter is not Sendable; create a local instance for this task.
             let fmt = DateFormatter()
             fmt.dateFormat = "yyyy-MM-dd"
@@ -253,7 +240,7 @@ final class ArchiveViewModel: ObservableObject {
                 var dailySummary: String? = nil
                 if isDailyCompiled {
                     if let content = (try? String(contentsOf: dailyURL, encoding: .utf8)) {
-                        dailySummary = extractSummary(from: content)
+                        dailySummary = FrontmatterParser.extractField("summary", from: content)
                     }
                 }
 
@@ -410,19 +397,6 @@ final class ArchiveViewModel: ObservableObject {
 
     private func countMemoBlocks(in content: String) -> Int {
         content.components(separatedBy: "\n\n---\n\n").count
-    }
-
-    private func extractSummary(from content: String) -> String? {
-        for line in content.components(separatedBy: "\n") {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("summary:") {
-                let value = String(trimmed.dropFirst("summary:".count))
-                    .trimmingCharacters(in: .whitespaces)
-                    .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-                return value.isEmpty ? nil : value
-            }
-        }
-        return nil
     }
 }
 

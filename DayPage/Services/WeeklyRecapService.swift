@@ -90,7 +90,7 @@ final class WeeklyRecapService {
 
             let summary: String?
             if let content = try? String(contentsOf: url, encoding: .utf8) {
-                summary = Self.extractSummary(from: content)
+                summary = FrontmatterParser.extractField("summary", from: content)
             } else {
                 summary = nil
             }
@@ -114,20 +114,4 @@ final class WeeklyRecapService {
         return calendar.dateInterval(of: .weekOfYear, for: date)?.start
     }
 
-    /// Extract `summary:` from a daily page's frontmatter. Behaviour matches
-    /// `ArchiveView.extractSummary` and `TodayViewModel.extractSummary`; kept
-    /// local so Phase 2 (weekly/monthly compilations with different schemas)
-    /// can extend parsing here without touching unrelated callers.
-    static func extractSummary(from content: String) -> String? {
-        for line in content.components(separatedBy: "\n") {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("summary:") {
-                let value = String(trimmed.dropFirst("summary:".count))
-                    .trimmingCharacters(in: .whitespaces)
-                    .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-                return value.isEmpty ? nil : value
-            }
-        }
-        return nil
-    }
 }
