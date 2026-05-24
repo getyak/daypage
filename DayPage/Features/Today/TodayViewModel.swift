@@ -269,17 +269,20 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     // MARK: - Delete / Pin Memo
 
     /// Removes a memo from today's file and refreshes the in-memory list.
+    ///
+    /// UI updates optimistically on the MainActor (so the delete animation
+    /// stays snappy), then the rewrite is dispatched off-main through
+    /// `RawStorage.rewrite` — which goes through `writeQueue.sync` and
+    /// therefore cannot race with `append()`. If the write fails, the UI
+    /// state is rolled back and an error is surfaced.
     func deleteMemo(_ memo: Memo) {
+        let previous = memos
         let remaining = memos.filter { $0.id != memo.id }
-        do {
-            try rewrite(memos: remaining)
-            // Optimistic UI update
-            withAnimation(Motion.rise) {
-                memos = remaining
-            }
-        } catch {
-            submitError = "删除失败：\(error.localizedDescription)"
+        // Optimistic UI update
+        withAnimation(Motion.rise) {
+            memos = remaining
         }
+        persistMemos(remaining, capturedDate: date, previous: previous, failureMessagePrefix: "删除失败")
     }
 
     /// Replaces the body text of an existing memo and writes through to disk.
@@ -289,15 +292,12 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         updated.body = body
         var newMemos = memos
         newMemos[idx] = updated
-        do {
-            try rewrite(memos: newMemos)
-            withAnimation(Motion.rise) {
-                memos = newMemos
-            }
-            Haptics.commit()
-        } catch {
-            submitError = "保存失败：\(error.localizedDescription)"
+        let previous = memos
+        withAnimation(Motion.rise) {
+            memos = newMemos
         }
+        Haptics.commit()
+        persistMemos(newMemos, capturedDate: date, previous: previous, failureMessagePrefix: "保存失败")
     }
 
     /// Pins a memo to the top of today's list without changing its original timestamp.
@@ -309,14 +309,11 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         var updated = memos
         updated.remove(at: idx)
         updated.insert(pinned, at: 0)
-        do {
-            try rewrite(memos: updated)
-            withAnimation(.easeInOut(duration: 0.25)) {
-                memos = updated
-            }
-        } catch {
-            submitError = "置顶失败：\(error.localizedDescription)"
+        let previous = memos
+        withAnimation(.easeInOut(duration: 0.25)) {
+            memos = updated
         }
+        persistMemos(updated, capturedDate: date, previous: previous, failureMessagePrefix: "置顶失败")
     }
 
     /// Unpins a memo, restoring it to its natural position based on original `created` time.
@@ -328,30 +325,39 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         updated.remove(at: idx)
         let insertIdx = updated.firstIndex(where: { $0.created < unpinned.created }) ?? updated.endIndex
         updated.insert(unpinned, at: insertIdx)
-        do {
-            try rewrite(memos: updated)
-            withAnimation(.easeInOut(duration: 0.25)) {
-                memos = updated
-            }
-        } catch {
-            submitError = "取消置顶失败：\(error.localizedDescription)"
+        let previous = memos
+        withAnimation(.easeInOut(duration: 0.25)) {
+            memos = updated
         }
+        persistMemos(updated, capturedDate: date, previous: previous, failureMessagePrefix: "取消置顶失败")
     }
 
-    /// Overwrites today's raw storage file with the given ordered memo list.
-    private func rewrite(memos: [Memo]) throws {
-        let url = RawStorage.fileURL(for: date)
-        if memos.isEmpty {
-            // Remove the file entirely if no memos remain
-            if FileManager.default.fileExists(atPath: url.path) {
-                try FileManager.default.removeItem(at: url)
+    /// Dispatches a `RawStorage.rewrite` off the MainActor so disk I/O never
+    /// blocks the UI thread, and so the rewrite is serialized with `append()`
+    /// through `RawStorage.writeQueue`.
+    ///
+    /// On failure, restores `memos` to `previous` and surfaces an error
+    /// banner via `submitError`. Memo arrays are value types, so capturing
+    /// them across the actor boundary is safe.
+    private func persistMemos(
+        _ memosToWrite: [Memo],
+        capturedDate: Date,
+        previous: [Memo],
+        failureMessagePrefix: String
+    ) {
+        Task.detached(priority: .userInitiated) { [weak self] in
+            do {
+                try RawStorage.rewrite(memosToWrite, for: capturedDate)
+            } catch {
+                await MainActor.run {
+                    guard let self = self else { return }
+                    withAnimation(Motion.rise) {
+                        self.memos = previous
+                    }
+                    self.submitError = "\(failureMessagePrefix)：\(error.localizedDescription)"
+                }
             }
-            return
         }
-        // Write newest-last so the file is chronological (parser sorts later)
-        let ordered = memos.sorted { $0.created < $1.created }
-        let content = ordered.map { $0.toMarkdown() }.joined(separator: RawStorage.memoSeparator)
-        try RawStorage.atomicWrite(string: content, to: url)
     }
 
     // MARK: - Load Memos
@@ -562,8 +568,9 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
             updated.attachments = atts
             var newMemos = memos
             newMemos[memoIdx] = updated
-            try? rewrite(memos: newMemos)
+            let previous = memos
             withAnimation { memos = newMemos }
+            persistMemos(newMemos, capturedDate: date, previous: previous, failureMessagePrefix: "重新转写失败")
         }
     }
 

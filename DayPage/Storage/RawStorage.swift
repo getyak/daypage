@@ -75,6 +75,64 @@ enum RawStorage {
         }
     }
 
+    // MARK: - Serialization
+
+    /// Serializes an ordered list of memos into the on-disk format for a single
+    /// day's file: each memo's markdown joined by `memoSeparator`, written
+    /// newest-last so the file is chronological (parser sorts later anyway).
+    ///
+    /// Pure function — no I/O, safe to call from any thread/actor.
+    static func serialize(_ memos: [Memo]) -> String {
+        let ordered = memos.sorted { $0.created < $1.created }
+        return ordered.map { $0.toMarkdown() }.joined(separator: memoSeparator)
+    }
+
+    // MARK: - Rewrite
+
+    /// Replaces the contents of `date`'s raw file with the given memo list.
+    /// If `memos` is empty, the file is deleted.
+    ///
+    /// Runs through `writeQueue.sync` so that it cannot interleave with
+    /// `append()` — without this, a concurrent rewrite + append against the
+    /// same day's file would race (e.g. user pins a memo while a voice
+    /// transcript callback appends another), and the last writer would silently
+    /// overwrite the other's changes.
+    ///
+    /// Safe to call from any thread/actor. Performs disk I/O inline, so callers
+    /// on `@MainActor` should dispatch via `Task.detached` to avoid blocking
+    /// the UI thread (see TodayViewModel for the canonical pattern).
+    static func rewrite(_ memos: [Memo], for date: Date) throws {
+        try writeQueue.sync {
+            let url = fileURL(for: date)
+            if memos.isEmpty {
+                let fm = FileManager.default
+                if fm.fileExists(atPath: url.path) {
+                    try fm.removeItem(at: url)
+                }
+
+                let crumb = Breadcrumb()
+                crumb.category = "rawstorage"
+                crumb.message = "rewrite: removed empty file \(url.lastPathComponent)"
+                crumb.level = .info
+                SentrySDK.addBreadcrumb(crumb)
+
+                WidgetCenter.shared.reloadAllTimelines()
+                return
+            }
+
+            let content = serialize(memos)
+            try atomicWrite(string: content, to: url)
+
+            let crumb = Breadcrumb()
+            crumb.category = "rawstorage"
+            crumb.message = "rewrite \(memos.count) memos to \(url.lastPathComponent)"
+            crumb.level = .info
+            SentrySDK.addBreadcrumb(crumb)
+
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+    }
+
     // MARK: - Read
 
     /// 读取给定日期日文件中的所有 Memo。
