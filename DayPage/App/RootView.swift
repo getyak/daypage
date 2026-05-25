@@ -108,6 +108,14 @@ struct RootView: View {
 
     // MARK: - Main Content with Sidebar Overlay
 
+    // Width of the left-edge strip that opens the sidebar via swipe-from-edge.
+    // Kept narrow so the rest of the screen is free for horizontal gestures
+    // inside child views (e.g. SwipeableMemoCard's UIKit pan). Previously the
+    // open-sidebar DragGesture was attached to the entire ZStack with a 20pt
+    // minimumDistance, which fought UIKit's 10pt direction-lock inside
+    // SwipeableMemoCard and effectively froze left/right swipe-to-reveal.
+    private let edgeSwipeWidth: CGFloat = 20
+
     private var mainContent: some View {
         ZStack(alignment: .leading) {
             // 标签页内容 — 三个页面全部保持存活以保留 ViewModel 状态
@@ -182,31 +190,69 @@ struct RootView: View {
                 )
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .offset(x: nav.isFeedbackPanelOpen ? 0 : feedbackPanelWidth + 60)
-                .gesture(
-                    DragGesture(minimumDistance: 20)
-                        .onEnded { value in
-                            if value.translation.width > 60 {
-                                nav.closeFeedbackPanel()
-                            }
-                        }
+                // Close-by-swipe only attached while the panel is open.
+                // Previously the gesture was always installed; SwiftUI keeps
+                // such gestures in arbitration even when allowsHitTesting is
+                // false, which interfered with horizontal pans inside the
+                // timeline (memo cards' UIKit pan recognizer).
+                .modifier(
+                    FeedbackCloseSwipeModifier(
+                        isOpen: nav.isFeedbackPanelOpen,
+                        onClose: { nav.closeFeedbackPanel() }
+                    )
                 )
                 .allowsHitTesting(nav.isFeedbackPanelOpen)
                 .zIndex(2)
 
+            // Edge-swipe trigger: only the leftmost `edgeSwipeWidth` strip can
+            // open the sidebar. By scoping the gesture to a narrow strip we
+            // stop SwiftUI's DragGesture from competing with UIKit pan
+            // recognizers (SwipeableMemoCard) across the entire screen.
+            // simultaneousGesture keeps siblings active, so vertical timeline
+            // scroll and horizontal card swipes are no longer blocked while
+            // SwiftUI is still in the "Possible" arbitration window.
+            if !nav.isSidebarOpen {
+                Color.clear
+                    .frame(width: edgeSwipeWidth)
+                    .frame(maxHeight: .infinity)
+                    .contentShape(Rectangle())
+                    .simultaneousGesture(
+                        DragGesture(minimumDistance: 12, coordinateSpace: .local)
+                            .onEnded { value in
+                                let dx = value.translation.width
+                                let dy = value.translation.height
+                                guard abs(dx) > abs(dy) * 1.2 else { return }
+                                if dx > 30 { nav.openSidebar() }
+                            }
+                    )
+                    .allowsHitTesting(true)
+                    .accessibilityHidden(true)
+            }
         }
-        // 边缘滑动打开：仅在拖动从左侧 40pt 以内开始时触发
-        .gesture(
-            DragGesture(minimumDistance: 20, coordinateSpace: .local)
-                .onEnded { value in
-                    let dx = value.translation.width
-                    let dy = value.translation.height
-                    guard abs(dx) > abs(dy) * 1.2 else { return }
-                    if dx > 40, value.startLocation.x < 40, !nav.isSidebarOpen {
-                        nav.openSidebar()
-                    } else if dx < -40, nav.isSidebarOpen {
-                        nav.closeSidebar()
+    }
+}
+
+// MARK: - FeedbackCloseSwipeModifier
+//
+// Conditionally attaches the swipe-right-to-close gesture only while the
+// FeedbackView is open. Keeping it permanently attached (even with
+// allowsHitTesting=false) leaves the gesture in SwiftUI's arbitration pool
+// and competes with horizontal gestures elsewhere on screen (notably the
+// UIKit pan inside SwipeableMemoCard).
+private struct FeedbackCloseSwipeModifier: ViewModifier {
+    let isOpen: Bool
+    let onClose: () -> Void
+
+    func body(content: Content) -> some View {
+        if isOpen {
+            content.gesture(
+                DragGesture(minimumDistance: 20)
+                    .onEnded { value in
+                        if value.translation.width > 60 { onClose() }
                     }
-                }
-        )
+            )
+        } else {
+            content
+        }
     }
 }
