@@ -147,7 +147,13 @@ struct SettingsView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
-                        let trimmed = editingKeyValue.trimmingCharacters(in: .whitespaces)
+                        // Trim whitespace AND newlines — pasted API keys frequently
+                        // carry a trailing `\n` from the source (terminal copy,
+                        // password manager export), which silently makes the
+                        // Authorization header invalid (`Bearer sk-…\n`) and the
+                        // request 401s with no clue why.
+                        let trimmed = editingKeyValue
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
                         if trimmed.isEmpty {
                             KeychainHelper.deleteAPIKey(for: editingKeyID)
                         } else {
