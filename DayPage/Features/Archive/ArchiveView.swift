@@ -214,25 +214,34 @@ final class ArchiveViewModel: ObservableObject {
                 var voiceSeconds = 0
                 var uniqueLocations = Set<String>()
 
-                if let content = (try? String(contentsOf: rawURL, encoding: .utf8)) {
-                    let memos: [Memo]?
-                    do { memos = try RawStorage.read(for: date) }
-                    catch { memos = nil }
-                    memoCount = memos?.count ?? countMemoBlocks(in: content)
-                    for memo in (memos ?? []) {
-                        if memo.type == .photo || memo.type == .mixed {
-                            photoCount += memo.attachments.filter { $0.kind == "photo" }.count
-                        }
-                        if memo.type == .voice || memo.type == .mixed {
-                            for att in memo.attachments where att.kind == "audio" {
-                                if let dur = att.duration {
-                                    voiceSeconds += Int(dur)
-                                }
+                // RawStorage.read returns [] when the file is missing and parses
+                // the day's memos in one pass. Calling it directly avoids a redundant
+                // disk read (the previous `String(contentsOf:)` guard only existed
+                // to provide a fallback when read threw — handled below).
+                let memos: [Memo]
+                do {
+                    memos = try RawStorage.read(for: date)
+                } catch {
+                    // Fallback: parse-failure should not zero the day. Read raw and
+                    // count blocks so the calendar density still reflects activity.
+                    let raw = (try? String(contentsOf: rawURL, encoding: .utf8)) ?? ""
+                    memoCount = raw.isEmpty ? 0 : countMemoBlocks(in: raw)
+                    memos = []
+                }
+                if !memos.isEmpty { memoCount = memos.count }
+                for memo in memos {
+                    if memo.type == .photo || memo.type == .mixed {
+                        photoCount += memo.attachments.filter { $0.kind == "photo" }.count
+                    }
+                    if memo.type == .voice || memo.type == .mixed {
+                        for att in memo.attachments where att.kind == "audio" {
+                            if let dur = att.duration {
+                                voiceSeconds += Int(dur)
                             }
                         }
-                        if let loc = memo.location, let name = loc.name, !name.isEmpty {
-                            uniqueLocations.insert(name)
-                        }
+                    }
+                    if let loc = memo.location, let name = loc.name, !name.isEmpty {
+                        uniqueLocations.insert(name)
                     }
                 }
 
