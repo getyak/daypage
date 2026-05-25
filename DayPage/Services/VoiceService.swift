@@ -406,6 +406,13 @@ final class VoiceService: NSObject, ObservableObject {
                 // 不可重试的错误或重试次数已耗尽
                 return nil
             } catch {
+                // Cancellation should not be retried — the caller (user
+                // backgrounding the app, view dismounting) explicitly asked
+                // for this work to stop. Without this guard we'd burn 2-8s
+                // sleeping before another doomed attempt.
+                if (error as? URLError)?.code == .cancelled || Task.isCancelled {
+                    return nil
+                }
                 if attempt < maxAttempts {
                     try? await Task.sleep(nanoseconds: delaySeconds * 1_000_000_000)
                     delaySeconds *= 2
