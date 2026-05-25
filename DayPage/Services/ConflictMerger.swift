@@ -12,6 +12,10 @@ struct ConflictResolutionInfo {
 extension Notification.Name {
     static let vaultConflictResolved = Notification.Name("vaultConflictResolved")
     static let vaultConflictFailed = Notification.Name("vaultConflictFailed")
+
+    /// Posted by RawStorage after a raw day-file write/delete. `object` is the
+    /// affected day's `Date`. TimelineIndex listens to update incrementally.
+    static let rawStorageDidWrite = Notification.Name("rawStorageDidWrite")
 }
 
 // MARK: - ConflictMerger

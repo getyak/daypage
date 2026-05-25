@@ -72,7 +72,19 @@ enum RawStorage {
             SentrySDK.addBreadcrumb(crumb)
 
             WidgetCenter.shared.reloadAllTimelines()
+            notifyDidWrite(for: memo.created)
         }
+    }
+
+    // MARK: - Write notification
+
+    /// Posted after any raw day-file mutation so caches (e.g. TimelineIndex) can
+    /// update incrementally. The object is the affected day's `Date`. Decoupled
+    /// via NotificationCenter so the storage layer never depends on the index
+    /// layer, and every write path (TodayViewModel rewrite/delete,
+    /// PassiveLocationService, SampleDataSeeder) is covered automatically.
+    static func notifyDidWrite(for date: Date) {
+        NotificationCenter.default.post(name: .rawStorageDidWrite, object: date)
     }
 
     // MARK: - Serialization
@@ -117,6 +129,7 @@ enum RawStorage {
                 SentrySDK.addBreadcrumb(crumb)
 
                 WidgetCenter.shared.reloadAllTimelines()
+                notifyDidWrite(for: date)
                 return
             }
 
@@ -130,6 +143,7 @@ enum RawStorage {
             SentrySDK.addBreadcrumb(crumb)
 
             WidgetCenter.shared.reloadAllTimelines()
+            notifyDidWrite(for: date)
         }
     }
 

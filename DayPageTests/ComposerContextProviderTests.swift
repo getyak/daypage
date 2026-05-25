@@ -1,6 +1,7 @@
 import XCTest
 @testable import DayPage
 
+@MainActor
 final class ComposerContextProviderTests: XCTestCase {
 
     private var provider: ComposerContextProvider!
@@ -20,10 +21,10 @@ final class ComposerContextProviderTests: XCTestCase {
     func testContextChip_id_isUnique() {
         let chips: [ContextChip] = [
             .weather(temp: "20°C", condition: "Sunny"),
-            .location(short: "Tokyo"),
+            .location(short: "Tokyo", lat: 35.68, lng: 139.69),
             .timeRitual(emoji: "🌅", text: "早安"),
             .lastMemoTail(snippet: "hello world"),
-            .smartPaste(value: "pasted text"),
+            .smartPaste,
         ]
         let ids = chips.map { $0.id }
         XCTAssertEqual(Set(ids).count, ids.count, "Each ContextChip case must produce a unique id")
@@ -126,18 +127,20 @@ final class ComposerContextProviderTests: XCTestCase {
         UIPasteboard.general.string = "some copied text"
         defer { UIPasteboard.general.string = nil }
         let chips = provider.chips
-        let pasteValue = chips.compactMap { if case .smartPaste(let v) = $0 { return v } else { return nil } }.first
-        XCTAssertNotNil(pasteValue, "smartPaste chip must be present when pasteboard has a string")
-        XCTAssertEqual(pasteValue, "some copied text")
+        let hasPaste = chips.contains { if case .smartPaste = $0 { return true }; return false }
+        XCTAssertTrue(hasPaste, "smartPaste chip must be present when pasteboard has a string")
     }
 
-    func testChips_smartPaste_valueTruncatedTo100Chars() {
-        let longString = String(repeating: "a", count: 200)
-        UIPasteboard.general.string = longString
+    /// The pasteboard chip is an opaque availability signal — it must NOT carry
+    /// the clipboard contents (#254 privacy fix). Reading `.string` only happens
+    /// when the user taps the chip, never during chip construction. This test
+    /// pins that the chip case has no associated value.
+    func testChips_smartPaste_carriesNoContent() {
+        UIPasteboard.general.string = String(repeating: "a", count: 200)
         defer { UIPasteboard.general.string = nil }
         let chips = provider.chips
-        let pasteValue = chips.compactMap { if case .smartPaste(let v) = $0 { return v } else { return nil } }.first
-        XCTAssertNotNil(pasteValue)
-        XCTAssertLessThanOrEqual(pasteValue!.count, 100, "smartPaste value must be at most 100 characters")
+        let pasteChip = chips.first { if case .smartPaste = $0 { return true }; return false }
+        XCTAssertEqual(pasteChip, .smartPaste,
+                       "smartPaste must be a valueless availability signal, not carry clipboard text")
     }
 }

@@ -53,10 +53,19 @@ export function ChatView({ threadId, threadTitle, initialMessages, threads }: Ch
   const [mobileTab, setMobileTab] = useState<MobileTab>("chat");
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const isComposingRef = useRef(false);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Auto-resize textarea to fit content; keeps cursor position stable across renders.
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
+  }, [input]);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -177,7 +186,9 @@ export function ChatView({ threadId, threadTitle, initialMessages, threads }: Ch
   );
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
+    // Don't trigger send while an IME composition is active — pressing Enter
+    // during composition should commit the candidate, not submit the message.
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing && !isComposingRef.current) {
       e.preventDefault();
       void sendMessage(input);
     }
@@ -293,9 +304,15 @@ export function ChatView({ threadId, threadTitle, initialMessages, threads }: Ch
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
+            onCompositionStart={() => { isComposingRef.current = true; }}
+            onCompositionEnd={() => { isComposingRef.current = false; }}
             rows={1}
             placeholder="Ask the wiki anything…"
             disabled={sending}
+            enterKeyHint="send"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
           />
           <Btn kind="ghost" size="sm" aria-label="Attach" disabled title="coming soon">
             📎
