@@ -387,7 +387,8 @@ final class AuthService: NSObject, ObservableObject {
                  .timedOut, .dataNotAllowed, .internationalRoamingOff:
                 return .networkUnavailable
             default:
-                return .unknown(message: "请求失败，请稍后再试")
+                DayPageLogger.shared.error("[AuthService] URLError code=\(urlError.code.rawValue) desc=\(urlError.localizedDescription)")
+                return .unknown(message: debugFallbackMessage(suffix: "URL \(urlError.code.rawValue)"))
             }
         }
 
@@ -417,13 +418,32 @@ final class AuthService: NSObject, ObservableObject {
                 }
             }
 
-            // Log the raw server message privately but never surface it to the user.
-            DayPageLogger.shared.error("[AuthService] Unmapped auth error (private)")
-            return .unknown(message: "请求失败，请稍后再试")
+            // Log the raw server message privately, and in DEBUG also surface a
+            // short diagnostic suffix so failures like a misconfigured Apple
+            // provider are visible during development without digging Sentry.
+            let httpStatus: Int? = {
+                if case let .api(_, _, _, response) = sbError { return response.statusCode }
+                return nil
+            }()
+            DayPageLogger.shared.error("[AuthService] Unmapped auth error code=\(code.rawValue) http=\(httpStatus.map(String.init) ?? "-") msg=\(sbError.message)")
+            let suffix = "code=\(code.rawValue) http=\(httpStatus.map(String.init) ?? "-")"
+            return .unknown(message: debugFallbackMessage(suffix: suffix))
         }
 
-        DayPageLogger.shared.error("[AuthService] Unknown error type (private)")
-        return .unknown(message: "请求失败，请稍后再试")
+        DayPageLogger.shared.error("[AuthService] Unknown error type: \(type(of: error)) desc=\(String(describing: error))")
+        return .unknown(message: debugFallbackMessage(suffix: "type=\(type(of: error))"))
+    }
+
+    /// Release builds never leak server detail to users. DEBUG builds append a
+    /// short diagnostic suffix so failures like a misconfigured Apple provider
+    /// are visible without digging through Sentry / Console.app.
+    private func debugFallbackMessage(suffix: String) -> String {
+        let base = "请求失败，请稍后再试"
+        #if DEBUG
+        return "\(base) [\(suffix)]"
+        #else
+        return base
+        #endif
     }
 
     private func parseRetryAfter(from sbError: Supabase.AuthError) -> Int? {
