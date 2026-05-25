@@ -181,11 +181,18 @@ final class GraphViewModel: ObservableObject {
         let name: String
     }
 
+    // Cached once at file scope — NSRegularExpression compilation is expensive
+    // and the pattern is invariant. Previously rebuilt on every Daily Page scan,
+    // which on a vault with hundreds of dailies meant hundreds of pattern compiles
+    // per graph load.
+    nonisolated private static let wikilinkRegex: NSRegularExpression? = try? NSRegularExpression(
+        pattern: #"\[\[wiki/(places|people|themes)/([^\]|]+)(?:\|([^\]]+))?\]\]"#
+    )
+
     nonisolated private static func extractWikilinks(from content: String) -> [WikiRef] {
         // Matches [[wiki/places/slug|Name]] or [[wiki/places/slug]]
         var results: [WikiRef] = []
-        let pattern = #"\[\[wiki/(places|people|themes)/([^\]|]+)(?:\|([^\]]+))?\]\]"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        guard let regex = wikilinkRegex else { return [] }
         let nsContent = content as NSString
         let matches = regex.matches(in: content, range: NSRange(location: 0, length: nsContent.length))
         for match in matches {
@@ -204,15 +211,25 @@ final class GraphViewModel: ObservableObject {
     }
 
     nonisolated private static func parseName(from content: String) -> String? {
+        // Walks the frontmatter only — stops at the closing `---`. The previous
+        // implementation tried to detect the closer with `!content.hasPrefix("---")`,
+        // which is always false for well-formed frontmatter (file starts with `---`),
+        // so the loop kept scanning the entire body. Track the frontmatter boundary
+        // explicitly instead.
+        var sawOpener = false
         for line in content.components(separatedBy: "\n") {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed == "---" {
+                if sawOpener { break }  // closing fence — name: must have appeared by now
+                sawOpener = true
+                continue
+            }
             if trimmed.hasPrefix("name:") {
                 let val = String(trimmed.dropFirst("name:".count))
                     .trimmingCharacters(in: .whitespaces)
                     .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
                 return val.isEmpty ? nil : val
             }
-            if trimmed == "---" && !content.hasPrefix(trimmed) { break }
         }
         return nil
     }
