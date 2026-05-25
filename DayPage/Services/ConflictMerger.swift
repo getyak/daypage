@@ -172,11 +172,11 @@ enum ConflictMerger {
                 }
             }
             let afterCount = original.count
-            let crumb = Breadcrumb()
-            crumb.category = "conflict_merger"
-            crumb.message = "merged \(primaryURL.lastPathComponent): \(beforeCount) primary + conflict versions → \(afterCount) memos"
-            crumb.level = afterCount < beforeCount ? .warning : .info
-            SentrySDK.addBreadcrumb(crumb)
+            SentryReporter.breadcrumb(
+                category: "conflict_merger",
+                level: afterCount < beforeCount ? .warning : .info,
+                message: "merged \(primaryURL.lastPathComponent): \(beforeCount) primary + conflict versions → \(afterCount) memos"
+            )
             if afterCount < beforeCount {
                 DayPageLogger.log(
                     level: "WARN",

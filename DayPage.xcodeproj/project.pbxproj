@@ -113,6 +113,7 @@
 		A10000203 /* InlineLensStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000203 /* InlineLensStrip.swift */; };
 		A10000301 /* TimelineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000301 /* TimelineService.swift */; };
 		A10000350 /* TimelineIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000350 /* TimelineIndex.swift */; };
+		A10000360 /* SentryReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000360 /* SentryReporter.swift */; };
 		A10000302 /* TimelineSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000302 /* TimelineSectionView.swift */; };
 		A46C6A46A2D76FF5DBFBD6C6 /* StartRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE91252BA9167A50BFF79FF0 /* StartRecordingIntent.swift */; };
 		AF0000001 /* SpaceGrotesk-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000001 /* SpaceGrotesk-Light.ttf */; };
@@ -320,6 +321,7 @@
 		A20000203 /* InlineLensStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineLensStrip.swift; sourceTree = "<group>"; };
 		A20000301 /* TimelineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineService.swift; sourceTree = "<group>"; };
 		A20000350 /* TimelineIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineIndex.swift; sourceTree = "<group>"; };
+		A20000360 /* SentryReporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryReporter.swift; sourceTree = "<group>"; };
 		A20000302 /* TimelineSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineSectionView.swift; sourceTree = "<group>"; };
 		A30000001 /* DayPage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPage.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A381FA327A37AE0DD740D61D /* PosterTemplates.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PosterTemplates.swift; path = ShareCard/PosterTemplates.swift; sourceTree = "<group>"; };
@@ -603,6 +605,7 @@
 				A20000083 /* WeeklyRecapService.swift */,
 				A20000301 /* TimelineService.swift */,
 				A20000350 /* TimelineIndex.swift */,
+				A20000360 /* SentryReporter.swift */,
 				A20000095 /* ComposerContextProvider.swift */,
 				BB12D96218034D3E4555B8AA /* HapticFeedback.swift */,
 			);
@@ -1153,6 +1156,7 @@
 				A10000083 /* WeeklyRecapService.swift in Sources */,
 				A10000301 /* TimelineService.swift in Sources */,
 				A10000350 /* TimelineIndex.swift in Sources */,
+				A10000360 /* SentryReporter.swift in Sources */,
 				A10000084 /* WeeklyRecapSection.swift in Sources */,
 				A10000302 /* TimelineSectionView.swift in Sources */,
 				A10000200 /* ComposerStateMachine.swift in Sources */,
