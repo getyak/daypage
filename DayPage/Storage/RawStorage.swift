@@ -1,5 +1,4 @@
 import Foundation
-import Sentry
 import WidgetKit
 
 // MARK: - RawStorage
@@ -65,11 +64,10 @@ enum RawStorage {
 
             try atomicWrite(string: combined, to: url)
 
-            let crumb = Breadcrumb()
-            crumb.category = "rawstorage"
-            crumb.message = "append memo \(memo.id) to \(url.lastPathComponent)"
-            crumb.level = .info
-            SentrySDK.addBreadcrumb(crumb)
+            SentryReporter.breadcrumb(
+                category: "rawstorage",
+                message: "append memo \(memo.id) to \(url.lastPathComponent)"
+            )
 
             WidgetCenter.shared.reloadAllTimelines()
             notifyDidWrite(for: memo.created)
@@ -122,11 +120,10 @@ enum RawStorage {
                     try fm.removeItem(at: url)
                 }
 
-                let crumb = Breadcrumb()
-                crumb.category = "rawstorage"
-                crumb.message = "rewrite: removed empty file \(url.lastPathComponent)"
-                crumb.level = .info
-                SentrySDK.addBreadcrumb(crumb)
+                SentryReporter.breadcrumb(
+                    category: "rawstorage",
+                    message: "rewrite: removed empty file \(url.lastPathComponent)"
+                )
 
                 WidgetCenter.shared.reloadAllTimelines()
                 notifyDidWrite(for: date)
@@ -136,11 +133,10 @@ enum RawStorage {
             let content = serialize(memos)
             try atomicWrite(string: content, to: url)
 
-            let crumb = Breadcrumb()
-            crumb.category = "rawstorage"
-            crumb.message = "rewrite \(memos.count) memos to \(url.lastPathComponent)"
-            crumb.level = .info
-            SentrySDK.addBreadcrumb(crumb)
+            SentryReporter.breadcrumb(
+                category: "rawstorage",
+                message: "rewrite \(memos.count) memos to \(url.lastPathComponent)"
+            )
 
             WidgetCenter.shared.reloadAllTimelines()
             notifyDidWrite(for: date)
@@ -154,22 +150,21 @@ enum RawStorage {
     static func read(for date: Date) throws -> [Memo] {
         let url = fileURL(for: date)
         guard FileManager.default.fileExists(atPath: url.path) else {
-            let crumb = Breadcrumb()
-            crumb.category = "rawstorage"
-            crumb.message = "read: file not found \(url.lastPathComponent)"
-            crumb.level = .warning
-            SentrySDK.addBreadcrumb(crumb)
+            SentryReporter.breadcrumb(
+                category: "rawstorage",
+                level: .warning,
+                message: "read: file not found \(url.lastPathComponent)"
+            )
             return []
         }
 
         let content = try String(contentsOf: url, encoding: .utf8)
         let memos = parse(fileContent: content)
 
-        let crumb = Breadcrumb()
-        crumb.category = "rawstorage"
-        crumb.message = "read \(memos.count) memos from \(url.lastPathComponent)"
-        crumb.level = .info
-        SentrySDK.addBreadcrumb(crumb)
+        SentryReporter.breadcrumb(
+            category: "rawstorage",
+            message: "read \(memos.count) memos from \(url.lastPathComponent)"
+        )
 
         return memos
     }

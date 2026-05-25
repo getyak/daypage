@@ -27,25 +27,19 @@ final class DayPageLogger {
 
     func error(_ message: String, file: String = #file, line: Int = #line) {
         write(level: "ERROR", message: message, file: file, line: line)
-        let crumb = Breadcrumb(level: .error, category: "app")
-        crumb.message = message
-        SentrySDK.addBreadcrumb(crumb)
+        SentryReporter.breadcrumb(category: "app", level: .error, message: message)
         // Breadcrumb only — no per-call SentrySDK.capture(). Call sites that need a
         // full Sentry event (unhandled exceptions) should invoke SentrySDK directly.
     }
 
     func warn(_ message: String, file: String = #file, line: Int = #line) {
         write(level: "WARN", message: message, file: file, line: line)
-        let crumb = Breadcrumb(level: .warning, category: "app")
-        crumb.message = message
-        SentrySDK.addBreadcrumb(crumb)
+        SentryReporter.breadcrumb(category: "app", level: .warning, message: message)
     }
 
     func info(_ message: String, file: String = #file, line: Int = #line) {
         write(level: "INFO", message: message, file: file, line: line)
-        let crumb = Breadcrumb(level: .info, category: "app")
-        crumb.message = message
-        SentrySDK.addBreadcrumb(crumb)
+        SentryReporter.breadcrumb(category: "app", level: .info, message: message)
     }
 
     private func write(level: String, message: String, file: String, line: Int) {
