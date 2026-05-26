@@ -285,7 +285,12 @@ struct TodayView: View {
                                     TimelineRow(
                                         memo: memo,
                                         isLast: idx == viewModel.memos.count - 1,
-                                        onDelete: { viewModel.deleteMemo(memo) },
+                                        onDelete: {
+                                            // Clear submit undo pill so the two never stack
+                                            undoText = nil
+                                            undoTask?.cancel()
+                                            viewModel.deleteMemo(memo)
+                                        },
                                         onPin: {
                                             if memo.pinnedAt != nil {
                                                 viewModel.unpinMemo(memo)
@@ -431,6 +436,17 @@ struct TodayView: View {
                     }
                 }
                 .animation(Motion.rise, value: undoText != nil)
+                // Undo pill shown for 5s after memo delete
+                .overlay(alignment: .bottom) {
+                    if viewModel.lastDeletedMemo != nil {
+                        UndoPillView(label: "已删除 · 撤销") {
+                            viewModel.undoDelete()
+                        }
+                        .padding(.bottom, 96)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+                .animation(Motion.rise, value: viewModel.lastDeletedMemo != nil)
                 // Submit error toast — scoped animation lives on the overlay
                 // container so only the toast itself animates, not the whole
                 // ZStack tree. (#217)
@@ -1002,6 +1018,8 @@ struct TodayView: View {
     // US-009: Show undo pill for 5 seconds after submitting a memo.
     private func showUndoPill(for text: String) {
         guard !text.isEmpty else { return }
+        // Clear delete undo pill so the two never stack
+        viewModel.lastDeletedMemo = nil
         undoTask?.cancel()
         undoText = text
         undoTask = Task {
