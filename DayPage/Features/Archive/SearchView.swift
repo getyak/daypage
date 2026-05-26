@@ -189,9 +189,11 @@ struct SearchView: View {
 
     private func runSearch(keyword: String) {
         let trimmed = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
+        let wasEmpty = vm.results.isEmpty
         let hits = SearchService.search(keyword: trimmed, filters: filters)
         vm.results = hits
         vm.hasSearched = !trimmed.isEmpty || filters.isActive
+        if wasEmpty && !hits.isEmpty && !trimmed.isEmpty { Haptics.soft() }
     }
 
     // MARK: - Search Bar
@@ -234,6 +236,7 @@ struct SearchView: View {
             .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
 
             Button(action: {
+                Haptics.soft()
                 isInputFocused = false
                 showFilters.toggle()
             }) {
@@ -371,6 +374,7 @@ struct SearchView: View {
                 HStack {
                     Spacer()
                     Button(action: {
+                        Haptics.light()
                         filters = .empty
                         runSearch(keyword: vm.query)
                     }) {
@@ -390,6 +394,7 @@ struct SearchView: View {
     private func typeChip(_ type: Memo.MemoType) -> some View {
         let isSelected = filters.types.contains(type)
         return Button(action: {
+            Haptics.soft()
             if isSelected {
                 filters.types.remove(type)
             } else {
@@ -438,7 +443,10 @@ struct SearchView: View {
 
                 if !recent.isEmpty {
                     sectionHeader(title: "最近搜索", trailing: AnyView(
-                        Button(action: { vm.clearRecentSearches() }) {
+                        Button(action: {
+                            Haptics.light()
+                            vm.clearRecentSearches()
+                        }) {
                             Text("清除")
                                 .monoLabelStyle(size: 10)
                                 .foregroundColor(DSColor.primary)
@@ -506,6 +514,7 @@ struct SearchView: View {
                 .foregroundColor(DSColor.outline)
 
             Button(action: {
+                Haptics.tapConfirm()
                 vm.query = q
                 runSearch(keyword: q)
             }) {
@@ -533,6 +542,7 @@ struct SearchView: View {
 
     private func entityChip(_ entity: String) -> some View {
         Button(action: {
+            Haptics.tapConfirm()
             vm.query = entity
             runSearch(keyword: entity)
         }) {
@@ -624,6 +634,7 @@ struct SearchView: View {
 
     private func resultRow(_ result: SearchResult) -> some View {
         Button(action: {
+            Haptics.tapConfirm()
             vm.recordSearch(vm.query)
             onSelect(result.dateString)
         }) {
