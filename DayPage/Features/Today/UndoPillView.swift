@@ -11,10 +11,12 @@ import SwiftUI
 struct UndoPillView: View {
     var label: String = NSLocalizedString("undo_pill.label.send", comment: "Undo send pill label")
     let onUndo: () -> Void
+    var onDismiss: (() -> Void)? = nil
 
     @State private var countdownProgress: CGFloat = 1.0
     @State private var isUrgent: Bool = false
     @State private var secondsRemaining: Int = 5
+    @GestureState private var dragOffset: CGFloat = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -64,6 +66,22 @@ struct UndoPillView: View {
             .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 2)
         }
         .buttonStyle(.plain)
+        .offset(y: max(0, dragOffset))
+        .opacity(dragOffset > 0 ? Double(1 - dragOffset / 80) : 1)
+        .highPriorityGesture(
+            DragGesture(minimumDistance: 10)
+                .updating($dragOffset) { value, state, _ in
+                    if value.translation.height > 0 {
+                        state = value.translation.height
+                    }
+                }
+                .onEnded { value in
+                    if value.translation.height > 28 {
+                        Haptics.soft()
+                        onDismiss?()
+                    }
+                }
+        )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Undo send, \(secondsRemaining) seconds remaining")
         .accessibilityHint("Restores the note you just submitted back to the input field")

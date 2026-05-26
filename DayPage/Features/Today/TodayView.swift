@@ -440,6 +440,9 @@ struct TodayView: View {
                             draftText = text
                             undoText = nil
                             undoTask?.cancel()
+                        } onDismiss: {
+                            undoText = nil
+                            undoTask?.cancel()
                         }
                         .padding(.bottom, 96)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -451,6 +454,8 @@ struct TodayView: View {
                     if viewModel.lastDeletedMemo != nil {
                         UndoPillView(label: NSLocalizedString("undo_pill.label.delete", comment: "Undo delete pill label")) {
                             viewModel.undoDelete()
+                        } onDismiss: {
+                            viewModel.lastDeletedMemo = nil
                         }
                         .padding(.bottom, 96)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
