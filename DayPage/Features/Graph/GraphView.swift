@@ -203,6 +203,33 @@ struct GraphView: View {
         }
     }
 
+    // MARK: - Accessibility Helpers
+
+    private func localizedEntityTypeName(_ entityType: String) -> String {
+        switch entityType {
+        case "places":  return "地点"
+        case "people":  return "人物"
+        default:        return "主题"
+        }
+    }
+
+    private func openNode(_ node: GraphNode) {
+        Haptics.tapConfirm()
+        selectedNode = node
+        tapPulseNodeID = node.id
+        tapPulseProgress = 0
+        tapPulseGeneration += 1
+        let gen = tapPulseGeneration
+        withAnimation(.easeOut(duration: 0.35)) {
+            tapPulseProgress = 1
+        }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            if tapPulseGeneration == gen { tapPulseNodeID = nil }
+        }
+        showEntityPage = true
+    }
+
     // MARK: - Graph Canvas
 
     private var graphCanvas: some View {
@@ -240,6 +267,7 @@ struct GraphView: View {
                     }
                 }
                 .frame(width: size.width, height: size.height)
+                .accessibilityHidden(true)
                 .onAppear { simulationSize = size }
                 .onChange(of: size) { simulationSize = $0 }
 
@@ -269,27 +297,13 @@ struct GraphView: View {
                         .frame(width: r * 2, height: r * 2)
                         .contentShape(Circle())
                         .position(x: x, y: y)
-                        .onTapGesture {
-                            Haptics.tapConfirm()
-                            selectedNode = node
-                            tapPulseNodeID = node.id
-                            tapPulseProgress = 0
-                            tapPulseGeneration += 1
-                            let gen = tapPulseGeneration
-                            withAnimation(.easeOut(duration: 0.35)) {
-                                tapPulseProgress = 1
-                            }
-                            Task { @MainActor in
-                                try? await Task.sleep(nanoseconds: 400_000_000)
-                                if tapPulseGeneration == gen { tapPulseNodeID = nil }
-                            }
-                            showEntityPage = true
-                        }
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityAddTraits(.isButton)
+                        .onTapGesture { openNode(node) }
+                        .accessibilityElement()
                         .accessibilityLabel(node.name)
-                        .accessibilityValue(typeLabel(node.entityType))
-                        .accessibilityHint("Opens this entity's page")
+                        .accessibilityValue(localizedEntityTypeName(node.entityType))
+                        .accessibilityHint("打开实体页面")
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityAction { openNode(node) }
                 }
 
                 // Tap pulse ring — reads live position from the model so it tracks
