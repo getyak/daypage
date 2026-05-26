@@ -45,6 +45,22 @@ struct GraphView: View {
                         TextField("搜索节点...", text: $viewModel.searchQuery)
                             .font(DSFonts.jetBrainsMono(size: 12))
                             .foregroundColor(DSColor.inkPrimary)
+                        if !viewModel.searchQuery.isEmpty {
+                            Button {
+                                Haptics.soft()
+                                withAnimation(.easeInOut(duration: 0.15)) {
+                                    viewModel.searchQuery = ""
+                                }
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(DSColor.inkSubtle)
+                                    .frame(width: 28, height: 28)
+                                    .contentShape(Rectangle())
+                            }
+                            .accessibilityLabel("Clear search")
+                            .transition(.opacity)
+                        }
                     }
                     .padding(.horizontal, DSSpacing.md)
                     .padding(.vertical, 7)
