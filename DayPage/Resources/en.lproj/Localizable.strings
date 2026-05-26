@@ -16,6 +16,9 @@
 /* Compile-locked dock hint (shown above the input bar) */
 "compile.dock.locked" = "%1$d / 3 memos · %2$d more to unlock";
 
+/* VoiceOver announcement when 3rd memo unlocks compilation */
+"compile.dock.unlocked" = "Daily compilation unlocked";
+
 /* InputBarV4 — press-to-talk hint states */
 "input.hint.idle"            = "Hold to record · Release to transcribe";
 "input.hint.pre_recording"   = "Hold a moment longer";
