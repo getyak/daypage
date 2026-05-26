@@ -6,10 +6,12 @@ struct SidebarView: View {
 
     @EnvironmentObject private var nav: AppNavigationModel
     @EnvironmentObject private var authService: AuthService
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @StateObject private var sidebarVM = SidebarViewModel()
     @State private var showSettings = false
     @State private var showAccountSheet = false
+    @State private var dotsAppeared = false
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -74,7 +76,13 @@ struct SidebarView: View {
         .onChange(of: nav.isSidebarOpen) { isOpen in
             // Refresh the recent-day list every time the drawer opens so the
             // user sees the latest activity without having to relaunch.
-            if isOpen { sidebarVM.refreshRecentDays() }
+            if isOpen {
+                sidebarVM.refreshRecentDays()
+                dotsAppeared = false
+                Task { @MainActor in dotsAppeared = true }
+            } else {
+                dotsAppeared = false
+            }
         }
         .sheet(isPresented: $showSettings) {
             SettingsView()
@@ -129,10 +137,12 @@ struct SidebarView: View {
         let days = last7DayPairs()
         let todayStr = Self.isoFormatter.string(from: Date())
         return HStack(spacing: 5) {
-            ForEach(days, id: \.dateString) { pair in
+            ForEach(Array(days.enumerated()), id: \.element.dateString) { index, pair in
                 let isToday = pair.dateString == todayStr
                 let count = pair.count
                 let label = Self.dotAccessibilityLabel(for: pair.dateString, count: count)
+                let restingOpacity = count > 0 ? min(0.4 + Double(count) * 0.15, 1.0) : 0.25
+                let delay = reduceMotion ? 0.0 : Double(index) * 0.05
                 Button {
                     Haptics.soft()
                     nav.openArchive(at: pair.dateString)
@@ -140,13 +150,18 @@ struct SidebarView: View {
                     Circle()
                         .fill(count > 0 ? DSColor.amberAccent : DSColor.inkFaint)
                         .frame(width: 8, height: 8)
-                        .opacity(count > 0 ? min(0.4 + Double(count) * 0.15, 1.0) : 0.25)
+                        .opacity(dotsAppeared ? restingOpacity : 0)
+                        .scaleEffect(dotsAppeared ? 1 : 0.6)
                         .overlay {
                             if isToday {
                                 Circle()
                                     .strokeBorder(DSColor.amberRim, lineWidth: 1)
                             }
                         }
+                        .animation(
+                            reduceMotion ? .linear(duration: 0.001) : Motion.spring.delay(delay),
+                            value: dotsAppeared
+                        )
                         .dsAnimation(Motion.spring, value: count)
                 }
                 .frame(width: 28, height: 28)
