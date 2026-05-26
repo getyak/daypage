@@ -907,8 +907,6 @@ struct TodayView: View {
                 reduceMotion ? nil : .easeInOut(duration: 3.0).repeatForever(autoreverses: true),
                 value: orbBreathing
             )
-            .accessibilityLabel("Today's orb, \(viewModel.signalCount) signals")
-            .accessibilityHint("Tap to start writing today's first note")
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
