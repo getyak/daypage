@@ -53,6 +53,11 @@
 "empty.archive_day.subtitle" = "This day hasn't been compiled yet. Head to Today to add memos first.";
 "empty.archive_day.cta" = "Go to Today";
 
+/* Archive Month Empty */
+"empty.archive_month.title" = "This month is quiet.";
+"empty.archive_month.subtitle" = "No entries yet — switch to Today to start capturing today's signals.";
+"empty.archive_month.cta" = "Go Capture";
+
 /* Mic Permission Denied */
 "empty.mic_denied.title" = "Microphone access needed.";
 "empty.mic_denied.subtitle" = "Allow microphone access in Settings to record voice memos.";

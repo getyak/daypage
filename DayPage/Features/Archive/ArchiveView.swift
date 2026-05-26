@@ -1027,11 +1027,10 @@ struct ArchiveView: View {
     private var listContent: some View {
         LazyVStack(spacing: 8) {
             if viewModel.sortedDays.isEmpty {
-                Text("本月暂无记录")
-                    .bodySMStyle()
-                    .foregroundColor(DSColor.inkSubtle)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.top, 40)
+                EmptyStateView.archiveMonthEmpty {
+                    nav.selectedTab = .today
+                }
+                .padding(.top, 40)
             } else {
                 ForEach(viewModel.sortedDays, id: \.dateString) { stats in
                     archiveListRow(stats: stats)

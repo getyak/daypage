@@ -53,6 +53,11 @@
 "empty.archive_day.subtitle" = "这天尚未编译。先去「今天」添加备忘吧。";
 "empty.archive_day.cta" = "前往今天";
 
+/* Archive Month Empty */
+"empty.archive_month.title" = "这个月还很安静。";
+"empty.archive_month.subtitle" = "还没有记录 — 切回 Today 开始捕捉今天的信号。";
+"empty.archive_month.cta" = "去记录";
+
 /* Mic Permission Denied */
 "empty.mic_denied.title" = "需要麦克风权限。";
 "empty.mic_denied.subtitle" = "请在「设置」中允许访问麦克风，以便录制语音备忘。";
