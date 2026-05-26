@@ -18,6 +18,8 @@ struct DayOrbView: View {
     @State private var isPressed: Bool = false
     @State private var countPop: CGFloat = 1.0
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         ZStack {
             halo
@@ -47,6 +49,7 @@ struct DayOrbView: View {
             if new > previous {
                 Haptics.success()
                 pulse = true
+                if !reduceMotion { countPop = 1.18 }
                 Task { @MainActor in
                     try? await Task.sleep(nanoseconds: 250_000_000)
                     withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
