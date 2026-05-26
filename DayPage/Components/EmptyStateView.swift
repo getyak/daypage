@@ -9,7 +9,10 @@ struct EmptyStateView: View {
     var ctaAction: (() -> Void)?
     var showOrbAccent: Bool = false
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var appeared = false
+    @State private var breathing = false
 
     var body: some View {
         VStack(spacing: 20) {
@@ -29,7 +32,12 @@ struct EmptyStateView: View {
             }
         }
         .padding(.horizontal, 32)
-        .onAppear { appeared = true }
+        .onAppear {
+            appeared = true
+            if !reduceMotion {
+                breathing = true
+            }
+        }
     }
 
     // MARK: - Private
@@ -66,6 +74,12 @@ struct EmptyStateView: View {
             )
             .frame(width: 60, height: 60)
             .blur(radius: 10)
+            .scaleEffect(reduceMotion ? 1.0 : (breathing ? 1.12 : 0.92))
+            .opacity(reduceMotion ? 0.85 : (breathing ? 1.0 : 0.7))
+            .animation(
+                reduceMotion ? nil : .easeInOut(duration: 2.4).repeatForever(autoreverses: true),
+                value: breathing
+            )
             .allowsHitTesting(false)
     }
 
