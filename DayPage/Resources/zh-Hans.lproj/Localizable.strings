@@ -41,6 +41,10 @@
 "input.dock.record"          = "录音";
 "input.dock.text"            = "文字";
 
+/* UndoPillView — US-009 */
+"undo_pill.label.send"       = "撤销发送";
+"undo_pill.label.delete"     = "已删除 · 撤销";
+
 /* DailyPage swipe action */
 "today.action.recompile"     = "重新编译";
 
