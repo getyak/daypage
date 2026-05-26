@@ -29,6 +29,7 @@ struct DayOrbView: View {
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
                     if !isPressed {
+                        Haptics.soft()
                         withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
                             isPressed = true
                         }
@@ -45,6 +46,7 @@ struct DayOrbView: View {
             if new > previous {
                 Haptics.success()
                 pulse = true
+                Haptics.success()
                 withAnimation(.easeOut(duration: 0.6)) { }
                 Task { @MainActor in
                     try? await Task.sleep(nanoseconds: 650_000_000)
