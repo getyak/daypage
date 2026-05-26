@@ -51,6 +51,9 @@
 /* DailyPage swipe action */
 "today.action.recompile"     = "重新编译";
 
+/* DailyPage card accessibility hint */
+"today.accessibility.dailypage.hint" = "打开今日编译页。通过操作菜单可重新编译。";
+
 /* Archive Day Empty */
 "empty.archive_day.title" = "这一天还没有日记页。";
 "empty.archive_day.subtitle" = "这天尚未编译。先去「今天」添加备忘吧。";

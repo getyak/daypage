@@ -861,6 +861,14 @@ struct TodayView: View {
                     }
                 }
             )
+            .accessibilityElement(children: .combine)
+            .accessibilityHint(NSLocalizedString("today.accessibility.dailypage.hint", comment: ""))
+            .accessibilityAction(named: Text(NSLocalizedString("today.action.recompile", comment: ""))) {
+                viewModel.compile()
+                withAnimation(Motion.spring) {
+                    dailyPageRevealed = false
+                }
+            }
             .offset(x: (dailyPageRevealed ? -80 : 0) + dailyPageDrag)
             .highPriorityGesture(
                 DragGesture(minimumDistance: 10)
