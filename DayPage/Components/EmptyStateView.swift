@@ -84,7 +84,10 @@ struct EmptyStateView: View {
     }
 
     private func ctaButton(label: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        Button(action: {
+            Haptics.tapConfirm()
+            action()
+        }) {
             Text(label)
                 .font(DSType.sectionLabel)
                 .textCase(.uppercase)
@@ -95,7 +98,23 @@ struct EmptyStateView: View {
                 .background(DSColor.amberDeep)
                 .clipShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableScaleStyle(reduceMotion: reduceMotion))
+    }
+}
+
+// MARK: - PressableScaleStyle
+
+private struct PressableScaleStyle: ButtonStyle {
+    let reduceMotion: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect((!reduceMotion && configuration.isPressed) ? 0.96 : 1)
+            .opacity(configuration.isPressed ? 0.92 : 1)
+            .animation(
+                reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7),
+                value: configuration.isPressed
+            )
     }
 }
 
