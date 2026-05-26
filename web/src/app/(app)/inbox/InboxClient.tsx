@@ -588,55 +588,46 @@ export function InboxClient({ items: initialItems, counts: initialCounts }: Inbo
         </p>
       </div>
 
-      {/* Filter chips */}
-      <div className="inbox-filters">
-        {KIND_CHIPS.map(({ key, label }) => {
-          const count = counts[key] ?? 0;
-          const isActive = activeFilter === key;
-          return (
-            <button
-              key={key}
-              onClick={() => setActiveFilter(key)}
-              className={`chip chip--interactive ${isActive ? "chip--accent" : "chip--default"}`}
-              style={{ fontWeight: isActive ? 600 : 400 }}
-            >
-              {label}
-              {count > 0 && (
-                <span
-                  style={{
-                    marginLeft: "0.375rem",
-                    background: isActive ? "var(--accent)" : "var(--fg-subtle)",
-                    color: "#fff",
-                    borderRadius: "999px",
-                    fontSize: "0.625rem",
-                    fontWeight: 600,
-                    padding: "0.0625rem 0.3125rem",
-                    lineHeight: 1.5,
-                  }}
-                >
-                  {count}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Item list */}
-      {filtered.length === 0 ? (
+      {/* Global empty state */}
+      {totalCount === 0 ? (
         <div
-          className="empty-card"
-          style={{ padding: "48px 32px", maxWidth: 560, margin: "0 auto" }}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            textAlign: "center",
+            padding: "4rem 2rem",
+            gap: "1rem",
+          }}
         >
-          <Inbox size={24} className="empty-card__icon" />
-          <div className="empty-card__title" style={{ fontSize: 16 }}>
-            Nothing waiting on you — yet.
+          <div
+            style={{
+              width: 64,
+              height: 64,
+              borderRadius: "50%",
+              background: "var(--accent-soft)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <Inbox size={28} style={{ color: "var(--accent)" }} />
           </div>
-          <div className="empty-card__hint">
-            When I find a contradiction in your sources, propose a new domain, or
-            finish compiling a page, it&apos;ll land here.
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}>
+            <h2 className="ds-h2" style={{ margin: 0 }}>
+              All caught up
+            </h2>
+            <p
+              className="ds-body-md"
+              style={{ color: "var(--fg-muted)", maxWidth: "34em", margin: "0 auto" }}
+            >
+              No decisions waiting. Keep adding memos and I&apos;ll surface anything
+              that needs your attention here.
+            </p>
           </div>
-          <div className="flex gap-12" style={{ marginTop: 16 }}>
+          <div className="flex gap-12" style={{ marginTop: "0.5rem" }}>
             <Link href="/add">
               <Btn kind="primary" size="sm">
                 Add a memo
@@ -650,16 +641,81 @@ export function InboxClient({ items: initialItems, counts: initialCounts }: Inbo
           </div>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
-          {filtered.map((item) => (
-            <AnimatedCard
-              key={item.id}
-              item={item}
-              removing={removing.has(item.id)}
-              onAction={handleAction}
-            />
-          ))}
-        </div>
+        <>
+          {/* Filter chips */}
+          <div className="inbox-filters">
+            {KIND_CHIPS.map(({ key, label }) => {
+              const count = counts[key] ?? 0;
+              const isActive = activeFilter === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setActiveFilter(key)}
+                  className={`chip chip--interactive ${isActive ? "chip--accent" : "chip--default"}`}
+                  style={{ fontWeight: isActive ? 600 : 400 }}
+                >
+                  {label}
+                  {count > 0 && (
+                    <span
+                      style={{
+                        marginLeft: "0.375rem",
+                        background: isActive ? "var(--accent)" : "var(--fg-subtle)",
+                        color: "#fff",
+                        borderRadius: "999px",
+                        fontSize: "0.625rem",
+                        fontWeight: 600,
+                        padding: "0.0625rem 0.3125rem",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Item list */}
+          {filtered.length === 0 ? (
+            <div
+              className="empty-card"
+              style={{ padding: "48px 32px", maxWidth: 560, margin: "0 auto" }}
+            >
+              <Inbox size={24} className="empty-card__icon" />
+              <div className="empty-card__title" style={{ fontSize: 16 }}>
+                Nothing waiting on you — yet.
+              </div>
+              <div className="empty-card__hint">
+                When I find a contradiction in your sources, propose a new domain, or
+                finish compiling a page, it&apos;ll land here.
+              </div>
+              <div className="flex gap-12" style={{ marginTop: 16 }}>
+                <Link href="/add">
+                  <Btn kind="primary" size="sm">
+                    Add a memo
+                  </Btn>
+                </Link>
+                <Link href="/wiki">
+                  <Btn kind="ghost" size="sm">
+                    Browse wiki
+                  </Btn>
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.875rem" }}>
+              {filtered.map((item) => (
+                <AnimatedCard
+                  key={item.id}
+                  item={item}
+                  removing={removing.has(item.id)}
+                  onAction={handleAction}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
