@@ -4,8 +4,8 @@ import SwiftUI
 
 struct GraphView: View {
 
-    @StateObject private var viewModel = GraphViewModel()
     @EnvironmentObject private var nav: AppNavigationModel
+    @StateObject private var viewModel = GraphViewModel()
 
     // Zoom & pan state
     @State private var scale: CGFloat = 1.0
