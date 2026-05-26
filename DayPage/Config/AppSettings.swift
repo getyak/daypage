@@ -150,6 +150,8 @@ extension AppSettings {
         static let cardDensity        = "cardDensity"
         // Input
         static let usePressToTalk     = "usePressToTalk"
+        // Swipe-hint nudge — shown once when the first compiled Daily Page appears
+        static let dailyPageSwipeHintShown = "today.dailyPageSwipeHintShown"
     }
 }
 
