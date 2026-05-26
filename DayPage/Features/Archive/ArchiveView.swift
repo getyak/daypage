@@ -538,6 +538,7 @@ struct ArchiveView: View {
     /// 每个日历单元格均可点击（US-006）。DayDetailView 自身处理
     /// `.empty` / `.error` / `.rawOnly` / `.compiled` 等状态 — 参见 US-002。
     private func handleDateTap(dateStr: String) {
+        Haptics.soft()
         selectedDateString = dateStr
         showDayDetail = true
     }
@@ -625,6 +626,7 @@ struct ArchiveView: View {
     private var monthNavigationRow: some View {
         HStack {
             Button(action: {
+                Haptics.soft()
                 monthNavDirection = .leading
                 withAnimation(Motion.spring) { viewModel.goToPreviousMonth() }
             }) {
@@ -654,6 +656,7 @@ struct ArchiveView: View {
             Spacer()
 
             Button(action: {
+                Haptics.soft()
                 monthNavDirection = .trailing
                 withAnimation(Motion.spring) { viewModel.goToNextMonth() }
             }) {
