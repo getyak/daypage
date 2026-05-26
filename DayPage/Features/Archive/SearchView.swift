@@ -22,8 +22,17 @@ final class SearchViewModel: ObservableObject {
         }
     }
 
-    // MARK: Frequent entities — derived from vault memo bodies
-    func topEntities(limit: Int = 5) -> [String] {
+    // MARK: Frequent entities — cached, loaded off the main thread
+    @Published private(set) var topEntities: [String] = []
+
+    func loadTopEntities(limit: Int = 5) {
+        Task.detached(priority: .utility) { [weak self] in
+            let entities = self?.computeTopEntities(limit: limit) ?? []
+            await MainActor.run { self?.topEntities = entities }
+        }
+    }
+
+    private nonisolated func computeTopEntities(limit: Int) -> [String] {
         let rawDir = VaultInitializer.vaultURL.appendingPathComponent("raw")
         let fm = FileManager.default
         guard let files = try? fm.contentsOfDirectory(at: rawDir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else { return [] }
@@ -168,6 +177,7 @@ struct SearchView: View {
                     isInputFocused = true
                 }
                 setupDebounce()
+                vm.loadTopEntities()
             }
             .onDisappear {
                 cancellable?.cancel()
@@ -439,7 +449,7 @@ struct SearchView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 let recent = vm.recentSearches
-                let entities = vm.topEntities(limit: 5)
+                let entities = vm.topEntities
 
                 if !recent.isEmpty {
                     sectionHeader(title: "最近搜索", trailing: AnyView(
