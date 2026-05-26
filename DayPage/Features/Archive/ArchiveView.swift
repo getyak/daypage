@@ -767,6 +767,7 @@ struct ArchiveView: View {
             let dotColor: Color = isToday ? Color.white : DSColor.amberAccent
 
             Button(action: {
+                Haptics.tapConfirm()
                 handleDateTap(dateStr: dateStr)
             }) {
                 ZStack(alignment: .topLeading) {
@@ -793,7 +794,7 @@ struct ArchiveView: View {
                 }
                 .aspectRatio(1, contentMode: .fit)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(CalendarCellButtonStyle())
             .frame(maxWidth: .infinity)
             .accessibilityLabel(accessibilityLabel(dateStr: dateStr, state: data))
         } else {
@@ -1282,5 +1283,16 @@ private extension Array {
         stride(from: 0, to: count, by: size).map {
             Array(self[$0 ..< Swift.min($0 + size, count)])
         }
+    }
+}
+
+// MARK: - CalendarCellButtonStyle
+
+private struct CalendarCellButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.93 : 1.0)
+            .opacity(configuration.isPressed ? 0.82 : 1.0)
+            .dsAnimation(Motion.spring, value: configuration.isPressed)
     }
 }
