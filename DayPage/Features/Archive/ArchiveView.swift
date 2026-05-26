@@ -423,6 +423,8 @@ struct ArchiveView: View {
     @State private var showShareSheet: Bool = false
     @State private var shareItems: [Any] = []
     @State private var monthNavDirection: Edge = .leading
+    @State private var todayPulse: Bool = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Issue #302: monthly summary → share-card sheet.
     @State private var sharePayload: SharePayload? = nil
@@ -512,6 +514,8 @@ struct ArchiveView: View {
                 viewModel.loadMonth()
                 Task { await preScanVault() }
                 consumePendingArchiveDate()
+                guard !reduceMotion else { return }
+                withAnimation(Motion.breathing) { todayPulse = true }
             }
             .onChange(of: nav.pendingArchiveDate) { _ in
                 consumePendingArchiveDate()
@@ -778,6 +782,14 @@ struct ArchiveView: View {
                                 .stroke(isToday ? DSColor.amberAccent : DSColor.glassRim,
                                         lineWidth: isToday ? 1.5 : 0.5)
                         )
+
+                    if isToday && !reduceMotion {
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(DSColor.amberAccent, lineWidth: 1.5)
+                            .opacity(todayPulse ? 1.0 : 0.4)
+                            .shadow(color: DSColor.amberAccent.opacity(todayPulse ? 0.6 : 0.2), radius: todayPulse ? 6 : 2)
+                            .allowsHitTesting(false)
+                    }
 
                     Text(String(format: "%02d", day))
                         .monoLabelStyle(size: 9)
