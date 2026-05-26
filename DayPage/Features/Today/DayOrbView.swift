@@ -57,11 +57,17 @@ struct DayOrbView: View {
             if new > previous {
                 Haptics.success()
                 pulse = true
-                if !reduceMotion { countPop = 1.18 }
+                if !reduceMotion {
+                    withAnimation(.spring(response: 0.18, dampingFraction: 0.5)) {
+                        countPop = 1.25
+                    }
+                }
                 Task { @MainActor in
-                    try? await Task.sleep(nanoseconds: 250_000_000)
-                    withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
-                        countPop = 1.0
+                    if !reduceMotion {
+                        try? await Task.sleep(nanoseconds: 180_000_000)
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                            countPop = 1.0
+                        }
                     }
                     try? await Task.sleep(nanoseconds: 650_000_000)
                     pulse = false
