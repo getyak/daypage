@@ -17,11 +17,13 @@ struct DayOrbView: View {
     @State private var previous: Int = 0
     @State private var isPressed: Bool = false
     @State private var countPop: CGFloat = 1.0
+    @State private var invitePulse: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
+            if signalCount == 0 { inviteHalo }
             halo
             if pulse { pulseHalo }
             orb
@@ -59,6 +61,7 @@ struct DayOrbView: View {
                     pulse = false
                 }
             }
+            if new > 0 { invitePulse = false }
             previous = new
         }
         // Drop shadow: two-layer stack matching the glass card recipe
@@ -70,6 +73,10 @@ struct DayOrbView: View {
             ) {
                 // Amplitude ×0.7 relative to the original ±0.05 range → ±0.035
                 breatheScale = 1.035
+            }
+            guard signalCount == 0, !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) {
+                invitePulse = true
             }
         }
     }
@@ -95,6 +102,29 @@ struct DayOrbView: View {
             .scaleEffect(pulse ? 1.18 : 1.0)
             .opacity(pulse ? 1 : 0)
             .animation(.easeOut(duration: 0.6), value: pulse)
+            .allowsHitTesting(false)
+    }
+
+    // MARK: - Invite Halo
+
+    // Looping amber glow-pulse shown only when signalCount == 0 to signal tappability.
+    private var inviteHalo: some View {
+        Circle()
+            .fill(
+                RadialGradient(
+                    colors: [
+                        Color(red: 232/255, green: 151/255, blue: 77/255).opacity(invitePulse ? 0.5 : 0.15),
+                        Color.clear
+                    ],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: (size / 2) + 16
+                )
+            )
+            .frame(width: size + 32, height: size + 32)
+            .blur(radius: 16)
+            .scaleEffect(invitePulse ? 1.12 : 0.95)
+            .animation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true), value: invitePulse)
             .allowsHitTesting(false)
     }
 
@@ -193,6 +223,9 @@ struct DayOrbView: View {
                     Image(systemName: "sparkles")
                         .font(.system(size: size * 0.22, weight: .light))
                         .foregroundColor(DSColor.amberDeep)
+                        .scaleEffect(invitePulse ? 1.12 : 1.0)
+                        .opacity(invitePulse ? 1.0 : 0.7)
+                        .animation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true), value: invitePulse)
 
                     Text("TAP TO BEGIN")
                         .font(DSFonts.jetBrainsMono(size: 9, weight: .medium))
