@@ -24,6 +24,9 @@ enum L10n {
             String(format: NSLocalizedString("compile.dock.locked", comment: ""), current, remaining)
         }
 
+        /// VoiceOver announcement spoken once when the 3rd memo unlocks compilation.
+        static let compileDockUnlocked = NSLocalizedString("compile.dock.unlocked", comment: "")
+
         // Archive Day Empty
         static let archiveDayTitle    = LocalizedStringKey("empty.archive_day.title")
         static let archiveDaySubtitle = NSLocalizedString("empty.archive_day.subtitle", comment: "")

@@ -16,6 +16,9 @@
 /* Compile-locked dock hint (shown above the input bar) */
 "compile.dock.locked" = "%1$d / 3 条备忘 · 再写 %2$d 条解锁每日编译";
 
+/* VoiceOver announcement when 3rd memo unlocks compilation */
+"compile.dock.unlocked" = "已解锁今日编译";
+
 /* InputBarV4 — press-to-talk hint states */
 "input.hint.idle"            = "按住录音 · 松手转文字";
 "input.hint.pre_recording"   = "再按住一下";

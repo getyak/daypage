@@ -164,21 +164,33 @@ struct CompileProgressDock: View {
                 ForEach(0..<3, id: \.self) { index in
                     let isFilled = index < memoCount
                     let isPulsingSegment = (index == 2) && thirdSegmentPulsing
-                    Capsule(style: .continuous)
-                        .fill(isFilled ? DSColor.accentAmber : DSColor.glassStd)
-                        .frame(width: 28, height: 4)
-                        .shadow(
-                            color: isPulsingSegment ? DSColor.accentAmber.opacity(0.75) : .clear,
-                            radius: isPulsingSegment ? 6 : 0
-                        )
-                        .scaleEffect(isPulsingSegment ? 1.35 : 1.0)
-                        .dsAnimation(Motion.spring, value: memoCount)
-                        .animation(
-                            Motion.respectReduceMotion(
-                                .spring(response: 0.4, dampingFraction: 0.6)
-                            ),
-                            value: thirdSegmentPulsing
-                        )
+                    // Glass base always present; amber fill draws on from leading edge.
+                    ZStack(alignment: .leading) {
+                        Capsule(style: .continuous)
+                            .fill(DSColor.glassStd)
+                        Capsule(style: .continuous)
+                            .fill(DSColor.accentAmber)
+                            .scaleEffect(x: isFilled ? 1 : 0, y: 1, anchor: .leading)
+                            .animation(
+                                Motion.respectReduceMotion(
+                                    .spring(response: 0.45, dampingFraction: 0.7)
+                                )
+                                .delay(Double(index) * 0.04),
+                                value: memoCount
+                            )
+                    }
+                    .frame(width: 28, height: 4)
+                    .shadow(
+                        color: isPulsingSegment ? DSColor.accentAmber.opacity(0.75) : .clear,
+                        radius: isPulsingSegment ? 6 : 0
+                    )
+                    .scaleEffect(isPulsingSegment ? 1.35 : 1.0)
+                    .animation(
+                        Motion.respectReduceMotion(
+                            .spring(response: 0.4, dampingFraction: 0.6)
+                        ),
+                        value: thirdSegmentPulsing
+                    )
                 }
             }
 
@@ -200,6 +212,7 @@ struct CompileProgressDock: View {
         .onChange(of: memoCount) { newCount in
             if previousMemoCount < 3 && newCount == 3 {
                 Haptics.success()
+                UIAccessibility.post(notification: .announcement, argument: L10n.Empty.compileDockUnlocked)
                 thirdSegmentPulsing = true
                 Task {
                     try? await Task.sleep(nanoseconds: 400_000_000)
