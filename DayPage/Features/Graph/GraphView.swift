@@ -247,7 +247,7 @@ struct GraphView: View {
                 .onAppear { simulationSize = size }
                 .onChange(of: size) { simulationSize = $0 }
 
-                // Node labels (filtered only)
+                // Node labels (filtered only) — hidden from VoiceOver; the tap target below announces the name
                 ForEach(viewModel.filteredNodes) { node in
                     let x = node.position.x * scale + offset.width + size.width / 2
                     let y = node.position.y * scale + offset.height + size.height / 2
@@ -260,6 +260,7 @@ struct GraphView: View {
                         .lineLimit(1)
                         .fixedSize()
                         .position(x: x, y: y + nodeRadius * scale + 10 * scale)
+                        .accessibilityHidden(true)
                 }
 
                 // Invisible tap targets for each filtered node
@@ -288,6 +289,11 @@ struct GraphView: View {
                             }
                             showEntityPage = true
                         }
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityLabel(node.name)
+                        .accessibilityValue(typeLabel(node.entityType))
+                        .accessibilityHint("Opens this entity's page")
                 }
 
                 // Tap pulse ring — reads live position from the model so it tracks
@@ -371,6 +377,17 @@ struct GraphView: View {
             Text(label)
                 .font(DSFonts.jetBrainsMono(size: 10))
                 .foregroundColor(DSColor.inkPrimary)
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func typeLabel(_ entityType: String) -> String {
+        switch entityType {
+        case "places":  return "地点"
+        case "people":  return "人物"
+        case "themes":  return "主题"
+        default:        return entityType
         }
     }
 
