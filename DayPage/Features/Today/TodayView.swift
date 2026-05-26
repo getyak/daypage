@@ -876,6 +876,15 @@ struct TodayView: View {
                     }
             )
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Daily page")
+        .accessibilityValue(viewModel.dailyPageSummary ?? "")
+        .accessibilityHint("Double tap to open the daily page")
+        .accessibilityAction { showDailyPage = true }
+        .accessibilityAction(named: Text(NSLocalizedString("today.action.recompile", comment: ""))) {
+            dailyPageRevealed = false
+            viewModel.compile()
+        }
     }
 
     // MARK: - Day Orb Hero
