@@ -23,6 +23,9 @@ struct EmptyStateView: View {
                     .foregroundColor(DSColor.inkMuted)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 8)
+                    .opacity(appeared ? 1 : 0)
+                    .offset(y: appeared ? 0 : 6)
+                    .animation(Motion.rise.delay(0.06), value: appeared)
             }
             if let label = ctaLabel, let action = ctaAction {
                 ctaButton(label: label, action: action)
