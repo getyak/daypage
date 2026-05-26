@@ -170,6 +170,17 @@ extension EmptyStateView {
         )
     }
 
+    /// Archive — selected month has no entries.
+    static func archiveMonthEmpty(ctaAction: @escaping () -> Void) -> EmptyStateView {
+        EmptyStateView(
+            title: L10n.Empty.archiveMonthEmptyTitle,
+            subtitle: L10n.Empty.archiveMonthEmptySubtitle,
+            ctaLabel: L10n.Empty.archiveMonthEmptyCta,
+            ctaAction: ctaAction,
+            showOrbAccent: true
+        )
+    }
+
     /// Mic permission denied — recording unavailable.
     static func micPermissionDenied(ctaAction: @escaping () -> Void) -> EmptyStateView {
         EmptyStateView(
@@ -206,6 +217,13 @@ extension EmptyStateView {
     ZStack {
         AmbientBackground()
         EmptyStateView.archiveDayEmpty { }
+    }
+}
+
+#Preview("Archive Month Empty") {
+    ZStack {
+        AmbientBackground()
+        EmptyStateView.archiveMonthEmpty { }
     }
 }
 

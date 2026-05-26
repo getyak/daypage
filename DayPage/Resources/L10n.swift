@@ -29,6 +29,11 @@ enum L10n {
         static let archiveDaySubtitle = NSLocalizedString("empty.archive_day.subtitle", comment: "")
         static let archiveDayCta      = NSLocalizedString("empty.archive_day.cta", comment: "")
 
+        // Archive Month Empty
+        static let archiveMonthEmptyTitle    = LocalizedStringKey("empty.archive_month.title")
+        static let archiveMonthEmptySubtitle = NSLocalizedString("empty.archive_month.subtitle", comment: "")
+        static let archiveMonthEmptyCta      = NSLocalizedString("empty.archive_month.cta", comment: "")
+
         // Mic Permission Denied
         static let micDeniedTitle    = LocalizedStringKey("empty.mic_denied.title")
         static let micDeniedSubtitle = NSLocalizedString("empty.mic_denied.subtitle", comment: "")
