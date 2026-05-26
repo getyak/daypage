@@ -5,6 +5,7 @@ import SwiftUI
 struct GraphView: View {
 
     @StateObject private var viewModel = GraphViewModel()
+    @EnvironmentObject private var nav: AppNavigationModel
 
     // Zoom & pan state
     @State private var scale: CGFloat = 1.0
@@ -191,19 +192,14 @@ struct GraphView: View {
 
     // MARK: - Empty State
 
+    @ViewBuilder
     private var emptyState: some View {
-        VStack(spacing: DSSpacing.md) {
-            Image(systemName: "point.3.connected.trianglepath.dotted")
-                .font(.system(size: 48, weight: .thin))
-                .foregroundColor(DSColor.inkFaint)
-            Text(viewModel.nodes.isEmpty ? "尚无知识图谱" : "无匹配节点")
-                .font(DSType.h2)
-                .foregroundColor(DSColor.inkMuted)
-            Text(viewModel.nodes.isEmpty ? "编译日记后，实体节点将在此出现" : "调整搜索或筛选条件以查看节点")
-                .bodySMStyle()
-                .foregroundColor(DSColor.inkMuted)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, DSSpacing.xl4)
+        if viewModel.nodes.isEmpty {
+            EmptyStateView.graphEmpty {
+                nav.navigate(to: .today)
+            }
+        } else {
+            EmptyStateView.graphNoMatches()
         }
     }
 

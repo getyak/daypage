@@ -181,6 +181,26 @@ extension EmptyStateView {
         )
     }
 
+    /// Graph — no knowledge graph compiled yet.
+    static func graphEmpty(ctaAction: @escaping () -> Void) -> EmptyStateView {
+        EmptyStateView(
+            title: "尚无知识图谱",
+            subtitle: "编译日记后，实体节点将在此出现",
+            ctaLabel: "去记录",
+            ctaAction: ctaAction,
+            showOrbAccent: true
+        )
+    }
+
+    /// Graph — nodes exist but current search/filter matches nothing.
+    static func graphNoMatches() -> EmptyStateView {
+        EmptyStateView(
+            title: "无匹配节点",
+            subtitle: "调整搜索或筛选条件以查看节点",
+            showOrbAccent: false
+        )
+    }
+
     /// Mic permission denied — recording unavailable.
     static func micPermissionDenied(ctaAction: @escaping () -> Void) -> EmptyStateView {
         EmptyStateView(
@@ -231,5 +251,19 @@ extension EmptyStateView {
     ZStack {
         AmbientBackground()
         EmptyStateView.micPermissionDenied { }
+    }
+}
+
+#Preview("Graph Empty") {
+    ZStack {
+        AmbientBackground()
+        EmptyStateView.graphEmpty { }
+    }
+}
+
+#Preview("Graph No Matches") {
+    ZStack {
+        AmbientBackground()
+        EmptyStateView.graphNoMatches()
     }
 }
