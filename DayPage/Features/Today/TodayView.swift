@@ -37,6 +37,8 @@ struct TodayView: View {
 
     /// Whether the daily page card is swiped open to reveal the recompile action.
     @State private var dailyPageRevealed: Bool = false
+    /// Arming flag: true after the drag crosses -44pt; prevents repeat haptics mid-drag.
+    @State private var dailyPageDidArm: Bool = false
 
     /// Session-only flag: true once the "restored unsent draft" banner has been shown this session.
     @State private var draftRestoredBannerShown: Bool = false
@@ -865,14 +867,26 @@ struct TodayView: View {
             .highPriorityGesture(
                 DragGesture(minimumDistance: 10)
                     .updating($dailyPageDrag) { value, state, _ in
-                        if value.translation.width < 0 {
-                            state = value.translation.width
+                        let dx = value.translation.width
+                        guard dx < 0 else { return }
+                        // 1:1 tracking up to -80pt, then rubber-band resistance (0.25x).
+                        let revealEdge: CGFloat = -80
+                        if dx >= revealEdge {
+                            state = dx
+                        } else {
+                            state = revealEdge + (dx - revealEdge) * 0.25
+                        }
+                        // Fire arming haptic once when crossing the -44pt open threshold.
+                        if dx < -44 && !dailyPageDidArm {
+                            dailyPageDidArm = true
+                            Haptics.soft()
                         }
                     }
                     .onEnded { value in
                         withAnimation(Motion.spring) {
                             dailyPageRevealed = value.translation.width < -44
                         }
+                        dailyPageDidArm = false
                     }
             )
         }
