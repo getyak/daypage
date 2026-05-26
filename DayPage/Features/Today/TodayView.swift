@@ -426,7 +426,6 @@ struct TodayView: View {
                         }
                     }
                     .animation(Motion.spring, value: viewModel.memos.count)
-
                     // MARK: Input Bar — single canonical surface (V4).
                     // V1/V2/V3 were removed in the Capture v2 cleanup; the
                     // variant switch was a feature-flag carcass keeping four
@@ -1022,6 +1021,25 @@ struct TodayView: View {
             batchPhotoProgress: viewModel.batchPhotoProgress,
             batchPhotoTotal: viewModel.batchPhotoTotal
         )
+    }
+
+    // MARK: - Compile Progress Dots
+
+    @ViewBuilder
+    private func compileProgressDots(filled: Int) -> some View {
+        HStack(spacing: 6) {
+            ForEach(0..<3, id: \.self) { index in
+                Circle()
+                    .fill(index < filled ? DSColor.accentAmber : DSColor.glassStd)
+                    .frame(width: 5, height: 5)
+                    .animation(Motion.spring, value: filled)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(L10n.Empty.compileDockLocked(
+            current: filled,
+            remaining: max(0, 3 - filled)
+        ))
     }
 
     // MARK: - Helpers
