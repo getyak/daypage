@@ -981,7 +981,6 @@ struct TodayView: View {
         InputBarV4(
             text: $draftText,
             isSubmitting: viewModel.isSubmitting,
-            requestFocusToggle: orbFocusToggle,
             isLocating: viewModel.isLocating,
             pendingLocation: viewModel.pendingLocation,
             locationAuthStatus: LocationService.shared.authorizationStatus,
@@ -1020,7 +1019,8 @@ struct TodayView: View {
                 showUndoPill(for: body)
             },
             batchPhotoProgress: viewModel.batchPhotoProgress,
-            batchPhotoTotal: viewModel.batchPhotoTotal
+            batchPhotoTotal: viewModel.batchPhotoTotal,
+            requestFocusToggle: orbFocusToggle
         )
     }
 
