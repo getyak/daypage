@@ -12,6 +12,8 @@ struct DayOrbView: View {
     var haloOpacity: CGFloat = 0.15
     var onTap: (() -> Void)? = nil
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var breatheScale: CGFloat = 1.0
     @State private var pulse: Bool = false
     @State private var previous: Int = 0
@@ -65,10 +67,10 @@ struct DayOrbView: View {
         .shadow(color: Color(hex: "2D1E0A").opacity(0.08), radius: 4, x: 0, y: 2)
         .shadow(color: Color(hex: "2D1E0A").opacity(0.14), radius: 28, x: 0, y: 12)
         .onAppear {
+            guard !reduceMotion else { return }
             withAnimation(
                 .easeInOut(duration: 4).repeatForever(autoreverses: true)
             ) {
-                // Amplitude ×0.7 relative to the original ±0.05 range → ±0.035
                 breatheScale = 1.035
             }
         }
@@ -178,31 +180,40 @@ struct DayOrbView: View {
 
     // MARK: - Content
 
-    private var readoutLabel: String {
-        switch signalCount {
-        case 0:  return "TAP TO BEGIN"
-        case 1:  return "SIGNAL TODAY"
-        default: return "SIGNALS TODAY"
-        }
-    }
-
+    @ViewBuilder
     private var orbContent: some View {
-        VStack(spacing: 2) {
-            Text("\(signalCount)")
-                .font(DSFonts.spaceGrotesk(size: size * 0.36, weight: .semibold))
-                .tracking(-2)
-                .foregroundColor(DSColor.amberDeep)
-                .contentTransition(.numericText())
-                .animation(.snappy, value: signalCount)
-                .scaleEffect(countPop)
+        if signalCount == 0 {
+            VStack(spacing: 4) {
+                Image(systemName: "plus")
+                    .font(.system(size: size * 0.30, weight: .light))
+                    .foregroundColor(DSColor.amberDeep)
 
-            Text(readoutLabel)
-                .font(DSFonts.jetBrainsMono(size: 9, weight: .medium))
-                .tracking(1.4)
-                .foregroundColor(DSColor.amberDeep)
-                .opacity(0.7)
-                .contentTransition(.opacity)
-                .animation(.easeInOut(duration: 0.25), value: readoutLabel)
+                Text("START TODAY")
+                    .font(DSFonts.jetBrainsMono(size: 9, weight: .medium))
+                    .tracking(1.4)
+                    .foregroundColor(DSColor.amberDeep)
+                    .opacity(0.7)
+            }
+            .transition(.opacity.combined(with: .scale(scale: 0.9)))
+            .animation(.snappy, value: signalCount == 0)
+        } else {
+            VStack(spacing: 2) {
+                Text("\(signalCount)")
+                    .font(DSFonts.spaceGrotesk(size: size * 0.36, weight: .semibold))
+                    .tracking(-2)
+                    .foregroundColor(DSColor.amberDeep)
+                    .contentTransition(.numericText())
+                    .animation(.snappy, value: signalCount)
+                    .scaleEffect(countPop)
+
+                Text("SIGNALS TODAY")
+                    .font(DSFonts.jetBrainsMono(size: 9, weight: .medium))
+                    .tracking(1.4)
+                    .foregroundColor(DSColor.amberDeep)
+                    .opacity(0.7)
+            }
+            .transition(.opacity.combined(with: .scale(scale: 0.9)))
+            .animation(.snappy, value: signalCount == 0)
         }
     }
 }
