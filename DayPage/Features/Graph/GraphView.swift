@@ -63,6 +63,7 @@ struct GraphView: View {
                             .transition(.opacity)
                         }
                     }
+                    .animation(Motion.fade, value: viewModel.searchQuery.isEmpty)
                     .padding(.horizontal, DSSpacing.md)
                     .padding(.vertical, 7)
                     .background(DSColor.glassLo)
