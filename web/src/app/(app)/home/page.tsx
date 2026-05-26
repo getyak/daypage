@@ -1,10 +1,32 @@
 // Home view — translated from /tmp/daypage-handoff/.../view-home.jsx.
-// Static mock data only (Round 1 skeleton). Real data wiring lands later.
+// Inbox count is now live; other stats remain mock (Round 1 skeleton).
 import Link from "next/link";
 import { ArrowUpRight, ChevronRight, Sparkles, Inbox } from "lucide-react";
 import { Btn, Card, Chip, Icon, SectionLabel, Sparkline } from "@/components/ui";
+import { auth } from "@/auth";
+import { db } from "@/lib/db/client";
+import { users, inbox_items } from "@/lib/db/schema";
+import { eq, and, sql } from "drizzle-orm";
 
-const openInboxCount = 4;
+async function getOpenInboxCount(email: string): Promise<number> {
+  try {
+    const userRows = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+    const userId = userRows[0]?.id;
+    if (!userId) return 0;
+
+    const rows = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(inbox_items)
+      .where(and(eq(inbox_items.user_id, userId), eq(inbox_items.status, "open")));
+    return rows[0]?.count ?? 0;
+  } catch {
+    return 0;
+  }
+}
 
 // ── Mock data (mirrors design's DayPage namespace) ────────────────────
 type Observation = {
@@ -67,7 +89,11 @@ const sparks: Record<string, number[]> = {
 };
 
 // ── Page ──────────────────────────────────────────────────────────────
-export default function HomePage() {
+export default async function HomePage() {
+  const session = await auth();
+  const openInboxCount = session?.user?.email
+    ? await getOpenInboxCount(session.user.email)
+    : 0;
   return (
     <div className="page">
       {/* Hero */}
