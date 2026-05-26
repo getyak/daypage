@@ -187,29 +187,45 @@ struct DayOrbView: View {
     }
 
     private var orbContent: some View {
-        VStack(spacing: 2) {
-            Text("\(signalCount)")
-                .font(DSFonts.spaceGrotesk(size: size * 0.36, weight: .semibold))
-                .tracking(-2)
-                .foregroundColor(DSColor.amberDeep)
-                .contentTransition(.numericText())
-                .animation(.snappy, value: signalCount)
-                .scaleEffect(countPop)
+        Group {
+            if signalCount == 0 {
+                VStack(spacing: 4) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: size * 0.22, weight: .light))
+                        .foregroundColor(DSColor.amberDeep)
 
-            Text(readoutLabel)
-                .font(DSFonts.jetBrainsMono(size: 9, weight: .medium))
-                .tracking(1.4)
-                .foregroundColor(DSColor.amberDeep)
-                .opacity(0.7)
-                .contentTransition(.opacity)
-                .animation(.easeInOut(duration: 0.25), value: readoutLabel)
+                    Text("TAP TO BEGIN")
+                        .font(DSFonts.jetBrainsMono(size: 9, weight: .medium))
+                        .tracking(1.4)
+                        .foregroundColor(DSColor.amberDeep)
+                        .opacity(0.7)
+                }
+            } else {
+                VStack(spacing: 2) {
+                    Text("\(signalCount)")
+                        .font(DSFonts.spaceGrotesk(size: size * 0.36, weight: .semibold))
+                        .tracking(-2)
+                        .foregroundColor(DSColor.amberDeep)
+                        .contentTransition(.numericText())
+                        .animation(.snappy, value: signalCount)
+                        .scaleEffect(countPop)
+
+                    Text(readoutLabel)
+                        .font(DSFonts.jetBrainsMono(size: 9, weight: .medium))
+                        .tracking(1.4)
+                        .foregroundColor(DSColor.amberDeep)
+                        .opacity(0.7)
+                        .contentTransition(.opacity)
+                        .animation(.easeInOut(duration: 0.25), value: readoutLabel)
+                }
+            }
         }
     }
 }
 
 // MARK: - Preview
 
-#Preview("Day Orb — 0 signals") {
+#Preview("Day Orb — 0 signals (invite state)") {
     ZStack {
         AmbientBackground()
         DayOrbView(signalCount: 0)
