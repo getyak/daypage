@@ -449,7 +449,7 @@ struct TodayView: View {
                 // Undo pill shown for 5s after memo delete
                 .overlay(alignment: .bottom) {
                     if viewModel.lastDeletedMemo != nil {
-                        UndoPillView(label: "已删除 · 撤销") {
+                        UndoPillView(label: NSLocalizedString("undo_pill.label.delete", comment: "Undo delete pill label")) {
                             viewModel.undoDelete()
                         }
                         .padding(.bottom, 96)

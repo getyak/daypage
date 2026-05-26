@@ -41,6 +41,10 @@
 "input.dock.record"          = "Record";
 "input.dock.text"            = "Text";
 
+/* UndoPillView — US-009 */
+"undo_pill.label.send"       = "Undo send";
+"undo_pill.label.delete"     = "Deleted · Undo";
+
 /* DailyPage swipe action */
 "today.action.recompile"     = "Recompile";
 
