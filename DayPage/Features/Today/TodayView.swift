@@ -1018,6 +1018,7 @@ struct TodayView: View {
                 viewModel.submitCombinedMemo(body: body)
                 showUndoPill(for: body)
             },
+            onAddPhotoAsset: nil,
             batchPhotoProgress: viewModel.batchPhotoProgress,
             batchPhotoTotal: viewModel.batchPhotoTotal,
             requestFocusToggle: orbFocusToggle
