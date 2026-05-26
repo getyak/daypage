@@ -1,4 +1,3 @@
-import Combine
 import SwiftUI
 
 // MARK: - UndoPillView (US-009)
@@ -19,11 +18,10 @@ struct UndoPillView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
-
     // Work item for the haptic — cancelled on disappear so stale
     // firings don't happen after the pill is removed from the hierarchy.
     private let hapticWorkItem = HapticWorkItemHolder()
+
 
     var body: some View {
         Button {
@@ -95,9 +93,10 @@ struct UndoPillView: View {
             hapticWorkItem.item?.cancel()
             hapticWorkItem.item = nil
         }
-        .onReceive(timer) { _ in
-            if secondsRemaining > 1 {
-                secondsRemaining -= 1
+        .task {
+            for tick in stride(from: 4, through: 0, by: -1) {
+                try? await Task.sleep(for: .seconds(1))
+                secondsRemaining = tick
             }
         }
     }
