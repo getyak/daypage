@@ -14,6 +14,7 @@ struct DailyPageView: View {
     @StateObject private var memoVM = DailyPageMemoVM()
     @ObservedObject private var compilationService = CompilationService.shared
     @State private var selectedTab: DailyPageTab = .digest
+    @Namespace private var tabPillNS
     @State private var model: DailyPageModel? = nil
     @State private var rawText: String = ""
     @State private var rawMemos: [Memo] = []
@@ -49,11 +50,22 @@ struct DailyPageView: View {
                                 .padding(.horizontal, 20)
                                 .padding(.top, 16)
 
-                            if selectedTab == .digest {
-                                digestContent(model: model)
-                            } else {
-                                timelineContent(model: model)
+                            ZStack {
+                                if selectedTab == .digest {
+                                    digestContent(model: model)
+                                        .transition(.asymmetric(
+                                            insertion: .move(edge: .leading).combined(with: .opacity),
+                                            removal: .move(edge: .trailing).combined(with: .opacity)
+                                        ))
+                                } else {
+                                    timelineContent(model: model)
+                                        .transition(.asymmetric(
+                                            insertion: .move(edge: .trailing).combined(with: .opacity),
+                                            removal: .move(edge: .leading).combined(with: .opacity)
+                                        ))
+                                }
                             }
+                            .dsAnimation(Motion.spring, value: selectedTab)
 
                             footer(model: model)
                                 .padding(.horizontal, 20)
@@ -263,13 +275,25 @@ struct DailyPageView: View {
     private var segmentedControl: some View {
         HStack(spacing: 0) {
             ForEach(DailyPageTab.allCases, id: \.self) { tab in
-                Button(action: { selectedTab = tab }) {
+                Button(action: {
+                    guard selectedTab != tab else { return }
+                    HapticFeedback.soft()
+                    withAnimation(Motion.respectReduceMotion(Motion.spring)) {
+                        selectedTab = tab
+                    }
+                }) {
                     Text(tab.rawValue)
                         .monoLabelStyle(size: 11)
                         .foregroundColor(selectedTab == tab ? DSColor.onPrimary : DSColor.primary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
-                        .background(selectedTab == tab ? DSColor.primary : Color.clear)
+                        .background {
+                            if selectedTab == tab {
+                                Rectangle()
+                                    .fill(DSColor.primary)
+                                    .matchedGeometryEffect(id: "tabPill", in: tabPillNS)
+                            }
+                        }
                 }
                 .buttonStyle(.plain)
             }
