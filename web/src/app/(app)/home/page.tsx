@@ -1,7 +1,7 @@
 // Home view — translated from /tmp/daypage-handoff/.../view-home.jsx.
 // Inbox count is now live; other stats remain mock (Round 1 skeleton).
 import Link from "next/link";
-import { ArrowUpRight, ChevronRight, Sparkles, Inbox } from "lucide-react";
+import { ArrowUpRight, ChevronRight, Sparkles, Inbox, Activity } from "lucide-react";
 import { Btn, Card, Chip, Icon, SectionLabel, Sparkline } from "@/components/ui";
 import { auth } from "@/auth";
 import { db } from "@/lib/db/client";
@@ -240,19 +240,45 @@ export default async function HomePage() {
         >
           Recent activity
         </SectionLabel>
-        <Card>
-          {recent.map((r, i) => (
-            <div className="activity-row" key={i}>
-              <div className="when">{r.when}</div>
-              <div className="what">
-                <strong>{r.what}</strong>
-                {r.subject}
-                <Link href="/wiki" className="activity-target"><em>{r.target}</em></Link>
-              </div>
-              <Icon as={ChevronRight} size={14} />
+        {recent.length === 0 ? (
+          <Card>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 12,
+                padding: "48px 24px",
+                textAlign: "center",
+              }}
+            >
+              <span style={{ color: "var(--fg-subtle)", opacity: 0.5, display: "flex" }}>
+                <Icon as={Activity} size={28} />
+              </span>
+              <p style={{ color: "var(--fg-subtle)", margin: 0, fontSize: "0.9rem" }}>
+                No activity yet — start by adding a memo
+              </p>
+              <Link href="/add">
+                <Btn kind="ghost" size="sm">Add a memo</Btn>
+              </Link>
             </div>
-          ))}
-        </Card>
+          </Card>
+        ) : (
+          <Card>
+            {recent.map((r, i) => (
+              <div className="activity-row" key={i}>
+                <div className="when">{r.when}</div>
+                <div className="what">
+                  <strong>{r.what}</strong>
+                  {r.subject}
+                  <Link href="/wiki" className="activity-target"><em>{r.target}</em></Link>
+                </div>
+                <Icon as={ChevronRight} size={14} />
+              </div>
+            ))}
+          </Card>
+        )}
       </div>
 
       {/* Domains at a glance */}
