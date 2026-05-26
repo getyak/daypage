@@ -394,27 +394,38 @@ struct TodayView: View {
                     // the input bar — it belongs to the composer dock, not to
                     // the timeline. When ≥ 3 memos: show the compile button.
                     // Hidden entirely once today's page is compiled.
-                    if !viewModel.isDailyPageCompiled && !viewModel.memos.isEmpty {
-                        if viewModel.memos.count < 3 {
-                            CompileProgressDock(memoCount: viewModel.memos.count)
-                                .padding(.vertical, 6)
-                        } else {
-                            HStack {
-                                Spacer()
-                                CompileFooterButton(
-                                    memoCount: viewModel.memos.count,
-                                    isCompiling: viewModel.isCompiling,
-                                    isVisible: true,
-                                    stage: compilationService.stage,
-                                    errorMessage: viewModel.submitError,
-                                    onTap: { viewModel.compile() },
-                                    onRetry: { viewModel.compile() }
-                                )
-                                Spacer()
+                    // Motion.spring on memoCount drives the dock→button swap so
+                    // the unlock moment transitions with a spring rather than cutting.
+                    Group {
+                        if !viewModel.isDailyPageCompiled && !viewModel.memos.isEmpty {
+                            if viewModel.memos.count < 3 {
+                                CompileProgressDock(memoCount: viewModel.memos.count)
+                                    .padding(.vertical, 6)
+                                    .transition(
+                                        .asymmetric(
+                                            insertion: .opacity,
+                                            removal: .opacity.combined(with: .scale(scale: 0.9))
+                                        )
+                                    )
+                            } else {
+                                HStack {
+                                    Spacer()
+                                    CompileFooterButton(
+                                        memoCount: viewModel.memos.count,
+                                        isCompiling: viewModel.isCompiling,
+                                        isVisible: true,
+                                        stage: compilationService.stage,
+                                        errorMessage: viewModel.submitError,
+                                        onTap: { viewModel.compile() },
+                                        onRetry: { viewModel.compile() }
+                                    )
+                                    Spacer()
+                                }
+                                .padding(.bottom, 4)
                             }
-                            .padding(.bottom, 4)
                         }
                     }
+                    .animation(Motion.spring, value: viewModel.memos.count)
 
                     // MARK: Input Bar — single canonical surface (V4).
                     // V1/V2/V3 were removed in the Capture v2 cleanup; the
