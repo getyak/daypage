@@ -157,7 +157,7 @@ struct DayOrbView: View {
                 .font(DSFonts.spaceGrotesk(size: size * 0.36, weight: .semibold))
                 .tracking(-2)
                 .foregroundColor(DSColor.amberDeep)
-                .contentTransition(.numericText(value: Double(signalCount)))
+                .contentTransition(.numericText())
                 .animation(.snappy, value: signalCount)
 
             Text("SIGNALS TODAY")
