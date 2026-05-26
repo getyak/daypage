@@ -980,7 +980,6 @@ struct TodayView: View {
         InputBarV4(
             text: $draftText,
             isSubmitting: viewModel.isSubmitting,
-            requestFocusToggle: orbFocusToggle,
             isLocating: viewModel.isLocating,
             pendingLocation: viewModel.pendingLocation,
             locationAuthStatus: LocationService.shared.authorizationStatus,
