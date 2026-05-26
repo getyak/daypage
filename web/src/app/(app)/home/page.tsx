@@ -133,46 +133,72 @@ export default function HomePage() {
 
       {/* Observations */}
       <div className="mt-32">
-        <SectionLabel right={<Chip tone="accent">{observations.length} new</Chip>}>
+        <SectionLabel right={observations.length > 0 ? <Chip tone="accent">{observations.length} new</Chip> : null}>
           What the system noticed
         </SectionLabel>
-        <Card>
-          {observations.map((o, i) => (
-            <div key={i}>
-              <div className="observation">
-                <div className="observation__lead">
-                  <span className="pulse" />
-                  {o.lead}
-                </div>
-                <div className="observation__body">
-                  {o.body.map((p, j) => (
-                    <p key={j}>{p}</p>
-                  ))}
-                  <div className="observation__actions">
-                    {o.actions.map((a, k) =>
-                      a.href ? (
-                        <Link key={k} href={a.href}>
-                          <Btn kind={a.kind} size="sm">{a.label}</Btn>
-                        </Link>
-                      ) : (
-                        <Btn
-                          key={k}
-                          kind={a.kind}
-                          size="sm"
-                          disabled={a.disabled}
-                          title={a.disabled ? "coming soon" : undefined}
-                        >
-                          {a.label}
-                        </Btn>
-                      )
-                    )}
+        {observations.length === 0 ? (
+          <Card>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 12,
+                padding: "48px 24px",
+                textAlign: "center",
+              }}
+            >
+              <span style={{ color: "var(--fg-subtle)", opacity: 0.5, display: "flex" }}>
+                <Icon as={Sparkles} size={28} />
+              </span>
+              <p style={{ color: "var(--fg-subtle)", margin: 0, fontSize: "0.9rem" }}>
+                No observations yet — start by adding a source
+              </p>
+              <Link href="/add">
+                <Btn kind="ghost" size="sm">Add a source</Btn>
+              </Link>
+            </div>
+          </Card>
+        ) : (
+          <Card>
+            {observations.map((o, i) => (
+              <div key={i}>
+                <div className="observation">
+                  <div className="observation__lead">
+                    <span className="pulse" />
+                    {o.lead}
+                  </div>
+                  <div className="observation__body">
+                    {o.body.map((p, j) => (
+                      <p key={j}>{p}</p>
+                    ))}
+                    <div className="observation__actions">
+                      {o.actions.map((a, k) =>
+                        a.href ? (
+                          <Link key={k} href={a.href}>
+                            <Btn kind={a.kind} size="sm">{a.label}</Btn>
+                          </Link>
+                        ) : (
+                          <Btn
+                            key={k}
+                            kind={a.kind}
+                            size="sm"
+                            disabled={a.disabled}
+                            title={a.disabled ? "coming soon" : undefined}
+                          >
+                            {a.label}
+                          </Btn>
+                        )
+                      )}
+                    </div>
                   </div>
                 </div>
+                {i < observations.length - 1 && <div className="divider" />}
               </div>
-              {i < observations.length - 1 && <div className="divider" />}
-            </div>
-          ))}
-        </Card>
+            ))}
+          </Card>
+        )}
       </div>
 
       {/* Recent activity */}
