@@ -71,6 +71,9 @@ struct TodayView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var orbBreathing: Bool = false
 
+    /// Hint offset for the one-time swipe-left nudge on the Daily Page card.
+    @State private var dailyPageHintOffset: CGFloat = 0
+
     private var isInSelectionMode: Bool { selectedMemoIds != nil }
 
     /// Live drag offset for the daily page card (negative = pulled left).
@@ -869,7 +872,19 @@ struct TodayView: View {
                     dailyPageRevealed = false
                 }
             }
-            .offset(x: (dailyPageRevealed ? -80 : 0) + dailyPageDrag)
+            .offset(x: (dailyPageRevealed ? -80 : 0) + dailyPageDrag + dailyPageHintOffset)
+            .onAppear {
+                guard !UserDefaults.standard.bool(forKey: AppSettings.Keys.dailyPageSwipeHintShown),
+                      !reduceMotion else { return }
+                UserDefaults.standard.set(true, forKey: AppSettings.Keys.dailyPageSwipeHintShown)
+                Task { @MainActor in
+                    try? await Task.sleep(for: .seconds(0.6))
+                    withAnimation(Motion.spring) { dailyPageHintOffset = -24 }
+                    Haptics.soft()
+                    try? await Task.sleep(for: .seconds(0.45))
+                    withAnimation(Motion.spring) { dailyPageHintOffset = 0 }
+                }
+            }
             .highPriorityGesture(
                 DragGesture(minimumDistance: 10)
                     .updating($dailyPageDrag) { value, state, _ in
