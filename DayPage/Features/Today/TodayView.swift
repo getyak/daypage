@@ -397,6 +397,9 @@ struct TodayView: View {
                         .allowsHitTesting(false),
                         alignment: .bottom
                     )
+                    .refreshable {
+                        await viewModel.refresh()
+                    }
                     .coordinateSpace(name: "todayScroll")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
