@@ -171,6 +171,8 @@ struct GraphView: View {
         viewModel.filterStartDate != nil || viewModel.filterEndDate != nil || !viewModel.searchQuery.isEmpty
     }
 
+    private var isTransformed: Bool { scale != 1.0 || offset != .zero }
+
     // MARK: - Empty State
 
     private var emptyState: some View {
@@ -287,6 +289,8 @@ struct GraphView: View {
                         .position(x: px, y: py)
                         .allowsHitTesting(false)
                 }
+
+                if isTransformed { recenterButton }
             }
             .gesture(
                 SimultaneousGesture(
@@ -319,6 +323,28 @@ struct GraphView: View {
         .fixedSize()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
         .padding(DSSpacing.lg)
+    }
+
+    private var recenterButton: some View {
+        Button {
+            Haptics.tapConfirm()
+            withAnimation(Motion.spring) {
+                scale = 1.0; lastScale = 1.0
+                offset = .zero; lastOffset = .zero
+            }
+        } label: {
+            Image(systemName: "scope")
+                .font(.system(size: 20, weight: .regular))
+                .foregroundColor(DSColor.inkPrimary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .liquidGlassCard(cornerRadius: DSRadius.md, tone: .hi)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+        .padding(DSSpacing.lg)
+        .accessibilityLabel("Recenter graph")
+        .transition(.opacity.combined(with: .scale))
+        .animation(Motion.spring, value: isTransformed)
     }
 
     private func legendRow(color: Color, label: String) -> some View {
