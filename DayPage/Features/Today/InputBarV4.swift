@@ -55,6 +55,9 @@ struct InputBarV4: View {
     // US-012: batch photo progress bar
     var batchPhotoProgress: Double = 0
     var batchPhotoTotal: Int = 0
+    /// Toggle this bool (flip its value) from the parent to programmatically
+    /// open the composer and focus the text field.
+    var requestFocusToggle: Bool = false
 
     // MARK: Private State
 
@@ -311,6 +314,10 @@ struct InputBarV4: View {
             if newCount > 0 {
                 Haptics.medium()
             }
+        }
+        .onChange(of: requestFocusToggle) { _ in
+            transition(to: .expanding)
+            isFocused = true
         }
     }
 

@@ -65,6 +65,9 @@ struct TodayView: View {
     // across launches; selection is always an immediate action.
     @State private var selectedMemoIds: Set<UUID>? = nil
 
+    /// Toggled each time the Day Orb is tapped to focus the composer input.
+    @State private var orbFocusToggle: Bool = false
+
     private var isInSelectionMode: Bool { selectedMemoIds != nil }
 
     /// Live drag offset for the daily page card (negative = pulled left).
@@ -866,15 +869,12 @@ struct TodayView: View {
                 .textCase(.uppercase)
                 .tracking(1.0)
 
-            Button {
+            DayOrbView(signalCount: viewModel.signalCount, size: 140) {
                 Haptics.tapConfirm()
-                // TODO: open Day Drawer (follow-up story)
-            } label: {
-                DayOrbView(signalCount: viewModel.signalCount, size: 140)
+                orbFocusToggle.toggle()
             }
-            .buttonStyle(.plain)
             .accessibilityLabel("Today's orb, \(viewModel.signalCount) signals")
-            .accessibilityHint("Tap to open today's day drawer")
+            .accessibilityHint("Tap to start writing today's first note")
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
@@ -963,6 +963,7 @@ struct TodayView: View {
         InputBarV4(
             text: $draftText,
             isSubmitting: viewModel.isSubmitting,
+            requestFocusToggle: orbFocusToggle,
             isLocating: viewModel.isLocating,
             pendingLocation: viewModel.pendingLocation,
             locationAuthStatus: LocationService.shared.authorizationStatus,

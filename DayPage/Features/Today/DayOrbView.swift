@@ -10,10 +10,12 @@ struct DayOrbView: View {
     let signalCount: Int
     var size: CGFloat = 140
     var haloOpacity: CGFloat = 0.15
+    var onTap: (() -> Void)? = nil
 
     @State private var breatheScale: CGFloat = 1.0
     @State private var pulse: Bool = false
     @State private var previous: Int = 0
+    @State private var isPressed: Bool = false
 
     var body: some View {
         ZStack {
@@ -22,7 +24,23 @@ struct DayOrbView: View {
             orb
         }
         .frame(width: size + 32, height: size + 32)
-        .scaleEffect(breatheScale)
+        .scaleEffect(isPressed ? breatheScale * 0.94 : breatheScale)
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    if !isPressed {
+                        withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+                            isPressed = true
+                        }
+                    }
+                }
+                .onEnded { _ in
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.55)) {
+                        isPressed = false
+                    }
+                    onTap?()
+                }
+        )
         .onChange(of: signalCount) { new in
             if new > previous {
                 pulse = true
