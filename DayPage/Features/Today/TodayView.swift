@@ -68,6 +68,9 @@ struct TodayView: View {
     /// Toggled each time the Day Orb is tapped to focus the composer input.
     @State private var orbFocusToggle: Bool = false
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var orbBreathing: Bool = false
+
     private var isInSelectionMode: Bool { selectedMemoIds != nil }
 
     /// Live drag offset for the daily page card (negative = pulled left).
@@ -890,11 +893,25 @@ struct TodayView: View {
                 Haptics.tapConfirm()
                 orbFocusToggle.toggle()
             }
+            .scaleEffect(reduceMotion ? 1.0 : (orbBreathing ? 1.03 : 0.985))
+            .shadow(
+                color: DSColor.accentAmber.opacity(orbBreathing ? 0.28 : 0.12),
+                radius: orbBreathing ? 22 : 12
+            )
+            .animation(
+                reduceMotion ? nil : .easeInOut(duration: 3.0).repeatForever(autoreverses: true),
+                value: orbBreathing
+            )
             .accessibilityLabel("Today's orb, \(viewModel.signalCount) signals")
             .accessibilityHint("Tap to start writing today's first note")
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
+        .onAppear {
+            if !reduceMotion {
+                orbBreathing = true
+            }
+        }
     }
 
     /// Issue #309 W2: top action bar shown while in multi-select mode.
