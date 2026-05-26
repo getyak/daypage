@@ -1011,6 +1011,7 @@ struct TodayView: View {
                 }
             },
             onAddFile: { viewModel.startFilePicker() },
+            requestFocusToggle: orbFocusToggle,
             onSubmit: {
                 let body = draftText
                 draftText = ""
