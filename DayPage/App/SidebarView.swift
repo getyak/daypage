@@ -105,31 +105,60 @@ struct SidebarView: View {
 
     /// 7 circles representing memo activity for the last 7 days (today on the right).
     private var activityDots: some View {
-        let days = last7DayCounts()
+        let days = last7DayPairs()
+        let todayStr = Self.isoFormatter.string(from: Date())
         return HStack(spacing: 5) {
-            ForEach(0..<7, id: \.self) { i in
-                let count = i < days.count ? days[i] : 0
-                Circle()
-                    .fill(count > 0 ? DSColor.amberAccent : DSColor.inkFaint)
-                    .frame(width: 8, height: 8)
-                    .opacity(count > 0 ? min(0.4 + Double(count) * 0.15, 1.0) : 0.25)
+            ForEach(days, id: \.dateString) { pair in
+                let isToday = pair.dateString == todayStr
+                let count = pair.count
+                let label = Self.dotAccessibilityLabel(for: pair.dateString, count: count)
+                Button {
+                    Haptics.soft()
+                    nav.openArchive(at: pair.dateString)
+                } label: {
+                    Circle()
+                        .fill(count > 0 ? DSColor.amberAccent : DSColor.inkFaint)
+                        .frame(width: 8, height: 8)
+                        .opacity(count > 0 ? min(0.4 + Double(count) * 0.15, 1.0) : 0.25)
+                        .overlay {
+                            if isToday {
+                                Circle()
+                                    .strokeBorder(DSColor.amberRim, lineWidth: 1)
+                            }
+                        }
+                        .dsAnimation(Motion.spring, value: count)
+                }
+                .frame(width: 28, height: 28)
+                .contentShape(Circle())
+                .buttonStyle(.plain)
+                .accessibilityLabel(label)
+                .accessibilityHint("Opens this day in Archive")
             }
         }
         .padding(.top, 2)
     }
 
-    /// Returns memo counts for the last 7 days (index 0 = 6 days ago, index 6 = today).
-    private func last7DayCounts() -> [Int] {
+    /// Returns date+count pairs for the last 7 days (index 0 = 6 days ago, index 6 = today).
+    private func last7DayPairs() -> [(dateString: String, count: Int)] {
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
-        let isoFmt = DateFormatter()
-        isoFmt.locale = Locale(identifier: "en_US_POSIX")
-        isoFmt.dateFormat = "yyyy-MM-dd"
-
         return (0..<7).reversed().map { daysAgo in
-            guard let date = cal.date(byAdding: .day, value: -daysAgo, to: today) else { return 0 }
-            let dateStr = isoFmt.string(from: date)
-            return sidebarVM.recentDays.first(where: { $0.dateString == dateStr })?.memoCount ?? 0
+            guard let date = cal.date(byAdding: .day, value: -daysAgo, to: today) else {
+                return (dateString: "", count: 0)
+            }
+            let dateStr = Self.isoFormatter.string(from: date)
+            let count = sidebarVM.recentDays.first(where: { $0.dateString == dateStr })?.memoCount ?? 0
+            return (dateString: dateStr, count: count)
+        }
+    }
+
+    private static func dotAccessibilityLabel(for dateString: String, count: Int) -> String {
+        guard let date = isoFormatter.date(from: dateString) else { return dateString }
+        let weekday = weekdayFormatter.string(from: date)
+        if count == 0 {
+            return "\(weekday), no notes"
+        } else {
+            return "\(weekday), \(count) \(count == 1 ? "note" : "notes")"
         }
     }
 
