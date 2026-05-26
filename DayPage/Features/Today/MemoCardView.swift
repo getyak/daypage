@@ -716,7 +716,7 @@ struct VoiceMemoPlayerRow: View {
                     var tx = Transaction()
                     tx.disablesAnimations = true
                     withTransaction(tx) {
-                        playbackProgress = p.currentTime / p.duration
+                        playbackProgress = p.duration > 0 ? p.currentTime / p.duration : 0
                     }
                 }
             }
@@ -726,8 +726,35 @@ struct VoiceMemoPlayerRow: View {
     private func seek(to fraction: Double) {
         let clampedFraction = max(0, min(1, fraction))
         if player == nil {
-            // No active player — start playback first, then seek into it.
-            startPlayback()
+            // No active player — prepare, seek, then play so the audio engine
+            // starts at the tapped position instead of briefly playing from 0.
+            // If setup fails, clear isScrubbing so the gesture doesn't stall.
+            guard FileManager.default.fileExists(atPath: fileURL.path) else {
+                fileError = true; isScrubbing = false; return
+            }
+            do {
+                try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+                try AVAudioSession.sharedInstance().setActive(true)
+                let p = try AVAudioPlayer(contentsOf: fileURL)
+                p.prepareToPlay()
+                p.currentTime = clampedFraction * p.duration
+                p.play()
+                player = p
+                isPlaying = true
+                playbackProgress = clampedFraction
+                progressTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [self] _ in
+                    Task { @MainActor in
+                        guard let p = player, p.isPlaying else { stopPlayback(); return }
+                        guard !isScrubbing else { return }
+                        var tx = Transaction()
+                        tx.disablesAnimations = true
+                        withTransaction(tx) {
+                            playbackProgress = p.duration > 0 ? p.currentTime / p.duration : 0
+                        }
+                    }
+                }
+            } catch { fileError = true; isScrubbing = false }
+            return
         }
         guard let p = player else { return }
         p.currentTime = clampedFraction * p.duration
