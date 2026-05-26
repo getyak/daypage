@@ -315,6 +315,17 @@ body {
   flex-shrink: 0;
 }
 
+/* spinner */
+.btn__spinner {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+  animation: btn-spin 0.7s linear infinite;
+}
+@keyframes btn-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ─── Chip ──────────────────────────────────────────────────────── */
 .chip {
   display: inline-flex;
