@@ -2,14 +2,24 @@ import SwiftUI
 
 // MARK: - UndoPillView (US-009)
 
-/// Pill shown for 5 seconds after a memo is submitted.
-/// Tapping it restores the submitted text to the draft.
+/// Pill shown for 5 seconds after a memo is submitted or deleted.
+/// Tapping it restores the submitted text / memo to its previous state.
+///
+/// Escalating urgency cues over the final ~1.5s:
+///  - Ring stroke transitions from amber → error red and thickens (1.5 → 2 pt)
+///  - A single soft haptic fires at the 4s mark (1s remaining)
 struct UndoPillView: View {
-    var label: String = "Undo send"
+    var label: String = NSLocalizedString("undo_pill.label.send", comment: "Undo send pill label")
     let onUndo: () -> Void
 
     @State private var countdownProgress: CGFloat = 1.0
+    @State private var isUrgent: Bool = false
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    // Work item for the haptic — cancelled on disappear so stale
+    // firings don't happen after the pill is removed from the hierarchy.
+    private let hapticWorkItem = HapticWorkItemHolder()
 
     var body: some View {
         Button {
@@ -22,9 +32,16 @@ struct UndoPillView: View {
                         .font(.system(size: 13, weight: .semibold))
                     Circle()
                         .trim(from: 0, to: countdownProgress)
-                        .stroke(DSColor.accentAmber, style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                        .stroke(
+                            ringColor,
+                            style: StrokeStyle(
+                                lineWidth: isUrgent ? 2 : 1.5,
+                                lineCap: .round
+                            )
+                        )
                         .rotationEffect(.degrees(-90))
                         .frame(width: 22, height: 22)
+                        .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: isUrgent)
                         .accessibilityHidden(true)
                 }
                 Text(label)
@@ -45,9 +62,10 @@ struct UndoPillView: View {
             .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 2)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Undo send")
+        .accessibilityLabel(label)
         .accessibilityHint("Restores the note you just submitted back to the input field")
         .accessibilityAddTraits(.isButton)
+        .accessibilityAddTraits(.updatesFrequently)
         .onAppear {
             if reduceMotion {
                 countdownProgress = 0
@@ -56,6 +74,33 @@ struct UndoPillView: View {
                     countdownProgress = 0
                 }
             }
+            // Flip to urgent state at 3.5s (1.5s before dismissal)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
+                isUrgent = true
+            }
+            // Fire a single soft haptic at 4s (1s remaining)
+            let workItem = DispatchWorkItem {
+                HapticFeedback.light()
+            }
+            hapticWorkItem.item = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4, execute: workItem)
+        }
+        .onDisappear {
+            hapticWorkItem.item?.cancel()
+            hapticWorkItem.item = nil
         }
     }
+
+    private var ringColor: Color {
+        guard !reduceMotion else { return DSColor.accentAmber }
+        return isUrgent ? DSColor.error : DSColor.accentAmber
+    }
+}
+
+// MARK: - HapticWorkItemHolder
+
+/// Reference-type box so the work item can be shared between onAppear and
+/// onDisappear closures without capturing a mutating struct.
+private final class HapticWorkItemHolder {
+    var item: DispatchWorkItem?
 }
