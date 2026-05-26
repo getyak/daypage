@@ -146,6 +146,9 @@ struct SearchView: View {
     @State private var filters: SearchFilters = SearchFilters.empty
     @State private var showFilters: Bool = false
     @State private var cancellable: AnyCancellable? = nil
+    @State private var appearedIDs: Set<UUID> = []
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var onSelect: (String) -> Void
 
@@ -201,6 +204,7 @@ struct SearchView: View {
         let trimmed = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
         let wasEmpty = vm.results.isEmpty
         let hits = SearchService.search(keyword: trimmed, filters: filters)
+        appearedIDs = []
         vm.results = hits
         vm.hasSearched = !trimmed.isEmpty || filters.isActive
         if wasEmpty && !hits.isEmpty && !trimmed.isEmpty { Haptics.soft() }
@@ -646,9 +650,18 @@ struct SearchView: View {
                 ForEach(groups, id: \.section) { group in
                     Section {
                         ForEach(group.results) { result in
+                            let appeared = appearedIDs.contains(result.id)
                             resultRow(result)
                                 .padding(.horizontal, 20)
                                 .padding(.bottom, 8)
+                                .opacity(appeared ? 1 : 0)
+                                .offset(y: appeared || reduceMotion ? 0 : 10)
+                                .onAppear {
+                                    guard !appearedIDs.contains(result.id) else { return }
+                                    withAnimation(reduceMotion ? .linear(duration: 0.001) : Motion.rise) {
+                                        appearedIDs.insert(result.id)
+                                    }
+                                }
                         }
                     } header: {
                         HStack {
@@ -671,7 +684,10 @@ struct SearchView: View {
     }
 
     private func resultRow(_ result: SearchResult) -> some View {
-        Button(action: {
+        let status = result.isDailyPageCompiled ? "VERIFIED" : "METADATA"
+        let snippet = String(result.snippet.prefix(80))
+        let a11yLabel = "\(formatDate(result.dateString)), \(matchLabel(for: result.matchKind)) match, \(status), \(snippet)"
+        return Button(action: {
             Haptics.tapConfirm()
             vm.recordSearch(vm.query)
             onSelect(result.dateString)
@@ -721,6 +737,9 @@ struct SearchView: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(a11yLabel)
+        .accessibilityHint("双击打开当天页面")
     }
 
     // MARK: - Keyword highlight via AttributedString
