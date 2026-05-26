@@ -16,6 +16,7 @@ struct DayOrbView: View {
     @State private var pulse: Bool = false
     @State private var previous: Int = 0
     @State private var isPressed: Bool = false
+    @State private var countPop: CGFloat = 1.0
 
     var body: some View {
         ZStack {
@@ -46,9 +47,14 @@ struct DayOrbView: View {
             if new > previous {
                 Haptics.success()
                 pulse = true
-                Haptics.success()
-                withAnimation(.easeOut(duration: 0.6)) { }
+                withAnimation(.spring(response: 0.25, dampingFraction: 0.5)) {
+                    countPop = 1.18
+                }
                 Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 250_000_000)
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+                        countPop = 1.0
+                    }
                     try? await Task.sleep(nanoseconds: 650_000_000)
                     pulse = false
                 }
@@ -188,6 +194,7 @@ struct DayOrbView: View {
                 .foregroundColor(DSColor.amberDeep)
                 .contentTransition(.numericText())
                 .animation(.snappy, value: signalCount)
+                .scaleEffect(countPop)
 
             Text(readoutLabel)
                 .font(DSFonts.jetBrainsMono(size: 9, weight: .medium))
