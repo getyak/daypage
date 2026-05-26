@@ -223,13 +223,17 @@ function ContradictionCard({
   onAction: (id: string) => void;
 }) {
   const payload = (item.payload ?? {}) as ContradictionPayload;
+  const [busy, setBusy] = useState(false);
 
   const resolve = useCallback(
     async (action: string) => {
+      if (busy) return;
+      setBusy(true);
       const ok = await postAction(item.id, "resolve", { action });
+      setBusy(false);
       if (ok) onAction(item.id);
     },
-    [item.id, onAction]
+    [busy, item.id, onAction]
   );
 
   return (
@@ -256,14 +260,18 @@ function ContradictionCard({
         </div>
       )}
 
-      <div className="inbox-card__actions">
-        <button className="btn btn--soft btn--sm" onClick={() => resolve("keep_both")}>
+      <div
+        className="inbox-card__actions"
+        aria-busy={busy}
+        style={busy ? { opacity: 0.5, cursor: "not-allowed", pointerEvents: "none" } : undefined}
+      >
+        <button className="btn btn--soft btn--sm" disabled={busy} onClick={() => resolve("keep_both")}>
           Keep both
         </button>
-        <button className="btn btn--primary btn--sm" onClick={() => resolve("use_new")}>
+        <button className="btn btn--primary btn--sm" disabled={busy} onClick={() => resolve("use_new")}>
           Use new
         </button>
-        <button className="btn btn--secondary btn--sm" onClick={() => resolve("keep_mine")}>
+        <button className="btn btn--secondary btn--sm" disabled={busy} onClick={() => resolve("keep_mine")}>
           Keep mine
         </button>
         {payload.page_id && (
@@ -288,13 +296,17 @@ function SchemaCard({
   onAction: (id: string) => void;
 }) {
   const payload = (item.payload ?? {}) as SchemaPayload;
+  const [busy, setBusy] = useState(false);
 
   const resolve = useCallback(
     async (action: string) => {
+      if (busy) return;
+      setBusy(true);
       const ok = await postAction(item.id, "resolve", { action });
+      setBusy(false);
       if (ok) onAction(item.id);
     },
-    [item.id, onAction]
+    [busy, item.id, onAction]
   );
 
   return (
@@ -348,20 +360,26 @@ function SchemaCard({
         </div>
       )}
 
-      <div className="inbox-card__actions">
+      <div
+        className="inbox-card__actions"
+        aria-busy={busy}
+        style={busy ? { opacity: 0.5, cursor: "not-allowed", pointerEvents: "none" } : undefined}
+      >
         <button
           className="btn btn--primary btn--sm"
+          disabled={busy}
           onClick={() => resolve("create_domain")}
         >
           Create domain
         </button>
         <button
           className="btn btn--secondary btn--sm"
+          disabled={busy}
           onClick={() => resolve("suggest_different_name")}
         >
           Suggest different name
         </button>
-        <button className="btn btn--ghost btn--sm" onClick={() => resolve("not_yet")}>
+        <button className="btn btn--ghost btn--sm" disabled={busy} onClick={() => resolve("not_yet")}>
           Not yet
         </button>
       </div>
