@@ -391,17 +391,8 @@ struct TodayView: View {
                     // Hidden entirely once today's page is compiled.
                     if !viewModel.isDailyPageCompiled && !viewModel.memos.isEmpty {
                         if viewModel.memos.count < 3 {
-                            Text(L10n.Empty.compileDockLocked(
-                                current: viewModel.memos.count,
-                                remaining: max(0, 3 - viewModel.memos.count)
-                            ))
-                                .font(DSType.mono10)
-                                .foregroundColor(DSColor.inkSubtle)
-                                .textCase(.uppercase)
-                                .tracking(0.8)
-                                .frame(maxWidth: .infinity)
+                            CompileProgressDock(memoCount: viewModel.memos.count)
                                 .padding(.vertical, 6)
-                                .accessibilityIdentifier("compile-dock-hint")
                         } else {
                             HStack {
                                 Spacer()
