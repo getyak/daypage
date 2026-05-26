@@ -9,6 +9,8 @@ struct EmptyStateView: View {
     var ctaAction: (() -> Void)?
     var showOrbAccent: Bool = false
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var appeared = false
     @State private var breathing = false
 
@@ -32,7 +34,7 @@ struct EmptyStateView: View {
         .padding(.horizontal, 32)
         .onAppear {
             appeared = true
-            if !UIAccessibility.isReduceMotionEnabled {
+            if !reduceMotion {
                 breathing = true
             }
         }
@@ -57,8 +59,7 @@ struct EmptyStateView: View {
     }
 
     private var orbAccent: some View {
-        let reduceMotion = UIAccessibility.isReduceMotionEnabled
-        return Circle()
+        Circle()
             .fill(
                 RadialGradient(
                     colors: [
