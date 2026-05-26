@@ -422,6 +422,7 @@ struct ArchiveView: View {
     @State private var summaryFilter: MonthlySummaryFilter = .all
     @State private var showShareSheet: Bool = false
     @State private var shareItems: [Any] = []
+    @State private var monthNavDirection: Edge = .leading
 
     /// Issue #302: monthly summary → share-card sheet.
     @State private var sharePayload: SharePayload? = nil
@@ -451,6 +452,29 @@ struct ArchiveView: View {
                             if mode == .calendar {
                                 calendarGrid
                                     .padding(.horizontal, 12)
+                                    .id("\(viewModel.currentYear)-\(viewModel.currentMonth)")
+                                    .transition(
+                                        .asymmetric(
+                                            insertion: .move(edge: monthNavDirection).combined(with: .opacity),
+                                            removal: .move(edge: monthNavDirection == .trailing ? .leading : .trailing).combined(with: .opacity)
+                                        )
+                                    )
+                                    .gesture(
+                                        DragGesture(minimumDistance: 30)
+                                            .onEnded { value in
+                                                let w = value.translation.width
+                                                let h = value.translation.height
+                                                guard abs(w) > abs(h) * 1.2, abs(w) > 50 else { return }
+                                                if w < 0 {
+                                                    monthNavDirection = .trailing
+                                                    withAnimation(Motion.spring) { viewModel.goToNextMonth() }
+                                                } else {
+                                                    monthNavDirection = .leading
+                                                    withAnimation(Motion.spring) { viewModel.goToPreviousMonth() }
+                                                }
+                                                Haptics.soft()
+                                            }
+                                    )
 
                                 legendRow
                                     .padding(.horizontal, 12)
@@ -600,7 +624,10 @@ struct ArchiveView: View {
 
     private var monthNavigationRow: some View {
         HStack {
-            Button(action: { viewModel.goToPreviousMonth() }) {
+            Button(action: {
+                monthNavDirection = .leading
+                withAnimation(Motion.spring) { viewModel.goToPreviousMonth() }
+            }) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(DSColor.inkMuted)
@@ -626,7 +653,10 @@ struct ArchiveView: View {
 
             Spacer()
 
-            Button(action: { viewModel.goToNextMonth() }) {
+            Button(action: {
+                monthNavDirection = .trailing
+                withAnimation(Motion.spring) { viewModel.goToNextMonth() }
+            }) {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(DSColor.inkMuted)
