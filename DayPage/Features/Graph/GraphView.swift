@@ -185,7 +185,10 @@ struct GraphView: View {
     }
 
     private var hasActiveFilter: Bool {
-        viewModel.filterStartDate != nil || viewModel.filterEndDate != nil || !viewModel.searchQuery.isEmpty
+        viewModel.filterStartDate != nil
+            || viewModel.filterEndDate != nil
+            || !viewModel.searchQuery.isEmpty
+            || !viewModel.activeTypes.isEmpty
     }
 
     private var isTransformed: Bool { scale != 1.0 || offset != .zero }
@@ -336,10 +339,10 @@ struct GraphView: View {
     // MARK: - Legend
 
     private var legend: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            legendRow(color: DSColor.amberDeep, label: "地点")
-            legendRow(color: DSColor.inkMuted, label: "人物")
-            legendRow(color: DSColor.amberAccent, label: "主题")
+        VStack(alignment: .leading, spacing: 2) {
+            legendRow(entityType: "places", color: DSColor.amberDeep, label: "地点")
+            legendRow(entityType: "people", color: DSColor.inkMuted, label: "人物")
+            legendRow(entityType: "themes", color: DSColor.amberAccent, label: "主题")
         }
         .padding(DSSpacing.md)
         .liquidGlassCard(cornerRadius: DSRadius.md, tone: .hi)
@@ -374,15 +377,40 @@ struct GraphView: View {
         .animation(Motion.spring, value: isTransformed)
     }
 
-    private func legendRow(color: Color, label: String) -> some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(color)
-                .frame(width: 10, height: 10)
-            Text(label)
-                .font(DSFonts.jetBrainsMono(size: 10))
-                .foregroundColor(DSColor.inkPrimary)
+    private func legendRow(entityType: String, color: Color, label: String) -> some View {
+        let isActive = viewModel.activeTypes.contains(entityType)
+        let anyActive = !viewModel.activeTypes.isEmpty
+        return Button {
+            Haptics.soft()
+            withAnimation(.easeInOut(duration: 0.18)) {
+                viewModel.toggleType(entityType)
+            }
+        } label: {
+            HStack(spacing: 6) {
+                ZStack {
+                    Circle()
+                        .fill(color)
+                        .frame(width: 10, height: 10)
+                    if isActive {
+                        Circle()
+                            .strokeBorder(DSColor.amberAccent, lineWidth: 2)
+                            .frame(width: 15, height: 15)
+                    }
+                }
+                .frame(width: 16, height: 16)
+                Text(label)
+                    .font(DSFonts.jetBrainsMono(size: 10))
+                    .foregroundColor(isActive ? DSColor.amberDeep : DSColor.inkPrimary)
+                    .fontWeight(isActive ? .bold : .regular)
+            }
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+            .opacity(anyActive && !isActive ? 0.45 : 1.0)
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityValue(isActive ? "已选中" : "未选中")
     }
 
     // MARK: - Helpers

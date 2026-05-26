@@ -44,8 +44,9 @@ final class GraphViewModel: ObservableObject {
     @Published var searchQuery: String = ""
     @Published var filterStartDate: Date? = nil
     @Published var filterEndDate: Date? = nil
+    @Published var activeTypes: Set<String> = []
 
-    /// Nodes after applying search and date filters.
+    /// Nodes after applying search, date, and type filters.
     var filteredNodes: [GraphNode] {
         nodes.filter { node in
             let matchesSearch = searchQuery.isEmpty
@@ -63,7 +64,16 @@ final class GraphViewModel: ObservableObject {
                 }
                 return true
             }()
-            return matchesSearch && matchesDate
+            let matchesType = activeTypes.isEmpty || activeTypes.contains(node.entityType)
+            return matchesSearch && matchesDate && matchesType
+        }
+    }
+
+    func toggleType(_ type: String) {
+        if activeTypes.contains(type) {
+            activeTypes.remove(type)
+        } else {
+            activeTypes = [type]
         }
     }
 
