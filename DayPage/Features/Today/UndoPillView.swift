@@ -48,7 +48,7 @@ struct UndoPillView: View {
                         .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: isUrgent)
                         .accessibilityHidden(true)
                 }
-                Text("Undo · \(secondsRemaining)s")
+                Text("\(label) · \(secondsRemaining)s")
                     .font(.custom("Inter-Medium", size: 13))
             }
             .foregroundColor(DSColor.inkPrimary)
@@ -83,8 +83,8 @@ struct UndoPillView: View {
                 }
         )
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Undo send, \(secondsRemaining) seconds remaining")
-        .accessibilityHint("Restores the note you just submitted back to the input field")
+        .accessibilityLabel("\(label), \(secondsRemaining) seconds remaining")
+        .accessibilityHint("Restores the previous state")
         .accessibilityAddTraits(.isButton)
         .accessibilityAddTraits(.updatesFrequently)
         .accessibilityIdentifier("undo-send-pill")
