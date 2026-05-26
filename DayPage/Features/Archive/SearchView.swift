@@ -756,8 +756,9 @@ struct SearchView: View {
             let attrEnd = attributed.index(attrStart, offsetByCharacters: length)
             let attrRange = attrStart..<attrEnd
 
-            attributed[attrRange].backgroundColor = UIColor.systemYellow
-            attributed[attrRange].foregroundColor = UIColor.black
+            attributed[attrRange].backgroundColor = UIColor(DSColor.amberAccent).withAlphaComponent(0.28)
+            attributed[attrRange].foregroundColor = UIColor(DSColor.onSurface)
+            attributed[attrRange].font = .system(size: 13, weight: .semibold)
 
             searchStart = range.upperBound
         }
