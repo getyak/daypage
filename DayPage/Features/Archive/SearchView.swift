@@ -194,6 +194,7 @@ struct SearchView: View {
         vm.results = hits
         vm.hasSearched = !trimmed.isEmpty || filters.isActive
         if wasEmpty && !hits.isEmpty && !trimmed.isEmpty { Haptics.soft() }
+        if hits.isEmpty && vm.hasSearched && !trimmed.isEmpty { Haptics.warningNotification() }
     }
 
     // MARK: - Search Bar
@@ -560,26 +561,70 @@ struct SearchView: View {
     // MARK: - Empty result state
 
     private var emptyResultState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "tray")
-                .font(.system(size: 32, weight: .regular))
-                .foregroundColor(DSColor.outlineVariant)
-            if vm.query.isEmpty && filters.isActive {
-                Text("当前筛选条件下无匹配结果")
-                    .bodySMStyle()
-                    .foregroundColor(DSColor.onSurfaceVariant)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
-            } else {
-                Text("未找到「\(vm.query)」的匹配结果")
-                    .bodySMStyle()
-                    .foregroundColor(DSColor.onSurfaceVariant)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
+        ScrollView {
+            VStack(spacing: 20) {
+                VStack(spacing: 12) {
+                    Image(systemName: "tray")
+                        .font(.system(size: 32, weight: .regular))
+                        .foregroundColor(DSColor.outlineVariant)
+                    if vm.query.isEmpty && filters.isActive {
+                        Text("当前筛选条件下无匹配结果")
+                            .bodySMStyle()
+                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+                    } else {
+                        Text("未找到「\(vm.query)」的匹配结果")
+                            .bodySMStyle()
+                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+                    }
+                }
+
+                if filters.isActive {
+                    Button(action: {
+                        Haptics.tapConfirm()
+                        filters = .empty
+                        runSearch(keyword: vm.query)
+                    }) {
+                        Text("清除筛选并重试")
+                            .monoLabelStyle(size: 12)
+                            .foregroundColor(DSColor.primary)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                            .overlay(Rectangle().stroke(DSColor.primary, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                let recentSuggestions = Array(vm.recentSearches.filter { $0 != vm.query }.prefix(4))
+                if !recentSuggestions.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("换个关键词试试")
+                            .monoLabelStyle(size: 10)
+                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(recentSuggestions, id: \.self) { q in
+                                    entityChip(q)
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 4)
+                        }
+                    }
+                }
             }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 80)
+            .padding(.bottom, 24)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.top, 80)
+        .transition(.opacity)
+        .dsAnimation(Motion.fade, value: vm.results.isEmpty)
     }
 
     // MARK: - Grouped result list

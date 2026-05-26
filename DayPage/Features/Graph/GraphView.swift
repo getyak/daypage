@@ -21,9 +21,10 @@ struct GraphView: View {
     @State private var selectedNode: GraphNode? = nil
     @State private var showEntityPage: Bool = false
 
-    // Tap pulse state
-    @State private var tapPulseNode: GraphNode? = nil
-    @State private var tapPulseScale: CGFloat = 0.6
+    // Tap pulse state — ID-based so the ring tracks the live simulation position
+    @State private var tapPulseNodeID: String? = nil
+    @State private var tapPulseProgress: CGFloat = 0   // 0 → 1 drives both scale and opacity
+    @State private var tapPulseGeneration: Int = 0     // cancels stale clear tasks on rapid taps
 
     // Filter state
     @State private var showFilters: Bool = false
@@ -256,27 +257,33 @@ struct GraphView: View {
                         .onTapGesture {
                             Haptics.tapConfirm()
                             selectedNode = node
-                            tapPulseNode = node
-                            tapPulseScale = 0.6
+                            tapPulseNodeID = node.id
+                            tapPulseProgress = 0
+                            tapPulseGeneration += 1
+                            let gen = tapPulseGeneration
                             withAnimation(.easeOut(duration: 0.35)) {
-                                tapPulseScale = 1.6
+                                tapPulseProgress = 1
                             }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                                tapPulseNode = nil
+                            Task { @MainActor in
+                                try? await Task.sleep(nanoseconds: 400_000_000)
+                                if tapPulseGeneration == gen { tapPulseNodeID = nil }
                             }
                             showEntityPage = true
                         }
                 }
 
-                // Tap pulse ring
-                if let pulseNode = tapPulseNode {
+                // Tap pulse ring — reads live position from the model so it tracks
+                // the node even while the force-directed simulation is still running.
+                if let id = tapPulseNodeID,
+                   let pulseNode = viewModel.nodes.first(where: { $0.id == id }) {
                     let px = pulseNode.position.x * scale + offset.width + size.width / 2
                     let py = pulseNode.position.y * scale + offset.height + size.height / 2
-                    let diameter = nodeRadius * scale * 2 * tapPulseScale
+                    let ringScale = 1.0 + tapPulseProgress   // 1.0 → 2.0
+                    let diameter = nodeRadius * scale * 2 * ringScale
                     Circle()
                         .strokeBorder(pulseNode.color, lineWidth: 2)
                         .frame(width: diameter, height: diameter)
-                        .opacity(Double(1.6 - tapPulseScale))
+                        .opacity(Double(1 - tapPulseProgress))
                         .position(x: px, y: py)
                         .allowsHitTesting(false)
                 }
