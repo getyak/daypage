@@ -331,12 +331,29 @@ export function UnifiedInput() {
         placeholder={textareaPlaceholder}
         rows={3}
       />
-      {/* Keyboard shortcut hint */}
+      {/* Character / word counter */}
       <div
         className="ds-mono-11"
-        style={{ color: "var(--fg-subtle)", marginTop: "0.25rem", userSelect: "none" }}
+        style={{
+          color: "var(--fg-subtle)",
+          marginTop: "0.25rem",
+          userSelect: "none",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          minHeight: "1.25em",
+        }}
       >
-        {isMac ? "⌘ + Enter to submit" : "Ctrl + Enter to submit"}
+        <span>{isMac ? "⌘ + Enter to submit" : "Ctrl + Enter to submit"}</span>
+        <span
+          aria-live="polite"
+          style={{
+            opacity: body.length > 0 ? 1 : 0,
+            transition: "opacity 0.2s ease",
+          }}
+        >
+          {body.trim().split(/\s+/).filter(Boolean).length} words &middot; {body.length} chars
+        </span>
       </div>
 
       {/* Attachment preview row */}
