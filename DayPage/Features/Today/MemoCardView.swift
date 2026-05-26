@@ -562,6 +562,7 @@ struct VoiceMemoPlayerRow: View {
     @State private var playbackProgress: Double = 0
     @State private var progressTimer: Timer?
     @State private var fileError: Bool = false
+    @State private var isScrubbing: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -587,12 +588,28 @@ struct VoiceMemoPlayerRow: View {
                 // every 100 ms. Without this split, both 40-bar ForEach layers
                 // were diffed on every progressTimer tick, dominating scroll
                 // jank on tall voice memo cards.
-                WaveformView(
-                    heights: waveformHeights,
-                    progress: playbackProgress
-                )
-                .frame(height: 24)
-                .allowsHitTesting(false)
+                GeometryReader { geo in
+                    WaveformView(
+                        heights: waveformHeights,
+                        progress: playbackProgress
+                    )
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture(minimumDistance: 0)
+                            .onChanged { value in
+                                if !isScrubbing {
+                                    isScrubbing = true
+                                    Haptics.soft()
+                                }
+                                let fraction = max(0, min(1, value.location.x / geo.size.width))
+                                seek(to: fraction)
+                            }
+                            .onEnded { _ in
+                                isScrubbing = false
+                            }
+                    )
+                }
+                .frame(height: 36)
 
                 Text(formatDur(isPlaying ? duration * playbackProgress : duration))
                     .font(DSFonts.jetBrainsMono(size: 11))
@@ -688,6 +705,9 @@ struct VoiceMemoPlayerRow: View {
             progressTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [self] _ in
                 Task { @MainActor in
                     guard let p = player, p.isPlaying else { stopPlayback(); return }
+                    // Skip timer write while the finger is scrubbing so the
+                    // timer doesn't fight the gesture's progress updates.
+                    guard !isScrubbing else { return }
                     // Disable implicit animation: if a parent withAnimation()
                     // block is still in flight when this assignment runs (e.g.
                     // a swipe spring), SwiftUI would otherwise interpolate
@@ -701,6 +721,21 @@ struct VoiceMemoPlayerRow: View {
                 }
             }
         } catch { fileError = true }
+    }
+
+    private func seek(to fraction: Double) {
+        let clampedFraction = max(0, min(1, fraction))
+        if player == nil {
+            // No active player — start playback first, then seek into it.
+            startPlayback()
+        }
+        guard let p = player else { return }
+        p.currentTime = clampedFraction * p.duration
+        var tx = Transaction()
+        tx.disablesAnimations = true
+        withTransaction(tx) {
+            playbackProgress = clampedFraction
+        }
     }
 
     private func stopPlayback() {
