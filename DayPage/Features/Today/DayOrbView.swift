@@ -43,6 +43,7 @@ struct DayOrbView: View {
         )
         .onChange(of: signalCount) { new in
             if new > previous {
+                Haptics.success()
                 pulse = true
                 withAnimation(.easeOut(duration: 0.6)) { }
                 Task { @MainActor in
@@ -169,6 +170,14 @@ struct DayOrbView: View {
 
     // MARK: - Content
 
+    private var readoutLabel: String {
+        switch signalCount {
+        case 0:  return "TAP TO BEGIN"
+        case 1:  return "SIGNAL TODAY"
+        default: return "SIGNALS TODAY"
+        }
+    }
+
     private var orbContent: some View {
         VStack(spacing: 2) {
             Text("\(signalCount)")
@@ -178,11 +187,13 @@ struct DayOrbView: View {
                 .contentTransition(.numericText())
                 .animation(.snappy, value: signalCount)
 
-            Text("SIGNALS TODAY")
+            Text(readoutLabel)
                 .font(DSFonts.jetBrainsMono(size: 9, weight: .medium))
                 .tracking(1.4)
                 .foregroundColor(DSColor.amberDeep)
                 .opacity(0.7)
+                .contentTransition(.opacity)
+                .animation(.easeInOut(duration: 0.25), value: readoutLabel)
         }
     }
 }
