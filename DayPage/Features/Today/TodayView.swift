@@ -867,6 +867,7 @@ struct TodayView: View {
                 .tracking(1.0)
 
             Button {
+                Haptics.tapConfirm()
                 // TODO: open Day Drawer (follow-up story)
             } label: {
                 DayOrbView(signalCount: viewModel.signalCount, size: 140)
