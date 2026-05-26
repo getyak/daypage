@@ -524,6 +524,17 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         }
     }
 
+    // MARK: - Pull-to-Refresh
+
+    /// Called by SwiftUI's .refreshable modifier. Fires a haptic, kicks off
+    /// load(), then suspends until the detached disk-load Task completes so
+    /// the system spinner stays visible for the actual I/O duration.
+    func refresh() async {
+        Haptics.soft()
+        load()
+        await loadTask?.value
+    }
+
     // MARK: - On This Day
 
     func dismissOnThisDay() {

@@ -373,6 +373,9 @@ struct TodayView: View {
                         }
                         .padding(.top, 12)
                     }
+                    .refreshable {
+                        await viewModel.refresh()
+                    }
                     // US-010: Vignette gradient at the bottom edge fades timeline
                     // content behind the composer dock, so cards appear to recede
                     // rather than abruptly stopping at the input bar boundary.
