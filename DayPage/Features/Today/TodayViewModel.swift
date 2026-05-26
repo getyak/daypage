@@ -178,6 +178,9 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         return .pureEmpty
     }
 
+    /// The most recently deleted memo; non-nil while the undo pill is visible.
+    @Published var lastDeletedMemo: Memo? = nil
+
     // MARK: Private
 
     private var date: Date
@@ -197,6 +200,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     private var submitMemoTask: Task<Void, Never>?
     private var locationTask: Task<Void, Never>?
     private var compilationTask: Task<Void, Never>?
+    private var deleteUndoTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
 
     // MARK: Init
@@ -217,6 +221,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         submitMemoTask?.cancel()
         locationTask?.cancel()
         compilationTask?.cancel()
+        deleteUndoTask?.cancel()
     }
 
     private func observeCompilationFailure() {
@@ -294,11 +299,46 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     func deleteMemo(_ memo: Memo) {
         let previous = memos
         let remaining = memos.filter { $0.id != memo.id }
-        // Optimistic UI update
         withAnimation(Motion.rise) {
             memos = remaining
         }
         persistMemos(remaining, capturedDate: date, previous: previous, failureMessagePrefix: "删除失败")
+
+        // Start 5-second undo window
+        deleteUndoTask?.cancel()
+        lastDeletedMemo = memo
+        deleteUndoTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            guard !Task.isCancelled else { return }
+            lastDeletedMemo = nil
+        }
+    }
+
+    /// Restores the last deleted memo to its original sort position and rewrites the file.
+    func undoDelete() {
+        guard let memo = lastDeletedMemo else { return }
+        deleteUndoTask?.cancel()
+        deleteUndoTask = nil
+        lastDeletedMemo = nil
+
+        var restored = memos
+        // Re-insert using the same sort order as the load path:
+        // pinned memos float to top (by pinnedAt desc), then by created desc.
+        if memo.pinnedAt != nil {
+            let insertIdx = restored.firstIndex(where: { $0.pinnedAt == nil }) ?? restored.endIndex
+            restored.insert(memo, at: insertIdx)
+        } else {
+            let insertIdx = restored.firstIndex(where: { m in
+                m.pinnedAt == nil && m.created < memo.created
+            }) ?? restored.endIndex
+            restored.insert(memo, at: insertIdx)
+        }
+        let previous = memos
+        withAnimation(Motion.rise) {
+            memos = restored
+        }
+        Haptics.soft()
+        persistMemos(restored, capturedDate: date, previous: previous, failureMessagePrefix: "撤销失败")
     }
 
     /// Replaces the body text of an existing memo and writes through to disk.

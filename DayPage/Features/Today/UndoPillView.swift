@@ -5,6 +5,7 @@ import SwiftUI
 /// Pill shown for 5 seconds after a memo is submitted.
 /// Tapping it restores the submitted text to the draft.
 struct UndoPillView: View {
+    var label: String = "Undo send"
     let onUndo: () -> Void
 
     @State private var countdownProgress: CGFloat = 1.0
@@ -21,7 +22,7 @@ struct UndoPillView: View {
                         .rotationEffect(.degrees(-90))
                         .frame(width: 22, height: 22)
                 }
-                Text("Undo send")
+                Text(label)
                     .font(.custom("Inter-Medium", size: 13))
             }
             .foregroundColor(DSColor.inkPrimary)
