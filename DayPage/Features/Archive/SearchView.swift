@@ -519,33 +519,13 @@ struct SearchView: View {
 
     @ViewBuilder
     private func recentSearchRow(_ q: String) -> some View {
-        HStack {
-            Image(systemName: "clock")
-                .font(.system(size: 12))
-                .foregroundColor(DSColor.outline)
-
-            Button(action: {
-                Haptics.tapConfirm()
-                vm.query = q
-                runSearch(keyword: q)
-            }) {
-                Text(q)
-                    .font(.custom("Inter-Regular", size: 14))
-                    .foregroundColor(DSColor.onSurface)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .buttonStyle(.plain)
-
-            Button(action: { vm.removeRecentSearch(q) }) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 11))
-                    .foregroundColor(DSColor.outline)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 10)
-        .background(DSColor.background)
+        SwipeableRecentRow(query: q, onSelect: { query in
+            Haptics.tapConfirm()
+            vm.query = query
+            runSearch(keyword: query)
+        }, onDelete: {
+            vm.removeRecentSearch(q)
+        })
         Divider()
             .padding(.leading, 52)
             .background(DSColor.outlineVariant.opacity(0.5))
@@ -809,6 +789,112 @@ struct SearchView: View {
         case .location: return "LOCATION"
         case .date:     return "DATE"
         }
+    }
+}
+
+// MARK: - SwipeableRecentRow
+
+private struct SwipeableRecentRow: View {
+
+    let query: String
+    let onSelect: (String) -> Void
+    let onDelete: () -> Void
+
+    private let revealWidth: CGFloat = 64
+    private let snapThreshold: CGFloat = 32
+
+    @State private var revealed: Bool = false
+    @GestureState private var drag: CGFloat = 0
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var currentOffset: CGFloat {
+        let base: CGFloat = revealed ? -revealWidth : 0
+        let live = min(0, drag)
+        let combined = base + live
+        if combined < -revealWidth {
+            return -revealWidth + (combined + revealWidth) * 0.25
+        }
+        return combined
+    }
+
+    private var snapAnimation: Animation {
+        reduceMotion ? .linear(duration: 0.001) : Motion.spring
+    }
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            // Delete action surface — revealed on left swipe
+            Button(action: {
+                withAnimation(snapAnimation) { revealed = false }
+                Haptics.warn()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { onDelete() }
+            }) {
+                Image(systemName: "trash")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.white)
+                    .frame(width: revealWidth, maxHeight: .infinity)
+                    .background(DSColor.error)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("删除该搜索记录")
+
+            // Row content
+            HStack {
+                Image(systemName: "clock")
+                    .font(.system(size: 12))
+                    .foregroundColor(DSColor.outline)
+
+                Button(action: {
+                    if revealed {
+                        withAnimation(snapAnimation) { revealed = false }
+                    } else {
+                        onSelect(query)
+                    }
+                }) {
+                    Text(query)
+                        .font(.custom("Inter-Regular", size: 14))
+                        .foregroundColor(DSColor.onSurface)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+
+                Button(action: { onDelete() }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11))
+                        .foregroundColor(DSColor.outline)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("删除该搜索记录")
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+            .background(DSColor.background)
+            .offset(x: currentOffset)
+            .highPriorityGesture(
+                DragGesture(minimumDistance: 10)
+                    .updating($drag) { value, state, _ in
+                        let tx = value.translation.width
+                        if tx < 0 { state = tx }
+                    }
+                    .onEnded { value in
+                        let tx = value.translation.width
+                        if revealed {
+                            withAnimation(snapAnimation) {
+                                revealed = (tx > -snapThreshold)
+                            }
+                        } else {
+                            withAnimation(snapAnimation) {
+                                revealed = (tx < -snapThreshold)
+                            }
+                        }
+                    }
+            )
+        }
+        .clipped()
     }
 }
 
