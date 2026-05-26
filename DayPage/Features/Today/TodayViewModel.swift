@@ -418,15 +418,9 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
 
     // MARK: - Refresh (pull-to-refresh)
 
-    /// Called by SwiftUI's `.refreshable` modifier. Triggers a full reload and
-    /// waits until `loadState` returns to `.ready` before returning, so the
-    /// system spinner stays visible for the true duration of the reload.
     func refresh() async {
         load()
-        let deadline = Date().addingTimeInterval(3)
-        while loadState == .loading && Date() < deadline {
-            try? await Task.sleep(nanoseconds: 50_000_000)
-        }
+        await loadTask?.value
         Haptics.soft()
     }
 
