@@ -502,6 +502,7 @@ struct SearchView: View {
             }
             .padding(.bottom, 24)
         }
+        .scrollDismissesKeyboard(.interactively)
     }
 
     private func sectionHeader(title: String, trailing: AnyView) -> some View {
@@ -613,6 +614,7 @@ struct SearchView: View {
             .padding(.top, 80)
             .padding(.bottom, 24)
         }
+        .scrollDismissesKeyboard(.interactively)
         .transition(.opacity)
         .dsAnimation(Motion.fade, value: vm.results.isEmpty)
     }
@@ -665,6 +667,7 @@ struct SearchView: View {
             }
             .padding(.bottom, 24)
         }
+        .scrollDismissesKeyboard(.interactively)
     }
 
     private func resultRow(_ result: SearchResult) -> some View {
