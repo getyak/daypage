@@ -236,6 +236,9 @@ struct GraphView: View {
                 guard !reduceMotion else { return }
                 pulse = true
             }
+            .onDisappear {
+                pulse = false
+            }
 
             Text(viewModel.nodes.isEmpty ? "尚无知识图谱" : "无匹配节点")
                 .font(DSType.h2)
