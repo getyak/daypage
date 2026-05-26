@@ -14,12 +14,14 @@ struct UndoPillView: View {
 
     @State private var countdownProgress: CGFloat = 1.0
     @State private var isUrgent: Bool = false
+    @State private var secondsRemaining: Int = 5
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Work item for the haptic — cancelled on disappear so stale
     // firings don't happen after the pill is removed from the hierarchy.
     private let hapticWorkItem = HapticWorkItemHolder()
+
 
     var body: some View {
         Button {
@@ -44,7 +46,7 @@ struct UndoPillView: View {
                         .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: isUrgent)
                         .accessibilityHidden(true)
                 }
-                Text(label)
+                Text("Undo · \(secondsRemaining)s")
                     .font(.custom("Inter-Medium", size: 13))
             }
             .foregroundColor(DSColor.inkPrimary)
@@ -62,10 +64,12 @@ struct UndoPillView: View {
             .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 2)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(label)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Undo send, \(secondsRemaining) seconds remaining")
         .accessibilityHint("Restores the note you just submitted back to the input field")
         .accessibilityAddTraits(.isButton)
         .accessibilityAddTraits(.updatesFrequently)
+        .accessibilityIdentifier("undo-send-pill")
         .onAppear {
             if reduceMotion {
                 countdownProgress = 0
@@ -88,6 +92,12 @@ struct UndoPillView: View {
         .onDisappear {
             hapticWorkItem.item?.cancel()
             hapticWorkItem.item = nil
+        }
+        .task {
+            for tick in stride(from: 4, through: 0, by: -1) {
+                try? await Task.sleep(for: .seconds(1))
+                secondsRemaining = tick
+            }
         }
     }
 
