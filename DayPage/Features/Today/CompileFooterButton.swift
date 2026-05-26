@@ -128,14 +128,33 @@ struct CompileFooterButton: View {
 struct CompileProgressDock: View {
     let memoCount: Int
 
+    /// Tracks the memoCount from the previous render so we can detect the
+    /// exact 2→3 crossing and fire the unlock celebration only once.
+    @State private var previousMemoCount: Int = 0
+    /// When true, the third segment plays a one-shot scale+glow pulse.
+    @State private var thirdSegmentPulsing: Bool = false
+
     var body: some View {
         VStack(spacing: 6) {
             HStack(spacing: 5) {
                 ForEach(0..<3, id: \.self) { index in
+                    let isFilled = index < memoCount
+                    let isPulsingSegment = (index == 2) && thirdSegmentPulsing
                     Capsule(style: .continuous)
-                        .fill(index < memoCount ? DSColor.accentAmber : DSColor.glassStd)
+                        .fill(isFilled ? DSColor.accentAmber : DSColor.glassStd)
                         .frame(width: 28, height: 4)
+                        .shadow(
+                            color: isPulsingSegment ? DSColor.accentAmber.opacity(0.75) : .clear,
+                            radius: isPulsingSegment ? 6 : 0
+                        )
+                        .scaleEffect(isPulsingSegment ? 1.35 : 1.0)
                         .dsAnimation(Motion.spring, value: memoCount)
+                        .animation(
+                            Motion.respectReduceMotion(
+                                .spring(response: 0.4, dampingFraction: 0.6)
+                            ),
+                            value: thirdSegmentPulsing
+                        )
                 }
             }
 
@@ -151,6 +170,20 @@ struct CompileProgressDock: View {
         .frame(maxWidth: .infinity)
         .accessibilityIdentifier("compile-dock-hint")
         .accessibilityValue("\(memoCount) of 3")
+        .onAppear {
+            previousMemoCount = memoCount
+        }
+        .onChange(of: memoCount) { newCount in
+            if previousMemoCount < 3 && newCount == 3 {
+                Haptics.success()
+                thirdSegmentPulsing = true
+                Task {
+                    try? await Task.sleep(nanoseconds: 400_000_000)
+                    thirdSegmentPulsing = false
+                }
+            }
+            previousMemoCount = newCount
+        }
     }
 }
 
