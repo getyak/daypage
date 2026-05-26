@@ -310,6 +310,11 @@ struct GraphView: View {
 
                 if isTransformed { recenterButton }
             }
+            .onTapGesture(count: 2) {
+                guard isTransformed else { return }
+                Haptics.tapConfirm()
+                resetTransform()
+            }
             .gesture(
                 SimultaneousGesture(
                     MagnificationGesture()
@@ -343,13 +348,17 @@ struct GraphView: View {
         .padding(DSSpacing.lg)
     }
 
+    private func resetTransform() {
+        withAnimation(Motion.spring) {
+            scale = 1.0; lastScale = 1.0
+            offset = .zero; lastOffset = .zero
+        }
+    }
+
     private var recenterButton: some View {
         Button {
             Haptics.tapConfirm()
-            withAnimation(Motion.spring) {
-                scale = 1.0; lastScale = 1.0
-                offset = .zero; lastOffset = .zero
-            }
+            resetTransform()
         } label: {
             Image(systemName: "scope")
                 .font(.system(size: 20, weight: .regular))
