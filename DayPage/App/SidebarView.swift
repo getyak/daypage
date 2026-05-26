@@ -105,8 +105,8 @@ struct SidebarView: View {
                 .textCase(.uppercase)
                 .tracking(1.0)
             activityDots
-            if sidebarVM.currentStreak >= 2 {
-                streakChip(streak: sidebarVM.currentStreak)
+            if sidebarVM.currentStreak > 0 {
+                streakBadge(streak: sidebarVM.currentStreak)
                     .dsAnimation(Motion.spring, value: sidebarVM.currentStreak)
             }
         }
@@ -115,21 +115,22 @@ struct SidebarView: View {
         .padding(.bottom, 24)
     }
 
-    private func streakChip(streak: Int) -> some View {
+    private func streakBadge(streak: Int) -> some View {
         HStack(spacing: 4) {
             Image(systemName: "flame.fill")
-                .font(.system(size: 10, weight: .medium))
+                .font(.system(size: 12))
                 .foregroundColor(DSColor.amberAccent)
-            Text("\(streak)-DAY STREAK")
+            Text("\(streak)-day streak")
                 .font(DSType.mono10)
                 .foregroundColor(DSColor.amberAccent)
-                .tracking(0.8)
                 .textCase(.uppercase)
+                .tracking(1.0)
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
         .background(DSColor.amberSoft, in: Capsule())
-        .accessibilityLabel("Current logging streak: \(streak) days")
+        .overlay(Capsule().strokeBorder(DSColor.amberRim, lineWidth: 0.5))
+        .accessibilityLabel("Current streak: \(streak) days")
     }
 
     /// 7 circles representing memo activity for the last 7 days (today on the right).
