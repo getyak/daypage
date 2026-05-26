@@ -74,6 +74,12 @@ struct TodayView: View {
     /// Hint offset for the one-time swipe-left nudge on the Daily Page card.
     @State private var dailyPageHintOffset: CGFloat = 0
 
+    /// Session-only: true once the 3-memo unlock celebration has fired this session.
+    /// Resets to false when memo count drops back below 3 so delete+readd re-fires it.
+    @State private var didCelebrateUnlock: Bool = false
+    /// Drives the one-shot amber glow pulse on the compile button at unlock.
+    @State private var unlockGlow: Bool = false
+
     private var isInSelectionMode: Bool { selectedMemoIds != nil }
 
     /// Live drag offset for the daily page card (negative = pulled left).
@@ -425,6 +431,11 @@ struct TodayView: View {
                                         onTap: { viewModel.compile() },
                                         onRetry: { viewModel.compile() }
                                     )
+                                    .shadow(
+                                        color: DSColor.accentAmber.opacity(unlockGlow ? 0.5 : 0),
+                                        radius: unlockGlow ? 18 : 0
+                                    )
+                                    .animation(.easeOut(duration: 0.6), value: unlockGlow)
                                     Spacer()
                                 }
                                 .padding(.bottom, 4)
@@ -432,6 +443,21 @@ struct TodayView: View {
                         }
                     }
                     .animation(Motion.spring, value: viewModel.memos.count)
+                    .onChange(of: viewModel.memos.count) { count in
+                        if count >= 3 && !viewModel.isDailyPageCompiled && !didCelebrateUnlock {
+                            didCelebrateUnlock = true
+                            Haptics.success()
+                            if !reduceMotion {
+                                unlockGlow = true
+                                Task {
+                                    try? await Task.sleep(nanoseconds: 600_000_000)
+                                    unlockGlow = false
+                                }
+                            }
+                        } else if count < 3 {
+                            didCelebrateUnlock = false
+                        }
+                    }
                     // MARK: Input Bar — single canonical surface (V4).
                     // V1/V2/V3 were removed in the Capture v2 cleanup; the
                     // variant switch was a feature-flag carcass keeping four

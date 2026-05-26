@@ -22,10 +22,8 @@ struct CompileFooterButton: View {
     /// 用户点击重试时触发（US-020）。
     var onRetry: (() -> Void)? = nil
 
-    /// Controls the one-shot scale + amber glow pulse on first reveal.
+    /// Controls the one-shot scale pulse on first reveal (visual only).
     @State private var didAppearPulse = false
-    /// Guards the unlock effect so it only fires on the genuine first reveal.
-    @State private var hasPlayedUnlock = false
 
     var body: some View {
         Group {
@@ -121,9 +119,7 @@ struct CompileFooterButton: View {
             )
             .padding(.bottom, 6)
             .onAppear {
-                guard !isCompiling, errorMessage == nil, !hasPlayedUnlock else { return }
-                hasPlayedUnlock = true
-                Haptics.success()
+                guard !isCompiling, errorMessage == nil else { return }
                 didAppearPulse = true
                 Task {
                     try? await Task.sleep(nanoseconds: 450_000_000)
