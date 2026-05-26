@@ -22,6 +22,11 @@ struct CompileFooterButton: View {
     /// 用户点击重试时触发（US-020）。
     var onRetry: (() -> Void)? = nil
 
+    /// Controls the one-shot scale + amber glow pulse on first reveal.
+    @State private var didAppearPulse = false
+    /// Guards the unlock effect so it only fires on the genuine first reveal.
+    @State private var hasPlayedUnlock = false
+
     var body: some View {
         Group {
             if isVisible {
@@ -101,11 +106,30 @@ struct CompileFooterButton: View {
                     Capsule(style: .continuous)
                         .strokeBorder(DSColor.outlineVariant, lineWidth: 1)
                 )
+                .shadow(
+                    color: DSColor.accentAmber.opacity(didAppearPulse ? 0.6 : 0),
+                    radius: 10
+                )
                 .surfaceElevatedShadow()
             }
             .buttonStyle(.plain)
             .disabled(isCompiling)
+            .scaleEffect(didAppearPulse ? 1.06 : 1.0)
+            .animation(
+                Motion.respectReduceMotion(.spring(response: 0.4, dampingFraction: 0.55)),
+                value: didAppearPulse
+            )
             .padding(.bottom, 6)
+            .onAppear {
+                guard !isCompiling, errorMessage == nil, !hasPlayedUnlock else { return }
+                hasPlayedUnlock = true
+                Haptics.success()
+                didAppearPulse = true
+                Task {
+                    try? await Task.sleep(nanoseconds: 450_000_000)
+                    didAppearPulse = false
+                }
+            }
         }
     }
 
