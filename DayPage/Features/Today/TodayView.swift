@@ -1011,13 +1011,13 @@ struct TodayView: View {
                 }
             },
             onAddFile: { viewModel.startFilePicker() },
-            requestFocusToggle: orbFocusToggle,
             onSubmit: {
                 let body = draftText
                 draftText = ""
                 viewModel.submitCombinedMemo(body: body)
                 showUndoPill(for: body)
             },
+            requestFocusToggle: orbFocusToggle,
             onAddPhotoAsset: nil,
             batchPhotoProgress: viewModel.batchPhotoProgress,
             batchPhotoTotal: viewModel.batchPhotoTotal,
