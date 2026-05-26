@@ -120,6 +120,40 @@ struct CompileFooterButton: View {
     }
 }
 
+// MARK: - CompileProgressDock
+
+/// Three capsule segments shown above the input bar when memos < 3.
+/// Segments fill amber as memos accumulate, giving glanceable progress
+/// toward unlocking AI compilation.
+struct CompileProgressDock: View {
+    let memoCount: Int
+
+    var body: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 5) {
+                ForEach(0..<3, id: \.self) { index in
+                    Capsule(style: .continuous)
+                        .fill(index < memoCount ? DSColor.accentAmber : DSColor.glassStd)
+                        .frame(width: 28, height: 4)
+                        .dsAnimation(Motion.spring, value: memoCount)
+                }
+            }
+
+            Text(L10n.Empty.compileDockLocked(
+                current: memoCount,
+                remaining: max(0, 3 - memoCount)
+            ))
+            .font(DSType.mono10)
+            .foregroundColor(DSColor.inkSubtle)
+            .textCase(.uppercase)
+            .tracking(0.8)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityIdentifier("compile-dock-hint")
+        .accessibilityValue("\(memoCount) of 3")
+    }
+}
+
 // MARK: - ScrollOffsetPreferenceKey
 
 /// 承载底部锚点在 ScrollView 本地坐标空间中的 minY 值。
