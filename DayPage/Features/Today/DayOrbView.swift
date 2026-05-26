@@ -21,6 +21,12 @@ struct DayOrbView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private var accessibilityLabelText: String {
+        if signalCount == 0 { return "Day orb, no signals yet" }
+        let word = signalCount == 1 ? "signal" : "signals"
+        return "Day orb, \(signalCount) \(word) today"
+    }
+
     var body: some View {
         ZStack {
             if signalCount == 0 { inviteHalo }
@@ -67,6 +73,11 @@ struct DayOrbView: View {
         // Drop shadow: two-layer stack matching the glass card recipe
         .shadow(color: Color(hex: "2D1E0A").opacity(0.08), radius: 4, x: 0, y: 2)
         .shadow(color: Color(hex: "2D1E0A").opacity(0.14), radius: 28, x: 0, y: 12)
+        .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityLabel(accessibilityLabelText)
+        .accessibilityHint("Activates to start writing today's note")
+        .accessibilityAction { onTap?() }
         .onAppear {
             withAnimation(
                 .easeInOut(duration: 4).repeatForever(autoreverses: true)
