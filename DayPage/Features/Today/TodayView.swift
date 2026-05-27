@@ -73,7 +73,6 @@ struct TodayView: View {
     @State private var exportFileURL: URL? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var orbBreathing: Bool = false
 
     /// Hint offset for the one-time swipe-left nudge on the Daily Page card.
     @State private var dailyPageHintOffset: CGFloat = 0
@@ -691,23 +690,9 @@ struct TodayView: View {
                 Haptics.tapConfirm()
                 orbFocusToggle.toggle()
             }
-            .scaleEffect(reduceMotion ? 1.0 : (orbBreathing ? 1.03 : 0.985))
-            .shadow(
-                color: DSColor.accentAmber.opacity(orbBreathing ? 0.28 : 0.12),
-                radius: orbBreathing ? 22 : 12
-            )
-            .animation(
-                reduceMotion ? nil : .easeInOut(duration: 3.0).repeatForever(autoreverses: true),
-                value: orbBreathing
-            )
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
-        .onAppear {
-            if !reduceMotion {
-                orbBreathing = true
-            }
-        }
     }
 
     /// Issue #309 W2: top action bar shown while in multi-select mode.
