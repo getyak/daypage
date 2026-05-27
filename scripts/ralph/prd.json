@@ -512,7 +512,7 @@
         "Typecheck passes"
       ],
       "priority": 33,
-      "passes": false,
+      "passes": true,
       "notes": "Wave4 D1。前置决策: iOS↔Web 走路线 A(Web 唯一真相源)。需人工拍板路线后再跑。"
     },
     {
@@ -528,7 +528,7 @@
         "RAG 结果与迁移前一致性验证(Tests pass)"
       ],
       "priority": 34,
-      "passes": false,
+      "passes": true,
       "notes": "Wave4 D2。需评估数据量与迁移策略(停机/在线双写), 可能需人工。"
     },
     {
@@ -544,7 +544,7 @@
         "Typecheck passes"
       ],
       "priority": 35,
-      "passes": false,
+      "passes": true,
       "notes": "Wave4 D5。iOS token 下沉部分涉及 iOS build, 可能需人工。"
     },
     {
@@ -558,7 +558,7 @@
         "Typecheck passes"
       ],
       "priority": 36,
-      "passes": false,
+      "passes": true,
       "notes": "Wave4 D3。"
     },
     {
@@ -573,7 +573,7 @@
         "Tests pass"
       ],
       "priority": 37,
-      "passes": false,
+      "passes": true,
       "notes": "Wave4 D4。"
     },
     {
@@ -587,7 +587,7 @@
         "Typecheck passes"
       ],
       "priority": 38,
-      "passes": false,
+      "passes": true,
       "notes": "Wave4 A4。依赖 US-013/014。"
     },
     {
