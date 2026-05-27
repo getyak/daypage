@@ -24,6 +24,7 @@ export const CreateMemoSchema = z.object({
   origin: OriginSchema.optional().default("web"),
   ingest_mode: IngestModeSchema.optional().default("light"),
   vault_path: z.string().optional(),
+  idempotency_key: z.string().max(255).optional(),
   attachments: z
     .array(
       z.object({

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db/client";
 import { memos, memo_attachments } from "@/lib/db/schema";
-import { eq, and, lt, gte, desc } from "drizzle-orm";
+import { eq, and, lt, gte, desc, isNotNull } from "drizzle-orm";
 import { CreateMemoSchema, ListMemosQuerySchema } from "@/lib/schemas/memo";
 import { checkMutationRateLimit } from "@/lib/ratelimit";
 import { sendEvent } from "@/lib/inngest/client";
@@ -111,6 +111,24 @@ export async function POST(req: NextRequest) {
   if (!userRows.length) return unauthorized();
   const userId = userRows[0].id;
 
+  // Idempotency check: return existing memo if same user+idempotency_key already exists
+  if (input.idempotency_key) {
+    const existing = await db
+      .select()
+      .from(memos)
+      .where(
+        and(
+          eq(memos.user_id, userId),
+          isNotNull(memos.idempotency_key),
+          eq(memos.idempotency_key, input.idempotency_key)
+        )
+      )
+      .limit(1);
+    if (existing[0]) {
+      return NextResponse.json(existing[0], { status: 200 });
+    }
+  }
+
   const [memo] = await db
     .insert(memos)
     .values({
@@ -125,6 +143,7 @@ export async function POST(req: NextRequest) {
       origin: input.origin,
       ingest_mode: input.ingest_mode,
       vault_path: input.vault_path ?? null,
+      idempotency_key: input.idempotency_key ?? null,
     })
     .returning();
 

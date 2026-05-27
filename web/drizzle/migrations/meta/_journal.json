@@ -71,6 +71,13 @@
       "when": 1779886467847,
       "tag": "0009_api_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1779886594587,
+      "tag": "0010_memo_idempotency_key",
+      "breakpoints": true
     }
   ]
 }

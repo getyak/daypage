@@ -160,6 +160,7 @@ export const memos = pgTable(
     compile_error: text("compile_error"),
     compile_step: text("compile_step"), // current pipeline step: normalize|embed|recall|compile|apply|notify
     embedding: text("embedding"), // JSON-encoded number[] — pgvector vector(1536) pending migration
+    idempotency_key: text("idempotency_key"),
     updated_at: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow()
