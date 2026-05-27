@@ -20,6 +20,140 @@ import { Dialog } from "../_components/Dialog";
 const isMac =
   typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
 
+// Check if browser supports SpeechRecognition
+function hasSpeechAPI(): boolean {
+  if (typeof window === "undefined") return false;
+  return "SpeechRecognition" in window || "webkitSpeechRecognition" in window;
+}
+
+type SpeechRecognitionLike = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+};
+
+type SpeechRecognitionEventLike = {
+  results: SpeechRecognitionResultListLike;
+};
+
+type SpeechRecognitionResultListLike = {
+  length: number;
+  [index: number]: { isFinal: boolean; 0: { transcript: string } };
+};
+
+function createSpeechRecognition(): SpeechRecognitionLike | null {
+  if (!hasSpeechAPI()) return null;
+  const w = window as unknown as Record<string, unknown>;
+  const SR = (w["SpeechRecognition"] ?? w["webkitSpeechRecognition"]) as (new () => SpeechRecognitionLike) | undefined;
+  if (!SR) return null;
+  return new SR();
+}
+
+// ── VoiceButton ───────────────────────────────────────────────────────────────
+function VoiceButton({ onTranscript }: { onTranscript: (text: string) => void }) {
+  const [recording, setRecording] = useState(false);
+  const [supported] = useState(() => hasSpeechAPI());
+  const srRef = useRef<SpeechRecognitionLike | null>(null);
+
+  const handleClick = useCallback(() => {
+    if (!supported) return;
+
+    if (recording) {
+      srRef.current?.stop();
+      setRecording(false);
+      return;
+    }
+
+    const sr = createSpeechRecognition();
+    if (!sr) return;
+    sr.continuous = true;
+    sr.interimResults = false;
+    sr.lang = "en-US";
+
+    sr.onresult = (event) => {
+      const list = event.results;
+      let transcript = "";
+      for (let i = 0; i < list.length; i++) {
+        if (list[i]?.isFinal) transcript += list[i]?.[0]?.transcript ?? "";
+      }
+      if (transcript) onTranscript(transcript.trim());
+    };
+
+    sr.onerror = () => {
+      setRecording(false);
+    };
+
+    sr.onend = () => {
+      setRecording(false);
+    };
+
+    srRef.current = sr;
+    try {
+      sr.start();
+      setRecording(true);
+    } catch {
+      setRecording(false);
+    }
+  }, [recording, supported, onTranscript]);
+
+  if (!supported) {
+    return (
+      <button
+        type="button"
+        className="chip chip--ghost chip--interactive"
+        disabled
+        title="Voice input not supported in this browser"
+        style={{ opacity: 0.5, cursor: "not-allowed" }}
+      >
+        <Mic size={12} />
+        Voice
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className="chip chip--ghost chip--interactive"
+      onClick={handleClick}
+      title={recording ? "Stop recording" : "Start voice input"}
+      style={
+        recording
+          ? {
+              background: "var(--error-soft)",
+              color: "var(--error)",
+              animation: "pulse 1.2s ease-in-out infinite",
+            }
+          : undefined
+      }
+    >
+      <Mic size={12} />
+      {recording ? "Recording…" : "Voice"}
+      {recording && (
+        <span
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: "50%",
+            background: "var(--error)",
+            flexShrink: 0,
+            animation: "blink 0.8s step-end infinite",
+          }}
+        />
+      )}
+      <style>{`
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+        @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(162,58,46,0.3)} 50%{box-shadow:0 0 0 4px rgba(162,58,46,0)} }
+      `}</style>
+    </button>
+  );
+}
+
 const URL_RE = /^https?:\/\//;
 const TEXTAREA_MAX = 320;
 
@@ -550,17 +684,8 @@ export function UnifiedInput() {
             <FileText size={12} />
             File
           </button>
-          {/* Voice — still disabled */}
-          <button
-            type="button"
-            className="chip chip--ghost chip--interactive"
-            disabled
-            title="coming soon"
-            style={{ opacity: 0.5, cursor: "not-allowed" }}
-          >
-            <Mic size={12} />
-            Voice
-          </button>
+          {/* Voice — web Speech API when available */}
+          <VoiceButton onTranscript={(t) => setBody((prev) => prev ? prev + " " + t : t)} />
           {/* US-007: Bookmarklet — opens modal */}
           <button
             type="button"

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Paperclip, X, FileText } from "lucide-react";
 import { Btn } from "@/components/ui";
 import type { Citation } from "./page";
 
@@ -42,6 +43,12 @@ interface ChatViewProps {
 
 type MobileTab = "chat" | "refs";
 
+interface ChatAttachment {
+  id: string;
+  file: File;
+  previewUrl?: string;
+}
+
 export function ChatView({ threadId, threadTitle, initialMessages, threads }: ChatViewProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>(initialMessages);
@@ -51,9 +58,28 @@ export function ChatView({ threadId, threadTitle, initialMessages, threads }: Ch
   const [activeRef, setActiveRef] = useState<number | null>(null);
   const [currentRefs, setCurrentRefs] = useState<Reference[]>([]);
   const [mobileTab, setMobileTab] = useState<MobileTab>("chat");
+  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const isComposingRef = useRef(false);
+
+  const addAttachments = useCallback((files: File[]) => {
+    const next: ChatAttachment[] = files.map((f) => ({
+      id: `${f.name}-${f.size}-${Date.now()}`,
+      file: f,
+      previewUrl: f.type.startsWith("image/") ? URL.createObjectURL(f) : undefined,
+    }));
+    setAttachments((prev) => [...prev, ...next]);
+  }, []);
+
+  const removeAttachment = useCallback((id: string) => {
+    setAttachments((prev) => {
+      const t = prev.find((a) => a.id === id);
+      if (t?.previewUrl) URL.revokeObjectURL(t.previewUrl);
+      return prev.filter((a) => a.id !== id);
+    });
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -69,15 +95,30 @@ export function ChatView({ threadId, threadTitle, initialMessages, threads }: Ch
 
   const sendMessage = useCallback(
     async (text: string) => {
-      if (!text.trim() || sending) return;
+      const hasAttachments = attachments.length > 0;
+      if (!text.trim() && !hasAttachments) return;
+      if (sending) return;
       setError(null);
       setSending(true);
       setActiveRef(null);
 
+      // Build content: append attachment descriptions for files/images
+      let content = text.trim();
+      if (hasAttachments) {
+        const attLines = attachments.map((a) => {
+          if (a.file.type.startsWith("image/")) {
+            return `[Attached image: ${a.file.name}]`;
+          }
+          return `[Attached file: ${a.file.name} (${a.file.type || "unknown type"})]`;
+        });
+        if (content) content += "\n\n" + attLines.join("\n");
+        else content = attLines.join("\n");
+      }
+
       const userMsg: Message = {
         id: crypto.randomUUID(),
         role: "user",
-        content: text,
+        content,
         citations: null,
         created_at: new Date().toISOString(),
       };
@@ -93,6 +134,11 @@ export function ChatView({ threadId, threadTitle, initialMessages, threads }: Ch
 
       setMessages((prev) => [...prev, userMsg, assistantPlaceholder]);
       setInput("");
+      // Clear attachments (revoke URLs first)
+      setAttachments((prev) => {
+        for (const a of prev) if (a.previewUrl) URL.revokeObjectURL(a.previewUrl);
+        return [];
+      });
 
       try {
         const res = await fetch(`/api/chat/threads/${threadId}/messages`, {
@@ -182,7 +228,7 @@ export function ChatView({ threadId, threadTitle, initialMessages, threads }: Ch
         setSending(false);
       }
     },
-    [threadId, sending, router]
+    [threadId, sending, router, attachments]
   );
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -298,6 +344,63 @@ export function ChatView({ threadId, threadTitle, initialMessages, threads }: Ch
           </div>
         ) : null}
 
+        {/* Attachment previews */}
+        {attachments.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "0.5rem",
+              padding: "0.5rem 1rem",
+              borderTop: "1px solid var(--accent-border)",
+            }}
+          >
+            {attachments.map((a) => (
+              <div
+                key={a.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.375rem",
+                  padding: "0.25rem 0.5rem",
+                  background: "var(--surface-sunken)",
+                  borderRadius: "var(--radius-sm)",
+                  fontSize: "0.75rem",
+                  color: "var(--fg-muted)",
+                  maxWidth: "160px",
+                }}
+              >
+                {a.previewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={a.previewUrl} alt={a.file.name} style={{ width: 20, height: 20, objectFit: "cover", borderRadius: 3 }} />
+                ) : (
+                  <FileText size={14} />
+                )}
+                <span
+                  style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    flex: 1,
+                    minWidth: 0,
+                  }}
+                  title={a.file.name}
+                >
+                  {a.file.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeAttachment(a.id)}
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: 0, color: "var(--fg-subtle)", flexShrink: 0 }}
+                  aria-label={`Remove ${a.file.name}`}
+                >
+                  <X size={11} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="chat__input-wrap">
           <textarea
             ref={textareaRef}
@@ -314,14 +417,33 @@ export function ChatView({ threadId, threadTitle, initialMessages, threads }: Ch
             autoCorrect="off"
             spellCheck={false}
           />
-          <Btn kind="ghost" size="sm" aria-label="Attach" disabled title="coming soon">
-            📎
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*,text/*,application/pdf"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? []);
+              if (files.length > 0) addAttachments(files);
+              if (e.target) e.target.value = "";
+            }}
+          />
+          <Btn
+            kind="ghost"
+            size="sm"
+            aria-label="Attach file"
+            title="Attach file or image"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Paperclip size={14} />
           </Btn>
           <Btn
             kind="primary"
             size="sm"
             onClick={() => void sendMessage(input)}
-            disabled={sending || !input.trim()}
+            disabled={sending || (!input.trim() && attachments.length === 0)}
           >
             {sending ? "…" : "Ask"}
           </Btn>
