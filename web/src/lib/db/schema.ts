@@ -15,17 +15,22 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
-// vector(1536) stored as text until pgvector migration lands
+// vector(1536) — native pgvector type after migration 0006_pgvector_hnsw.sql
 const vectorText = customType<{ data: number[]; driverData: string }>({
   dataType() {
-    return "text";
+    return "vector(1536)";
   },
   toDriver(val: number[]): string {
-    return JSON.stringify(val);
+    return `[${val.join(",")}]`;
   },
   fromDriver(val: string): number[] {
     try {
-      return JSON.parse(val) as number[];
+      // pgvector returns "[0.1,0.2,...]" format
+      return (val as string)
+        .replace(/^\[/, "")
+        .replace(/\]$/, "")
+        .split(",")
+        .map(Number);
     } catch {
       return [];
     }
@@ -159,7 +164,7 @@ export const memos = pgTable(
     vault_path: text("vault_path"),
     compile_error: text("compile_error"),
     compile_step: text("compile_step"), // current pipeline step: normalize|embed|recall|compile|apply|notify
-    embedding: text("embedding"), // JSON-encoded number[] — pgvector vector(1536) pending migration
+    embedding: vectorText("embedding"),
     idempotency_key: text("idempotency_key"),
     updated_at: timestamp("updated_at", { withTimezone: true })
       .notNull()
@@ -174,6 +179,7 @@ export const memos = pgTable(
   (t) => [
     index("memos_user_created").on(t.user_id, t.created_at),
     index("memos_user_status").on(t.user_id, t.compile_status),
+    index("memos_embedding_hnsw").using("hnsw", t.embedding.op("vector_cosine_ops")),
   ]
 );
 
@@ -230,7 +236,7 @@ export const pages = pgTable(
     body_md: text("body_md"),
     body_html: text("body_html"),
     metadata: jsonb("metadata"),
-    embedding: text("embedding"), // stored as text until pgvector migration; vector(1536) added later
+    embedding: vectorText("embedding"),
     version: integer("version").notNull().default(0),
     source_count: integer("source_count").notNull().default(0),
     backlink_count: integer("backlink_count").notNull().default(0),

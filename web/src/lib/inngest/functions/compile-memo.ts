@@ -285,7 +285,7 @@ export const compileMemo = inngest.createFunction(
 
         if (cached) {
           console.log(`[compile-memo] embed: cache hit for ${memo_id}`);
-          embedding = JSON.parse(cached.embedding) as number[];
+          embedding = (JSON.parse(cached.embedding) as number[]);
         } else {
           const chunks = chunkText(memo.body);
           const embeddings: number[][] = [];
@@ -312,7 +312,7 @@ export const compileMemo = inngest.createFunction(
 
         await db
           .update(memos)
-          .set({ embedding: JSON.stringify(embedding) })
+          .set({ embedding })
           .where(eq(memos.id, memo_id));
       } catch (err: unknown) {
         const message =
@@ -349,17 +349,12 @@ export const compileMemo = inngest.createFunction(
         return [] as RecalledPage[];
       }
 
-      if (!memo.embedding) {
+      if (!memo.embedding || memo.embedding.length === 0) {
         console.log(`[compile-memo] recall: no embedding yet, skipping`);
         return [] as RecalledPage[];
       }
 
-      let memoVec: number[];
-      try {
-        memoVec = JSON.parse(memo.embedding) as number[];
-      } catch {
-        return [] as RecalledPage[];
-      }
+      const memoVec: number[] = memo.embedding;
 
       // Fetch all live pages for this user that have embeddings
       const candidatePages = await db
@@ -383,12 +378,7 @@ export const compileMemo = inngest.createFunction(
       // Score and rank
       const scored = candidatePages
         .map((p) => {
-          let vec: number[] = [];
-          try {
-            vec = JSON.parse(p.embedding ?? "[]") as number[];
-          } catch {
-            // ignore
-          }
+          const vec: number[] = p.embedding ?? [];
           return { ...p, score: vec.length > 0 ? cosineSim(memoVec, vec) : 0 };
         })
         .filter((p) => p.score > 0)
