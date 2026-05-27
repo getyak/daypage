@@ -345,7 +345,7 @@
         "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 24,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-025",
@@ -359,7 +359,7 @@
         "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 25,
-      "passes": false
+      "passes": true
     }
   ]
 }
