@@ -93,16 +93,19 @@ final class EntityPageService {
     // MARK: - Slug Resolution
 
     /// Resolves a proposed slug to a canonical one by:
-    /// 1. Fuzzy-matching against existing pages (edit-distance ≤ 2 or shared prefix ≥ 6 chars).
-    /// 2. If no fuzzy match, returning the proposed slug unchanged when no conflict exists.
-    /// 3. If a conflict exists with a *different* display name, appending a numeric suffix.
+    /// 1. Case-insensitive exact match against existing pages (handles whitespace-trimmed input).
+    /// 2. Fuzzy-matching (edit-distance ≤ 2, shared prefix ≥ 6, or hyphen-stripped equality).
+    /// 3. If no match, returning the proposed slug unchanged.
     private func resolveSlug(proposed: String, displayName: String, type: String) -> String {
+        // Normalize: trim whitespace then re-sanitize so caller casing/spacing is irrelevant.
+        let normalized = EntityPageService.sanitizeSlug(proposed.trimmingCharacters(in: .whitespaces))
+
         let dir = VaultInitializer.vaultURL
             .appendingPathComponent("wiki")
             .appendingPathComponent(type)
         let fm = FileManager.default
         guard let entries = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else {
-            return proposed
+            return normalized
         }
 
         // Build list of existing slugs in this entity type directory.
@@ -110,23 +113,30 @@ final class EntityPageService {
             .filter { $0.pathExtension == "md" }
             .map { $0.deletingPathExtension().lastPathComponent }
 
-        // 1. Exact match — reuse directly.
-        if existingSlugs.contains(proposed) {
-            return proposed
+        // 1. Case-insensitive exact match — reuse the on-disk canonical slug.
+        if let exact = existingSlugs.first(where: { $0.caseInsensitiveCompare(normalized) == .orderedSame }) {
+            return exact
         }
 
         // 2. Fuzzy match — find a close existing slug.
-        if let fuzzyMatch = existingSlugs.first(where: { isFuzzyMatch(proposed, $0) }) {
+        if let fuzzyMatch = existingSlugs.first(where: { isFuzzyMatch(normalized, $0) }) {
             return fuzzyMatch
         }
 
         // 3. No conflict at all — use as-is.
-        return proposed
+        return normalized
     }
 
     /// Returns true if two slugs are similar enough to be considered the same entity.
-    /// Criteria: edit distance ≤ 2, OR shared prefix of ≥ 6 characters.
-    private func isFuzzyMatch(_ a: String, _ b: String) -> Bool {
+    /// Criteria:
+    ///   - Hyphen-stripped equality ("coffee-shop" == "coffeeshop")
+    ///   - Edit distance ≤ 2
+    ///   - Shared prefix of ≥ 6 characters
+    func isFuzzyMatch(_ a: String, _ b: String) -> Bool {
+        // Hyphen-stripped comparison catches "coffee-shop" ≈ "coffeeshop" / "CoffeeShop" (after sanitize).
+        let aStripped = a.replacingOccurrences(of: "-", with: "")
+        let bStripped = b.replacingOccurrences(of: "-", with: "")
+        if aStripped == bStripped { return true }
         if levenshtein(a, b) <= 2 { return true }
         let prefixLen = min(a.count, b.count, 6)
         if prefixLen >= 6 && a.prefix(prefixLen) == b.prefix(prefixLen) { return true }
