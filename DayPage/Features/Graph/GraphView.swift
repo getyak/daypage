@@ -30,6 +30,10 @@ struct GraphView: View {
     // Filter state
     @State private var showFilters: Bool = false
 
+    // Empty state animation
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pulse: Bool = false
+
     private let nodeRadius: CGFloat = 16
     private let maxSimSteps = 200
 
@@ -194,12 +198,56 @@ struct GraphView: View {
 
     @ViewBuilder
     private var emptyState: some View {
-        if viewModel.nodes.isEmpty {
-            EmptyStateView.graphEmpty {
-                nav.navigate(to: .today)
+        VStack(spacing: DSSpacing.md) {
+            ZStack {
+                if !reduceMotion {
+                    // Outer ring — staggered by half a cycle
+                    Circle()
+                        .stroke(DSColor.inkFaint.opacity(pulse ? 0 : 0.5), lineWidth: 1)
+                        .frame(width: 96, height: 96)
+                        .scaleEffect(pulse ? 1.15 : 0.85)
+                        .animation(
+                            .easeInOut(duration: 2.4).repeatForever(autoreverses: false).delay(1.2),
+                            value: pulse
+                        )
+
+                    // Inner ring
+                    Circle()
+                        .stroke(DSColor.inkFaint.opacity(pulse ? 0 : 0.5), lineWidth: 1)
+                        .frame(width: 64, height: 64)
+                        .scaleEffect(pulse ? 1.15 : 0.85)
+                        .animation(
+                            .easeInOut(duration: 2.4).repeatForever(autoreverses: false),
+                            value: pulse
+                        )
+                }
+
+                Image(systemName: "point.3.connected.trianglepath.dotted")
+                    .font(.system(size: 48, weight: .thin))
+                    .foregroundColor(DSColor.inkFaint)
+                    .scaleEffect(reduceMotion ? 1 : (pulse ? 1.04 : 0.96))
+                    .opacity(reduceMotion ? 1 : (pulse ? 1 : 0.75))
+                    .animation(
+                        reduceMotion ? nil : .easeInOut(duration: 2.4).repeatForever(autoreverses: true),
+                        value: pulse
+                    )
             }
-        } else {
-            EmptyStateView.graphNoMatches()
+            .onAppear {
+                guard !reduceMotion else { return }
+                pulse = true
+            }
+            .onDisappear {
+                pulse = false
+            }
+
+            Text(viewModel.nodes.isEmpty ? "尚无知识图谱" : "无匹配节点")
+                .font(DSType.h2)
+                .foregroundColor(DSColor.inkMuted)
+            Text(viewModel.nodes.isEmpty ? "编译日记后，实体节点将在此出现" : "调整搜索或筛选条件以查看节点")
+                .bodySMStyle()
+                .foregroundColor(DSColor.inkMuted)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, DSSpacing.xl4)
         }
     }
 
