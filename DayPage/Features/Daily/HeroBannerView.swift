@@ -126,28 +126,67 @@ private struct HeroBannerPreview: View {
 
     @State private var scale: CGFloat = 1.0
     @GestureState private var gestureScale: CGFloat = 1.0
+    @State private var offset: CGSize = .zero
+    @GestureState private var dragOffset: CGSize = .zero
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var zoomAnimation: Animation {
+        reduceMotion ? .linear(duration: 0.001) : .easeInOut(duration: 0.2)
+    }
 
     var body: some View {
         ZStack {
+            // Background tap dismisses; image interactions do not.
             Color.black.ignoresSafeArea()
+                .onTapGesture { onDismiss() }
 
             if let image {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
                     .scaleEffect(scale * gestureScale)
-                    .gesture(
+                    .offset(
+                        x: offset.width + dragOffset.width,
+                        y: offset.height + dragOffset.height
+                    )
+                    .simultaneousGesture(
                         MagnificationGesture()
                             .updating($gestureScale) { value, state, _ in state = value }
                             .onEnded { value in
-                                scale = max(1.0, min(4.0, scale * value))
+                                let newScale = max(1.0, min(4.0, scale * value))
+                                scale = newScale
+                                if newScale == 1.0 { offset = .zero }
+                            }
+                    )
+                    .simultaneousGesture(
+                        DragGesture()
+                            .updating($dragOffset) { value, state, _ in
+                                state = clampedSize(value.translation,
+                                                    limit: maxPanExtent(for: scale * gestureScale))
+                            }
+                            .onEnded { value in
+                                let accumulated = CGSize(
+                                    width: offset.width + value.translation.width,
+                                    height: offset.height + value.translation.height
+                                )
+                                offset = clampedSize(accumulated, limit: maxPanExtent(for: scale))
                             }
                     )
                     .onTapGesture(count: 2) {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            scale = scale > 1.0 ? 1.0 : 2.0
+                        Haptics.soft()
+                        withAnimation(zoomAnimation) {
+                            if scale > 1.0 {
+                                scale = 1.0
+                                offset = .zero
+                            } else {
+                                scale = 2.0
+                            }
                         }
                     }
+                    // Consume single taps on the image to prevent fall-through to the dismiss layer.
+                    .onTapGesture { }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
             VStack {
@@ -166,6 +205,17 @@ private struct HeroBannerPreview: View {
                 Spacer()
             }
         }
-        .onTapGesture { onDismiss() }
+    }
+
+    private func maxPanExtent(for currentScale: CGFloat) -> CGSize {
+        let excess = max(0, currentScale - 1.0)
+        return CGSize(width: excess * 160, height: excess * 120)
+    }
+
+    private func clampedSize(_ size: CGSize, limit: CGSize) -> CGSize {
+        CGSize(
+            width: max(-limit.width, min(limit.width, size.width)),
+            height: max(-limit.height, min(limit.height, size.height))
+        )
     }
 }
