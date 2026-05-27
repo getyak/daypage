@@ -687,14 +687,15 @@ struct TodayView: View {
                 .textCase(.uppercase)
                 .tracking(1.0)
 
+            let glowBoost = min(Double(viewModel.signalCount), 5) * 0.04
             DayOrbView(signalCount: viewModel.signalCount, size: 140) {
                 Haptics.tapConfirm()
                 orbFocusToggle.toggle()
             }
             .scaleEffect(reduceMotion ? 1.0 : (orbBreathing ? 1.03 : 0.985))
             .shadow(
-                color: DSColor.accentAmber.opacity(orbBreathing ? 0.28 : 0.12),
-                radius: orbBreathing ? 22 : 12
+                color: DSColor.accentAmber.opacity(orbBreathing ? 0.28 + glowBoost : 0.12 + glowBoost),
+                radius: orbBreathing ? 22 + glowBoost * 40 : 12
             )
             .animation(
                 reduceMotion ? nil : .easeInOut(duration: 3.0).repeatForever(autoreverses: true),
@@ -781,7 +782,9 @@ struct TodayView: View {
         f.timeZone = TimeZone.current
         let count = viewModel.signalCount
         let plural = count == 1 ? "SIGNAL" : "SIGNALS"
-        return "\(f.string(from: date).uppercased()) · \(count) \(plural)"
+        let dateStr = f.string(from: date).uppercased()
+        let timeStr = Self.headerTimeFmt.string(from: date)
+        return "\(dateStr) · \(timeStr) · \(count) \(plural)"
     }
 
     // MARK: - InputBarV4 (variant D: Silent Press-to-Talk)
