@@ -358,7 +358,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 23,
-      "passes": false,
+      "passes": true,
       "notes": "Wave3 Epic B。insights 页骨架, 后续维度依赖它。"
     },
     {
@@ -376,7 +376,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 24,
-      "passes": false,
+      "passes": true,
       "notes": "Wave3 B 维度一。依赖 US-023。数据已在库。"
     },
     {
@@ -391,7 +391,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 25,
-      "passes": false,
+      "passes": true,
       "notes": "Wave3 B。点亮 activities 表。依赖 US-023。"
     },
     {
@@ -406,7 +406,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 26,
-      "passes": false,
+      "passes": true,
       "notes": "Wave3 B 维度四。点亮 prompt_log 表。依赖 US-023。"
     },
     {
@@ -422,7 +422,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 27,
-      "passes": false,
+      "passes": true,
       "notes": "Wave2 B 维度二。依赖 US-018(数据源) + US-023。"
     },
     {
