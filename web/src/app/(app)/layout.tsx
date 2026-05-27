@@ -22,6 +22,7 @@ const NAV_ITEMS: ReadonlyArray<NavSpec> = [
   { href: "/chat", label: "Chat", iconName: "message", meta: "⌘K" },
   { href: "/wiki", label: "Wiki", iconName: "book", meta: "⌘W" },
   { href: "/inbox", label: "Inbox", iconName: "inbox" },
+  { href: "/insights", label: "Insights", iconName: "chart" },
 ];
 
 async function resolveUserId(email: string): Promise<string | null> {

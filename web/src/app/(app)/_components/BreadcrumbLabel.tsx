@@ -8,6 +8,7 @@ const NAV_LABELS: Array<{ href: string; label: string }> = [
   { href: "/chat", label: "Chat" },
   { href: "/wiki", label: "Wiki" },
   { href: "/inbox", label: "Inbox" },
+  { href: "/insights", label: "Insights" },
   { href: "/settings", label: "Settings" },
 ];
 

@@ -11,6 +11,7 @@ import {
   Settings,
   User,
   LogOut,
+  BarChart2,
 } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -27,6 +28,7 @@ const ICONS = {
   settings: Settings,
   user: User,
   logout: LogOut,
+  chart: BarChart2,
 } as const;
 
 export type NavIconName = keyof typeof ICONS;
