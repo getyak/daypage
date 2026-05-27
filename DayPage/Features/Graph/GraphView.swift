@@ -190,7 +190,10 @@ struct GraphView: View {
     }
 
     private var hasActiveFilter: Bool {
-        viewModel.filterStartDate != nil || viewModel.filterEndDate != nil || !viewModel.searchQuery.isEmpty
+        viewModel.filterStartDate != nil
+            || viewModel.filterEndDate != nil
+            || !viewModel.searchQuery.isEmpty
+            || viewModel.enabledTypes.count < 3
     }
 
     private var isTransformed: Bool { scale != 1.0 || offset != .zero }
@@ -400,9 +403,9 @@ struct GraphView: View {
 
     private var legend: some View {
         VStack(alignment: .leading, spacing: 6) {
-            legendRow(color: DSColor.amberDeep, label: "地点")
-            legendRow(color: DSColor.inkMuted, label: "人物")
-            legendRow(color: DSColor.amberAccent, label: "主题")
+            legendRow(color: DSColor.amberDeep,   label: "地点", type: "places")
+            legendRow(color: DSColor.inkMuted,    label: "人物", type: "people")
+            legendRow(color: DSColor.amberAccent, label: "主题", type: "themes")
         }
         .padding(DSSpacing.md)
         .liquidGlassCard(cornerRadius: DSRadius.md, tone: .hi)
@@ -437,15 +440,34 @@ struct GraphView: View {
         .animation(Motion.spring, value: isTransformed)
     }
 
-    private func legendRow(color: Color, label: String) -> some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(color)
-                .frame(width: 10, height: 10)
-            Text(label)
-                .font(DSFonts.jetBrainsMono(size: 10))
-                .foregroundColor(DSColor.inkPrimary)
+    private func legendRow(color: Color, label: String, type: String) -> some View {
+        let enabled = viewModel.enabledTypes.contains(type)
+        return Button {
+            Haptics.soft()
+            withAnimation(Motion.fade) {
+                viewModel.toggleType(type)
+            }
+        } label: {
+            HStack(spacing: 6) {
+                if enabled {
+                    Circle()
+                        .fill(color)
+                        .frame(width: 10, height: 10)
+                } else {
+                    Circle()
+                        .strokeBorder(color, lineWidth: 1.5)
+                        .frame(width: 10, height: 10)
+                }
+                Text(label)
+                    .font(DSFonts.jetBrainsMono(size: 10))
+                    .foregroundColor(DSColor.inkPrimary)
+            }
+            .opacity(enabled ? 1.0 : 0.35)
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityValue(enabled ? "启用" : "已隐藏")
+        .accessibilityAddTraits(.isButton)
     }
 
     // MARK: - Helpers

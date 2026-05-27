@@ -51,8 +51,19 @@ final class GraphViewModel: ObservableObject {
     @Published var searchQuery: String = ""
     @Published var filterStartDate: Date? = nil
     @Published var filterEndDate: Date? = nil
+    @Published var enabledTypes: Set<String> = ["places", "people", "themes"]
 
-    /// Nodes after applying search and date filters.
+    /// Flips the type's membership. Re-enables all when the last one would be removed.
+    func toggleType(_ type: String) {
+        if enabledTypes.contains(type) {
+            let next = enabledTypes.subtracting([type])
+            enabledTypes = next.isEmpty ? ["places", "people", "themes"] : next
+        } else {
+            enabledTypes.insert(type)
+        }
+    }
+
+    /// Nodes after applying search, date, and entity-type filters.
     var filteredNodes: [GraphNode] {
         nodes.filter { node in
             let matchesSearch = searchQuery.isEmpty
@@ -70,7 +81,7 @@ final class GraphViewModel: ObservableObject {
                 }
                 return true
             }()
-            return matchesSearch && matchesDate
+            return matchesSearch && matchesDate && enabledTypes.contains(node.entityType)
         }
     }
 
