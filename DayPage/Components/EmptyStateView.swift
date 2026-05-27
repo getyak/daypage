@@ -16,17 +16,20 @@ struct EmptyStateView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            titleSection
-            if let subtitle {
-                Text(subtitle)
-                    .font(DSType.bodyMD)
-                    .foregroundColor(DSColor.inkMuted)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 8)
-                    .opacity(appeared ? 1 : 0)
-                    .offset(y: appeared ? 0 : 6)
-                    .animation(Motion.rise.delay(0.06), value: appeared)
+            VStack(spacing: 20) {
+                titleSection
+                if let subtitle {
+                    Text(subtitle)
+                        .font(DSType.bodyMD)
+                        .foregroundColor(DSColor.inkMuted)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 8)
+                        .opacity(appeared ? 1 : 0)
+                        .offset(y: appeared ? 0 : 6)
+                        .animation(Motion.rise.delay(0.06), value: appeared)
+                }
             }
+            .accessibilityElement(children: .combine)
             if let label = ctaLabel, let action = ctaAction {
                 ctaButton(label: label, action: action)
                     .opacity(appeared ? 1 : 0)
@@ -84,6 +87,7 @@ struct EmptyStateView: View {
                 value: breathing
             )
             .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 
     private func ctaButton(label: String, action: @escaping () -> Void) -> some View {
