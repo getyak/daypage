@@ -10,6 +10,7 @@ import Link from "next/link";
 import { WikiNav, type WikiPage } from "../WikiNav";
 import { asc } from "drizzle-orm";
 import AnnotationLayer, { type Annotation } from "./AnnotationLayer";
+import { AskAboutPage } from "./AskAboutPage";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -271,16 +272,24 @@ export default async function WikiSlugPage({ params }: Props) {
             padding: "3rem 2rem",
           }}
         >
-          <div style={{ textAlign: "center", maxWidth: "400px" }}>
+          <div style={{ textAlign: "center", maxWidth: "420px" }}>
             <h2 className="ds-h2" style={{ marginBottom: "0.5rem" }}>
               This page does not exist
             </h2>
             <p className="ds-body-md" style={{ color: "var(--fg-muted)", marginBottom: "1.5rem" }}>
-              It may have been archived or the link is incorrect.
+              It may have been archived or the link is incorrect. You can still ask a question about
+              this topic and DayPage will search your knowledge base.
             </p>
-            <Link href="/wiki" className="btn btn--secondary btn--sm">
-              Back to Wiki
-            </Link>
+            <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", flexWrap: "wrap" }}>
+              <Link href="/wiki" className="btn btn--secondary btn--sm">
+                Back to Wiki
+              </Link>
+              <AskAboutPage
+                pageSlug={slug}
+                pageTitle={slug}
+                pageBodyMd={null}
+              />
+            </div>
           </div>
         </main>
       </div>
@@ -359,13 +368,11 @@ export default async function WikiSlugPage({ params }: Props) {
               >
                 Select text to annotate
               </span>
-              <button
-                className="btn btn--soft btn--sm"
-                title="Ask about this page (coming soon)"
-                disabled
-              >
-                Ask
-              </button>
+              <AskAboutPage
+                pageSlug={page.slug}
+                pageTitle={page.title}
+                pageBodyMd={page.body_md}
+              />
             </div>
           </div>
 
