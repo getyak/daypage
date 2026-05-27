@@ -227,12 +227,12 @@ struct GraphView: View {
                         ctx.stroke(path, with: .color(DSColor.inkFaint.opacity(0.7)), lineWidth: 1)
                     }
 
-                    // Draw all nodes (dim non-matching)
+                    // Draw all nodes (dim non-matching); radius scales with occurrence count
                     for node in viewModel.nodes {
                         let inFilter = filteredIDs.contains(node.id)
                         let x = node.position.x * scale + offset.width + size.width / 2
                         let y = node.position.y * scale + offset.height + size.height / 2
-                        let r = nodeRadius * scale
+                        let r = node.displayRadius * scale
                         let rect = CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2)
                         let alpha: CGFloat = inFilter ? 1.0 : 0.2
                         ctx.fill(Path(ellipseIn: rect), with: .color(node.color.opacity(alpha)))
@@ -255,7 +255,7 @@ struct GraphView: View {
                         .fontWeight(isSearchMatch ? .bold : .regular)
                         .lineLimit(1)
                         .fixedSize()
-                        .position(x: x, y: y + nodeRadius * scale + 10 * scale)
+                        .position(x: x, y: y + node.displayRadius * scale + 10 * scale)
                         .accessibilityHidden(true)
                 }
 
@@ -263,7 +263,7 @@ struct GraphView: View {
                 ForEach(viewModel.filteredNodes) { node in
                     let x = node.position.x * scale + offset.width + size.width / 2
                     let y = node.position.y * scale + offset.height + size.height / 2
-                    let r = max(nodeRadius * scale, 22)
+                    let r = max(node.displayRadius * scale, 22)
                     Circle()
                         .fill(Color.clear)
                         .frame(width: r * 2, height: r * 2)
@@ -299,7 +299,7 @@ struct GraphView: View {
                     let px = pulseNode.position.x * scale + offset.width + size.width / 2
                     let py = pulseNode.position.y * scale + offset.height + size.height / 2
                     let ringScale = 1.0 + tapPulseProgress   // 1.0 → 2.0
-                    let diameter = nodeRadius * scale * 2 * ringScale
+                    let diameter = pulseNode.displayRadius * scale * 2 * ringScale
                     Circle()
                         .strokeBorder(pulseNode.color, lineWidth: 2)
                         .frame(width: diameter, height: diameter)
