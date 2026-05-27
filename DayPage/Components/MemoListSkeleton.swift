@@ -12,6 +12,7 @@ struct MemoListSkeleton: View {
             SkeletonCard(lineCount: 2, wide: true)
             SkeletonCard(lineCount: 4, wide: false)
         }
+        .accessibilityHidden(true)
     }
 }
 
@@ -21,19 +22,20 @@ private struct SkeletonCard: View {
     let lineCount: Int
     let wide: Bool
 
-    @State private var shimmerPhase: CGFloat = 0
+    @State private var shimmerPhase: CGFloat = -1
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             // Timestamp pill
             RoundedRectangle(cornerRadius: 3)
-                .fill(shimmerColor)
+                .fill(DSColor.inkFaint)
                 .frame(width: 80, height: 8)
 
             // Body lines
             ForEach(0..<lineCount, id: \.self) { idx in
                 RoundedRectangle(cornerRadius: 3)
-                    .fill(shimmerColor)
+                    .fill(DSColor.inkFaint)
                     .frame(maxWidth: lineWidth(for: idx), alignment: .leading)
                     .frame(height: 10)
             }
@@ -41,6 +43,7 @@ private struct SkeletonCard: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(DSColor.glassStd)
+        .overlay(shimmerOverlay)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(DSColor.glassRim, lineWidth: 0.5)
@@ -49,8 +52,28 @@ private struct SkeletonCard: View {
         .onAppear { startShimmer() }
     }
 
-    private var shimmerColor: Color {
-        DSColor.inkFaint
+    @ViewBuilder
+    private var shimmerOverlay: some View {
+        if !reduceMotion {
+            GeometryReader { geo in
+                let w = geo.size.width
+                LinearGradient(
+                    stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: DSColor.inkFaint.opacity(0.35), location: 0.4),
+                        .init(color: .clear, location: 1),
+                    ],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                // band is 60% of card width; shimmerPhase sweeps -1 → 1
+                .frame(width: w * 0.6)
+                .offset(x: w * 0.5 + shimmerPhase * w)
+                .blendMode(.plusLighter)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .allowsHitTesting(false)
+        }
     }
 
     private func lineWidth(for index: Int) -> CGFloat {
@@ -61,9 +84,11 @@ private struct SkeletonCard: View {
     }
 
     private func startShimmer() {
+        guard !reduceMotion else { return }
+        shimmerPhase = -1
         withAnimation(
-            Animation.easeInOut(duration: 1.2)
-                .repeatForever(autoreverses: true)
+            Animation.linear(duration: 1.4)
+                .repeatForever(autoreverses: false)
         ) {
             shimmerPhase = 1
         }
