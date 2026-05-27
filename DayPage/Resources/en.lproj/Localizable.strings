@@ -169,6 +169,7 @@
 /* Markdown Export — US-019 */
 "export.action.title"  = "Export as Markdown";
 "export.action.label"  = "Export";
+"export.error.title"   = "Export failed, please try again";
 
 /* Voice attachment retry — US-016 */
 "voice.retry.button"           = "Retry transcription";

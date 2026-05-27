@@ -197,6 +197,7 @@
 /* Markdown Export — US-019 */
 "export.action.title"  = "导出为 Markdown";
 "export.action.label"  = "导出";
+"export.error.title"   = "导出失败，请重试";
 
 /* Voice attachment retry — US-016 */
 "voice.retry.button"           = "重试转写";

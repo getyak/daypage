@@ -898,11 +898,21 @@ struct TodayView: View {
                     df.locale = Locale(identifier: "en_US_POSIX")
                     df.timeZone = AppSettings.currentTimeZone()
                     let dateString = df.string(from: Date())
-                    if let url = try? MarkdownExportService.writeExportFile(
-                        content: content, dateString: dateString
-                    ) {
+                    do {
+                        let url = try MarkdownExportService.writeExportFile(
+                            content: content, dateString: dateString
+                        )
                         exportFileURL = url
                         showExportSheet = true
+                        Haptics.tapConfirm()
+                    } catch {
+                        Haptics.warn()
+                        bannerCenter.show(AppBannerModel(
+                            kind: .error,
+                            title: NSLocalizedString("export.error.title", comment: ""),
+                            autoDismiss: true
+                        ))
+                        DayPageLogger.shared.error("TodayView: export failed: \(error)")
                     }
                 } label: {
                     Image(systemName: "square.and.arrow.up")
