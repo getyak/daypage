@@ -915,7 +915,10 @@ struct ArchiveView: View {
                 } else {
                     VStack(spacing: 6) {
                         ForEach(filtered, id: \.dateString) { stats in
-                            Button(action: { handleDateTap(dateStr: stats.dateString) }) {
+                            Button(action: {
+                                Haptics.tapConfirm()
+                                handleDateTap(dateStr: stats.dateString)
+                            }) {
                                 HStack {
                                     Text(formatArchiveDate(stats.dateString))
                                         .monoLabelStyle(size: 11)
@@ -937,6 +940,8 @@ struct ArchiveView: View {
                                 .liquidGlassCard(cornerRadius: 10)
                             }
                             .buttonStyle(.plain)
+                            .accessibilityLabel(formatArchiveDate(stats.dateString))
+                            .accessibilityHint("Opens this day's entry")
                         }
                     }
                 }
@@ -980,15 +985,21 @@ struct ArchiveView: View {
 
     private func filterChip(_ filter: MonthlySummaryFilter) -> some View {
         let isSelected = summaryFilter == filter
-        return Button(action: { summaryFilter = filter }) {
+        return Button(action: {
+            Haptics.soft()
+            withAnimation(Motion.spring) { summaryFilter = filter }
+        }) {
             Text(filter.rawValue)
                 .monoLabelStyle(size: 10)
                 .foregroundColor(isSelected ? Color.white : DSColor.inkSubtle)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .background(isSelected ? DSColor.amberDeep : DSColor.glassLo, in: Capsule())
+                .animation(Motion.spring, value: isSelected)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(filter.rawValue)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
     private func exportMarkdown() {
