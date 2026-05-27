@@ -419,14 +419,6 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
 
     // MARK: - Load Memos
 
-    /// Async entry point for pull-to-refresh: kicks off load() and suspends until
-    /// the underlying loadTask finishes, so the system refresh spinner persists for
-    /// exactly as long as the reload takes.
-    func refresh() async {
-        load()
-        await loadTask?.value
-    }
-
     /// Loads today's memos from the raw storage file and checks compiled status.
     /// Signature is intentionally synchronous so call sites (TodayView.onAppear) need
     /// no changes. Disk I/O is offloaded to a background task to avoid blocking the
@@ -531,6 +523,17 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 }
             }
         }
+    }
+
+    // MARK: - Pull-to-Refresh
+
+    /// Called by SwiftUI's .refreshable modifier. Fires a haptic, kicks off
+    /// load(), then suspends until the detached disk-load Task completes so
+    /// the system spinner stays visible for the actual I/O duration.
+    func refresh() async {
+        Haptics.soft()
+        load()
+        await loadTask?.value
     }
 
     // MARK: - On This Day

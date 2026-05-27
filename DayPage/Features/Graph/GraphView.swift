@@ -4,8 +4,8 @@ import SwiftUI
 
 struct GraphView: View {
 
-    @StateObject private var viewModel = GraphViewModel()
     @EnvironmentObject private var nav: AppNavigationModel
+    @StateObject private var viewModel = GraphViewModel()
 
     // Zoom & pan state
     @State private var scale: CGFloat = 1.0
@@ -29,6 +29,10 @@ struct GraphView: View {
 
     // Filter state
     @State private var showFilters: Bool = false
+
+    // Empty state animation
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pulse: Bool = false
 
     private let nodeRadius: CGFloat = 16
     private let maxSimSteps = 200
@@ -63,6 +67,7 @@ struct GraphView: View {
                             .transition(.opacity)
                         }
                     }
+                    .animation(Motion.fade, value: viewModel.searchQuery.isEmpty)
                     .padding(.horizontal, DSSpacing.md)
                     .padding(.vertical, 7)
                     .background(DSColor.glassLo)
@@ -194,13 +199,84 @@ struct GraphView: View {
 
     @ViewBuilder
     private var emptyState: some View {
-        if viewModel.nodes.isEmpty {
-            EmptyStateView.graphEmpty {
-                nav.navigate(to: .today)
+        VStack(spacing: DSSpacing.md) {
+            ZStack {
+                if !reduceMotion {
+                    // Outer ring — staggered by half a cycle
+                    Circle()
+                        .stroke(DSColor.inkFaint.opacity(pulse ? 0 : 0.5), lineWidth: 1)
+                        .frame(width: 96, height: 96)
+                        .scaleEffect(pulse ? 1.15 : 0.85)
+                        .animation(
+                            .easeInOut(duration: 2.4).repeatForever(autoreverses: false).delay(1.2),
+                            value: pulse
+                        )
+
+                    // Inner ring
+                    Circle()
+                        .stroke(DSColor.inkFaint.opacity(pulse ? 0 : 0.5), lineWidth: 1)
+                        .frame(width: 64, height: 64)
+                        .scaleEffect(pulse ? 1.15 : 0.85)
+                        .animation(
+                            .easeInOut(duration: 2.4).repeatForever(autoreverses: false),
+                            value: pulse
+                        )
+                }
+
+                Image(systemName: "point.3.connected.trianglepath.dotted")
+                    .font(.system(size: 48, weight: .thin))
+                    .foregroundColor(DSColor.inkFaint)
+                    .scaleEffect(reduceMotion ? 1 : (pulse ? 1.04 : 0.96))
+                    .opacity(reduceMotion ? 1 : (pulse ? 1 : 0.75))
+                    .animation(
+                        reduceMotion ? nil : .easeInOut(duration: 2.4).repeatForever(autoreverses: true),
+                        value: pulse
+                    )
             }
-        } else {
-            EmptyStateView.graphNoMatches()
+            .onAppear {
+                guard !reduceMotion else { return }
+                pulse = true
+            }
+            .onDisappear {
+                pulse = false
+            }
+
+            Text(viewModel.nodes.isEmpty ? "尚无知识图谱" : "无匹配节点")
+                .font(DSType.h2)
+                .foregroundColor(DSColor.inkMuted)
+            Text(viewModel.nodes.isEmpty ? "编译日记后，实体节点将在此出现" : "调整搜索或筛选条件以查看节点")
+                .bodySMStyle()
+                .foregroundColor(DSColor.inkMuted)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, DSSpacing.xl4)
         }
+    }
+
+    // MARK: - Accessibility Helpers
+
+    private func localizedEntityTypeName(_ entityType: String) -> String {
+        switch entityType {
+        case "places":  return "地点"
+        case "people":  return "人物"
+        default:        return "主题"
+        }
+    }
+
+    private func openNode(_ node: GraphNode) {
+        Haptics.tapConfirm()
+        selectedNode = node
+        tapPulseNodeID = node.id
+        tapPulseProgress = 0
+        tapPulseGeneration += 1
+        let gen = tapPulseGeneration
+        withAnimation(.easeOut(duration: 0.35)) {
+            tapPulseProgress = 1
+        }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            if tapPulseGeneration == gen { tapPulseNodeID = nil }
+        }
+        showEntityPage = true
     }
 
     // MARK: - Graph Canvas
@@ -240,6 +316,7 @@ struct GraphView: View {
                     }
                 }
                 .frame(width: size.width, height: size.height)
+                .accessibilityHidden(true)
                 .onAppear { simulationSize = size }
                 .onChange(of: size) { simulationSize = $0 }
 
@@ -269,27 +346,13 @@ struct GraphView: View {
                         .frame(width: r * 2, height: r * 2)
                         .contentShape(Circle())
                         .position(x: x, y: y)
-                        .onTapGesture {
-                            Haptics.tapConfirm()
-                            selectedNode = node
-                            tapPulseNodeID = node.id
-                            tapPulseProgress = 0
-                            tapPulseGeneration += 1
-                            let gen = tapPulseGeneration
-                            withAnimation(.easeOut(duration: 0.35)) {
-                                tapPulseProgress = 1
-                            }
-                            Task { @MainActor in
-                                try? await Task.sleep(nanoseconds: 400_000_000)
-                                if tapPulseGeneration == gen { tapPulseNodeID = nil }
-                            }
-                            showEntityPage = true
-                        }
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityAddTraits(.isButton)
+                        .onTapGesture { openNode(node) }
+                        .accessibilityElement()
                         .accessibilityLabel(node.name)
-                        .accessibilityValue(typeLabel(node.entityType))
-                        .accessibilityHint("Opens this entity's page")
+                        .accessibilityValue(localizedEntityTypeName(node.entityType))
+                        .accessibilityHint("打开实体页面")
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityAction { openNode(node) }
                 }
 
                 // Tap pulse ring — reads live position from the model so it tracks

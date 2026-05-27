@@ -453,18 +453,20 @@ struct InputBarV4: View {
     // MARK: - Composing Card Morph (US-008 / US-010)
     //
     // Full-width rounded-rect card that the idle capsule morphs into.
-    // US-010: The icon toolbar row has been lifted out of this card and moved
-    // into a .toolbar { ToolbarItemGroup(placement: .keyboard) } on the
-    // TextField so it rides attached to the keyboard instead of forming a
-    // second layer beneath it. The card now only contains the text field.
+    // The action row (collapse / mic / camera / photo / location / send) lives
+    // INLINE at the bottom of this card. It used to ride in a
+    // .toolbar(placement: .keyboard) accessory (US-010), but on iOS's floating
+    // keyboard that accessory renders as a detached glass capsule hovering over
+    // the card — the exact "second layer" US-010 set out to avoid — and it
+    // crowded the last line of text. Keeping the row inside the card makes the
+    // composer one continuous surface that sits above the keyboard.
     //
     // Layout (composing):
     //   ┌────────────────────────────────────┐
-    //   │  TextField (with breathing caret)  │
+    //   │  TextField (native amber caret)    │
+    //   │ [⬇] [🎙] [📷] [🖼] [📍]  ···  [↑]  │  ← inline action row
     //   └────────────────────────────────────┘
-    //   ══════ keyboard appears ══════════════
-    //   │ [⬇] [🎙] [📷] [🖼] [📍]  ···  [↑]  │  ← keyboard toolbar
-    //   ══════════════════════════════════════
+    //   ══════ keyboard ══════════════════════
 
     // MARK: - Drag Handle (US-011)
     //
@@ -510,9 +512,13 @@ struct InputBarV4: View {
                 Spacer()
             }
 
-            // US-014: Context Spotlight Strip — horizontal chip bar above TextField
+            // US-014: Context Spotlight Strip — horizontal chip bar above TextField.
+            // Context chips + the divider are a blank-canvas starting aid; once
+            // the user is actually writing they only crowd the card and push the
+            // writing area into a thin strip, so gate them on an empty draft
+            // (matches the SmartTemplateRow condition below).
             let chips = contextProvider.chips
-            if !chips.isEmpty {
+            if !chips.isEmpty && text.isEmpty && pendingAttachments.isEmpty {
                 SpotlightStripView(
                     chips: chips,
                     onInsertText: { value in
@@ -549,58 +555,31 @@ struct InputBarV4: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
-            // Text field — full width, no border, generous padding
-            ZStack(alignment: .topLeading) {
-                TextField("记一笔…", text: $text, axis: .vertical)
-                    .font(DSType.serifBody16)
-                    .foregroundStyle(DSColor.inkPrimary)
-                    .focused($isFocused)
-                    .lineLimit(1...8)
-                    // Hide native caret; breathing caret below takes over.
-                    .tint(.clear)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 14)
-                    .padding(.bottom, 14)
-                    .onTapGesture { isFocused = true }
-                    .accessibilityIdentifier("memo-input")
-                    // US-010: Keyboard-attached toolbar replaces the in-card
-                    // icon row. Rides up with the keyboard; disappears on dismiss.
-                    .toolbar {
-                        ToolbarItemGroup(placement: .keyboard) {
-                            keyboardToolbarContent
+            // Text field — full width, no border, generous padding.
+            // The native caret (amber) tracks the real insertion point. An
+            // earlier build hid it (.tint(.clear)) and drew a decorative
+            // "breathing" bar pinned to the top-leading corner, which made the
+            // caret look stuck at the FRONT of the text while typing.
+            TextField("记一笔…", text: $text, axis: .vertical)
+                .font(DSType.serifBody16)
+                .foregroundStyle(DSColor.inkPrimary)
+                .tint(DSColor.amberAccent)
+                .focused($isFocused)
+                .lineLimit(1...8)
+                .padding(.horizontal, 20)
+                .padding(.top, 14)
+                .padding(.bottom, 14)
+                .onTapGesture { isFocused = true }
+                .accessibilityIdentifier("memo-input")
+                // US-015: clear placeholder suffix when user edits text.
+                .onChange(of: text) { newValue in
+                    if let tpl = activeTemplate, !templateSuffix.isEmpty {
+                        if newValue != tpl.prefix {
+                            templateSuffix = ""
+                            activeTemplate = nil
                         }
-                    }
-                    // US-015: clear placeholder suffix when user edits text.
-                    .onChange(of: text) { newValue in
-                        if let tpl = activeTemplate, !templateSuffix.isEmpty {
-                            if newValue != tpl.prefix {
-                                templateSuffix = ""
-                                activeTemplate = nil
-                            }
-                        }
-                    }
-
-                // Aa → caret cross-fade (AC: Aa 淡出 = TextField caret 淡入, 同位置, 200ms).
-                // Both views occupy the same top-leading slot; opacity mirrors isComposing.
-                Group {
-                    if isFocused || !text.isEmpty {
-                        // Caret fades in
-                        BreathingCaretView()
-                            .transition(.opacity)
-                    } else {
-                        // "Aa" label fades out — same position as the caret so it reads
-                        // as a continuous crossfade rather than two separate elements.
-                        Text("Aa")
-                            .font(DSFonts.serif(size: 16, weight: .medium))
-                            .foregroundStyle(DSColor.inkSubtle)
-                            .transition(.opacity)
                     }
                 }
-                .animation(.easeInOut(duration: 0.2), value: isFocused || !text.isEmpty)
-                .padding(.leading, 20)
-                .padding(.top, 18)
-
-            }
 
             // US-015: secondary-style placeholder suffix shown below the text field
             // while the user hasn't yet typed beyond the template prefix.
@@ -617,6 +596,11 @@ struct InputBarV4: View {
                 .transition(.opacity)
                 .animation(.easeInOut(duration: 0.15), value: templateSuffix.isEmpty)
             }
+
+            // Inline action row — one continuous surface with the card, so it
+            // can never overlap the text the way the floating .keyboard toolbar
+            // did on iOS's floating keyboard.
+            composerActionRow
         }
         // NOTE: matchedGeometryEffect removed — see streamDockMorph for context. (#258)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -635,17 +619,26 @@ struct InputBarV4: View {
         .shadow(color: Color(hex: "2D1E0A").opacity(0.06), radius: 4, x: 0, y: 1)
     }
 
-    // MARK: - Keyboard Toolbar (US-010)
+    // MARK: - Inline Action Row
     //
-    // Replaces the in-card icon row. Lives in .toolbar(placement: .keyboard)
-    // on the TextField so it floats directly above the keyboard and disappears
-    // when the keyboard is dismissed — no residual height placeholder.
-    //
-    // iPad wide keyboard: ToolbarItemGroup lays items in a single row that
-    // UIKit clips to safe bounds, so no overflow risk.
+    // collapse / mic / camera / photo / location · spacer · send
+    // Rendered as the bottom row of the composing card so the composer is a
+    // single continuous surface. Previously a .toolbar(placement: .keyboard)
+    // accessory, which on iOS's floating keyboard detached into a glass capsule
+    // that overlapped the text — see the Composing Card Morph note above.
+
+    private var composerActionRow: some View {
+        HStack(spacing: 6) {
+            composerActionButtons
+        }
+        .padding(.horizontal, 12)
+        .padding(.top, 2)
+        .padding(.bottom, 10)
+        .tint(DSColor.inkMuted)
+    }
 
     @ViewBuilder
-    private var keyboardToolbarContent: some View {
+    private var composerActionButtons: some View {
         // Collapse — dismiss keyboard, return to idle capsule.
         Button {
             transition(to: .collapsing)
@@ -654,12 +647,13 @@ struct InputBarV4: View {
             Image(systemName: "chevron.down")
                 .font(DSType.h2)
                 .foregroundStyle(DSColor.inkMuted)
+                .frame(width: 40, height: 40)
+                .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .accessibilityLabel(NSLocalizedString("input.a11y.collapse", comment: ""))
 
-        // Mic orb — in keyboard toolbar the matchedGeometryEffect is dropped
-        // (toolbar renders outside the SwiftUI namespace tree). A plain amber
-        // circle button provides the same affordance at 28pt visual size.
+        // Mic — start/stop voice-to-text into the draft. Amber circle, 28pt.
         Button {
             handleComposingMicTap()
         } label: {
@@ -672,6 +666,8 @@ struct InputBarV4: View {
                         .foregroundStyle(.white)
                 )
                 .shadow(color: DSColor.amberAccent.opacity(0.40), radius: 6, x: 0, y: 2)
+                .frame(width: 40, height: 40)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(isComposingTranscribe
@@ -685,7 +681,10 @@ struct InputBarV4: View {
             Image(systemName: "camera")
                 .font(DSType.titleSM)
                 .foregroundStyle(DSColor.inkMuted)
+                .frame(width: 40, height: 40)
+                .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .accessibilityLabel(NSLocalizedString("input.a11y.camera", comment: ""))
 
         // Photo library
@@ -693,7 +692,10 @@ struct InputBarV4: View {
             Image(systemName: "photo.on.rectangle")
                 .font(DSType.titleSM)
                 .foregroundStyle(DSColor.inkMuted)
+                .frame(width: 40, height: 40)
+                .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .accessibilityLabel(NSLocalizedString("input.a11y.photo_library", comment: ""))
 
         // Location
@@ -703,7 +705,10 @@ struct InputBarV4: View {
             Image(systemName: pendingLocation != nil ? "mappin.circle.fill" : "mappin.and.ellipse")
                 .font(DSType.titleSM)
                 .foregroundStyle(pendingLocation != nil ? DSColor.amberAccent : DSColor.inkMuted)
+                .frame(width: 40, height: 40)
+                .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .accessibilityLabel(pendingLocation != nil
             ? NSLocalizedString("input.a11y.clear_location", comment: "")
             : NSLocalizedString("input.a11y.add_location", comment: ""))
@@ -952,32 +957,6 @@ struct InputBarV4: View {
         return "Unknown location"
     }
 
-}
-
-// MARK: - BreathingCaretView
-
-/// Custom text-input caret that pulses opacity 0.6→1.0 every 800ms while visible.
-/// Shown in place of the native UITextView caret (which is hidden via .tint(.clear)).
-/// Positioned at the top-leading edge of the TextField; does not track cursor offset.
-private struct BreathingCaretView: View {
-
-    @State private var isHigh: Bool = false
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: 1)
-            .fill(DSColor.amberAccent)
-            .frame(width: 2, height: 18)
-            .opacity(isHigh ? 1.0 : 0.6)
-            // motion-exception: caret breathing 800ms documented in PRD US-013 / FR-20
-            .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isHigh)
-            .onAppear {
-                isHigh = true
-                // US-012: 0.15s delay so the haptic fires after the caret visually appears.
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    Haptics.rigid(intensity: 0.3)
-                }
-            }
-    }
 }
 
 // MARK: - US-009: Send Affordance (5 shapes)
