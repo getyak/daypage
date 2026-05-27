@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   User as UserIcon,
   Palette,
@@ -12,6 +12,8 @@ import {
   Download,
   Trash2,
   ExternalLink,
+  Cloud,
+  CloudOff,
 } from "lucide-react";
 import { Btn, Card, Chip, Icon, SectionLabel } from "@/components/ui";
 
@@ -126,6 +128,30 @@ function parseSnapshot(raw: string | null): Preferences {
   }
 }
 
+// ── Cloud sync helpers ────────────────────────────────────────────────
+async function fetchCloudSettings(): Promise<Partial<Preferences> | null> {
+  try {
+    const res = await fetch("/api/settings");
+    if (!res.ok) return null;
+    const data = (await res.json()) as { settings?: Partial<Preferences> };
+    return data.settings ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function pushCloudSettings(prefs: Preferences): Promise<void> {
+  try {
+    await fetch("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(prefs),
+    });
+  } catch {
+    // ignore network errors — local storage remains the source of truth
+  }
+}
+
 // ── Page ──────────────────────────────────────────────────────────────
 export function SettingsClient({ user, signOutAction }: SettingsClientProps) {
   // Server renders DEFAULT_PREFS; client hydrates from localStorage.
@@ -142,10 +168,34 @@ export function SettingsClient({ user, signOutAction }: SettingsClientProps) {
     [snapshot],
   );
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [cloudSynced, setCloudSynced] = useState<boolean | null>(null);
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // On hydration: pull cloud settings and merge into local storage if newer
+  useEffect(() => {
+    if (!hydrated) return;
+    fetchCloudSettings().then((cloud) => {
+      if (!cloud) return;
+      const merged: Preferences = {
+        ...DEFAULT_PREFS,
+        ...cloud,
+        ai: { ...DEFAULT_PREFS.ai, ...(cloud.ai ?? {}) },
+        notifications: { ...DEFAULT_PREFS.notifications, ...(cloud.notifications ?? {}) },
+      };
+      writeStorageSnapshot(merged);
+      setCloudSynced(true);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
 
   const persist = useCallback((next: Preferences) => {
     writeStorageSnapshot(next);
     setSavedAt(Date.now());
+    // Debounce cloud push by 1.5s to avoid spamming on rapid changes
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = setTimeout(() => {
+      pushCloudSettings(next).then(() => setCloudSynced(true));
+    }, 1500);
   }, []);
 
   const update = useCallback(
@@ -240,7 +290,7 @@ export function SettingsClient({ user, signOutAction }: SettingsClientProps) {
           <div className="settings-saved-row">
             <span className="settings-saved-dot" aria-hidden />
             <div>
-              <div className="settings-saved-label">Local preferences</div>
+              <div className="settings-saved-label">Preferences</div>
               <div className="settings-saved-meta">
                 {savedAt
                   ? `Saved ${formatRelative(savedAt)}`
@@ -248,6 +298,19 @@ export function SettingsClient({ user, signOutAction }: SettingsClientProps) {
                     ? "Up to date"
                     : "Loading…"}
               </div>
+            </div>
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "0.375rem" }}>
+              {cloudSynced === true ? (
+                <span title="Synced to cloud" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.75rem", color: "var(--success)" }}>
+                  <Cloud size={13} />
+                  Synced
+                </span>
+              ) : cloudSynced === false ? (
+                <span title="Cloud sync unavailable" style={{ display: "flex", alignItems: "center", gap: 4, fontSize: "0.75rem", color: "var(--fg-subtle)" }}>
+                  <CloudOff size={13} />
+                  Local only
+                </span>
+              ) : null}
             </div>
           </div>
           <div className="settings-saved-actions">

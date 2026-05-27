@@ -570,6 +570,22 @@ export const ingest_sources = pgTable(
 export type IngestSource = typeof ingest_sources.$inferSelect;
 export type NewIngestSource = typeof ingest_sources.$inferInsert;
 
+// ─── US-029: user_settings (cloud sync for settings) ─────────────────────────
+
+export const user_settings = pgTable("user_settings", {
+  user_id: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  settings: jsonb("settings").notNull().default(sql`'{}'::jsonb`),
+  updated_at: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export type UserSettings = typeof user_settings.$inferSelect;
+export type NewUserSettings = typeof user_settings.$inferInsert;
+
 // ─── Re-export helper types ────────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
