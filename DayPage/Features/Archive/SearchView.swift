@@ -892,7 +892,8 @@ private struct SwipeableRecentRow: View {
                 Image(systemName: "trash")
                     .font(.system(size: 16, weight: .medium))
                     .foregroundColor(.white)
-                    .frame(width: revealWidth, maxHeight: .infinity)
+                    .frame(width: revealWidth)
+                    .frame(maxHeight: .infinity)
                     .background(DSColor.error)
                     .contentShape(Rectangle())
             }
