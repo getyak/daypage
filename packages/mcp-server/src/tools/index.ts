@@ -1,4 +1,6 @@
 import type { McpToolDefinition, McpToolResult } from "../types.js";
+import searchTool from "./search.js";
+import { getPageTool, addMemoTool, listRecentTool, graphNeighborsTool } from "./crud.js";
 
 export interface ToolHandler {
   name: string;
@@ -7,8 +9,13 @@ export interface ToolHandler {
   handler: (args: Record<string, unknown>) => Promise<McpToolResult>;
 }
 
-// Tools are registered here — populated by US-021 and US-022
-export const ALL_TOOLS: ToolHandler[] = [];
+export const ALL_TOOLS: ToolHandler[] = [
+  searchTool,
+  getPageTool,
+  addMemoTool,
+  listRecentTool,
+  graphNeighborsTool,
+];
 
 export async function callTool(name: string, args: Record<string, unknown>): Promise<McpToolResult> {
   const tool = ALL_TOOLS.find((t) => t.name === name);
