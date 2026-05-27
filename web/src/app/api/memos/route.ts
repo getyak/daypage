@@ -144,6 +144,10 @@ export async function POST(req: NextRequest) {
       ingest_mode: input.ingest_mode,
       vault_path: input.vault_path ?? null,
       idempotency_key: input.idempotency_key ?? null,
+      source: input.source ?? "web",
+      device_id: input.device_id ?? null,
+      mood: input.mood ?? null,
+      word_count: input.word_count ?? input.body.split(/\s+/).filter(Boolean).length,
     })
     .returning();
 

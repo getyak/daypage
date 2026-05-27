@@ -148,7 +148,7 @@ export const memos = pgTable(
       .defaultNow(),
     pinned_at: timestamp("pinned_at", { withTimezone: true }),
     location: jsonb("location"),
-    weather: text("weather"),
+    weather: jsonb("weather"),
     device: text("device"),
     source_url: text("source_url"),
     ingest_mode: ingestModeEnum("ingest_mode").notNull().default("light"),
@@ -165,6 +165,11 @@ export const memos = pgTable(
       .notNull()
       .defaultNow()
       .$onUpdate(() => new Date()),
+    // US-033: iOS↔Web field alignment
+    source: text("source").notNull().default("web"),
+    device_id: text("device_id"),
+    mood: text("mood"),
+    word_count: integer("word_count").notNull().default(0),
   },
   (t) => [
     index("memos_user_created").on(t.user_id, t.created_at),

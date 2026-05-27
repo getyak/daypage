@@ -13,18 +13,29 @@ export const LocationSchema = z.object({
   country: z.string().optional(),
 }).passthrough();
 
+export const WeatherSchema = z.object({
+  condition: z.string().optional(),
+  temp_c: z.number().optional(),
+  humidity: z.number().optional(),
+  city: z.string().optional(),
+}).passthrough();
+
 export const CreateMemoSchema = z.object({
   type: MemoTypeSchema.optional().default("text"),
   body: z.string().min(1, "Body is required"),
   created_at: z.string().datetime().optional(),
   location: LocationSchema.optional(),
-  weather: z.string().optional(),
+  weather: WeatherSchema.optional(),
   device: z.string().optional(),
   source_url: z.string().url().optional(),
   origin: OriginSchema.optional().default("web"),
   ingest_mode: IngestModeSchema.optional().default("light"),
   vault_path: z.string().optional(),
   idempotency_key: z.string().max(255).optional(),
+  source: z.string().optional().default("web"),
+  device_id: z.string().optional(),
+  mood: z.string().optional(),
+  word_count: z.number().int().min(0).optional(),
   attachments: z
     .array(
       z.object({
