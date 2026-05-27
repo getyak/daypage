@@ -437,7 +437,7 @@
         "Typecheck passes"
       ],
       "priority": 28,
-      "passes": false,
+      "passes": true,
       "notes": "Wave3 B 衍生。依赖 US-024 维度数据。"
     },
     {
@@ -452,7 +452,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 29,
-      "passes": false,
+      "passes": true,
       "notes": "Wave3 C3。users.settings 字段已预留。"
     },
     {
@@ -467,7 +467,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 30,
-      "passes": false,
+      "passes": true,
       "notes": "Wave3 C3。依赖 US-029。"
     },
     {
@@ -481,7 +481,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 31,
-      "passes": false,
+      "passes": true,
       "notes": "Wave3 C4 收口。"
     },
     {
@@ -497,7 +497,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 32,
-      "passes": false,
+      "passes": true,
       "notes": "Wave3 C4 收口。"
     },
     {
