@@ -68,6 +68,9 @@ struct TodayView: View {
     /// Toggled each time the Day Orb is tapped to focus the composer input.
     @State private var orbFocusToggle: Bool = false
 
+    /// Toggled to trigger a smooth scroll-to-top in the timeline (double-tap header).
+    @State private var scrollToTopToggle: Bool = false
+
     /// US-019: controls the markdown export share sheet.
     @State private var showExportSheet: Bool = false
     @State private var exportFileURL: URL? = nil
@@ -882,8 +885,14 @@ struct TodayView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Open navigation")
-            .accessibilityHint("Opens the sidebar navigation drawer")
+            .accessibilityHint("Opens the sidebar navigation drawer. Double tap to scroll timeline to top.")
             .accessibilityIdentifier("sidebar-menu-button")
+            .simultaneousGesture(
+                TapGesture(count: 2).onEnded {
+                    Haptics.soft()
+                    scrollToTopToggle.toggle()
+                }
+            )
             .onLongPressGesture(minimumDuration: 1.5) {
                 HapticFeedback.medium()
                 if let entry = OnThisDayScheduler.shared.forceRefresh() {
@@ -969,8 +978,10 @@ struct TodayView: View {
     /// Scrollable timeline: daily page card, skeleton, memo cards, history supplement.
     @ViewBuilder
     private var timelineSection: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             LazyVStack(spacing: 8) {
+                Color.clear.frame(height: 0).id("top")
                 if viewModel.isDailyPageCompiled {
                     swipeableDailyPageCard
                         .padding(.horizontal, 20)
@@ -1092,6 +1103,13 @@ struct TodayView: View {
         )
         .coordinateSpace(name: "todayScroll")
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onChange(of: scrollToTopToggle) { _ in
+            let animation = reduceMotion ? Animation.linear(duration: 0.01) : Motion.spring
+            withAnimation(animation) {
+                proxy.scrollTo("top", anchor: .top)
+            }
+        }
+        } // ScrollViewReader
     }
 
     /// Compose area: compile progress dock / compile button + input bar.
