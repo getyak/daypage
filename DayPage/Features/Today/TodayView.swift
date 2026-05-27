@@ -83,6 +83,8 @@ struct TodayView: View {
     @State private var didCelebrateUnlock: Bool = false
     /// Drives the one-shot amber glow pulse on the compile button at unlock.
     @State private var unlockGlow: Bool = false
+    /// Tracks the previous memo count so escalating haptics only fire on additions, not deletions.
+    @State private var lastMemoCount: Int = 0
 
     private var isInSelectionMode: Bool { selectedMemoIds != nil }
 
@@ -1117,9 +1119,13 @@ struct TodayView: View {
                         unlockGlow = false
                     }
                 }
+            } else if (1...2).contains(count) && !viewModel.isDailyPageCompiled && count > lastMemoCount {
+                // Escalating tick on 1st memo (intensity 0.55) and 2nd (intensity 0.80)
+                Haptics.rigid(intensity: 0.3 + 0.25 * Double(count))
             } else if count < 3 {
                 didCelebrateUnlock = false
             }
+            lastMemoCount = count
         }
 
         inputBarV4
