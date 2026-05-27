@@ -359,11 +359,17 @@ export function SettingsClient({ user, signOutAction }: SettingsClientProps) {
             control={
               <Segmented
                 value={prefs.theme}
-                onChange={(v) => update("theme", v as Theme)}
+                onChange={(v) => {
+                  update("theme", v as Theme);
+                  // Apply immediately without waiting for next render cycle
+                  if (typeof document !== "undefined") {
+                    document.documentElement.setAttribute("data-theme", v);
+                  }
+                }}
                 options={[
                   { value: "system", label: "System" },
                   { value: "light", label: "Light" },
-                  { value: "dark", label: "Dark", disabled: true, hint: "soon" },
+                  { value: "dark", label: "Dark" },
                 ]}
               />
             }
