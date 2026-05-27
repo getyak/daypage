@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		09C6E4728050D69F54949DD1 /* HapticFeedbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84FFEA3DDB8DCB528A4189BF /* HapticFeedbackTests.swift */; };
+		KC0000001 /* KeychainHelperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = KC1000001 /* KeychainHelperTests.swift */; };
 		14188AFE740A834ADF7A41F4 /* DayPageWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1530E7C28C23499CFC14C498 /* HapticFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB12D96218034D3E4555B8AA /* HapticFeedback.swift */; };
 		1719257FE85120ED06CAB183 /* HeroBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF29E708CBF93A6DD500484C /* HeroBannerView.swift */; };
@@ -230,6 +231,7 @@
 		73FCD3E2EC4D7257BA7A22BD /* TimeZonePickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimeZonePickerView.swift; sourceTree = "<group>"; };
 		7909ED56F96754E4C4FA21CC /* QuickCaptureWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuickCaptureWidget.swift; sourceTree = "<group>"; };
 		84FFEA3DDB8DCB528A4189BF /* HapticFeedbackTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticFeedbackTests.swift; sourceTree = "<group>"; };
+		KC1000001 /* KeychainHelperTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelperTests.swift; sourceTree = "<group>"; };
 		8F07950D8A46BAC7B9CCB1ED /* ShareCardSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShareCardSystem.swift; path = ShareCard/ShareCardSystem.swift; sourceTree = "<group>"; };
 		912420086719F3FFFB45FE7A /* InputBarTutorialOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InputBarTutorialOverlay.swift; sourceTree = "<group>"; };
 		986C8E3E042E690BA4CCC12D /* ShareCardSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShareCardSystem.swift; path = ShareCard/ShareCardSystem.swift; sourceTree = "<group>"; };
@@ -883,6 +885,7 @@
 				T20000050 /* TimelineIndexTests.swift */,
 				T20000006 /* ComposerContextProviderTests.swift */,
 				84FFEA3DDB8DCB528A4189BF /* HapticFeedbackTests.swift */,
+				KC1000001 /* KeychainHelperTests.swift */,
 			);
 			path = DayPageTests;
 			sourceTree = "<group>";
@@ -1242,6 +1245,7 @@
 				T10000050 /* TimelineIndexTests.swift in Sources */,
 				T10000006 /* ComposerContextProviderTests.swift in Sources */,
 				09C6E4728050D69F54949DD1 /* HapticFeedbackTests.swift in Sources */,
+				KC0000001 /* KeychainHelperTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
