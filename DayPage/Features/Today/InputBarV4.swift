@@ -485,8 +485,8 @@ struct InputBarV4: View {
                 transition(to: .collapsing)
                 isFocused = false
             }
-            .accessibilityLabel("下拉收起卡片")
-            .accessibilityHint("点击以收起文字输入卡片")
+            .accessibilityLabel(NSLocalizedString("input.a11y.drag_handle", comment: ""))
+            .accessibilityHint(NSLocalizedString("input.a11y.drag_handle_hint", comment: ""))
             .accessibilityAddTraits(.isButton)
             // Drag gesture — upward translation > 32pt collapses
             .gesture(
@@ -655,7 +655,7 @@ struct InputBarV4: View {
                 .font(DSType.h2)
                 .foregroundStyle(DSColor.inkMuted)
         }
-        .accessibilityLabel("收起，回到语音模式")
+        .accessibilityLabel(NSLocalizedString("input.a11y.collapse", comment: ""))
 
         // Mic orb — in keyboard toolbar the matchedGeometryEffect is dropped
         // (toolbar renders outside the SwiftUI namespace tree). A plain amber
@@ -674,7 +674,9 @@ struct InputBarV4: View {
                 .shadow(color: DSColor.amberAccent.opacity(0.40), radius: 6, x: 0, y: 2)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(isComposingTranscribe ? "停止语音转文字" : "语音转文字")
+        .accessibilityLabel(isComposingTranscribe
+            ? NSLocalizedString("input.a11y.mic_stop_transcribe", comment: "")
+            : NSLocalizedString("input.a11y.mic_transcribe", comment: ""))
 
         // Camera
         Button {
@@ -684,7 +686,7 @@ struct InputBarV4: View {
                 .font(DSType.titleSM)
                 .foregroundStyle(DSColor.inkMuted)
         }
-        .accessibilityLabel("拍照")
+        .accessibilityLabel(NSLocalizedString("input.a11y.camera", comment: ""))
 
         // Photo library
         PhotosPicker(selection: $photosPickerItems, matching: .images, photoLibrary: .shared()) {
@@ -692,7 +694,7 @@ struct InputBarV4: View {
                 .font(DSType.titleSM)
                 .foregroundStyle(DSColor.inkMuted)
         }
-        .accessibilityLabel("相册")
+        .accessibilityLabel(NSLocalizedString("input.a11y.photo_library", comment: ""))
 
         // Location
         Button {
@@ -702,7 +704,9 @@ struct InputBarV4: View {
                 .font(DSType.titleSM)
                 .foregroundStyle(pendingLocation != nil ? DSColor.amberAccent : DSColor.inkMuted)
         }
-        .accessibilityLabel(pendingLocation != nil ? "清除位置" : "添加位置")
+        .accessibilityLabel(pendingLocation != nil
+            ? NSLocalizedString("input.a11y.clear_location", comment: "")
+            : NSLocalizedString("input.a11y.add_location", comment: ""))
 
         Spacer()
 
