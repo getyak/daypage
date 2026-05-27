@@ -200,8 +200,39 @@ struct GraphView: View {
                 nav.navigate(to: .today)
             }
         } else {
-            EmptyStateView.graphNoMatches()
+            EmptyStateView.graphNoMatches {
+                Haptics.tapConfirm()
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    viewModel.searchQuery = ""
+                    viewModel.filterStartDate = nil
+                    viewModel.filterEndDate = nil
+                }
+            }
         }
+    }
+
+    private var clearFiltersButton: some View {
+        Button {
+            Haptics.tapConfirm()
+            withAnimation(.easeInOut(duration: 0.15)) {
+                viewModel.searchQuery = ""
+                viewModel.filterStartDate = nil
+                viewModel.filterEndDate = nil
+            }
+        } label: {
+            Text("清除筛选")
+                .font(DSType.sectionLabel)
+                .textCase(.uppercase)
+                .tracking(1.5)
+                .foregroundColor(Color.white)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
+                .background(DSColor.amberDeep)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(ClearFiltersPressStyle(reduceMotion: reduceMotion))
+        .accessibilityLabel("清除筛选")
+        .accessibilityAddTraits(.isButton)
     }
 
     // MARK: - Accessibility Helpers
@@ -431,5 +462,21 @@ struct GraphView: View {
     private func stopSimulation() {
         simulationTimer?.invalidate()
         simulationTimer = nil
+    }
+}
+
+// MARK: - ClearFiltersPressStyle
+
+private struct ClearFiltersPressStyle: ButtonStyle {
+    let reduceMotion: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect((!reduceMotion && configuration.isPressed) ? 0.96 : 1)
+            .opacity(configuration.isPressed ? 0.92 : 1)
+            .animation(
+                reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7),
+                value: configuration.isPressed
+            )
     }
 }
