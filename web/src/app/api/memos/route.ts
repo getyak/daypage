@@ -6,6 +6,7 @@ import { eq, and, lt, gte, desc, isNotNull } from "drizzle-orm";
 import { CreateMemoSchema, ListMemosQuerySchema } from "@/lib/schemas/memo";
 import { checkMutationRateLimit } from "@/lib/ratelimit";
 import { sendEvent } from "@/lib/inngest/client";
+import { sanitizeMemoBody } from "@/lib/sanitize";
 
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -98,7 +99,7 @@ export async function POST(req: NextRequest) {
     return badRequest(parsed.error.issues[0]?.message ?? "Validation error");
   }
 
-  const input = parsed.data;
+  const input = { ...parsed.data, body: sanitizeMemoBody(parsed.data.body) };
 
   // Resolve user_id
   const { users } = await import("@/lib/db/schema");
