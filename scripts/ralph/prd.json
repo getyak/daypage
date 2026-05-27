@@ -111,7 +111,7 @@
         "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 8,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-009",
@@ -125,7 +125,7 @@
         "\u6784\u5efa\u901a\u8fc7\uff0ciPhone 17 Simulator \u76ee\u89c6\u9a8c\u8bc1\u4e09\u79cd loading \u573a\u666f"
       ],
       "priority": 9,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-010",
@@ -141,7 +141,7 @@
         "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 10,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-011",
@@ -156,7 +156,7 @@
         "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 11,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-012",
@@ -171,7 +171,7 @@
         "\u6784\u5efa\u901a\u8fc7\uff0ciPhone 17 Simulator \u6709\u6570\u636e\u65f6\u9a8c\u8bc1\u56fe\u8c31\u8282\u70b9\u975e\u7a7a"
       ],
       "priority": 12,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-013",
@@ -185,7 +185,7 @@
         "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 13,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-014",
@@ -198,7 +198,7 @@
         "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 14,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-015",
@@ -212,7 +212,7 @@
         "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 15,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-016",
