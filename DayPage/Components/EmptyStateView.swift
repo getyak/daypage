@@ -6,6 +6,7 @@ struct EmptyStateView: View {
     let title: LocalizedStringKey
     var subtitle: String?
     var ctaLabel: String?
+    var ctaHint: String?
     var ctaAction: (() -> Void)?
     var showOrbAccent: Bool = false
 
@@ -61,6 +62,7 @@ struct EmptyStateView: View {
                 .opacity(appeared ? 1 : 0)
                 .offset(y: appeared ? 0 : 6)
                 .animation(Motion.rise, value: appeared)
+                .accessibilityAddTraits(.isHeader)
         }
     }
 
@@ -106,6 +108,21 @@ struct EmptyStateView: View {
                 .clipShape(Capsule())
         }
         .buttonStyle(PressableScaleStyle(reduceMotion: reduceMotion))
+        .modifier(OptionalAccessibilityHint(hint: ctaHint))
+    }
+}
+
+// MARK: - OptionalAccessibilityHint
+
+private struct OptionalAccessibilityHint: ViewModifier {
+    let hint: String?
+
+    func body(content: Content) -> some View {
+        if let hint {
+            content.accessibilityHint(hint)
+        } else {
+            content
+        }
     }
 }
 
@@ -134,6 +151,7 @@ extension EmptyStateView {
             title: L10n.Empty.todayBlankTitle,
             subtitle: L10n.Empty.todayBlankSubtitle,
             ctaLabel: L10n.Empty.todayBlankCta,
+            ctaHint: "Records your first note for today",
             ctaAction: ctaAction,
             showOrbAccent: true
         )
@@ -172,6 +190,7 @@ extension EmptyStateView {
             title: L10n.Empty.archiveDayTitle,
             subtitle: L10n.Empty.archiveDaySubtitle,
             ctaLabel: L10n.Empty.archiveDayCta,
+            ctaHint: "Opens today's view to add notes",
             ctaAction: ctaAction,
             showOrbAccent: false
         )
@@ -183,6 +202,7 @@ extension EmptyStateView {
             title: L10n.Empty.archiveMonthEmptyTitle,
             subtitle: L10n.Empty.archiveMonthEmptySubtitle,
             ctaLabel: L10n.Empty.archiveMonthEmptyCta,
+            ctaHint: "Opens today's view to start logging",
             ctaAction: ctaAction,
             showOrbAccent: true
         )
@@ -194,6 +214,7 @@ extension EmptyStateView {
             title: L10n.Empty.graphNoMatchesTitle,
             subtitle: L10n.Empty.graphNoMatchesSubtitle,
             ctaLabel: "清除筛选",
+            ctaHint: "Removes all active search and date filters",
             ctaAction: ctaAction,
             showOrbAccent: false
         )
@@ -205,6 +226,7 @@ extension EmptyStateView {
             title: L10n.Empty.micDeniedTitle,
             subtitle: L10n.Empty.micDeniedSubtitle,
             ctaLabel: L10n.Empty.micDeniedCta,
+            ctaHint: "Opens Settings to grant microphone access",
             ctaAction: ctaAction,
             showOrbAccent: false
         )
@@ -216,6 +238,7 @@ extension EmptyStateView {
             title: L10n.Empty.graphEmptyTitle,
             subtitle: L10n.Empty.graphEmptySubtitle,
             ctaLabel: L10n.Empty.graphEmptyCta,
+            ctaHint: "Opens today's view to record your first entry",
             ctaAction: ctaAction,
             showOrbAccent: true
         )
