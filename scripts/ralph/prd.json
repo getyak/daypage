@@ -226,7 +226,7 @@
         "\u6784\u5efa\u901a\u8fc7\uff0c\u624b\u52a8\u6d4b\u8bd5\uff1a\u65ad\u7f51\u5f55\u97f3 \u2192 \u5931\u8d25\u7ea2\u8fb9 \u2192 \u8054\u7f51\u70b9\u91cd\u8bd5 \u2192 \u6210\u529f"
       ],
       "priority": 16,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-017",
@@ -242,7 +242,7 @@
         "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 17,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-018",
@@ -255,7 +255,7 @@
         "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 18,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-019",
@@ -270,7 +270,7 @@
         "\u6784\u5efa\u901a\u8fc7\uff0ciPhone 17 \u624b\u52a8\u9a8c\u8bc1\uff1a\u5bfc\u51fa \u2192 \u6587\u4ef6 App \u53ef\u9884\u89c8 .md \u5185\u5bb9"
       ],
       "priority": 19,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-020",
@@ -285,7 +285,7 @@
         "\u5168\u90e8\u6d4b\u8bd5\u901a\u8fc7 (`xcodebuild test -scheme DayPage`)"
       ],
       "priority": 20,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-021",
@@ -300,7 +300,7 @@
         "\u6784\u5efa\u901a\u8fc7\uff0c\u73b0\u6709\u6d4b\u8bd5\u901a\u8fc7"
       ],
       "priority": 21,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-022",
@@ -316,7 +316,7 @@
         "\u6784\u5efa\u901a\u8fc7\uff0c\u7f16\u8bd1\u529f\u80fd\u7aef\u5230\u7aef\u624b\u52a8\u6d4b\u8bd5\u6b63\u5e38"
       ],
       "priority": 22,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-023",
@@ -330,7 +330,7 @@
         "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 23,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-024",
