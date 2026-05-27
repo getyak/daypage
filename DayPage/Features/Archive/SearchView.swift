@@ -147,6 +147,7 @@ struct SearchView: View {
     @State private var showFilters: Bool = false
     @State private var cancellable: AnyCancellable? = nil
     @State private var appearedIDs: Set<UUID> = []
+    @State private var didBuzzEmpty: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -171,6 +172,8 @@ struct SearchView: View {
                     }
 
                     contentArea
+                        .animation(.easeInOut(duration: 0.2), value: vm.hasSearched)
+                        .animation(.easeInOut(duration: 0.2), value: vm.results.isEmpty)
                 }
             }
             .navigationBarHidden(true)
@@ -205,10 +208,11 @@ struct SearchView: View {
         let wasEmpty = vm.results.isEmpty
         let hits = SearchService.search(keyword: trimmed, filters: filters)
         appearedIDs = []
+        didBuzzEmpty = false
         vm.results = hits
         vm.hasSearched = !trimmed.isEmpty || filters.isActive
         if wasEmpty && !hits.isEmpty && !trimmed.isEmpty { Haptics.soft() }
-        if hits.isEmpty && vm.hasSearched && !trimmed.isEmpty { Haptics.warningNotification() }
+        if hits.isEmpty { didBuzzEmpty = false }
     }
 
     // MARK: - Search Bar
@@ -568,6 +572,12 @@ struct SearchView: View {
                             .foregroundColor(DSColor.onSurfaceVariant)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
+                    } else if !vm.query.isEmpty && filters.isActive {
+                        Text("「\(vm.query)」在当前筛选条件下无匹配结果")
+                            .bodySMStyle()
+                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
                     } else {
                         Text("未找到「\(vm.query)」的匹配结果")
                             .bodySMStyle()
@@ -579,16 +589,34 @@ struct SearchView: View {
 
                 if filters.isActive {
                     Button(action: {
-                        Haptics.tapConfirm()
+                        Haptics.light()
                         filters = .empty
                         runSearch(keyword: vm.query)
                     }) {
-                        Text("清除筛选并重试")
-                            .monoLabelStyle(size: 12)
+                        Text("清除筛选条件")
+                            .monoLabelStyle(size: 11)
                             .foregroundColor(DSColor.primary)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 10)
-                            .overlay(Rectangle().stroke(DSColor.primary, lineWidth: 1))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 6)
+                            .background(Capsule().stroke(DSColor.primary, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                } else if !vm.query.isEmpty {
+                    Button(action: {
+                        Haptics.light()
+                        cancellable?.cancel()
+                        vm.query = ""
+                        vm.results = []
+                        vm.hasSearched = false
+                        didBuzzEmpty = false
+                        setupDebounce()
+                    }) {
+                        Text("清除搜索")
+                            .monoLabelStyle(size: 11)
+                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 6)
+                            .background(Capsule().stroke(DSColor.outlineVariant, lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                 }
@@ -619,8 +647,16 @@ struct SearchView: View {
             .padding(.bottom, 24)
         }
         .scrollDismissesKeyboard(.interactively)
+        .scaleEffect(didBuzzEmpty ? 1.0 : (reduceMotion ? 1.0 : 0.88))
+        .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7), value: didBuzzEmpty)
         .transition(.opacity)
         .dsAnimation(Motion.fade, value: vm.results.isEmpty)
+        .onAppear {
+            if !didBuzzEmpty {
+                didBuzzEmpty = true
+                if !reduceMotion { Haptics.warn() }
+            }
+        }
     }
 
     // MARK: - Grouped result list
