@@ -103,119 +103,8 @@ struct TodayView: View {
                     .ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    // MARK: Header — serif date + right-side controls
-                    // Note: animation on this VStack drives the orbHero enter/exit transition.
-                    // `alignment: .firstTextBaseline` puts the 28pt settings gear
-                    // on the same cap-height baseline as the "Tuesday" serif title
-                    // rather than floating mid-row. (#today-polish)
-                    HStack(alignment: .firstTextBaseline, spacing: 0) {
-                        // Left: serif weekday + mono date subline; tap → open sidebar
-                        Button {
-                            nav.openSidebar()
-                        } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(weekdayName(currentTime))
-                                    .font(DSType.serifDisplay32)
-                                    .foregroundColor(DSColor.inkPrimary)
-                                    .dynamicTypeSize(.xSmall ... .accessibility2)
-                                    .minimumScaleFactor(0.75)
-                                Text(headerSubline(currentTime))
-                                    .font(DSType.mono10)
-                                    .foregroundColor(DSColor.inkSubtle)
-                                    .textCase(.uppercase)
-                                    .tracking(1.0)
-                                    .dynamicTypeSize(.xSmall ... .accessibility5)
-                                    .minimumScaleFactor(0.75)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Open navigation")
-                        .accessibilityHint("Opens the sidebar navigation drawer")
-                        .accessibilityIdentifier("sidebar-menu-button")
-                        // Long press on the date header → force-refresh On This Day
-                        .onLongPressGesture(minimumDuration: 1.5) {
-                            HapticFeedback.medium()
-                            if let entry = OnThisDayScheduler.shared.forceRefresh() {
-                                viewModel.onThisDayEntry = entry
-                            } else {
-                                HapticFeedback.warning()
-                            }
-                        }
-
-                        Spacer()
-
-                        // Right: settings gear (28pt glass circle).
-                        // alignmentGuide pulls the gear's vertical center onto
-                        // the serif title's first-text-baseline so it doesn't
-                        // float below the cap-height of "Tuesday".
-                        //
-                        // Math (DSType.serifDisplay32): the circle's geometric
-                        // center sits ~14pt below its top edge. The serif's
-                        // first-text-baseline sits ~8pt below cap-height. The
-                        // +6 offset slides the circle so its center lands on
-                        // the title's cap-height midline rather than below the
-                        // baseline. Empirically tuned — revisit if
-                        // serifDisplay32's point size or the 28pt circle
-                        // diameter changes.
-                        // US-019: Export as Markdown
-                        if !viewModel.memos.isEmpty {
-                            Button {
-                                let content = MarkdownExportService.buildExportContent(
-                                    memos: viewModel.memos, date: Date()
-                                )
-                                let df = DateFormatter()
-                                df.dateFormat = "yyyy-MM-dd"
-                                df.locale = Locale(identifier: "en_US_POSIX")
-                                df.timeZone = AppSettings.currentTimeZone()
-                                let dateString = df.string(from: Date())
-                                if let url = try? MarkdownExportService.writeExportFile(
-                                    content: content, dateString: dateString
-                                ) {
-                                    exportFileURL = url
-                                    showExportSheet = true
-                                }
-                            } label: {
-                                Image(systemName: "square.and.arrow.up")
-                                    .font(DSType.bodySM)
-                                    .foregroundColor(DSColor.inkMuted)
-                                    .frame(width: 28, height: 28)
-                                    .background(DSColor.glassStd)
-                                    .background(.ultraThinMaterial, in: Circle())
-                                    .overlay(Circle().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
-                                    .clipShape(Circle())
-                            }
-                            .accessibilityLabel(NSLocalizedString("export.action.title", comment: ""))
-                            .accessibilityIdentifier("export-markdown-button")
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
-                            .alignmentGuide(.firstTextBaseline) { d in d[VerticalAlignment.center] + 6 }
-                        }
-
-                        Button {
-                            showSettings = true
-                        } label: {
-                            Image(systemName: "gearshape")
-                                .font(DSType.bodySM)
-                                .foregroundColor(DSColor.inkMuted)
-                                .frame(width: 28, height: 28)
-                                .background(DSColor.glassStd)
-                                .background(.ultraThinMaterial, in: Circle())
-                                .overlay(Circle().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
-                                .clipShape(Circle())
-                        }
-                        .accessibilityLabel("Settings")
-                        .accessibilityHint("Opens app settings")
-                        .accessibilityIdentifier("settings-gear-button")
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                        .alignmentGuide(.firstTextBaseline) { d in d[VerticalAlignment.center] + 6 }
-                    }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 16)
-                    .padding(.bottom, 12)
-                    .onReceive(headerTimer) { date in
-                        currentTime = date
-                    }
+                    // MARK: Sidebar/Header (US-021: extracted subview)
+                    sidebarSection
 
                     // MARK: Compilation Progress Bar
                     if viewModel.isCompiling {
@@ -289,226 +178,11 @@ struct TodayView: View {
                             .transition(.move(edge: .top).combined(with: .opacity))
                     }
 
-                    // MARK: Timeline
-                    // Plain ScrollView — no GeometryReader. The previous wrapper
-                    // (`GeometryReader { ScrollView { ... }.frame(minHeight: geo.size.height * 0.75) }
-                    // .frame(maxHeight: geo.size.height)`) created a layout
-                    // feedback loop: GeometryReader sized itself from the parent
-                    // VStack's leftover space, then constrained the ScrollView's
-                    // intrinsic content to ≥75% of that space. When sibling rows
-                    // (banners, orb hero, compile area, input bar) republished
-                    // their @Published state, the VStack's leftover changed,
-                    // GeometryReader handed back a new size, and the whole tree
-                    // measured again — manifesting as a 2–4 s page-wide jitter
-                    // on real devices. (#258)
-                    ScrollView {
-                        LazyVStack(spacing: 8) {
-                            // OnThisDayCard removed — relocation tracked in follow-up issue (US-015)
-                            // WeeklyRecapSection removed — relocation tracked in follow-up issue (US-015)
+                    // MARK: Timeline (US-021: extracted subview)
+                    timelineSection
 
-                            // Daily Page entry card (post-compile). Auto-compile runs
-                            // silently on load; users swipe left to reveal a manual
-                            // "重新编译" action when the AI output needs a redo.
-                            if viewModel.isDailyPageCompiled {
-                                swipeableDailyPageCard
-                                    .padding(.horizontal, 20)
-                            }
-
-                            // Skeleton placeholder while the initial load is in flight
-                            if viewModel.loadState == .loading && viewModel.memos.isEmpty {
-                                MemoListSkeleton()
-                                    .padding(.horizontal, 20)
-                                    .transition(.opacity)
-                            }
-
-                            // Memo cards (reverse-chronological)
-                            if viewModel.memos.isEmpty && viewModel.loadState == .ready {
-                                let hasOnboarded = UserDefaults.standard.bool(forKey: AppSettings.Keys.hasOnboarded)
-                                if !hasOnboarded {
-                                    EmptyStateView.todayBlank {
-                                        // focus is implicit — the input bar is always visible below
-                                    }
-                                    .padding(.top, 48)
-                                    .padding(.horizontal, 20)
-                                } else {
-                                    fallbackContentView
-                                        .padding(.top, 24)
-                                }
-                            } else {
-                                ForEach(Array(viewModel.memos.enumerated()), id: \.element.id) { idx, memo in
-                                    TimelineRow(
-                                        memo: memo,
-                                        isLast: idx == viewModel.memos.count - 1,
-                                        onDelete: {
-                                            // Clear submit undo pill so the two never stack
-                                            undoText = nil
-                                            undoTask?.cancel()
-                                            viewModel.deleteMemo(memo)
-                                        },
-                                        onPin: {
-                                            if memo.pinnedAt != nil {
-                                                viewModel.unpinMemo(memo)
-                                            } else {
-                                                viewModel.pinMemo(memo)
-                                            }
-                                        },
-                                        onRetranscribe: { m, att in viewModel.retranscribe(memo: m, attachment: att) },
-                                        onShare: {
-                                            // Smart default — auto picks photo/voice/memo
-                                            // based on attachments (issue #309 W1-②).
-                                            sharePayload = SharePayload.auto(from: memo)
-                                        },
-                                        onShareAsQuote: {
-                                            // Build attribution from date + location.
-                                            let df = DateFormatter()
-                                            df.dateFormat = "yyyy-MM-dd"
-                                            var attrib = df.string(from: memo.created)
-                                            if let loc = memo.location?.name, !loc.isEmpty {
-                                                attrib += " · " + loc
-                                            }
-                                            sharePayload = .quote(QuoteSnapshot(
-                                                text: memo.body,
-                                                attribution: attrib
-                                            ))
-                                        },
-                                        onEnterSelectionMode: {
-                                            Haptics.tapConfirm()
-                                            selectedMemoIds = [memo.id]
-                                        },
-                                        isSelectionMode: isInSelectionMode,
-                                        isSelected: selectedMemoIds?.contains(memo.id) ?? false,
-                                        onToggleSelection: {
-                                            guard var set = selectedMemoIds else { return }
-                                            if set.contains(memo.id) {
-                                                set.remove(memo.id)
-                                            } else if set.count < CollageSnapshot.maxItems {
-                                                set.insert(memo.id)
-                                            } else {
-                                                // At cap — buzz to let the user know and skip the toggle.
-                                                Haptics.warn()
-                                                return
-                                            }
-                                            selectedMemoIds = set
-                                        }
-                                    )
-                                    .padding(.horizontal, 20)
-                                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                                }
-                            }
-
-                            // History supplement — shown at the bottom when today
-                            // already has memos, so the user can still scroll down
-                            // to yesterday's page or the weekly recap. (#US-016)
-                            historySupplement
-
-                            // Skeleton while reloading with existing memos visible
-                            if viewModel.loadState == .loading && !viewModel.memos.isEmpty {
-                                HStack {
-                                    Spacer()
-                                    ProgressView()
-                                        .tint(DSColor.inkSubtle)
-                                    Spacer()
-                                }
-                                .padding(.vertical, 8)
-                            }
-
-                            // Load error message
-                            if let error = viewModel.errorMessage {
-                                Text(error)
-                                    .bodySMStyle()
-                                    .foregroundColor(DSColor.error)
-                                    .padding(.horizontal, 20)
-                            }
-
-                            Spacer(minLength: 16)
-                        }
-                        .padding(.top, 12)
-                    }
-                    .refreshable {
-                        await viewModel.refresh()
-                    }
-                    // US-010: Vignette gradient at the bottom edge fades timeline
-                    // content behind the composer dock, so cards appear to recede
-                    // rather than abruptly stopping at the input bar boundary.
-                    // Note: overlay+allowsHitTesting(false) preserves scroll gestures;
-                    // .mask() on a ScrollView blocks hit-testing and breaks scrolling.
-                    .overlay(
-                        LinearGradient(
-                            colors: [Color.clear, DSColor.bgWarm],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                        .frame(height: 40)
-                        .allowsHitTesting(false),
-                        alignment: .bottom
-                    )
-                    .coordinateSpace(name: "todayScroll")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                    // MARK: Compile Area
-                    // When < 3 memos: show a single-line mono dock hint
-                    // ("N / 3 memos · M more to unlock") sitting directly above
-                    // the input bar — it belongs to the composer dock, not to
-                    // the timeline. When ≥ 3 memos: show the compile button.
-                    // Hidden entirely once today's page is compiled.
-                    // Motion.spring on memoCount drives the dock→button swap so
-                    // the unlock moment transitions with a spring rather than cutting.
-                    Group {
-                        if !viewModel.isDailyPageCompiled && !viewModel.memos.isEmpty {
-                            if viewModel.memos.count < 3 {
-                                CompileProgressDock(memoCount: viewModel.memos.count)
-                                    .padding(.vertical, 6)
-                                    .transition(
-                                        .asymmetric(
-                                            insertion: .opacity,
-                                            removal: .opacity.combined(with: .scale(scale: 0.9))
-                                        )
-                                    )
-                            } else {
-                                HStack {
-                                    Spacer()
-                                    CompileFooterButton(
-                                        memoCount: viewModel.memos.count,
-                                        isCompiling: viewModel.isCompiling,
-                                        isVisible: true,
-                                        stage: compilationService.stage,
-                                        errorMessage: viewModel.submitError,
-                                        onTap: { viewModel.compile() },
-                                        onRetry: { viewModel.compile() }
-                                    )
-                                    .shadow(
-                                        color: DSColor.accentAmber.opacity(unlockGlow ? 0.5 : 0),
-                                        radius: unlockGlow ? 18 : 0
-                                    )
-                                    .animation(.easeOut(duration: 0.6), value: unlockGlow)
-                                    Spacer()
-                                }
-                                .padding(.bottom, 4)
-                            }
-                        }
-                    }
-                    .animation(Motion.spring, value: viewModel.memos.count)
-                    .onChange(of: viewModel.memos.count) { count in
-                        if count >= 3 && !viewModel.isDailyPageCompiled && !didCelebrateUnlock {
-                            didCelebrateUnlock = true
-                            Haptics.success()
-                            if !reduceMotion {
-                                unlockGlow = true
-                                Task {
-                                    try? await Task.sleep(nanoseconds: 600_000_000)
-                                    unlockGlow = false
-                                }
-                            }
-                        } else if count < 3 {
-                            didCelebrateUnlock = false
-                        }
-                    }
-                    // MARK: Input Bar — single canonical surface (V4).
-                    // V1/V2/V3 were removed in the Capture v2 cleanup; the
-                    // variant switch was a feature-flag carcass keeping four
-                    // parallel implementations alive. Now the input bar is
-                    // just the input bar.
-                    inputBarV4
+                    // MARK: Compose (US-021: extracted subview)
+                    composeSection
                 }
                 // US-009: Undo pill shown for 5s after memo submit
                 .overlay(alignment: .bottom) {
@@ -1172,6 +846,283 @@ struct TodayView: View {
             current: filled,
             remaining: max(0, 3 - filled)
         ))
+    }
+
+    // MARK: - US-021 Extracted Subviews
+
+    /// Header bar: serif date, export button, and settings gear.
+    @ViewBuilder
+    private var sidebarSection: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            Button {
+                nav.openSidebar()
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(weekdayName(currentTime))
+                        .font(DSType.serifDisplay32)
+                        .foregroundColor(DSColor.inkPrimary)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
+                        .minimumScaleFactor(0.75)
+                    Text(headerSubline(currentTime))
+                        .font(DSType.mono10)
+                        .foregroundColor(DSColor.inkSubtle)
+                        .textCase(.uppercase)
+                        .tracking(1.0)
+                        .dynamicTypeSize(.xSmall ... .accessibility5)
+                        .minimumScaleFactor(0.75)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Open navigation")
+            .accessibilityHint("Opens the sidebar navigation drawer")
+            .accessibilityIdentifier("sidebar-menu-button")
+            .onLongPressGesture(minimumDuration: 1.5) {
+                HapticFeedback.medium()
+                if let entry = OnThisDayScheduler.shared.forceRefresh() {
+                    viewModel.onThisDayEntry = entry
+                } else {
+                    HapticFeedback.warning()
+                }
+            }
+
+            Spacer()
+
+            // US-019: Export as Markdown
+            if !viewModel.memos.isEmpty {
+                Button {
+                    let content = MarkdownExportService.buildExportContent(
+                        memos: viewModel.memos, date: Date()
+                    )
+                    let df = DateFormatter()
+                    df.dateFormat = "yyyy-MM-dd"
+                    df.locale = Locale(identifier: "en_US_POSIX")
+                    df.timeZone = AppSettings.currentTimeZone()
+                    let dateString = df.string(from: Date())
+                    if let url = try? MarkdownExportService.writeExportFile(
+                        content: content, dateString: dateString
+                    ) {
+                        exportFileURL = url
+                        showExportSheet = true
+                    }
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(DSType.bodySM)
+                        .foregroundColor(DSColor.inkMuted)
+                        .frame(width: 28, height: 28)
+                        .background(DSColor.glassStd)
+                        .background(.ultraThinMaterial, in: Circle())
+                        .overlay(Circle().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                        .clipShape(Circle())
+                }
+                .accessibilityLabel(NSLocalizedString("export.action.title", comment: ""))
+                .accessibilityIdentifier("export-markdown-button")
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+                .alignmentGuide(.firstTextBaseline) { d in d[VerticalAlignment.center] + 6 }
+            }
+
+            Button {
+                showSettings = true
+            } label: {
+                Image(systemName: "gearshape")
+                    .font(DSType.bodySM)
+                    .foregroundColor(DSColor.inkMuted)
+                    .frame(width: 28, height: 28)
+                    .background(DSColor.glassStd)
+                    .background(.ultraThinMaterial, in: Circle())
+                    .overlay(Circle().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                    .clipShape(Circle())
+            }
+            .accessibilityLabel("Settings")
+            .accessibilityHint("Opens app settings")
+            .accessibilityIdentifier("settings-gear-button")
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
+            .alignmentGuide(.firstTextBaseline) { d in d[VerticalAlignment.center] + 6 }
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 16)
+        .padding(.bottom, 12)
+        .onReceive(headerTimer) { date in
+            currentTime = date
+        }
+    }
+
+    /// Scrollable timeline: daily page card, skeleton, memo cards, history supplement.
+    @ViewBuilder
+    private var timelineSection: some View {
+        ScrollView {
+            LazyVStack(spacing: 8) {
+                if viewModel.isDailyPageCompiled {
+                    swipeableDailyPageCard
+                        .padding(.horizontal, 20)
+                }
+
+                if viewModel.loadState == .loading && viewModel.memos.isEmpty {
+                    MemoListSkeleton()
+                        .padding(.horizontal, 20)
+                        .transition(.opacity)
+                }
+
+                if viewModel.memos.isEmpty && viewModel.loadState == .ready {
+                    let hasOnboarded = UserDefaults.standard.bool(forKey: AppSettings.Keys.hasOnboarded)
+                    if !hasOnboarded {
+                        EmptyStateView.todayBlank { }
+                            .padding(.top, 48)
+                            .padding(.horizontal, 20)
+                    } else {
+                        fallbackContentView
+                            .padding(.top, 24)
+                    }
+                } else {
+                    ForEach(Array(viewModel.memos.enumerated()), id: \.element.id) { idx, memo in
+                        TimelineRow(
+                            memo: memo,
+                            isLast: idx == viewModel.memos.count - 1,
+                            onDelete: {
+                                undoText = nil
+                                undoTask?.cancel()
+                                viewModel.deleteMemo(memo)
+                            },
+                            onPin: {
+                                if memo.pinnedAt != nil {
+                                    viewModel.unpinMemo(memo)
+                                } else {
+                                    viewModel.pinMemo(memo)
+                                }
+                            },
+                            onRetranscribe: { m, att in viewModel.retranscribe(memo: m, attachment: att) },
+                            onShare: {
+                                sharePayload = SharePayload.auto(from: memo)
+                            },
+                            onShareAsQuote: {
+                                let df = DateFormatter()
+                                df.dateFormat = "yyyy-MM-dd"
+                                var attrib = df.string(from: memo.created)
+                                if let loc = memo.location?.name, !loc.isEmpty {
+                                    attrib += " · " + loc
+                                }
+                                sharePayload = .quote(QuoteSnapshot(
+                                    text: memo.body,
+                                    attribution: attrib
+                                ))
+                            },
+                            onEnterSelectionMode: {
+                                Haptics.tapConfirm()
+                                selectedMemoIds = [memo.id]
+                            },
+                            isSelectionMode: isInSelectionMode,
+                            isSelected: selectedMemoIds?.contains(memo.id) ?? false,
+                            onToggleSelection: {
+                                guard var set = selectedMemoIds else { return }
+                                if set.contains(memo.id) {
+                                    set.remove(memo.id)
+                                } else if set.count < CollageSnapshot.maxItems {
+                                    set.insert(memo.id)
+                                } else {
+                                    Haptics.warn()
+                                    return
+                                }
+                                selectedMemoIds = set
+                            }
+                        )
+                        .padding(.horizontal, 20)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+
+                historySupplement
+
+                if viewModel.loadState == .loading && !viewModel.memos.isEmpty {
+                    HStack {
+                        Spacer()
+                        ProgressView().tint(DSColor.inkSubtle)
+                        Spacer()
+                    }
+                    .padding(.vertical, 8)
+                }
+
+                if let error = viewModel.errorMessage {
+                    Text(error)
+                        .bodySMStyle()
+                        .foregroundColor(DSColor.error)
+                        .padding(.horizontal, 20)
+                }
+
+                Spacer(minLength: 16)
+            }
+            .padding(.top, 12)
+        }
+        .refreshable { await viewModel.refresh() }
+        .overlay(
+            LinearGradient(
+                colors: [Color.clear, DSColor.bgWarm],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 40)
+            .allowsHitTesting(false),
+            alignment: .bottom
+        )
+        .coordinateSpace(name: "todayScroll")
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Compose area: compile progress dock / compile button + input bar.
+    @ViewBuilder
+    private var composeSection: some View {
+        Group {
+            if !viewModel.isDailyPageCompiled && !viewModel.memos.isEmpty {
+                if viewModel.memos.count < 3 {
+                    CompileProgressDock(memoCount: viewModel.memos.count)
+                        .padding(.vertical, 6)
+                        .transition(
+                            .asymmetric(
+                                insertion: .opacity,
+                                removal: .opacity.combined(with: .scale(scale: 0.9))
+                            )
+                        )
+                } else {
+                    HStack {
+                        Spacer()
+                        CompileFooterButton(
+                            memoCount: viewModel.memos.count,
+                            isCompiling: viewModel.isCompiling,
+                            isVisible: true,
+                            stage: compilationService.stage,
+                            errorMessage: viewModel.submitError,
+                            onTap: { viewModel.compile() },
+                            onRetry: { viewModel.compile() }
+                        )
+                        .shadow(
+                            color: DSColor.accentAmber.opacity(unlockGlow ? 0.5 : 0),
+                            radius: unlockGlow ? 18 : 0
+                        )
+                        .animation(.easeOut(duration: 0.6), value: unlockGlow)
+                        Spacer()
+                    }
+                    .padding(.bottom, 4)
+                }
+            }
+        }
+        .animation(Motion.spring, value: viewModel.memos.count)
+        .onChange(of: viewModel.memos.count) { count in
+            if count >= 3 && !viewModel.isDailyPageCompiled && !didCelebrateUnlock {
+                didCelebrateUnlock = true
+                Haptics.success()
+                if !reduceMotion {
+                    unlockGlow = true
+                    Task {
+                        try? await Task.sleep(nanoseconds: 600_000_000)
+                        unlockGlow = false
+                    }
+                }
+            } else if count < 3 {
+                didCelebrateUnlock = false
+            }
+        }
+
+        inputBarV4
     }
 
     // MARK: - Helpers
