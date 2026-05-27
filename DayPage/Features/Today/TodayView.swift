@@ -401,10 +401,6 @@ struct TodayView: View {
                         alignment: .bottom
                     )
                     .coordinateSpace(name: "todayScroll")
-                    .refreshable {
-                        Haptics.soft()
-                        await viewModel.refresh()
-                    }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                     // MARK: Compile Area
