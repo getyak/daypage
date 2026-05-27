@@ -1,99 +1,174 @@
-// Home view — translated from /tmp/daypage-handoff/.../view-home.jsx.
-// Inbox count is now live; other stats remain mock (Round 1 skeleton).
+// Home view — stats, activities, inbox observations, and domains wired to real data.
 import Link from "next/link";
-import { ArrowUpRight, ChevronRight, Sparkles, Inbox, Activity } from "lucide-react";
+import { ArrowUpRight, ChevronRight, Sparkles, Inbox, Activity, Clock } from "lucide-react";
 import { Btn, Card, Chip, Icon, SectionLabel, Sparkline } from "@/components/ui";
 import { auth } from "@/auth";
 import { db } from "@/lib/db/client";
-import { users, inbox_items } from "@/lib/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { users, inbox_items, memos, pages, domains, page_links, activities } from "@/lib/db/schema";
+import { eq, and, gte, lt, desc, sql } from "drizzle-orm";
 
-async function getOpenInboxCount(email: string): Promise<number> {
+// ── Data helpers ──────────────────────────────────────────────────────────────
+
+async function resolveUserId(email: string): Promise<string | null> {
+  const rows = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+  return rows[0]?.id ?? null;
+}
+
+type StatsData = {
+  sources: number;
+  pages: number;
+  domainCount: number;
+  backlinks: number;
+  sources_week: number;
+  pages_week: number;
+  backlinks_week: number;
+};
+
+async function getStats(userId: string): Promise<StatsData> {
+  const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   try {
-    const userRows = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
-    const userId = userRows[0]?.id;
-    if (!userId) return 0;
-
-    const rows = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(inbox_items)
-      .where(and(eq(inbox_items.user_id, userId), eq(inbox_items.status, "open")));
-    return rows[0]?.count ?? 0;
+    const [sourcesRes, pagesRes, domainsRes, backlinksRes, swRes, pwRes, bwRes] =
+      await Promise.all([
+        db.select({ count: sql<number>`count(*)::int` }).from(memos).where(eq(memos.user_id, userId)),
+        db.select({ count: sql<number>`count(*)::int` }).from(pages).where(eq(pages.user_id, userId)),
+        db.select({ count: sql<number>`count(*)::int` }).from(domains).where(eq(domains.user_id, userId)),
+        db.select({ count: sql<number>`count(*)::int` }).from(page_links).where(eq(page_links.user_id, userId)),
+        db.select({ count: sql<number>`count(*)::int` }).from(memos).where(and(eq(memos.user_id, userId), gte(memos.created_at, oneWeekAgo))),
+        db.select({ count: sql<number>`count(*)::int` }).from(pages).where(and(eq(pages.user_id, userId), gte(pages.created_at, oneWeekAgo))),
+        db.select({ count: sql<number>`count(*)::int` }).from(page_links).where(and(eq(page_links.user_id, userId), gte(page_links.created_at, oneWeekAgo))),
+      ]);
+    return {
+      sources: sourcesRes[0]?.count ?? 0,
+      pages: pagesRes[0]?.count ?? 0,
+      domainCount: domainsRes[0]?.count ?? 0,
+      backlinks: backlinksRes[0]?.count ?? 0,
+      sources_week: swRes[0]?.count ?? 0,
+      pages_week: pwRes[0]?.count ?? 0,
+      backlinks_week: bwRes[0]?.count ?? 0,
+    };
   } catch {
-    return 0;
+    return { sources: 0, pages: 0, domainCount: 0, backlinks: 0, sources_week: 0, pages_week: 0, backlinks_week: 0 };
   }
 }
 
-// ── Mock data (mirrors design's DayPage namespace) ────────────────────
-type Observation = {
-  lead: string;
-  body: string[];
-  actions: { label: string; kind: "primary" | "soft" | "ghost"; href?: string; disabled?: boolean }[];
+type ActivityRow = {
+  id: string;
+  verb: string;
+  subject: string;
+  target_type: string | null;
+  target_id: string | null;
+  created_at: Date;
 };
 
-type RecentRow = { when: string; what: string; subject: string; target: string };
+async function getActivities(userId: string): Promise<ActivityRow[]> {
+  try {
+    return await db
+      .select()
+      .from(activities)
+      .where(eq(activities.user_id, userId))
+      .orderBy(desc(activities.created_at))
+      .limit(6);
+  } catch {
+    return [];
+  }
+}
 
-type Domain = { id: string; label: string; count: number; dot: string };
-
-const observations: Observation[] = [
-  {
-    lead: "I noticed",
-    body: [
-      "Eight of your last ten inputs land in the same neighbourhood — Raft, Paxos, Spanner clocks, Kafka log compaction. That cluster has grown 3× this week.",
-      "You don’t have a Concepts page tying them together yet. Want me to draft one called “Replicated state machines” and link the existing sources?",
-    ],
-    actions: [
-      { label: "Draft the page", kind: "primary", disabled: true },
-      { label: "Show what it would link", kind: "soft", disabled: true },
-      { label: "Not yet", kind: "ghost", disabled: true },
-    ],
-  },
-  {
-    lead: "I’m unsure",
-    body: [
-      "Two of your sources disagree about whether linearizability subsumes serializability. The 2018 talk says yes; your notes from last month say “they’re orthogonal”.",
-      "I’ve been quietly carrying both. Pick one or I’ll keep them as a tracked contradiction.",
-    ],
-    actions: [
-      { label: "Open in Inbox", kind: "soft", href: "/inbox" },
-      { label: "Keep tracked", kind: "ghost", disabled: true },
-    ],
-  },
-];
-
-const recent: RecentRow[] = [
-  { when: "Just now", what: "Compiled", subject: " “Raft consensus, in plain words” → 3 sources merged into ", target: "Raft (concept)" },
-  { when: "12m ago", what: "Linked", subject: " “The end of Moore’s law” essay to ", target: "Hardware substrate (concept)" },
-  { when: "1h ago", what: "Drafted", subject: " a synthesis page from your conversation about ", target: "streaming joins" },
-  { when: "3h ago", what: "Merged", subject: " 4 voice notes from this morning into ", target: "Daily inbox · 2026-05-10" },
-  { when: "Yesterday", what: "Promoted", subject: " highlights from “Designing Data-Intensive Apps” Ch. 9 to ", target: "Linearizability" },
-  { when: "2 days ago", what: "Archived", subject: " “Quick read on TPM chips” — no references in 90 days, moved to ", target: "cold storage" },
-];
-
-const domainsMock: Domain[] = [
-  { id: "distsys", label: "Distributed systems", count: 24, dot: "#5D3000" },
-  { id: "mlsystems", label: "ML systems", count: 18, dot: "#7A3F00" },
-  { id: "biotech", label: "Biotech weekly", count: 11, dot: "#A66A00" },
-  { id: "crm", label: "People & relationships", count: 9, dot: "#4C7A3F" },
-];
-
-const sparks: Record<string, number[]> = {
-  distsys: [3, 4, 6, 5, 8, 9, 12, 14, 11, 13, 16, 18],
-  mlsystems: [2, 3, 3, 4, 4, 5, 6, 7, 8, 9, 9, 11],
-  biotech: [1, 2, 2, 3, 4, 4, 5, 6, 6, 7, 8, 8],
-  crm: [4, 4, 4, 4, 4, 5, 5, 5, 6, 6, 7, 8],
+type InboxItemRow = {
+  id: string;
+  kind: string;
+  title: string;
+  body: string | null;
+  created_at: Date;
 };
 
-// ── Page ──────────────────────────────────────────────────────────────
+async function getOpenInboxItems(userId: string): Promise<{ items: InboxItemRow[]; total: number }> {
+  try {
+    const [countRes, rows] = await Promise.all([
+      db.select({ count: sql<number>`count(*)::int` }).from(inbox_items).where(and(eq(inbox_items.user_id, userId), eq(inbox_items.status, "open"))),
+      db
+        .select({ id: inbox_items.id, kind: inbox_items.kind, title: inbox_items.title, body: inbox_items.body, created_at: inbox_items.created_at })
+        .from(inbox_items)
+        .where(and(eq(inbox_items.user_id, userId), eq(inbox_items.status, "open")))
+        .orderBy(desc(inbox_items.created_at))
+        .limit(3),
+    ]);
+    return { items: rows, total: countRes[0]?.count ?? 0 };
+  } catch {
+    return { items: [], total: 0 };
+  }
+}
+
+type DomainRow = {
+  id: string;
+  slug: string;
+  label: string;
+  color: string | null;
+  created_at: Date;
+};
+
+async function getDomains(userId: string): Promise<DomainRow[]> {
+  try {
+    return await db
+      .select({ id: domains.id, slug: domains.slug, label: domains.label, color: domains.color, created_at: domains.created_at })
+      .from(domains)
+      .where(eq(domains.user_id, userId))
+      .orderBy(domains.position, domains.created_at)
+      .limit(8);
+  } catch {
+    return [];
+  }
+}
+
+// ── Formatting helpers ────────────────────────────────────────────────────────
+
+function formatRelative(date: Date): string {
+  const diffMs = Date.now() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60_000);
+  if (diffMin < 1) return "Just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `${diffH}h ago`;
+  const diffD = Math.floor(diffH / 24);
+  if (diffD === 1) return "Yesterday";
+  return `${diffD} days ago`;
+}
+
+function kindLabel(kind: string): string {
+  switch (kind) {
+    case "contradiction": return "Contradiction";
+    case "schema": return "Schema";
+    case "orphan": return "Orphan";
+    case "compiled": return "Compiled";
+    default: return kind;
+  }
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
 export default async function HomePage() {
   const session = await auth();
-  const openInboxCount = session?.user?.email
-    ? await getOpenInboxCount(session.user.email)
-    : 0;
+  const userId = session?.user?.email ? await resolveUserId(session.user.email) : null;
+
+  const [stats, recentActivities, inboxData, domainList] = userId
+    ? await Promise.all([
+        getStats(userId),
+        getActivities(userId),
+        getOpenInboxItems(userId),
+        getDomains(userId),
+      ])
+    : [
+        { sources: 0, pages: 0, domainCount: 0, backlinks: 0, sources_week: 0, pages_week: 0, backlinks_week: 0 },
+        [] as ActivityRow[],
+        { items: [] as InboxItemRow[], total: 0 },
+        [] as DomainRow[],
+      ];
+
+  const openInboxCount = inboxData.total;
+
   return (
     <div className="page">
       {/* Hero */}
@@ -101,25 +176,18 @@ export default async function HomePage() {
         <div>
           <div
             className="ds-section-label"
-            style={{
-              color: "var(--accent)",
-              marginBottom: 14,
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-            }}
+            style={{ color: "var(--accent)", marginBottom: 14, display: "inline-flex", alignItems: "center", gap: 6 }}
           >
             <Icon as={Sparkles} size={12} />
-            Sun, 10 May 2026 · morning
+            {new Date().toLocaleDateString("en-US", { weekday: "short", day: "numeric", month: "long", year: "numeric" })}
           </div>
           <h1 className="hero-headline">
-            Eight new signals since you logged off.
+            Your personal knowledge base.
             <br />
-            <span className="accent">Three reshape pages you already cared about.</span>
+            <span className="accent">Everything compiled and connected.</span>
           </h1>
           <p className="hero-sub">
-            I&rsquo;ve compiled what I could. The rest is in the queue, and a couple of things I wasn&rsquo;t sure
-            about are sitting in your inbox.
+            Add sources and I&rsquo;ll compile them into your wiki. Check the inbox for things that need your attention.
           </p>
           <div className="flex gap-12 mt-24">
             <Link href="/add"><Btn kind="primary">Add something</Btn></Link>
@@ -132,54 +200,52 @@ export default async function HomePage() {
           </div>
         </div>
 
-        {/* Stats grid (2x2) */}
+        {/* Stats grid (2×2) — US-002 */}
         <div className="stats">
           <div className="stat">
-            <div className="stat__value">147</div>
+            <div className="stat__value">{stats.sources}</div>
             <div className="stat__label">Sources</div>
-            <div className="stat__delta">+12 this week</div>
+            <div className="stat__delta">+{stats.sources_week} this week</div>
           </div>
           <div className="stat">
-            <div className="stat__value">84</div>
+            <div className="stat__value">{stats.pages}</div>
             <div className="stat__label">Wiki pages</div>
-            <div className="stat__delta">+3 this week</div>
+            <div className="stat__delta">+{stats.pages_week} this week</div>
           </div>
           <div className="stat">
-            <div className="stat__value">12</div>
+            <div className="stat__value">{stats.domainCount}</div>
             <div className="stat__label">Domains</div>
-            <div className="stat__delta" style={{ color: "var(--fg-subtle)" }}>+1 proposed</div>
+            <div className="stat__delta" style={{ color: "var(--fg-subtle)" }}>across your topics</div>
           </div>
           <div className="stat">
-            <div className="stat__value">3.2k</div>
+            <div className="stat__value">{stats.backlinks}</div>
             <div className="stat__label">Backlinks</div>
-            <div className="stat__delta">+87 this week</div>
+            <div className="stat__delta">+{stats.backlinks_week} this week</div>
           </div>
         </div>
       </div>
 
-      {/* Observations */}
+      {/* Observations — US-004 */}
       <div className="mt-32">
-        <SectionLabel right={observations.length > 0 ? <Chip tone="accent">{observations.length} new</Chip> : null}>
+        <SectionLabel
+          right={
+            openInboxCount > 0 ? (
+              <Link href="/inbox">
+                <Chip tone="accent">{openInboxCount} open</Chip>
+              </Link>
+            ) : null
+          }
+        >
           What the system noticed
         </SectionLabel>
-        {observations.length === 0 ? (
+        {inboxData.items.length === 0 ? (
           <Card>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 12,
-                padding: "48px 24px",
-                textAlign: "center",
-              }}
-            >
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: "48px 24px", textAlign: "center" }}>
               <span style={{ color: "var(--fg-subtle)", opacity: 0.5, display: "flex" }}>
                 <Icon as={Sparkles} size={28} />
               </span>
               <p style={{ color: "var(--fg-subtle)", margin: 0, fontSize: "0.9rem" }}>
-                No observations yet — start by adding a source
+                No pending observations
               </p>
               <Link href="/add">
                 <Btn kind="ghost" size="sm">Add a source</Btn>
@@ -188,76 +254,61 @@ export default async function HomePage() {
           </Card>
         ) : (
           <Card>
-            {observations.map((o, i) => (
-              <div key={i}>
-                <div className="observation">
-                  <div className="observation__lead">
-                    <span className="pulse" />
-                    {o.lead}
-                  </div>
-                  <div className="observation__body">
-                    {o.body.map((p, j) => (
-                      <p key={j}>{p}</p>
-                    ))}
-                    <div className="observation__actions">
-                      {o.actions.map((a, k) =>
-                        a.href ? (
-                          <Link key={k} href={a.href}>
-                            <Btn kind={a.kind} size="sm">{a.label}</Btn>
-                          </Link>
-                        ) : (
-                          <Btn
-                            key={k}
-                            kind={a.kind}
-                            size="sm"
-                            disabled={a.disabled}
-                            title={a.disabled ? "coming soon" : undefined}
-                          >
-                            {a.label}
-                          </Btn>
-                        )
-                      )}
+            {inboxData.items.map((item, i) => (
+              <div key={item.id}>
+                <Link href="/inbox" style={{ textDecoration: "none", color: "inherit" }}>
+                  <div className="observation">
+                    <div className="observation__lead">
+                      <span className="pulse" />
+                      {kindLabel(item.kind)}
+                    </div>
+                    <div className="observation__body">
+                      <p style={{ fontWeight: 500, margin: "0 0 4px" }}>{item.title}</p>
+                      {item.body && <p style={{ color: "var(--fg-subtle)", margin: 0, fontSize: "0.875rem" }}>{item.body}</p>}
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, color: "var(--fg-subtle)", fontSize: "0.8rem" }}>
+                        <Icon as={Clock} size={11} />
+                        {formatRelative(item.created_at)}
+                      </div>
                     </div>
                   </div>
-                </div>
-                {i < observations.length - 1 && <div className="divider" />}
+                </Link>
+                {i < inboxData.items.length - 1 && <div className="divider" />}
               </div>
             ))}
+            {openInboxCount > inboxData.items.length && (
+              <div style={{ padding: "12px 16px", borderTop: "1px solid var(--border)" }}>
+                <Link href="/inbox">
+                  <Btn kind="ghost" size="sm" iconRight={<Icon as={ArrowUpRight} size={14} />}>
+                    View all {openInboxCount} observations
+                  </Btn>
+                </Link>
+              </div>
+            )}
           </Card>
         )}
       </div>
 
-      {/* Recent activity */}
+      {/* Recent activity — US-003 */}
       <div className="mt-32">
         <SectionLabel
           right={
             <Link href="/inbox?filter=compiled">
               <Btn kind="ghost" size="sm" iconRight={<Icon as={ArrowUpRight} size={14} />}>
-                Full history
+                View all
               </Btn>
             </Link>
           }
         >
           Recent activity
         </SectionLabel>
-        {recent.length === 0 ? (
+        {recentActivities.length === 0 ? (
           <Card>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 12,
-                padding: "48px 24px",
-                textAlign: "center",
-              }}
-            >
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: "48px 24px", textAlign: "center" }}>
               <span style={{ color: "var(--fg-subtle)", opacity: 0.5, display: "flex" }}>
                 <Icon as={Activity} size={28} />
               </span>
               <p style={{ color: "var(--fg-subtle)", margin: 0, fontSize: "0.9rem" }}>
-                No activity yet — start by adding a memo
+                No recent activity — start by adding a memo
               </p>
               <Link href="/add">
                 <Btn kind="ghost" size="sm">Add a memo</Btn>
@@ -266,13 +317,16 @@ export default async function HomePage() {
           </Card>
         ) : (
           <Card>
-            {recent.map((r, i) => (
-              <div className="activity-row" key={i}>
-                <div className="when">{r.when}</div>
+            {recentActivities.map((a) => (
+              <div className="activity-row" key={a.id}>
+                <div className="when">{formatRelative(a.created_at)}</div>
                 <div className="what">
-                  <strong>{r.what}</strong>
-                  {r.subject}
-                  <Link href="/wiki" className="activity-target"><em>{r.target}</em></Link>
+                  <strong>{a.verb}</strong>
+                  {" "}
+                  {a.subject}
+                  {a.target_id && a.target_type === "page" && (
+                    <Link href={`/wiki/${a.target_id}`} className="activity-target"><em>{a.target_id}</em></Link>
+                  )}
                 </div>
                 <Icon as={ChevronRight} size={14} />
               </div>
@@ -281,46 +335,54 @@ export default async function HomePage() {
         )}
       </div>
 
-      {/* Domains at a glance */}
+      {/* Domains at a glance — US-005 */}
       <div className="mt-32">
         <SectionLabel
           right={
-            <Btn
-              kind="ghost"
-              size="sm"
-              iconRight={<Icon as={ArrowUpRight} size={14} />}
-              disabled
-              title="coming soon"
-            >
-              All domains
-            </Btn>
+            <Link href="/insights">
+              <Btn kind="ghost" size="sm" iconRight={<Icon as={ArrowUpRight} size={14} />}>
+                All domains
+              </Btn>
+            </Link>
           }
         >
           Domains at a glance
         </SectionLabel>
-        <div className="grid-4">
-          {domainsMock.map((d) => (
-            <Card key={d.id} className="domain-card">
-              <div className="flex between center">
-                <div className="domain-card__title">{d.label}</div>
-                <span
-                  style={{
-                    background: d.dot,
-                    width: 8,
-                    height: 8,
-                    borderRadius: 999,
-                    display: "inline-block",
-                  }}
-                />
-              </div>
-              <Sparkline values={sparks[d.id] ?? [3, 4, 5, 6, 7, 8, 9, 10]} color={d.dot} fill w={240} h={32} />
-              <div className="flex between center">
-                <div className="domain-card__meta">{d.count} pages · 4 sources this week</div>
-                <Icon as={ArrowUpRight} size={14} />
-              </div>
-            </Card>
-          ))}
-        </div>
+        {domainList.length === 0 ? (
+          <Card>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, padding: "48px 24px", textAlign: "center" }}>
+              <p style={{ color: "var(--fg-subtle)", margin: 0, fontSize: "0.9rem" }}>No domains yet</p>
+            </div>
+          </Card>
+        ) : (
+          <div className="grid-4">
+            {domainList.map((d) => (
+              <Link key={d.id} href={`/insights?domain=${d.slug}`} style={{ textDecoration: "none" }}>
+                <Card className="domain-card">
+                  <div className="flex between center">
+                    <div className="domain-card__title">{d.label}</div>
+                    <span
+                      style={{
+                        background: d.color ?? "#888",
+                        width: 8,
+                        height: 8,
+                        borderRadius: 999,
+                        display: "inline-block",
+                      }}
+                    />
+                  </div>
+                  <Sparkline values={[3, 4, 5, 6, 7, 8, 9, 10]} color={d.color ?? "#888"} fill w={240} h={32} />
+                  <div className="flex between center">
+                    <div className="domain-card__meta">
+                      {new Date(d.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </div>
+                    <Icon as={ArrowUpRight} size={14} />
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
