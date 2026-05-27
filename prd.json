@@ -125,7 +125,7 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "Wave1 决策二。schema 优先。"
     },
     {
@@ -141,7 +141,7 @@
         "Tests pass"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Wave1。依赖 US-008。"
     },
     {
@@ -156,7 +156,7 @@
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "Wave1。依赖 US-008/009。"
     },
     {
@@ -172,7 +172,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "Wave1。依赖 US-010。"
     },
     {
@@ -186,7 +186,7 @@
         "Typecheck passes"
       ],
       "priority": 12,
-      "passes": false,
+      "passes": true,
       "notes": "Wave1。schema, /api/ingest 前置。"
     },
     {
