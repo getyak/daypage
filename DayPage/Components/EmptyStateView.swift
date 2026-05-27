@@ -35,12 +35,22 @@ struct EmptyStateView: View {
             }
         }
         .padding(.horizontal, 32)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(combinedAccessibilityLabel)
+        .modifier(CTAAccessibilityModifier(ctaLabel: ctaLabel, ctaAction: ctaAction))
         .onAppear {
             appeared = true
             if !reduceMotion {
                 breathing = true
             }
         }
+    }
+
+    private var combinedAccessibilityLabel: Text {
+        if let subtitle {
+            return Text(title) + Text(", \(subtitle)")
+        }
+        return Text(title)
     }
 
     // MARK: - Private
@@ -84,6 +94,7 @@ struct EmptyStateView: View {
                 value: breathing
             )
             .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 
     private func ctaButton(label: String, action: @escaping () -> Void) -> some View {
@@ -102,6 +113,27 @@ struct EmptyStateView: View {
                 .clipShape(Capsule())
         }
         .buttonStyle(PressableScaleStyle(reduceMotion: reduceMotion))
+    }
+}
+
+// MARK: - CTAAccessibilityModifier
+
+private struct CTAAccessibilityModifier: ViewModifier {
+    let ctaLabel: String?
+    let ctaAction: (() -> Void)?
+
+    func body(content: Content) -> some View {
+        if let label = ctaLabel, let action = ctaAction {
+            content
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint(label)
+                .accessibilityAction {
+                    Haptics.tapConfirm()
+                    action()
+                }
+        } else {
+            content
+        }
     }
 }
 
