@@ -156,6 +156,9 @@
 "memo.detail.location.open_maps" = "Open in Apple Maps";
 "memo.detail.photo.tap_fullscreen" = "Tap to view full screen";
 
+/* Archive — async month loading (US-015) */
+"archive.loading_month" = "Loading…";
+
 /* Settings — AI Engine (US-014) */
 "settings.ai.section_title" = "AI Engine";
 "settings.ai.model" = "Model";

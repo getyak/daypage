@@ -184,6 +184,9 @@
 "memo.detail.location.open_maps" = "在 Apple 地图中打开";
 "memo.detail.photo.tap_fullscreen" = "点击查看全屏";
 
+/* Archive — async month loading (US-015) */
+"archive.loading_month" = "加载中…";
+
 /* Settings — AI Engine (US-014) */
 "settings.ai.section_title" = "AI 引擎";
 "settings.ai.model" = "模型";

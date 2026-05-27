@@ -102,6 +102,10 @@ final class ArchiveViewModel: ObservableObject {
     // navigates to a different month before the previous load finishes.
     private var loadMonthTask: Task<Void, Never>?
 
+    // Cache: keyed by "yyyy-MM" so navigating back to a viewed month is instant.
+    // Cleared only when the view model is deallocated or a forced refresh is requested.
+    private var monthCache: [String: [String: DayStats]] = [:]
+
     private let dateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
@@ -155,6 +159,13 @@ final class ArchiveViewModel: ObservableObject {
     }
 
     func loadMonth() {
+        // Serve cached month instantly (no spinner, no disk read).
+        let cacheKey = String(format: "%04d-%02d", currentYear, currentMonth)
+        if let cached = monthCache[cacheKey] {
+            dayStats = cached
+            return
+        }
+
         // Cancel any in-flight load so that a stale result from a prior month
         // cannot overwrite the data for the month the user just navigated to.
         loadMonthTask?.cancel()
@@ -271,7 +282,9 @@ final class ArchiveViewModel: ObservableObject {
                 return
             }
 
+            let key = String(format: "%04d-%02d", year, month)
             await MainActor.run {
+                self.monthCache[key] = result
                 self.dayStats = result
                 self.isLoading = false
             }
@@ -451,7 +464,23 @@ struct ArchiveView: View {
                                 .padding(.horizontal, 20)
                                 .padding(.vertical, 16)
 
-                            if mode == .calendar {
+                            if viewModel.isLoading {
+                                HStack {
+                                    Spacer()
+                                    VStack(spacing: 8) {
+                                        ProgressView()
+                                            .tint(DSColor.amberAccent)
+                                        Text(NSLocalizedString("archive.loading_month", comment: ""))
+                                            .font(DSType.mono9)
+                                            .foregroundColor(DSColor.inkSubtle)
+                                            .tracking(1.0)
+                                            .textCase(.uppercase)
+                                    }
+                                    Spacer()
+                                }
+                                .padding(.vertical, 48)
+                                .transition(.opacity)
+                            } else if mode == .calendar {
                                 calendarGrid
                                     .padding(.horizontal, 12)
                                     .id("\(viewModel.currentYear)-\(viewModel.currentMonth)")
