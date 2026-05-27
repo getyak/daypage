@@ -1,204 +1,641 @@
 {
-  "project": "DayPage Codex (web)",
-  "branchName": "ralph/codex-add-page-polish",
-  "description": "Codex /add page polish — 修复 2026-05-20 端到端测试报告中发现的 9 个缺陷（草稿丢失、SSR/CSR 首帧不一致、⌘+Enter、卡片跳详情、Bookmarklet 误附图、URL/Photo/File 模式按钮等），并补齐已规划但未实现的辅助交互。Source: tasks/prd-codex-add-page-polish.md",
+  "project": "DayPage vNext",
+  "branchName": "ralph/vnext-integrations-insights",
+  "description": "DayPage vNext — 全项目改进：外部信息源集成（统一 Ingest Gateway / API Key / Telegram / Claude Code hooks + MCP / RSS）、统计洞察仪表盘（知识/开发/足迹/成本四维度 + 周报）、现有功能补全（首页接真数据 / memo 详情页 / Settings 云同步 / 收口 coming soon）、架构与工程质量（iOS↔Web 统一 / pgvector / 安全 / 可观测性）。Source: docs/PRD-vNext.md + tasks/prd-wave0~4*.md。所有 story 单次迭代可完成，按依赖排序：schema → 后端 → UI → 聚合。",
   "userStories": [
     {
       "id": "US-001",
-      "title": "新增 useAddDraft hook（localStorage 草稿持久化）",
-      "description": "As a developer, I need a self-contained hook that reads/writes the draft to localStorage so US-002+ can rely on it.",
+      "title": "修复 sendEvent 在 dev 的静默 no-op",
+      "description": "As a developer, I want to be warned when an Inngest event is dropped locally so memos don't silently fail to compile.",
       "acceptanceCriteria": [
-        "Create web/src/app/(app)/add/useAddDraft.ts exporting useAddDraft()",
-        "Hook returns { draft, setDraft, saveDraft, clearDraft, restoredAt }",
-        "Persist to localStorage key 'codex.add.draft.v1' with shape { text: string, mode: 'text'|'url'|'photo'|'file', attachmentRef: string|null, savedAt: string (ISO 8601) }",
-        "Hook is SSR-safe: only touches localStorage inside useEffect / event handlers",
-        "Returns null draft on first render to avoid hydration mismatch",
+        "web/src/lib/inngest/client.ts 的 no-op 分支（dev 且无 INNGEST_EVENT_KEY）加 console.warn，提示需启动 dev:inngest 或设 INNGEST_EVENT_KEY",
+        "在 web/AGENTS.md 或 web README 文档化本地需同时跑 npm run dev 与 npm run dev:inngest",
+        "warn 信息包含具体修复指引（端口 8288 / 环境变量名）",
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-002",
-      "title": "Wire Save draft + 自动回填 to UnifiedInput",
-      "description": "As a user, I want my draft to survive a page refresh so I never lose what I was writing.",
+      "title": "首页统计卡接入 /api/stats",
+      "description": "As a user, I want the home stats cards to show my real numbers so the dashboard reflects my actual data.",
       "acceptanceCriteria": [
-        "web/src/app/(app)/add/UnifiedInput.tsx uses useAddDraft()",
-        "Clicking Save draft writes current textarea text + mode to localStorage and shows existing 'Draft saved' toast",
-        "On mount (after hydration), if a non-empty draft exists, prefill textarea and show subtle hint 'Restored draft · {relative time}'",
-        "Show a 'Discard draft' button next to the hint; clicking it clears the draft and empties the textarea",
-        "Successful POST /api/memos (201) clears the draft",
-        "Clearing textarea and blurring for >1s clears the draft",
-        "No React hydration warning in console",
+        "home/page.tsx 的 4 个写死数字（sources/wiki pages/domains/backlinks）改为调用 GET /api/stats",
+        "周 delta（+12 this week 等）来自 stats 端点真实 delta，移除写死值",
+        "新用户（数据为空）显示 0 与引导，而非假数字",
+        "移除 home/page.tsx:138-156 的写死常量",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 2,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-003",
-      "title": "⌘/Ctrl + Enter 触发 Add 提交",
-      "description": "As a keyboard user, I want Cmd/Ctrl+Enter inside the textarea to submit the memo.",
+      "title": "首页 Recent activity 接入 /api/activities",
+      "description": "As a user, I want recent activity to show what actually happened so I can track real progress.",
       "acceptanceCriteria": [
-        "Add onKeyDown to UnifiedInput textarea: when (metaKey || ctrlKey) && key === 'Enter', call the same submit handler as the Add button",
-        "Shortcut is a no-op when Add button is disabled (empty content or submitting)",
-        "Shift+Enter still inserts newline as before",
-        "Hint line below textarea shows '⌘ + Enter to submit' on macOS, 'Ctrl + Enter to submit' otherwise",
+        "移除 home/page.tsx:68-75 的写死 recent 数组",
+        "改为调用 GET /api/activities（读 change_log），按时间倒序展示",
+        "每条活动的目标链接指向真实存在的路由",
+        "无活动时显示已有空态",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-004",
-      "title": "面包屑改为 usePathname 派生（SSR/CSR 一致）",
-      "description": "As a user, I want the breadcrumb to display CODEX / Add immediately when I navigate to /add, with no flash of stale value.",
+      "title": "首页 What the system noticed 接入 inbox_items",
+      "description": "As a user, I want the observations section to show real AI-detected items so I can act on them.",
       "acceptanceCriteria": [
-        "In web/src/app/(app)/layout.tsx (or whichever component renders the breadcrumb), source the current segment from usePathname() / useSelectedLayoutSegment() instead of any cookie/store",
-        "Server-rendered breadcrumb matches client-rendered breadcrumb on first paint (no hydration mismatch warning)",
-        "Navigating /home → /add updates the breadcrumb without requiring a refresh",
-        "Console remains 0 errors / 0 warnings",
+        "移除 home/page.tsx:42-65 的写死 observations 数组",
+        "改为查询 inbox_items（kind ∈ contradiction/schema/orphan，status=open）取最多 N 条",
+        "按钮接通真实端点：resolve→/api/inbox/[id]/resolve、dismiss→/api/inbox/[id]/dismiss、snooze→/api/inbox/[id]/snooze",
+        "无 observation 时显示已有空态",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-005",
-      "title": "POST /api/memos 后乐观插入 QUEUED 条目",
-      "description": "As a user, when I submit a memo I want it to appear in the Compile Queue immediately with a QUEUED label.",
+      "title": "首页 Domains at a glance 接入真实 domain",
+      "description": "As a user, I want the domains section to show my real domains and page counts.",
       "acceptanceCriteria": [
-        "After POST /api/memos resolves with 201, prepend the new memo into the react-query cache used by CompileQueue (queryKey starting with 'memos' and compile_status='pending')",
-        "Temp item has shape { id: 'temp-{uuid}', compile_status: 'pending', created_at: now, type: detected_type, text: payload.text }",
-        "CompileQueue renders 'QUEUED' label for items where compile_status === 'pending' (no special-case for temp ids)",
-        "When the SSE /api/stream/compile delivers the real id, swap the temp item for the real one (setQueryData or invalidateQueries) with no visible reordering jump",
-        "On POST failure, remove the temp item and toast 'Failed to submit, try again'",
+        "移除 home/page.tsx:77-89 的 domainsMock 与写死 sparks",
+        "改为调用 GET /api/domains，每个 domain 显示真实 page 计数",
+        "sparkline 用真实趋势或明确静态降级（不用假数据）",
+        "All domains 按钮接通跳转或移除 disabled",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-006",
-      "title": "Compile Queue / Recently Compiled 卡片整体可点击跳详情",
-      "description": "As a user, clicking the body of a queue card should navigate to that memo's detail page.",
+      "title": "新建 memo 详情页路由 /memos/[id]",
+      "description": "As a user, I want to click a memo and view its detail so I can see the original input and what it became.",
       "acceptanceCriteria": [
-        "In web/src/app/(app)/add/CompileQueue.tsx and RecentlyCompiled.tsx, wrap each card body in a Next.js <Link> pointing to the existing memo detail route (grep for current memo detail link usage to confirm path; if none, use /wiki/[slug] as default)",
-        "Card body shows cursor-pointer and a 1px focus outline on Tab focus",
-        "The LIGHT/FULL mode-toggle control on the card calls e.stopPropagation() in its onClick so it never triggers the card link",
-        "Hitting Enter or Space on a focused card navigates to the detail page",
+        "新建 web/src/app/(app)/memos/[id]/page.tsx，server component，按 user 鉴权",
+        "通过 GET /api/memos/[id] 取 memo，缺失时 notFound()",
+        "展示 body 原文、type、origin/device、created_at、location、weather",
+        "通过 page_sources 反查并链接到该 memo 编译产出的 pages",
+        "RecentlyCompiled.tsx:67 与 CompileQueue.tsx:292 的链接点击不再 404",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-007",
-      "title": "Bookmarklet 按钮改为脚本指引 Modal",
-      "description": "As a user, clicking Bookmarklet should show me a draggable bookmark link + script, not silently attach a fake PNG.",
+      "title": "memo 详情页附件展示",
+      "description": "As a user, I want to see a memo's attachments so I can review photos and listen to voice notes.",
       "acceptanceCriteria": [
-        "Remove the dev-only code that auto-attaches IMG_3836.PNG when the Bookmarklet button is clicked",
-        "Clicking Bookmarklet opens a modal containing: (a) a draggable <a href='javascript:...'> labeled '📎 Save to Codex'; (b) a <pre> block with the bookmarklet source + one-click copy button; (c) one-paragraph instructions on dragging it to the bookmarks bar",
-        "Modal closes via Esc, backdrop click, and explicit close button",
-        "No write to textarea state or attachment state from the Bookmarklet flow",
-        "Reuse existing UI primitives from web/src/components/ui/ (Card/Btn/Icon); if a Dialog primitive doesn't exist, add a minimal one in web/src/app/(app)/_components/Dialog.tsx",
+        "memo 详情页展示图片缩略图（若有 photo attachment）",
+        "展示语音播放控件 + transcript（若有 audio attachment）",
+        "无附件时不渲染附件区",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-008",
-      "title": "URL 按钮改为切换 URL 输入模式",
-      "description": "As a user, clicking URL should switch the input into URL mode (placeholder + validation), not auto-paste the current page URL.",
+      "title": "memo 详情页 recompile 与删除操作",
+      "description": "As a user, I want to recompile or delete a memo from its detail page.",
       "acceptanceCriteria": [
-        "Remove the behavior that fills textarea with window.location.href when URL button is clicked",
-        "Clicking URL toggles a 'url' mode on UnifiedInput: button shows active state (same style as Photo/File active)",
-        "When mode === 'url', placeholder becomes 'https://… paste the link you want to save'",
-        "When mode === 'url' and textarea content is not a valid URL (new URL() throws), Add button is disabled and hint shows 'Enter a valid URL'",
-        "Clicking URL again returns to default 'text' mode without clearing existing text",
-        "Mode switching never clears already-typed text",
+        "Recompile 按钮调 POST /api/memos/[id]/recompile，触发后显示状态变化",
+        "Delete 按钮调 DELETE /api/memos/[id]，带二次确认对话框，删除后跳回上一页",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-009",
-      "title": "Photo / File 按钮接入文件选择 + 附件卡片",
-      "description": "As a user, clicking Photo opens camera/photo picker and clicking File opens a file picker; selected attachment shows on the form.",
+      "title": "新增 api_keys 表与迁移",
+      "description": "As a developer, I need to store hashed API keys so external sources can authenticate.",
       "acceptanceCriteria": [
-        "Photo button triggers a hidden <input type='file' accept='image/*' capture='environment'>",
-        "File button triggers a hidden <input type='file'> (no accept restriction; single file only)",
-        "After selection, render an attachment card under the textarea: thumbnail (for images) or generic icon, file name, size (formatted as KB/MB), and a ✕ remove button",
-        "Removing the attachment also clears the active mode (button no longer highlighted)",
-        "On submit, attachment is included in the request (use the same path the backend already expects; if no upload endpoint exists yet, leave a TODO and submit text-only — must not break typecheck)",
-        "Show a spinner on the attachment card while uploading; on failure, toast 'Upload failed, try again'",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "新增 api_keys 表：id, user_id(FK CASCADE), name, key_hash, prefix, scopes(jsonb), last_used_at, created_at, revoked_at",
+        "key_hash 存 sha256，明文不入库；prefix 存前 8 位",
+        "生成并运行 drizzle 迁移成功",
+        "Typecheck passes"
       ],
       "priority": 9,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-010",
-      "title": "UnifiedInput 渲染性能加固",
-      "description": "As an automation user, I want mode-button clicks to respond in <300ms with no occasional 30s freezes.",
+      "title": "新增 memos 幂等字段 source_channel / external_id",
+      "description": "As a developer, I need memos idempotent per external source so retries don't duplicate.",
       "acceptanceCriteria": [
-        "Audit UnifiedInput for hot-path issues: remove any deep-clone / JSON.stringify of full form state inside onChange / onClick handlers",
-        "Memoize the mode-button list and submit handler with useCallback / useMemo where appropriate",
-        "Add a Playwright test in web/e2e/ that clicks each mode button 50 times in sequence and asserts no timeout and final UI state is correct",
-        "The new e2e test passes",
+        "新增 memos.source_channel(text, nullable)、memos.external_id(text, nullable)",
+        "建唯一索引 (user_id, source_channel, external_id)（external_id 非空时生效）",
+        "生成并运行迁移成功",
         "Typecheck passes"
       ],
       "priority": 10,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-011",
-      "title": "/add 页面回归 E2E 用例集",
-      "description": "As a maintainer, I want Playwright coverage for every fix in this PRD so regressions are caught automatically.",
+      "title": "新增 ingest_sources 表与迁移",
+      "description": "As a developer, I need to store external source bindings so Telegram/RSS connections persist.",
       "acceptanceCriteria": [
-        "Create or extend web/e2e/add.spec.ts with tests for: draft restore after reload, ⌘+Enter submit, card click navigates to detail, breadcrumb first-paint shows 'Add', new submission shows QUEUED immediately, Bookmarklet opens modal (and does NOT attach a file), URL button toggles mode without auto-filling, Photo/File pickers attach and remove",
-        "All new tests pass locally via the project's e2e command (pnpm test:e2e or playwright test — use whichever the package.json defines)",
-        "No existing e2e test regresses",
+        "新增 ingest_sources 表：id, user_id(FK CASCADE), channel, config(jsonb), enabled, created_at",
+        "config 中敏感字段（如 telegram token）加密存储，不明文落库",
+        "生成并运行迁移成功",
         "Typecheck passes"
       ],
       "priority": 11,
-      "passes": true,
+      "passes": false,
       "notes": ""
     },
     {
       "id": "US-012",
-      "title": "(可选/默认关闭) 草稿服务端同步骨架",
-      "description": "As a multi-device user, I'd like drafts to sync across devices when the feature flag is on. This story only lays the skeleton; the flag stays off by default.",
+      "title": "API Key 鉴权中间件",
+      "description": "As a developer, I need a reusable way to authenticate Bearer-token requests so ingest endpoints can identify the user.",
       "acceptanceCriteria": [
-        "Add NEXT_PUBLIC_CODEX_DRAFT_SYNC env (documented in web/.env.example), default unset/false",
-        "When the flag is true, useAddDraft additionally: on mount, GET /api/drafts/add (if local draft empty); on change, debounce 1500ms then PUT /api/drafts/add with the same shape as the localStorage value",
-        "Create skeleton route handlers web/src/app/api/drafts/add/route.ts with GET + PUT that currently return 501 + a TODO comment marked 'Post-MVP'",
-        "When the flag is false, the sync code path is tree-shaken / behind an if (process.env.NEXT_PUBLIC_CODEX_DRAFT_SYNC === 'true') guard",
-        "No DB migration in this story",
-        "Typecheck passes"
+        "新增 helper：解析 Authorization Bearer dp_xxx，sha256 后比对 api_keys.key_hash",
+        "解析出 user_id + scopes 注入上下文；无效/已撤销 key 返回 401",
+        "命中后更新 last_used_at",
+        "复用 web/src/lib/ratelimit.ts，按 key 维度限流",
+        "Typecheck passes",
+        "Tests pass"
       ],
       "priority": 12,
-      "passes": true,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "API Key 管理端点 /api/keys",
+      "description": "As a user, I want to create and revoke API keys via API.",
+      "acceptanceCriteria": [
+        "POST /api/keys（session 鉴权）：创建 key，明文仅响应中返回一次，库里只存 hash",
+        "GET /api/keys：列出当前用户 key（只返回 prefix/name/last_used/created）",
+        "DELETE /api/keys/[id]：撤销（置 revoked_at）",
+        "所有端点强制 user 隔离",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "统一 Ingest 端点 POST /api/ingest",
+      "description": "As an external system, I want to POST content to DayPage so it becomes a memo.",
+      "acceptanceCriteria": [
+        "POST /api/ingest（PAT 鉴权，scope memo:write）",
+        "接受 NormalizedInput 子集，最少 { body }；zod 校验、大小限制、HTML 清洗",
+        "落 memo 时 origin=api，记录 source_channel",
+        "带 external_id 时重复推送返回已存在 memo（幂等）",
+        "创建后发 memo/created 事件触发编译；无效 key 401，超限 429",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "源配置端点 /api/sources",
+      "description": "As a user, I want to manage my external source bindings via API.",
+      "acceptanceCriteria": [
+        "GET/POST/PATCH/DELETE /api/sources（session 鉴权，user 隔离）",
+        "读写 ingest_sources，敏感 config 加密",
+        "Typecheck passes"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Settings 页 API Key 管理 UI",
+      "description": "As a user, I want to manage my API keys in settings so I can connect external tools.",
+      "acceptanceCriteria": [
+        "Settings 新增 API Keys 区块",
+        "生成按钮弹窗显示一次性明文 key（含复制按钮 + 只显示一次警告）",
+        "列表显示已有 key（name/prefix/last used），每行撤销按钮带确认",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-017",
+      "title": "Telegram webhook 端点 + Adapter",
+      "description": "As a user, I want messages I send to my DayPage bot to become memos.",
+      "acceptanceCriteria": [
+        "POST /api/ingest/telegram，用 Telegram secret_token 校验来源",
+        "Adapter 归一化 update：文本→text、含URL→url、语音→getFile下载→走 Whisper、图片→photo（含 caption）",
+        "通过 telegram_chat_id 在 ingest_sources 查到 user_id；未绑定被拒",
+        "复用 /api/ingest 内部逻辑落 memo（source_channel=telegram，external_id=message id 幂等）",
+        "不引入重型 telegram SDK，直接用 Bot API + fetch",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Telegram 绑定流程 UI",
+      "description": "As a user, I want to connect my Telegram account to DayPage securely.",
+      "acceptanceCriteria": [
+        "Settings 连接 Telegram：生成一次性绑定码，提示发 /start code 给 bot",
+        "bot 收到 /start code 后把 chat_id 与 user_id 绑定写入 ingest_sources",
+        "绑定成功后显示已连接状态，可一键解绑",
+        "绑定码有过期时间，用过即失效",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Claude Code hook 脚本",
+      "description": "As a developer, I want my Claude Code sessions to auto-log to DayPage so my coding work is captured.",
+      "acceptanceCriteria": [
+        "新增 integrations/claude-code/daypage-hook.js：读取 hook 会话上下文，调 POST /api/ingest（带 API key）",
+        "body 为会话摘要，默认只发摘要不发代码原文",
+        "memo metadata 带 { repo, branch, files_touched, session_duration, tools_used }",
+        "source_channel=claude-code，external_id=会话 id 幂等",
+        "API key 从本地 env 读，不硬编码；提供 redaction 配置",
+        "Typecheck passes"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Claude Code hook 配置文档",
+      "description": "As a developer, I want clear instructions to register the hook so setup is reproducible.",
+      "acceptanceCriteria": [
+        "integrations/claude-code/README.md 说明如何在 ~/.claude/settings.json hooks 注册（Stop 事件）",
+        "含 API key 获取步骤（指向 DayPage Settings）",
+        "含 redaction 配置示例",
+        "Typecheck passes"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-021",
+      "title": "DayPage MCP server 骨架",
+      "description": "As a developer, I want DayPage exposed as an MCP server so Claude Code can use it as a tool.",
+      "acceptanceCriteria": [
+        "新增 integrations/mcp-server/，用 @modelcontextprotocol/sdk，stdio transport",
+        "通过 PAT 调 DayPage API（不直连 DB）",
+        "可被 Claude Code 发现并列出工具",
+        "README 说明如何在 Claude Code 注册",
+        "Typecheck passes"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-022",
+      "title": "MCP 工具 daypage_search",
+      "description": "As a developer using Claude Code, I want to search my DayPage knowledge base.",
+      "acceptanceCriteria": [
+        "daypage_search(query) 经 API 走现有 RAG，返回相关 pages（slug/title/excerpt）",
+        "在 Claude Code 调用返回真实结果",
+        "无 key/网络错误有清晰报错",
+        "Typecheck passes"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-023",
+      "title": "MCP 读写工具集",
+      "description": "As a developer, I want to read and write DayPage from Claude Code.",
+      "acceptanceCriteria": [
+        "daypage_get_page(slug) 读单页",
+        "daypage_add_memo(body, type) 走 /api/ingest 写 memo",
+        "daypage_list_recent(n) 返回最近 memo/pages",
+        "daypage_graph_neighbors(slug) 返回 page_links 邻居",
+        "每个工具有输入校验与错误处理",
+        "Typecheck passes"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-024",
+      "title": "/insights 页面骨架 + 时间范围切换",
+      "description": "As a user, I want a dashboard page so I can review my activity at a glance.",
+      "acceptanceCriteria": [
+        "新建 (app)/insights/page.tsx，加入侧边栏导航",
+        "时间范围切换：今天/本周/本月/全部（状态存 URL params）",
+        "复用 Card/Sparkline/Chip/SectionLabel",
+        "各维度无数据时优雅降级（空态或连接 X 解锁）",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-025",
+      "title": "insights 知识活动维度",
+      "description": "As a user, I want to see my knowledge-building activity.",
+      "acceptanceCriteria": [
+        "memo 录入趋势（日/周折线）：memos.created_at group by day",
+        "编译成功率：compile_status 占比",
+        "知识图谱增长：pages + page_links 按周累计",
+        "活跃概念 Top N：pages.backlink_count desc；领域分布：pages.domain_id group by",
+        "聚合查询用 SQL group by 而非应用层循环",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 25,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-026",
+      "title": "insights 开发活动维度",
+      "description": "As a developer, I want stats about my coding activity so I get an automatic work summary.",
+      "acceptanceCriteria": [
+        "新增开发活动区块：会话数（日/周趋势）、touched repos 分布、会话时长累计、常用工具",
+        "数据源为 memos where source_channel=claude-code 的 metadata 聚合（jsonb 操作符）",
+        "无 Claude Code 数据时显示连接引导（优雅降级）",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 26,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-027",
+      "title": "insights 系统/成本维度（点亮 prompt_log）",
+      "description": "As a user, I want to see my LLM usage so I understand compilation cost.",
+      "acceptanceCriteria": [
+        "新增聚合读取 prompt_log：token 用量（in/out）、按 kind、按 model 分布",
+        "时间范围内 token 趋势 sparkline",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 27,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-028",
+      "title": "insights 活动流分页组件",
+      "description": "As a user, I want a real activity feed with load-more so I can browse history.",
+      "acceptanceCriteria": [
+        "复用 /api/activities 读取真实活动，支持加载更多分页",
+        "与首页 Recent activity 数据一致",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 28,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-029",
+      "title": "自动周报 cron 函数",
+      "description": "As a user, I want a weekly recap generated automatically so I don't summarize myself.",
+      "acceptanceCriteria": [
+        "新增 Inngest cron（复用 daily-page.ts 模式），每周运行一次",
+        "为有数据用户生成 type=synthesis 复盘 page：本周 memo/pages/链接增量、主要主题",
+        "周报 page 可在 /insights 顶部展示；无数据用户跳过",
+        "Typecheck passes"
+      ],
+      "priority": 29,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-030",
+      "title": "Settings 云同步端点与接线",
+      "description": "As a user, I want my settings to sync across devices so I don't reconfigure each time.",
+      "acceptanceCriteria": [
+        "新增 GET/PATCH /api/settings，落 users.settings jsonb",
+        "SettingsClient.tsx 从 localStorage 升级为读写后端（保留 localStorage 作即时缓存）",
+        "同步项：主题、密度、AI 模型偏好、通知设置",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 30,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-031",
+      "title": "暗色主题",
+      "description": "As a user, I want a dark theme so the app is comfortable at night.",
+      "acceptanceCriteria": [
+        "实现暗色调色板（CSS token 已是变量，加 dark 变体）",
+        "移除 SettingsClient.tsx:303 的 disabled，主题选择生效",
+        "切换即时生效并随云同步持久化",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 31,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-032",
+      "title": "收口 wiki Ask about this page",
+      "description": "As a user, I want to ask the wiki about a page so I can explore it conversationally.",
+      "acceptanceCriteria": [
+        "wiki/[slug]/page.tsx:364 的按钮接通：带页面上下文跳转 /chat 新线程",
+        "移除 disabled / coming soon 状态",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 32,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-033",
+      "title": "收口 add 语音输入",
+      "description": "As a user, I want voice input on the add page so I can capture by speaking.",
+      "acceptanceCriteria": [
+        "UnifiedInput.tsx:558 语音输入接通：录音→Whisper transcribe（LLM 层已有）",
+        "或明确移除按钮（若本迭代不实现），不留 disabled 假功能",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 33,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-034",
+      "title": "统一 memo schema（解决 iOS↔Web 错配）",
+      "description": "As a developer, I need iOS and Web memo models aligned so sync doesn't lose data.",
+      "acceptanceCriteria": [
+        "Web schema 增补 iOS 独有字段：mood、entity_mentions（或并入 metadata）",
+        "memos.type 枚举对齐（处理 iOS 的 location/mixed：新增或映射）",
+        "memo_attachments.exif 改为结构化 jsonb 用法",
+        "生成并运行迁移成功",
+        "Typecheck passes"
+      ],
+      "priority": 34,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-035",
+      "title": "iOS 实现 bulk 同步客户端",
+      "description": "As an iOS user, I want my memos to sync to the cloud so they appear on web.",
+      "acceptanceCriteria": [
+        "iOS 新增同步服务，调用现有 POST /api/memos/bulk（last-write-wins by updated_at）",
+        "上行本地 vault memo（含 location/weather/device/结构化 EXIF）",
+        "用 devices 表注册设备 + sync_state.cursor 增量同步",
+        "离线排队，联网补传",
+        "iOS build passes（xcodebuild -scheme DayPage，iPhone 17 模拟器）",
+        "Typecheck passes"
+      ],
+      "priority": 35,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-036",
+      "title": "附件上行对象存储",
+      "description": "As a user, I want my photos/voice available on web too.",
+      "acceptanceCriteria": [
+        "选定对象存储（S3/R2/Supabase Storage）并配置",
+        "iOS 本地 asset 上传，回填 memo_attachments.storage_key",
+        "Web memo 详情页能展示这些附件",
+        "上传失败可重试",
+        "Typecheck passes"
+      ],
+      "priority": 36,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-037",
+      "title": "编译收归 Web（消除双管道）",
+      "description": "As a developer, I want a single compilation pipeline so outputs don't diverge.",
+      "acceptanceCriteria": [
+        "废弃 iOS CompilationService/BackgroundCompilationService（或降级为离线草稿+联网补编译）",
+        "iOS 改为拉取 Web 编译结果（pages/daily）展示",
+        "同一天不再被两套管道重复编译",
+        "iOS build passes；端到端：iOS 记录→同步→Web 编译→iOS 看到结果",
+        "Typecheck passes"
+      ],
+      "priority": 37,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-038",
+      "title": "embedding 迁移 pgvector",
+      "description": "As a developer, I want vector search to scale so recall/RAG stays fast.",
+      "acceptanceCriteria": [
+        "启用 pgvector 扩展",
+        "pages.embedding/memos.embedding 从 text(JSON) 改 vector(1536)，加 ivfflat/hnsw 索引",
+        "迁移脚本把现有 JSON 文本转 vector",
+        "rag.ts 与 compile-memo recall step 改用 SQL 近邻查询",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 38,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-039",
+      "title": "insights 生活/数字足迹维度",
+      "description": "As a nomad, I want to see my location/photo footprint so I can review where I've been.",
+      "acceptanceCriteria": [
+        "位置足迹：memos.location lat/lng 打点/城市时间线",
+        "天气-记录关联：memos.weather × created_at；记录时间节律：created_at 按小时分布",
+        "摄影统计：memo_attachments.exif（光圈/快门/ISO/焦距）；设备来源分布：device/origin",
+        "无 iOS 数据时优雅降级",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 39,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-040",
+      "title": "安全加固：iOS GitHub token 下沉 + 输入清洗",
+      "description": "As a developer, I need to remove hardcoded secrets and harden inputs.",
+      "acceptanceCriteria": [
+        "iOS GitHub bot token 从 FeedbackService 硬编码下沉到后端代理端点，iOS 不再持有 token",
+        "外部 ingest 输入严格 zod 校验 + 大小限制 + HTML 清洗（XSS）",
+        "限流扩展到所有 ingest 与新端点；ingest_sources.config 敏感字段加密",
+        "webhook 校验齐全（Telegram secret_token / Inngest 签名）",
+        "Typecheck passes"
+      ],
+      "priority": 40,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-041",
+      "title": "可观测性：日志 + 健康检查",
+      "description": "As a developer, I want visibility into pipeline health and cost.",
+      "acceptanceCriteria": [
+        "Web 接入 Sentry/日志聚合（iOS 已有 Sentry）",
+        "编译管道加结构化日志 + step 级计时",
+        "新增健康检查端点：DB/Inngest/LLM provider 可达性",
+        "Typecheck passes"
+      ],
+      "priority": 41,
+      "passes": false,
+      "notes": ""
+    },
+    {
+      "id": "US-042",
+      "title": "RSS 源接入",
+      "description": "As a user, I want RSS feeds to flow in automatically so new articles become memos.",
+      "acceptanceCriteria": [
+        "ingest_sources 存 feed URL + 新增 Inngest cron 拉取各用户 feed",
+        "新条目→url memo（external_id=item guid 幂等）",
+        "可选 light 模式只存摘要",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 42,
+      "passes": false,
       "notes": ""
     }
   ]
