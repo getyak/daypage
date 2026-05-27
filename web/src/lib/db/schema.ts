@@ -507,6 +507,33 @@ export const schema_cluster_log = pgTable(
 export type SchemaClusterLog = typeof schema_cluster_log.$inferSelect;
 export type NewSchemaClusterLog = typeof schema_cluster_log.$inferInsert;
 
+// ─── US-008: api_keys (API key management) ────────────────────────────────────
+
+export const api_keys = pgTable(
+  "api_keys",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    key_hash: text("key_hash").notNull().unique(),
+    key_prefix: text("key_prefix").notNull(), // first 8 chars of raw key for display
+    scopes: jsonb("scopes").notNull().default(sql`'["read"]'::jsonb`),
+    last_used_at: timestamp("last_used_at", { withTimezone: true }),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    expires_at: timestamp("expires_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("api_keys_user_name").on(t.user_id, t.name),
+  ]
+);
+
+export type ApiKey = typeof api_keys.$inferSelect;
+export type NewApiKey = typeof api_keys.$inferInsert;
+
 // ─── Re-export helper types ────────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
