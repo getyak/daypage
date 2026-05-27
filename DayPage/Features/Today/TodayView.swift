@@ -86,6 +86,12 @@ struct TodayView: View {
     /// Tracks the previous memo count so escalating haptics only fire on additions, not deletions.
     @State private var lastMemoCount: Int = 0
 
+    /// Session-only: true once the compile-completion celebration has fired for the current daily page.
+    /// Resets to false when isDailyPageCompiled becomes false (recompile/new day) so it re-fires.
+    @State private var didCelebrateCompile: Bool = false
+    /// Drives the one-shot amber glow + scale reveal on the daily page card after compilation.
+    @State private var compileRevealGlow: Bool = false
+
     private var isInSelectionMode: Bool { selectedMemoIds != nil }
 
     /// Live drag offset for the daily page card (negative = pulled left).
@@ -968,6 +974,14 @@ struct TodayView: View {
                 if viewModel.isDailyPageCompiled {
                     swipeableDailyPageCard
                         .padding(.horizontal, 20)
+                        .shadow(
+                            color: DSColor.accentAmber.opacity(compileRevealGlow ? 0.5 : 0),
+                            radius: compileRevealGlow ? 20 : 0
+                        )
+                        .scaleEffect(reduceMotion ? 1 : (compileRevealGlow ? 1.0 : 0.97))
+                        .animation(.easeOut(duration: 0.7), value: compileRevealGlow)
+                        .transition(.scale(scale: 0.95).combined(with: .opacity))
+                        .animation(Motion.spring, value: viewModel.isDailyPageCompiled)
                 }
 
                 if viewModel.loadState == .loading && viewModel.memos.isEmpty {
@@ -1136,6 +1150,21 @@ struct TodayView: View {
                 didCelebrateUnlock = false
             }
             lastMemoCount = count
+        }
+        .onChange(of: viewModel.isDailyPageCompiled) { compiled in
+            if compiled && !didCelebrateCompile {
+                didCelebrateCompile = true
+                Haptics.success()
+                if !reduceMotion {
+                    compileRevealGlow = true
+                    Task {
+                        try? await Task.sleep(nanoseconds: 700_000_000)
+                        compileRevealGlow = false
+                    }
+                }
+            } else if !compiled {
+                didCelebrateCompile = false
+            }
         }
 
         inputBarV4
