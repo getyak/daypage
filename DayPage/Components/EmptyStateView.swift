@@ -189,10 +189,12 @@ extension EmptyStateView {
     }
 
     /// Graph — nodes exist but current search/filter matches nothing.
-    static func graphNoMatches() -> EmptyStateView {
+    static func graphNoMatches(ctaAction: @escaping () -> Void) -> EmptyStateView {
         EmptyStateView(
             title: L10n.Empty.graphNoMatchesTitle,
             subtitle: L10n.Empty.graphNoMatchesSubtitle,
+            ctaLabel: "清除筛选",
+            ctaAction: ctaAction,
             showOrbAccent: false
         )
     }
@@ -271,6 +273,6 @@ extension EmptyStateView {
 #Preview("Graph No Matches") {
     ZStack {
         AmbientBackground()
-        EmptyStateView.graphNoMatches()
+        EmptyStateView.graphNoMatches { }
     }
 }
