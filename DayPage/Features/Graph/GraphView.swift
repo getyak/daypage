@@ -147,6 +147,14 @@ struct GraphView: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
 
+                if hasActiveFilter {
+                    let count = viewModel.filteredNodes.count
+                    matchCountPill(count: count)
+                        .padding(.bottom, DSSpacing.sm)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                        .animation(Motion.fade, value: count)
+                }
+
                 Rectangle()
                     .fill(DSColor.glassRim)
                     .frame(height: 0.5)
@@ -211,28 +219,17 @@ struct GraphView: View {
         }
     }
 
-    private var clearFiltersButton: some View {
-        Button {
-            Haptics.tapConfirm()
-            withAnimation(.easeInOut(duration: 0.15)) {
-                viewModel.searchQuery = ""
-                viewModel.filterStartDate = nil
-                viewModel.filterEndDate = nil
-            }
-        } label: {
-            Text("清除筛选")
-                .font(DSType.sectionLabel)
-                .textCase(.uppercase)
-                .tracking(1.5)
-                .foregroundColor(Color.white)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 12)
-                .background(DSColor.amberDeep)
-                .clipShape(Capsule())
-        }
-        .buttonStyle(ClearFiltersPressStyle(reduceMotion: reduceMotion))
-        .accessibilityLabel("清除筛选")
-        .accessibilityAddTraits(.isButton)
+    private func matchCountPill(count: Int) -> some View {
+        Text("\(count) 个匹配")
+            .font(DSType.mono10)
+            .tracking(0.3)
+            .foregroundColor(DSColor.inkSubtle)
+            .padding(.horizontal, DSSpacing.md)
+            .padding(.vertical, 5)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(Capsule().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+            .accessibilityElement()
+            .accessibilityLabel("\(count) 个节点匹配当前筛选")
     }
 
     // MARK: - Accessibility Helpers
@@ -465,18 +462,3 @@ struct GraphView: View {
     }
 }
 
-// MARK: - ClearFiltersPressStyle
-
-private struct ClearFiltersPressStyle: ButtonStyle {
-    let reduceMotion: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect((!reduceMotion && configuration.isPressed) ? 0.96 : 1)
-            .opacity(configuration.isPressed ? 0.92 : 1)
-            .animation(
-                reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7),
-                value: configuration.isPressed
-            )
-    }
-}
