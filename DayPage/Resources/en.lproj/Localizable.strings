@@ -64,6 +64,15 @@
 "empty.archive_month.subtitle" = "No entries yet — switch to Today to start capturing today's signals.";
 "empty.archive_month.cta" = "Go Capture";
 
+/* Graph Empty */
+"empty.graph.title" = "No knowledge graph yet.";
+"empty.graph.subtitle" = "Compiled entries will surface entity nodes here — write something to start building your network.";
+"empty.graph.cta" = "Write something";
+
+/* Graph No Matches */
+"empty.graph.no_matches.title" = "No matching nodes.";
+"empty.graph.no_matches.subtitle" = "Adjust your search or filters to see nodes.";
+
 /* Mic Permission Denied */
 "empty.mic_denied.title" = "Microphone access needed.";
 "empty.mic_denied.subtitle" = "Allow microphone access in Settings to record voice memos.";

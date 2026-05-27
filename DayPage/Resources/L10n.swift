@@ -41,6 +41,15 @@ enum L10n {
         static let micDeniedTitle    = LocalizedStringKey("empty.mic_denied.title")
         static let micDeniedSubtitle = NSLocalizedString("empty.mic_denied.subtitle", comment: "")
         static let micDeniedCta      = NSLocalizedString("empty.mic_denied.cta", comment: "")
+
+        // Graph Empty
+        static let graphEmptyTitle    = LocalizedStringKey("empty.graph.title")
+        static let graphEmptySubtitle = NSLocalizedString("empty.graph.subtitle", comment: "")
+        static let graphEmptyCta      = NSLocalizedString("empty.graph.cta", comment: "")
+
+        // Graph No Matches
+        static let graphNoMatchesTitle    = LocalizedStringKey("empty.graph.no_matches.title")
+        static let graphNoMatchesSubtitle = NSLocalizedString("empty.graph.no_matches.subtitle", comment: "")
     }
 
     enum Error {
