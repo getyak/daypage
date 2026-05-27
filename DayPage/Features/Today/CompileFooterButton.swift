@@ -126,6 +126,27 @@ struct CompileFooterButton: View {
                     didAppearPulse = false
                 }
             }
+
+            // Time-of-day hint — only when idle and no error
+            if !isCompiling && errorMessage == nil {
+                Text(timeHint)
+                    .font(DSType.mono10)
+                    .foregroundColor(DSColor.inkSubtle)
+                    .tracking(0.5)
+                    .opacity(0.8)
+                    .transition(.opacity)
+            }
+        }
+    }
+
+    /// Contextual nudge based on time of day.
+    private var timeHint: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<12:  return "今天才刚开始"
+        case 12..<18: return "记录还在继续"
+        case 18..<23: return "夜深了，回顾今天吧"
+        default:      return "为今天画上句号"
         }
     }
 
