@@ -14,7 +14,7 @@
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
+      "passes": true,
       "notes": "Wave0 决策三。最小改动，半天活。"
     },
     {
@@ -30,7 +30,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "Wave0 C1。端点已存在, 纯接线。"
     },
     {
@@ -46,7 +46,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "Wave0 C1。端点已存在。"
     },
     {
@@ -62,7 +62,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "Wave0 C1。/api/inbox 已存在。"
     },
     {
@@ -78,7 +78,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "Wave0 C1。/api/domains 已存在。"
     },
     {
@@ -96,7 +96,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "Wave0 C2。修死链前置。"
     },
     {
@@ -111,7 +111,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": "Wave0 C2。依赖 US-006。"
     },
     {
