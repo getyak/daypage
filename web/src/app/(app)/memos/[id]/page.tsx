@@ -117,10 +117,10 @@ export default async function MemoDetailPage({ params }: Props) {
             <div style={{ fontSize: "0.8125rem" }}>{memo.device}</div>
           </div>
         )}
-        {memo.weather && (
+        {!!memo.weather && (
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px" }}>
             <div style={{ fontSize: "0.7rem", color: "var(--fg-subtle)", textTransform: "uppercase", fontWeight: 600, marginBottom: 4 }}>Weather</div>
-            <div style={{ fontSize: "0.8125rem" }}>{memo.weather}</div>
+            <div style={{ fontSize: "0.8125rem" }}>{String(memo.weather)}</div>
           </div>
         )}
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px" }}>

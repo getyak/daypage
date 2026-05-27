@@ -29,7 +29,7 @@ async function resolveUserId(email: string): Promise<string | null> {
 const UpdateIngestSourceSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   source_type: z.enum(["telegram", "email", "rss", "webhook", "api_claude"]).optional(),
-  config: z.record(z.unknown()).optional(),
+  config: z.record(z.string(), z.unknown()).optional(),
   enabled: z.boolean().optional(),
 });
 

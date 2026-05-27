@@ -43,7 +43,7 @@ async function logActivity(
 const IngestSchema = z.object({
   source: z.string().min(1),
   type: z.enum(["memo", "observation", "activity"]),
-  payload: z.record(z.unknown()),
+  payload: z.record(z.string(), z.unknown()),
 });
 
 // POST /api/ingest — unified ingest endpoint (API key or session auth)
