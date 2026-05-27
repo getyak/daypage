@@ -1,0 +1,12 @@
+# DayPage Codex /add Polish — Ralph Progress Log
+Started: 2026-05-20T11:31:12Z
+Tool: claude
+---
+[2026-05-20T11:32:56Z] Story #US-001: 新增 useAddDraft hook（localStorage 草稿持久化） — PASSED
+[2026-05-20T11:35:52Z] Story #US-002: Wire Save draft + 自动回填 to UnifiedInput — PASSED
+[2026-05-20T11:37:20Z] Story #US-003: ⌘/Ctrl + Enter 触发 Add 提交 — PASSED
+[2026-05-20T11:39:33Z] Story #US-004: 面包屑改为 usePathname 派生（SSR/CSR 一致） — PASSED
+[2026-05-20T11:43:29Z] Story #US-005: POST /api/memos 后乐观插入 QUEUED 条目 — PASSED
+[2026-05-20T11:49:13Z] Story #US-006: Compile Queue / Recently Compiled 卡片整体可点击跳详情 — FAILED (iteration 1)
+[2026-05-20T11:51:10Z] Story #US-006: Compile Queue / Recently Compiled 卡片整体可点击跳详情 — FAILED (iteration 2)
+[2026-05-20T11:53:03Z] Story #US-006: Compile Queue / Recently Compiled 卡片整体可点击跳详情 — PASSED (committed by Claude, PRD sync)
