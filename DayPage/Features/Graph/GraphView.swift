@@ -168,7 +168,9 @@ struct GraphView: View {
                     emptyState
                 } else {
                     graphCanvas
-                    legend
+                    if !presentEntityTypes.isEmpty {
+                        legend
+                    }
                 }
             }
         }
@@ -398,17 +400,31 @@ struct GraphView: View {
 
     // MARK: - Legend
 
+    private var presentEntityTypes: [String] {
+        let present = Set(viewModel.filteredNodes.map { $0.entityType })
+        return ["places", "people", "themes"].filter { present.contains($0) }
+    }
+
+    private func legendColor(for entityType: String) -> Color {
+        switch entityType {
+        case "places":  return DSColor.amberArchival
+        case "people":  return DSColor.secondary
+        default:        return DSColor.tertiary
+        }
+    }
+
     private var legend: some View {
         VStack(alignment: .leading, spacing: 6) {
-            legendRow(color: DSColor.amberDeep, label: "地点")
-            legendRow(color: DSColor.inkMuted, label: "人物")
-            legendRow(color: DSColor.amberAccent, label: "主题")
+            ForEach(presentEntityTypes, id: \.self) { entityType in
+                legendRow(color: legendColor(for: entityType), label: typeLabel(entityType))
+            }
         }
         .padding(DSSpacing.md)
         .liquidGlassCard(cornerRadius: DSRadius.md, tone: .hi)
         .fixedSize()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
         .padding(DSSpacing.lg)
+        .animation(Motion.fade, value: presentEntityTypes)
     }
 
     private func resetTransform() {
