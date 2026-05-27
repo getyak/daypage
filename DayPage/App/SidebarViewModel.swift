@@ -27,8 +27,52 @@ final class SidebarViewModel: ObservableObject {
     /// Most recent days (descending) with at least one memo, capped to 7.
     @Published var recentDays: [RecentDay] = []
 
-    /// Consecutive days ending today (or yesterday) with at least one memo.
-    @Published var currentStreak: Int = 0
+    /// All active days used for streak calculation (larger scan than recentDays).
+    @Published private var streakDays: [RecentDay] = []
+
+    /// Consecutive calendar days ending today (or yesterday) with at least one memo.
+    /// Starts counting from the most recent active day and stops at the first gap.
+    var currentStreak: Int {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+
+        // Build a Set of active date strings for O(1) lookup.
+        let activeDates = Set(streakDays.map(\.dateString))
+
+        // Anchor: use today if it has memos, else yesterday (so streak
+        // doesn't reset before the user logs their first entry of the day).
+        let todayStr = Self.isoFormatter.string(from: today)
+        guard let yesterday = cal.date(byAdding: .day, value: -1, to: today) else { return 0 }
+        let yesterdayStr = Self.isoFormatter.string(from: yesterday)
+
+        let anchorDate: Date
+        if activeDates.contains(todayStr) {
+            anchorDate = today
+        } else if activeDates.contains(yesterdayStr) {
+            anchorDate = yesterday
+        } else {
+            return 0
+        }
+
+        var streak = 0
+        var cursor = anchorDate
+        while true {
+            let dateStr = Self.isoFormatter.string(from: cursor)
+            guard activeDates.contains(dateStr) else { break }
+            streak += 1
+            guard let prev = cal.date(byAdding: .day, value: -1, to: cursor) else { break }
+            cursor = prev
+        }
+        return streak
+    }
+
+    private static let isoFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        f.timeZone = TimeZone.current
+        return f
+    }()
 
     private var authStateTask: Task<Void, Never>?
 
@@ -57,11 +101,12 @@ final class SidebarViewModel: ObservableObject {
     /// off the main actor. Safe to call repeatedly (e.g. whenever the sidebar opens).
     func refreshRecentDays() {
         Task { [weak self] in
-            let wide = await Self.scanRecentDays(limit: 30)
-            let streak = Self.computeStreak(from: wide)
+            async let recent = Self.scanRecentDays(limit: 7)
+            async let streak = Self.scanRecentDays(limit: 365)
+            let (recentResult, streakResult) = await (recent, streak)
             await MainActor.run {
-                self?.recentDays = Array(wide.prefix(7))
-                self?.currentStreak = streak
+                self?.recentDays = recentResult
+                self?.streakDays = streakResult
             }
         }
     }
@@ -78,41 +123,6 @@ final class SidebarViewModel: ObservableObject {
     }
 
     // MARK: - Vault Scan
-
-    /// Walk back from today counting consecutive days that have memos.
-    /// Allows the chain to begin at yesterday so the streak isn't broken
-    /// before the user logs their first memo of the day.
-    nonisolated private static func computeStreak(from days: [RecentDay]) -> Int {
-        let cal = Calendar.current
-        let isoFormatter: DateFormatter = {
-            let f = DateFormatter()
-            f.locale = Locale(identifier: "en_US_POSIX")
-            f.dateFormat = "yyyy-MM-dd"
-            f.timeZone = TimeZone.current
-            return f
-        }()
-
-        let today = cal.startOfDay(for: Date())
-        var streak = 0
-        var cursor = today
-
-        // Allow the streak window to start at yesterday if today has no memo yet.
-        let todayStr = isoFormatter.string(from: today)
-        let hasMemoToday = days.contains { $0.dateString == todayStr }
-        if !hasMemoToday {
-            guard let yesterday = cal.date(byAdding: .day, value: -1, to: today) else { return 0 }
-            cursor = yesterday
-        }
-
-        while true {
-            let cursorStr = isoFormatter.string(from: cursor)
-            guard days.contains(where: { $0.dateString == cursorStr }) else { break }
-            streak += 1
-            guard let prev = cal.date(byAdding: .day, value: -1, to: cursor) else { break }
-            cursor = prev
-        }
-        return streak
-    }
 
     /// Reads `vault/raw/YYYY-MM-DD.md`, counts memos per day (memos are
     /// separated by `\n\n---\n\n`), and returns the most recent `limit` days
