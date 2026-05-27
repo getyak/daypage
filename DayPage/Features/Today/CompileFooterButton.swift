@@ -77,6 +77,7 @@ struct CompileFooterButton: View {
             // Main compile button
             Button(action: {
                 guard !isCompiling else { return }
+                Haptics.tapConfirm()
                 onTap()
             }) {
                 HStack(spacing: 8) {
@@ -112,7 +113,7 @@ struct CompileFooterButton: View {
                 )
                 .surfaceElevatedShadow()
             }
-            .buttonStyle(.plain)
+            .buttonStyle(CompilePressStyle(isDisabled: isCompiling))
             .disabled(isCompiling)
             .scaleEffect(didAppearPulse ? 1.06 : 1.0)
             .animation(
@@ -162,6 +163,24 @@ struct CompileFooterButton: View {
         case .formatting:  return "写入 Daily Page…"
         case .done:        return "准备编译 \(memoCount) 条 memo"
         }
+    }
+}
+
+// MARK: - CompilePressStyle
+
+private struct CompilePressStyle: ButtonStyle {
+    let isDisabled: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        let pressed = configuration.isPressed && !isDisabled
+        configuration.label
+            .scaleEffect((!reduceMotion && pressed) ? 0.96 : 1)
+            .opacity(pressed ? 0.92 : 1)
+            .animation(
+                reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7),
+                value: configuration.isPressed
+            )
     }
 }
 
