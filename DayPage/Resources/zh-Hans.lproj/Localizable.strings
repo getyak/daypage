@@ -193,3 +193,7 @@
 "settings.ai.provider" = "服务商";
 "settings.ai.endpoint" = "接入点";
 "settings.ai.footer" = "AI 编译信息仅供查看。如需更换模型，请在上方「API Keys」中配置。";
+
+/* Markdown Export — US-019 */
+"export.action.title"  = "导出为 Markdown";
+"export.action.label"  = "导出";

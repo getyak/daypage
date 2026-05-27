@@ -165,3 +165,7 @@
 "settings.ai.provider" = "Provider";
 "settings.ai.endpoint" = "Endpoint";
 "settings.ai.footer" = "AI compilation is read-only. Change the API key and model via the API Keys section above.";
+
+/* Markdown Export — US-019 */
+"export.action.title"  = "Export as Markdown";
+"export.action.label"  = "Export";

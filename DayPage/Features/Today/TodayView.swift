@@ -68,6 +68,10 @@ struct TodayView: View {
     /// Toggled each time the Day Orb is tapped to focus the composer input.
     @State private var orbFocusToggle: Bool = false
 
+    /// US-019: controls the markdown export share sheet.
+    @State private var showExportSheet: Bool = false
+    @State private var exportFileURL: URL? = nil
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var orbBreathing: Bool = false
 
@@ -153,6 +157,40 @@ struct TodayView: View {
                         // baseline. Empirically tuned — revisit if
                         // serifDisplay32's point size or the 28pt circle
                         // diameter changes.
+                        // US-019: Export as Markdown
+                        if !viewModel.memos.isEmpty {
+                            Button {
+                                let content = MarkdownExportService.buildExportContent(
+                                    memos: viewModel.memos, date: Date()
+                                )
+                                let df = DateFormatter()
+                                df.dateFormat = "yyyy-MM-dd"
+                                df.locale = Locale(identifier: "en_US_POSIX")
+                                df.timeZone = AppSettings.currentTimeZone()
+                                let dateString = df.string(from: Date())
+                                if let url = try? MarkdownExportService.writeExportFile(
+                                    content: content, dateString: dateString
+                                ) {
+                                    exportFileURL = url
+                                    showExportSheet = true
+                                }
+                            } label: {
+                                Image(systemName: "square.and.arrow.up")
+                                    .font(DSType.bodySM)
+                                    .foregroundColor(DSColor.inkMuted)
+                                    .frame(width: 28, height: 28)
+                                    .background(DSColor.glassStd)
+                                    .background(.ultraThinMaterial, in: Circle())
+                                    .overlay(Circle().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                                    .clipShape(Circle())
+                            }
+                            .accessibilityLabel(NSLocalizedString("export.action.title", comment: ""))
+                            .accessibilityIdentifier("export-markdown-button")
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                            .alignmentGuide(.firstTextBaseline) { d in d[VerticalAlignment.center] + 6 }
+                        }
+
                         Button {
                             showSettings = true
                         } label: {
@@ -614,6 +652,12 @@ struct TodayView: View {
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
+            }
+            // US-019: Markdown export share sheet
+            .sheet(isPresented: $showExportSheet) {
+                if let url = exportFileURL {
+                    ShareSheet(activityItems: [url])
+                }
             }
             // Document picker sheet
             .sheet(isPresented: $viewModel.isShowingDocumentPicker) {
