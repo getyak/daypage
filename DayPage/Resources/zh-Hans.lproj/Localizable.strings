@@ -183,3 +183,10 @@
 "memo.detail.location.no_coordinates" = "无坐标";
 "memo.detail.location.open_maps" = "在 Apple 地图中打开";
 "memo.detail.photo.tap_fullscreen" = "点击查看全屏";
+
+/* Settings — AI Engine (US-014) */
+"settings.ai.section_title" = "AI 引擎";
+"settings.ai.model" = "模型";
+"settings.ai.provider" = "服务商";
+"settings.ai.endpoint" = "接入点";
+"settings.ai.footer" = "AI 编译信息仅供查看。如需更换模型，请在上方「API Keys」中配置。";

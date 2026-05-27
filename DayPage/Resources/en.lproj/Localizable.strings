@@ -155,3 +155,10 @@
 "memo.detail.location.no_coordinates" = "No coordinates";
 "memo.detail.location.open_maps" = "Open in Apple Maps";
 "memo.detail.photo.tap_fullscreen" = "Tap to view full screen";
+
+/* Settings — AI Engine (US-014) */
+"settings.ai.section_title" = "AI Engine";
+"settings.ai.model" = "Model";
+"settings.ai.provider" = "Provider";
+"settings.ai.endpoint" = "Endpoint";
+"settings.ai.footer" = "AI compilation is read-only. Change the API key and model via the API Keys section above.";
