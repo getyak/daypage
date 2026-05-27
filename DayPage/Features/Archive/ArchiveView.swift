@@ -606,7 +606,7 @@ struct ArchiveView: View {
 
             Button(action: { showSearch = true }) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 15, weight: .regular))
+                    .font(DSType.bodyMD)
                     .foregroundColor(DSColor.inkMuted)
                     .frame(width: 36, height: 36)
                     .background(DSColor.glassStd)
@@ -635,7 +635,7 @@ struct ArchiveView: View {
                 withAnimation(Motion.spring) { viewModel.goToPreviousMonth() }
             }) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(DSType.bodySM)
                     .foregroundColor(DSColor.inkMuted)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
@@ -665,7 +665,7 @@ struct ArchiveView: View {
                 withAnimation(Motion.spring) { viewModel.goToNextMonth() }
             }) {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(DSType.bodySM)
                     .foregroundColor(DSColor.inkMuted)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
@@ -1165,7 +1165,7 @@ struct ArchiveView: View {
     private func metaIcon(_ systemName: String, count: Int, unit: String? = nil) -> some View {
         HStack(spacing: 4) {
             Image(systemName: systemName)
-                .font(.system(size: 10))
+                .font(DSType.labelXS)
                 .foregroundColor(DSColor.inkSubtle)
             Text(unit != nil ? "\(count) \(unit!)" : "\(count)")
                 .monoLabelStyle(size: 11)

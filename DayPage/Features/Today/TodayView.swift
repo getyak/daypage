@@ -113,11 +113,15 @@ struct TodayView: View {
                                 Text(weekdayName(currentTime))
                                     .font(DSType.serifDisplay32)
                                     .foregroundColor(DSColor.inkPrimary)
+                                    .dynamicTypeSize(.xSmall ... .accessibility2)
+                                    .minimumScaleFactor(0.75)
                                 Text(headerSubline(currentTime))
                                     .font(DSType.mono10)
                                     .foregroundColor(DSColor.inkSubtle)
                                     .textCase(.uppercase)
                                     .tracking(1.0)
+                                    .dynamicTypeSize(.xSmall ... .accessibility5)
+                                    .minimumScaleFactor(0.75)
                             }
                         }
                         .buttonStyle(.plain)
@@ -153,7 +157,7 @@ struct TodayView: View {
                             showSettings = true
                         } label: {
                             Image(systemName: "gearshape")
-                                .font(.system(size: 14, weight: .regular))
+                                .font(DSType.bodySM)
                                 .foregroundColor(DSColor.inkMuted)
                                 .frame(width: 28, height: 28)
                                 .background(DSColor.glassStd)
@@ -765,10 +769,11 @@ struct TodayView: View {
     @ViewBuilder
     private func yesterdaySection(_ page: DailyPageModel) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("YESTERDAY")
+            Text(NSLocalizedString("today.section.yesterday", comment: ""))
                 .font(DSType.mono10)
                 .tracking(1.0)
                 .foregroundColor(DSColor.inkSubtle)
+                .dynamicTypeSize(.xSmall ... .accessibility5)
                 .padding(.horizontal, 20)
 
             DailyPageEntryCard(
@@ -806,10 +811,11 @@ struct TodayView: View {
             Rectangle()
                 .fill(DSColor.inkFaint)
                 .frame(height: 0.5)
-            Text("EARLIER")
+            Text(NSLocalizedString("today.section.earlier", comment: ""))
                 .font(DSType.mono10)
                 .tracking(1.0)
                 .foregroundColor(DSColor.inkSubtle)
+                .dynamicTypeSize(.xSmall ... .accessibility5)
                 .padding(.horizontal, 8)
             Rectangle()
                 .fill(DSColor.inkFaint)
@@ -871,7 +877,7 @@ struct TodayView: View {
                     viewModel.compile()
                 } label: {
                     Text(NSLocalizedString("today.action.recompile", comment: ""))
-                        .font(.custom("Inter-Medium", size: 13))
+                        .font(DSType.caption)
                         .foregroundColor(.white)
                         .frame(width: 80)
                         .frame(maxHeight: .infinity)
@@ -1287,7 +1293,7 @@ struct LocationDraftCard: View {
     private var draftHeader: some View {
         HStack(spacing: 6) {
             Image(systemName: "location.fill")
-                .font(.system(size: 11, weight: .medium))
+                .font(DSType.label)
                 .foregroundColor(DSColor.amberAccent)
             Text("检测到位置到达")
                 .font(DSType.caption)
@@ -1341,7 +1347,7 @@ private struct LocationDraftRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             Image(systemName: "mappin.circle.fill")
-                .font(.system(size: 18))
+                .font(DSType.headlineCaps)
                 .foregroundColor(DSColor.amberAccent)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -1372,7 +1378,7 @@ private struct LocationDraftRow: View {
                     onIgnore()
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(DSType.label)
                         .foregroundColor(DSColor.inkMuted)
                         .frame(width: 30, height: 30)
                         .background(DSColor.glassLo)
@@ -1387,7 +1393,7 @@ private struct LocationDraftRow: View {
                     onConfirm()
                 } label: {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(DSType.label)
                         .foregroundColor(.white)
                         .frame(width: 30, height: 30)
                         .background(DSColor.amberAccent)
@@ -1571,7 +1577,7 @@ struct TimelineRow: View {
                 .shadow(color: Color.black.opacity(0.15), radius: 3, x: 0, y: 1)
             if isSelected {
                 Image(systemName: "checkmark")
-                    .font(.system(size: 13, weight: .heavy))
+                    .font(DSType.caption)
                     .foregroundColor(.white)
             } else {
                 Circle()

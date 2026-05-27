@@ -182,7 +182,7 @@ struct SettingsView: View {
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "person.crop.circle")
-                        .font(.system(size: 22, weight: .regular))
+                        .font(DSType.h2)
                         .foregroundColor(DSColor.onSurfaceVariant)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(authService.session?.user.email ?? "未登录")
@@ -194,7 +194,7 @@ struct SettingsView: View {
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(DSType.caption)
                         .foregroundColor(DSColor.onSurfaceVariant)
                 }
                 .contentShape(Rectangle())
@@ -255,7 +255,7 @@ struct SettingsView: View {
                             .foregroundColor(.red)
                     } else {
                         Text("…" + String(key.suffix(4)))
-                            .font(.system(size: 12, design: .monospaced))
+                            .font(DSType.labelSM)
                             .foregroundColor(DSColor.onSurfaceVariant)
                     }
                 }
@@ -758,7 +758,7 @@ struct SettingsView: View {
                 Spacer()
                 Text(aiModelName)
                     .foregroundColor(DSColor.onSurfaceVariant)
-                    .font(.system(size: 12, design: .monospaced))
+                    .font(DSType.labelSM)
             }
         }
     }
