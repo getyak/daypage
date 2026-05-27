@@ -159,16 +159,12 @@ export async function detectSchemaForUser(userId: string): Promise<{
     return { user_id: userId, clusters_found: 0, suggestions: 0 };
   }
 
-  // Parse embeddings
+  // Collect embeddings (now native number[] from pgvector custom type)
   const items: { id: string; vec: number[] }[] = [];
   for (const m of recentMemos) {
-    try {
-      const vec = JSON.parse(m.embedding!) as number[];
-      if (Array.isArray(vec) && vec.length > 0) {
-        items.push({ id: m.id, vec });
-      }
-    } catch {
-      // skip memos with malformed embeddings
+    const vec = m.embedding;
+    if (Array.isArray(vec) && vec.length > 0) {
+      items.push({ id: m.id, vec });
     }
   }
 
