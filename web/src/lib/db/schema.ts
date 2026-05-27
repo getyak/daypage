@@ -535,6 +535,41 @@ export const api_keys = pgTable(
 export type ApiKey = typeof api_keys.$inferSelect;
 export type NewApiKey = typeof api_keys.$inferInsert;
 
+// ─── US-013: ingest_sources (external ingest channel configuration) ──────────
+
+export const ingestSourceTypeEnum = pgEnum("ingest_source_type", [
+  "telegram",
+  "email",
+  "rss",
+  "webhook",
+  "api_claude",
+]);
+
+export const ingest_sources = pgTable(
+  "ingest_sources",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    source_type: ingestSourceTypeEnum("source_type").notNull(),
+    config: jsonb("config").notNull().default(sql`'{}'::jsonb`),
+    enabled: boolean("enabled").notNull().default(true),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [index("ingest_sources_user_type").on(t.user_id, t.source_type)]
+);
+
+export type IngestSource = typeof ingest_sources.$inferSelect;
+export type NewIngestSource = typeof ingest_sources.$inferInsert;
+
 // ─── Re-export helper types ────────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;
