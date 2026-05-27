@@ -153,6 +153,10 @@ struct CompileProgressDock: View {
     @State private var previousMemoCount: Int = 0
     /// When true, the third segment plays a one-shot scale+glow pulse.
     @State private var thirdSegmentPulsing: Bool = false
+    /// When true, the next-to-fill segment breathes to signal forward momentum.
+    @State private var nextSegmentBreathing: Bool = false
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 6) {
@@ -160,13 +164,23 @@ struct CompileProgressDock: View {
                 ForEach(0..<3, id: \.self) { index in
                     let isFilled = index < memoCount
                     let isPulsingSegment = (index == 2) && thirdSegmentPulsing
+                    // The leftmost unfilled segment index, clamped to [0, 2].
+                    let nextIndex = min(memoCount, 2)
+                    let isBreathingSegment = index == nextIndex && memoCount < 3
                     // Glass base always present; amber fill draws on from leading edge.
                     ZStack(alignment: .leading) {
                         Capsule(style: .continuous)
                             .fill(DSColor.glassStd)
                         Capsule(style: .continuous)
                             .fill(DSColor.accentAmber)
-                            .scaleEffect(x: isFilled ? 1 : 0, y: 1, anchor: .leading)
+                            .opacity(isBreathingSegment ? (nextSegmentBreathing ? 0.55 : 0.2) : 1)
+                            .animation(
+                                isBreathingSegment && !reduceMotion
+                                    ? .easeInOut(duration: 1.4).repeatForever(autoreverses: true)
+                                    : nil,
+                                value: nextSegmentBreathing
+                            )
+                            .scaleEffect(x: isFilled ? 1 : (isBreathingSegment ? 1 : 0), y: 1, anchor: .leading)
                             .animation(
                                 Motion.respectReduceMotion(
                                     .spring(response: 0.45, dampingFraction: 0.7)
@@ -204,9 +218,13 @@ struct CompileProgressDock: View {
         .accessibilityValue("\(memoCount) of 3")
         .onAppear {
             previousMemoCount = memoCount
+            if !reduceMotion && memoCount < 3 {
+                nextSegmentBreathing = true
+            }
         }
         .onChange(of: memoCount) { newCount in
             if previousMemoCount < 3 && newCount == 3 {
+                nextSegmentBreathing = false
                 Haptics.success()
                 UIAccessibility.post(notification: .announcement, argument: L10n.Empty.compileDockUnlocked)
                 thirdSegmentPulsing = true
