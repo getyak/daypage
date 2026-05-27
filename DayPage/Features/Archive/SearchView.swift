@@ -213,6 +213,18 @@ struct SearchView: View {
         vm.hasSearched = !trimmed.isEmpty || filters.isActive
         if wasEmpty && !hits.isEmpty && !trimmed.isEmpty { Haptics.soft() }
         if hits.isEmpty { didBuzzEmpty = false }
+        if vm.hasSearched {
+            announceResultCount(hits.count, query: trimmed, filtersActive: filters.isActive)
+        }
+    }
+
+    private func announceResultCount(_ count: Int, query: String, filtersActive: Bool) {
+        guard UIAccessibility.isVoiceOverRunning else { return }
+        guard !query.isEmpty || filtersActive else { return }
+        let message = count == 0 ? "未找到匹配结果" : "找到 \(count) 条结果"
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            UIAccessibility.post(notification: .announcement, argument: message)
+        }
     }
 
     // MARK: - Search Bar
