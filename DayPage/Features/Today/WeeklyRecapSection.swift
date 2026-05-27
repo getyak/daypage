@@ -69,8 +69,13 @@ private struct WeeklyRecapDayCard: View {
     let entry: WeeklyRecapEntry
     let onTap: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
-        Button(action: onTap) {
+        Button(action: {
+            Haptics.tapConfirm()
+            onTap()
+        }) {
             HStack(alignment: .top, spacing: 14) {
                 dateRail
                 summaryColumn
@@ -85,17 +90,17 @@ private struct WeeklyRecapDayCard: View {
             .background(DSColor.surfaceContainer)
             .cornerRadius(DSSpacing.radiusCard)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableScaleStyle(reduceMotion: reduceMotion))
         .accessibilityLabel(accessibilityLabel)
     }
 
     private var dateRail: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(weekdayLabel)
-                .font(.custom("JetBrainsMono-Regular", fixedSize: 10))
+                .font(DSType.mono10)
                 .foregroundColor(DSColor.onSurfaceVariant)
             Text(monthDayLabel)
-                .font(.custom("SpaceGrotesk-Bold", size: 16))
+                .font(DSFonts.spaceGrotesk(size: 16, weight: .bold))
                 .foregroundColor(DSColor.onSurface)
         }
         .frame(width: 56, alignment: .leading)
@@ -140,5 +145,21 @@ private struct WeeklyRecapDayCard: View {
     private var accessibilityLabel: String {
         let summaryText = entry.summary.flatMap { $0.isEmpty ? nil : $0 } ?? "已编译"
         return "\(entry.dateString)，\(summaryText)"
+    }
+}
+
+// MARK: - PressableScaleStyle
+
+private struct PressableScaleStyle: ButtonStyle {
+    let reduceMotion: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect((!reduceMotion && configuration.isPressed) ? 0.97 : 1)
+            .opacity(configuration.isPressed ? 0.92 : 1)
+            .animation(
+                reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7),
+                value: configuration.isPressed
+            )
     }
 }
