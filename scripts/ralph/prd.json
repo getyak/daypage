@@ -82,7 +82,7 @@
         "\u6784\u5efa\u901a\u8fc7\uff0ciPhone 17 Simulator \u76ee\u89c6\u9a8c\u8bc1"
       ],
       "priority": 6,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-007",
@@ -96,7 +96,7 @@
         "\u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 7,
-      "passes": false
+      "passes": true
     },
     {
       "id": "US-008",
