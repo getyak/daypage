@@ -21,11 +21,13 @@ function isValidRange(v: string | undefined): v is Range {
 export default async function InsightsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ range?: string; section?: string }>;
+  searchParams: Promise<{ range?: string; section?: string; type?: string; cursor?: string }>;
 }) {
   const sp = await searchParams;
   const range: Range = isValidRange(sp.range) ? sp.range : "30d";
   const section = sp.section ?? "knowledge";
+  const activityType = sp.type;
+  const cursor = sp.cursor;
 
   return (
     <div className="page">
@@ -55,14 +57,14 @@ export default async function InsightsPage({
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 24 }}>
           <Suspense fallback={<CardSkeleton />}>
             {section === "knowledge" && <KnowledgeCard range={range} />}
-            {section === "activity" && <ActivityStreamCard range={range} />}
+            {section === "activity" && <ActivityStreamCard range={range} type={activityType} cursor={cursor} />}
             {section === "system" && <SystemCostCard range={range} />}
             {section === "dev" && <DevActivityCard range={range} />}
             {/* Default: show all on 'all' or unknown */}
             {!["knowledge", "activity", "system", "dev"].includes(section) && (
               <>
                 <KnowledgeCard range={range} />
-                <ActivityStreamCard range={range} />
+                <ActivityStreamCard range={range} type={activityType} cursor={cursor} />
                 <SystemCostCard range={range} />
                 <DevActivityCard range={range} />
               </>
