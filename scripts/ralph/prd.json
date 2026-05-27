@@ -201,7 +201,7 @@
         "Typecheck passes"
       ],
       "priority": 13,
-      "passes": false,
+      "passes": true,
       "notes": "Wave1。注意 /api/sources route 已部分存在, 需对齐到新表。"
     },
     {
@@ -219,7 +219,7 @@
         "Tests pass"
       ],
       "priority": 14,
-      "passes": false,
+      "passes": true,
       "notes": "Wave1 A1。所有外部源地基。依赖 US-009/012/013。"
     },
     {
@@ -236,7 +236,7 @@
         "Tests pass"
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "notes": "Wave1 A2。依赖 US-014。语音转写复用 LLM transcribe。"
     },
     {
@@ -252,7 +252,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 16,
-      "passes": false,
+      "passes": true,
       "notes": "Wave1 A2。依赖 US-015。"
     },
     {
@@ -267,7 +267,7 @@
         "Typecheck passes"
       ],
       "priority": 17,
-      "passes": false,
+      "passes": true,
       "notes": "Wave1 A2 验收。需真实 test bot, ralph 可能无法独立完成端到端, 必要时人工介入并在 notes 记录。"
     },
     {
