@@ -22,11 +22,19 @@ struct Memo: Identifiable, Equatable {
         case mixed
     }
 
+    // US-016: transcription lifecycle for audio attachments
+    enum TranscriptionStatus: String, Equatable {
+        case pending    // in-progress or queued
+        case done       // transcript available
+        case failed     // all retries exhausted or no network
+    }
+
     struct Attachment: Equatable {
         var file: String
-        var kind: String         // "photo" | "audio"
-        var duration: Double?    // seconds, audio only
-        var transcript: String?  // audio only
+        var kind: String                          // "photo" | "audio"
+        var duration: Double?                     // seconds, audio only
+        var transcript: String?                   // audio only
+        var transcriptionStatus: TranscriptionStatus? // audio only; nil = not applicable
     }
 
     // MARK: Fields
@@ -138,6 +146,9 @@ extension Memo {
                 if let tr = att.transcript {
                     lines.append("    transcript: \(yamlQuote(tr))")
                 }
+                if let ts = att.transcriptionStatus {
+                    lines.append("    transcription_status: \(ts.rawValue)")
+                }
             }
         }
 
@@ -217,7 +228,15 @@ extension Memo {
                 let kind = attMap["kind"] ?? "photo"
                 let duration = attMap["duration"].flatMap { Double($0) }
                 let transcript = attMap["transcript"]
-                attachments.append(Attachment(file: file, kind: kind, duration: duration, transcript: transcript))
+                let transcriptionStatus = attMap["transcription_status"]
+                    .flatMap { TranscriptionStatus(rawValue: $0) }
+                attachments.append(Attachment(
+                    file: file,
+                    kind: kind,
+                    duration: duration,
+                    transcript: transcript,
+                    transcriptionStatus: transcriptionStatus
+                ))
             }
         }
 
