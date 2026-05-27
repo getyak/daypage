@@ -7,6 +7,7 @@ import { KnowledgeCard } from "./_components/KnowledgeCard";
 import { ActivityStreamCard } from "./_components/ActivityStreamCard";
 import { SystemCostCard } from "./_components/SystemCostCard";
 import { DevActivityCard } from "./_components/DevActivityCard";
+import { DigitalFootprintCard } from "./_components/DigitalFootprintCard";
 
 export const dynamic = "force-dynamic";
 
@@ -60,13 +61,15 @@ export default async function InsightsPage({
             {section === "activity" && <ActivityStreamCard range={range} type={activityType} cursor={cursor} />}
             {section === "system" && <SystemCostCard range={range} />}
             {section === "dev" && <DevActivityCard range={range} />}
+            {section === "footprint" && <DigitalFootprintCard range={range} />}
             {/* Default: show all on 'all' or unknown */}
-            {!["knowledge", "activity", "system", "dev"].includes(section) && (
+            {!["knowledge", "activity", "system", "dev", "footprint"].includes(section) && (
               <>
                 <KnowledgeCard range={range} />
                 <ActivityStreamCard range={range} type={activityType} cursor={cursor} />
                 <SystemCostCard range={range} />
                 <DevActivityCard range={range} />
+                <DigitalFootprintCard range={range} />
               </>
             )}
           </Suspense>

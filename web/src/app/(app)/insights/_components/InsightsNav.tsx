@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart2, Activity, Cpu, Code2 } from "lucide-react";
+import { BarChart2, Activity, Cpu, Code2, Footprints } from "lucide-react";
 
 const SECTIONS = [
   { id: "knowledge", label: "Knowledge", icon: BarChart2 },
   { id: "activity", label: "Activity Stream", icon: Activity },
   { id: "system", label: "System & Cost", icon: Cpu },
   { id: "dev", label: "Development", icon: Code2 },
+  { id: "footprint", label: "Digital Footprint", icon: Footprints },
 ];
 
 export function InsightsNav({ range, active }: { range: string; active: string }) {
