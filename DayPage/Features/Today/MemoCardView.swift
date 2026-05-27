@@ -705,6 +705,12 @@ struct VoiceMemoPlayerRow: View {
                 }
             }
         }
+        .onAppear {
+            retryCount = UserDefaults.standard.integer(forKey: retryKey)
+        }
+        .onChange(of: transcript) { newValue in
+            if newValue != nil { isRetranscribing = false }
+        }
         .onDisappear { stopPlayback() }
     }
 

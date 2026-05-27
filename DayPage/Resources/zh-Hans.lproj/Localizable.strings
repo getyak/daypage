@@ -197,3 +197,11 @@
 /* Markdown Export — US-019 */
 "export.action.title"  = "导出为 Markdown";
 "export.action.label"  = "导出";
+
+/* Voice attachment retry — US-016 */
+"voice.retry.button"           = "重试转写";
+"voice.retry.button_attempt"   = "重试（第 %d / %d 次）";
+"voice.retry.button_a11y"      = "重试语音转写";
+"voice.retry.transcribing"     = "正在转写…";
+"voice.retry.failed_permanent" = "转写不可用";
+"voice.retry.failed_permanent_a11y" = "已重试 3 次，转写失败。音频已保存。";

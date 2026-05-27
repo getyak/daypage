@@ -169,3 +169,11 @@
 /* Markdown Export — US-019 */
 "export.action.title"  = "Export as Markdown";
 "export.action.label"  = "Export";
+
+/* Voice attachment retry — US-016 */
+"voice.retry.button"           = "Retry transcription";
+"voice.retry.button_attempt"   = "Retry (%d of %d)";
+"voice.retry.button_a11y"      = "Retry voice transcription";
+"voice.retry.transcribing"     = "Transcribing…";
+"voice.retry.failed_permanent" = "Transcription unavailable";
+"voice.retry.failed_permanent_a11y" = "Transcription permanently failed after 3 attempts. Audio is saved.";
