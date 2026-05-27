@@ -238,7 +238,7 @@ struct InputBarV4: View {
             if showTooShortToast {
                 HStack(spacing: 6) {
                     Image(systemName: "waveform")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(DSType.label)
                     Text(NSLocalizedString("input.toast.too_short", comment: ""))
                         .font(DSType.labelSM)
                 }
@@ -256,7 +256,7 @@ struct InputBarV4: View {
             } else if showMicHintToast {
                 HStack(spacing: 6) {
                     Image(systemName: "hand.tap")
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(DSType.label)
                     Text(NSLocalizedString("input.toast.mic_hint", comment: ""))
                         .font(DSType.labelSM)
                 }
@@ -398,7 +398,7 @@ struct InputBarV4: View {
             action()
         } label: {
             Image(systemName: systemImage)
-                .font(.system(size: 18, weight: .regular))
+                .font(DSType.headlineCaps)
                 .foregroundStyle(DSColor.inkPrimary)
                 .frame(width: 44, height: 44)
                 .background(Color.clear)
@@ -652,7 +652,7 @@ struct InputBarV4: View {
             isFocused = false
         } label: {
             Image(systemName: "chevron.down")
-                .font(.system(size: 17, weight: .regular))
+                .font(DSType.h2)
                 .foregroundStyle(DSColor.inkMuted)
         }
         .accessibilityLabel("收起，回到语音模式")
@@ -668,7 +668,7 @@ struct InputBarV4: View {
                 .frame(width: 28, height: 28)
                 .overlay(
                     Image(systemName: isComposingTranscribe ? "waveform" : "mic")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(DSType.caption)
                         .foregroundStyle(.white)
                 )
                 .shadow(color: DSColor.amberAccent.opacity(0.40), radius: 6, x: 0, y: 2)
@@ -681,7 +681,7 @@ struct InputBarV4: View {
             onCapturePhoto()
         } label: {
             Image(systemName: "camera")
-                .font(.system(size: 19, weight: .light))
+                .font(DSType.titleSM)
                 .foregroundStyle(DSColor.inkMuted)
         }
         .accessibilityLabel("拍照")
@@ -689,7 +689,7 @@ struct InputBarV4: View {
         // Photo library
         PhotosPicker(selection: $photosPickerItems, matching: .images, photoLibrary: .shared()) {
             Image(systemName: "photo.on.rectangle")
-                .font(.system(size: 19, weight: .light))
+                .font(DSType.titleSM)
                 .foregroundStyle(DSColor.inkMuted)
         }
         .accessibilityLabel("相册")
@@ -699,7 +699,7 @@ struct InputBarV4: View {
             pendingLocation != nil ? onClearLocation() : onFetchLocation()
         } label: {
             Image(systemName: pendingLocation != nil ? "mappin.circle.fill" : "mappin.and.ellipse")
-                .font(.system(size: 19, weight: .light))
+                .font(DSType.titleSM)
                 .foregroundStyle(pendingLocation != nil ? DSColor.amberAccent : DSColor.inkMuted)
         }
         .accessibilityLabel(pendingLocation != nil ? "清除位置" : "添加位置")
@@ -769,7 +769,7 @@ struct InputBarV4: View {
                 color: affordance.shadowColor,
                 radius: 8, x: 0, y: 4
             )
-            .animation(.spring(response: 0.32, dampingFraction: 0.8), value: affordance)
+            .animation(Motion.spring, value: affordance)
         }
         .buttonStyle(.plain)
         .disabled(isDisabled)
@@ -780,9 +780,7 @@ struct InputBarV4: View {
     }
 
     private func startBreathing() {
-        withAnimation(
-            .easeInOut(duration: 0.8).repeatForever(autoreverses: true)
-        ) {
+        withAnimation(Motion.breathing) {
             breathingOpacity = 0.45
         }
     }
@@ -913,7 +911,7 @@ struct InputBarV4: View {
                 Haptics.light()
                 onRemoveAttachment(att.id)
             } label: {
-                Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundStyle(DSColor.inkSubtle)
+                Image(systemName: "xmark").font(DSType.mono9).foregroundStyle(DSColor.inkSubtle)
             }.buttonStyle(.plain)
         }
         .padding(.horizontal, 10)
@@ -931,11 +929,11 @@ struct InputBarV4: View {
 
     private func locationChipRow(loc: Memo.Location) -> some View {
         HStack(spacing: 4) {
-            Image(systemName: "mappin").font(.system(size: 10, weight: .semibold)).foregroundStyle(DSColor.amberAccent)
+            Image(systemName: "mappin").font(DSType.labelXS).foregroundStyle(DSColor.amberAccent)
             Text(locationLabel(loc)).font(DSType.labelSM).foregroundStyle(DSColor.amberAccent).lineLimit(1)
             Spacer()
             Button(action: onClearLocation) {
-                Image(systemName: "xmark.circle.fill").font(.system(size: 14)).foregroundStyle(DSColor.inkSubtle)
+                Image(systemName: "xmark.circle.fill").font(DSType.bodySM).foregroundStyle(DSColor.inkSubtle)
             }.buttonStyle(.plain)
         }
         .padding(.horizontal, 16)
@@ -1019,29 +1017,29 @@ private struct SendAffordanceIcon: View {
             switch affordance {
             case .empty:
                 Image(systemName: "mic.fill")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(DSType.bodyMD)
                     .foregroundStyle(DSColor.amberAccent.opacity(breathingOpacity))
 
             case .textOnly:
                 Image(systemName: "arrow.up")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(DSType.bodyMD)
                     .foregroundStyle(.white)
 
             case .textAndPhoto:
                 // Composite: camera behind, small arrow.up overlaid top-right
                 ZStack(alignment: .topTrailing) {
                     Image(systemName: "camera.fill")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(DSType.bodySM)
                         .foregroundStyle(.white)
                     Image(systemName: "arrow.up")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(DSType.mono9)
                         .foregroundStyle(.white)
                         .offset(x: 5, y: -5)
                 }
 
             case .locationOnly:
                 Image(systemName: "mappin.and.ellipse")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(DSType.bodyMD)
                     .foregroundStyle(.white)
 
             case .multimodal:
@@ -1052,12 +1050,12 @@ private struct SendAffordanceIcon: View {
                         .frame(width: 28, height: 28)
                         .opacity(breathingOpacity)
                     Image(systemName: "arrow.up")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(DSType.label)
                         .foregroundStyle(.white)
                 }
             }
         }
-        .animation(.spring(response: 0.32, dampingFraction: 0.8), value: affordance)
+        .animation(Motion.spring, value: affordance)
     }
 }
 
