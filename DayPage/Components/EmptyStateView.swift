@@ -184,17 +184,6 @@ extension EmptyStateView {
         )
     }
 
-    /// Graph — no knowledge graph compiled yet.
-    static func graphEmpty(ctaAction: @escaping () -> Void) -> EmptyStateView {
-        EmptyStateView(
-            title: "尚无知识图谱",
-            subtitle: "编译日记后，实体节点将在此出现",
-            ctaLabel: "去记录",
-            ctaAction: ctaAction,
-            showOrbAccent: true
-        )
-    }
-
     /// Graph — nodes exist but current search/filter matches nothing.
     static func graphNoMatches() -> EmptyStateView {
         EmptyStateView(
@@ -212,6 +201,17 @@ extension EmptyStateView {
             ctaLabel: L10n.Empty.micDeniedCta,
             ctaAction: ctaAction,
             showOrbAccent: false
+        )
+    }
+
+    /// Graph tab — no compiled entities exist yet.
+    static func graphEmpty(ctaAction: @escaping () -> Void) -> EmptyStateView {
+        EmptyStateView(
+            title: "尚无知识图谱",
+            subtitle: "编译日记后，实体节点将在此出现，写点什么开始构建你的知识网络",
+            ctaLabel: "去写点什么",
+            ctaAction: ctaAction,
+            showOrbAccent: true
         )
     }
 }
