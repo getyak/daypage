@@ -187,8 +187,8 @@ extension EmptyStateView {
     /// Graph — nodes exist but current search/filter matches nothing.
     static func graphNoMatches() -> EmptyStateView {
         EmptyStateView(
-            title: "无匹配节点",
-            subtitle: "调整搜索或筛选条件以查看节点",
+            title: L10n.Empty.graphNoMatchesTitle,
+            subtitle: L10n.Empty.graphNoMatchesSubtitle,
             showOrbAccent: false
         )
     }
@@ -207,9 +207,9 @@ extension EmptyStateView {
     /// Graph tab — no compiled entities exist yet.
     static func graphEmpty(ctaAction: @escaping () -> Void) -> EmptyStateView {
         EmptyStateView(
-            title: "尚无知识图谱",
-            subtitle: "编译日记后，实体节点将在此出现，写点什么开始构建你的知识网络",
-            ctaLabel: "去写点什么",
+            title: L10n.Empty.graphEmptyTitle,
+            subtitle: L10n.Empty.graphEmptySubtitle,
+            ctaLabel: L10n.Empty.graphEmptyCta,
             ctaAction: ctaAction,
             showOrbAccent: true
         )

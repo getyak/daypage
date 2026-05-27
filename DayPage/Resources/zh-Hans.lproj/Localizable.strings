@@ -64,6 +64,15 @@
 "empty.archive_month.subtitle" = "还没有记录 — 切回 Today 开始捕捉今天的信号。";
 "empty.archive_month.cta" = "去记录";
 
+/* Graph Empty */
+"empty.graph.title" = "尚无知识图谱。";
+"empty.graph.subtitle" = "编译日记后，实体节点将在此出现，写点什么开始构建你的知识网络。";
+"empty.graph.cta" = "去写点什么";
+
+/* Graph No Matches */
+"empty.graph.no_matches.title" = "无匹配节点。";
+"empty.graph.no_matches.subtitle" = "调整搜索或筛选条件以查看节点。";
+
 /* Mic Permission Denied */
 "empty.mic_denied.title" = "需要麦克风权限。";
 "empty.mic_denied.subtitle" = "请在「设置」中允许访问麦克风，以便录制语音备忘。";
