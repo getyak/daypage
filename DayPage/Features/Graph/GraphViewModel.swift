@@ -10,6 +10,7 @@ struct GraphNode: Identifiable {
     var position: CGPoint
     var velocity: CGPoint = .zero
     var dates: Set<String> = []   // YYYY-MM-DD dates this entity appears in
+    var occurrenceCount: Int = 0  // parsed from entity page frontmatter
 
     var color: Color {
         switch entityType {
@@ -17,6 +18,12 @@ struct GraphNode: Identifiable {
         case "places":  return DSColor.amberArchival
         default:        return DSColor.tertiary
         }
+    }
+
+    /// Visual radius scales with occurrence count: base 16pt, +2pt per 5 mentions, capped at 32pt.
+    var displayRadius: CGFloat {
+        let extra = CGFloat(min(occurrenceCount / 5, 8)) * 2
+        return 16 + extra
     }
 
     /// Parses slug from the node id ("places/joma-coffee" → "joma-coffee")
@@ -156,6 +163,24 @@ final class GraphViewModel: ObservableObject {
             }
         }
 
+        // Parse occurrence counts from entity page frontmatter
+        var occurrenceCounts: [String: Int] = [:]
+        for entityType in ["places", "people", "themes"] {
+            let typeURL = wikiURL.appendingPathComponent(entityType, isDirectory: true)
+            let files: [URL]
+            do { files = try fm.contentsOfDirectory(at: typeURL, includingPropertiesForKeys: nil) }
+            catch { files = [] }
+            for fileURL in files where fileURL.pathExtension == "md" {
+                let slug = fileURL.deletingPathExtension().lastPathComponent
+                let key = "\(entityType)/\(slug)"
+                if let content = try? String(contentsOf: fileURL, encoding: .utf8),
+                   let countStr = extractFrontmatterField("occurrence_count", from: content),
+                   let count = Int(countStr) {
+                    occurrenceCounts[key] = count
+                }
+            }
+        }
+
         // Place nodes in a circle initially
         let count = entityMap.count
         let radius: Double = count > 1 ? 180 : 0
@@ -166,6 +191,8 @@ final class GraphViewModel: ObservableObject {
             let pos = CGPoint(x: cos(angle) * radius, y: sin(angle) * radius)
             var node = GraphNode(id: id, name: info.name, entityType: info.type, position: pos)
             node.dates = entityDates[id] ?? []
+            // Use occurrence_count from entity page if available, otherwise fall back to date count
+            node.occurrenceCount = occurrenceCounts[id] ?? node.dates.count
             nodes.append(node)
             idx += 1
         }
@@ -208,6 +235,25 @@ final class GraphViewModel: ObservableObject {
             results.append(WikiRef(type: type, slug: slug, name: name))
         }
         return results
+    }
+
+    nonisolated private static func extractFrontmatterField(_ field: String, from content: String) -> String? {
+        var sawOpener = false
+        for line in content.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed == "---" {
+                if sawOpener { break }
+                sawOpener = true
+                continue
+            }
+            if trimmed.hasPrefix("\(field):") {
+                let val = String(trimmed.dropFirst("\(field):".count))
+                    .trimmingCharacters(in: .whitespaces)
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+                return val.isEmpty ? nil : val
+            }
+        }
+        return nil
     }
 
     nonisolated private static func parseName(from content: String) -> String? {

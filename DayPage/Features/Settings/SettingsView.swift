@@ -66,6 +66,7 @@ struct SettingsView: View {
             List {
                 accountSection
                 apiKeysSection
+                aiEngineSection
                 permissionsSection
                 appearanceSection
                 timeZoneSection
@@ -182,7 +183,7 @@ struct SettingsView: View {
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "person.crop.circle")
-                        .font(.system(size: 22, weight: .regular))
+                        .font(DSType.h2)
                         .foregroundColor(DSColor.onSurfaceVariant)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(authService.session?.user.email ?? "未登录")
@@ -194,7 +195,7 @@ struct SettingsView: View {
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(DSType.caption)
                         .foregroundColor(DSColor.onSurfaceVariant)
                 }
                 .contentShape(Rectangle())
@@ -255,7 +256,7 @@ struct SettingsView: View {
                             .foregroundColor(.red)
                     } else {
                         Text("…" + String(key.suffix(4)))
-                            .font(.system(size: 12, design: .monospaced))
+                            .font(DSType.labelSM)
                             .foregroundColor(DSColor.onSurfaceVariant)
                     }
                 }
@@ -753,13 +754,44 @@ struct SettingsView: View {
                     .foregroundColor(DSColor.onSurfaceVariant)
                     .font(.caption)
             }
+        }
+    }
+
+    // MARK: - AI Engine Section (US-014)
+
+    private var aiEngineSection: some View {
+        Section {
+            // Model name (read-only)
             HStack {
-                Label("AI 编译引擎", systemImage: "cpu")
+                Label(NSLocalizedString("settings.ai.model", comment: ""), systemImage: "cpu")
                 Spacer()
                 Text(aiModelName)
                     .foregroundColor(DSColor.onSurfaceVariant)
-                    .font(.system(size: 12, design: .monospaced))
+                    .font(DSType.labelSM)
             }
+            // Provider name (read-only)
+            HStack {
+                Label(NSLocalizedString("settings.ai.provider", comment: ""), systemImage: "server.rack")
+                Spacer()
+                Text(aiProviderName)
+                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .font(DSType.labelSM)
+            }
+            // Endpoint (read-only, truncated)
+            HStack {
+                Label(NSLocalizedString("settings.ai.endpoint", comment: ""), systemImage: "network")
+                Spacer()
+                Text(aiEndpointDisplay)
+                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .font(DSType.labelSM)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+        } header: {
+            Text(NSLocalizedString("settings.ai.section_title", comment: ""))
+        } footer: {
+            Text(NSLocalizedString("settings.ai.footer", comment: ""))
+                .font(.caption)
         }
     }
 
@@ -966,6 +998,19 @@ struct SettingsView: View {
 
     private var aiModelName: String {
         Secrets.deepSeekModel.isEmpty ? "deepseek-v4-pro" : Secrets.deepSeekModel
+    }
+
+    private var aiProviderName: String {
+        let base = Secrets.deepSeekBaseURL
+        if base.contains("dashscope") { return "Aliyun DashScope" }
+        if base.contains("deepseek") { return "DeepSeek" }
+        if base.isEmpty { return "DeepSeek" }
+        return "Custom"
+    }
+
+    private var aiEndpointDisplay: String {
+        let base = Secrets.deepSeekBaseURL
+        return base.isEmpty ? "https://api.deepseek.com/v1" : base
     }
 
     private var locationAuthLabel: String {

@@ -52,7 +52,6 @@ final class CompilationService: ObservableObject {
         trigger: String = "manual",
         onRetry: ((Int, Int) -> Void)? = nil
     ) async throws {
-        // 离线预检
         guard NetworkMonitor.shared.isOnline else {
             throw CompilationError.offline
         }
@@ -60,9 +59,42 @@ final class CompilationService: ObservableObject {
         let startTime = Date()
         let dateString = dateFormatter.string(from: date)
 
-        // 1. 加载原始备忘录 (extracting)
+        // Step 1: Collect memos
         stage = .extracting
         compilationProgress = .extracting
+        let (memos, rawContent) = try collectMemos(for: date)
+        let hotContent = loadHotContent()
+
+        // Step 2: Build prompt
+        let prompt = buildPrompt(
+            dateString: dateString,
+            rawContent: rawContent,
+            hotContent: hotContent,
+            memoCount: memos.count
+        )
+
+        // Step 3: Call AI
+        stage = .compiling
+        compilationProgress = .compiling
+        let compiledText = try await callAI(prompt: prompt, onRetry: onRetry)
+
+        // Step 4: Parse response
+        stage = .formatting
+        compilationProgress = .formatting
+        let parsed = try parseResponse(compiledText)
+
+        // Step 5: Save results
+        try saveResults(parsed, dateString: dateString, trigger: trigger, startTime: startTime, memoCount: memos.count)
+
+        stage = .done
+        compilationProgress = .done
+    }
+
+    // MARK: - Step 1: Collect Memos
+
+    /// Reads today's raw memos and the raw file content string.
+    /// - Returns: `(memos, rawFileContent)`
+    private func collectMemos(for date: Date) throws -> ([Memo], String) {
         let memos: [Memo]
         do {
             memos = try RawStorage.read(for: date)
@@ -73,33 +105,19 @@ final class CompilationService: ObservableObject {
             throw CompilationError.emptyInput
         }
         let rawContent = rawFileContent(for: date)
+        return (memos, rawContent)
+    }
 
-        // 2. 加载 hot.md 上下文
-        let hotContent = loadHotContent()
+    // MARK: - Step 3: Call AI
 
-        // 3. 构建提示词
-        let prompt = buildPrompt(
-            dateString: dateString,
-            rawContent: rawContent,
-            hotContent: hotContent,
-            memoCount: memos.count
-        )
-
-        // 4. 调用 DeepSeek API（带重试）(compiling)
+    /// Calls the AI API with retry, returning the raw LLM response string.
+    private func callAI(prompt: String, onRetry: ((Int, Int) -> Void)?) async throws -> String {
         let apiKey = Secrets.resolvedDeepSeekApiKey
         guard !apiKey.isEmpty else {
             throw CompilationError.missingApiKey
         }
-
-        stage = .compiling
-        compilationProgress = .compiling
-        let compiledText: String
         do {
-            compiledText = try await callDeepSeekWithRetry(
-                prompt: prompt,
-                apiKey: apiKey,
-                onRetry: onRetry
-            )
+            return try await callDeepSeekWithRetry(prompt: prompt, apiKey: apiKey, onRetry: onRetry)
         } catch let err as CompilationError {
             throw err
         } catch let urlErr as URLError where urlErr.code == .timedOut {
@@ -107,48 +125,158 @@ final class CompilationService: ObservableObject {
         } catch {
             throw CompilationError.unknown(error)
         }
+    }
 
-        // 5. 解析结构化输出（formatting）
-        stage = .formatting
-        compilationProgress = .formatting
+    // MARK: - Step 4: Parse Response
+
+    /// Per-memo annotation extracted from the LLM response.
+    struct MemoUpdateInstruction {
+        let memoID: UUID
+        let mood: String?
+        let entityMentions: [String]
+        let dateReferences: [String]
+    }
+
+    /// Parsed output from the LLM response.
+    struct ParsedCompilationOutput {
+        let dailyPageText: String
+        let entityInstructions: [EntityUpdateInstruction]
+        let memoUpdates: [MemoUpdateInstruction]
+        let hotCacheText: String
+    }
+
+    /// Parses the LLM response into structured components.
+    private func parseResponse(_ rawLLMResponse: String) throws -> ParsedCompilationOutput {
         let (dailyPageText, entityInstructions, hotCacheText): (String, [EntityUpdateInstruction], String)
         do {
-            (dailyPageText, entityInstructions, hotCacheText) = try parseStructuredOutputWithHot(compiledText)
+            (dailyPageText, entityInstructions, hotCacheText) = try parseStructuredOutputWithHot(rawLLMResponse)
         } catch let err as CompilationError {
             throw err
         } catch {
             throw CompilationError.parseFailure(error.localizedDescription)
         }
+        let memoUpdates = extractMemoUpdates(rawLLMResponse)
+        return ParsedCompilationOutput(
+            dailyPageText: dailyPageText,
+            entityInstructions: entityInstructions,
+            memoUpdates: memoUpdates,
+            hotCacheText: hotCacheText
+        )
+    }
 
-        // 6. 写入每日页面（如已有则先备份）
+    /// Extracts per-memo mood + entity mention + date reference annotations from
+    /// the `memo_updates` array in the LLM JSON response.
+    private func extractMemoUpdates(_ rawLLMResponse: String) -> [MemoUpdateInstruction] {
+        guard let jsonBlock = Self.extractJSONBlockStatic(from: rawLLMResponse),
+              let data = jsonBlock.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let updates = json["memo_updates"] as? [[String: Any]] else { return [] }
+
+        var results: [MemoUpdateInstruction] = []
+        for update in updates {
+            guard let idStr = update["memo_id"] as? String,
+                  let uuid = UUID(uuidString: idStr) else { continue }
+            let mood = (update["mood"] as? String).flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            let entityMentions = (update["entity_mentions"] as? [String]) ?? []
+            let dateReferences = (update["date_references"] as? [String]) ?? []
+            guard mood != nil || !entityMentions.isEmpty || !dateReferences.isEmpty else { continue }
+            results.append(MemoUpdateInstruction(
+                memoID: uuid,
+                mood: mood,
+                entityMentions: entityMentions,
+                dateReferences: dateReferences
+            ))
+        }
+        return results
+    }
+
+    private static func extractJSONBlockStatic(from text: String) -> String? {
+        let fencePatterns = ["```json\n", "```json \n", "```JSON\n", "```\n"]
+        for pattern in fencePatterns {
+            if let fenceStart = text.range(of: pattern, options: .caseInsensitive),
+               let fenceEnd = text.range(of: "\n```", range: fenceStart.upperBound ..< text.endIndex) {
+                return String(text[fenceStart.upperBound ..< fenceEnd.lowerBound])
+            }
+        }
+        if let braceStart = text.firstIndex(of: "{"),
+           let braceEnd = text.lastIndex(of: "}") {
+            return String(text[braceStart ... braceEnd])
+        }
+        return nil
+    }
+
+    // MARK: - Step 5: Save Results
+
+    /// Persists the compiled daily page, entity updates, hot cache, and log entry.
+    private func saveResults(
+        _ parsed: ParsedCompilationOutput,
+        dateString: String,
+        trigger: String,
+        startTime: Date,
+        memoCount: Int
+    ) throws {
         let dailyURL = dailyPageURL(for: dateString)
         do {
             try backupIfExists(at: dailyURL, dateString: dateString)
-            try writeFile(content: dailyPageText, to: dailyURL)
+            try writeFile(content: parsed.dailyPageText, to: dailyURL)
         } catch let err as CompilationError {
             throw err
         } catch {
             throw CompilationError.fileSystemError(error.localizedDescription)
         }
 
-        // 7. 应用实体更新
-        try EntityPageService.shared.apply(instructions: entityInstructions, date: dateString)
+        try EntityPageService.shared.apply(instructions: parsed.entityInstructions, date: dateString)
+        applyMemoUpdates(parsed.memoUpdates, dateString: dateString)
+        updateHotCache(summary: parsed.hotCacheText, compiledDate: dateString)
 
-        // 8. 更新 hot.md 缓存（覆盖写入，保留 frontmatter 结构）
-        updateHotCache(summary: hotCacheText, compiledDate: dateString)
-
-        // 9. 追加到 log.md
         let elapsed = Date().timeIntervalSince(startTime)
         appendLog(
             timestamp: iso8601Now(),
             trigger: trigger,
             durationSeconds: elapsed,
-            memoCount: memos.count,
+            memoCount: memoCount,
             status: "success"
         )
+    }
 
-        stage = .done
-        compilationProgress = .done
+    /// Back-fills mood and entityMentions into the raw memo file for each MemoUpdateInstruction.
+    /// Non-fatal: failures are logged but do not abort compilation.
+    private func applyMemoUpdates(_ updates: [MemoUpdateInstruction], dateString: String) {
+        guard !updates.isEmpty else { return }
+        guard let date = ISO8601DateFormatter.dayOnly.date(from: dateString) else { return }
+
+        let rawURL = RawStorage.fileURL(for: date)
+
+        var memos: [Memo]
+        do { memos = try RawStorage.read(for: date) }
+        catch { DayPageLogger.shared.error("applyMemoUpdates: read failed: \(error)"); return }
+        guard !memos.isEmpty else { return }
+
+        var changed = false
+        for update in updates {
+            guard let idx = memos.firstIndex(where: { $0.id == update.memoID }) else { continue }
+            var memo = memos[idx]
+            if let mood = update.mood, !mood.isEmpty {
+                memo.mood = mood
+                changed = true
+            }
+            if !update.entityMentions.isEmpty {
+                let merged = Array(Set(memo.entityMentions + update.entityMentions)).sorted()
+                if merged != memo.entityMentions {
+                    memo.entityMentions = merged
+                    changed = true
+                }
+            }
+            memos[idx] = memo
+        }
+
+        guard changed else { return }
+        let newContent = memos.map { $0.toMarkdown() }.joined(separator: RawStorage.memoSeparator)
+        do {
+            try RawStorage.atomicWrite(string: newContent, to: rawURL)
+        } catch {
+            DayPageLogger.shared.error("applyMemoUpdates: failed to write raw file: \(error)")
+        }
     }
 
     // MARK: - URL Helpers
@@ -303,6 +431,14 @@ final class CompilationService: ObservableObject {
               "content": "- \(dateString): <brief note>"
             }
           ],
+          "memo_updates": [
+            {
+              "memo_id": "<UUID from the memo's id: field>",
+              "mood": "<one-word mood in Chinese, e.g. 愉快>",
+              "entity_mentions": ["slug-one", "slug-two"],
+              "date_references": ["2026-01-10", "last week"]
+            }
+          ],
           "hot_cache": "<short-term memory summary in Chinese, ~500 chars>"
         }
         ```
@@ -313,7 +449,7 @@ final class CompilationService: ObservableObject {
         type: daily
         date: \(dateString)
         location_primary: <primary location name or "Unknown">
-        mood: <one-word mood in Chinese inferred from memo tone and content, e.g. 平静、焦虑、愉快、疲惫、充实、迷茫、兴奋>
+        mood: <one-word mood in Chinese inferred from overall day tone, e.g. 平静、焦虑、愉快、疲惫、充实、迷茫、兴奋>
         entries_count: \(memoCount)
         summary: "<one-sentence summary in Chinese, max 50 chars>"
         cover: <optional: vault-relative path of the best photo attachment from today's memos, e.g. "raw/assets/photo_20260414_093000.jpg"; omit the line entirely if no photos exist>
@@ -351,6 +487,14 @@ final class CompilationService: ObservableObject {
         - content: Markdown content to append under that section
         - Include all notable places, people, and themes mentioned in the memos
         - Entity references in daily_page use [[slug]] format
+
+        ### memo_updates rules:
+        - memo_id: the exact UUID from the memo's `id:` YAML field
+        - mood: one Chinese word capturing this memo's emotional tone (e.g. 愉快、焦虑、平静、兴奋)
+        - entity_mentions: list of entity slugs (lowercase-hyphenated) explicitly or implicitly referenced in this memo
+        - date_references: any explicit date strings or relative date expressions found in the memo body (e.g. "2026-01-10", "上周", "明天")
+        - Only include entries for memos where at least one field is non-empty
+        - Omit memo_updates entirely if no memos have extractable mood or date references
 
         ### hot_cache format (inside the JSON string, use \\n for newlines):
         Write ~500 Chinese characters covering:

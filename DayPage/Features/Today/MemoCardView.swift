@@ -553,8 +553,10 @@ struct VoiceMemoPlayerRow: View {
     let fileURL: URL
     let duration: TimeInterval
     let transcript: String?
-    // US-014: called when user taps retry on a failed transcript
+    // US-016: called when user taps retry on a failed transcript
     var onRetranscribe: (() -> Void)? = nil
+
+    static let maxRetries = 3
 
     @State private var isPlaying: Bool = false
     @State private var isRetranscribing: Bool = false
@@ -563,6 +565,11 @@ struct VoiceMemoPlayerRow: View {
     @State private var progressTimer: Timer?
     @State private var fileError: Bool = false
     @State private var isScrubbing: Bool = false
+    /// Number of failed transcription attempts for this attachment. Persisted
+    /// in UserDefaults so retry count survives the memo card going off-screen.
+    @State private var retryCount: Int = 0
+
+    private var retryKey: String { "voice.retry.\(fileURL.lastPathComponent)" }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -654,22 +661,39 @@ struct VoiceMemoPlayerRow: View {
                 if VoiceAttachmentQueue.shared.pendingCount > 0 || isRetranscribing {
                     HStack(spacing: 6) {
                         ProgressView().scaleEffect(0.7).tint(DSColor.inkSubtle)
-                        Text("Transcribing…")
+                        Text(NSLocalizedString("voice.retry.transcribing", comment: ""))
                             .font(DSType.bodySM)
                             .foregroundColor(DSColor.inkSubtle)
                     }
                     .padding(.horizontal, 14)
                     .padding(.bottom, 6)
+                } else if retryCount >= Self.maxRetries {
+                    // US-016: permanent failure after max retries
+                    HStack(spacing: 6) {
+                        Image(systemName: "xmark.circle")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundColor(DSColor.errorRed)
+                        Text(NSLocalizedString("voice.retry.failed_permanent", comment: ""))
+                            .font(DSType.bodySM)
+                            .foregroundColor(DSColor.errorRed)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 6)
+                    .accessibilityLabel(NSLocalizedString("voice.retry.failed_permanent_a11y", comment: ""))
                 } else {
-                    // US-014: retry button for failed transcription
+                    // US-016: retry button with attempt counter
                     Button {
+                        retryCount += 1
+                        UserDefaults.standard.set(retryCount, forKey: retryKey)
                         isRetranscribing = true
                         onRetranscribe?()
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "arrow.clockwise")
                                 .font(.system(size: 12, weight: .semibold))
-                            Text("Retry transcription")
+                            Text(retryCount == 0
+                                 ? NSLocalizedString("voice.retry.button", comment: "")
+                                 : String(format: NSLocalizedString("voice.retry.button_attempt", comment: ""), retryCount + 1, Self.maxRetries))
                                 .font(DSType.bodySM)
                         }
                         .foregroundColor(DSColor.amberAccent)
@@ -677,8 +701,15 @@ struct VoiceMemoPlayerRow: View {
                     .buttonStyle(.plain)
                     .padding(.horizontal, 14)
                     .padding(.bottom, 6)
+                    .accessibilityLabel(NSLocalizedString("voice.retry.button_a11y", comment: ""))
                 }
             }
+        }
+        .onAppear {
+            retryCount = UserDefaults.standard.integer(forKey: retryKey)
+        }
+        .onChange(of: transcript) { newValue in
+            if newValue != nil { isRetranscribing = false }
         }
         .onDisappear { stopPlayback() }
     }

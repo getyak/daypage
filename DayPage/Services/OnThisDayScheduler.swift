@@ -26,8 +26,14 @@ final class OnThisDayScheduler: ObservableObject {
         set { UserDefaults.standard.set(newValue, forKey: enabledKey) }
     }
 
+    private var observerTokens: [NSObjectProtocol] = []
+
     private init() {
         setupNotifications()
+    }
+
+    deinit {
+        observerTokens.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
     // MARK: - Public API
@@ -85,7 +91,7 @@ final class OnThisDayScheduler: ObservableObject {
     }
 
     private func setupNotifications() {
-        NotificationCenter.default.addObserver(
+        let timeToken = NotificationCenter.default.addObserver(
             forName: UIApplication.significantTimeChangeNotification,
             object: nil,
             queue: .main
@@ -95,7 +101,7 @@ final class OnThisDayScheduler: ObservableObject {
             }
         }
 
-        NotificationCenter.default.addObserver(
+        let activeToken = NotificationCenter.default.addObserver(
             forName: UIApplication.didBecomeActiveNotification,
             object: nil,
             queue: .main
@@ -110,6 +116,8 @@ final class OnThisDayScheduler: ObservableObject {
                 }
             }
         }
+
+        observerTokens = [timeToken, activeToken]
     }
 
     private func recomputeNextFireAt() {

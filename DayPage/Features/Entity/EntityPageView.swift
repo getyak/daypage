@@ -20,6 +20,8 @@ struct EntityPageView: View {
     @State private var selectedDate: String? = nil
     @State private var selectedEntitySlug: String? = nil
     @State private var selectedEntityType: String = "themes"
+    /// Memos from raw vault files that mention this entity slug.
+    @State private var linkedMemos: [(dateStr: String, memo: Memo)] = []
 
     var body: some View {
         NavigationStack {
@@ -185,7 +187,7 @@ struct EntityPageView: View {
         }
     }
 
-    // MARK: - Related Memos (stub for MVP)
+    // MARK: - Related Memos (entity → memos bidirectional link)
 
     private func relatedMemos(model: EntityModel) -> some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -199,11 +201,43 @@ struct EntityPageView: View {
                     .frame(height: 1)
             }
 
-            if model.relatedDates.isEmpty {
+            if linkedMemos.isEmpty && model.relatedDates.isEmpty {
                 Text("暂无关联记录")
                     .bodySMStyle()
                     .foregroundColor(DSColor.onSurfaceVariant)
+            } else if !linkedMemos.isEmpty {
+                // Show individual memo snippets with navigation
+                ForEach(linkedMemos.indices, id: \.self) { idx in
+                    let item = linkedMemos[idx]
+                    Button(action: { selectedDate = item.dateStr }) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(relativeDateLabel(item.dateStr))
+                                .monoLabelStyle(size: 9)
+                                .foregroundColor(DSColor.onSurfaceVariant)
+                            let preview = item.memo.body.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !preview.isEmpty {
+                                Text(preview)
+                                    .font(.custom("SourceSerif4-Regular", size: 14))
+                                    .foregroundColor(DSColor.onSurface)
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.leading)
+                            } else {
+                                Text("[\(item.memo.type.rawValue)]")
+                                    .monoLabelStyle(size: 10)
+                                    .foregroundColor(DSColor.onSurfaceVariant)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 12)
+                        .background(DSColor.surfaceContainer)
+                        .cornerRadius(0)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(relativeDateLabel(item.dateStr)): \(item.memo.body.prefix(80))")
+                }
             } else {
+                // Fallback: daily page dates only (entity mentioned in compiled page but not raw)
                 ForEach(model.relatedDates, id: \.self) { dateStr in
                     Button(action: { selectedDate = dateStr }) {
                         HStack {
@@ -291,11 +325,12 @@ struct EntityPageView: View {
 
             var parsed = EntityPageParser.parse(content: rawContent, slug: slug)
 
-            // Scan vault/raw/*.md for any memo file that references this slug,
-            // then merge those dates into relatedDates.
-            let backlinked = Self.scanRawMemos(in: rawDir, mentioning: slug)
-            if !backlinked.isEmpty {
-                let merged = Array(Set(parsed.relatedDates + backlinked)).sorted(by: >)
+            // Scan vault/raw/*.md for memos that reference this slug,
+            // build bidirectional (entity → memos) link list.
+            let memoLinks = Self.scanRawMemosWithContent(in: rawDir, mentioning: slug)
+            let backlinkedDates = memoLinks.map { $0.dateStr }
+            if !backlinkedDates.isEmpty {
+                let merged = Array(Set(parsed.relatedDates + backlinkedDates)).sorted(by: >)
                 parsed = EntityModel(
                     name: parsed.name,
                     entityType: parsed.entityType,
@@ -306,13 +341,17 @@ struct EntityPageView: View {
                 )
             }
 
-            await MainActor.run { self.model = parsed }
+            await MainActor.run {
+                self.model = parsed
+                self.linkedMemos = memoLinks
+            }
         }
     }
 
-    /// Scans all `vault/raw/YYYY-MM-DD.md` files and returns the date strings
-    /// of files whose content mentions `slug` (as a bare slug or inside a wikilink).
-    private static func scanRawMemos(in rawDir: URL, mentioning slug: String) -> [String] {
+    /// Scans all `vault/raw/YYYY-MM-DD.md` files and returns (dateStr, Memo) pairs
+    /// for each memo that mentions `slug` (bare or inside a wikilink).
+    /// Sorted newest-first. Provides the data for bidirectional entity → memo links.
+    private static func scanRawMemosWithContent(in rawDir: URL, mentioning slug: String) -> [(dateStr: String, memo: Memo)] {
         guard let items = try? FileManager.default.contentsOfDirectory(
             at: rawDir,
             includingPropertiesForKeys: nil,
@@ -320,7 +359,7 @@ struct EntityPageView: View {
         ) else { return [] }
 
         let datePattern = try? NSRegularExpression(pattern: #"^\d{4}-\d{2}-\d{2}$"#)
-        var found: [String] = []
+        var found: [(dateStr: String, memo: Memo)] = []
 
         for item in items {
             guard item.pathExtension == "md" else { continue }
@@ -329,11 +368,17 @@ struct EntityPageView: View {
                   pat.firstMatch(in: dateStr, range: NSRange(location: 0, length: (dateStr as NSString).length)) != nil
             else { continue }
             guard let content = try? String(contentsOf: item, encoding: .utf8) else { continue }
-            if content.contains("[[\(slug)]]") {
-                found.append(dateStr)
+            // Match both bare [[slug]] and [[wiki/type/slug|Name]] forms
+            guard content.contains(slug) else { continue }
+            let memos = RawStorage.parse(fileContent: content)
+            for memo in memos {
+                let body = memo.body
+                if body.contains(slug) || body.contains("[[\(slug)]]") {
+                    found.append((dateStr: dateStr, memo: memo))
+                }
             }
         }
-        return found
+        return found.sorted { $0.dateStr > $1.dateStr }
     }
 }
 

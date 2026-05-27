@@ -155,3 +155,25 @@
 "memo.detail.location.no_coordinates" = "No coordinates";
 "memo.detail.location.open_maps" = "Open in Apple Maps";
 "memo.detail.photo.tap_fullscreen" = "Tap to view full screen";
+
+/* Archive — async month loading (US-015) */
+"archive.loading_month" = "Loading…";
+
+/* Settings — AI Engine (US-014) */
+"settings.ai.section_title" = "AI Engine";
+"settings.ai.model" = "Model";
+"settings.ai.provider" = "Provider";
+"settings.ai.endpoint" = "Endpoint";
+"settings.ai.footer" = "AI compilation is read-only. Change the API key and model via the API Keys section above.";
+
+/* Markdown Export — US-019 */
+"export.action.title"  = "Export as Markdown";
+"export.action.label"  = "Export";
+
+/* Voice attachment retry — US-016 */
+"voice.retry.button"           = "Retry transcription";
+"voice.retry.button_attempt"   = "Retry (%d of %d)";
+"voice.retry.button_a11y"      = "Retry voice transcription";
+"voice.retry.transcribing"     = "Transcribing…";
+"voice.retry.failed_permanent" = "Transcription unavailable";
+"voice.retry.failed_permanent_a11y" = "Transcription permanently failed after 3 attempts. Audio is saved.";

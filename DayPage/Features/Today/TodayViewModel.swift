@@ -40,7 +40,8 @@ enum PendingAttachment: Identifiable {
             let exifSummary = exifParts.isEmpty ? nil : exifParts.joined(separator: " ")
             return Memo.Attachment(file: r.filePath, kind: "photo", duration: nil, transcript: exifSummary)
         case .voice(let r):
-            return Memo.Attachment(file: r.filePath, kind: "audio", duration: r.duration, transcript: r.transcript)
+            let txStatus: Memo.TranscriptionStatus? = r.transcript != nil ? .done : .failed
+            return Memo.Attachment(file: r.filePath, kind: "audio", duration: r.duration, transcript: r.transcript, transcriptionStatus: txStatus)
         case .file(let r):
             return Memo.Attachment(file: r.filePath, kind: "file", duration: nil, transcript: r.fileName)
         }
@@ -595,7 +596,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         submitCombinedMemo(body: "")
     }
 
-    // MARK: - Retranscribe (US-014)
+    // MARK: - Retranscribe (US-014 / US-016)
 
     /// Re-runs transcription for a failed voice attachment and updates the memo on disk.
     func retranscribe(memo: Memo, attachment: Memo.Attachment) {
@@ -603,7 +604,6 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         Task { @MainActor in
             guard let transcript = await voiceService.transcribeAudio(at: audioURL),
                   !transcript.isEmpty else { return }
-            // Update the attachment in memory and persist
             guard let memoIdx = memos.firstIndex(where: { $0.id == memo.id }) else { return }
             var updated = memos[memoIdx]
             var atts = updated.attachments
@@ -612,7 +612,8 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                     file: attachment.file,
                     kind: attachment.kind,
                     duration: attachment.duration,
-                    transcript: transcript
+                    transcript: transcript,
+                    transcriptionStatus: .done
                 )
             }
             updated.attachments = atts
@@ -621,6 +622,25 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
             let previous = memos
             withAnimation { memos = newMemos }
             persistMemos(newMemos, capturedDate: date, previous: previous, failureMessagePrefix: "重新转写失败")
+        }
+    }
+
+    /// Re-runs transcription for a staged (pending, not-yet-submitted) voice attachment. US-016.
+    func retranscribeVoiceAttachment(id: String) {
+        guard let idx = pendingAttachments.firstIndex(where: { $0.id == id }),
+              case .voice(let result) = pendingAttachments[idx] else { return }
+        let audioURL = result.fileURL
+        Task { @MainActor in
+            let transcript = await voiceService.transcribeAudio(at: audioURL)
+            guard let idx2 = pendingAttachments.firstIndex(where: { $0.id == id }),
+                  case .voice(let r) = pendingAttachments[idx2] else { return }
+            let updated = VoiceRecordingResult(
+                filePath: r.filePath,
+                fileURL: r.fileURL,
+                duration: r.duration,
+                transcript: transcript
+            )
+            pendingAttachments[idx2] = .voice(updated)
         }
     }
 
