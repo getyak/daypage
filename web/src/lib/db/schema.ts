@@ -597,6 +597,28 @@ export const user_settings = pgTable("user_settings", {
 export type UserSettings = typeof user_settings.$inferSelect;
 export type NewUserSettings = typeof user_settings.$inferInsert;
 
+// ─── US-036: api_logs (request-level error logging) ──────────────────────────
+
+export const api_logs = pgTable(
+  "api_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    method: text("method").notNull(),
+    path: text("path").notNull(),
+    status: integer("status").notNull(),
+    duration_ms: integer("duration_ms").notNull(),
+    user_id: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    error: text("error"),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("api_logs_created").on(t.created_at)]
+);
+
+export type ApiLog = typeof api_logs.$inferSelect;
+export type NewApiLog = typeof api_logs.$inferInsert;
+
 // ─── Re-export helper types ────────────────────────────────────────────────────
 
 export type User = typeof users.$inferSelect;

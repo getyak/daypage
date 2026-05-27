@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Separate in-memory rate limiter for auth endpoints (no Redis dependency in middleware)
+// ── In-memory auth rate limiter (no Redis dependency in Edge middleware) ───────
+
 interface RateWindow {
   count: number;
   reset: number;
 }
 
 const authRateStore = new Map<string, RateWindow>();
-const AUTH_LIMIT = 10; // 10 requests
-const AUTH_WINDOW_MS = 60_000; // per minute
+const AUTH_LIMIT = 10;
+const AUTH_WINDOW_MS = 60_000;
 
 function checkAuthRateLimit(ip: string): boolean {
   const now = Date.now();
@@ -32,8 +33,9 @@ function getClientIp(req: NextRequest): string {
   );
 }
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const start = Date.now();
 
   // Rate-limit auth endpoints
   if (pathname.startsWith("/api/auth")) {
@@ -55,9 +57,25 @@ export function middleware(req: NextRequest) {
 
   const res = NextResponse.next();
 
-  // Additional security headers not set via next.config.ts
+  // Inject timing info for downstream logging
+  res.headers.set("x-middleware-start", start.toString());
+
+  // Additional security headers
   res.headers.set("X-Content-Type-Options", "nosniff");
   res.headers.set("X-Frame-Options", "SAMEORIGIN");
+
+  // Request logging for API routes (console; api_logs written by route handlers for errors)
+  if (pathname.startsWith("/api/")) {
+    const duration = Date.now() - start;
+    console.log(
+      JSON.stringify({
+        ts: new Date().toISOString(),
+        method: req.method,
+        path: pathname,
+        duration_ms: duration,
+      })
+    );
+  }
 
   return res;
 }
