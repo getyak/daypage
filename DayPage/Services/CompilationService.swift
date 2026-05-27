@@ -52,7 +52,6 @@ final class CompilationService: ObservableObject {
         trigger: String = "manual",
         onRetry: ((Int, Int) -> Void)? = nil
     ) async throws {
-        // 离线预检
         guard NetworkMonitor.shared.isOnline else {
             throw CompilationError.offline
         }
@@ -60,9 +59,42 @@ final class CompilationService: ObservableObject {
         let startTime = Date()
         let dateString = dateFormatter.string(from: date)
 
-        // 1. 加载原始备忘录 (extracting)
+        // Step 1: Collect memos
         stage = .extracting
         compilationProgress = .extracting
+        let (memos, rawContent) = try collectMemos(for: date)
+        let hotContent = loadHotContent()
+
+        // Step 2: Build prompt
+        let prompt = buildPrompt(
+            dateString: dateString,
+            rawContent: rawContent,
+            hotContent: hotContent,
+            memoCount: memos.count
+        )
+
+        // Step 3: Call AI
+        stage = .compiling
+        compilationProgress = .compiling
+        let compiledText = try await callAI(prompt: prompt, onRetry: onRetry)
+
+        // Step 4: Parse response
+        stage = .formatting
+        compilationProgress = .formatting
+        let parsed = try parseResponse(compiledText)
+
+        // Step 5: Save results
+        try saveResults(parsed, dateString: dateString, trigger: trigger, startTime: startTime, memoCount: memos.count)
+
+        stage = .done
+        compilationProgress = .done
+    }
+
+    // MARK: - Step 1: Collect Memos
+
+    /// Reads today's raw memos and the raw file content string.
+    /// - Returns: `(memos, rawFileContent)`
+    private func collectMemos(for date: Date) throws -> ([Memo], String) {
         let memos: [Memo]
         do {
             memos = try RawStorage.read(for: date)
@@ -73,33 +105,19 @@ final class CompilationService: ObservableObject {
             throw CompilationError.emptyInput
         }
         let rawContent = rawFileContent(for: date)
+        return (memos, rawContent)
+    }
 
-        // 2. 加载 hot.md 上下文
-        let hotContent = loadHotContent()
+    // MARK: - Step 3: Call AI
 
-        // 3. 构建提示词
-        let prompt = buildPrompt(
-            dateString: dateString,
-            rawContent: rawContent,
-            hotContent: hotContent,
-            memoCount: memos.count
-        )
-
-        // 4. 调用 DeepSeek API（带重试）(compiling)
+    /// Calls the AI API with retry, returning the raw LLM response string.
+    private func callAI(prompt: String, onRetry: ((Int, Int) -> Void)?) async throws -> String {
         let apiKey = Secrets.resolvedDeepSeekApiKey
         guard !apiKey.isEmpty else {
             throw CompilationError.missingApiKey
         }
-
-        stage = .compiling
-        compilationProgress = .compiling
-        let compiledText: String
         do {
-            compiledText = try await callDeepSeekWithRetry(
-                prompt: prompt,
-                apiKey: apiKey,
-                onRetry: onRetry
-            )
+            return try await callDeepSeekWithRetry(prompt: prompt, apiKey: apiKey, onRetry: onRetry)
         } catch let err as CompilationError {
             throw err
         } catch let urlErr as URLError where urlErr.code == .timedOut {
@@ -107,48 +125,65 @@ final class CompilationService: ObservableObject {
         } catch {
             throw CompilationError.unknown(error)
         }
+    }
 
-        // 5. 解析结构化输出（formatting）
-        stage = .formatting
-        compilationProgress = .formatting
+    // MARK: - Step 4: Parse Response
+
+    /// Parsed output from the LLM response.
+    struct ParsedCompilationOutput {
+        let dailyPageText: String
+        let entityInstructions: [EntityUpdateInstruction]
+        let hotCacheText: String
+    }
+
+    /// Parses the LLM response into structured components.
+    private func parseResponse(_ rawLLMResponse: String) throws -> ParsedCompilationOutput {
         let (dailyPageText, entityInstructions, hotCacheText): (String, [EntityUpdateInstruction], String)
         do {
-            (dailyPageText, entityInstructions, hotCacheText) = try parseStructuredOutputWithHot(compiledText)
+            (dailyPageText, entityInstructions, hotCacheText) = try parseStructuredOutputWithHot(rawLLMResponse)
         } catch let err as CompilationError {
             throw err
         } catch {
             throw CompilationError.parseFailure(error.localizedDescription)
         }
+        return ParsedCompilationOutput(
+            dailyPageText: dailyPageText,
+            entityInstructions: entityInstructions,
+            hotCacheText: hotCacheText
+        )
+    }
 
-        // 6. 写入每日页面（如已有则先备份）
+    // MARK: - Step 5: Save Results
+
+    /// Persists the compiled daily page, entity updates, hot cache, and log entry.
+    private func saveResults(
+        _ parsed: ParsedCompilationOutput,
+        dateString: String,
+        trigger: String,
+        startTime: Date,
+        memoCount: Int
+    ) throws {
         let dailyURL = dailyPageURL(for: dateString)
         do {
             try backupIfExists(at: dailyURL, dateString: dateString)
-            try writeFile(content: dailyPageText, to: dailyURL)
+            try writeFile(content: parsed.dailyPageText, to: dailyURL)
         } catch let err as CompilationError {
             throw err
         } catch {
             throw CompilationError.fileSystemError(error.localizedDescription)
         }
 
-        // 7. 应用实体更新
-        try EntityPageService.shared.apply(instructions: entityInstructions, date: dateString)
+        try EntityPageService.shared.apply(instructions: parsed.entityInstructions, date: dateString)
+        updateHotCache(summary: parsed.hotCacheText, compiledDate: dateString)
 
-        // 8. 更新 hot.md 缓存（覆盖写入，保留 frontmatter 结构）
-        updateHotCache(summary: hotCacheText, compiledDate: dateString)
-
-        // 9. 追加到 log.md
         let elapsed = Date().timeIntervalSince(startTime)
         appendLog(
             timestamp: iso8601Now(),
             trigger: trigger,
             durationSeconds: elapsed,
-            memoCount: memos.count,
+            memoCount: memoCount,
             status: "success"
         )
-
-        stage = .done
-        compilationProgress = .done
     }
 
     // MARK: - URL Helpers
