@@ -283,7 +283,7 @@
         "Typecheck passes"
       ],
       "priority": 18,
-      "passes": false,
+      "passes": true,
       "notes": "Wave2 A3 方向一。依赖 US-014。"
     },
     {
@@ -297,7 +297,7 @@
         "Typecheck passes"
       ],
       "priority": 19,
-      "passes": false,
+      "passes": true,
       "notes": "Wave2。纯文档。依赖 US-018。"
     },
     {
@@ -312,7 +312,7 @@
         "Typecheck passes"
       ],
       "priority": 20,
-      "passes": false,
+      "passes": true,
       "notes": "Wave2 A3 方向二。依赖 US-014。"
     },
     {
@@ -326,7 +326,7 @@
         "Typecheck passes"
       ],
       "priority": 21,
-      "passes": false,
+      "passes": true,
       "notes": "Wave2。依赖 US-020。"
     },
     {
@@ -342,7 +342,7 @@
         "Typecheck passes"
       ],
       "priority": 22,
-      "passes": false,
+      "passes": true,
       "notes": "Wave2。依赖 US-020/021。"
     },
     {
