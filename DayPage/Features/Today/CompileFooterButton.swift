@@ -24,6 +24,8 @@ struct CompileFooterButton: View {
 
     /// Controls the one-shot scale pulse on first reveal (visual only).
     @State private var didAppearPulse = false
+    /// Cached hour component, refreshed every minute so the hint stays current across hour boundaries.
+    @State private var currentHour: Int = Calendar.current.component(.hour, from: Date())
 
     var body: some View {
         Group {
@@ -137,15 +139,17 @@ struct CompileFooterButton: View {
                     .transition(.opacity)
             }
         }
+        .onReceive(Timer.publish(every: 60, on: .main, in: .common).autoconnect()) { _ in
+            currentHour = Calendar.current.component(.hour, from: Date())
+        }
     }
 
     /// Contextual nudge based on time of day.
     private var timeHint: String {
-        let hour = Calendar.current.component(.hour, from: Date())
-        switch hour {
+        switch currentHour {
         case 5..<12:  return "今天才刚开始"
         case 12..<18: return "记录还在继续"
-        case 18..<23: return "夜深了，回顾今天吧"
+        case 18..<24: return "夜深了，回顾今天吧"
         default:      return "为今天画上句号"
         }
     }
