@@ -248,6 +248,23 @@ struct SearchView: View {
                     }
                     .buttonStyle(.plain)
                 }
+
+                if vm.hasSearched && !vm.query.isEmpty {
+                    Text("\(vm.results.count)")
+                        .monoLabelStyle(size: 10)
+                        .foregroundColor(vm.results.isEmpty ? DSColor.onSurfaceVariant : DSColor.amberAccent)
+                        .contentTransition(.numericText())
+                        .animation(reduceMotion ? nil : Motion.fade, value: vm.results.count)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule()
+                                .fill(DSColor.surfaceContainer)
+                                .overlay(Capsule().stroke(DSColor.outlineVariant, lineWidth: 0.5))
+                        )
+                        .accessibilityLabel("\(vm.results.count) 条结果")
+                        .accessibilityHidden(false)
+                }
             }
             .padding(.horizontal, 12)
             .frame(height: 36)
