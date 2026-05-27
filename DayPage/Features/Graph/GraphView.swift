@@ -30,6 +30,8 @@ struct GraphView: View {
     // Filter state
     @State private var showFilters: Bool = false
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private let nodeRadius: CGFloat = 16
     private let maxSimSteps = 200
 
@@ -74,6 +76,11 @@ struct GraphView: View {
                     )
                     .clipShape(RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous))
 
+                    // Match count pill — visible when filter is active and nodes matched
+                    if hasActiveFilter && !viewModel.filteredNodes.isEmpty {
+                        matchCountPill
+                    }
+
                     // Filter toggle — amber when active
                     Button {
                         withAnimation(.easeInOut) { showFilters.toggle() }
@@ -86,6 +93,8 @@ struct GraphView: View {
                     }
                     .accessibilityLabel(showFilters ? "Hide filters" : "Show filters")
                 }
+                .animation(Motion.fade, value: hasActiveFilter)
+                .animation(Motion.fade, value: viewModel.filteredNodes.count)
                 .padding(.horizontal, DSSpacing.lg)
                 .padding(.vertical, DSSpacing.sm)
 
@@ -187,6 +196,22 @@ struct GraphView: View {
 
     private var hasActiveFilter: Bool {
         viewModel.filterStartDate != nil || viewModel.filterEndDate != nil || !viewModel.searchQuery.isEmpty
+    }
+
+    private var matchCountPill: some View {
+        let count = viewModel.filteredNodes.count
+        return Text("\(count) 个节点")
+            .font(DSType.mono10)
+            .foregroundColor(DSColor.amberAccent)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(DSColor.amberAccent.opacity(0.12))
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(Capsule().strokeBorder(DSColor.amberAccent.opacity(0.3), lineWidth: 0.5))
+            .clipShape(Capsule())
+            .transition(.opacity)
+            .animation(Motion.fade, value: count)
+            .accessibilityLabel("\(count) 个节点匹配")
     }
 
     private var isTransformed: Bool { scale != 1.0 || offset != .zero }
