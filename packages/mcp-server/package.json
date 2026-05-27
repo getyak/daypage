@@ -1,0 +1,26 @@
+{
+  "name": "daypage-mcp-server",
+  "version": "0.1.0",
+  "description": "MCP server for DayPage — search, retrieve, and add memos from Claude Desktop / Claude Code",
+  "type": "module",
+  "bin": {
+    "daypage-mcp-server": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "node --loader ts-node/esm src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.2",
+    "postgres": "^3.4.9"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
