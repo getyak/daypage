@@ -418,14 +418,6 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
 
     // MARK: - Load Memos
 
-    /// Async entry point for pull-to-refresh: kicks off load() and suspends until
-    /// the underlying loadTask finishes, so the system refresh spinner persists for
-    /// exactly as long as the reload takes.
-    func refresh() async {
-        load()
-        await loadTask?.value
-    }
-
     /// Loads today's memos from the raw storage file and checks compiled status.
     /// Signature is intentionally synchronous so call sites (TodayView.onAppear) need
     /// no changes. Disk I/O is offloaded to a background task to avoid blocking the
