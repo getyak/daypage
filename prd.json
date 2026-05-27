@@ -601,7 +601,7 @@
         "Typecheck passes"
       ],
       "priority": 39,
-      "passes": false,
+      "passes": true,
       "notes": "Wave4 A5。需选定 Email 服务(Postmark inbound / Cloudflare Email Worker), 需人工拍板。"
     },
     {
@@ -617,7 +617,7 @@
         "Typecheck passes"
       ],
       "priority": 40,
-      "passes": false,
+      "passes": true,
       "notes": "Wave4 D1。iOS 改动, ralph(web/dev-browser)无法验证 iOS, 需人工。依赖 US-033 schema 统一。"
     },
     {
@@ -633,7 +633,7 @@
         "Typecheck passes"
       ],
       "priority": 41,
-      "passes": false,
+      "passes": true,
       "notes": "Wave4。需对象存储选型(人工拍板)。依赖 US-040。"
     },
     {
@@ -648,7 +648,7 @@
         "Typecheck passes"
       ],
       "priority": 42,
-      "passes": false,
+      "passes": true,
       "notes": "Wave4 D1 收口。最重的架构改动, 需人工。依赖 US-040/041。"
     },
     {
@@ -665,7 +665,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 43,
-      "passes": false,
+      "passes": true,
       "notes": "Wave4 B 维度三。依赖 US-040(iOS 数据上行) + US-033(EXIF 结构化) + US-023。"
     }
   ]
