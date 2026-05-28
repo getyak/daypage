@@ -1,0 +1,672 @@
+{
+  "project": "DayPage",
+  "branchName": "ralph/vnext-integrations-insights",
+  "description": "DayPage vNext — 外部信息源集成 · 统计洞察仪表盘 · 现有功能补全 · 架构工程质量。源: docs/PRD-vNext.md + tasks/prd-wave0~4*.md。Web 在 web/，本地需同时跑 `npm run dev`(3000) 与 `npm run dev:inngest`(8288) 否则 memo 入库但不编译。Stories 按依赖排序: schema → 中间件 → 端点 → UI → 验证。已存在端点: /api/stats /api/activities /api/domains /api/inbox /api/sources /api/memos/bulk /api/drafts/add(501)。",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "修复 sendEvent 的 dev 静默 no-op",
+      "description": "As a developer, I want to be warned when an Inngest event is dropped locally so compilation is not silently lost.",
+      "acceptanceCriteria": [
+        "web/src/lib/inngest/client.ts 的 `if (isDev && !hasEventKey) return;` 分支加 console.warn 提示需启动 dev:inngest 或设 INNGEST_EVENT_KEY",
+        "可选: dev 下若 8288 端口可达则即使无 key 也真实 inngest.send(event)",
+        "在 web/AGENTS.md 文档化本地开发需同时跑 `npm run dev` 与 `npm run dev:inngest`",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": "Wave0 决策三。最小改动，半天活。"
+    },
+    {
+      "id": "US-002",
+      "title": "首页统计卡接入 /api/stats",
+      "description": "As a user, I want the home stats cards to show my real numbers so the dashboard reflects my actual knowledge base.",
+      "acceptanceCriteria": [
+        "home/page.tsx:138-156 的 4 个写死数字(147 sources / 84 wiki / 12 domains / 3.2k backlinks)改为调用 GET /api/stats",
+        "周 delta(如 +12 this week)来自 stats 端点的真实 delta 而非写死",
+        "新用户(数据为空)显示 0 与引导文案而非假数字",
+        "首页是 server component, 优先服务端取数",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "Wave0 C1。端点已存在, 纯接线。"
+    },
+    {
+      "id": "US-003",
+      "title": "首页 Recent activity 接入 /api/activities",
+      "description": "As a user, I want recent activity to show what actually happened so I can track my real progress.",
+      "acceptanceCriteria": [
+        "移除 home/page.tsx:68-75 的写死 `const recent` 数组",
+        "改为调用 GET /api/activities(读 change_log), 按时间倒序展示真实活动",
+        "每条活动的目标链接(如指向 wiki page)指向真实存在的路由",
+        "无活动时显示已有的空态分支引导文案",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "Wave0 C1。端点已存在。"
+    },
+    {
+      "id": "US-004",
+      "title": "首页 observations 接入 inbox_items",
+      "description": "As a user, I want the 'What the system noticed' section to show real AI-detected items so I can act on them.",
+      "acceptanceCriteria": [
+        "移除 home/page.tsx:42-65 的写死 `const observations` 数组",
+        "改为查询 inbox_items(kind ∈ contradiction/schema/orphan, status=open), 最多取 N 条",
+        "操作按钮接通已存在端点: resolve→/api/inbox/[id]/resolve, dismiss→/api/inbox/[id]/dismiss, snooze→/api/inbox/[id]/snooze",
+        "无 observation 时显示已有空态",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "Wave0 C1。/api/inbox 已存在。"
+    },
+    {
+      "id": "US-005",
+      "title": "首页 Domains at a glance 接入 /api/domains",
+      "description": "As a user, I want the domains section to show my real domains and their page counts.",
+      "acceptanceCriteria": [
+        "移除 home/page.tsx:77-89 的 `domainsMock` 与写死 sparks",
+        "改为调用 GET /api/domains, 每个 domain 显示真实 page 计数",
+        "sparkline 暂无真实周趋势数据时明确降级为静态或隐藏, 不用假数据",
+        "'All domains' 按钮接通跳转或明确移除 disabled 状态",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "Wave0 C1。/api/domains 已存在。"
+    },
+    {
+      "id": "US-006",
+      "title": "新建 memo 详情页路由",
+      "description": "As a user, I want to click a compiled/queued memo and view its detail so I can see the original input and what it became.",
+      "acceptanceCriteria": [
+        "新建 web/src/app/(app)/memos/[id]/page.tsx, server component, 按 user 鉴权",
+        "通过 GET /api/memos/[id] 或直接 DB 查询取 memo, 不存在时 notFound()",
+        "展示: body 原文、type、来源(origin/source_channel/device)、created_at、location、weather",
+        "展示附件: 图片缩略图、语音播放 + transcript(若有)",
+        "通过 page_sources 反查并链接到该 memo 编译产出的 pages",
+        "布局参考 wiki/[slug]/page.tsx 的 sources/backlinks 展示模式",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "Wave0 C2。修死链前置。"
+    },
+    {
+      "id": "US-007",
+      "title": "memo 详情页 recompile / 删除 操作",
+      "description": "As a user, I want to recompile or delete a memo from its detail page.",
+      "acceptanceCriteria": [
+        "'Recompile' 按钮调 POST /api/memos/[id]/recompile(已存在), 触发后显示状态变化",
+        "'Delete' 按钮调 DELETE /api/memos/[id](已存在), 需二次确认对话框, 删除后跳回上一页",
+        "RecentlyCompiled.tsx:67 与 CompileQueue.tsx:292 的 /memos/${id} 链接点击不再 404",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": "Wave0 C2。依赖 US-006。"
+    },
+    {
+      "id": "US-008",
+      "title": "新增 api_keys 表与迁移",
+      "description": "As a developer, I need to store hashed API keys so external sources can authenticate.",
+      "acceptanceCriteria": [
+        "在 web/src/lib/db/schema.ts 新增 api_keys 表: id, user_id(FK CASCADE), name, key_hash, prefix, scopes(jsonb), last_used_at, created_at, revoked_at",
+        "key_hash 存 sha256, 明文不入库; prefix 存前 8 位用于展示",
+        "drizzle-kit generate 生成迁移并 migrate 成功",
+        "Typecheck passes"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": "Wave1 决策二。schema 优先。"
+    },
+    {
+      "id": "US-009",
+      "title": "API key 鉴权中间件 helper",
+      "description": "As a developer, I need a reusable way to authenticate Bearer-token requests so ingest endpoints can identify the user.",
+      "acceptanceCriteria": [
+        "新增 helper(如 web/src/lib/auth/apiKey.ts): 解析 Authorization: Bearer dp_xxx, sha256 后比对 api_keys.key_hash",
+        "解析出 user_id + scopes 注入请求上下文; 无效/已撤销 key 返回 401",
+        "命中后更新 api_keys.last_used_at",
+        "复用现有 Upstash 限流 web/src/lib/ratelimit.ts, 按 key 维度限流",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": "Wave1。依赖 US-008。"
+    },
+    {
+      "id": "US-010",
+      "title": "API key 管理端点 /api/keys",
+      "description": "As a user, I want to create and revoke API keys via API.",
+      "acceptanceCriteria": [
+        "POST /api/keys(session 鉴权): 创建 key, 响应中明文仅此一次返回, 库里只存 hash",
+        "GET /api/keys: 列出当前用户 key(只返回 prefix/name/last_used/created, 不返回明文)",
+        "DELETE /api/keys/[id]: 撤销(置 revoked_at)",
+        "所有端点强制 user 隔离",
+        "Typecheck passes"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": "Wave1。依赖 US-008/009。"
+    },
+    {
+      "id": "US-011",
+      "title": "Settings 页 API Key 管理 UI",
+      "description": "As a user, I want to manage my API keys in settings so I can connect external tools.",
+      "acceptanceCriteria": [
+        "Settings 新增 'API Keys' 区块",
+        "生成按钮 → 弹窗显示一次性明文 key(含复制按钮 + '只显示一次'警告)",
+        "列表显示已有 key(name / prefix / last used), 每行有撤销按钮(带确认)",
+        "复用现有组件 Btn/Card/Chip",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": "Wave1。依赖 US-010。"
+    },
+    {
+      "id": "US-012",
+      "title": "memo 幂等去重字段 + 唯一索引",
+      "description": "As a developer, I need memos to be idempotent per external source so retries don't duplicate.",
+      "acceptanceCriteria": [
+        "schema 新增 memos.source_channel(text, nullable)、memos.external_id(text, nullable)",
+        "建唯一索引 (user_id, source_channel, external_id)(external_id 非空时)",
+        "drizzle generate + migrate 成功",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": "Wave1。schema, /api/ingest 前置。"
+    },
+    {
+      "id": "US-013",
+      "title": "ingest_sources 表与配置端点",
+      "description": "As a developer, I need to store external source bindings so each user's Telegram/RSS/email connections persist.",
+      "acceptanceCriteria": [
+        "schema 新增 ingest_sources 表: id, user_id(FK CASCADE), channel, config(jsonb, 敏感值加密), enabled, created_at",
+        "config 中的密钥用对称加密(密钥来自 env)存储, 不明文落库",
+        "确认/补全 /api/sources 的 GET/POST/PATCH/DELETE(session 鉴权, user 隔离)",
+        "drizzle generate + migrate 成功",
+        "Typecheck passes"
+      ],
+      "priority": 13,
+      "passes": true,
+      "notes": "Wave1。注意 /api/sources route 已部分存在, 需对齐到新表。"
+    },
+    {
+      "id": "US-014",
+      "title": "统一 Ingest 端点 /api/ingest",
+      "description": "As an external system, I want to POST content to DayPage so it becomes a memo.",
+      "acceptanceCriteria": [
+        "POST /api/ingest(PAT 鉴权, scope memo:write)",
+        "接受 NormalizedInput 子集, 最少 { body }; zod 校验、大小限制、HTML 清洗(XSS)",
+        "落 memo 时 origin='api', 记录 source_channel",
+        "带 external_id 时重复推送返回已存在 memo(幂等, 用 US-012 唯一索引)不新建",
+        "创建后发 memo/created 事件触发编译",
+        "无效 key 返回 401; 超限返回 429",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 14,
+      "passes": true,
+      "notes": "Wave1 A1。所有外部源地基。依赖 US-009/012/013。"
+    },
+    {
+      "id": "US-015",
+      "title": "Telegram webhook 端点 + Adapter",
+      "description": "As a user, I want messages I send to my DayPage bot to become memos.",
+      "acceptanceCriteria": [
+        "POST /api/ingest/telegram, 用 Telegram secret_token 校验来源(拒绝无效)",
+        "Adapter 归一化 Telegram update: 纯文本→text memo; 含 URL→url memo(填 source_url); 语音→getFile 下载→audio attachment→走 Whisper 转写; 图片→photo memo(含 caption)",
+        "通过 telegram_chat_id 在 ingest_sources 查到绑定的 user_id; 未绑定的 chat_id 被拒",
+        "复用 /api/ingest 内部逻辑落 memo(origin=api, source_channel=telegram, external_id=telegram message id 幂等)",
+        "不引入重型 telegram SDK, 直接用 Bot API + fetch",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 15,
+      "passes": true,
+      "notes": "Wave1 A2。依赖 US-014。语音转写复用 LLM transcribe。"
+    },
+    {
+      "id": "US-016",
+      "title": "Telegram 绑定流程 + Settings UI",
+      "description": "As a user, I want to connect my Telegram account to DayPage securely.",
+      "acceptanceCriteria": [
+        "Settings '连接 Telegram': 生成一次性绑定码, 提示用户发 /start <code> 给 bot",
+        "bot 收到 /start <code> 后把 telegram_chat_id 与 user_id 绑定写入 ingest_sources.config",
+        "绑定成功后 Settings 显示已连接状态, 可一键解绑(删除 ingest_source)",
+        "绑定码有过期时间, 用过即失效",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 16,
+      "passes": true,
+      "notes": "Wave1 A2。依赖 US-015。"
+    },
+    {
+      "id": "US-017",
+      "title": "端到端验证 Telegram → memo → 编译",
+      "description": "As a user, I want my forwarded Telegram content to be compiled into my knowledge base.",
+      "acceptanceCriteria": [
+        "转发文本/链接/语音/图片各能正确落对应 type 的 memo",
+        "memo 进入编译管道并最终 compile_status=done",
+        "在 /add 队列或 memo 详情页能看到该 memo(origin=telegram)",
+        "同一 message 重复推送不产生第二条 memo",
+        "Typecheck passes"
+      ],
+      "priority": 17,
+      "passes": true,
+      "notes": "Wave1 A2 验收。需真实 test bot, ralph 可能无法独立完成端到端, 必要时人工介入并在 notes 记录。"
+    },
+    {
+      "id": "US-018",
+      "title": "Claude Code hook 脚本",
+      "description": "As a developer, I want my Claude Code sessions to auto-log to DayPage so my coding work is captured.",
+      "acceptanceCriteria": [
+        "新增 integrations/claude-code/daypage-hook.js: 读取 hook 传入会话上下文, 调 POST /api/ingest(带 DayPage API key)",
+        "推送 body 为会话摘要(默认只发摘要, 不发代码原文)",
+        "memo metadata 带结构化上下文: { repo, branch, files_touched, session_duration, tools_used }",
+        "source_channel='claude-code', 带 external_id(会话 id)做幂等",
+        "脚本从本地 env 读 API key 不硬编码; 提供 redaction 配置选项",
+        "Typecheck passes"
+      ],
+      "priority": 18,
+      "passes": true,
+      "notes": "Wave2 A3 方向一。依赖 US-014。"
+    },
+    {
+      "id": "US-019",
+      "title": "Claude Code hook 配置文档",
+      "description": "As a developer, I want clear instructions to register the hook so setup is reproducible.",
+      "acceptanceCriteria": [
+        "integrations/claude-code/README.md 说明如何在 ~/.claude/settings.json 的 hooks 注册(建议 Stop 事件)",
+        "含 API key 获取步骤(指向 DayPage Settings)",
+        "含 redaction 配置示例",
+        "Typecheck passes"
+      ],
+      "priority": 19,
+      "passes": true,
+      "notes": "Wave2。纯文档。依赖 US-018。"
+    },
+    {
+      "id": "US-020",
+      "title": "DayPage MCP server 骨架",
+      "description": "As a developer, I want DayPage exposed as an MCP server so Claude Code can use it as a tool.",
+      "acceptanceCriteria": [
+        "新增 integrations/mcp-server/, 用 @modelcontextprotocol/sdk, stdio transport",
+        "通过 PAT 调 DayPage API(不直连 DB)",
+        "可被 Claude Code 发现并列出工具",
+        "README 说明如何在 Claude Code 注册此 MCP server",
+        "Typecheck passes"
+      ],
+      "priority": 20,
+      "passes": true,
+      "notes": "Wave2 A3 方向二。依赖 US-014。"
+    },
+    {
+      "id": "US-021",
+      "title": "MCP 工具 daypage_search",
+      "description": "As a developer using Claude Code, I want to search my DayPage knowledge base.",
+      "acceptanceCriteria": [
+        "daypage_search(query) 工具走现有 RAG(经 API), 返回相关 pages(slug/title/excerpt)",
+        "在 Claude Code 中调用返回真实结果",
+        "错误(无 key/网络)有清晰报错",
+        "Typecheck passes"
+      ],
+      "priority": 21,
+      "passes": true,
+      "notes": "Wave2。依赖 US-020。"
+    },
+    {
+      "id": "US-022",
+      "title": "MCP 工具集 get_page / add_memo / list_recent / graph_neighbors",
+      "description": "As a developer, I want to read and write DayPage from Claude Code.",
+      "acceptanceCriteria": [
+        "daypage_get_page(slug) 读单页",
+        "daypage_add_memo(body, type?) 走 /api/ingest 写 memo",
+        "daypage_list_recent(n) 返回最近 memo/pages",
+        "daypage_graph_neighbors(slug) 返回 page_links 邻居",
+        "每个工具有输入校验与错误处理",
+        "Typecheck passes"
+      ],
+      "priority": 22,
+      "passes": true,
+      "notes": "Wave2。依赖 US-020/021。"
+    },
+    {
+      "id": "US-023",
+      "title": "/insights 页面骨架 + 时间范围切换",
+      "description": "As a user, I want a dashboard page so I can review my activity at a glance.",
+      "acceptanceCriteria": [
+        "新建 (app)/insights/page.tsx, 加入侧边栏导航",
+        "时间范围切换: 今天 / 本周 / 本月 / 全部(状态存 URL params)",
+        "复用 Card/Sparkline/Chip/SectionLabel",
+        "各维度无数据时优雅降级(空态或'连接 X 解锁')",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 23,
+      "passes": true,
+      "notes": "Wave3 Epic B。insights 页骨架, 后续维度依赖它。"
+    },
+    {
+      "id": "US-024",
+      "title": "/insights 知识活动维度",
+      "description": "As a user, I want to see my knowledge-building activity.",
+      "acceptanceCriteria": [
+        "memo 录入趋势(日/周折线): memos.created_at group by day",
+        "编译成功率: compile_status 占比(done/failed/pending)",
+        "知识图谱增长: pages + page_links 按周累计",
+        "活跃概念 Top N: pages.backlink_count desc; 领域分布: pages.domain_id group by",
+        "待整理: inbox_items(orphan) 与待裁决矛盾(contradiction) 计数",
+        "聚合查询尽量用 SQL group by 而非应用层循环",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 24,
+      "passes": true,
+      "notes": "Wave3 B 维度一。依赖 US-023。数据已在库。"
+    },
+    {
+      "id": "US-025",
+      "title": "/insights 活动流组件(点亮 activities 表)",
+      "description": "As a user, I want a real activity feed so I can see what happened recently.",
+      "acceptanceCriteria": [
+        "新增 GET /api/insights/activity 或复用 /api/activities 读取真实活动",
+        "/insights 与首页 Recent activity(US-003 已接)数据一致",
+        "支持'加载更多'分页",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 25,
+      "passes": true,
+      "notes": "Wave3 B。点亮 activities 表。依赖 US-023。"
+    },
+    {
+      "id": "US-026",
+      "title": "/insights 系统/成本维度(点亮 prompt_log)",
+      "description": "As a user, I want to see my LLM usage so I understand the cost of compilation.",
+      "acceptanceCriteria": [
+        "新增聚合查询读取 prompt_log: token 用量(in/out)、按 kind(chat/embed/transcribe)、按 model 分布",
+        "时间范围内的 token 趋势 sparkline",
+        "可选: embed cache 命中率",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 26,
+      "passes": true,
+      "notes": "Wave3 B 维度四。点亮 prompt_log 表。依赖 US-023。"
+    },
+    {
+      "id": "US-027",
+      "title": "/insights 开发活动维度(Claude Code)",
+      "description": "As a developer, I want to see stats about my coding activity so I get an automatic work summary.",
+      "acceptanceCriteria": [
+        "/insights 新增'开发活动'区块",
+        "指标: 编码会话数(日/周趋势)、touched repos 分布、会话时长累计、常用工具/技术",
+        "数据源为 memos where source_channel='claude-code' 的 metadata(jsonb)聚合",
+        "无 Claude Code 数据时显示'连接 Claude Code 以解锁'引导(优雅降级)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 27,
+      "passes": true,
+      "notes": "Wave2 B 维度二。依赖 US-018(数据源) + US-023。"
+    },
+    {
+      "id": "US-028",
+      "title": "自动周报 cron",
+      "description": "As a user, I want a weekly recap generated automatically so I don't have to summarize myself.",
+      "acceptanceCriteria": [
+        "新增 Inngest cron 函数(复用 daily-page.ts 模式), 每周运行一次",
+        "为有数据的用户生成一份 type='synthesis' 的复盘 page: 本周 memo/pages/链接增量、主要思考主题、(若有)开发/足迹概要",
+        "周报 page 可在 /insights 顶部展示",
+        "无数据用户跳过",
+        "Typecheck passes"
+      ],
+      "priority": 28,
+      "passes": true,
+      "notes": "Wave3 B 衍生。依赖 US-024 维度数据。"
+    },
+    {
+      "id": "US-029",
+      "title": "Settings 云同步 /api/settings",
+      "description": "As a user, I want my settings to sync across devices so I don't reconfigure each time.",
+      "acceptanceCriteria": [
+        "新增 GET/PATCH /api/settings, 落 users.settings jsonb(已预留字段)",
+        "SettingsClient.tsx 从 localStorage 升级为读写后端(保留 localStorage 作离线/即时缓存)",
+        "同步项: 主题、密度、AI 模型偏好、通知设置",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 29,
+      "passes": true,
+      "notes": "Wave3 C3。users.settings 字段已预留。"
+    },
+    {
+      "id": "US-030",
+      "title": "暗色主题",
+      "description": "As a user, I want a dark theme so the app is comfortable at night.",
+      "acceptanceCriteria": [
+        "实现暗色调色板(globals.css CSS token 已是变量, 加 dark 变体)",
+        "移除 SettingsClient.tsx:303 的 disabled, 主题选择生效",
+        "切换即时生效并随 US-029 云同步持久化",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 30,
+      "passes": true,
+      "notes": "Wave3 C3。依赖 US-029。"
+    },
+    {
+      "id": "US-031",
+      "title": "收口 /wiki Ask about this page",
+      "description": "As a user, I want the 'Ask about this page' button to work so I can ask questions about a wiki page.",
+      "acceptanceCriteria": [
+        "/wiki/[slug] 'Ask about this page'(wiki/[slug]/page.tsx:364): 接通——带页面上下文跳转 /chat 新线程",
+        "RAG 已有, 复用现有 chat 线程创建逻辑",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 31,
+      "passes": true,
+      "notes": "Wave3 C4 收口。"
+    },
+    {
+      "id": "US-032",
+      "title": "收口 /add 语音输入 + /chat 附件 + drafts/add",
+      "description": "As a user, I don't want fake disabled buttons; each should either work or be removed.",
+      "acceptanceCriteria": [
+        "/add 语音输入(UnifiedInput.tsx:558): 接通录音→Whisper(LLM transcribe 已有)或明确移除",
+        "/chat/[id] 附件按钮(ChatView.tsx:317): 接通上传或明确移除按钮",
+        "/api/drafts/add(501 Not implemented): 实现草稿同步或删除该端点",
+        "原则: 每个 coming soon 要么接通要么移除, 不留 disabled 假功能",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 32,
+      "passes": true,
+      "notes": "Wave3 C4 收口。"
+    },
+    {
+      "id": "US-033",
+      "title": "统一 memo schema(iOS↔Web 字段对齐)",
+      "description": "As a developer, I need iOS and Web memo models aligned so sync doesn't lose data.",
+      "acceptanceCriteria": [
+        "Web schema 增补 iOS 独有字段: mood、entity_mentions(或并入 metadata)",
+        "memos.type 枚举对齐(处理 iOS 的 location/mixed: 新增枚举值或映射规则)",
+        "memo_attachments.exif 改为结构化 jsonb(iOS 停止把 EXIF 塞进 transcript 字符串)",
+        "drizzle generate + migrate 成功",
+        "Typecheck passes"
+      ],
+      "priority": 33,
+      "passes": true,
+      "notes": "Wave4 D1。前置决策: iOS↔Web 走路线 A(Web 唯一真相源)。需人工拍板路线后再跑。"
+    },
+    {
+      "id": "US-034",
+      "title": "embedding 迁移 pgvector",
+      "description": "As a developer, I want vector search to scale so recall/RAG stays fast.",
+      "acceptanceCriteria": [
+        "启用 pgvector 扩展",
+        "pages.embedding / memos.embedding 从 text(JSON) 改 vector(1536), 加 ivfflat/hnsw 索引",
+        "迁移脚本把现有 JSON 文本转 vector",
+        "rag.ts 与 compile-memo recall step 改用 SQL 近邻查询(不再全表内存余弦)",
+        "Typecheck passes",
+        "RAG 结果与迁移前一致性验证(Tests pass)"
+      ],
+      "priority": 34,
+      "passes": true,
+      "notes": "Wave4 D2。需评估数据量与迁移策略(停机/在线双写), 可能需人工。"
+    },
+    {
+      "id": "US-035",
+      "title": "Web 安全加固",
+      "description": "As a developer, I need to harden external inputs and remove hardcoded secrets.",
+      "acceptanceCriteria": [
+        "外部 ingest 输入: 严格 zod 校验 + 大小限制 + HTML 清洗(XSS)",
+        "限流扩展到所有 ingest 与新端点",
+        "ingest_sources.config 敏感字段加密存储",
+        "webhook 校验齐全(Telegram secret_token、Inngest 签名)",
+        "iOS GitHub bot token 从 FeedbackService 硬编码下沉到后端代理端点(iOS 不再持有 token)",
+        "Typecheck passes"
+      ],
+      "priority": 35,
+      "passes": true,
+      "notes": "Wave4 D5。iOS token 下沉部分涉及 iOS build, 可能需人工。"
+    },
+    {
+      "id": "US-036",
+      "title": "Web 可观测性",
+      "description": "As a developer, I want visibility into pipeline health and cost.",
+      "acceptanceCriteria": [
+        "Web 端接入 Sentry/日志聚合(iOS 已有 Sentry)",
+        "编译管道加结构化日志 + step 级计时",
+        "健康检查端点: DB / Inngest / LLM provider 可达性",
+        "Typecheck passes"
+      ],
+      "priority": 36,
+      "passes": true,
+      "notes": "Wave4 D3。"
+    },
+    {
+      "id": "US-037",
+      "title": "Web 测试基线",
+      "description": "As a developer, I want tests on critical paths so regressions are caught.",
+      "acceptanceCriteria": [
+        "Web Vitest 单测: schema 校验、ingest adapter 归一化、聚合查询",
+        "Web Playwright E2E(test:e2e 脚本已存在): add→compile→wiki、ingest API、登录",
+        "关键路径 ≥80% 覆盖",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 37,
+      "passes": true,
+      "notes": "Wave4 D4。"
+    },
+    {
+      "id": "US-038",
+      "title": "RSS 源接入",
+      "description": "As a user, I want RSS feeds to flow in automatically.",
+      "acceptanceCriteria": [
+        "ingest_sources 存 feed URL + Inngest cron 拉取(复用 daily-page cron 模式)",
+        "新条目→url memo(external_id=item guid 幂等)",
+        "可选 light 模式只存摘要避免 token 浪费",
+        "Typecheck passes"
+      ],
+      "priority": 38,
+      "passes": true,
+      "notes": "Wave4 A4。依赖 US-013/014。"
+    },
+    {
+      "id": "US-039",
+      "title": "Email 入站接入",
+      "description": "As a user, I want to forward emails to DayPage so they become memos.",
+      "acceptanceCriteria": [
+        "POST /api/ingest/email(第三方收信服务转发)",
+        "解析邮件主题/正文/附件→memo; 绑定靠发件人地址匹配或专属转发地址带 token",
+        "复用 /api/ingest 内部逻辑落 memo",
+        "Typecheck passes"
+      ],
+      "priority": 39,
+      "passes": true,
+      "notes": "Wave4 A5。需选定 Email 服务(Postmark inbound / Cloudflare Email Worker), 需人工拍板。"
+    },
+    {
+      "id": "US-040",
+      "title": "iOS bulk 同步客户端",
+      "description": "As an iOS user, I want my memos to sync to the cloud so they appear on web.",
+      "acceptanceCriteria": [
+        "iOS 新增同步服务, 调用现有 POST /api/memos/bulk(last-write-wins by updated_at 已实现)",
+        "上行本地 vault 的 memo(含 location/weather/device/EXIF 结构化)",
+        "用 devices 表注册设备 + sync_state.cursor 做增量同步",
+        "离线时排队, 联网后补传",
+        "iOS build passes + 同步端到端验证(iPhone 17 模拟器)",
+        "Typecheck passes"
+      ],
+      "priority": 40,
+      "passes": true,
+      "notes": "Wave4 D1。iOS 改动, ralph(web/dev-browser)无法验证 iOS, 需人工。依赖 US-033 schema 统一。"
+    },
+    {
+      "id": "US-041",
+      "title": "附件上行对象存储",
+      "description": "As a user, I want my photos/voice to be available on web too.",
+      "acceptanceCriteria": [
+        "选定对象存储(S3/R2/Supabase Storage)",
+        "iOS 本地 asset 上传, 回填 memo_attachments.storage_key",
+        "Web memo 详情页(US-006)能展示这些附件",
+        "上传失败可重试",
+        "Typecheck passes(Web) + iOS build passes",
+        "Typecheck passes"
+      ],
+      "priority": 41,
+      "passes": true,
+      "notes": "Wave4。需对象存储选型(人工拍板)。依赖 US-040。"
+    },
+    {
+      "id": "US-042",
+      "title": "编译收归 Web(废弃 iOS 双管道)",
+      "description": "As a developer, I want a single compilation pipeline so outputs don't diverge.",
+      "acceptanceCriteria": [
+        "废弃 iOS 的 CompilationService/BackgroundCompilationService(或降级为'离线草稿, 联网后由 Web 编译')",
+        "iOS 改为拉取 Web 编译结果(pages/daily)展示",
+        "同一天不再被两套管道重复编译",
+        "iOS build passes; 端到端: iOS 记录 → 同步 → Web 编译 → iOS 看到结果",
+        "Typecheck passes"
+      ],
+      "priority": 42,
+      "passes": true,
+      "notes": "Wave4 D1 收口。最重的架构改动, 需人工。依赖 US-040/041。"
+    },
+    {
+      "id": "US-043",
+      "title": "/insights 生活/数字足迹维度",
+      "description": "As a nomad, I want to see my location/photo footprint so I can review where I've been.",
+      "acceptanceCriteria": [
+        "位置足迹: memos.location(lat/lng) 地图打点 / 城市时间线",
+        "城市/国家停留时长(基于被动位置 visits, 需 iOS 上行)",
+        "天气-记录关联: memos.weather × created_at; 摄影统计: memo_attachments.exif(光圈/快门/ISO/焦距)",
+        "记录时间节律: created_at 按小时分布; 设备来源分布: memos.device / origin",
+        "无 iOS 数据时优雅降级",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 43,
+      "passes": true,
+      "notes": "Wave4 B 维度三。依赖 US-040(iOS 数据上行) + US-033(EXIF 结构化) + US-023。"
+    }
+  ]
+}

@@ -1,17 +1,31 @@
-# DayPage vNext — Ralph Progress Log
+# DayPage v8 — Ralph Progress Log
 
-Source PRD: docs/PRD-vNext.md + tasks/prd-wave0~4*.md
-Branch: ralph/vnext-integrations-insights
-Start: 2026-05-27
-Previous runs archived: archive/2026-05-20-codex-add-polish/, archive/2026-05-27-v7-deep-audit/
+Source PRD: tasks/prd-daypage-v8-museum-aesthetic.md
+Branch: ralph/daypage-v8-museum
+Start: 2026-05-28
+Previous runs archived: archive/2026-05-28-vnext-integrations-insights/ (and earlier feature runs in same dir)
 
 ## Codebase Patterns
-- 本地开发必须同时跑 `npm run dev`（端口 3000）与 `npm run dev:inngest`（Inngest dev server，端口 8288），否则 memo 入库但不编译（sendEvent 在 dev 无 INNGEST_EVENT_KEY 时 no-op，见 US-001）。
-- 编译由 `memo/created` 事件触发 → Inngest `compile-memo`。所有新外部源只需落 memo + 发该事件即可复用编译管道。
-- 聚合端点 `/api/stats`、`/api/activities`、`/api/domains`、`/api/inbox`、`/api/sources` 已存在；首页 mock 只需接线。
-- 所有业务表有 `user_id` FK + CASCADE，查询必须强制 user 隔离。
-- schema 在 web/src/lib/db/schema.ts；改 schema 后跑 `drizzle-kit generate` + migrate。
-- 设计系统组件在 web/src/components/ui/（Card/Sparkline/Chip/SectionLabel/Btn）；CSS token 在 globals.css。
-- US-033~US-043 多为 iOS 改动或需人工拍板（路线 A/B、对象存储选型、Email 服务），ralph 无法独立完成 iOS build/端到端验证，遇到时在 notes 标注"需人工"并跳过。
+- iOS Native 是主线（DayPage/），Web 是跟进（web/）；本 PRD 不动数据层/auth/proxy，只换 UI 与 +7 endpoints。
+- 本地 Web dev 必须同时跑 `npm run dev`（3000）与 `npm run dev:inngest`（8288），否则 memo 入库但不编译。
+- 设计 token 是单一来源：先做 US-001（design-tokens/tokens.json + 生成器）再做任何 UI story，避免颜色 hardcode。
+- 所有交互组件需引用 `var(--*)` token，不要写死颜色 / 字号 / 圆角。
+- 手势 0 依赖原则：不引入 framer-motion / use-gesture / react-spring；用 pointer events + CSS transition + cubic-bezier(.2,.8,.2,1) spring。
+- Memo Card 左滑公式（rubber-band 阻尼 0.18 / 阈值 -66 / 过界 -164）见 PRD §22 Appendix A.1，多个 sheet 复用。
+- 所有动画必须 wrap @media (prefers-reduced-motion: reduce) 退化为 0.01ms，否则 a11y 不过。
+- iOS Live Activity（US-030）需要 deployment target bump 16.0 → 16.1，需 Eric 确认（PRD Open Q1）。
+- Share Card 导出（US-033）跨域图片必须走 /api/img/{memo_id} same-origin proxy，html-to-image 才能成功。
+- 新 endpoints 全部在 web/src/app/api/today/ 与 web/src/app/api/stats/ 下，schema 见 PRD §8 + fixtures §24。
+- iOS 端构建命令: `xcodebuild -scheme DayPage -destination 'platform=iOS Simulator,name=iPhone 17'`；Simulator 用 `open -a Simulator &` 起后台不阻塞。
+- 字体新增：Fraunces（serif）与 Caveat（手写）— iOS 进 bundle + Info.plist 注册；Web 用 next/font 配置。
+- Drawer 热力图（US-021）若 user memo 总数 > 5000 回退读 users.heatmap_cache_json，由 cron 6h 预计算（避免每次 group by）。
+
+## Dependencies Map
+- Wave A (US-001-004) → 必须先完成（其他全部依赖 tokens 与原子组件）
+- Wave B (US-005-011) → 依赖 Wave A；US-006/008/011 各自带一个新 endpoint
+- Wave C (US-012-018) → 依赖 Wave A 的 GlassPill + SectionLabel
+- Wave D (US-019-025) → 依赖 Wave A；US-021/022/024 各带新 endpoint
+- Wave E (US-026-030) → 依赖 Wave A；US-030 需 deployment target bump
+- Wave F (US-031-033) → 依赖 Wave A + memo detail；US-033 需 /api/img proxy
 
 ---

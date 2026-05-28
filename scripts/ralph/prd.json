@@ -1,672 +1,675 @@
 {
   "project": "DayPage",
-  "branchName": "ralph/vnext-integrations-insights",
-  "description": "DayPage vNext — 外部信息源集成 · 统计洞察仪表盘 · 现有功能补全 · 架构工程质量。源: docs/PRD-vNext.md + tasks/prd-wave0~4*.md。Web 在 web/，本地需同时跑 `npm run dev`(3000) 与 `npm run dev:inngest`(8288) 否则 memo 入库但不编译。Stories 按依赖排序: schema → 中间件 → 端点 → UI → 验证。已存在端点: /api/stats /api/activities /api/domains /api/inbox /api/sources /api/memos/bulk /api/drafts/add(501)。",
+  "branchName": "ralph/daypage-v8-museum",
+  "description": "DayPage v8 — 美术馆美学体验改版。源: tasks/prd-daypage-v8-museum-aesthetic.md。把 DayPage 重做为「日式美术馆 + iOS 26 灵动岛」气质：内容优先 / hairline 留白 / 仪式感反馈。覆盖 6 个核心屏（Today / Memo Detail / Drawer 热力图 / Composer Pill / Recording Sheet + 灵动岛 / Share Card）+ 设计系统底座。iOS Native 主线，Web 跟进（仅换 UI 不动数据层）。33 个 user story 按 Wave A→F 依赖排序。环境前提：本地 dev 需 `npm run dev` + `npm run dev:inngest` 同跑；新增 endpoints 见 PRD §8；不引入手势库 / 不动 schema 主结构（仅 jsonb settings + 7 endpoints）。",
   "userStories": [
     {
       "id": "US-001",
-      "title": "修复 sendEvent 的 dev 静默 no-op",
-      "description": "As a developer, I want to be warned when an Inngest event is dropped locally so compilation is not silently lost.",
+      "title": "建立统一 design-tokens 文件 + 双端生成器",
+      "description": "As a developer, I need a single source of truth for all design tokens so iOS and Web stay visually aligned.",
       "acceptanceCriteria": [
-        "web/src/lib/inngest/client.ts 的 `if (isDev && !hasEventKey) return;` 分支加 console.warn 提示需启动 dev:inngest 或设 INNGEST_EVENT_KEY",
-        "可选: dev 下若 8288 端口可达则即使无 key 也真实 inngest.send(event)",
-        "在 web/AGENTS.md 文档化本地开发需同时跑 `npm run dev` 与 `npm run dev:inngest`",
-        "Typecheck passes"
+        "新建 design-tokens/tokens.json (完整 schema 见 PRD §23)",
+        "新建 design-tokens/generators/to-css.ts → 派生 web/src/app/globals.css :root 段",
+        "新建 design-tokens/generators/to-swift.ts → 派生 DayPage/App/DSTokens.swift",
+        "颜色 token 名称与 PRD §6.2 完全一致 (bg-warm/surface-white/surface-sunken/fg-primary/muted/subtle/accent/accent-hover/soft/border/heatmap-empty/low/mid/high/border-subtle/default)",
+        "字体 token 包含 font-display/serif/body/mono/handwrite (Fraunces 与 Caveat 字体文件下载到 DayPage/App/Resources/Fonts/ 并在 Info.plist 注册)",
+        "圆角 token: radius-small=8 / card=14 / hero=18 / sheet=28 / recording=34 / island=24 / pill=999",
+        "动画 token: motion-spring='cubic-bezier(.2,.8,.2,1)' / fast=220 / medium=280 / slow=320 / island=360",
+        "添加 npm run tokens:build script 与 make tokens-build target",
+        "CI 加 tokens:check step (跑生成器后比对 diff，有 diff 则 fail)",
+        "Typecheck passes",
+        "Web 构建通过 (cd web && npm run build)",
+        "iOS 构建通过 (xcodebuild -scheme DayPage build)"
       ],
       "priority": 1,
-      "passes": true,
-      "notes": "Wave0 决策三。最小改动，半天活。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-002",
-      "title": "首页统计卡接入 /api/stats",
-      "description": "As a user, I want the home stats cards to show my real numbers so the dashboard reflects my actual knowledge base.",
+      "title": "扩展全局动画 keyframes 库 + reduce-motion 退化",
+      "description": "As a developer, I need a unified keyframes library so all animations are consistent and respect accessibility preferences.",
       "acceptanceCriteria": [
-        "home/page.tsx:138-156 的 4 个写死数字(147 sources / 84 wiki / 12 domains / 3.2k backlinks)改为调用 GET /api/stats",
-        "周 delta(如 +12 this week)来自 stats 端点的真实 delta 而非写死",
-        "新用户(数据为空)显示 0 与引导文案而非假数字",
-        "首页是 server component, 优先服务端取数",
+        "web/src/app/globals.css 注册全部 keyframes: pulse-dot / breathe / shimmer-bar / sheet-up / sheet-left / fade-in / caret / scale-in (已存在的不重复)",
+        "暴露 .fade-in / .scale-in / .shimmer utility class",
+        "所有 keyframes wrap @media (prefers-reduced-motion: reduce) → animation-duration: 0.01ms + animation-iteration-count: 1",
+        "iOS 新建 DayPage/App/DSMotion.swift 暴露 Animation.dsSpring / dsEaseOut / dsSheet 常量",
+        "iOS 端检查 @Environment(\\.accessibilityReduceMotion) 自动退化到 .linear(duration: 0.01)",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Web 构建通过",
+        "iOS 构建通过"
       ],
       "priority": 2,
-      "passes": true,
-      "notes": "Wave0 C1。端点已存在, 纯接线。"
+      "passes": false,
+      "notes": "依赖 US-001 的 tokens.json"
     },
     {
       "id": "US-003",
-      "title": "首页 Recent activity 接入 /api/activities",
-      "description": "As a user, I want recent activity to show what actually happened so I can track my real progress.",
+      "title": "GlassPillBtn 组件 (Web + iOS)",
+      "description": "As a developer, I need a reusable glassmorphism pill button used in all top bars (back/share/search/settings).",
       "acceptanceCriteria": [
-        "移除 home/page.tsx:68-75 的写死 `const recent` 数组",
-        "改为调用 GET /api/activities(读 change_log), 按时间倒序展示真实活动",
-        "每条活动的目标链接(如指向 wiki page)指向真实存在的路由",
-        "无活动时显示已有的空态分支引导文案",
+        "Web: web/src/components/ui/GlassPillBtn.tsx，props: dark?: boolean / size?: 'sm' | 'md' / onClick / children / aria-label (必填) / disabled?: boolean",
+        "iOS: DayPage/App/Components/DSGlassPill.swift，对应参数 + accessibilityLabel",
+        "视觉规格: height=40 / min-width=40 / padding=0 12 / radius=999 / background=rgba(255,255,255,0.78) (dark 时 rgba(30,28,24,0.62)) / backdrop-filter=blur(20px) saturate(160%) / box-shadow='0 1px 2px rgba(0,0,0,0.05), inset 0 0.5px 0 rgba(255,255,255,0.6)'",
+        "size=sm: height=36 + 触控扩展到 44 via ::before pseudo (Web) / .contentShape(.rect) (iOS)",
+        "Tap 反馈: scale 0.96 + opacity 0.85, 220ms; prefers-reduced-motion 时仅改 opacity",
+        "focus-visible: outline 2px solid var(--accent) / outline-offset 2px",
+        "disabled: opacity 0.4 / cursor not-allowed / pointer-events none",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": true,
-      "notes": "Wave0 C1。端点已存在。"
+      "passes": false,
+      "notes": "依赖 US-001"
     },
     {
       "id": "US-004",
-      "title": "首页 observations 接入 inbox_items",
-      "description": "As a user, I want the 'What the system noticed' section to show real AI-detected items so I can act on them.",
+      "title": "SectionLabel + Dot 原子组件 (Web + iOS)",
+      "description": "As a developer, I need atomic mono-caps section label and decorative dot components used throughout the app.",
       "acceptanceCriteria": [
-        "移除 home/page.tsx:42-65 的写死 `const observations` 数组",
-        "改为查询 inbox_items(kind ∈ contradiction/schema/orphan, status=open), 最多取 N 条",
-        "操作按钮接通已存在端点: resolve→/api/inbox/[id]/resolve, dismiss→/api/inbox/[id]/dismiss, snooze→/api/inbox/[id]/snooze",
-        "无 observation 时显示已有空态",
-        "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "Web: <SectionLabel right?> 渲染 font-size:11 / letter-spacing:1.6 / text-transform:uppercase / font-weight:700 / color:var(--fg-muted)",
+        "Web: <Dot opacity?> 渲染 3×3 圆点，默认 opacity 0.45",
+        "iOS: DSSectionLabel + DSDot View",
+        "<SectionLabel> 使用 <h2 role=\"heading\" aria-level=\"2\">（朗读为常规标题，去掉装饰 letter-spacing）",
+        "<Dot> 加 aria-hidden / .accessibilityHidden(true)",
+        "Typecheck passes"
       ],
       "priority": 4,
-      "passes": true,
-      "notes": "Wave0 C1。/api/inbox 已存在。"
+      "passes": false,
+      "notes": "依赖 US-001"
     },
     {
       "id": "US-005",
-      "title": "首页 Domains at a glance 接入 /api/domains",
-      "description": "As a user, I want the domains section to show my real domains and their page counts.",
+      "title": "Today 顶部 utility bar (glass scroll-aware)",
+      "description": "As a user, I want a frosted-glass top bar that fades in only when I scroll so it doesn't intrude when idle.",
       "acceptanceCriteria": [
-        "移除 home/page.tsx:77-89 的 `domainsMock` 与写死 sparks",
-        "改为调用 GET /api/domains, 每个 domain 显示真实 page 计数",
-        "sparkline 暂无真实周趋势数据时明确降级为静态或隐藏, 不用假数据",
-        "'All domains' 按钮接通跳转或明确移除 disabled 状态",
+        "新建 web/src/app/(app)/today/page.tsx 与 iOS DayPage/Features/Today/TodayView.swift (替换或与 Legacy 并存)",
+        "容器 position:absolute / top:0 / paddingTop:60 / paddingLeft:14 / paddingRight:14 / paddingBottom:10",
+        "scrollTop > 8 时: background=rgba(250,248,246,0.78) + backdrop-filter=blur(20px) saturate(150%) + bottom 0.5px solid var(--border-subtle)",
+        "scrollTop ≤ 8 时: 背景透明 / 无边框",
+        "切换过渡 transition:background 200ms ease-out, backdrop-filter 200ms ease-out",
+        "三个 GlassPillBtn: hamburger (aria-label='打开侧边栏') / 搜索 (aria-label='搜索') / 设置 (aria-label='设置')",
+        "scrollY 监听 passive:true + rAF throttle",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": true,
-      "notes": "Wave0 C1。/api/domains 已存在。"
+      "passes": false,
+      "notes": "依赖 US-003"
     },
     {
       "id": "US-006",
-      "title": "新建 memo 详情页路由",
-      "description": "As a user, I want to click a compiled/queued memo and view its detail so I can see the original input and what it became.",
+      "title": "Today Hero 标题块 + /api/today/header endpoint",
+      "description": "As a user, I want a big serif weekday hero with mono meta line so opening the app feels intentional.",
       "acceptanceCriteria": [
-        "新建 web/src/app/(app)/memos/[id]/page.tsx, server component, 按 user 鉴权",
-        "通过 GET /api/memos/[id] 或直接 DB 查询取 memo, 不存在时 notFound()",
-        "展示: body 原文、type、来源(origin/source_channel/device)、created_at、location、weather",
-        "展示附件: 图片缩略图、语音播放 + transcript(若有)",
-        "通过 page_sources 反查并链接到该 memo 编译产出的 pages",
-        "布局参考 wiki/[slug]/page.tsx 的 sources/backlinks 展示模式",
+        "新建 GET /api/today/header endpoint, 返回 {weekday, weekday_zh, date_iso, date_display, memo_count, weather:{temp,condition,icon}, location}",
+        "H1: font-size:56 / line-height:1 / letter-spacing:-0.8 / font-family:var(--font-serif) / font-weight:600",
+        "H1 渲染本地化周几: Intl.DateTimeFormat('zh-CN', { weekday: 'long' })",
+        "Meta 行: font-family:mono / font-size:11 / letter-spacing:1.2 / uppercase / color:var(--fg-muted) / margin-top:12 / gap:8",
+        "<Dot/> 分隔; NOTES 计数着 var(--accent) 色",
+        "28° 前内联 sun SVG icon 11×11",
+        "加载态: skeleton mono caps 'LOADING…'; 错误态: fallback 'MAY 28 · — · — · —'",
+        "endpoint 5min cache (weather invalidation key)",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": true,
-      "notes": "Wave0 C2。修死链前置。"
+      "passes": false,
+      "notes": "依赖 US-005"
     },
     {
       "id": "US-007",
-      "title": "memo 详情页 recompile / 删除 操作",
-      "description": "As a user, I want to recompile or delete a memo from its detail page.",
+      "title": "Today Segmented Control (今日/成稿/档案)",
+      "description": "As a user, I want a pill segmented control to switch between today / page / archive views.",
       "acceptanceCriteria": [
-        "'Recompile' 按钮调 POST /api/memos/[id]/recompile(已存在), 触发后显示状态变化",
-        "'Delete' 按钮调 DELETE /api/memos/[id](已存在), 需二次确认对话框, 删除后跳回上一页",
-        "RecentlyCompiled.tsx:67 与 CompileQueue.tsx:292 的 /memos/${id} 链接点击不再 404",
+        "容器: inline-flex / padding:3 / radius:999 / background:var(--surface-sunken) / border:0.5px solid var(--border-subtle)",
+        "选中 segment: background:var(--surface-white) / color:var(--accent) / font-weight:600 / box-shadow:'0 1px 2px rgba(0,0,0,0.06)'",
+        "未选中: background:transparent / color:var(--fg-muted) / font-weight:500",
+        "URL 同步 ?tab=today|page|archive 用 useSearchParams + router.replace（不污染历史栈）",
+        "键盘可达: role='tablist' + 子 role='tab' + aria-selected + Arrow Left/Right 切换",
+        "切换动画: 选中 indicator 用 transform:translateX(...) 280ms spring 滑动",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
-      "passes": true,
-      "notes": "Wave0 C2。依赖 US-006。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-008",
-      "title": "新增 api_keys 表与迁移",
-      "description": "As a developer, I need to store hashed API keys so external sources can authenticate.",
+      "title": "AI Summary 卡 + /api/today/ai-summary endpoint",
+      "description": "As a user, I want a quiet white card with a serif italic AI summary that types in like a literary opening.",
       "acceptanceCriteria": [
-        "在 web/src/lib/db/schema.ts 新增 api_keys 表: id, user_id(FK CASCADE), name, key_hash, prefix, scopes(jsonb), last_used_at, created_at, revoked_at",
-        "key_hash 存 sha256, 明文不入库; prefix 存前 8 位用于展示",
-        "drizzle-kit generate 生成迁移并 migrate 成功",
-        "Typecheck passes"
+        "新建 GET /api/today/ai-summary endpoint, 返回 {summary, generated_at, is_stale, memo_count_at_generation} 或 404 {summary:null}",
+        "容器: radius:18 / padding:18 20 20 22 / background:var(--surface-white) / border:0.5px solid var(--border-subtle) / box-shadow:var(--shadow-card)",
+        "左侧 rail: position:absolute / left:0 / top:14 / bottom:14 / width:2 / radius:999 / background:var(--accent) / opacity:0.85",
+        "顶部 row: sparkle SVG 11×11 var(--accent) fill + 'AI · 今日一句' mono caps + 右侧 '15:32' 时间戳",
+        "摘要正文: font-serif / font-size:19 / italic / line-height:1.45 / min-height:54",
+        "入场: 380ms 延迟后打字机逐字 (每字 36-66ms 随机) + caret 闪",
+        "prefers-reduced-motion 时跳过打字机直接显示全文",
+        "无摘要时 placeholder: '今天还没攒够话，再记一条试试'",
+        "is_stale=true 时摘要右侧加 '重新生成' 小链接",
+        "a11y: <blockquote aria-live='polite'>",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": true,
-      "notes": "Wave1 决策二。schema 优先。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-009",
-      "title": "API key 鉴权中间件 helper",
-      "description": "As a developer, I need a reusable way to authenticate Bearer-token requests so ingest endpoints can identify the user.",
+      "title": "Memo Card (内容优先 + 左滑揭示动作)",
+      "description": "As a user, I want memo cards to show only content (time + body + photo) and reveal Share/More by swiping left.",
       "acceptanceCriteria": [
-        "新增 helper(如 web/src/lib/auth/apiKey.ts): 解析 Authorization: Bearer dp_xxx, sha256 后比对 api_keys.key_hash",
-        "解析出 user_id + scopes 注入请求上下文; 无效/已撤销 key 返回 401",
-        "命中后更新 api_keys.last_used_at",
-        "复用现有 Upstash 限流 web/src/lib/ratelimit.ts, 按 key 维度限流",
+        "卡面规格: radius:18 / background:var(--surface-white) / border:0.5px solid var(--border-subtle) / shadow:var(--shadow-card) / overflow:hidden",
+        "卡面内容: 照片 aspect-ratio 4:5 (radius:0) + body block (padding 16/18 20 18/20)",
+        "body 顶部: mono 时间 '15·23' + (mixed 时) 3×3 圆点 + 相机 icon — 不显示地点/天气/kind/分享按钮",
+        "body 正文: font-size:16 / line-height:1.62 / text-wrap:pretty / letter-spacing:0.1; 超过 5 行 -webkit-line-clamp:5",
+        "左滑手势: REVEAL_WIDTH=132; 阈值 -66 snap 到 -132 否则回 0; 右滑 rubber-band tx*0.18; 左滑过界 -164 rubber-band",
+        "完整公式见 PRD §22 Appendix A.1 (web/src/lib/gestures/rubberBand.ts)",
+        "松手 transition transform 280ms cubic-bezier(.2,.8,.2,1); 拖动中 transition none",
+        "drag.moved > 6px 不触发点击; tx!==0 时第一次点击关闭抽屉",
+        "Action drawer 右侧 width:132; MORE sunken / SHARE accent",
+        "iOS: DragGesture(minimumDistance:4) + spring(response:0.32, dampingFraction:0.78) + light haptic at snap",
+        "键盘可达 (Web): tabIndex=0 / Enter 进详情",
+        "Unit tests: rubber-band 公式 5 个边界值 (0/-66/-132/-164/-200)",
         "Typecheck passes",
-        "Tests pass"
+        "Tests pass",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 9,
-      "passes": true,
-      "notes": "Wave1。依赖 US-008。"
+      "passes": false,
+      "notes": "Wave B-2 核心 story，手势库 0 依赖"
     },
     {
       "id": "US-010",
-      "title": "API key 管理端点 /api/keys",
-      "description": "As a user, I want to create and revoke API keys via API.",
+      "title": "「再记一条解锁今日成稿」placeholder 卡 + unlock_threshold setting",
+      "description": "As a user, when I have fewer than 3 memos today, I want a dashed placeholder card prompting me to add more.",
       "acceptanceCriteria": [
-        "POST /api/keys(session 鉴权): 创建 key, 响应中明文仅此一次返回, 库里只存 hash",
-        "GET /api/keys: 列出当前用户 key(只返回 prefix/name/last_used/created, 不返回明文)",
-        "DELETE /api/keys/[id]: 撤销(置 revoked_at)",
-        "所有端点强制 user 隔离",
-        "Typecheck passes"
+        "users.settings jsonb 增加 unlock_threshold key (默认 3); 读取时若不存在则用 3",
+        "容器: padding:18 / radius:18 / background:transparent / border:1.5px dashed var(--accent-border)",
+        "左侧 36×36 圆形 sparkle icon (背景 var(--accent-soft), icon var(--accent))",
+        "文案: mono caps '再记一条解锁今日成稿' + 副标 'AI 将把今天的碎片连缀成一篇日页'",
+        "满足阈值后 fade-out 280ms + '今日已解锁' banner",
+        "点击占位卡 → focus 到 composer pill mic 按钮",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 10,
-      "passes": true,
-      "notes": "Wave1。依赖 US-008/009。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-011",
-      "title": "Settings 页 API Key 管理 UI",
-      "description": "As a user, I want to manage my API keys in settings so I can connect external tools.",
+      "title": "本周 Wiki 垂直 Spine Feed + /api/today/week-feed endpoint",
+      "description": "As a user, I want a vertical museum-caption style feed under '本周' so I can scroll through recent days uninterrupted.",
       "acceptanceCriteria": [
-        "Settings 新增 'API Keys' 区块",
-        "生成按钮 → 弹窗显示一次性明文 key(含复制按钮 + '只显示一次'警告)",
-        "列表显示已有 key(name / prefix / last used), 每行有撤销按钮(带确认)",
-        "复用现有组件 Btn/Card/Chip",
+        "新建 GET /api/today/week-feed?limit=7 endpoint, 返回 {items:[{id, date_slug, day, date_display, title, lede, tags, word_count, memo_count}]}",
+        "容器 padding 12 22 14; spine: position:absolute / left:86 / top:18 / bottom:18 / width:0.5 / background:var(--border-subtle)",
+        "每条 entry: grid-template-columns:'52px 1fr' / column-gap:24 / 上下 padding 30 (首条 paddingTop:0)",
+        "左列日期 tag 右对齐: mono 'WED' (9.5/700/1.8) + display '05·27' (14/600)",
+        "Spine dot: accent 7×7 圆 + 4px var(--bg-warm) halo (box-shadow)，定位 entry 顶部 10pt",
+        "右列: serif h3 (21/1.26/-0.4) + lede (14.5/1.7/opacity 0.86) + footer 标签行",
+        "Footer: mono caps tags 用 · 分隔 + 右对齐 '412 WORDS'",
+        "末尾 terminus: 7×7 hollow 圆 (border 0.5px var(--border-default) / background var(--bg-warm))",
+        "无卡片外壳 / 无圆角 box / 无按钮",
+        "整条 entry 点击进 /wiki/[date-slug]",
+        "空态: '本周还未成稿 — 多记几条今日会自动生成'",
+        "Lede -webkit-line-clamp:3",
+        "a11y: <article> 语义 + spine/dot aria-hidden",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 11,
-      "passes": true,
-      "notes": "Wave1。依赖 US-010。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-012",
-      "title": "memo 幂等去重字段 + 唯一索引",
-      "description": "As a developer, I need memos to be idempotent per external source so retries don't duplicate.",
+      "title": "Memo Detail 顶栏 (sticky glass + 时间锚点)",
+      "description": "As a user, I want a sticky glass top bar on memo detail with back/share/menu buttons and a mono time anchor.",
       "acceptanceCriteria": [
-        "schema 新增 memos.source_channel(text, nullable)、memos.external_id(text, nullable)",
-        "建唯一索引 (user_id, source_channel, external_id)(external_id 非空时)",
-        "drizzle generate + migrate 成功",
-        "Typecheck passes"
+        "position:sticky / top:0 / padding:62 14 12",
+        "background:rgba(250,248,246,0.82) / backdrop-filter:blur(20px) saturate(150%) / border-bottom:0.5px solid var(--border-subtle)",
+        "左 GlassPillBtn '← 今日' 返回; 右 share + ⋯ 菜单",
+        "中间时间 mono: font-size:10 / letter-spacing:1.5 / color:var(--fg-subtle) / 格式 'THU · MAY 28 · 15:30'",
+        "iOS: 屏幕边缘 20pt 左滑返回手势",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 12,
-      "passes": true,
-      "notes": "Wave1。schema, /api/ingest 前置。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-013",
-      "title": "ingest_sources 表与配置端点",
-      "description": "As a developer, I need to store external source bindings so each user's Telegram/RSS/email connections persist.",
+      "title": "Memo Detail 标题块 (serif 大字 + 元信息)",
+      "description": "As a user, I want a large serif title block showing place name and kind/location metadata.",
       "acceptanceCriteria": [
-        "schema 新增 ingest_sources 表: id, user_id(FK CASCADE), channel, config(jsonb, 敏感值加密), enabled, created_at",
-        "config 中的密钥用对称加密(密钥来自 env)存储, 不明文落库",
-        "确认/补全 /api/sources 的 GET/POST/PATCH/DELETE(session 鉴权, user 隔离)",
-        "drizzle generate + migrate 成功",
-        "Typecheck passes"
+        "标题: font-serif / font-size:34 / line-height:1.05 / letter-spacing:-0.7 / font-weight:600",
+        "无 place fallback: font-size:30 / line-height:1.15 / italic '未命名片刻'",
+        "副标 mono: 10 / 1.4 letter-spacing / 600 / var(--fg-subtle)，格式 '{KIND ENTRY} · {LOCATION_UPPER}'",
+        "kind 翻译表: text→TEXT / voice→VOICE / photo→PHOTO / mixed→MIXED",
+        "长 place name (>30 char) text-overflow:ellipsis 单行",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 13,
-      "passes": true,
-      "notes": "Wave1。注意 /api/sources route 已部分存在, 需对齐到新表。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-014",
-      "title": "统一 Ingest 端点 /api/ingest",
-      "description": "As an external system, I want to POST content to DayPage so it becomes a memo.",
+      "title": "Memo Detail Metadata Tile Row (4 列白卡)",
+      "description": "As a user, I want a 4-column metadata tile row showing weather/humidity/light/kind under the title.",
       "acceptanceCriteria": [
-        "POST /api/ingest(PAT 鉴权, scope memo:write)",
-        "接受 NormalizedInput 子集, 最少 { body }; zod 校验、大小限制、HTML 清洗(XSS)",
-        "落 memo 时 origin='api', 记录 source_channel",
-        "带 external_id 时重复推送返回已存在 memo(幂等, 用 US-012 唯一索引)不新建",
-        "创建后发 memo/created 事件触发编译",
-        "无效 key 返回 401; 超限返回 429",
+        "容器: grid-template-columns:'1.05fr 1fr 1fr 0.85fr' / radius:14 / overflow:hidden / background:var(--surface-white) / border 0.5 / shadow:var(--shadow-card)",
+        "每 tile: padding:12 8 11 / text-align:center / border-left 0.5px (首个无)",
+        "三行: mono caps label (8.5/700/1.4) + display value (18/600) + mono caps sub (8/600/1.2)",
+        "天气从 memos.weather / WeatherService 补充; 湿度从 memos.humidity",
+        "LIGHT 时间分类: 早晨 5-9 / 上午 9-12 / 中午 12-14 / 下午 14-17 / 傍晚 17-19 / 夜间 19-5",
+        "KIND 翻译: text→文本 / voice→语音 / photo→照片 / mixed→混合",
+        "缺失字段显示 '—' (em dash, var(--fg-subtle))",
+        "a11y: <dl> semantic",
         "Typecheck passes",
-        "Tests pass"
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 14,
-      "passes": true,
-      "notes": "Wave1 A1。所有外部源地基。依赖 US-009/012/013。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-015",
-      "title": "Telegram webhook 端点 + Adapter",
-      "description": "As a user, I want messages I send to my DayPage bot to become memos.",
+      "title": "Memo Detail Hero Photo + caption + lightbox",
+      "description": "As a user, I want a large hero photo with mono caption and a TAP TO EXPAND lightbox.",
       "acceptanceCriteria": [
-        "POST /api/ingest/telegram, 用 Telegram secret_token 校验来源(拒绝无效)",
-        "Adapter 归一化 Telegram update: 纯文本→text memo; 含 URL→url memo(填 source_url); 语音→getFile 下载→audio attachment→走 Whisper 转写; 图片→photo memo(含 caption)",
-        "通过 telegram_chat_id 在 ingest_sources 查到绑定的 user_id; 未绑定的 chat_id 被拒",
-        "复用 /api/ingest 内部逻辑落 memo(origin=api, source_channel=telegram, external_id=telegram message id 幂等)",
-        "不引入重型 telegram SDK, 直接用 Bot API + fetch",
+        "图片 aspect-ratio 4:5 / radius:18 / fade-in 280ms",
+        "caption 左 mono: '{IMG_filename} · {width} × {height}' (9.5/1.2 letter-spacing/600/var(--fg-subtle))",
+        "caption 右: accent mono 'TAP TO EXPAND' + corner-out icon",
+        "lightbox: iOS .fullScreenCover + 双指缩放 + 双击重置; Web <dialog> + transform:scale",
+        "lightbox 关闭: iOS 下滑 ≥ 80pt rubber-band; Web ESC 或点遮罩",
+        "加载态: background:var(--surface-sunken) + 中心 spinner",
+        "失败: 占位 '图片加载失败' + 重试 link",
+        "loading='lazy' (Web) / prefersDecodingAsync (iOS)",
+        "alt={memo.body || '相片'}",
         "Typecheck passes",
-        "Tests pass"
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 15,
-      "passes": true,
-      "notes": "Wave1 A2。依赖 US-014。语音转写复用 LLM transcribe。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-016",
-      "title": "Telegram 绑定流程 + Settings UI",
-      "description": "As a user, I want to connect my Telegram account to DayPage securely.",
+      "title": "Memo Detail Body 段落 + 链接/hashtag/mention 识别",
+      "description": "As a user, I want the body to auto-detect URLs, hashtags and mentions and render them as accent-colored interactive links.",
       "acceptanceCriteria": [
-        "Settings '连接 Telegram': 生成一次性绑定码, 提示用户发 /start <code> 给 bot",
-        "bot 收到 /start <code> 后把 telegram_chat_id 与 user_id 绑定写入 ingest_sources.config",
-        "绑定成功后 Settings 显示已连接状态, 可一键解绑(删除 ingest_source)",
-        "绑定码有过期时间, 用过即失效",
+        "padding:0 24 30 / font-size:16.5 / line-height:1.72 / letter-spacing:0.1 / text-wrap:pretty / white-space:pre-line / color:var(--fg-primary)",
+        "长按选中: iOS 原生; Web user-select:text",
+        "URL 自动渲染 <a class='memo-link'> accent 色 (Web 用 linkifyjs ^4.1, iOS 用 NSDataDetector)",
+        "hashtag #xxx 渲染 accent 色 (无下划线)，点击跳 /wiki/tag/{tag}",
+        "mention @xxx 同 hashtag，点击跳对应 entity",
+        "仅识别 http:// / https://，剥离 javascript:/data: 协议",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 16,
-      "passes": true,
-      "notes": "Wave1 A2。依赖 US-015。"
+      "passes": false,
+      "notes": "新依赖 linkifyjs@^4.1"
     },
     {
       "id": "US-017",
-      "title": "端到端验证 Telegram → memo → 编译",
-      "description": "As a user, I want my forwarded Telegram content to be compiled into my knowledge base.",
+      "title": "Memo Detail Location Card (map thumbnail + Apple Maps)",
+      "description": "As a user, I want a map thumbnail with a floating place chip and a button to open in Apple Maps.",
       "acceptanceCriteria": [
-        "转发文本/链接/语音/图片各能正确落对应 type 的 memo",
-        "memo 进入编译管道并最终 compile_status=done",
-        "在 /add 队列或 memo 详情页能看到该 memo(origin=telegram)",
-        "同一 message 重复推送不产生第二条 memo",
-        "Typecheck passes"
+        "容器: radius:18 / overflow:hidden / border 0.5 / background:var(--surface-white) / shadow:var(--shadow-card)",
+        "Map: iOS MKMapSnapshotter; Web Apple MapKit JS (token in web/.env.local) 或 OSM tile fallback",
+        "Place chip: position:absolute / left:14 / bottom:14 / padding:7 11 / radius:10 / background:rgba(250,248,246,0.92) / backdrop-filter:blur(10px) / border 0.5",
+        "Chip 内容: pin SVG accent + 地点名 (body 12.5/600) + mono caps '{LOCATION} · {COUNTRY}'",
+        "底部按钮: paper-plane icon + '在 Apple 地图中打开' + corner-out icon, accent 色",
+        "跳转: iOS MKMapItem.openInMaps; Web https://maps.apple.com/?ll={lat},{lng}&q={place} 新窗口",
+        "无 location 时整卡不渲染",
+        "Map 失败 fallback: #F5EDE3 背景 + pin icon 居中",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 17,
-      "passes": true,
-      "notes": "Wave1 A2 验收。需真实 test bot, ralph 可能无法独立完成端到端, 必要时人工介入并在 notes 记录。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-018",
-      "title": "Claude Code hook 脚本",
-      "description": "As a developer, I want my Claude Code sessions to auto-log to DayPage so my coding work is captured.",
+      "title": "Memo Detail File Metadata Card + 三点菜单",
+      "description": "As a user, I want a mono file metadata card and a ⋯ menu with transfer/copy/star/export/delete actions.",
       "acceptanceCriteria": [
-        "新增 integrations/claude-code/daypage-hook.js: 读取 hook 传入会话上下文, 调 POST /api/ingest(带 DayPage API key)",
-        "推送 body 为会话摘要(默认只发摘要, 不发代码原文)",
-        "memo metadata 带结构化上下文: { repo, branch, files_touched, session_duration, tools_used }",
-        "source_channel='claude-code', 带 external_id(会话 id)做幂等",
-        "脚本从本地 env 读 API key 不硬编码; 提供 redaction 配置选项",
-        "Typecheck passes"
+        "容器: padding:14 16 / radius:14 / border 0.5 / background:var(--surface-white) / shadow:var(--shadow-card)",
+        "grid-template: '80px 1fr' / row-gap:11 / column-gap:14, mono / 11.5 / 0.2 letter-spacing",
+        "字段: CREATED (ISO 时间戳) / PATH ('vault/raw/{date}.md') / HASH (前6 + ' · ' + 后5)",
+        "数据 iOS 从 RawStorage; Web 从 memos.content_hash + memos.path",
+        "⋯ 菜单 (iOS Menu / Web popover): 转移日期 / 复制纯文本 / 标记重要 / 导出 PDF / 删除 (红色)",
+        "删除二次确认: alert '确认删除这条 memo？此操作不可撤销' + [取消] [删除]",
+        "点击 HASH 整行 → 复制到剪贴板 + toast '已复制 hash'",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 18,
-      "passes": true,
-      "notes": "Wave2 A3 方向一。依赖 US-014。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-019",
-      "title": "Claude Code hook 配置文档",
-      "description": "As a developer, I want clear instructions to register the hook so setup is reproducible.",
+      "title": "Drawer 容器与入场动画 + focus trap",
+      "description": "As a user, I want a frosted-glass drawer that slides in from the left when I tap the hamburger.",
       "acceptanceCriteria": [
-        "integrations/claude-code/README.md 说明如何在 ~/.claude/settings.json 的 hooks 注册(建议 Stop 事件)",
-        "含 API key 获取步骤(指向 DayPage Settings)",
-        "含 redaction 配置示例",
-        "Typecheck passes"
+        "Backdrop: position:absolute / inset:0 / background:rgba(20,16,12,0.32) / backdrop-filter:blur(2px) / z-index:80 / animation:fade-in 220ms ease-out",
+        "Drawer: width:86% / z-index:85 / background:rgba(252,250,247,0.96) / backdrop-filter:blur(28px) saturate(160%) / border-right 0.5 / box-shadow:'10px 0 40px -12px rgba(60,40,15,0.22)'",
+        "入场: @keyframes sheet-left from translateX(-100%) to 0, 280ms cubic-bezier(.2,.8,.2,1)",
+        "Backdrop 点击关闭; ESC 关闭 (Web); 右滑边界关闭 (iOS DragGesture, 阈值 50% width)",
+        "Focus trap: Tab 循环, Shift+Tab 反向",
+        "body overflow:hidden 防滚动穿透 (Web)",
+        "aria-modal='true' + role='dialog' + aria-labelledby='DAYPAGE · 2026'",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 19,
-      "passes": true,
-      "notes": "Wave2。纯文档。依赖 US-018。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-020",
-      "title": "DayPage MCP server 骨架",
-      "description": "As a developer, I want DayPage exposed as an MCP server so Claude Code can use it as a tool.",
+      "title": "Drawer 顶部 utility bar + Profile row",
+      "description": "As a user, I want the drawer header with a close button, brand label, and a profile row with gradient avatar.",
       "acceptanceCriteria": [
-        "新增 integrations/mcp-server/, 用 @modelcontextprotocol/sdk, stdio transport",
-        "通过 PAT 调 DayPage API(不直连 DB)",
-        "可被 Claude Code 发现并列出工具",
-        "README 说明如何在 Claude Code 注册此 MCP server",
-        "Typecheck passes"
+        "关闭按钮: 36×36 圆 / background:var(--surface-sunken) / X icon / aria-label='关闭侧边栏'",
+        "mono 标签 'DAYPAGE · 2026': font-size:10 / letter-spacing:2 / font-weight:700 / color:var(--fg-muted)",
+        "Avatar: 46×46 圆 / background:linear-gradient(135deg, #C9A677 0%, #5D3000 100%) / serif 大写首字母 (20/600)",
+        "有 avatar URL 优先 img，否则 fallback 首字母",
+        "名字: serif 19/600 / line-height:1.15 / letter-spacing:-0.2",
+        "副标 mono: 10 / 1.2 letter-spacing / 'MEMBER · SINCE {year}'",
+        "点击整行 → /settings",
+        "数据: iOS UserService.current; Web auth().user + users.created_at",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 20,
-      "passes": true,
-      "notes": "Wave2 A3 方向二。依赖 US-014。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-021",
-      "title": "MCP 工具 daypage_search",
-      "description": "As a developer using Claude Code, I want to search my DayPage knowledge base.",
+      "title": "Drawer 热力图 + /api/stats/heatmap endpoint",
+      "description": "As a user, I want a 16-week x 7-day heatmap of my memo activity as the drawer's visual hero.",
       "acceptanceCriteria": [
-        "daypage_search(query) 工具走现有 RAG(经 API), 返回相关 pages(slug/title/excerpt)",
-        "在 Claude Code 中调用返回真实结果",
-        "错误(无 key/网络)有清晰报错",
-        "Typecheck passes"
+        "新建 web/src/app/api/stats/heatmap/route.ts: GET /api/stats/heatmap?weeks=16 返回 {weeks, from, to, cells:[{day, count}], streak}",
+        "SQL: SELECT date_trunc('day', created_at)::date AS day, count(*)::int FROM memos WHERE user_id=$1 AND created_at >= now() - interval '16 weeks' GROUP BY day ORDER BY day",
+        "若 memo 总数 > 5000 回退读 users.heatmap_cache_json (jsonb)",
+        "容器白卡: radius:14 / border 0.5 / shadow:var(--shadow-card) / padding:14",
+        "16 列 × 7 行 grid, 每格 10×10 / radius:2 / gap:3",
+        "等级: 0→empty / 1-2→low / 3-5→mid / >=6→high",
+        "未来日期 dashed hairline 占位 (border 0.5px dashed var(--border-default) / background transparent)",
+        "顶部 5 个月份标签 mono 9 caps; 左侧 Mon/Wed/Fri mono 8 caps",
+        "底部 row: LESS ▢▢▢▢▢ MORE 图例 (5 档) + 右侧 accent 胶囊 🔥 {streak} DAYS",
+        "Streak 计算见 PRD §22 Appendix A.3",
+        "单格 tap 弹 tooltip: '{date} · {count} memos'",
+        "触控扩展到 16×16 透明 padding",
+        "Web 用 <svg> 单次绘制 (不 React-render 每个 cell)",
+        "iOS 用 LazyVGrid",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 21,
-      "passes": true,
-      "notes": "Wave2。依赖 US-020。"
+      "passes": false,
+      "notes": "P1 新增 endpoint"
     },
     {
       "id": "US-022",
-      "title": "MCP 工具集 get_page / add_memo / list_recent / graph_neighbors",
-      "description": "As a developer, I want to read and write DayPage from Claude Code.",
+      "title": "Drawer Stats 三联卡 + /api/stats/drawer endpoint",
+      "description": "As a user, I want a 3-column stats card showing streak / pages / words.",
       "acceptanceCriteria": [
-        "daypage_get_page(slug) 读单页",
-        "daypage_add_memo(body, type?) 走 /api/ingest 写 memo",
-        "daypage_list_recent(n) 返回最近 memo/pages",
-        "daypage_graph_neighbors(slug) 返回 page_links 邻居",
-        "每个工具有输入校验与错误处理",
-        "Typecheck passes"
+        "新建 GET /api/stats/drawer 返回 {streak_days, pages_total, words_this_year, words_this_year_display}",
+        "容器: grid-cols-3 / radius:14 / overflow:hidden / border / shadow:var(--shadow-card)",
+        "每列: padding:14 6 12 / text-align:center / border-left 0.5px (首列无)",
+        "三行: mono caps label (9/600/1.4) + display value (22/600/-0.5) + mono caps unit (8/1.2)",
+        "大数字格式化: >=1000 显示 'k' (58000→58k); >=1M 显示 'M' (1500000→1.5M)",
+        "WORDS 计算: SUM(char_length(pages.summary)) WHERE EXTRACT(year FROM created_at) = current_year",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 22,
-      "passes": true,
-      "notes": "Wave2。依赖 US-020/021。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-023",
-      "title": "/insights 页面骨架 + 时间范围切换",
-      "description": "As a user, I want a dashboard page so I can review my activity at a glance.",
+      "title": "Drawer Navigate 卡 (今日/成稿/档案/关系图谱)",
+      "description": "As a user, I want a 4-row navigate card with icon tiles and counts to jump to today/wiki/archive/graph.",
       "acceptanceCriteria": [
-        "新建 (app)/insights/page.tsx, 加入侧边栏导航",
-        "时间范围切换: 今天 / 本周 / 本月 / 全部(状态存 URL params)",
-        "复用 Card/Sparkline/Chip/SectionLabel",
-        "各维度无数据时优雅降级(空态或'连接 X 解锁')",
+        "卡片: radius:14 / border / overflow:hidden / shadow:var(--shadow-card)",
+        "每行 padding:12 14 / gap:14 / 行间 0.5px hairline",
+        "Icon tile: 30×30 / radius:9 / var(--surface-sunken) / border 0.5",
+        "选中行: background:var(--accent-soft) / icon tile 改 white / label/count 改 accent / 600 weight",
+        "关系图谱行 移除 muted 状态 (iOS /graph 已实现)",
+        "4 行: 今日 → /today (count = 今日 memo); 成稿 → /wiki (count = pages); 档案 → /archive; 关系图谱 → /graph",
+        "点击行后 drawer 自动关闭 (先 navigate 后 close 280ms)",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 23,
-      "passes": true,
-      "notes": "Wave3 Epic B。insights 页骨架, 后续维度依赖它。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-024",
-      "title": "/insights 知识活动维度",
-      "description": "As a user, I want to see my knowledge-building activity.",
+      "title": "Drawer Recent 列表 + /api/stats/recent endpoint",
+      "description": "As a user, I want a hairline-separated list of 7 most recent pages with date / title / memo count.",
       "acceptanceCriteria": [
-        "memo 录入趋势(日/周折线): memos.created_at group by day",
-        "编译成功率: compile_status 占比(done/failed/pending)",
-        "知识图谱增长: pages + page_links 按周累计",
-        "活跃概念 Top N: pages.backlink_count desc; 领域分布: pages.domain_id group by",
-        "待整理: inbox_items(orphan) 与待裁决矛盾(contradiction) 计数",
-        "聚合查询尽量用 SQL group by 而非应用层循环",
+        "新建 GET /api/stats/recent?limit=7 返回 {items:[{date_slug, day, date_display, title, memo_count, is_today}]}",
+        "SQL: SELECT date_slug, title, memo_count FROM pages WHERE user_id=$1 ORDER BY date_slug DESC LIMIT 7",
+        "每行: padding:13 0 / gap:14 / border-top 0.5px (首行无)",
+        "左日期 col min-width:52, mono day (9/1.4) + display date (16/600)",
+        "中标题: body 14 / 1.4 / 单行 ellipsis",
+        "右计数 mono: 10 / 0.6 letter-spacing / color:var(--fg-subtle)",
+        "active 状态: date 改 accent / title 改 primary / count 改 accent",
+        "VIEW ALL › 点击 → /archive",
+        "空态: '还没有成稿的日页'",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 24,
-      "passes": true,
-      "notes": "Wave3 B 维度一。依赖 US-023。数据已在库。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-025",
-      "title": "/insights 活动流组件(点亮 activities 表)",
-      "description": "As a user, I want a real activity feed so I can see what happened recently.",
+      "title": "Drawer Footer",
+      "description": "As a user, I want a footer with Settings / Feedback links and version number.",
       "acceptanceCriteria": [
-        "新增 GET /api/insights/activity 或复用 /api/activities 读取真实活动",
-        "/insights 与首页 Recent activity(US-003 已接)数据一致",
-        "支持'加载更多'分页",
+        "容器: margin-top:30 / padding:18 4 4 / border-top 0.5",
+        "Settings/Feedback 链接: body 13 / 500 / color:var(--fg-muted)",
+        "版本号 mono: 9 / 1.2 letter-spacing / 格式 'v{version} · {build_date}'",
+        "iOS 版本从 CFBundleShortVersionString + CFBundleVersion; Web 从 process.env.NEXT_PUBLIC_VERSION",
+        "Settings → /settings; Feedback → mailto:feedback@daypage.app",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 25,
-      "passes": true,
-      "notes": "Wave3 B。点亮 activities 表。依赖 US-023。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-026",
-      "title": "/insights 系统/成本维度(点亮 prompt_log)",
-      "description": "As a user, I want to see my LLM usage so I understand the cost of compilation.",
+      "title": "Composer Pill (底部浮动 + glass)",
+      "description": "As a user, I want a floating glassmorphism pill at the bottom with +/mic/Aa buttons to capture memos quickly.",
       "acceptanceCriteria": [
-        "新增聚合查询读取 prompt_log: token 用量(in/out)、按 kind(chat/embed/transcribe)、按 model 分布",
-        "时间范围内的 token 趋势 sparkline",
-        "可选: embed cache 命中率",
+        "容器: position:absolute / bottom:26 (safe-area-inset-bottom) / display:flex / justify-content:center",
+        "Pill: padding:6 / radius:999 / background:rgba(255,253,250,0.82) / backdrop-filter:blur(28px) saturate(160%) / border 0.5px rgba(214,206,192,0.5)",
+        "shadow 多层: inset highlight + 外 drop shadow (见 PRD §6.7 --shadow-composer)",
+        "左 [ + ]: 48×48 圆透明 / aria-label='添加附件'",
+        "中 [ 🎙️ ]: 64×56 / radius:999 / background:linear-gradient(180deg, #7a3f00, #5D3000) + 外圈 breathe 1.6s halo",
+        "右 [ Aa ]: 48×48 圆透明 / aria-label='键盘输入'",
+        "下方一行 mono caps 提示: '长按录音 · 轻点切换'",
+        "录音中 pill 整体 pointer-events:none / opacity:0",
+        "入场: scale-in 240ms ease-out",
+        "Desktop (Web ≥ 768px): pill 改为左下角固定",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 26,
-      "passes": true,
-      "notes": "Wave3 B 维度四。点亮 prompt_log 表。依赖 US-023。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-027",
-      "title": "/insights 开发活动维度(Claude Code)",
-      "description": "As a developer, I want to see stats about my coding activity so I get an automatic work summary.",
+      "title": "Composer Pill 长按录音手势 + 权限处理",
+      "description": "As a user, I want a 220ms long-press on the mic to start recording, with haptic feedback and mic permission flow.",
       "acceptanceCriteria": [
-        "/insights 新增'开发活动'区块",
-        "指标: 编码会话数(日/周趋势)、touched repos 分布、会话时长累计、常用工具/技术",
-        "数据源为 memos where source_channel='claude-code' 的 metadata(jsonb)聚合",
-        "无 Claude Code 数据时显示'连接 Claude Code 以解锁'引导(优雅降级)",
+        "Web: onPointerDown 启动 220ms timer; onPointerUp/Leave/Cancel 清 timer + pressed=false; timer 触发时 if pressed 才 onMicLongPressStart()",
+        "iOS: DragGesture(minimumDistance:0) + 220ms Task.sleep + UIImpactFeedbackGenerator(.medium).impactOccurred()",
+        "Tap (<220ms 松手): 触发 onMic() 切到键盘输入 + UISelectionFeedbackGenerator().selectionChanged()",
+        "LongPress (≥220ms): 触发 onMicLongPressStart() 进录音",
+        "拖出按钮范围 (pointerleave) 取消录音意图",
+        "首次长按 mic 权限未授予 → 系统授权请求; 拒绝后 toast '需要麦克风权限才能录音 · 去设置'",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 27,
-      "passes": true,
-      "notes": "Wave2 B 维度二。依赖 US-018(数据源) + US-023。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-028",
-      "title": "自动周报 cron",
-      "description": "As a user, I want a weekly recap generated automatically so I don't have to summarize myself.",
+      "title": "Attach Sheet (4 件套 bottom-up modal)",
+      "description": "As a user, I want a bottom sheet with 4 buttons (camera/album/location/file) when I tap the + button.",
       "acceptanceCriteria": [
-        "新增 Inngest cron 函数(复用 daily-page.ts 模式), 每周运行一次",
-        "为有数据的用户生成一份 type='synthesis' 的复盘 page: 本周 memo/pages/链接增量、主要思考主题、(若有)开发/足迹概要",
-        "周报 page 可在 /insights 顶部展示",
-        "无数据用户跳过",
-        "Typecheck passes"
+        "Backdrop: position:absolute / inset:0 / background:rgba(30,24,18,0.32) / backdrop-filter:blur(2px) / z-index:60 / animation:fade-in 200ms ease-out",
+        "Sheet: left:14 / right:14 / bottom:110 / z-index:65 / radius:28 / padding:20 18 22 / background:rgba(255,253,250,0.92) / backdrop-filter:blur(28px) saturate(160%) / border 0.5",
+        "入场: sheet-up 280ms cubic-bezier(.2,.8,.2,1)",
+        "顶部 handle bar: 36×4 #D6CEC0",
+        "4 button: 56×56 圆角 18 sunken tile + 12 body label",
+        "拍照/相册: iOS PHPicker/UIImagePicker; Web <input type=file accept='image/*' capture='environment'>",
+        "位置: iOS LocationService.lastFix; Web navigator.geolocation.getCurrentPosition({enableHighAccuracy:true, timeout:6000})",
+        "附件: 原生 doc picker / Web file input",
+        "下滑关闭手势: drag handle ≥ 80px + rubber-band 阻尼 0.18 + spring 返弹",
+        "backdrop tap 关闭; ESC 关闭 (Web); focus trap + role='dialog'",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
       ],
       "priority": 28,
-      "passes": true,
-      "notes": "Wave3 B 衍生。依赖 US-024 维度数据。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-029",
-      "title": "Settings 云同步 /api/settings",
-      "description": "As a user, I want my settings to sync across devices so I don't reconfigure each time.",
+      "title": "Recording Sheet (深色 + 实时波形 + 转写)",
+      "description": "As a user, I want a dark sheet during recording with a live waveform, MM:SS timer, and live transcript preview.",
       "acceptanceCriteria": [
-        "新增 GET/PATCH /api/settings, 落 users.settings jsonb(已预留字段)",
-        "SettingsClient.tsx 从 localStorage 升级为读写后端(保留 localStorage 作离线/即时缓存)",
-        "同步项: 主题、密度、AI 模型偏好、通知设置",
+        "容器: bottom:0 / paddingBottom:34 / z-index:55 / margin:0 14 / radius:34 / padding:22 22 24 / background:rgba(45,30,12,0.92) / backdrop-filter:blur(28px) saturate(160%)",
+        "入场: sheet-up 320ms cubic-bezier(.2,.8,.2,1)",
+        "Header row: 左 🔴 录音中 (10×10 圆 background:#E36B4A + pulse-dot 1.2s + box-shadow:0 0 0 4px rgba(227,107,74,0.18)) + 右 mono 28px MM:SS",
+        "Waveform: 64 bars, rAF 60fps, useWaveform hook (公式见 PRD §22 Appendix A.2)",
+        "每 bar width:2 / gap:2 / height:max(2,h) / transition height 80ms",
+        "实时转写预览: body 13 / color:rgba(245,237,227,0.65) / 末尾 caret 闪",
+        "双按钮: 取消 (flex:1, background:rgba(255,255,255,0.1) / #F5EDE3 文字) + 停止并转写 (flex:1.6, background:#F5EDE3 / #2B2822 + 勾 icon)",
+        "取消: discard buffer + 关闭",
+        "停止并转写: VoiceService.transcribe() → 新 memo 草稿 + banner '已添加 1 条 memo'",
+        "iOS: AVAudioRecorder + AVAudioEngine installTap 实时 RMS 喂波形",
+        "Web: AudioContext.createAnalyser() + getByteFrequencyData",
+        "5 分钟自动停止 + alert '录音已达上限'",
+        "失焦保持 30s 后自动停止保存",
+        "实时转写: iOS SFSpeechRecognizer (zh-CN); Web Whisper API streaming",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 29,
-      "passes": true,
-      "notes": "Wave3 C3。users.settings 字段已预留。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-030",
-      "title": "暗色主题",
-      "description": "As a user, I want a dark theme so the app is comfortable at night.",
+      "title": "灵动岛 Live Activity (iOS 16.1+ ActivityKit)",
+      "description": "As a user, when recording I want the Dynamic Island to show live elapsed time and a mini waveform.",
       "acceptanceCriteria": [
-        "实现暗色调色板(globals.css CSS token 已是变量, 加 dark 变体)",
-        "移除 SettingsClient.tsx:303 的 disabled, 主题选择生效",
-        "切换即时生效并随 US-029 云同步持久化",
+        "Deployment target bump iOS 16.0 → 16.1 (Live Activity 要求)",
+        "Info.plist 加 NSSupportsLiveActivities=YES",
+        "新建 DayPage/LiveActivity/RecordingActivityAttributes.swift 含 elapsed/isRecording/currentDB",
+        "ActivityKit: 注册 / 更新 / 结束 Live Activity",
+        "Island compact: 左红点 + 右 3-bar waveform",
+        "Island expanded: 左 '🔴 MM:SS' + 右 18-bar waveform + 底部 '停止' 按钮",
+        "Island minimal: 单红点",
+        "BackgroundTasks 每 1s update",
+        "5min 上限后 end Live Activity",
+        "Web (装饰): iPhone frame 顶部 248×37 / radius:24 / black 胶囊",
+        "展开 248 / 收起 126, transition width 360ms cubic-bezier(.2,.8,.2,1)",
+        "内容左: 8×8 red dot pulse-dot 1.2s + mono 11 计时",
+        "内容右: 18 高 mini waveform (18 bars, width:1.6 / gap:1.5)",
+        "点击灵动岛 deep link 回到 Today + RecordingSheet (widgetURL)",
         "Typecheck passes",
-        "Verify in browser using dev-browser skill"
+        "iOS 真机 iPhone 17 验证 Live Activity 注册成功",
+        "Web 端 Verify in browser using dev-browser skill"
       ],
       "priority": 30,
-      "passes": true,
-      "notes": "Wave3 C3。依赖 US-029。"
+      "passes": false,
+      "notes": "需 Eric 确认 deployment target bump (PRD Open Q1)"
     },
     {
       "id": "US-031",
-      "title": "收口 /wiki Ask about this page",
-      "description": "As a user, I want the 'Ask about this page' button to work so I can ask questions about a wiki page.",
+      "title": "Share Card 主屏 + 模板切换器",
+      "description": "As a user, swiping SHARE on a memo opens a share screen with a 4:5 preview and template chips.",
       "acceptanceCriteria": [
-        "/wiki/[slug] 'Ask about this page'(wiki/[slug]/page.tsx:364): 接通——带页面上下文跳转 /chat 新线程",
-        "RAG 已有, 复用现有 chat 线程创建逻辑",
+        "顶栏: 左 GlassPillBtn 关闭 (aria-label='关闭') + 中 mono 'SHARE' + 右 GlassPillBtn 下载 (aria-label='下载图片')",
+        "5 模板 id: minimal / film / polaroid / journal / postcard",
+        "模板 chip: 水平 scroll / padding:8 14 / radius:999 / mono caps; 选中 accent 背景 + white 文字",
+        "预览卡片: 竖图 4:5 比例 (实际 1080×1350 / 显示 ~300×375 web)",
+        "切换模板 fade-in 280ms",
+        "iOS: 从 memo detail 进入用 sheet presentation; Web 用 modal page",
+        "选中模板持久化到 localStorage.daypage.shareTemplate / UserDefaults",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 31,
-      "passes": true,
-      "notes": "Wave3 C4 收口。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-032",
-      "title": "收口 /add 语音输入 + /chat 附件 + drafts/add",
-      "description": "As a user, I don't want fake disabled buttons; each should either work or be removed.",
+      "title": "Share Card 5 个模板视觉",
+      "description": "As a user, I want 5 distinct share templates (minimal/film/polaroid/journal/postcard) to choose from.",
       "acceptanceCriteria": [
-        "/add 语音输入(UnifiedInput.tsx:558): 接通录音→Whisper(LLM transcribe 已有)或明确移除",
-        "/chat/[id] 附件按钮(ChatView.tsx:317): 接通上传或明确移除按钮",
-        "/api/drafts/add(501 Not implemented): 实现草稿同步或删除该端点",
-        "原则: 每个 coming soon 要么接通要么移除, 不留 disabled 假功能",
+        "minimal: 白底 + serif 大字标题 + 正文 + 小 mono 落款 (日期 + 地点)",
+        "film: 黑边白卡夹相片 + 底部胶卷孔装饰 (SVG repeat) + 帧号 mono '28 / 36A'",
+        "polaroid: 白边大相片 + 底部手写体 caption (Caveat Google font 已在 US-001 加入)",
+        "journal: 暖米色纸纹背景 + 图钉/胶带装饰 SVG + 手写感 serif 标题",
+        "postcard: 左右二分 (左相片 + 右纵向 mono 邮戳 + serif 中段感言)",
+        "所有模板支持切换字体 (serif/sans) 与配色 (暖/冷) + 状态持久化",
+        "长正文自动 truncate: minimal 8 行 / film 6 行 / polaroid 2 行 / journal 10 行 / postcard 5 行",
+        "组件位于 web/src/components/share/{templateId}.tsx + DayPage/Features/Share/Templates/{templateId}.swift",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 32,
-      "passes": true,
-      "notes": "Wave3 C4 收口。"
+      "passes": false,
+      "notes": ""
     },
     {
       "id": "US-033",
-      "title": "统一 memo schema(iOS↔Web 字段对齐)",
-      "description": "As a developer, I need iOS and Web memo models aligned so sync doesn't lose data.",
+      "title": "Share Card 导出 PNG + /api/img proxy",
+      "description": "As a user, tapping download exports the current template as a 1080×1350 PNG.",
       "acceptanceCriteria": [
-        "Web schema 增补 iOS 独有字段: mood、entity_mentions(或并入 metadata)",
-        "memos.type 枚举对齐(处理 iOS 的 location/mixed: 新增枚举值或映射规则)",
-        "memo_attachments.exif 改为结构化 jsonb(iOS 停止把 EXIF 塞进 transcript 字符串)",
-        "drizzle generate + migrate 成功",
-        "Typecheck passes"
-      ],
-      "priority": 33,
-      "passes": true,
-      "notes": "Wave4 D1。前置决策: iOS↔Web 走路线 A(Web 唯一真相源)。需人工拍板路线后再跑。"
-    },
-    {
-      "id": "US-034",
-      "title": "embedding 迁移 pgvector",
-      "description": "As a developer, I want vector search to scale so recall/RAG stays fast.",
-      "acceptanceCriteria": [
-        "启用 pgvector 扩展",
-        "pages.embedding / memos.embedding 从 text(JSON) 改 vector(1536), 加 ivfflat/hnsw 索引",
-        "迁移脚本把现有 JSON 文本转 vector",
-        "rag.ts 与 compile-memo recall step 改用 SQL 近邻查询(不再全表内存余弦)",
-        "Typecheck passes",
-        "RAG 结果与迁移前一致性验证(Tests pass)"
-      ],
-      "priority": 34,
-      "passes": true,
-      "notes": "Wave4 D2。需评估数据量与迁移策略(停机/在线双写), 可能需人工。"
-    },
-    {
-      "id": "US-035",
-      "title": "Web 安全加固",
-      "description": "As a developer, I need to harden external inputs and remove hardcoded secrets.",
-      "acceptanceCriteria": [
-        "外部 ingest 输入: 严格 zod 校验 + 大小限制 + HTML 清洗(XSS)",
-        "限流扩展到所有 ingest 与新端点",
-        "ingest_sources.config 敏感字段加密存储",
-        "webhook 校验齐全(Telegram secret_token、Inngest 签名)",
-        "iOS GitHub bot token 从 FeedbackService 硬编码下沉到后端代理端点(iOS 不再持有 token)",
-        "Typecheck passes"
-      ],
-      "priority": 35,
-      "passes": true,
-      "notes": "Wave4 D5。iOS token 下沉部分涉及 iOS build, 可能需人工。"
-    },
-    {
-      "id": "US-036",
-      "title": "Web 可观测性",
-      "description": "As a developer, I want visibility into pipeline health and cost.",
-      "acceptanceCriteria": [
-        "Web 端接入 Sentry/日志聚合(iOS 已有 Sentry)",
-        "编译管道加结构化日志 + step 级计时",
-        "健康检查端点: DB / Inngest / LLM provider 可达性",
-        "Typecheck passes"
-      ],
-      "priority": 36,
-      "passes": true,
-      "notes": "Wave4 D3。"
-    },
-    {
-      "id": "US-037",
-      "title": "Web 测试基线",
-      "description": "As a developer, I want tests on critical paths so regressions are caught.",
-      "acceptanceCriteria": [
-        "Web Vitest 单测: schema 校验、ingest adapter 归一化、聚合查询",
-        "Web Playwright E2E(test:e2e 脚本已存在): add→compile→wiki、ingest API、登录",
-        "关键路径 ≥80% 覆盖",
-        "Typecheck passes",
-        "Tests pass"
-      ],
-      "priority": 37,
-      "passes": true,
-      "notes": "Wave4 D4。"
-    },
-    {
-      "id": "US-038",
-      "title": "RSS 源接入",
-      "description": "As a user, I want RSS feeds to flow in automatically.",
-      "acceptanceCriteria": [
-        "ingest_sources 存 feed URL + Inngest cron 拉取(复用 daily-page cron 模式)",
-        "新条目→url memo(external_id=item guid 幂等)",
-        "可选 light 模式只存摘要避免 token 浪费",
-        "Typecheck passes"
-      ],
-      "priority": 38,
-      "passes": true,
-      "notes": "Wave4 A4。依赖 US-013/014。"
-    },
-    {
-      "id": "US-039",
-      "title": "Email 入站接入",
-      "description": "As a user, I want to forward emails to DayPage so they become memos.",
-      "acceptanceCriteria": [
-        "POST /api/ingest/email(第三方收信服务转发)",
-        "解析邮件主题/正文/附件→memo; 绑定靠发件人地址匹配或专属转发地址带 token",
-        "复用 /api/ingest 内部逻辑落 memo",
-        "Typecheck passes"
-      ],
-      "priority": 39,
-      "passes": true,
-      "notes": "Wave4 A5。需选定 Email 服务(Postmark inbound / Cloudflare Email Worker), 需人工拍板。"
-    },
-    {
-      "id": "US-040",
-      "title": "iOS bulk 同步客户端",
-      "description": "As an iOS user, I want my memos to sync to the cloud so they appear on web.",
-      "acceptanceCriteria": [
-        "iOS 新增同步服务, 调用现有 POST /api/memos/bulk(last-write-wins by updated_at 已实现)",
-        "上行本地 vault 的 memo(含 location/weather/device/EXIF 结构化)",
-        "用 devices 表注册设备 + sync_state.cursor 做增量同步",
-        "离线时排队, 联网后补传",
-        "iOS build passes + 同步端到端验证(iPhone 17 模拟器)",
-        "Typecheck passes"
-      ],
-      "priority": 40,
-      "passes": true,
-      "notes": "Wave4 D1。iOS 改动, ralph(web/dev-browser)无法验证 iOS, 需人工。依赖 US-033 schema 统一。"
-    },
-    {
-      "id": "US-041",
-      "title": "附件上行对象存储",
-      "description": "As a user, I want my photos/voice to be available on web too.",
-      "acceptanceCriteria": [
-        "选定对象存储(S3/R2/Supabase Storage)",
-        "iOS 本地 asset 上传, 回填 memo_attachments.storage_key",
-        "Web memo 详情页(US-006)能展示这些附件",
-        "上传失败可重试",
-        "Typecheck passes(Web) + iOS build passes",
-        "Typecheck passes"
-      ],
-      "priority": 41,
-      "passes": true,
-      "notes": "Wave4。需对象存储选型(人工拍板)。依赖 US-040。"
-    },
-    {
-      "id": "US-042",
-      "title": "编译收归 Web(废弃 iOS 双管道)",
-      "description": "As a developer, I want a single compilation pipeline so outputs don't diverge.",
-      "acceptanceCriteria": [
-        "废弃 iOS 的 CompilationService/BackgroundCompilationService(或降级为'离线草稿, 联网后由 Web 编译')",
-        "iOS 改为拉取 Web 编译结果(pages/daily)展示",
-        "同一天不再被两套管道重复编译",
-        "iOS build passes; 端到端: iOS 记录 → 同步 → Web 编译 → iOS 看到结果",
-        "Typecheck passes"
-      ],
-      "priority": 42,
-      "passes": true,
-      "notes": "Wave4 D1 收口。最重的架构改动, 需人工。依赖 US-040/041。"
-    },
-    {
-      "id": "US-043",
-      "title": "/insights 生活/数字足迹维度",
-      "description": "As a nomad, I want to see my location/photo footprint so I can review where I've been.",
-      "acceptanceCriteria": [
-        "位置足迹: memos.location(lat/lng) 地图打点 / 城市时间线",
-        "城市/国家停留时长(基于被动位置 visits, 需 iOS 上行)",
-        "天气-记录关联: memos.weather × created_at; 摄影统计: memo_attachments.exif(光圈/快门/ISO/焦距)",
-        "记录时间节律: created_at 按小时分布; 设备来源分布: memos.device / origin",
-        "无 iOS 数据时优雅降级",
+        "iOS: ImageRenderer API 渲染 SwiftUI 视图为 UIImage (需 NSPhotoLibraryAddUsageDescription) + 保存 Photos 或 UIActivityViewController",
+        "Web: html-to-image@^1.11 导出 1080×1350 PNG + <a download> 触发",
+        "新建 GET /api/img/{memo_id} same-origin proxy (跨域照片 CORS-safe)，user 必须 own memo",
+        "导出过程 spinner + 完成 toast '已保存到 {Photos/Downloads}'",
+        "字体加载完毕: await document.fonts.ready",
+        "失败 toast '导出失败，请重试'",
+        "性能预算: Web ≤ 1.5s / iOS ≤ 0.8s",
+        "上报 analytics: share_card_exported event {template, kind, has_photo, duration_ms}",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
-      "priority": 43,
-      "passes": true,
-      "notes": "Wave4 B 维度三。依赖 US-040(iOS 数据上行) + US-033(EXIF 结构化) + US-023。"
+      "priority": 33,
+      "passes": false,
+      "notes": "新依赖 html-to-image@^1.11"
     }
   ]
 }
