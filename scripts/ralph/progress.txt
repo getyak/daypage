@@ -44,3 +44,4 @@ Previous runs archived: archive/2026-05-28-vnext-integrations-insights/ (and ear
 - Web build: pnpm build passes
 - iOS build: not verified locally (Linux host)
 ---
+[2026-05-28T15:22:28Z] Story #US-002: 扩展全局动画 keyframes 库 + reduce-motion 退化 — PASSED

@@ -40,7 +40,7 @@
         "iOS \u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "\u4f9d\u8d56 US-001 \u7684 tokens.json"
     },
     {
