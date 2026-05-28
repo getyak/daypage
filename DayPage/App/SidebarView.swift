@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - SidebarView
 
@@ -80,6 +81,9 @@ struct SidebarView: View {
                 sidebarVM.refreshRecentDays()
                 dotsAppeared = false
                 Task { @MainActor in dotsAppeared = true }
+                // Pre-warm the impact generator while the drawer is animating
+                // open so the first nav tap fires with minimum latency.
+                UIImpactFeedbackGenerator(style: .light).prepare()
             } else {
                 dotsAppeared = false
             }
@@ -228,6 +232,9 @@ struct SidebarView: View {
             if tab == .feedback {
                 nav.openFeedbackPanel()
             } else {
+                if nav.selectedTab != tab {
+                    Haptics.light()
+                }
                 nav.navigate(to: tab)
             }
         } label: {
