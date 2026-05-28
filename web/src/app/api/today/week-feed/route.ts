@@ -15,9 +15,11 @@ export type WeekFeedItem = {
 };
 
 export async function GET(req: NextRequest) {
-  const limitParam = req.nextUrl.searchParams.get("limit");
-  const limit = Math.min(Math.max(parseInt(limitParam ?? "7", 10) || 7, 1), 30);
-  void limit;
+  const { searchParams } = new URL(req.url);
+  const limit = Math.min(Math.max(parseInt(searchParams.get("limit") ?? "7", 10) || 7, 1), 30);
 
-  return NextResponse.json({ items: [] satisfies WeekFeedItem[] });
+  // Skeleton — real data layer wired later
+  const items: WeekFeedItem[] = [];
+
+  return NextResponse.json({ items: items.slice(0, limit) });
 }

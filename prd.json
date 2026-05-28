@@ -40,7 +40,7 @@
         "iOS \u6784\u5efa\u901a\u8fc7"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "\u4f9d\u8d56 US-001 \u7684 tokens.json"
     },
     {
@@ -59,7 +59,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "\u4f9d\u8d56 US-001"
     },
     {
@@ -75,7 +75,7 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "passes": false,
+      "passes": true,
       "notes": "\u4f9d\u8d56 US-001"
     },
     {
@@ -94,7 +94,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "\u4f9d\u8d56 US-003"
     },
     {
@@ -114,7 +114,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "\u4f9d\u8d56 US-005"
     },
     {
@@ -132,7 +132,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 7,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -154,7 +154,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {
@@ -179,7 +179,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Wave B-2 \u6838\u5fc3 story\uff0c\u624b\u52bf\u5e93 0 \u4f9d\u8d56"
     },
     {
@@ -197,7 +197,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": ""
     },
     {

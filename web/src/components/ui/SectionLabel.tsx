@@ -8,17 +8,33 @@ interface SectionLabelProps {
   right?: ReactNode;
 }
 
+const labelStyle: React.CSSProperties = {
+  fontSize: 11,
+  letterSpacing: "1.6px",
+  textTransform: "uppercase",
+  fontWeight: 700,
+  color: "var(--fg-muted)",
+  fontFamily: "var(--font-family-display, 'Space Grotesk'), ui-sans-serif, sans-serif",
+  lineHeight: 1.2,
+  margin: 0,
+};
+
 export function SectionLabel({ children, className = "", right }: SectionLabelProps) {
   if (right === undefined) {
     return (
-      <p className={["ds-section-label", className].filter(Boolean).join(" ")}>
+      <h2
+        role="heading"
+        aria-level={2}
+        className={className || undefined}
+        style={labelStyle}
+      >
         {children}
-      </p>
+      </h2>
     );
   }
   return (
     <div
-      className={["section-label-row", className].filter(Boolean).join(" ")}
+      className={className || undefined}
       style={{
         display: "flex",
         alignItems: "center",
@@ -26,7 +42,9 @@ export function SectionLabel({ children, className = "", right }: SectionLabelPr
         marginBottom: 12,
       }}
     >
-      <span className="ds-section-label">{children}</span>
+      <h2 role="heading" aria-level={2} style={labelStyle}>
+        {children}
+      </h2>
       <span style={{ display: "inline-flex", alignItems: "center" }}>{right}</span>
     </div>
   );

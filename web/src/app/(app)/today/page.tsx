@@ -3,16 +3,25 @@
 import { useEffect, useRef, useState, useCallback, Suspense } from "react";
 import { Menu, Search, Settings } from "lucide-react";
 import { GlassPillBtn } from "@/components/ui/GlassPillBtn";
+import { Drawer } from "@/components/ui/Drawer";
 import { TodayHero } from "./TodayHero";
 import { TodaySegmentedControl } from "./TodaySegmentedControl";
 import { AISummaryCard } from "./AISummaryCard";
 import { MemoCard, type MemoCardData } from "./MemoCard";
 import { UnlockPlaceholderCard } from "./UnlockPlaceholderCard";
+import { WeekFeedSpine } from "./WeekFeedSpine";
+import { DrawerContent } from "./DrawerContent";
+import { ComposerPill } from "./ComposerPill";
+import { AttachSheet } from "./AttachSheet";
+import { RecordingSheet } from "./RecordingSheet";
+import { ShareCard, type ShareCardMemo } from "./ShareCard";
 
 function MemoFeed({
   composerMicRef,
+  onShare,
 }: {
   composerMicRef: React.RefObject<HTMLButtonElement | null>;
+  onShare: (memo: ShareCardMemo) => void;
 }) {
   const [memos, setMemos] = useState<MemoCardData[]>([]);
 
@@ -28,7 +37,19 @@ function MemoFeed({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 8 }}>
       {memos.map((memo) => (
-        <MemoCard key={memo.id} memo={memo} />
+        <MemoCard
+          key={memo.id}
+          memo={memo}
+          onShare={() =>
+            onShare({
+              id: memo.id,
+              body: memo.body,
+              created_at: memo.created_at,
+              type: memo.type,
+              photo_url: memo.photo_url ?? undefined,
+            })
+          }
+        />
       ))}
       {/* US-010: Placeholder card — shown when below unlock_threshold */}
       <UnlockPlaceholderCard composerMicRef={composerMicRef} />
@@ -38,9 +59,30 @@ function MemoFeed({
 
 export default function TodayPage() {
   const [scrolled, setScrolled] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [showAttachSheet, setShowAttachSheet] = useState(false);
+  const [shareMemo, setShareMemo] = useState<ShareCardMemo | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   const composerMicRef = useRef<HTMLButtonElement | null>(null);
+
+  const handleMicPress = useCallback(() => {
+    // tap: toggle keyboard / text mode — focus text input if available
+    composerMicRef.current?.focus();
+  }, []);
+
+  const handleMicLongPress = useCallback(() => {
+    setIsRecording(true);
+  }, []);
+
+  const handlePlusPress = useCallback(() => {
+    setShowAttachSheet(true);
+  }, []);
+
+  const handleTextPress = useCallback(() => {
+    composerMicRef.current?.focus();
+  }, []);
 
   const handleScroll = useCallback(() => {
     if (rafRef.current !== null) return;
@@ -104,7 +146,7 @@ export default function TodayPage() {
           zIndex: 10,
         }}
       >
-        <GlassPillBtn size="sm" aria-label="打开侧边栏">
+        <GlassPillBtn size="sm" aria-label="打开侧边栏" onClick={() => setDrawerOpen(true)}>
           <Menu size={16} strokeWidth={1.7} aria-hidden="true" />
         </GlassPillBtn>
 
@@ -134,7 +176,41 @@ export default function TodayPage() {
       </div>
 
       {/* Memo Feed + Unlock Placeholder — US-009, US-010 */}
-      <MemoFeed composerMicRef={composerMicRef} />
+      <MemoFeed composerMicRef={composerMicRef} onShare={setShareMemo} />
+
+      {/* Week Wiki Spine Feed — US-011 */}
+      <div style={{ paddingTop: 24 }}>
+        <WeekFeedSpine />
+      </div>
+
+      {/* Composer Pill — US-026/027 */}
+      <ComposerPill
+        isRecording={isRecording}
+        onMicPress={handleMicPress}
+        onMicLongPress={handleMicLongPress}
+        onPlusPress={handlePlusPress}
+        onTextPress={handleTextPress}
+      />
+
+      {/* Drawer — US-019/020/021 */}
+      <Drawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)}>
+        <DrawerContent onClose={() => setDrawerOpen(false)} />
+      </Drawer>
+
+      {/* Attach Sheet — US-028 */}
+      {showAttachSheet && (
+        <AttachSheet isOpen={showAttachSheet} onClose={() => setShowAttachSheet(false)} />
+      )}
+
+      {/* Recording Sheet — US-029 */}
+      {isRecording && (
+        <RecordingSheet isOpen={isRecording} onClose={() => setIsRecording(false)} onStop={() => setIsRecording(false)} />
+      )}
+
+      {/* Share Card — US-031/032/033 */}
+      {shareMemo && (
+        <ShareCard memo={shareMemo} onClose={() => setShareMemo(null)} />
+      )}
     </div>
   );
 }

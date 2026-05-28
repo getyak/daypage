@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, Inter, JetBrains_Mono } from "next/font/google";
+import { Space_Grotesk, Inter, JetBrains_Mono, Fraunces } from "next/font/google";
 import Script from "next/script";
 import { QueryProvider } from "@/components/QueryProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -35,6 +35,13 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
+  weight: ["600"],
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "DayPage",
   description: "AI-assisted journaling for anyone who wants to record their day.",
@@ -49,7 +56,7 @@ export default function RootLayout({
     <html
       lang="en"
       data-theme="system"
-      className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className={`${spaceGrotesk.variable} ${inter.variable} ${jetbrainsMono.variable} ${fraunces.variable} h-full antialiased`}
       // Some browser extensions (e.g. Immersive Translate) inject attributes
       // onto <html> before React hydrates, causing a top-level mismatch warning.
       // Suppressing only on <html> is the React/Next recommended workaround.

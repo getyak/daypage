@@ -92,6 +92,10 @@ struct TodayView: View {
     /// Drives the one-shot amber glow + scale reveal on the daily page card after compilation.
     @State private var compileRevealGlow: Bool = false
 
+    // US-005: Tracks timeline scroll offset to activate the glass header bar.
+    // Becomes negative as the user scrolls down; < -8 triggers the frosted glass.
+    @State private var timelineScrollOffset: CGFloat = 0
+
     private var isInSelectionMode: Bool { selectedMemoIds != nil }
 
     /// Live drag offset for the daily page card (negative = pulled left).
@@ -862,8 +866,36 @@ struct TodayView: View {
     // MARK: - US-021 Extracted Subviews
 
     /// Header bar: serif date, export button, and settings gear.
+    /// US-005: background fades to frosted glass once the timeline has scrolled > 8pt.
     @ViewBuilder
     private var sidebarSection: some View {
+        let isScrolled = timelineScrollOffset < -8
+        ZStack(alignment: .bottom) {
+            // Glass background — animates in/out with scroll
+            Group {
+                if isScrolled {
+                    Rectangle()
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            Rectangle()
+                                .fill(DSColor.bgWarm.opacity(0.78))
+                        )
+                } else {
+                    Color.clear
+                }
+            }
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: isScrolled)
+
+            // Bottom separator line
+            if isScrolled {
+                Rectangle()
+                    .fill(DSColor.borderSubtle)
+                    .frame(height: 0.5)
+                    .transition(.opacity)
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: isScrolled)
+            }
+        }
+        .overlay(alignment: .center) {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
             Button {
                 nav.openSidebar()
@@ -961,18 +993,31 @@ struct TodayView: View {
             .contentShape(Rectangle())
             .alignmentGuide(.firstTextBaseline) { d in d[VerticalAlignment.center] + 6 }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 14)
         .padding(.top, 16)
-        .padding(.bottom, 12)
+        .padding(.bottom, 10)
         .onReceive(headerTimer) { date in
             currentTime = date
         }
+        } // end overlay
+        .frame(maxWidth: .infinity)
     }
 
     /// Scrollable timeline: daily page card, skeleton, memo cards, history supplement.
     @ViewBuilder
     private var timelineSection: some View {
         ScrollView {
+            // US-005: Offset tracker — reads the scroll position relative to the
+            // named coordinate space so the header bar can go glassy on scroll.
+            GeometryReader { geo in
+                Color.clear
+                    .preference(
+                        key: ScrollOffsetPreferenceKey.self,
+                        value: geo.frame(in: .named("todayScroll")).minY
+                    )
+            }
+            .frame(height: 0)
+
             LazyVStack(spacing: 8) {
                 if viewModel.isDailyPageCompiled {
                     swipeableDailyPageCard
@@ -1094,6 +1139,9 @@ struct TodayView: View {
             alignment: .bottom
         )
         .coordinateSpace(name: "todayScroll")
+        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+            timelineScrollOffset = value
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -1629,5 +1677,13 @@ struct TimelineRow: View {
             }
         }
         .accessibilityLabel(isSelected ? "已选中" : "未选中")
+    }
+}
+
+// US-005: PreferenceKey used to propagate the ScrollView offset up to TodayView.
+private struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
