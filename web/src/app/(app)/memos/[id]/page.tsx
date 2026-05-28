@@ -9,6 +9,9 @@ import { MemoDetailTopBar } from "./MemoDetailTopBar";
 import { MemoDetailTitle } from "./MemoDetailTitle";
 import { MetadataTiles } from "./MetadataTiles";
 import { HeroPhoto } from "./HeroPhoto";
+import { MemoBody } from "./MemoBody";
+import { LocationCard } from "./LocationCard";
+import { FileMetadataCard } from "./FileMetadataCard";
 
 // Defense in depth: even though /api/ingest now rejects non-http(s) source_url,
 // pre-existing rows could contain `javascript:` URIs. Guard the href render.
@@ -34,7 +37,6 @@ function extractWeatherString(weather: unknown): string | null {
   if (typeof weather === "string") return weather;
   if (typeof weather === "object" && weather !== null) {
     const w = weather as Record<string, unknown>;
-    // Try common weather JSON shapes
     if (typeof w.description === "string") return w.description;
     if (typeof w.condition === "string") return w.condition;
     if (typeof w.weather === "string") return w.weather;
@@ -63,6 +65,31 @@ function extractLocationString(location: unknown): string | null {
     if (typeof l.name === "string") return l.name;
   }
   return null;
+}
+
+function extractLocationFields(location: unknown): {
+  lat: number | null;
+  lng: number | null;
+  place_name: string | null;
+  country: string | null;
+} {
+  if (!location || typeof location !== "object") {
+    return { lat: null, lng: null, place_name: null, country: null };
+  }
+  const l = location as Record<string, unknown>;
+  return {
+    lat: typeof l.lat === "number" ? l.lat : typeof l.latitude === "number" ? l.latitude : null,
+    lng: typeof l.lng === "number" ? l.lng : typeof l.longitude === "number" ? l.longitude : null,
+    place_name:
+      typeof l.place_name === "string"
+        ? l.place_name
+        : typeof l.name === "string"
+          ? l.name
+          : typeof l.city === "string"
+            ? l.city
+            : null,
+    country: typeof l.country === "string" ? l.country : null,
+  };
 }
 
 export default async function MemoDetailPage({ params }: Props) {
@@ -130,9 +157,12 @@ export default async function MemoDetailPage({ params }: Props) {
   const createdAtISO = memo.created_at.toISOString();
 
   // Extract exif dimensions if available
-  const exif = photoAttachment?.exif as Record<string, unknown> | null ?? null;
+  const exif = (photoAttachment?.exif as Record<string, unknown> | null) ?? null;
   const photoWidth = typeof exif?.width === "number" ? exif.width : null;
   const photoHeight = typeof exif?.height === "number" ? exif.height : null;
+
+  // Extract location fields for LocationCard
+  const { lat, lng, place_name, country } = extractLocationFields(memo.location);
 
   return (
     <div style={{ maxWidth: 600, margin: "0 auto" }}>
@@ -141,11 +171,7 @@ export default async function MemoDetailPage({ params }: Props) {
 
       <div style={{ padding: "0 0 40px" }}>
         {/* US-013: Title block */}
-        <MemoDetailTitle
-          place={locationStr}
-          kind={memo.type}
-          location={locationStr}
-        />
+        <MemoDetailTitle place={locationStr} kind={memo.type} location={locationStr} />
 
         {/* US-014: Metadata tiles */}
         <MetadataTiles
@@ -166,27 +192,28 @@ export default async function MemoDetailPage({ params }: Props) {
           />
         )}
 
-        {/* Body */}
-        <div style={{ padding: "0 14px 24px" }}>
-          <div
-            style={{
-              background: "var(--surface-sunken)",
-              borderRadius: 12,
-              padding: "16px 20px",
-              lineHeight: 1.7,
-              fontSize: "0.9375rem",
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-            }}
-          >
-            {memo.body || (
-              <span style={{ color: "var(--fg-subtle)", fontStyle: "italic" }}>No content</span>
-            )}
-          </div>
-        </div>
+        {/* US-016: Body with link/hashtag/mention detection */}
+        <MemoBody body={memo.body} />
+
+        {/* US-017: Location card */}
+        <LocationCard
+          location={locationStr}
+          lat={lat}
+          lng={lng}
+          place_name={place_name}
+          country={country}
+        />
+
+        {/* US-018: File metadata card */}
+        <FileMetadataCard
+          created_at={createdAtISO}
+          path={memo.vault_path}
+          content_hash={null}
+          memo_id={id}
+        />
 
         {/* Actions row */}
-        <div style={{ padding: "0 14px 24px", display: "flex", justifyContent: "flex-end" }}>
+        <div style={{ padding: "0 24px 24px", display: "flex", justifyContent: "flex-end" }}>
           <MemoActions memoId={id} compileStatus={memo.compile_status} />
         </div>
 
