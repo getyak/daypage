@@ -56,3 +56,7 @@ Previous runs archived: archive/2026-05-28-vnext-integrations-insights/ (and ear
 [2026-05-28T15:59:00Z] Story #US-010: 「再记一条解锁今日成稿」placeholder 卡 + unlock_threshold setting — PASSED
 
 [2026-05-28T16:20:06Z] Story #US-011: 本周 Wiki 垂直 Spine Feed + /api/today/week-feed endpoint — PASSED
+
+[2026-05-28T16:25:18Z] Story #US-013: Memo Detail 标题块 (serif 大字 + 元信息) — PASSED
+[2026-05-28T16:25:18Z] Story #US-014: Memo Detail Metadata Tile Row (4 列白卡) — PASSED
+[2026-05-28T16:25:18Z] Story #US-015: Memo Detail Hero Photo + caption + lightbox — PASSED
