@@ -137,6 +137,7 @@
   --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
   --font-body:    var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono:    var(--font-jetbrains-mono), ui-monospace, "Cascadia Code", monospace;
+  --font-serif:   var(--font-fraunces), Georgia, "Times New Roman", serif;
 
   /* Border radius */
   --radius-sm: var(--radius-sm);

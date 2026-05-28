@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Menu, Search, Settings } from "lucide-react";
 import { GlassPillBtn } from "@/components/ui/GlassPillBtn";
+import { TodayHero } from "./TodayHero";
 
 export default function TodayPage() {
   const [scrolled, setScrolled] = useState(false);
@@ -84,6 +85,9 @@ export default function TodayPage() {
           </GlassPillBtn>
         </div>
       </div>
+
+      {/* Today Hero — US-006 */}
+      <TodayHero />
 
       {/* Placeholder content — enough to enable scrolling */}
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>

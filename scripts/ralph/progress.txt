@@ -49,3 +49,4 @@ Previous runs archived: archive/2026-05-28-vnext-integrations-insights/ (and ear
 [2026-05-28T15:29:58Z] Story #US-004: SectionLabel + Dot 原子组件 (Web + iOS) — PASSED
 [2026-05-28T15:36:20Z] Story #US-005: Today 顶部 utility bar (glass scroll-aware) — FAILED (iteration 4)
 [2026-05-28T15:38:23Z] Story #US-005: Today 顶部 utility bar (glass scroll-aware) — PASSED
+[2026-05-28T15:42:42Z] Story #US-006: Today Hero 标题块 + /api/today/header endpoint — PASSED
