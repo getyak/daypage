@@ -30,6 +30,11 @@ struct GraphView: View {
     // Filter state
     @State private var showFilters: Bool = false
 
+    // Empty state animation + ClearFiltersPressStyle (do not remove this @Environment:
+    // both `emptyState` and `clearFiltersButton` read `reduceMotion`; deleting it
+    // breaks the build — see incident around PR #466).
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pulse: Bool = false
     private let nodeRadius: CGFloat = 16
     private let maxSimSteps = 200
 
