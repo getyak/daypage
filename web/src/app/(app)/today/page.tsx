@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, Suspense } from "react";
 import { Menu, Search, Settings } from "lucide-react";
 import { GlassPillBtn } from "@/components/ui/GlassPillBtn";
 import { TodayHero } from "./TodayHero";
+import { TodaySegmentedControl } from "./TodaySegmentedControl";
 
 export default function TodayPage() {
   const [scrolled, setScrolled] = useState(false);
@@ -88,6 +89,13 @@ export default function TodayPage() {
 
       {/* Today Hero — US-006 */}
       <TodayHero />
+
+      {/* Segmented Control — US-007 */}
+      <div style={{ display: "flex", justifyContent: "center", paddingTop: 12, paddingBottom: 4 }}>
+        <Suspense fallback={null}>
+          <TodaySegmentedControl />
+        </Suspense>
+      </div>
 
       {/* Placeholder content — enough to enable scrolling */}
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
