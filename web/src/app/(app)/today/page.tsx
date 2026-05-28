@@ -12,6 +12,8 @@ import { UnlockPlaceholderCard } from "./UnlockPlaceholderCard";
 import { WeekFeedSpine } from "./WeekFeedSpine";
 import { DrawerContent } from "./DrawerContent";
 import { ComposerPill } from "./ComposerPill";
+import { AttachSheet } from "./AttachSheet";
+import { RecordingSheet } from "./RecordingSheet";
 
 function MemoFeed({
   composerMicRef,
@@ -44,7 +46,7 @@ export default function TodayPage() {
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [_showAttachSheet, setShowAttachSheet] = useState(false);
+  const [showAttachSheet, setShowAttachSheet] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   const composerMicRef = useRef<HTMLButtonElement | null>(null);
@@ -178,6 +180,16 @@ export default function TodayPage() {
       <Drawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)}>
         <DrawerContent onClose={() => setDrawerOpen(false)} />
       </Drawer>
+
+      {/* Attach Sheet — US-028 */}
+      {showAttachSheet && (
+        <AttachSheet isOpen={showAttachSheet} onClose={() => setShowAttachSheet(false)} />
+      )}
+
+      {/* Recording Sheet — US-029 */}
+      {isRecording && (
+        <RecordingSheet isOpen={isRecording} onClose={() => setIsRecording(false)} onStop={() => setIsRecording(false)} />
+      )}
     </div>
   );
 }
