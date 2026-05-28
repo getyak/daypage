@@ -709,7 +709,16 @@ struct VoiceMemoPlayerRow: View {
             retryCount = UserDefaults.standard.integer(forKey: retryKey)
         }
         .onChange(of: transcript) { newValue in
-            if newValue != nil { isRetranscribing = false }
+            // When transcription succeeds, also clear the persisted retry counter
+            // so future failures start over from attempt #1. Previously this
+            // handler only reset `isRetranscribing`, which left retryCount frozen
+            // at 3 and the card permanently stuck at "Transcription unavailable"
+            // even when transcription had actually succeeded.
+            if newValue != nil {
+                isRetranscribing = false
+                retryCount = 0
+                UserDefaults.standard.removeObject(forKey: retryKey)
+            }
         }
         .onDisappear { stopPlayback() }
     }

@@ -73,9 +73,12 @@ for i in $(seq 0 $((TOTAL - 1))); do
   BODY=$(echo "$MEMO" | jq -r '.body // ""')
   IKEY=$(echo "$MEMO" | jq -r '.idempotency_key // ""')
 
-  # Auto-derive idempotency_key from body hash if not provided
+  # Auto-derive idempotency_key from body hash if not provided.
+  # Use python3 for portability — md5sum is GNU coreutils and absent on macOS.
+  # (matches the approach used in claude-code-hook.sh)
   if [[ -z "$IKEY" ]]; then
-    IKEY="ios_bulk_sync:$(echo "$BODY" | md5sum | cut -d' ' -f1):$i"
+    HASH=$(printf '%s' "$BODY" | python3 -c 'import sys,hashlib; sys.stdout.write(hashlib.md5(sys.stdin.buffer.read()).hexdigest())')
+    IKEY="ios_bulk_sync:${HASH}:$i"
   fi
 
   PAYLOAD=$(jq -n \

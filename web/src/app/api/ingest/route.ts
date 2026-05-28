@@ -4,15 +4,31 @@ import { db } from "@/lib/db/client";
 import { users, memos, inbox_items, activities } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { authenticateApiKey } from "@/lib/api-auth";
+import { authenticateApiKey, hasScope } from "@/lib/api-auth";
 import { sendEvent } from "@/lib/inngest/client";
 
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }
 
+function forbidden(message: string) {
+  return NextResponse.json({ error: message }, { status: 403 });
+}
+
 function badRequest(message: string) {
   return NextResponse.json({ error: message }, { status: 400 });
+}
+
+// z.string().url() accepts javascript:/data: URIs, which become stored XSS when
+// rendered as <a href>. Only allow http(s) for user-supplied source URLs.
+function sanitizeSourceUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  try {
+    const u = new URL(value);
+    return u.protocol === "http:" || u.protocol === "https:" ? value : null;
+  } catch {
+    return null;
+  }
 }
 
 async function resolveUserId(email: string): Promise<string | null> {
@@ -53,6 +69,10 @@ export async function POST(req: NextRequest) {
 
   const apiAuth = await authenticateApiKey(req);
   if (apiAuth) {
+    // /api/ingest only performs writes — require the "write" scope.
+    if (!hasScope(apiAuth, "write")) {
+      return forbidden("API key lacks 'write' scope");
+    }
     userId = apiAuth.userId;
   } else {
     const session = await auth();
@@ -82,7 +102,7 @@ export async function POST(req: NextRequest) {
         type: "text",
         body: memoBody,
         origin: "api",
-        source_url: typeof payload.source_url === "string" ? payload.source_url : null,
+        source_url: sanitizeSourceUrl(payload.source_url),
         device: source,
       })
       .returning();

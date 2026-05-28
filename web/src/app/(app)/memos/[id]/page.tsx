@@ -1,10 +1,22 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db/client";
 import { memos, users, page_sources, pages, annotations } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { MemoActions } from "./MemoActions";
+
+// Defense in depth: even though /api/ingest now rejects non-http(s) source_url,
+// pre-existing rows could contain `javascript:` URIs. Guard the href render.
+function safeHref(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    return u.protocol === "http:" || u.protocol === "https:" ? url : null;
+  } catch {
+    return null;
+  }
+}
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -42,18 +54,35 @@ export default async function MemoDetailPage({ params }: Props) {
   const memo = memoRows[0];
   if (!memo) notFound();
 
-  const [linkedPages, memoAnnotations] = await Promise.all([
-    db
-      .select({ page_id: page_sources.page_id, page_title: pages.title, page_slug: pages.slug, page_type: pages.type })
-      .from(page_sources)
-      .innerJoin(pages, eq(page_sources.page_id, pages.id))
-      .where(eq(page_sources.memo_id, id)),
-    db
-      .select()
-      .from(annotations)
-      .where(and(eq(annotations.user_id, userId)))
-      .limit(20),
-  ]);
+  // Annotations attach to pages (via page_id), not memos. To scope them to
+  // this memo, first find the pages it sourced, then load annotations on
+  // those pages only. Previously the query filtered solely by user_id and
+  // would surface unrelated annotations from any other page the user owned.
+  const linkedPages = await db
+    .select({
+      page_id: page_sources.page_id,
+      page_title: pages.title,
+      page_slug: pages.slug,
+      page_type: pages.type,
+    })
+    .from(page_sources)
+    .innerJoin(pages, eq(page_sources.page_id, pages.id))
+    .where(eq(page_sources.memo_id, id));
+
+  const linkedPageIds = linkedPages.map((p) => p.page_id);
+  const memoAnnotations =
+    linkedPageIds.length > 0
+      ? await db
+          .select()
+          .from(annotations)
+          .where(
+            and(
+              eq(annotations.user_id, userId),
+              inArray(annotations.page_id, linkedPageIds)
+            )
+          )
+          .limit(20)
+      : [];
 
   const statusColor: Record<string, string> = {
     pending: "var(--fg-subtle)",
@@ -103,14 +132,23 @@ export default async function MemoDetailPage({ params }: Props) {
 
       {/* Metadata */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12, marginBottom: 24 }}>
-        {memo.source_url && (
-          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px" }}>
-            <div style={{ fontSize: "0.7rem", color: "var(--fg-subtle)", textTransform: "uppercase", fontWeight: 600, marginBottom: 4 }}>Source URL</div>
-            <a href={memo.source_url} target="_blank" rel="noopener noreferrer" style={{ fontSize: "0.8125rem", color: "var(--accent)", wordBreak: "break-all" }}>
-              {memo.source_url}
-            </a>
-          </div>
-        )}
+        {memo.source_url && (() => {
+          const safe = safeHref(memo.source_url);
+          return (
+            <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px" }}>
+              <div style={{ fontSize: "0.7rem", color: "var(--fg-subtle)", textTransform: "uppercase", fontWeight: 600, marginBottom: 4 }}>Source URL</div>
+              {safe ? (
+                <a href={safe} target="_blank" rel="noopener noreferrer" style={{ fontSize: "0.8125rem", color: "var(--accent)", wordBreak: "break-all" }}>
+                  {memo.source_url}
+                </a>
+              ) : (
+                <span style={{ fontSize: "0.8125rem", color: "var(--fg-subtle)", wordBreak: "break-all" }} title="Blocked: non-http(s) URL">
+                  {memo.source_url}
+                </span>
+              )}
+            </div>
+          );
+        })()}
         {memo.device && (
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px" }}>
             <div style={{ fontSize: "0.7rem", color: "var(--fg-subtle)", textTransform: "uppercase", fontWeight: 600, marginBottom: 4 }}>Device</div>

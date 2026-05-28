@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
 import { memos, activities } from "@/lib/db/schema";
 import { z } from "zod";
-import { authenticateApiKey } from "@/lib/api-auth";
+import { authenticateApiKey, hasScope } from "@/lib/api-auth";
 import { sendEvent } from "@/lib/inngest/client";
 
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
+
+function forbidden(message: string) {
+  return NextResponse.json({ error: message }, { status: 403 });
 }
 
 function badRequest(message: string) {
@@ -33,6 +37,10 @@ const EmailIngestSchema = z.object({
 export async function POST(req: NextRequest) {
   const apiAuth = await authenticateApiKey(req);
   if (!apiAuth) return unauthorized();
+  // Email ingest is write-only — require the "write" scope.
+  if (!hasScope(apiAuth, "write")) {
+    return forbidden("API key lacks 'write' scope");
+  }
 
   const userId = apiAuth.userId;
 
