@@ -29,3 +29,18 @@ Previous runs archived: archive/2026-05-28-vnext-integrations-insights/ (and ear
 - Wave F (US-031-033) → 依赖 Wave A + memo detail；US-033 需 /api/img proxy
 
 ---
+
+## 2026-05-28 - US-001
+- Created design-tokens/tokens.json (complete schema)
+- Created design-tokens/generators/to-css.ts -> derives globals.css :root
+- Created design-tokens/generators/to-swift.ts -> derives DSTokens.swift
+- Updated web/src/app/globals.css with all new token categories
+- Created DayPage/App/DSTokens.swift with nested enums
+- Downloaded and registered Fraunces + Caveat variable fonts
+- Updated Info.plist for new fonts, updated pbxproj
+- Added design-tokens/package.json with build scripts
+- Added Makefile with tokens-build / tokens-check targets
+- Added CI tokens-check job
+- Web build: pnpm build passes
+- iOS build: not verified locally (Linux host)
+---
