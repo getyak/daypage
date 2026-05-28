@@ -1,0 +1,17 @@
+# DayPage vNext — Ralph Progress Log
+
+Source PRD: docs/PRD-vNext.md + tasks/prd-wave0~4*.md
+Branch: ralph/vnext-integrations-insights
+Start: 2026-05-27
+Previous runs archived: archive/2026-05-20-codex-add-polish/, archive/2026-05-27-v7-deep-audit/
+
+## Codebase Patterns
+- 本地开发必须同时跑 `npm run dev`（端口 3000）与 `npm run dev:inngest`（Inngest dev server，端口 8288），否则 memo 入库但不编译（sendEvent 在 dev 无 INNGEST_EVENT_KEY 时 no-op，见 US-001）。
+- 编译由 `memo/created` 事件触发 → Inngest `compile-memo`。所有新外部源只需落 memo + 发该事件即可复用编译管道。
+- 聚合端点 `/api/stats`、`/api/activities`、`/api/domains`、`/api/inbox`、`/api/sources` 已存在；首页 mock 只需接线。
+- 所有业务表有 `user_id` FK + CASCADE，查询必须强制 user 隔离。
+- schema 在 web/src/lib/db/schema.ts；改 schema 后跑 `drizzle-kit generate` + migrate。
+- 设计系统组件在 web/src/components/ui/（Card/Sparkline/Chip/SectionLabel/Btn）；CSS token 在 globals.css。
+- US-033~US-043 多为 iOS 改动或需人工拍板（路线 A/B、对象存储选型、Email 服务），ralph 无法独立完成 iOS build/端到端验证，遇到时在 notes 标注"需人工"并跳过。
+
+---
