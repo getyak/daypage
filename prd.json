@@ -59,7 +59,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 3,
-      "passes": false,
+      "passes": true,
       "notes": "\u4f9d\u8d56 US-001"
     },
     {
