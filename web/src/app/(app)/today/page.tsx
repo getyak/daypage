@@ -8,6 +8,7 @@ import { TodaySegmentedControl } from "./TodaySegmentedControl";
 import { AISummaryCard } from "./AISummaryCard";
 import { MemoCard, type MemoCardData } from "./MemoCard";
 import { UnlockPlaceholderCard } from "./UnlockPlaceholderCard";
+import { WeekFeedSpine } from "./WeekFeedSpine";
 
 function MemoFeed({
   composerMicRef,
@@ -135,6 +136,11 @@ export default function TodayPage() {
 
       {/* Memo Feed + Unlock Placeholder — US-009, US-010 */}
       <MemoFeed composerMicRef={composerMicRef} />
+
+      {/* Week Wiki Spine Feed — US-011 */}
+      <div style={{ paddingTop: 24 }}>
+        <WeekFeedSpine />
+      </div>
     </div>
   );
 }

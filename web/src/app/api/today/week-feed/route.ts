@@ -1,0 +1,25 @@
+import { NextRequest, NextResponse } from "next/server";
+
+export const revalidate = 0;
+
+export type WeekFeedItem = {
+  id: string;
+  date_slug: string;
+  day: string;
+  date_display: string;
+  title: string;
+  lede: string;
+  tags: string[];
+  word_count: number;
+  memo_count: number;
+};
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const limit = Math.min(Math.max(parseInt(searchParams.get("limit") ?? "7", 10) || 7, 1), 30);
+
+  // Skeleton — real data layer wired later
+  const items: WeekFeedItem[] = [];
+
+  return NextResponse.json({ items: items.slice(0, limit) });
+}
