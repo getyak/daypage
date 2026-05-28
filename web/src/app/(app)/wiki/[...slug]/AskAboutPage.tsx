@@ -313,10 +313,6 @@ export function AskAboutPage({ pageSlug, pageTitle, pageBodyMd }: AskAboutPagePr
         </button>
       </div>
 
-      <style>{`
-        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-        @keyframes spin { to{transform:rotate(360deg)} }
-      `}</style>
     </div>
   );
 }

@@ -131,7 +131,6 @@ export function MemoActions({ memoId, compileStatus }: Props) {
         </div>
       )}
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

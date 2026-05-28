@@ -57,7 +57,13 @@ function createSpeechRecognition(): SpeechRecognitionLike | null {
 // ── VoiceButton ───────────────────────────────────────────────────────────────
 function VoiceButton({ onTranscript }: { onTranscript: (text: string) => void }) {
   const [recording, setRecording] = useState(false);
-  const [supported] = useState(() => hasSpeechAPI());
+  // `supported` must start `false` on both server and first client render so
+  // SSR HTML and the initial hydration tree match. We flip it after mount via
+  // useEffect — by then React is past hydration and a re-render is safe.
+  const [supported, setSupported] = useState(false);
+  useEffect(() => {
+    setSupported(hasSpeechAPI());
+  }, []);
   const srRef = useRef<SpeechRecognitionLike | null>(null);
 
   const handleClick = useCallback(() => {
@@ -127,7 +133,9 @@ function VoiceButton({ onTranscript }: { onTranscript: (text: string) => void })
           ? {
               background: "var(--error-soft)",
               color: "var(--error)",
-              animation: "pulse 1.2s ease-in-out infinite",
+              // Keyframes live in globals.css under the voice- prefix to avoid
+              // a clash with the global .pulse animation defined there.
+              animation: "voice-pulse 1.2s ease-in-out infinite",
             }
           : undefined
       }
@@ -146,10 +154,6 @@ function VoiceButton({ onTranscript }: { onTranscript: (text: string) => void })
           }}
         />
       )}
-      <style>{`
-        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-        @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(162,58,46,0.3)} 50%{box-shadow:0 0 0 4px rgba(162,58,46,0)} }
-      `}</style>
     </button>
   );
 }
