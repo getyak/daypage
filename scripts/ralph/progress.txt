@@ -52,3 +52,4 @@ Previous runs archived: archive/2026-05-28-vnext-integrations-insights/ (and ear
 [2026-05-28T15:42:42Z] Story #US-006: Today Hero 标题块 + /api/today/header endpoint — PASSED
 [2026-05-28T15:45:23Z] Story #US-007: Today Segmented Control (今日/成稿/档案) — PASSED
 [2026-05-28T15:49:13Z] Story #US-008: AI Summary 卡 + /api/today/ai-summary endpoint — PASSED
+[2026-05-28T15:56:18Z] Story #US-009: Memo Card (内容优先 + 左滑揭示动作) — PASSED

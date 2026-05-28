@@ -179,7 +179,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 9,
-      "passes": false,
+      "passes": true,
       "notes": "Wave B-2 \u6838\u5fc3 story\uff0c\u624b\u52bf\u5e93 0 \u4f9d\u8d56"
     },
     {
