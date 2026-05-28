@@ -96,24 +96,24 @@ else:
   echo "   Acceptance: $STORY_ACCEPT"
 
   # Build the Claude Code prompt
-  PROMPT="You are implementing a SINGLE user story from the DayPage Codex /add page polish PRD.
+  PROMPT="You are implementing a SINGLE user story from the DayPage v8 Museum Aesthetic redesign PRD.
 
 ⚠️ CRITICAL: You are working on branch '$TARGET_BRANCH'. NEVER run git checkout, git switch, git branch, or any command that changes the current branch. NEVER push or pull. Only git add and git commit.
 
-PROJECT: DayPage Codex web app
-Primary target for this PRD: web/ (Next.js App Router, TypeScript strict, Tailwind, pnpm). Read CLAUDE.md / AGENTS.md for repo conventions.
-PRD source: tasks/prd-codex-add-page-polish.md. Current machine-readable PRD: prd.json.
+PROJECT: DayPage — museum-aesthetic personal logging tool (iOS + Web)
+Primary target: both web/ (Next.js App Router, TypeScript strict, Tailwind, pnpm) and iOS (SwiftUI, Xcode). Read AGENTS.md for repo conventions.
+PRD source: tasks/prd-daypage-v8-museum-aesthetic.md. Current machine-readable PRD: prd.json.
 
 STORY #$STORY_ID: $STORY_NAME
 DESCRIPTION: $STORY_DESC
 ACCEPTANCE CRITERIA:
 $STORY_ACCEPT
 
-Implement ONLY this story. Do NOT touch unrelated code. Prefer small, focused changes in web/src/app/(app)/add and adjacent shared components.
+Implement ONLY this story. Do NOT touch unrelated code. Keep changes focused and minimal.
 After implementing:
-1. Run pnpm typecheck (or the narrowest equivalent if the repo defines one)
-2. Run pnpm format / format check as appropriate
-3. For UI stories, add or update tests where existing patterns make it practical
+1. For Web stories: cd web && pnpm run build
+2. For iOS stories: xcodebuild -scheme DayPage build CODE_SIGNING_ALLOWED=NO -destination 'generic/platform=iOS Simulator'
+3. For both: run both commands above
 4. Print a summary of what you changed
 5. The acceptance criteria must be satisfied"
 
@@ -124,7 +124,7 @@ After implementing:
   
   if claude -p "$PROMPT" \
     --allowedTools "Read,Write,Edit,Bash" \
-    --max-turns 20 \
+    --max-turns 40 \
     --effort high \
     --output-format json \
     --dangerously-skip-permissions 2>&1 | tee /tmp/ralph-output-$i.json; then
