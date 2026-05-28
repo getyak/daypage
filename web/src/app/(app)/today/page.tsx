@@ -5,6 +5,7 @@ import { Menu, Search, Settings } from "lucide-react";
 import { GlassPillBtn } from "@/components/ui/GlassPillBtn";
 import { TodayHero } from "./TodayHero";
 import { TodaySegmentedControl } from "./TodaySegmentedControl";
+import { AISummaryCard } from "./AISummaryCard";
 
 export default function TodayPage() {
   const [scrolled, setScrolled] = useState(false);
@@ -97,22 +98,9 @@ export default function TodayPage() {
         </Suspense>
       </div>
 
-      {/* Placeholder content — enough to enable scrolling */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {Array.from({ length: 30 }, (_, i) => (
-          <div
-            key={i}
-            className="card"
-            style={{ padding: "16px 20px", minHeight: 64 }}
-          >
-            <span
-              className="ds-label"
-              style={{ color: "var(--fg-muted)" }}
-            >
-              Memo {i + 1}
-            </span>
-          </div>
-        ))}
+      {/* AI Summary Card — US-008 */}
+      <div style={{ paddingTop: 16, paddingBottom: 8 }}>
+        <AISummaryCard />
       </div>
     </div>
   );
