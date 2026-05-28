@@ -1307,3 +1307,75 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
   0%, 100% { box-shadow: 0 0 0 0 rgba(162, 58, 46, 0.3); }
   50%      { box-shadow: 0 0 0 4px rgba(162, 58, 46, 0); }
 }
+
+/* === DS keyframes library (US-002) === */
+@keyframes pulse-dot {
+  0%   { box-shadow: 0 0 0 0 rgba(93, 48, 0, 0.35); }
+  70%  { box-shadow: 0 0 0 8px rgba(93, 48, 0, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(93, 48, 0, 0); }
+}
+@keyframes breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.6; transform: scale(0.96); }
+}
+@keyframes shimmer-bar {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+@keyframes sheet-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes sheet-left {
+  from { transform: translateX(-100%); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes caret {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0; }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Utility classes for common animations */
+.fade-in {
+  animation: fade-in var(--motion-fast, 220ms) ease-out both;
+}
+.scale-in {
+  animation: scale-in var(--motion-fast, 220ms) var(--motion-spring, cubic-bezier(.2,.8,.2,1)) both;
+}
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--surface-sunken) 25%,
+    var(--border-subtle) 50%,
+    var(--surface-sunken) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-bar 1.4s ease-in-out infinite;
+}
+
+/* Reduce motion: collapse all DS animations to near-instant, one-shot */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes pulse-dot  { 0%, 100% {} }
+  @keyframes breathe    { 0%, 100% {} }
+  @keyframes shimmer-bar { 0%, 100% {} }
+  @keyframes sheet-up   { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes sheet-left { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fade-in    { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes caret      { 0%, 100% {} }
+  @keyframes scale-in   { from { opacity: 0; } to { opacity: 1; } }
+
+  .fade-in,
+  .scale-in,
+  .shimmer {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+  }
+}
