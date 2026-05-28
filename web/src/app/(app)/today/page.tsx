@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState, useCallback, Suspense } from "react";
 import { Menu, Search, Settings } from "lucide-react";
 import { GlassPillBtn } from "@/components/ui/GlassPillBtn";
+import { Drawer } from "@/components/ui/Drawer";
 import { TodayHero } from "./TodayHero";
 import { TodaySegmentedControl } from "./TodaySegmentedControl";
 import { AISummaryCard } from "./AISummaryCard";
 import { MemoCard, type MemoCardData } from "./MemoCard";
 import { UnlockPlaceholderCard } from "./UnlockPlaceholderCard";
 import { WeekFeedSpine } from "./WeekFeedSpine";
+import { DrawerContent } from "./DrawerContent";
 
 function MemoFeed({
   composerMicRef,
@@ -39,6 +41,7 @@ function MemoFeed({
 
 export default function TodayPage() {
   const [scrolled, setScrolled] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   const composerMicRef = useRef<HTMLButtonElement | null>(null);
@@ -105,7 +108,7 @@ export default function TodayPage() {
           zIndex: 10,
         }}
       >
-        <GlassPillBtn size="sm" aria-label="打开侧边栏">
+        <GlassPillBtn size="sm" aria-label="打开侧边栏" onClick={() => setDrawerOpen(true)}>
           <Menu size={16} strokeWidth={1.7} aria-hidden="true" />
         </GlassPillBtn>
 
@@ -141,6 +144,11 @@ export default function TodayPage() {
       <div style={{ paddingTop: 24 }}>
         <WeekFeedSpine />
       </div>
+
+      {/* Drawer — US-019/020/021 */}
+      <Drawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)}>
+        <DrawerContent onClose={() => setDrawerOpen(false)} />
+      </Drawer>
     </div>
   );
 }

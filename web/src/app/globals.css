@@ -1343,6 +1343,10 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
   from { opacity: 0; transform: scale(0.92); }
   to   { opacity: 1; transform: scale(1); }
 }
+@keyframes slide-in-left {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
 
 /* Utility classes for common animations */
 .fade-in {
@@ -1371,7 +1375,8 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
   @keyframes sheet-left { from { opacity: 0; } to { opacity: 1; } }
   @keyframes fade-in    { from { opacity: 0; } to { opacity: 1; } }
   @keyframes caret      { 0%, 100% {} }
-  @keyframes scale-in   { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes scale-in      { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slide-in-left { from { opacity: 0; } to { opacity: 1; } }
 
   .fade-in,
   .scale-in,
