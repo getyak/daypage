@@ -44,3 +44,7 @@ Previous runs archived: archive/2026-05-28-vnext-integrations-insights/ (and ear
 - Web build: pnpm build passes
 - iOS build: not verified locally (Linux host)
 ---
+
+[2026-05-28T16:38:56Z] Story #US-017: ... — PASSED
+[2026-05-28T16:38:56Z] Story #US-016: ... — PASSED
+[2026-05-28T16:38:56Z] Story #US-018: ... — PASSED
