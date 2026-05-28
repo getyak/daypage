@@ -53,3 +53,4 @@ Previous runs archived: archive/2026-05-28-vnext-integrations-insights/ (and ear
 [2026-05-28T16:45:20Z] Story #US-023: ... — PASSED
 [2026-05-28T16:45:20Z] Story #US-024: ... — PASSED
 [2026-05-28T16:45:20Z] Story #US-025: ... — PASSED
+[2026-05-28T16:49:10Z] Story #US-027: ... — PASSED
