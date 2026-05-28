@@ -97,6 +97,8 @@
 		A10000300 /* DSTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000300 /* DSTokens.swift */; };
 		A10000301 /* DSMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000301 /* DSMotion.swift */; };
 		A10000302 /* DSGlassPill.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000302 /* DSGlassPill.swift */; };
+		A10000303 /* DSSectionLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000303 /* DSSectionLabel.swift */; };
+		A10000304 /* DSDot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000304 /* DSDot.swift */; };
 		A10000081 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000081 /* SidebarView.swift */; };
 		A10000082 /* InputBarV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000082 /* InputBarV4.swift */; };
 		A10000083 /* WeeklyRecapService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000083 /* WeeklyRecapService.swift */; };
@@ -312,6 +314,8 @@
 		A20000300 /* DSTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSTokens.swift; sourceTree = "<group>"; };
 		A20000301 /* DSMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSMotion.swift; sourceTree = "<group>"; };
 		A20000302 /* DSGlassPill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSGlassPill.swift; sourceTree = "<group>"; };
+		A20000303 /* DSSectionLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSSectionLabel.swift; sourceTree = "<group>"; };
+		A20000304 /* DSDot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSDot.swift; sourceTree = "<group>"; };
 		A20000081 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		A20000082 /* InputBarV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputBarV4.swift; sourceTree = "<group>"; };
 		A20000083 /* WeeklyRecapService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapService.swift; sourceTree = "<group>"; };
@@ -532,6 +536,8 @@
 				A20000300 /* DSTokens.swift */,
 				A20000301 /* DSMotion.swift */,
 				A20000302 /* DSGlassPill.swift */,
+				A20000303 /* DSSectionLabel.swift */,
+				A20000304 /* DSDot.swift */,
 				A20000024 /* Info.plist */,
 				A20000071 /* DayPage.entitlements */,
 				A20000029 /* Assets.xcassets */,
@@ -1201,6 +1207,8 @@
 				A10000300 /* DSTokens.swift in Sources */,
 				A10000301 /* DSMotion.swift in Sources */,
 				A10000302 /* DSGlassPill.swift in Sources */,
+				A10000303 /* DSSectionLabel.swift in Sources */,
+				A10000304 /* DSDot.swift in Sources */,
 				A10000081 /* SidebarView.swift in Sources */,
 				A10000077 /* ConflictMerger.swift in Sources */,
 				A10000078 /* VaultMigrationService.swift in Sources */,
