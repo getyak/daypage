@@ -1232,3 +1232,22 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
   .settings-profile { flex-wrap: wrap; }
   .settings-profile-cta { width: 100%; }
 }
+
+/* === Generic UI animations ===
+   Previously these lived inline inside React components (<style>{...}</style>).
+   React 19 / Next 16 refuses to execute <script>/<style> children rendered by
+   components on the client, so they have to be defined globally. */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+/* `voice-pulse` is intentionally namespaced — the global `.pulse` class +
+   @keyframes pulse defined earlier in this file use different shadow colors
+   and would clash with the voice button's accent. */
+@keyframes voice-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(162, 58, 46, 0.3); }
+  50%      { box-shadow: 0 0 0 4px rgba(162, 58, 46, 0); }
+}

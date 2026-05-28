@@ -239,10 +239,14 @@ async function fetchNavPages(userId: string): Promise<WikiPage[]> {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-type Props = { params: Promise<{ slug: string }> };
+// Catch-all route ([...slug]) — page slugs in the DB may legitimately contain
+// "/" (e.g. `source/abc-123`). Single-segment [slug] would 404 on those; the
+// catch-all matches them and we rejoin the segments before querying.
+type Props = { params: Promise<{ slug: string[] }> };
 
 export default async function WikiSlugPage({ params }: Props) {
-  const { slug } = await params;
+  const { slug: slugParts } = await params;
+  const slug = slugParts.join("/");
   const session = await auth();
 
   if (!session?.user?.email) {
