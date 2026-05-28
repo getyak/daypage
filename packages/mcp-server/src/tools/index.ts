@@ -1,13 +1,9 @@
-import type { McpToolDefinition, McpToolResult } from "../types.js";
+import type { McpToolResult, ToolHandler } from "../types.js";
 import searchTool from "./search.js";
 import { getPageTool, addMemoTool, listRecentTool, graphNeighborsTool } from "./crud.js";
 
-export interface ToolHandler {
-  name: string;
-  description: string;
-  inputSchema: McpToolDefinition["inputSchema"];
-  handler: (args: Record<string, unknown>) => Promise<McpToolResult>;
-}
+// Re-export so existing callers using `from "./tools/index.js"` keep working.
+export type { ToolHandler } from "../types.js";
 
 export const ALL_TOOLS: ToolHandler[] = [
   searchTool,

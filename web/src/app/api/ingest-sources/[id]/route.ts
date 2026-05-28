@@ -4,6 +4,7 @@ import { db } from "@/lib/db/client";
 import { users, ingest_sources } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
+import { encryptConfig, redactConfigForClient } from "@/lib/secret-crypto";
 
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -52,7 +53,7 @@ export async function GET(
     .limit(1);
 
   if (!rows[0]) return notFound();
-  return NextResponse.json(rows[0]);
+  return NextResponse.json({ ...rows[0], config: redactConfigForClient(rows[0].config) });
 }
 
 // PATCH /api/ingest-sources/[id]
@@ -81,14 +82,20 @@ export async function PATCH(
     return badRequest("No fields to update");
   }
 
+  // Encrypt config on update too — never let secrets land in the table as plaintext.
+  const dbUpdates: typeof updates = { ...updates };
+  if (updates.config !== undefined) {
+    dbUpdates.config = encryptConfig(updates.config);
+  }
+
   const rows = await db
     .update(ingest_sources)
-    .set(updates)
+    .set(dbUpdates)
     .where(and(eq(ingest_sources.id, id), eq(ingest_sources.user_id, userId)))
     .returning();
 
   if (!rows[0]) return notFound();
-  return NextResponse.json(rows[0]);
+  return NextResponse.json({ ...rows[0], config: redactConfigForClient(rows[0].config) });
 }
 
 // DELETE /api/ingest-sources/[id]

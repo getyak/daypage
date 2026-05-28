@@ -1,30 +1,34 @@
-import XCTest
+import Testing
+import Foundation
+import UIKit
 @testable import DayPage
 
 /// US-018: HEIC batch photo conversion must not block the main thread.
-final class PhotoServiceBackgroundTests: XCTestCase {
+///
+/// Serialized because the test mutates global `VaultInitializer.testOverrideURL`.
+@Suite("PhotoServiceBackgroundTests", .serialized)
+struct PhotoServiceBackgroundTests {
 
-    private var tempDir: URL!
+    private let tempDir: URL
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
+    init() throws {
         tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("PhotoServiceTests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
         VaultInitializer.testOverrideURL = tempDir
     }
 
-    override func tearDownWithError() throws {
+    private func cleanup() {
         VaultInitializer.testOverrideURL = nil
         try? FileManager.default.removeItem(at: tempDir)
-        tempDir = nil
-        try super.tearDownWithError()
     }
 
     /// Verifies that `processImageDataAsync` returns without blocking the main thread.
     /// We supply a minimal 1×1 JPEG so the codec path executes, then assert the
     /// result arrives and the main thread was never used for the CPU-heavy work.
-    func testProcessImageDataAsync_runsOffMainThread() async {
+    @Test func processImageDataAsync_runsOffMainThread() async {
+        defer { cleanup() }
+
         // Create a minimal 1×1 solid JPEG in memory.
         let jpegData = makeMinimalJPEG()
 
@@ -37,8 +41,8 @@ final class PhotoServiceBackgroundTests: XCTestCase {
             backgroundThreadConfirmed = !Thread.isMainThread
         }.value
 
-        XCTAssertTrue(backgroundThreadConfirmed,
-                      "HEIC/JPEG conversion must run on a non-main thread")
+        #expect(backgroundThreadConfirmed,
+                "HEIC/JPEG conversion must run on a non-main thread")
 
         // Also confirm the async API itself completes without hanging.
         let service = await PhotoService.shared

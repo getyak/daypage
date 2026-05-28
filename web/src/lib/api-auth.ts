@@ -44,3 +44,8 @@ export async function authenticateApiKey(
 
   return { userId: key.user_id, scopes };
 }
+
+// A key with "admin" implicitly grants every scope.
+export function hasScope(auth: ApiAuthResult, scope: string): boolean {
+  return auth.scopes.includes("admin") || auth.scopes.includes(scope);
+}

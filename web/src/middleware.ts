@@ -1,29 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { checkAuthRateLimit } from "@/lib/auth-ratelimit";
 
-// ── In-memory auth rate limiter (no Redis dependency in Edge middleware) ───────
-
-interface RateWindow {
-  count: number;
-  reset: number;
-}
-
-const authRateStore = new Map<string, RateWindow>();
-const AUTH_LIMIT = 10;
-const AUTH_WINDOW_MS = 60_000;
-
-function checkAuthRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const existing = authRateStore.get(ip);
-
-  if (!existing || now > existing.reset) {
-    authRateStore.set(ip, { count: 1, reset: now + AUTH_WINDOW_MS });
-    return true;
-  }
-
-  if (existing.count >= AUTH_LIMIT) return false;
-  existing.count += 1;
-  return true;
-}
+// NOTE: Next.js Middleware runs in the Edge runtime by default. Module-level
+// state (Map, counters, etc.) is NOT shared across requests there — a cold
+// start resets it. The previous implementation kept the counter in a
+// module-level Map and was a no-op in production. The auth rate limiter has
+// been moved to lib/auth-ratelimit.ts, which uses Upstash Redis via the REST
+// API (works in any runtime) and only falls back to in-memory in local dev
+// when UPSTASH_REDIS_REST_* env vars are unset.
 
 function getClientIp(req: NextRequest): string {
   return (
@@ -37,18 +21,22 @@ export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const start = Date.now();
 
-  // Rate-limit auth endpoints
+  // Rate-limit auth endpoints (distributed via Upstash when configured).
   if (pathname.startsWith("/api/auth")) {
     const ip = getClientIp(req);
-    if (!checkAuthRateLimit(ip)) {
+    const r = await checkAuthRateLimit(ip);
+    if (!r.success) {
       return NextResponse.json(
         { error: "Too many requests" },
         {
           status: 429,
           headers: {
-            "Retry-After": "60",
-            "X-RateLimit-Limit": AUTH_LIMIT.toString(),
-            "X-RateLimit-Remaining": "0",
+            "Retry-After": Math.max(
+              1,
+              Math.ceil((r.reset - Date.now()) / 1000)
+            ).toString(),
+            "X-RateLimit-Limit": r.limit.toString(),
+            "X-RateLimit-Remaining": r.remaining.toString(),
           },
         }
       );

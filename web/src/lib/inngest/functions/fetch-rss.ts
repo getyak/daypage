@@ -3,6 +3,7 @@ import { db } from "@/lib/db/client";
 import { ingest_sources, memos } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { sendEvent } from "@/lib/inngest/client";
+import { decryptConfig } from "@/lib/secret-crypto";
 
 // Lightweight RSS/Atom item parser — no external XML library required.
 // Extracts <item> or <entry> blocks, then pulls title, link, and description.
@@ -96,7 +97,9 @@ export const fetchRss = inngest.createFunction(
     let totalCreated = 0;
 
     for (const source of sources) {
-      const config = source.config as Record<string, unknown>;
+      // config may be encrypted (envelope) or legacy plaintext — decryptConfig
+      // handles both transparently.
+      const config = decryptConfig(source.config);
       const feedUrl = typeof config.url === "string" ? config.url : null;
       if (!feedUrl) continue;
 

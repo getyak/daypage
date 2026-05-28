@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db/client";
 import { users, ingest_sources } from "@/lib/db/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
+import { encryptConfig, redactConfigForClient } from "@/lib/secret-crypto";
 
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -43,7 +44,10 @@ export async function GET(_req: NextRequest) {
     .where(eq(ingest_sources.user_id, userId))
     .orderBy(desc(ingest_sources.created_at));
 
-  return NextResponse.json(rows);
+  // Strip the encrypted envelope; the client never needs the ciphertext.
+  return NextResponse.json(
+    rows.map((r) => ({ ...r, config: redactConfigForClient(r.config) }))
+  );
 }
 
 // POST /api/ingest-sources — create a new ingest source
@@ -69,10 +73,15 @@ export async function POST(req: NextRequest) {
       user_id: userId,
       name: input.name,
       source_type: input.source_type,
-      config: input.config,
+      // Encrypt the entire config blob — it may carry bot tokens, webhook
+      // secrets, feed URLs with private API keys, etc.
+      config: encryptConfig(input.config),
       enabled: input.enabled,
     })
     .returning();
 
-  return NextResponse.json(source, { status: 201 });
+  return NextResponse.json(
+    { ...source, config: redactConfigForClient(source.config) },
+    { status: 201 }
+  );
 }
