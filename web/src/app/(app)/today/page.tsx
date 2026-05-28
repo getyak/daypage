@@ -6,6 +6,30 @@ import { GlassPillBtn } from "@/components/ui/GlassPillBtn";
 import { TodayHero } from "./TodayHero";
 import { TodaySegmentedControl } from "./TodaySegmentedControl";
 import { AISummaryCard } from "./AISummaryCard";
+import { MemoCard, type MemoCardData } from "./MemoCard";
+
+function MemoFeed() {
+  const [memos, setMemos] = useState<MemoCardData[]>([]);
+
+  useEffect(() => {
+    fetch("/api/today/memos")
+      .then((r) => r.json())
+      .then((d: { memos: MemoCardData[] }) => {
+        if (Array.isArray(d.memos)) setMemos(d.memos);
+      })
+      .catch(() => {});
+  }, []);
+
+  if (memos.length === 0) return null;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 8 }}>
+      {memos.map((memo) => (
+        <MemoCard key={memo.id} memo={memo} />
+      ))}
+    </div>
+  );
+}
 
 export default function TodayPage() {
   const [scrolled, setScrolled] = useState(false);
@@ -102,6 +126,9 @@ export default function TodayPage() {
       <div style={{ paddingTop: 16, paddingBottom: 8 }}>
         <AISummaryCard />
       </div>
+
+      {/* Memo Feed — US-009 */}
+      <MemoFeed />
     </div>
   );
 }
