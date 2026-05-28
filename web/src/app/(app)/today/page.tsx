@@ -7,8 +7,13 @@ import { TodayHero } from "./TodayHero";
 import { TodaySegmentedControl } from "./TodaySegmentedControl";
 import { AISummaryCard } from "./AISummaryCard";
 import { MemoCard, type MemoCardData } from "./MemoCard";
+import { UnlockPlaceholderCard } from "./UnlockPlaceholderCard";
 
-function MemoFeed() {
+function MemoFeed({
+  composerMicRef,
+}: {
+  composerMicRef: React.RefObject<HTMLButtonElement | null>;
+}) {
   const [memos, setMemos] = useState<MemoCardData[]>([]);
 
   useEffect(() => {
@@ -20,13 +25,13 @@ function MemoFeed() {
       .catch(() => {});
   }, []);
 
-  if (memos.length === 0) return null;
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 8 }}>
       {memos.map((memo) => (
         <MemoCard key={memo.id} memo={memo} />
       ))}
+      {/* US-010: Placeholder card — shown when below unlock_threshold */}
+      <UnlockPlaceholderCard composerMicRef={composerMicRef} />
     </div>
   );
 }
@@ -35,6 +40,7 @@ export default function TodayPage() {
   const [scrolled, setScrolled] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
+  const composerMicRef = useRef<HTMLButtonElement | null>(null);
 
   const handleScroll = useCallback(() => {
     if (rafRef.current !== null) return;
@@ -127,8 +133,8 @@ export default function TodayPage() {
         <AISummaryCard />
       </div>
 
-      {/* Memo Feed — US-009 */}
-      <MemoFeed />
+      {/* Memo Feed + Unlock Placeholder — US-009, US-010 */}
+      <MemoFeed composerMicRef={composerMicRef} />
     </div>
   );
 }
