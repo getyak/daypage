@@ -68,6 +68,8 @@
 		<string>SourceHanSerifSC-Regular.otf</string>
 		<string>SourceHanSerifSC-Medium.otf</string>
 		<string>SourceHanSerifSC-SemiBold.otf</string>
+		<string>Fraunces-VariableFont.ttf</string>
+		<string>Caveat-VariableFont.ttf</string>
 	</array>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>

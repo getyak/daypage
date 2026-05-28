@@ -94,6 +94,7 @@
 		A10000078 /* VaultMigrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000078 /* VaultMigrationService.swift */; };
 		A10000079 /* iCloudSyncMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000079 /* iCloudSyncMonitor.swift */; };
 		A10000080 /* AppNavigationModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000080 /* AppNavigationModel.swift */; };
+		A10000300 /* DSTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000300 /* DSTokens.swift */; };
 		A10000081 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000081 /* SidebarView.swift */; };
 		A10000082 /* InputBarV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000082 /* InputBarV4.swift */; };
 		A10000083 /* WeeklyRecapService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000083 /* WeeklyRecapService.swift */; };
@@ -129,6 +130,8 @@
 		AF0000010 /* Inter-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000010 /* Inter-Bold.ttf */; };
 		AF0000011 /* JetBrainsMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000011 /* JetBrainsMono-Regular.ttf */; };
 		AF0000012 /* JetBrainsMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000012 /* JetBrainsMono-Medium.ttf */; };
+		AF0000013 /* Fraunces-VariableFont.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000013 /* Fraunces-VariableFont.ttf */; };
+		AF0000014 /* Caveat-VariableFont.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000014 /* Caveat-VariableFont.ttf */; };
 		B197ECDEBDA86D4351A96898 /* RecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B93ED807E07C2171E9F4234B /* RecordingView.swift */; };
 		C80B52CC8945CDC4EE87DCBB /* PosterTemplates.swift in Sources */ = {isa = PBXBuildFile; fileRef = A381FA327A37AE0DD740D61D /* PosterTemplates.swift */; };
 		CJ0000001 /* CJKTextPolish.swift in Sources */ = {isa = PBXBuildFile; fileRef = CJ1000001 /* CJKTextPolish.swift */; };
@@ -304,6 +307,7 @@
 		A20000078 /* VaultMigrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultMigrationService.swift; sourceTree = "<group>"; };
 		A20000079 /* iCloudSyncMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iCloudSyncMonitor.swift; sourceTree = "<group>"; };
 		A20000080 /* AppNavigationModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNavigationModel.swift; sourceTree = "<group>"; };
+		A20000300 /* DSTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSTokens.swift; sourceTree = "<group>"; };
 		A20000081 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		A20000082 /* InputBarV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputBarV4.swift; sourceTree = "<group>"; };
 		A20000083 /* WeeklyRecapService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapService.swift; sourceTree = "<group>"; };
@@ -341,6 +345,8 @@
 		AF1000010 /* Inter-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Inter-Bold.ttf"; sourceTree = "<group>"; };
 		AF1000011 /* JetBrainsMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "JetBrainsMono-Regular.ttf"; sourceTree = "<group>"; };
 		AF1000012 /* JetBrainsMono-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "JetBrainsMono-Medium.ttf"; sourceTree = "<group>"; };
+		AF1000013 /* Fraunces-VariableFont.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces-VariableFont.ttf"; sourceTree = "<group>"; };
+		AF1000014 /* Caveat-VariableFont.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Caveat-VariableFont.ttf"; sourceTree = "<group>"; };
 		B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DayPageWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B93ED807E07C2171E9F4234B /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
 		BAC7527E8128E6A865349FB9 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
@@ -519,6 +525,7 @@
 				A20000080 /* AppNavigationModel.swift */,
 				A20000081 /* SidebarView.swift */,
 				A20000094 /* SidebarViewModel.swift */,
+				A20000300 /* DSTokens.swift */,
 				A20000024 /* Info.plist */,
 				A20000071 /* DayPage.entitlements */,
 				A20000029 /* Assets.xcassets */,
@@ -809,6 +816,8 @@
 				AF1000010 /* Inter-Bold.ttf */,
 				AF1000011 /* JetBrainsMono-Regular.ttf */,
 				AF1000012 /* JetBrainsMono-Medium.ttf */,
+				AF1000013 /* Fraunces-VariableFont.ttf */,
+				AF1000014 /* Caveat-VariableFont.ttf */,
 			);
 			path = Fonts;
 			sourceTree = "<group>";
@@ -1049,6 +1058,8 @@
 				AF0000010 /* Inter-Bold.ttf in Resources */,
 				AF0000011 /* JetBrainsMono-Regular.ttf in Resources */,
 				AF0000012 /* JetBrainsMono-Medium.ttf in Resources */,
+				AF0000013 /* Fraunces-VariableFont.ttf in Resources */,
+				AF0000014 /* Caveat-VariableFont.ttf in Resources */,
 				A10000029 /* Assets.xcassets in Resources */,
 				LS0000001 /* Localizable.strings in Resources */,
 			);
@@ -1181,6 +1192,7 @@
 				A10000079 /* iCloudSyncMonitor.swift in Sources */,
 				A10000085 /* iCloudConflictMonitor.swift in Sources */,
 				A10000080 /* AppNavigationModel.swift in Sources */,
+				A10000300 /* DSTokens.swift in Sources */,
 				A10000081 /* SidebarView.swift in Sources */,
 				A10000077 /* ConflictMerger.swift in Sources */,
 				A10000078 /* VaultMigrationService.swift in Sources */,

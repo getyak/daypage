@@ -120,6 +120,32 @@ jobs:
           if [ "$FAIL" -eq 1 ]; then exit 1; fi
           echo "✅ No hardcoded secret patterns found in tracked files"
 
+  tokens-check:
+    name: Design Tokens Drift Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Regenerate tokens from design-tokens/tokens.json
+        run: |
+          node --experimental-strip-types design-tokens/generators/to-css.ts
+          node --experimental-strip-types design-tokens/generators/to-swift.ts
+
+      - name: Fail if generated files drifted from tokens.json
+        run: |
+          if ! git diff --exit-code -- web/src/app/globals.css DayPage/App/DSTokens.swift; then
+            echo "::error::Generated tokens are out of sync with design-tokens/tokens.json. Run \`make tokens-build\` and commit the result."
+            exit 1
+          fi
+          echo "✅ Generated tokens match design-tokens/tokens.json"
+
   build:
     name: Xcode Build (no signing)
     runs-on: macos-15
