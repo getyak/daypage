@@ -1348,6 +1348,16 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
   to   { transform: translateX(0); }
 }
 
+/* === Composer Pill keyframes (US-026) === */
+@keyframes composer-scale-in {
+  from { opacity: 0; transform: scale(0.88); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes composer-mic-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(122,63,0,0.45), 0 4px 16px rgba(60,40,15,0.22); }
+  50%      { box-shadow: 0 0 0 8px rgba(122,63,0,0), 0 4px 16px rgba(60,40,15,0.22); }
+}
+
 /* Utility classes for common animations */
 .fade-in {
   animation: fade-in var(--motion-fast, 220ms) ease-out both;

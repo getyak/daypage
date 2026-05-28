@@ -11,6 +11,7 @@ import { MemoCard, type MemoCardData } from "./MemoCard";
 import { UnlockPlaceholderCard } from "./UnlockPlaceholderCard";
 import { WeekFeedSpine } from "./WeekFeedSpine";
 import { DrawerContent } from "./DrawerContent";
+import { ComposerPill } from "./ComposerPill";
 
 function MemoFeed({
   composerMicRef,
@@ -42,9 +43,28 @@ function MemoFeed({
 export default function TodayPage() {
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [_showAttachSheet, setShowAttachSheet] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   const composerMicRef = useRef<HTMLButtonElement | null>(null);
+
+  const handleMicPress = useCallback(() => {
+    // tap: toggle keyboard / text mode — focus text input if available
+    composerMicRef.current?.focus();
+  }, []);
+
+  const handleMicLongPress = useCallback(() => {
+    setIsRecording(true);
+  }, []);
+
+  const handlePlusPress = useCallback(() => {
+    setShowAttachSheet(true);
+  }, []);
+
+  const handleTextPress = useCallback(() => {
+    composerMicRef.current?.focus();
+  }, []);
 
   const handleScroll = useCallback(() => {
     if (rafRef.current !== null) return;
@@ -144,6 +164,15 @@ export default function TodayPage() {
       <div style={{ paddingTop: 24 }}>
         <WeekFeedSpine />
       </div>
+
+      {/* Composer Pill — US-026/027 */}
+      <ComposerPill
+        isRecording={isRecording}
+        onMicPress={handleMicPress}
+        onMicLongPress={handleMicLongPress}
+        onPlusPress={handlePlusPress}
+        onTextPress={handleTextPress}
+      />
 
       {/* Drawer — US-019/020/021 */}
       <Drawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)}>
