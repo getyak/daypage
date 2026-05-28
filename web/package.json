@@ -28,6 +28,7 @@
     "d3-selection": "^3.0.0",
     "d3-zoom": "^3.0.0",
     "drizzle-orm": "~0.45.2",
+    "html-to-image": "^1.11.13",
     "inngest": "^3.54.2",
     "lucide-react": "^1.14.0",
     "next": "16.2.6",

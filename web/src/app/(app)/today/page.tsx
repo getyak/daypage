@@ -14,11 +14,14 @@ import { DrawerContent } from "./DrawerContent";
 import { ComposerPill } from "./ComposerPill";
 import { AttachSheet } from "./AttachSheet";
 import { RecordingSheet } from "./RecordingSheet";
+import { ShareCard, type ShareCardMemo } from "./ShareCard";
 
 function MemoFeed({
   composerMicRef,
+  onShare,
 }: {
   composerMicRef: React.RefObject<HTMLButtonElement | null>;
+  onShare: (memo: ShareCardMemo) => void;
 }) {
   const [memos, setMemos] = useState<MemoCardData[]>([]);
 
@@ -34,7 +37,19 @@ function MemoFeed({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 8 }}>
       {memos.map((memo) => (
-        <MemoCard key={memo.id} memo={memo} />
+        <MemoCard
+          key={memo.id}
+          memo={memo}
+          onShare={() =>
+            onShare({
+              id: memo.id,
+              body: memo.body,
+              created_at: memo.created_at,
+              type: memo.type,
+              photo_url: memo.photo_url ?? undefined,
+            })
+          }
+        />
       ))}
       {/* US-010: Placeholder card — shown when below unlock_threshold */}
       <UnlockPlaceholderCard composerMicRef={composerMicRef} />
@@ -47,6 +62,7 @@ export default function TodayPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [showAttachSheet, setShowAttachSheet] = useState(false);
+  const [shareMemo, setShareMemo] = useState<ShareCardMemo | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   const composerMicRef = useRef<HTMLButtonElement | null>(null);
@@ -160,7 +176,7 @@ export default function TodayPage() {
       </div>
 
       {/* Memo Feed + Unlock Placeholder — US-009, US-010 */}
-      <MemoFeed composerMicRef={composerMicRef} />
+      <MemoFeed composerMicRef={composerMicRef} onShare={setShareMemo} />
 
       {/* Week Wiki Spine Feed — US-011 */}
       <div style={{ paddingTop: 24 }}>
@@ -189,6 +205,11 @@ export default function TodayPage() {
       {/* Recording Sheet — US-029 */}
       {isRecording && (
         <RecordingSheet isOpen={isRecording} onClose={() => setIsRecording(false)} onStop={() => setIsRecording(false)} />
+      )}
+
+      {/* Share Card — US-031/032/033 */}
+      {shareMemo && (
+        <ShareCard memo={shareMemo} onClose={() => setShareMemo(null)} />
       )}
     </div>
   );
