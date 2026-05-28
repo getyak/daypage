@@ -13,6 +13,8 @@
     "web:lint": "pnpm --filter daypage-web lint",
     "web:typecheck": "pnpm --filter daypage-web typecheck",
     "db:start": "supabase start",
-    "db:reset": "supabase db reset"
+    "db:reset": "supabase db reset",
+    "tokens:build": "node --experimental-strip-types design-tokens/generators/to-css.ts && node --experimental-strip-types design-tokens/generators/to-swift.ts",
+    "tokens:check": "pnpm tokens:build && git diff --exit-code -- web/src/app/globals.css DayPage/App/DSTokens.swift"
   }
 }
