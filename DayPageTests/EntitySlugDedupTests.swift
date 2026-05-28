@@ -1,71 +1,82 @@
-import XCTest
+import Testing
+import Foundation
 @testable import DayPage
 
 /// US-025: Entity slug dedup + fuzzy matching.
-final class EntitySlugDedupTests: XCTestCase {
+///
+/// Serialized because tests mutate global `VaultInitializer.testOverrideURL`
+/// and exercise `EntityPageService.shared` (singleton).
+@Suite("EntitySlugDedupTests", .serialized)
+struct EntitySlugDedupTests {
 
-    private var tempDir: URL!
+    private let tempDir: URL
     private let fm = FileManager.default
     private var service: EntityPageService { EntityPageService.shared }
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
+    init() throws {
         tempDir = fm.temporaryDirectory
             .appendingPathComponent("EntitySlugTests-\(UUID().uuidString)", isDirectory: true)
         try fm.createDirectory(at: tempDir, withIntermediateDirectories: true)
         VaultInitializer.testOverrideURL = tempDir
     }
 
-    override func tearDownWithError() throws {
+    private func cleanup() {
         VaultInitializer.testOverrideURL = nil
         try? fm.removeItem(at: tempDir)
-        tempDir = nil
-        try super.tearDownWithError()
     }
 
     // MARK: - sanitizeSlug
 
-    func testSanitizeSlug_lowercasesAndHyphenates() {
-        XCTAssertEqual(EntityPageService.sanitizeSlug("Coffee Shop"), "coffee-shop")
+    @Test func sanitizeSlug_lowercasesAndHyphenates() {
+        defer { cleanup() }
+        #expect(EntityPageService.sanitizeSlug("Coffee Shop") == "coffee-shop")
     }
 
-    func testSanitizeSlug_stripsCamelCase() {
-        XCTAssertEqual(EntityPageService.sanitizeSlug("CoffeeShop"), "coffeeshop")
+    @Test func sanitizeSlug_stripsCamelCase() {
+        defer { cleanup() }
+        #expect(EntityPageService.sanitizeSlug("CoffeeShop") == "coffeeshop")
     }
 
-    func testSanitizeSlug_trimsLeadingTrailingWhitespace() {
-        XCTAssertEqual(EntityPageService.sanitizeSlug("  Bangkok  "), "bangkok")
+    @Test func sanitizeSlug_trimsLeadingTrailingWhitespace() {
+        defer { cleanup() }
+        #expect(EntityPageService.sanitizeSlug("  Bangkok  ") == "bangkok")
     }
 
-    func testSanitizeSlug_collapsesMultipleSpaces() {
-        XCTAssertEqual(EntityPageService.sanitizeSlug("Joma  Coffee"), "joma-coffee")
+    @Test func sanitizeSlug_collapsesMultipleSpaces() {
+        defer { cleanup() }
+        #expect(EntityPageService.sanitizeSlug("Joma  Coffee") == "joma-coffee")
     }
 
     // MARK: - isFuzzyMatch: hyphen-stripped equality
 
-    func testFuzzyMatch_hyphenStripped_coffeeShopVariants() {
+    @Test func fuzzyMatch_hyphenStripped_coffeeShopVariants() {
+        defer { cleanup() }
         // "coffee-shop" and "coffeeshop" differ only by a hyphen
-        XCTAssertTrue(service.isFuzzyMatch("coffee-shop", "coffeeshop"))
-        XCTAssertTrue(service.isFuzzyMatch("coffeeshop", "coffee-shop"))
+        #expect(service.isFuzzyMatch("coffee-shop", "coffeeshop"))
+        #expect(service.isFuzzyMatch("coffeeshop", "coffee-shop"))
     }
 
-    func testFuzzyMatch_hyphenStripped_multiHyphen() {
-        XCTAssertTrue(service.isFuzzyMatch("new-york-city", "newyorkcity"))
+    @Test func fuzzyMatch_hyphenStripped_multiHyphen() {
+        defer { cleanup() }
+        #expect(service.isFuzzyMatch("new-york-city", "newyorkcity"))
     }
 
-    func testFuzzyMatch_editDistance_smallDiff() {
+    @Test func fuzzyMatch_editDistance_smallDiff() {
+        defer { cleanup() }
         // "joma-coffe" vs "joma-coffee" — edit distance 1
-        XCTAssertTrue(service.isFuzzyMatch("joma-coffe", "joma-coffee"))
+        #expect(service.isFuzzyMatch("joma-coffe", "joma-coffee"))
     }
 
-    func testFuzzyMatch_sharedPrefix() {
+    @Test func fuzzyMatch_sharedPrefix() {
+        defer { cleanup() }
         // share 6-char prefix "bangko"
-        XCTAssertTrue(service.isFuzzyMatch("bangkokx", "bangkoky"))
+        #expect(service.isFuzzyMatch("bangkokx", "bangkoky"))
     }
 
-    func testFuzzyMatch_dissimilarSlugs_returnsFalse() {
-        XCTAssertFalse(service.isFuzzyMatch("alice", "bangkok"))
-        XCTAssertFalse(service.isFuzzyMatch("coffee-shop", "tea-house"))
+    @Test func fuzzyMatch_dissimilarSlugs_returnsFalse() {
+        defer { cleanup() }
+        #expect(!service.isFuzzyMatch("alice", "bangkok"))
+        #expect(!service.isFuzzyMatch("coffee-shop", "tea-house"))
     }
 
     // MARK: - resolveSlug: dedup via apply()
@@ -96,7 +107,8 @@ final class EntitySlugDedupTests: XCTestCase {
     }
 
     /// "coffee shop" (with space) should map to existing "coffee-shop" slug.
-    func testApply_dedupsSpacedVariant() throws {
+    @Test func apply_dedupsSpacedVariant() throws {
+        defer { cleanup() }
         try seedEntity(type: "places", slug: "coffee-shop")
 
         let instruction = EntityUpdateInstruction(
@@ -113,11 +125,13 @@ final class EntitySlugDedupTests: XCTestCase {
         let dir = tempDir.appendingPathComponent("wiki/places")
         let files = try fm.contentsOfDirectory(atPath: dir.path)
             .filter { $0.hasSuffix(".md") }
-        XCTAssertEqual(files, ["coffee-shop.md"], "Dedup should reuse existing coffee-shop.md, not create a new file")
+        #expect(files == ["coffee-shop.md"],
+                "Dedup should reuse existing coffee-shop.md, not create a new file")
     }
 
     /// "CoffeeShop" (camelCase) → sanitize → "coffeeshop" → fuzzy matches existing "coffee-shop".
-    func testApply_dedupsCamelCaseVariant() throws {
+    @Test func apply_dedupsCamelCaseVariant() throws {
+        defer { cleanup() }
         try seedEntity(type: "places", slug: "coffee-shop")
 
         let instruction = EntityUpdateInstruction(
@@ -133,13 +147,14 @@ final class EntitySlugDedupTests: XCTestCase {
         let dir = tempDir.appendingPathComponent("wiki/places")
         let files = try fm.contentsOfDirectory(atPath: dir.path)
             .filter { $0.hasSuffix(".md") }
-        XCTAssertEqual(files, ["coffee-shop.md"],
-                       "CoffeeShop should fuzzy-merge into existing coffee-shop.md")
+        #expect(files == ["coffee-shop.md"],
+                "CoffeeShop should fuzzy-merge into existing coffee-shop.md")
     }
 
     /// Two distinct slugs must NOT be merged.
-    func testApply_distinctEntitiesCreatedSeparately() throws {
-        try makeWikiDir(type: "places")
+    @Test func apply_distinctEntitiesCreatedSeparately() throws {
+        defer { cleanup() }
+        _ = try makeWikiDir(type: "places")
 
         let i1 = EntityUpdateInstruction(
             entityType: "places",
@@ -162,7 +177,7 @@ final class EntitySlugDedupTests: XCTestCase {
         let files = try fm.contentsOfDirectory(atPath: dir.path)
             .filter { $0.hasSuffix(".md") }
             .sorted()
-        XCTAssertEqual(files, ["alice.md", "bangkok.md"],
-                       "Distinct entities must not be merged")
+        #expect(files == ["alice.md", "bangkok.md"],
+                "Distinct entities must not be merged")
     }
 }

@@ -1,28 +1,36 @@
-import XCTest
+import Testing
+import Foundation
 @testable import DayPage
 
 /// US-023: Trash TTL — files older than 7 days are deleted; recent files survive.
-final class TrashTTLTests: XCTestCase {
+///
+/// Serialized because all tests in this suite mutate the global
+/// `VaultInitializer.testOverrideURL` — running them in parallel would let
+/// one test's vault leak into another.
+@Suite("TrashTTLTests", .serialized)
+struct TrashTTLTests {
 
-    private var tempDir: URL!
+    private let tempDir: URL
     private let fm = FileManager.default
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
+    init() throws {
         tempDir = fm.temporaryDirectory
             .appendingPathComponent("TrashTTLTests-\(UUID().uuidString)", isDirectory: true)
         try fm.createDirectory(at: tempDir, withIntermediateDirectories: true)
         VaultInitializer.testOverrideURL = tempDir
     }
 
-    override func tearDownWithError() throws {
+    // Swift Testing has no per-test tearDown; the suite is value-typed, so each
+    // test gets a fresh init(). We still need to reset the global after the
+    // test finishes — see the `defer` in each @Test below.
+    private func cleanup() {
         VaultInitializer.testOverrideURL = nil
         try? fm.removeItem(at: tempDir)
-        tempDir = nil
-        try super.tearDownWithError()
     }
 
-    func testPruneTrash_deletesOldFiles() throws {
+    @Test func pruneTrash_deletesOldFiles() throws {
+        defer { cleanup() }
+
         let trashDir = tempDir
             .appendingPathComponent("wiki/daily/.trash", isDirectory: true)
         try fm.createDirectory(at: trashDir, withIntermediateDirectories: true)
@@ -38,15 +46,17 @@ final class TrashTTLTests: XCTestCase {
             ofItemAtPath: staleFile.path
         )
 
-        XCTAssertTrue(fm.fileExists(atPath: staleFile.path), "Stale file must exist before pruning")
+        #expect(fm.fileExists(atPath: staleFile.path), "Stale file must exist before pruning")
 
         RawStorage.pruneTrashOlderThan(days: 7)
 
-        XCTAssertFalse(fm.fileExists(atPath: staleFile.path),
-                       "Stale file (8 days old) must be deleted by pruneTrashOlderThan(days: 7)")
+        #expect(!fm.fileExists(atPath: staleFile.path),
+                "Stale file (8 days old) must be deleted by pruneTrashOlderThan(days: 7)")
     }
 
-    func testPruneTrash_preservesRecentFiles() throws {
+    @Test func pruneTrash_preservesRecentFiles() throws {
+        defer { cleanup() }
+
         let trashDir = tempDir
             .appendingPathComponent("wiki/daily/.trash", isDirectory: true)
         try fm.createDirectory(at: trashDir, withIntermediateDirectories: true)
@@ -63,12 +73,16 @@ final class TrashTTLTests: XCTestCase {
 
         RawStorage.pruneTrashOlderThan(days: 7)
 
-        XCTAssertTrue(fm.fileExists(atPath: freshFile.path),
-                      "Recent file (3 days old) must NOT be deleted by pruneTrashOlderThan(days: 7)")
+        #expect(fm.fileExists(atPath: freshFile.path),
+                "Recent file (3 days old) must NOT be deleted by pruneTrashOlderThan(days: 7)")
     }
 
-    func testPruneTrash_missingDirectoryIsNoop() {
-        // Vault has no .trash dir at all — must not crash.
-        XCTAssertNoThrow(RawStorage.pruneTrashOlderThan(days: 7))
+    @Test func pruneTrash_missingDirectoryIsNoop() {
+        defer { cleanup() }
+        // Vault has no .trash dir at all — must not crash. #expect(throws:) does
+        // the same job as XCTAssertNoThrow.
+        #expect(throws: Never.self) {
+            RawStorage.pruneTrashOlderThan(days: 7)
+        }
     }
 }

@@ -5,7 +5,7 @@ import { users, memos, pages } from "@/lib/db/schema";
 import { eq, and, gte, lt, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { sendEvent } from "@/lib/inngest/client";
-import { authenticateApiKey } from "@/lib/api-auth";
+import { authenticateApiKey, hasScope } from "@/lib/api-auth";
 
 // NOTE: iOS BackgroundCompilationService.swift is deprecated in favour of this endpoint.
 // The iOS client should call POST /api/compile instead of running its own BGAppRefreshTask
@@ -13,6 +13,10 @@ import { authenticateApiKey } from "@/lib/api-auth";
 
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+}
+
+function forbidden(message: string) {
+  return NextResponse.json({ error: message }, { status: 403 });
 }
 
 function badRequest(message: string) {
@@ -43,6 +47,10 @@ export async function POST(req: NextRequest) {
 
   const apiAuth = await authenticateApiKey(req);
   if (apiAuth) {
+    // /api/compile mutates memos.compile_status — require the "write" scope.
+    if (!hasScope(apiAuth, "write")) {
+      return forbidden("API key lacks 'write' scope");
+    }
     userId = apiAuth.userId;
   } else {
     const session = await auth();

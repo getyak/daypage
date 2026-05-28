@@ -7,6 +7,10 @@ import { writeFile, mkdir } from "fs/promises";
 import { join, extname } from "path";
 import { randomUUID } from "crypto";
 
+// fs/promises is Node-only; force the Node.js runtime so Next.js does not
+// attempt to compile this handler for the Edge runtime (would fail on `fs`).
+export const runtime = "nodejs";
+
 const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
 const ALLOWED_MIME_PREFIXES = [

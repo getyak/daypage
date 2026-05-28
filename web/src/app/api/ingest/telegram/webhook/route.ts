@@ -3,6 +3,7 @@ import { db } from "@/lib/db/client";
 import { memos, activities, ingest_sources } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { sendEvent } from "@/lib/inngest/client";
+import { decryptConfig } from "@/lib/secret-crypto";
 
 // Telegram Update object (partial — only fields we use)
 interface TelegramMessage {
@@ -27,14 +28,19 @@ async function logActivity(userId: string, verb: string, subject: string, target
 
 // POST /api/ingest/telegram/webhook
 export async function POST(req: NextRequest) {
-  // Verify secret token sent by Telegram
+  // Verify secret token sent by Telegram. Fail closed: if the server is not
+  // configured with a secret, reject all requests rather than accepting any
+  // unauthenticated POST (which would let anyone who knows a chat_id inject memos).
   const secretToken = process.env.TELEGRAM_WEBHOOK_SECRET;
-  if (secretToken) {
-    const provided = req.headers.get("X-Telegram-Bot-Api-Secret-Token");
-    if (provided !== secretToken) {
-      // Return 200 to avoid Telegram retrying; just ignore
-      return NextResponse.json({ ok: true });
-    }
+  if (!secretToken) {
+    return NextResponse.json(
+      { error: "Webhook not configured" },
+      { status: 503 }
+    );
+  }
+  const provided = req.headers.get("X-Telegram-Bot-Api-Secret-Token");
+  if (provided !== secretToken) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   let update: TelegramUpdate;
@@ -56,7 +62,9 @@ export async function POST(req: NextRequest) {
     .where(and(eq(ingest_sources.source_type, "telegram"), eq(ingest_sources.enabled, true)));
 
   const matchingSource = sources.find((s) => {
-    const cfg = s.config as Record<string, unknown>;
+    // config may be encrypted (envelope) or legacy plaintext — decryptConfig
+    // handles both transparently.
+    const cfg = decryptConfig(s.config);
     return String(cfg.chat_id) === chatId;
   });
 

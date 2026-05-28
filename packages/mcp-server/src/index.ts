@@ -12,8 +12,6 @@ import { handleRequest } from "./server.js";
 
 const rl = createInterface({ input: process.stdin, terminal: false });
 
-const chunks: string[] = [];
-
 rl.on("line", (line) => {
   const trimmed = line.trim();
   if (trimmed === "") return;
@@ -55,5 +53,3 @@ rl.on("close", () => {
 // Keep alive — MCP servers run as persistent processes
 process.on("SIGTERM", () => process.exit(0));
 process.on("SIGINT", () => process.exit(0));
-
-void chunks; // suppress unused warning

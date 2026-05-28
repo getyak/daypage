@@ -26,3 +26,13 @@ export interface McpToolResult {
   content: Array<{ type: "text"; text: string }>;
   isError?: boolean;
 }
+
+// A concrete tool implementation. Lives in types.ts (not tools/index.ts) so that
+// tool modules can import it from the shared types barrel without creating a
+// circular dependency with tools/index.ts.
+export interface ToolHandler {
+  name: string;
+  description: string;
+  inputSchema: McpToolDefinition["inputSchema"];
+  handler: (args: Record<string, unknown>) => Promise<McpToolResult>;
+}

@@ -1,4 +1,5 @@
-import XCTest
+import Testing
+import Foundation
 @testable import DayPage
 
 /// US-020: Unit tests for TodayViewModel core paths: addMemo, deleteMemo, toggleFavorite (pin/unpin).
@@ -6,14 +7,17 @@ import XCTest
 /// TodayViewModel reads/writes via RawStorage which uses VaultInitializer.testOverrideURL.
 /// Tests run synchronously by directly mutating `memos` and calling the view model methods,
 /// bypassing the async submission path that requires live services (Location, Weather).
+///
+/// Serialized + @MainActor because TodayViewModel is @MainActor-isolated and tests
+/// share the global `VaultInitializer.testOverrideURL`.
 @MainActor
-final class TodayViewModelTests: XCTestCase {
+@Suite("TodayViewModelTests", .serialized)
+struct TodayViewModelTests {
 
-    private var tempDir: URL!
-    private var vm: TodayViewModel!
+    private let tempDir: URL
+    private let vm: TodayViewModel
 
-    override func setUp() async throws {
-        try await super.setUp()
+    init() throws {
         tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("TodayVMTests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
@@ -21,27 +25,27 @@ final class TodayViewModelTests: XCTestCase {
         vm = TodayViewModel(date: Date())
     }
 
-    override func tearDown() async throws {
+    private func cleanup() {
         VaultInitializer.testOverrideURL = nil
         try? FileManager.default.removeItem(at: tempDir)
-        vm = nil
-        try await super.tearDown()
     }
 
     // MARK: - addMemo (via RawStorage.append + in-memory insert)
 
-    func testAddMemo_insertsIntoMemosArray() throws {
+    @Test func addMemo_insertsIntoMemosArray() throws {
+        defer { cleanup() }
         let memo = makeMemo(body: "test memo body")
         try RawStorage.append(memo)
         // Simulate the in-memory update that submitCombinedMemo performs
         vm.memos.insert(memo, at: 0)
 
-        XCTAssertEqual(vm.memos.count, 1)
-        XCTAssertEqual(vm.memos.first?.id, memo.id)
-        XCTAssertEqual(vm.memos.first?.body, "test memo body")
+        #expect(vm.memos.count == 1)
+        #expect(vm.memos.first?.id == memo.id)
+        #expect(vm.memos.first?.body == "test memo body")
     }
 
-    func testAddMemo_multipleMemosOrderedNewestFirst() throws {
+    @Test func addMemo_multipleMemosOrderedNewestFirst() throws {
+        defer { cleanup() }
         let older = makeMemo(body: "older", created: Date(timeIntervalSinceNow: -120))
         let newer = makeMemo(body: "newer", created: Date(timeIntervalSinceNow: -60))
         try RawStorage.append(older)
@@ -50,13 +54,14 @@ final class TodayViewModelTests: XCTestCase {
         // Simulate load sort (newest first)
         vm.memos = [newer, older]
 
-        XCTAssertEqual(vm.memos.first?.body, "newer")
-        XCTAssertEqual(vm.memos.last?.body, "older")
+        #expect(vm.memos.first?.body == "newer")
+        #expect(vm.memos.last?.body == "older")
     }
 
     // MARK: - deleteMemo
 
-    func testDeleteMemo_removesMemoFromMemosArray() throws {
+    @Test func deleteMemo_removesMemoFromMemosArray() throws {
+        defer { cleanup() }
         let m1 = makeMemo(body: "keep me")
         let m2 = makeMemo(body: "delete me")
         try RawStorage.append(m1)
@@ -65,46 +70,50 @@ final class TodayViewModelTests: XCTestCase {
 
         vm.deleteMemo(m2)
 
-        XCTAssertEqual(vm.memos.count, 1)
-        XCTAssertEqual(vm.memos.first?.id, m1.id)
+        #expect(vm.memos.count == 1)
+        #expect(vm.memos.first?.id == m1.id)
     }
 
-    func testDeleteMemo_setsLastDeletedMemo() throws {
+    @Test func deleteMemo_setsLastDeletedMemo() throws {
+        defer { cleanup() }
         let memo = makeMemo(body: "will be deleted")
         vm.memos = [memo]
 
         vm.deleteMemo(memo)
 
-        XCTAssertEqual(vm.lastDeletedMemo?.id, memo.id)
+        #expect(vm.lastDeletedMemo?.id == memo.id)
     }
 
-    func testUndoDelete_restoresMemo() throws {
+    @Test func undoDelete_restoresMemo() throws {
+        defer { cleanup() }
         let memo = makeMemo(body: "restore me")
         vm.memos = [memo]
 
         vm.deleteMemo(memo)
-        XCTAssertEqual(vm.memos.count, 0)
+        #expect(vm.memos.count == 0)
 
         vm.undoDelete()
-        XCTAssertEqual(vm.memos.count, 1)
-        XCTAssertEqual(vm.memos.first?.id, memo.id)
-        XCTAssertNil(vm.lastDeletedMemo)
+        #expect(vm.memos.count == 1)
+        #expect(vm.memos.first?.id == memo.id)
+        #expect(vm.lastDeletedMemo == nil)
     }
 
     // MARK: - toggleFavorite (pin / unpin)
 
-    func testPinMemo_setsPinnedAtAndMovesToTop() throws {
+    @Test func pinMemo_setsPinnedAtAndMovesToTop() throws {
+        defer { cleanup() }
         let m1 = makeMemo(body: "first", created: Date(timeIntervalSinceNow: -60))
         let m2 = makeMemo(body: "second", created: Date())
         vm.memos = [m2, m1] // newest first
 
         vm.pinMemo(m1)
 
-        XCTAssertNotNil(vm.memos.first?.pinnedAt, "Pinned memo must have pinnedAt set")
-        XCTAssertEqual(vm.memos.first?.id, m1.id, "Pinned memo must move to top")
+        #expect(vm.memos.first?.pinnedAt != nil, "Pinned memo must have pinnedAt set")
+        #expect(vm.memos.first?.id == m1.id, "Pinned memo must move to top")
     }
 
-    func testUnpinMemo_clearsPinnedAtAndResortsByCreated() throws {
+    @Test func unpinMemo_clearsPinnedAtAndResortsByCreated() throws {
+        defer { cleanup() }
         var pinned = makeMemo(body: "pinned", created: Date(timeIntervalSinceNow: -60))
         pinned.pinnedAt = Date()
         let normal = makeMemo(body: "normal", created: Date())
@@ -112,27 +121,29 @@ final class TodayViewModelTests: XCTestCase {
 
         vm.unpinMemo(pinned)
 
-        XCTAssertNil(vm.memos.first(where: { $0.id == pinned.id })?.pinnedAt,
-                     "Unpinned memo must have nil pinnedAt")
+        #expect(vm.memos.first(where: { $0.id == pinned.id })?.pinnedAt == nil,
+                "Unpinned memo must have nil pinnedAt")
         // After unpin, normal (newer) should be first
-        XCTAssertEqual(vm.memos.first?.id, normal.id)
+        #expect(vm.memos.first?.id == normal.id)
     }
 
-    func testPinMemo_onlyOneMemoInList() throws {
+    @Test func pinMemo_onlyOneMemoInList() throws {
+        defer { cleanup() }
         let memo = makeMemo(body: "solo")
         vm.memos = [memo]
 
         vm.pinMemo(memo)
 
-        XCTAssertEqual(vm.memos.count, 1)
-        XCTAssertNotNil(vm.memos.first?.pinnedAt)
+        #expect(vm.memos.count == 1)
+        #expect(vm.memos.first?.pinnedAt != nil)
     }
 
     // MARK: - signalCount
 
-    func testSignalCount_matchesMemoCount() {
+    @Test func signalCount_matchesMemoCount() {
+        defer { cleanup() }
         vm.memos = [makeMemo(body: "a"), makeMemo(body: "b"), makeMemo(body: "c")]
-        XCTAssertEqual(vm.signalCount, 3)
+        #expect(vm.signalCount == 3)
     }
 
     // MARK: - Helpers
