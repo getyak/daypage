@@ -57,6 +57,12 @@
 "today.kicker.signal.one"    = "SIGNAL";
 "today.kicker.signal.other"  = "SIGNALS";
 
+/* Day Orb accessibility */
+"today.orb.label"            = "Today's signal orb";
+"today.orb.value.one"        = "%d signal captured";
+"today.orb.value.other"      = "%d signals captured";
+"today.orb.hint"             = "Double tap to start a new note";
+
 /* DailyPage swipe action */
 "today.action.recompile"     = "Recompile";
 
