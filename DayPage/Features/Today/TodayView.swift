@@ -711,7 +711,7 @@ struct TodayView: View {
                     .foregroundColor(DSColor.inkSubtle)
                     .textCase(.uppercase)
                     .tracking(1.0)
-                    .contentTransition(reduceMotion ? .identity : .numericText(value: Double(viewModel.signalCount)))
+                    .modifier(NumericTextContentTransition(value: Double(viewModel.signalCount), reduceMotion: reduceMotion))
                     .animation(reduceMotion ? nil : Motion.spring, value: viewModel.signalCount)
                 Text(orbKickerSuffix())
                     .font(DSType.mono10)
@@ -1875,5 +1875,21 @@ private struct ScrollOffsetPreferenceKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
+    }
+}
+
+// ViewModifier to wrap .numericText(value:) which requires iOS 17+
+private struct NumericTextContentTransition: ViewModifier {
+    let value: Double
+    let reduceMotion: Bool
+
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *) {
+            content
+                .contentTransition(reduceMotion ? .identity : .numericText(value: value))
+        } else {
+            content
+                .contentTransition(.identity)
+        }
     }
 }
