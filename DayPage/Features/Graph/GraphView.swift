@@ -100,6 +100,29 @@ struct GraphView: View {
                 .padding(.horizontal, DSSpacing.lg)
                 .padding(.vertical, DSSpacing.sm)
 
+                if !viewModel.searchQuery.isEmpty {
+                    HStack {
+                        Text("\(viewModel.searchMatchCount) 个匹配")
+                            .font(DSFonts.jetBrainsMono(size: 11))
+                            .foregroundColor(DSColor.inkMuted)
+                            .padding(.horizontal, DSSpacing.md)
+                            .padding(.vertical, 5)
+                            .background(DSColor.glassLo)
+                            .background(.ultraThinMaterial, in: Capsule())
+                            .overlay(Capsule().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                            .accessibilityLabel("\(viewModel.searchMatchCount) 个匹配结果")
+                        Spacer()
+                    }
+                    .padding(.horizontal, DSSpacing.lg)
+                    .padding(.bottom, DSSpacing.sm)
+                    .transition(.opacity)
+                    .animation(Motion.fade, value: viewModel.searchMatchCount)
+                    .onChange(of: viewModel.searchMatchCount) { count in
+                        guard !viewModel.searchQuery.isEmpty, count == 0 else { return }
+                        Haptics.warn()
+                    }
+                }
+
                 if showFilters {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: DSSpacing.sm) {

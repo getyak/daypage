@@ -74,6 +74,9 @@ final class GraphViewModel: ObservableObject {
         }
     }
 
+    /// Live count of nodes matching the current search query.
+    var searchMatchCount: Int { searchQuery.isEmpty ? 0 : filteredNodes.count }
+
     /// Edges where both endpoints are in filteredNodes.
     var filteredEdges: [GraphEdge] {
         let ids = Set(filteredNodes.map { $0.id })
