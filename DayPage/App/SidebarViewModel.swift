@@ -24,6 +24,11 @@ final class SidebarViewModel: ObservableObject {
     @Published var accountEmail: String = ""
     @Published var accountInitial: String = "?"
 
+    /// Four-digit year the signed-in user's account was created, derived from
+    /// the Supabase session's `user.createdAt`. `nil` when signed out — the view
+    /// falls back to hiding the year rather than showing a hardcoded one.
+    @Published var joinYear: Int?
+
     /// Most recent days (descending) with at least one memo, capped to 7.
     @Published var recentDays: [RecentDay] = []
 
@@ -91,6 +96,16 @@ final class SidebarViewModel: ObservableObject {
         return f
     }()
 
+    /// Formats a `Date` to a 4-digit calendar year (e.g. "2026") for the
+    /// "MEMBER · SINCE <year>" line, in the user's current time zone.
+    private static let yearFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy"
+        f.timeZone = TimeZone.current
+        return f
+    }()
+
     private var authStateTask: Task<Void, Never>?
 
     func bind(authService: AuthService) {
@@ -105,10 +120,13 @@ final class SidebarViewModel: ObservableObject {
             for await (_, session) in authService.supabase.auth.authStateChanges {
                 if Task.isCancelled { break }
                 let email = session?.user.email ?? ""
+                let year = session.map { Self.yearFormatter.string(from: $0.user.createdAt) }
+                    .flatMap { Int($0) }
                 await MainActor.run {
                     self?.isLoggedIn = session != nil
                     self?.accountEmail = email
                     self?.accountInitial = email.first.map { String($0).uppercased() } ?? "?"
+                    self?.joinYear = year
                 }
             }
         }
@@ -134,7 +152,21 @@ final class SidebarViewModel: ObservableObject {
                     uniquingKeysWith: { a, _ in a }
                 )
                 self?.heatmapCounts = counts
-                self?.totalEntries16Weeks = heatmapResult.reduce(0) { $0 + $1.memoCount }
+                // Count only memos within the 112-day (16-week) heatmap window.
+                // scanRecentDays limits by *file count*, so an intermittent
+                // journaler's 119 files can reach back well beyond 16 weeks;
+                // filter by calendar date so the "N ENTRIES" figure matches the
+                // grid the user actually sees.
+                let cal = Calendar.current
+                let windowStart = cal.date(
+                    byAdding: .day, value: -111, to: cal.startOfDay(for: Date())
+                )
+                self?.totalEntries16Weeks = heatmapResult.reduce(0) { acc, day in
+                    guard let windowStart,
+                          let date = Self.isoFormatter.date(from: day.dateString),
+                          date >= windowStart else { return acc }
+                    return acc + day.memoCount
+                }
                 self?.totalPages = statsResult.pages
                 self?.totalWordCount = statsResult.words
             }
@@ -142,10 +174,13 @@ final class SidebarViewModel: ObservableObject {
     }
 
     private func updateFrom(authService: AuthService) {
-        let email = authService.session?.user.email ?? ""
-        isLoggedIn = authService.session != nil
+        let session = authService.session
+        let email = session?.user.email ?? ""
+        isLoggedIn = session != nil
         accountEmail = email
         accountInitial = email.first.map { String($0).uppercased() } ?? "?"
+        joinYear = session.map { Self.yearFormatter.string(from: $0.user.createdAt) }
+            .flatMap { Int($0) }
     }
 
     deinit {
@@ -223,22 +258,15 @@ final class SidebarViewModel: ObservableObject {
         }.value
     }
 
-    /// Strips `--- … ---` front-matter blocks and separator comments, then
-    /// counts non-whitespace characters in the remaining body.
+    /// Counts non-whitespace body characters across all memos in a raw daily
+    /// file. Delegates splitting + front-matter stripping to `RawStorage.parse`
+    /// (the single source of truth) so a literal `---` horizontal rule in user
+    /// text, or the legacy `\n\n---\n\n` inter-memo separator, can't desync a
+    /// hand-rolled front-matter toggle and silently drop body text.
     nonisolated private static func approxBodyWordCount(_ text: String) -> Int {
-        var count = 0
-        var inFrontmatter = false
-        for rawLine in text.components(separatedBy: "\n") {
-            let line = rawLine.trimmingCharacters(in: .whitespaces)
-            if line == "---" {
-                inFrontmatter.toggle()
-                continue
-            }
-            if inFrontmatter { continue }
-            if line.hasPrefix("<!--") { continue } // separator comment
-            count += line.filter { !$0.isWhitespace }.count
+        RawStorage.parse(fileContent: text).reduce(0) { acc, memo in
+            acc + memo.body.filter { !$0.isWhitespace }.count
         }
-        return count
     }
 
     /// Count memos in a single raw daily file. Memos are separated by the

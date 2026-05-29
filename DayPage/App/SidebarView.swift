@@ -155,7 +155,7 @@ struct SidebarView: View {
                         .font(DSFonts.serif(size: 19, weight: .semibold))
                         .foregroundColor(DSColor.inkPrimary)
                         .lineLimit(1)
-                    Text("MEMBER · SINCE 2024")
+                    Text(membershipLine)
                         .font(DSType.mono10)
                         .tracking(1.2)
                         .foregroundColor(DSColor.inkSubtle)
@@ -180,6 +180,16 @@ struct SidebarView: View {
         return String(sidebarVM.accountEmail.prefix(while: { $0 != "@" }))
     }
 
+    /// "MEMBER · SINCE <year>" using the real account creation year from the
+    /// auth session. Falls back to a yearless "MEMBER" when signed out or the
+    /// join year is unavailable, rather than printing a misleading hardcoded year.
+    private var membershipLine: String {
+        if let year = sidebarVM.joinYear {
+            return "MEMBER · SINCE \(year)"
+        }
+        return "MEMBER"
+    }
+
     // MARK: - Heatmap + Stats
 
     private var heatmapSection: some View {
@@ -199,7 +209,7 @@ struct SidebarView: View {
             statDivider
             statCell(label: "PAGES", value: "\(sidebarVM.totalPages)", unit: "TOTAL", first: false)
             statDivider
-            statCell(label: "WORDS", value: formatWords(sidebarVM.totalWordCount), unit: "2026", first: false)
+            statCell(label: "WORDS", value: formatWords(sidebarVM.totalWordCount), unit: "TOTAL", first: false)
         }
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
