@@ -48,6 +48,15 @@
 "undo_pill.label.send"       = "Undo send";
 "undo_pill.label.delete"     = "Deleted · Undo";
 
+/* Today header subline — note count */
+"today.subline.notes.zero"   = "%d notes";
+"today.subline.notes.one"    = "%d note";
+"today.subline.notes.other"  = "%d notes";
+
+/* Today orb kicker — signal count */
+"today.kicker.signal.one"    = "SIGNAL";
+"today.kicker.signal.other"  = "SIGNALS";
+
 /* DailyPage swipe action */
 "today.action.recompile"     = "Recompile";
 

@@ -795,10 +795,11 @@ struct TodayView: View {
         f.locale = Locale(identifier: "en_US_POSIX")
         f.timeZone = TimeZone.current
         let count = viewModel.signalCount
-        let plural = count == 1 ? "SIGNAL" : "SIGNALS"
+        let signalKey = count == 1 ? "today.kicker.signal.one" : "today.kicker.signal.other"
+        let signal = NSLocalizedString(signalKey, comment: "")
         let dateStr = f.string(from: date).uppercased()
         let timeStr = Self.headerTimeFmt.string(from: date)
-        return "\(dateStr) · \(timeStr) · \(count) \(plural)"
+        return "\(dateStr) · \(timeStr) · \(count) \(signal)"
     }
 
     // MARK: - InputBarV4 (variant D: Silent Press-to-Talk)
@@ -925,6 +926,7 @@ struct TodayView: View {
                         .tracking(1.0)
                         .dynamicTypeSize(.xSmall ... .accessibility5)
                         .minimumScaleFactor(0.75)
+                        .accessibilityLabel(headerSublineAccessibilityLabel(currentTime))
                 }
             }
             .buttonStyle(.plain)
@@ -1349,13 +1351,12 @@ struct TodayView: View {
 
         // Notes segment (empty-state shows time instead of count).
         var parts: [String]
-        switch count {
-        case 0:
+        if count == 0 {
             parts = [dateStr, Self.headerTimeFmt.string(from: date)]
-        case 1:
-            parts = [dateStr, "1 note"]
-        default:
-            parts = [dateStr, "\(count) notes"]
+        } else {
+            let notesKey = count == 1 ? "today.subline.notes.one" : "today.subline.notes.other"
+            let notesStr = String(format: NSLocalizedString(notesKey, comment: ""), count)
+            parts = [dateStr, notesStr]
         }
 
         // Museum-aesthetic subline: append today's weather + place when known.
@@ -1368,6 +1369,24 @@ struct TodayView: View {
             parts.append(place)
         }
         return parts.joined(separator: "  ·  ")
+    }
+
+    /// Comma-separated version of the header subline for VoiceOver.
+    /// e.g. "May 28, 2 notes, 28°, Vientiane"
+    private func headerSublineAccessibilityLabel(_ date: Date) -> String {
+        let count = viewModel.memos.count
+        let dateStr = Self.headerDateFmt.string(from: date)
+        var parts: [String]
+        if count == 0 {
+            parts = [dateStr, Self.headerTimeFmt.string(from: date)]
+        } else {
+            let notesKey = count == 1 ? "today.subline.notes.one" : "today.subline.notes.other"
+            let notesStr = String(format: NSLocalizedString(notesKey, comment: ""), count)
+            parts = [dateStr, notesStr]
+        }
+        if let weather = todayWeatherShort() { parts.append(weather) }
+        if let place = todayPlaceShort() { parts.append(place) }
+        return parts.joined(separator: ", ")
     }
 
     /// Today's weather temperature, taken from the most recent memo that carries
