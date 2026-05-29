@@ -1,8 +1,7 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db/client";
 import { pages, users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
-import { asc } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { BookOpen } from "lucide-react";
@@ -19,30 +18,55 @@ async function resolveUserId(email: string): Promise<string | null> {
   return rows[0]?.id ?? null;
 }
 
-async function fetchUserPages(userId: string): Promise<WikiPage[]> {
+const PAGE_COLUMNS = {
+  id: pages.id,
+  slug: pages.slug,
+  type: pages.type,
+  title: pages.title,
+  status: pages.status,
+  domain_id: pages.domain_id,
+  source_count: pages.source_count,
+  backlink_count: pages.backlink_count,
+  last_compiled_at: pages.last_compiled_at,
+  updated_at: pages.updated_at,
+} as const;
+
+type PageRow = {
+  last_compiled_at: Date | null;
+  updated_at: Date;
+} & Omit<WikiPage, "last_compiled_at" | "updated_at">;
+
+function serialize(rows: PageRow[]): WikiPage[] {
+  return rows.map((r) => ({
+    ...r,
+    last_compiled_at: r.last_compiled_at?.toISOString() ?? null,
+    updated_at: r.updated_at.toISOString(),
+  }));
+}
+
+// US-004: the formed network — only `live` pages show in the main nav.
+async function fetchLivePages(userId: string): Promise<WikiPage[]> {
   try {
     const rows = await db
-      .select({
-        id: pages.id,
-        slug: pages.slug,
-        type: pages.type,
-        title: pages.title,
-        status: pages.status,
-        domain_id: pages.domain_id,
-        source_count: pages.source_count,
-        backlink_count: pages.backlink_count,
-        last_compiled_at: pages.last_compiled_at,
-        updated_at: pages.updated_at,
-      })
+      .select(PAGE_COLUMNS)
       .from(pages)
-      .where(eq(pages.user_id, userId))
+      .where(and(eq(pages.user_id, userId), eq(pages.status, "live")))
       .orderBy(asc(pages.type), asc(pages.title));
+    return serialize(rows);
+  } catch {
+    return [];
+  }
+}
 
-    return rows.map((r) => ({
-      ...r,
-      last_compiled_at: r.last_compiled_at?.toISOString() ?? null,
-      updated_at: r.updated_at.toISOString(),
-    }));
+// US-004: draft sources are the raw material waiting to be woven (sidebar section).
+async function fetchDraftSources(userId: string): Promise<WikiPage[]> {
+  try {
+    const rows = await db
+      .select(PAGE_COLUMNS)
+      .from(pages)
+      .where(and(eq(pages.user_id, userId), eq(pages.status, "draft")))
+      .orderBy(asc(pages.type), asc(pages.title));
+    return serialize(rows);
   } catch {
     return [];
   }
@@ -65,19 +89,25 @@ export default async function WikiPage({
     if (row[0]) redirect(`/wiki/${row[0].slug}`);
   }
 
-  let userPages: WikiPage[] = [];
+  let livePages: WikiPage[] = [];
+  let draftSources: WikiPage[] = [];
 
   if (session?.user?.email) {
     const userId = await resolveUserId(session.user.email);
     if (userId) {
-      userPages = await fetchUserPages(userId);
+      [livePages, draftSources] = await Promise.all([
+        fetchLivePages(userId),
+        fetchDraftSources(userId),
+      ]);
     }
   }
 
+  const hasAnyPages = livePages.length > 0 || draftSources.length > 0;
+
   return (
     <WikiPageShell
-      nav={<WikiNav initialPages={userPages} />}
-      main={<WikiMainContent hasPages={userPages.length > 0} />}
+      nav={<WikiNav initialPages={livePages} draftPages={draftSources} />}
+      main={<WikiMainContent hasPages={hasAnyPages} />}
     />
   );
 }
