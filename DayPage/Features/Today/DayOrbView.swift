@@ -28,7 +28,8 @@ struct DayOrbView: View {
     private var accessibilityLabelText: String {
         if signalCount == 0 { return "Day orb, no signals yet" }
         let word = signalCount == 1 ? "signal" : "signals"
-        return "Day orb, \(signalCount) \(word) today"
+        let status = readoutLabel.lowercased()
+        return "Day orb, \(signalCount) \(word) today, \(status)"
     }
 
     var body: some View {
@@ -241,9 +242,11 @@ struct DayOrbView: View {
 
     private var readoutLabel: String {
         switch signalCount {
-        case 0:  return "TAP TO BEGIN"
-        case 1:  return "SIGNAL TODAY"
-        default: return "SIGNALS TODAY"
+        case 0:        return "TAP TO BEGIN"
+        case 1:        return "SIGNAL TODAY"
+        case 2...4:    return "BUILDING"
+        case 5...9:    return "RICH DAY"
+        default:       return "PACKED"
         }
     }
 
