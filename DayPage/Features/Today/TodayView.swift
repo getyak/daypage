@@ -697,10 +697,10 @@ struct TodayView: View {
                 .tracking(1.0)
 
             let glowBoost = min(Double(viewModel.signalCount), 5) * 0.04
-            DayOrbView(signalCount: viewModel.signalCount, size: 140, pulseToggle: orbCapturePulse) {
+            DayOrbView(signalCount: viewModel.signalCount, size: 140, onTap: {
                 Haptics.tapConfirm()
                 orbFocusToggle.toggle()
-            }
+            }, pulseToggle: orbCapturePulse)
             .scaleEffect(reduceMotion ? 1.0 : (orbBreathing ? 1.03 : 0.985))
             .shadow(
                 color: DSColor.accentAmber.opacity(orbBreathing ? 0.28 + glowBoost : 0.12 + glowBoost),
