@@ -24,8 +24,9 @@ function MemoFeed({
   onShare: (memo: ShareCardMemo) => void;
 }) {
   const [memos, setMemos] = useState<MemoCardData[]>([]);
+  const [serviceConnected, setServiceConnected] = useState(true);
 
-  useEffect(() => {
+  const reloadMemos = useCallback(() => {
     fetch("/api/today/memos")
       .then((r) => r.json())
       .then((d: { memos: MemoCardData[] }) => {
@@ -34,12 +35,41 @@ function MemoFeed({
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    reloadMemos();
+    fetch("/api/compile/status")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { connected: boolean } | null) => {
+        if (d) setServiceConnected(d.connected);
+      })
+      .catch(() => {});
+  }, [reloadMemos]);
+
+  const handleRetry = useCallback(
+    (id: string) => {
+      // Optimistically mark as pending, then re-trigger compilation.
+      setMemos((prev) =>
+        prev.map((m) =>
+          m.id === id
+            ? { ...m, compile_status: "pending", compile_error: null }
+            : m,
+        ),
+      );
+      fetch(`/api/memos/${id}/recompile`, { method: "POST" })
+        .then(() => reloadMemos())
+        .catch(() => {});
+    },
+    [reloadMemos],
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 8 }}>
       {memos.map((memo) => (
         <MemoCard
           key={memo.id}
           memo={memo}
+          serviceConnected={serviceConnected}
+          onRetry={handleRetry}
           onShare={() =>
             onShare({
               id: memo.id,

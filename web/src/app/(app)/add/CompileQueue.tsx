@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  FileText,
   Loader2,
   CheckCircle2,
   AlertCircle,
@@ -31,6 +30,16 @@ async function fetchPendingMemos(): Promise<MemosResponse> {
   const res = await fetch("/api/memos?compile_status=pending&limit=20");
   if (!res.ok) throw new Error("Failed to fetch");
   return res.json() as Promise<MemosResponse>;
+}
+
+interface CompileStatusResponse {
+  connected: boolean;
+}
+
+async function fetchCompileServiceStatus(): Promise<CompileStatusResponse> {
+  const res = await fetch("/api/compile/status");
+  if (!res.ok) throw new Error("Failed to fetch compile status");
+  return res.json() as Promise<CompileStatusResponse>;
 }
 
 async function recompileMemo(memoId: string): Promise<void> {
@@ -161,6 +170,15 @@ export function CompileQueue({ initialMemos }: { initialMemos: Memo[] }) {
     refetchInterval: 10_000,
   });
 
+  // Whether the compile pipeline (Inngest) is actually reachable. In local dev
+  // without INNGEST_EVENT_KEY, sendEvent() no-ops, so pending memos never move.
+  const { data: serviceStatus } = useQuery<CompileStatusResponse>({
+    queryKey: ["compile", "service-status"],
+    queryFn: fetchCompileServiceStatus,
+    staleTime: 60_000,
+  });
+  const serviceConnected = serviceStatus?.connected ?? true;
+
   const recompileMutation = useMutation({
     mutationFn: recompileMemo,
     onSuccess: () => {
@@ -229,6 +247,7 @@ export function CompileQueue({ initialMemos }: { initialMemos: Memo[] }) {
               key={memo.id}
               memo={memo}
               progress={progressMap.get(memo.id)}
+              serviceConnected={serviceConnected}
               onRetry={() => recompileMutation.mutate(memo.id)}
               isRetrying={
                 recompileMutation.isPending &&
@@ -255,6 +274,7 @@ export function CompileQueue({ initialMemos }: { initialMemos: Memo[] }) {
 function MemoRow({
   memo,
   progress,
+  serviceConnected,
   onRetry,
   isRetrying,
   onSwitchMode,
@@ -262,6 +282,7 @@ function MemoRow({
 }: {
   memo: Memo;
   progress: MemoProgress | undefined;
+  serviceConnected: boolean;
   onRetry: () => void;
   isRetrying: boolean;
   onSwitchMode: (mode: "light" | "full") => void;
@@ -281,11 +302,16 @@ function MemoRow({
   const isDone = status === "done";
   const isFailed = status === "failed";
   const isRunning = status === "running";
+  const isPending = status === "pending";
+  // In local dev without Inngest, a "pending" memo never actually moves — say so
+  // instead of showing a deceptive QUEUED badge.
+  const showDisconnected = isPending && !serviceConnected;
 
   const currentMode = memo.ingest_mode as "light" | "full";
   const nextMode: "light" | "full" = currentMode === "light" ? "full" : "light";
 
   const iconClass = isRunning ? "queue-item__icon is-fetching" : "queue-item__icon";
+  const showWarnIcon = isFailed || showDisconnected;
 
   return (
     <Link
@@ -303,7 +329,7 @@ function MemoRow({
       <div className={iconClass}>
         {isDone ? (
           <CheckCircle2 size={16} />
-        ) : isFailed ? (
+        ) : showWarnIcon ? (
           <AlertCircle size={16} />
         ) : (
           <Loader2
@@ -317,7 +343,7 @@ function MemoRow({
       <div className="queue-item__main">
         <div className="queue-item__title">
           {preview}
-          {status === "pending" && (
+          {isPending && !showDisconnected && (
             <span
               className="ds-mono-11"
               style={{
@@ -336,18 +362,26 @@ function MemoRow({
         </div>
         <div className="queue-item__sub">
           {memo.type} · {date}
+          {showDisconnected
+            ? " · 编译服务未连接（运行 pnpm run dev:inngest）"
+            : ""}
           {isFailed && errorMsg ? ` · ${errorMsg}` : ""}
           {isDone ? " · Compilation complete" : ""}
-          {!isDone && !isFailed && step ? ` · ${step}` : ""}
+          {!isDone && !isFailed && !showDisconnected && step ? ` · ${step}` : ""}
         </div>
       </div>
 
-      {/* Progress bar (always reserves the column; full=done, 0=failed) */}
-      <div className="queue-progress" aria-hidden={isDone || isFailed}>
+      {/* Progress bar (always reserves the column; full=done, 0=failed/disconnected) */}
+      <div className="queue-progress" aria-hidden={isDone || isFailed || showDisconnected}>
         <div
           className="queue-progress__bar"
           style={{
-            width: isDone ? "100%" : isFailed ? "0%" : `${progressPct ?? 0}%`,
+            width:
+              isDone
+                ? "100%"
+                : isFailed || showDisconnected
+                  ? "0%"
+                  : `${progressPct ?? 0}%`,
           }}
         />
       </div>

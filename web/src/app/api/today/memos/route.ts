@@ -36,6 +36,9 @@ export async function GET() {
       type: memos.type,
       body: memos.body,
       created_at: memos.created_at,
+      compile_status: memos.compile_status,
+      compile_step: memos.compile_step,
+      compile_error: memos.compile_error,
     })
     .from(memos)
     .where(
@@ -81,6 +84,9 @@ export async function GET() {
       body: m.body,
       created_at: m.created_at.toISOString(),
       photo_url: photoUrl,
+      compile_status: m.compile_status,
+      compile_step: m.compile_step,
+      compile_error: m.compile_error,
     };
   });
 
