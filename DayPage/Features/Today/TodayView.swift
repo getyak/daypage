@@ -704,7 +704,10 @@ struct TodayView: View {
                 .tracking(1.0)
 
             let glowBoost = min(Double(viewModel.signalCount), 5) * 0.04
-            DayOrbView(signalCount: viewModel.signalCount, size: 140, onTap: {
+            let signalCount = viewModel.signalCount
+            let orbValueKey = signalCount == 1 ? "today.orb.value.one" : "today.orb.value.other"
+            let orbValue = String(format: NSLocalizedString(orbValueKey, comment: ""), signalCount)
+            DayOrbView(signalCount: signalCount, size: 140, onTap: {
                 Haptics.tapConfirm()
                 orbFocusToggle.toggle()
             }, pulseToggle: orbCapturePulse)
@@ -717,6 +720,10 @@ struct TodayView: View {
                 reduceMotion ? nil : .easeInOut(duration: 3.0).repeatForever(autoreverses: true),
                 value: orbBreathing
             )
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(NSLocalizedString("today.orb.label", comment: ""))
+            .accessibilityValue(orbValue)
+            .accessibilityHint(NSLocalizedString("today.orb.hint", comment: ""))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
@@ -726,7 +733,7 @@ struct TodayView: View {
             }
         }
         .onChange(of: viewModel.memos.count) { count in
-            if count > lastMemoCount {
+            if count > lastMemoCount && !reduceMotion {
                 orbCapturePulse.toggle()
             }
         }

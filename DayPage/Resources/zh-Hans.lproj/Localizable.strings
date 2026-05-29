@@ -63,6 +63,12 @@
 "today.kicker.signal.one"    = "信号";
 "today.kicker.signal.other"  = "信号";
 
+/* Day Orb accessibility */
+"today.orb.label"            = "今日信号球";
+"today.orb.value.one"        = "已捕获 %d 条信号";
+"today.orb.value.other"      = "已捕获 %d 条信号";
+"today.orb.hint"             = "轻点两下开始新的记录";
+
 /* DailyPage swipe action */
 "today.action.recompile"     = "重新编译";
 
