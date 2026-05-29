@@ -163,7 +163,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 10,
-      "passes": false,
+      "passes": true,
       "notes": "web/ \u4efb\u52a1\u3002\u540e\u7aef ingest_sources + /api/ingest-sources \u5df2\u5c31\u7eea\uff08\u652f\u6301 telegram/email/rss/webhook/api_claude\uff09\uff0c\u53ea\u7f3a UI\u3002dev \u9a8c\u8bc1\uff1asettings \u65b0\u589e Sources \u533a\u3002"
     },
     {
