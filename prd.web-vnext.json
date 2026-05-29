@@ -32,7 +32,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 2,
-      "passes": false,
+      "passes": true,
       "notes": "web/ \u4efb\u52a1\u3002\u80cc\u666f\u89c1 web/CLAUDE.md:3\uff08dev sendEvent no-op\uff09\u3002dev \u9a8c\u8bc1\uff1adev login dev@daypage.local\uff0c\u8fdb /add \u770b CompileQueue\u3002"
     },
     {
