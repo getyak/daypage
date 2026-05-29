@@ -13,6 +13,7 @@ import { eq, and, gte, sql } from "drizzle-orm";
 import { llm, ProviderError } from "@/lib/ai";
 import { chunkText, averageEmbeddings, hashText } from "@/lib/ai/embed-utils";
 import { promoteBySourceCount } from "@/lib/pages/promote";
+import { dispatchPageWebhooks, type PageWebhookEvent } from "@/lib/webhooks/dispatch";
 import fs from "fs";
 import path from "path";
 
@@ -827,6 +828,9 @@ export const compileMemo = inngest.createFunction(
       // US-004: pages whose page_sources changed this run — candidates for promotion.
       const sourcedPageIds = new Set<string>();
 
+      // US-013: collect lifecycle events to push to webhook targets after commit.
+      const webhookEvents: PageWebhookEvent[] = [];
+
       // Helper: resolve a page_id reference (may be a recalled uuid or a new: slug)
       const resolvePageId = (ref: string): string | undefined => {
         if (ref.startsWith("new:")) {
@@ -881,6 +885,15 @@ export const compileMemo = inngest.createFunction(
             agent_action_id: memo_id,
           });
 
+          webhookEvents.push({
+            action_kind: "update_page",
+            target_type: "page",
+            target_id: op.page_id,
+            after: { title: op.title ?? before.title },
+            reason: op.rationale ?? null,
+            performed_by: "agent",
+          });
+
           // Link to memo via page_sources
           await db
             .insert(page_sources)
@@ -933,6 +946,15 @@ export const compileMemo = inngest.createFunction(
             reason: op.rationale ?? null,
             performed_by: "agent",
             agent_action_id: memo_id,
+          });
+
+          webhookEvents.push({
+            action_kind: op.op,
+            target_type: "page",
+            target_id: newPage.id,
+            after: { slug: op.slug, title: op.title, type: pageType },
+            reason: op.rationale ?? null,
+            performed_by: "agent",
           });
 
           await db
@@ -1001,7 +1023,11 @@ export const compileMemo = inngest.createFunction(
       }
 
       // US-004: promote any draft page now referenced by ≥2 sources → live.
+      // (promoteBySourceCount fires its own `promote_page` webhooks.)
       await promoteBySourceCount(user_id, Array.from(sourcedPageIds));
+
+      // US-013: push create/update lifecycle events to webhook targets.
+      await dispatchPageWebhooks(user_id, webhookEvents);
     });
 
     // ── notify ────────────────────────────────────────────────────────────────

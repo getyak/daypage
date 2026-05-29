@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { SettingsClient } from "./SettingsClient";
 import { ApiKeysSection } from "./ApiKeysSection";
 import { TelegramSection } from "./TelegramSection";
+import { WebhookSection } from "./WebhookSection";
 
 export const metadata = {
   title: "Settings · DayPage",
@@ -29,6 +30,7 @@ export default async function SettingsPage() {
       />
       <div className="page settings-page" style={{ paddingTop: 0 }}>
         <TelegramSection />
+        <WebhookSection />
         <ApiKeysSection />
       </div>
     </>

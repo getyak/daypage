@@ -13,6 +13,7 @@ import { eq, and, gte, sql } from "drizzle-orm";
 import { llm, ProviderError } from "@/lib/ai";
 import { chunkText, averageEmbeddings, hashText } from "@/lib/ai/embed-utils";
 import { promoteByWeave } from "@/lib/pages/promote";
+import { dispatchPageWebhooks, type PageWebhookEvent } from "@/lib/webhooks/dispatch";
 import {
   cosineSim,
   knnCluster,
@@ -338,6 +339,8 @@ export async function weaveGraphForUser(userId: string): Promise<{
   const domainsUpserted = new Set<string>();
   // US-004: synthesized concept/synthesis pages graduate draft → live.
   const synthesizedPageIds: string[] = [];
+  // US-013: lifecycle events to push to webhook targets after the run.
+  const webhookEvents: PageWebhookEvent[] = [];
 
   // Centroid of an item set, used to rank a cluster's sources by centrality.
   const centroidOf = (ids: string[]): number[] => {
@@ -458,6 +461,19 @@ export async function weaveGraphForUser(userId: string): Promise<{
       agent_action_id: "weave-graph",
     });
 
+    webhookEvents.push({
+      action_kind: "create_page",
+      target_type: "page",
+      target_id: conceptPage.id,
+      after: {
+        slug: conceptSlug,
+        title: synthesis.title,
+        type: synthesis.page_type,
+      },
+      reason: `Woven from ${sources.length} related source pages.`,
+      performed_by: "agent",
+    });
+
     // Link each source page → the synthesized concept page (backlink_count++).
     for (const src of sources) {
       const created = await createLink(
@@ -486,7 +502,11 @@ export async function weaveGraphForUser(userId: string): Promise<{
   }
 
   // US-004: a page synthesized by weave-graph graduates to `live`.
+  // (promoteByWeave fires its own `promote_page` webhooks.)
   const promoted = await promoteByWeave(userId, synthesizedPageIds);
+
+  // US-013: push the synthesized-page create events to webhook targets.
+  await dispatchPageWebhooks(userId, webhookEvents);
 
   console.log(
     `[weave-graph] user ${userId}: ${pagesSynthesized} page(s), ${entitiesExtracted} entit(y/ies), ${linksCreated} link(s), ${domainsUpserted.size} domain(s), ${promoted.length} promoted`

@@ -1,6 +1,7 @@
 import { db } from "@/lib/db/client";
 import { pages, page_sources, change_log } from "@/lib/db/schema";
 import { eq, and, inArray, sql } from "drizzle-orm";
+import { dispatchPageWebhooks } from "@/lib/webhooks/dispatch";
 
 // ─── US-004: page status machine — draft → live promotion ──────────────────────
 //
@@ -127,4 +128,18 @@ async function logPromotions(
   } catch (err) {
     console.warn(`[promote] logPromotions: non-fatal — ${String(err)}`);
   }
+
+  // Push the 晋升→live transition to any configured webhook targets.
+  await dispatchPageWebhooks(
+    userId,
+    pageIds.map((id) => ({
+      action_kind: "promote_page",
+      target_type: "page",
+      target_id: id,
+      before: { status: "draft" },
+      after: { status: "live" },
+      reason,
+      performed_by: "agent",
+    }))
+  );
 }
