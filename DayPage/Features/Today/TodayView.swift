@@ -67,6 +67,8 @@ struct TodayView: View {
 
     /// Toggled each time the Day Orb is tapped to focus the composer input.
     @State private var orbFocusToggle: Bool = false
+    /// Toggled each time a new memo is added while the orb hero is visible, triggering a capture-reward glow pulse.
+    @State private var orbCapturePulse: Bool = false
 
     /// US-019: controls the markdown export share sheet.
     @State private var showExportSheet: Bool = false
@@ -695,7 +697,7 @@ struct TodayView: View {
                 .tracking(1.0)
 
             let glowBoost = min(Double(viewModel.signalCount), 5) * 0.04
-            DayOrbView(signalCount: viewModel.signalCount, size: 140) {
+            DayOrbView(signalCount: viewModel.signalCount, size: 140, pulseToggle: orbCapturePulse) {
                 Haptics.tapConfirm()
                 orbFocusToggle.toggle()
             }
@@ -714,6 +716,11 @@ struct TodayView: View {
         .onAppear {
             if !reduceMotion {
                 orbBreathing = true
+            }
+        }
+        .onChange(of: viewModel.memos.count) { count in
+            if count > lastMemoCount {
+                orbCapturePulse.toggle()
             }
         }
     }
