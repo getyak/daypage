@@ -99,7 +99,7 @@
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
+      "passes": true,
       "notes": "web/ \u4efb\u52a1\u3002\u613f\u666f\u2463\uff0c\u5355\u70b9 ROI \u6700\u9ad8\u3002\u590d\u7528 web/src/app/api/keys\uff08api_keys \u5df2\u6709 scopes \u5b57\u6bb5\uff09\u3002MCP \u4ef7\u503c\u4e3b\u5f20\u4e0d\u8981\u505a\u6210\u591a provider \u62bd\u8c61\uff08\u7814\u7a76\u5df2\u8bc1\u4f2a\u8be5\u8def\u7ebf\uff09\u3002"
     },
     {
