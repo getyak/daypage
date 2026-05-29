@@ -5,6 +5,7 @@ import { eq, and, gte, count, sql } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { DomainClientView } from "./DomainClientView";
+import { RecompilePerspective } from "../../wiki/[...slug]/RecompilePerspective";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -432,15 +433,23 @@ function PageRow({
   typeColors: { bg: string; color: string };
 }) {
   return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        borderBottom: isLast ? "none" : "1px solid var(--accent-border)",
+      }}
+    >
     <Link
       href={`/wiki/${page.slug}`}
       style={{
+        flex: 1,
+        minWidth: 0,
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
         padding: "0.6875rem 1rem",
         textDecoration: "none",
-        borderBottom: isLast ? "none" : "1px solid var(--accent-border)",
         transition: "background 100ms",
       }}
       className="page-row-link"
@@ -497,5 +506,10 @@ function PageRow({
         </span>
       </div>
     </Link>
+      {/* US-030: per-page custom-perspective recompile entry */}
+      <div style={{ flexShrink: 0, paddingRight: "0.75rem" }}>
+        <RecompilePerspective pageSlug={page.slug} />
+      </div>
+    </div>
   );
 }

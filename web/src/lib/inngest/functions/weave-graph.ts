@@ -106,7 +106,8 @@ type Synthesis = {
 };
 
 function buildSynthesisPrompt(
-  sources: { title: string; body_md: string | null }[]
+  sources: { title: string; body_md: string | null }[],
+  perspectivePrompt?: string | null
 ): string {
   const list = sources
     .slice(0, 24)
@@ -116,7 +117,7 @@ function buildSynthesisPrompt(
     )
     .join("\n\n");
 
-  return `You are a knowledge weaver for a personal notes app. You are given a CLUSTER of related source/draft pages. Synthesize them into ONE higher-level page.
+  const base = `You are a knowledge weaver for a personal notes app. You are given a CLUSTER of related source/draft pages. Synthesize them into ONE higher-level page.
 
 Decide the page type:
 - "concept" — an evergreen idea/topic that ties these notes together.
@@ -129,6 +130,16 @@ ${list}
 
 Respond with JSON only:
 {"page_type":"concept","title":"...","body_md":"## ...\\n...","domain":"Domain Name","entities":["Entity A","Entity B"]}`;
+
+  // US-030: a custom perspective re-frames the same sources through the user's lens.
+  const p = perspectivePrompt?.trim();
+  if (!p) return base;
+  return `${base}
+
+## Custom perspective (highest priority)
+Synthesize the SAME sources through this perspective — let it shape the framing, emphasis, and voice of body_md, while still returning the exact JSON shape above and never inventing facts:
+
+"${p.slice(0, 800)}"`;
 }
 
 function parseSynthesis(raw: string): Synthesis {
@@ -273,7 +284,10 @@ async function upsertEntityPage(
 
 // ─── Per-user weave ─────────────────────────────────────────────────────────────
 
-export async function weaveGraphForUser(userId: string): Promise<{
+export async function weaveGraphForUser(
+  userId: string,
+  perspectivePrompt?: string | null
+): Promise<{
   user_id: string;
   clusters_found: number;
   pages_synthesized: number;
@@ -380,7 +394,8 @@ export async function weaveGraphForUser(userId: string): Promise<{
           {
             role: "user",
             content: buildSynthesisPrompt(
-              sources.map((s) => ({ title: s.title, body_md: s.body_md }))
+              sources.map((s) => ({ title: s.title, body_md: s.body_md })),
+              perspectivePrompt
             ),
           },
         ],
