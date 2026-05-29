@@ -1139,7 +1139,7 @@ struct TodayView: View {
                 if !viewModel.memos.isEmpty
                     && !viewModel.isDailyPageCompiled
                     && viewModel.memos.count < 3 {
-                    CompileUnlockCard()
+                    CompileUnlockCard(memoCount: viewModel.memos.count)
                         .padding(.horizontal, 20)
                         .padding(.top, 4)
                         .transition(.opacity)
