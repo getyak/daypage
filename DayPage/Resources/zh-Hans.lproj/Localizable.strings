@@ -48,6 +48,15 @@
 "undo_pill.label.send"       = "撤销发送";
 "undo_pill.label.delete"     = "已删除 · 撤销";
 
+/* Today header subline — note count */
+"today.subline.notes.zero"   = "%d 条记录";
+"today.subline.notes.one"    = "%d 条记录";
+"today.subline.notes.other"  = "%d 条记录";
+
+/* Today orb kicker — signal count */
+"today.kicker.signal.one"    = "信号";
+"today.kicker.signal.other"  = "信号";
+
 /* DailyPage swipe action */
 "today.action.recompile"     = "重新编译";
 
