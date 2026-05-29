@@ -53,6 +53,12 @@
 "today.subline.notes.one"    = "%d 条记录";
 "today.subline.notes.other"  = "%d 条记录";
 
+/* Today orb greeting — time-of-day serif greeting above kicker */
+"today.greeting.morning"     = "早上好。";
+"today.greeting.afternoon"   = "下午好。";
+"today.greeting.evening"     = "晚上好。";
+"today.greeting.latenight"   = "还没睡？";
+
 /* Today orb kicker — signal count */
 "today.kicker.signal.one"    = "信号";
 "today.kicker.signal.other"  = "信号";
