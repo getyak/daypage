@@ -1060,7 +1060,7 @@ struct TodayView: View {
                 if viewModel.memos.isEmpty && viewModel.loadState == .ready {
                     let hasOnboarded = UserDefaults.standard.bool(forKey: AppSettings.Keys.hasOnboarded)
                     if !hasOnboarded {
-                        EmptyStateView.todayBlank { }
+                        EmptyStateView.todayBlank { orbFocusToggle.toggle() }
                             .padding(.top, 48)
                             .padding(.horizontal, 20)
                     } else {
