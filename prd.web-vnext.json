@@ -83,7 +83,7 @@
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
+      "passes": true,
       "notes": "web/ \u4efb\u52a1\u3002P0 \u6536\u5c3e\u3002\u6ce8\u610f rag.ts \u73b0\u6709\u6ce8\u91ca\u81ea\u627f pgvector pending\uff0c\u9700\u5148\u786e\u8ba4 migration \u72b6\u6001\u3002"
     },
     {
