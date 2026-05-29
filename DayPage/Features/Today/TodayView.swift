@@ -92,6 +92,10 @@ struct TodayView: View {
     /// Drives the one-shot amber glow + scale reveal on the daily page card after compilation.
     @State private var compileRevealGlow: Bool = false
 
+    /// Scroll proxy captured from the timeline ScrollViewReader; used by composeSection
+    /// to scroll to the top anchor after a new memo is added.
+    @State private var timelineScrollProxy: ScrollViewProxy? = nil
+
     // US-005: Tracks timeline scroll offset to activate the glass header bar.
     // Becomes negative as the user scrolls down; < -8 triggers the frosted glass.
     @State private var timelineScrollOffset: CGFloat = 0
@@ -1007,6 +1011,7 @@ struct TodayView: View {
     /// Scrollable timeline: daily page card, skeleton, memo cards, history supplement.
     @ViewBuilder
     private var timelineSection: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             // US-005: Offset tracker — reads the scroll position relative to the
             // named coordinate space so the header bar can go glassy on scroll.
@@ -1020,6 +1025,9 @@ struct TodayView: View {
             .frame(height: 0)
 
             LazyVStack(spacing: 8) {
+                // Invisible anchor: scrollTo("timelineTop") brings the list to the very top.
+                Color.clear.frame(height: 0).id("timelineTop")
+
                 // Museum-aesthetic "AI · 今日一句" — restrained one-liner pinned
                 // at the very top once the day has a compiled summary.
                 if let summary = viewModel.dailyPageSummary,
@@ -1166,6 +1174,8 @@ struct TodayView: View {
             timelineScrollOffset = value
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear { timelineScrollProxy = proxy }
+        } // end ScrollViewReader
     }
 
     /// Compose area: compile progress dock / compile button + input bar.
@@ -1222,6 +1232,12 @@ struct TodayView: View {
                 Haptics.rigid(intensity: 0.3 + 0.25 * Double(count))
             } else if count < 3 {
                 didCelebrateUnlock = false
+            }
+            // Scroll to top on additions only, not deletions.
+            if count > lastMemoCount, let proxy = timelineScrollProxy {
+                withAnimation(reduceMotion ? nil : Motion.spring) {
+                    proxy.scrollTo("timelineTop", anchor: .top)
+                }
             }
             lastMemoCount = count
         }
