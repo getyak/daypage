@@ -8,6 +8,7 @@ import { BookOpen } from "lucide-react";
 import { Btn } from "@/components/ui";
 import { WikiNav, type WikiPage } from "./WikiNav";
 import { WikiPageShell } from "./WikiPageShell";
+import { WikiLanding } from "./WikiLanding";
 
 async function resolveUserId(email: string): Promise<string | null> {
   const rows = await db
@@ -107,63 +108,50 @@ export default async function WikiPage({
   return (
     <WikiPageShell
       nav={<WikiNav initialPages={livePages} draftPages={draftSources} />}
-      main={<WikiMainContent hasPages={hasAnyPages} />}
+      main={
+        hasAnyPages ? (
+          // US-051: lead with the live knowledge network + graph entry point.
+          <WikiLanding livePages={livePages} />
+        ) : (
+          <WikiEmptyState />
+        )
+      }
     />
   );
 }
 
-function WikiMainContent({ hasPages }: { hasPages: boolean }) {
-  if (!hasPages) {
-    return (
-      <div
-        className="empty-card"
-        style={{
-          padding: "48px 32px",
-          maxWidth: 560,
-          margin: "80px auto 0",
-        }}
-      >
-        <BookOpen size={24} className="empty-card__icon" />
-        <div className="empty-card__title" style={{ fontSize: 16 }}>
-          Your wiki hasn&apos;t been compiled yet
-        </div>
-        <div className="empty-card__hint">
-          I&apos;ll build pages from your memos as you add them. Drop a thought,
-          paste a link, or voice a note — I&apos;ll surface concepts and entities
-          here.
-        </div>
-        <div className="flex gap-12" style={{ marginTop: 16 }}>
-          <Link href="/add">
-            <Btn kind="primary" size="sm">
-              Add your first memo
-            </Btn>
-          </Link>
-          <Link href="/chat">
-            <Btn kind="ghost" size="sm">
-              Ask me to draft
-            </Btn>
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
+// Cold start: no live pages and no draft sources yet.
+function WikiEmptyState() {
   return (
     <div
+      className="empty-card"
       style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "3rem 2rem",
-        textAlign: "center",
-        gap: "0.5rem",
-        minHeight: "60vh",
+        padding: "48px 32px",
+        maxWidth: 560,
+        margin: "80px auto 0",
       }}
     >
-      <p className="ds-body-md" style={{ color: "var(--fg-subtle)" }}>
-        Pick a page from the left, or search.
-      </p>
+      <BookOpen size={24} className="empty-card__icon" />
+      <div className="empty-card__title" style={{ fontSize: 16 }}>
+        Your wiki hasn&apos;t been compiled yet
+      </div>
+      <div className="empty-card__hint">
+        I&apos;ll build pages from your memos as you add them. Drop a thought,
+        paste a link, or voice a note — I&apos;ll surface concepts and entities
+        here.
+      </div>
+      <div className="flex gap-12" style={{ marginTop: 16 }}>
+        <Link href="/add">
+          <Btn kind="primary" size="sm">
+            Add your first memo
+          </Btn>
+        </Link>
+        <Link href="/chat">
+          <Btn kind="ghost" size="sm">
+            Ask me to draft
+          </Btn>
+        </Link>
+      </div>
     </div>
   );
 }
