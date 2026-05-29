@@ -1,0 +1,323 @@
+{
+  "project": "DayPage Web",
+  "branchName": "ralph/daypage-web-vnext",
+  "description": "DayPage Web vNext — 让'编译成网'真正发生（解冷启动死锁），并兑现愿景四段：多源采集、对外 AI/agent 接入点(MCP)、基于 wiki 的定制化创作、差异化护城河(时序/分析型图谱)。源 PRD：tasks/prd-daypage-web-vnext.md。所有 story 均为 web/ (Next.js)，构建用 cd web && (pnpm|npm) run build；dev 需同时跑 npm run dev 与 npm run dev:inngest，否则编译管线静默 no-op。",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "给所有 page 写 embedding（解开冷启动死锁）",
+      "description": "As a system, I want to embed every created/updated page during compile so FULL-mode recall is no longer always empty.",
+      "acceptanceCriteria": [
+        "在 web/src/lib/inngest/functions/compile-memo.ts 的 apply 阶段（LIGHT 与 FULL 两条路径）对新建/更新 page 的 body_md 调 llm.embed() 并写入 pages.embedding",
+        "复用 embed_cache（body_hash + TTL）避免对相同内容重复 embed",
+        "跑一批 memo 后，pages 表中至少一个 page 的 embedding IS NOT NULL",
+        "后续 FULL 编译的 recall 步骤能返回 >0 个候选页（compile-memo 日志可见 'recall: found N candidate pages' 且 N>0）",
+        "cd web && npm run build 通过",
+        "Typecheck passes"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "web/ 任务。这是 P0 的钥匙，必须先于 US-003。根因：LIGHT 模式建的 source 页无 embedding 且为 draft，导致 FULL recall 永远为空。"
+    },
+    {
+      "id": "US-002",
+      "title": "编译状态机可观测 + 重试入口",
+      "description": "As a user, I want to see each memo's compile progress and failure reason and retry it, so nothing silently disappears.",
+      "acceptanceCriteria": [
+        "memo 卡片（/add 的 CompileQueue 与 today/MemoCard）显示状态：queued / running(显示 compile_step) / done / failed，复用已有 memos.compile_step 字段",
+        "failed 状态显示 memos.compile_error 文本并提供'重试'按钮，点击调用 /api/memos/[id]/recompile",
+        "dev 下 sendEvent 为 no-op 时（无 INNGEST_EVENT_KEY），UI 显示明确提示文案'编译服务未连接（运行 npm run dev:inngest）'，不再显示假 QUEUED",
+        "cd web && npm run build 通过",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "web/ 任务。背景见 web/CLAUDE.md:3（dev sendEvent no-op）。dev 验证：dev login dev@daypage.local，进 /add 看 CompileQueue。"
+    },
+    {
+      "id": "US-003",
+      "title": "新增 weave-graph 周期性图谱构建管线",
+      "description": "As a system, I want a dedicated pipeline that clusters source pages into concept/synthesis pages and builds links, instead of relying on per-memo increments.",
+      "acceptanceCriteria": [
+        "新增 Inngest 函数 web/src/lib/inngest/functions/weave-graph.ts，注册到 web/src/app/api/inngest/route.ts，cron + 每 N 条 memo 触发",
+        "复用 schema-detect.ts 的 cosineSim 与聚类常量（MIN_CLUSTER_SIZE / CLUSTER_SIMILARITY_THRESHOLD）对 source/draft 页做向量聚类",
+        "每个簇调 LLM 综合出一个 type=concept 或 synthesis 的 page",
+        "跨页抽取 entity → 建 type=entity page，并写 page_links（更新目标页 backlink_count）",
+        "自动建议并 upsert domains 表记录",
+        "本地跑通一批含 embedding 的 page 后，domains 表行数 > 0 且存在 backlink_count > 0 的 page",
+        "cd web && npm run build 通过",
+        "Typecheck passes"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "web/ 任务。依赖 US-001（page 需有 embedding 才能聚类）。这是真正让 wiki 从'剪报堆'变'知识网络'的一步。"
+    },
+    {
+      "id": "US-004",
+      "title": "page 状态机 draft → live + 晋升规则",
+      "description": "As a user, I want the wiki to show the formed knowledge network by default, not a pile of drafts.",
+      "acceptanceCriteria": [
+        "实现晋升规则：page 被 ≥2 个 page_sources 引用 或 被 weave-graph 综合过 → status 置为 'live'",
+        "/wiki 列表默认只查询 status='live' 的页",
+        "draft 的 source 页收进侧栏'待编织/原料'分区，可切换查看",
+        "cd web && npm run build 通过",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "web/ 任务。依赖 US-003。dev 验证：/wiki 默认只见 live 页。"
+    },
+    {
+      "id": "US-005",
+      "title": "RAG 走原生 pgvector HNSW",
+      "description": "As a system, I want vector retrieval to use native pgvector HNSW instead of full-table scan + JS cosine.",
+      "acceptanceCriteria": [
+        "核实 migration 0006_pgvector_hnsw.sql 是否已应用；确认 pages.embedding 与 memos.embedding 以 vector(1536) 存储",
+        "web/src/lib/ai/rag.ts 的 retrievePages 改用 SQL 'ORDER BY embedding <=> $1::vector LIMIT k' 走 HNSW",
+        "compile-memo.ts 的 recall 步骤同样改用原生向量查询",
+        "移除两处 JS 端全表 cosineSim 路径",
+        "现有 RAG 与编译相关测试通过（cd web && npm run test 或 vitest 范围内）",
+        "cd web && npm run build 通过",
+        "Typecheck passes"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "web/ 任务。P0 收尾。注意 rag.ts 现有注释自承 pgvector pending，需先确认 migration 状态。"
+    },
+    {
+      "id": "US-010",
+      "title": "DayPage MCP Server（只读检索）",
+      "description": "As a user, I want to search my DayPage wiki from Claude/Cursor so external agents use my knowledge as context.",
+      "acceptanceCriteria": [
+        "实现 MCP server，工具：search_wiki(query)（复用 rag.ts retrievePages）、get_page(slug)、list_domains",
+        "鉴权复用 api_keys + scopes，要求 read scope；无效 key 拒绝",
+        "可在 Claude Desktop 配置该 MCP 并成功检索到真实 wiki 内容",
+        "search_wiki 返回结果含来源 slug 可链回 DayPage",
+        "cd web && npm run build 通过",
+        "Typecheck passes"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "web/ 任务。愿景④，单点 ROI 最高。复用 web/src/app/api/keys（api_keys 已有 scopes 字段）。MCP 价值主张不要做成多 provider 抽象（研究已证伪该路线）。"
+    },
+    {
+      "id": "US-011",
+      "title": "MCP 写回工具 add_memo",
+      "description": "As a user, I want to save content back to DayPage from within an external agent conversation.",
+      "acceptanceCriteria": [
+        "MCP 工具 add_memo(text)，鉴权要求 write scope",
+        "写入后触发正常编译管线（发 memo/created 事件）",
+        "缺 write scope 时明确拒绝并返回清晰错误",
+        "cd web && npm run build 通过",
+        "Typecheck passes"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "web/ 任务。依赖 US-010 的 MCP server 框架与鉴权。"
+    },
+    {
+      "id": "US-012",
+      "title": "对外检索 API（key-auth /api/v1 命名空间）",
+      "description": "As a developer, I want to query the wiki programmatically with an API key, separate from the internal session-auth API.",
+      "acceptanceCriteria": [
+        "新增 GET /api/v1/search?q= 与 GET /api/v1/pages/:slug，使用 Bearer api_key 鉴权",
+        "scopes 控权；无效 key 返回 401，越权返回 403",
+        "成功命中时更新 api_keys.last_used_at",
+        "新增对应路由测试（参考 web/src/app/api/**/__tests__）",
+        "cd web && npm run build 通过",
+        "Typecheck passes",
+        "Tests pass"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "web/ 任务。与现有 session-auth 的 /api/pages 隔离，单独 key 中间件。"
+    },
+    {
+      "id": "US-013",
+      "title": "出站 webhook（wiki 更新通知外部 agent）",
+      "description": "As a user, I want page changes to push events so my external agent workflows can react.",
+      "acceptanceCriteria": [
+        "page create/update/晋升 live 时，向用户配置的 webhook URL 推送事件，事件源复用 change_log",
+        "推送 payload 含签名（基于用户配置的 secret）供接收方验签",
+        "settings 提供 webhook URL 与 secret 的配置 UI（落 ingest_sources 或新表，secret 经 secret-crypto 加密）",
+        "cd web && npm run build 通过",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "web/ 任务。dev 验证：settings 能配置 webhook。"
+    },
+    {
+      "id": "US-020",
+      "title": "暴露已就绪的 connector 配置 UI（email/rss/webhook）",
+      "description": "As a user, I want to configure email/rss/webhook inbound sources in settings so data flows in passively.",
+      "acceptanceCriteria": [
+        "settings 新增 'Sources' 区，支持 email（展示个人转发地址）、rss（feed URL 列表增删）、webhook（生成入站 URL + secret）",
+        "配置写入 ingest_sources（config 经 secret-crypto 加密，复用现有 /api/ingest-sources）",
+        "新增一个 rss feed 后，fetch-rss.ts 能拉取并产生 memo（手动触发或 cron）",
+        "cd web && npm run build 通过",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "web/ 任务。后端 ingest_sources + /api/ingest-sources 已就绪（支持 telegram/email/rss/webhook/api_claude），只缺 UI。dev 验证：settings 新增 Sources 区。"
+    },
+    {
+      "id": "US-021",
+      "title": "浏览器剪藏（Bookmarklet 增强）",
+      "description": "As a user, I want one-click clipping of web pages/articles into DayPage to close the capture-breadth gap.",
+      "acceptanceCriteria": [
+        "提供 bookmarklet 或扩展入口，把当前网页 URL + 选中正文 POST 到 /api/ingest（key-auth）",
+        "剪藏内容进入正常编译管线（产生 memo 并编译）",
+        "支持只剪藏选中文本片段（非整页）",
+        "cd web && npm run build 通过",
+        "Typecheck passes"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "web/ 任务。竞品(Mem/Recall)验证过的最常见采集广度短板。复用 /api/ingest。"
+    },
+    {
+      "id": "US-022",
+      "title": "connector 声明 default_ingest_mode",
+      "description": "As a system, I want each source to declare its default compile tier so high-value sources are not under-processed.",
+      "acceptanceCriteria": [
+        "ingest_sources 增加 default_ingest_mode 字段（light|full，生成并应用 migration）",
+        "来自该源的 memo 默认采用其声明档位（如 Readwise→full、RSS→light）",
+        "cd web && npm run build 通过",
+        "Typecheck passes"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "web/ 任务。schema 改动 + ingest 入口读取。"
+    },
+    {
+      "id": "US-030",
+      "title": "自定义编译视角（MVP）",
+      "description": "As a user, I want to re-compile a domain/time-range with a custom perspective prompt.",
+      "acceptanceCriteria": [
+        "daily-page.ts 与 weave-graph 接受可选 perspective_prompt，注入 compile prompt",
+        "domain 页 / wiki 页提供'重新编译（自定义视角）'入口与输入框",
+        "重编结果可见且与默认视角产物有可观察差异",
+        "cd web && npm run build 通过",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "web/ 任务。愿景③ MVP。依赖 US-003(weave-graph)。dev 验证：domain 页触发自定义视角重编。"
+    },
+    {
+      "id": "US-031",
+      "title": "基于 wiki 的可配置 agent",
+      "description": "As a user, I want to define agents grounded in my wiki (e.g. 'writing coach') with a selectable model.",
+      "acceptanceCriteria": [
+        "用户可创建 agent：名称 + persona prompt + 选用模型 + 关联 domain/检索范围",
+        "agent 对话经 RAG（rag.ts）召回用户 wiki 作为上下文，回答引用真实内容",
+        "agent 配置持久化（新 agents 表或 users.settings，生成并应用 migration）",
+        "agent 检索层与 MCP（US-010）复用同一 rag.ts retrievePages",
+        "cd web && npm run build 通过",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "web/ 任务。愿景③/④。对标 Khoj agents。依赖 US-010 检索层。dev 验证：创建 agent 并对话。"
+    },
+    {
+      "id": "US-032",
+      "title": "知识助手 persona（贯穿 chat 与 compile）",
+      "description": "As a user, I want to set 'who my knowledge assistant is' so tone/perspective carries across chat and compile.",
+      "acceptanceCriteria": [
+        "settings 新增 persona prompt 配置项（落 users.settings）",
+        "persona 注入 /chat 与编译 prompt",
+        "cd web && npm run build 通过",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "web/ 任务。dev 验证：settings 配置 persona，chat 体现语气。"
+    },
+    {
+      "id": "US-040",
+      "title": "时序知识图谱查询（演变 / as-of 某日）",
+      "description": "As a user, I want to query how my thinking on X evolved, leveraging DayPage's day-stamped data.",
+      "acceptanceCriteria": [
+        "page_links 与 page 版本记录带时间维度，支持按日期窗口查询（事实失效而非物理删除）",
+        "提供'某概念随时间演变'的视图或 chat 查询能力",
+        "验证：同一 entity 在不同月份的 memo 呈现演变序列而非被覆盖",
+        "cd web && npm run build 通过",
+        "Typecheck passes"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "web/ 任务。差异化护城河。对标 Graphiti/Zep(arxiv 2501.13956) validity-window 模型；DayPage 数据天然 day-stamped。"
+    },
+    {
+      "id": "US-041",
+      "title": "分析型图谱：结构性 gap 检测 + 反思提示",
+      "description": "As a user, I want the system to surface 'you wrote about A and B for weeks but never connected them — here's a bridging question'.",
+      "acceptanceCriteria": [
+        "对知识图谱跑社区检测 + 结构性 gap 分析，识别'应连未连'的簇对",
+        "对检测到的 gap 用 LLM 生成跨 gap 的反思问题/想法，写入 inbox_items（复用或新增 kind）",
+        "用户可在 /inbox 看到该提示并采纳或忽略",
+        "cd web && npm run build 通过",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "web/ 任务。对标 InfraNodus。把图从可视化变洞察引擎。依赖 US-003 的图谱。dev 验证：/inbox 出现 gap 提示。"
+    },
+    {
+      "id": "US-050",
+      "title": "/today 移动流定位收敛",
+      "description": "As product, web is a desktop knowledge workstation, so remove the /today mobile-flow vs desktop-capture overlap.",
+      "acceptanceCriteria": [
+        "/today 收敛为纯移动响应式 或 下线；桌面捕获统一走 /add",
+        "桌面浏览器（≥1024px）不再渲染 280pt drawer / ComposerPill 错位布局",
+        "cd web && npm run build 通过",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "web/ 任务。dev 验证：桌面尺寸下 /today 不再错位。"
+    },
+    {
+      "id": "US-051",
+      "title": "/wiki 信息架构重整",
+      "description": "As a user, I want the wiki landing to show the knowledge network first, with raw drafts secondary.",
+      "acceptanceCriteria": [
+        "/wiki 首屏默认展示 live concept/entity + 图谱入口",
+        "draft source 页收进侧栏'原料'区，可切换查看",
+        "cd web && npm run build 通过",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": "web/ 任务。依赖 US-004(draft→live)。dev 验证：/wiki 首屏以网络为主。"
+    },
+    {
+      "id": "US-052",
+      "title": "home 空状态引导",
+      "description": "As a new user, I want guidance when domains/backlinks are 0, instead of cold zeros.",
+      "acceptanceCriteria": [
+        "home 在无网络（domains=0 且 backlinks=0）时显示引导文案：'添加 N 条后我会自动编织出你的第一个知识网络'",
+        "引导含明确下一步 CTA（添加来源 / 剪藏）",
+        "cd web && npm run build 通过",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": "web/ 任务。dev 验证：新账号 home 显示引导而非 0。"
+    }
+  ]
+}
