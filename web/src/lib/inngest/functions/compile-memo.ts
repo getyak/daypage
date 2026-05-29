@@ -12,6 +12,7 @@ import {
 import { eq, and, gte, sql } from "drizzle-orm";
 import { llm, ProviderError } from "@/lib/ai";
 import { chunkText, averageEmbeddings, hashText } from "@/lib/ai/embed-utils";
+import { getAssistantPersona, personaPreamble } from "@/lib/ai/persona";
 import { promoteBySourceCount } from "@/lib/pages/promote";
 import { dispatchPageWebhooks, type PageWebhookEvent } from "@/lib/webhooks/dispatch";
 import fs from "fs";
@@ -557,7 +558,12 @@ export const compileMemo = inngest.createFunction(
         return null;
       }
 
+      // US-032: inject the user's knowledge-assistant persona so the compiled
+      // diary/wiki carries the same tone/perspective as /chat. The JSON-only
+      // contract is preserved after the persona preamble.
+      const persona = await getAssistantPersona(memo.user_id);
       const systemPrompt =
+        personaPreamble(persona) +
         "You are a personal knowledge assistant. Always respond with valid JSON only. No prose, no markdown outside the JSON object.";
 
       // ── LIGHT mode ──────────────────────────────────────────────────────────
