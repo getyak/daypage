@@ -36,7 +36,9 @@ type RouteContext = { params: Promise<{ id: string }> };
 // POST /api/inbox/:id/resolve
 // Marks item resolved and optionally executes an action side-effect.
 // Supported actions: keep_both, use_new, keep_mine, cold_archive, keep,
-//   create_domain, not_yet, view_changes, dismiss (generic)
+//   create_domain, not_yet, view_changes, reflect, ignore, dismiss (generic)
+// gap items (US-041) use reflect/ignore — no side-effect, the action is just
+// recorded in `resolution` and the item is marked resolved.
 export async function POST(req: NextRequest, ctx: RouteContext) {
   const session = await auth();
   if (!session?.user?.email) return unauthorized();

@@ -134,6 +134,13 @@
       "when": 1779955275337,
       "tag": "0017_us040_temporal_page_links",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1779955275338,
+      "tag": "0018_us041_inbox_gap_kind",
+      "breakpoints": true
     }
   ]
 }

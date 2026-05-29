@@ -5,7 +5,7 @@ import { eq, and, sql } from "drizzle-orm";
 import type { InboxItem } from "@/lib/db/schema";
 import { InboxClient } from "./InboxClient";
 
-type Kind = "contradiction" | "schema" | "orphan" | "compiled";
+type Kind = "contradiction" | "schema" | "orphan" | "compiled" | "gap";
 
 async function resolveUserId(email: string): Promise<string | null> {
   const rows = await db
@@ -50,6 +50,7 @@ async function fetchInboxData(userId: string): Promise<{
       schema: 0,
       orphan: 0,
       compiled: 0,
+      gap: 0,
     };
     for (const row of kindCounts) {
       counts[row.kind as Kind] = row.count;
@@ -60,7 +61,7 @@ async function fetchInboxData(userId: string): Promise<{
   } catch {
     return {
       items: [],
-      counts: { all: 0, contradiction: 0, schema: 0, orphan: 0, compiled: 0 },
+      counts: { all: 0, contradiction: 0, schema: 0, orphan: 0, compiled: 0, gap: 0 },
     };
   }
 }
@@ -75,6 +76,7 @@ export default async function InboxPage() {
     schema: 0,
     orphan: 0,
     compiled: 0,
+    gap: 0,
   };
 
   if (session?.user?.email) {

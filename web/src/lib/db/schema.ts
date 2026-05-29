@@ -326,6 +326,10 @@ export const inboxItemKindEnum = pgEnum("inbox_item_kind", [
   "schema",
   "orphan",
   "compiled",
+  // US-041: structural gap — two clusters in the knowledge graph that the user
+  // has written about for weeks but never connected. Payload carries the two
+  // cluster summaries and an LLM-generated bridging question.
+  "gap",
 ]);
 
 export const inboxItemStatusEnum = pgEnum("inbox_item_status", [

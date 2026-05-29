@@ -23,7 +23,9 @@ async function resolveUserId(email: string): Promise<string | null> {
 }
 
 const ListInboxQuerySchema = z.object({
-  kind: z.enum(["contradiction", "schema", "orphan", "compiled"]).optional(),
+  kind: z
+    .enum(["contradiction", "schema", "orphan", "compiled", "gap"])
+    .optional(),
   status: z
     .enum(["open", "resolved", "dismissed", "snoozed"])
     .optional()

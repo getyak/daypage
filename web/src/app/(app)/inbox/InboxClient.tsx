@@ -7,7 +7,7 @@ import { Inbox } from "lucide-react";
 import { Btn } from "@/components/ui";
 import type { InboxItem } from "@/lib/db/schema";
 
-type Kind = "contradiction" | "schema" | "orphan" | "compiled";
+type Kind = "contradiction" | "schema" | "orphan" | "compiled" | "gap";
 
 interface InboxClientProps {
   items: InboxItem[];
@@ -19,6 +19,7 @@ const KIND_CHIPS: { key: Kind | "all"; label: string }[] = [
   { key: "contradiction", label: "Contradictions" },
   { key: "schema", label: "Schema" },
   { key: "orphan", label: "Orphans" },
+  { key: "gap", label: "Gaps" },
   { key: "compiled", label: "Compiled" },
 ];
 
@@ -39,6 +40,7 @@ function KindChip({ kind }: { kind: Kind }) {
     schema: { label: "Schema", cls: "chip chip--accent" },
     orphan: { label: "Orphan", cls: "chip chip--warning" },
     compiled: { label: "Compiled", cls: "chip chip--success" },
+    gap: { label: "Gap", cls: "chip chip--accent" },
   };
   const { label, cls } = map[kind];
   return <span className={cls}>{label}</span>;
@@ -63,6 +65,18 @@ interface OrphanPayload {
   page_id?: string;
   page_title?: string;
   days_idle?: number;
+}
+
+interface GapClusterPayload {
+  page_ids?: string[];
+  titles?: string[];
+}
+
+interface GapPayload {
+  question?: string;
+  similarity?: number;
+  cluster_a?: GapClusterPayload;
+  cluster_b?: GapClusterPayload;
 }
 
 // ─── Action helpers ────────────────────────────────────────────────────────────
@@ -443,6 +457,128 @@ function OrphanCard({
   );
 }
 
+function ClusterPills({ titles }: { titles?: string[] }) {
+  if (!titles || titles.length === 0) return <span style={{ color: "var(--fg-subtle)" }}>—</span>;
+  const shown = titles.slice(0, 4);
+  const extra = titles.length - shown.length;
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem" }}>
+      {shown.map((t, i) => (
+        <span key={i} className="chip chip--default" style={{ fontSize: "0.6875rem" }}>
+          {t}
+        </span>
+      ))}
+      {extra > 0 && (
+        <span className="ds-mono-11" style={{ color: "var(--fg-subtle)", alignSelf: "center" }}>
+          +{extra} more
+        </span>
+      )}
+    </div>
+  );
+}
+
+function GapCard({
+  item,
+  onAction,
+}: {
+  item: InboxItem;
+  onAction: (id: string) => void;
+}) {
+  const payload = (item.payload ?? {}) as GapPayload;
+  const [busy, setBusy] = useState(false);
+
+  const resolve = useCallback(
+    async (action: string) => {
+      if (busy) return;
+      setBusy(true);
+      const ok = await postAction(item.id, "resolve", { action });
+      setBusy(false);
+      if (ok) onAction(item.id);
+    },
+    [busy, item.id, onAction]
+  );
+
+  return (
+    <div className="card inbox-card">
+      <div className="inbox-card__head">
+        <KindChip kind="gap" />
+        <span className="inbox-card__time">{formatRelative(item.created_at)}</span>
+        <SnoozeMenu itemId={item.id} onAction={onAction} />
+      </div>
+      <div className="inbox-card__title">{item.title}</div>
+      {item.body && <div className="inbox-card__body">{item.body}</div>}
+
+      {/* Two unconnected clusters */}
+      {(payload.cluster_a || payload.cluster_b) && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "stretch",
+            gap: "0.5rem",
+            marginTop: "0.75rem",
+          }}
+        >
+          <div
+            style={{
+              flex: 1,
+              padding: "0.625rem",
+              background: "var(--surface-sunken)",
+              borderRadius: "var(--radius-sm)",
+            }}
+          >
+            <div className="ds-mono-11" style={{ color: "var(--fg-subtle)", marginBottom: "0.375rem" }}>
+              Cluster A
+            </div>
+            <ClusterPills titles={payload.cluster_a?.titles} />
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              color: "var(--accent)",
+              fontWeight: 700,
+              fontSize: "1.125rem",
+            }}
+            aria-hidden
+          >
+            ⇄
+          </div>
+          <div
+            style={{
+              flex: 1,
+              padding: "0.625rem",
+              background: "var(--surface-sunken)",
+              borderRadius: "var(--radius-sm)",
+            }}
+          >
+            <div className="ds-mono-11" style={{ color: "var(--fg-subtle)", marginBottom: "0.375rem" }}>
+              Cluster B
+            </div>
+            <ClusterPills titles={payload.cluster_b?.titles} />
+          </div>
+        </div>
+      )}
+
+      <div
+        className="inbox-card__actions"
+        aria-busy={busy}
+        style={busy ? { opacity: 0.5, cursor: "not-allowed", pointerEvents: "none" } : undefined}
+      >
+        <button
+          className="btn btn--primary btn--sm"
+          disabled={busy}
+          onClick={() => resolve("reflect")}
+        >
+          Reflect on this
+        </button>
+        <button className="btn btn--ghost btn--sm" disabled={busy} onClick={() => resolve("ignore")}>
+          Ignore
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function CompiledCard({
   item,
   onAction,
@@ -502,6 +638,8 @@ function InboxCard({
       return <SchemaCard item={item} onAction={onAction} />;
     case "orphan":
       return <OrphanCard item={item} onAction={onAction} />;
+    case "gap":
+      return <GapCard item={item} onAction={onAction} />;
     case "compiled":
       return <CompiledCard item={item} onAction={onAction} />;
     default:
