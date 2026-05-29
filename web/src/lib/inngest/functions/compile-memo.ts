@@ -9,7 +9,7 @@ import {
   change_log,
   inbox_items,
 } from "@/lib/db/schema";
-import { eq, and, gte, ne, sql } from "drizzle-orm";
+import { eq, and, gte, sql } from "drizzle-orm";
 import { llm, ProviderError } from "@/lib/ai";
 import { chunkText, averageEmbeddings, hashText } from "@/lib/ai/embed-utils";
 import { promoteBySourceCount } from "@/lib/pages/promote";
@@ -81,7 +81,6 @@ type RecalledPage = {
   title: string;
   type: string;
   body_md: string | null;
-  embedding: string | null;
 };
 
 type FullOperation =
@@ -150,20 +149,6 @@ function parseFullResult(raw: string): FullCompileResult {
   }
 
   return { operations: parsed.operations as FullOperation[] };
-}
-
-// Cosine similarity between two number[] vectors
-function cosineSim(a: number[], b: number[]): number {
-  let dot = 0;
-  let normA = 0;
-  let normB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
-  }
-  const denom = Math.sqrt(normA) * Math.sqrt(normB);
-  return denom === 0 ? 0 : dot / denom;
 }
 
 // ─── Conflict check types ─────────────────────────────────────────────────────
@@ -396,6 +381,8 @@ export const compileMemo = inngest.createFunction(
 
     // ── recall ────────────────────────────────────────────────────────────────
     // Returns top-K pages by cosine similarity to memo.embedding (FULL mode only).
+    // Uses native pgvector ANN (ORDER BY embedding <=> $memo::vector LIMIT K) via
+    // the HNSW index (0006_pgvector_hnsw.sql) — no JS-side full-table cosine.
     // Stored in step result so compile step can use them without re-querying.
     const recalledPages = await step.run("recall", async () => {
       console.log(`[compile-memo] recall: memo ${memo_id}`);
@@ -420,48 +407,35 @@ export const compileMemo = inngest.createFunction(
         return [] as RecalledPage[];
       }
 
-      const memoVec: number[] = memo.embedding;
+      const memoLiteral = `[${memo.embedding.join(",")}]`;
 
-      // Fetch all live pages for this user that have embeddings
-      const candidatePages = await db
-        .select({
-          id: pages.id,
-          slug: pages.slug,
-          title: pages.title,
-          type: pages.type,
-          body_md: pages.body_md,
-          embedding: pages.embedding,
-        })
-        .from(pages)
-        .where(
-          and(
-            eq(pages.user_id, memo.user_id),
-            ne(pages.status, "archived"),
-            sql`${pages.embedding} IS NOT NULL`,
-          ),
-        );
-
-      // Score and rank
-      const scored = candidatePages
-        .map((p) => {
-          const vec: number[] = p.embedding ?? [];
-          return { ...p, score: vec.length > 0 ? cosineSim(memoVec, vec) : 0 };
-        })
-        .filter((p) => p.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, FULL_RECALL_TOP_K);
+      // Native pgvector ANN over this user's non-archived embedded pages.
+      const scored = await db.execute<{
+        id: string;
+        slug: string;
+        title: string;
+        type: string;
+        body_md: string | null;
+      }>(sql`
+        SELECT "id", "slug", "title", "type", "body_md"
+        FROM "pages"
+        WHERE "user_id" = ${memo.user_id}
+          AND "status" <> 'archived'
+          AND "embedding" IS NOT NULL
+        ORDER BY "embedding" <=> ${memoLiteral}::vector
+        LIMIT ${FULL_RECALL_TOP_K}
+      `);
 
       console.log(
         `[compile-memo] recall: found ${scored.length} candidate pages`,
       );
 
-      return scored.map(({ id, slug, title, type, body_md, embedding }) => ({
+      return scored.map(({ id, slug, title, type, body_md }) => ({
         id,
         slug,
         title,
         type,
         body_md,
-        embedding,
       })) as RecalledPage[];
     });
 
