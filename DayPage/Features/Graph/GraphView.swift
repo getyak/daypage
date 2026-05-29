@@ -422,10 +422,12 @@ struct GraphView: View {
                     Haptics.soft()
                     if simulationSteps >= maxSimSteps {
                         centerOn(match, in: size)
+                        pulseNode(match)
                     } else {
                         Task { @MainActor in
                             try? await Task.sleep(nanoseconds: 300_000_000)
                             centerOn(match, in: size)
+                            pulseNode(match)
                         }
                     }
                 }
