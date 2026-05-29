@@ -49,7 +49,7 @@ struct UndoPillView: View {
                         .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: isUrgent)
                         .accessibilityHidden(true)
                 }
-                Text("Undo · \(secondsRemaining)s")
+                Text("\(label) · \(secondsRemaining)s")
                     .font(.custom("Inter-Medium", size: 13))
             }
             .foregroundColor(DSColor.inkPrimary)
@@ -85,7 +85,7 @@ struct UndoPillView: View {
                 }
         )
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Undo send, \(secondsRemaining) seconds remaining")
+        .accessibilityLabel("\(label), \(secondsRemaining) seconds remaining")
         .accessibilityHint("Activate to undo; use the Dismiss action to close without undoing")
         .accessibilityAddTraits(.isButton)
         .accessibilityAddTraits(.updatesFrequently)
