@@ -30,6 +30,9 @@ struct GraphView: View {
     // Filter state
     @State private var showFilters: Bool = false
 
+    // Search auto-center state
+    @State private var lastCenteredMatchID: String? = nil
+
     // Empty state animation + ClearFiltersPressStyle (do not remove this @Environment:
     // both `emptyState` and `clearFiltersButton` read `reduceMotion`; deleting it
     // breaks the build — see incident around PR #466).
@@ -307,6 +310,23 @@ struct GraphView: View {
                 .accessibilityHidden(true)
                 .onAppear { simulationSize = size }
                 .onChange(of: size) { simulationSize = $0 }
+                .onChange(of: viewModel.searchQuery) { query in
+                    guard !query.isEmpty else {
+                        lastCenteredMatchID = nil
+                        return
+                    }
+                    guard let match = bestSearchMatch, match.id != lastCenteredMatchID else { return }
+                    lastCenteredMatchID = match.id
+                    Haptics.soft()
+                    if simulationSteps >= maxSimSteps {
+                        centerOn(match, in: size)
+                    } else {
+                        Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 300_000_000)
+                            centerOn(match, in: size)
+                        }
+                    }
+                }
 
                 // Node labels (filtered only) — hidden from VoiceOver; the tap target below announces the name
                 ForEach(viewModel.filteredNodes) { node in
@@ -433,6 +453,34 @@ struct GraphView: View {
             Text(label)
                 .font(DSFonts.jetBrainsMono(size: 10))
                 .foregroundColor(DSColor.inkPrimary)
+        }
+    }
+
+    // MARK: - Search Auto-Center
+
+    private var bestSearchMatch: GraphNode? {
+        guard !viewModel.searchQuery.isEmpty else { return nil }
+        let q = viewModel.searchQuery
+        let candidates = viewModel.filteredNodes.filter {
+            $0.name.localizedCaseInsensitiveContains(q)
+        }
+        if let exact = candidates.first(where: { $0.name.localizedCaseInsensitiveCompare(q) == .orderedSame }) {
+            return exact
+        }
+        if let prefix = candidates.first(where: { $0.name.localizedCaseInsensitiveContains(q) && $0.name.lowercased().hasPrefix(q.lowercased()) }) {
+            return prefix
+        }
+        return candidates.min(by: { $0.name.count < $1.name.count })
+    }
+
+    private func centerOn(_ node: GraphNode, in size: CGSize) {
+        let newOffset = CGSize(
+            width: -node.position.x * scale,
+            height: -node.position.y * scale
+        )
+        withAnimation(reduceMotion ? nil : Motion.spring) {
+            offset = newOffset
+            lastOffset = newOffset
         }
     }
 
