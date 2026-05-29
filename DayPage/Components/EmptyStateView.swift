@@ -11,7 +11,8 @@ struct EmptyStateView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    @State private var appeared = false
+    /// 0 = all hidden, 1 = orb visible, 2 = title, 3 = subtitle, 4 = CTA
+    @State private var revealStep: Int = 0
     @State private var breathing = false
 
     var body: some View {
@@ -24,24 +25,40 @@ struct EmptyStateView: View {
                         .foregroundColor(DSColor.inkMuted)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 8)
-                        .opacity(appeared ? 1 : 0)
-                        .offset(y: appeared ? 0 : 6)
-                        .animation(Motion.rise.delay(0.06), value: appeared)
+                        .opacity(revealStep >= 3 ? 1 : 0)
+                        .scaleEffect(revealStep >= 3 ? 1 : 0.96)
+                        .offset(y: revealStep >= 3 ? 0 : 6)
+                        .animation(Motion.rise, value: revealStep >= 3)
                 }
             }
             .accessibilityElement(children: .combine)
             if let label = ctaLabel, let action = ctaAction {
                 ctaButton(label: label, action: action)
-                    .opacity(appeared ? 1 : 0)
-                    .offset(y: appeared ? 0 : 8)
-                    .animation(Motion.rise.delay(0.12), value: appeared)
+                    .opacity(revealStep >= 4 ? 1 : 0)
+                    .scaleEffect(revealStep >= 4 ? 1 : 0.96)
+                    .offset(y: revealStep >= 4 ? 0 : 8)
+                    .animation(Motion.rise, value: revealStep >= 4)
             }
         }
         .padding(.horizontal, 32)
         .onAppear {
-            appeared = true
-            if !reduceMotion {
+            if reduceMotion {
+                revealStep = 4
+                breathing = false
+            } else {
                 breathing = true
+                Task { @MainActor in
+                    revealStep = 1  // orb blooms
+                    try? await Task.sleep(nanoseconds: 70_000_000)
+                    guard !Task.isCancelled else { return }
+                    revealStep = 2  // title rises
+                    try? await Task.sleep(nanoseconds: 70_000_000)
+                    guard !Task.isCancelled else { return }
+                    revealStep = 3  // subtitle
+                    try? await Task.sleep(nanoseconds: 70_000_000)
+                    guard !Task.isCancelled else { return }
+                    revealStep = 4  // CTA
+                }
             }
         }
     }
@@ -58,9 +75,10 @@ struct EmptyStateView: View {
                 .font(DSType.serifDisplay28)
                 .foregroundColor(DSColor.inkPrimary)
                 .multilineTextAlignment(.center)
-                .opacity(appeared ? 1 : 0)
-                .offset(y: appeared ? 0 : 6)
-                .animation(Motion.rise, value: appeared)
+                .opacity(revealStep >= 2 ? 1 : 0)
+                .scaleEffect(revealStep >= 2 ? 1 : 0.96)
+                .offset(y: revealStep >= 2 ? 0 : 6)
+                .animation(Motion.rise, value: revealStep >= 2)
         }
     }
 
@@ -80,8 +98,16 @@ struct EmptyStateView: View {
             )
             .frame(width: 60, height: 60)
             .blur(radius: 10)
-            .scaleEffect(reduceMotion ? 1.0 : (breathing ? 1.12 : 0.92))
-            .opacity(reduceMotion ? 0.85 : (breathing ? 1.0 : 0.7))
+            .scaleEffect(revealStep >= 1
+                ? (reduceMotion ? 1.0 : (breathing ? 1.12 : 0.92))
+                : 0.6)
+            .opacity(revealStep >= 1
+                ? (reduceMotion ? 0.85 : (breathing ? 1.0 : 0.7))
+                : 0)
+            .animation(
+                reduceMotion ? nil : .spring(response: 0.55, dampingFraction: 0.72),
+                value: revealStep >= 1
+            )
             .animation(
                 reduceMotion ? nil : .easeInOut(duration: 2.4).repeatForever(autoreverses: true),
                 value: breathing
