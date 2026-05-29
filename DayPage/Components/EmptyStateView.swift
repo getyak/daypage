@@ -14,6 +14,8 @@ struct EmptyStateView: View {
     /// 0 = all hidden, 1 = orb visible, 2 = title, 3 = subtitle, 4 = CTA
     @State private var revealStep: Int = 0
     @State private var breathing = false
+    @State private var ctaGlow = false
+    @State private var revealTask: Task<Void, Never>?
 
     var body: some View {
         VStack(spacing: 20) {
@@ -38,6 +40,14 @@ struct EmptyStateView: View {
                     .scaleEffect(revealStep >= 4 ? 1 : 0.96)
                     .offset(y: revealStep >= 4 ? 0 : 8)
                     .animation(Motion.rise, value: revealStep >= 4)
+                    .shadow(
+                        color: DSColor.accentAmber.opacity(ctaGlow ? 0.5 : 0),
+                        radius: ctaGlow ? 16 : 0
+                    )
+                    .animation(
+                        reduceMotion ? nil : .easeOut(duration: 0.6),
+                        value: ctaGlow
+                    )
             }
         }
         .padding(.horizontal, 32)
@@ -47,7 +57,7 @@ struct EmptyStateView: View {
                 breathing = false
             } else {
                 breathing = true
-                Task { @MainActor in
+                revealTask = Task { @MainActor in
                     revealStep = 1  // orb blooms
                     try? await Task.sleep(nanoseconds: 70_000_000)
                     guard !Task.isCancelled else { return }
@@ -58,8 +68,21 @@ struct EmptyStateView: View {
                     try? await Task.sleep(nanoseconds: 70_000_000)
                     guard !Task.isCancelled else { return }
                     revealStep = 4  // CTA
+                    if ctaAction != nil {
+                        try? await Task.sleep(nanoseconds: 70_000_000)
+                        guard !Task.isCancelled else { return }
+                        Haptics.soft()
+                        ctaGlow = true
+                        try? await Task.sleep(nanoseconds: 600_000_000)
+                        guard !Task.isCancelled else { return }
+                        ctaGlow = false
+                    }
                 }
             }
+        }
+        .onDisappear {
+            revealTask?.cancel()
+            revealTask = nil
         }
     }
 
