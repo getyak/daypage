@@ -316,7 +316,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 20,
-      "passes": false,
+      "passes": true,
       "notes": "web/ \u4efb\u52a1\u3002dev \u9a8c\u8bc1\uff1a\u65b0\u8d26\u53f7 home \u663e\u793a\u5f15\u5bfc\u800c\u975e 0\u3002"
     }
   ]
