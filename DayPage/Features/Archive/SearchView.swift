@@ -493,16 +493,36 @@ struct SearchView: View {
                 }
 
                 if recent.isEmpty && entities.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 32, weight: .regular))
-                            .foregroundColor(DSColor.outlineVariant)
-                        Text("输入关键词检索所有归档内容")
-                            .bodySMStyle()
-                            .foregroundColor(DSColor.onSurfaceVariant)
-                        Text("支持 memo 正文、位置名、日期")
-                            .monoLabelStyle(size: 10)
-                            .foregroundColor(DSColor.outline)
+                    VStack(spacing: 20) {
+                        VStack(spacing: 12) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 32, weight: .regular))
+                                .foregroundColor(DSColor.outlineVariant)
+                            Text("输入关键词检索所有归档内容")
+                                .bodySMStyle()
+                                .foregroundColor(DSColor.onSurfaceVariant)
+                            Text("支持 memo 正文、位置名、日期")
+                                .monoLabelStyle(size: 10)
+                                .foregroundColor(DSColor.outline)
+                        }
+
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("试试搜索")
+                                .monoLabelStyle(size: 10)
+                                .foregroundColor(DSColor.onSurfaceVariant)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 20)
+
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(SearchView.starterSuggestions, id: \.self) { suggestion in
+                                        entityChip(suggestion)
+                                    }
+                                }
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 4)
+                            }
+                        }
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.top, 80)
@@ -821,17 +841,29 @@ struct SearchView: View {
         return attributed
     }
 
+    // MARK: - Starter suggestions (shown only when no history and no indexed entities)
+
+    private static let starterSuggestions: [String] = ["今天", "本周", "本月", "位置", "照片", "语音"]
+
     // MARK: - Formatting helpers
 
+    private static let dateParser: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMMM d, yyyy"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
     private func formatDate(_ dateString: String) -> String {
-        let parser = DateFormatter()
-        parser.dateFormat = "yyyy-MM-dd"
-        parser.locale = Locale(identifier: "en_US_POSIX")
-        guard let date = parser.date(from: dateString) else { return dateString }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMMM d, yyyy"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        return formatter.string(from: date).uppercased()
+        guard let date = SearchView.dateParser.date(from: dateString) else { return dateString }
+        return SearchView.dateFormatter.string(from: date).uppercased()
     }
 
     private func matchIcon(for kind: SearchResult.MatchKind) -> String {
