@@ -280,6 +280,30 @@ struct GraphView: View {
         showEntityPage = true
     }
 
+    private func focusNode(_ node: GraphNode, in size: CGSize) {
+        let targetScale: CGFloat = max(0.3, min(5.0, 2.2))
+        let newOffset = CGSize(
+            width:  (size.width  / 2 - node.position.x) * targetScale,
+            height: (size.height / 2 - node.position.y) * targetScale
+        )
+        Haptics.tapConfirm()
+        tapPulseNodeID = node.id
+        tapPulseProgress = 0
+        tapPulseGeneration += 1
+        let gen = tapPulseGeneration
+        withAnimation(reduceMotion ? nil : Motion.spring) {
+            scale = targetScale; lastScale = targetScale
+            offset = newOffset; lastOffset = newOffset
+        }
+        withAnimation(.easeOut(duration: 0.35)) {
+            tapPulseProgress = 1
+        }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            if tapPulseGeneration == gen { tapPulseNodeID = nil }
+        }
+    }
+
     // MARK: - Graph Canvas
 
     private var graphCanvas: some View {
@@ -367,6 +391,7 @@ struct GraphView: View {
                         .frame(width: r * 2, height: r * 2)
                         .contentShape(Circle())
                         .position(x: x, y: y)
+                        .onTapGesture(count: 2) { focusNode(node, in: size) }
                         .onTapGesture { openNode(node) }
                         .accessibilityElement()
                         .accessibilityLabel(node.name)
