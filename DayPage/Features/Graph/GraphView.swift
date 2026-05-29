@@ -41,7 +41,6 @@ struct GraphView: View {
     // both `emptyState` and `clearFiltersButton` read `reduceMotion`; deleting it
     // breaks the build — see incident around PR #466).
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var pulse: Bool = false
     private let nodeRadius: CGFloat = 16
     private let maxSimSteps = 200
 
