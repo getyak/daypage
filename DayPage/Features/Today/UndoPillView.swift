@@ -17,7 +17,8 @@ struct UndoPillView: View {
     @State private var isUrgent: Bool = false
     @State private var secondsRemaining: Int = 5
     @State private var appeared: Bool = false
-    @GestureState private var dragOffset: CGFloat = 0
+    @GestureState private var dragOffset: CGSize = .zero
+    @State private var crossedDismissThreshold: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -68,20 +69,37 @@ struct UndoPillView: View {
         }
         .buttonStyle(.plain)
         .scaleEffect(reduceMotion ? 1 : (appeared ? 1 : 0.92))
-        .opacity((reduceMotion ? 1 : (appeared ? 1 : 0)) * (dragOffset > 0 ? Double(1 - dragOffset / 80) : 1))
-        .offset(y: max(0, dragOffset))
+        .opacity({
+            let baseOpacity: Double = reduceMotion ? 1 : (appeared ? 1 : 0)
+            if reduceMotion { return baseOpacity }
+            let dist = dragDistance(dragOffset)
+            return baseOpacity * Double(max(0, 1 - dist / 80))
+        }())
+        .offset(
+            x: reduceMotion ? 0 : (isDominantAxisHorizontal(dragOffset) ? dragOffset.width : 0),
+            y: reduceMotion ? 0 : (isDominantAxisHorizontal(dragOffset) ? 0 : max(0, dragOffset.height))
+        )
         .highPriorityGesture(
             DragGesture(minimumDistance: 10)
                 .updating($dragOffset) { value, state, _ in
-                    if value.translation.height > 0 {
-                        state = value.translation.height
+                    state = value.translation
+                }
+                .onChanged { value in
+                    guard !reduceMotion else { return }
+                    let dist = dragDistance(value.translation)
+                    if dist > 28 && !crossedDismissThreshold {
+                        crossedDismissThreshold = true
+                        Haptics.soft()
+                    } else if dist <= 28 && crossedDismissThreshold {
+                        crossedDismissThreshold = false
                     }
                 }
                 .onEnded { value in
-                    if value.translation.height > 28 {
-                        Haptics.soft()
+                    let dist = dragDistance(value.translation)
+                    if dist > 28 {
                         onDismiss?()
                     }
+                    crossedDismissThreshold = false
                 }
         )
         .accessibilityElement(children: .ignore)
@@ -124,6 +142,17 @@ struct UndoPillView: View {
                 secondsRemaining = tick
             }
         }
+    }
+
+    private func dragDistance(_ translation: CGSize) -> CGFloat {
+        if isDominantAxisHorizontal(translation) {
+            return abs(translation.width)
+        }
+        return max(0, translation.height)
+    }
+
+    private func isDominantAxisHorizontal(_ translation: CGSize) -> Bool {
+        abs(translation.width) > abs(translation.height)
     }
 
     private var ringColor: Color {
