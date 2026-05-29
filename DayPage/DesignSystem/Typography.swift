@@ -175,6 +175,8 @@ enum DSType {
     static let serifDisplay28: Font = DSFonts.serif(size: 28, weight: .semibold)
     /// Serif display 32pt — sidebar date / large headers.
     static let serifDisplay32: Font = DSFonts.serif(size: 32, weight: .semibold)
+    /// Serif display 56pt — Today hero date title (museum-aesthetic, always-on).
+    static let serifDisplay56: Font = DSFonts.serif(size: 56, weight: .semibold)
 }
 
 // MARK: - View Modifiers

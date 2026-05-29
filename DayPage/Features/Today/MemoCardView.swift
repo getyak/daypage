@@ -28,6 +28,15 @@ struct MemoCardView: View {
     @State private var downloadTask: Task<Void, Never>? = nil
     @State private var sharePayload: SharePayload? = nil
 
+    /// Precise 24h time for the content-first card meta line (rendered as "15·23").
+    private static let cardTimeFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = AppSettings.currentTimeZone()
+        return f
+    }()
+
     // MARK: - iCloud helpers
 
     private func attachmentDownloadState(for url: URL) -> AttachmentDownloadState {
@@ -128,8 +137,8 @@ struct MemoCardView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        .liquidGlassCard(cornerRadius: 18)
-        .contentShape(RoundedRectangle(cornerRadius: 18))
+        .solidCard(cornerRadius: 14)
+        .contentShape(RoundedRectangle(cornerRadius: 14))
         .onTapGesture {
             if memo.location?.lat != nil { showLocationSheet = true }
         }
@@ -256,53 +265,34 @@ struct MemoCardView: View {
                     }
             }
 
-            // Bottom meta row: time + type chip + location
+            // Bottom meta row — content-first: only a quiet mono timestamp.
+            // Weather / location / type chip / a resting share button are all
+            // hidden by the museum-aesthetic redesign: location & type live on
+            // the detail page; share is the left-swipe action; power-user
+            // overrides remain in the long-press contextMenu below.
             HStack(spacing: 8) {
-                Text(RelativeTimeFormatter.relative(memo.created))
+                // Single line of metadata: precise 24h time as "15·23".
+                let photoFlag = memo.type == .mixed && memo.attachments.contains { $0.kind == "photo" }
+                Text(Self.cardTimeFmt.string(from: memo.created).replacingOccurrences(of: ":", with: "·"))
                     .font(DSFonts.jetBrainsMono(size: 10))
-                    .tracking(0.6)
-                    .textCase(.uppercase)
+                    .tracking(1.6)
                     .foregroundColor(DSColor.inkSubtle)
 
-                if memo.type != .text {
-                    typeChip
-                }
-
-                if let loc = memo.location?.name, !loc.isEmpty {
-                    HStack(spacing: 3) {
-                        Image(systemName: "mappin")
-                            .font(.system(size: 8, weight: .medium))
-                        Text(loc)
-                            .font(DSFonts.jetBrainsMono(size: 9))
-                            .tracking(0.4)
-                            .textCase(.uppercase)
-                    }
-                    .foregroundColor(DSColor.inkSubtle)
+                // Tiny photo glyph hints a mixed entry without a loud chip.
+                if photoFlag {
+                    Image(systemName: "photo")
+                        .font(.system(size: 8, weight: .medium))
+                        .foregroundColor(DSColor.inkSubtle)
                 }
 
                 Spacer(minLength: 4)
-
-                // Primary share entry — issue #309 W1-①.
-                // contextMenu below stays as a power-user override that lets
-                // you force a specific card type or send plain text.
-                Button {
-                    sharePayload = SharePayload.auto(from: memo)
-                } label: {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(DSColor.inkSubtle)
-                        .frame(width: 28, height: 28)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("分享这条 memo")
             }
             .padding(.horizontal, 14)
             .padding(.top, 10)
             .padding(.bottom, 14)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .liquidGlassCard(cornerRadius: 18)
+        .solidCard(cornerRadius: 14)
         .contextMenu {
             // Tap the button above for the smart default; long-press here to
             // override the template or send plain text.
