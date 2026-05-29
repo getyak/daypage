@@ -32,6 +32,7 @@ struct GraphView: View {
 
 // Search auto-center state
     @State private var lastCenteredMatchID: String? = nil
+    @State private var searchMatchIndex: Int = 0
 
     // Legend type-visibility filter
     @State private var hiddenTypes: Set<String> = []
@@ -101,8 +102,13 @@ struct GraphView: View {
                 .padding(.vertical, DSSpacing.sm)
 
                 if !viewModel.searchQuery.isEmpty {
-                    HStack {
-                        Text("\(viewModel.searchMatchCount) 个匹配")
+                    HStack(spacing: DSSpacing.xs) {
+                        let matches = searchMatches
+                        let count = matches.count
+                        let pillText = count > 1
+                            ? "\(searchMatchIndex + 1)/\(count) 个匹配"
+                            : "\(count) 个匹配"
+                        Text(pillText)
                             .font(DSFonts.jetBrainsMono(size: 11))
                             .foregroundColor(DSColor.inkMuted)
                             .padding(.horizontal, DSSpacing.md)
@@ -110,7 +116,43 @@ struct GraphView: View {
                             .background(DSColor.glassLo)
                             .background(.ultraThinMaterial, in: Capsule())
                             .overlay(Capsule().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
-                            .accessibilityLabel("\(viewModel.searchMatchCount) 个匹配结果")
+                            .accessibilityLabel("\(count) 个匹配结果")
+                        if count > 1 {
+                            Button {
+                                Haptics.soft()
+                                searchMatchIndex = (searchMatchIndex - 1 + matches.count) % matches.count
+                                let node = matches[searchMatchIndex]
+                                centerOn(node, in: simulationSize)
+                                pulseNode(node)
+                            } label: {
+                                Image(systemName: "chevron.up")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(DSColor.inkMuted)
+                                    .frame(width: 28, height: 28)
+                                    .background(DSColor.glassLo)
+                                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                                    .contentShape(Rectangle())
+                            }
+                            .accessibilityLabel("上一个匹配")
+                            Button {
+                                Haptics.soft()
+                                searchMatchIndex = (searchMatchIndex + 1) % matches.count
+                                let node = matches[searchMatchIndex]
+                                centerOn(node, in: simulationSize)
+                                pulseNode(node)
+                            } label: {
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 12, weight: .medium))
+                                    .foregroundColor(DSColor.inkMuted)
+                                    .frame(width: 28, height: 28)
+                                    .background(DSColor.glassLo)
+                                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                                    .contentShape(Rectangle())
+                            }
+                            .accessibilityLabel("下一个匹配")
+                        }
                         Spacer()
                     }
                     .padding(.horizontal, DSSpacing.lg)
@@ -371,6 +413,7 @@ struct GraphView: View {
                 .onAppear { simulationSize = size }
                 .onChange(of: size) { simulationSize = $0 }
                 .onChange(of: viewModel.searchQuery) { query in
+                    searchMatchIndex = 0
                     guard !query.isEmpty else {
                         lastCenteredMatchID = nil
                         return
@@ -550,6 +593,30 @@ struct GraphView: View {
     }
 
     // MARK: - Search Auto-Center
+
+    private var searchMatches: [GraphNode] {
+        guard !viewModel.searchQuery.isEmpty else { return [] }
+        let q = viewModel.searchQuery
+        let candidates = visibleNodes.filter { $0.name.localizedCaseInsensitiveContains(q) }
+        let exact   = candidates.filter { $0.name.localizedCaseInsensitiveCompare(q) == .orderedSame }
+        let prefix  = candidates.filter { $0.name.lowercased().hasPrefix(q.lowercased()) && $0.name.localizedCaseInsensitiveCompare(q) != .orderedSame }
+        let rest    = candidates.filter { !$0.name.lowercased().hasPrefix(q.lowercased()) }
+        return (exact + prefix + rest.sorted { $0.name.count < $1.name.count })
+    }
+
+    private func pulseNode(_ node: GraphNode) {
+        tapPulseNodeID = node.id
+        tapPulseProgress = 0
+        tapPulseGeneration += 1
+        let gen = tapPulseGeneration
+        withAnimation(.easeOut(duration: 0.35)) {
+            tapPulseProgress = 1
+        }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            if tapPulseGeneration == gen { tapPulseNodeID = nil }
+        }
+    }
 
     private var bestSearchMatch: GraphNode? {
         guard !viewModel.searchQuery.isEmpty else { return nil }
