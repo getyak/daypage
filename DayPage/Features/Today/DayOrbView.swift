@@ -11,6 +11,9 @@ struct DayOrbView: View {
     var size: CGFloat = 140
     var haloOpacity: CGFloat = 0.15
     var onTap: (() -> Void)? = nil
+    /// Flip this bool to trigger a one-shot capture-reward glow pulse (scale 1.0→1.10→1.0).
+    /// Only fires when a new memo is added; caller is responsible for only toggling on additions.
+    var pulseToggle: Bool = false
 
     @State private var breatheScale: CGFloat = 1.0
     @State private var pulse: Bool = false
@@ -18,6 +21,7 @@ struct DayOrbView: View {
     @State private var isPressed: Bool = false
     @State private var countPop: CGFloat = 1.0
     @State private var invitePulse: Bool = false
+    @State private var capturePulse: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -36,6 +40,16 @@ struct DayOrbView: View {
         }
         .frame(width: size + 32, height: size + 32)
         .scaleEffect(isPressed ? breatheScale * 0.94 : breatheScale)
+        .scaleEffect(capturePulse ? 1.10 : 1.0)
+        .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.55), value: capturePulse)
+        .onChange(of: pulseToggle) { _ in
+            guard !reduceMotion else { return }
+            Task { @MainActor in
+                capturePulse = true
+                try? await Task.sleep(nanoseconds: 250_000_000)
+                capturePulse = false
+            }
+        }
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { _ in
