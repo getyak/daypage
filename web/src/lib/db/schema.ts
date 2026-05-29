@@ -351,6 +351,10 @@ export const chat_threads = pgTable("chat_threads", {
   synthesis_page_id: uuid("synthesis_page_id").references(() => pages.id, {
     onDelete: "set null",
   }),
+  // US-031: when set, this thread is a conversation with a user-defined agent.
+  // Agent config (persona, model, retrieval scope) is resolved from this id at
+  // chat time. NULL = the default wiki chat.
+  agent_id: uuid("agent_id"),
   created_at: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -624,6 +628,44 @@ export const api_logs = pgTable(
 
 export type ApiLog = typeof api_logs.$inferSelect;
 export type NewApiLog = typeof api_logs.$inferInsert;
+
+// ─── US-031: agents (wiki-grounded, configurable AI agents) ──────────────────
+// A user-defined agent is a persona prompt + a model choice + an optional
+// retrieval scope (a domain). At chat time the agent grounds its answers by
+// calling the SAME rag.ts retrievePages used by the MCP server (US-010), so
+// answers cite real wiki content. The conversation history reuses the existing
+// chat_threads / chat_messages tables, tagged with `agent_id`.
+
+export const agents = pgTable(
+  "agents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    persona_prompt: text("persona_prompt").notNull(),
+    model: text("model").notNull().default("gpt-4o-mini"),
+    // Optional retrieval scope: when set, RAG recall is restricted to pages in
+    // this domain (passed through to retrievePages' `domain` option).
+    domain_id: uuid("domain_id").references(() => domains.id, {
+      onDelete: "set null",
+    }),
+    // Max wiki pages to recall per turn (passed to retrievePages topK).
+    top_k: integer("top_k").notNull().default(8),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [index("agents_user").on(t.user_id, t.created_at)]
+);
+
+export type Agent = typeof agents.$inferSelect;
+export type NewAgent = typeof agents.$inferInsert;
 
 // ─── Re-export helper types ────────────────────────────────────────────────────
 

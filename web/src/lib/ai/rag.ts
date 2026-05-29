@@ -27,6 +27,13 @@ export interface RetrievedPage {
 export interface RetrieveOpts {
   topK?: number;
   domain?: string;
+  /**
+   * Restrict recall to a single domain by its id. Used by US-031 agents whose
+   * retrieval scope is pinned to one knowledge area. When set, only pages whose
+   * `domain_id` matches are returned. Takes precedence over the legacy
+   * `domain` boolean-ish flag.
+   */
+  domainId?: string;
   excludePrivate?: boolean;
 }
 
@@ -79,7 +86,10 @@ export async function retrievePages(
   // backed by the HNSW index (vector_cosine_ops) from 0006_pgvector_hnsw.sql.
   // score = 1 - cosine_distance, so higher is more similar.
   const queryLiteral = toVectorLiteral(queryVec);
-  const domainOnly = opts.domain !== undefined;
+  // A specific domain id pins recall to that knowledge area (US-031 agents);
+  // the legacy `domain` flag only filters to "has any domain".
+  const hasDomainId = typeof opts.domainId === "string" && opts.domainId.length > 0;
+  const domainOnly = !hasDomainId && opts.domain !== undefined;
 
   const rows = await db.execute<{
     page_id: string;
@@ -100,6 +110,7 @@ export async function retrievePages(
     WHERE "user_id" = ${userId}
       AND "status" <> 'archived'
       AND "embedding" IS NOT NULL
+      ${hasDomainId ? sql`AND "domain_id" = ${opts.domainId}` : sql``}
       ${domainOnly ? sql`AND "domain_id" IS NOT NULL` : sql``}
     ORDER BY "embedding" <=> ${queryLiteral}::vector
     LIMIT ${topK}
