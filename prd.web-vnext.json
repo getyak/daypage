@@ -178,7 +178,7 @@
         "Typecheck passes"
       ],
       "priority": 11,
-      "passes": false,
+      "passes": true,
       "notes": "web/ \u4efb\u52a1\u3002\u7ade\u54c1(Mem/Recall)\u9a8c\u8bc1\u8fc7\u7684\u6700\u5e38\u89c1\u91c7\u96c6\u5e7f\u5ea6\u77ed\u677f\u3002\u590d\u7528 /api/ingest\u3002"
     },
     {
