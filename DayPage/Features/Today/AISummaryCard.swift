@@ -101,6 +101,9 @@ struct TypewriterText: View {
     @State private var shownCount: Int = 0
     @State private var caretVisible: Bool = true
     @State private var didStart = false
+    /// Generation counter that increments each time fullText changes.
+    /// Captured by asyncAfter closures so stale chains bail out.
+    @State private var generation = 0
 
     private var isTyping: Bool { animated && shownCount < fullText.count }
 
@@ -121,6 +124,7 @@ struct TypewriterText: View {
             // New summary → restart the reveal.
             shownCount = 0
             didStart = false
+            generation += 1
             startIfNeeded()
         }
     }
@@ -140,8 +144,9 @@ struct TypewriterText: View {
     }
 
     private func scheduleNextChar(after delay: Double) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            guard shownCount < fullText.count else { return }
+        let gen = generation
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [gen] in
+            guard gen == generation, shownCount < fullText.count else { return }
             shownCount += 1
             // 36–66ms jitter per char, matching the design's organic cadence.
             let jitter = Double.random(in: 0.036...0.066)

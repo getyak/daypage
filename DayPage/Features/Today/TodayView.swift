@@ -1350,7 +1350,7 @@ struct TodayView: View {
     /// Today's weather temperature, taken from the most recent memo that carries
     /// a weather string (e.g. "28° · 多云" → "28°"). Returns nil when unknown.
     private func todayWeatherShort() -> String? {
-        for memo in viewModel.memos.reversed() {
+        for memo in viewModel.memos {  // memos is already newest-first
             if let w = memo.weather?.trimmingCharacters(in: .whitespaces), !w.isEmpty {
                 // Keep only the temperature token ("28° · 多云" → "28°").
                 let temp = w.split(separator: "·").first.map { $0.trimmingCharacters(in: .whitespaces) } ?? w
@@ -1362,7 +1362,7 @@ struct TodayView: View {
 
     /// Today's place name, taken from the most recent memo carrying a location.
     private func todayPlaceShort() -> String? {
-        for memo in viewModel.memos.reversed() {
+        for memo in viewModel.memos {  // memos is already newest-first
             if let name = memo.location?.name?.trimmingCharacters(in: .whitespaces), !name.isEmpty {
                 return name
             }
@@ -1726,20 +1726,25 @@ struct TimelineRow: View {
         // Right-swipe MORE → fuller action set (pin / quote / delete) kept
         // out of the card's resting chrome per the content-first redesign.
         .confirmationDialog("更多", isPresented: $showMoreActions, titleVisibility: .hidden) {
-            if let onPin {
-                Button(memo.pinnedAt != nil ? "取消置顶" : "置顶") { onPin() }
-            }
-            if let onShareAsQuote {
-                Button("分享为引用") { onShareAsQuote() }
-            }
-            if let onEnterSelectionMode {
-                Button("多选") { onEnterSelectionMode() }
-            }
-            if let onDelete {
-                Button("删除", role: .destructive) { onDelete() }
-            }
-            Button("取消", role: .cancel) { }
+            moreActionsButtons
         }
+    }
+
+    @ViewBuilder
+    private var moreActionsButtons: some View {
+        if let onPin {
+            Button(memo.pinnedAt != nil ? "取消置顶" : "置顶") { onPin() }
+        }
+        if let onShareAsQuote {
+            Button("分享为引用") { onShareAsQuote() }
+        }
+        if let onEnterSelectionMode {
+            Button("多选") { onEnterSelectionMode() }
+        }
+        if let onDelete {
+            Button("删除", role: .destructive) { onDelete() }
+        }
+        Button("取消", role: .cancel) { }
     }
 
     private var selectionIndicator: some View {
