@@ -256,26 +256,42 @@ export const pages = pgTable(
   ]
 );
 
-export const page_links = pgTable("page_links", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  user_id: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  from_page_id: uuid("from_page_id")
-    .notNull()
-    .references(() => pages.id, { onDelete: "cascade" }),
-  to_page_id: uuid("to_page_id")
-    .notNull()
-    .references(() => pages.id, { onDelete: "cascade" }),
-  via_memo_id: uuid("via_memo_id").references(() => memos.id, {
-    onDelete: "set null",
-  }),
-  weight: real("weight").notNull().default(1),
-  rationale: text("rationale"),
-  created_at: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const page_links = pgTable(
+  "page_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    from_page_id: uuid("from_page_id")
+      .notNull()
+      .references(() => pages.id, { onDelete: "cascade" }),
+    to_page_id: uuid("to_page_id")
+      .notNull()
+      .references(() => pages.id, { onDelete: "cascade" }),
+    via_memo_id: uuid("via_memo_id").references(() => memos.id, {
+      onDelete: "set null",
+    }),
+    weight: real("weight").notNull().default(1),
+    rationale: text("rationale"),
+    // ─── US-040: temporal validity window ─────────────────────────────────────
+    // A link is a *fact observed at a point in time*. `valid_from` is the day the
+    // fact first held (defaults to created_at). `valid_to` is the day the fact was
+    // superseded/invalidated — NULL means still valid. We invalidate by setting
+    // valid_to rather than deleting the row, so an "as-of" query before that date
+    // still sees the fact and an entity's history is a sequence, not an overwrite.
+    valid_from: timestamp("valid_from", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    valid_to: timestamp("valid_to", { withTimezone: true }),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("page_links_user_valid").on(t.user_id, t.valid_from, t.valid_to),
+  ]
+);
 
 export const page_sources = pgTable(
   "page_sources",

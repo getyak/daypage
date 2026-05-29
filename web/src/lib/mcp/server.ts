@@ -23,6 +23,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { pages, domains, memos } from "@/lib/db/schema";
 import { retrievePages } from "@/lib/ai/rag";
+import { getEntityEvolution } from "@/lib/temporal";
 import { sendEvent } from "@/lib/inngest/client";
 import { sanitizeMemoBody } from "@/lib/sanitize";
 import { hasScope, type ApiAuthResult } from "@/lib/api-auth";
@@ -109,6 +110,39 @@ const TOOLS = [
         slug: {
           type: "string",
           description: "The page slug (as returned by search_wiki).",
+        },
+      },
+      required: ["slug"],
+    },
+  },
+  {
+    name: "get_entity_evolution",
+    description:
+      "Show how the user's thinking on a concept evolved OVER TIME. Returns a " +
+      "month-by-month series of dated mentions for the page (by slug), exploiting " +
+      "DayPage's day-stamped data. Use this for questions like 'how did my view on " +
+      "X change over time' or 'what did I think about X as of a given month'. " +
+      "Optional asOf (state as it stood on a day) or from/to date window (all " +
+      "YYYY-MM-DD). Facts are invalidated, not deleted, so earlier state is " +
+      "preserved as a sequence rather than overwritten.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        slug: {
+          type: "string",
+          description: "The page slug (as returned by search_wiki).",
+        },
+        asOf: {
+          type: "string",
+          description: "YYYY-MM-DD; only mentions valid on/before this day.",
+        },
+        from: {
+          type: "string",
+          description: "YYYY-MM-DD; window start (inclusive).",
+        },
+        to: {
+          type: "string",
+          description: "YYYY-MM-DD; window end (inclusive).",
         },
       },
       required: ["slug"],
@@ -255,6 +289,36 @@ async function runGetPage(userId: string, args: Record<string, unknown>) {
   return toolResult(text, structured);
 }
 
+async function runGetEntityEvolution(userId: string, args: Record<string, unknown>) {
+  const slug = typeof args.slug === "string" ? args.slug.trim() : "";
+  if (!slug) {
+    throw { code: INVALID_PARAMS, message: "get_entity_evolution requires a non-empty 'slug' string" };
+  }
+  const asOf = typeof args.asOf === "string" ? args.asOf : undefined;
+  const from = typeof args.from === "string" ? args.from : undefined;
+  const to = typeof args.to === "string" ? args.to : undefined;
+
+  const evo = await getEntityEvolution(userId, slug, { asOf, from, to });
+  if (!evo) {
+    throw { code: INVALID_PARAMS, message: `No page found with slug "${slug}"` };
+  }
+
+  const text =
+    evo.series.length === 0
+      ? `"${evo.title}" has no mentions in the requested window.`
+      : [
+          `# ${evo.title} — evolution (${evo.firstSeen} → ${evo.lastSeen}, ${evo.total} mentions across ${evo.series.length} months)`,
+          ...evo.series.map((pt) => {
+            const lines = pt.mentions
+              .map((m) => `   - ${m.date}${m.invalidated ? " (superseded)" : ""}: ${m.excerpt}`)
+              .join("\n");
+            return `\n## ${pt.period} · ${pt.count} mention(s)\n${lines}`;
+          }),
+        ].join("\n");
+
+  return toolResult(text, evo);
+}
+
 async function runListDomains(userId: string) {
   const rows = await db
     .select({
@@ -331,6 +395,8 @@ async function dispatchTool(
       return runSearchWiki(auth.userId, args);
     case "get_page":
       return runGetPage(auth.userId, args);
+    case "get_entity_evolution":
+      return runGetEntityEvolution(auth.userId, args);
     case "list_domains":
       return runListDomains(auth.userId);
     case "add_memo":
@@ -370,7 +436,7 @@ export async function handleMcpMessage(
         serverInfo: { name: SERVER_NAME, version: SERVER_VERSION },
         capabilities: { tools: {} },
         instructions:
-          "DayPage wiki. Use search_wiki to find relevant pages, get_page to read one, and list_domains to browse top-level areas; every result includes a slug and url linking back to DayPage. Use add_memo to save a new note back into DayPage (requires the 'write' scope).",
+          "DayPage wiki. Use search_wiki to find relevant pages, get_page to read one, and list_domains to browse top-level areas; every result includes a slug and url linking back to DayPage. Because every entry is day-stamped, use get_entity_evolution(slug, asOf?/from?/to?) for temporal questions — how a concept evolved over time, or what was known as of a given day; present such answers as a chronological sequence. Use add_memo to save a new note back into DayPage (requires the 'write' scope).",
       });
 
     case "ping":
