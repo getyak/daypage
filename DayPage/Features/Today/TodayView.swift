@@ -680,11 +680,10 @@ struct TodayView: View {
     /// Hero region shown at the top of Today: serif date + mono signal kicker + 200pt Day Orb.
     @ViewBuilder
     private var orbHero: some View {
+        // The 56pt hero title now lives in `sidebarSection` (always-on), so the
+        // empty-state orb block only carries the orb + kicker to avoid a
+        // duplicate weekday title.
         VStack(spacing: 6) {
-            Text(weekdayName(currentTime))
-                .font(DSType.serifDisplay32)
-                .foregroundColor(DSColor.inkPrimary)
-
             Text(orbKicker(currentTime))
                 .font(DSType.mono10)
                 .foregroundColor(DSColor.inkSubtle)
@@ -900,12 +899,14 @@ struct TodayView: View {
             Button {
                 nav.openSidebar()
             } label: {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 8) {
+                    // Museum-aesthetic hero title — always-on 56pt serif.
                     Text(weekdayName(currentTime))
-                        .font(DSType.serifDisplay32)
+                        .font(DSType.serifDisplay56)
                         .foregroundColor(DSColor.inkPrimary)
+                        .lineLimit(1)
                         .dynamicTypeSize(.xSmall ... .accessibility2)
-                        .minimumScaleFactor(0.75)
+                        .minimumScaleFactor(0.6)
                     Text(headerSubline(currentTime))
                         .font(DSType.mono10)
                         .foregroundColor(DSColor.inkSubtle)
@@ -1019,6 +1020,16 @@ struct TodayView: View {
             .frame(height: 0)
 
             LazyVStack(spacing: 8) {
+                // Museum-aesthetic "AI · 今日一句" — restrained one-liner pinned
+                // at the very top once the day has a compiled summary.
+                if let summary = viewModel.dailyPageSummary,
+                   !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    AISummaryCard(summary: summary)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 4)
+                        .transition(.opacity)
+                }
+
                 if viewModel.isDailyPageCompiled {
                     swipeableDailyPageCard
                         .padding(.horizontal, 20)
@@ -1103,6 +1114,18 @@ struct TodayView: View {
                         .padding(.horizontal, 20)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
+                }
+
+                // Museum-aesthetic inline "unlock today's page" placeholder —
+                // shown once the day has memos but hasn't been compiled and is
+                // still short of the threshold that triggers AI compilation.
+                if !viewModel.memos.isEmpty
+                    && !viewModel.isDailyPageCompiled
+                    && viewModel.memos.count < 3 {
+                    CompileUnlockCard()
+                        .padding(.horizontal, 20)
+                        .padding(.top, 4)
+                        .transition(.opacity)
                 }
 
                 historySupplement
@@ -1300,14 +1323,51 @@ struct TodayView: View {
     private func headerSubline(_ date: Date) -> String {
         let count = viewModel.memos.count
         let dateStr = Self.headerDateFmt.string(from: date)
+
+        // Notes segment (empty-state shows time instead of count).
+        var parts: [String]
         switch count {
         case 0:
-            return "\(dateStr)  ·  \(Self.headerTimeFmt.string(from: date))"
+            parts = [dateStr, Self.headerTimeFmt.string(from: date)]
         case 1:
-            return "\(dateStr)  ·  1 note"
+            parts = [dateStr, "1 note"]
         default:
-            return "\(dateStr)  ·  \(count) notes"
+            parts = [dateStr, "\(count) notes"]
         }
+
+        // Museum-aesthetic subline: append today's weather + place when known.
+        // Sourced from existing memos — no extra network/location fetch (M1 is UI-only).
+        // e.g. "MAY 28 · 2 NOTES · 28° · VIENTIANE"
+        if let weather = todayWeatherShort() {
+            parts.append(weather)
+        }
+        if let place = todayPlaceShort() {
+            parts.append(place)
+        }
+        return parts.joined(separator: "  ·  ")
+    }
+
+    /// Today's weather temperature, taken from the most recent memo that carries
+    /// a weather string (e.g. "28° · 多云" → "28°"). Returns nil when unknown.
+    private func todayWeatherShort() -> String? {
+        for memo in viewModel.memos.reversed() {
+            if let w = memo.weather?.trimmingCharacters(in: .whitespaces), !w.isEmpty {
+                // Keep only the temperature token ("28° · 多云" → "28°").
+                let temp = w.split(separator: "·").first.map { $0.trimmingCharacters(in: .whitespaces) } ?? w
+                return temp.isEmpty ? nil : temp
+            }
+        }
+        return nil
+    }
+
+    /// Today's place name, taken from the most recent memo carrying a location.
+    private func todayPlaceShort() -> String? {
+        for memo in viewModel.memos.reversed() {
+            if let name = memo.location?.name?.trimmingCharacters(in: .whitespaces), !name.isEmpty {
+                return name
+            }
+        }
+        return nil
     }
 }
 
@@ -1594,6 +1654,9 @@ struct TimelineRow: View {
     var isSelected: Bool = false
     var onToggleSelection: (() -> Void)? = nil
 
+    /// Drives the right-swipe MORE confirmation dialog (pin / delete / …).
+    @State private var showMoreActions = false
+
     var body: some View {
         ZStack(alignment: .topTrailing) {
             // In selection mode the inner NavigationLink must be disabled
@@ -1604,6 +1667,8 @@ struct TimelineRow: View {
                 memo: memo,
                 onDelete: onDelete,
                 onPin: onPin,
+                onShare: onShare,            // left-swipe SHARE → share-as-card
+                onMore: { showMoreActions = true }, // right-swipe MORE → dialog
                 onRetranscribe: onRetranscribe,
                 isSelectionMode: isSelectionMode
             )
@@ -1657,6 +1722,23 @@ struct TimelineRow: View {
                     }
                 }
             }
+        }
+        // Right-swipe MORE → fuller action set (pin / quote / delete) kept
+        // out of the card's resting chrome per the content-first redesign.
+        .confirmationDialog("更多", isPresented: $showMoreActions, titleVisibility: .hidden) {
+            if let onPin {
+                Button(memo.pinnedAt != nil ? "取消置顶" : "置顶") { onPin() }
+            }
+            if let onShareAsQuote {
+                Button("分享为引用") { onShareAsQuote() }
+            }
+            if let onEnterSelectionMode {
+                Button("多选") { onEnterSelectionMode() }
+            }
+            if let onDelete {
+                Button("删除", role: .destructive) { onDelete() }
+            }
+            Button("取消", role: .cancel) { }
         }
     }
 

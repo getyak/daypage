@@ -15,10 +15,10 @@ import SwiftUI
 // overshoot, while keeping the panel surface visually quiet at small offsets.
 private enum SwipePhysics {
 
-    /// Width of the action panel on each side. Matches the iOS Mail / Notes
-    /// trailing action width so the card never reveals more than one action
-    /// at a time and the affordance reads as a single tap target.
-    static let panelWidth: CGFloat = 84
+    /// Width of the action panel on each side. Widened toward the design's
+    /// 132pt reveal (`DSTokens.Gestures.swipeRevealWidth`); 96pt keeps a single
+    /// action reading as one comfortable tap target without over-revealing.
+    static let panelWidth: CGFloat = 96
 
     /// Translation past which a release snaps open (vs. snap back closed).
     /// Apple Notes uses ~40pt; we follow the same ratio to panelWidth so a
@@ -62,9 +62,10 @@ private enum SwipePhysics {
 // progresses, the icon scales up, and the label only resolves once the
 // open threshold is crossed.
 //
-//  - Left swipe → trailing Delete action (two-step: reveal then tap, so a
-//    destructive action always requires explicit confirmation).
-//  - Right swipe → leading Pin/Unpin action.
+//  - Left swipe → trailing SHARE action (accent amber) — the prominent,
+//    content-first action surfaced by the museum-aesthetic redesign.
+//  - Right swipe → leading MORE action (sunken neutral) — opens the fuller
+//    set (pin / delete / …) so secondary chrome stays hidden by default.
 //
 // Gesture model:
 //  - settledOffset is the resting position; dragDelta rides on top 1:1.
@@ -84,6 +85,10 @@ struct SwipeableMemoCard: View {
     let memo: Memo
     var onDelete: (() -> Void)? = nil
     var onPin: (() -> Void)? = nil
+    /// Left-swipe SHARE action (museum-aesthetic primary).
+    var onShare: (() -> Void)? = nil
+    /// Right-swipe MORE action — parent presents the fuller action set.
+    var onMore: (() -> Void)? = nil
     var onRetranscribe: ((Memo, Memo.Attachment) -> Void)? = nil
     /// Issue #309 W2: in multi-select mode, both the NavigationLink tap
     /// and the swipe gesture must be inert — the only valid interaction is
@@ -153,15 +158,15 @@ struct SwipeableMemoCard: View {
             // glass surface rather than an abutting colored rectangle.
             HStack(spacing: 0) {
                 SwipeActionPanel(
-                    kind: .leading(isPinned: memo.pinnedAt != nil),
+                    kind: .more,
                     progress: max(0, revealProgress),
-                    onTap: handlePinTap
+                    onTap: handleMoreTap
                 )
                 Spacer(minLength: 0)
                 SwipeActionPanel(
-                    kind: .trailing,
+                    kind: .share,
                     progress: max(0, -revealProgress),
-                    onTap: handleDeleteTap
+                    onTap: handleShareTap
                 )
             }
 
@@ -212,6 +217,8 @@ struct SwipeableMemoCard: View {
         }
         .clipped()
         .accessibilityLabel(accessibilityMemoLabel)
+        .accessibilityAction(named: "Share") { onShare?() }
+        .accessibilityAction(named: "More") { onMore?() }
         .accessibilityAction(named: "Delete") { onDelete?() }
         .accessibilityAction(named: memo.pinnedAt != nil ? "Unpin" : "Pin") { onPin?() }
         // Entering selection mode mid-swipe (panel revealed) would leave a
@@ -227,16 +234,16 @@ struct SwipeableMemoCard: View {
 
     // MARK: - Action handlers
 
-    private func handlePinTap() {
+    private func handleShareTap() {
         Haptics.tapConfirm()
         snapClose()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { onPin?() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { onShare?() }
     }
 
-    private func handleDeleteTap() {
-        Haptics.warn()
+    private func handleMoreTap() {
+        Haptics.soft()
         snapClose()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { onDelete?() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { onMore?() }
     }
 
     // MARK: - Pan callbacks
@@ -334,8 +341,8 @@ struct SwipeableMemoCard: View {
 private struct SwipeActionPanel: View {
 
     enum Kind {
-        case leading(isPinned: Bool)
-        case trailing
+        case more   // right-swipe (leading) — sunken neutral
+        case share  // left-swipe (trailing) — accent amber
     }
 
     let kind: Kind
@@ -373,20 +380,27 @@ private struct SwipeActionPanel: View {
     private var background: some View {
         // Base tone deepens as the panel is revealed. A single brand color
         // with an opacity ramp reads as a continuous surface waking up,
-        // rather than two distinct fills swapping.
-        baseColor.opacity(0.55 + 0.45 * min(1, progress))
+        // rather than two distinct fills swapping. MORE's sunken neutral
+        // starts more opaque so the pale surface stays legible.
+        let floor: CGFloat = (kindIsMore ? 0.85 : 0.55)
+        return baseColor.opacity(Double(floor + (1 - floor) * min(1, progress)))
+    }
+
+    private var kindIsMore: Bool {
+        if case .more = kind { return true }
+        return false
     }
 
     private var content: some View {
         VStack(spacing: 6) {
             Image(systemName: iconName)
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(foreground)
                 .scaleEffect(iconScale)
 
             Text(label)
                 .font(.custom("Inter-Medium", size: 11))
-                .foregroundColor(.white)
+                .foregroundColor(foreground)
                 .opacity(labelOpacity)
         }
     }
@@ -395,22 +409,31 @@ private struct SwipeActionPanel: View {
 
     private var iconName: String {
         switch kind {
-        case .leading(let isPinned): return isPinned ? "pin.slash.fill" : "pin.fill"
-        case .trailing:              return "trash.fill"
+        case .more:  return "ellipsis"
+        case .share: return "square.and.arrow.up"
         }
     }
 
     private var label: String {
         switch kind {
-        case .leading(let isPinned): return isPinned ? "取消置顶" : "置顶"
-        case .trailing:              return "删除"
+        case .more:  return "更多"
+        case .share: return "分享"
         }
     }
 
+    /// MORE rides on a sunken neutral surface (dark ink), SHARE on accent amber
+    /// (white ink) — the design's content-first hierarchy.
     private var baseColor: Color {
         switch kind {
-        case .leading(let isPinned): return isPinned ? DSColor.secondary : DSColor.amberArchival
-        case .trailing:              return DSColor.error
+        case .more:  return DSColor.surfaceSunken
+        case .share: return DSColor.accentAmber
+        }
+    }
+
+    private var foreground: Color {
+        switch kind {
+        case .more:  return DSColor.inkPrimary
+        case .share: return .white
         }
     }
 
@@ -426,8 +449,8 @@ private struct SwipeActionPanel: View {
 
     private var accessibilityLabel: String {
         switch kind {
-        case .leading(let isPinned): return isPinned ? "Unpin memo" : "Pin memo"
-        case .trailing:              return "Delete memo"
+        case .more:  return "More actions"
+        case .share: return "Share memo"
         }
     }
 }

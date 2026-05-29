@@ -71,6 +71,30 @@ struct LiquidGlassCard: ViewModifier {
     }
 }
 
+// MARK: - SolidCard
+
+/// Museum-aesthetic content-first card: a plain opaque white surface with a
+/// 0.5 pt hairline and a whisper of shadow. Replaces Liquid Glass on memo
+/// cards so the content (text + photo) reads cleanly against the warm canvas.
+/// Matches the design token: surface-white #FFF, radius 14, hairline border.
+struct SolidCard: ViewModifier {
+    var cornerRadius: CGFloat = 14
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(DSColor.surfaceWhite)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(DSColor.borderSubtle, lineWidth: 0.5)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .shadow(color: Color(hex: "2D1E0A").opacity(0.04), radius: 1, x: 0, y: 1)
+    }
+}
+
 // MARK: - LiquidGlassPill
 
 /// Fully-rounded pill surface (cornerRadius 999, tone .hi).
@@ -110,5 +134,10 @@ extension View {
     /// Expanded-menu panel surface (tone .hi).
     func liquidGlassPanel(cornerRadius: CGFloat = 20) -> some View {
         modifier(LiquidGlassPanel(cornerRadius: cornerRadius))
+    }
+
+    /// Museum-aesthetic content-first white card (surface-white + hairline).
+    func solidCard(cornerRadius: CGFloat = 14) -> some View {
+        modifier(SolidCard(cornerRadius: cornerRadius))
     }
 }
