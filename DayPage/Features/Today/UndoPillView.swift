@@ -48,8 +48,15 @@ struct UndoPillView: View {
                         .animation(reduceMotion ? nil : .easeInOut(duration: 0.4), value: isUrgent)
                         .accessibilityHidden(true)
                 }
-                Text("Undo · \(secondsRemaining)s")
-                    .font(.custom("Inter-Medium", size: 13))
+                Group {
+                    if #available(iOS 16.0, *) {
+                        Text("Undo · \(secondsRemaining)s")
+                            .contentTransition(.numericText())
+                    } else {
+                        Text("Undo · \(secondsRemaining)s")
+                    }
+                }
+                .font(.custom("Inter-Medium", size: 13))
             }
             .foregroundColor(DSColor.inkPrimary)
             .padding(.horizontal, 16)
@@ -114,7 +121,10 @@ struct UndoPillView: View {
         .task {
             for tick in stride(from: 4, through: 0, by: -1) {
                 try? await Task.sleep(for: .seconds(1))
-                secondsRemaining = tick
+                guard !Task.isCancelled else { return }
+                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
+                    secondsRemaining = tick
+                }
             }
         }
     }
