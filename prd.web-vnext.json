@@ -286,7 +286,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 18,
-      "passes": false,
+      "passes": true,
       "notes": "web/ \u4efb\u52a1\u3002dev \u9a8c\u8bc1\uff1a\u684c\u9762\u5c3a\u5bf8\u4e0b /today \u4e0d\u518d\u9519\u4f4d\u3002"
     },
     {
