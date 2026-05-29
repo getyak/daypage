@@ -240,7 +240,7 @@
         "Verify in browser using dev-browser skill"
       ],
       "priority": 15,
-      "passes": false,
+      "passes": true,
       "notes": "web/ \u4efb\u52a1\u3002dev \u9a8c\u8bc1\uff1asettings \u914d\u7f6e persona\uff0cchat \u4f53\u73b0\u8bed\u6c14\u3002"
     },
     {
