@@ -1069,6 +1069,24 @@ struct TodayView: View {
                         .padding(.horizontal, 20)
                         .padding(.bottom, 4)
                         .transition(.opacity)
+                        .onLongPressGesture(minimumDuration: 0.4) {
+                            UIPasteboard.general.string = summary
+                            Haptics.tapConfirm()
+                            bannerCenter.show(AppBannerModel(
+                                kind: .info,
+                                title: NSLocalizedString("today.summary.copied", comment: ""),
+                                autoDismiss: true
+                            ))
+                        }
+                        .accessibilityAction(named: Text("Copy summary")) {
+                            UIPasteboard.general.string = summary
+                            Haptics.tapConfirm()
+                            bannerCenter.show(AppBannerModel(
+                                kind: .info,
+                                title: NSLocalizedString("today.summary.copied", comment: ""),
+                                autoDismiss: true
+                            ))
+                        }
                 }
 
                 if viewModel.isDailyPageCompiled {
