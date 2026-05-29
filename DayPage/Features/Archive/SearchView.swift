@@ -1,6 +1,13 @@
 import SwiftUI
 import Combine
 
+// MARK: - EntityFrequency
+
+struct EntityFrequency: Hashable {
+    let name: String
+    let count: Int
+}
+
 // MARK: - SearchViewModel
 
 @MainActor
@@ -23,20 +30,54 @@ final class SearchViewModel: ObservableObject {
     }
 
     // MARK: Frequent entities — cached, loaded off the main thread
-    @Published private(set) var topEntities: [String] = []
+
+    @Published private(set) var topEntities: [EntityFrequency] = []
+
+    // Cache key: (file count, newest mtime since reference date)
+    private var entitiesCacheKey: (Int, TimeInterval)? = nil
+    private var entitiesCache: [EntityFrequency] = []
 
     func loadTopEntities(limit: Int = 5) {
-        Task.detached(priority: .utility) { [weak self] in
-            let entities = self?.computeTopEntities(limit: limit) ?? []
-            await MainActor.run { self?.topEntities = entities }
+        let currentKey = entitiesCacheKey
+        let currentCache = entitiesCache
+        Task.detached(priority: .utility) {
+            let (key, entities) = Self.scanTopEntities(
+                limit: limit,
+                cachedKey: currentKey,
+                cachedResult: currentCache
+            )
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                self.entitiesCacheKey = key
+                self.entitiesCache = entities
+                self.topEntities = entities
+            }
         }
     }
 
-    private nonisolated func computeTopEntities(limit: Int) -> [String] {
+    private static func scanTopEntities(
+        limit: Int,
+        cachedKey: (Int, TimeInterval)?,
+        cachedResult: [EntityFrequency]
+    ) -> ((Int, TimeInterval), [EntityFrequency]) {
         let rawDir = VaultInitializer.vaultURL.appendingPathComponent("raw")
         let fm = FileManager.default
-        guard let files = try? fm.contentsOfDirectory(at: rawDir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]) else { return [] }
+        guard let files = try? fm.contentsOfDirectory(
+            at: rawDir,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        ) else { return ((0, 0), []) }
         let mdFiles = files.filter { $0.pathExtension == "md" }
+
+        // Build cache key from file count + newest mtime
+        let newestMtime: TimeInterval = mdFiles.compactMap {
+            try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate?.timeIntervalSinceReferenceDate
+        }.max() ?? 0
+        let cacheKey = (mdFiles.count, newestMtime)
+
+        if let cached = cachedKey, cached == cacheKey {
+            return (cacheKey, cachedResult)
+        }
 
         var freq: [String: Int] = [:]
         let pattern = try? NSRegularExpression(pattern: #"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]"#)
@@ -51,7 +92,8 @@ final class SearchViewModel: ObservableObject {
                 }
             }
         }
-        return freq.sorted { $0.value > $1.value }.prefix(limit).map { $0.key }
+        let result = freq.sorted { $0.value > $1.value }.prefix(limit).map { EntityFrequency(name: $0.key, count: $0.value) }
+        return (cacheKey, result)
     }
 
     // MARK: Save a query to recent history (dedup + prepend)
@@ -484,7 +526,7 @@ struct SearchView: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(entities, id: \.self) { entity in
-                                entityChip(entity)
+                                entityChipWithCount(entity)
                             }
                         }
                         .padding(.horizontal, 20)
@@ -575,6 +617,34 @@ struct SearchView: View {
                 .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
         }
         .buttonStyle(.plain)
+    }
+
+    private func entityChipWithCount(_ entity: EntityFrequency) -> some View {
+        Button(action: {
+            Haptics.tapConfirm()
+            vm.query = entity.name
+            runSearch(keyword: entity.name)
+        }) {
+            HStack(spacing: 6) {
+                Text(entity.name)
+                    .font(.custom("Inter-Regular", size: 13))
+                    .foregroundColor(DSColor.onSurface)
+
+                Text("\(entity.count)")
+                    .font(.custom("JetBrainsMono-Regular", size: 10))
+                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(DSColor.outlineVariant.opacity(0.4))
+                    .clipShape(Capsule())
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(DSColor.surfaceContainer)
+            .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(entity.name), \(entity.count) references")
     }
 
     // MARK: - Empty result state
