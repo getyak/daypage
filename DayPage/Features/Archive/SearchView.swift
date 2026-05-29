@@ -264,6 +264,10 @@ struct SearchView: View {
                 vm.hasSearched = !trimmed.isEmpty || capturedFilters.isActive
                 if wasEmpty && !hits.isEmpty && !trimmed.isEmpty { Haptics.soft() }
                 if hits.isEmpty { didBuzzEmpty = false }
+                if UIAccessibility.isVoiceOverRunning && vm.hasSearched {
+                    let message = hits.isEmpty ? "无匹配结果" : "\(hits.count) 条结果"
+                    UIAccessibility.post(notification: .announcement, argument: message)
+                }
             }
         }
     }
@@ -287,6 +291,7 @@ struct SearchView: View {
                     .onSubmit {
                         vm.recordSearch(vm.query)
                     }
+                    .accessibilityLabel("搜索框")
 
                 if !vm.query.isEmpty {
                     Button(action: {
@@ -300,6 +305,7 @@ struct SearchView: View {
                             .foregroundColor(DSColor.onSurfaceVariant)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("清除搜索内容")
                 }
             }
             .padding(.horizontal, 12)
@@ -317,6 +323,9 @@ struct SearchView: View {
                     .foregroundColor(filters.isActive ? DSColor.primary : DSColor.onSurfaceVariant)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("筛选")
+            .accessibilityHint("按日期、类型、地点筛选结果")
+            .accessibilityValue(filters.isActive ? "已启用" : "未启用")
 
             Button(action: { dismiss() }) {
                 Text("取消")
@@ -324,6 +333,7 @@ struct SearchView: View {
                     .foregroundColor(DSColor.primary)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("取消搜索")
         }
     }
 
