@@ -30,6 +30,9 @@ struct GraphView: View {
     // Filter state
     @State private var showFilters: Bool = false
 
+    // Legend type-visibility filter
+    @State private var hiddenTypes: Set<String> = []
+
     // Empty state animation + ClearFiltersPressStyle (do not remove this @Environment:
     // both `emptyState` and `clearFiltersButton` read `reduceMotion`; deleting it
     // breaks the build — see incident around PR #466).
@@ -165,7 +168,7 @@ struct GraphView: View {
                 if viewModel.isLoading {
                     ProgressView()
                         .tint(DSColor.onSurfaceVariant)
-                } else if viewModel.filteredNodes.isEmpty {
+                } else if visibleNodes.isEmpty {
                     emptyState
                 } else {
                     graphCanvas
@@ -194,6 +197,12 @@ struct GraphView: View {
         viewModel.filterStartDate != nil || viewModel.filterEndDate != nil || !viewModel.searchQuery.isEmpty
     }
 
+    private var visibleNodes: [GraphNode] {
+        hiddenTypes.isEmpty
+            ? viewModel.filteredNodes
+            : viewModel.filteredNodes.filter { !hiddenTypes.contains($0.entityType) }
+    }
+
     private var isTransformed: Bool { scale != 1.0 || offset != .zero }
 
     // MARK: - Empty State
@@ -211,6 +220,7 @@ struct GraphView: View {
                     viewModel.searchQuery = ""
                     viewModel.filterStartDate = nil
                     viewModel.filterEndDate = nil
+                    hiddenTypes = []
                 }
             }
         }
@@ -272,14 +282,17 @@ struct GraphView: View {
     private var graphCanvas: some View {
         GeometryReader { geo in
             let size = geo.size
-            let filteredIDs = Set(viewModel.filteredNodes.map { $0.id })
+            let filteredIDs = Set(visibleNodes.map { $0.id })
 
             ZStack {
                 Canvas { ctx, _ in
                     let nodePos = Dictionary(uniqueKeysWithValues: viewModel.nodes.map { ($0.id, $0.position) })
 
-                    // Draw edges (filtered)
-                    for edge in viewModel.filteredEdges {
+                    // Draw edges (visible nodes only)
+                    let visibleEdges = viewModel.filteredEdges.filter {
+                        filteredIDs.contains($0.sourceID) && filteredIDs.contains($0.targetID)
+                    }
+                    for edge in visibleEdges {
                         guard let src = nodePos[edge.sourceID], let dst = nodePos[edge.targetID] else { continue }
                         let sx = src.x * scale + offset.width + size.width / 2
                         let sy = src.y * scale + offset.height + size.height / 2
@@ -309,7 +322,7 @@ struct GraphView: View {
                 .onChange(of: size) { simulationSize = $0 }
 
                 // Node labels (filtered only) — hidden from VoiceOver; the tap target below announces the name
-                ForEach(viewModel.filteredNodes) { node in
+                ForEach(visibleNodes) { node in
                     let x = node.position.x * scale + offset.width + size.width / 2
                     let y = node.position.y * scale + offset.height + size.height / 2
                     let isSearchMatch = !viewModel.searchQuery.isEmpty
@@ -325,7 +338,7 @@ struct GraphView: View {
                 }
 
                 // Invisible tap targets for each filtered node
-                ForEach(viewModel.filteredNodes) { node in
+                ForEach(visibleNodes) { node in
                     let x = node.position.x * scale + offset.width + size.width / 2
                     let y = node.position.y * scale + offset.height + size.height / 2
                     let r = max(node.displayRadius * scale, 22)
@@ -386,11 +399,19 @@ struct GraphView: View {
 
     // MARK: - Legend
 
+    private static let legendTypes: [(type: String, color: Color, label: String)] = [
+        ("places", DSColor.amberDeep,   "地点"),
+        ("people", DSColor.inkMuted,    "人物"),
+        ("themes", DSColor.amberAccent, "主题"),
+    ]
+
     private var legend: some View {
         VStack(alignment: .leading, spacing: 6) {
-            legendRow(color: DSColor.amberDeep, label: "地点")
-            legendRow(color: DSColor.inkMuted, label: "人物")
-            legendRow(color: DSColor.amberAccent, label: "主题")
+            ForEach(Self.legendTypes, id: \.type) { entry in
+                let count = viewModel.filteredNodes.filter { $0.entityType == entry.type }.count
+                let isHidden = hiddenTypes.contains(entry.type)
+                legendRow(type: entry.type, color: entry.color, label: entry.label, count: count, isHidden: isHidden)
+            }
         }
         .padding(DSSpacing.md)
         .liquidGlassCard(cornerRadius: DSRadius.md, tone: .hi)
@@ -425,15 +446,39 @@ struct GraphView: View {
         .animation(Motion.spring, value: isTransformed)
     }
 
-    private func legendRow(color: Color, label: String) -> some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(color)
-                .frame(width: 10, height: 10)
-            Text(label)
-                .font(DSFonts.jetBrainsMono(size: 10))
-                .foregroundColor(DSColor.inkPrimary)
+    private func legendRow(type: String, color: Color, label: String, count: Int, isHidden: Bool) -> some View {
+        Button {
+            Haptics.soft()
+            withAnimation(Motion.spring) {
+                if isHidden {
+                    hiddenTypes.remove(type)
+                } else {
+                    hiddenTypes.insert(type)
+                }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                if isHidden {
+                    Circle()
+                        .strokeBorder(color, lineWidth: 1.5)
+                        .frame(width: 10, height: 10)
+                } else {
+                    Circle()
+                        .fill(color)
+                        .frame(width: 10, height: 10)
+                }
+                Text("\(label) \(count)")
+                    .font(DSFonts.jetBrainsMono(size: 10))
+                    .foregroundColor(DSColor.inkPrimary)
+                    .strikethrough(isHidden, color: DSColor.inkMuted)
+            }
+            .opacity(isHidden ? 0.35 : 1.0)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(label), \(count)个节点")
+        .accessibilityValue(isHidden ? "已隐藏" : "已显示")
+        .accessibilityAddTraits(.isButton)
     }
 
     // MARK: - Helpers
