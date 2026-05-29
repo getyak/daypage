@@ -188,6 +188,7 @@ struct SearchView: View {
     @State private var filters: SearchFilters = SearchFilters.empty
     @State private var showFilters: Bool = false
     @State private var cancellable: AnyCancellable? = nil
+    @State private var searchTask: Task<Void, Never>? = nil
     @State private var appearedIDs: Set<UUID> = []
     @State private var didBuzzEmpty: Bool = false
 
@@ -229,6 +230,7 @@ struct SearchView: View {
             }
             .onDisappear {
                 cancellable?.cancel()
+                searchTask?.cancel()
             }
         }
     }
@@ -247,14 +249,23 @@ struct SearchView: View {
 
     private func runSearch(keyword: String) {
         let trimmed = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
+        let capturedFilters = filters
         let wasEmpty = vm.results.isEmpty
-        let hits = SearchService.search(keyword: trimmed, filters: filters)
-        appearedIDs = []
-        didBuzzEmpty = false
-        vm.results = hits
-        vm.hasSearched = !trimmed.isEmpty || filters.isActive
-        if wasEmpty && !hits.isEmpty && !trimmed.isEmpty { Haptics.soft() }
-        if hits.isEmpty { didBuzzEmpty = false }
+        searchTask?.cancel()
+        searchTask = Task {
+            let hits = await Task.detached(priority: .userInitiated) {
+                SearchService.search(keyword: trimmed, filters: capturedFilters)
+            }.value
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                appearedIDs = []
+                didBuzzEmpty = false
+                vm.results = hits
+                vm.hasSearched = !trimmed.isEmpty || capturedFilters.isActive
+                if wasEmpty && !hits.isEmpty && !trimmed.isEmpty { Haptics.soft() }
+                if hits.isEmpty { didBuzzEmpty = false }
+            }
+        }
     }
 
     // MARK: - Search Bar

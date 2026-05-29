@@ -45,8 +45,8 @@ enum SearchService {
     /// 搜索原始 memo + 编译的日记页面，匹配 ``keyword`` 并应用可选的 ``filters``。
     /// 返回按日期降序排列的结果（最新优先）。
     /// 空关键字 + 无活跃过滤器时返回空数组。
-    static func search(keyword rawKeyword: String,
-                       filters: SearchFilters = .empty) -> [SearchResult] {
+    nonisolated static func search(keyword rawKeyword: String,
+                                   filters: SearchFilters = .empty) -> [SearchResult] {
         let keyword = rawKeyword.trimmingCharacters(in: .whitespacesAndNewlines)
         let lowered = keyword.lowercased()
         let hasKeyword = !keyword.isEmpty
