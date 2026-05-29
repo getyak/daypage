@@ -89,7 +89,13 @@ describe("MCP protocol", () => {
     );
     const json = await res.json();
     const names = json.result.tools.map((t: { name: string }) => t.name).sort();
-    expect(names).toEqual(["add_memo", "get_page", "list_domains", "search_wiki"]);
+    expect(names).toEqual([
+      "add_memo",
+      "get_entity_evolution",
+      "get_page",
+      "list_domains",
+      "search_wiki",
+    ]);
   });
 
   it("returns 202 for the initialized notification (no id)", async () => {
