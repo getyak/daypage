@@ -214,6 +214,71 @@ function parseConflictResult(raw: string): ConflictCheckResult {
   return { conflicts: parsed.conflicts as ConflictItem[] };
 }
 
+// ─── Page embedding helper ─────────────────────────────────────────────────────
+
+// Compute an embedding for a page's body_md, reusing embed_cache (body_hash + TTL)
+// to avoid re-embedding identical content. Returns null on empty body or provider
+// failure (embedding is best-effort — it must never block compilation).
+async function embedPageBody(bodyMd: string): Promise<number[] | null> {
+  const text = bodyMd.trim();
+  if (!text) return null;
+
+  try {
+    const bodyHash = hashText(text);
+    const cacheCutoff = new Date(
+      Date.now() - EMBED_CACHE_TTL_DAYS * 24 * 60 * 60 * 1000,
+    );
+
+    const [cached] = await db
+      .select({ embedding: embed_cache.embedding })
+      .from(embed_cache)
+      .where(
+        and(
+          eq(embed_cache.body_hash, bodyHash),
+          gte(embed_cache.created_at, cacheCutoff),
+        ),
+      )
+      .limit(1);
+
+    if (cached) {
+      return JSON.parse(cached.embedding) as number[];
+    }
+
+    const chunks = chunkText(text);
+    const embeddings: number[][] = [];
+    for (const chunk of chunks) {
+      const result = await llm.embed(chunk);
+      embeddings.push(result.embedding);
+    }
+    const embedding = averageEmbeddings(embeddings);
+
+    await db
+      .insert(embed_cache)
+      .values({
+        body_hash: bodyHash,
+        embedding: JSON.stringify(embedding),
+      })
+      .onConflictDoUpdate({
+        target: embed_cache.body_hash,
+        set: {
+          embedding: JSON.stringify(embedding),
+          created_at: new Date(),
+        },
+      });
+
+    return embedding;
+  } catch (err: unknown) {
+    const message =
+      err instanceof ProviderError
+        ? `${err.code}: ${err.message}`
+        : String(err);
+    console.warn(
+      `[compile-memo] embedPageBody: error (non-fatal) — ${message}`,
+    );
+    return null;
+  }
+}
+
 // ─── Slug helpers ─────────────────────────────────────────────────────────────
 
 function slugFromBody(body: string, id: string): string {
@@ -725,6 +790,8 @@ export const compileMemo = inngest.createFunction(
         const title =
           body.trim().slice(0, 80) || result.summary.slice(0, 80) || "Untitled";
 
+        const embedding = await embedPageBody(result.summary);
+
         const [page] = await db
           .insert(pages)
           .values({
@@ -734,6 +801,7 @@ export const compileMemo = inngest.createFunction(
             title,
             status: "draft",
             body_md: result.summary,
+            embedding: embedding ?? undefined,
             metadata: {
               keywords: result.keywords,
               suggested_domain: result.suggested_domain,
@@ -746,6 +814,7 @@ export const compileMemo = inngest.createFunction(
             set: {
               title,
               body_md: result.summary,
+              ...(embedding ? { embedding } : {}),
               metadata: {
                 keywords: result.keywords,
                 suggested_domain: result.suggested_domain,
@@ -806,6 +875,8 @@ export const compileMemo = inngest.createFunction(
             continue;
           }
 
+          const embedding = await embedPageBody(op.body_md);
+
           const updateSet: Record<string, unknown> = {
             body_md: op.body_md,
             last_compiled_at: new Date(),
@@ -813,6 +884,7 @@ export const compileMemo = inngest.createFunction(
             version: sql`${pages.version} + 1`,
           };
           if (op.title) updateSet.title = op.title;
+          if (embedding) updateSet.embedding = embedding;
 
           await db.update(pages).set(updateSet).where(eq(pages.id, op.page_id));
 
@@ -839,6 +911,8 @@ export const compileMemo = inngest.createFunction(
               ? ("entity" as const)
               : (op.type as "concept" | "entity" | "synthesis");
 
+          const embedding = await embedPageBody(op.body_md);
+
           const [newPage] = await db
             .insert(pages)
             .values({
@@ -848,6 +922,7 @@ export const compileMemo = inngest.createFunction(
               title: op.title,
               status: "draft",
               body_md: op.body_md,
+              embedding: embedding ?? undefined,
               last_compiled_at: new Date(),
             })
             .onConflictDoUpdate({
@@ -855,6 +930,7 @@ export const compileMemo = inngest.createFunction(
               set: {
                 title: op.title,
                 body_md: op.body_md,
+                ...(embedding ? { embedding } : {}),
                 last_compiled_at: new Date(),
                 updated_at: new Date(),
               },
