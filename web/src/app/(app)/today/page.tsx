@@ -15,6 +15,7 @@ import { ComposerPill } from "./ComposerPill";
 import { AttachSheet } from "./AttachSheet";
 import { RecordingSheet } from "./RecordingSheet";
 import { ShareCard, type ShareCardMemo } from "./ShareCard";
+import { MobileOnlyGuard } from "./MobileOnlyGuard";
 
 function MemoFeed({
   composerMicRef,
@@ -87,7 +88,7 @@ function MemoFeed({
   );
 }
 
-export default function TodayPage() {
+function TodayMobileFlow() {
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -242,5 +243,16 @@ export default function TodayPage() {
         <ShareCard memo={shareMemo} onClose={() => setShareMemo(null)} />
       )}
     </div>
+  );
+}
+
+// US-050: /today is the mobile capture/browse flow only. Desktop (≥1024px)
+// redirects to /add via MobileOnlyGuard so the mobile layout never collides
+// with the desktop workstation shell.
+export default function TodayPage() {
+  return (
+    <MobileOnlyGuard>
+      <TodayMobileFlow />
+    </MobileOnlyGuard>
   );
 }
