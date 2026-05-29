@@ -690,6 +690,13 @@ struct TodayView: View {
         // empty-state orb block only carries the orb + kicker to avoid a
         // duplicate weekday title.
         VStack(spacing: 6) {
+            Text(orbGreeting(currentTime))
+                .font(DSType.serifDisplay28)
+                .foregroundColor(DSColor.inkPrimary)
+                .dynamicTypeSize(.xSmall ... .accessibility2)
+                .minimumScaleFactor(0.7)
+                .padding(.bottom, 2)
+
             Text(orbKicker(currentTime))
                 .font(DSType.mono10)
                 .foregroundColor(DSColor.inkSubtle)
@@ -787,6 +794,16 @@ struct TodayView: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(DSColor.inkFaint.opacity(0.6), lineWidth: 0.5)
         )
+    }
+
+    private func orbGreeting(_ date: Date) -> String {
+        let hour = Calendar.current.component(.hour, from: date)
+        switch hour {
+        case 5...11:  return NSLocalizedString("today.greeting.morning",   comment: "")
+        case 12...17: return NSLocalizedString("today.greeting.afternoon", comment: "")
+        case 18...22: return NSLocalizedString("today.greeting.evening",   comment: "")
+        default:      return NSLocalizedString("today.greeting.latenight", comment: "")
+        }
     }
 
     private func orbKicker(_ date: Date) -> String {

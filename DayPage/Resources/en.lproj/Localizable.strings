@@ -53,6 +53,12 @@
 "today.subline.notes.one"    = "%d note";
 "today.subline.notes.other"  = "%d notes";
 
+/* Today orb greeting — time-of-day serif greeting above kicker */
+"today.greeting.morning"     = "Good morning.";
+"today.greeting.afternoon"   = "Good afternoon.";
+"today.greeting.evening"     = "Good evening.";
+"today.greeting.latenight"   = "Still up?";
+
 /* Today orb kicker — signal count */
 "today.kicker.signal.one"    = "SIGNAL";
 "today.kicker.signal.other"  = "SIGNALS";
