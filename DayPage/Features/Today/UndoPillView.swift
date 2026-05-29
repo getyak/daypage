@@ -16,6 +16,7 @@ struct UndoPillView: View {
     @State private var countdownProgress: CGFloat = 1.0
     @State private var isUrgent: Bool = false
     @State private var secondsRemaining: Int = 5
+    @State private var appeared: Bool = false
     @GestureState private var dragOffset: CGFloat = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -66,8 +67,9 @@ struct UndoPillView: View {
             .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 2)
         }
         .buttonStyle(.plain)
+        .scaleEffect(reduceMotion ? 1 : (appeared ? 1 : 0.92))
+        .opacity((reduceMotion ? 1 : (appeared ? 1 : 0)) * (dragOffset > 0 ? Double(1 - dragOffset / 80) : 1))
         .offset(y: max(0, dragOffset))
-        .opacity(dragOffset > 0 ? Double(1 - dragOffset / 80) : 1)
         .highPriorityGesture(
             DragGesture(minimumDistance: 10)
                 .updating($dragOffset) { value, state, _ in
@@ -84,14 +86,19 @@ struct UndoPillView: View {
         )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Undo send, \(secondsRemaining) seconds remaining")
-        .accessibilityHint("Restores the note you just submitted back to the input field")
+        .accessibilityHint("Activate to undo; use the Dismiss action to close without undoing")
         .accessibilityAddTraits(.isButton)
         .accessibilityAddTraits(.updatesFrequently)
+        .accessibilityAction(named: Text("Dismiss")) { onDismiss?() }
         .accessibilityIdentifier("undo-send-pill")
         .onAppear {
             if reduceMotion {
+                appeared = true
                 countdownProgress = 0
             } else {
+                withAnimation(Motion.spring) {
+                    appeared = true
+                }
                 withAnimation(.linear(duration: 5)) {
                     countdownProgress = 0
                 }
