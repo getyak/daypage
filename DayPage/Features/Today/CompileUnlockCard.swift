@@ -17,6 +17,8 @@ struct CompileUnlockCard: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shimmer = false
+    @State private var lastFilled: Int = 0
+    @State private var poppedIndex: Int? = nil
 
     private var remaining: Int { max(1, 3 - memoCount) }
 
@@ -50,6 +52,9 @@ struct CompileUnlockCard: View {
                         Circle()
                             .fill(index < memoCount ? DSColor.accentAmber : DSColor.glassStd)
                             .frame(width: 5, height: 5)
+                            .scaleEffect(poppedIndex == index ? 1.6 : 1.0)
+                            .animation(Motion.respectReduceMotion(.spring(response: 0.3, dampingFraction: 0.55)), value: poppedIndex)
+                            .animation(Motion.respectReduceMotion(Motion.spring), value: memoCount)
                     }
                 }
                 .padding(.top, 2)
@@ -68,7 +73,20 @@ struct CompileUnlockCard: View {
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("再记 \(remaining) 条解锁今日成稿，已记 \(memoCount) 条")
+        .onChange(of: memoCount) { newCount in
+            guard newCount > lastFilled, !reduceMotion else {
+                lastFilled = newCount
+                return
+            }
+            poppedIndex = newCount - 1
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 250_000_000)
+                poppedIndex = nil
+            }
+            lastFilled = newCount
+        }
         .onAppear {
+            lastFilled = memoCount
             guard !reduceMotion else { return }
             withAnimation(
                 .easeInOut(duration: 1.6).repeatForever(autoreverses: true)
