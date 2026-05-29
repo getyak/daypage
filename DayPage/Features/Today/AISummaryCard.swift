@@ -122,7 +122,7 @@ private struct TappableCardAccessibility: ViewModifier {
             content
                 .accessibilityAddTraits(.isButton)
                 .accessibilityHint("打开今日 Daily Page")
-                .accessibilityAction(action)
+                .accessibilityAction(named: "打开 Daily Page") { action() }
         } else {
             content
         }
