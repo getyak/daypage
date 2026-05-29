@@ -5,6 +5,7 @@ import { ApiKeysSection } from "./ApiKeysSection";
 import { SourcesSection } from "./SourcesSection";
 import { TelegramSection } from "./TelegramSection";
 import { WebhookSection } from "./WebhookSection";
+import { ClipperSection } from "./ClipperSection";
 
 export const metadata = {
   title: "Settings · DayPage",
@@ -33,6 +34,7 @@ export default async function SettingsPage() {
         <SourcesSection />
         <TelegramSection />
         <WebhookSection />
+        <ClipperSection />
         <ApiKeysSection />
       </div>
     </>

@@ -58,10 +58,12 @@ import { auth } from "@/auth";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function makeRequest(body: unknown): NextRequest {
+function makeRequest(body: unknown, origin?: string): NextRequest {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (origin) headers["Origin"] = origin;
   return new NextRequest("http://localhost/api/ingest", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers,
     body: JSON.stringify(body),
   });
 }
@@ -87,14 +89,18 @@ function mockUserLookup() {
   });
 }
 
-function mockInsertMemo() {
+// Captures the row passed to db.insert(...).values(...) so tests can assert on
+// the memo body assembled from a clip payload.
+function mockInsertMemo(): { values: ReturnType<typeof vi.fn> } {
+  const values = vi.fn().mockReturnThis();
   const p = Promise.resolve([mockMemo]);
   mockDb.insert.mockReturnValue(
     Object.assign(p, {
-      values: vi.fn().mockReturnThis(),
+      values,
       returning: vi.fn().mockResolvedValue([mockMemo]),
     })
   );
+  return { values };
 }
 
 function mockInsertInbox() {
@@ -198,5 +204,112 @@ describe("POST /api/ingest returns 200/201", () => {
       makeRequest({ source: "x", type: "invalid_type", payload: {} })
     );
     expect(res.status).toBe(400);
+  });
+});
+
+// ── US-021: browser clipping (bookmarklet) ──────────────────────────────────────
+
+describe("US-021 browser clip ingest", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("OPTIONS preflight returns CORS headers reflecting the origin", async () => {
+    const { OPTIONS } = await import("../ingest/route");
+    const req = new NextRequest("http://localhost/api/ingest", {
+      method: "OPTIONS",
+      headers: { Origin: "https://news.example.com" },
+    });
+    const res = OPTIONS(req);
+    expect(res.status).toBe(204);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe(
+      "https://news.example.com"
+    );
+    expect(res.headers.get("Access-Control-Allow-Methods")).toContain("POST");
+    expect(res.headers.get("Access-Control-Allow-Headers")).toContain("Authorization");
+  });
+
+  it("clip with selection builds a memo body with title, snippet and source link", async () => {
+    mockSession("alice@example.com");
+    mockUserLookup();
+    const { values } = mockInsertMemo();
+
+    const { POST } = await import("../ingest/route");
+    const res = await POST(
+      makeRequest(
+        {
+          source: "web-clipper",
+          type: "memo",
+          payload: {
+            title: "How to nomad",
+            source_url: "https://blog.example.com/nomad",
+            selection: "Pick a base with good wifi.",
+          },
+        },
+        "https://blog.example.com"
+      )
+    );
+
+    expect(res.status).toBe(201);
+    // CORS header echoes the clipping page's origin.
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe(
+      "https://blog.example.com"
+    );
+
+    const row = values.mock.calls[0][0] as {
+      body: string;
+      source_url: string | null;
+      origin: string;
+      device: string;
+    };
+    expect(row.body).toContain("# How to nomad");
+    expect(row.body).toContain("> Pick a base with good wifi.");
+    expect(row.body).toContain("https://blog.example.com/nomad");
+    expect(row.source_url).toBe("https://blog.example.com/nomad");
+    expect(row.origin).toBe("api");
+    expect(row.device).toBe("web-clipper");
+  });
+
+  it("whole-page clip (no selection) still records title + source", async () => {
+    mockSession("alice@example.com");
+    mockUserLookup();
+    const { values } = mockInsertMemo();
+
+    const { POST } = await import("../ingest/route");
+    const res = await POST(
+      makeRequest({
+        source: "web-clipper",
+        type: "memo",
+        payload: {
+          title: "Reference page",
+          source_url: "https://docs.example.com/page",
+          selection: "",
+        },
+      })
+    );
+
+    expect(res.status).toBe(201);
+    const row = values.mock.calls[0][0] as { body: string };
+    expect(row.body).toContain("# Reference page");
+    expect(row.body).toContain("https://docs.example.com/page");
+  });
+
+  it("drops javascript: source URLs (no stored XSS)", async () => {
+    mockSession("alice@example.com");
+    mockUserLookup();
+    const { values } = mockInsertMemo();
+
+    const { POST } = await import("../ingest/route");
+    const res = await POST(
+      makeRequest({
+        source: "web-clipper",
+        type: "memo",
+        payload: { title: "x", source_url: "javascript:alert(1)", selection: "y" },
+      })
+    );
+
+    expect(res.status).toBe(201);
+    const row = values.mock.calls[0][0] as { source_url: string | null };
+    expect(row.source_url).toBeNull();
   });
 });
