@@ -6,8 +6,17 @@ import { schemaDetect } from "@/lib/inngest/functions/schema-detect";
 import { orphanDetect } from "@/lib/inngest/functions/orphan-detect";
 import { weeklyReport } from "@/lib/inngest/functions/weekly-report";
 import { fetchRss } from "@/lib/inngest/functions/fetch-rss";
+import { weaveGraph } from "@/lib/inngest/functions/weave-graph";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [compileMemo, dailyPage, schemaDetect, orphanDetect, weeklyReport, fetchRss],
+  functions: [
+    compileMemo,
+    dailyPage,
+    schemaDetect,
+    orphanDetect,
+    weeklyReport,
+    fetchRss,
+    weaveGraph,
+  ],
 });

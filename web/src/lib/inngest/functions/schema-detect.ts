@@ -13,14 +13,14 @@ import { createHash } from "crypto";
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const MEMO_FETCH_LIMIT = 200;
-const MIN_CLUSTER_SIZE = 8;
-const CLUSTER_SIMILARITY_THRESHOLD = 0.55;
+export const MIN_CLUSTER_SIZE = 8;
+export const CLUSTER_SIMILARITY_THRESHOLD = 0.55;
 const IDEMPOTENCY_WINDOW_DAYS = 7;
 const TRIGGER_EVERY_N = 50; // run schema-detect every 50th new memo for a user
 
 // ─── Cosine similarity ────────────────────────────────────────────────────────
 
-function cosineSim(a: number[], b: number[]): number {
+export function cosineSim(a: number[], b: number[]): number {
   let dot = 0;
   let normA = 0;
   let normB = 0;
