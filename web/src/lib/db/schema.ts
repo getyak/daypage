@@ -567,6 +567,12 @@ export const ingest_sources = pgTable(
     source_type: ingestSourceTypeEnum("source_type").notNull(),
     config: jsonb("config").notNull().default(sql`'{}'::jsonb`),
     enabled: boolean("enabled").notNull().default(true),
+    // US-022: the compile tier memos from this source default to. High-value
+    // sources (e.g. Readwise highlights) should declare "full" so they are not
+    // under-processed; low-signal firehoses (RSS) stay "light".
+    default_ingest_mode: ingestModeEnum("default_ingest_mode")
+      .notNull()
+      .default("light"),
     created_at: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

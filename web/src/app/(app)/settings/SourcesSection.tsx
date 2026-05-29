@@ -25,6 +25,7 @@ interface IngestSource {
   source_type: string;
   config: Record<string, unknown>;
   enabled: boolean;
+  default_ingest_mode: "light" | "full";
   created_at: string;
 }
 
@@ -58,8 +59,12 @@ function useIngestSources() {
 
 function useAddRssFeed() {
   const qc = useQueryClient();
-  return useMutation<IngestSource, Error, { name: string; url: string }>({
-    mutationFn: async ({ name, url }) => {
+  return useMutation<
+    IngestSource,
+    Error,
+    { name: string; url: string; default_ingest_mode: "light" | "full" }
+  >({
+    mutationFn: async ({ name, url, default_ingest_mode }) => {
       const res = await fetch("/api/ingest-sources", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -70,6 +75,8 @@ function useAddRssFeed() {
           // reads `config.url` after decrypting.
           config: { url },
           enabled: true,
+          // US-022: memos from this feed default to the chosen compile tier.
+          default_ingest_mode,
         }),
       });
       if (!res.ok) {
@@ -101,6 +108,8 @@ export function SourcesSection() {
 
   const [feedName, setFeedName] = useState("");
   const [feedUrl, setFeedUrl] = useState("");
+  // US-022: RSS is a low-signal firehose, so "light" is the sensible default.
+  const [feedMode, setFeedMode] = useState<"light" | "full">("light");
 
   const rssFeeds = (sources ?? []).filter((s) => s.source_type === "rss");
 
@@ -116,9 +125,10 @@ export function SourcesSection() {
     const url = feedUrl.trim();
     if (!url) return;
     const name = feedName.trim() || hostFromUrl(url);
-    await addFeed.mutateAsync({ name, url });
+    await addFeed.mutateAsync({ name, url, default_ingest_mode: feedMode });
     setFeedName("");
     setFeedUrl("");
+    setFeedMode("light");
   }
 
   async function handleRemoveFeed(id: string) {
@@ -200,7 +210,7 @@ export function SourcesSection() {
                 </div>
                 <div className="settings-row-desc" style={{ wordBreak: "break-all" }}>
                   {/* config is redacted server-side; the name carries the host */}
-                  {feed.enabled ? "Active" : "Paused"} · added{" "}
+                  {feed.enabled ? "Active" : "Paused"} · {feed.default_ingest_mode === "full" ? "Full" : "Light"} compile · added{" "}
                   {new Date(feed.created_at).toLocaleDateString()}
                 </div>
               </div>
@@ -241,6 +251,16 @@ export function SourcesSection() {
               onKeyDown={(e) => e.key === "Enter" && handleAddFeed()}
               style={inputStyle}
             />
+            <select
+              value={feedMode}
+              onChange={(e) => setFeedMode(e.target.value as "light" | "full")}
+              aria-label="Compile tier"
+              title="Compile tier for memos from this feed"
+              style={{ ...inputStyle, flex: "0 0 8rem" }}
+            >
+              <option value="light">Light</option>
+              <option value="full">Full</option>
+            </select>
           </div>
           <div>
             <Btn

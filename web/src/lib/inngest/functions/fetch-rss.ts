@@ -161,6 +161,8 @@ export const fetchRss = inngest.createFunction(
                 idempotency_key: idempotencyKey,
                 source: "rss",
                 device: source.name,
+                // US-022: memos inherit the source's declared default compile tier.
+                ingest_mode: source.default_ingest_mode,
                 created_at: item.pubDate ? new Date(item.pubDate) : undefined,
               })
               .returning({ id: memos.id });

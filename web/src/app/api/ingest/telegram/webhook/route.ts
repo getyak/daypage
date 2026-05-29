@@ -94,6 +94,8 @@ export async function POST(req: NextRequest) {
       body: memoBody,
       origin: "api",
       device: "telegram",
+      // US-022: inherit the source's declared default compile tier.
+      ingest_mode: matchingSource.default_ingest_mode,
       created_at: new Date(message.date * 1000),
       idempotency_key: `telegram:${update.update_id}`,
     })
