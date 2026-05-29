@@ -131,7 +131,7 @@
         "Tests pass"
       ],
       "priority": 8,
-      "passes": false,
+      "passes": true,
       "notes": "web/ \u4efb\u52a1\u3002\u4e0e\u73b0\u6709 session-auth \u7684 /api/pages \u9694\u79bb\uff0c\u5355\u72ec key \u4e2d\u95f4\u4ef6\u3002"
     },
     {
