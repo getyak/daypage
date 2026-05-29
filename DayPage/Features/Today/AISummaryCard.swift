@@ -18,8 +18,11 @@ struct AISummaryCard: View {
     let summary: String
     /// Timestamp shown in the header (defaults to now).
     var timestamp: Date = Date()
+    /// When set, the card becomes tappable and opens the Daily Page.
+    var onTap: (() -> Void)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isPressed: Bool = false
 
     private static let timeFmt: DateFormatter = {
         let f = DateFormatter()
@@ -60,9 +63,23 @@ struct AISummaryCard: View {
                 .strokeBorder(DSColor.borderSubtle, lineWidth: 0.5)
         )
         .shadow(color: Color.black.opacity(0.04), radius: 1, x: 0, y: 1)
+        .scaleEffect((!reduceMotion && isPressed) ? 0.985 : 1.0)
+        .animation(Motion.spring, value: isPressed)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard let onTap else { return }
+            Haptics.tapConfirm()
+            onTap()
+        }
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in if onTap != nil { isPressed = true } }
+                .onEnded { _ in isPressed = false }
+        )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("AI 今日一句")
         .accessibilityValue(summary)
+        .modifier(TappableCardAccessibility(enabled: onTap != nil, action: { onTap?() }))
     }
 
     private var header: some View {
@@ -84,7 +101,30 @@ struct AISummaryCard: View {
                     .font(DSType.mono9)
                     .tracking(1.2)
                     .foregroundColor(DSColor.inkSubtle)
+                if onTap != nil {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(DSColor.inkFaint)
+                }
             }
+        }
+    }
+}
+
+// MARK: - TappableCardAccessibility
+
+private struct TappableCardAccessibility: ViewModifier {
+    let enabled: Bool
+    let action: () -> Void
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint("打开今日 Daily Page")
+                .accessibilityAction(named: "打开 Daily Page") { action() }
+        } else {
+            content
         }
     }
 }
