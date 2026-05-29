@@ -30,6 +30,23 @@ final class SidebarViewModel: ObservableObject {
     /// All active days used for streak calculation (larger scan than recentDays).
     @Published private var streakDays: [RecentDay] = []
 
+    // MARK: - Heatmap + stats (museum-aesthetic sidebar, M2)
+
+    /// Memo count per active day across the last ~16 weeks, keyed by
+    /// `YYYY-MM-DD`. Drives the 16×7 sidebar heatmap. Days with no memos are
+    /// simply absent (lookup returns 0).
+    @Published var heatmapCounts: [String: Int] = [:]
+
+    /// Total memos captured across the heatmap window (the "N ENTRIES" figure).
+    @Published var totalEntries16Weeks: Int = 0
+
+    /// Number of compiled daily pages on disk (`vault/wiki/daily/*.md`).
+    @Published var totalPages: Int = 0
+
+    /// Approximate total words across all raw memo bodies (CJK chars + Latin
+    /// words), shown as the "WORDS" stat. Formatted lazily by the view.
+    @Published var totalWordCount: Int = 0
+
     /// Consecutive calendar days ending today (or yesterday) with at least one memo.
     /// Starts counting from the most recent active day and stops at the first gap.
     var currentStreak: Int {
@@ -103,10 +120,23 @@ final class SidebarViewModel: ObservableObject {
         Task { [weak self] in
             async let recent = Self.scanRecentDays(limit: 7)
             async let streak = Self.scanRecentDays(limit: 365)
-            let (recentResult, streakResult) = await (recent, streak)
+            // 16 weeks = 112 days; scan a touch more to cover the partial
+            // leading week the grid renders.
+            async let heatmap = Self.scanRecentDays(limit: 119)
+            async let stats = Self.scanStats()
+            let (recentResult, streakResult, heatmapResult, statsResult) =
+                await (recent, streak, heatmap, stats)
             await MainActor.run {
                 self?.recentDays = recentResult
                 self?.streakDays = streakResult
+                let counts = Dictionary(
+                    heatmapResult.map { ($0.dateString, $0.memoCount) },
+                    uniquingKeysWith: { a, _ in a }
+                )
+                self?.heatmapCounts = counts
+                self?.totalEntries16Weeks = heatmapResult.reduce(0) { $0 + $1.memoCount }
+                self?.totalPages = statsResult.pages
+                self?.totalWordCount = statsResult.words
             }
         }
     }
@@ -158,6 +188,57 @@ final class SidebarViewModel: ObservableObject {
             }
             return out
         }.value
+    }
+
+    /// Scan vault for aggregate stats:
+    ///   • pages — number of compiled daily pages (`vault/wiki/daily/*.md`)
+    ///   • words — approximate total words across all raw memo bodies
+    ///     (front-matter stripped; non-whitespace characters counted, which
+    ///     reads naturally for CJK and is a fair proxy for Latin too).
+    nonisolated private static func scanStats() async -> (pages: Int, words: Int) {
+        await Task.detached(priority: .utility) {
+            let fm = FileManager.default
+            let vault = VaultInitializer.vaultURL
+
+            // Pages: count YYYY-MM-DD.md files under wiki/daily.
+            let dailyDir = vault.appendingPathComponent("wiki/daily")
+            var pages = 0
+            if let names = try? fm.contentsOfDirectory(atPath: dailyDir.path) {
+                pages = names.filter { $0.hasSuffix(".md") }.count
+            }
+
+            // Words: walk raw/*.md, strip YAML front-matter blocks, count
+            // non-whitespace characters in the remaining body text.
+            let rawDir = vault.appendingPathComponent("raw")
+            var words = 0
+            if let names = try? fm.contentsOfDirectory(atPath: rawDir.path) {
+                for name in names where name.hasSuffix(".md") {
+                    let url = rawDir.appendingPathComponent(name)
+                    guard let data = try? Data(contentsOf: url),
+                          let text = String(data: data, encoding: .utf8) else { continue }
+                    words += approxBodyWordCount(text)
+                }
+            }
+            return (pages, words)
+        }.value
+    }
+
+    /// Strips `--- … ---` front-matter blocks and separator comments, then
+    /// counts non-whitespace characters in the remaining body.
+    nonisolated private static func approxBodyWordCount(_ text: String) -> Int {
+        var count = 0
+        var inFrontmatter = false
+        for rawLine in text.components(separatedBy: "\n") {
+            let line = rawLine.trimmingCharacters(in: .whitespaces)
+            if line == "---" {
+                inFrontmatter.toggle()
+                continue
+            }
+            if inFrontmatter { continue }
+            if line.hasPrefix("<!--") { continue } // separator comment
+            count += line.filter { !$0.isWhitespace }.count
+        }
+        return count
     }
 
     /// Count memos in a single raw daily file. Memos are separated by the

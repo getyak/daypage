@@ -151,6 +151,7 @@
 		E20A68158C940060066B2B73 /* WatchReceiveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11E0748715A251EE4A0168A /* WatchReceiveService.swift */; };
 		E4AC46FA495D4BD178789A14 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0881AB423FF6F12FCDE27C5B /* Assets.xcassets */; };
 		E5077A7D97855770914BFB8D /* MarkdownExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC8043A3D3371852ACB3D6F3 /* MarkdownExportService.swift */; };
+		E536EEB8C13B2BA42DF4980F /* SidebarHeatmapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C551D36362FF97C44EB4D5DE /* SidebarHeatmapView.swift */; };
 		EA575F353C6AFD5EA7FF9A6F /* QuickCaptureWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7909ED56F96754E4C4FA21CC /* QuickCaptureWidget.swift */; };
 		ES0000001 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000001 /* EmptyStateView.swift */; };
 		ES0000002 /* GlassErrorBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000002 /* GlassErrorBanner.swift */; };
@@ -361,6 +362,7 @@
 		B93ED807E07C2171E9F4234B /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
 		BAC7527E8128E6A865349FB9 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		BB12D96218034D3E4555B8AA /* HapticFeedback.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticFeedback.swift; sourceTree = "<group>"; };
+		C551D36362FF97C44EB4D5DE /* SidebarHeatmapView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SidebarHeatmapView.swift; sourceTree = "<group>"; };
 		C98B5757B488F583231EC8F6 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		CJ1000001 /* CJKTextPolish.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CJKTextPolish.swift; sourceTree = "<group>"; };
 		DC21412D29A6FB268CE43C58 /* DraftStorage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DraftStorage.swift; sourceTree = "<group>"; };
@@ -544,6 +546,7 @@
 				A20000071 /* DayPage.entitlements */,
 				A20000029 /* Assets.xcassets */,
 				AF2000001 /* Fonts */,
+				C551D36362FF97C44EB4D5DE /* SidebarHeatmapView.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -1270,6 +1273,7 @@
 				29C57DABF22715576844485C /* AISummaryCard.swift in Sources */,
 				787E4480A2797607F2DCDE5E /* PillSegmentedControl.swift in Sources */,
 				2B194E870578303558D461CD /* CompileUnlockCard.swift in Sources */,
+				E536EEB8C13B2BA42DF4980F /* SidebarHeatmapView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
