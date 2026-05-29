@@ -14,8 +14,15 @@ vi.mock("@/lib/ai/rag", () => ({
   retrievePages: vi.fn(),
 }));
 
-const { mockDb } = vi.hoisted(() => ({ mockDb: { select: vi.fn() } }));
+const { mockDb } = vi.hoisted(() => ({
+  mockDb: { select: vi.fn(), insert: vi.fn() },
+}));
 vi.mock("@/lib/db/client", () => ({ db: mockDb }));
+
+const { sendEventMock } = vi.hoisted(() => ({ sendEventMock: vi.fn() }));
+vi.mock("@/lib/inngest/client", () => ({
+  sendEvent: (...args: unknown[]) => sendEventMock(...args),
+}));
 
 import { authenticateApiKey } from "@/lib/api-auth";
 import { retrievePages } from "@/lib/ai/rag";
@@ -75,14 +82,14 @@ describe("MCP protocol", () => {
     expect(json.result.capabilities.tools).toBeDefined();
   });
 
-  it("lists the three read-only tools", async () => {
+  it("lists the available tools", async () => {
     mockKey(["read"]);
     const res = await POST(
       makeRequest({ jsonrpc: "2.0", id: 2, method: "tools/list" }, "k")
     );
     const json = await res.json();
     const names = json.result.tools.map((t: { name: string }) => t.name).sort();
-    expect(names).toEqual(["get_page", "list_domains", "search_wiki"]);
+    expect(names).toEqual(["add_memo", "get_page", "list_domains", "search_wiki"]);
   });
 
   it("returns 202 for the initialized notification (no id)", async () => {
@@ -171,5 +178,63 @@ describe("list_domains", () => {
     );
     const json = await res.json();
     expect(json.result.structuredContent.domains[0].slug).toBe("travel");
+  });
+});
+
+// ── add_memo ──────────────────────────────────────────────────────────────────
+
+describe("add_memo", () => {
+  function callAddMemo(text: unknown, key = "k") {
+    return POST(
+      makeRequest(
+        {
+          jsonrpc: "2.0",
+          id: 6,
+          method: "tools/call",
+          params: { name: "add_memo", arguments: { text } },
+        },
+        key
+      )
+    );
+  }
+
+  it("saves a memo and emits memo/created when the key has the 'write' scope", async () => {
+    mockKey(["read", "write"]);
+    mockDb.insert.mockReturnValue({
+      values: vi.fn().mockReturnThis(),
+      returning: vi.fn().mockResolvedValue([{ id: "memo-1" }]),
+    });
+    sendEventMock.mockResolvedValue(undefined);
+
+    const res = await callAddMemo("hello from an agent");
+    const json = await res.json();
+
+    expect(json.result.structuredContent.memo_id).toBe("memo-1");
+    expect(sendEventMock).toHaveBeenCalledWith({
+      name: "memo/created",
+      data: { memo_id: "memo-1" },
+    });
+  });
+
+  it("rejects with a clear error when the key lacks the 'write' scope", async () => {
+    mockKey(["read"]);
+
+    const res = await callAddMemo("hello from an agent");
+    const json = await res.json();
+
+    expect(json.error).toBeTruthy();
+    expect(json.error.message).toMatch(/write/i);
+    expect(mockDb.insert).not.toHaveBeenCalled();
+    expect(sendEventMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects an empty text with INVALID_PARAMS", async () => {
+    mockKey(["read", "write"]);
+
+    const res = await callAddMemo("   ");
+    const json = await res.json();
+
+    expect(json.error.code).toBe(-32602);
+    expect(mockDb.insert).not.toHaveBeenCalled();
   });
 });

@@ -7,10 +7,13 @@
 // transport-agnostic: it takes a parsed JSON-RPC request plus the authenticated
 // user id and returns a JSON-RPC response object (or null for notifications).
 //
-// Tools (all read-only, require the "read" scope):
+// Read tools (require the "read" scope):
 //   • search_wiki(query, top_k?) — semantic search via rag.ts retrievePages
 //   • get_page(slug)             — fetch one wiki page by slug
 //   • list_domains()             — list the user's domains
+//
+// Write tools (require the "write" scope):
+//   • add_memo(text)             — save a raw memo and trigger AI compilation
 //
 // Every search result carries the page `slug` plus a `url` that links back into
 // DayPage, so the calling agent can cite / deep-link the source.
@@ -18,8 +21,11 @@
 import "server-only";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { pages, domains } from "@/lib/db/schema";
+import { pages, domains, memos } from "@/lib/db/schema";
 import { retrievePages } from "@/lib/ai/rag";
+import { sendEvent } from "@/lib/inngest/client";
+import { sanitizeMemoBody } from "@/lib/sanitize";
+import { hasScope, type ApiAuthResult } from "@/lib/api-auth";
 
 // MCP protocol revision we implement. Clients negotiate via `initialize`.
 const PROTOCOL_VERSION = "2024-11-05";
@@ -115,6 +121,21 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: {},
+    },
+  },
+  {
+    name: "add_memo",
+    description:
+      "Save a new memo (note) back into the user's DayPage. The text is captured as raw input and runs through DayPage's normal AI compilation pipeline. Requires an API key with the 'write' scope.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        text: {
+          type: "string",
+          description: "The memo text to save (plain text / Markdown).",
+        },
+      },
+      required: ["text"],
     },
   },
 ] as const;
@@ -254,18 +275,66 @@ async function runListDomains(userId: string) {
   return toolResult(text, { domains: rows });
 }
 
+async function runAddMemo(auth: ApiAuthResult, args: Record<string, unknown>) {
+  // Authorization: writing back requires the "write" scope (admin implies all).
+  if (!hasScope(auth, "write")) {
+    throw {
+      code: INVALID_REQUEST,
+      message:
+        "Permission denied: this API key lacks the 'write' scope required to add memos",
+    };
+  }
+
+  const text = typeof args.text === "string" ? args.text.trim() : "";
+  if (!text) {
+    throw { code: INVALID_PARAMS, message: "add_memo requires a non-empty 'text' string" };
+  }
+
+  const body = sanitizeMemoBody(text);
+
+  // Mirror the POST /api/memos insert. Defaults appropriate for an external
+  // agent writing through the API: the default "text" memo type, origin "api"
+  // (this came in via the API), source "api", and the light ingest mode the
+  // POST route defaults to. `compile_status` falls back to its column default
+  // ("pending"), which the compilation pipeline picks up.
+  const [memo] = await db
+    .insert(memos)
+    .values({
+      user_id: auth.userId,
+      type: "text",
+      body,
+      source: "api",
+      origin: "api",
+      ingest_mode: "light",
+      word_count: body.split(/\s+/).filter(Boolean).length,
+    })
+    .returning();
+
+  if (!memo) {
+    throw { code: INTERNAL_ERROR, message: "Failed to save memo" };
+  }
+
+  // Trigger the normal compilation pipeline, exactly like POST /api/memos.
+  await sendEvent({ name: "memo/created", data: { memo_id: memo.id } });
+
+  const text_out = `Saved memo ${memo.id}. It will be compiled shortly.`;
+  return toolResult(text_out, { memo_id: memo.id, status: "saved" });
+}
+
 async function dispatchTool(
-  userId: string,
+  auth: ApiAuthResult,
   name: string,
   args: Record<string, unknown>
 ): Promise<unknown> {
   switch (name) {
     case "search_wiki":
-      return runSearchWiki(userId, args);
+      return runSearchWiki(auth.userId, args);
     case "get_page":
-      return runGetPage(userId, args);
+      return runGetPage(auth.userId, args);
     case "list_domains":
-      return runListDomains(userId);
+      return runListDomains(auth.userId);
+    case "add_memo":
+      return runAddMemo(auth, args);
     default:
       throw { code: INVALID_PARAMS, message: `Unknown tool: ${name}` };
   }
@@ -274,13 +343,16 @@ async function dispatchTool(
 // ─── JSON-RPC method router ───────────────────────────────────────────────────
 
 /**
- * Handle a single parsed JSON-RPC message for an authenticated user.
+ * Handle a single parsed JSON-RPC message for an authenticated caller.
+ *
+ * The full auth result (user id + scopes) is threaded through so per-tool
+ * authorization (e.g. add_memo requiring the "write" scope) can be enforced.
  *
  * @returns a JSON-RPC response object, or `null` when the message is a
  *   notification (no `id`) that requires no reply (e.g. `notifications/*`).
  */
 export async function handleMcpMessage(
-  userId: string,
+  auth: ApiAuthResult,
   message: JsonRpcRequest
 ): Promise<JsonRpcResponse | null> {
   // Basic envelope validation.
@@ -298,7 +370,7 @@ export async function handleMcpMessage(
         serverInfo: { name: SERVER_NAME, version: SERVER_VERSION },
         capabilities: { tools: {} },
         instructions:
-          "DayPage wiki (read-only). Use search_wiki to find relevant pages, get_page to read one, and list_domains to browse top-level areas. Every result includes a slug and url linking back to DayPage.",
+          "DayPage wiki. Use search_wiki to find relevant pages, get_page to read one, and list_domains to browse top-level areas; every result includes a slug and url linking back to DayPage. Use add_memo to save a new note back into DayPage (requires the 'write' scope).",
       });
 
     case "ping":
@@ -320,7 +392,7 @@ export async function handleMcpMessage(
       }
 
       try {
-        const result = await dispatchTool(userId, name, args);
+        const result = await dispatchTool(auth, name, args);
         return ok(id, result);
       } catch (e) {
         // Tool-level errors surface as a JSON-RPC error with the tool's code,

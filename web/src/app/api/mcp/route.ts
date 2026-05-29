@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
       );
     }
     const responses = await Promise.all(
-      body.map((m) => handleMcpMessage(apiAuth.userId, m as JsonRpcRequest))
+      body.map((m) => handleMcpMessage(apiAuth, m as JsonRpcRequest))
     );
     const filtered = responses.filter((r): r is JsonRpcResponse => r !== null);
     // If every message was a notification there is nothing to return.
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(filtered, { status: 200 });
   }
 
-  const response = await handleMcpMessage(apiAuth.userId, body as JsonRpcRequest);
+  const response = await handleMcpMessage(apiAuth, body as JsonRpcRequest);
   if (response === null) return new NextResponse(null, { status: 202 });
   return NextResponse.json(response, { status: 200 });
 }
