@@ -55,7 +55,7 @@ final class SearchViewModel: ObservableObject {
         }
     }
 
-    private static func scanTopEntities(
+    private nonisolated static func scanTopEntities(
         limit: Int,
         cachedKey: (Int, TimeInterval)?,
         cachedResult: [EntityFrequency]
