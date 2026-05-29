@@ -12,7 +12,6 @@ struct SidebarView: View {
     @StateObject private var sidebarVM = SidebarViewModel()
     @State private var showSettings = false
     @State private var showAccountSheet = false
-    @State private var dotsAppeared = false
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -46,8 +45,13 @@ struct SidebarView: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 0) {
+                        // Museum-aesthetic hero stack: profile → heatmap → stats.
+                        profileRow
+                        heatmapSection
+                        statsSection
+
                         navSection
-                            .padding(.top, 4)
+                            .padding(.top, 22)
 
                         if !sidebarVM.recentDays.isEmpty {
                             recentSection
@@ -79,13 +83,9 @@ struct SidebarView: View {
             // user sees the latest activity without having to relaunch.
             if isOpen {
                 sidebarVM.refreshRecentDays()
-                dotsAppeared = false
-                Task { @MainActor in dotsAppeared = true }
                 // Pre-warm the impact generator while the drawer is animating
                 // open so the first nav tap fires with minimum latency.
                 UIImpactFeedbackGenerator(style: .light).prepare()
-            } else {
-                dotsAppeared = false
             }
         }
         .sheet(isPresented: $showSettings) {
@@ -98,109 +98,160 @@ struct SidebarView: View {
 
     // MARK: - Brand Header
 
+    /// Museum-aesthetic utility bar: a quiet close button + a tiny mono
+    /// wordmark, replacing the old oversized serif logo.
     private var brandHeader: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("DayPage")
-                .font(DSType.serifDisplay32)
-                .foregroundColor(DSColor.inkPrimary)
-            Text("your daily log")
-                .font(DSType.mono10)
-                .foregroundColor(DSColor.inkSubtle)
-                .textCase(.uppercase)
-                .tracking(1.0)
-            activityDots
-            if sidebarVM.currentStreak > 0 {
-                streakBadge(streak: sidebarVM.currentStreak)
-                    .dsAnimation(Motion.spring, value: sidebarVM.currentStreak)
+        HStack {
+            Button {
+                Haptics.soft()
+                nav.closeSidebar()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(DSColor.inkPrimary)
+                    .frame(width: 34, height: 34)
+                    .background(DSColor.surfaceSunken, in: Circle())
             }
-        }
-        .padding(.horizontal, 24)
-        .padding(.top, 64)
-        .padding(.bottom, 24)
-    }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Close navigation")
 
-    private func streakBadge(streak: Int) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: "flame.fill")
-                .font(.system(size: 12))
-                .foregroundColor(DSColor.amberAccent)
-            Text("\(streak)-day streak")
+            Spacer()
+
+            Text("DAYPAGE · 2026")
                 .font(DSType.mono10)
-                .foregroundColor(DSColor.amberAccent)
-                .textCase(.uppercase)
-                .tracking(1.0)
+                .tracking(2.0)
+                .foregroundColor(DSColor.inkMuted)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(DSColor.amberSoft, in: Capsule())
-        .overlay(Capsule().strokeBorder(DSColor.amberRim, lineWidth: 0.5))
-        .accessibilityLabel("Current streak: \(streak) days")
+        .padding(.horizontal, 20)
+        .padding(.top, 58)
+        .padding(.bottom, 12)
     }
 
-    /// 7 circles representing memo activity for the last 7 days (today on the right).
-    private var activityDots: some View {
-        let days = last7DayPairs()
-        let todayStr = Self.isoFormatter.string(from: Date())
-        return HStack(spacing: 5) {
-            ForEach(Array(days.enumerated()), id: \.element.dateString) { index, pair in
-                let isToday = pair.dateString == todayStr
-                let count = pair.count
-                let label = Self.dotAccessibilityLabel(for: pair.dateString, count: count)
-                let restingOpacity = count > 0 ? min(0.4 + Double(count) * 0.15, 1.0) : 0.25
-                let delay = reduceMotion ? 0.0 : Double(index) * 0.05
-                Button {
-                    Haptics.soft()
-                    nav.openArchive(at: pair.dateString)
-                } label: {
+    // MARK: - Profile Row (museum-aesthetic)
+
+    /// 46pt amber-gradient avatar + serif name + mono membership + chevron.
+    private var profileRow: some View {
+        Button {
+            showAccountSheet = true
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
                     Circle()
-                        .fill(count > 0 ? DSColor.amberAccent : DSColor.inkFaint)
-                        .frame(width: 8, height: 8)
-                        .opacity(dotsAppeared ? restingOpacity : 0)
-                        .scaleEffect(dotsAppeared ? 1 : 0.6)
-                        .overlay {
-                            if isToday {
-                                Circle()
-                                    .strokeBorder(DSColor.amberRim, lineWidth: 1)
-                            }
-                        }
-                        .animation(
-                            reduceMotion ? .linear(duration: 0.001) : Motion.spring.delay(delay),
-                            value: dotsAppeared
+                        .fill(
+                            LinearGradient(
+                                colors: [Color(hex: "C9A677"), Color(hex: "5D3000")],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
                         )
-                        .dsAnimation(Motion.spring, value: count)
+                        .frame(width: 46, height: 46)
+                    Text(sidebarVM.isLoggedIn ? sidebarVM.accountInitial : "·")
+                        .font(DSFonts.serif(size: 20, weight: .semibold))
+                        .foregroundColor(Color(hex: "FAF8F6"))
                 }
-                .frame(width: 28, height: 28)
-                .contentShape(Circle())
-                .buttonStyle(.plain)
-                .accessibilityLabel(label)
-                .accessibilityHint("Opens this day in Archive")
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(profileName)
+                        .font(DSFonts.serif(size: 19, weight: .semibold))
+                        .foregroundColor(DSColor.inkPrimary)
+                        .lineLimit(1)
+                    Text(membershipLine)
+                        .font(DSType.mono10)
+                        .tracking(1.2)
+                        .foregroundColor(DSColor.inkSubtle)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(DSColor.inkSubtle)
             }
+            .contentShape(Rectangle())
         }
-        .padding(.top, 2)
+        .buttonStyle(.plain)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
     }
 
-    /// Returns date+count pairs for the last 7 days (index 0 = 6 days ago, index 6 = today).
-    private func last7DayPairs() -> [(dateString: String, count: Int)] {
-        let cal = Calendar.current
-        let today = cal.startOfDay(for: Date())
-        return (0..<7).reversed().map { daysAgo in
-            guard let date = cal.date(byAdding: .day, value: -daysAgo, to: today) else {
-                return (dateString: "", count: 0)
-            }
-            let dateStr = Self.isoFormatter.string(from: date)
-            let count = sidebarVM.recentDays.first(where: { $0.dateString == dateStr })?.memoCount ?? 0
-            return (dateString: dateStr, count: count)
-        }
+    private var profileName: String {
+        guard sidebarVM.isLoggedIn, !sidebarVM.accountEmail.isEmpty else { return "DayPage" }
+        // Use the local part of the email as a friendly display name.
+        return String(sidebarVM.accountEmail.prefix(while: { $0 != "@" }))
     }
 
-    private static func dotAccessibilityLabel(for dateString: String, count: Int) -> String {
-        guard let date = isoFormatter.date(from: dateString) else { return dateString }
-        let weekday = weekdayFormatter.string(from: date)
-        if count == 0 {
-            return "\(weekday), no notes"
-        } else {
-            return "\(weekday), \(count) \(count == 1 ? "note" : "notes")"
+    /// "MEMBER · SINCE <year>" using the real account creation year from the
+    /// auth session. Falls back to a yearless "MEMBER" when signed out or the
+    /// join year is unavailable, rather than printing a misleading hardcoded year.
+    private var membershipLine: String {
+        if let year = sidebarVM.joinYear {
+            return "MEMBER · SINCE \(year)"
         }
+        return "MEMBER"
+    }
+
+    // MARK: - Heatmap + Stats
+
+    private var heatmapSection: some View {
+        SidebarHeatmapView(
+            counts: sidebarVM.heatmapCounts,
+            totalEntries: sidebarVM.totalEntries16Weeks,
+            streak: sidebarVM.currentStreak
+        )
+        .padding(.horizontal, 20)
+        .padding(.top, 4)
+    }
+
+    /// STREAK / PAGES / WORDS triplet on a single hairline-divided white card.
+    private var statsSection: some View {
+        HStack(spacing: 0) {
+            statCell(label: "STREAK", value: "\(sidebarVM.currentStreak)", unit: "DAYS", first: true)
+            statDivider
+            statCell(label: "PAGES", value: "\(sidebarVM.totalPages)", unit: "TOTAL", first: false)
+            statDivider
+            statCell(label: "WORDS", value: formatWords(sidebarVM.totalWordCount), unit: "TOTAL", first: false)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(DSColor.surfaceWhite)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(DSColor.borderSubtle, lineWidth: 0.5)
+        )
+        .shadow(color: Color.black.opacity(0.04), radius: 1, x: 0, y: 1)
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+    }
+
+    private func statCell(label: String, value: String, unit: String, first: Bool) -> some View {
+        VStack(spacing: 4) {
+            Text(label)
+                .font(DSType.mono9).tracking(1.4)
+                .foregroundColor(DSColor.inkSubtle)
+            Text(value)
+                .font(DSFonts.serif(size: 22, weight: .semibold))
+                .foregroundColor(DSColor.inkPrimary)
+            Text(unit)
+                .font(DSType.mono9).tracking(1.2)
+                .foregroundColor(DSColor.inkSubtle)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+    }
+
+    private var statDivider: some View {
+        Rectangle()
+            .fill(DSColor.borderSubtle)
+            .frame(width: 0.5)
+            .padding(.vertical, 12)
+    }
+
+    /// "58k" style compaction for the word stat.
+    private func formatWords(_ n: Int) -> String {
+        if n >= 1_000_000 { return String(format: "%.1fM", Double(n) / 1_000_000) }
+        if n >= 1_000 { return "\(n / 1000)k" }
+        return "\(n)"
     }
 
     // MARK: - Nav Items

@@ -1,9 +1,38 @@
 # PRD: DayPage v8 — 美术馆美学 · 体验改版（生产级）
 
-> **Status**: Draft · **Created**: 2026-05-28 · **Author**: Claude (代笔，与 Eric 共同设计)
-> **Source of truth**: `/tmp/daypage-design/daypageapp/` (Claude Design handoff bundle, 2026-05-28)
+> **Status**: In progress · **Created**: 2026-05-28 · **Updated**: 2026-05-29 · **Author**: Claude (代笔，与 Eric 共同设计)
+> **Source of truth**: Claude Design handoff bundle（2026-05-28）。解压后位于
+> `/tmp/daypage_bundle/daypageapp/`（gzip+tar）；关键源文件 `project/tokens.css`
+> `project/app.jsx` `project/composer.jsx` `project/detail.jsx` `chats/chat1.md`。
 > **Target platforms**: iOS Native（主线）+ Web/Next.js（跟进，仅换 UI，数据层不动）
-> **Version**: 1.0 (生产级 · 单文件 · 覆盖 Wave A-F)
+> **Version**: 1.1 (生产级 · 单文件 · 覆盖 Wave A-F · 含实现进度对照)
+
+---
+
+## 实现进度对照（2026-05-29）
+
+> 本 PRD 是设计意图的「完整规格」（含 Web 端）。**iOS 主线已分里程碑落地**，
+> 里程碑（M）与本 PRD 的 Wave/US 对照如下。已合并/在审 PR 见下表。
+> 注：iOS 落地采取务实裁剪（如 swipe reveal 84→96pt 而非 132、保持 Source
+> Serif 4 不引入 Fraunces、未引入 design-tokens 生成器而直接用既有 `DSTokens`），
+> 与本 PRD 的「理想规格」略有出入，以 PR 描述为准。
+
+| 里程碑 | 覆盖 Wave / US | iOS 状态 | PR / Issue |
+|---|---|---|---|
+| **M1** Today 视觉还原 | Wave B（US-005/006/008/009/010 部分）+ A 的卡面 token | ✅ 已实现 | PR #483 / issue #482 |
+| **M2** 侧边栏热力图 | Wave D（US-019~US-025） | ✅ 已实现 | PR #486 / issue #484 |
+| **M3** Timeline 连续时光轴 | Wave B US-011 的扩展（日→周→月→年 4 级 spine） | ⏳ 待做 | — |
+| **M4** Composer / 录音 / 灵动岛 | Wave E（US-026~US-030） | ⏳ 待做 | — |
+| **M5** 分享卡 5 模板 | Wave F（US-031~US-033） | ⏳ 待做 | — |
+| **M6** 周/月/年 AI 编译后端 | （PRD 未单列；M3 时光轴的真实数据源） | ⏳ 待做 | — |
+| **附录** 详情页 metadata/HASH | Wave C（US-012~US-018） | ⏳ 待做 | — |
+
+**iOS 实现差异备注**（与本 PRD 理想规格的已知偏差）：
+- 不引入 `design-tokens/` 生成器；直接用既有 `DSTokens.swift` / `Colors.swift`（色值已 100% 对齐）。
+- serif 保持 **Source Serif 4 级联 Source Han Serif SC**，不引入 Fraunces（US-001 的 Fraunces 项 iOS 不适用）。
+- Memo 卡左滑 reveal = 96pt（介于旧 84 与设计 132），单侧单动作；MORE/SHARE 语义一致。
+- `PillSegmentedControl`（US-007）组件已建但**未接入 Today header**（与现有 TabBar/sidebar 导航重复，待信息架构决策）。
+- M3 的周/月/年节点在 M6 完成前用日 summary 聚合占位。
 
 ---
 

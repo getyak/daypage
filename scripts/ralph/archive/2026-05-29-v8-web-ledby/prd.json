@@ -1,0 +1,675 @@
+{
+  "project": "DayPage",
+  "branchName": "ralph/daypage-v8-museum",
+  "description": "DayPage v8 — 美术馆美学体验改版。源: tasks/prd-daypage-v8-museum-aesthetic.md。把 DayPage 重做为「日式美术馆 + iOS 26 灵动岛」气质：内容优先 / hairline 留白 / 仪式感反馈。覆盖 6 个核心屏（Today / Memo Detail / Drawer 热力图 / Composer Pill / Recording Sheet + 灵动岛 / Share Card）+ 设计系统底座。iOS Native 主线，Web 跟进（仅换 UI 不动数据层）。33 个 user story 按 Wave A→F 依赖排序。环境前提：本地 dev 需 `npm run dev` + `npm run dev:inngest` 同跑；新增 endpoints 见 PRD §8；不引入手势库 / 不动 schema 主结构（仅 jsonb settings + 7 endpoints）。",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "建立统一 design-tokens 文件 + 双端生成器",
+      "description": "As a developer, I need a single source of truth for all design tokens so iOS and Web stay visually aligned.",
+      "acceptanceCriteria": [
+        "新建 design-tokens/tokens.json (完整 schema 见 PRD §23)",
+        "新建 design-tokens/generators/to-css.ts → 派生 web/src/app/globals.css :root 段",
+        "新建 design-tokens/generators/to-swift.ts → 派生 DayPage/App/DSTokens.swift",
+        "颜色 token 名称与 PRD §6.2 完全一致 (bg-warm/surface-white/surface-sunken/fg-primary/muted/subtle/accent/accent-hover/soft/border/heatmap-empty/low/mid/high/border-subtle/default)",
+        "字体 token 包含 font-display/serif/body/mono/handwrite (Fraunces 与 Caveat 字体文件下载到 DayPage/App/Resources/Fonts/ 并在 Info.plist 注册)",
+        "圆角 token: radius-small=8 / card=14 / hero=18 / sheet=28 / recording=34 / island=24 / pill=999",
+        "动画 token: motion-spring='cubic-bezier(.2,.8,.2,1)' / fast=220 / medium=280 / slow=320 / island=360",
+        "添加 npm run tokens:build script 与 make tokens-build target",
+        "CI 加 tokens:check step (跑生成器后比对 diff，有 diff 则 fail)",
+        "Typecheck passes",
+        "Web 构建通过 (cd web && npm run build)",
+        "iOS 构建通过 (xcodebuild -scheme DayPage build)"
+      ],
+      "priority": 1,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-002",
+      "title": "扩展全局动画 keyframes 库 + reduce-motion 退化",
+      "description": "As a developer, I need a unified keyframes library so all animations are consistent and respect accessibility preferences.",
+      "acceptanceCriteria": [
+        "web/src/app/globals.css 注册全部 keyframes: pulse-dot / breathe / shimmer-bar / sheet-up / sheet-left / fade-in / caret / scale-in (已存在的不重复)",
+        "暴露 .fade-in / .scale-in / .shimmer utility class",
+        "所有 keyframes wrap @media (prefers-reduced-motion: reduce) → animation-duration: 0.01ms + animation-iteration-count: 1",
+        "iOS 新建 DayPage/App/DSMotion.swift 暴露 Animation.dsSpring / dsEaseOut / dsSheet 常量",
+        "iOS 端检查 @Environment(\\.accessibilityReduceMotion) 自动退化到 .linear(duration: 0.01)",
+        "Typecheck passes",
+        "Web 构建通过",
+        "iOS 构建通过"
+      ],
+      "priority": 2,
+      "passes": true,
+      "notes": "依赖 US-001 的 tokens.json"
+    },
+    {
+      "id": "US-003",
+      "title": "GlassPillBtn 组件 (Web + iOS)",
+      "description": "As a developer, I need a reusable glassmorphism pill button used in all top bars (back/share/search/settings).",
+      "acceptanceCriteria": [
+        "Web: web/src/components/ui/GlassPillBtn.tsx，props: dark?: boolean / size?: 'sm' | 'md' / onClick / children / aria-label (必填) / disabled?: boolean",
+        "iOS: DayPage/App/Components/DSGlassPill.swift，对应参数 + accessibilityLabel",
+        "视觉规格: height=40 / min-width=40 / padding=0 12 / radius=999 / background=rgba(255,255,255,0.78) (dark 时 rgba(30,28,24,0.62)) / backdrop-filter=blur(20px) saturate(160%) / box-shadow='0 1px 2px rgba(0,0,0,0.05), inset 0 0.5px 0 rgba(255,255,255,0.6)'",
+        "size=sm: height=36 + 触控扩展到 44 via ::before pseudo (Web) / .contentShape(.rect) (iOS)",
+        "Tap 反馈: scale 0.96 + opacity 0.85, 220ms; prefers-reduced-motion 时仅改 opacity",
+        "focus-visible: outline 2px solid var(--accent) / outline-offset 2px",
+        "disabled: opacity 0.4 / cursor not-allowed / pointer-events none",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 3,
+      "passes": true,
+      "notes": "依赖 US-001"
+    },
+    {
+      "id": "US-004",
+      "title": "SectionLabel + Dot 原子组件 (Web + iOS)",
+      "description": "As a developer, I need atomic mono-caps section label and decorative dot components used throughout the app.",
+      "acceptanceCriteria": [
+        "Web: <SectionLabel right?> 渲染 font-size:11 / letter-spacing:1.6 / text-transform:uppercase / font-weight:700 / color:var(--fg-muted)",
+        "Web: <Dot opacity?> 渲染 3×3 圆点，默认 opacity 0.45",
+        "iOS: DSSectionLabel + DSDot View",
+        "<SectionLabel> 使用 <h2 role=\"heading\" aria-level=\"2\">（朗读为常规标题，去掉装饰 letter-spacing）",
+        "<Dot> 加 aria-hidden / .accessibilityHidden(true)",
+        "Typecheck passes"
+      ],
+      "priority": 4,
+      "passes": true,
+      "notes": "依赖 US-001"
+    },
+    {
+      "id": "US-005",
+      "title": "Today 顶部 utility bar (glass scroll-aware)",
+      "description": "As a user, I want a frosted-glass top bar that fades in only when I scroll so it doesn't intrude when idle.",
+      "acceptanceCriteria": [
+        "新建 web/src/app/(app)/today/page.tsx 与 iOS DayPage/Features/Today/TodayView.swift (替换或与 Legacy 并存)",
+        "容器 position:absolute / top:0 / paddingTop:60 / paddingLeft:14 / paddingRight:14 / paddingBottom:10",
+        "scrollTop > 8 时: background=rgba(250,248,246,0.78) + backdrop-filter=blur(20px) saturate(150%) + bottom 0.5px solid var(--border-subtle)",
+        "scrollTop ≤ 8 时: 背景透明 / 无边框",
+        "切换过渡 transition:background 200ms ease-out, backdrop-filter 200ms ease-out",
+        "三个 GlassPillBtn: hamburger (aria-label='打开侧边栏') / 搜索 (aria-label='搜索') / 设置 (aria-label='设置')",
+        "scrollY 监听 passive:true + rAF throttle",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 5,
+      "passes": true,
+      "notes": "依赖 US-003"
+    },
+    {
+      "id": "US-006",
+      "title": "Today Hero 标题块 + /api/today/header endpoint",
+      "description": "As a user, I want a big serif weekday hero with mono meta line so opening the app feels intentional.",
+      "acceptanceCriteria": [
+        "新建 GET /api/today/header endpoint, 返回 {weekday, weekday_zh, date_iso, date_display, memo_count, weather:{temp,condition,icon}, location}",
+        "H1: font-size:56 / line-height:1 / letter-spacing:-0.8 / font-family:var(--font-serif) / font-weight:600",
+        "H1 渲染本地化周几: Intl.DateTimeFormat('zh-CN', { weekday: 'long' })",
+        "Meta 行: font-family:mono / font-size:11 / letter-spacing:1.2 / uppercase / color:var(--fg-muted) / margin-top:12 / gap:8",
+        "<Dot/> 分隔; NOTES 计数着 var(--accent) 色",
+        "28° 前内联 sun SVG icon 11×11",
+        "加载态: skeleton mono caps 'LOADING…'; 错误态: fallback 'MAY 28 · — · — · —'",
+        "endpoint 5min cache (weather invalidation key)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 6,
+      "passes": true,
+      "notes": "依赖 US-005"
+    },
+    {
+      "id": "US-007",
+      "title": "Today Segmented Control (今日/成稿/档案)",
+      "description": "As a user, I want a pill segmented control to switch between today / page / archive views.",
+      "acceptanceCriteria": [
+        "容器: inline-flex / padding:3 / radius:999 / background:var(--surface-sunken) / border:0.5px solid var(--border-subtle)",
+        "选中 segment: background:var(--surface-white) / color:var(--accent) / font-weight:600 / box-shadow:'0 1px 2px rgba(0,0,0,0.06)'",
+        "未选中: background:transparent / color:var(--fg-muted) / font-weight:500",
+        "URL 同步 ?tab=today|page|archive 用 useSearchParams + router.replace（不污染历史栈）",
+        "键盘可达: role='tablist' + 子 role='tab' + aria-selected + Arrow Left/Right 切换",
+        "切换动画: 选中 indicator 用 transform:translateX(...) 280ms spring 滑动",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 7,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-008",
+      "title": "AI Summary 卡 + /api/today/ai-summary endpoint",
+      "description": "As a user, I want a quiet white card with a serif italic AI summary that types in like a literary opening.",
+      "acceptanceCriteria": [
+        "新建 GET /api/today/ai-summary endpoint, 返回 {summary, generated_at, is_stale, memo_count_at_generation} 或 404 {summary:null}",
+        "容器: radius:18 / padding:18 20 20 22 / background:var(--surface-white) / border:0.5px solid var(--border-subtle) / box-shadow:var(--shadow-card)",
+        "左侧 rail: position:absolute / left:0 / top:14 / bottom:14 / width:2 / radius:999 / background:var(--accent) / opacity:0.85",
+        "顶部 row: sparkle SVG 11×11 var(--accent) fill + 'AI · 今日一句' mono caps + 右侧 '15:32' 时间戳",
+        "摘要正文: font-serif / font-size:19 / italic / line-height:1.45 / min-height:54",
+        "入场: 380ms 延迟后打字机逐字 (每字 36-66ms 随机) + caret 闪",
+        "prefers-reduced-motion 时跳过打字机直接显示全文",
+        "无摘要时 placeholder: '今天还没攒够话，再记一条试试'",
+        "is_stale=true 时摘要右侧加 '重新生成' 小链接",
+        "a11y: <blockquote aria-live='polite'>",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 8,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-009",
+      "title": "Memo Card (内容优先 + 左滑揭示动作)",
+      "description": "As a user, I want memo cards to show only content (time + body + photo) and reveal Share/More by swiping left.",
+      "acceptanceCriteria": [
+        "卡面规格: radius:18 / background:var(--surface-white) / border:0.5px solid var(--border-subtle) / shadow:var(--shadow-card) / overflow:hidden",
+        "卡面内容: 照片 aspect-ratio 4:5 (radius:0) + body block (padding 16/18 20 18/20)",
+        "body 顶部: mono 时间 '15·23' + (mixed 时) 3×3 圆点 + 相机 icon — 不显示地点/天气/kind/分享按钮",
+        "body 正文: font-size:16 / line-height:1.62 / text-wrap:pretty / letter-spacing:0.1; 超过 5 行 -webkit-line-clamp:5",
+        "左滑手势: REVEAL_WIDTH=132; 阈值 -66 snap 到 -132 否则回 0; 右滑 rubber-band tx*0.18; 左滑过界 -164 rubber-band",
+        "完整公式见 PRD §22 Appendix A.1 (web/src/lib/gestures/rubberBand.ts)",
+        "松手 transition transform 280ms cubic-bezier(.2,.8,.2,1); 拖动中 transition none",
+        "drag.moved > 6px 不触发点击; tx!==0 时第一次点击关闭抽屉",
+        "Action drawer 右侧 width:132; MORE sunken / SHARE accent",
+        "iOS: DragGesture(minimumDistance:4) + spring(response:0.32, dampingFraction:0.78) + light haptic at snap",
+        "键盘可达 (Web): tabIndex=0 / Enter 进详情",
+        "Unit tests: rubber-band 公式 5 个边界值 (0/-66/-132/-164/-200)",
+        "Typecheck passes",
+        "Tests pass",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 9,
+      "passes": true,
+      "notes": "Wave B-2 核心 story，手势库 0 依赖"
+    },
+    {
+      "id": "US-010",
+      "title": "「再记一条解锁今日成稿」placeholder 卡 + unlock_threshold setting",
+      "description": "As a user, when I have fewer than 3 memos today, I want a dashed placeholder card prompting me to add more.",
+      "acceptanceCriteria": [
+        "users.settings jsonb 增加 unlock_threshold key (默认 3); 读取时若不存在则用 3",
+        "容器: padding:18 / radius:18 / background:transparent / border:1.5px dashed var(--accent-border)",
+        "左侧 36×36 圆形 sparkle icon (背景 var(--accent-soft), icon var(--accent))",
+        "文案: mono caps '再记一条解锁今日成稿' + 副标 'AI 将把今天的碎片连缀成一篇日页'",
+        "满足阈值后 fade-out 280ms + '今日已解锁' banner",
+        "点击占位卡 → focus 到 composer pill mic 按钮",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 10,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-011",
+      "title": "本周 Wiki 垂直 Spine Feed + /api/today/week-feed endpoint",
+      "description": "As a user, I want a vertical museum-caption style feed under '本周' so I can scroll through recent days uninterrupted.",
+      "acceptanceCriteria": [
+        "新建 GET /api/today/week-feed?limit=7 endpoint, 返回 {items:[{id, date_slug, day, date_display, title, lede, tags, word_count, memo_count}]}",
+        "容器 padding 12 22 14; spine: position:absolute / left:86 / top:18 / bottom:18 / width:0.5 / background:var(--border-subtle)",
+        "每条 entry: grid-template-columns:'52px 1fr' / column-gap:24 / 上下 padding 30 (首条 paddingTop:0)",
+        "左列日期 tag 右对齐: mono 'WED' (9.5/700/1.8) + display '05·27' (14/600)",
+        "Spine dot: accent 7×7 圆 + 4px var(--bg-warm) halo (box-shadow)，定位 entry 顶部 10pt",
+        "右列: serif h3 (21/1.26/-0.4) + lede (14.5/1.7/opacity 0.86) + footer 标签行",
+        "Footer: mono caps tags 用 · 分隔 + 右对齐 '412 WORDS'",
+        "末尾 terminus: 7×7 hollow 圆 (border 0.5px var(--border-default) / background var(--bg-warm))",
+        "无卡片外壳 / 无圆角 box / 无按钮",
+        "整条 entry 点击进 /wiki/[date-slug]",
+        "空态: '本周还未成稿 — 多记几条今日会自动生成'",
+        "Lede -webkit-line-clamp:3",
+        "a11y: <article> 语义 + spine/dot aria-hidden",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 11,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-012",
+      "title": "Memo Detail 顶栏 (sticky glass + 时间锚点)",
+      "description": "As a user, I want a sticky glass top bar on memo detail with back/share/menu buttons and a mono time anchor.",
+      "acceptanceCriteria": [
+        "position:sticky / top:0 / padding:62 14 12",
+        "background:rgba(250,248,246,0.82) / backdrop-filter:blur(20px) saturate(150%) / border-bottom:0.5px solid var(--border-subtle)",
+        "左 GlassPillBtn '← 今日' 返回; 右 share + ⋯ 菜单",
+        "中间时间 mono: font-size:10 / letter-spacing:1.5 / color:var(--fg-subtle) / 格式 'THU · MAY 28 · 15:30'",
+        "iOS: 屏幕边缘 20pt 左滑返回手势",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 12,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-013",
+      "title": "Memo Detail 标题块 (serif 大字 + 元信息)",
+      "description": "As a user, I want a large serif title block showing place name and kind/location metadata.",
+      "acceptanceCriteria": [
+        "标题: font-serif / font-size:34 / line-height:1.05 / letter-spacing:-0.7 / font-weight:600",
+        "无 place fallback: font-size:30 / line-height:1.15 / italic '未命名片刻'",
+        "副标 mono: 10 / 1.4 letter-spacing / 600 / var(--fg-subtle)，格式 '{KIND ENTRY} · {LOCATION_UPPER}'",
+        "kind 翻译表: text→TEXT / voice→VOICE / photo→PHOTO / mixed→MIXED",
+        "长 place name (>30 char) text-overflow:ellipsis 单行",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 13,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-014",
+      "title": "Memo Detail Metadata Tile Row (4 列白卡)",
+      "description": "As a user, I want a 4-column metadata tile row showing weather/humidity/light/kind under the title.",
+      "acceptanceCriteria": [
+        "容器: grid-template-columns:'1.05fr 1fr 1fr 0.85fr' / radius:14 / overflow:hidden / background:var(--surface-white) / border 0.5 / shadow:var(--shadow-card)",
+        "每 tile: padding:12 8 11 / text-align:center / border-left 0.5px (首个无)",
+        "三行: mono caps label (8.5/700/1.4) + display value (18/600) + mono caps sub (8/600/1.2)",
+        "天气从 memos.weather / WeatherService 补充; 湿度从 memos.humidity",
+        "LIGHT 时间分类: 早晨 5-9 / 上午 9-12 / 中午 12-14 / 下午 14-17 / 傍晚 17-19 / 夜间 19-5",
+        "KIND 翻译: text→文本 / voice→语音 / photo→照片 / mixed→混合",
+        "缺失字段显示 '—' (em dash, var(--fg-subtle))",
+        "a11y: <dl> semantic",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 14,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-015",
+      "title": "Memo Detail Hero Photo + caption + lightbox",
+      "description": "As a user, I want a large hero photo with mono caption and a TAP TO EXPAND lightbox.",
+      "acceptanceCriteria": [
+        "图片 aspect-ratio 4:5 / radius:18 / fade-in 280ms",
+        "caption 左 mono: '{IMG_filename} · {width} × {height}' (9.5/1.2 letter-spacing/600/var(--fg-subtle))",
+        "caption 右: accent mono 'TAP TO EXPAND' + corner-out icon",
+        "lightbox: iOS .fullScreenCover + 双指缩放 + 双击重置; Web <dialog> + transform:scale",
+        "lightbox 关闭: iOS 下滑 ≥ 80pt rubber-band; Web ESC 或点遮罩",
+        "加载态: background:var(--surface-sunken) + 中心 spinner",
+        "失败: 占位 '图片加载失败' + 重试 link",
+        "loading='lazy' (Web) / prefersDecodingAsync (iOS)",
+        "alt={memo.body || '相片'}",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 15,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-016",
+      "title": "Memo Detail Body 段落 + 链接/hashtag/mention 识别",
+      "description": "As a user, I want the body to auto-detect URLs, hashtags and mentions and render them as accent-colored interactive links.",
+      "acceptanceCriteria": [
+        "padding:0 24 30 / font-size:16.5 / line-height:1.72 / letter-spacing:0.1 / text-wrap:pretty / white-space:pre-line / color:var(--fg-primary)",
+        "长按选中: iOS 原生; Web user-select:text",
+        "URL 自动渲染 <a class='memo-link'> accent 色 (Web 用 linkifyjs ^4.1, iOS 用 NSDataDetector)",
+        "hashtag #xxx 渲染 accent 色 (无下划线)，点击跳 /wiki/tag/{tag}",
+        "mention @xxx 同 hashtag，点击跳对应 entity",
+        "仅识别 http:// / https://，剥离 javascript:/data: 协议",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 16,
+      "passes": true,
+      "notes": "新依赖 linkifyjs@^4.1"
+    },
+    {
+      "id": "US-017",
+      "title": "Memo Detail Location Card (map thumbnail + Apple Maps)",
+      "description": "As a user, I want a map thumbnail with a floating place chip and a button to open in Apple Maps.",
+      "acceptanceCriteria": [
+        "容器: radius:18 / overflow:hidden / border 0.5 / background:var(--surface-white) / shadow:var(--shadow-card)",
+        "Map: iOS MKMapSnapshotter; Web Apple MapKit JS (token in web/.env.local) 或 OSM tile fallback",
+        "Place chip: position:absolute / left:14 / bottom:14 / padding:7 11 / radius:10 / background:rgba(250,248,246,0.92) / backdrop-filter:blur(10px) / border 0.5",
+        "Chip 内容: pin SVG accent + 地点名 (body 12.5/600) + mono caps '{LOCATION} · {COUNTRY}'",
+        "底部按钮: paper-plane icon + '在 Apple 地图中打开' + corner-out icon, accent 色",
+        "跳转: iOS MKMapItem.openInMaps; Web https://maps.apple.com/?ll={lat},{lng}&q={place} 新窗口",
+        "无 location 时整卡不渲染",
+        "Map 失败 fallback: #F5EDE3 背景 + pin icon 居中",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 17,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-018",
+      "title": "Memo Detail File Metadata Card + 三点菜单",
+      "description": "As a user, I want a mono file metadata card and a ⋯ menu with transfer/copy/star/export/delete actions.",
+      "acceptanceCriteria": [
+        "容器: padding:14 16 / radius:14 / border 0.5 / background:var(--surface-white) / shadow:var(--shadow-card)",
+        "grid-template: '80px 1fr' / row-gap:11 / column-gap:14, mono / 11.5 / 0.2 letter-spacing",
+        "字段: CREATED (ISO 时间戳) / PATH ('vault/raw/{date}.md') / HASH (前6 + ' · ' + 后5)",
+        "数据 iOS 从 RawStorage; Web 从 memos.content_hash + memos.path",
+        "⋯ 菜单 (iOS Menu / Web popover): 转移日期 / 复制纯文本 / 标记重要 / 导出 PDF / 删除 (红色)",
+        "删除二次确认: alert '确认删除这条 memo？此操作不可撤销' + [取消] [删除]",
+        "点击 HASH 整行 → 复制到剪贴板 + toast '已复制 hash'",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 18,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-019",
+      "title": "Drawer 容器与入场动画 + focus trap",
+      "description": "As a user, I want a frosted-glass drawer that slides in from the left when I tap the hamburger.",
+      "acceptanceCriteria": [
+        "Backdrop: position:absolute / inset:0 / background:rgba(20,16,12,0.32) / backdrop-filter:blur(2px) / z-index:80 / animation:fade-in 220ms ease-out",
+        "Drawer: width:86% / z-index:85 / background:rgba(252,250,247,0.96) / backdrop-filter:blur(28px) saturate(160%) / border-right 0.5 / box-shadow:'10px 0 40px -12px rgba(60,40,15,0.22)'",
+        "入场: @keyframes sheet-left from translateX(-100%) to 0, 280ms cubic-bezier(.2,.8,.2,1)",
+        "Backdrop 点击关闭; ESC 关闭 (Web); 右滑边界关闭 (iOS DragGesture, 阈值 50% width)",
+        "Focus trap: Tab 循环, Shift+Tab 反向",
+        "body overflow:hidden 防滚动穿透 (Web)",
+        "aria-modal='true' + role='dialog' + aria-labelledby='DAYPAGE · 2026'",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 19,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-020",
+      "title": "Drawer 顶部 utility bar + Profile row",
+      "description": "As a user, I want the drawer header with a close button, brand label, and a profile row with gradient avatar.",
+      "acceptanceCriteria": [
+        "关闭按钮: 36×36 圆 / background:var(--surface-sunken) / X icon / aria-label='关闭侧边栏'",
+        "mono 标签 'DAYPAGE · 2026': font-size:10 / letter-spacing:2 / font-weight:700 / color:var(--fg-muted)",
+        "Avatar: 46×46 圆 / background:linear-gradient(135deg, #C9A677 0%, #5D3000 100%) / serif 大写首字母 (20/600)",
+        "有 avatar URL 优先 img，否则 fallback 首字母",
+        "名字: serif 19/600 / line-height:1.15 / letter-spacing:-0.2",
+        "副标 mono: 10 / 1.2 letter-spacing / 'MEMBER · SINCE {year}'",
+        "点击整行 → /settings",
+        "数据: iOS UserService.current; Web auth().user + users.created_at",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 20,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-021",
+      "title": "Drawer 热力图 + /api/stats/heatmap endpoint",
+      "description": "As a user, I want a 16-week x 7-day heatmap of my memo activity as the drawer's visual hero.",
+      "acceptanceCriteria": [
+        "新建 web/src/app/api/stats/heatmap/route.ts: GET /api/stats/heatmap?weeks=16 返回 {weeks, from, to, cells:[{day, count}], streak}",
+        "SQL: SELECT date_trunc('day', created_at)::date AS day, count(*)::int FROM memos WHERE user_id=$1 AND created_at >= now() - interval '16 weeks' GROUP BY day ORDER BY day",
+        "若 memo 总数 > 5000 回退读 users.heatmap_cache_json (jsonb)",
+        "容器白卡: radius:14 / border 0.5 / shadow:var(--shadow-card) / padding:14",
+        "16 列 × 7 行 grid, 每格 10×10 / radius:2 / gap:3",
+        "等级: 0→empty / 1-2→low / 3-5→mid / >=6→high",
+        "未来日期 dashed hairline 占位 (border 0.5px dashed var(--border-default) / background transparent)",
+        "顶部 5 个月份标签 mono 9 caps; 左侧 Mon/Wed/Fri mono 8 caps",
+        "底部 row: LESS ▢▢▢▢▢ MORE 图例 (5 档) + 右侧 accent 胶囊 🔥 {streak} DAYS",
+        "Streak 计算见 PRD §22 Appendix A.3",
+        "单格 tap 弹 tooltip: '{date} · {count} memos'",
+        "触控扩展到 16×16 透明 padding",
+        "Web 用 <svg> 单次绘制 (不 React-render 每个 cell)",
+        "iOS 用 LazyVGrid",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 21,
+      "passes": true,
+      "notes": "P1 新增 endpoint"
+    },
+    {
+      "id": "US-022",
+      "title": "Drawer Stats 三联卡 + /api/stats/drawer endpoint",
+      "description": "As a user, I want a 3-column stats card showing streak / pages / words.",
+      "acceptanceCriteria": [
+        "新建 GET /api/stats/drawer 返回 {streak_days, pages_total, words_this_year, words_this_year_display}",
+        "容器: grid-cols-3 / radius:14 / overflow:hidden / border / shadow:var(--shadow-card)",
+        "每列: padding:14 6 12 / text-align:center / border-left 0.5px (首列无)",
+        "三行: mono caps label (9/600/1.4) + display value (22/600/-0.5) + mono caps unit (8/1.2)",
+        "大数字格式化: >=1000 显示 'k' (58000→58k); >=1M 显示 'M' (1500000→1.5M)",
+        "WORDS 计算: SUM(char_length(pages.summary)) WHERE EXTRACT(year FROM created_at) = current_year",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 22,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-023",
+      "title": "Drawer Navigate 卡 (今日/成稿/档案/关系图谱)",
+      "description": "As a user, I want a 4-row navigate card with icon tiles and counts to jump to today/wiki/archive/graph.",
+      "acceptanceCriteria": [
+        "卡片: radius:14 / border / overflow:hidden / shadow:var(--shadow-card)",
+        "每行 padding:12 14 / gap:14 / 行间 0.5px hairline",
+        "Icon tile: 30×30 / radius:9 / var(--surface-sunken) / border 0.5",
+        "选中行: background:var(--accent-soft) / icon tile 改 white / label/count 改 accent / 600 weight",
+        "关系图谱行 移除 muted 状态 (iOS /graph 已实现)",
+        "4 行: 今日 → /today (count = 今日 memo); 成稿 → /wiki (count = pages); 档案 → /archive; 关系图谱 → /graph",
+        "点击行后 drawer 自动关闭 (先 navigate 后 close 280ms)",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 23,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-024",
+      "title": "Drawer Recent 列表 + /api/stats/recent endpoint",
+      "description": "As a user, I want a hairline-separated list of 7 most recent pages with date / title / memo count.",
+      "acceptanceCriteria": [
+        "新建 GET /api/stats/recent?limit=7 返回 {items:[{date_slug, day, date_display, title, memo_count, is_today}]}",
+        "SQL: SELECT date_slug, title, memo_count FROM pages WHERE user_id=$1 ORDER BY date_slug DESC LIMIT 7",
+        "每行: padding:13 0 / gap:14 / border-top 0.5px (首行无)",
+        "左日期 col min-width:52, mono day (9/1.4) + display date (16/600)",
+        "中标题: body 14 / 1.4 / 单行 ellipsis",
+        "右计数 mono: 10 / 0.6 letter-spacing / color:var(--fg-subtle)",
+        "active 状态: date 改 accent / title 改 primary / count 改 accent",
+        "VIEW ALL › 点击 → /archive",
+        "空态: '还没有成稿的日页'",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 24,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-025",
+      "title": "Drawer Footer",
+      "description": "As a user, I want a footer with Settings / Feedback links and version number.",
+      "acceptanceCriteria": [
+        "容器: margin-top:30 / padding:18 4 4 / border-top 0.5",
+        "Settings/Feedback 链接: body 13 / 500 / color:var(--fg-muted)",
+        "版本号 mono: 9 / 1.2 letter-spacing / 格式 'v{version} · {build_date}'",
+        "iOS 版本从 CFBundleShortVersionString + CFBundleVersion; Web 从 process.env.NEXT_PUBLIC_VERSION",
+        "Settings → /settings; Feedback → mailto:feedback@daypage.app",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 25,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-026",
+      "title": "Composer Pill (底部浮动 + glass)",
+      "description": "As a user, I want a floating glassmorphism pill at the bottom with +/mic/Aa buttons to capture memos quickly.",
+      "acceptanceCriteria": [
+        "容器: position:absolute / bottom:26 (safe-area-inset-bottom) / display:flex / justify-content:center",
+        "Pill: padding:6 / radius:999 / background:rgba(255,253,250,0.82) / backdrop-filter:blur(28px) saturate(160%) / border 0.5px rgba(214,206,192,0.5)",
+        "shadow 多层: inset highlight + 外 drop shadow (见 PRD §6.7 --shadow-composer)",
+        "左 [ + ]: 48×48 圆透明 / aria-label='添加附件'",
+        "中 [ 🎙️ ]: 64×56 / radius:999 / background:linear-gradient(180deg, #7a3f00, #5D3000) + 外圈 breathe 1.6s halo",
+        "右 [ Aa ]: 48×48 圆透明 / aria-label='键盘输入'",
+        "下方一行 mono caps 提示: '长按录音 · 轻点切换'",
+        "录音中 pill 整体 pointer-events:none / opacity:0",
+        "入场: scale-in 240ms ease-out",
+        "Desktop (Web ≥ 768px): pill 改为左下角固定",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 26,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-027",
+      "title": "Composer Pill 长按录音手势 + 权限处理",
+      "description": "As a user, I want a 220ms long-press on the mic to start recording, with haptic feedback and mic permission flow.",
+      "acceptanceCriteria": [
+        "Web: onPointerDown 启动 220ms timer; onPointerUp/Leave/Cancel 清 timer + pressed=false; timer 触发时 if pressed 才 onMicLongPressStart()",
+        "iOS: DragGesture(minimumDistance:0) + 220ms Task.sleep + UIImpactFeedbackGenerator(.medium).impactOccurred()",
+        "Tap (<220ms 松手): 触发 onMic() 切到键盘输入 + UISelectionFeedbackGenerator().selectionChanged()",
+        "LongPress (≥220ms): 触发 onMicLongPressStart() 进录音",
+        "拖出按钮范围 (pointerleave) 取消录音意图",
+        "首次长按 mic 权限未授予 → 系统授权请求; 拒绝后 toast '需要麦克风权限才能录音 · 去设置'",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 27,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-028",
+      "title": "Attach Sheet (4 件套 bottom-up modal)",
+      "description": "As a user, I want a bottom sheet with 4 buttons (camera/album/location/file) when I tap the + button.",
+      "acceptanceCriteria": [
+        "Backdrop: position:absolute / inset:0 / background:rgba(30,24,18,0.32) / backdrop-filter:blur(2px) / z-index:60 / animation:fade-in 200ms ease-out",
+        "Sheet: left:14 / right:14 / bottom:110 / z-index:65 / radius:28 / padding:20 18 22 / background:rgba(255,253,250,0.92) / backdrop-filter:blur(28px) saturate(160%) / border 0.5",
+        "入场: sheet-up 280ms cubic-bezier(.2,.8,.2,1)",
+        "顶部 handle bar: 36×4 #D6CEC0",
+        "4 button: 56×56 圆角 18 sunken tile + 12 body label",
+        "拍照/相册: iOS PHPicker/UIImagePicker; Web <input type=file accept='image/*' capture='environment'>",
+        "位置: iOS LocationService.lastFix; Web navigator.geolocation.getCurrentPosition({enableHighAccuracy:true, timeout:6000})",
+        "附件: 原生 doc picker / Web file input",
+        "下滑关闭手势: drag handle ≥ 80px + rubber-band 阻尼 0.18 + spring 返弹",
+        "backdrop tap 关闭; ESC 关闭 (Web); focus trap + role='dialog'",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 28,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-029",
+      "title": "Recording Sheet (深色 + 实时波形 + 转写)",
+      "description": "As a user, I want a dark sheet during recording with a live waveform, MM:SS timer, and live transcript preview.",
+      "acceptanceCriteria": [
+        "容器: bottom:0 / paddingBottom:34 / z-index:55 / margin:0 14 / radius:34 / padding:22 22 24 / background:rgba(45,30,12,0.92) / backdrop-filter:blur(28px) saturate(160%)",
+        "入场: sheet-up 320ms cubic-bezier(.2,.8,.2,1)",
+        "Header row: 左 🔴 录音中 (10×10 圆 background:#E36B4A + pulse-dot 1.2s + box-shadow:0 0 0 4px rgba(227,107,74,0.18)) + 右 mono 28px MM:SS",
+        "Waveform: 64 bars, rAF 60fps, useWaveform hook (公式见 PRD §22 Appendix A.2)",
+        "每 bar width:2 / gap:2 / height:max(2,h) / transition height 80ms",
+        "实时转写预览: body 13 / color:rgba(245,237,227,0.65) / 末尾 caret 闪",
+        "双按钮: 取消 (flex:1, background:rgba(255,255,255,0.1) / #F5EDE3 文字) + 停止并转写 (flex:1.6, background:#F5EDE3 / #2B2822 + 勾 icon)",
+        "取消: discard buffer + 关闭",
+        "停止并转写: VoiceService.transcribe() → 新 memo 草稿 + banner '已添加 1 条 memo'",
+        "iOS: AVAudioRecorder + AVAudioEngine installTap 实时 RMS 喂波形",
+        "Web: AudioContext.createAnalyser() + getByteFrequencyData",
+        "5 分钟自动停止 + alert '录音已达上限'",
+        "失焦保持 30s 后自动停止保存",
+        "实时转写: iOS SFSpeechRecognizer (zh-CN); Web Whisper API streaming",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 29,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-030",
+      "title": "灵动岛 Live Activity (iOS 16.1+ ActivityKit)",
+      "description": "As a user, when recording I want the Dynamic Island to show live elapsed time and a mini waveform.",
+      "acceptanceCriteria": [
+        "Deployment target bump iOS 16.0 → 16.1 (Live Activity 要求)",
+        "Info.plist 加 NSSupportsLiveActivities=YES",
+        "新建 DayPage/LiveActivity/RecordingActivityAttributes.swift 含 elapsed/isRecording/currentDB",
+        "ActivityKit: 注册 / 更新 / 结束 Live Activity",
+        "Island compact: 左红点 + 右 3-bar waveform",
+        "Island expanded: 左 '🔴 MM:SS' + 右 18-bar waveform + 底部 '停止' 按钮",
+        "Island minimal: 单红点",
+        "BackgroundTasks 每 1s update",
+        "5min 上限后 end Live Activity",
+        "Web (装饰): iPhone frame 顶部 248×37 / radius:24 / black 胶囊",
+        "展开 248 / 收起 126, transition width 360ms cubic-bezier(.2,.8,.2,1)",
+        "内容左: 8×8 red dot pulse-dot 1.2s + mono 11 计时",
+        "内容右: 18 高 mini waveform (18 bars, width:1.6 / gap:1.5)",
+        "点击灵动岛 deep link 回到 Today + RecordingSheet (widgetURL)",
+        "Typecheck passes",
+        "iOS 真机 iPhone 17 验证 Live Activity 注册成功",
+        "Web 端 Verify in browser using dev-browser skill"
+      ],
+      "priority": 30,
+      "passes": false,
+      "notes": "需 Eric 确认 deployment target bump (PRD Open Q1)"
+    },
+    {
+      "id": "US-031",
+      "title": "Share Card 主屏 + 模板切换器",
+      "description": "As a user, swiping SHARE on a memo opens a share screen with a 4:5 preview and template chips.",
+      "acceptanceCriteria": [
+        "顶栏: 左 GlassPillBtn 关闭 (aria-label='关闭') + 中 mono 'SHARE' + 右 GlassPillBtn 下载 (aria-label='下载图片')",
+        "5 模板 id: minimal / film / polaroid / journal / postcard",
+        "模板 chip: 水平 scroll / padding:8 14 / radius:999 / mono caps; 选中 accent 背景 + white 文字",
+        "预览卡片: 竖图 4:5 比例 (实际 1080×1350 / 显示 ~300×375 web)",
+        "切换模板 fade-in 280ms",
+        "iOS: 从 memo detail 进入用 sheet presentation; Web 用 modal page",
+        "选中模板持久化到 localStorage.daypage.shareTemplate / UserDefaults",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 31,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-032",
+      "title": "Share Card 5 个模板视觉",
+      "description": "As a user, I want 5 distinct share templates (minimal/film/polaroid/journal/postcard) to choose from.",
+      "acceptanceCriteria": [
+        "minimal: 白底 + serif 大字标题 + 正文 + 小 mono 落款 (日期 + 地点)",
+        "film: 黑边白卡夹相片 + 底部胶卷孔装饰 (SVG repeat) + 帧号 mono '28 / 36A'",
+        "polaroid: 白边大相片 + 底部手写体 caption (Caveat Google font 已在 US-001 加入)",
+        "journal: 暖米色纸纹背景 + 图钉/胶带装饰 SVG + 手写感 serif 标题",
+        "postcard: 左右二分 (左相片 + 右纵向 mono 邮戳 + serif 中段感言)",
+        "所有模板支持切换字体 (serif/sans) 与配色 (暖/冷) + 状态持久化",
+        "长正文自动 truncate: minimal 8 行 / film 6 行 / polaroid 2 行 / journal 10 行 / postcard 5 行",
+        "组件位于 web/src/components/share/{templateId}.tsx + DayPage/Features/Share/Templates/{templateId}.swift",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 32,
+      "passes": true,
+      "notes": ""
+    },
+    {
+      "id": "US-033",
+      "title": "Share Card 导出 PNG + /api/img proxy",
+      "description": "As a user, tapping download exports the current template as a 1080×1350 PNG.",
+      "acceptanceCriteria": [
+        "iOS: ImageRenderer API 渲染 SwiftUI 视图为 UIImage (需 NSPhotoLibraryAddUsageDescription) + 保存 Photos 或 UIActivityViewController",
+        "Web: html-to-image@^1.11 导出 1080×1350 PNG + <a download> 触发",
+        "新建 GET /api/img/{memo_id} same-origin proxy (跨域照片 CORS-safe)，user 必须 own memo",
+        "导出过程 spinner + 完成 toast '已保存到 {Photos/Downloads}'",
+        "字体加载完毕: await document.fonts.ready",
+        "失败 toast '导出失败，请重试'",
+        "性能预算: Web ≤ 1.5s / iOS ≤ 0.8s",
+        "上报 analytics: share_card_exported event {template, kind, has_photo, duration_ms}",
+        "Typecheck passes",
+        "Verify in browser using dev-browser skill"
+      ],
+      "priority": 33,
+      "passes": true,
+      "notes": "新依赖 html-to-image@^1.11"
+    }
+  ]
+}

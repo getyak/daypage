@@ -24,11 +24,33 @@ final class SidebarViewModel: ObservableObject {
     @Published var accountEmail: String = ""
     @Published var accountInitial: String = "?"
 
+    /// Four-digit year the signed-in user's account was created, derived from
+    /// the Supabase session's `user.createdAt`. `nil` when signed out — the view
+    /// falls back to hiding the year rather than showing a hardcoded one.
+    @Published var joinYear: Int?
+
     /// Most recent days (descending) with at least one memo, capped to 7.
     @Published var recentDays: [RecentDay] = []
 
     /// All active days used for streak calculation (larger scan than recentDays).
     @Published private var streakDays: [RecentDay] = []
+
+    // MARK: - Heatmap + stats (museum-aesthetic sidebar, M2)
+
+    /// Memo count per active day across the last ~16 weeks, keyed by
+    /// `YYYY-MM-DD`. Drives the 16×7 sidebar heatmap. Days with no memos are
+    /// simply absent (lookup returns 0).
+    @Published var heatmapCounts: [String: Int] = [:]
+
+    /// Total memos captured across the heatmap window (the "N ENTRIES" figure).
+    @Published var totalEntries16Weeks: Int = 0
+
+    /// Number of compiled daily pages on disk (`vault/wiki/daily/*.md`).
+    @Published var totalPages: Int = 0
+
+    /// Approximate total words across all raw memo bodies (CJK chars + Latin
+    /// words), shown as the "WORDS" stat. Formatted lazily by the view.
+    @Published var totalWordCount: Int = 0
 
     /// Consecutive calendar days ending today (or yesterday) with at least one memo.
     /// Starts counting from the most recent active day and stops at the first gap.
@@ -74,6 +96,16 @@ final class SidebarViewModel: ObservableObject {
         return f
     }()
 
+    /// Formats a `Date` to a 4-digit calendar year (e.g. "2026") for the
+    /// "MEMBER · SINCE <year>" line, in the user's current time zone.
+    private static let yearFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy"
+        f.timeZone = TimeZone.current
+        return f
+    }()
+
     private var authStateTask: Task<Void, Never>?
 
     func bind(authService: AuthService) {
@@ -88,10 +120,13 @@ final class SidebarViewModel: ObservableObject {
             for await (_, session) in authService.supabase.auth.authStateChanges {
                 if Task.isCancelled { break }
                 let email = session?.user.email ?? ""
+                let year = session.map { Self.yearFormatter.string(from: $0.user.createdAt) }
+                    .flatMap { Int($0) }
                 await MainActor.run {
                     self?.isLoggedIn = session != nil
                     self?.accountEmail = email
                     self?.accountInitial = email.first.map { String($0).uppercased() } ?? "?"
+                    self?.joinYear = year
                 }
             }
         }
@@ -103,19 +138,49 @@ final class SidebarViewModel: ObservableObject {
         Task { [weak self] in
             async let recent = Self.scanRecentDays(limit: 7)
             async let streak = Self.scanRecentDays(limit: 365)
-            let (recentResult, streakResult) = await (recent, streak)
+            // 16 weeks = 112 days; scan a touch more to cover the partial
+            // leading week the grid renders.
+            async let heatmap = Self.scanRecentDays(limit: 119)
+            async let stats = Self.scanStats()
+            let (recentResult, streakResult, heatmapResult, statsResult) =
+                await (recent, streak, heatmap, stats)
             await MainActor.run {
                 self?.recentDays = recentResult
                 self?.streakDays = streakResult
+                let counts = Dictionary(
+                    heatmapResult.map { ($0.dateString, $0.memoCount) },
+                    uniquingKeysWith: { a, _ in a }
+                )
+                self?.heatmapCounts = counts
+                // Count only memos within the 112-day (16-week) heatmap window.
+                // scanRecentDays limits by *file count*, so an intermittent
+                // journaler's 119 files can reach back well beyond 16 weeks;
+                // filter by calendar date so the "N ENTRIES" figure matches the
+                // grid the user actually sees.
+                let cal = Calendar.current
+                let windowStart = cal.date(
+                    byAdding: .day, value: -111, to: cal.startOfDay(for: Date())
+                )
+                self?.totalEntries16Weeks = heatmapResult.reduce(0) { acc, day in
+                    guard let windowStart,
+                          let date = Self.isoFormatter.date(from: day.dateString),
+                          date >= windowStart else { return acc }
+                    return acc + day.memoCount
+                }
+                self?.totalPages = statsResult.pages
+                self?.totalWordCount = statsResult.words
             }
         }
     }
 
     private func updateFrom(authService: AuthService) {
-        let email = authService.session?.user.email ?? ""
-        isLoggedIn = authService.session != nil
+        let session = authService.session
+        let email = session?.user.email ?? ""
+        isLoggedIn = session != nil
         accountEmail = email
         accountInitial = email.first.map { String($0).uppercased() } ?? "?"
+        joinYear = session.map { Self.yearFormatter.string(from: $0.user.createdAt) }
+            .flatMap { Int($0) }
     }
 
     deinit {
@@ -158,6 +223,50 @@ final class SidebarViewModel: ObservableObject {
             }
             return out
         }.value
+    }
+
+    /// Scan vault for aggregate stats:
+    ///   • pages — number of compiled daily pages (`vault/wiki/daily/*.md`)
+    ///   • words — approximate total words across all raw memo bodies
+    ///     (front-matter stripped; non-whitespace characters counted, which
+    ///     reads naturally for CJK and is a fair proxy for Latin too).
+    nonisolated private static func scanStats() async -> (pages: Int, words: Int) {
+        await Task.detached(priority: .utility) {
+            let fm = FileManager.default
+            let vault = VaultInitializer.vaultURL
+
+            // Pages: count YYYY-MM-DD.md files under wiki/daily.
+            let dailyDir = vault.appendingPathComponent("wiki/daily")
+            var pages = 0
+            if let names = try? fm.contentsOfDirectory(atPath: dailyDir.path) {
+                pages = names.filter { $0.hasSuffix(".md") }.count
+            }
+
+            // Words: walk raw/*.md, strip YAML front-matter blocks, count
+            // non-whitespace characters in the remaining body text.
+            let rawDir = vault.appendingPathComponent("raw")
+            var words = 0
+            if let names = try? fm.contentsOfDirectory(atPath: rawDir.path) {
+                for name in names where name.hasSuffix(".md") {
+                    let url = rawDir.appendingPathComponent(name)
+                    guard let data = try? Data(contentsOf: url),
+                          let text = String(data: data, encoding: .utf8) else { continue }
+                    words += approxBodyWordCount(text)
+                }
+            }
+            return (pages, words)
+        }.value
+    }
+
+    /// Counts non-whitespace body characters across all memos in a raw daily
+    /// file. Delegates splitting + front-matter stripping to `RawStorage.parse`
+    /// (the single source of truth) so a literal `---` horizontal rule in user
+    /// text, or the legacy `\n\n---\n\n` inter-memo separator, can't desync a
+    /// hand-rolled front-matter toggle and silently drop body text.
+    nonisolated private static func approxBodyWordCount(_ text: String) -> Int {
+        RawStorage.parse(fileContent: text).reduce(0) { acc, memo in
+            acc + memo.body.filter { !$0.isWhitespace }.count
+        }
     }
 
     /// Count memos in a single raw daily file. Memos are separated by the
