@@ -1,7 +1,7 @@
 {
   "project": "DayPage Web",
   "branchName": "ralph/daypage-web-vnext",
-  "description": "DayPage Web vNext — 让'编译成网'真正发生（解冷启动死锁），并兑现愿景四段：多源采集、对外 AI/agent 接入点(MCP)、基于 wiki 的定制化创作、差异化护城河(时序/分析型图谱)。源 PRD：tasks/prd-daypage-web-vnext.md。所有 story 均为 web/ (Next.js)，构建用 cd web && (pnpm|npm) run build；dev 需同时跑 npm run dev 与 npm run dev:inngest，否则编译管线静默 no-op。",
+  "description": "DayPage Web vNext — 让'编译成网'真正发生（解冷启动死锁），并兑现愿景四段：多源采集、对外 AI/agent 接入点(MCP)、基于 wiki 的定制化创作、差异化护城河(时序/分析型图谱)。源 PRD：tasks/prd-daypage-web-vnext.md。所有 story 均为 web/ (Next.js)，构建用 cd web && (pnpm|npm) run build；dev 需同时跑 pnpm run dev 与 pnpm run dev:inngest，否则编译管线静默 no-op。",
   "userStories": [
     {
       "id": "US-001",
@@ -12,7 +12,7 @@
         "复用 embed_cache（body_hash + TTL）避免对相同内容重复 embed",
         "跑一批 memo 后，pages 表中至少一个 page 的 embedding IS NOT NULL",
         "后续 FULL 编译的 recall 步骤能返回 >0 个候选页（compile-memo 日志可见 'recall: found N candidate pages' 且 N>0）",
-        "cd web && npm run build 通过",
+        "cd web && pnpm run build 通过",
         "Typecheck passes"
       ],
       "priority": 1,
@@ -26,8 +26,8 @@
       "acceptanceCriteria": [
         "memo 卡片（/add 的 CompileQueue 与 today/MemoCard）显示状态：queued / running(显示 compile_step) / done / failed，复用已有 memos.compile_step 字段",
         "failed 状态显示 memos.compile_error 文本并提供'重试'按钮，点击调用 /api/memos/[id]/recompile",
-        "dev 下 sendEvent 为 no-op 时（无 INNGEST_EVENT_KEY），UI 显示明确提示文案'编译服务未连接（运行 npm run dev:inngest）'，不再显示假 QUEUED",
-        "cd web && npm run build 通过",
+        "dev 下 sendEvent 为 no-op 时（无 INNGEST_EVENT_KEY），UI 显示明确提示文案'编译服务未连接（运行 pnpm run dev:inngest）'，不再显示假 QUEUED",
+        "cd web && pnpm run build 通过",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
@@ -46,7 +46,7 @@
         "跨页抽取 entity → 建 type=entity page，并写 page_links（更新目标页 backlink_count）",
         "自动建议并 upsert domains 表记录",
         "本地跑通一批含 embedding 的 page 后，domains 表行数 > 0 且存在 backlink_count > 0 的 page",
-        "cd web && npm run build 通过",
+        "cd web && pnpm run build 通过",
         "Typecheck passes"
       ],
       "priority": 3,
@@ -61,7 +61,7 @@
         "实现晋升规则：page 被 ≥2 个 page_sources 引用 或 被 weave-graph 综合过 → status 置为 'live'",
         "/wiki 列表默认只查询 status='live' 的页",
         "draft 的 source 页收进侧栏'待编织/原料'分区，可切换查看",
-        "cd web && npm run build 通过",
+        "cd web && pnpm run build 通过",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
@@ -78,8 +78,8 @@
         "web/src/lib/ai/rag.ts 的 retrievePages 改用 SQL 'ORDER BY embedding <=> $1::vector LIMIT k' 走 HNSW",
         "compile-memo.ts 的 recall 步骤同样改用原生向量查询",
         "移除两处 JS 端全表 cosineSim 路径",
-        "现有 RAG 与编译相关测试通过（cd web && npm run test 或 vitest 范围内）",
-        "cd web && npm run build 通过",
+        "现有 RAG 与编译相关测试通过（cd web && pnpm run test 或 vitest 范围内）",
+        "cd web && pnpm run build 通过",
         "Typecheck passes"
       ],
       "priority": 5,
@@ -95,7 +95,7 @@
         "鉴权复用 api_keys + scopes，要求 read scope；无效 key 拒绝",
         "可在 Claude Desktop 配置该 MCP 并成功检索到真实 wiki 内容",
         "search_wiki 返回结果含来源 slug 可链回 DayPage",
-        "cd web && npm run build 通过",
+        "cd web && pnpm run build 通过",
         "Typecheck passes"
       ],
       "priority": 6,
@@ -110,7 +110,7 @@
         "MCP 工具 add_memo(text)，鉴权要求 write scope",
         "写入后触发正常编译管线（发 memo/created 事件）",
         "缺 write scope 时明确拒绝并返回清晰错误",
-        "cd web && npm run build 通过",
+        "cd web && pnpm run build 通过",
         "Typecheck passes"
       ],
       "priority": 7,
@@ -126,7 +126,7 @@
         "scopes 控权；无效 key 返回 401，越权返回 403",
         "成功命中时更新 api_keys.last_used_at",
         "新增对应路由测试（参考 web/src/app/api/**/__tests__）",
-        "cd web && npm run build 通过",
+        "cd web && pnpm run build 通过",
         "Typecheck passes",
         "Tests pass"
       ],
@@ -142,7 +142,7 @@
         "page create/update/晋升 live 时，向用户配置的 webhook URL 推送事件，事件源复用 change_log",
         "推送 payload 含签名（基于用户配置的 secret）供接收方验签",
         "settings 提供 webhook URL 与 secret 的配置 UI（落 ingest_sources 或新表，secret 经 secret-crypto 加密）",
-        "cd web && npm run build 通过",
+        "cd web && pnpm run build 通过",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
@@ -158,7 +158,7 @@
         "settings 新增 'Sources' 区，支持 email（展示个人转发地址）、rss（feed URL 列表增删）、webhook（生成入站 URL + secret）",
         "配置写入 ingest_sources（config 经 secret-crypto 加密，复用现有 /api/ingest-sources）",
         "新增一个 rss feed 后，fetch-rss.ts 能拉取并产生 memo（手动触发或 cron）",
-        "cd web && npm run build 通过",
+        "cd web && pnpm run build 通过",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
@@ -174,7 +174,7 @@
         "提供 bookmarklet 或扩展入口，把当前网页 URL + 选中正文 POST 到 /api/ingest（key-auth）",
         "剪藏内容进入正常编译管线（产生 memo 并编译）",
         "支持只剪藏选中文本片段（非整页）",
-        "cd web && npm run build 通过",
+        "cd web && pnpm run build 通过",
         "Typecheck passes"
       ],
       "priority": 11,
@@ -188,7 +188,7 @@
       "acceptanceCriteria": [
         "ingest_sources 增加 default_ingest_mode 字段（light|full，生成并应用 migration）",
         "来自该源的 memo 默认采用其声明档位（如 Readwise→full、RSS→light）",
-        "cd web && npm run build 通过",
+        "cd web && pnpm run build 通过",
         "Typecheck passes"
       ],
       "priority": 12,
@@ -203,7 +203,7 @@
         "daily-page.ts 与 weave-graph 接受可选 perspective_prompt，注入 compile prompt",
         "domain 页 / wiki 页提供'重新编译（自定义视角）'入口与输入框",
         "重编结果可见且与默认视角产物有可观察差异",
-        "cd web && npm run build 通过",
+        "cd web && pnpm run build 通过",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
@@ -220,7 +220,7 @@
         "agent 对话经 RAG（rag.ts）召回用户 wiki 作为上下文，回答引用真实内容",
         "agent 配置持久化（新 agents 表或 users.settings，生成并应用 migration）",
         "agent 检索层与 MCP（US-010）复用同一 rag.ts retrievePages",
-        "cd web && npm run build 通过",
+        "cd web && pnpm run build 通过",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
@@ -235,7 +235,7 @@
       "acceptanceCriteria": [
         "settings 新增 persona prompt 配置项（落 users.settings）",
         "persona 注入 /chat 与编译 prompt",
-        "cd web && npm run build 通过",
+        "cd web && pnpm run build 通过",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
@@ -251,7 +251,7 @@
         "page_links 与 page 版本记录带时间维度，支持按日期窗口查询（事实失效而非物理删除）",
         "提供'某概念随时间演变'的视图或 chat 查询能力",
         "验证：同一 entity 在不同月份的 memo 呈现演变序列而非被覆盖",
-        "cd web && npm run build 通过",
+        "cd web && pnpm run build 通过",
         "Typecheck passes"
       ],
       "priority": 16,
@@ -266,7 +266,7 @@
         "对知识图谱跑社区检测 + 结构性 gap 分析，识别'应连未连'的簇对",
         "对检测到的 gap 用 LLM 生成跨 gap 的反思问题/想法，写入 inbox_items（复用或新增 kind）",
         "用户可在 /inbox 看到该提示并采纳或忽略",
-        "cd web && npm run build 通过",
+        "cd web && pnpm run build 通过",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
@@ -281,7 +281,7 @@
       "acceptanceCriteria": [
         "/today 收敛为纯移动响应式 或 下线；桌面捕获统一走 /add",
         "桌面浏览器（≥1024px）不再渲染 280pt drawer / ComposerPill 错位布局",
-        "cd web && npm run build 通过",
+        "cd web && pnpm run build 通过",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
@@ -296,7 +296,7 @@
       "acceptanceCriteria": [
         "/wiki 首屏默认展示 live concept/entity + 图谱入口",
         "draft source 页收进侧栏'原料'区，可切换查看",
-        "cd web && npm run build 通过",
+        "cd web && pnpm run build 通过",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
@@ -311,7 +311,7 @@
       "acceptanceCriteria": [
         "home 在无网络（domains=0 且 backlinks=0）时显示引导文案：'添加 N 条后我会自动编织出你的第一个知识网络'",
         "引导含明确下一步 CTA（添加来源 / 剪藏）",
-        "cd web && npm run build 通过",
+        "cd web && pnpm run build 通过",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],

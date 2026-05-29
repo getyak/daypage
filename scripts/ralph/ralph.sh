@@ -1,27 +1,48 @@
 #!/bin/bash
 # Ralph - Autonomous AI agent loop for Solo Compass
 # Each iteration: fresh Claude Code instance → implement single story → test → commit
-# Usage: ./ralph.sh [--tool claude] [max_iterations]
+# Usage: ./ralph.sh [--tool claude] [--prd <file>] [max_iterations]
+#   --prd <file>  Path to the PRD json to run (default: <repo-root>/prd.json).
+#                 Relative paths resolve against the repo root, so you can run a
+#                 specific PRD without renaming prd.json, e.g.:
+#                   ./ralph.sh --prd prd.web-vnext.json 25
 
 set -e
 set -o pipefail
 
 TOOL="claude"
 MAX_ITERATIONS=10
+PRD_ARG=""
 
 while [[ $# -gt 0 ]]; do
   case $1 in
     --tool) TOOL="$2"; shift 2 ;;
     --tool=*) TOOL="${1#*=}"; shift ;;
+    --prd) PRD_ARG="$2"; shift 2 ;;
+    --prd=*) PRD_ARG="${1#*=}"; shift ;;
     *) [[ "$1" =~ ^[0-9]+$ ]] && MAX_ITERATIONS="$1"; shift ;;
   esac
 done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# PRD is at project root, progress is in scripts/ralph/
-PRD_FILE="$SCRIPT_DIR/../../prd.json"
-PROGRESS_FILE="$SCRIPT_DIR/progress.txt"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+PROGRESS_FILE="$SCRIPT_DIR/progress.txt"
+
+# PRD is at project root by default; --prd overrides it. Relative --prd paths
+# resolve against the repo root (an absolute path is used verbatim).
+if [ -n "$PRD_ARG" ]; then
+  case "$PRD_ARG" in
+    /*) PRD_FILE="$PRD_ARG" ;;
+    *)  PRD_FILE="$REPO_ROOT/$PRD_ARG" ;;
+  esac
+else
+  PRD_FILE="$REPO_ROOT/prd.json"
+fi
+
+if [ ! -f "$PRD_FILE" ]; then
+  echo "❌ PRD file not found: $PRD_FILE"
+  exit 1
+fi
 
 # Init progress file
 if [ ! -f "$PROGRESS_FILE" ]; then
@@ -37,13 +58,25 @@ echo ""
 
 # Cache TARGET_BRANCH at start (NEVER re-read from PRD — Claude Code may overwrite it)
 TARGET_BRANCH=$(python3 -c "import json; f=open('$PRD_FILE'); print(json.load(f).get('branchName','main'))")
+# Cache project name + description so the per-story prompt reflects THIS PRD
+# (not a hard-coded one). PRD_REL is the repo-relative PRD path for the prompt.
+PRD_PROJECT=$(python3 -c "import json; f=open('$PRD_FILE'); print(json.load(f).get('project','DayPage'))")
+PRD_DESC=$(python3 -c "import json; f=open('$PRD_FILE'); print(json.load(f).get('description',''))")
+PRD_REL="${PRD_FILE#$REPO_ROOT/}"
 echo "🎯 Target branch: $TARGET_BRANCH"
 
-# Verify we're on the correct branch BEFORE first iteration
+# Verify we're on the correct branch BEFORE first iteration.
+# If the branch does not exist yet, create it from main (per Ralph CLAUDE.md:
+# "check it out or create from main").
 CURRENT_BRANCH=$(git branch --show-current)
 if [ "$CURRENT_BRANCH" != "$TARGET_BRANCH" ]; then
-  echo "   ⚠️ Not on target branch ($CURRENT_BRANCH ≠ $TARGET_BRANCH) — switching"
-  git checkout "$TARGET_BRANCH"
+  if git rev-parse --verify --quiet "$TARGET_BRANCH" >/dev/null; then
+    echo "   ⚠️ Not on target branch ($CURRENT_BRANCH ≠ $TARGET_BRANCH) — switching"
+    git checkout "$TARGET_BRANCH"
+  else
+    echo "   ⚠️ Target branch $TARGET_BRANCH does not exist — creating from main"
+    git checkout -b "$TARGET_BRANCH" main
+  fi
 fi
 
 for i in $(seq 1 $MAX_ITERATIONS); do
@@ -55,7 +88,11 @@ for i in $(seq 1 $MAX_ITERATIONS); do
   CURRENT_BRANCH=$(git branch --show-current)
   if [ "$CURRENT_BRANCH" != "$TARGET_BRANCH" ]; then
     echo "   ⚠️ Branch drift: on $CURRENT_BRANCH, expected $TARGET_BRANCH — switching back"
-    git checkout "$TARGET_BRANCH"
+    if git rev-parse --verify --quiet "$TARGET_BRANCH" >/dev/null; then
+      git checkout "$TARGET_BRANCH"
+    else
+      git checkout -b "$TARGET_BRANCH" main
+    fi
   fi
 
   # Find next incomplete story
@@ -96,13 +133,14 @@ else:
   echo "   Acceptance: $STORY_ACCEPT"
 
   # Build the Claude Code prompt
-  PROMPT="You are implementing a SINGLE user story from the DayPage v8 Museum Aesthetic redesign PRD.
+  PROMPT="You are implementing a SINGLE user story from the $PRD_PROJECT PRD.
 
 ⚠️ CRITICAL: You are working on branch '$TARGET_BRANCH'. NEVER run git checkout, git switch, git branch, or any command that changes the current branch. NEVER push or pull. Only git add and git commit.
 
-PROJECT: DayPage — museum-aesthetic personal logging tool (iOS + Web)
-Primary target: both web/ (Next.js App Router, TypeScript strict, Tailwind, pnpm) and iOS (SwiftUI, Xcode). Read AGENTS.md for repo conventions.
-PRD source: tasks/prd-daypage-v8-museum-aesthetic.md. Current machine-readable PRD: prd.json.
+PROJECT: $PRD_PROJECT
+PRD: $PRD_DESC
+Read AGENTS.md (and web/CLAUDE.md for web stories) for repo conventions.
+Current machine-readable PRD: $PRD_REL.
 
 STORY #$STORY_ID: $STORY_NAME
 DESCRIPTION: $STORY_DESC
