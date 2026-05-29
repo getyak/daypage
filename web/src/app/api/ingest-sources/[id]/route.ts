@@ -32,6 +32,8 @@ const UpdateIngestSourceSchema = z.object({
   source_type: z.enum(["telegram", "email", "rss", "webhook", "api_claude"]).optional(),
   config: z.record(z.string(), z.unknown()).optional(),
   enabled: z.boolean().optional(),
+  // US-022: allow updating the source's default compile tier.
+  default_ingest_mode: z.enum(["light", "full"]).optional(),
 });
 
 // GET /api/ingest-sources/[id]

@@ -20,6 +20,7 @@ const NAV_ITEMS: ReadonlyArray<NavSpec> = [
   { href: "/home", label: "Home", iconName: "home", meta: "⌘1" },
   { href: "/add", label: "Add", iconName: "plus", meta: "⌘N" },
   { href: "/chat", label: "Chat", iconName: "message", meta: "⌘K" },
+  { href: "/agents", label: "Agents", iconName: "bot" },
   { href: "/wiki", label: "Wiki", iconName: "book", meta: "⌘W" },
   { href: "/inbox", label: "Inbox", iconName: "inbox" },
   { href: "/insights", label: "Insights", iconName: "chart" },

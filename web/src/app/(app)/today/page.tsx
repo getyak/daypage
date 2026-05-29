@@ -15,6 +15,7 @@ import { ComposerPill } from "./ComposerPill";
 import { AttachSheet } from "./AttachSheet";
 import { RecordingSheet } from "./RecordingSheet";
 import { ShareCard, type ShareCardMemo } from "./ShareCard";
+import { MobileOnlyGuard } from "./MobileOnlyGuard";
 
 function MemoFeed({
   composerMicRef,
@@ -24,8 +25,9 @@ function MemoFeed({
   onShare: (memo: ShareCardMemo) => void;
 }) {
   const [memos, setMemos] = useState<MemoCardData[]>([]);
+  const [serviceConnected, setServiceConnected] = useState(true);
 
-  useEffect(() => {
+  const reloadMemos = useCallback(() => {
     fetch("/api/today/memos")
       .then((r) => r.json())
       .then((d: { memos: MemoCardData[] }) => {
@@ -34,12 +36,41 @@ function MemoFeed({
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    reloadMemos();
+    fetch("/api/compile/status")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { connected: boolean } | null) => {
+        if (d) setServiceConnected(d.connected);
+      })
+      .catch(() => {});
+  }, [reloadMemos]);
+
+  const handleRetry = useCallback(
+    (id: string) => {
+      // Optimistically mark as pending, then re-trigger compilation.
+      setMemos((prev) =>
+        prev.map((m) =>
+          m.id === id
+            ? { ...m, compile_status: "pending", compile_error: null }
+            : m,
+        ),
+      );
+      fetch(`/api/memos/${id}/recompile`, { method: "POST" })
+        .then(() => reloadMemos())
+        .catch(() => {});
+    },
+    [reloadMemos],
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 8 }}>
       {memos.map((memo) => (
         <MemoCard
           key={memo.id}
           memo={memo}
+          serviceConnected={serviceConnected}
+          onRetry={handleRetry}
           onShare={() =>
             onShare({
               id: memo.id,
@@ -57,7 +88,7 @@ function MemoFeed({
   );
 }
 
-export default function TodayPage() {
+function TodayMobileFlow() {
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -212,5 +243,16 @@ export default function TodayPage() {
         <ShareCard memo={shareMemo} onClose={() => setShareMemo(null)} />
       )}
     </div>
+  );
+}
+
+// US-050: /today is the mobile capture/browse flow only. Desktop (≥1024px)
+// redirects to /add via MobileOnlyGuard so the mobile layout never collides
+// with the desktop workstation shell.
+export default function TodayPage() {
+  return (
+    <MobileOnlyGuard>
+      <TodayMobileFlow />
+    </MobileOnlyGuard>
   );
 }

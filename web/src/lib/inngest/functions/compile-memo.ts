@@ -9,9 +9,12 @@ import {
   change_log,
   inbox_items,
 } from "@/lib/db/schema";
-import { eq, and, gte, ne, sql } from "drizzle-orm";
+import { eq, and, gte, sql } from "drizzle-orm";
 import { llm, ProviderError } from "@/lib/ai";
 import { chunkText, averageEmbeddings, hashText } from "@/lib/ai/embed-utils";
+import { getAssistantPersona, personaPreamble } from "@/lib/ai/persona";
+import { promoteBySourceCount } from "@/lib/pages/promote";
+import { dispatchPageWebhooks, type PageWebhookEvent } from "@/lib/webhooks/dispatch";
 import fs from "fs";
 import path from "path";
 
@@ -80,7 +83,6 @@ type RecalledPage = {
   title: string;
   type: string;
   body_md: string | null;
-  embedding: string | null;
 };
 
 type FullOperation =
@@ -151,20 +153,6 @@ function parseFullResult(raw: string): FullCompileResult {
   return { operations: parsed.operations as FullOperation[] };
 }
 
-// Cosine similarity between two number[] vectors
-function cosineSim(a: number[], b: number[]): number {
-  let dot = 0;
-  let normA = 0;
-  let normB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
-  }
-  const denom = Math.sqrt(normA) * Math.sqrt(normB);
-  return denom === 0 ? 0 : dot / denom;
-}
-
 // ─── Conflict check types ─────────────────────────────────────────────────────
 
 type ConflictItem = {
@@ -212,6 +200,71 @@ function parseConflictResult(raw: string): ConflictCheckResult {
   }
 
   return { conflicts: parsed.conflicts as ConflictItem[] };
+}
+
+// ─── Page embedding helper ─────────────────────────────────────────────────────
+
+// Compute an embedding for a page's body_md, reusing embed_cache (body_hash + TTL)
+// to avoid re-embedding identical content. Returns null on empty body or provider
+// failure (embedding is best-effort — it must never block compilation).
+async function embedPageBody(bodyMd: string): Promise<number[] | null> {
+  const text = bodyMd.trim();
+  if (!text) return null;
+
+  try {
+    const bodyHash = hashText(text);
+    const cacheCutoff = new Date(
+      Date.now() - EMBED_CACHE_TTL_DAYS * 24 * 60 * 60 * 1000,
+    );
+
+    const [cached] = await db
+      .select({ embedding: embed_cache.embedding })
+      .from(embed_cache)
+      .where(
+        and(
+          eq(embed_cache.body_hash, bodyHash),
+          gte(embed_cache.created_at, cacheCutoff),
+        ),
+      )
+      .limit(1);
+
+    if (cached) {
+      return JSON.parse(cached.embedding) as number[];
+    }
+
+    const chunks = chunkText(text);
+    const embeddings: number[][] = [];
+    for (const chunk of chunks) {
+      const result = await llm.embed(chunk);
+      embeddings.push(result.embedding);
+    }
+    const embedding = averageEmbeddings(embeddings);
+
+    await db
+      .insert(embed_cache)
+      .values({
+        body_hash: bodyHash,
+        embedding: JSON.stringify(embedding),
+      })
+      .onConflictDoUpdate({
+        target: embed_cache.body_hash,
+        set: {
+          embedding: JSON.stringify(embedding),
+          created_at: new Date(),
+        },
+      });
+
+    return embedding;
+  } catch (err: unknown) {
+    const message =
+      err instanceof ProviderError
+        ? `${err.code}: ${err.message}`
+        : String(err);
+    console.warn(
+      `[compile-memo] embedPageBody: error (non-fatal) — ${message}`,
+    );
+    return null;
+  }
 }
 
 // ─── Slug helpers ─────────────────────────────────────────────────────────────
@@ -330,6 +383,8 @@ export const compileMemo = inngest.createFunction(
 
     // ── recall ────────────────────────────────────────────────────────────────
     // Returns top-K pages by cosine similarity to memo.embedding (FULL mode only).
+    // Uses native pgvector ANN (ORDER BY embedding <=> $memo::vector LIMIT K) via
+    // the HNSW index (0006_pgvector_hnsw.sql) — no JS-side full-table cosine.
     // Stored in step result so compile step can use them without re-querying.
     const recalledPages = await step.run("recall", async () => {
       console.log(`[compile-memo] recall: memo ${memo_id}`);
@@ -354,48 +409,35 @@ export const compileMemo = inngest.createFunction(
         return [] as RecalledPage[];
       }
 
-      const memoVec: number[] = memo.embedding;
+      const memoLiteral = `[${memo.embedding.join(",")}]`;
 
-      // Fetch all live pages for this user that have embeddings
-      const candidatePages = await db
-        .select({
-          id: pages.id,
-          slug: pages.slug,
-          title: pages.title,
-          type: pages.type,
-          body_md: pages.body_md,
-          embedding: pages.embedding,
-        })
-        .from(pages)
-        .where(
-          and(
-            eq(pages.user_id, memo.user_id),
-            ne(pages.status, "archived"),
-            sql`${pages.embedding} IS NOT NULL`,
-          ),
-        );
-
-      // Score and rank
-      const scored = candidatePages
-        .map((p) => {
-          const vec: number[] = p.embedding ?? [];
-          return { ...p, score: vec.length > 0 ? cosineSim(memoVec, vec) : 0 };
-        })
-        .filter((p) => p.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, FULL_RECALL_TOP_K);
+      // Native pgvector ANN over this user's non-archived embedded pages.
+      const scored = await db.execute<{
+        id: string;
+        slug: string;
+        title: string;
+        type: string;
+        body_md: string | null;
+      }>(sql`
+        SELECT "id", "slug", "title", "type", "body_md"
+        FROM "pages"
+        WHERE "user_id" = ${memo.user_id}
+          AND "status" <> 'archived'
+          AND "embedding" IS NOT NULL
+        ORDER BY "embedding" <=> ${memoLiteral}::vector
+        LIMIT ${FULL_RECALL_TOP_K}
+      `);
 
       console.log(
         `[compile-memo] recall: found ${scored.length} candidate pages`,
       );
 
-      return scored.map(({ id, slug, title, type, body_md, embedding }) => ({
+      return scored.map(({ id, slug, title, type, body_md }) => ({
         id,
         slug,
         title,
         type,
         body_md,
-        embedding,
       })) as RecalledPage[];
     });
 
@@ -516,7 +558,12 @@ export const compileMemo = inngest.createFunction(
         return null;
       }
 
+      // US-032: inject the user's knowledge-assistant persona so the compiled
+      // diary/wiki carries the same tone/perspective as /chat. The JSON-only
+      // contract is preserved after the persona preamble.
+      const persona = await getAssistantPersona(memo.user_id);
       const systemPrompt =
+        personaPreamble(persona) +
         "You are a personal knowledge assistant. Always respond with valid JSON only. No prose, no markdown outside the JSON object.";
 
       // ── LIGHT mode ──────────────────────────────────────────────────────────
@@ -725,6 +772,8 @@ export const compileMemo = inngest.createFunction(
         const title =
           body.trim().slice(0, 80) || result.summary.slice(0, 80) || "Untitled";
 
+        const embedding = await embedPageBody(result.summary);
+
         const [page] = await db
           .insert(pages)
           .values({
@@ -734,6 +783,7 @@ export const compileMemo = inngest.createFunction(
             title,
             status: "draft",
             body_md: result.summary,
+            embedding: embedding ?? undefined,
             metadata: {
               keywords: result.keywords,
               suggested_domain: result.suggested_domain,
@@ -746,6 +796,7 @@ export const compileMemo = inngest.createFunction(
             set: {
               title,
               body_md: result.summary,
+              ...(embedding ? { embedding } : {}),
               metadata: {
                 keywords: result.keywords,
                 suggested_domain: result.suggested_domain,
@@ -763,6 +814,9 @@ export const compileMemo = inngest.createFunction(
           .insert(page_sources)
           .values({ page_id: page.id, memo_id, weight: 1 })
           .onConflictDoNothing();
+
+        // US-004: promote draft → live once referenced by ≥2 sources.
+        await promoteBySourceCount(user_id, [page.id]);
         return;
       }
 
@@ -776,6 +830,12 @@ export const compileMemo = inngest.createFunction(
 
       // Map slug → page_id for newly created pages within this batch
       const newPageSlugToId = new Map<string, string>();
+
+      // US-004: pages whose page_sources changed this run — candidates for promotion.
+      const sourcedPageIds = new Set<string>();
+
+      // US-013: collect lifecycle events to push to webhook targets after commit.
+      const webhookEvents: PageWebhookEvent[] = [];
 
       // Helper: resolve a page_id reference (may be a recalled uuid or a new: slug)
       const resolvePageId = (ref: string): string | undefined => {
@@ -806,6 +866,8 @@ export const compileMemo = inngest.createFunction(
             continue;
           }
 
+          const embedding = await embedPageBody(op.body_md);
+
           const updateSet: Record<string, unknown> = {
             body_md: op.body_md,
             last_compiled_at: new Date(),
@@ -813,6 +875,7 @@ export const compileMemo = inngest.createFunction(
             version: sql`${pages.version} + 1`,
           };
           if (op.title) updateSet.title = op.title;
+          if (embedding) updateSet.embedding = embedding;
 
           await db.update(pages).set(updateSet).where(eq(pages.id, op.page_id));
 
@@ -828,16 +891,28 @@ export const compileMemo = inngest.createFunction(
             agent_action_id: memo_id,
           });
 
+          webhookEvents.push({
+            action_kind: "update_page",
+            target_type: "page",
+            target_id: op.page_id,
+            after: { title: op.title ?? before.title },
+            reason: op.rationale ?? null,
+            performed_by: "agent",
+          });
+
           // Link to memo via page_sources
           await db
             .insert(page_sources)
             .values({ page_id: op.page_id, memo_id, weight: 1 })
             .onConflictDoNothing();
+          sourcedPageIds.add(op.page_id);
         } else if (op.op === "create_page" || op.op === "extract_entity") {
           const pageType =
             op.op === "extract_entity"
               ? ("entity" as const)
               : (op.type as "concept" | "entity" | "synthesis");
+
+          const embedding = await embedPageBody(op.body_md);
 
           const [newPage] = await db
             .insert(pages)
@@ -848,6 +923,7 @@ export const compileMemo = inngest.createFunction(
               title: op.title,
               status: "draft",
               body_md: op.body_md,
+              embedding: embedding ?? undefined,
               last_compiled_at: new Date(),
             })
             .onConflictDoUpdate({
@@ -855,6 +931,7 @@ export const compileMemo = inngest.createFunction(
               set: {
                 title: op.title,
                 body_md: op.body_md,
+                ...(embedding ? { embedding } : {}),
                 last_compiled_at: new Date(),
                 updated_at: new Date(),
               },
@@ -877,10 +954,20 @@ export const compileMemo = inngest.createFunction(
             agent_action_id: memo_id,
           });
 
+          webhookEvents.push({
+            action_kind: op.op,
+            target_type: "page",
+            target_id: newPage.id,
+            after: { slug: op.slug, title: op.title, type: pageType },
+            reason: op.rationale ?? null,
+            performed_by: "agent",
+          });
+
           await db
             .insert(page_sources)
             .values({ page_id: newPage.id, memo_id, weight: 1 })
             .onConflictDoNothing();
+          sourcedPageIds.add(newPage.id);
         } else if (op.op === "create_link") {
           const fromId = resolvePageId(op.from_page_id);
           const toId = resolvePageId(op.to_page_id);
@@ -940,6 +1027,13 @@ export const compileMemo = inngest.createFunction(
           })
           .where(eq(pages.id, pid));
       }
+
+      // US-004: promote any draft page now referenced by ≥2 sources → live.
+      // (promoteBySourceCount fires its own `promote_page` webhooks.)
+      await promoteBySourceCount(user_id, Array.from(sourcedPageIds));
+
+      // US-013: push create/update lifecycle events to webhook targets.
+      await dispatchPageWebhooks(user_id, webhookEvents);
     });
 
     // ── notify ────────────────────────────────────────────────────────────────

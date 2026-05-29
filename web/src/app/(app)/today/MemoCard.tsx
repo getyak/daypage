@@ -1,11 +1,20 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect, useId } from "react";
-import { Camera, Share2, MoreHorizontal } from "lucide-react";
+import {
+  Camera,
+  Share2,
+  MoreHorizontal,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
+} from "lucide-react";
 import { applyRubberBand, snapTarget } from "@/lib/gestures/rubberBand";
 
 const REVEAL_WIDTH = 132;
 const DRAG_TAP_THRESHOLD = 6;
+
+export type CompileStatus = "pending" | "running" | "done" | "failed";
 
 export type MemoCardData = {
   id: string;
@@ -13,6 +22,9 @@ export type MemoCardData = {
   body: string;
   type: "text" | "voice" | "photo" | "mixed" | "url" | "file";
   photo_url?: string | null;
+  compile_status?: CompileStatus;
+  compile_step?: string | null;
+  compile_error?: string | null;
 };
 
 type Props = {
@@ -20,6 +32,10 @@ type Props = {
   onTap?: (id: string) => void;
   onShare?: (id: string) => void;
   onMore?: (id: string) => void;
+  /** Whether the Inngest compile pipeline is reachable (false in dev w/o key). */
+  serviceConnected?: boolean;
+  /** Called when the user retries a failed memo. */
+  onRetry?: (id: string) => void;
 };
 
 function formatTime(isoString: string): string {
@@ -29,7 +45,14 @@ function formatTime(isoString: string): string {
   return `${hh}·${mm}`;
 }
 
-export function MemoCard({ memo, onTap, onShare, onMore }: Props) {
+export function MemoCard({
+  memo,
+  onTap,
+  onShare,
+  onMore,
+  serviceConnected = true,
+  onRetry,
+}: Props) {
   const [tx, setTx] = useState(0);
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef({ startX: 0, startTx: 0, moved: 0, active: false });
@@ -279,6 +302,13 @@ export function MemoCard({ memo, onTap, onShare, onMore }: Props) {
 
           {/* Body text — clamp 5 lines */}
           <BodyText body={memo.body} />
+
+          {/* Compile status — US-002 */}
+          <CompileStatusBar
+            memo={memo}
+            serviceConnected={serviceConnected}
+            onRetry={onRetry}
+          />
         </div>
       </div>
 
@@ -315,6 +345,118 @@ function DotGrid({ ...rest }: React.HTMLAttributes<SVGElement>) {
         ))
       )}
     </svg>
+  );
+}
+
+// Compile status footer: queued / running(step) / done / failed(+retry).
+// When the compile service is disconnected (dev w/o Inngest), an explicit
+// notice replaces the deceptive "queued" state.
+function CompileStatusBar({
+  memo,
+  serviceConnected,
+  onRetry,
+}: {
+  memo: MemoCardData;
+  serviceConnected: boolean;
+  onRetry?: (id: string) => void;
+}) {
+  const status = memo.compile_status;
+  if (!status || status === "done") return null;
+
+  const isPending = status === "pending";
+  const isRunning = status === "running";
+  const isFailed = status === "failed";
+  const showDisconnected = isPending && !serviceConnected;
+
+  let icon: React.ReactNode;
+  let label: string;
+  let tone: string; // text color
+
+  if (showDisconnected) {
+    icon = <AlertCircle size={12} strokeWidth={1.9} aria-hidden="true" />;
+    label = "编译服务未连接（运行 pnpm run dev:inngest）";
+    tone = "var(--fg-muted)";
+  } else if (isFailed) {
+    icon = <AlertCircle size={12} strokeWidth={1.9} aria-hidden="true" />;
+    label = memo.compile_error?.trim() || "编译失败";
+    tone = "var(--accent, #c2410c)";
+  } else if (isRunning) {
+    icon = (
+      <Loader2
+        size={12}
+        strokeWidth={1.9}
+        aria-hidden="true"
+        style={{ animation: "spin 1s linear infinite" }}
+      />
+    );
+    label = memo.compile_step ? `编译中 · ${memo.compile_step}` : "编译中…";
+    tone = "var(--fg-muted)";
+  } else {
+    // pending + connected
+    icon = <Loader2 size={12} strokeWidth={1.9} aria-hidden="true" />;
+    label = "排队中";
+    tone = "var(--fg-subtle)";
+  }
+
+  return (
+    <div
+      role="status"
+      onClick={(e) => e.stopPropagation()}
+      onPointerDown={(e) => e.stopPropagation()}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        marginTop: 12,
+        paddingTop: 10,
+        borderTop: "0.5px solid var(--border-subtle)",
+        fontFamily: "var(--font-family-mono), monospace",
+        fontSize: 11,
+        letterSpacing: "0.02em",
+        color: tone,
+      }}
+    >
+      <span style={{ display: "inline-flex", flexShrink: 0 }}>{icon}</span>
+      <span
+        style={{
+          flex: 1,
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {label}
+      </span>
+      {isFailed && onRetry && (
+        <button
+          type="button"
+          aria-label="重试编译"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRetry(memo.id);
+          }}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            flexShrink: 0,
+            border: "0.5px solid var(--border-subtle)",
+            borderRadius: 8,
+            background: "var(--surface-white)",
+            color: "var(--fg-primary)",
+            cursor: "pointer",
+            padding: "3px 8px",
+            fontFamily: "inherit",
+            fontSize: 11,
+            fontWeight: 600,
+          }}
+        >
+          <RefreshCw size={11} strokeWidth={2} aria-hidden="true" />
+          重试
+        </button>
+      )}
+    </div>
   );
 }
 

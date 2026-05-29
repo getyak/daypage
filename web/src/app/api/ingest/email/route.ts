@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
-import { memos, activities } from "@/lib/db/schema";
+import { memos, activities, ingest_sources } from "@/lib/db/schema";
+import { eq, and, desc } from "drizzle-orm";
 import { z } from "zod";
 import { authenticateApiKey, hasScope } from "@/lib/api-auth";
 import { sendEvent } from "@/lib/inngest/client";
@@ -56,6 +57,20 @@ export async function POST(req: NextRequest) {
 
   const memoBody = subject ? `# ${subject}\n\n${body}` : body;
 
+  // US-022: inherit the compile tier declared by the user's email source, if any.
+  const [emailSource] = await db
+    .select({ default_ingest_mode: ingest_sources.default_ingest_mode })
+    .from(ingest_sources)
+    .where(
+      and(
+        eq(ingest_sources.user_id, userId),
+        eq(ingest_sources.source_type, "email"),
+        eq(ingest_sources.enabled, true)
+      )
+    )
+    .orderBy(desc(ingest_sources.created_at))
+    .limit(1);
+
   const [memo] = await db
     .insert(memos)
     .values({
@@ -65,6 +80,7 @@ export async function POST(req: NextRequest) {
       origin: "api",
       source: "email",
       device: "email",
+      ingest_mode: emailSource?.default_ingest_mode ?? "light",
       idempotency_key: idempotency_key ?? `email:${from}:${Date.now()}`,
       word_count: memoBody.split(/\s+/).filter(Boolean).length,
     })

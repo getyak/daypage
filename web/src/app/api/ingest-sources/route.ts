@@ -28,6 +28,8 @@ const CreateIngestSourceSchema = z.object({
   source_type: z.enum(["telegram", "email", "rss", "webhook", "api_claude"]),
   config: z.record(z.string(), z.unknown()).optional().default({}),
   enabled: z.boolean().optional().default(true),
+  // US-022: the compile tier memos from this source default to.
+  default_ingest_mode: z.enum(["light", "full"]).optional().default("light"),
 });
 
 // GET /api/ingest-sources — list all sources for the current user
@@ -77,6 +79,7 @@ export async function POST(req: NextRequest) {
       // secrets, feed URLs with private API keys, etc.
       config: encryptConfig(input.config),
       enabled: input.enabled,
+      default_ingest_mode: input.default_ingest_mode,
     })
     .returning();
 

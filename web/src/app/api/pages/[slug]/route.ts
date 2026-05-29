@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db/client";
-import { pages, users } from "@/lib/db/schema";
+import { pages, users, change_log } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
+import { dispatchPageWebhooks, type PageWebhookEvent } from "@/lib/webhooks/dispatch";
 
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -85,6 +86,13 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     return badRequest("No fields to update");
   }
 
+  // Capture the prior status so we can detect a draft → live 晋升.
+  const [prev] = await db
+    .select({ id: pages.id, status: pages.status, title: pages.title })
+    .from(pages)
+    .where(and(eq(pages.slug, slug), eq(pages.user_id, userId)))
+    .limit(1);
+
   const rows = await db
     .update(pages)
     .set(updateData)
@@ -92,7 +100,43 @@ export async function PATCH(req: NextRequest, ctx: RouteContext) {
     .returning();
 
   if (!rows.length) return notFound();
-  return NextResponse.json({ page: rows[0] });
+  const updated = rows[0];
+
+  // US-013: record the user edit in change_log and push it to webhook targets.
+  // A draft → live transition is reported as `promote_page`; everything else
+  // as `update_page`. Best-effort — never block the response.
+  const promotedToLive = prev?.status === "draft" && updated.status === "live";
+  const actionKind = promotedToLive ? "promote_page" : "update_page";
+  const after: Record<string, unknown> = { title: updated.title, status: updated.status };
+
+  try {
+    await db.insert(change_log).values({
+      user_id: userId,
+      action_kind: "update_page",
+      target_type: "page",
+      target_id: updated.id,
+      before: prev ? { status: prev.status, title: prev.title } : null,
+      after,
+      reason: promotedToLive ? "Promoted to live by user." : "Edited by user.",
+      performed_by: "user",
+      agent_action_id: null,
+    });
+  } catch (err) {
+    console.warn(`[pages] change_log insert: non-fatal — ${String(err)}`);
+  }
+
+  const event: PageWebhookEvent = {
+    action_kind: actionKind,
+    target_type: "page",
+    target_id: updated.id,
+    before: prev ? { status: prev.status, title: prev.title } : null,
+    after,
+    reason: promotedToLive ? "Promoted to live by user." : "Edited by user.",
+    performed_by: "user",
+  };
+  await dispatchPageWebhooks(userId, [event]);
+
+  return NextResponse.json({ page: updated });
 }
 
 // DELETE /api/pages/:slug — soft-delete by setting status='archived'

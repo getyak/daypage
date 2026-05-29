@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db/client";
-import { pages, users } from "@/lib/db/schema";
+import { pages, users, change_log } from "@/lib/db/schema";
 import { eq, and, ilike, asc, lt } from "drizzle-orm";
 import { z } from "zod";
-import type { pageTypeEnum } from "@/lib/db/schema";
+import type { pageTypeEnum, pageStatusEnum } from "@/lib/db/schema";
+import { dispatchPageWebhooks } from "@/lib/webhooks/dispatch";
 
 type PageType = (typeof pageTypeEnum.enumValues)[number];
+type PageStatus = (typeof pageStatusEnum.enumValues)[number];
 
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -32,6 +34,8 @@ const VALID_TYPES: PageType[] = [
   "synthesis",
   "daily",
 ];
+
+const VALID_STATUSES: PageStatus[] = ["draft", "live", "archived"];
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
@@ -59,6 +63,9 @@ export async function GET(req: NextRequest) {
   const qParam = searchParams.get("q");
   const cursorParam = searchParams.get("cursor");
   const limitParam = searchParams.get("limit");
+  // US-004: /wiki shows the formed network — default to live pages only.
+  // `?status=draft` surfaces raw/to-be-woven sources; `?status=all` lists every page.
+  const statusParam = searchParams.get("status");
 
   const limit = Math.min(
     parseInt(limitParam ?? String(DEFAULT_LIMIT), 10) || DEFAULT_LIMIT,
@@ -66,6 +73,16 @@ export async function GET(req: NextRequest) {
   );
 
   const conditions = [eq(pages.user_id, userId)];
+
+  const status: PageStatus | "all" =
+    statusParam === "all"
+      ? "all"
+      : statusParam && VALID_STATUSES.includes(statusParam as PageStatus)
+        ? (statusParam as PageStatus)
+        : "live";
+  if (status !== "all") {
+    conditions.push(eq(pages.status, status));
+  }
 
   if (typeParam && VALID_TYPES.includes(typeParam)) {
     conditions.push(eq(pages.type, typeParam));
@@ -147,6 +164,34 @@ export async function POST(req: NextRequest) {
       status: "draft",
     })
     .returning();
+
+  // US-013: log the creation and push it to webhook targets (best-effort).
+  try {
+    await db.insert(change_log).values({
+      user_id: userId,
+      action_kind: "create_page",
+      target_type: "page",
+      target_id: created.id,
+      before: null,
+      after: { slug, title: created.title, type: "synthesis" },
+      reason: "Created by user.",
+      performed_by: "user",
+      agent_action_id: null,
+    });
+  } catch (err) {
+    console.warn(`[pages] change_log insert: non-fatal — ${String(err)}`);
+  }
+
+  await dispatchPageWebhooks(userId, [
+    {
+      action_kind: "create_page",
+      target_type: "page",
+      target_id: created.id,
+      after: { slug, title: created.title, type: "synthesis" },
+      reason: "Created by user.",
+      performed_by: "user",
+    },
+  ]);
 
   return NextResponse.json({ page: created }, { status: 201 });
 }

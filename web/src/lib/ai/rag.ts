@@ -1,17 +1,17 @@
 // ─── RAG retrieval helper ─────────────────────────────────────────────────────
 // Server-only. Embeds a query via the unified LLM façade (OpenAI
 // text-embedding-3-small) and retrieves the most relevant pages from the
-// user's wiki by cosine similarity.
+// user's wiki using native pgvector approximate-nearest-neighbour search.
 //
-// Note: embeddings are stored as JSON-encoded text (vector(1536) pending the
-// pgvector migration in 0006_pgvector_hnsw.sql). Once that migration is
-// applied the WHERE clause can be replaced with a native <=> operator query
-// using the HNSW index for much faster ANN search.
+// Embeddings are stored as a native vector(1536) column (migration
+// 0006_pgvector_hnsw.sql). Retrieval is a single
+//   ORDER BY embedding <=> $query::vector LIMIT k
+// query backed by the HNSW index (vector_cosine_ops), so there is no JS-side
+// full-table scan / cosine computation.
 
 import "server-only";
 import { db } from "@/lib/db/client";
-import { pages } from "@/lib/db/schema";
-import { and, eq, ne, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { llm } from "./index";
 import { ProviderError } from "./provider";
 
@@ -27,31 +27,30 @@ export interface RetrievedPage {
 export interface RetrieveOpts {
   topK?: number;
   domain?: string;
+  /**
+   * Restrict recall to a single domain by its id. Used by US-031 agents whose
+   * retrieval scope is pinned to one knowledge area. When set, only pages whose
+   * `domain_id` matches are returned. Takes precedence over the legacy
+   * `domain` boolean-ish flag.
+   */
+  domainId?: string;
   excludePrivate?: boolean;
 }
 
-/** Cosine similarity between two same-length vectors. Returns 0 for zero vectors. */
-export function cosineSimilarity(a: number[], b: number[]): number {
-  if (a.length === 0 || b.length === 0 || a.length !== b.length) return 0;
-  let dot = 0;
-  let normA = 0;
-  let normB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
-  }
-  const denom = Math.sqrt(normA) * Math.sqrt(normB);
-  return denom === 0 ? 0 : dot / denom;
+/** Format a JS number[] as a pgvector literal, e.g. "[0.1,0.2,0.3]". */
+function toVectorLiteral(vec: number[]): string {
+  return `[${vec.join(",")}]`;
 }
 
 /**
- * Retrieve the most relevant wiki pages for a natural-language query.
+ * Retrieve the most relevant wiki pages for a natural-language query using the
+ * native pgvector HNSW index (cosine distance).
  *
  * @param userId  - Scopes the search to a single user's pages.
  * @param queryText - Free-form text to embed and compare against page embeddings.
  * @param opts.topK - Maximum results to return (default 8).
- * @param opts.domain - If set, only pages whose domain slug matches are returned.
+ * @param opts.domain - If set, only pages whose domain_id is present are returned
+ *   (advisory; a full slug join is deferred until a /api/domains lookup is wired in).
  * @param opts.excludePrivate - Reserved for future use when a `private` column
  *   is added to the pages table (currently all pages are implicitly public).
  *
@@ -83,75 +82,46 @@ export async function retrievePages(
   }
   if (queryVec.length === 0) return [];
 
-  // Fetch all live pages for this user that have an embedding stored.
-  // When the pgvector migration lands this full-table fetch can be replaced
-  // with a single SQL ORDER BY embedding <=> $1::vector LIMIT $2 query using
-  // the HNSW index defined in 0006_pgvector_hnsw.sql.
-  const candidatePages = await db
-    .select({
-      id: pages.id,
-      slug: pages.slug,
-      title: pages.title,
-      type: pages.type,
-      body_md: pages.body_md,
-      embedding: pages.embedding,
-      domain_id: pages.domain_id,
-    })
-    .from(pages)
-    .where(
-      and(
-        eq(pages.user_id, userId),
-        ne(pages.status, "archived"),
-        sql`${pages.embedding} IS NOT NULL`
-      )
-    );
+  // Native pgvector ANN: ORDER BY embedding <=> $query::vector LIMIT topK,
+  // backed by the HNSW index (vector_cosine_ops) from 0006_pgvector_hnsw.sql.
+  // score = 1 - cosine_distance, so higher is more similar.
+  const queryLiteral = toVectorLiteral(queryVec);
+  // A specific domain id pins recall to that knowledge area (US-031 agents);
+  // the legacy `domain` flag only filters to "has any domain".
+  const hasDomainId = typeof opts.domainId === "string" && opts.domainId.length > 0;
+  const domainOnly = !hasDomainId && opts.domain !== undefined;
 
-  // Score and rank
-  const scored = candidatePages
-    .map((p) => {
-      let vec: number[] = [];
-      if (typeof p.embedding === "string") {
-        try {
-          vec = JSON.parse(p.embedding) as number[];
-        } catch {
-          // malformed embedding — skip
-        }
-      } else if (Array.isArray(p.embedding)) {
-        vec = p.embedding as number[];
-      }
-      return {
-        page_id: p.id,
-        slug: p.slug,
-        title: p.title,
-        type: p.type,
-        body_md: p.body_md,
-        domain_id: p.domain_id,
-        score: cosineSimilarity(queryVec, vec),
-      };
-    })
-    .filter((p) => p.score > 0);
+  const rows = await db.execute<{
+    page_id: string;
+    slug: string;
+    title: string;
+    type: string;
+    body_md: string | null;
+    score: number;
+  }>(sql`
+    SELECT
+      "id" AS page_id,
+      "slug",
+      "title",
+      "type",
+      "body_md",
+      1 - ("embedding" <=> ${queryLiteral}::vector) AS score
+    FROM "pages"
+    WHERE "user_id" = ${userId}
+      AND "status" <> 'archived'
+      AND "embedding" IS NOT NULL
+      ${hasDomainId ? sql`AND "domain_id" = ${opts.domainId}` : sql``}
+      ${domainOnly ? sql`AND "domain_id" IS NOT NULL` : sql``}
+    ORDER BY "embedding" <=> ${queryLiteral}::vector
+    LIMIT ${topK}
+  `);
 
-  // Apply domain filter (post-fetch since we need the join)
-  // For simplicity we filter by domain_id presence; a slug join could be done
-  // in SQL if performance requires it.
-  const filtered =
-    opts.domain !== undefined
-      ? scored.filter((p) => {
-          // domain filter is advisory — requires a domain_id on the page.
-          // Full slug join is deferred to when a /api/domains lookup is wired in.
-          return p.domain_id !== null;
-        })
-      : scored;
-
-  return filtered
-    .sort((a, b) => b.score - a.score)
-    .slice(0, topK)
-    .map(({ page_id, slug, title, type, body_md, score }) => ({
-      page_id,
-      slug,
-      title,
-      type,
-      body_md,
-      score,
-    }));
+  return rows.map((r) => ({
+    page_id: r.page_id,
+    slug: r.slug,
+    title: r.title,
+    type: r.type,
+    body_md: r.body_md,
+    score: Number(r.score),
+  }));
 }

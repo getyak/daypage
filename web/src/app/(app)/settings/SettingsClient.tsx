@@ -8,6 +8,7 @@ import {
   Bell,
   Database,
   Info,
+  Bot,
   Check,
   Download,
   Trash2,
@@ -28,6 +29,9 @@ interface Preferences {
   density: Density;
   language: Lang;
   weekStart: "sunday" | "monday";
+  // US-032: free-form "who my knowledge assistant is" prompt. Synced to
+  // user_settings.settings.assistant_persona and injected into /chat + compile.
+  assistant_persona: string;
   ai: {
     model: AIModel;
     temperature: number; // 0..1, step 0.1
@@ -47,6 +51,7 @@ const DEFAULT_PREFS: Preferences = {
   density: "comfortable",
   language: "en",
   weekStart: "monday",
+  assistant_persona: "",
   ai: {
     model: "qwen3.5-plus",
     temperature: 0.6,
@@ -418,6 +423,49 @@ export function SettingsClient({ user, signOutAction }: SettingsClientProps) {
               />
             }
           />
+        </Card>
+      </Section>
+
+      {/* Knowledge assistant persona (US-032) */}
+      <Section
+        icon={Bot}
+        title="Knowledge assistant"
+        hint="Who your assistant is — carries across chat & compile."
+      >
+        <Card>
+          <div className="settings-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 10 }}>
+            <div className="settings-row-text">
+              <div className="settings-row-label">Persona</div>
+              <div className="settings-row-desc">
+                Describe the tone, voice and perspective your knowledge assistant
+                should use. This is injected into both Chat and nightly
+                compilation. Leave blank for the default neutral assistant.
+              </div>
+            </div>
+            <textarea
+              className="settings-persona-input"
+              placeholder="e.g. You are a warm, curious archivist who writes in second person and connects ideas across my notes."
+              rows={4}
+              maxLength={2000}
+              value={prefs.assistant_persona}
+              onChange={(e) => update("assistant_persona", e.target.value)}
+              style={{
+                width: "100%",
+                resize: "vertical",
+                padding: "10px 12px",
+                borderRadius: 10,
+                border: "1px solid var(--border)",
+                background: "var(--bg-elevated, var(--bg))",
+                color: "var(--fg)",
+                fontFamily: "inherit",
+                fontSize: "0.875rem",
+                lineHeight: 1.5,
+              }}
+            />
+            <div style={{ fontSize: "0.75rem", color: "var(--fg-subtle)", textAlign: "right" }}>
+              {prefs.assistant_persona.length}/2000
+            </div>
+          </div>
         </Card>
       </Section>
 

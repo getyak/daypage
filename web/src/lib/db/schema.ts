@@ -256,26 +256,42 @@ export const pages = pgTable(
   ]
 );
 
-export const page_links = pgTable("page_links", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  user_id: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  from_page_id: uuid("from_page_id")
-    .notNull()
-    .references(() => pages.id, { onDelete: "cascade" }),
-  to_page_id: uuid("to_page_id")
-    .notNull()
-    .references(() => pages.id, { onDelete: "cascade" }),
-  via_memo_id: uuid("via_memo_id").references(() => memos.id, {
-    onDelete: "set null",
-  }),
-  weight: real("weight").notNull().default(1),
-  rationale: text("rationale"),
-  created_at: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const page_links = pgTable(
+  "page_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    from_page_id: uuid("from_page_id")
+      .notNull()
+      .references(() => pages.id, { onDelete: "cascade" }),
+    to_page_id: uuid("to_page_id")
+      .notNull()
+      .references(() => pages.id, { onDelete: "cascade" }),
+    via_memo_id: uuid("via_memo_id").references(() => memos.id, {
+      onDelete: "set null",
+    }),
+    weight: real("weight").notNull().default(1),
+    rationale: text("rationale"),
+    // ─── US-040: temporal validity window ─────────────────────────────────────
+    // A link is a *fact observed at a point in time*. `valid_from` is the day the
+    // fact first held (defaults to created_at). `valid_to` is the day the fact was
+    // superseded/invalidated — NULL means still valid. We invalidate by setting
+    // valid_to rather than deleting the row, so an "as-of" query before that date
+    // still sees the fact and an entity's history is a sequence, not an overwrite.
+    valid_from: timestamp("valid_from", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    valid_to: timestamp("valid_to", { withTimezone: true }),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("page_links_user_valid").on(t.user_id, t.valid_from, t.valid_to),
+  ]
+);
 
 export const page_sources = pgTable(
   "page_sources",
@@ -310,6 +326,10 @@ export const inboxItemKindEnum = pgEnum("inbox_item_kind", [
   "schema",
   "orphan",
   "compiled",
+  // US-041: structural gap — two clusters in the knowledge graph that the user
+  // has written about for weeks but never connected. Payload carries the two
+  // cluster summaries and an LLM-generated bridging question.
+  "gap",
 ]);
 
 export const inboxItemStatusEnum = pgEnum("inbox_item_status", [
@@ -351,6 +371,10 @@ export const chat_threads = pgTable("chat_threads", {
   synthesis_page_id: uuid("synthesis_page_id").references(() => pages.id, {
     onDelete: "set null",
   }),
+  // US-031: when set, this thread is a conversation with a user-defined agent.
+  // Agent config (persona, model, retrieval scope) is resolved from this id at
+  // chat time. NULL = the default wiki chat.
+  agent_id: uuid("agent_id"),
   created_at: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -567,6 +591,12 @@ export const ingest_sources = pgTable(
     source_type: ingestSourceTypeEnum("source_type").notNull(),
     config: jsonb("config").notNull().default(sql`'{}'::jsonb`),
     enabled: boolean("enabled").notNull().default(true),
+    // US-022: the compile tier memos from this source default to. High-value
+    // sources (e.g. Readwise highlights) should declare "full" so they are not
+    // under-processed; low-signal firehoses (RSS) stay "light".
+    default_ingest_mode: ingestModeEnum("default_ingest_mode")
+      .notNull()
+      .default("light"),
     created_at: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -618,6 +648,44 @@ export const api_logs = pgTable(
 
 export type ApiLog = typeof api_logs.$inferSelect;
 export type NewApiLog = typeof api_logs.$inferInsert;
+
+// ─── US-031: agents (wiki-grounded, configurable AI agents) ──────────────────
+// A user-defined agent is a persona prompt + a model choice + an optional
+// retrieval scope (a domain). At chat time the agent grounds its answers by
+// calling the SAME rag.ts retrievePages used by the MCP server (US-010), so
+// answers cite real wiki content. The conversation history reuses the existing
+// chat_threads / chat_messages tables, tagged with `agent_id`.
+
+export const agents = pgTable(
+  "agents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    persona_prompt: text("persona_prompt").notNull(),
+    model: text("model").notNull().default("gpt-4o-mini"),
+    // Optional retrieval scope: when set, RAG recall is restricted to pages in
+    // this domain (passed through to retrievePages' `domain` option).
+    domain_id: uuid("domain_id").references(() => domains.id, {
+      onDelete: "set null",
+    }),
+    // Max wiki pages to recall per turn (passed to retrievePages topK).
+    top_k: integer("top_k").notNull().default(8),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [index("agents_user").on(t.user_id, t.created_at)]
+);
+
+export type Agent = typeof agents.$inferSelect;
+export type NewAgent = typeof agents.$inferInsert;
 
 // ─── Re-export helper types ────────────────────────────────────────────────────
 

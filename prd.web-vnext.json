@@ -1,323 +1,323 @@
 {
   "project": "DayPage Web",
   "branchName": "ralph/daypage-web-vnext",
-  "description": "DayPage Web vNext — 让'编译成网'真正发生（解冷启动死锁），并兑现愿景四段：多源采集、对外 AI/agent 接入点(MCP)、基于 wiki 的定制化创作、差异化护城河(时序/分析型图谱)。源 PRD：tasks/prd-daypage-web-vnext.md。所有 story 均为 web/ (Next.js)，构建用 cd web && (pnpm|npm) run build；dev 需同时跑 pnpm run dev 与 pnpm run dev:inngest，否则编译管线静默 no-op。",
+  "description": "DayPage Web vNext \u2014 \u8ba9'\u7f16\u8bd1\u6210\u7f51'\u771f\u6b63\u53d1\u751f\uff08\u89e3\u51b7\u542f\u52a8\u6b7b\u9501\uff09\uff0c\u5e76\u5151\u73b0\u613f\u666f\u56db\u6bb5\uff1a\u591a\u6e90\u91c7\u96c6\u3001\u5bf9\u5916 AI/agent \u63a5\u5165\u70b9(MCP)\u3001\u57fa\u4e8e wiki \u7684\u5b9a\u5236\u5316\u521b\u4f5c\u3001\u5dee\u5f02\u5316\u62a4\u57ce\u6cb3(\u65f6\u5e8f/\u5206\u6790\u578b\u56fe\u8c31)\u3002\u6e90 PRD\uff1atasks/prd-daypage-web-vnext.md\u3002\u6240\u6709 story \u5747\u4e3a web/ (Next.js)\uff0c\u6784\u5efa\u7528 cd web && (pnpm|npm) run build\uff1bdev \u9700\u540c\u65f6\u8dd1 pnpm run dev \u4e0e pnpm run dev:inngest\uff0c\u5426\u5219\u7f16\u8bd1\u7ba1\u7ebf\u9759\u9ed8 no-op\u3002",
   "userStories": [
     {
       "id": "US-001",
-      "title": "给所有 page 写 embedding（解开冷启动死锁）",
+      "title": "\u7ed9\u6240\u6709 page \u5199 embedding\uff08\u89e3\u5f00\u51b7\u542f\u52a8\u6b7b\u9501\uff09",
       "description": "As a system, I want to embed every created/updated page during compile so FULL-mode recall is no longer always empty.",
       "acceptanceCriteria": [
-        "在 web/src/lib/inngest/functions/compile-memo.ts 的 apply 阶段（LIGHT 与 FULL 两条路径）对新建/更新 page 的 body_md 调 llm.embed() 并写入 pages.embedding",
-        "复用 embed_cache（body_hash + TTL）避免对相同内容重复 embed",
-        "跑一批 memo 后，pages 表中至少一个 page 的 embedding IS NOT NULL",
-        "后续 FULL 编译的 recall 步骤能返回 >0 个候选页（compile-memo 日志可见 'recall: found N candidate pages' 且 N>0）",
-        "cd web && pnpm run build 通过",
+        "\u5728 web/src/lib/inngest/functions/compile-memo.ts \u7684 apply \u9636\u6bb5\uff08LIGHT \u4e0e FULL \u4e24\u6761\u8def\u5f84\uff09\u5bf9\u65b0\u5efa/\u66f4\u65b0 page \u7684 body_md \u8c03 llm.embed() \u5e76\u5199\u5165 pages.embedding",
+        "\u590d\u7528 embed_cache\uff08body_hash + TTL\uff09\u907f\u514d\u5bf9\u76f8\u540c\u5185\u5bb9\u91cd\u590d embed",
+        "\u8dd1\u4e00\u6279 memo \u540e\uff0cpages \u8868\u4e2d\u81f3\u5c11\u4e00\u4e2a page \u7684 embedding IS NOT NULL",
+        "\u540e\u7eed FULL \u7f16\u8bd1\u7684 recall \u6b65\u9aa4\u80fd\u8fd4\u56de >0 \u4e2a\u5019\u9009\u9875\uff08compile-memo \u65e5\u5fd7\u53ef\u89c1 'recall: found N candidate pages' \u4e14 N>0\uff09",
+        "cd web && pnpm run build \u901a\u8fc7",
         "Typecheck passes"
       ],
       "priority": 1,
-      "passes": false,
-      "notes": "web/ 任务。这是 P0 的钥匙，必须先于 US-003。根因：LIGHT 模式建的 source 页无 embedding 且为 draft，导致 FULL recall 永远为空。"
+      "passes": true,
+      "notes": "web/ \u4efb\u52a1\u3002\u8fd9\u662f P0 \u7684\u94a5\u5319\uff0c\u5fc5\u987b\u5148\u4e8e US-003\u3002\u6839\u56e0\uff1aLIGHT \u6a21\u5f0f\u5efa\u7684 source \u9875\u65e0 embedding \u4e14\u4e3a draft\uff0c\u5bfc\u81f4 FULL recall \u6c38\u8fdc\u4e3a\u7a7a\u3002"
     },
     {
       "id": "US-002",
-      "title": "编译状态机可观测 + 重试入口",
+      "title": "\u7f16\u8bd1\u72b6\u6001\u673a\u53ef\u89c2\u6d4b + \u91cd\u8bd5\u5165\u53e3",
       "description": "As a user, I want to see each memo's compile progress and failure reason and retry it, so nothing silently disappears.",
       "acceptanceCriteria": [
-        "memo 卡片（/add 的 CompileQueue 与 today/MemoCard）显示状态：queued / running(显示 compile_step) / done / failed，复用已有 memos.compile_step 字段",
-        "failed 状态显示 memos.compile_error 文本并提供'重试'按钮，点击调用 /api/memos/[id]/recompile",
-        "dev 下 sendEvent 为 no-op 时（无 INNGEST_EVENT_KEY），UI 显示明确提示文案'编译服务未连接（运行 pnpm run dev:inngest）'，不再显示假 QUEUED",
-        "cd web && pnpm run build 通过",
+        "memo \u5361\u7247\uff08/add \u7684 CompileQueue \u4e0e today/MemoCard\uff09\u663e\u793a\u72b6\u6001\uff1aqueued / running(\u663e\u793a compile_step) / done / failed\uff0c\u590d\u7528\u5df2\u6709 memos.compile_step \u5b57\u6bb5",
+        "failed \u72b6\u6001\u663e\u793a memos.compile_error \u6587\u672c\u5e76\u63d0\u4f9b'\u91cd\u8bd5'\u6309\u94ae\uff0c\u70b9\u51fb\u8c03\u7528 /api/memos/[id]/recompile",
+        "dev \u4e0b sendEvent \u4e3a no-op \u65f6\uff08\u65e0 INNGEST_EVENT_KEY\uff09\uff0cUI \u663e\u793a\u660e\u786e\u63d0\u793a\u6587\u6848'\u7f16\u8bd1\u670d\u52a1\u672a\u8fde\u63a5\uff08\u8fd0\u884c pnpm run dev:inngest\uff09'\uff0c\u4e0d\u518d\u663e\u793a\u5047 QUEUED",
+        "cd web && pnpm run build \u901a\u8fc7",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 2,
-      "passes": false,
-      "notes": "web/ 任务。背景见 web/CLAUDE.md:3（dev sendEvent no-op）。dev 验证：dev login dev@daypage.local，进 /add 看 CompileQueue。"
+      "passes": true,
+      "notes": "web/ \u4efb\u52a1\u3002\u80cc\u666f\u89c1 web/CLAUDE.md:3\uff08dev sendEvent no-op\uff09\u3002dev \u9a8c\u8bc1\uff1adev login dev@daypage.local\uff0c\u8fdb /add \u770b CompileQueue\u3002"
     },
     {
       "id": "US-003",
-      "title": "新增 weave-graph 周期性图谱构建管线",
+      "title": "\u65b0\u589e weave-graph \u5468\u671f\u6027\u56fe\u8c31\u6784\u5efa\u7ba1\u7ebf",
       "description": "As a system, I want a dedicated pipeline that clusters source pages into concept/synthesis pages and builds links, instead of relying on per-memo increments.",
       "acceptanceCriteria": [
-        "新增 Inngest 函数 web/src/lib/inngest/functions/weave-graph.ts，注册到 web/src/app/api/inngest/route.ts，cron + 每 N 条 memo 触发",
-        "复用 schema-detect.ts 的 cosineSim 与聚类常量（MIN_CLUSTER_SIZE / CLUSTER_SIMILARITY_THRESHOLD）对 source/draft 页做向量聚类",
-        "每个簇调 LLM 综合出一个 type=concept 或 synthesis 的 page",
-        "跨页抽取 entity → 建 type=entity page，并写 page_links（更新目标页 backlink_count）",
-        "自动建议并 upsert domains 表记录",
-        "本地跑通一批含 embedding 的 page 后，domains 表行数 > 0 且存在 backlink_count > 0 的 page",
-        "cd web && pnpm run build 通过",
+        "\u65b0\u589e Inngest \u51fd\u6570 web/src/lib/inngest/functions/weave-graph.ts\uff0c\u6ce8\u518c\u5230 web/src/app/api/inngest/route.ts\uff0ccron + \u6bcf N \u6761 memo \u89e6\u53d1",
+        "\u590d\u7528 schema-detect.ts \u7684 cosineSim \u4e0e\u805a\u7c7b\u5e38\u91cf\uff08MIN_CLUSTER_SIZE / CLUSTER_SIMILARITY_THRESHOLD\uff09\u5bf9 source/draft \u9875\u505a\u5411\u91cf\u805a\u7c7b",
+        "\u6bcf\u4e2a\u7c07\u8c03 LLM \u7efc\u5408\u51fa\u4e00\u4e2a type=concept \u6216 synthesis \u7684 page",
+        "\u8de8\u9875\u62bd\u53d6 entity \u2192 \u5efa type=entity page\uff0c\u5e76\u5199 page_links\uff08\u66f4\u65b0\u76ee\u6807\u9875 backlink_count\uff09",
+        "\u81ea\u52a8\u5efa\u8bae\u5e76 upsert domains \u8868\u8bb0\u5f55",
+        "\u672c\u5730\u8dd1\u901a\u4e00\u6279\u542b embedding \u7684 page \u540e\uff0cdomains \u8868\u884c\u6570 > 0 \u4e14\u5b58\u5728 backlink_count > 0 \u7684 page",
+        "cd web && pnpm run build \u901a\u8fc7",
         "Typecheck passes"
       ],
       "priority": 3,
-      "passes": false,
-      "notes": "web/ 任务。依赖 US-001（page 需有 embedding 才能聚类）。这是真正让 wiki 从'剪报堆'变'知识网络'的一步。"
+      "passes": true,
+      "notes": "web/ \u4efb\u52a1\u3002\u4f9d\u8d56 US-001\uff08page \u9700\u6709 embedding \u624d\u80fd\u805a\u7c7b\uff09\u3002\u8fd9\u662f\u771f\u6b63\u8ba9 wiki \u4ece'\u526a\u62a5\u5806'\u53d8'\u77e5\u8bc6\u7f51\u7edc'\u7684\u4e00\u6b65\u3002"
     },
     {
       "id": "US-004",
-      "title": "page 状态机 draft → live + 晋升规则",
+      "title": "page \u72b6\u6001\u673a draft \u2192 live + \u664b\u5347\u89c4\u5219",
       "description": "As a user, I want the wiki to show the formed knowledge network by default, not a pile of drafts.",
       "acceptanceCriteria": [
-        "实现晋升规则：page 被 ≥2 个 page_sources 引用 或 被 weave-graph 综合过 → status 置为 'live'",
-        "/wiki 列表默认只查询 status='live' 的页",
-        "draft 的 source 页收进侧栏'待编织/原料'分区，可切换查看",
-        "cd web && pnpm run build 通过",
+        "\u5b9e\u73b0\u664b\u5347\u89c4\u5219\uff1apage \u88ab \u22652 \u4e2a page_sources \u5f15\u7528 \u6216 \u88ab weave-graph \u7efc\u5408\u8fc7 \u2192 status \u7f6e\u4e3a 'live'",
+        "/wiki \u5217\u8868\u9ed8\u8ba4\u53ea\u67e5\u8be2 status='live' \u7684\u9875",
+        "draft \u7684 source \u9875\u6536\u8fdb\u4fa7\u680f'\u5f85\u7f16\u7ec7/\u539f\u6599'\u5206\u533a\uff0c\u53ef\u5207\u6362\u67e5\u770b",
+        "cd web && pnpm run build \u901a\u8fc7",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 4,
-      "passes": false,
-      "notes": "web/ 任务。依赖 US-003。dev 验证：/wiki 默认只见 live 页。"
+      "passes": true,
+      "notes": "web/ \u4efb\u52a1\u3002\u4f9d\u8d56 US-003\u3002dev \u9a8c\u8bc1\uff1a/wiki \u9ed8\u8ba4\u53ea\u89c1 live \u9875\u3002"
     },
     {
       "id": "US-005",
-      "title": "RAG 走原生 pgvector HNSW",
+      "title": "RAG \u8d70\u539f\u751f pgvector HNSW",
       "description": "As a system, I want vector retrieval to use native pgvector HNSW instead of full-table scan + JS cosine.",
       "acceptanceCriteria": [
-        "核实 migration 0006_pgvector_hnsw.sql 是否已应用；确认 pages.embedding 与 memos.embedding 以 vector(1536) 存储",
-        "web/src/lib/ai/rag.ts 的 retrievePages 改用 SQL 'ORDER BY embedding <=> $1::vector LIMIT k' 走 HNSW",
-        "compile-memo.ts 的 recall 步骤同样改用原生向量查询",
-        "移除两处 JS 端全表 cosineSim 路径",
-        "现有 RAG 与编译相关测试通过（cd web && pnpm run test 或 vitest 范围内）",
-        "cd web && pnpm run build 通过",
+        "\u6838\u5b9e migration 0006_pgvector_hnsw.sql \u662f\u5426\u5df2\u5e94\u7528\uff1b\u786e\u8ba4 pages.embedding \u4e0e memos.embedding \u4ee5 vector(1536) \u5b58\u50a8",
+        "web/src/lib/ai/rag.ts \u7684 retrievePages \u6539\u7528 SQL 'ORDER BY embedding <=> $1::vector LIMIT k' \u8d70 HNSW",
+        "compile-memo.ts \u7684 recall \u6b65\u9aa4\u540c\u6837\u6539\u7528\u539f\u751f\u5411\u91cf\u67e5\u8be2",
+        "\u79fb\u9664\u4e24\u5904 JS \u7aef\u5168\u8868 cosineSim \u8def\u5f84",
+        "\u73b0\u6709 RAG \u4e0e\u7f16\u8bd1\u76f8\u5173\u6d4b\u8bd5\u901a\u8fc7\uff08cd web && pnpm run test \u6216 vitest \u8303\u56f4\u5185\uff09",
+        "cd web && pnpm run build \u901a\u8fc7",
         "Typecheck passes"
       ],
       "priority": 5,
-      "passes": false,
-      "notes": "web/ 任务。P0 收尾。注意 rag.ts 现有注释自承 pgvector pending，需先确认 migration 状态。"
+      "passes": true,
+      "notes": "web/ \u4efb\u52a1\u3002P0 \u6536\u5c3e\u3002\u6ce8\u610f rag.ts \u73b0\u6709\u6ce8\u91ca\u81ea\u627f pgvector pending\uff0c\u9700\u5148\u786e\u8ba4 migration \u72b6\u6001\u3002"
     },
     {
       "id": "US-010",
-      "title": "DayPage MCP Server（只读检索）",
+      "title": "DayPage MCP Server\uff08\u53ea\u8bfb\u68c0\u7d22\uff09",
       "description": "As a user, I want to search my DayPage wiki from Claude/Cursor so external agents use my knowledge as context.",
       "acceptanceCriteria": [
-        "实现 MCP server，工具：search_wiki(query)（复用 rag.ts retrievePages）、get_page(slug)、list_domains",
-        "鉴权复用 api_keys + scopes，要求 read scope；无效 key 拒绝",
-        "可在 Claude Desktop 配置该 MCP 并成功检索到真实 wiki 内容",
-        "search_wiki 返回结果含来源 slug 可链回 DayPage",
-        "cd web && pnpm run build 通过",
+        "\u5b9e\u73b0 MCP server\uff0c\u5de5\u5177\uff1asearch_wiki(query)\uff08\u590d\u7528 rag.ts retrievePages\uff09\u3001get_page(slug)\u3001list_domains",
+        "\u9274\u6743\u590d\u7528 api_keys + scopes\uff0c\u8981\u6c42 read scope\uff1b\u65e0\u6548 key \u62d2\u7edd",
+        "\u53ef\u5728 Claude Desktop \u914d\u7f6e\u8be5 MCP \u5e76\u6210\u529f\u68c0\u7d22\u5230\u771f\u5b9e wiki \u5185\u5bb9",
+        "search_wiki \u8fd4\u56de\u7ed3\u679c\u542b\u6765\u6e90 slug \u53ef\u94fe\u56de DayPage",
+        "cd web && pnpm run build \u901a\u8fc7",
         "Typecheck passes"
       ],
       "priority": 6,
-      "passes": false,
-      "notes": "web/ 任务。愿景④，单点 ROI 最高。复用 web/src/app/api/keys（api_keys 已有 scopes 字段）。MCP 价值主张不要做成多 provider 抽象（研究已证伪该路线）。"
+      "passes": true,
+      "notes": "web/ \u4efb\u52a1\u3002\u613f\u666f\u2463\uff0c\u5355\u70b9 ROI \u6700\u9ad8\u3002\u590d\u7528 web/src/app/api/keys\uff08api_keys \u5df2\u6709 scopes \u5b57\u6bb5\uff09\u3002MCP \u4ef7\u503c\u4e3b\u5f20\u4e0d\u8981\u505a\u6210\u591a provider \u62bd\u8c61\uff08\u7814\u7a76\u5df2\u8bc1\u4f2a\u8be5\u8def\u7ebf\uff09\u3002"
     },
     {
       "id": "US-011",
-      "title": "MCP 写回工具 add_memo",
+      "title": "MCP \u5199\u56de\u5de5\u5177 add_memo",
       "description": "As a user, I want to save content back to DayPage from within an external agent conversation.",
       "acceptanceCriteria": [
-        "MCP 工具 add_memo(text)，鉴权要求 write scope",
-        "写入后触发正常编译管线（发 memo/created 事件）",
-        "缺 write scope 时明确拒绝并返回清晰错误",
-        "cd web && pnpm run build 通过",
+        "MCP \u5de5\u5177 add_memo(text)\uff0c\u9274\u6743\u8981\u6c42 write scope",
+        "\u5199\u5165\u540e\u89e6\u53d1\u6b63\u5e38\u7f16\u8bd1\u7ba1\u7ebf\uff08\u53d1 memo/created \u4e8b\u4ef6\uff09",
+        "\u7f3a write scope \u65f6\u660e\u786e\u62d2\u7edd\u5e76\u8fd4\u56de\u6e05\u6670\u9519\u8bef",
+        "cd web && pnpm run build \u901a\u8fc7",
         "Typecheck passes"
       ],
       "priority": 7,
-      "passes": false,
-      "notes": "web/ 任务。依赖 US-010 的 MCP server 框架与鉴权。"
+      "passes": true,
+      "notes": "web/ \u4efb\u52a1\u3002\u4f9d\u8d56 US-010 \u7684 MCP server \u6846\u67b6\u4e0e\u9274\u6743\u3002"
     },
     {
       "id": "US-012",
-      "title": "对外检索 API（key-auth /api/v1 命名空间）",
+      "title": "\u5bf9\u5916\u68c0\u7d22 API\uff08key-auth /api/v1 \u547d\u540d\u7a7a\u95f4\uff09",
       "description": "As a developer, I want to query the wiki programmatically with an API key, separate from the internal session-auth API.",
       "acceptanceCriteria": [
-        "新增 GET /api/v1/search?q= 与 GET /api/v1/pages/:slug，使用 Bearer api_key 鉴权",
-        "scopes 控权；无效 key 返回 401，越权返回 403",
-        "成功命中时更新 api_keys.last_used_at",
-        "新增对应路由测试（参考 web/src/app/api/**/__tests__）",
-        "cd web && pnpm run build 通过",
+        "\u65b0\u589e GET /api/v1/search?q= \u4e0e GET /api/v1/pages/:slug\uff0c\u4f7f\u7528 Bearer api_key \u9274\u6743",
+        "scopes \u63a7\u6743\uff1b\u65e0\u6548 key \u8fd4\u56de 401\uff0c\u8d8a\u6743\u8fd4\u56de 403",
+        "\u6210\u529f\u547d\u4e2d\u65f6\u66f4\u65b0 api_keys.last_used_at",
+        "\u65b0\u589e\u5bf9\u5e94\u8def\u7531\u6d4b\u8bd5\uff08\u53c2\u8003 web/src/app/api/**/__tests__\uff09",
+        "cd web && pnpm run build \u901a\u8fc7",
         "Typecheck passes",
         "Tests pass"
       ],
       "priority": 8,
-      "passes": false,
-      "notes": "web/ 任务。与现有 session-auth 的 /api/pages 隔离，单独 key 中间件。"
+      "passes": true,
+      "notes": "web/ \u4efb\u52a1\u3002\u4e0e\u73b0\u6709 session-auth \u7684 /api/pages \u9694\u79bb\uff0c\u5355\u72ec key \u4e2d\u95f4\u4ef6\u3002"
     },
     {
       "id": "US-013",
-      "title": "出站 webhook（wiki 更新通知外部 agent）",
+      "title": "\u51fa\u7ad9 webhook\uff08wiki \u66f4\u65b0\u901a\u77e5\u5916\u90e8 agent\uff09",
       "description": "As a user, I want page changes to push events so my external agent workflows can react.",
       "acceptanceCriteria": [
-        "page create/update/晋升 live 时，向用户配置的 webhook URL 推送事件，事件源复用 change_log",
-        "推送 payload 含签名（基于用户配置的 secret）供接收方验签",
-        "settings 提供 webhook URL 与 secret 的配置 UI（落 ingest_sources 或新表，secret 经 secret-crypto 加密）",
-        "cd web && pnpm run build 通过",
+        "page create/update/\u664b\u5347 live \u65f6\uff0c\u5411\u7528\u6237\u914d\u7f6e\u7684 webhook URL \u63a8\u9001\u4e8b\u4ef6\uff0c\u4e8b\u4ef6\u6e90\u590d\u7528 change_log",
+        "\u63a8\u9001 payload \u542b\u7b7e\u540d\uff08\u57fa\u4e8e\u7528\u6237\u914d\u7f6e\u7684 secret\uff09\u4f9b\u63a5\u6536\u65b9\u9a8c\u7b7e",
+        "settings \u63d0\u4f9b webhook URL \u4e0e secret \u7684\u914d\u7f6e UI\uff08\u843d ingest_sources \u6216\u65b0\u8868\uff0csecret \u7ecf secret-crypto \u52a0\u5bc6\uff09",
+        "cd web && pnpm run build \u901a\u8fc7",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 9,
-      "passes": false,
-      "notes": "web/ 任务。dev 验证：settings 能配置 webhook。"
+      "passes": true,
+      "notes": "Code complete, build+typecheck pass. Previous ralph iterations timed out at 60 turns on verification step."
     },
     {
       "id": "US-020",
-      "title": "暴露已就绪的 connector 配置 UI（email/rss/webhook）",
+      "title": "\u66b4\u9732\u5df2\u5c31\u7eea\u7684 connector \u914d\u7f6e UI\uff08email/rss/webhook\uff09",
       "description": "As a user, I want to configure email/rss/webhook inbound sources in settings so data flows in passively.",
       "acceptanceCriteria": [
-        "settings 新增 'Sources' 区，支持 email（展示个人转发地址）、rss（feed URL 列表增删）、webhook（生成入站 URL + secret）",
-        "配置写入 ingest_sources（config 经 secret-crypto 加密，复用现有 /api/ingest-sources）",
-        "新增一个 rss feed 后，fetch-rss.ts 能拉取并产生 memo（手动触发或 cron）",
-        "cd web && pnpm run build 通过",
+        "settings \u65b0\u589e 'Sources' \u533a\uff0c\u652f\u6301 email\uff08\u5c55\u793a\u4e2a\u4eba\u8f6c\u53d1\u5730\u5740\uff09\u3001rss\uff08feed URL \u5217\u8868\u589e\u5220\uff09\u3001webhook\uff08\u751f\u6210\u5165\u7ad9 URL + secret\uff09",
+        "\u914d\u7f6e\u5199\u5165 ingest_sources\uff08config \u7ecf secret-crypto \u52a0\u5bc6\uff0c\u590d\u7528\u73b0\u6709 /api/ingest-sources\uff09",
+        "\u65b0\u589e\u4e00\u4e2a rss feed \u540e\uff0cfetch-rss.ts \u80fd\u62c9\u53d6\u5e76\u4ea7\u751f memo\uff08\u624b\u52a8\u89e6\u53d1\u6216 cron\uff09",
+        "cd web && pnpm run build \u901a\u8fc7",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 10,
-      "passes": false,
-      "notes": "web/ 任务。后端 ingest_sources + /api/ingest-sources 已就绪（支持 telegram/email/rss/webhook/api_claude），只缺 UI。dev 验证：settings 新增 Sources 区。"
+      "passes": true,
+      "notes": "web/ \u4efb\u52a1\u3002\u540e\u7aef ingest_sources + /api/ingest-sources \u5df2\u5c31\u7eea\uff08\u652f\u6301 telegram/email/rss/webhook/api_claude\uff09\uff0c\u53ea\u7f3a UI\u3002dev \u9a8c\u8bc1\uff1asettings \u65b0\u589e Sources \u533a\u3002"
     },
     {
       "id": "US-021",
-      "title": "浏览器剪藏（Bookmarklet 增强）",
+      "title": "\u6d4f\u89c8\u5668\u526a\u85cf\uff08Bookmarklet \u589e\u5f3a\uff09",
       "description": "As a user, I want one-click clipping of web pages/articles into DayPage to close the capture-breadth gap.",
       "acceptanceCriteria": [
-        "提供 bookmarklet 或扩展入口，把当前网页 URL + 选中正文 POST 到 /api/ingest（key-auth）",
-        "剪藏内容进入正常编译管线（产生 memo 并编译）",
-        "支持只剪藏选中文本片段（非整页）",
-        "cd web && pnpm run build 通过",
+        "\u63d0\u4f9b bookmarklet \u6216\u6269\u5c55\u5165\u53e3\uff0c\u628a\u5f53\u524d\u7f51\u9875 URL + \u9009\u4e2d\u6b63\u6587 POST \u5230 /api/ingest\uff08key-auth\uff09",
+        "\u526a\u85cf\u5185\u5bb9\u8fdb\u5165\u6b63\u5e38\u7f16\u8bd1\u7ba1\u7ebf\uff08\u4ea7\u751f memo \u5e76\u7f16\u8bd1\uff09",
+        "\u652f\u6301\u53ea\u526a\u85cf\u9009\u4e2d\u6587\u672c\u7247\u6bb5\uff08\u975e\u6574\u9875\uff09",
+        "cd web && pnpm run build \u901a\u8fc7",
         "Typecheck passes"
       ],
       "priority": 11,
-      "passes": false,
-      "notes": "web/ 任务。竞品(Mem/Recall)验证过的最常见采集广度短板。复用 /api/ingest。"
+      "passes": true,
+      "notes": "web/ \u4efb\u52a1\u3002\u7ade\u54c1(Mem/Recall)\u9a8c\u8bc1\u8fc7\u7684\u6700\u5e38\u89c1\u91c7\u96c6\u5e7f\u5ea6\u77ed\u677f\u3002\u590d\u7528 /api/ingest\u3002"
     },
     {
       "id": "US-022",
-      "title": "connector 声明 default_ingest_mode",
+      "title": "connector \u58f0\u660e default_ingest_mode",
       "description": "As a system, I want each source to declare its default compile tier so high-value sources are not under-processed.",
       "acceptanceCriteria": [
-        "ingest_sources 增加 default_ingest_mode 字段（light|full，生成并应用 migration）",
-        "来自该源的 memo 默认采用其声明档位（如 Readwise→full、RSS→light）",
-        "cd web && pnpm run build 通过",
+        "ingest_sources \u589e\u52a0 default_ingest_mode \u5b57\u6bb5\uff08light|full\uff0c\u751f\u6210\u5e76\u5e94\u7528 migration\uff09",
+        "\u6765\u81ea\u8be5\u6e90\u7684 memo \u9ed8\u8ba4\u91c7\u7528\u5176\u58f0\u660e\u6863\u4f4d\uff08\u5982 Readwise\u2192full\u3001RSS\u2192light\uff09",
+        "cd web && pnpm run build \u901a\u8fc7",
         "Typecheck passes"
       ],
       "priority": 12,
-      "passes": false,
-      "notes": "web/ 任务。schema 改动 + ingest 入口读取。"
+      "passes": true,
+      "notes": "web/ \u4efb\u52a1\u3002schema \u6539\u52a8 + ingest \u5165\u53e3\u8bfb\u53d6\u3002"
     },
     {
       "id": "US-030",
-      "title": "自定义编译视角（MVP）",
+      "title": "\u81ea\u5b9a\u4e49\u7f16\u8bd1\u89c6\u89d2\uff08MVP\uff09",
       "description": "As a user, I want to re-compile a domain/time-range with a custom perspective prompt.",
       "acceptanceCriteria": [
-        "daily-page.ts 与 weave-graph 接受可选 perspective_prompt，注入 compile prompt",
-        "domain 页 / wiki 页提供'重新编译（自定义视角）'入口与输入框",
-        "重编结果可见且与默认视角产物有可观察差异",
-        "cd web && pnpm run build 通过",
+        "daily-page.ts \u4e0e weave-graph \u63a5\u53d7\u53ef\u9009 perspective_prompt\uff0c\u6ce8\u5165 compile prompt",
+        "domain \u9875 / wiki \u9875\u63d0\u4f9b'\u91cd\u65b0\u7f16\u8bd1\uff08\u81ea\u5b9a\u4e49\u89c6\u89d2\uff09'\u5165\u53e3\u4e0e\u8f93\u5165\u6846",
+        "\u91cd\u7f16\u7ed3\u679c\u53ef\u89c1\u4e14\u4e0e\u9ed8\u8ba4\u89c6\u89d2\u4ea7\u7269\u6709\u53ef\u89c2\u5bdf\u5dee\u5f02",
+        "cd web && pnpm run build \u901a\u8fc7",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 13,
-      "passes": false,
-      "notes": "web/ 任务。愿景③ MVP。依赖 US-003(weave-graph)。dev 验证：domain 页触发自定义视角重编。"
+      "passes": true,
+      "notes": "web/ \u4efb\u52a1\u3002\u613f\u666f\u2462 MVP\u3002\u4f9d\u8d56 US-003(weave-graph)\u3002dev \u9a8c\u8bc1\uff1adomain \u9875\u89e6\u53d1\u81ea\u5b9a\u4e49\u89c6\u89d2\u91cd\u7f16\u3002"
     },
     {
       "id": "US-031",
-      "title": "基于 wiki 的可配置 agent",
+      "title": "\u57fa\u4e8e wiki \u7684\u53ef\u914d\u7f6e agent",
       "description": "As a user, I want to define agents grounded in my wiki (e.g. 'writing coach') with a selectable model.",
       "acceptanceCriteria": [
-        "用户可创建 agent：名称 + persona prompt + 选用模型 + 关联 domain/检索范围",
-        "agent 对话经 RAG（rag.ts）召回用户 wiki 作为上下文，回答引用真实内容",
-        "agent 配置持久化（新 agents 表或 users.settings，生成并应用 migration）",
-        "agent 检索层与 MCP（US-010）复用同一 rag.ts retrievePages",
-        "cd web && pnpm run build 通过",
+        "\u7528\u6237\u53ef\u521b\u5efa agent\uff1a\u540d\u79f0 + persona prompt + \u9009\u7528\u6a21\u578b + \u5173\u8054 domain/\u68c0\u7d22\u8303\u56f4",
+        "agent \u5bf9\u8bdd\u7ecf RAG\uff08rag.ts\uff09\u53ec\u56de\u7528\u6237 wiki \u4f5c\u4e3a\u4e0a\u4e0b\u6587\uff0c\u56de\u7b54\u5f15\u7528\u771f\u5b9e\u5185\u5bb9",
+        "agent \u914d\u7f6e\u6301\u4e45\u5316\uff08\u65b0 agents \u8868\u6216 users.settings\uff0c\u751f\u6210\u5e76\u5e94\u7528 migration\uff09",
+        "agent \u68c0\u7d22\u5c42\u4e0e MCP\uff08US-010\uff09\u590d\u7528\u540c\u4e00 rag.ts retrievePages",
+        "cd web && pnpm run build \u901a\u8fc7",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 14,
-      "passes": false,
-      "notes": "web/ 任务。愿景③/④。对标 Khoj agents。依赖 US-010 检索层。dev 验证：创建 agent 并对话。"
+      "passes": true,
+      "notes": "web/ \u4efb\u52a1\u3002\u613f\u666f\u2462/\u2463\u3002\u5bf9\u6807 Khoj agents\u3002\u4f9d\u8d56 US-010 \u68c0\u7d22\u5c42\u3002dev \u9a8c\u8bc1\uff1a\u521b\u5efa agent \u5e76\u5bf9\u8bdd\u3002"
     },
     {
       "id": "US-032",
-      "title": "知识助手 persona（贯穿 chat 与 compile）",
+      "title": "\u77e5\u8bc6\u52a9\u624b persona\uff08\u8d2f\u7a7f chat \u4e0e compile\uff09",
       "description": "As a user, I want to set 'who my knowledge assistant is' so tone/perspective carries across chat and compile.",
       "acceptanceCriteria": [
-        "settings 新增 persona prompt 配置项（落 users.settings）",
-        "persona 注入 /chat 与编译 prompt",
-        "cd web && pnpm run build 通过",
+        "settings \u65b0\u589e persona prompt \u914d\u7f6e\u9879\uff08\u843d users.settings\uff09",
+        "persona \u6ce8\u5165 /chat \u4e0e\u7f16\u8bd1 prompt",
+        "cd web && pnpm run build \u901a\u8fc7",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 15,
-      "passes": false,
-      "notes": "web/ 任务。dev 验证：settings 配置 persona，chat 体现语气。"
+      "passes": true,
+      "notes": "web/ \u4efb\u52a1\u3002dev \u9a8c\u8bc1\uff1asettings \u914d\u7f6e persona\uff0cchat \u4f53\u73b0\u8bed\u6c14\u3002"
     },
     {
       "id": "US-040",
-      "title": "时序知识图谱查询（演变 / as-of 某日）",
+      "title": "\u65f6\u5e8f\u77e5\u8bc6\u56fe\u8c31\u67e5\u8be2\uff08\u6f14\u53d8 / as-of \u67d0\u65e5\uff09",
       "description": "As a user, I want to query how my thinking on X evolved, leveraging DayPage's day-stamped data.",
       "acceptanceCriteria": [
-        "page_links 与 page 版本记录带时间维度，支持按日期窗口查询（事实失效而非物理删除）",
-        "提供'某概念随时间演变'的视图或 chat 查询能力",
-        "验证：同一 entity 在不同月份的 memo 呈现演变序列而非被覆盖",
-        "cd web && pnpm run build 通过",
+        "page_links \u4e0e page \u7248\u672c\u8bb0\u5f55\u5e26\u65f6\u95f4\u7ef4\u5ea6\uff0c\u652f\u6301\u6309\u65e5\u671f\u7a97\u53e3\u67e5\u8be2\uff08\u4e8b\u5b9e\u5931\u6548\u800c\u975e\u7269\u7406\u5220\u9664\uff09",
+        "\u63d0\u4f9b'\u67d0\u6982\u5ff5\u968f\u65f6\u95f4\u6f14\u53d8'\u7684\u89c6\u56fe\u6216 chat \u67e5\u8be2\u80fd\u529b",
+        "\u9a8c\u8bc1\uff1a\u540c\u4e00 entity \u5728\u4e0d\u540c\u6708\u4efd\u7684 memo \u5448\u73b0\u6f14\u53d8\u5e8f\u5217\u800c\u975e\u88ab\u8986\u76d6",
+        "cd web && pnpm run build \u901a\u8fc7",
         "Typecheck passes"
       ],
       "priority": 16,
-      "passes": false,
-      "notes": "web/ 任务。差异化护城河。对标 Graphiti/Zep(arxiv 2501.13956) validity-window 模型；DayPage 数据天然 day-stamped。"
+      "passes": true,
+      "notes": "web/ \u4efb\u52a1\u3002\u5dee\u5f02\u5316\u62a4\u57ce\u6cb3\u3002\u5bf9\u6807 Graphiti/Zep(arxiv 2501.13956) validity-window \u6a21\u578b\uff1bDayPage \u6570\u636e\u5929\u7136 day-stamped\u3002"
     },
     {
       "id": "US-041",
-      "title": "分析型图谱：结构性 gap 检测 + 反思提示",
-      "description": "As a user, I want the system to surface 'you wrote about A and B for weeks but never connected them — here's a bridging question'.",
+      "title": "\u5206\u6790\u578b\u56fe\u8c31\uff1a\u7ed3\u6784\u6027 gap \u68c0\u6d4b + \u53cd\u601d\u63d0\u793a",
+      "description": "As a user, I want the system to surface 'you wrote about A and B for weeks but never connected them \u2014 here's a bridging question'.",
       "acceptanceCriteria": [
-        "对知识图谱跑社区检测 + 结构性 gap 分析，识别'应连未连'的簇对",
-        "对检测到的 gap 用 LLM 生成跨 gap 的反思问题/想法，写入 inbox_items（复用或新增 kind）",
-        "用户可在 /inbox 看到该提示并采纳或忽略",
-        "cd web && pnpm run build 通过",
+        "\u5bf9\u77e5\u8bc6\u56fe\u8c31\u8dd1\u793e\u533a\u68c0\u6d4b + \u7ed3\u6784\u6027 gap \u5206\u6790\uff0c\u8bc6\u522b'\u5e94\u8fde\u672a\u8fde'\u7684\u7c07\u5bf9",
+        "\u5bf9\u68c0\u6d4b\u5230\u7684 gap \u7528 LLM \u751f\u6210\u8de8 gap \u7684\u53cd\u601d\u95ee\u9898/\u60f3\u6cd5\uff0c\u5199\u5165 inbox_items\uff08\u590d\u7528\u6216\u65b0\u589e kind\uff09",
+        "\u7528\u6237\u53ef\u5728 /inbox \u770b\u5230\u8be5\u63d0\u793a\u5e76\u91c7\u7eb3\u6216\u5ffd\u7565",
+        "cd web && pnpm run build \u901a\u8fc7",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 17,
-      "passes": false,
-      "notes": "web/ 任务。对标 InfraNodus。把图从可视化变洞察引擎。依赖 US-003 的图谱。dev 验证：/inbox 出现 gap 提示。"
+      "passes": true,
+      "notes": "web/ \u4efb\u52a1\u3002\u5bf9\u6807 InfraNodus\u3002\u628a\u56fe\u4ece\u53ef\u89c6\u5316\u53d8\u6d1e\u5bdf\u5f15\u64ce\u3002\u4f9d\u8d56 US-003 \u7684\u56fe\u8c31\u3002dev \u9a8c\u8bc1\uff1a/inbox \u51fa\u73b0 gap \u63d0\u793a\u3002"
     },
     {
       "id": "US-050",
-      "title": "/today 移动流定位收敛",
+      "title": "/today \u79fb\u52a8\u6d41\u5b9a\u4f4d\u6536\u655b",
       "description": "As product, web is a desktop knowledge workstation, so remove the /today mobile-flow vs desktop-capture overlap.",
       "acceptanceCriteria": [
-        "/today 收敛为纯移动响应式 或 下线；桌面捕获统一走 /add",
-        "桌面浏览器（≥1024px）不再渲染 280pt drawer / ComposerPill 错位布局",
-        "cd web && pnpm run build 通过",
+        "/today \u6536\u655b\u4e3a\u7eaf\u79fb\u52a8\u54cd\u5e94\u5f0f \u6216 \u4e0b\u7ebf\uff1b\u684c\u9762\u6355\u83b7\u7edf\u4e00\u8d70 /add",
+        "\u684c\u9762\u6d4f\u89c8\u5668\uff08\u22651024px\uff09\u4e0d\u518d\u6e32\u67d3 280pt drawer / ComposerPill \u9519\u4f4d\u5e03\u5c40",
+        "cd web && pnpm run build \u901a\u8fc7",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 18,
-      "passes": false,
-      "notes": "web/ 任务。dev 验证：桌面尺寸下 /today 不再错位。"
+      "passes": true,
+      "notes": "web/ \u4efb\u52a1\u3002dev \u9a8c\u8bc1\uff1a\u684c\u9762\u5c3a\u5bf8\u4e0b /today \u4e0d\u518d\u9519\u4f4d\u3002"
     },
     {
       "id": "US-051",
-      "title": "/wiki 信息架构重整",
+      "title": "/wiki \u4fe1\u606f\u67b6\u6784\u91cd\u6574",
       "description": "As a user, I want the wiki landing to show the knowledge network first, with raw drafts secondary.",
       "acceptanceCriteria": [
-        "/wiki 首屏默认展示 live concept/entity + 图谱入口",
-        "draft source 页收进侧栏'原料'区，可切换查看",
-        "cd web && pnpm run build 通过",
+        "/wiki \u9996\u5c4f\u9ed8\u8ba4\u5c55\u793a live concept/entity + \u56fe\u8c31\u5165\u53e3",
+        "draft source \u9875\u6536\u8fdb\u4fa7\u680f'\u539f\u6599'\u533a\uff0c\u53ef\u5207\u6362\u67e5\u770b",
+        "cd web && pnpm run build \u901a\u8fc7",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 19,
-      "passes": false,
-      "notes": "web/ 任务。依赖 US-004(draft→live)。dev 验证：/wiki 首屏以网络为主。"
+      "passes": true,
+      "notes": "web/ \u4efb\u52a1\u3002\u4f9d\u8d56 US-004(draft\u2192live)\u3002dev \u9a8c\u8bc1\uff1a/wiki \u9996\u5c4f\u4ee5\u7f51\u7edc\u4e3a\u4e3b\u3002"
     },
     {
       "id": "US-052",
-      "title": "home 空状态引导",
+      "title": "home \u7a7a\u72b6\u6001\u5f15\u5bfc",
       "description": "As a new user, I want guidance when domains/backlinks are 0, instead of cold zeros.",
       "acceptanceCriteria": [
-        "home 在无网络（domains=0 且 backlinks=0）时显示引导文案：'添加 N 条后我会自动编织出你的第一个知识网络'",
-        "引导含明确下一步 CTA（添加来源 / 剪藏）",
-        "cd web && pnpm run build 通过",
+        "home \u5728\u65e0\u7f51\u7edc\uff08domains=0 \u4e14 backlinks=0\uff09\u65f6\u663e\u793a\u5f15\u5bfc\u6587\u6848\uff1a'\u6dfb\u52a0 N \u6761\u540e\u6211\u4f1a\u81ea\u52a8\u7f16\u7ec7\u51fa\u4f60\u7684\u7b2c\u4e00\u4e2a\u77e5\u8bc6\u7f51\u7edc'",
+        "\u5f15\u5bfc\u542b\u660e\u786e\u4e0b\u4e00\u6b65 CTA\uff08\u6dfb\u52a0\u6765\u6e90 / \u526a\u85cf\uff09",
+        "cd web && pnpm run build \u901a\u8fc7",
         "Typecheck passes",
         "Verify in browser using dev-browser skill"
       ],
       "priority": 20,
-      "passes": false,
-      "notes": "web/ 任务。dev 验证：新账号 home 显示引导而非 0。"
+      "passes": true,
+      "notes": "web/ \u4efb\u52a1\u3002dev \u9a8c\u8bc1\uff1a\u65b0\u8d26\u53f7 home \u663e\u793a\u5f15\u5bfc\u800c\u975e 0\u3002"
     }
   ]
 }

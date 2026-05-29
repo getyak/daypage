@@ -77,6 +77,7 @@ export async function GET(req: NextRequest) {
               id: memos.id,
               compile_status: memos.compile_status,
               compile_error: memos.compile_error,
+              compile_step: memos.compile_step,
               updated_at: memos.updated_at,
             })
             .from(memos)
@@ -94,18 +95,20 @@ export async function GET(req: NextRequest) {
             if (row.compile_status === "pending" || row.compile_status === "running") {
               hasInFlight = true;
             }
+            // Re-emit on either status OR pipeline-step transitions, so the
+            // running phase surfaces normalize → embed → recall → compile → …
+            const curr = `${row.compile_status}:${row.compile_step ?? ""}`;
             const prev = lastSeen.get(row.id);
-            const curr = row.compile_status;
             if (prev !== curr) {
               hadChange = true;
               lastSeen.set(row.id, curr);
 
-              // Map status → step label + progress
-              const stepInfo = statusToStep(curr);
+              // Map status → label + progress, preferring the live compile_step
+              const stepInfo = statusToStep(row.compile_status, row.compile_step);
               send({
                 type: "progress",
                 memo_id: row.id,
-                status: curr,
+                status: row.compile_status,
                 step: stepInfo.step,
                 progress: stepInfo.progress,
                 error: row.compile_error ?? undefined,
@@ -151,13 +154,29 @@ export async function GET(req: NextRequest) {
   });
 }
 
+// Approximate progress for each pipeline step (memos.compile_step):
+// normalize → embed → recall → compile → apply → notify
+const STEP_PROGRESS: Record<string, number> = {
+  normalize: 15,
+  embed: 30,
+  recall: 50,
+  compile: 70,
+  apply: 90,
+  notify: 95,
+};
+
 function statusToStep(
-  status: string
+  status: string,
+  compileStep?: string | null
 ): { step: string | undefined; progress: number | undefined } {
   switch (status) {
     case "pending":
       return { step: "Queued", progress: 0 };
     case "running":
+      // Surface the live pipeline step when present (US-002)
+      if (compileStep) {
+        return { step: compileStep, progress: STEP_PROGRESS[compileStep] ?? 25 };
+      }
       return { step: "Processing...", progress: 25 };
     case "done":
       return { step: "Done", progress: 100 };

@@ -11,6 +11,7 @@ import { WikiNav, type WikiPage } from "../WikiNav";
 import { asc } from "drizzle-orm";
 import AnnotationLayer, { type Annotation } from "./AnnotationLayer";
 import { AskAboutPage } from "./AskAboutPage";
+import { RecompilePerspective } from "./RecompilePerspective";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -372,6 +373,7 @@ export default async function WikiSlugPage({ params }: Props) {
               >
                 Select text to annotate
               </span>
+              <RecompilePerspective pageSlug={page.slug} />
               <AskAboutPage
                 pageSlug={page.slug}
                 pageTitle={page.title}

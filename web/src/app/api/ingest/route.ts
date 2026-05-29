@@ -7,16 +7,41 @@ import { z } from "zod";
 import { authenticateApiKey, hasScope } from "@/lib/api-auth";
 import { sendEvent } from "@/lib/inngest/client";
 
-function unauthorized() {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+// CORS — the browser-clip bookmarklet (US-021) runs on arbitrary origins and
+// POSTs here with a Bearer header, which triggers a preflight. Reflect the
+// caller's origin so the cross-origin fetch succeeds. Auth is enforced via the
+// API key (not the origin), so a permissive CORS policy is safe here.
+function corsHeaders(req: NextRequest): Record<string, string> {
+  const origin = req.headers.get("Origin") ?? "*";
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Authorization, Content-Type",
+    "Access-Control-Max-Age": "86400",
+    Vary: "Origin",
+  };
 }
 
-function forbidden(message: string) {
-  return NextResponse.json({ error: message }, { status: 403 });
+function withCors(req: NextRequest, res: NextResponse): NextResponse {
+  for (const [k, v] of Object.entries(corsHeaders(req))) res.headers.set(k, v);
+  return res;
 }
 
-function badRequest(message: string) {
-  return NextResponse.json({ error: message }, { status: 400 });
+// OPTIONS /api/ingest — CORS preflight for the clip bookmarklet.
+export function OPTIONS(req: NextRequest) {
+  return new NextResponse(null, { status: 204, headers: corsHeaders(req) });
+}
+
+function unauthorized(req: NextRequest) {
+  return withCors(req, NextResponse.json({ error: "Unauthorized" }, { status: 401 }));
+}
+
+function forbidden(req: NextRequest, message: string) {
+  return withCors(req, NextResponse.json({ error: message }, { status: 403 }));
+}
+
+function badRequest(req: NextRequest, message: string) {
+  return withCors(req, NextResponse.json({ error: message }, { status: 400 }));
 }
 
 // z.string().url() accepts javascript:/data: URIs, which become stored XSS when
@@ -62,6 +87,30 @@ const IngestSchema = z.object({
   payload: z.record(z.string(), z.unknown()),
 });
 
+// US-021: build a memo body from a browser clip. A clip carries a page title,
+// the source URL, and optionally a selected text snippet (when only part of the
+// page is clipped). If an explicit `body` is given it wins. Otherwise we
+// assemble a readable Markdown memo: title heading + selection + source link.
+function buildMemoBody(payload: Record<string, unknown>): string {
+  if (typeof payload.body === "string" && payload.body.trim()) {
+    return payload.body;
+  }
+
+  const title = typeof payload.title === "string" ? payload.title.trim() : "";
+  const selection =
+    typeof payload.selection === "string" ? payload.selection.trim() : "";
+  const url = sanitizeSourceUrl(payload.source_url);
+
+  const parts: string[] = [];
+  if (title) parts.push(`# ${title}`);
+  if (selection) parts.push(`> ${selection.split("\n").join("\n> ")}`);
+  if (url) parts.push(`[${title || url}](${url})`);
+
+  const assembled = parts.join("\n\n").trim();
+  // Never persist an empty memo — fall back to the raw payload as a last resort.
+  return assembled || JSON.stringify(payload);
+}
+
 // POST /api/ingest — unified ingest endpoint (API key or session auth)
 export async function POST(req: NextRequest) {
   // Try API key first, fall back to session
@@ -71,7 +120,7 @@ export async function POST(req: NextRequest) {
   if (apiAuth) {
     // /api/ingest only performs writes — require the "write" scope.
     if (!hasScope(apiAuth, "write")) {
-      return forbidden("API key lacks 'write' scope");
+      return forbidden(req, "API key lacks 'write' scope");
     }
     userId = apiAuth.userId;
   } else {
@@ -81,20 +130,20 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (!userId) return unauthorized();
+  if (!userId) return unauthorized(req);
 
   const body: unknown = await req.json().catch(() => null);
-  if (!body) return badRequest("Invalid JSON body");
+  if (!body) return badRequest(req, "Invalid JSON body");
 
   const parsed = IngestSchema.safeParse(body);
   if (!parsed.success) {
-    return badRequest(parsed.error.issues[0]?.message ?? "Validation error");
+    return badRequest(req, parsed.error.issues[0]?.message ?? "Validation error");
   }
 
   const { source, type, payload } = parsed.data;
 
   if (type === "memo") {
-    const memoBody = typeof payload.body === "string" ? payload.body : JSON.stringify(payload);
+    const memoBody = buildMemoBody(payload);
     const [memo] = await db
       .insert(memos)
       .values({
@@ -112,7 +161,7 @@ export async function POST(req: NextRequest) {
       await logActivity(userId, "ingest", source, "memo", memo.id);
     }
 
-    return NextResponse.json(memo, { status: 201 });
+    return withCors(req, NextResponse.json(memo, { status: 201 }));
   }
 
   if (type === "observation") {
@@ -133,7 +182,7 @@ export async function POST(req: NextRequest) {
       await logActivity(userId, "ingest", source, "inbox_item", item.id);
     }
 
-    return NextResponse.json(item, { status: 201 });
+    return withCors(req, NextResponse.json(item, { status: 201 }));
   }
 
   if (type === "activity") {
@@ -150,8 +199,8 @@ export async function POST(req: NextRequest) {
       })
       .returning();
 
-    return NextResponse.json(activity, { status: 201 });
+    return withCors(req, NextResponse.json(activity, { status: 201 }));
   }
 
-  return badRequest("Unsupported type");
+  return badRequest(req, "Unsupported type");
 }

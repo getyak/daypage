@@ -2,10 +2,15 @@
 import Link from "next/link";
 import { ArrowUpRight, ChevronRight, Sparkles, Inbox, Activity, Clock } from "lucide-react";
 import { Btn, Card, Chip, Icon, SectionLabel, Sparkline } from "@/components/ui";
+import { ColdStartGuide } from "./ColdStartGuide";
 import { auth } from "@/auth";
 import { db } from "@/lib/db/client";
 import { users, inbox_items, memos, pages, domains, page_links, activities } from "@/lib/db/schema";
-import { eq, and, gte, lt, desc, sql } from "drizzle-orm";
+import { eq, and, gte, desc, sql } from "drizzle-orm";
+
+// How many sources we suggest before the graph starts weaving itself. Used only
+// to phrase the cold-start guidance — kept small and encouraging.
+const WEAVE_HINT_TARGET = 3;
 
 // ── Data helpers ──────────────────────────────────────────────────────────────
 
@@ -169,6 +174,11 @@ export default async function HomePage() {
 
   const openInboxCount = inboxData.total;
 
+  // Cold-start: no knowledge network has formed yet (no domains, no backlinks).
+  // Replace the bare zeros with explicit guidance + a concrete next step.
+  const isColdStart = stats.domainCount === 0 && stats.backlinks === 0;
+  const sourcesToWeave = Math.max(WEAVE_HINT_TARGET - stats.sources, 1);
+
   return (
     <div className="page">
       {/* Hero */}
@@ -224,6 +234,13 @@ export default async function HomePage() {
           </div>
         </div>
       </div>
+
+      {/* Cold-start guidance — US-052: replace bare zeros with a clear next step */}
+      {isColdStart && (
+        <div className="mt-32">
+          <ColdStartGuide sourcesToWeave={sourcesToWeave} />
+        </div>
+      )}
 
       {/* Observations — US-004 */}
       <div className="mt-32">

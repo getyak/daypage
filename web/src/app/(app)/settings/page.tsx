@@ -2,7 +2,10 @@ import { auth, signOut } from "@/auth";
 import { redirect } from "next/navigation";
 import { SettingsClient } from "./SettingsClient";
 import { ApiKeysSection } from "./ApiKeysSection";
+import { SourcesSection } from "./SourcesSection";
 import { TelegramSection } from "./TelegramSection";
+import { WebhookSection } from "./WebhookSection";
+import { ClipperSection } from "./ClipperSection";
 
 export const metadata = {
   title: "Settings · DayPage",
@@ -28,7 +31,10 @@ export default async function SettingsPage() {
         signOutAction={handleSignOut}
       />
       <div className="page settings-page" style={{ paddingTop: 0 }}>
+        <SourcesSection />
         <TelegramSection />
+        <WebhookSection />
+        <ClipperSection />
         <ApiKeysSection />
       </div>
     </>

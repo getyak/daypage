@@ -7,6 +7,7 @@ import { eq, and, gte, sum } from "drizzle-orm";
 import { z } from "zod";
 import { llm } from "@/lib/ai";
 import { retrievePages, type RetrievedPage } from "@/lib/ai/rag";
+import { getAssistantPersona, personaPreamble } from "@/lib/ai/persona";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -64,9 +65,11 @@ async function getDailyTokens(userId: string): Promise<number> {
   return (row?.total ?? 0) + (row?.total_out ?? 0);
 }
 
-function buildSystemPrompt(refs: RetrievedPage[]): string {
+function buildSystemPrompt(refs: RetrievedPage[], persona: string | null): string {
+  const preamble = personaPreamble(persona);
+
   if (refs.length === 0) {
-    return "You are a helpful assistant. You have no reference pages available for this query.";
+    return `${preamble}You are a helpful assistant. You have no reference pages available for this query.`;
   }
 
   const refBlock = refs
@@ -76,7 +79,7 @@ function buildSystemPrompt(refs: RetrievedPage[]): string {
     )
     .join("\n\n---\n\n");
 
-  return `You are a knowledgeable assistant with access to the user's personal wiki pages. \
+  return `${preamble}You are a knowledgeable assistant with access to the user's personal wiki pages. \
 Answer using ONLY the information in the references below. \
 When you use information from a reference, cite it inline as {N} where N is the reference number. \
 IMPORTANT: Any sentence that does not have a supporting reference MUST be wrapped in *italic* and \
@@ -156,6 +159,10 @@ export async function POST(
   const parsed = SendMessageSchema.safeParse(bodyRaw);
   if (!parsed.success) return badRequest(parsed.error.issues[0]?.message ?? "Validation error");
   const { content } = parsed.data;
+
+  // US-032: resolve the user's knowledge-assistant persona once, up front, so it
+  // can be injected into the system prompt below.
+  const persona = await getAssistantPersona(userId);
 
   // Step 7: Check daily token limit (before streaming so we can return 429 synchronously)
   const usedTokens = await getDailyTokens(userId);
@@ -242,7 +249,7 @@ export async function POST(
         }
 
         // Step 3: Build prompt
-        const systemPrompt = buildSystemPrompt(refs);
+        const systemPrompt = buildSystemPrompt(refs, persona);
         const messages: { role: "system" | "user" | "assistant"; content: string }[] = [
           { role: "system", content: systemPrompt },
         ];

@@ -9,6 +9,7 @@ import {
   Search,
   AlertTriangle,
   FileText,
+  Inbox,
 } from "lucide-react";
 
 export type WikiMode = "list" | "graph";
@@ -188,14 +189,17 @@ function PageGroup({
 
 export function WikiNav({
   initialPages,
+  draftPages = [],
 }: {
   initialPages: WikiPage[];
+  draftPages?: WikiPage[];
   mode?: WikiMode;
   onModeChange?: (m: WikiMode) => void;
 }) {
   const pathname = usePathname();
   const [query, setQuery] = useState("");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [showDrafts, setShowDrafts] = useState(false);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -210,11 +214,14 @@ export function WikiNav({
     });
   }, []);
 
-  const filtered = query.trim()
-    ? initialPages.filter((p) =>
-        p.title.toLowerCase().includes(query.toLowerCase())
-      )
-    : initialPages;
+  const matchesQuery = useCallback(
+    (p: WikiPage) =>
+      !query.trim() || p.title.toLowerCase().includes(query.toLowerCase()),
+    [query]
+  );
+
+  const filtered = initialPages.filter(matchesQuery);
+  const filteredDrafts = draftPages.filter(matchesQuery);
 
   const grouped = TYPE_ORDER.reduce<GroupedPages>(
     (acc, type) => {
@@ -281,6 +288,69 @@ export function WikiNav({
             onToggle={toggleGroup}
           />
         ))
+      )}
+
+      {draftPages.length > 0 && (
+        <div className="wiki__group" style={{ marginTop: 18 }}>
+          <button
+            onClick={() => setShowDrafts((v) => !v)}
+            className="wiki__group-head"
+            aria-expanded={showDrafts}
+            style={{
+              width: "100%",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.375rem",
+              }}
+            >
+              {showDrafts ? (
+                <ChevronDown size={13} style={{ color: "var(--fg-subtle)" }} />
+              ) : (
+                <ChevronRight size={13} style={{ color: "var(--fg-subtle)" }} />
+              )}
+              <Inbox size={12} style={{ color: "var(--fg-subtle)" }} />
+              <span
+                className="ds-section-label"
+                style={{ color: "var(--fg-subtle)" }}
+              >
+                待编织 · 原料
+              </span>
+            </span>
+            <span className="meta">{draftPages.length}</span>
+          </button>
+
+          {showDrafts && (
+            <div>
+              {filteredDrafts.length === 0 ? (
+                <div
+                  style={{
+                    padding: "6px 10px",
+                    fontSize: 12,
+                    color: "var(--fg-subtle)",
+                    fontStyle: "italic",
+                  }}
+                >
+                  没有匹配的草稿
+                </div>
+              ) : (
+                filteredDrafts.map((page) => (
+                  <PageRow
+                    key={page.id}
+                    page={page}
+                    isActive={pathname === `/wiki/${page.slug}`}
+                  />
+                ))
+              )}
+            </div>
+          )}
+        </div>
       )}
     </>
   );

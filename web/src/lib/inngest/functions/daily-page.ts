@@ -18,7 +18,8 @@ type DailyPageResult = {
 
 function buildDailyPrompt(
   date: string,
-  memoTexts: { body: string; created_at: Date }[]
+  memoTexts: { body: string; created_at: Date }[],
+  perspectivePrompt?: string | null
 ): string {
   const memosSection = memoTexts
     .map((m, i) => {
@@ -27,9 +28,25 @@ function buildDailyPrompt(
     })
     .join("\n\n---\n\n");
 
-  return DAILY_PAGE_PROMPT.replace("{{DATE}}", date)
+  const base = DAILY_PAGE_PROMPT.replace("{{DATE}}", date)
     .replace("{{MEMO_COUNT}}", String(memoTexts.length))
     .replace("{{MEMOS}}", memosSection);
+
+  // US-030: a custom perspective re-frames the same memos through the user's lens.
+  // Appended after the base instructions so it takes precedence on tone/angle.
+  return injectPerspective(base, perspectivePrompt);
+}
+
+// US-030: append an optional custom-perspective instruction to a compile prompt.
+// Kept here (rather than inlined) so both daily-page and weave-graph share one
+// observable shape; trimmed/length-capped to keep token cost predictable.
+export function injectPerspective(
+  prompt: string,
+  perspectivePrompt?: string | null
+): string {
+  const p = perspectivePrompt?.trim();
+  if (!p) return prompt;
+  return `${prompt}\n\n## Custom perspective (highest priority)\nRe-compile the SAME source material through this perspective. Let it shape the framing, emphasis, section ordering, and voice — while still obeying the rules above and never inventing facts:\n\n"${p.slice(0, 800)}"`;
 }
 
 function parseDailyResult(raw: string): DailyPageResult {
@@ -85,7 +102,8 @@ export const dailyPage = inngest.createFunction(
 
 async function processUserDailyPage(
   userId: string,
-  dateStr: string
+  dateStr: string,
+  perspectivePrompt?: string | null
 ): Promise<{ user_id: string; status: string; slug?: string }> {
   // Window: midnight to midnight UTC for the target date
   const dayStart = new Date(`${dateStr}T00:00:00.000Z`);
@@ -109,7 +127,7 @@ async function processUserDailyPage(
   }
 
   const slug = `daily/${dateStr}`;
-  const promptContent = buildDailyPrompt(dateStr, dayMemos);
+  const promptContent = buildDailyPrompt(dateStr, dayMemos, perspectivePrompt);
 
   const systemPrompt =
     "You are a personal knowledge assistant. Return only valid JSON as instructed.";
@@ -193,4 +211,14 @@ async function processUserDailyPage(
   );
 
   return { user_id: userId, status: "ok", slug };
+}
+
+// US-030: re-compile a single day's daily page with a custom perspective prompt.
+// Exposed for the on-demand "重新编译（自定义视角）" entry point on daily wiki pages.
+export async function recompileDailyPage(
+  userId: string,
+  dateStr: string,
+  perspectivePrompt?: string | null
+): Promise<{ user_id: string; status: string; slug?: string }> {
+  return processUserDailyPage(userId, dateStr, perspectivePrompt);
 }
