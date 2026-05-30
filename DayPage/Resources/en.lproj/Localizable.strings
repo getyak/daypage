@@ -39,6 +39,16 @@
 "recording.sheet.a11y"       = "Recording in progress";
 "recording.island.a11y"      = "Recording live activity";
 
+/* v8 WriteSheet — bottom-sheet text composer */
+"write.sheet.close"          = "Close";
+"write.sheet.placeholder"    = "What's on your mind?";
+"write.sheet.save"           = "Save";
+"write.sheet.words_unit"     = "chars";
+"write.sheet.icon.camera"    = "Camera";
+"write.sheet.icon.photo"     = "Photos";
+"write.sheet.icon.location"  = "Location";
+"write.sheet.icon.tag"       = "Tag";
+
 /* InputBarV4 — accessibility */
 "input.a11y.too_short"       = "Recording too short. Hold the mic and keep speaking.";
 "input.a11y.mic_hint"        = "Tap to open recorder; hold to send voice";

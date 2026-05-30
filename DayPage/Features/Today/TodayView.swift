@@ -65,6 +65,11 @@ struct TodayView: View {
     // across launches; selection is always an immediate action.
     @State private var selectedMemoIds: Set<UUID>? = nil
 
+    /// v8 WriteSheet — bottom-sheet text composer opened from the dock's text
+    /// affordance (composer.jsx:183). Routes saves through `submitCombinedMemo`
+    /// (the same path the inline composer uses) via `draftText`.
+    @State private var showWriteSheet: Bool = false
+
     /// Toggled each time the Day Orb is tapped to focus the composer input.
     @State private var orbFocusToggle: Bool = false
     /// Toggled each time a new memo is added while the orb hero is visible, triggering a capture-reward glow pulse.
@@ -417,6 +422,11 @@ struct TodayView: View {
             .sheet(item: $sharePayload) { payload in
                 ShareCardSheet(payload: payload)
             }
+            // v8 WriteSheet — custom bottom sheet (scrim + drag handle + sheet-up
+            // anim are drawn inside the view), so it presents as a full-screen
+            // overlay rather than a system `.sheet`. Saves route through the same
+            // `submitCombinedMemo` path the dock composer uses (draftText binding).
+            .overlay { writeSheetOverlay }
             .onAppear {
                 evaluateSyncBanner()
                 // Handle a Quick Capture trigger that fired before TodayView
@@ -888,6 +898,10 @@ struct TodayView: View {
             onCapturePhoto: { viewModel.startCameraCapture() },
             onRemoveAttachment: { id in viewModel.removePendingAttachment(id: id) },
             onStartVoiceRecording: { viewModel.startVoiceRecording() },
+            onOpenWriteSheet: {
+                Haptics.soft()
+                showWriteSheet = true
+            },
             onPressToTalkSend: { result in
                 viewModel.addVoiceAttachment(result: result)
                 let body = draftText
@@ -914,6 +928,32 @@ struct TodayView: View {
             batchPhotoTotal: viewModel.batchPhotoTotal,
             requestFocusToggle: orbFocusToggle
         )
+    }
+
+    // MARK: - WriteSheet Overlay (v8)
+    //
+    // Bottom-sheet text composer (composer.jsx:183-345). Bound to the same
+    // `draftText` the inline composer uses; on save it calls the identical
+    // sequence as `inputBarV4.onSubmit` — submitCombinedMemo(body:) + undo pill —
+    // so there is a single persistence path, never a second one.
+
+    @ViewBuilder
+    private var writeSheetOverlay: some View {
+        if showWriteSheet {
+            WriteSheetView(
+                text: $draftText,
+                onSave: {
+                    let body = draftText
+                    draftText = ""
+                    showWriteSheet = false
+                    viewModel.submitCombinedMemo(body: body)
+                    showUndoPill(for: body)
+                },
+                onClose: { showWriteSheet = false }
+            )
+            .transition(.opacity)
+            .zIndex(50)
+        }
     }
 
     // MARK: - Compile Progress Dots

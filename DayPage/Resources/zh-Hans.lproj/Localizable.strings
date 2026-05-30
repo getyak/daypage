@@ -39,6 +39,16 @@
 "recording.sheet.a11y"       = "正在录音";
 "recording.island.a11y"      = "录音进行中";
 
+/* v8 WriteSheet — bottom-sheet text composer */
+"write.sheet.close"          = "关闭";
+"write.sheet.placeholder"    = "此刻在想什么？";
+"write.sheet.save"           = "保存";
+"write.sheet.words_unit"     = "字";
+"write.sheet.icon.camera"    = "拍照";
+"write.sheet.icon.photo"     = "相册";
+"write.sheet.icon.location"  = "位置";
+"write.sheet.icon.tag"       = "标签";
+
 /* InputBarV4 — accessibility */
 "input.a11y.too_short"       = "录音太短，请按住麦克风继续说";
 "input.a11y.mic_hint"        = "单击打开录音页，长按发送语音";

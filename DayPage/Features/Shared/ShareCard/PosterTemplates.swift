@@ -41,6 +41,45 @@ private enum PolaroidPalette {
     static let placeholderBg = UIColor(red: 0.910, green: 0.890, blue: 0.855, alpha: 1)
 }
 
+// Film palette — dark "film gate" (detail.jsx:861-887).
+// #0d0a07 bg, #f5ede3 perforation/ink, #e36b4a Kodak orange, #a39f99 mono grey,
+// #e8dccc serif body. Hex values transcribed directly from FilmTemplate.tsx.
+private enum FilmPalette {
+    static let bg        = UIColor(red: 0.051, green: 0.039, blue: 0.027, alpha: 1) // #0d0a07
+    static let perf      = UIColor(red: 0.961, green: 0.929, blue: 0.890, alpha: 1) // #f5ede3
+    static let photoBg   = UIColor(red: 0.102, green: 0.082, blue: 0.059, alpha: 1) // #1A150F
+    static let orange    = UIColor(red: 0.890, green: 0.420, blue: 0.290, alpha: 1) // #e36b4a
+    static let mutedGrey = UIColor(red: 0.639, green: 0.624, blue: 0.600, alpha: 1) // #a39f99
+    static let serifInk  = UIColor(red: 0.910, green: 0.863, blue: 0.800, alpha: 1) // #e8dccc
+    static let iconStroke = UIColor(red: 0.290, green: 0.267, blue: 0.235, alpha: 1) // #4a443c
+}
+
+// Journal palette — ruled cream paper + washi tape (detail.jsx:904-933).
+private enum JournalPalette {
+    static let bg          = UIColor(red: 0.984, green: 0.965, blue: 0.910, alpha: 1) // #FBF6E8
+    static let rule        = UIColor(red: 0.706, green: 0.588, blue: 0.353, alpha: 0.18) // rgba(180,150,90,.18)
+    static let marginLine  = UIColor(red: 0.890, green: 0.420, blue: 0.290, alpha: 0.30) // rgba(227,107,74,.3)
+    static let washiOrange = UIColor(red: 0.890, green: 0.420, blue: 0.290, alpha: 0.55) // rgba(227,107,74,.55)
+    static let washiGreen  = UIColor(red: 0.416, green: 0.525, blue: 0.267, alpha: 0.50) // rgba(106,134,68,.5)
+    static let titleInk    = UIColor(red: 0.227, green: 0.165, blue: 0.094, alpha: 1) // #3a2a18
+    static let subInk      = UIColor(red: 0.541, green: 0.416, blue: 0.227, alpha: 1) // #8a6a3a
+    static let divider     = UIColor(red: 0.788, green: 0.651, blue: 0.467, alpha: 0.70) // #c9a677 @ .7
+    static let redDot      = UIColor(red: 0.890, green: 0.420, blue: 0.290, alpha: 1) // #E36B4A
+    static let photoBg     = UIColor(red: 0.910, green: 0.890, blue: 0.855, alpha: 1)
+}
+
+// Postcard palette — clean white card + dashed stamp (detail.jsx:935-965).
+private enum PostcardPalette {
+    static let bg        = UIColor.white
+    static let photoBg   = UIColor(red: 0.847, green: 0.812, blue: 0.768, alpha: 1) // #D8CFC4
+    static let border    = UIColor(red: 0.839, green: 0.808, blue: 0.753, alpha: 1) // #D6CEC0
+    static let serifInk  = UIColor(red: 0.169, green: 0.157, blue: 0.133, alpha: 1) // #2B2822
+    static let muted     = UIColor(red: 0.420, green: 0.396, blue: 0.376, alpha: 1) // #6B6560
+    static let subtle    = UIColor(red: 0.639, green: 0.624, blue: 0.600, alpha: 1) // #A39F99
+    static let accent    = UIColor(red: 0.365, green: 0.188, blue: 0.000, alpha: 1) // #5D3000
+    static let iconStroke = UIColor(red: 0.659, green: 0.596, blue: 0.502, alpha: 1) // #A89880
+}
+
 private enum CardGeom {
     static let width: CGFloat = 1080
     static let inset: CGFloat = 72
@@ -130,6 +169,125 @@ private func parseDailyDate(_ s: String) -> Date {
     f.locale = posixLocale
     f.dateFormat = "yyyy-MM-dd"
     return f.date(from: s) ?? Date()
+}
+
+// Film header date — "28 / MAY / 2026" (FilmTemplate.tsx:4-9).
+private func filmDate(from date: Date) -> String {
+    let f = DateFormatter()
+    f.locale = posixLocale
+    f.dateFormat = "dd / MMM / yyyy"
+    return f.string(from: date).uppercased()
+}
+
+// Postcard date — "28 · MAY · 2026" (PostcardTemplate.tsx:3-9).
+private func postcardDate(from date: Date) -> String {
+    let f = DateFormatter()
+    f.locale = posixLocale
+    f.dateFormat = "dd · MMM · yyyy"
+    return f.string(from: date).uppercased()
+}
+
+// Journal title — full weekday e.g. "Thursday" (JournalTemplate.tsx:3-5).
+private func journalWeekday(from date: Date) -> String {
+    let f = DateFormatter()
+    f.locale = posixLocale
+    f.dateFormat = "EEEE"
+    return f.string(from: date)
+}
+
+// Journal subtitle — lowercase "may 28" (JournalTemplate.tsx:7-11).
+private func journalMonthDay(from date: Date) -> String {
+    let f = DateFormatter()
+    f.locale = posixLocale
+    f.dateFormat = "MMMM d"
+    return f.string(from: date).lowercased()
+}
+
+// Serif italic — Film body uses Fraunces italic; system serif italic is the
+// reliable off-screen-context equivalent (PosterTemplates header note on TTFs).
+private extension UIFont {
+    static func serifItalic(size: CGFloat, weight: UIFont.Weight = .regular) -> UIFont {
+        let base = UIFont.systemFont(ofSize: size, weight: weight)
+        var traits: UIFontDescriptor.SymbolicTraits = [.traitItalic]
+        if let serif = base.fontDescriptor.withDesign(.serif) {
+            traits.formUnion(serif.symbolicTraits)
+            if let italic = serif.withSymbolicTraits(traits) {
+                return UIFont(descriptor: italic, size: size)
+            }
+            return UIFont(descriptor: serif, size: size)
+        }
+        if let italic = base.fontDescriptor.withSymbolicTraits(traits) {
+            return UIFont(descriptor: italic, size: size)
+        }
+        return base
+    }
+}
+
+// Draws a repeating horizontal dashed strip (35mm perforations) across `rect`.
+// Mirrors the CSS `repeating-linear-gradient(90deg, perf 0 8px, transparent 8px 14px)`
+// from FilmTemplate.tsx:12 — scaled ×3 to the 1080 canvas (dash 24, gap 18).
+private func drawPerforations(in rect: CGRect, color: UIColor, ctx: CGContext) {
+    ctx.saveGState()
+    color.setFill()
+    let dash: CGFloat = 24
+    let period: CGFloat = 42 // 24 dash + 18 transparent
+    var x = rect.minX
+    while x < rect.maxX {
+        let w = min(dash, rect.maxX - x)
+        ctx.fill(CGRect(x: x, y: rect.minY, width: w, height: rect.height))
+        x += period
+    }
+    ctx.restoreGState()
+}
+
+// Stroke a rounded rect with a dashed border (postcard stamp + divider).
+private func strokeDashedRoundedRect(_ rect: CGRect, radius: CGFloat, lineWidth: CGFloat,
+                                     dash: [CGFloat], color: UIColor, in ctx: CGContext) {
+    ctx.saveGState()
+    color.setStroke()
+    let path = UIBezierPath(roundedRect: rect, cornerRadius: radius)
+    path.lineWidth = lineWidth
+    path.setLineDash(dash, count: dash.count, phase: 0)
+    path.stroke()
+    ctx.restoreGState()
+}
+
+// Horizontal dashed hairline (postcard header divider, JournalTemplate margin).
+private func drawDashedHLine(from start: CGPoint, length: CGFloat, lineWidth: CGFloat,
+                            dash: [CGFloat], color: UIColor, in ctx: CGContext) {
+    ctx.saveGState()
+    color.setStroke()
+    let path = UIBezierPath()
+    path.move(to: start)
+    path.addLine(to: CGPoint(x: start.x + length, y: start.y))
+    path.lineWidth = lineWidth
+    path.setLineDash(dash, count: dash.count, phase: 0)
+    path.stroke()
+    ctx.restoreGState()
+}
+
+// Draws a rotated solid washi-tape strip with a soft shadow.
+private func drawWashiTape(center: CGPoint, width: CGFloat, height: CGFloat,
+                          rotation: CGFloat, color: UIColor, in ctx: CGContext) {
+    ctx.saveGState()
+    ctx.translateBy(x: center.x, y: center.y)
+    ctx.rotate(by: rotation)
+    ctx.setShadow(offset: CGSize(width: 0, height: 4),
+                  blur: 6,
+                  color: UIColor(red: 0.235, green: 0.157, blue: 0.059, alpha: 0.15).cgColor)
+    color.setFill()
+    ctx.fill(CGRect(x: -width / 2, y: -height / 2, width: width, height: height))
+    ctx.restoreGState()
+}
+
+// Faux-coordinate footer for film cards. The design hardcodes Vientiane coords
+// (FilmTemplate.tsx:127) as flavour; we keep that string only when no real
+// location/coords exist, otherwise show the memo's actual place name.
+private func filmFooter(location: String?) -> String {
+    if let l = location, !l.isEmpty {
+        return l.uppercased()
+    }
+    return "VIENTIANE · 18.04°N 102.64°E"
 }
 
 private func imageFormat1x() -> UIGraphicsImageRendererFormat {
@@ -1733,5 +1891,539 @@ enum MinimalCollageTemplate: PosterTemplate {
         bodyAttr.draw(with: bodyRect,
                       options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],
                       context: nil)
+    }
+}
+
+// MARK: - Film shared chrome
+//
+// FILM (detail.jsx:861-887 / FilmTemplate.tsx). Dark gate #0d0a07, a mono
+// "● 35 mm · Kodak 400" header opposite the date, a 4:5 photo flanked top and
+// bottom by 35mm perforation strips, a serif-italic body, and a mono coords
+// footer. Canvas width is the standard 1080; geometry is scaled ~3× from the
+// 320pt web mock.
+
+private enum FilmGeom {
+    static let inset: CGFloat = 54          // 18pt × 3
+    static let perfHeight: CGFloat = 18     // 6pt × 3
+    static let headerH: CGFloat = 30
+}
+
+private func drawFilmHeader(at origin: CGPoint, width: CGFloat, date: Date, ctx: CGContext) {
+    let left = NSAttributedString(string: "\u{25CF} 35 mm \u{00B7} Kodak 400", attributes: [
+        .font: UIFont.monospacedSystemFont(ofSize: 30, weight: .regular),
+        .foregroundColor: FilmPalette.orange,
+        .kern: 0.5
+    ])
+    left.draw(at: origin)
+
+    let right = NSAttributedString(string: filmDate(from: date), attributes: [
+        .font: UIFont.monospacedSystemFont(ofSize: 30, weight: .regular),
+        .foregroundColor: FilmPalette.mutedGrey,
+        .kern: 0.5
+    ])
+    let rsize = right.size()
+    right.draw(at: CGPoint(x: origin.x + width - rsize.width, y: origin.y))
+}
+
+// 4:5 photo (or placeholder) with perforation strips above + below.
+private func drawFilmPhoto(in rect: CGRect, image: UIImage?, ctx cg: CGContext) {
+    if let image = image {
+        drawAspectFill(image, in: rect, ctx: cg)
+    } else {
+        FilmPalette.photoBg.setFill()
+        cg.fill(rect)
+        // Simple "image" glyph centred, matching the web SVG placeholder.
+        let glyph = NSAttributedString(string: "\u{25A2}", attributes: [
+            .font: UIFont.systemFont(ofSize: 140, weight: .ultraLight),
+            .foregroundColor: FilmPalette.iconStroke
+        ])
+        let gsz = glyph.size()
+        glyph.draw(at: CGPoint(x: rect.midX - gsz.width / 2, y: rect.midY - gsz.height / 2))
+    }
+    let topStrip = CGRect(x: rect.minX, y: rect.minY - FilmGeom.perfHeight,
+                          width: rect.width, height: FilmGeom.perfHeight)
+    let botStrip = CGRect(x: rect.minX, y: rect.maxY,
+                          width: rect.width, height: FilmGeom.perfHeight)
+    drawPerforations(in: topStrip, color: FilmPalette.perf, ctx: cg)
+    drawPerforations(in: botStrip, color: FilmPalette.perf, ctx: cg)
+}
+
+// MARK: - FilmMemoTemplate
+
+enum FilmMemoTemplate: PosterTemplate {
+    static func render(_ payload: SharePayload) -> UIImage {
+        guard case .memo(let s) = payload else { return UIImage() }
+        return draw(body: s.body, date: s.createdAt, location: s.locationName, image: s.coverImage)
+    }
+
+    static func draw(body rawBody: String, date: Date, location: String?, image: UIImage?) -> UIImage {
+        let W = CardGeom.width
+        let inset = FilmGeom.inset
+        let bodyW = W - inset * 2
+
+        // 4:5 photo fills the column width.
+        let photoW = bodyW
+        let photoH = photoW * 5.0 / 4.0
+
+        let body = truncate(rawBody.trimmingCharacters(in: .whitespacesAndNewlines), to: 130)
+        let bodyPara = NSMutableParagraphStyle()
+        bodyPara.lineHeightMultiple = 1.6
+        let bodyAttr = NSAttributedString(string: body, attributes: [
+            .font: UIFont.serifItalic(size: 40),
+            .foregroundColor: FilmPalette.serifInk,
+            .paragraphStyle: bodyPara
+        ])
+        let bodyMeasure = bodyAttr.measure(width: bodyW)
+
+        let totalH = inset + FilmGeom.headerH + 30 + FilmGeom.perfHeight
+            + photoH + FilmGeom.perfHeight + 48
+            + ceil(bodyMeasure.height) + 42 + 36 + inset
+        let size = CGSize(width: W, height: max(1200, totalH))
+        let renderer = UIGraphicsImageRenderer(size: size, format: imageFormat1x())
+
+        return renderer.image { ctx in
+            let cg = ctx.cgContext
+            FilmPalette.bg.setFill()
+            cg.fill(CGRect(origin: .zero, size: size))
+
+            var y = inset
+            drawFilmHeader(at: CGPoint(x: inset, y: y), width: bodyW, date: date, ctx: cg)
+            y += FilmGeom.headerH + 30 + FilmGeom.perfHeight
+
+            let photoRect = CGRect(x: inset, y: y, width: photoW, height: photoH)
+            drawFilmPhoto(in: photoRect, image: image, ctx: cg)
+            y += photoH + FilmGeom.perfHeight + 48
+
+            bodyAttr.draw(with: CGRect(x: inset, y: y, width: bodyW, height: bodyMeasure.height),
+                          options: [.usesLineFragmentOrigin], context: nil)
+            y += ceil(bodyMeasure.height) + 42
+
+            let footer = NSAttributedString(string: truncate(filmFooter(location: location), to: 60), attributes: [
+                .font: UIFont.monospacedSystemFont(ofSize: 30, weight: .regular),
+                .foregroundColor: FilmPalette.mutedGrey,
+                .kern: 1.2
+            ])
+            footer.draw(at: CGPoint(x: inset, y: y))
+        }
+    }
+}
+
+// MARK: - FilmDailyTemplate
+//
+// Reuses the film gate but leads with the daily summary as the serif-italic
+// body and the daily cover as the 4:5 photo. (Sections are intentionally not
+// listed — the film aesthetic is a single contemplative frame.)
+
+enum FilmDailyTemplate: PosterTemplate {
+    static func render(_ payload: SharePayload) -> UIImage {
+        guard case .daily(let s) = payload else { return UIImage() }
+        let date = parseDailyDate(s.dateString)
+        let loc = s.locationPrimary.isEmpty ? nil : s.locationPrimary
+        return FilmMemoTemplate.draw(body: s.summary, date: date, location: loc, image: s.coverImage)
+    }
+}
+
+// MARK: - FilmPhotoTemplate
+
+enum FilmPhotoTemplate: PosterTemplate {
+    static func render(_ payload: SharePayload) -> UIImage {
+        guard case .photo(let s) = payload else { return UIImage() }
+        let f = DateFormatter()
+        f.locale = posixLocale
+        f.dateFormat = "HH:mm"
+        // PhotoSnapshot has no Date; use today's date for the header day stamp
+        // and keep its captured time inside the EXIF/location footer.
+        let footer: String = {
+            var parts: [String] = []
+            if let l = s.location, !l.isEmpty { parts.append(l.uppercased()) }
+            if let e = s.exif, !e.isEmpty { parts.append(e) }
+            if parts.isEmpty { return filmFooter(location: nil) }
+            return parts.joined(separator: " \u{00B7} ")
+        }()
+        return drawPhoto(image: s.image, caption: s.caption, footer: footer)
+    }
+
+    private static func drawPhoto(image: UIImage, caption: String, footer: String) -> UIImage {
+        let W = CardGeom.width
+        let inset = FilmGeom.inset
+        let bodyW = W - inset * 2
+        let photoW = bodyW
+        let photoH = photoW * 5.0 / 4.0
+
+        let body = truncate(caption.trimmingCharacters(in: .whitespacesAndNewlines), to: 130)
+        let bodyPara = NSMutableParagraphStyle()
+        bodyPara.lineHeightMultiple = 1.6
+        let bodyAttr = NSAttributedString(string: body, attributes: [
+            .font: UIFont.serifItalic(size: 40),
+            .foregroundColor: FilmPalette.serifInk,
+            .paragraphStyle: bodyPara
+        ])
+        let bodyBlock = body.isEmpty ? 0 : ceil(bodyAttr.measure(width: bodyW).height) + 48
+
+        let totalH = inset + FilmGeom.headerH + 30 + FilmGeom.perfHeight
+            + photoH + FilmGeom.perfHeight + bodyBlock + 42 + 36 + inset
+        let size = CGSize(width: W, height: max(1200, totalH))
+        let renderer = UIGraphicsImageRenderer(size: size, format: imageFormat1x())
+
+        return renderer.image { ctx in
+            let cg = ctx.cgContext
+            FilmPalette.bg.setFill()
+            cg.fill(CGRect(origin: .zero, size: size))
+
+            var y = inset
+            drawFilmHeader(at: CGPoint(x: inset, y: y), width: bodyW, date: Date(), ctx: cg)
+            y += FilmGeom.headerH + 30 + FilmGeom.perfHeight
+
+            let photoRect = CGRect(x: inset, y: y, width: photoW, height: photoH)
+            drawFilmPhoto(in: photoRect, image: image, ctx: cg)
+            y += photoH + FilmGeom.perfHeight + 48
+
+            if !body.isEmpty {
+                let m = bodyAttr.measure(width: bodyW)
+                bodyAttr.draw(with: CGRect(x: inset, y: y, width: bodyW, height: m.height),
+                              options: [.usesLineFragmentOrigin], context: nil)
+                y += ceil(m.height) + 42
+            }
+
+            let foot = NSAttributedString(string: truncate(footer, to: 70), attributes: [
+                .font: UIFont.monospacedSystemFont(ofSize: 30, weight: .regular),
+                .foregroundColor: FilmPalette.mutedGrey,
+                .kern: 1.2
+            ])
+            foot.draw(at: CGPoint(x: inset, y: y))
+        }
+    }
+}
+
+// MARK: - Journal shared chrome
+//
+// JOURNAL (detail.jsx:904-933 / JournalTemplate.tsx). Cream #FBF6E8 paper with
+// repeating 28pt ruled hairlines, a faint red left-margin line, two rotated
+// washi-tape strips peeking over the top edge, a serif weekday title with a
+// muted "· month day" subtitle, a 5:4 photo, the body, and a red-dot footer
+// chip. Scaled ~3× from the 320pt web mock (20pt padding → 60pt inset).
+
+private enum JournalGeom {
+    static let inset: CGFloat = 60          // 20pt × 3
+    static let rulePeriod: CGFloat = 84     // 28pt × 3
+    static let marginX: CGFloat = 132       // 44pt × 3
+}
+
+private func drawJournalBackground(in size: CGSize, ctx cg: CGContext) {
+    JournalPalette.bg.setFill()
+    cg.fill(CGRect(origin: .zero, size: size))
+
+    // Ruled lines: a 1.5pt hairline every 84pt (CSS 27/28 → ~28 period ×3).
+    JournalPalette.rule.setFill()
+    var ly: CGFloat = JournalGeom.rulePeriod
+    while ly < size.height {
+        cg.fill(CGRect(x: 0, y: ly, width: size.width, height: 3))
+        ly += JournalGeom.rulePeriod
+    }
+
+    // Red left-margin line (CSS left:44px ×3).
+    JournalPalette.marginLine.setFill()
+    cg.fill(CGRect(x: JournalGeom.marginX, y: 0, width: 3, height: size.height))
+}
+
+private func drawJournalWashiTape(width: CGFloat, in cg: CGContext) {
+    // Orange strip top-left, rotated -5° (CSS top:-6,left:30,90×18 ×3).
+    drawWashiTape(center: CGPoint(x: 90 + 135, y: 6),
+                  width: 270, height: 54,
+                  rotation: -5 * .pi / 180,
+                  color: JournalPalette.washiOrange, in: cg)
+    // Green strip top-right, rotated +8° (CSS top:-4,right:24,64×14 ×3).
+    drawWashiTape(center: CGPoint(x: width - 72 - 96, y: 12),
+                  width: 192, height: 42,
+                  rotation: 8 * .pi / 180,
+                  color: JournalPalette.washiGreen, in: cg)
+}
+
+// MARK: - JournalMemoTemplate
+
+enum JournalMemoTemplate: PosterTemplate {
+    static func render(_ payload: SharePayload) -> UIImage {
+        guard case .memo(let s) = payload else { return UIImage() }
+        let temp = s.weather ?? ""
+        return draw(body: s.body, date: s.createdAt, location: s.locationName,
+                    temp: temp, image: s.coverImage)
+    }
+
+    static func draw(body rawBody: String, date: Date, location: String?,
+                     temp: String, image: UIImage?) -> UIImage {
+        let W = CardGeom.width
+        let inset = JournalGeom.inset
+        let bodyW = W - inset * 2
+
+        let body = truncate(rawBody.trimmingCharacters(in: .whitespacesAndNewlines), to: 160)
+        let bodyPara = NSMutableParagraphStyle()
+        bodyPara.lineHeightMultiple = 1.7
+        let bodyAttr = NSAttributedString(string: body, attributes: [
+            .font: UIFont.systemFont(ofSize: 38, weight: .regular),
+            .foregroundColor: JournalPalette.titleInk,
+            .paragraphStyle: bodyPara
+        ])
+        let bodyMeasure = bodyAttr.measure(width: bodyW)
+
+        let hasPhoto = image != nil
+        let photoH: CGFloat = hasPhoto ? bodyW * 4.0 / 5.0 : 0   // 5:4 aspect
+        let photoGap: CGFloat = hasPhoto ? 42 : 0
+
+        let totalH = inset + 30 + 64 + 14 + 42      // top pad + title + divider
+            + photoH + photoGap
+            + ceil(bodyMeasure.height) + 42
+            + 54 + inset                            // footer chip
+        let size = CGSize(width: W, height: max(1200, totalH))
+        let renderer = UIGraphicsImageRenderer(size: size, format: imageFormat1x())
+
+        return renderer.image { ctx in
+            let cg = ctx.cgContext
+            drawJournalBackground(in: size, ctx: cg)
+            drawJournalWashiTape(width: W, in: cg)
+
+            var y = inset + 30
+
+            // Serif title: weekday + muted "· month day"
+            let title = NSAttributedString(string: journalWeekday(from: date), attributes: [
+                .font: UIFont.editorialTitle(size: 64),
+                .foregroundColor: JournalPalette.titleInk
+            ])
+            title.draw(at: CGPoint(x: inset, y: y))
+            let tWidth = title.size().width
+            let sub = NSAttributedString(string: "  \u{00B7} " + journalMonthDay(from: date), attributes: [
+                .font: UIFont.systemFont(ofSize: 40, weight: .medium),
+                .foregroundColor: JournalPalette.subInk
+            ])
+            sub.draw(at: CGPoint(x: inset + tWidth, y: y + 22))
+            y += 64 + 14
+
+            // Divider
+            JournalPalette.divider.setFill()
+            cg.fill(CGRect(x: inset, y: y, width: bodyW, height: 3))
+            y += 42
+
+            if let image = image {
+                let photoRect = CGRect(x: inset, y: y, width: bodyW, height: photoH)
+                cg.saveGState()
+                UIBezierPath(roundedRect: photoRect, cornerRadius: 24).addClip()
+                drawAspectFill(image, in: photoRect, ctx: cg)
+                cg.restoreGState()
+                y += photoH + photoGap
+            }
+
+            bodyAttr.draw(with: CGRect(x: inset, y: y, width: bodyW, height: bodyMeasure.height),
+                          options: [.usesLineFragmentOrigin], context: nil)
+            y += ceil(bodyMeasure.height) + 42
+
+            // Footer: red dot + LOCATION · TEMP
+            let dotSize: CGFloat = 30
+            JournalPalette.redDot.setFill()
+            cg.fillEllipse(in: CGRect(x: inset, y: y, width: dotSize, height: dotSize))
+            var footParts: [String] = []
+            if let l = location, !l.isEmpty { footParts.append(l.uppercased()) }
+            if !temp.isEmpty { footParts.append(temp) }
+            if footParts.isEmpty { footParts.append("VIENTIANE") }
+            let foot = NSAttributedString(string: truncate(footParts.joined(separator: " \u{00B7} "), to: 50), attributes: [
+                .font: UIFont.monospacedSystemFont(ofSize: 28, weight: .regular),
+                .foregroundColor: JournalPalette.subInk,
+                .kern: 1.2
+            ])
+            foot.draw(at: CGPoint(x: inset + dotSize + 16, y: y + 1))
+        }
+    }
+}
+
+// MARK: - JournalDailyTemplate
+
+enum JournalDailyTemplate: PosterTemplate {
+    static func render(_ payload: SharePayload) -> UIImage {
+        guard case .daily(let s) = payload else { return UIImage() }
+        let date = parseDailyDate(s.dateString)
+        let loc = s.locationPrimary.isEmpty ? nil : s.locationPrimary
+        return JournalMemoTemplate.draw(body: s.summary, date: date, location: loc,
+                                        temp: "", image: s.coverImage)
+    }
+}
+
+// MARK: - JournalPhotoTemplate
+
+enum JournalPhotoTemplate: PosterTemplate {
+    static func render(_ payload: SharePayload) -> UIImage {
+        guard case .photo(let s) = payload else { return UIImage() }
+        // PhotoSnapshot has no Date — use today's date for the title stamp; its
+        // captured HH:mm/EXIF flavour lives in the footer location instead.
+        return JournalMemoTemplate.draw(body: s.caption, date: Date(),
+                                        location: s.location, temp: s.exif ?? "",
+                                        image: s.image)
+    }
+}
+
+// MARK: - Postcard shared chrome
+//
+// POSTCARD (detail.jsx:935-965 / PostcardTemplate.tsx). White card, 3:2 photo
+// spanning the top, then a padded body section: a serif place name opposite a
+// mono date over a dashed divider, then the body text beside a dashed stamp box
+// (DAYPAGE / time / hairline / LAOS). Scaled ~3× from the 320pt web mock.
+
+private enum PostcardGeom {
+    static let pad: CGFloat = 54            // 18pt × 3
+    static let stampW: CGFloat = 168        // 56pt × 3
+    static let stampH: CGFloat = 192        // 64pt × 3
+}
+
+private func drawPostcardStamp(at origin: CGPoint, time: String, place: String, ctx cg: CGContext) {
+    let rect = CGRect(x: origin.x, y: origin.y, width: PostcardGeom.stampW, height: PostcardGeom.stampH)
+    strokeDashedRoundedRect(rect, radius: 12, lineWidth: 4.5,
+                            dash: [12, 8], color: PostcardPalette.border, in: cg)
+
+    // DAYPAGE (display, accent)
+    let brand = NSAttributedString(string: "DAYPAGE", attributes: [
+        .font: UIFont.systemFont(ofSize: 27, weight: .heavy),
+        .foregroundColor: PostcardPalette.accent,
+        .kern: 1
+    ])
+    let bsz = brand.size()
+    brand.draw(at: CGPoint(x: rect.midX - bsz.width / 2, y: rect.minY + 36))
+
+    // time (mono, muted)
+    let timeAttr = NSAttributedString(string: time, attributes: [
+        .font: UIFont.monospacedSystemFont(ofSize: 24, weight: .regular),
+        .foregroundColor: PostcardPalette.muted
+    ])
+    let tsz = timeAttr.size()
+    timeAttr.draw(at: CGPoint(x: rect.midX - tsz.width / 2, y: rect.minY + 78))
+
+    // hairline (30pt ×3 = 90)
+    PostcardPalette.border.setFill()
+    cg.fill(CGRect(x: rect.midX - 45, y: rect.minY + 116, width: 90, height: 3))
+
+    // place (mono, subtle)
+    let placeAttr = NSAttributedString(string: place.uppercased(), attributes: [
+        .font: UIFont.monospacedSystemFont(ofSize: 21, weight: .regular),
+        .foregroundColor: PostcardPalette.subtle
+    ])
+    let psz = placeAttr.size()
+    placeAttr.draw(at: CGPoint(x: rect.midX - psz.width / 2, y: rect.minY + 132))
+}
+
+// MARK: - PostcardMemoTemplate
+
+enum PostcardMemoTemplate: PosterTemplate {
+    static func render(_ payload: SharePayload) -> UIImage {
+        guard case .memo(let s) = payload else { return UIImage() }
+        let place = (s.locationName?.isEmpty == false ? s.locationName! : "Vientiane")
+        let country = (s.locationName?.isEmpty == false) ? "" : "LAOS"
+        return draw(body: s.body, date: s.createdAt, place: place,
+                    country: country, image: s.coverImage)
+    }
+
+    static func draw(body rawBody: String, date: Date, place: String,
+                     country: String, image: UIImage?) -> UIImage {
+        let W = CardGeom.width
+        let pad = PostcardGeom.pad
+
+        // 3:2 photo across the full width.
+        let photoH = W * 2.0 / 3.0
+        let bodyW = W - pad * 2
+
+        // Body sits left of the stamp; text column is bodyW - stamp - gap.
+        let stampGap: CGFloat = 42
+        let textColW = bodyW - PostcardGeom.stampW - stampGap
+
+        let body = truncate(rawBody.trimmingCharacters(in: .whitespacesAndNewlines), to: 120)
+        let bodyPara = NSMutableParagraphStyle()
+        bodyPara.lineHeightMultiple = 1.6
+        let bodyAttr = NSAttributedString(string: body, attributes: [
+            .font: UIFont.systemFont(ofSize: 36, weight: .regular),
+            .foregroundColor: PostcardPalette.serifInk,
+            .paragraphStyle: bodyPara
+        ])
+        let bodyMeasure = bodyAttr.measure(width: textColW)
+
+        // The text/stamp row height is the taller of the two columns.
+        let rowH = max(ceil(bodyMeasure.height), PostcardGeom.stampH)
+        let headerH: CGFloat = 64 + 30     // place/date row + dashed divider gap
+        let totalH = photoH + pad + headerH + 42 + rowH + pad
+        let size = CGSize(width: W, height: max(1100, totalH))
+        let renderer = UIGraphicsImageRenderer(size: size, format: imageFormat1x())
+
+        return renderer.image { ctx in
+            let cg = ctx.cgContext
+            PostcardPalette.bg.setFill()
+            cg.fill(CGRect(origin: .zero, size: size))
+
+            // 3:2 photo across the top
+            let photoRect = CGRect(x: 0, y: 0, width: W, height: photoH)
+            if let image = image {
+                drawAspectFill(image, in: photoRect, ctx: cg)
+            } else {
+                PostcardPalette.photoBg.setFill()
+                cg.fill(photoRect)
+                let glyph = NSAttributedString(string: "\u{25A2}", attributes: [
+                    .font: UIFont.systemFont(ofSize: 160, weight: .ultraLight),
+                    .foregroundColor: PostcardPalette.iconStroke
+                ])
+                let gsz = glyph.size()
+                glyph.draw(at: CGPoint(x: photoRect.midX - gsz.width / 2,
+                                       y: photoRect.midY - gsz.height / 2))
+            }
+
+            var y = photoH + pad
+
+            // Header: serif place name + mono date
+            let placeAttr = NSAttributedString(string: truncate(place, to: 24), attributes: [
+                .font: UIFont.editorialTitle(size: 60),
+                .foregroundColor: PostcardPalette.serifInk
+            ])
+            placeAttr.draw(at: CGPoint(x: pad, y: y))
+
+            let dateAttr = NSAttributedString(string: postcardDate(from: date), attributes: [
+                .font: UIFont.monospacedSystemFont(ofSize: 28, weight: .regular),
+                .foregroundColor: PostcardPalette.muted
+            ])
+            let dsz = dateAttr.size()
+            dateAttr.draw(at: CGPoint(x: W - pad - dsz.width, y: y + 24))
+            y += 64
+
+            // Dashed divider
+            drawDashedHLine(from: CGPoint(x: pad, y: y + 16), length: bodyW,
+                            lineWidth: 3, dash: [9, 9], color: PostcardPalette.border, in: cg)
+            y += 30 + 42
+
+            // Body text (left) + stamp (right)
+            bodyAttr.draw(with: CGRect(x: pad, y: y, width: textColW, height: bodyMeasure.height),
+                          options: [.usesLineFragmentOrigin], context: nil)
+
+            let stampX = pad + textColW + stampGap
+            drawPostcardStamp(at: CGPoint(x: stampX, y: y),
+                              time: headerTime(from: date),
+                              place: country.isEmpty ? "LAOS" : country, ctx: cg)
+        }
+    }
+}
+
+// MARK: - PostcardDailyTemplate
+
+enum PostcardDailyTemplate: PosterTemplate {
+    static func render(_ payload: SharePayload) -> UIImage {
+        guard case .daily(let s) = payload else { return UIImage() }
+        let date = parseDailyDate(s.dateString)
+        let place = s.locationPrimary.isEmpty ? "Vientiane" : s.locationPrimary
+        let country = s.locationPrimary.isEmpty ? "LAOS" : ""
+        return PostcardMemoTemplate.draw(body: s.summary, date: date, place: place,
+                                         country: country, image: s.coverImage)
+    }
+}
+
+// MARK: - PostcardPhotoTemplate
+
+enum PostcardPhotoTemplate: PosterTemplate {
+    static func render(_ payload: SharePayload) -> UIImage {
+        guard case .photo(let s) = payload else { return UIImage() }
+        let place = (s.location?.isEmpty == false ? s.location! : "Vientiane")
+        let country = (s.location?.isEmpty == false) ? "" : "LAOS"
+        // PhotoSnapshot has no Date; use today's date for the postcard stamp.
+        return PostcardMemoTemplate.draw(body: s.caption, date: Date(), place: place,
+                                         country: country, image: s.image)
     }
 }

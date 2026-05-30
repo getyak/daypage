@@ -98,6 +98,8 @@
 		A10000082 /* InputBarV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000082 /* InputBarV4.swift */; };
 		A10000510 /* RecordingSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000510 /* RecordingSheetView.swift */; };
 		A10000511 /* DynamicIslandView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000511 /* DynamicIslandView.swift */; };
+		A10000513 /* WriteSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000513 /* WriteSheetView.swift */; };
+		A10000514 /* TimelineRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000514 /* TimelineRow.swift */; };
 		A10000512 /* MetadataGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000512 /* MetadataGridView.swift */; };
 		A10000083 /* WeeklyRecapService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000083 /* WeeklyRecapService.swift */; };
 		A10000084 /* WeeklyRecapSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000084 /* WeeklyRecapSection.swift */; };
@@ -320,6 +322,8 @@
 		A20000082 /* InputBarV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputBarV4.swift; sourceTree = "<group>"; };
 		A20000510 /* RecordingSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingSheetView.swift; sourceTree = "<group>"; };
 		A20000511 /* DynamicIslandView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DynamicIslandView.swift; sourceTree = "<group>"; };
+		A20000513 /* WriteSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WriteSheetView.swift; sourceTree = "<group>"; };
+		A20000514 /* TimelineRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineRow.swift; sourceTree = "<group>"; };
 		A20000512 /* MetadataGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataGridView.swift; sourceTree = "<group>"; };
 		A20000083 /* WeeklyRecapService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapService.swift; sourceTree = "<group>"; };
 		A20000084 /* WeeklyRecapSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapSection.swift; sourceTree = "<group>"; };
@@ -695,6 +699,8 @@
 				A20000054 /* RecordingOverlayView.swift */,
 				A20000510 /* RecordingSheetView.swift */,
 				A20000511 /* DynamicIslandView.swift */,
+				A20000513 /* WriteSheetView.swift */,
+				A20000514 /* TimelineRow.swift */,
 				A20000055 /* PressToTalkButton.swift */,
 				A20000063 /* SwipeableMemoCard.swift */,
 				A20000400 /* HorizontalPanGesture.swift */,
@@ -1214,6 +1220,8 @@
 				A10000053 /* InputTokens.swift in Sources */,
 				A10000054 /* RecordingOverlayView.swift in Sources */,
 				A10000510 /* RecordingSheetView.swift in Sources */,
+				A10000513 /* WriteSheetView.swift in Sources */,
+				A10000514 /* TimelineRow.swift in Sources */,
 				A10000511 /* DynamicIslandView.swift in Sources */,
 				A10000512 /* MetadataGridView.swift in Sources */,
 				A10000055 /* PressToTalkButton.swift in Sources */,

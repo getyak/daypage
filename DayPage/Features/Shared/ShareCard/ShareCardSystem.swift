@@ -393,14 +393,24 @@ struct CollageSnapshot: Equatable {
 
 enum PosterStyle: String, CaseIterable, Identifiable {
     case minimal  = "minimal"   // 极简编辑器风
-    case polaroid = "polaroid"  // 拍立得/胶片风
+    case polaroid = "polaroid"  // 拍立得风
+    case film     = "film"      // 35mm 胶片风（暗场 + 齿孔）
+    case journal  = "journal"   // 手账风（横线 + 和纸胶带）
+    case postcard = "postcard"  // 明信片风（上图 + 邮票框）
 
     var id: String { rawValue }
 
+    // Picker order mirrors detail.jsx:760 SHARE_TEMPLATES
+    // (minimal, film, polaroid, journal, postcard).
+    static var pickerOrder: [PosterStyle] { [.minimal, .film, .polaroid, .journal, .postcard] }
+
     var displayName: String {
         switch self {
-        case .minimal:  return "极简"
-        case .polaroid: return "胶片"
+        case .minimal:  return "极简"   // detail.jsx:761
+        case .polaroid: return "拍立得"  // detail.jsx:761
+        case .film:     return "胶片"   // detail.jsx:761
+        case .journal:  return "手账"   // detail.jsx:761
+        case .postcard: return "明信片"  // detail.jsx:761
         }
     }
 }
@@ -416,16 +426,25 @@ protocol PosterTemplate {
 enum PosterDispatcher {
 
     /// Routes (payload, style) → concrete `PosterTemplate.render`. Adding a new
-    /// style means: extend `PosterStyle`, add 4 new template enums, add a row
-    /// in this switch.
+    /// style means: extend `PosterStyle`, add template enums, add rows in this
+    /// switch. Every (style × payload) pair MUST return a valid UIImage — no
+    /// case may be left unhandled or crash.
     ///
-    /// Collage currently only has one template (Minimal). Selecting Polaroid
-    /// from the style picker on a collage payload falls back to the Minimal
-    /// renderer — the IG-Story-tall canvas doesn't have room for the
-    /// Polaroid frame chrome around 6 stacked items, and trying to honour
-    /// the style would shrink each item below readable thumbnail size.
+    /// Collage currently only has one template (Minimal). Selecting any other
+    /// style from the picker on a collage payload falls back to the Minimal
+    /// renderer — the IG-Story-tall canvas doesn't have room for decorative
+    /// frame chrome around 6 stacked items, and honouring the style would
+    /// shrink each item below readable thumbnail size.
+    ///
+    /// The film / journal / postcard styles (detail.jsx:861-965) are designed
+    /// around a single photo/text card, so dedicated renderers exist for the
+    /// CORE share types — memo, daily, photo. For monthly / quote / voice the
+    /// new styles fall back to the closest existing renderer (Minimal for the
+    /// editorial film/postcard look, Polaroid for the warm journal look) so a
+    /// shared card is still on-brand without 12 extra rarely-used templates.
     static func render(payload: SharePayload, style: PosterStyle) -> UIImage {
         switch (style, payload) {
+        // MARK: Minimal
         case (.minimal,  .memo):    return MinimalMemoTemplate.render(payload)
         case (.minimal,  .daily):   return MinimalDailyTemplate.render(payload)
         case (.minimal,  .monthly): return MinimalMonthlyTemplate.render(payload)
@@ -433,6 +452,8 @@ enum PosterDispatcher {
         case (.minimal,  .photo):   return MinimalPhotoTemplate.render(payload)
         case (.minimal,  .voice):   return MinimalVoiceTemplate.render(payload)
         case (.minimal,  .collage): return MinimalCollageTemplate.render(payload)
+
+        // MARK: Polaroid
         case (.polaroid, .memo):    return PolaroidMemoTemplate.render(payload)
         case (.polaroid, .daily):   return PolaroidDailyTemplate.render(payload)
         case (.polaroid, .monthly): return PolaroidMonthlyTemplate.render(payload)
@@ -440,6 +461,36 @@ enum PosterDispatcher {
         case (.polaroid, .photo):   return PolaroidPhotoTemplate.render(payload)
         case (.polaroid, .voice):   return PolaroidVoiceTemplate.render(payload)
         case (.polaroid, .collage): return MinimalCollageTemplate.render(payload)
+
+        // MARK: Film (dark gate, 35mm perforations)
+        case (.film, .memo):     return FilmMemoTemplate.render(payload)
+        case (.film, .daily):    return FilmDailyTemplate.render(payload)
+        case (.film, .photo):    return FilmPhotoTemplate.render(payload)
+        // Fallbacks: Minimal carries the editorial/quote/stat look closest to film.
+        case (.film, .monthly):  return MinimalMonthlyTemplate.render(payload)
+        case (.film, .quote):    return MinimalQuoteTemplate.render(payload)
+        case (.film, .voice):    return MinimalVoiceTemplate.render(payload)
+        case (.film, .collage):  return MinimalCollageTemplate.render(payload)
+
+        // MARK: Journal (ruled paper, washi tape)
+        case (.journal, .memo):     return JournalMemoTemplate.render(payload)
+        case (.journal, .daily):    return JournalDailyTemplate.render(payload)
+        case (.journal, .photo):    return JournalPhotoTemplate.render(payload)
+        // Fallbacks: Polaroid's warm paper aesthetic is the nearest journal cousin.
+        case (.journal, .monthly):  return PolaroidMonthlyTemplate.render(payload)
+        case (.journal, .quote):    return PolaroidQuoteTemplate.render(payload)
+        case (.journal, .voice):    return PolaroidVoiceTemplate.render(payload)
+        case (.journal, .collage):  return MinimalCollageTemplate.render(payload)
+
+        // MARK: Postcard (photo top, stamp box)
+        case (.postcard, .memo):     return PostcardMemoTemplate.render(payload)
+        case (.postcard, .daily):    return PostcardDailyTemplate.render(payload)
+        case (.postcard, .photo):    return PostcardPhotoTemplate.render(payload)
+        // Fallbacks: Minimal keeps the clean white postcard tone for the rest.
+        case (.postcard, .monthly):  return MinimalMonthlyTemplate.render(payload)
+        case (.postcard, .quote):    return MinimalQuoteTemplate.render(payload)
+        case (.postcard, .voice):    return MinimalVoiceTemplate.render(payload)
+        case (.postcard, .collage):  return MinimalCollageTemplate.render(payload)
         }
     }
 }
@@ -520,29 +571,33 @@ struct ShareCardSheet: View {
         }
     }
 
+    // Five style chips now exceed the screen width, so the picker scrolls
+    // horizontally — mirrors the `overflowX:'auto'` row in detail.jsx:790.
     private var stylePicker: some View {
-        HStack(spacing: 12) {
-            ForEach(PosterStyle.allCases) { s in
-                Button {
-                    Haptics.soft()
-                    style = s
-                } label: {
-                    Text(s.displayName)
-                        .monoLabelStyle(size: 12)
-                        .foregroundColor(style == s ? DSColor.glassHi : DSColor.inkPrimary)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                        .background(
-                            style == s ? DSColor.amberDeep : DSColor.glassLo,
-                            in: Capsule()
-                        )
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(PosterStyle.pickerOrder) { s in
+                    Button {
+                        Haptics.soft()
+                        style = s
+                    } label: {
+                        Text(s.displayName)
+                            .monoLabelStyle(size: 12)
+                            .foregroundColor(style == s ? DSColor.glassHi : DSColor.inkPrimary)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 10)
+                            .background(
+                                style == s ? DSColor.amberDeep : DSColor.glassLo,
+                                in: Capsule()
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(s.displayName) 风格")
+                    .accessibilityAddTraits(style == s ? [.isSelected] : [])
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(s.displayName) 风格")
-                .accessibilityAddTraits(style == s ? [.isSelected] : [])
             }
+            .padding(.horizontal, 24)
         }
-        .padding(.horizontal, 24)
     }
 
     private var actionBar: some View {
