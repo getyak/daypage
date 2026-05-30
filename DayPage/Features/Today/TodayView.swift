@@ -236,6 +236,32 @@ struct TodayView: View {
                     }
                 }
                 .animation(Motion.rise, value: viewModel.lastDeletedMemo != nil)
+                // Scroll-to-top chevron — fades in at bottom-trailing when scrolled past 240pt
+                .overlay(alignment: .bottomTrailing) {
+                    if timelineScrollOffset < -240 && !viewModel.memos.isEmpty && !isInSelectionMode {
+                        Button {
+                            Haptics.soft()
+                            withAnimation(reduceMotion ? nil : Motion.spring) {
+                                timelineScrollProxy?.scrollTo("timelineTop", anchor: .top)
+                            }
+                        } label: {
+                            Image(systemName: "chevron.up")
+                                .font(DSType.bodySM)
+                                .foregroundColor(DSColor.inkMuted)
+                                .frame(width: 28, height: 28)
+                                .background(DSColor.glassStd)
+                                .background(.ultraThinMaterial, in: Circle())
+                                .overlay(Circle().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                                .clipShape(Circle())
+                        }
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 96)
+                        .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                        .accessibilityLabel("Scroll to top")
+                        .accessibilityIdentifier("scroll-to-top-button")
+                    }
+                }
+                .animation(reduceMotion ? nil : Motion.rise, value: timelineScrollOffset < -240)
                 // Submit error toast — scoped animation lives on the overlay
                 // container so only the toast itself animates, not the whole
                 // ZStack tree. (#217)
