@@ -697,11 +697,29 @@ struct TodayView: View {
                 .minimumScaleFactor(0.7)
                 .padding(.bottom, 2)
 
-            Text(orbKicker(currentTime))
-                .font(DSType.mono10)
-                .foregroundColor(DSColor.inkSubtle)
-                .textCase(.uppercase)
-                .tracking(1.0)
+            // Split the kicker so the signal count can animate with numericText
+            // while date/time remain stable. HStack(spacing:0) keeps the line
+            // visually identical to the old single-Text layout.
+            HStack(spacing: 0) {
+                Text(orbKickerPrefix(currentTime))
+                    .font(DSType.mono10)
+                    .foregroundColor(DSColor.inkSubtle)
+                    .textCase(.uppercase)
+                    .tracking(1.0)
+                Text("\(viewModel.signalCount)")
+                    .font(DSType.mono10)
+                    .foregroundColor(DSColor.inkSubtle)
+                    .textCase(.uppercase)
+                    .tracking(1.0)
+                    .modifier(NumericTextContentTransition(value: Double(viewModel.signalCount), reduceMotion: reduceMotion))
+                    .animation(reduceMotion ? nil : Motion.spring, value: viewModel.signalCount)
+                Text(orbKickerSuffix())
+                    .font(DSType.mono10)
+                    .foregroundColor(DSColor.inkSubtle)
+                    .textCase(.uppercase)
+                    .tracking(1.0)
+            }
+            .accessibilityLabel(orbKicker(currentTime))
 
             let glowBoost = min(Double(viewModel.signalCount), 5) * 0.04
             let signalCount = viewModel.signalCount
@@ -824,6 +842,25 @@ struct TodayView: View {
         let dateStr = f.string(from: date).uppercased()
         let timeStr = Self.headerTimeFmt.string(from: date)
         return "\(dateStr) · \(timeStr) · \(count) \(signal)"
+    }
+
+    /// Date + time prefix for the split kicker: "29 MAY · 14:30 · "
+    private func orbKickerPrefix(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "d MMM"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone.current
+        let dateStr = f.string(from: date).uppercased()
+        let timeStr = Self.headerTimeFmt.string(from: date)
+        return "\(dateStr) · \(timeStr) · "
+    }
+
+    /// Signal-word suffix for the split kicker: " SIGNALS"
+    private func orbKickerSuffix() -> String {
+        let count = viewModel.signalCount
+        let signalKey = count == 1 ? "today.kicker.signal.one" : "today.kicker.signal.other"
+        let signal = NSLocalizedString(signalKey, comment: "")
+        return " \(signal)"
     }
 
     // MARK: - InputBarV4 (variant D: Silent Press-to-Talk)
@@ -1869,5 +1906,21 @@ private struct ScrollOffsetPreferenceKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
+    }
+}
+
+// ViewModifier to wrap .numericText(value:) which requires iOS 17+
+private struct NumericTextContentTransition: ViewModifier {
+    let value: Double
+    let reduceMotion: Bool
+
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *) {
+            content
+                .contentTransition(reduceMotion ? .identity : .numericText(value: value))
+        } else {
+            content
+                .contentTransition(.identity)
+        }
     }
 }
