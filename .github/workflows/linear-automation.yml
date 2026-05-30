@@ -242,6 +242,7 @@ jobs:
           ISSUE_URL: ${{ github.event.issue.html_url }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Skip if already has Linear reference
           HAS_LINEAR=$(echo "${ISSUE_TITLE} ${ISSUE_BODY}" | grep -ci 'DAY-' || echo "0")
@@ -291,8 +292,6 @@ jobs:
             gh issue comment "$ISSUE_NUMBER" \
               --body "📋 Linear issue created: [$LINEAR_ISSUE_ID](https://linear.app/daypage/issue/$LINEAR_ISSUE_ID)"
           fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ─────────────────────────────────────────────────────────
   # Commit push → Comment on Linear with commit info
