@@ -1,15 +1,14 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, Inter, JetBrains_Mono, Fraunces } from "next/font/google";
-import Script from "next/script";
 import { QueryProvider } from "@/components/QueryProvider";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
 
 // Inline script runs synchronously before React hydration to avoid theme flash.
-// Use next/script with `beforeInteractive` — React 19 refuses to execute a raw
-// <script> rendered as a React child, so the previous inline form produced a
-// console warning ("Scripts inside React components are never executed…") and
-// on client-side re-renders simply did not run.
+// In Next.js 16 / React 19 App Router, a raw <script dangerouslySetInnerHTML>
+// in <head> is hoisted into the SSR HTML stream and executed by the browser
+// parser before hydration. (next/script `beforeInteractive` rendered as a React
+// child throws "Scripts inside React components are never executed…" here.)
 const themeScript = `
 (function(){try{var s=localStorage.getItem('codex.settings.v1');var t=s?JSON.parse(s).theme:'system';document.documentElement.setAttribute('data-theme',t||'system');}catch(e){}})();
 `;
@@ -64,12 +63,12 @@ export default function RootLayout({
     >
       <head>
         {/* Prevents theme flash by setting data-theme before first paint.
-            beforeInteractive is the only safe strategy here — it lets Next.js
-            emit the <script> into the SSR HTML stream so the browser parser
-            executes it synchronously, before React hydrates. */}
-        <Script id="theme-no-flash" strategy="beforeInteractive">
-          {themeScript}
-        </Script>
+            A raw <script> in <head> is emitted into the SSR HTML stream and run
+            synchronously by the browser parser, before React hydrates. */}
+        <script
+          id="theme-no-flash"
+          dangerouslySetInnerHTML={{ __html: themeScript }}
+        />
       </head>
       <body className="min-h-full bg-bg-warm text-fg-primary font-body">
         <ThemeProvider />
