@@ -690,10 +690,12 @@ struct TodayView: View {
                 summary: viewModel.dailyPageSummary,
                 onTap: {
                     if dailyPageRevealed {
+                        Haptics.soft()
                         withAnimation(Motion.spring) {
                             dailyPageRevealed = false
                         }
                     } else {
+                        Haptics.tapConfirm()
                         showDailyPage = true
                     }
                 }
@@ -1161,6 +1163,7 @@ struct TodayView: View {
             }
 
             Button {
+                Haptics.soft()
                 showSettings = true
             } label: {
                 Image(systemName: "gearshape")
@@ -1213,7 +1216,7 @@ struct TodayView: View {
                 // at the very top once the day has a compiled summary.
                 if let summary = viewModel.dailyPageSummary,
                    !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    AISummaryCard(summary: summary, onTap: { showDailyPage = true })
+                    AISummaryCard(summary: summary, onTap: { Haptics.tapConfirm(); showDailyPage = true })
                         .padding(.horizontal, 20)
                         .padding(.bottom, 4)
                         .transition(.opacity)
