@@ -20,6 +20,8 @@ final class SearchViewModel: ObservableObject {
     private let recentKey = "search.recentQueries"
     private let maxRecent = 10
 
+    @Published var lastClearedSearches: [String]? = nil
+
     var recentSearches: [String] {
         get { UserDefaults.standard.stringArray(forKey: recentKey) ?? [] }
         set {
@@ -111,7 +113,17 @@ final class SearchViewModel: ObservableObject {
     }
 
     func clearRecentSearches() {
+        let current = recentSearches
+        guard !current.isEmpty else { return }
+        lastClearedSearches = current
         recentSearches = []
+        objectWillChange.send()
+    }
+
+    func undoClearRecentSearches() {
+        guard let snapshot = lastClearedSearches else { return }
+        recentSearches = snapshot
+        lastClearedSearches = nil
         objectWillChange.send()
     }
 
@@ -218,6 +230,21 @@ struct SearchView: View {
                         .animation(.easeInOut(duration: 0.2), value: vm.hasSearched)
                         .animation(.easeInOut(duration: 0.2), value: vm.results.isEmpty)
                 }
+                .overlay(alignment: .bottom) {
+                    if vm.lastClearedSearches != nil {
+                        UndoPillView(
+                            label: NSLocalizedString("search.undo.cleared", comment: "Undo clear recent searches pill label")
+                        ) {
+                            Haptics.soft()
+                            vm.undoClearRecentSearches()
+                        } onDismiss: {
+                            vm.lastClearedSearches = nil
+                        }
+                        .padding(.bottom, 40)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+                .animation(Motion.rise, value: vm.lastClearedSearches != nil)
             }
             .navigationBarHidden(true)
             .animation(.easeInOut(duration: 0.2), value: showFilters)
