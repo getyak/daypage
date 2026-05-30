@@ -121,6 +121,7 @@ export function DrawerHeatmap() {
 
   const grid = buildGrid(data.cells, today);
   const monthLabels = getMonthLabels(grid);
+  const totalEntries = data.cells.reduce((sum, c) => sum + c.count, 0);
 
   const CELL = 10;
   const GAP = 3;
@@ -136,6 +137,60 @@ export function DrawerHeatmap() {
         position: "relative",
       }}
     >
+      {/* Header row: "LAST N WEEKS" + entry count — frames the grid as the
+          drawer's hero element. */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          marginBottom: 12,
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
+            fontSize: 9,
+            letterSpacing: 1.4,
+            textTransform: "uppercase",
+            color: "var(--fg-muted)",
+          }}
+        >
+          LAST {data.weeks} WEEKS
+        </span>
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "baseline",
+            gap: 5,
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "var(--font-fraunces), Georgia, serif",
+              fontSize: 26,
+              fontWeight: 600,
+              letterSpacing: "-0.5px",
+              lineHeight: 1,
+              color: "var(--fg-primary)",
+            }}
+          >
+            {totalEntries}
+          </span>
+          <span
+            style={{
+              fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
+              fontSize: 8,
+              letterSpacing: 1.2,
+              textTransform: "uppercase",
+              color: "var(--fg-muted)",
+            }}
+          >
+            ENTRIES
+          </span>
+        </span>
+      </div>
+
       {/* Month labels row */}
       <div
         style={{

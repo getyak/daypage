@@ -39,7 +39,7 @@ export function LocationCard({ location, lat, lng, place_name, country }: Locati
       <div
         style={{
           position: "relative",
-          height: 160,
+          height: 150,
           background: "linear-gradient(145deg, #F5EDE3 0%, #EDE0D0 50%, #E3D5C5 100%)",
           display: "flex",
           alignItems: "center",
@@ -88,9 +88,9 @@ export function LocationCard({ location, lat, lng, place_name, country }: Locati
             bottom: 14,
             padding: "7px 11px",
             borderRadius: 10,
-            background: "rgba(250,248,246,0.92)",
-            backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)",
+            background: "rgba(250,248,246,0.85)",
+            backdropFilter: "blur(12px) saturate(130%)",
+            WebkitBackdropFilter: "blur(12px) saturate(130%)",
             border: "0.5px solid var(--border-subtle)",
             display: "flex",
             flexDirection: "column",

@@ -175,13 +175,15 @@ export function FileMetadataCard({ created_at, path, content_hash, memo_id }: Fi
             <span style={labelStyle}>PATH</span>
             <span style={valueStyle}>{derivedPath}</span>
 
-            <span style={labelStyle}>HASH</span>
+            <span style={labelStyle}>SHA-256</span>
             <button
               type="button"
               onClick={handleCopyHash}
               title="点击复制完整 hash"
               style={{
                 ...valueStyle,
+                fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
+                letterSpacing: "0.4px",
                 background: "none",
                 border: "none",
                 padding: 0,

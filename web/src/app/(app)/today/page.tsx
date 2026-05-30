@@ -115,6 +115,13 @@ function TodayMobileFlow() {
     composerMicRef.current?.focus();
   }, []);
 
+  // The mobile Today flow paints its own glass toolbar, so suppress the shared
+  // app topbar while it is mounted (restored on unmount / desktop redirect).
+  useEffect(() => {
+    document.body.classList.add("today-mobile-active");
+    return () => document.body.classList.remove("today-mobile-active");
+  }, []);
+
   const handleScroll = useCallback(() => {
     if (rafRef.current !== null) return;
     rafRef.current = requestAnimationFrame(() => {
