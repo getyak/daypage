@@ -36,9 +36,9 @@ function Toast({ state }: { state: ToastState }) {
         top: 20,
         left: "50%",
         transform: "translateX(-50%)",
-        background: "rgba(30,25,20,0.88)",
-        color: "#F5EDE3",
-        fontFamily: "'JetBrains Mono', monospace",
+        background: "rgba(43,40,34,0.88)",
+        color: "var(--accent-soft, #F5EDE3)",
+        fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
         fontSize: 12,
         letterSpacing: 0.5,
         padding: "8px 18px",
@@ -173,10 +173,11 @@ export function ShareCard({ memo, onClose }: ShareCardProps) {
           style={{
             width: "100%",
             maxWidth: 360,
-            background: "var(--surface-white, #FAFAFA)",
-            borderRadius: 20,
+            // Warm museum gradient — card dissolves into ambient (detail.jsx:768)
+            background: "linear-gradient(180deg, #f3ede2 0%, #ede5d6 100%)",
+            borderRadius: 24,
             overflow: "hidden",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
+            boxShadow: "0 24px 70px -20px rgba(60,40,15,0.4)",
             pointerEvents: "auto",
           }}
         >
@@ -193,17 +194,16 @@ export function ShareCard({ memo, onClose }: ShareCardProps) {
               <X size={15} strokeWidth={2} aria-hidden="true" />
             </GlassPillBtn>
 
+            {/* Centered serif title 分享卡片 (detail.jsx:777) */}
             <span
               style={{
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: 10,
-                letterSpacing: 2,
-                fontWeight: 700,
-                color: "var(--fg-muted, #7A6F66)",
-                textTransform: "uppercase",
+                fontFamily: "var(--font-serif, Fraunces, Georgia, serif)",
+                fontSize: 18,
+                fontWeight: 600,
+                color: "var(--fg-primary, #2B2822)",
               }}
             >
-              SHARE
+              分享卡片
             </span>
 
             <GlassPillBtn aria-label="下载图片" size="sm" onClick={handleExport} disabled={exporting}>
@@ -222,8 +222,8 @@ export function ShareCard({ memo, onClose }: ShareCardProps) {
             style={{
               display: "flex",
               overflowX: "auto",
-              gap: 8,
-              padding: "8px 14px",
+              gap: 6,
+              padding: "10px 14px",
               scrollbarWidth: "none",
             }}
           >
@@ -238,18 +238,24 @@ export function ShareCard({ memo, onClose }: ShareCardProps) {
                   style={{
                     flexShrink: 0,
                     borderRadius: 999,
-                    padding: "6px 14px",
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: 9,
-                    fontWeight: 600,
+                    padding: "10px 16px",
+                    // Serif Chinese labels per design (detail.jsx:797)
+                    fontFamily: "var(--font-serif, Fraunces, Georgia, serif)",
+                    fontSize: 13,
+                    fontWeight: isActive ? 600 : 500,
                     lineHeight: 1.4,
-                    letterSpacing: 1,
-                    textTransform: "uppercase",
-                    border: "none",
+                    whiteSpace: "nowrap",
                     cursor: "pointer",
-                    transition: "background 140ms ease, color 140ms ease",
-                    background: isActive ? "var(--accent, #C0784A)" : "var(--surface-sunken, #F0EBE4)",
-                    color: isActive ? "#FFFFFF" : "var(--fg-muted, #7A6F66)",
+                    transition:
+                      "background var(--motion-medium, 280ms) ease, color var(--motion-medium, 280ms) ease, transform 60ms ease, box-shadow var(--motion-medium, 280ms) ease",
+                    background: isActive ? "var(--accent, #5D3000)" : "var(--surface-white, #FFFFFF)",
+                    color: isActive ? "#FAF8F6" : "var(--fg-primary, #2B2822)",
+                    border:
+                      "0.5px solid " +
+                      (isActive ? "transparent" : "var(--border-subtle, #EDE8DF)"),
+                    boxShadow: isActive
+                      ? "0 6px 14px -6px rgba(93,48,0,0.4)"
+                      : "var(--shadow-card, 0 1px 2px rgba(0,0,0,0.04))",
                     outline: isActive ? "none" : undefined,
                   }}
                 >

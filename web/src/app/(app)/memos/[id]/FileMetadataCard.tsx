@@ -94,7 +94,21 @@ export function FileMetadataCard({ created_at, path, content_hash, memo_id }: Fi
 
   return (
     <>
-      <div style={{ margin: "0 24px 24px", position: "relative" }}>
+      <div style={{ padding: "0 22px 24px", marginTop: 28, position: "relative" }}>
+        {/* SectionLabel — mono 10/700/ls1.8 (detail.jsx:366, 411-420) */}
+        <div style={{ display: "flex", alignItems: "baseline", paddingBottom: 8 }}>
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontWeight: 700,
+              fontSize: 10,
+              letterSpacing: "1.8px",
+              color: "var(--fg-muted)",
+            }}
+          >
+            FILE
+          </span>
+        </div>
         <div
           style={{
             padding: "14px 16px",
@@ -175,7 +189,7 @@ export function FileMetadataCard({ created_at, path, content_hash, memo_id }: Fi
             <span style={labelStyle}>PATH</span>
             <span style={valueStyle}>{derivedPath}</span>
 
-            <span style={labelStyle}>SHA-256</span>
+            <span style={labelStyle}>HASH</span>
             <button
               type="button"
               onClick={handleCopyHash}

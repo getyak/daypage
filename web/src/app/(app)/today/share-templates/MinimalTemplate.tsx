@@ -1,15 +1,18 @@
 import type { ShareTemplateProps } from "./index";
 
-function formatDate(iso: string) {
+function formatTime(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" });
+  return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 }
 
-export function MinimalTemplate({ body, created_at, place_name, photo_url }: ShareTemplateProps) {
-  const lines = body.split("\n").filter(Boolean);
-  const title = lines[0] ?? "Memo";
-  const rest = lines.slice(1).join("\n");
+const HAIRLINE = "var(--border-subtle, #EDE8DF)";
+const MUTED = "var(--fg-muted, #6B6560)";
 
+/**
+ * Minimal template — DAYPAGE + time header, top/bottom hairlines,
+ * centered daypage.app footer (detail.jsx:843-859).
+ */
+export function MinimalTemplate({ body, created_at, place_name, photo_url }: ShareTemplateProps) {
   return (
     <div
       style={{
@@ -17,76 +20,101 @@ export function MinimalTemplate({ body, created_at, place_name, photo_url }: Sha
         aspectRatio: "4/5",
         borderRadius: 18,
         overflow: "hidden",
-        background: "#FAF8F6",
-        padding: 28,
+        background: "#fff",
+        padding: 22,
         display: "flex",
         flexDirection: "column",
         boxSizing: "border-box",
+        boxShadow: "0 18px 40px -16px rgba(60,40,15,0.22)",
       }}
     >
+      {/* Header: DAYPAGE display label + time */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+        <span
+          style={{
+            fontFamily: "var(--font-display, 'Space Grotesk', sans-serif)",
+            fontWeight: 700,
+            fontSize: 14,
+            letterSpacing: 1.4,
+            color: "var(--fg-primary, #2B2822)",
+          }}
+        >
+          DAYPAGE
+        </span>
+        <span
+          style={{
+            fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+            fontSize: 10,
+            color: MUTED,
+          }}
+        >
+          {formatTime(created_at)}
+        </span>
+      </div>
+
+      {/* Top hairline */}
+      <div style={{ height: 1, background: HAIRLINE, margin: "10px 0 14px" }} />
+
+      {/* Photo 4/3 */}
       {photo_url && (
-        <div style={{ marginBottom: 20, borderRadius: 10, overflow: "hidden", flexShrink: 0 }}>
+        <div style={{ borderRadius: 10, overflow: "hidden", flexShrink: 0, aspectRatio: "4/3" }}>
           <img
             src={photo_url}
             alt=""
-            style={{ width: "100%", height: 120, objectFit: "cover", display: "block" }}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
           />
         </div>
       )}
 
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <div
-          style={{
-            fontFamily: "Fraunces, Georgia, serif",
-            fontSize: 24,
-            lineHeight: 1.2,
-            letterSpacing: -0.3,
-            color: "#2A1F16",
-            fontWeight: 700,
-            marginBottom: 16,
-          }}
-        >
-          {title}
-        </div>
-
-        {rest && (
-          <div
-            style={{
-              fontFamily: "Inter, sans-serif",
-              fontSize: 14,
-              lineHeight: 1.6,
-              color: "#4A3F35",
-              flex: 1,
-              overflow: "hidden",
-              display: "-webkit-box",
-              WebkitLineClamp: 8,
-              WebkitBoxOrient: "vertical",
-            }}
-          >
-            {rest}
-          </div>
-        )}
-      </div>
-
+      {/* Body */}
       <div
         style={{
-          fontFamily: "'JetBrains Mono', monospace",
+          fontFamily: "var(--font-body, Inter, sans-serif)",
+          fontSize: 14,
+          lineHeight: 1.62,
+          color: "var(--fg-primary, #2B2822)",
+          marginTop: 14,
+          whiteSpace: "pre-line",
+          flex: 1,
+          overflow: "hidden",
+          display: "-webkit-box",
+          WebkitLineClamp: 7,
+          WebkitBoxOrient: "vertical",
+        }}
+      >
+        {body}
+      </div>
+
+      {/* Place name */}
+      {place_name && (
+        <div
+          style={{
+            fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+            fontSize: 9,
+            color: MUTED,
+            marginTop: 14,
+            letterSpacing: 1.4,
+            textTransform: "uppercase",
+            flexShrink: 0,
+          }}
+        >
+          {place_name}
+        </div>
+      )}
+
+      {/* Bottom hairline + centered footer */}
+      <div style={{ height: 1, background: HAIRLINE, margin: "14px 0 8px", flexShrink: 0 }} />
+      <div
+        style={{
+          fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
           fontSize: 9,
-          color: "#A09080",
-          letterSpacing: 0.5,
-          marginTop: 16,
-          display: "flex",
-          gap: 8,
+          color: "var(--fg-subtle, #A39F99)",
+          textAlign: "center",
+          letterSpacing: 1,
           flexShrink: 0,
         }}
       >
-        <span>{formatDate(created_at)}</span>
-        {place_name && (
-          <>
-            <span>·</span>
-            <span>{place_name}</span>
-          </>
-        )}
+        daypage.app
       </div>
     </div>
   );

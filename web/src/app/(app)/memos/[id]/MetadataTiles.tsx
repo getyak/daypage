@@ -47,10 +47,13 @@ const labelStyle: React.CSSProperties = {
 };
 
 const valueStyle: React.CSSProperties = {
+  // detail.jsx:399 MetaTile value uses `display` (Space Grotesk) with ls -0.4
+  fontFamily: "var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif",
   fontSize: 18,
   fontWeight: 600,
   color: "var(--fg-primary)",
-  lineHeight: 1.1,
+  letterSpacing: "-0.4px",
+  lineHeight: 1,
   marginBottom: 3,
 };
 
@@ -109,7 +112,7 @@ export function MetadataTiles({ weather, humidity, kind, createdAt }: Props) {
   }
 
   return (
-    <div style={{ padding: "0 14px 20px" }}>
+    <div style={{ padding: "0 22px 22px" }}>
       <dl
         style={{
           display: "grid",

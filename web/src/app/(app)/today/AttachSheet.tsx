@@ -52,20 +52,20 @@ export function AttachSheet({ isOpen, onClose }: AttachSheetProps) {
       albumInputRef.current?.click();
     } else if (id === "location") {
       if (typeof navigator !== "undefined" && navigator.geolocation) {
+        // TODO(attach-location): thread coords back to the composer via an
+        // onPickLocation callback once the memo draft accepts an attached place.
         navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            console.log("Location:", pos.coords.latitude, pos.coords.longitude);
-          },
-          (err) => {
-            console.warn("Geolocation error:", err.message);
-          },
+          () => onClose(),
+          () => onClose(),
           { enableHighAccuracy: true, timeout: 6000 }
         );
+      } else {
+        onClose();
       }
     } else if (id === "file") {
       fileInputRef.current?.click();
     }
-  }, []);
+  }, [onClose]);
 
   // ESC to close + focus trap
   useEffect(() => {
@@ -159,18 +159,18 @@ export function AttachSheet({ isOpen, onClose }: AttachSheetProps) {
             style={{
               width: 36,
               height: 4,
-              borderRadius: 2,
+              borderRadius: 4,
               background: "#D6CEC0",
             }}
           />
         </div>
 
-        {/* 4 buttons */}
+        {/* 4-column grid of sunken icon tiles (design composer.jsx:385-407) */}
         <div
           style={{
-            display: "flex",
-            gap: 16,
-            justifyContent: "center",
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: 6,
           }}
         >
           {BUTTONS.map(({ icon: Icon, label, id }) => (
@@ -208,7 +208,7 @@ export function AttachSheet({ isOpen, onClose }: AttachSheetProps) {
                   e.currentTarget.style.color = "var(--fg-muted)";
                 }}
               >
-                <Icon size={22} strokeWidth={1.6} aria-hidden="true" />
+                <Icon size={24} strokeWidth={1.6} aria-hidden="true" />
               </button>
               <span
                 style={{

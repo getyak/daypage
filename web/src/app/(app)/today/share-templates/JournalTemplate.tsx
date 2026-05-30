@@ -1,31 +1,23 @@
 import type { ShareTemplateProps } from "./index";
 
-function formatDate(iso: string) {
+function weekday(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", { weekday: "long" });
+}
+
+function monthDay(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
+  // "may 28" (detail.jsx:921)
+  return `${d.toLocaleDateString("en-US", { month: "long" }).toLowerCase()} ${d.getDate()}`;
 }
 
-function PushpinSVG() {
-  return (
-    <svg
-      width="22"
-      height="28"
-      viewBox="0 0 22 28"
-      fill="none"
-      aria-hidden="true"
-      style={{ position: "absolute", top: 20, right: 22 }}
-    >
-      <ellipse cx="11" cy="8" rx="7" ry="7" fill="#C0392B" />
-      <ellipse cx="11" cy="8" rx="4" ry="4" fill="#E74C3C" />
-      <line x1="11" y1="14" x2="11" y2="28" stroke="#A0896A" strokeWidth="2" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-export function JournalTemplate({ body, created_at, place_name }: ShareTemplateProps) {
-  const lines = body.split("\n").filter(Boolean);
-  const title = lines[0] ?? "Journal Entry";
-  const rest = lines.slice(1).join("\n");
+/**
+ * Journal template — washi-tape strips, ruled lines, red margin accent,
+ * serif date title, 5/4 photo (detail.jsx:904-933).
+ */
+export function JournalTemplate({ body, created_at, place_name, photo_url, weather }: ShareTemplateProps) {
+  const text = body.length > 160 ? body.slice(0, 160) + "…" : body;
+  const location = place_name ?? "VIENTIANE";
+  const temp = weather ?? "28°";
 
   return (
     <div
@@ -34,31 +26,19 @@ export function JournalTemplate({ body, created_at, place_name }: ShareTemplateP
         aspectRatio: "4/5",
         borderRadius: 18,
         overflow: "hidden",
-        background: "#F5EDE3",
-        padding: 24,
+        background: "#FBF6E8",
+        padding: 20,
+        position: "relative",
         display: "flex",
         flexDirection: "column",
         boxSizing: "border-box",
-        position: "relative",
+        boxShadow: "0 18px 40px -16px rgba(60,40,15,0.25)",
+        // Ruled lines (detail.jsx:908)
+        backgroundImage:
+          "repeating-linear-gradient(180deg, transparent 0 27px, rgba(180,150,90,0.18) 27px 28px)",
       }}
     >
-      <PushpinSVG />
-
-      {/* Ruled lines decoration */}
-      <div
-        aria-hidden="true"
-        style={{
-          position: "absolute",
-          inset: 0,
-          backgroundImage:
-            "repeating-linear-gradient(transparent, transparent 27px, rgba(160,137,112,0.15) 27px, rgba(160,137,112,0.15) 28px)",
-          backgroundPositionY: 56,
-          borderRadius: 18,
-          pointerEvents: "none",
-        }}
-      />
-
-      {/* Left margin line */}
+      {/* Left margin accent line */}
       <div
         aria-hidden="true"
         style={{
@@ -67,64 +47,105 @@ export function JournalTemplate({ body, created_at, place_name }: ShareTemplateP
           top: 0,
           bottom: 0,
           width: 1,
-          background: "rgba(200,100,80,0.2)",
+          background: "rgba(227,107,74,0.3)",
           pointerEvents: "none",
         }}
       />
 
-      <div style={{ position: "relative", flex: 1, display: "flex", flexDirection: "column", paddingLeft: 12 }}>
+      {/* Washi tape — orange (top-left), green (top-right) */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          top: -6,
+          left: 30,
+          width: 90,
+          height: 18,
+          background: "rgba(227,107,74,0.55)",
+          transform: "rotate(-5deg)",
+          boxShadow: "0 2px 4px rgba(60,40,15,0.15)",
+        }}
+      />
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          top: -4,
+          right: 24,
+          width: 64,
+          height: 14,
+          background: "rgba(106,134,68,0.5)",
+          transform: "rotate(8deg)",
+          boxShadow: "0 2px 4px rgba(60,40,15,0.15)",
+        }}
+      />
+
+      <div style={{ position: "relative", flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {/* Serif title: weekday · month day */}
         <div
           style={{
-            fontFamily: "Fraunces, Georgia, serif",
+            fontFamily: "var(--font-serif, Fraunces, Georgia, serif)",
             fontSize: 22,
-            lineHeight: 1.3,
-            color: "#3A3025",
             fontWeight: 600,
-            marginBottom: 14,
-            paddingRight: 32,
+            lineHeight: 1.1,
+            color: "#3a2a18",
+            marginTop: 10,
           }}
         >
-          {title}
+          {weekday(created_at)}
+          <span style={{ fontSize: 14, fontWeight: 500, color: "#8a6a3a", marginLeft: 8 }}>
+            · {monthDay(created_at)}
+          </span>
         </div>
 
+        {/* Divider */}
+        <div style={{ height: 1, background: "#c9a677", margin: "10px 0 14px", opacity: 0.7 }} />
+
+        {/* Photo 5/4 */}
+        {photo_url && (
+          <div style={{ aspectRatio: "5/4", overflow: "hidden", borderRadius: 8, flexShrink: 0 }}>
+            <img
+              src={photo_url}
+              alt=""
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+          </div>
+        )}
+
+        {/* Body */}
         <div
           style={{
-            fontFamily: "Inter, sans-serif",
-            fontSize: 14,
+            fontFamily: "var(--font-body, Inter, sans-serif)",
+            fontSize: 13,
             lineHeight: 1.7,
-            color: "#4A3F35",
+            color: "#3a2a18",
+            marginTop: 14,
+            whiteSpace: "pre-line",
             flex: 1,
             overflow: "hidden",
             display: "-webkit-box",
-            WebkitLineClamp: 9,
+            WebkitLineClamp: 6,
             WebkitBoxOrient: "vertical",
           }}
         >
-          {rest || body}
+          {text}
         </div>
-      </div>
 
-      <div
-        style={{
-          position: "relative",
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 9,
-          color: "#A09080",
-          letterSpacing: 0.5,
-          marginTop: 12,
-          paddingLeft: 12,
-          display: "flex",
-          gap: 8,
-          flexShrink: 0,
-        }}
-      >
-        <span>{formatDate(created_at)}</span>
-        {place_name && (
-          <>
-            <span>·</span>
-            <span>{place_name}</span>
-          </>
-        )}
+        {/* Footer: red dot + location · temp */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 14, flexShrink: 0 }}>
+          <span style={{ width: 18, height: 18, borderRadius: 999, background: "#E36B4A", flexShrink: 0 }} />
+          <span
+            style={{
+              fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
+              fontSize: 10,
+              color: "#8a6a3a",
+              letterSpacing: 1.2,
+              textTransform: "uppercase",
+            }}
+          >
+            {location} · {temp}
+          </span>
+        </div>
       </div>
     </div>
   );

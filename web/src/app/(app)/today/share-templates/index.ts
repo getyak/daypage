@@ -22,10 +22,11 @@ export type TemplateEntry = {
   component: FC<ShareTemplateProps>;
 };
 
+// Chinese serif labels per design (detail.jsx:762 SHARE_TEMPLATE_LABELS)
 export const SHARE_TEMPLATES: TemplateEntry[] = [
-  { id: "minimal", label: "MINIMAL", component: MinimalTemplate },
-  { id: "film", label: "FILM", component: FilmTemplate },
-  { id: "polaroid", label: "POLAROID", component: PolaroidTemplate },
-  { id: "journal", label: "JOURNAL", component: JournalTemplate },
-  { id: "postcard", label: "POSTCARD", component: PostcardTemplate },
+  { id: "minimal", label: "极简", component: MinimalTemplate },
+  { id: "film", label: "胶片", component: FilmTemplate },
+  { id: "polaroid", label: "拍立得", component: PolaroidTemplate },
+  { id: "journal", label: "手账", component: JournalTemplate },
+  { id: "postcard", label: "明信片", component: PostcardTemplate },
 ];

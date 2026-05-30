@@ -19,7 +19,7 @@ export function MemoDetailTitle({ place, kind, location }: Props) {
   const isLong = (place?.length ?? 0) > 30;
 
   return (
-    <div style={{ padding: "24px 14px 16px" }}>
+    <div style={{ padding: "22px 22px 16px" }}>
       {place ? (
         <h1
           style={{

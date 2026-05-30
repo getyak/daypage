@@ -50,7 +50,7 @@ export function HeroPhoto({ src, filename, width, height, alt }: Props) {
     .join(" · ");
 
   return (
-    <div style={{ padding: "0 14px 20px" }}>
+    <div style={{ padding: "0 22px 22px" }}>
       {/* Image wrapper */}
       <div
         style={{

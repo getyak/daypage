@@ -109,6 +109,11 @@ export function AISummaryCard() {
 
   const renderedText = animateEnabled ? displayed : summaryText;
   const showCaret = animateEnabled && !done;
+  // Signature elegance (gap CRITICAL): once the typewriter finishes, the
+  // resolved summary breathes via the iridescent .shimmer-text sweep
+  // (globals.css ← tokens.css:54-60). Skipped for placeholder copy, while
+  // loading, and when the user prefers reduced motion.
+  const showShimmer = !isPlaceholder && !loading && !prefersReduced && (done || !animateEnabled);
 
   if (loading) {
     return (
@@ -197,7 +202,7 @@ export function AISummaryCard() {
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 6,
+          gap: 8,
           marginBottom: 12,
         }}
       >
@@ -205,11 +210,11 @@ export function AISummaryCard() {
         <span
           style={{
             fontFamily: "var(--font-family-mono), monospace",
-            fontSize: "var(--font-size-mono-xs)",
+            fontSize: 9.5,
             textTransform: "uppercase",
-            letterSpacing: "0.06em",
+            letterSpacing: "1.6px",
             color: "var(--accent)",
-            fontWeight: 500,
+            fontWeight: 700,
             flex: 1,
           }}
         >
@@ -218,14 +223,33 @@ export function AISummaryCard() {
         {timestamp && (
           <span
             style={{
-              fontFamily: "var(--font-family-mono), monospace",
-              fontSize: "var(--font-size-mono-xs)",
-              color: "var(--fg-subtle)",
-              letterSpacing: "0.04em",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 5,
             }}
             aria-label={`生成时间 ${timestamp}`}
           >
-            {timestamp}
+            <span
+              aria-hidden="true"
+              style={{
+                width: 5,
+                height: 5,
+                borderRadius: 999,
+                background: "var(--accent)",
+                flexShrink: 0,
+              }}
+            />
+            <span
+              style={{
+                fontFamily: "var(--font-family-mono), monospace",
+                fontSize: 9,
+                color: "var(--fg-subtle)",
+                letterSpacing: "1.2px",
+                fontWeight: 600,
+              }}
+            >
+              {timestamp}
+            </span>
           </span>
         )}
       </div>
@@ -238,13 +262,19 @@ export function AISummaryCard() {
           padding: 0,
           fontFamily: `"Fraunces", var(--font-family-serif), Georgia, serif`,
           fontSize: 19,
+          fontWeight: 500,
           fontStyle: isPlaceholder ? "normal" : "italic",
           lineHeight: 1.45,
+          letterSpacing: "0.1px",
           minHeight: 54,
           color: isPlaceholder ? "var(--fg-subtle)" : "var(--fg-primary)",
         }}
       >
-        {renderedText}
+        {showShimmer ? (
+          <span className="shimmer-text">{renderedText}</span>
+        ) : (
+          renderedText
+        )}
         {showCaret && (
           <span
             aria-hidden="true"

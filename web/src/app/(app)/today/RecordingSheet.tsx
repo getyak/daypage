@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
+import { useWaveform } from "@/hooks/useWaveform";
+import { Waveform } from "@/components/ui/Waveform";
 
 interface RecordingSheetProps {
   isOpen: boolean;
@@ -13,10 +15,6 @@ const BAR_COUNT = 64;
 const MAX_DURATION_S = 300;
 const IDLE_TIMEOUT_S = 30;
 
-function randomBarHeights(): number[] {
-  return Array.from({ length: BAR_COUNT }, () => 4 + Math.random() * 36);
-}
-
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60).toString().padStart(2, "0");
   const s = Math.floor(seconds % 60).toString().padStart(2, "0");
@@ -25,18 +23,16 @@ function formatTime(seconds: number): string {
 
 export function RecordingSheet({ isOpen, onClose, onStop }: RecordingSheetProps) {
   const [elapsed, setElapsed] = useState(0);
-  const [barHeights, setBarHeights] = useState<number[]>(randomBarHeights);
+  // Smooth, phase-locked live waveform (design composer.jsx:5-31, shared hook).
+  const bars = useWaveform(isOpen, BAR_COUNT);
   const startTimeRef = useRef<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const waveformRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const cleanup = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
-    if (waveformRef.current) clearInterval(waveformRef.current);
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     timerRef.current = null;
-    waveformRef.current = null;
     idleTimerRef.current = null;
   }, []);
 
@@ -51,7 +47,6 @@ export function RecordingSheet({ isOpen, onClose, onStop }: RecordingSheetProps)
   useEffect(() => {
     if (!isOpen) return;
 
-    setElapsed(0);
     startTimeRef.current = Date.now();
 
     timerRef.current = setInterval(() => {
@@ -65,15 +60,15 @@ export function RecordingSheet({ isOpen, onClose, onStop }: RecordingSheetProps)
       }
     }, 1000);
 
-    // Waveform animation
-    waveformRef.current = setInterval(() => {
-      setBarHeights(randomBarHeights());
-    }, 150);
-
     // Idle timeout
     resetIdle();
 
-    return cleanup;
+    // Reset the clock in cleanup (not the effect body) to avoid the
+    // cascading-render lint while still clearing a stale value on close.
+    return () => {
+      cleanup();
+      setElapsed(0);
+    };
   }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ESC to close
@@ -100,34 +95,13 @@ export function RecordingSheet({ isOpen, onClose, onStop }: RecordingSheetProps)
 
   return (
     <>
-      <style>{`
-        @keyframes sheet-up {
-          from { transform: translateY(100%); opacity: 0 }
-          to { transform: translateY(0); opacity: 1 }
-        }
-        @keyframes pulse-dot {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(227,107,74,0.6), 0 0 0 4px rgba(227,107,74,0.18) }
-          50% { box-shadow: 0 0 0 5px rgba(227,107,74,0), 0 0 0 4px rgba(227,107,74,0.18) }
-        }
-        @keyframes blink-caret {
-          0%, 100% { opacity: 1 }
-          50% { opacity: 0 }
-        }
-        .transcription-placeholder::after {
-          content: "▎";
-          display: inline-block;
-          animation: blink-caret 1s step-start infinite;
-          margin-left: 2px;
-        }
-      `}</style>
-
       <div
         role="dialog"
         aria-modal="true"
         aria-label="录音中"
         style={{
           position: "fixed",
-          bottom: 0,
+          bottom: "calc(34px + env(safe-area-inset-bottom, 0px))",
           left: 14,
           right: 14,
           zIndex: 55,
@@ -146,7 +120,7 @@ export function RecordingSheet({ isOpen, onClose, onStop }: RecordingSheetProps)
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            marginBottom: 20,
+            marginBottom: 14,
           }}
         >
           {/* Recording indicator */}
@@ -163,13 +137,14 @@ export function RecordingSheet({ isOpen, onClose, onStop }: RecordingSheetProps)
             <span
               style={{
                 fontFamily: "var(--font-mono)",
+                fontWeight: 500,
                 fontSize: 12,
-                color: "rgba(245,237,227,0.6)",
-                letterSpacing: "0.5px",
+                color: "#F5EDE3",
+                letterSpacing: "1.4px",
                 textTransform: "uppercase",
               }}
             >
-              REC
+              录音中
             </span>
           </div>
 
@@ -188,46 +163,47 @@ export function RecordingSheet({ isOpen, onClose, onStop }: RecordingSheetProps)
           </span>
         </div>
 
-        {/* Waveform */}
+        {/* Waveform — phase-locked, sunken trough (design lines 447-453) */}
         <div
           aria-hidden="true"
           style={{
+            height: 56,
+            background: "rgba(255,255,255,0.05)",
+            borderRadius: 14,
+            padding: "0 14px",
             display: "flex",
             alignItems: "center",
-            gap: 2,
-            height: 48,
-            marginBottom: 16,
             overflow: "hidden",
+            border: "0.5px solid rgba(255,255,255,0.08)",
+            marginBottom: 16,
           }}
         >
-          {barHeights.map((h, i) => (
-            <div
-              key={i}
-              style={{
-                width: 2,
-                height: h,
-                borderRadius: 1,
-                background: "rgba(245,237,227,0.5)",
-                flexShrink: 0,
-                transition: "height 120ms ease",
-              }}
-            />
-          ))}
+          <Waveform bars={bars} color="#F5EDE3" gap={2} width={2} height={36} />
         </div>
 
-        {/* Transcription placeholder */}
+        {/* Transcription preview — sample line + blinking caret (design lines 454-459) */}
         <p
-          className="transcription-placeholder"
           style={{
             margin: "0 0 20px",
             fontSize: 13,
             color: "rgba(245,237,227,0.65)",
             lineHeight: 1.5,
-            textAlign: "center",
             fontFamily: "var(--font-body)",
           }}
         >
-          正在聆听...
+          “昨天晚上的咖啡馆氛围超好，开到 10 点 — ”
+          <span
+            aria-hidden="true"
+            style={{
+              display: "inline-block",
+              width: 2,
+              height: 13,
+              background: "#F5EDE3",
+              marginLeft: 2,
+              verticalAlign: "-2px",
+              animation: "caret 1s steps(1) infinite",
+            }}
+          />
         </p>
 
         {/* Buttons */}
@@ -236,15 +212,16 @@ export function RecordingSheet({ isOpen, onClose, onStop }: RecordingSheetProps)
             onClick={handleCancel}
             style={{
               flex: 1,
+              height: 46,
               background: "rgba(255,255,255,0.1)",
               color: "#F5EDE3",
               border: "none",
               borderRadius: 999,
-              padding: "12px 0",
-              fontWeight: 600,
-              fontSize: 15,
-              cursor: "pointer",
               fontFamily: "var(--font-body)",
+              fontSize: 14,
+              fontWeight: 500,
+              letterSpacing: "0.2px",
+              cursor: "pointer",
               transition: "background 140ms",
             }}
             onMouseEnter={(e) => {
@@ -261,19 +238,20 @@ export function RecordingSheet({ isOpen, onClose, onStop }: RecordingSheetProps)
             onClick={handleStop}
             style={{
               flex: 1.6,
+              height: 46,
               background: "#F5EDE3",
               color: "#2B2822",
               border: "none",
               borderRadius: 999,
-              padding: "12px 0",
-              fontWeight: 600,
-              fontSize: 15,
-              cursor: "pointer",
               fontFamily: "var(--font-body)",
+              fontSize: 14,
+              fontWeight: 600,
+              letterSpacing: "0.2px",
+              cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: 6,
+              gap: 8,
               transition: "background 140ms",
             }}
             onMouseEnter={(e) => {
@@ -283,8 +261,8 @@ export function RecordingSheet({ isOpen, onClose, onStop }: RecordingSheetProps)
               e.currentTarget.style.background = "#F5EDE3";
             }}
           >
-            <Check size={16} strokeWidth={2.2} aria-hidden="true" />
-            停止转录
+            <Check size={16} strokeWidth={2} aria-hidden="true" />
+            停止并转写
           </button>
         </div>
       </div>
