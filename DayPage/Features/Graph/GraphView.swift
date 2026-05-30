@@ -485,6 +485,7 @@ struct GraphView: View {
                 }
 
                 if isTransformed { recenterButton }
+                if scale != 1.0 { zoomIndicator }
             }
             .onTapGesture(count: 2) {
                 guard isTransformed else { return }
@@ -556,6 +557,22 @@ struct GraphView: View {
         .accessibilityLabel("Recenter graph")
         .transition(.opacity.combined(with: .scale))
         .animation(Motion.spring, value: isTransformed)
+    }
+
+    private var zoomIndicator: some View {
+        Text("\(Int(scale * 100))%")
+            .font(DSFonts.jetBrainsMono(size: 10))
+            .foregroundColor(DSColor.inkPrimary)
+            .padding(.horizontal, DSSpacing.sm)
+            .padding(.vertical, 6)
+            .liquidGlassCard(cornerRadius: DSRadius.md, tone: .hi)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+            .padding(DSSpacing.lg)
+            .padding(.bottom, 56)
+            .accessibilityLabel("Zoom level")
+            .accessibilityValue("\(Int(scale * 100)) percent")
+            .transition(.opacity.combined(with: .scale))
+            .animation(reduceMotion ? .default.speed(0) : Motion.spring, value: scale)
     }
 
     private func legendRow(type: String, color: Color, label: String, count: Int, isHidden: Bool) -> some View {
