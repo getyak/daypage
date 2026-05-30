@@ -45,7 +45,8 @@ struct AISummaryCard: View {
                 header
                 TypewriterText(
                     fullText: summary,
-                    animated: !reduceMotion
+                    animated: !reduceMotion,
+                    hapticTexture: !reduceMotion
                 )
                 .font(DSType.serifQuote) // 18pt serif italic ≈ design 19pt
                 .foregroundColor(DSColor.inkPrimary)
@@ -137,6 +138,8 @@ private struct TappableCardAccessibility: ViewModifier {
 struct TypewriterText: View {
     let fullText: String
     var animated: Bool = true
+    /// When true, a soft haptic tick fires every 4th character during the reveal.
+    var hapticTexture: Bool = true
 
     @State private var shownCount: Int = 0
     @State private var caretVisible: Bool = true
@@ -193,6 +196,10 @@ struct TypewriterText: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [gen] in
             guard gen == generation, shownCount < fullText.count else { return }
             shownCount += 1
+            // Soft haptic texture: every 4th char (skip final — completion has its own celebration).
+            if hapticTexture && animated && shownCount % 4 == 0 && shownCount < fullText.count {
+                Haptics.soft()
+            }
             // Reveal complete → stop the repeating blink and settle the caret
             // (the caret view itself disappears via `isTyping`, but halting the
             // animation prevents a lingering repeatForever on a hidden layer).
