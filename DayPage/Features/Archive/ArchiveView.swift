@@ -874,6 +874,9 @@ struct ArchiveView: View {
 
             Spacer()
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Activity density legend")
+        .accessibilityValue("Ranges from empty to high")
     }
 
     // MARK: - Monthly Summary
@@ -1054,6 +1057,9 @@ struct ArchiveView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: 110)
         .liquidGlassCard(cornerRadius: 12)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue(unit != nil ? "\(value) \(unit!)" : value)
     }
 
     // MARK: - System Status Artifact
