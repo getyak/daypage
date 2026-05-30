@@ -43,22 +43,24 @@ struct WriteSheetView: View {
     /// Sheet-up easing — composer.jsx:219 `cubic-bezier(.2,.8,.2,1)` @ 320ms.
     private static let sheetUp = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.32)
 
-    /// Non-whitespace character count (design composer.jsx:201).
-    private var words: Int {
-        text.filter { !$0.isWhitespace }.count
+    /// Actual word count — split on whitespace/newlines, filter empties.
+    private var wordCount: Int {
+        text.split(whereSeparator: \.isWhitespace).count
     }
+
+    private var charCount: Int { text.count }
 
     private var canSave: Bool {
         !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
-    /// Counter color: interpolates from fgMuted → accentAmber as words grows from 100…200.
+    /// Counter color: interpolates from fgMuted → accentAmber as wordCount grows from 100…200.
     private var wordCountColor: Color {
-        guard !reduceMotion, words > 0 else {
-            return words > 0 ? DSTokens.Colors.fgMuted : DSTokens.Colors.fgSubtle
+        guard !reduceMotion, wordCount > 0 else {
+            return wordCount > 0 ? DSTokens.Colors.fgMuted : DSTokens.Colors.fgSubtle
         }
-        guard words > 100 else { return DSTokens.Colors.fgMuted }
-        let t = CGFloat(min(words - 100, 100)) / 100.0
+        guard wordCount > 100 else { return DSTokens.Colors.fgMuted }
+        let t = CGFloat(min(wordCount - 100, 100)) / 100.0
         return Self.lerpColor(from: DSColor.inkMuted, to: DSColor.accentAmber, t: t)
     }
 
@@ -277,20 +279,25 @@ struct WriteSheetView: View {
 
             Spacer()
 
-            // Word count — mono, rolls digits via numericText, warms toward amber with length.
-            Text("\(words) \(NSLocalizedString("write.sheet.words_unit", comment: "字"))")
-                .font(DSFonts.jetBrainsMono(size: 10, weight: .semibold))
-                .tracking(1.3)
+            // Word + char counter — mono10/inkSubtle, milestones every 100 words.
+            let wordsLabel = wordCount == 1
+                ? NSLocalizedString("writesheet.count.words.one", comment: "1 word")
+                : String(format: NSLocalizedString("writesheet.count.words.other", comment: "%d words"), wordCount)
+            Text("\(wordsLabel) · \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
+                .font(DSType.mono10)
+                .tracking(1.0)
+                .textCase(.uppercase)
                 .monospacedDigit()
-                .foregroundColor(wordCountColor)
-                .modifier(NumericTextContentTransition(value: Double(words), reduceMotion: reduceMotion))
-                .animation(reduceMotion ? nil : Motion.spring, value: words)
+                .foregroundColor(DSColor.inkSubtle)
+                .modifier(NumericTextContentTransition(value: Double(wordCount), reduceMotion: reduceMotion))
+                .animation(reduceMotion ? nil : Motion.spring, value: wordCount)
                 .padding(.trailing, 10)
-                .onChange(of: words) { newWords in
-                    let milestone = newWords / 50
+                .accessibilityLabel("\(wordsLabel), \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
+                .onChange(of: wordCount) { newCount in
+                    let milestone = newCount / 100
                     if milestone > lastMilestone {
                         lastMilestone = milestone
-                        if !reduceMotion { Haptics.soft() }
+                        if newCount > 0 { Haptics.soft() }
                     } else if milestone < lastMilestone {
                         lastMilestone = milestone
                     }
