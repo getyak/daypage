@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - GraphView
 
@@ -189,8 +190,16 @@ struct GraphView: View {
                         if count == 0 && lastZeroQuery != query {
                             lastZeroQuery = query
                             Haptics.warn()
+                            if UIAccessibility.isVoiceOverRunning {
+                                let msg = NSLocalizedString("无匹配节点", comment: "Graph search zero-match pill")
+                                UIAccessibility.post(notification: .announcement, argument: msg)
+                            }
                         } else if count > 0 {
                             lastZeroQuery = nil
+                            if UIAccessibility.isVoiceOverRunning {
+                                let msg = "\(count) 个匹配"
+                                UIAccessibility.post(notification: .announcement, argument: msg)
+                            }
                         }
                     }
                 }
