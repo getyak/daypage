@@ -137,7 +137,10 @@ struct UndoPillView: View {
             hapticWorkItem.item = nil
         }
         .task {
-            for tick in stride(from: 4, through: 0, by: -1) {
+            // Sleep 1s before each assignment so the label reads:
+            // 5 (0–1s), 4 (1–2s), 3 (2–3s), 2 (3–4s), 1 (4–5s)
+            // — never showing '0' before the pill is removed at 5s.
+            for tick in stride(from: 4, through: 1, by: -1) {
                 try? await Task.sleep(for: .seconds(1))
                 secondsRemaining = tick
             }
