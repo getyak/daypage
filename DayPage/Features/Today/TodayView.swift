@@ -99,6 +99,9 @@ struct TodayView: View {
     /// Drives the one-shot amber glow + scale reveal on the daily page card after compilation.
     @State private var compileRevealGlow: Bool = false
 
+    /// Drives the one-shot amber glow pulse on the orb / timeline top after pull-to-refresh.
+    @State private var refreshGlow: Bool = false
+
     /// Scroll proxy captured from the timeline ScrollViewReader; used by composeSection
     /// to scroll to the top anchor after a new memo is added.
     @State private var timelineScrollProxy: ScrollViewProxy? = nil
@@ -790,6 +793,11 @@ struct TodayView: View {
                 reduceMotion ? nil : .easeInOut(duration: 3.0).repeatForever(autoreverses: true),
                 value: orbBreathing
             )
+            .shadow(
+                color: DSColor.accentAmber.opacity(refreshGlow ? 0.45 : 0),
+                radius: refreshGlow ? 18 : 0
+            )
+            .animation(.easeOut(duration: 0.6), value: refreshGlow)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(NSLocalizedString("today.orb.label", comment: ""))
             .accessibilityValue(orbValue)
@@ -1340,8 +1348,23 @@ struct TodayView: View {
                 Spacer(minLength: 16)
             }
             .padding(.top, 12)
+            .shadow(
+                color: DSColor.accentAmber.opacity(refreshGlow ? 0.45 : 0),
+                radius: refreshGlow ? 18 : 0
+            )
+            .animation(.easeOut(duration: 0.6), value: refreshGlow)
         }
-        .refreshable { await viewModel.refresh() }
+        .refreshable {
+            await viewModel.refresh()
+            Haptics.success()
+            if !reduceMotion {
+                refreshGlow = true
+                Task {
+                    try? await Task.sleep(nanoseconds: 600_000_000)
+                    refreshGlow = false
+                }
+            }
+        }
         .overlay(
             LinearGradient(
                 colors: [Color.clear, DSColor.bgWarm],
