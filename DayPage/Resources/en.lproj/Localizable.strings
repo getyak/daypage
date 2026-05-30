@@ -43,6 +43,7 @@
 "write.sheet.close"          = "Close";
 "write.sheet.placeholder"    = "What's on your mind?";
 "write.sheet.save"           = "Save";
+"write.sheet.done"           = "Done";
 "write.sheet.words_unit"     = "chars";
 "write.sheet.icon.camera"    = "Camera";
 "write.sheet.icon.photo"     = "Photos";
