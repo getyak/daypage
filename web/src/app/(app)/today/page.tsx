@@ -12,8 +12,10 @@ import { UnlockPlaceholderCard } from "./UnlockPlaceholderCard";
 import { WeekFeedSpine } from "./WeekFeedSpine";
 import { DrawerContent } from "./DrawerContent";
 import { ComposerPill } from "./ComposerPill";
+import { WriteSheet } from "./WriteSheet";
 import { AttachSheet } from "./AttachSheet";
 import { RecordingSheet } from "./RecordingSheet";
+import { DynamicIslandLive } from "./DynamicIslandLive";
 import { ShareCard, type ShareCardMemo } from "./ShareCard";
 import { MobileOnlyGuard } from "./MobileOnlyGuard";
 
@@ -92,15 +94,17 @@ function TodayMobileFlow() {
   const [scrolled, setScrolled] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [recordElapsed, setRecordElapsed] = useState(0);
+  const [writeOpen, setWriteOpen] = useState(false);
   const [showAttachSheet, setShowAttachSheet] = useState(false);
   const [shareMemo, setShareMemo] = useState<ShareCardMemo | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   const composerMicRef = useRef<HTMLButtonElement | null>(null);
 
+  // Tap (mic short-press) and the text placeholder both open the WriteSheet.
   const handleMicPress = useCallback(() => {
-    // tap: toggle keyboard / text mode — focus text input if available
-    composerMicRef.current?.focus();
+    setWriteOpen(true);
   }, []);
 
   const handleMicLongPress = useCallback(() => {
@@ -112,8 +116,23 @@ function TodayMobileFlow() {
   }, []);
 
   const handleTextPress = useCallback(() => {
-    composerMicRef.current?.focus();
+    setWriteOpen(true);
   }, []);
+
+  // Drive the Dynamic Island timer while recording (mirrors RecordingSheet's
+  // own elapsed clock; design composer.jsx useRecording:522-533). The reset to
+  // 0 runs in cleanup (not the effect body) to avoid cascading-render lint.
+  useEffect(() => {
+    if (!isRecording) return;
+    const start = Date.now();
+    const t = setInterval(() => {
+      setRecordElapsed(Math.floor((Date.now() - start) / 1000));
+    }, 1000);
+    return () => {
+      clearInterval(t);
+      setRecordElapsed(0);
+    };
+  }, [isRecording]);
 
   // The mobile Today flow paints its own glass toolbar, so suppress the shared
   // app topbar while it is mounted (restored on unmount / desktop redirect).
@@ -235,6 +254,13 @@ function TodayMobileFlow() {
         <DrawerContent onClose={() => setDrawerOpen(false)} />
       </Drawer>
 
+      {/* Write Sheet — text composer (design composer.jsx:183-345) */}
+      <WriteSheet
+        isOpen={writeOpen}
+        onClose={() => setWriteOpen(false)}
+        onSend={() => setWriteOpen(false)}
+      />
+
       {/* Attach Sheet — US-028 */}
       {showAttachSheet && (
         <AttachSheet isOpen={showAttachSheet} onClose={() => setShowAttachSheet(false)} />
@@ -244,6 +270,9 @@ function TodayMobileFlow() {
       {isRecording && (
         <RecordingSheet isOpen={isRecording} onClose={() => setIsRecording(false)} onStop={() => setIsRecording(false)} />
       )}
+
+      {/* Dynamic Island live activity — top capsule while recording */}
+      <DynamicIslandLive active={isRecording} elapsed={recordElapsed} />
 
       {/* Share Card — US-031/032/033 */}
       {shareMemo && (

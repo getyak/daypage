@@ -85,7 +85,9 @@ export function TodayHero() {
     );
   }
 
-  // Error / fallback state
+  // Error / fallback state — keep the serif hero anchored with a calm
+  // "今天" instead of a bare em-dash, and replace the meaningless
+  // "MAY 28 · — · — · —" string with a single quiet retry affordance.
   if (error || !data) {
     return (
       <div style={{ paddingTop: 8, paddingBottom: 24 }}>
@@ -100,16 +102,37 @@ export function TodayHero() {
             margin: 0,
           }}
         >
-          —
+          今天
         </h1>
         <div style={metaStyle}>
-          MAY 28
+          <span>暂时无法加载今日信息</span>
           <Dot />
-          —
-          <Dot />
-          —
-          <Dot />
-          —
+          <button
+            type="button"
+            onClick={() => {
+              setError(false);
+              setData(null);
+              fetch("/api/today/header")
+                .then((r) => {
+                  if (!r.ok) throw new Error("fetch failed");
+                  return r.json();
+                })
+                .then((d: HeaderData) => setData(d))
+                .catch(() => setError(true));
+            }}
+            style={{
+              font: "inherit",
+              letterSpacing: "inherit",
+              textTransform: "inherit",
+              color: "var(--accent)",
+              background: "none",
+              border: "none",
+              padding: 0,
+              cursor: "pointer",
+            }}
+          >
+            重试
+          </button>
         </div>
       </div>
     );

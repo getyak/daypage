@@ -132,8 +132,11 @@ export function MemoCard({
   const drawerOpacity = Math.min(1, Math.max(0, (-tx - 8) / (REVEAL_WIDTH - 8)));
 
   return (
-    <div style={{ position: "relative", overflow: "hidden", borderRadius: 14 }}>
-      {/* Action drawer — always in DOM, revealed by translateX */}
+    <div style={{ position: "relative", overflow: "hidden", borderRadius: 18 }}>
+      {/* Action drawer — always in DOM, revealed by translateX.
+          Design geometry (app.jsx:486-502): 132px drawer, gap:8 between the
+          two inset action chips, padding 8px on top/right/bottom (0 left so the
+          card edge meets the chips), each chip borderRadius:14. */}
       <div
         data-drawer
         aria-hidden="true"
@@ -144,6 +147,8 @@ export function MemoCard({
           bottom: 0,
           width: REVEAL_WIDTH,
           display: "flex",
+          gap: 8,
+          padding: "8px 8px 8px 0",
           opacity: drawerOpacity,
           zIndex: 1,
         }}
@@ -159,22 +164,23 @@ export function MemoCard({
           style={{
             flex: 1,
             border: "none",
+            borderRadius: 14,
             cursor: "pointer",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            gap: 5,
+            gap: 4,
             background: "var(--surface-sunken)",
-            color: "var(--fg-muted)",
+            color: "var(--fg-primary)",
             fontFamily: "var(--font-family-mono), monospace",
-            fontSize: 10,
-            letterSpacing: "0.08em",
+            fontSize: 9,
+            letterSpacing: "0.13em",
             textTransform: "uppercase",
-            fontWeight: 600,
+            fontWeight: 700,
           }}
         >
-          <MoreHorizontal size={18} strokeWidth={1.8} />
+          <MoreHorizontal size={17} strokeWidth={1.8} />
           MORE
         </button>
 
@@ -189,22 +195,23 @@ export function MemoCard({
           style={{
             flex: 1,
             border: "none",
+            borderRadius: 14,
             cursor: "pointer",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            gap: 5,
+            gap: 4,
             background: "var(--accent)",
-            color: "#fff",
+            color: "#FAF8F6",
             fontFamily: "var(--font-family-mono), monospace",
-            fontSize: 10,
-            letterSpacing: "0.08em",
+            fontSize: 9,
+            letterSpacing: "0.13em",
             textTransform: "uppercase",
-            fontWeight: 600,
+            fontWeight: 700,
           }}
         >
-          <Share2 size={18} strokeWidth={1.8} />
+          <Share2 size={17} strokeWidth={1.8} />
           SHARE
         </button>
       </div>
@@ -217,7 +224,7 @@ export function MemoCard({
         style={{
           position: "relative",
           zIndex: 2,
-          borderRadius: 14,
+          borderRadius: 18,
           background: "var(--surface-white)",
           border: "0.5px solid var(--border-subtle)",
           boxShadow: "var(--shadow-card)",

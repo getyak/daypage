@@ -15,7 +15,8 @@ function formatTimeAnchor(isoString: string): string {
   const d = new Date(isoString);
   const day = DAY_NAMES[d.getDay()];
   const month = MONTH_NAMES[d.getMonth()];
-  const date = String(d.getDate()).padStart(2, "0");
+  // detail.jsx:202 "THU · MAY 28 · …" — date-of-month is unpadded
+  const date = String(d.getDate());
   const hours = String(d.getHours()).padStart(2, "0");
   const minutes = String(d.getMinutes()).padStart(2, "0");
   return `${day} · ${month} ${date} · ${hours}:${minutes}`;
@@ -40,9 +41,9 @@ export function MemoDetailTopBar({ createdAt }: Props) {
         position: "sticky",
         top: 0,
         padding: "62px 14px 12px",
-        background: "rgba(250,248,246,0.80)",
-        backdropFilter: "blur(20px) saturate(130%)",
-        WebkitBackdropFilter: "blur(20px) saturate(130%)",
+        background: "rgba(250,248,246,0.82)",
+        backdropFilter: "blur(20px) saturate(150%)",
+        WebkitBackdropFilter: "blur(20px) saturate(150%)",
         borderBottom: "0.5px solid var(--border-subtle)",
         display: "flex",
         alignItems: "center",

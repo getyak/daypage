@@ -71,10 +71,10 @@ export function DrawerContent({ onClose }: DrawerContentProps) {
   }
 
   const navRows = [
-    { label: "今日", href: "/today", icon: Calendar, count: stats?.pages_total ?? null },
-    { label: "成稿", href: "/wiki", icon: FileText, count: stats?.pages_total ?? null },
-    { label: "档案", href: "/archive", icon: Archive, count: null },
-    { label: "关系图谱", href: "/graph", icon: GitBranch, count: null, muted: true },
+    { label: "今日", href: "/today", icon: Calendar, count: stats?.pages_total ?? null, hint: "AI Daily Pages" },
+    { label: "成稿", href: "/wiki", icon: FileText, count: stats?.pages_total ?? null, hint: "AI Daily Pages" },
+    { label: "档案", href: "/archive", icon: Archive, count: null, hint: "2024 · 2025 · 2026" },
+    { label: "关系图谱", href: "/graph", icon: GitBranch, count: null, muted: true, hint: "Coming soon" },
   ];
 
   const version = process.env.NEXT_PUBLIC_VERSION ?? "v1.0";
@@ -260,7 +260,7 @@ export function DrawerContent({ onClose }: DrawerContentProps) {
             </div>
             <div
               style={{
-                fontFamily: "var(--font-fraunces), Georgia, serif",
+                fontFamily: "var(--font-space-grotesk), system-ui, sans-serif",
                 fontSize: 22,
                 fontWeight: 600,
                 letterSpacing: "-0.5px",
@@ -289,13 +289,34 @@ export function DrawerContent({ onClose }: DrawerContentProps) {
       </div>
 
       {/* US-023: Navigate Card */}
+      {/* Section label (detail.jsx:528, 596-604): mono 10 / 700 / ls 1.8 /
+          --fg-muted, padding 4px 4px 10px, marginTop 26 above the card. */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          padding: "4px 4px 10px",
+          marginTop: 26,
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: 1.8,
+            color: "var(--fg-muted)",
+          }}
+        >
+          NAVIGATE
+        </span>
+      </div>
       <div
         style={{
           borderRadius: 14,
           border: "0.5px solid var(--border-default)",
           overflow: "hidden",
           boxShadow: "var(--shadow-card)",
-          marginTop: 12,
         }}
       >
         {navRows.map((row, i) => {
@@ -345,29 +366,113 @@ export function DrawerContent({ onClose }: DrawerContentProps) {
                   color={isActive ? "var(--accent)" : row.muted ? "var(--fg-muted)" : "var(--fg-secondary)"}
                 />
               </div>
-              <span
-                style={{
-                  flex: 1,
-                  fontSize: 14,
-                  fontWeight: 500,
-                  lineHeight: 1.4,
-                  color: isActive
-                    ? "var(--accent)"
-                    : row.muted
-                    ? "var(--fg-muted)"
-                    : "var(--fg-primary)",
-                  fontFamily: "var(--font-inter), system-ui, sans-serif",
-                }}
+              {/* Label + mono hint sub-line (detail.jsx:626-632) */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: isActive ? 600 : 500,
+                    lineHeight: 1.4,
+                    color: isActive
+                      ? "var(--accent)"
+                      : row.muted
+                      ? "var(--fg-muted)"
+                      : "var(--fg-primary)",
+                    fontFamily: "var(--font-inter), system-ui, sans-serif",
+                  }}
+                >
+                  {row.label}
+                </div>
+                {row.hint && (
+                  <div
+                    style={{
+                      fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
+                      fontSize: 9,
+                      letterSpacing: 1,
+                      fontWeight: 500,
+                      color: "var(--fg-subtle)",
+                      marginTop: 3,
+                    }}
+                  >
+                    {row.hint}
+                  </div>
+                )}
+              </div>
+
+              {/* Trailing count + chevron (detail.jsx:633-640) */}
+              {row.count != null && (
+                <span
+                  style={{
+                    fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
+                    fontSize: 10,
+                    fontWeight: 600,
+                    letterSpacing: 0.6,
+                    color: isActive ? "var(--accent)" : "var(--fg-subtle)",
+                  }}
+                >
+                  {row.count}
+                </span>
+              )}
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--fg-subtle)"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
               >
-                {row.label}
-              </span>
+                <polyline points="9 6 15 12 9 18" />
+              </svg>
             </button>
           );
         })}
       </div>
 
       {/* US-024: Recent List */}
-      <div style={{ marginTop: 20 }}>
+      {/* Section label with VIEW ALL in the right slot (detail.jsx:542-546) */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          padding: "4px 4px 10px",
+          marginTop: 26,
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: 1.8,
+            color: "var(--fg-muted)",
+          }}
+        >
+          RECENT
+        </span>
+        <button
+          type="button"
+          onClick={() => navigate("/archive")}
+          style={{
+            marginLeft: "auto",
+            background: "none",
+            border: "none",
+            padding: 0,
+            cursor: "pointer",
+            fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
+            fontSize: 9,
+            fontWeight: 600,
+            letterSpacing: 1.4,
+            textTransform: "uppercase",
+            color: "var(--fg-subtle)",
+          }}
+        >
+          VIEW ALL ›
+        </button>
+      </div>
+      <div>
         {recentItems.length === 0 ? (
           <div
             style={{
@@ -417,9 +522,10 @@ export function DrawerContent({ onClose }: DrawerContentProps) {
                   </div>
                   <div
                     style={{
-                      fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
+                      fontFamily: "var(--font-space-grotesk), system-ui, sans-serif",
                       fontSize: 16,
                       fontWeight: 600,
+                      letterSpacing: "-0.2px",
                       color: isActive ? "var(--accent)" : "var(--fg-secondary)",
                       lineHeight: 1.2,
                     }}
@@ -462,27 +568,6 @@ export function DrawerContent({ onClose }: DrawerContentProps) {
             );
           })
         )}
-
-        {/* VIEW ALL link */}
-        <div style={{ paddingTop: 8 }}>
-          <button
-            type="button"
-            onClick={() => navigate("/archive")}
-            style={{
-              background: "none",
-              border: "none",
-              padding: 0,
-              cursor: "pointer",
-              fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
-              fontSize: 10,
-              letterSpacing: 1.2,
-              textTransform: "uppercase",
-              color: "var(--fg-muted)",
-            }}
-          >
-            VIEW ALL ›
-          </button>
-        </div>
       </div>
 
       {/* US-025: Footer */}

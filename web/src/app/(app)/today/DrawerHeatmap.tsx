@@ -23,7 +23,9 @@ function cellColor(count: number, isFuture: boolean) {
   return "var(--heatmap-high)";
 }
 
-const WEEK_DAYS = ["Mon", "", "Wed", "", "Fri", "", ""];
+// All 7 day-of-week letters with the museum alternating-opacity rhythm
+// (detail.jsx:698-706): M T W T F S S, weight 500, i%2 → 0.4 / 0.9.
+const WEEK_DAYS = ["M", "T", "W", "T", "F", "S", "S"];
 const COLS = 16;
 const ROWS = 7;
 
@@ -130,13 +132,22 @@ export function DrawerHeatmap() {
     <div
       style={{
         borderRadius: 14,
-        border: "0.5px solid var(--border-default)",
+        border: "0.5px solid var(--border-subtle)",
         boxShadow: "var(--shadow-card)",
         padding: 14,
         background: "var(--surface-white)",
         position: "relative",
+        animation: "heatmap-load 280ms ease-out both",
       }}
     >
+      {/* 280ms opacity fade-in once heatmap data resolves (replaces the
+          shimmer skeleton). Scoped keyframe; respects reduced-motion below. */}
+      <style>{`
+        @keyframes heatmap-load { from { opacity: 0; } to { opacity: 1; } }
+        @media (prefers-reduced-motion: reduce) {
+          @keyframes heatmap-load { from { opacity: 1; } to { opacity: 1; } }
+        }
+      `}</style>
       {/* Header row: "LAST N WEEKS" + entry count — frames the grid as the
           drawer's hero element. */}
       <div
@@ -150,8 +161,9 @@ export function DrawerHeatmap() {
         <span
           style={{
             fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
-            fontSize: 9,
-            letterSpacing: 1.4,
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: 1.6,
             textTransform: "uppercase",
             color: "var(--fg-muted)",
           }}
@@ -167,10 +179,10 @@ export function DrawerHeatmap() {
         >
           <span
             style={{
-              fontFamily: "var(--font-fraunces), Georgia, serif",
-              fontSize: 26,
+              fontFamily: "var(--font-space-grotesk), system-ui, sans-serif",
+              fontSize: 18,
               fontWeight: 600,
-              letterSpacing: "-0.5px",
+              letterSpacing: "-0.3px",
               lineHeight: 1,
               color: "var(--fg-primary)",
             }}
@@ -208,8 +220,9 @@ export function DrawerHeatmap() {
               key={colIdx}
               style={{
                 fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
-                fontSize: 9,
-                letterSpacing: "0.4px",
+                fontSize: 8,
+                fontWeight: 600,
+                letterSpacing: "1.6px",
                 textTransform: "uppercase",
                 color: "var(--fg-subtle)",
                 whiteSpace: "nowrap",
@@ -225,32 +238,34 @@ export function DrawerHeatmap() {
 
       {/* Main grid: day labels + cells */}
       <div style={{ display: "flex", gap: 4 }}>
-        {/* Day-of-week labels */}
+        {/* Day-of-week labels — all 7 letters with the museum alternating
+            opacity rhythm (detail.jsx:698-706). Vertical flex, gap matching
+            the cell gap, top-padded so letters align with their cell rows. */}
         <div
           style={{
-            display: "grid",
-            gridTemplateRows: `repeat(${ROWS}, ${CELL}px)`,
+            display: "flex",
+            flexDirection: "column",
             gap: GAP,
-            alignItems: "center",
-            width: 18,
             flexShrink: 0,
           }}
         >
           {WEEK_DAYS.map((label, i) => (
-            <div
+            <span
               key={i}
               style={{
                 fontFamily: "var(--font-jetbrains-mono), ui-monospace, monospace",
                 fontSize: 8,
-                letterSpacing: "0.4px",
+                height: CELL,
+                lineHeight: `${CELL}px`,
+                fontWeight: 500,
+                letterSpacing: "1px",
                 textTransform: "uppercase",
                 color: "var(--fg-subtle)",
-                lineHeight: 1,
-                textAlign: "right",
+                opacity: i % 2 === 1 ? 0.4 : 0.9,
               }}
             >
               {label}
-            </div>
+            </span>
           ))}
         </div>
 
@@ -270,10 +285,10 @@ export function DrawerHeatmap() {
                 style={{
                   width: CELL,
                   height: CELL,
-                  borderRadius: 2,
+                  borderRadius: 2.5,
                   background: cellColor(cell.count, cell.isFuture),
                   border: cell.isFuture
-                    ? "0.5px dashed var(--border-default)"
+                    ? "0.5px dashed var(--border-subtle)"
                     : "none",
                   cursor: cell.isFuture ? "default" : "pointer",
                   transition: "opacity 120ms ease-out",
@@ -335,8 +350,8 @@ export function DrawerHeatmap() {
             <div
               key={i}
               style={{
-                width: 10,
-                height: 10,
+                width: 9,
+                height: 9,
                 borderRadius: 2,
                 background: b.bg,
                 border: b.border,

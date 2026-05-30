@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Mic, Plus, Type } from "lucide-react";
+import { Mic, Plus } from "lucide-react";
 
 // ─── Mic Permission Hook ─────────────────────────────────────────────────────
 
@@ -139,6 +139,7 @@ export function ComposerPill({
         bottom: "calc(26px + env(safe-area-inset-bottom, 0px))",
         left: 0,
         right: 0,
+        padding: "0 14px",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -169,52 +170,91 @@ export function ComposerPill({
         </div>
       )}
 
-      {/* Pill */}
+      {/* Pill — [+] [text placeholder] [mic] (design composer.jsx:89-157) */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          padding: 6,
+          gap: 4,
+          width: "100%",
+          maxWidth: 420,
+          padding: "6px 6px 6px 10px",
           borderRadius: 999,
-          background: "rgba(255,253,250,0.82)",
+          background: "rgba(255,253,250,0.84)",
           backdropFilter: "blur(28px) saturate(160%)",
           WebkitBackdropFilter: "blur(28px) saturate(160%)",
-          border: "0.5px solid rgba(214,206,192,0.5)",
+          border: "0.5px solid rgba(214,206,192,0.55)",
           boxShadow:
-            "inset 0 0.5px 0 rgba(255,255,255,0.8), 0 2px 8px rgba(60,40,15,0.10), 0 8px 32px rgba(60,40,15,0.08)",
+            "inset 0 1px 0 rgba(255,255,255,0.9), inset 0 -1px 0 rgba(0,0,0,0.04), 0 2px 6px rgba(60,40,15,0.08), 0 18px 32px -12px rgba(60,40,15,0.22)",
           animation: "composer-scale-in 240ms ease-out both",
         }}
       >
-        {/* [+] Attach button */}
+        {/* [+] small grey attach button (design:104-113) */}
         <button
           aria-label="添加附件"
           onClick={onPlusPress}
           style={{
-            width: 48,
-            height: 48,
-            borderRadius: "50%",
+            width: 36,
+            height: 44,
+            borderRadius: 999,
             border: "none",
             background: "transparent",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             cursor: "pointer",
+            flexShrink: 0,
             color: "var(--fg-muted)",
-            transition: "color 140ms, background 140ms",
+            transition: "color 140ms",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(93,48,0,0.06)";
             e.currentTarget.style.color = "var(--accent)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = "transparent";
             e.currentTarget.style.color = "var(--fg-muted)";
           }}
         >
           <Plus size={20} strokeWidth={1.7} aria-hidden="true" />
         </button>
 
-        {/* [🎙️] Mic button */}
+        {/* text-field stub — italic serif placeholder + blinking accent caret;
+            taps open the WriteSheet (design:116-129) */}
+        <button
+          aria-label="书写"
+          onClick={onTextPress}
+          style={{
+            flex: 1,
+            height: 44,
+            border: "none",
+            cursor: "text",
+            background: "transparent",
+            textAlign: "left",
+            padding: "0 12px 0 4px",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            color: "var(--fg-subtle)",
+            fontFamily: "var(--font-serif)",
+            fontSize: 15.5,
+            fontStyle: "italic",
+            letterSpacing: "0.2px",
+          }}
+        >
+          记下此刻
+          <span
+            aria-hidden="true"
+            style={{
+              display: "inline-block",
+              width: 2,
+              height: 14,
+              background: "var(--accent)",
+              opacity: 0.5,
+              animation: "caret 1.2s steps(1) infinite",
+            }}
+          />
+        </button>
+
+        {/* [🎙️] Mic button — 50×44 amber gradient (design:132-156) */}
         <button
           aria-label="按住录音"
           onPointerDown={handleMicPointerDown}
@@ -222,74 +262,46 @@ export function ComposerPill({
           onPointerLeave={handleMicPointerLeave}
           onPointerCancel={handleMicPointerLeave}
           style={{
-            width: 64,
-            height: 56,
+            width: 50,
+            height: 44,
             borderRadius: 999,
             border: "none",
+            flexShrink: 0,
             background: micPressed
-              ? "linear-gradient(180deg, #5D3000, #3D2000)"
-              : "linear-gradient(180deg, #7a3f00, #5D3000)",
-            display: "flex",
+              ? "linear-gradient(180deg, #5D3000 0%, #3D2000 100%)"
+              : "linear-gradient(180deg, #7a3f00 0%, #5D3000 100%)",
+            display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
             cursor: "pointer",
-            color: "#fff",
-            transition: "background 120ms, box-shadow 120ms",
+            color: "#FAF8F6",
+            position: "relative",
+            transition: "background 120ms",
             animation: "composer-mic-breathe 1.6s ease-in-out infinite",
-            boxShadow: micPressed
-              ? "0 0 0 0 rgba(93,48,0,0)"
-              : undefined,
+            boxShadow:
+              "inset 0 1px 0 rgba(255,255,255,0.18), 0 4px 10px -4px rgba(93,48,0,0.45)",
             touchAction: "none",
             userSelect: "none",
           }}
         >
-          <Mic size={22} strokeWidth={1.8} aria-hidden="true" />
-        </button>
-
-        {/* [Aa] Text button */}
-        <button
-          aria-label="键盘输入"
-          onClick={onTextPress}
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: "50%",
-            border: "none",
-            background: "transparent",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            cursor: "pointer",
-            color: "var(--fg-muted)",
-            transition: "color 140ms, background 140ms",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(93,48,0,0.06)";
-            e.currentTarget.style.color = "var(--accent)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "transparent";
-            e.currentTarget.style.color = "var(--fg-muted)";
-          }}
-        >
-          <Type size={18} strokeWidth={1.7} aria-hidden="true" />
+          <Mic size={20} strokeWidth={1.9} aria-hidden="true" />
         </button>
       </div>
 
-      {/* Hint text */}
+      {/* Hint text — '轻点书写 · 长按录音' (design:163) */}
       <p
         style={{
           margin: 0,
-          paddingTop: 4,
+          paddingTop: 8,
           fontFamily: "var(--font-mono)",
-          fontSize: 10,
-          letterSpacing: "1.5px",
-          textTransform: "uppercase",
+          fontSize: 9,
+          fontWeight: 600,
+          letterSpacing: "1.4px",
           color: "var(--fg-subtle)",
           textAlign: "center",
         }}
       >
-        长按录音 · 轻点切换
+        轻点书写 · 长按录音
       </p>
     </div>
   );

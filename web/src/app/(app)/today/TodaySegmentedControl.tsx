@@ -119,13 +119,14 @@ export function TodaySegmentedControl() {
             key={tab.id}
             role="tab"
             type="button"
+            className="today-segmented-tab"
             aria-selected={isActive}
             tabIndex={isActive ? 0 : -1}
             onClick={() => setTab(tab.id)}
             style={{
               position: "relative",
               zIndex: 1,
-              padding: "5px 16px",
+              padding: "7px 16px",
               borderRadius: 999,
               border: "none",
               background: "transparent",
@@ -135,24 +136,27 @@ export function TodaySegmentedControl() {
               fontWeight: isActive ? 600 : 500,
               lineHeight: 1.4,
               cursor: "pointer",
-              outline: "none",
               whiteSpace: "nowrap",
               transition: "color 180ms ease-out",
               WebkitTapHighlightColor: "transparent",
-            }}
-            onFocus={(e) => {
-              (e.currentTarget as HTMLButtonElement).dataset.focused = "true";
-              e.currentTarget.style.outline = "2px solid var(--accent)";
-              e.currentTarget.style.outlineOffset = "-2px";
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.outline = "none";
             }}
           >
             {tab.label}
           </button>
         );
       })}
+
+      {/* Design intent (app.jsx:314-325): the active tab is already legible via
+          accent color + bold weight + the sliding white pill. No always-on
+          outline ring. Keyboard-only focus uses :focus-visible so mouse clicks
+          stay clean while keyboard navigation remains accessible. */}
+      <style>{`
+        .today-segmented-tab { outline: none; }
+        .today-segmented-tab:focus-visible {
+          outline: 2px solid var(--accent);
+          outline-offset: -2px;
+        }
+      `}</style>
     </div>
   );
 }
