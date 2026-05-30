@@ -34,6 +34,9 @@ struct GraphView: View {
     @State private var lastCenteredMatchID: String? = nil
     @State private var searchMatchIndex: Int = 0
 
+    // Zero-match haptic guard — fires warn() exactly once per zero-crossing
+    @State private var lastZeroQuery: String? = nil
+
     // Legend type-visibility filter
     @State private var hiddenTypes: Set<String> = []
 
@@ -104,53 +107,72 @@ struct GraphView: View {
                     HStack(spacing: DSSpacing.xs) {
                         let matches = searchMatches
                         let count = matches.count
-                        let pillText = count > 1
-                            ? "\(searchMatchIndex + 1)/\(count) 个匹配"
-                            : "\(count) 个匹配"
-                        Text(pillText)
-                            .font(DSFonts.jetBrainsMono(size: 11))
-                            .foregroundColor(DSColor.inkMuted)
+                        let isZero = count == 0
+
+                        if isZero {
+                            HStack(spacing: 5) {
+                                Image(systemName: "magnifyingglass.slash")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(DSColor.inkMuted)
+                                Text(NSLocalizedString("无匹配节点", comment: "Graph search zero-match pill"))
+                                    .font(DSFonts.jetBrainsMono(size: 11))
+                                    .foregroundColor(DSColor.inkMuted)
+                            }
                             .padding(.horizontal, DSSpacing.md)
                             .padding(.vertical, 5)
                             .background(DSColor.glassLo)
                             .background(.ultraThinMaterial, in: Capsule())
-                            .overlay(Capsule().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
-                            .accessibilityLabel("\(count) 个匹配结果")
-                        if count > 1 {
-                            Button {
-                                Haptics.soft()
-                                searchMatchIndex = (searchMatchIndex - 1 + matches.count) % matches.count
-                                let node = matches[searchMatchIndex]
-                                centerOn(node, in: simulationSize)
-                                pulseNode(node)
-                            } label: {
-                                Image(systemName: "chevron.up")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(DSColor.inkMuted)
-                                    .frame(width: 28, height: 28)
-                                    .background(DSColor.glassLo)
-                                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(DSColor.glassRim, lineWidth: 0.5))
-                                    .contentShape(Rectangle())
+                            .overlay(Capsule().strokeBorder(DSColor.amberAccent.opacity(0.5), lineWidth: 0.5))
+                            .accessibilityLabel(NSLocalizedString("无匹配节点", comment: ""))
+                        } else {
+                            let pillText = count > 1
+                                ? "\(searchMatchIndex + 1)/\(count) 个匹配"
+                                : "\(count) 个匹配"
+                            Text(pillText)
+                                .font(DSFonts.jetBrainsMono(size: 11))
+                                .foregroundColor(DSColor.inkMuted)
+                                .padding(.horizontal, DSSpacing.md)
+                                .padding(.vertical, 5)
+                                .background(DSColor.glassLo)
+                                .background(.ultraThinMaterial, in: Capsule())
+                                .overlay(Capsule().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                                .accessibilityLabel("\(count) 个匹配结果")
+                            if count > 1 {
+                                Button {
+                                    Haptics.soft()
+                                    searchMatchIndex = (searchMatchIndex - 1 + matches.count) % matches.count
+                                    let node = matches[searchMatchIndex]
+                                    centerOn(node, in: simulationSize)
+                                    pulseNode(node)
+                                } label: {
+                                    Image(systemName: "chevron.up")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(DSColor.inkMuted)
+                                        .frame(width: 28, height: 28)
+                                        .background(DSColor.glassLo)
+                                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                                        .contentShape(Rectangle())
+                                }
+                                .accessibilityLabel("上一个匹配")
+                                Button {
+                                    Haptics.soft()
+                                    searchMatchIndex = (searchMatchIndex + 1) % matches.count
+                                    let node = matches[searchMatchIndex]
+                                    centerOn(node, in: simulationSize)
+                                    pulseNode(node)
+                                } label: {
+                                    Image(systemName: "chevron.down")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(DSColor.inkMuted)
+                                        .frame(width: 28, height: 28)
+                                        .background(DSColor.glassLo)
+                                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                                        .contentShape(Rectangle())
+                                }
+                                .accessibilityLabel("下一个匹配")
                             }
-                            .accessibilityLabel("上一个匹配")
-                            Button {
-                                Haptics.soft()
-                                searchMatchIndex = (searchMatchIndex + 1) % matches.count
-                                let node = matches[searchMatchIndex]
-                                centerOn(node, in: simulationSize)
-                                pulseNode(node)
-                            } label: {
-                                Image(systemName: "chevron.down")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(DSColor.inkMuted)
-                                    .frame(width: 28, height: 28)
-                                    .background(DSColor.glassLo)
-                                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(DSColor.glassRim, lineWidth: 0.5))
-                                    .contentShape(Rectangle())
-                            }
-                            .accessibilityLabel("下一个匹配")
                         }
                         Spacer()
                     }
@@ -159,8 +181,17 @@ struct GraphView: View {
                     .transition(.opacity)
                     .animation(Motion.fade, value: viewModel.searchMatchCount)
                     .onChange(of: viewModel.searchMatchCount) { count in
-                        guard !viewModel.searchQuery.isEmpty, count == 0 else { return }
-                        Haptics.warn()
+                        let query = viewModel.searchQuery
+                        guard !query.isEmpty else {
+                            lastZeroQuery = nil
+                            return
+                        }
+                        if count == 0 && lastZeroQuery != query {
+                            lastZeroQuery = query
+                            Haptics.warn()
+                        } else if count > 0 {
+                            lastZeroQuery = nil
+                        }
                     }
                 }
 
