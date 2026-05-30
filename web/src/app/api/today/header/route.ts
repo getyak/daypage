@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db/client";
 import { users, memos } from "@/lib/db/schema";
-import { eq, and, gte, lt, sql } from "drizzle-orm";
+import { eq, and, gte, lt, sql, desc } from "drizzle-orm";
 
 // 5-minute cache keyed on weather invalidation
 export const revalidate = 300;
@@ -58,7 +58,7 @@ export async function GET() {
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const tomorrowStart = new Date(todayStart.getTime() + 86_400_000);
 
-  const [memoCountResult, weather] = await Promise.all([
+  const [memoCountResult, latestMemoRows, apiWeather] = await Promise.all([
     db
       .select({ count: sql<number>`count(*)::int` })
       .from(memos)
@@ -69,8 +69,43 @@ export async function GET() {
           lt(memos.created_at, tomorrowStart)
         )
       ),
+    // Pull today's most recent memo so the hero subline can reflect the place
+    // and weather captured in the field, without a live geolocation lookup.
+    db
+      .select({ location: memos.location, weather: memos.weather })
+      .from(memos)
+      .where(
+        and(
+          eq(memos.user_id, userId),
+          gte(memos.created_at, todayStart),
+          lt(memos.created_at, tomorrowStart)
+        )
+      )
+      .orderBy(desc(memos.created_at))
+      .limit(1),
     fetchWeather(),
   ]);
+
+  // Prefer the weather stamped on today's latest memo; fall back to the live
+  // API only when a memo did not carry one.
+  const memoWeatherRaw = latestMemoRows[0]?.weather as
+    | { temp?: number | null; condition?: string | null; icon?: string | null }
+    | null
+    | undefined;
+  const weather: WeatherPayload =
+    memoWeatherRaw && typeof memoWeatherRaw.temp === "number"
+      ? {
+          temp: memoWeatherRaw.temp ?? null,
+          condition: memoWeatherRaw.condition ?? null,
+          icon: memoWeatherRaw.icon ?? null,
+        }
+      : apiWeather;
+
+  const memoLocationRaw = latestMemoRows[0]?.location as
+    | { name?: string | null }
+    | null
+    | undefined;
+  const location: string | null = memoLocationRaw?.name ?? null;
 
   const weekdayZh = new Intl.DateTimeFormat("zh-CN", {
     weekday: "long",
@@ -96,7 +131,7 @@ export async function GET() {
       date_display: dateDisplay,
       memo_count: memoCountResult[0]?.count ?? 0,
       weather,
-      location: null,
+      location,
     },
     {
       headers: {

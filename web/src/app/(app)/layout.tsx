@@ -167,8 +167,10 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       {/* Main column — fills the remaining space next to the (collapsible) sidebar.
           Using flex-1 + min-w-0 avoids hard-coding sidebar width here. */}
       <div className="flex flex-col min-h-screen flex-1 min-w-0">
-        {/* Topbar */}
+        {/* Topbar — hidden on mobile when the /today flow mounts its own
+            glass toolbar (see .today-mobile-active rule in globals.css). */}
         <header
+          className="app-topbar"
           style={{
             height: "52px",
             borderBottom: "1px solid var(--accent-border)",

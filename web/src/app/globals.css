@@ -955,6 +955,10 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
 .mobile-menu-btn { display: none; }
 @media (max-width: 1023px) {
   .mobile-menu-btn { display: inline-flex; }
+  /* The /today mobile flow renders its own scroll-aware glass toolbar, so the
+     shared 52px app topbar is redundant and would stack on top of it.
+     !important is required to beat the header's inline `display: flex`. */
+  body.today-mobile-active .app-topbar { display: none !important; }
 }
 .mobile-drawer-backdrop {
   position: fixed;

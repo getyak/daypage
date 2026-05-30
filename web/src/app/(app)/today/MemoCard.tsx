@@ -132,7 +132,7 @@ export function MemoCard({
   const drawerOpacity = Math.min(1, Math.max(0, (-tx - 8) / (REVEAL_WIDTH - 8)));
 
   return (
-    <div style={{ position: "relative", overflow: "hidden", borderRadius: 18 }}>
+    <div style={{ position: "relative", overflow: "hidden", borderRadius: 14 }}>
       {/* Action drawer — always in DOM, revealed by translateX */}
       <div
         data-drawer
@@ -217,7 +217,7 @@ export function MemoCard({
         style={{
           position: "relative",
           zIndex: 2,
-          borderRadius: 18,
+          borderRadius: 14,
           background: "var(--surface-white)",
           border: "0.5px solid var(--border-subtle)",
           boxShadow: "var(--shadow-card)",

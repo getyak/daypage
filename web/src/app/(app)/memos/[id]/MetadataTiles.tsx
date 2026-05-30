@@ -90,7 +90,7 @@ function Tile({ label, value, sub, first }: TileProps) {
       >
         {value}
       </dd>
-      <dd style={{ ...subStyle, margin: 0 }}>{sub}</dd>
+      <dd style={{ ...subStyle, margin: 0 }}>{value === DASH ? "" : sub}</dd>
     </div>
   );
 }
