@@ -7,7 +7,7 @@ import SwiftUI
 // Design intent (Claude Design bundle — composer.jsx AISummary, restrained variant):
 //   • plain white surface + 0.5pt hairline border, radius 14
 //   • slim 2px accent rail down the left edge
-//   • header: tiny sparkle + mono "AI · 今日一句" + right-aligned timestamp
+//   • header: tiny sparkle + mono "AI · 今日一句" + static "TODAY" mono label
 //   • body: 19pt serif italic, revealed with a typewriter animation + blinking caret
 //
 // Data: bound to `TodayViewModel.dailyPageSummary` (the compiled daily summary).
@@ -16,21 +16,11 @@ import SwiftUI
 struct AISummaryCard: View {
     /// The compiled one-line summary to reveal.
     let summary: String
-    /// Timestamp shown in the header (defaults to now).
-    var timestamp: Date = Date()
     /// When set, the card becomes tappable and opens the Daily Page.
     var onTap: (() -> Void)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed: Bool = false
-
-    private static let timeFmt: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = AppSettings.currentTimeZone()
-        return f
-    }()
 
     var body: some View {
         ZStack(alignment: .leading) {
@@ -94,19 +84,14 @@ struct AISummaryCard: View {
                 .tracking(1.6)
                 .foregroundColor(DSColor.accentAmber)
             Spacer(minLength: 8)
-            HStack(spacing: 5) {
-                Circle()
-                    .fill(DSColor.accentAmber)
-                    .frame(width: 5, height: 5)
-                Text(Self.timeFmt.string(from: timestamp))
-                    .font(DSType.mono9)
-                    .tracking(1.2)
-                    .foregroundColor(DSColor.inkSubtle)
-                if onTap != nil {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(DSColor.inkFaint)
-                }
+            Text("TODAY")
+                .font(DSType.mono9)
+                .tracking(1.2)
+                .foregroundColor(DSColor.inkSubtle)
+            if onTap != nil {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(DSColor.inkFaint)
             }
         }
     }
