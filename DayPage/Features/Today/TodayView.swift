@@ -968,7 +968,7 @@ struct TodayView: View {
 
             Spacer()
 
-            // US-019: Export as Markdown
+            // US-019: Export as Markdown (tap → share sheet; long-press → copy to clipboard)
             if !viewModel.memos.isEmpty {
                 Button {
                     let content = MarkdownExportService.buildExportContent(
@@ -1006,10 +1006,23 @@ struct TodayView: View {
                         .clipShape(Circle())
                 }
                 .accessibilityLabel(NSLocalizedString("export.action.title", comment: ""))
+                .accessibilityHint(NSLocalizedString("export.action.hint", comment: ""))
                 .accessibilityIdentifier("export-markdown-button")
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
                 .alignmentGuide(.firstTextBaseline) { d in d[VerticalAlignment.center] + 6 }
+                .onLongPressGesture(minimumDuration: 0.5) {
+                    let content = MarkdownExportService.buildExportContent(
+                        memos: viewModel.memos, date: Date()
+                    )
+                    UIPasteboard.general.string = content
+                    Haptics.success()
+                    bannerCenter.show(AppBannerModel(
+                        kind: .info,
+                        title: NSLocalizedString("export.copied.title", comment: ""),
+                        autoDismiss: true
+                    ))
+                }
             }
 
             Button {

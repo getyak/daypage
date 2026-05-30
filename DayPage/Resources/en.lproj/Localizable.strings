@@ -199,7 +199,9 @@
 /* Markdown Export — US-019 */
 "export.action.title"  = "Export as Markdown";
 "export.action.label"  = "Export";
+"export.action.hint"   = "Double tap to share, long press to copy";
 "export.error.title"   = "Export failed, please try again";
+"export.copied.title"  = "Markdown copied";
 
 /* Voice attachment retry — US-016 */
 "voice.retry.button"           = "Retry transcription";
