@@ -114,6 +114,14 @@ struct TodayView: View {
         min(1, max(0, (-timelineScrollOffset - 240) / 1200))
     }
 
+    /// Fraction of the current local day elapsed (0.0 at midnight, 1.0 at next midnight).
+    private var dayProgress: CGFloat {
+        let now = currentTime
+        let start = Calendar.current.startOfDay(for: now)
+        let elapsed = now.timeIntervalSince(start)
+        return CGFloat(min(1, max(0, elapsed / 86400)))
+    }
+
     /// Live drag offset for the daily page card (negative = pulled left).
     @GestureState private var dailyPageDrag: CGFloat = 0
 
@@ -780,7 +788,7 @@ struct TodayView: View {
             DayOrbView(signalCount: signalCount, size: 140, onTap: {
                 Haptics.tapConfirm()
                 orbFocusToggle.toggle()
-            }, pulseToggle: orbCapturePulse)
+            }, pulseToggle: orbCapturePulse, dayProgress: dayProgress)
             .scaleEffect(reduceMotion ? 1.0 : (orbBreathing ? 1.03 : 0.985))
             .shadow(
                 color: DSColor.accentAmber.opacity(orbBreathing ? 0.28 + glowBoost : 0.12 + glowBoost),
