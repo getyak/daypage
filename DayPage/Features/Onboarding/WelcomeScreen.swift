@@ -1,5 +1,15 @@
 import SwiftUI
 
+// MARK: - PressableButtonStyle
+
+private struct PressableButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .animation(Motion.spring, value: configuration.isPressed)
+    }
+}
+
 // MARK: - WelcomeScreen
 
 /// First-run welcome shown once after onboarding — a fading Day Orb, bilingual serif line, Begin pill.
@@ -8,7 +18,11 @@ struct WelcomeScreen: View {
 
     @Binding var hasSeenWelcome: Bool
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     @State private var orbOpacity: Double = 0
+    @State private var taglineAppeared: Bool = false
+    @State private var buttonAppeared: Bool = false
 
     var body: some View {
         ZStack {
@@ -23,6 +37,17 @@ struct WelcomeScreen: View {
                     .onAppear {
                         withAnimation(.easeOut(duration: 0.8)) {
                             orbOpacity = 1
+                        }
+                        Task { @MainActor in
+                            if reduceMotion {
+                                taglineAppeared = true
+                                buttonAppeared = true
+                            } else {
+                                try? await Task.sleep(nanoseconds: 400_000_000)
+                                withAnimation(Motion.rise) { taglineAppeared = true }
+                                try? await Task.sleep(nanoseconds: 200_000_000)
+                                withAnimation(Motion.rise) { buttonAppeared = true }
+                            }
                         }
                     }
 
@@ -39,6 +64,10 @@ struct WelcomeScreen: View {
                         .multilineTextAlignment(.center)
                 }
                 .padding(.horizontal, 32)
+                .opacity(taglineAppeared ? 1 : 0)
+                .offset(y: taglineAppeared ? 0 : 12)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Welcome to DayPage. Every day deserves a record.")
 
                 Spacer()
 
@@ -58,7 +87,11 @@ struct WelcomeScreen: View {
                         .background(DSColor.amberDeep)
                         .clipShape(Capsule())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(PressableButtonStyle())
+                .opacity(buttonAppeared ? 1 : 0)
+                .offset(y: buttonAppeared ? 0 : 12)
+                .accessibilityLabel("Begin")
+                .accessibilityHint("Starts using DayPage")
 
                 Spacer().frame(height: 40)
             }
