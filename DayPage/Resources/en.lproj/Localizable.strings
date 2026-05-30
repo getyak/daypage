@@ -75,6 +75,9 @@
 /* DailyPage card accessibility hint */
 "today.accessibility.dailypage.hint" = "Opens today's compiled page. Use the Actions menu to recompile.";
 
+/* AI summary card long-press copy confirmation */
+"today.summary.copied" = "Summary copied";
+
 /* Archive Day Empty */
 "empty.archive_day.title" = "No page for this day.";
 "empty.archive_day.subtitle" = "This day hasn't been compiled yet. Head to Today to add memos first.";
