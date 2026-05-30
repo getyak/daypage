@@ -558,7 +558,7 @@ struct TodayView: View {
                 onThisDayDateString = dateString
             }
         case .pureEmpty:
-            EmptyStateView.todayNoSignals()
+            EmptyStateView.todayNoSignals(ctaAction: { orbFocusToggle.toggle() })
                 .padding(.horizontal, 20)
         }
     }
