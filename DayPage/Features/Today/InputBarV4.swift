@@ -47,6 +47,10 @@ struct InputBarV4: View {
     var onCapturePhoto: () -> Void
     var onRemoveAttachment: (String) -> Void
     var onStartVoiceRecording: () -> Void
+    /// Opens the v8 WriteSheet bottom-sheet composer (design composer.jsx:183).
+    /// The dock's text affordance routes here; if unset it falls back to the
+    /// inline morph so the dock keeps working in isolation/previews.
+    var onOpenWriteSheet: (() -> Void)? = nil
     var onPressToTalkSend: (VoiceRecordingResult) -> Void
     var onPressToTalkTranscribe: (String) -> Void
     var onAddFile: () -> Void
@@ -402,10 +406,16 @@ struct InputBarV4: View {
             .accessibilityLabel(NSLocalizedString("input.a11y.mic", comment: ""))
             .accessibilityHint(NSLocalizedString("input.a11y.mic_hint_full", comment: ""))
 
-            // RIGHT — Aa (text expand). Fades out as composer opens (AC: Aa 淡出).
+            // RIGHT — Aa (text affordance). v8: opens the WriteSheet bottom
+            // sheet (composer.jsx:116-129 text stub → WriteSheet). Falls back to
+            // the inline morph when no sheet handler is wired (previews / tests).
             dockTextButton(accessibilityLabel: NSLocalizedString("input.a11y.write_text", comment: "")) {
-                transition(to: .expanding)
-                isFocused = true
+                if let openSheet = onOpenWriteSheet {
+                    openSheet()
+                } else {
+                    transition(to: .expanding)
+                    isFocused = true
+                }
             }
             .accessibilityIdentifier("expand-text-composer")
         }
