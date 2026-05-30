@@ -38,6 +38,7 @@ struct WriteSheetView: View {
     @State private var appeared: Bool = false
     @State private var lastMilestone: Int = 0
     @GestureState private var dragOffset: CGFloat = 0
+    @State private var committedClose: Bool = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Sheet-up easing — composer.jsx:219 `cubic-bezier(.2,.8,.2,1)` @ 320ms.
@@ -119,7 +120,7 @@ struct WriteSheetView: View {
                 .accessibilityHidden(true)
 
             sheet
-                .offset(y: (appeared ? 0 : sheetTravel) + max(0, dragOffset))
+                .offset(y: (appeared ? 0 : sheetTravel) + (dragOffset < 0 ? dragOffset / 6 : dragOffset))
                 .gesture(swipeToDismiss)
         }
         .animation(reduceMotion ? .easeOut(duration: 0.2) : Self.sheetUp, value: appeared)
@@ -187,13 +188,37 @@ struct WriteSheetView: View {
     // MARK: - Drag handle (composer.jsx:222-225)
 
     private var dragHandle: some View {
-        Capsule()
-            .fill(DSTokens.Colors.borderDefault)
-            .frame(width: 36, height: 4)
+        let progress = min(max(dragOffset, 0) / 120, 1.0)
+        return Capsule()
+            .fill(DSTokens.Colors.borderDefault.opacity(0.6 + 0.4 * progress))
+            .frame(width: 36 + 8 * progress, height: 4)
+            .scaleEffect(1 + 0.08 * progress)
             .padding(.top, 8)
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
+            .gesture(swipeDownGesture)
             .accessibilityHidden(true)
+    }
+
+    private var swipeDownGesture: some Gesture {
+        DragGesture(minimumDistance: 8)
+            .updating($dragOffset) { value, state, _ in
+                state = value.translation.height
+                // Resign focus on the main thread so the keyboard collapses
+                // alongside the sheet during the drag.
+                DispatchQueue.main.async { isFocused = false }
+            }
+            .onEnded { value in
+                let shouldDismiss = value.translation.height > 120
+                    || value.predictedEndTranslation.height > 260
+                if shouldDismiss {
+                    onClose()
+                } else if !reduceMotion {
+                    withAnimation(Motion.spring) { }
+                } else {
+                    withAnimation(.easeOut(duration: 0.2)) { }
+                }
+            }
     }
 
     // MARK: - Header (composer.jsx:227-249)
@@ -228,6 +253,8 @@ struct WriteSheetView: View {
         .padding(.horizontal, 22)
         .padding(.top, 14)
         .padding(.bottom, 12)
+        .contentShape(Rectangle())
+        .gesture(swipeDownGesture)
     }
 
     // MARK: - 0.5px hairline (composer.jsx:252 / 279)
