@@ -98,8 +98,12 @@ struct InputBarV4: View {
 
     @Namespace private var morphNS
 
-    /// Spring spec shared by expanding / collapsing transitions (per AC).
-    private static let composerSpring = Animation.spring(response: 0.42, dampingFraction: 0.78)
+    /// Expand / collapse easing shared by the composer morph.
+    /// Design composer.jsx:520 morphs on cubic-bezier(.2,.8,.2,1) at 280ms;
+    /// a 300ms timing curve (within the 280–320ms band) replaces the previous
+    /// generic spring so the open/close reads as a calm museum slide, not a
+    /// bouncy spring.
+    private static let composerSpring = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.3)
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -175,15 +179,6 @@ struct InputBarV4: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if let mode = overlayMode {
-                RecordingOverlayView(
-                    mode: mode,
-                    elapsedSeconds: voiceService.elapsedSeconds,
-                    waveform: voiceService.waveformHistory
-                )
-                .animation(.spring(response: 0.28, dampingFraction: 0.85), value: mode)
-            }
-
             Rectangle()
                 .fill(DSColor.inkFaint)
                 .frame(height: 0.5)
@@ -319,6 +314,47 @@ struct InputBarV4: View {
             transition(to: .expanding)
             isFocused = true
         }
+        // v8 recording surface — dark bottom sheet + top Dynamic-Island capsule.
+        // Presented as a full-screen overlay so the sheet anchors to the screen
+        // bottom and the island to the top, independent of the dock's position.
+        // The press-to-talk drag gesture (PressToTalkButton) still drives the
+        // state machine; the sheet's buttons mirror cancel / stop-&-transcribe.
+        .overlay { recordingSurface }
+    }
+
+    // MARK: - Recording Surface (v8 sheet + island)
+
+    @ViewBuilder
+    private var recordingSurface: some View {
+        if overlayMode != nil {
+            ZStack {
+                // Warm dim scrim — same recordingBg as the sheet for cohesion.
+                DSTokens.Colors.recordingBg.opacity(0.34)
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+
+                DynamicIslandView(
+                    elapsedSeconds: voiceService.elapsedSeconds,
+                    waveform: voiceService.waveformHistory,
+                    expanded: true
+                )
+
+                RecordingSheetView(
+                    elapsedSeconds: voiceService.elapsedSeconds,
+                    waveform: voiceService.waveformHistory,
+                    transcriptPreview: "",
+                    onCancel: {
+                        handlePressToTalkReleaseCancel()
+                        pressToTalkPhase = .idle
+                    },
+                    onAccept: {
+                        handlePressToTalkReleaseTranscribe()
+                    }
+                )
+            }
+            .ignoresSafeArea()
+            .animation(.spring(response: 0.32, dampingFraction: 0.85), value: overlayMode)
+        }
     }
 
     // MARK: - STREAM Dock (idle state)
@@ -353,13 +389,16 @@ struct InputBarV4: View {
                 onReleaseTranscribe: handlePressToTalkReleaseTranscribe,
                 onPhaseChange: { pressToTalkPhase = $0 },
                 onTapShortRelease: handleMicTap,
-                size: 64,
+                size: 44,
                 idleBackgroundColor: DSColor.amberAccent,
                 idleIconColor: .white
             )
-            .frame(width: 64, height: 64)
-            .shadow(color: Color(hex: "5D3000").opacity(0.50), radius: 28, x: 0, y: 12)
-            .shadow(color: Color(hex: "5D3000").opacity(0.20), radius: 4, x: 0, y: 2)
+            // Design composer.jsx:139-141 — slim 50×44 pill, not a 64 square.
+            // The button core is a 44 circle centered in a 50-wide frame so the
+            // mic reads as a restrained accent rather than an oversized orb.
+            .frame(width: 50, height: 44)
+            .shadow(color: Color(hex: "5D3000").opacity(0.45), radius: 10, x: 0, y: 4)
+            .shadow(color: Color(hex: "5D3000").opacity(0.18), radius: 1, x: 0, y: 1)
             .accessibilityLabel(NSLocalizedString("input.a11y.mic", comment: ""))
             .accessibilityHint(NSLocalizedString("input.a11y.mic_hint_full", comment: ""))
 

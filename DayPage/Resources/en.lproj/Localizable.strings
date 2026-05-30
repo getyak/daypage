@@ -31,6 +31,14 @@
 "input.toast.too_short"      = "Hold a little longer · at least 1 second";
 "input.toast.mic_hint"       = "Tap to open recorder · Hold to send voice";
 
+/* v8 RecordingSheet / DynamicIsland */
+"recording.sheet.status"     = "Recording";
+"recording.sheet.listening"  = "Listening…";
+"recording.sheet.cancel"     = "Cancel";
+"recording.sheet.accept"     = "Stop & transcribe";
+"recording.sheet.a11y"       = "Recording in progress";
+"recording.island.a11y"      = "Recording live activity";
+
 /* InputBarV4 — accessibility */
 "input.a11y.too_short"       = "Recording too short. Hold the mic and keep speaking.";
 "input.a11y.mic_hint"        = "Tap to open recorder; hold to send voice";

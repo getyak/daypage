@@ -95,7 +95,15 @@ struct DayDetailView: View {
     private var dailyContent: some View {
         switch state {
         case .compiled:
-            DailyPageView(dateString: dateString)
+            // v8 detail.jsx:258-271 — 4-column metadata tile row pinned above
+            // the compiled daily page (WEATHER / HUMIDITY / LIGHT / KIND).
+            VStack(spacing: 0) {
+                MetadataGridView()
+                    .padding(.horizontal, 22)
+                    .padding(.top, 16)
+                    .padding(.bottom, 6)
+                DailyPageView(dateString: dateString)
+            }
         case .rawOnly:
             VStack(spacing: 20) {
                 Spacer()

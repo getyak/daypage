@@ -251,7 +251,10 @@ struct MemoCardView: View {
                 Text(CJKTextPolish.polish(bodyTrimmed))
                     .font(DSType.serifBody16)
                     .foregroundColor(DSColor.inkPrimary)
-                    .lineSpacing(6)
+                    // Museum reading rhythm: tight leading. Design app.jsx:546-548
+                    // renders 16pt body at line-height 1.62; for SwiftUI's
+                    // *additive* lineSpacing that compact rhythm is ~2pt, not 6.
+                    .lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 14)
@@ -625,7 +628,10 @@ struct VoiceMemoPlayerRow: View {
                 HStack(alignment: .top, spacing: 6) {
                     Text("\u{201C}")
                         .font(DSFonts.serif(size: 20, weight: .medium))
-                        .foregroundColor(DSColor.amberAccent)
+                        // Quote glyphs are decorative punctuation, not an accent.
+                        // Mute to 50% ink so the transcript reads as a quiet
+                        // pull-quote rather than two loud amber marks.
+                        .foregroundColor(DSColor.inkMuted.opacity(0.5))
                         .offset(y: -2)
                     // Render-only polish: CJK/Latin spacing; does not modify vault file.
                     Text(CJKTextPolish.polish(t))
@@ -642,7 +648,7 @@ struct VoiceMemoPlayerRow: View {
                         }
                     Text("\u{201D}")
                         .font(DSFonts.serif(size: 20, weight: .medium))
-                        .foregroundColor(DSColor.amberAccent)
+                        .foregroundColor(DSColor.inkMuted.opacity(0.5))
                         .offset(y: -2)
                 }
                 .padding(.horizontal, 14)
@@ -922,7 +928,9 @@ struct DailyPageEntryCard: View {
                             startPoint: .top, endPoint: .bottom
                         )
                     )
-                    .frame(width: 3)
+                    // Unify accent-rail width across cards. Design app.jsx:420
+                    // renders the rail at 2px; AISummaryCard already uses 2.
+                    .frame(width: 2)
                     .padding(.vertical, 14)
                     .padding(.leading, 0)
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -1066,15 +1074,21 @@ struct PhotoThumbnailView: View {
     var body: some View {
         Group {
             if let thumb = thumbnail {
+                // Design app.jsx:527 — CafePhoto renders a fixed 4:5 portrait
+                // crop. Enforce the same aspect with a fill so the museum
+                // timeline keeps a consistent photo rhythm instead of letting
+                // each image dictate its own height.
                 Image(uiImage: thumb)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(maxWidth: .infinity, minHeight: 200)
+                    .frame(maxWidth: .infinity)
+                    .aspectRatio(4.0 / 5.0, contentMode: .fit)
                     .clipped()
             } else {
                 Rectangle()
                     .fill(DSColor.glassLo)
-                    .frame(maxWidth: .infinity, minHeight: 200)
+                    .frame(maxWidth: .infinity)
+                    .aspectRatio(4.0 / 5.0, contentMode: .fit)
             }
         }
         .task(id: fileURL) {
