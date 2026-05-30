@@ -21,6 +21,10 @@ struct AISummaryCard: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed: Bool = false
+    /// True once the typewriter reveal has finished (or Reduce Motion is on).
+    @State private var revealComplete: Bool = false
+    /// Closure provided by TypewriterText to instantly complete the reveal.
+    @State private var completeReveal: (() -> Void)? = nil
 
     var body: some View {
         ZStack(alignment: .leading) {
@@ -36,7 +40,9 @@ struct AISummaryCard: View {
                 TypewriterText(
                     fullText: summary,
                     animated: !reduceMotion,
-                    hapticTexture: !reduceMotion
+                    hapticTexture: !reduceMotion,
+                    isComplete: $revealComplete,
+                    onCompleteHandler: $completeReveal
                 )
                 .font(DSType.serifQuote) // 18pt serif italic ≈ design 19pt
                 .foregroundColor(DSColor.inkPrimary)
@@ -59,6 +65,13 @@ struct AISummaryCard: View {
         .contentShape(Rectangle())
         .onTapGesture {
             guard let onTap else { return }
+            // First tap while typewriter is still animating: snap the text into
+            // view with a soft haptic instead of navigating.
+            if !reduceMotion && !revealComplete {
+                completeReveal?()
+                Haptics.soft()
+                return
+            }
             Haptics.tapConfirm()
             onTap()
         }
@@ -125,11 +138,16 @@ struct TypewriterText: View {
     var animated: Bool = true
     /// When true, a soft haptic tick fires every 4th character during the reveal.
     var hapticTexture: Bool = true
+    /// Set to true by TypewriterText when the reveal finishes (or when not animated).
+    var isComplete: Binding<Bool> = .constant(false)
+    /// Populated by TypewriterText on appear with a closure that instantly completes
+    /// the reveal; the parent can store and call it on a first-tap skip.
+    var onCompleteHandler: Binding<(() -> Void)?> = .constant(nil)
 
     @State private var shownCount: Int = 0
     @State private var caretVisible: Bool = true
     @State private var didStart = false
-    /// Generation counter that increments each time fullText changes.
+    /// Generation counter that increments each time fullText changes or complete() is called.
     /// Captured by asyncAfter closures so stale chains bail out.
     @State private var generation = 0
 
@@ -147,19 +165,35 @@ struct TypewriterText: View {
                     .opacity(caretVisible ? 1 : 0)
             }
         }
-        .onAppear { startIfNeeded() }
+        .onAppear {
+            // Expose the complete() closure to the parent before starting the reveal.
+            onCompleteHandler.wrappedValue = { complete() }
+            startIfNeeded()
+        }
         .onChange(of: fullText) { _ in
             // New summary → restart the reveal.
             shownCount = 0
             didStart = false
+            isComplete.wrappedValue = false
             generation += 1
             startIfNeeded()
         }
     }
 
+    /// Instantly snaps the reveal to the end and cancels any pending asyncAfter chain.
+    private func complete() {
+        generation += 1          // invalidates all in-flight scheduleNextChar closures
+        shownCount = fullText.count
+        withAnimation(.easeInOut(duration: 0.15)) { caretVisible = false }
+        isComplete.wrappedValue = true
+    }
+
     private func startIfNeeded() {
         guard animated, !didStart, !fullText.isEmpty else {
-            if !animated { shownCount = fullText.count }
+            if !animated {
+                shownCount = fullText.count
+                isComplete.wrappedValue = true
+            }
             return
         }
         didStart = true
@@ -190,6 +224,7 @@ struct TypewriterText: View {
             // animation prevents a lingering repeatForever on a hidden layer).
             if shownCount >= fullText.count {
                 withAnimation(.easeInOut(duration: 0.2)) { caretVisible = false }
+                isComplete.wrappedValue = true
                 return
             }
             // 36–66ms jitter per char, matching the design's organic cadence.
