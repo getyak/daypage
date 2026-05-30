@@ -12,8 +12,18 @@ import SwiftUI
 //   ┆      ● ● ○                ┆
 //   └╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴┘
 
+private struct PressScaleStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect((!reduceMotion && configuration.isPressed) ? 0.98 : 1.0)
+            .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
 struct CompileUnlockCard: View {
     let memoCount: Int
+    var onTap: (() -> Void)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shimmer = false
@@ -22,7 +32,7 @@ struct CompileUnlockCard: View {
 
     private var remaining: Int { max(1, 3 - memoCount) }
 
-    var body: some View {
+    private var cardContent: some View {
         HStack(spacing: 14) {
             // Accent-soft sparkle tile with a subtle breathe shimmer.
             ZStack {
@@ -71,8 +81,29 @@ struct CompileUnlockCard: View {
                     style: StrokeStyle(lineWidth: 1.5, dash: [6, 5])
                 )
         )
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("再记 \(remaining) 条解锁今日成稿，已记 \(memoCount) 条")
+        .contentShape(Rectangle())
+    }
+
+    var body: some View {
+        Group {
+            if let onTap {
+                Button {
+                    Haptics.soft()
+                    onTap()
+                } label: {
+                    cardContent
+                }
+                .buttonStyle(PressScaleStyle())
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("再记 \(remaining) 条解锁今日成稿，已记 \(memoCount) 条")
+                .accessibilityHint("轻点聚焦输入框记录新内容")
+                .accessibilityAddTraits(.isButton)
+            } else {
+                cardContent
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("再记 \(remaining) 条解锁今日成稿，已记 \(memoCount) 条")
+            }
+        }
         .onChange(of: memoCount) { newCount in
             guard newCount > lastFilled, !reduceMotion else {
                 lastFilled = newCount
