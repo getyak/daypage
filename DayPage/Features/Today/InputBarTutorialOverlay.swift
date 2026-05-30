@@ -8,6 +8,7 @@ struct InputBarTutorialOverlay: View {
 
     @Binding var isPresented: Bool
     @State private var step: Int = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let steps: [(icon: String, title: String, body: String)] = [
         ("keyboard", "Tap to type", "Tap the text area to start writing your memo."),
@@ -21,6 +22,21 @@ struct InputBarTutorialOverlay: View {
                 .onTapGesture { advance() }
 
             VStack(spacing: 0) {
+                // Skip button — top-right, hidden on final step
+                HStack {
+                    Spacer()
+                    if step < steps.count - 1 {
+                        Button(action: complete) {
+                            Text("Skip")
+                                .font(DSFonts.inter(size: 15, weight: .medium))
+                                .foregroundColor(DSColor.inkMuted)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.trailing, 32)
+                        .padding(.top, 16)
+                    }
+                }
+
                 Spacer()
 
                 VStack(spacing: 20) {
@@ -30,14 +46,17 @@ struct InputBarTutorialOverlay: View {
                             Circle()
                                 .fill(i == step ? DSColor.amberAccent : DSColor.inkFaint)
                                 .frame(width: 6, height: 6)
-                                .animation(.easeInOut(duration: 0.2), value: step)
+                                .animation(Motion.respectReduceMotion(.easeInOut(duration: 0.2)), value: step)
                         }
                     }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Step \(step + 1) of \(steps.count)")
 
                     Image(systemName: steps[step].icon)
                         .font(.system(size: 32, weight: .medium))
                         .foregroundColor(DSColor.amberAccent)
                         .frame(height: 44)
+                        .accessibilityHidden(true)
 
                     VStack(spacing: 6) {
                         Text(steps[step].title)
@@ -58,6 +77,7 @@ struct InputBarTutorialOverlay: View {
                             .background(DSColor.amberAccent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityHint(step < steps.count - 1 ? "Advances to the next tip" : "Dismisses the tutorial")
                 }
                 .padding(24)
                 .background(DSColor.bgWarm)
@@ -66,15 +86,21 @@ struct InputBarTutorialOverlay: View {
                 .padding(.bottom, 140)
             }
         }
-        .animation(.easeInOut(duration: 0.22), value: step)
+        .animation(Motion.respectReduceMotion(.easeInOut(duration: 0.22)), value: step)
     }
 
     private func advance() {
         if step < steps.count - 1 {
             step += 1
         } else {
-            UserDefaults.standard.set(true, forKey: "inputBarTutorialCompleted")
-            withAnimation { isPresented = false }
+            complete()
+        }
+    }
+
+    private func complete() {
+        UserDefaults.standard.set(true, forKey: "inputBarTutorialCompleted")
+        withAnimation(Motion.respectReduceMotion(.easeInOut(duration: 0.22))) {
+            isPresented = false
         }
     }
 }
