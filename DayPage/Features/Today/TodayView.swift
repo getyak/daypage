@@ -1115,7 +1115,7 @@ struct TodayView: View {
                 // at the very top once the day has a compiled summary.
                 if let summary = viewModel.dailyPageSummary,
                    !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    AISummaryCard(summary: summary)
+                    AISummaryCard(summary: summary, onTap: { showDailyPage = true })
                         .padding(.horizontal, 20)
                         .padding(.bottom, 4)
                         .transition(.opacity)
