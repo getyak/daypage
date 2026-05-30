@@ -33,16 +33,17 @@ struct RecordingOverlayView: View {
 
     var body: some View {
         ZStack {
-            // Dimmed background
-            Color.black.opacity(0.55).ignoresSafeArea()
+            // Dimmed background — warm dark recording scrim (design token),
+            // not pure black, to match the v8 「日式美术馆」 recording sheet.
+            DSTokens.Colors.recordingBg.opacity(0.88).ignoresSafeArea()
 
             VStack(spacing: 24) {
                 // Orb with dual-pulse halo
                 ZStack {
-                    // Outer ring pulse
+                    // Outer ring pulse — soft amber halo (design token accentSoft).
                     Circle()
                         .stroke(
-                            Color(red: 1.0, green: 0.851, blue: 0.659).opacity(pulseOuter ? 0.10 : 0.40),
+                            DSTokens.Colors.accentSoft.opacity(pulseOuter ? 0.18 : 0.55),
                             lineWidth: 1.5
                         )
                         .frame(width: 142, height: 142)
@@ -56,7 +57,7 @@ struct RecordingOverlayView: View {
                     // Inner ring pulse — 0.3s phase offset via delayed onAppear
                     Circle()
                         .stroke(
-                            Color(red: 1.0, green: 0.851, blue: 0.659).opacity(pulseInner ? 0.10 : 0.40),
+                            DSTokens.Colors.accentSoft.opacity(pulseInner ? 0.18 : 0.55),
                             lineWidth: 1.5
                         )
                         .frame(width: 130, height: 130)
@@ -125,7 +126,7 @@ struct RecordingOverlayView: View {
                         Text("Release to cancel")
                             .font(DSFonts.inter(size: 12, weight: .medium))
                     }
-                    .foregroundColor(DSColor.errorRed)
+                    .foregroundColor(DSTokens.Colors.recordingRed)
                     .padding(.top, 8)
                 } else if mode == .transcribeArmed {
                     HStack(spacing: 4) {
@@ -169,7 +170,7 @@ struct RecordingOverlayView: View {
                                 Text("Cancel")
                                     .font(DSFonts.inter(size: 12, weight: .medium))
                             }
-                            .foregroundColor(mode == .cancelArmed ? DSColor.errorRed : Color.white.opacity(0.75))
+                            .foregroundColor(mode == .cancelArmed ? DSTokens.Colors.recordingRed : Color.white.opacity(0.75))
                             .frame(width: 72, height: 56)
                             .background(Color.white.opacity(mode == .cancelArmed ? 0.25 : 0.12))
                             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))

@@ -175,7 +175,12 @@ struct TypewriterText: View {
             return
         }
         didStart = true
-        // Blink the caret.
+        caretVisible = true
+        // 'Ready' pre-blink: the caret pulses during the 380ms lead-in before
+        // the first character lands, then keeps blinking only while typing.
+        // Design app.jsx:439-442 shows the caret strictly while the reveal is
+        // incomplete; we stop the repeating blink in scheduleNextChar() once
+        // the last char is shown so it doesn't animate a hidden view forever.
         withAnimation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true)) {
             caretVisible = false
         }
@@ -188,6 +193,13 @@ struct TypewriterText: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [gen] in
             guard gen == generation, shownCount < fullText.count else { return }
             shownCount += 1
+            // Reveal complete → stop the repeating blink and settle the caret
+            // (the caret view itself disappears via `isTyping`, but halting the
+            // animation prevents a lingering repeatForever on a hidden layer).
+            if shownCount >= fullText.count {
+                withAnimation(.easeInOut(duration: 0.2)) { caretVisible = false }
+                return
+            }
             // 36–66ms jitter per char, matching the design's organic cadence.
             let jitter = Double.random(in: 0.036...0.066)
             scheduleNextChar(after: jitter)

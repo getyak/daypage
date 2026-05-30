@@ -96,6 +96,9 @@
 		A10000080 /* AppNavigationModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000080 /* AppNavigationModel.swift */; };
 		A10000081 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000081 /* SidebarView.swift */; };
 		A10000082 /* InputBarV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000082 /* InputBarV4.swift */; };
+		A10000510 /* RecordingSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000510 /* RecordingSheetView.swift */; };
+		A10000511 /* DynamicIslandView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000511 /* DynamicIslandView.swift */; };
+		A10000512 /* MetadataGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000512 /* MetadataGridView.swift */; };
 		A10000083 /* WeeklyRecapService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000083 /* WeeklyRecapService.swift */; };
 		A10000084 /* WeeklyRecapSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000084 /* WeeklyRecapSection.swift */; };
 		A10000085 /* iCloudConflictMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000085 /* iCloudConflictMonitor.swift */; };
@@ -315,6 +318,9 @@
 		A20000080 /* AppNavigationModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNavigationModel.swift; sourceTree = "<group>"; };
 		A20000081 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		A20000082 /* InputBarV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputBarV4.swift; sourceTree = "<group>"; };
+		A20000510 /* RecordingSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingSheetView.swift; sourceTree = "<group>"; };
+		A20000511 /* DynamicIslandView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DynamicIslandView.swift; sourceTree = "<group>"; };
+		A20000512 /* MetadataGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataGridView.swift; sourceTree = "<group>"; };
 		A20000083 /* WeeklyRecapService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapService.swift; sourceTree = "<group>"; };
 		A20000084 /* WeeklyRecapSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapSection.swift; sourceTree = "<group>"; };
 		A20000085 /* iCloudConflictMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iCloudConflictMonitor.swift; sourceTree = "<group>"; };
@@ -687,6 +693,8 @@
 				A20000052 /* AttachmentMenuPopover.swift */,
 				A20000064 /* AttachmentMenuSheet.swift */,
 				A20000054 /* RecordingOverlayView.swift */,
+				A20000510 /* RecordingSheetView.swift */,
+				A20000511 /* DynamicIslandView.swift */,
 				A20000055 /* PressToTalkButton.swift */,
 				A20000063 /* SwipeableMemoCard.swift */,
 				A20000400 /* HorizontalPanGesture.swift */,
@@ -730,6 +738,7 @@
 				A20000028 /* SearchView.swift */,
 				A20000031 /* RawMemoView.swift */,
 				A20000040 /* DayDetailView.swift */,
+				A20000512 /* MetadataGridView.swift */,
 			);
 			path = Archive;
 			sourceTree = "<group>";
@@ -1204,6 +1213,9 @@
 				A10000064 /* AttachmentMenuSheet.swift in Sources */,
 				A10000053 /* InputTokens.swift in Sources */,
 				A10000054 /* RecordingOverlayView.swift in Sources */,
+				A10000510 /* RecordingSheetView.swift in Sources */,
+				A10000511 /* DynamicIslandView.swift in Sources */,
+				A10000512 /* MetadataGridView.swift in Sources */,
 				A10000055 /* PressToTalkButton.swift in Sources */,
 				A10000056 /* VaultLocator.swift in Sources */,
 				A10000063 /* SwipeableMemoCard.swift in Sources */,

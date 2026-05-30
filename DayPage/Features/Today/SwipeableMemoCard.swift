@@ -378,12 +378,18 @@ private struct SwipeActionPanel: View {
     // MARK: - Subviews
 
     private var background: some View {
-        // Base tone deepens as the panel is revealed. A single brand color
-        // with an opacity ramp reads as a continuous surface waking up,
-        // rather than two distinct fills swapping. MORE's sunken neutral
-        // starts more opaque so the pale surface stays legible.
-        let floor: CGFloat = (kindIsMore ? 0.85 : 0.55)
-        return baseColor.opacity(Double(floor + (1 - floor) * min(1, progress)))
+        // Liquid Glass: a frosted .ultraThinMaterial base with the brand color
+        // layered as a translucent tint that deepens as the panel is revealed,
+        // rather than a flat opaque fill. The material refracts the warm vault
+        // background behind it, so the action drawer reads as a nested glass
+        // surface waking up. MORE's sunken neutral keeps a higher tint floor so
+        // its pale surface stays legible against the card.
+        let floor: CGFloat = (kindIsMore ? 0.78 : 0.42)
+        let tint = Double(floor + (1 - floor) * min(1, progress))
+        return ZStack {
+            Rectangle().fill(.ultraThinMaterial)
+            baseColor.opacity(tint)
+        }
     }
 
     private var kindIsMore: Bool {
