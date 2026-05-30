@@ -1271,7 +1271,7 @@ struct TodayView: View {
                 if !viewModel.memos.isEmpty
                     && !viewModel.isDailyPageCompiled
                     && viewModel.memos.count < 3 {
-                    CompileUnlockCard(memoCount: viewModel.memos.count)
+                    CompileUnlockCard(memoCount: viewModel.memos.count, onTap: { orbFocusToggle.toggle() })
                         .padding(.horizontal, 20)
                         .padding(.top, 4)
                         .transition(.opacity)
