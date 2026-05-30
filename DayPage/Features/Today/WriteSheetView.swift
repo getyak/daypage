@@ -36,6 +36,7 @@ struct WriteSheetView: View {
 
     @FocusState private var isFocused: Bool
     @State private var appeared: Bool = false
+    @State private var lastMilestone: Int = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Sheet-up easing — composer.jsx:219 `cubic-bezier(.2,.8,.2,1)` @ 320ms.
@@ -48,6 +49,29 @@ struct WriteSheetView: View {
 
     private var canSave: Bool {
         !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// Counter color: interpolates from fgMuted → accentAmber as words grows from 100…200.
+    private var wordCountColor: Color {
+        guard !reduceMotion, words > 0 else {
+            return words > 0 ? DSTokens.Colors.fgMuted : DSTokens.Colors.fgSubtle
+        }
+        guard words > 100 else { return DSTokens.Colors.fgMuted }
+        let t = CGFloat(min(words - 100, 100)) / 100.0
+        return Self.lerpColor(from: DSColor.inkMuted, to: DSColor.accentAmber, t: t)
+    }
+
+    private static func lerpColor(from a: Color, to b: Color, t: CGFloat) -> Color {
+        var r1: CGFloat = 0, g1: CGFloat = 0, b1: CGFloat = 0, a1: CGFloat = 0
+        var r2: CGFloat = 0, g2: CGFloat = 0, b2: CGFloat = 0, a2: CGFloat = 0
+        UIColor(a).getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
+        UIColor(b).getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
+        return Color(
+            red: r1 + (r2 - r1) * t,
+            green: g1 + (g2 - g1) * t,
+            blue: b1 + (b2 - b1) * t,
+            opacity: a1 + (a2 - a1) * t
+        )
     }
 
     // MARK: - Date / time strings (museum-tag style)
@@ -235,13 +259,24 @@ struct WriteSheetView: View {
 
             Spacer()
 
-            // Word count — mono, brightens once the user has typed.
+            // Word count — mono, rolls digits via numericText, warms toward amber with length.
             Text("\(words) \(NSLocalizedString("write.sheet.words_unit", comment: "字"))")
                 .font(DSFonts.jetBrainsMono(size: 10, weight: .semibold))
                 .tracking(1.3)
                 .monospacedDigit()
-                .foregroundColor(words > 0 ? DSTokens.Colors.fgMuted : DSTokens.Colors.fgSubtle)
+                .foregroundColor(wordCountColor)
+                .modifier(NumericTextContentTransition(value: Double(words), reduceMotion: reduceMotion))
+                .animation(reduceMotion ? nil : Motion.spring, value: words)
                 .padding(.trailing, 10)
+                .onChange(of: words) { newWords in
+                    let milestone = newWords / 50
+                    if milestone > lastMilestone {
+                        lastMilestone = milestone
+                        if !reduceMotion { Haptics.soft() }
+                    } else if milestone < lastMilestone {
+                        lastMilestone = milestone
+                    }
+                }
 
             savePill
         }
@@ -316,6 +351,23 @@ struct WriteSheetView: View {
         Haptics.medium()
         isFocused = false
         onSave()
+    }
+}
+
+// MARK: - NumericTextContentTransition
+
+private struct NumericTextContentTransition: ViewModifier {
+    let value: Double
+    let reduceMotion: Bool
+
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *) {
+            content
+                .contentTransition(reduceMotion ? .identity : .numericText(value: value))
+        } else {
+            content
+                .contentTransition(.identity)
+        }
     }
 }
 
