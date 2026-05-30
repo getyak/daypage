@@ -37,6 +37,7 @@ struct WriteSheetView: View {
     @FocusState private var isFocused: Bool
     @State private var appeared: Bool = false
     @State private var lastMilestone: Int = 0
+    @GestureState private var dragOffset: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Sheet-up easing — composer.jsx:219 `cubic-bezier(.2,.8,.2,1)` @ 320ms.
@@ -108,14 +109,16 @@ struct WriteSheetView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             // Backdrop scrim — composer.jsx:206-209 rgba(30,24,18,0.34).
+            // Fades proportionally as the sheet is dragged down.
             DSTokens.Colors.recordingBg.opacity(0.34)
                 .ignoresSafeArea()
-                .opacity(appeared ? 1 : 0)
+                .opacity(appeared ? max(0, 1 - dragOffset / 400) : 0)
                 .onTapGesture { onClose() }
                 .accessibilityHidden(true)
 
             sheet
-                .offset(y: appeared ? 0 : sheetTravel)
+                .offset(y: (appeared ? 0 : sheetTravel) + max(0, dragOffset))
+                .gesture(swipeToDismiss)
         }
         .animation(reduceMotion ? .easeOut(duration: 0.2) : Self.sheetUp, value: appeared)
         .onAppear {
@@ -129,6 +132,21 @@ struct WriteSheetView: View {
 
     /// Off-screen travel distance for the sheet-up entrance.
     private var sheetTravel: CGFloat { reduceMotion ? 0 : 420 }
+
+    /// Swipe-down-to-dismiss gesture attached to the whole sheet.
+    private var swipeToDismiss: some Gesture {
+        DragGesture(minimumDistance: 8)
+            .updating($dragOffset) { value, state, _ in
+                state = value.translation.height
+            }
+            .onEnded { value in
+                if value.translation.height > 120 || value.predictedEndTranslation.height > 240 {
+                    Haptics.soft()
+                    isFocused = false
+                    onClose()
+                }
+            }
+    }
 
     // MARK: - Sheet
 
