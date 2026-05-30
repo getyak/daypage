@@ -109,6 +109,11 @@ struct TodayView: View {
 
     private var isInSelectionMode: Bool { selectedMemoIds != nil }
 
+    /// Progress of the scroll-to-top ring: 0 at 240pt (button appears), 1 after 1200pt more.
+    private var scrollProgress: CGFloat {
+        min(1, max(0, (-timelineScrollOffset - 240) / 1200))
+    }
+
     /// Live drag offset for the daily page card (negative = pulled left).
     @GestureState private var dailyPageDrag: CGFloat = 0
 
@@ -252,12 +257,23 @@ struct TodayView: View {
                                 .background(DSColor.glassStd)
                                 .background(.ultraThinMaterial, in: Circle())
                                 .overlay(Circle().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                                .overlay(
+                                    Circle()
+                                        .trim(from: 0, to: scrollProgress)
+                                        .stroke(
+                                            DSColor.accentAmber,
+                                            style: StrokeStyle(lineWidth: 1.5, lineCap: .round)
+                                        )
+                                        .rotationEffect(.degrees(-90))
+                                        .animation(reduceMotion ? nil : Motion.fade, value: scrollProgress)
+                                )
                                 .clipShape(Circle())
                         }
                         .padding(.trailing, 20)
                         .padding(.bottom, 96)
                         .transition(.opacity.combined(with: .scale(scale: 0.8)))
                         .accessibilityLabel("Scroll to top")
+                        .accessibilityHint("Returns to the top of today's timeline")
                         .accessibilityIdentifier("scroll-to-top-button")
                     }
                 }
