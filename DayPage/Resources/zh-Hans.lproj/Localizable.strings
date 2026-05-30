@@ -49,6 +49,11 @@
 "write.sheet.icon.location"  = "位置";
 "write.sheet.icon.tag"       = "标签";
 
+/* WriteSheet — word/char counter */
+"writesheet.count.words.one"   = "1 个词";
+"writesheet.count.words.other" = "%d 个词";
+"writesheet.count.chars"       = "字符";
+
 /* InputBarV4 — accessibility */
 "input.a11y.too_short"       = "录音太短，请按住麦克风继续说";
 "input.a11y.mic_hint"        = "单击打开录音页，长按发送语音";

@@ -49,6 +49,11 @@
 "write.sheet.icon.location"  = "Location";
 "write.sheet.icon.tag"       = "Tag";
 
+/* WriteSheet — word/char counter */
+"writesheet.count.words.one"   = "1 word";
+"writesheet.count.words.other" = "%d words";
+"writesheet.count.chars"       = "chars";
+
 /* InputBarV4 — accessibility */
 "input.a11y.too_short"       = "Recording too short. Hold the mic and keep speaking.";
 "input.a11y.mic_hint"        = "Tap to open recorder; hold to send voice";
