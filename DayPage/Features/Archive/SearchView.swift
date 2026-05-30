@@ -773,16 +773,28 @@ struct SearchView: View {
     // MARK: - Grouped result list
 
     private var groupedResultList: some View {
+        ScrollViewReader { proxy in
         ScrollView {
             LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
+                // Invisible anchor for scroll-to-top
+                Color.clear.frame(height: 0).id("searchTop")
+
                 let groups = vm.groupedResults()
                 let total = vm.results.count
 
-                // Total count header
+                // Total count header — tappable to scroll back to top
+                Button(action: {
+                    Haptics.tapConfirm()
+                    withAnimation(reduceMotion ? nil : Motion.spring) {
+                        proxy.scrollTo("searchTop", anchor: .top)
+                    }
+                }) {
                 HStack {
                     Text("\(total) 条结果")
                         .monoLabelStyle(size: 10)
                         .foregroundColor(DSColor.onSurfaceVariant)
+                        .modifier(NumericTextContentTransition(value: Double(total), reduceMotion: reduceMotion))
+                        .animation(reduceMotion ? nil : Motion.spring, value: total)
                     Spacer()
                     if filters.isActive {
                         Label("已筛选", systemImage: "line.3.horizontal.decrease.circle.fill")
@@ -793,6 +805,10 @@ struct SearchView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
                 .padding(.bottom, 8)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(total) 条结果，双击回到顶部")
+                .accessibilityHint("双击滚动回列表顶部")
 
                 ForEach(groups, id: \.section) { group in
                     Section {
@@ -828,6 +844,7 @@ struct SearchView: View {
             .padding(.bottom, 24)
         }
         .scrollDismissesKeyboard(.interactively)
+        } // end ScrollViewReader
     }
 
     private func resultRow(_ result: SearchResult) -> some View {
@@ -1109,6 +1126,23 @@ private extension Memo.MemoType {
         case .photo:    return "photo"
         case .location: return "mappin"
         case .mixed:    return "square.grid.2x2"
+        }
+    }
+}
+
+// MARK: - NumericTextContentTransition
+
+private struct NumericTextContentTransition: ViewModifier {
+    let value: Double
+    let reduceMotion: Bool
+
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *) {
+            content
+                .contentTransition(reduceMotion ? .identity : .numericText(value: value))
+        } else {
+            content
+                .contentTransition(.identity)
         }
     }
 }
