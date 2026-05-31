@@ -943,9 +943,34 @@ struct SearchView: View {
                 .bodySMStyle()
                 .foregroundColor(DSColor.onSurface)
         } else {
-            Text(buildHighlightedString(snippet, keyword: trimmed))
+            let windowed = snippetWindow(snippet, keyword: trimmed)
+            Text(buildHighlightedString(windowed, keyword: trimmed))
                 .bodySMStyle()
         }
+    }
+
+    /// Returns a ~80-char window of `snippet` centered just before the first
+    /// case-insensitive match of `keyword`, so the highlight is always visible.
+    /// Prepends/appends '…' when the window doesn't reach the string boundaries.
+    /// Falls back to the original snippet when `keyword` is not found.
+    private func snippetWindow(_ snippet: String, keyword: String, context: Int = 24) -> String {
+        let kw = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !kw.isEmpty else { return snippet }
+
+        guard let matchRange = snippet.range(of: kw, options: .caseInsensitive) else { return snippet }
+
+        let matchOffset = snippet.distance(from: snippet.startIndex, to: matchRange.lowerBound)
+        let windowStartOffset = max(0, matchOffset - context)
+
+        let windowStart = snippet.index(snippet.startIndex, offsetBy: windowStartOffset)
+        let windowEnd = snippet.index(windowStart,
+                                      offsetBy: 80,
+                                      limitedBy: snippet.endIndex) ?? snippet.endIndex
+
+        var result = String(snippet[windowStart..<windowEnd])
+        if windowStart != snippet.startIndex { result = "…" + result }
+        if windowEnd != snippet.endIndex { result += "…" }
+        return result
     }
 
     private func buildHighlightedString(_ text: String, keyword: String) -> AttributedString {
