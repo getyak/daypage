@@ -70,7 +70,7 @@ export function TodayHero() {
   // Loading state
   if (!data && !error) {
     return (
-      <div style={{ paddingTop: 8, paddingBottom: 24 }}>
+      <div style={{ paddingTop: 4, paddingBottom: 18 }}>
         <div
           style={{
             height: 56,
@@ -90,7 +90,7 @@ export function TodayHero() {
   // "MAY 28 · — · — · —" string with a single quiet retry affordance.
   if (error || !data) {
     return (
-      <div style={{ paddingTop: 8, paddingBottom: 24 }}>
+      <div style={{ paddingTop: 4, paddingBottom: 18 }}>
         <h1
           style={{
             fontFamily: "var(--font-serif)",
@@ -143,7 +143,7 @@ export function TodayHero() {
   const weatherTemp = weather.temp !== null ? `${weather.temp}°` : null;
 
   return (
-    <div style={{ paddingTop: 8, paddingBottom: 24 }}>
+    <div style={{ paddingTop: 4, paddingBottom: 18 }}>
       <h1
         style={{
           fontFamily: "var(--font-serif)",

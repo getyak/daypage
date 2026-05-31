@@ -49,7 +49,7 @@ enum DSColor {
     // migrates.
 
     /// Page background — warm cream in light, deep charcoal-brown in dark.
-    static let bgWarm        = Color(light: Color(hex: "FAF7F2"), dark: Color(hex: "1A1410"))
+    static let bgWarm        = Color(light: Color(hex: "FAF8F6"), dark: Color(hex: "1A1410"))
     /// Standard glass fill — adaptive opacity glass layer.
     static let glassStd      = Color(light: Color(red: 1, green: 252/255, blue: 250/255, opacity: 0.62),
                                      dark: Color(red: 30/255, green: 22/255, blue: 14/255, opacity: 0.62))

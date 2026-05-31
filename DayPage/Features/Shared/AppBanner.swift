@@ -187,7 +187,9 @@ struct BannerOverlayModifier: ViewModifier {
     @ObservedObject private var bannerCenter = BannerCenter.shared
 
     func body(content: Content) -> some View {
-        content.overlay(alignment: .top) {
+        // ZStack keeps the banner floating above content without shifting layout.
+        ZStack(alignment: .top) {
+            content
             if let banner = bannerCenter.currentBanner {
                 AppBanner(model: banner)
                     .padding(.top, 8)

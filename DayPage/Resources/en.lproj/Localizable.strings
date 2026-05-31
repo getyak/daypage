@@ -20,7 +20,8 @@
 "compile.dock.unlocked" = "Daily compilation unlocked";
 
 /* InputBarV4 — press-to-talk hint states */
-"input.hint.idle"            = "Hold to record · Release to transcribe";
+"input.hint.placeholder"     = "记下此刻";
+"input.hint.idle"            = "轻点书写 · 长按录音";
 "input.hint.pre_recording"   = "Hold a moment longer";
 "input.hint.recording"       = "Swipe up to cancel · Left to transcribe · Release to send";
 "input.hint.cancel_armed"    = "Release to cancel";

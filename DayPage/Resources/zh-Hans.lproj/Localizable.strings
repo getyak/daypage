@@ -20,7 +20,8 @@
 "compile.dock.unlocked" = "已解锁今日编译";
 
 /* InputBarV4 — press-to-talk hint states */
-"input.hint.idle"            = "按住录音 · 松手转文字";
+"input.hint.placeholder"     = "记下此刻";
+"input.hint.idle"            = "轻点书写 · 长按录音";
 "input.hint.pre_recording"   = "再按住一下";
 "input.hint.recording"       = "上滑取消 · 左滑转文字 · 松开发送";
 "input.hint.cancel_armed"    = "松开取消";

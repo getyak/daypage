@@ -22,9 +22,11 @@ import { MobileOnlyGuard } from "./MobileOnlyGuard";
 function MemoFeed({
   composerMicRef,
   onShare,
+  onServiceDisconnected,
 }: {
   composerMicRef: React.RefObject<HTMLButtonElement | null>;
   onShare: (memo: ShareCardMemo) => void;
+  onServiceDisconnected?: () => void;
 }) {
   const [memos, setMemos] = useState<MemoCardData[]>([]);
   const [serviceConnected, setServiceConnected] = useState(true);
@@ -43,10 +45,13 @@ function MemoFeed({
     fetch("/api/compile/status")
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { connected: boolean } | null) => {
-        if (d) setServiceConnected(d.connected);
+        if (d) {
+          setServiceConnected(d.connected);
+          if (!d.connected) onServiceDisconnected?.();
+        }
       })
       .catch(() => {});
-  }, [reloadMemos]);
+  }, [reloadMemos, onServiceDisconnected]);
 
   const handleRetry = useCallback(
     (id: string) => {
@@ -98,6 +103,7 @@ function TodayMobileFlow() {
   const [writeOpen, setWriteOpen] = useState(false);
   const [showAttachSheet, setShowAttachSheet] = useState(false);
   const [shareMemo, setShareMemo] = useState<ShareCardMemo | null>(null);
+  const [showServiceToast, setShowServiceToast] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   const composerMicRef = useRef<HTMLButtonElement | null>(null);
@@ -170,7 +176,7 @@ function TodayMobileFlow() {
         position: "relative",
         height: "100%",
         overflowY: "auto",
-        paddingTop: 60,
+        paddingTop: 52,
         paddingLeft: 14,
         paddingRight: 14,
         paddingBottom: 10,
@@ -185,16 +191,15 @@ function TodayMobileFlow() {
           top: 0,
           left: 0,
           right: 0,
-          height: 60,
+          height: 52,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           paddingLeft: 14,
           paddingRight: 14,
-          paddingBottom: 10,
-          background: scrolled ? "rgba(250,248,246,0.78)" : "transparent",
-          backdropFilter: scrolled ? "blur(20px) saturate(150%)" : "none",
-          WebkitBackdropFilter: scrolled ? "blur(20px) saturate(150%)" : "none",
+          background: scrolled ? "rgba(250,248,246,0.82)" : "transparent",
+          backdropFilter: scrolled ? "blur(20px) saturate(160%)" : "none",
+          WebkitBackdropFilter: scrolled ? "blur(20px) saturate(160%)" : "none",
           borderBottom: scrolled
             ? "0.5px solid var(--border-subtle)"
             : "0.5px solid transparent",
@@ -217,6 +222,75 @@ function TodayMobileFlow() {
         </div>
       </div>
 
+      {/* Service disconnected toast — floats at top, auto-dismiss after 6s */}
+      {showServiceToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            top: "calc(64px + env(safe-area-inset-top, 0px))",
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 50,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "9px 14px 9px 12px",
+            borderRadius: 999,
+            background: "rgba(43,40,34,0.88)",
+            backdropFilter: "blur(16px) saturate(140%)",
+            WebkitBackdropFilter: "blur(16px) saturate(140%)",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.22), inset 0 0.5px 0 rgba(255,255,255,0.08)",
+            animation: "toast-in 280ms var(--motion-spring) both",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: 999,
+              background: "var(--warning)",
+              flexShrink: 0,
+            }}
+          />
+          <span
+            style={{
+              fontFamily: "var(--font-family-mono), monospace",
+              fontSize: 11.5,
+              letterSpacing: "0.3px",
+              color: "rgba(240,237,232,0.9)",
+            }}
+          >
+            AI 编译服务未连接
+          </span>
+          <button
+            type="button"
+            aria-label="关闭提示"
+            onClick={() => setShowServiceToast(false)}
+            style={{
+              marginLeft: 2,
+              width: 18,
+              height: 18,
+              borderRadius: 999,
+              border: "none",
+              background: "rgba(255,255,255,0.12)",
+              color: "rgba(240,237,232,0.7)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              fontSize: 12,
+              lineHeight: 1,
+              flexShrink: 0,
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Today Hero — US-006 */}
       <TodayHero />
 
@@ -233,7 +307,11 @@ function TodayMobileFlow() {
       </div>
 
       {/* Memo Feed + Unlock Placeholder — US-009, US-010 */}
-      <MemoFeed composerMicRef={composerMicRef} onShare={setShareMemo} />
+      <MemoFeed
+        composerMicRef={composerMicRef}
+        onShare={setShareMemo}
+        onServiceDisconnected={() => setShowServiceToast(true)}
+      />
 
       {/* Week Wiki Spine Feed — US-011 */}
       <div style={{ paddingTop: 24 }}>
