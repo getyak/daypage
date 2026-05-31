@@ -1368,6 +1368,8 @@ struct TodayView: View {
                                 withAnimation(Motion.spring) { memoCardHintOffset = -28 }
                                 Haptics.soft()
                                 try? await Task.sleep(for: .seconds(0.45))
+                                withAnimation(Motion.spring) { memoCardHintOffset = 28 }
+                                try? await Task.sleep(for: .seconds(0.35))
                                 withAnimation(Motion.spring) { memoCardHintOffset = 0 }
                             }
                         }
