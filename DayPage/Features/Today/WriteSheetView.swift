@@ -36,18 +36,46 @@ struct WriteSheetView: View {
 
     @FocusState private var isFocused: Bool
     @State private var appeared: Bool = false
+    @State private var lastMilestone: Int = 0
+    @GestureState private var dragOffset: CGFloat = 0
+    @State private var committedClose: Bool = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Sheet-up easing — composer.jsx:219 `cubic-bezier(.2,.8,.2,1)` @ 320ms.
     private static let sheetUp = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.32)
 
-    /// Non-whitespace character count (design composer.jsx:201).
-    private var words: Int {
-        text.filter { !$0.isWhitespace }.count
+    /// Actual word count — split on whitespace/newlines, filter empties.
+    private var wordCount: Int {
+        text.split(whereSeparator: \.isWhitespace).count
     }
+
+    private var charCount: Int { text.count }
 
     private var canSave: Bool {
         !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// Counter color: interpolates from fgMuted → accentAmber as wordCount grows from 100…200.
+    private var wordCountColor: Color {
+        guard !reduceMotion, wordCount > 0 else {
+            return wordCount > 0 ? DSTokens.Colors.fgMuted : DSTokens.Colors.fgSubtle
+        }
+        guard wordCount > 100 else { return DSTokens.Colors.fgMuted }
+        let t = CGFloat(min(wordCount - 100, 100)) / 100.0
+        return Self.lerpColor(from: DSColor.inkMuted, to: DSColor.accentAmber, t: t)
+    }
+
+    private static func lerpColor(from a: Color, to b: Color, t: CGFloat) -> Color {
+        var r1: CGFloat = 0, g1: CGFloat = 0, b1: CGFloat = 0, a1: CGFloat = 0
+        var r2: CGFloat = 0, g2: CGFloat = 0, b2: CGFloat = 0, a2: CGFloat = 0
+        UIColor(a).getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
+        UIColor(b).getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
+        return Color(
+            red: r1 + (r2 - r1) * t,
+            green: g1 + (g2 - g1) * t,
+            blue: b1 + (b2 - b1) * t,
+            opacity: a1 + (a2 - a1) * t
+        )
     }
 
     // MARK: - Date / time strings (museum-tag style)
@@ -84,14 +112,16 @@ struct WriteSheetView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             // Backdrop scrim — composer.jsx:206-209 rgba(30,24,18,0.34).
+            // Fades proportionally as the sheet is dragged down.
             DSTokens.Colors.recordingBg.opacity(0.34)
                 .ignoresSafeArea()
-                .opacity(appeared ? 1 : 0)
+                .opacity(appeared ? max(0, 1 - dragOffset / 400) : 0)
                 .onTapGesture { onClose() }
                 .accessibilityHidden(true)
 
             sheet
-                .offset(y: appeared ? 0 : sheetTravel)
+                .offset(y: (appeared ? 0 : sheetTravel) + (dragOffset < 0 ? dragOffset / 6 : dragOffset))
+                .gesture(swipeToDismiss)
         }
         .animation(reduceMotion ? .easeOut(duration: 0.2) : Self.sheetUp, value: appeared)
         .onAppear {
@@ -105,6 +135,21 @@ struct WriteSheetView: View {
 
     /// Off-screen travel distance for the sheet-up entrance.
     private var sheetTravel: CGFloat { reduceMotion ? 0 : 420 }
+
+    /// Swipe-down-to-dismiss gesture attached to the whole sheet.
+    private var swipeToDismiss: some Gesture {
+        DragGesture(minimumDistance: 8)
+            .updating($dragOffset) { value, state, _ in
+                state = value.translation.height
+            }
+            .onEnded { value in
+                if value.translation.height > 120 || value.predictedEndTranslation.height > 240 {
+                    Haptics.soft()
+                    isFocused = false
+                    onClose()
+                }
+            }
+    }
 
     // MARK: - Sheet
 
@@ -143,13 +188,37 @@ struct WriteSheetView: View {
     // MARK: - Drag handle (composer.jsx:222-225)
 
     private var dragHandle: some View {
-        Capsule()
-            .fill(DSTokens.Colors.borderDefault)
-            .frame(width: 36, height: 4)
+        let progress = min(max(dragOffset, 0) / 120, 1.0)
+        return Capsule()
+            .fill(DSTokens.Colors.borderDefault.opacity(0.6 + 0.4 * progress))
+            .frame(width: 36 + 8 * progress, height: 4)
+            .scaleEffect(1 + 0.08 * progress)
             .padding(.top, 8)
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
+            .gesture(swipeDownGesture)
             .accessibilityHidden(true)
+    }
+
+    private var swipeDownGesture: some Gesture {
+        DragGesture(minimumDistance: 8)
+            .updating($dragOffset) { value, state, _ in
+                state = value.translation.height
+                // Resign focus on the main thread so the keyboard collapses
+                // alongside the sheet during the drag.
+                DispatchQueue.main.async { isFocused = false }
+            }
+            .onEnded { value in
+                let shouldDismiss = value.translation.height > 120
+                    || value.predictedEndTranslation.height > 260
+                if shouldDismiss {
+                    onClose()
+                } else if !reduceMotion {
+                    withAnimation(Motion.spring) { }
+                } else {
+                    withAnimation(.easeOut(duration: 0.2)) { }
+                }
+            }
     }
 
     // MARK: - Header (composer.jsx:227-249)
@@ -184,6 +253,8 @@ struct WriteSheetView: View {
         .padding(.horizontal, 22)
         .padding(.top, 14)
         .padding(.bottom, 12)
+        .contentShape(Rectangle())
+        .gesture(swipeDownGesture)
     }
 
     // MARK: - 0.5px hairline (composer.jsx:252 / 279)
@@ -217,6 +288,11 @@ struct WriteSheetView: View {
                 .lineLimit(3...10)
                 .focused($isFocused)
                 .accessibilityIdentifier("write-sheet-input")
+                .toolbar {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        keyboardToolbarContent
+                    }
+                }
         }
         .padding(.horizontal, 22)
         .padding(.top, 20)
@@ -235,13 +311,29 @@ struct WriteSheetView: View {
 
             Spacer()
 
-            // Word count — mono, brightens once the user has typed.
-            Text("\(words) \(NSLocalizedString("write.sheet.words_unit", comment: "字"))")
-                .font(DSFonts.jetBrainsMono(size: 10, weight: .semibold))
-                .tracking(1.3)
+            // Word + char counter — mono10/inkSubtle, milestones every 100 words.
+            let wordsLabel = wordCount == 1
+                ? NSLocalizedString("writesheet.count.words.one", comment: "1 word")
+                : String(format: NSLocalizedString("writesheet.count.words.other", comment: "%d words"), wordCount)
+            Text("\(wordsLabel) · \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
+                .font(DSType.mono10)
+                .tracking(1.0)
+                .textCase(.uppercase)
                 .monospacedDigit()
-                .foregroundColor(words > 0 ? DSTokens.Colors.fgMuted : DSTokens.Colors.fgSubtle)
+                .foregroundColor(DSColor.inkSubtle)
+                .modifier(NumericTextContentTransition(value: Double(wordCount), reduceMotion: reduceMotion))
+                .animation(reduceMotion ? nil : Motion.spring, value: wordCount)
                 .padding(.trailing, 10)
+                .accessibilityLabel("\(wordsLabel), \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
+                .onChange(of: wordCount) { newCount in
+                    let milestone = newCount / 100
+                    if milestone > lastMilestone {
+                        lastMilestone = milestone
+                        if newCount > 0 { Haptics.soft() }
+                    } else if milestone < lastMilestone {
+                        lastMilestone = milestone
+                    }
+                }
 
             savePill
         }
@@ -309,6 +401,53 @@ struct WriteSheetView: View {
         .accessibilityHidden(true)
     }
 
+    // MARK: - Keyboard accessory toolbar
+
+    @ViewBuilder
+    private var keyboardToolbarContent: some View {
+        // Done — collapses keyboard, reveals footer rail and saved caption.
+        Button(NSLocalizedString("write.sheet.done", comment: "完成")) {
+            isFocused = false
+        }
+        .font(DSFonts.inter(size: 14, weight: .medium))
+        .foregroundColor(DSTokens.Colors.fgMuted)
+        .accessibilityLabel(NSLocalizedString("write.sheet.done", comment: "完成"))
+
+        // Live word / char counter — reuses footer-rail mono10 style.
+        let wordsLabel = wordCount == 1
+            ? NSLocalizedString("writesheet.count.words.one", comment: "1 word")
+            : String(format: NSLocalizedString("writesheet.count.words.other", comment: "%d words"), wordCount)
+        Text("\(wordsLabel) · \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
+            .font(DSType.mono10)
+            .tracking(1.0)
+            .textCase(.uppercase)
+            .monospacedDigit()
+            .foregroundColor(wordCountColor)
+            .modifier(NumericTextContentTransition(value: Double(wordCount), reduceMotion: reduceMotion))
+            .animation(reduceMotion ? nil : Motion.spring, value: wordCount)
+            .accessibilityLabel("\(wordsLabel), \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
+
+        Spacer()
+
+        // Accent save button — same path as the footer-rail pill.
+        Button(action: handleSave) {
+            Text(NSLocalizedString("write.sheet.save", comment: "保存"))
+                .font(DSFonts.inter(size: 14, weight: .semibold))
+                .tracking(0.2)
+                .foregroundColor(canSave ? DSTokens.Colors.accentSoft : DSTokens.Colors.fgSubtle)
+                .padding(.horizontal, 14)
+                .frame(height: 32)
+                .background(
+                    Capsule().fill(canSave ? DSTokens.Colors.accent : DSTokens.Colors.surfaceSunken)
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(!canSave)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: canSave)
+        .accessibilityLabel(NSLocalizedString("write.sheet.save", comment: "保存"))
+        .accessibilityIdentifier("write-sheet-keyboard-save")
+    }
+
     // MARK: - Actions
 
     private func handleSave() {
@@ -316,6 +455,23 @@ struct WriteSheetView: View {
         Haptics.medium()
         isFocused = false
         onSave()
+    }
+}
+
+// MARK: - NumericTextContentTransition
+
+private struct NumericTextContentTransition: ViewModifier {
+    let value: Double
+    let reduceMotion: Bool
+
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *) {
+            content
+                .contentTransition(reduceMotion ? .identity : .numericText(value: value))
+        } else {
+            content
+                .contentTransition(.identity)
+        }
     }
 }
 

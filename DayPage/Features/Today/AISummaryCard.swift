@@ -7,7 +7,7 @@ import SwiftUI
 // Design intent (Claude Design bundle — composer.jsx AISummary, restrained variant):
 //   • plain white surface + 0.5pt hairline border, radius 14
 //   • slim 2px accent rail down the left edge
-//   • header: tiny sparkle + mono "AI · 今日一句" + right-aligned timestamp
+//   • header: tiny sparkle + mono "AI · 今日一句" + static "TODAY" mono label
 //   • body: 19pt serif italic, revealed with a typewriter animation + blinking caret
 //
 // Data: bound to `TodayViewModel.dailyPageSummary` (the compiled daily summary).
@@ -16,21 +16,15 @@ import SwiftUI
 struct AISummaryCard: View {
     /// The compiled one-line summary to reveal.
     let summary: String
-    /// Timestamp shown in the header (defaults to now).
-    var timestamp: Date = Date()
     /// When set, the card becomes tappable and opens the Daily Page.
     var onTap: (() -> Void)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed: Bool = false
-
-    private static let timeFmt: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = AppSettings.currentTimeZone()
-        return f
-    }()
+    /// True once the typewriter reveal has finished (or Reduce Motion is on).
+    @State private var revealComplete: Bool = false
+    /// Closure provided by TypewriterText to instantly complete the reveal.
+    @State private var completeReveal: (() -> Void)? = nil
 
     var body: some View {
         ZStack(alignment: .leading) {
@@ -45,7 +39,10 @@ struct AISummaryCard: View {
                 header
                 TypewriterText(
                     fullText: summary,
-                    animated: !reduceMotion
+                    animated: !reduceMotion,
+                    hapticTexture: !reduceMotion,
+                    isComplete: $revealComplete,
+                    onCompleteHandler: $completeReveal
                 )
                 .font(DSType.serifQuote) // 18pt serif italic ≈ design 19pt
                 .foregroundColor(DSColor.inkPrimary)
@@ -68,6 +65,13 @@ struct AISummaryCard: View {
         .contentShape(Rectangle())
         .onTapGesture {
             guard let onTap else { return }
+            // First tap while typewriter is still animating: snap the text into
+            // view with a soft haptic instead of navigating.
+            if !reduceMotion && !revealComplete {
+                completeReveal?()
+                Haptics.soft()
+                return
+            }
             Haptics.tapConfirm()
             onTap()
         }
@@ -93,19 +97,14 @@ struct AISummaryCard: View {
                 .tracking(1.6)
                 .foregroundColor(DSColor.accentAmber)
             Spacer(minLength: 8)
-            HStack(spacing: 5) {
-                Circle()
-                    .fill(DSColor.accentAmber)
-                    .frame(width: 5, height: 5)
-                Text(Self.timeFmt.string(from: timestamp))
-                    .font(DSType.mono9)
-                    .tracking(1.2)
-                    .foregroundColor(DSColor.inkSubtle)
-                if onTap != nil {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(DSColor.inkFaint)
-                }
+            Text("TODAY")
+                .font(DSType.mono9)
+                .tracking(1.2)
+                .foregroundColor(DSColor.inkSubtle)
+            if onTap != nil {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(DSColor.inkFaint)
             }
         }
     }
@@ -137,11 +136,18 @@ private struct TappableCardAccessibility: ViewModifier {
 struct TypewriterText: View {
     let fullText: String
     var animated: Bool = true
+    /// When true, a soft haptic tick fires every 4th character during the reveal.
+    var hapticTexture: Bool = true
+    /// Set to true by TypewriterText when the reveal finishes (or when not animated).
+    var isComplete: Binding<Bool> = .constant(false)
+    /// Populated by TypewriterText on appear with a closure that instantly completes
+    /// the reveal; the parent can store and call it on a first-tap skip.
+    var onCompleteHandler: Binding<(() -> Void)?> = .constant(nil)
 
     @State private var shownCount: Int = 0
     @State private var caretVisible: Bool = true
     @State private var didStart = false
-    /// Generation counter that increments each time fullText changes.
+    /// Generation counter that increments each time fullText changes or complete() is called.
     /// Captured by asyncAfter closures so stale chains bail out.
     @State private var generation = 0
 
@@ -159,19 +165,35 @@ struct TypewriterText: View {
                     .opacity(caretVisible ? 1 : 0)
             }
         }
-        .onAppear { startIfNeeded() }
+        .onAppear {
+            // Expose the complete() closure to the parent before starting the reveal.
+            onCompleteHandler.wrappedValue = { complete() }
+            startIfNeeded()
+        }
         .onChange(of: fullText) { _ in
             // New summary → restart the reveal.
             shownCount = 0
             didStart = false
+            isComplete.wrappedValue = false
             generation += 1
             startIfNeeded()
         }
     }
 
+    /// Instantly snaps the reveal to the end and cancels any pending asyncAfter chain.
+    private func complete() {
+        generation += 1          // invalidates all in-flight scheduleNextChar closures
+        shownCount = fullText.count
+        withAnimation(.easeInOut(duration: 0.15)) { caretVisible = false }
+        isComplete.wrappedValue = true
+    }
+
     private func startIfNeeded() {
         guard animated, !didStart, !fullText.isEmpty else {
-            if !animated { shownCount = fullText.count }
+            if !animated {
+                shownCount = fullText.count
+                isComplete.wrappedValue = true
+            }
             return
         }
         didStart = true
@@ -193,11 +215,16 @@ struct TypewriterText: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [gen] in
             guard gen == generation, shownCount < fullText.count else { return }
             shownCount += 1
+            // Soft haptic texture: every 4th char (skip final — completion has its own celebration).
+            if hapticTexture && animated && shownCount % 4 == 0 && shownCount < fullText.count {
+                Haptics.soft()
+            }
             // Reveal complete → stop the repeating blink and settle the caret
             // (the caret view itself disappears via `isTyping`, but halting the
             // animation prevents a lingering repeatForever on a hidden layer).
             if shownCount >= fullText.count {
                 withAnimation(.easeInOut(duration: 0.2)) { caretVisible = false }
+                isComplete.wrappedValue = true
                 return
             }
             // 36–66ms jitter per char, matching the design's organic cadence.

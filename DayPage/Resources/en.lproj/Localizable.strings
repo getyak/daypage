@@ -43,11 +43,17 @@
 "write.sheet.close"          = "Close";
 "write.sheet.placeholder"    = "What's on your mind?";
 "write.sheet.save"           = "Save";
+"write.sheet.done"           = "Done";
 "write.sheet.words_unit"     = "chars";
 "write.sheet.icon.camera"    = "Camera";
 "write.sheet.icon.photo"     = "Photos";
 "write.sheet.icon.location"  = "Location";
 "write.sheet.icon.tag"       = "Tag";
+
+/* WriteSheet — word/char counter */
+"writesheet.count.words.one"   = "1 word";
+"writesheet.count.words.other" = "%d words";
+"writesheet.count.chars"       = "chars";
 
 /* InputBarV4 — accessibility */
 "input.a11y.too_short"       = "Recording too short. Hold the mic and keep speaking.";
@@ -231,3 +237,5 @@
 "voice.retry.transcribing"     = "Transcribing…";
 "voice.retry.failed_permanent" = "Transcription unavailable";
 "voice.retry.failed_permanent_a11y" = "Transcription permanently failed after 3 attempts. Audio is saved.";
+
+"search.undo.cleared" = "Recent searches cleared";

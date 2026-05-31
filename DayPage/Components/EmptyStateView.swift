@@ -189,11 +189,13 @@ extension EmptyStateView {
     }
 
     /// Today tab — memos exist but no signal cards generated.
-    static func todayNoSignals() -> EmptyStateView {
+    static func todayNoSignals(ctaAction: (() -> Void)? = nil) -> EmptyStateView {
         EmptyStateView(
             title: L10n.Empty.todayNoSignalsTitle,
             subtitle: L10n.Empty.todayNoSignalsSubtitle,
-            showOrbAccent: false
+            ctaLabel: ctaAction != nil ? L10n.Empty.todayBlankCta : nil,
+            ctaAction: ctaAction,
+            showOrbAccent: true
         )
     }
 

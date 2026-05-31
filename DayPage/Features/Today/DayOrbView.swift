@@ -14,6 +14,8 @@ struct DayOrbView: View {
     /// Flip this bool to trigger a one-shot capture-reward glow pulse (scale 1.0→1.10→1.0).
     /// Only fires when a new memo is added; caller is responsible for only toggling on additions.
     var pulseToggle: Bool = false
+    /// Fraction of the current day elapsed (0 at local midnight, 1.0 at next midnight).
+    var dayProgress: CGFloat = 0
 
     @State private var breatheScale: CGFloat = 1.0
     @State private var pulse: Bool = false
@@ -26,10 +28,12 @@ struct DayOrbView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var accessibilityLabelText: String {
-        if signalCount == 0 { return "Day orb, no signals yet" }
+        let pct = Int(dayProgress * 100)
+        let dayPart = "\(pct)% of the day elapsed"
+        if signalCount == 0 { return "Day orb, no signals yet, \(dayPart)" }
         let word = signalCount == 1 ? "signal" : "signals"
         let status = readoutLabel.lowercased()
-        return "Day orb, \(signalCount) \(word) today, \(status)"
+        return "Day orb, \(signalCount) \(word) today, \(status), \(dayPart)"
     }
 
     var body: some View {
@@ -38,6 +42,7 @@ struct DayOrbView: View {
             halo
             if pulse { pulseHalo }
             orb
+            dayProgressArc
         }
         .frame(width: size + 32, height: size + 32)
         .scaleEffect(isPressed ? breatheScale * 0.94 : breatheScale)
@@ -111,6 +116,22 @@ struct DayOrbView: View {
                 invitePulse = true
             }
         }
+    }
+
+    // MARK: - Day Progress Arc
+
+    // Thin amber arc around the orb outer edge filling from 0 (midnight) to 1.0 (next midnight).
+    private var dayProgressArc: some View {
+        Circle()
+            .trim(from: 0, to: dayProgress)
+            .stroke(
+                DSColor.accentAmber.opacity(0.55),
+                style: StrokeStyle(lineWidth: 2, lineCap: .round)
+            )
+            .rotationEffect(.degrees(-90))
+            .frame(width: size + 6, height: size + 6)
+            .animation(reduceMotion ? nil : .linear(duration: 1), value: dayProgress)
+            .allowsHitTesting(false)
     }
 
     // MARK: - Pulse Halo

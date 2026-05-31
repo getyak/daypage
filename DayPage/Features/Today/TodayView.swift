@@ -105,6 +105,9 @@ struct TodayView: View {
     /// Drives the one-shot amber glow + scale reveal on the daily page card after compilation.
     @State private var compileRevealGlow: Bool = false
 
+    /// Drives the one-shot amber glow pulse on the orb / timeline top after pull-to-refresh.
+    @State private var refreshGlow: Bool = false
+
     /// Scroll proxy captured from the timeline ScrollViewReader; used by composeSection
     /// to scroll to the top anchor after a new memo is added.
     @State private var timelineScrollProxy: ScrollViewProxy? = nil
@@ -114,6 +117,19 @@ struct TodayView: View {
     @State private var timelineScrollOffset: CGFloat = 0
 
     private var isInSelectionMode: Bool { selectedMemoIds != nil }
+
+    /// Progress of the scroll-to-top ring: 0 at 240pt (button appears), 1 after 1200pt more.
+    private var scrollProgress: CGFloat {
+        min(1, max(0, (-timelineScrollOffset - 240) / 1200))
+    }
+
+    /// Fraction of the current local day elapsed (0.0 at midnight, 1.0 at next midnight).
+    private var dayProgress: CGFloat {
+        let now = currentTime
+        let start = Calendar.current.startOfDay(for: now)
+        let elapsed = now.timeIntervalSince(start)
+        return CGFloat(min(1, max(0, elapsed / 86400)))
+    }
 
     /// Live drag offset for the daily page card (negative = pulled left).
     @GestureState private var dailyPageDrag: CGFloat = 0
@@ -242,6 +258,43 @@ struct TodayView: View {
                     }
                 }
                 .animation(Motion.rise, value: viewModel.lastDeletedMemo != nil)
+                // Scroll-to-top chevron — fades in at bottom-trailing when scrolled past 240pt
+                .overlay(alignment: .bottomTrailing) {
+                    if timelineScrollOffset < -240 && !viewModel.memos.isEmpty && !isInSelectionMode {
+                        Button {
+                            Haptics.soft()
+                            withAnimation(reduceMotion ? nil : Motion.spring) {
+                                timelineScrollProxy?.scrollTo("timelineTop", anchor: .top)
+                            }
+                        } label: {
+                            Image(systemName: "chevron.up")
+                                .font(DSType.bodySM)
+                                .foregroundColor(DSColor.inkMuted)
+                                .frame(width: 28, height: 28)
+                                .background(DSColor.glassStd)
+                                .background(.ultraThinMaterial, in: Circle())
+                                .overlay(Circle().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                                .overlay(
+                                    Circle()
+                                        .trim(from: 0, to: scrollProgress)
+                                        .stroke(
+                                            DSColor.accentAmber,
+                                            style: StrokeStyle(lineWidth: 1.5, lineCap: .round)
+                                        )
+                                        .rotationEffect(.degrees(-90))
+                                        .animation(reduceMotion ? nil : Motion.fade, value: scrollProgress)
+                                )
+                                .clipShape(Circle())
+                        }
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 96)
+                        .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                        .accessibilityLabel("Scroll to top")
+                        .accessibilityHint("Returns to the top of today's timeline")
+                        .accessibilityIdentifier("scroll-to-top-button")
+                    }
+                }
+                .animation(reduceMotion ? nil : Motion.rise, value: timelineScrollOffset < -240)
                 // Submit error toast — scoped animation lives on the overlay
                 // container so only the toast itself animates, not the whole
                 // ZStack tree. (#217)
@@ -525,7 +578,7 @@ struct TodayView: View {
                 onThisDayDateString = dateString
             }
         case .pureEmpty:
-            EmptyStateView.todayNoSignals()
+            EmptyStateView.todayNoSignals(ctaAction: { orbFocusToggle.toggle() })
                 .padding(.horizontal, 20)
         }
     }
@@ -657,10 +710,12 @@ struct TodayView: View {
                 summary: viewModel.dailyPageSummary,
                 onTap: {
                     if dailyPageRevealed {
+                        Haptics.soft()
                         withAnimation(Motion.spring) {
                             dailyPageRevealed = false
                         }
                     } else {
+                        Haptics.tapConfirm()
                         showDailyPage = true
                     }
                 }
@@ -758,7 +813,7 @@ struct TodayView: View {
             DayOrbView(signalCount: signalCount, size: 140, onTap: {
                 Haptics.tapConfirm()
                 orbFocusToggle.toggle()
-            }, pulseToggle: orbCapturePulse)
+            }, pulseToggle: orbCapturePulse, dayProgress: dayProgress)
             .scaleEffect(reduceMotion ? 1.0 : (orbBreathing ? 1.03 : 0.985))
             .shadow(
                 color: DSColor.accentAmber.opacity(orbBreathing ? 0.28 + glowBoost : 0.12 + glowBoost),
@@ -768,6 +823,11 @@ struct TodayView: View {
                 reduceMotion ? nil : .easeInOut(duration: 3.0).repeatForever(autoreverses: true),
                 value: orbBreathing
             )
+            .shadow(
+                color: DSColor.accentAmber.opacity(refreshGlow ? 0.45 : 0),
+                radius: refreshGlow ? 18 : 0
+            )
+            .animation(.easeOut(duration: 0.6), value: refreshGlow)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(NSLocalizedString("today.orb.label", comment: ""))
             .accessibilityValue(orbValue)
@@ -1123,6 +1183,7 @@ struct TodayView: View {
             }
 
             Button {
+                Haptics.soft()
                 showSettings = true
             } label: {
                 Image(systemName: "gearshape")
@@ -1175,7 +1236,7 @@ struct TodayView: View {
                 // at the very top once the day has a compiled summary.
                 if let summary = viewModel.dailyPageSummary,
                    !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    AISummaryCard(summary: summary, onTap: { showDailyPage = true })
+                    AISummaryCard(summary: summary, onTap: { Haptics.tapConfirm(); showDailyPage = true })
                         .padding(.horizontal, 20)
                         .padding(.bottom, 4)
                         .transition(.opacity)
@@ -1292,7 +1353,7 @@ struct TodayView: View {
                 if !viewModel.memos.isEmpty
                     && !viewModel.isDailyPageCompiled
                     && viewModel.memos.count < 3 {
-                    CompileUnlockCard(memoCount: viewModel.memos.count)
+                    CompileUnlockCard(memoCount: viewModel.memos.count, onTap: { orbFocusToggle.toggle() })
                         .padding(.horizontal, 20)
                         .padding(.top, 4)
                         .transition(.opacity)
@@ -1319,8 +1380,23 @@ struct TodayView: View {
                 Spacer(minLength: 16)
             }
             .padding(.top, 12)
+            .shadow(
+                color: DSColor.accentAmber.opacity(refreshGlow ? 0.45 : 0),
+                radius: refreshGlow ? 18 : 0
+            )
+            .animation(.easeOut(duration: 0.6), value: refreshGlow)
         }
-        .refreshable { await viewModel.refresh() }
+        .refreshable {
+            await viewModel.refresh()
+            Haptics.success()
+            if !reduceMotion {
+                refreshGlow = true
+                Task {
+                    try? await Task.sleep(nanoseconds: 600_000_000)
+                    refreshGlow = false
+                }
+            }
+        }
         .overlay(
             LinearGradient(
                 colors: [Color.clear, DSColor.bgWarm],

@@ -43,11 +43,17 @@
 "write.sheet.close"          = "关闭";
 "write.sheet.placeholder"    = "此刻在想什么？";
 "write.sheet.save"           = "保存";
+"write.sheet.done"           = "完成";
 "write.sheet.words_unit"     = "字";
 "write.sheet.icon.camera"    = "拍照";
 "write.sheet.icon.photo"     = "相册";
 "write.sheet.icon.location"  = "位置";
 "write.sheet.icon.tag"       = "标签";
+
+/* WriteSheet — word/char counter */
+"writesheet.count.words.one"   = "1 个词";
+"writesheet.count.words.other" = "%d 个词";
+"writesheet.count.chars"       = "字符";
 
 /* InputBarV4 — accessibility */
 "input.a11y.too_short"       = "录音太短，请按住麦克风继续说";
@@ -259,3 +265,5 @@
 "voice.retry.transcribing"     = "正在转写…";
 "voice.retry.failed_permanent" = "转写不可用";
 "voice.retry.failed_permanent_a11y" = "已重试 3 次，转写失败。音频已保存。";
+
+"search.undo.cleared" = "已清除搜索记录";
