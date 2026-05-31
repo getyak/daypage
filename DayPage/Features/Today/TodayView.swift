@@ -1063,7 +1063,7 @@ struct TodayView: View {
     private var sidebarSection: some View {
         let isScrolled = timelineScrollOffset < -8
         ZStack(alignment: .bottom) {
-            // Glass background — animates in/out with scroll
+            // Glass background — height 0 when not scrolled so ZStack tracks the overlay HStack.
             Group {
                 if isScrolled {
                     Rectangle()
@@ -1073,7 +1073,7 @@ struct TodayView: View {
                                 .fill(DSColor.bgWarm.opacity(0.78))
                         )
                 } else {
-                    Color.clear
+                    Color.clear.frame(height: 0)
                 }
             }
             .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: isScrolled)
