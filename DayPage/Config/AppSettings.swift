@@ -152,6 +152,8 @@ extension AppSettings {
         static let usePressToTalk     = "usePressToTalk"
         // Swipe-hint nudge — shown once when the first compiled Daily Page appears
         static let dailyPageSwipeHintShown = "today.dailyPageSwipeHintShown"
+        // WriteSheet rail hint — shown once to explain media is attached via the dock
+        static let writeSheetRailHintShown = "today.writeSheetRailHintShown"
     }
 }
 
