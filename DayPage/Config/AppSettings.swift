@@ -154,6 +154,8 @@ extension AppSettings {
         static let dailyPageSwipeHintShown = "today.dailyPageSwipeHintShown"
         // WriteSheet rail hint — shown once to explain media is attached via the dock
         static let writeSheetRailHintShown = "today.writeSheetRailHintShown"
+        // Swipe-hint nudge — shown once on the newest memo card to teach left/right swipe actions
+        static let memoSwipeHintShown = "memoswipeHintShown"
     }
 }
 
