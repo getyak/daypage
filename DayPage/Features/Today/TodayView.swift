@@ -90,6 +90,7 @@ struct TodayView: View {
 
     /// Hint offset for the one-time swipe-left nudge on the Daily Page card.
     @State private var dailyPageHintOffset: CGFloat = 0
+    @State private var memoCardHintOffset: CGFloat = 0
 
     /// Session-only: true once the 3-memo unlock celebration has fired this session.
     /// Resets to false when memo count drops back below 3 so delete+readd re-fires it.
@@ -1355,6 +1356,21 @@ struct TodayView: View {
                             },
                             onOpen: { openedMemoID = memo.id }
                         )
+                        .offset(x: idx == 0 ? memoCardHintOffset : 0)
+                        .onAppear {
+                            guard idx == 0,
+                                  !UserDefaults.standard.bool(forKey: AppSettings.Keys.memoSwipeHintShown),
+                                  !reduceMotion,
+                                  !isInSelectionMode else { return }
+                            UserDefaults.standard.set(true, forKey: AppSettings.Keys.memoSwipeHintShown)
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .seconds(0.6))
+                                withAnimation(Motion.spring) { memoCardHintOffset = -28 }
+                                Haptics.soft()
+                                try? await Task.sleep(for: .seconds(0.45))
+                                withAnimation(Motion.spring) { memoCardHintOffset = 0 }
+                            }
+                        }
                         .padding(.horizontal, 20)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
