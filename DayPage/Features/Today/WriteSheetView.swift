@@ -288,6 +288,11 @@ struct WriteSheetView: View {
                 .lineLimit(3...10)
                 .focused($isFocused)
                 .accessibilityIdentifier("write-sheet-input")
+                .toolbar {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        keyboardToolbarContent
+                    }
+                }
         }
         .padding(.horizontal, 22)
         .padding(.top, 20)
@@ -394,6 +399,53 @@ struct WriteSheetView: View {
         .padding(.horizontal, 22)
         .padding(.top, 10)
         .accessibilityHidden(true)
+    }
+
+    // MARK: - Keyboard accessory toolbar
+
+    @ViewBuilder
+    private var keyboardToolbarContent: some View {
+        // Done — collapses keyboard, reveals footer rail and saved caption.
+        Button(NSLocalizedString("write.sheet.done", comment: "完成")) {
+            isFocused = false
+        }
+        .font(DSFonts.inter(size: 14, weight: .medium))
+        .foregroundColor(DSTokens.Colors.fgMuted)
+        .accessibilityLabel(NSLocalizedString("write.sheet.done", comment: "完成"))
+
+        // Live word / char counter — reuses footer-rail mono10 style.
+        let wordsLabel = wordCount == 1
+            ? NSLocalizedString("writesheet.count.words.one", comment: "1 word")
+            : String(format: NSLocalizedString("writesheet.count.words.other", comment: "%d words"), wordCount)
+        Text("\(wordsLabel) · \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
+            .font(DSType.mono10)
+            .tracking(1.0)
+            .textCase(.uppercase)
+            .monospacedDigit()
+            .foregroundColor(wordCountColor)
+            .modifier(NumericTextContentTransition(value: Double(wordCount), reduceMotion: reduceMotion))
+            .animation(reduceMotion ? nil : Motion.spring, value: wordCount)
+            .accessibilityLabel("\(wordsLabel), \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
+
+        Spacer()
+
+        // Accent save button — same path as the footer-rail pill.
+        Button(action: handleSave) {
+            Text(NSLocalizedString("write.sheet.save", comment: "保存"))
+                .font(DSFonts.inter(size: 14, weight: .semibold))
+                .tracking(0.2)
+                .foregroundColor(canSave ? DSTokens.Colors.accentSoft : DSTokens.Colors.fgSubtle)
+                .padding(.horizontal, 14)
+                .frame(height: 32)
+                .background(
+                    Capsule().fill(canSave ? DSTokens.Colors.accent : DSTokens.Colors.surfaceSunken)
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(!canSave)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: canSave)
+        .accessibilityLabel(NSLocalizedString("write.sheet.save", comment: "保存"))
+        .accessibilityIdentifier("write-sheet-keyboard-save")
     }
 
     // MARK: - Actions

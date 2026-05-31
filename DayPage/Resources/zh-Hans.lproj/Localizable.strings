@@ -43,6 +43,7 @@
 "write.sheet.close"          = "关闭";
 "write.sheet.placeholder"    = "此刻在想什么？";
 "write.sheet.save"           = "保存";
+"write.sheet.done"           = "完成";
 "write.sheet.words_unit"     = "字";
 "write.sheet.icon.camera"    = "拍照";
 "write.sheet.icon.photo"     = "相册";
