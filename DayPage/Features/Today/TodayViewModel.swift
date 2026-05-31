@@ -303,6 +303,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         withAnimation(Motion.rise) {
             memos = remaining
         }
+        Haptics.warn()
         persistMemos(remaining, capturedDate: date, previous: previous, failureMessagePrefix: "删除失败")
 
         // Start 5-second undo window
