@@ -957,14 +957,11 @@ struct SearchView: View {
         let kw = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !kw.isEmpty else { return snippet }
 
-        let lower = snippet.lowercased()
-        let kwLower = kw.lowercased()
-        guard let matchRange = lower.range(of: kwLower) else { return snippet }
+        guard let matchRange = snippet.range(of: kw, options: .caseInsensitive) else { return snippet }
 
-        let matchOffset = lower.distance(from: lower.startIndex, to: matchRange.lowerBound)
+        let matchOffset = snippet.distance(from: snippet.startIndex, to: matchRange.lowerBound)
         let windowStartOffset = max(0, matchOffset - context)
 
-        // Clamp to grapheme cluster boundaries
         let windowStart = snippet.index(snippet.startIndex, offsetBy: windowStartOffset)
         let windowEnd = snippet.index(windowStart,
                                       offsetBy: 80,
