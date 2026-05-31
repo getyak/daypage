@@ -20,6 +20,8 @@ struct AISummaryCard: View {
     var onTap: (() -> Void)? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
+    private var shouldAnimate: Bool { !reduceMotion && !voiceOverEnabled }
     @State private var isPressed: Bool = false
     /// True once the typewriter reveal has finished (or Reduce Motion is on).
     @State private var revealComplete: Bool = false
@@ -39,8 +41,8 @@ struct AISummaryCard: View {
                 header
                 TypewriterText(
                     fullText: summary,
-                    animated: !reduceMotion,
-                    hapticTexture: !reduceMotion,
+                    animated: shouldAnimate,
+                    hapticTexture: shouldAnimate,
                     isComplete: $revealComplete,
                     onCompleteHandler: $completeReveal
                 )
@@ -67,7 +69,7 @@ struct AISummaryCard: View {
             guard let onTap else { return }
             // First tap while typewriter is still animating: snap the text into
             // view with a soft haptic instead of navigating.
-            if !reduceMotion && !revealComplete {
+            if shouldAnimate && !revealComplete {
                 completeReveal?()
                 Haptics.soft()
                 return
