@@ -36,6 +36,14 @@ struct HorizontalPanGesture: UIViewRepresentable {
     /// "abort and snap back to the previous resting position."
     let onCancelled: () -> Void
 
+    /// A discrete tap that did NOT turn into a pan. Because the host view
+    /// hit-tests to SELF (so the pan recognizer can see touches), a plain
+    /// tap on the card would otherwise be swallowed before it reaches the
+    /// SwiftUI content below. We therefore recognize the tap in UIKit too and
+    /// route it back here, letting the parent drive programmatic navigation.
+    /// nil means "no tap action" (e.g. the panel-close overlay).
+    var onTap: (() -> Void)? = nil
+
     /// Hard-disable the recognizer (e.g. selection mode). When false the
     /// underlying recognizer reports isEnabled = false so it never even
     /// evaluates a touch.
@@ -53,15 +61,34 @@ struct HorizontalPanGesture: UIViewRepresentable {
         )
         recognizer.delegate = context.coordinator
         recognizer.maximumNumberOfTouches = 1
+        // Keep delivering touchesXXX to the view tree so any UIKit content
+        // below still works; SwiftUI taps are handled by our own tap
+        // recognizer (see below) since this host hit-tests to self.
         recognizer.cancelsTouchesInView = false
         view.addGestureRecognizer(recognizer)
         context.coordinator.recognizer = recognizer
+
+        // Tap recognizer: fires only when the pan did not. It waits for the
+        // pan to fail (requireToFail) so a swipe never also triggers a tap.
+        let tap = UITapGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handleTap(_:))
+        )
+        tap.delegate = context.coordinator
+        tap.require(toFail: recognizer)
+        view.addGestureRecognizer(tap)
+        context.coordinator.tapRecognizer = tap
+
         return view
     }
 
     func updateUIView(_ uiView: UIView, context: Context) {
         context.coordinator.parent = self
         context.coordinator.recognizer?.isEnabled = isEnabled
+        // The tap is live whenever an onTap exists, regardless of selection
+        // mode — selection-mode taps still need to toggle membership, which
+        // the parent wires through onTap.
+        context.coordinator.tapRecognizer?.isEnabled = (self.onTap != nil)
     }
 
     // MARK: Coordinator
@@ -69,6 +96,7 @@ struct HorizontalPanGesture: UIViewRepresentable {
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var parent: HorizontalPanGesture
         weak var recognizer: UIPanGestureRecognizer?
+        weak var tapRecognizer: UITapGestureRecognizer?
 
         // 6pt direction-lock: tightened from 10pt so UIKit's pan can enter
         // Began before SwiftUI's ambient DragGestures (sidebar edge swipe,
@@ -127,14 +155,40 @@ struct HorizontalPanGesture: UIViewRepresentable {
                 break
             }
         }
-    }
 
-    // Hosts the recognizer without interfering with SwiftUI hit-testing.
-    // hitTest returns nil so taps fall through to SwiftUI siblings, but
-    // gesture recognizers attached here still see touches via UIWindow.
-    private final class PassthroughView: UIView {
-        override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-            nil
+        // Discrete tap that survived `require(toFail: pan)` — i.e. the finger
+        // lifted without a horizontal pan ever beginning. Routes to the
+        // parent so SwiftUI can navigate / toggle selection programmatically.
+        @objc func handleTap(_ recognizer: UITapGestureRecognizer) {
+            guard recognizer.state == .ended else { return }
+            parent.onTap?()
+        }
+
+        // Let the tap coexist with the parent ScrollView's own recognizers so
+        // a tap is never starved; it still defers to our pan via requireToFail.
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldRequireFailureOf other: UIGestureRecognizer) -> Bool {
+            false
         }
     }
+
+    // Hosts the recognizer. CRITICAL CORRECTION: a UIView whose hitTest
+    // returns nil for every point is invisible to the hit-test walk, so the
+    // UIPanGestureRecognizer attached to it NEVER receives a touch — UIKit
+    // only delivers a touch sequence to recognizers on the hit-tested view or
+    // its ancestors. The previous `return nil` therefore silently disabled
+    // swipe-to-reveal entirely (the old commit only verified `xcodebuild
+    // build`, never the live gesture).
+    //
+    // The correct iOS-Mail pattern is: hitTest returns SELF so the recognizer
+    // sees the touch, while `cancelsTouchesInView = false` (set on the
+    // recognizer in makeUIView) lets the same touch ALSO reach the SwiftUI
+    // content below for taps. The recognizer's `gestureRecognizerShouldBegin`
+    // direction-lock keeps it Possible until a horizontal pan is confirmed, so
+    // vertical scrolls and taps are unaffected; only a confirmed horizontal
+    // drag claims the touch (UIScrollView's pan is then cancelled by standard
+    // arbitration). This view must be mounted as an `.overlay` (above the
+    // card) — not `.background` — so it is part of the hit-test walk for
+    // touches that land on the card.
+    private final class PassthroughView: UIView {}
 }

@@ -65,6 +65,12 @@ struct TodayView: View {
     // across launches; selection is always an immediate action.
     @State private var selectedMemoIds: Set<UUID>? = nil
 
+    /// Programmatic memo-detail navigation. The card body no longer uses a
+    /// SwiftUI NavigationLink (the swipe gesture's UIKit host hit-tests to
+    /// self, which would swallow the link's tap); instead a tap recognizer
+    /// fires `onOpen`, which sets this id and drives `navigationDestination`.
+    @State private var openedMemoID: UUID? = nil
+
     /// v8 WriteSheet — bottom-sheet text composer opened from the dock's text
     /// affordance (composer.jsx:183). Routes saves through `submitCombinedMemo`
     /// (the same path the inline composer uses) via `draftText`.
@@ -275,6 +281,20 @@ struct TodayView: View {
             )
             .navigationDestination(for: UUID.self) { memoID in
                 if let memo = viewModel.memos.first(where: { $0.id == memoID }) {
+                    MemoDetailView(memo: memo, vm: viewModel)
+                }
+            }
+            // Programmatic detail navigation for the card-body tap (the swipe
+            // card drives this instead of a NavigationLink — see openedMemoID).
+            // Uses isPresented (iOS 16+) rather than item: to stay portable.
+            .navigationDestination(
+                isPresented: Binding(
+                    get: { openedMemoID != nil },
+                    set: { if !$0 { openedMemoID = nil } }
+                )
+            ) {
+                if let id = openedMemoID,
+                   let memo = viewModel.memos.first(where: { $0.id == id }) {
                     MemoDetailView(memo: memo, vm: viewModel)
                 }
             }
@@ -1258,7 +1278,8 @@ struct TodayView: View {
                                     return
                                 }
                                 selectedMemoIds = set
-                            }
+                            },
+                            onOpen: { openedMemoID = memo.id }
                         )
                         .padding(.horizontal, 20)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -1827,6 +1848,9 @@ struct TimelineRow: View {
     var isSelectionMode: Bool = false
     var isSelected: Bool = false
     var onToggleSelection: (() -> Void)? = nil
+    /// Tap on the card body → open detail. Driven programmatically by the
+    /// parent (the swipe card no longer uses a NavigationLink).
+    var onOpen: (() -> Void)? = nil
 
     /// Drives the right-swipe MORE confirmation dialog (pin / delete / …).
     @State private var showMoreActions = false
@@ -1843,19 +1867,21 @@ struct TimelineRow: View {
                 onPin: onPin,
                 onShare: onShare,            // left-swipe SHARE → share-as-card
                 onMore: { showMoreActions = true }, // right-swipe MORE → dialog
+                // Card-body tap: in selection mode toggle membership, else open
+                // detail. Both flow through the card's UIKit tap recognizer so
+                // they never fight the swipe gesture's self-hit-testing host.
+                onOpen: {
+                    if isSelectionMode {
+                        Haptics.soft()
+                        onToggleSelection?()
+                    } else {
+                        onOpen?()
+                    }
+                },
                 onRetranscribe: onRetranscribe,
                 isSelectionMode: isSelectionMode
             )
             .frame(maxWidth: .infinity)
-            // Selection mode taps anywhere on the row toggle membership.
-            // contentShape is the row's full bounding rect — without it the
-            // glass card's rounded corners would leak taps through gaps.
-            .contentShape(Rectangle())
-            .onTapGesture {
-                guard isSelectionMode else { return }
-                Haptics.soft()
-                onToggleSelection?()
-            }
             // Dimmer when in selection mode but not selected — pulls focus
             // toward the picked memos without hiding the others completely.
             .opacity(isSelectionMode && !isSelected ? 0.55 : 1)

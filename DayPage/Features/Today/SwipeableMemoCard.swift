@@ -15,10 +15,13 @@ import SwiftUI
 // overshoot, while keeping the panel surface visually quiet at small offsets.
 private enum SwipePhysics {
 
-    /// Width of the action panel on each side. Widened toward the design's
-    /// 132pt reveal (`DSTokens.Gestures.swipeRevealWidth`); 96pt keeps a single
-    /// action reading as one comfortable tap target without over-revealing.
-    static let panelWidth: CGFloat = 96
+    /// Width of one action button inside a side panel.
+    static let actionWidth: CGFloat = 76
+
+    /// Total reveal width on each side. Each side now exposes TWO actions
+    /// (left: share + delete, right: pin + more), so the panel is two action
+    /// columns wide. A half-swipe still opens; a full swipe rests here.
+    static let panelWidth: CGFloat = actionWidth * 2  // 152
 
     /// Translation past which a release snaps open (vs. snap back closed).
     /// Apple Notes uses ~40pt; we follow the same ratio to panelWidth so a
@@ -89,6 +92,12 @@ struct SwipeableMemoCard: View {
     var onShare: (() -> Void)? = nil
     /// Right-swipe MORE action — parent presents the fuller action set.
     var onMore: (() -> Void)? = nil
+    /// Tap on the card body → open the memo detail. Because the swipe
+    /// recognizer's host view hit-tests to self (so it can see touches), the
+    /// tap can no longer rely on a SwiftUI NavigationLink underneath; the
+    /// parent drives navigation programmatically when this fires. In
+    /// selection mode the parent re-routes this to toggle membership instead.
+    var onOpen: (() -> Void)? = nil
     var onRetranscribe: ((Memo, Memo.Attachment) -> Void)? = nil
     /// Issue #309 W2: in multi-select mode, both the NavigationLink tap
     /// and the swipe gesture must be inert — the only valid interaction is
@@ -153,67 +162,54 @@ struct SwipeableMemoCard: View {
 
     var body: some View {
         ZStack(alignment: .center) {
-            // Action surfaces sit behind the card. Each is clipped to the
-            // card's outer corner radius so the panel reads as a nested
-            // glass surface rather than an abutting colored rectangle.
+            // LAYER 1 (bottom): the card body — pure presentation. Navigation
+            // and panel-close are driven by the tap recognizer inside
+            // HorizontalPanGesture (onTap), not a SwiftUI NavigationLink,
+            // because the pan host view hit-tests to self.
+            MemoCardView(memo: memo, onDelete: onDelete)
+                .contentShape(Rectangle())
+                .offset(x: isSelectionMode ? 0 : currentOffset)
+                // UIKit pan + tap as an OVERLAY (not background): the
+                // recognizers' host must sit in the hit-test walk for touches
+                // on the card, so it has to be ABOVE the card. A confirmed
+                // horizontal pan drives swipe-to-reveal; a plain tap fires
+                // onTap (open detail, or — when a panel is open — close it).
+                // Vertical drags never satisfy the direction-lock, so the
+                // parent ScrollView keeps ownership and the timeline scrolls.
+                .overlay(
+                    HorizontalPanGesture(
+                        isActive: $isPanActive,
+                        onChanged: handlePanChanged,
+                        onEnded: handlePanEnded,
+                        onCancelled: handlePanCancelled,
+                        onTap: handleCardTap,
+                        isEnabled: !isSelectionMode
+                    )
+                )
+
+            // LAYER 2 (top): the action drawers. They MUST sit ABOVE the card
+            // so their SwiftUI Buttons reliably receive taps. The old design
+            // placed them behind the card, where the card's offset frame and
+            // its gesture overlay intercepted the buttons' taps — so a
+            // revealed Share / Delete / Pin / More never fired. Each panel is
+            // pinned to its screen edge and its content stays hidden (opacity
+            // 0, hit-testing off) until `progress` rises, so at rest the
+            // drawers never steal taps from the card. Hit-testing for the
+            // whole layer is additionally gated on an actually-open panel.
             HStack(spacing: 0) {
                 SwipeActionPanel(
-                    kind: .more,
-                    progress: max(0, revealProgress),
-                    onTap: handleMoreTap
+                    actions: leadingActions,
+                    edge: .leading,
+                    progress: max(0, revealProgress)
                 )
                 Spacer(minLength: 0)
                 SwipeActionPanel(
-                    kind: .share,
-                    progress: max(0, -revealProgress),
-                    onTap: handleShareTap
+                    actions: trailingActions,
+                    edge: .trailing,
+                    progress: max(0, -revealProgress)
                 )
             }
-
-            NavigationLink(value: memo.id) {
-                MemoCardView(memo: memo, onDelete: onDelete)
-            }
-            .buttonStyle(.plain)
-            // Disable the NavigationLink while a horizontal pan is active or
-            // a side panel is open. UIKit already cancels its own tap chain
-            // when our pan begins, but SwiftUI's NavigationLink uses a
-            // separate recognizer that this explicit guard catches.
-            .disabled(revealedSide != nil || isPanActive || isSelectionMode)
-            .offset(x: isSelectionMode ? 0 : currentOffset)
-            // UIKit pan attached as a background layer. PassthroughView
-            // returns nil from hitTest, so taps and vertical drags fall
-            // through unimpeded — only when shouldBegin confirms a
-            // horizontal pan does this layer claim the touch and the
-            // surrounding UIScrollView's pan get cancelled by UIKit's
-            // standard arbitration. This is the entire reason we ditched
-            // SwiftUI DragGesture + simultaneousGesture.
-            .background(
-                HorizontalPanGesture(
-                    isActive: $isPanActive,
-                    onChanged: handlePanChanged,
-                    onEnded: handlePanEnded,
-                    onCancelled: handlePanCancelled,
-                    isEnabled: !isSelectionMode
-                )
-            )
-
-            // Invisible tap/drag-to-close overlay: only active when a panel
-            // is open. Lives above the card so it intercepts both taps and
-            // drags independently of `.disabled` on the NavigationLink.
-            if revealedSide != nil {
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture { snapClose() }
-                    .background(
-                        HorizontalPanGesture(
-                            isActive: $isPanActive,
-                            onChanged: handlePanChanged,
-                            onEnded: handlePanEnded,
-                            onCancelled: handlePanCancelled,
-                            isEnabled: true
-                        )
-                    )
-            }
+            .allowsHitTesting(revealedSide != nil && !isSelectionMode)
         }
         .clipped()
         .accessibilityLabel(accessibilityMemoLabel)
@@ -232,18 +228,77 @@ struct SwipeableMemoCard: View {
         }
     }
 
-    // MARK: - Action handlers
+    // MARK: - Swipe action definitions
+    //
+    // Each side exposes two actions. Left-swipe (trailing) surfaces the
+    // content-first SHARE plus DELETE; right-swipe (leading) surfaces PIN plus
+    // MORE. Building them as data lets SwipeActionPanel lay out N buttons
+    // generically and keeps the choreography in one place.
 
-    private func handleShareTap() {
-        Haptics.tapConfirm()
-        snapClose()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { onShare?() }
+    /// Right-swipe panel — pin (toggle) + more.
+    private var leadingActions: [SwipeAction] {
+        var items: [SwipeAction] = []
+        items.append(SwipeAction(
+            id: .pin,
+            label: memo.pinnedAt != nil ? "取消置顶" : "置顶",
+            systemImage: memo.pinnedAt != nil ? "pin.slash" : "pin",
+            tone: .neutral,
+            run: { runAction { onPin?() } }
+        ))
+        items.append(SwipeAction(
+            id: .more,
+            label: "更多",
+            systemImage: "ellipsis",
+            tone: .neutral,
+            run: { runAction(haptic: .soft) { onMore?() } }
+        ))
+        return items
     }
 
-    private func handleMoreTap() {
-        Haptics.soft()
+    /// Left-swipe panel — share (primary) + delete (destructive).
+    private var trailingActions: [SwipeAction] {
+        [
+            SwipeAction(
+                id: .share,
+                label: "分享",
+                systemImage: "square.and.arrow.up",
+                tone: .accent,
+                run: { runAction(haptic: .confirm) { onShare?() } }
+            ),
+            SwipeAction(
+                id: .delete,
+                label: "删除",
+                systemImage: "trash",
+                tone: .destructive,
+                run: { runAction(haptic: .confirm) { onDelete?() } }
+            ),
+        ]
+    }
+
+    // MARK: - Action handlers
+
+    /// A plain tap on the card body. Priority: (1) if a side panel is open,
+    /// the tap just closes it — never navigates; (2) otherwise route to the
+    /// parent (open detail, or toggle selection in selection mode).
+    private func handleCardTap() {
+        if revealedSide != nil {
+            snapClose()
+            return
+        }
+        onOpen?()
+    }
+
+    /// Shared run-then-close choreography: fire a haptic, snap the panel
+    /// closed, then run the action after the close settles so the detail
+    /// sheet / dialog doesn't animate over a still-open drawer.
+    private enum ActionHaptic { case soft, confirm }
+    private func runAction(haptic: ActionHaptic = .soft, _ action: @escaping () -> Void) {
+        switch haptic {
+        case .soft:    Haptics.soft()
+        case .confirm: Haptics.tapConfirm()
+        }
         snapClose()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { onMore?() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: action)
     }
 
     // MARK: - Pan callbacks
@@ -324,67 +379,98 @@ struct SwipeableMemoCard: View {
     }
 }
 
+// MARK: - SwipeAction
+
+/// One revealable action inside a swipe drawer. `id` only drives the a11y
+/// label and SF-symbol fallback; `run` carries the close-then-fire behavior.
+struct SwipeAction: Identifiable {
+    enum Kind { case share, delete, pin, more }
+    enum Tone { case accent, destructive, neutral }
+
+    let id: Kind
+    let label: String
+    let systemImage: String
+    let tone: Tone
+    let run: () -> Void
+}
+
 // MARK: - SwipeActionPanel
 //
-// Visual surface for one side of the swipe action drawer. Sits behind the
-// card and is clipped to the card's 18pt outer corner radius via the
-// surrounding `.clipped()` on the ZStack, so the panel reads as a nested
-// glass surface rather than a bright abutting rectangle.
+// Visual surface for one side of the swipe drawer. Lays out N action buttons
+// side by side, each `SwipePhysics.actionWidth` wide, clipped to the card's
+// outer corner radius by the ZStack's `.clipped()` so the drawer reads as a
+// nested glass surface waking up rather than abutting bright rectangles.
 //
 // Choreography (driven by `progress`, 0…1+):
-//
 //   0.00 – 0.30   Icon at 0.6× scale, label hidden, soft tone.
 //   0.30 – 1.00   Icon grows to 1.0×, label fades in, tone deepens.
 //
-// The button is a full-bleed tap target so a user who has revealed the
-// panel can hit it without precise aim — matches Apple Mail / Notes.
+// Each button is a full-height tap target so a revealed action is easy to
+// hit. Buttons are ordered outer-edge-first so the most prominent action
+// (share / pin) sits nearest the screen edge the finger travels toward.
 private struct SwipeActionPanel: View {
 
-    enum Kind {
-        case more   // right-swipe (leading) — sunken neutral
-        case share  // left-swipe (trailing) — accent amber
+    enum Edge { case leading, trailing }
+
+    let actions: [SwipeAction]
+    let edge: Edge
+    let progress: CGFloat
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(orderedActions) { action in
+                SwipeActionButton(action: action, progress: progress)
+            }
+        }
+        .frame(width: SwipePhysics.panelWidth)
+        .frame(maxHeight: .infinity)
+        // Hide entirely when closed so VoiceOver doesn't announce hidden
+        // targets and a stray tap on the laid-out panel can't fire.
+        .opacity(progress > 0.02 ? 1 : 0)
+        .allowsHitTesting(progress > 0.02)
+        .accessibilityHidden(progress <= 0.02)
     }
 
-    let kind: Kind
-    let progress: CGFloat
-    let onTap: () -> Void
+    /// Leading panel grows from the left edge, so its primary action should be
+    /// outermost (left). Trailing panel grows from the right edge, primary
+    /// outermost (right). We keep the caller's array primary-first and only
+    /// reverse for the trailing side so layout matches travel direction.
+    private var orderedActions: [SwipeAction] {
+        edge == .trailing ? actions.reversed() : actions
+    }
+}
 
-    // Choreography breakpoints
+// MARK: - SwipeActionButton
+
+/// A single action column inside a panel. Frosted glass base + tone tint that
+/// deepens with reveal progress; icon scales up and label fades in past 0.30.
+private struct SwipeActionButton: View {
+
+    let action: SwipeAction
+    let progress: CGFloat
+
     private let labelFadeStart: CGFloat = 0.30
     private let iconScaleMin: CGFloat = 0.6
     private let iconScaleMax: CGFloat = 1.0
 
     var body: some View {
-        Button(action: onTap) {
+        Button(action: action.run) {
             ZStack {
                 background
                 content
             }
-            .frame(width: SwipePhysics.panelWidth)
+            .frame(width: SwipePhysics.actionWidth)
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        // Hide entirely when fully closed so VoiceOver doesn't announce a
-        // tap target the user can't see, and disable hit testing so a
-        // stray tap on the (still-laid-out) panel behind the card doesn't
-        // route into the action when the panel is meant to be invisible.
-        .opacity(progress > 0.02 ? 1 : 0)
-        .allowsHitTesting(progress > 0.02)
-        .accessibilityHidden(progress <= 0.02)
-        .accessibilityLabel(accessibilityLabel)
+        .accessibilityLabel(action.label)
     }
 
-    // MARK: - Subviews
-
     private var background: some View {
-        // Liquid Glass: a frosted .ultraThinMaterial base with the brand color
-        // layered as a translucent tint that deepens as the panel is revealed,
-        // rather than a flat opaque fill. The material refracts the warm vault
-        // background behind it, so the action drawer reads as a nested glass
-        // surface waking up. MORE's sunken neutral keeps a higher tint floor so
-        // its pale surface stays legible against the card.
-        let floor: CGFloat = (kindIsMore ? 0.78 : 0.42)
+        // Neutral tones keep a higher tint floor so their pale surface stays
+        // legible; accent / destructive start lower and deepen as revealed.
+        let floor: CGFloat = (action.tone == .neutral ? 0.78 : 0.42)
         let tint = Double(floor + (1 - floor) * min(1, progress))
         return ZStack {
             Rectangle().fill(.ultraThinMaterial)
@@ -392,54 +478,35 @@ private struct SwipeActionPanel: View {
         }
     }
 
-    private var kindIsMore: Bool {
-        if case .more = kind { return true }
-        return false
-    }
-
     private var content: some View {
         VStack(spacing: 6) {
-            Image(systemName: iconName)
+            Image(systemName: action.systemImage)
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundColor(foreground)
                 .scaleEffect(iconScale)
 
-            Text(label)
-                .font(.custom("Inter-Medium", size: 11))
+            Text(action.label)
+                .font(.custom("Inter-Medium", size: 10.5))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
                 .foregroundColor(foreground)
                 .opacity(labelOpacity)
         }
+        .padding(.horizontal, 4)
     }
 
-    // MARK: - Visual derivations
-
-    private var iconName: String {
-        switch kind {
-        case .more:  return "ellipsis"
-        case .share: return "square.and.arrow.up"
-        }
-    }
-
-    private var label: String {
-        switch kind {
-        case .more:  return "更多"
-        case .share: return "分享"
-        }
-    }
-
-    /// MORE rides on a sunken neutral surface (dark ink), SHARE on accent amber
-    /// (white ink) — the design's content-first hierarchy.
     private var baseColor: Color {
-        switch kind {
-        case .more:  return DSColor.surfaceSunken
-        case .share: return DSColor.accentAmber
+        switch action.tone {
+        case .accent:      return DSColor.accentAmber
+        case .destructive: return DSColor.errorRed
+        case .neutral:     return DSColor.surfaceSunken
         }
     }
 
     private var foreground: Color {
-        switch kind {
-        case .more:  return DSColor.inkPrimary
-        case .share: return .white
+        switch action.tone {
+        case .accent, .destructive: return .white
+        case .neutral:              return DSColor.inkPrimary
         }
     }
 
@@ -451,12 +518,5 @@ private struct SwipeActionPanel: View {
     private var labelOpacity: Double {
         let clamped = max(0, min(1, (progress - labelFadeStart) / (1 - labelFadeStart)))
         return Double(clamped)
-    }
-
-    private var accessibilityLabel: String {
-        switch kind {
-        case .more:  return "More actions"
-        case .share: return "Share memo"
-        }
     }
 }
