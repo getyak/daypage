@@ -40,6 +40,9 @@ struct WriteSheetView: View {
     @GestureState private var dragOffset: CGFloat = 0
     @State private var committedClose: Bool = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(AppSettings.Keys.writeSheetRailHintShown) private var railHintShown: Bool = false
+    /// Snapshot taken at open time so the hint stays visible for the whole first session.
+    @State private var showRailHint: Bool = false
 
     /// Sheet-up easing — composer.jsx:219 `cubic-bezier(.2,.8,.2,1)` @ 320ms.
     private static let sheetUp = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.32)
@@ -161,10 +164,19 @@ struct WriteSheetView: View {
             textArea
             hairline
             footerRail
+            if showRailHint {
+                railHintCaption
+            }
             savedCaption
         }
         .padding(.bottom, 28)
         .frame(maxWidth: .infinity)
+        .onAppear {
+            // Capture first-visit before flipping the UserDefaults flag so
+            // the hint renders during the current open (not just future ones).
+            showRailHint = !railHintShown
+            railHintShown = true
+        }
         .background(
             DSColor.glassHi
                 .background(.ultraThinMaterial)
@@ -342,21 +354,14 @@ struct WriteSheetView: View {
     }
 
     private func railIcon(_ systemName: String, label: String) -> some View {
-        // Presentation-only quiet rail (design parity); capture flows live in
-        // the inline composer. Tapping closes to the dock so the user reaches
-        // the full multimodal surface rather than a dead control.
-        Button {
-            Haptics.soft()
-            onClose()
-        } label: {
-            Image(systemName: systemName)
-                .font(.system(size: 18, weight: .regular))
-                .foregroundColor(DSTokens.Colors.fgMuted)
-                .frame(width: 40, height: 40)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
+        Image(systemName: systemName)
+            .font(.system(size: 18, weight: .regular))
+            .foregroundColor(DSTokens.Colors.fgSubtle.opacity(0.4))
+            .frame(width: 40, height: 40)
+            .allowsHitTesting(false)
+            .accessibilityLabel(
+                NSLocalizedString("write.sheet.icon.disabled.hint", comment: "在主输入栏添加")
+            )
     }
 
     // MARK: - Save pill (composer.jsx:312-329)
@@ -399,6 +404,20 @@ struct WriteSheetView: View {
         .padding(.horizontal, 22)
         .padding(.top, 10)
         .accessibilityHidden(true)
+    }
+
+    // MARK: - Rail hint caption (one-time, gated by writeSheetRailHintShown)
+
+    private var railHintCaption: some View {
+        Text(NSLocalizedString("write.sheet.rail.hint", comment: "Tap the dock to attach media"))
+            .font(DSFonts.jetBrainsMono(size: 9, weight: .semibold))
+            .tracking(1.4)
+            .textCase(.uppercase)
+            .foregroundColor(DSTokens.Colors.fgSubtle.opacity(0.7))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 22)
+            .padding(.top, 4)
+            .accessibilityHidden(true)
     }
 
     // MARK: - Keyboard accessory toolbar
