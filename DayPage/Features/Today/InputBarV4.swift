@@ -4,6 +4,20 @@ import Photos
 import PhotosUI
 import UIKit
 
+// MARK: - BlinkingModifier (composer.jsx caret animation)
+private struct BlinkingModifier: ViewModifier {
+    @State private var visible = true
+    func body(content: Content) -> some View {
+        content
+            .opacity(visible ? 1 : 0)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 0.6).repeatForever()) {
+                    visible = false
+                }
+            }
+    }
+}
+
 // MARK: - InputBarV4  "Capture v2 · STREAM dock"
 //
 // Capture v2 surface, faithful to the design-handoff STREAM variation:
@@ -372,20 +386,53 @@ struct InputBarV4: View {
     // shadow stack approximating the iOS 26 Liquid Glass treatment from the
     // design canvas (inner highlight + soft drop shadow).
 
-    // STREAM dock — glass capsule wrapping three keys (design spec: glassStyle hi + radius 999).
-    // US-008: matchedGeometryEffect on the capsule background so it morphs into
-    // the composing card shape. The mic orb also carries its own effect so it
-    // slides to the card's bottom-left corner rather than disappearing.
+    // STREAM dock — full-width warm pill (design composer.jsx:82-166).
+    // Layout: [+36] [记下此刻 italic flex] [mic 50×44]
+    // Background: rgba(255,253,250,0.84) warm-white blur, 4-layer shadow stack.
     private var streamDockMorph: some View {
-        HStack(spacing: 6) {
-            // LEFT — More (+)
-            dockSideButton(systemImage: "plus", accessibilityLabel: NSLocalizedString("input.a11y.more_attachments", comment: "")) {
+        HStack(spacing: 4) {
+            // LEFT — attach (+), 36×44 transparent
+            Button {
+                Haptics.soft()
                 showAttachmentMenu = true
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 18, weight: .regular))
+                    .foregroundStyle(DSColor.inkMuted)
+                    .frame(width: 36, height: 44)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(NSLocalizedString("input.a11y.more_attachments", comment: ""))
 
-            // CENTER — amber mic orb.
-            // US-010: matchedGeometryEffect removed — the composing card no longer
-            // hosts the orb landing target (toolbar moved to .keyboard placement).
+            // CENTER — italic text stub, taps to open WriteSheet
+            Button {
+                Haptics.soft()
+                if let openSheet = onOpenWriteSheet {
+                    openSheet()
+                } else {
+                    transition(to: .expanding)
+                    isFocused = true
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Text(NSLocalizedString("input.hint.placeholder", comment: "记下此刻"))
+                        .font(DSFonts.serif(size: 15.5, italic: true))
+                        .foregroundStyle(DSColor.inkSubtle)
+                        .lineLimit(1)
+                    Rectangle()
+                        .fill(DSColor.amberDeep.opacity(0.5))
+                        .frame(width: 2, height: 14)
+                        .modifier(BlinkingModifier())
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, 4)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(NSLocalizedString("input.a11y.write_text", comment: ""))
+            .accessibilityIdentifier("expand-text-composer")
+
+            // RIGHT — mic orb, 50×44, deep amber gradient
             PressToTalkButton(
                 onPressStart: handlePressToTalkStart,
                 onReleaseSend: handlePressToTalkReleaseSend,
@@ -394,46 +441,31 @@ struct InputBarV4: View {
                 onPhaseChange: { pressToTalkPhase = $0 },
                 onTapShortRelease: handleMicTap,
                 size: 44,
-                idleBackgroundColor: DSColor.amberAccent,
+                idleBackgroundColor: DSColor.amberDeep,
                 idleIconColor: .white
             )
-            // Design composer.jsx:139-141 — slim 50×44 pill, not a 64 square.
-            // The button core is a 44 circle centered in a 50-wide frame so the
-            // mic reads as a restrained accent rather than an oversized orb.
             .frame(width: 50, height: 44)
             .shadow(color: Color(hex: "5D3000").opacity(0.45), radius: 10, x: 0, y: 4)
             .shadow(color: Color(hex: "5D3000").opacity(0.18), radius: 1, x: 0, y: 1)
             .accessibilityLabel(NSLocalizedString("input.a11y.mic", comment: ""))
             .accessibilityHint(NSLocalizedString("input.a11y.mic_hint_full", comment: ""))
-
-            // RIGHT — Aa (text affordance). v8: opens the WriteSheet bottom
-            // sheet (composer.jsx:116-129 text stub → WriteSheet). Falls back to
-            // the inline morph when no sheet handler is wired (previews / tests).
-            dockTextButton(accessibilityLabel: NSLocalizedString("input.a11y.write_text", comment: "")) {
-                if let openSheet = onOpenWriteSheet {
-                    openSheet()
-                } else {
-                    transition(to: .expanding)
-                    isFocused = true
-                }
-            }
-            .accessibilityIdentifier("expand-text-composer")
         }
-        .padding(6)
-        // NOTE: matchedGeometryEffect was removed — the idle Capsule and the
-        // composing RoundedRectangle (20pt) cannot be linearly interpolated
-        // by SwiftUI as a single shape, and sharing one ID across two
-        // mutually-exclusive branches caused the layout system to re-measure
-        // both candidates on every body re-evaluation. The branches simply
-        // cross-fade now via the existing isComposing condition. (#258)
-        .background(.ultraThinMaterial, in: Capsule())
-        .overlay(Capsule().strokeBorder(
-            LinearGradient(
-                colors: [Color.white.opacity(0.55), Color.white.opacity(0.12)],
-                startPoint: .top, endPoint: .bottom),
-            lineWidth: 0.6))
-        .shadow(color: Color(hex: "2D1E0A").opacity(0.10), radius: 24, x: 0, y: 8)
-        .shadow(color: Color(hex: "2D1E0A").opacity(0.06), radius: 4, x: 0, y: 1)
+        .padding(.leading, 10)
+        .padding(.trailing, 6)
+        .padding(.vertical, 6)
+        .background(
+            Capsule()
+                .fill(Color(red: 1, green: 253/255, blue: 250/255).opacity(0.84))
+                .background(.ultraThinMaterial, in: Capsule())
+        )
+        .overlay(
+            Capsule().strokeBorder(
+                Color(red: 214/255, green: 206/255, blue: 192/255).opacity(0.55),
+                lineWidth: 0.5
+            )
+        )
+        .shadow(color: Color(hex: "3C280F").opacity(0.22), radius: 16, x: 0, y: 9)
+        .shadow(color: Color(hex: "3C280F").opacity(0.08), radius: 3, x: 0, y: 1)
     }
 
     @ViewBuilder

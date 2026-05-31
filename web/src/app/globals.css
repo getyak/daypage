@@ -1547,3 +1547,22 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
     transform: none;
   }
 }
+
+/* === Service toast animation === */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes toast-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+}

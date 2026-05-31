@@ -373,17 +373,15 @@ function CompileStatusBar({
   const isPending = status === "pending";
   const isRunning = status === "running";
   const isFailed = status === "failed";
-  const showDisconnected = isPending && !serviceConnected;
+  // When disconnected, a page-level toast already notifies the user — don't
+  // crowd every card with a repetitive inline notice.
+  if (isPending && !serviceConnected) return null;
 
   let icon: React.ReactNode;
   let label: string;
   let tone: string; // text color
 
-  if (showDisconnected) {
-    icon = <AlertCircle size={12} strokeWidth={1.9} aria-hidden="true" />;
-    label = "编译服务未连接（运行 pnpm run dev:inngest）";
-    tone = "var(--fg-muted)";
-  } else if (isFailed) {
+  if (isFailed) {
     icon = <AlertCircle size={12} strokeWidth={1.9} aria-hidden="true" />;
     label = memo.compile_error?.trim() || "编译失败";
     tone = "var(--accent, #c2410c)";

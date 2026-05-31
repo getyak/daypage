@@ -136,10 +136,13 @@ export function ComposerPill({
     <div
       style={{
         position: "absolute",
-        bottom: "calc(26px + env(safe-area-inset-bottom, 0px))",
+        bottom: 0,
         left: 0,
         right: 0,
-        padding: "0 14px",
+        paddingTop: 48,
+        paddingLeft: 14,
+        paddingRight: 14,
+        paddingBottom: "calc(22px + env(safe-area-inset-bottom, 0px))",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -147,6 +150,8 @@ export function ComposerPill({
         opacity: isRecording ? 0 : 1,
         transition: "opacity 180ms ease-out",
         zIndex: 20,
+        background:
+          "linear-gradient(to bottom, transparent 0%, rgba(250,248,246,0.72) 38%, rgba(250,248,246,0.96) 68%, #FAF8F6 100%)",
       }}
     >
       {/* Permission denied toast */}

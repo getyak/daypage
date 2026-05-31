@@ -1092,14 +1092,26 @@ struct TodayView: View {
             Button {
                 nav.openSidebar()
             } label: {
-                VStack(alignment: .leading, spacing: 8) {
-                    // Museum-aesthetic hero title — always-on 56pt serif.
-                    Text(weekdayName(currentTime))
-                        .font(DSType.serifDisplay56)
-                        .foregroundColor(DSColor.inkPrimary)
-                        .lineLimit(1)
-                        .dynamicTypeSize(.xSmall ... .accessibility2)
-                        .minimumScaleFactor(0.6)
+                // Compact header when memos exist: content first, date chip only.
+                // Full 56pt hero reserved for the empty-day capture prompt.
+                if viewModel.memos.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(weekdayName(currentTime))
+                            .font(DSType.serifDisplay56)
+                            .foregroundColor(DSColor.inkPrimary)
+                            .lineLimit(1)
+                            .dynamicTypeSize(.xSmall ... .accessibility2)
+                            .minimumScaleFactor(0.6)
+                        Text(headerSubline(currentTime))
+                            .font(DSType.mono10)
+                            .foregroundColor(DSColor.inkSubtle)
+                            .textCase(.uppercase)
+                            .tracking(1.0)
+                            .dynamicTypeSize(.xSmall ... .accessibility5)
+                            .minimumScaleFactor(0.75)
+                            .accessibilityLabel(headerSublineAccessibilityLabel(currentTime))
+                    }
+                } else {
                     Text(headerSubline(currentTime))
                         .font(DSType.mono10)
                         .foregroundColor(DSColor.inkSubtle)
@@ -1203,8 +1215,9 @@ struct TodayView: View {
             .alignmentGuide(.firstTextBaseline) { d in d[VerticalAlignment.center] + 6 }
         }
         .padding(.horizontal, 14)
-        .padding(.top, 16)
-        .padding(.bottom, 10)
+        .padding(.top, viewModel.memos.isEmpty ? 16 : 10)
+        .padding(.bottom, viewModel.memos.isEmpty ? 10 : 6)
+        .animation(reduceMotion ? nil : Motion.fade, value: viewModel.memos.isEmpty)
         .onReceive(headerTimer) { date in
             currentTime = date
         }
