@@ -18,6 +18,10 @@ on:
   schedule:
     - cron: "0 2 * * *"   # 每天 UTC 02:00（北京时间 10:00）对 main 跑全量回归
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   unit-tests:
     name: Swift Unit Tests (xcrun)
