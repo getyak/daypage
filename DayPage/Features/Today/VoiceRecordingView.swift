@@ -18,6 +18,25 @@ struct VoiceRecordingView: View {
     // MARK: Private State
 
     @StateObject private var voiceService = VoiceService.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var didWarnLong = false
+
+    // MARK: - Duration Warning Thresholds
+
+    private static let amberThreshold = 300  // 5:00
+    private static let redThreshold   = 540  // 9:00
+
+    // MARK: - Timer Color
+
+    private var timerColor: Color {
+        if voiceService.elapsedSeconds >= Self.redThreshold {
+            return DSColor.error
+        } else if voiceService.elapsedSeconds >= Self.amberThreshold {
+            return DSColor.accentAmber
+        } else {
+            return DSColor.onSurface
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -67,6 +86,7 @@ struct VoiceRecordingView: View {
         .frame(maxWidth: .infinity)
         .background(DSColor.surface)
         .onAppear {
+            didWarnLong = false
             // Guard against re-entry: a fast double-tap on the mic-hero, or a
             // previously-stuck session from a press-to-talk gesture, can land
             // us here while VoiceService is still active. Starting again would
@@ -75,6 +95,12 @@ struct VoiceRecordingView: View {
             guard voiceService.state == .idle else { return }
             Task {
                 await voiceService.startRecording()
+            }
+        }
+        .onChange(of: voiceService.elapsedSeconds) { seconds in
+            if !didWarnLong && voiceService.state == .recording && seconds >= Self.amberThreshold {
+                didWarnLong = true
+                Haptics.soft()
             }
         }
         .onChange(of: voiceService.state) { newState in
@@ -120,8 +146,17 @@ struct VoiceRecordingView: View {
 
             Text(formattedTime(voiceService.elapsedSeconds))
                 .font(.system(size: 56, weight: .bold, design: .monospaced))
-                .foregroundColor(DSColor.onSurface)
+                .foregroundColor(timerColor)
                 .monospacedDigit()
+                .animation(reduceMotion ? nil : Motion.fade, value: timerColor)
+
+            if voiceService.elapsedSeconds >= Self.amberThreshold {
+                Text(NSLocalizedString("voice_recording_soft_cap_hint", comment: "建议 5 分钟内"))
+                    .font(DSFonts.jetBrainsMono(size: 12))
+                    .foregroundColor(DSColor.accentAmber)
+                    .transition(.opacity)
+                    .animation(reduceMotion ? nil : Motion.fade, value: voiceService.elapsedSeconds >= Self.amberThreshold)
+            }
         }
     }
 
