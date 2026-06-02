@@ -111,6 +111,110 @@ struct MarkdownExportServiceTests {
         #expect(!content.contains("> AI ·"))
     }
 
+    // MARK: - Required design cases
+
+    // (1) Frontmatter contains date / export_source / memo_count
+    @Test func frontmatter_containsRequiredKeys() {
+        let m1 = makeMemo(body: "a", secondsOffset: 0)
+        let m2 = makeMemo(body: "b", secondsOffset: 10)
+        let content = MarkdownExportService.buildExportContent(
+            memos: [m1, m2], date: makeDate(year: 2026, month: 6, day: 1)
+        )
+        #expect(content.contains("date: 2026-06-01"))
+        #expect(content.contains("export_source: DayPage"))
+        #expect(content.contains("memo_count: 2"))
+    }
+
+    // (2) Multiline mood produces a single-line, valid `mood:` value with no raw newline
+    @Test func multilineMood_producesOneLineFrontmatterValue() {
+        let memo = makeMemo(body: "test", mood: "happy\nthen sad")
+        let content = MarkdownExportService.buildExportContent(
+            memos: [memo], date: makeDate()
+        )
+        // There must be exactly one line containing "mood:"
+        let moodLines = content
+            .components(separatedBy: "\n")
+            .filter { $0.hasPrefix("mood:") }
+        #expect(moodLines.count == 1)
+        // That line must not contain a raw newline in the value (it's a single line by definition,
+        // but confirm the value itself doesn't embed \n after unescaping)
+        let moodLine = moodLines[0]
+        // The raw newline in the original mood must have become a space, not \n
+        #expect(!moodLine.contains("\n"))
+        #expect(moodLine.contains("mood:"))
+        // The value should still carry both parts joined by a space
+        #expect(content.contains("mood: \"happy then sad\""))
+    }
+
+    // (3) entity_mentions are de-duplicated and sorted
+    @Test func entityMentions_dedupedAndSorted() {
+        let m1 = makeMemo(body: "a", entityMentions: ["Zara", "Alice", "Zara"])
+        let m2 = makeMemo(body: "b", entityMentions: ["Alice", "Bob"])
+        let content = MarkdownExportService.buildExportContent(
+            memos: [m1, m2], date: makeDate()
+        )
+        // Extract entity_mentions block
+        let aliceRange = content.range(of: "\"Alice\"")
+        let bobRange   = content.range(of: "\"Bob\"")
+        let zaraRange  = content.range(of: "\"Zara\"")
+        #expect(aliceRange != nil)
+        #expect(bobRange != nil)
+        #expect(zaraRange != nil)
+        // Sorted: Alice < Bob < Zara
+        if let a = aliceRange, let b = bobRange, let z = zaraRange {
+            #expect(a.lowerBound < b.lowerBound)
+            #expect(b.lowerBound < z.lowerBound)
+        }
+        // De-duplicated: "Zara" appears exactly once in entity_mentions block
+        let entitySection = content.components(separatedBy: "entity_mentions:").last ?? ""
+        let zaraCount = entitySection.components(separatedBy: "\"Zara\"").count - 1
+        #expect(zaraCount == 1)
+    }
+
+    // (4) Empty entities emit `entity_mentions: []`
+    @Test func emptyEntities_emitEmptyArray() {
+        let memo = makeMemo(body: "test")
+        let content = MarkdownExportService.buildExportContent(
+            memos: [memo], date: makeDate()
+        )
+        #expect(content.contains("entity_mentions: []"))
+    }
+
+    // (5) Attachment kinds map to the correct wikilink form
+    @Test func attachmentKinds_mapToCorrectWikilinkForm() {
+        let photoAtt  = Memo.Attachment(file: "raw/assets/photo.jpg", kind: "photo")
+        let audioAtt  = Memo.Attachment(file: "raw/assets/voice.m4a", kind: "audio",
+                                        transcript: "hello world")
+        let otherAtt  = Memo.Attachment(file: "raw/assets/doc.pdf",  kind: "document")
+        let memo = Memo(
+            id: UUID(),
+            type: .mixed,
+            created: Date(timeIntervalSinceReferenceDate: 800_000_000),
+            attachments: [photoAtt, audioAtt, otherAtt],
+            body: "with attachments"
+        )
+        let content = MarkdownExportService.buildExportContent(
+            memos: [memo], date: makeDate()
+        )
+        // Photo → ![[...]]
+        #expect(content.contains("![[vault/raw/assets/photo.jpg]]"))
+        // Audio → ![[...]] with transcript appended
+        #expect(content.contains("![[vault/raw/assets/voice.m4a]]"))
+        #expect(content.contains("*(transcript: hello world)*"))
+        // Other → [[...]] (no !)
+        #expect(content.contains("[[vault/raw/assets/doc.pdf]]"))
+        #expect(!content.contains("![[vault/raw/assets/doc.pdf]]"))
+    }
+
+    // (6) Summary line is prefixed with `> AI · `
+    @Test func summaryLine_isPrefixedWithBlockquoteAndAI() {
+        let memo = makeMemo(body: "test")
+        let content = MarkdownExportService.buildExportContent(
+            memos: [memo], date: makeDate(), summary: "Productive day."
+        )
+        #expect(content.contains("> AI · Productive day."))
+    }
+
     // MARK: - 4. Memo bodies ordered by created ascending
 
     @Test func memoBodies_orderedByCreatedAscending() {
