@@ -183,10 +183,19 @@ extension Memo {
         guard let closing = closingIndex else { return nil }
 
         let frontmatterLines = Array(lines[1 ..< closing])
-        let bodyLines = Array(lines[(closing + 1)...])
-        // 跳过前置元数据和正文之间的前导空行
-        let bodyStart = bodyLines.firstIndex(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) ?? 0
-        let body = bodyLines[bodyStart...].joined(separator: "\n").trimmingCharacters(in: .newlines)
+        let rawBodyLines = Array(lines[(closing + 1)...])
+        // Skip only the single blank separator line between front-matter and body.
+        // Using firstIndex preserves a body whose first content line is "---" or
+        // any other value — we never skip non-blank lines here.
+        let bodyStart = rawBodyLines.firstIndex(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty }) ?? rawBodyLines.endIndex
+        let body: String
+        if bodyStart < rawBodyLines.endIndex {
+            // Re-join without trailing newline trimming so "---" lines at the
+            // start or end of the body survive the round-trip intact.
+            body = rawBodyLines[bodyStart...].joined(separator: "\n")
+        } else {
+            body = ""
+        }
 
         // 将前置元数据解析为简单 YAML
         var fm = YAMLParser(lines: frontmatterLines)

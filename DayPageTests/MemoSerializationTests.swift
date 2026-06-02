@@ -90,6 +90,43 @@ struct MemoSerializationTests {
         assertRoundTrip(memo)
     }
 
+    // MARK: - Horizontal rule / "---" body tests
+
+    @Test func body_withHorizontalRuleAndSurroundingText_roundTrips() {
+        // A body whose content contains the exact sequence "\n\n---\n\n" must
+        // survive a full toMarkdown -> fromMarkdown round-trip unchanged.
+        let memo = Memo(
+            id: UUID(),
+            type: .text,
+            created: fixedDate,
+            body: "before\n\n---\n\nafter"
+        )
+        assertRoundTrip(memo)
+    }
+
+    @Test func body_firstLineIsTripleDash_roundTrips() {
+        // A body whose very first content line is "---" must not be consumed as
+        // a front-matter delimiter or silently dropped.
+        let memo = Memo(
+            id: UUID(),
+            type: .text,
+            created: fixedDate,
+            body: "---\nThis starts with a horizontal rule"
+        )
+        assertRoundTrip(memo)
+    }
+
+    @Test func body_solelyTripleDash_roundTrips() {
+        // Edge case: the entire body is a single "---" line.
+        let memo = Memo(
+            id: UUID(),
+            type: .text,
+            created: fixedDate,
+            body: "---"
+        )
+        assertRoundTrip(memo)
+    }
+
     @Test func explicit_empty_entityMentions_and_attachments() {
         let memo = Memo(
             id: UUID(),
