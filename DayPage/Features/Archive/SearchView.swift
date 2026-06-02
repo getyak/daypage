@@ -204,6 +204,7 @@ struct SearchView: View {
     @State private var searchTask: Task<Void, Never>? = nil
     @State private var appearedIDs: Set<UUID> = []
     @State private var didBuzzEmpty: Bool = false
+    @State private var lastBuzzedEmptyQuery: String? = nil
     @State private var clearPressed: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -295,11 +296,17 @@ struct SearchView: View {
             await MainActor.run {
                 vm.isSearching = false
                 appearedIDs = []
-                didBuzzEmpty = false
                 vm.results = hits
                 vm.hasSearched = !trimmed.isEmpty || capturedFilters.isActive
                 if wasEmpty && !hits.isEmpty && !trimmed.isEmpty { Haptics.soft() }
-                if hits.isEmpty { didBuzzEmpty = false }
+                if hits.isEmpty && vm.hasSearched {
+                    if trimmed != lastBuzzedEmptyQuery {
+                        if !reduceMotion { Haptics.warn() }
+                        lastBuzzedEmptyQuery = trimmed
+                    }
+                } else if !hits.isEmpty {
+                    lastBuzzedEmptyQuery = nil
+                }
                 if UIAccessibility.isVoiceOverRunning && vm.hasSearched {
                     let message = hits.isEmpty ? "无匹配结果" : "\(hits.count) 条结果"
                     UIAccessibility.post(notification: .announcement, argument: message)
@@ -833,7 +840,6 @@ struct SearchView: View {
         .onAppear {
             if !didBuzzEmpty {
                 didBuzzEmpty = true
-                if !reduceMotion { Haptics.warn() }
             }
         }
     }
