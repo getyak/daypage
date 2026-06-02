@@ -372,7 +372,7 @@ struct GraphView: View {
                 .clipShape(Capsule())
         }
         .buttonStyle(ClearFiltersPressStyle(reduceMotion: reduceMotion))
-        .accessibilityLabel("清除筛选")
+        .accessibilityLabel(L10n.Empty.graphClearFilters)
         .accessibilityAddTraits(.isButton)
     }
 

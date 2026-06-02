@@ -50,6 +50,7 @@ enum L10n {
         // Graph No Matches
         static let graphNoMatchesTitle    = LocalizedStringKey("empty.graph.no_matches.title")
         static let graphNoMatchesSubtitle = NSLocalizedString("empty.graph.no_matches.subtitle", comment: "")
+        static let graphClearFilters      = NSLocalizedString("empty.graph.clear_filters", comment: "")
     }
 
     enum Error {
