@@ -99,6 +99,13 @@
 "today.kicker.signal.one"    = "信号";
 "today.kicker.signal.other"  = "信号";
 
+/* Day Orb readout labels */
+"orb.readout.tapToBegin"  = "轻点开始";
+"orb.readout.signalToday" = "今日首条";
+"orb.readout.building"    = "记录中";
+"orb.readout.richDay"     = "充实一天";
+"orb.readout.packed"      = "满载";
+
 /* Day Orb accessibility */
 "today.orb.label"            = "今日信号球";
 "today.orb.value.one"        = "已捕获 %d 条信号";

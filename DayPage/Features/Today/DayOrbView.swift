@@ -323,11 +323,11 @@ struct DayOrbView: View {
 
     private var readoutLabel: String {
         switch signalCount {
-        case 0:        return "TAP TO BEGIN"
-        case 1:        return "SIGNAL TODAY"
-        case 2...4:    return "BUILDING"
-        case 5...9:    return "RICH DAY"
-        default:       return "PACKED"
+        case 0:        return NSLocalizedString("orb.readout.tapToBegin", comment: "")
+        case 1:        return NSLocalizedString("orb.readout.signalToday", comment: "")
+        case 2...4:    return NSLocalizedString("orb.readout.building", comment: "")
+        case 5...9:    return NSLocalizedString("orb.readout.richDay", comment: "")
+        default:       return NSLocalizedString("orb.readout.packed", comment: "")
         }
     }
 
@@ -342,7 +342,7 @@ struct DayOrbView: View {
                         .opacity(invitePulse ? 1.0 : 0.7)
                         .animation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true), value: invitePulse)
 
-                    Text("TAP TO BEGIN")
+                    Text(readoutLabel)
                         .font(DSFonts.jetBrainsMono(size: 9, weight: .medium))
                         .tracking(1.4)
                         .foregroundColor(DSColor.amberDeep)

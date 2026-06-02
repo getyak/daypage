@@ -99,6 +99,13 @@
 "today.kicker.signal.one"    = "SIGNAL";
 "today.kicker.signal.other"  = "SIGNALS";
 
+/* Day Orb readout labels */
+"orb.readout.tapToBegin"  = "TAP TO BEGIN";
+"orb.readout.signalToday" = "SIGNAL TODAY";
+"orb.readout.building"    = "BUILDING";
+"orb.readout.richDay"     = "RICH DAY";
+"orb.readout.packed"      = "PACKED";
+
 /* Day Orb accessibility */
 "today.orb.label"            = "Today's signal orb";
 "today.orb.value.one"        = "%d signal captured";
