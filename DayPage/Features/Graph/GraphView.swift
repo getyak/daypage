@@ -638,6 +638,25 @@ struct GraphView: View {
     private var zoomControls: some View {
         VStack(spacing: 0) {
             Button {
+                fitToScreen(in: simulationSize)
+            } label: {
+                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundColor(DSColor.inkPrimary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+                    .opacity(visibleNodes.count < 2 ? 0.4 : 1.0)
+            }
+            .disabled(visibleNodes.count < 2)
+            .accessibilityLabel(NSLocalizedString("适应屏幕", comment: "Graph fit-to-screen button"))
+            .accessibilityAddTraits(.isButton)
+
+            Rectangle()
+                .fill(DSColor.glassRim)
+                .frame(height: 0.5)
+                .padding(.horizontal, 10)
+
+            Button {
                 zoom(by: 1.3)
             } label: {
                 Image(systemName: "plus")
@@ -674,6 +693,59 @@ struct GraphView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         .padding(DSSpacing.lg)
         .padding(.bottom, 110)
+    }
+
+    private func fitToScreen(in size: CGSize) {
+        let nodes = visibleNodes
+        guard nodes.count >= 2 else {
+            // Single node fallback: center on it at scale 1.5
+            if let node = nodes.first {
+                let targetScale: CGFloat = 1.5
+                let newOffset = CGSize(
+                    width:  -node.position.x * targetScale,
+                    height: -node.position.y * targetScale
+                )
+                withAnimation(reduceMotion ? nil : Motion.spring) {
+                    scale = targetScale; lastScale = targetScale
+                    offset = newOffset; lastOffset = newOffset
+                }
+                Haptics.tapConfirm()
+            }
+            return
+        }
+
+        let inset: CGFloat = 40
+        var minX = nodes[0].position.x - nodes[0].displayRadius
+        var maxX = nodes[0].position.x + nodes[0].displayRadius
+        var minY = nodes[0].position.y - nodes[0].displayRadius
+        var maxY = nodes[0].position.y + nodes[0].displayRadius
+        for node in nodes.dropFirst() {
+            minX = min(minX, node.position.x - node.displayRadius)
+            maxX = max(maxX, node.position.x + node.displayRadius)
+            minY = min(minY, node.position.y - node.displayRadius)
+            maxY = max(maxY, node.position.y + node.displayRadius)
+        }
+
+        let contentWidth  = maxX - minX
+        let contentHeight = maxY - minY
+        guard contentWidth > 0, contentHeight > 0 else { return }
+
+        let availableWidth  = size.width  - inset * 2
+        let availableHeight = size.height - inset * 2
+        let targetScale = max(0.3, min(5.0, min(availableWidth / contentWidth, availableHeight / contentHeight)))
+
+        let midX = (minX + maxX) / 2
+        let midY = (minY + maxY) / 2
+        let newOffset = CGSize(
+            width:  -midX * targetScale,
+            height: -midY * targetScale
+        )
+
+        withAnimation(reduceMotion ? nil : Motion.spring) {
+            scale = targetScale; lastScale = targetScale
+            offset = newOffset; lastOffset = newOffset
+        }
+        Haptics.tapConfirm()
     }
 
     private func zoom(by factor: CGFloat) {
