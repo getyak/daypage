@@ -137,9 +137,9 @@ struct UndoPillView: View {
             hapticWorkItem.item = nil
         }
         .task {
-            for tick in stride(from: 4, through: 0, by: -1) {
+            for remaining in stride(from: 4, through: 1, by: -1) {
                 try? await Task.sleep(for: .seconds(1))
-                secondsRemaining = tick
+                secondsRemaining = remaining
             }
         }
     }
