@@ -125,9 +125,17 @@ enum MarkdownExportService {
     // MARK: - Private Helpers
 
     private static func yamlQuoted(_ s: String) -> String {
-        let escaped = s
+        var escaped = s
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\r\n", with: " ")
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+            .replacingOccurrences(of: "\t", with: "\\t")
+        // Collapse multiple spaces introduced by newline replacement
+        while escaped.contains("  ") {
+            escaped = escaped.replacingOccurrences(of: "  ", with: " ")
+        }
         return "\"\(escaped)\""
     }
 
