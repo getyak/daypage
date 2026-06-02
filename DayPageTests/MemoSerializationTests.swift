@@ -127,6 +127,67 @@ struct MemoSerializationTests {
         assertRoundTrip(memo)
     }
 
+    // MARK: - Newline-in-front-matter tests (data-loss regression)
+
+    @Test func transcript_with_embedded_newlines_roundTrips() {
+        let multiLineTranscript = "Line one.\nLine two.\n\nPara two"
+        let memo = Memo(
+            id: UUID(),
+            type: .voice,
+            created: fixedDate,
+            attachments: [
+                Memo.Attachment(
+                    file: "voice.m4a",
+                    kind: "audio",
+                    duration: 8.0,
+                    transcript: multiLineTranscript,
+                    transcriptionStatus: .done
+                )
+            ],
+            body: "Voice memo"
+        )
+        assertRoundTrip(memo)
+
+        // The serialized front-matter must contain exactly one "transcript:" line —
+        // no raw newline may appear inside the quoted YAML scalar.
+        let md = memo.toMarkdown()
+        let transcriptLineCount = md.components(separatedBy: "\n").filter { $0.contains("transcript:") }.count
+        #expect(transcriptLineCount == 1)
+    }
+
+    @Test func mood_with_embedded_newline_roundTrips() {
+        let memo = Memo(
+            id: UUID(),
+            type: .text,
+            created: fixedDate,
+            mood: "happy\nexcited",
+            body: "Mood test"
+        )
+        assertRoundTrip(memo)
+    }
+
+    @Test func locationName_with_embedded_newline_roundTrips() {
+        let memo = Memo(
+            id: UUID(),
+            type: .location,
+            created: fixedDate,
+            location: Memo.Location(name: "Coffee\nShop", lat: 35.6762, lng: 139.6503),
+            body: "Location test"
+        )
+        assertRoundTrip(memo)
+    }
+
+    @Test func entityMention_with_embedded_newline_roundTrips() {
+        let memo = Memo(
+            id: UUID(),
+            type: .text,
+            created: fixedDate,
+            entityMentions: ["Alice\nBob", "Project\nPhoenix"],
+            body: "Entity test"
+        )
+        assertRoundTrip(memo)
+    }
+
     @Test func explicit_empty_entityMentions_and_attachments() {
         let memo = Memo(
             id: UUID(),

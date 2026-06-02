@@ -266,11 +266,13 @@ extension Memo {
 
     // MARK: Private helpers
 
-    /// 将字符串用双引号包裹，转义内部引号和反斜杠。
+    /// 将字符串用双引号包裹，转义内部引号、反斜杠和换行符，确保值保持在单行上。
     private func yamlQuote(_ s: String) -> String {
         let escaped = s
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
+            .replacingOccurrences(of: "\r", with: "\\r")
+            .replacingOccurrences(of: "\n", with: "\\n")
         return "\"\(escaped)\""
     }
 }
@@ -430,15 +432,36 @@ struct YAMLParser {
         return nil
     }
 
-    /// 去除外围双引号并反转义 \" 和 \\。
+    /// 去除外围双引号并反转义 \"、\\n、\\r 和 \\。
+    /// 使用字符扫描而非顺序字符串替换，避免 \\\\ 被误解析为转义序列前缀。
     private func yamlUnquote(_ s: String) -> String {
-        var v = s
-        if v.hasPrefix("\"") && v.hasSuffix("\"") && v.count >= 2 {
-            v = String(v.dropFirst().dropLast())
-            v = v
-                .replacingOccurrences(of: "\\\"", with: "\"")
-                .replacingOccurrences(of: "\\\\", with: "\\")
+        guard s.hasPrefix("\""), s.hasSuffix("\""), s.count >= 2 else { return s }
+        let inner = s.dropFirst().dropLast()
+        var result = ""
+        result.reserveCapacity(inner.count)
+        var idx = inner.startIndex
+        while idx < inner.endIndex {
+            let ch = inner[idx]
+            if ch == "\\" {
+                let next = inner.index(after: idx)
+                if next < inner.endIndex {
+                    switch inner[next] {
+                    case "\"": result.append("\"")
+                    case "n":  result.append("\n")
+                    case "r":  result.append("\r")
+                    case "\\": result.append("\\")
+                    default:   result.append(ch); result.append(inner[next])
+                    }
+                    idx = inner.index(after: next)
+                } else {
+                    result.append(ch)
+                    idx = next
+                }
+            } else {
+                result.append(ch)
+                idx = inner.index(after: idx)
+            }
         }
-        return v
+        return result
     }
 }
