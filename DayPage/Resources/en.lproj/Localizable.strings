@@ -251,6 +251,12 @@
 
 "search.undo.cleared" = "Recent searches cleared";
 
+/* CompileFooterButton — time-of-day hints */
+"compile.hint.morning"   = "Your day is just getting started";
+"compile.hint.afternoon" = "Keep the day flowing";
+"compile.hint.evening"   = "Wind down — look back on today";
+"compile.hint.night"     = "Put a period on today";
+
 /* Streak milestone celebration (TodayView) */
 "today.streak.milestone.title"        = "%d day streak! 🔥";
 "today.streak.milestone.subtitle.3"   = "Three days in a row — the habit is forming.";
