@@ -799,6 +799,27 @@ struct SearchView: View {
                         }
                     }
                 }
+
+                let entitySuggestions = vm.topEntities.prefix(6).map(\.name).filter { $0 != vm.query }
+                if !entitySuggestions.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("高频实体")
+                            .monoLabelStyle(size: 10)
+                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                ForEach(entitySuggestions, id: \.self) { name in
+                                    entityChip(name)
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 4)
+                        }
+                    }
+                }
             }
             .frame(maxWidth: .infinity)
             .padding(.top, 80)
