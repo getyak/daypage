@@ -268,3 +268,12 @@
 "voice.retry.failed_permanent_a11y" = "已重试 3 次，转写失败。音频已保存。";
 
 "search.undo.cleared" = "已清除搜索记录";
+
+/* Streak milestone celebration (TodayView) */
+"today.streak.milestone.title"        = "连续 %d 天！🔥";
+"today.streak.milestone.subtitle.3"   = "连续三天，习惯正在形成。";
+"today.streak.milestone.subtitle.7"   = "整整一周，势头不错。";
+"today.streak.milestone.subtitle.14"  = "两周不间断，这已成为你的一部分。";
+"today.streak.milestone.subtitle.30"  = "整整一个月的每日记录，了不起。";
+"today.streak.milestone.subtitle.100" = "100 天，这段旅程属于你。";
+"today.streak.milestone.subtitle.365" = "整整一年，游牧者完整的轨迹。";
