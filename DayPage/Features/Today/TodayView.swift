@@ -109,6 +109,10 @@ struct TodayView: View {
     /// Drives the one-shot amber glow pulse on the orb / timeline top after pull-to-refresh.
     @State private var refreshGlow: Bool = false
 
+    /// Milestone feedback when the scroll-to-top progress ring fills to 100%.
+    @State private var didReachScrollEnd: Bool = false
+    @State private var scrollRingGlow: Bool = false
+
     /// Scroll proxy captured from the timeline ScrollViewReader; used by composeSection
     /// to scroll to the top anchor after a new memo is added.
     @State private var timelineScrollProxy: ScrollViewProxy? = nil
@@ -285,6 +289,11 @@ struct TodayView: View {
                                         .rotationEffect(.degrees(-90))
                                         .animation(reduceMotion ? nil : Motion.fade, value: scrollProgress)
                                 )
+                                .shadow(
+                                    color: DSColor.accentAmber.opacity(scrollRingGlow ? 0.5 : 0),
+                                    radius: scrollRingGlow ? 14 : 0
+                                )
+                                .animation(.easeOut(duration: 0.6), value: scrollRingGlow)
                                 .clipShape(Circle())
                         }
                         .padding(.trailing, 20)
@@ -296,6 +305,21 @@ struct TodayView: View {
                     }
                 }
                 .animation(reduceMotion ? nil : Motion.rise, value: timelineScrollOffset < -240)
+                .onChange(of: scrollProgress) { progress in
+                    if progress >= 1.0 && !didReachScrollEnd {
+                        didReachScrollEnd = true
+                        Haptics.soft()
+                        if !reduceMotion {
+                            scrollRingGlow = true
+                            Task {
+                                try? await Task.sleep(nanoseconds: 600_000_000)
+                                scrollRingGlow = false
+                            }
+                        }
+                    } else if progress < 0.95 {
+                        didReachScrollEnd = false
+                    }
+                }
                 // Submit error toast — scoped animation lives on the overlay
                 // container so only the toast itself animates, not the whole
                 // ZStack tree. (#217)
