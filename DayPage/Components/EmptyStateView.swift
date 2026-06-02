@@ -18,6 +18,9 @@ struct EmptyStateView: View {
     @State private var revealTask: Task<Void, Never>?
     @State private var idlePulseTask: Task<Void, Never>?
 
+    /// Captured once on appear so the tint stays stable across the breathing animation.
+    @State private var orbTint: Color = TimeOfDay.from(Date()).tint
+
     var body: some View {
         VStack(spacing: 20) {
             VStack(spacing: 20) {
@@ -54,6 +57,7 @@ struct EmptyStateView: View {
         }
         .padding(.horizontal, 32)
         .onAppear {
+            orbTint = TimeOfDay.from(Date()).tint
             if reduceMotion {
                 revealStep = 4
                 breathing = false
@@ -121,15 +125,13 @@ struct EmptyStateView: View {
         }
     }
 
-    // amberAccent (#A8541B) at low opacity — a soft warm bloom behind the title
-    // rather than the old saturated peach blob. (#590)
     private var orbAccent: some View {
         Circle()
             .fill(
                 RadialGradient(
                     colors: [
-                        Color(hex: "A8541B").opacity(0.22),
-                        Color(hex: "A8541B").opacity(0.10),
+                        orbTint.opacity(0.22),
+                        orbTint.opacity(0.10),
                         Color.clear
                     ],
                     center: .center,
