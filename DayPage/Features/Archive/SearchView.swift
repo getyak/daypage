@@ -584,10 +584,11 @@ struct SearchView: View {
                 if !entities.isEmpty {
                     sectionHeader(title: "高频实体", trailing: AnyView(EmptyView()))
 
+                    let maxCount = entities.map(\.count).max() ?? 1
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
-                            ForEach(entities, id: \.self) { entity in
-                                entityChipWithCount(entity)
+                            ForEach(Array(entities.enumerated()), id: \.element) { idx, entity in
+                                entityChipWithCount(entity, maxCount: maxCount, index: idx)
                             }
                         }
                         .padding(.horizontal, 20)
@@ -680,32 +681,25 @@ struct SearchView: View {
         .buttonStyle(.plain)
     }
 
-    private func entityChipWithCount(_ entity: EntityFrequency) -> some View {
-        Button(action: {
+    private func entityChipWithCount(_ entity: EntityFrequency, maxCount: Int, index: Int) -> some View {
+        let ratio = maxCount > 0 ? CGFloat(entity.count) / CGFloat(maxCount) : 0
+        let isTop = entity.count == maxCount
+        let pctLabel = isTop
+            ? NSLocalizedString("search.entity.mostFrequent", comment: "most frequent entity label")
+            : String(format: NSLocalizedString("search.entity.relativeFrequency", comment: "relative frequency label"), Int((ratio * 100).rounded()))
+        let a11yLabel = "\(entity.name), \(entity.count) references, \(pctLabel)"
+
+        return EntityFrequencyChip(
+            entity: entity,
+            ratio: ratio,
+            index: index,
+            reduceMotion: reduceMotion,
+            a11yLabel: a11yLabel
+        ) {
             Haptics.tapConfirm()
             vm.query = entity.name
             runSearch(keyword: entity.name)
-        }) {
-            HStack(spacing: 6) {
-                Text(entity.name)
-                    .font(.custom("Inter-Regular", size: 13))
-                    .foregroundColor(DSColor.onSurface)
-
-                Text("\(entity.count)")
-                    .font(.custom("JetBrainsMono-Regular", size: 10))
-                    .foregroundColor(DSColor.onSurfaceVariant)
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 2)
-                    .background(DSColor.outlineVariant.opacity(0.4))
-                    .clipShape(Capsule())
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(DSColor.surfaceContainer)
-            .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(entity.name), \(entity.count) references")
     }
 
     // MARK: - Empty result state
@@ -1052,6 +1046,78 @@ struct SearchView: View {
         case .memoBody: return "MEMO"
         case .location: return "LOCATION"
         case .date:     return "DATE"
+        }
+    }
+}
+
+// MARK: - EntityFrequencyChip
+
+private struct EntityFrequencyChip: View {
+
+    let entity: EntityFrequency
+    let ratio: CGFloat
+    let index: Int
+    let reduceMotion: Bool
+    let a11yLabel: String
+    let action: () -> Void
+
+    @State private var barAppeared: Bool = false
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(entity.name)
+                        .font(.custom("Inter-Regular", size: 13))
+                        .foregroundColor(DSColor.onSurface)
+
+                    Text("\(entity.count)")
+                        .font(.custom("JetBrainsMono-Regular", size: 10))
+                        .foregroundColor(DSColor.onSurfaceVariant)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 2)
+                        .background(DSColor.outlineVariant.opacity(0.4))
+                        .clipShape(Capsule())
+                }
+
+                // Frequency bar — fixed-height track with proportional foreground fill
+                GeometryReader { geo in
+                    let chipWidth = geo.size.width
+                    ZStack(alignment: .leading) {
+                        Capsule()
+                            .fill(DSColor.outlineVariant.opacity(0.25))
+                            .frame(width: chipWidth, height: 3)
+
+                        Capsule()
+                            .fill(DSColor.primary)
+                            .frame(width: barAppeared ? chipWidth * ratio : 0, height: 3)
+                            .animation(
+                                reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.72)
+                                    .delay(Double(index) * 0.04),
+                                value: barAppeared
+                            )
+                    }
+                }
+                .frame(height: 3)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(DSColor.surfaceContainer)
+            .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(a11yLabel)
+        .onAppear {
+            if reduceMotion {
+                barAppeared = true
+            } else {
+                withAnimation(
+                    .spring(response: 0.45, dampingFraction: 0.72)
+                        .delay(Double(index) * 0.04)
+                ) {
+                    barAppeared = true
+                }
+            }
         }
     }
 }
