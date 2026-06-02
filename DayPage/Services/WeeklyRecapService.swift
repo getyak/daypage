@@ -1,5 +1,35 @@
 import Foundation
 
+// MARK: - WeeklyRecapRange
+
+/// Pure date-range helper for the Weekly Recap section.
+///
+/// Extracts the date-math from `WeeklyRecapService` so it can be unit-tested
+/// independently with an injected calendar.
+enum WeeklyRecapRange {
+
+    /// Returns local-midnight dates in [min(weekStart, yesterday), today),
+    /// oldest-first. The `min` rule prevents the range from being empty on
+    /// Mondays — without it, Monday's weekStart == today and the section vanishes.
+    static func dates(referenceDate: Date, calendar: Calendar) -> [Date] {
+        let today = calendar.startOfDay(for: referenceDate)
+        guard let monday = calendar.dateInterval(of: .weekOfYear, for: today)?.start,
+              let yesterday = calendar.date(byAdding: .day, value: -1, to: today)
+        else { return [] }
+
+        let lowerBound = min(monday, yesterday)
+
+        var cursor = lowerBound
+        var result: [Date] = []
+        while cursor < today {
+            result.append(cursor)
+            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            cursor = next
+        }
+        return result
+    }
+}
+
 // MARK: - WeeklyRecapEntry
 
 /// One compiled day appearing in Today's "Weekly Recap" section.
@@ -61,26 +91,11 @@ final class WeeklyRecapService {
 
     /// Compiled day entries from this week's Monday up to (but not including)
     /// `referenceDate`'s local-midnight, newest first.
-    /// Returns empty when `referenceDate` falls on Monday.
+    /// On Monday, returns exactly yesterday (Sunday) — see `WeeklyRecapRange`.
     func entries(referenceDate: Date = Date()) -> [WeeklyRecapEntry] {
         let dailyDir = VaultInitializer.vaultURL.appendingPathComponent("wiki/daily")
         let fm = FileManager.default
-
-        let today = calendar.startOfDay(for: referenceDate)
-        guard let monday = startOfWeek(for: today),
-              let yesterday = calendar.date(byAdding: .day, value: -1, to: today)
-        else { return [] }
-        // Whichever is earlier — usually Monday, but on Monday itself the
-        // Monday-only range would be empty, so yesterday (Sunday) takes over.
-        let lowerBound = min(monday, yesterday)
-
-        var cursor = lowerBound
-        var dates: [Date] = []
-        while cursor < today {
-            dates.append(cursor)
-            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
-            cursor = next
-        }
+        let dates = WeeklyRecapRange.dates(referenceDate: referenceDate, calendar: calendar)
 
         var entries: [WeeklyRecapEntry] = []
         for date in dates {
@@ -103,15 +118,6 @@ final class WeeklyRecapService {
         }
 
         return entries.reversed()
-    }
-
-    // MARK: - Private
-
-    /// Monday 00:00 of the week containing `date`.
-    /// `dateInterval(of: .weekOfYear, for:)` honors `calendar.firstWeekday`,
-    /// which we forced to Monday in init.
-    private func startOfWeek(for date: Date) -> Date? {
-        return calendar.dateInterval(of: .weekOfYear, for: date)?.start
     }
 
 }
