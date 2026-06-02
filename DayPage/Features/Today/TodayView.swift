@@ -11,6 +11,7 @@ struct TodayView: View {
     @StateObject private var voiceQueue = VoiceAttachmentQueue.shared
     @StateObject private var migrationService = VaultMigrationService.shared
     @StateObject private var compilationService = CompilationService.shared
+    @EnvironmentObject private var sidebarVM: SidebarViewModel
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -1524,6 +1525,15 @@ struct TodayView: View {
             } else if count < 3 {
                 didCelebrateUnlock = false
             }
+            // Celebrate streak milestone when today's first memo is added.
+            if lastMemoCount == 0 && count == 1 {
+                sidebarVM.refreshRecentDays()
+                Task { @MainActor in
+                    // Let the async vault scan in refreshRecentDays complete.
+                    try? await Task.sleep(nanoseconds: 400_000_000)
+                    celebrateStreakIfNeeded()
+                }
+            }
             // Scroll to top on additions only, not deletions.
             if count > lastMemoCount, let proxy = timelineScrollProxy {
                 withAnimation(reduceMotion ? nil : Motion.spring) {
@@ -1552,6 +1562,58 @@ struct TodayView: View {
     }
 
     // MARK: - Helpers
+
+    // MARK: - Streak Milestone Celebration
+
+    private static let streakMilestones: [Int] = [3, 7, 14, 30, 100, 365]
+
+    private func milestoneEncouragement(for n: Int) -> String {
+        switch n {
+        case 3:   return NSLocalizedString("today.streak.milestone.subtitle.3",   comment: "")
+        case 7:   return NSLocalizedString("today.streak.milestone.subtitle.7",   comment: "")
+        case 14:  return NSLocalizedString("today.streak.milestone.subtitle.14",  comment: "")
+        case 30:  return NSLocalizedString("today.streak.milestone.subtitle.30",  comment: "")
+        case 100: return NSLocalizedString("today.streak.milestone.subtitle.100", comment: "")
+        case 365: return NSLocalizedString("today.streak.milestone.subtitle.365", comment: "")
+        default:  return NSLocalizedString("today.streak.milestone.subtitle.365", comment: "")
+        }
+    }
+
+    private func shownMilestones() -> Set<Int> {
+        let raw = UserDefaults.standard.string(forKey: AppSettings.Keys.streakMilestonesShown) ?? ""
+        return Set(raw.split(separator: ",").compactMap { Int($0) })
+    }
+
+    private func markMilestoneShown(_ n: Int) {
+        var shown = shownMilestones()
+        shown.insert(n)
+        UserDefaults.standard.set(shown.map(String.init).joined(separator: ","),
+                                  forKey: AppSettings.Keys.streakMilestonesShown)
+    }
+
+    private func celebrateStreakIfNeeded() {
+        let streak = sidebarVM.currentStreak
+        guard let milestone = Self.streakMilestones.first(where: { $0 == streak }) else { return }
+        guard !shownMilestones().contains(milestone) else { return }
+
+        markMilestoneShown(milestone)
+        Haptics.success()
+        if !reduceMotion {
+            orbCapturePulse.toggle()
+            refreshGlow = true
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 600_000_000)
+                refreshGlow = false
+            }
+        }
+        let title = String(format: NSLocalizedString("today.streak.milestone.title", comment: ""), milestone)
+        bannerCenter.show(AppBannerModel(
+            kind: .info,
+            title: title,
+            subtitle: milestoneEncouragement(for: milestone),
+            autoDismiss: true
+        ))
+    }
 
     // US-009: Show undo pill for 5 seconds after submitting a memo.
     private func showUndoPill(for text: String) {

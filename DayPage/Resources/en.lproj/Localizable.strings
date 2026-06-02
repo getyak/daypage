@@ -240,3 +240,12 @@
 "voice.retry.failed_permanent_a11y" = "Transcription permanently failed after 3 attempts. Audio is saved.";
 
 "search.undo.cleared" = "Recent searches cleared";
+
+/* Streak milestone celebration (TodayView) */
+"today.streak.milestone.title"        = "%d day streak! 🔥";
+"today.streak.milestone.subtitle.3"   = "Three days in a row — the habit is forming.";
+"today.streak.milestone.subtitle.7"   = "One full week. You're on a roll.";
+"today.streak.milestone.subtitle.14"  = "Two weeks straight. This is becoming part of you.";
+"today.streak.milestone.subtitle.30"  = "A whole month of daily logging. Remarkable.";
+"today.streak.milestone.subtitle.100" = "100 days. This journey is yours.";
+"today.streak.milestone.subtitle.365" = "One full year. A nomad's complete orbit.";

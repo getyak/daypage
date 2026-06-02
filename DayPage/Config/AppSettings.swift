@@ -156,6 +156,8 @@ extension AppSettings {
         static let writeSheetRailHintShown = "today.writeSheetRailHintShown"
         // Swipe-hint nudge — shown once on the newest memo card to teach left/right swipe actions
         static let memoSwipeHintShown = "memoswipeHintShown"
+        // Streak milestone celebrations — comma-joined Int set, e.g. "3,7,14"
+        static let streakMilestonesShown = "streakMilestonesShown"
     }
 }
 

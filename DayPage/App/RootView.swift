@@ -13,6 +13,7 @@ struct RootView: View {
     @EnvironmentObject private var authService: AuthService
     @EnvironmentObject private var nav: AppNavigationModel
     @StateObject private var bannerCenter = BannerCenter.shared
+    @StateObject private var sidebarVM = SidebarViewModel()
     @ObservedObject private var appSettings = AppSettings.shared
 
     @State private var phase: AppPhase = RootView.initialPhase()
@@ -43,6 +44,7 @@ struct RootView: View {
 
     var body: some View {
         mainContent
+            .environmentObject(sidebarVM)
             .fullScreenCover(isPresented: Binding(
                 get: { phase != .ready },
                 set: { _ in }   // dismissal is handled by the content view callbacks
