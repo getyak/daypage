@@ -89,6 +89,10 @@
 "today.subline.notes.one"    = "%d 条记录";
 "today.subline.notes.other"  = "%d 条记录";
 
+/* Today header subline — word count */
+"today.subline.words.one"    = "%d 字";
+"today.subline.words.other"  = "%d 字";
+
 /* Today orb greeting — time-of-day serif greeting above kicker */
 "today.greeting.morning"     = "早上好。";
 "today.greeting.afternoon"   = "下午好。";
