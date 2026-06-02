@@ -15,6 +15,7 @@ final class SearchViewModel: ObservableObject {
     @Published var query: String = ""
     @Published var results: [SearchResult] = []
     @Published var hasSearched: Bool = false
+    @Published var isSearching: Bool = false
 
     // MARK: Recent searches — persisted via UserDefaults
     private let recentKey = "search.recentQueries"
@@ -280,12 +281,19 @@ struct SearchView: View {
         let capturedFilters = filters
         let wasEmpty = vm.results.isEmpty
         searchTask?.cancel()
+        if !trimmed.isEmpty || capturedFilters.isActive {
+            vm.isSearching = true
+        }
         searchTask = Task {
             let hits = await Task.detached(priority: .userInitiated) {
                 SearchService.search(keyword: trimmed, filters: capturedFilters)
             }.value
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else {
+                await MainActor.run { vm.isSearching = false }
+                return
+            }
             await MainActor.run {
+                vm.isSearching = false
                 appearedIDs = []
                 didBuzzEmpty = false
                 vm.results = hits
@@ -321,7 +329,12 @@ struct SearchView: View {
                     }
                     .accessibilityLabel("搜索框")
 
-                if !vm.query.isEmpty {
+                if vm.isSearching {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                        .tint(DSColor.onSurfaceVariant)
+                        .accessibilityLabel("正在搜索")
+                } else if !vm.query.isEmpty {
                     Button(action: {
                         Haptics.soft()
                         if !reduceMotion {
