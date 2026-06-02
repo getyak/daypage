@@ -948,41 +948,18 @@ struct TodayView: View {
     }
 
     private func orbGreeting(_ date: Date) -> String {
-        let hour = Calendar.current.component(.hour, from: date)
-        switch hour {
-        case 5...11:  return NSLocalizedString("today.greeting.morning",   comment: "")
-        case 12...17: return NSLocalizedString("today.greeting.afternoon", comment: "")
-        case 18...22: return NSLocalizedString("today.greeting.evening",   comment: "")
-        default:      return NSLocalizedString("today.greeting.latenight", comment: "")
-        }
+        NSLocalizedString(TimeOfDay.from(date).greetingKey, comment: "")
     }
 
-    /// Returns an integer bucket index (0–3) for the current time-of-day bucket,
-    /// matching the same hour ranges used by `orbGreeting`. Used to key the tint
-    /// animation so crossfades fire only at bucket boundaries, not every minute.
+    /// Returns an integer bucket index (0–3) for the current time-of-day bucket.
+    /// Used to key the tint animation so crossfades fire only at bucket boundaries.
     private func orbTintBucket(_ date: Date) -> Int {
-        let hour = Calendar.current.component(.hour, from: date)
-        switch hour {
-        case 5...11:  return 0  // morning
-        case 12...17: return 1  // afternoon
-        case 18...22: return 2  // evening
-        default:      return 3  // late-night
-        }
+        TimeOfDay.from(date).bucketIndex
     }
 
-    /// Derives a subtle ambient hue for the orb breathing glow from the
-    /// time-of-day bucket. Purely presentational — no storage changes.
-    ///   0 morning    → cool periwinkle-blue dawn
-    ///   1 afternoon  → canonical accentAmber (warm midday)
-    ///   2 evening    → warm orange-ember
-    ///   3 late-night → deep indigo
+    /// Derives a subtle ambient hue for the orb breathing glow from the time-of-day bucket.
     private func orbTint(_ date: Date) -> Color {
-        switch orbTintBucket(date) {
-        case 0: return Color(red: 0.45, green: 0.55, blue: 0.88)   // cool periwinkle dawn
-        case 1: return DSColor.accentAmber                          // midday amber (canonical)
-        case 2: return Color(red: 0.85, green: 0.40, blue: 0.15)   // warm orange-ember evening
-        default: return Color(red: 0.28, green: 0.22, blue: 0.60)  // deep indigo late-night
-        }
+        TimeOfDay.from(date).tint
     }
 
     private func orbKicker(_ date: Date) -> String {

@@ -1,0 +1,43 @@
+import SwiftUI
+
+/// Pure time-of-day bucketing shared by the Day Orb and the kicker.
+enum TimeOfDay: Int {
+    case morning    = 0
+    case afternoon  = 1
+    case evening    = 2
+    case lateNight  = 3
+
+    static func bucket(hour: Int) -> TimeOfDay {
+        switch hour {
+        case 5...11:  return .morning
+        case 12...17: return .afternoon
+        case 18...22: return .evening
+        default:      return .lateNight
+        }
+    }
+
+    static func from(_ date: Date, calendar: Calendar = .current) -> TimeOfDay {
+        let hour = calendar.component(.hour, from: date)
+        return bucket(hour: hour)
+    }
+
+    var greetingKey: String {
+        switch self {
+        case .morning:   return "today.greeting.morning"
+        case .afternoon: return "today.greeting.afternoon"
+        case .evening:   return "today.greeting.evening"
+        case .lateNight: return "today.greeting.latenight"
+        }
+    }
+
+    var bucketIndex: Int { rawValue }
+
+    var tint: Color {
+        switch self {
+        case .morning:   return Color(red: 0.45, green: 0.55, blue: 0.88)  // cool periwinkle dawn
+        case .afternoon: return DSColor.accentAmber                         // midday amber (canonical)
+        case .evening:   return Color(red: 0.85, green: 0.40, blue: 0.15)  // warm orange-ember evening
+        case .lateNight: return Color(red: 0.28, green: 0.22, blue: 0.60)  // deep indigo late-night
+        }
+    }
+}
