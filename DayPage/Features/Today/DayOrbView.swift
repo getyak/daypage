@@ -297,7 +297,7 @@ struct DayOrbView: View {
                         .font(DSFonts.spaceGrotesk(size: size * 0.36, weight: .semibold))
                         .tracking(-2)
                         .foregroundColor(DSColor.amberDeep)
-                        .contentTransition(.numericText())
+                        .modifier(OrbNumericTextTransition(value: Double(signalCount), reduceMotion: reduceMotion))
                         .animation(.snappy, value: signalCount)
                         .scaleEffect(countPop)
 
@@ -310,6 +310,23 @@ struct DayOrbView: View {
                         .animation(.easeInOut(duration: 0.25), value: readoutLabel)
                 }
             }
+        }
+    }
+}
+
+// MARK: - OrbNumericTextTransition
+
+private struct OrbNumericTextTransition: ViewModifier {
+    let value: Double
+    let reduceMotion: Bool
+
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *) {
+            content
+                .contentTransition(reduceMotion ? .identity : .numericText(value: value))
+        } else {
+            content
+                .contentTransition(.identity)
         }
     }
 }
