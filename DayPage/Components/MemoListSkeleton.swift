@@ -3,16 +3,25 @@ import SwiftUI
 // MARK: - MemoListSkeleton
 
 /// Placeholder skeleton shown in TodayView while the initial vault load is in flight.
-/// Mirrors the approximate shape of 3 MemoCardView rows so the layout doesn't shift
-/// once real content appears. Uses a shimmer animation to signal activity.
+/// `count` controls how many placeholder cards are rendered (clamped to 1…6) so the
+/// skeleton height closely matches the incoming content and avoids a layout shift.
 struct MemoListSkeleton: View {
+    var count: Int = 3
+
+    private var clampedCount: Int { count.clamped(to: 1...6) }
+
     var body: some View {
         VStack(spacing: 8) {
-            SkeletonCard(lineCount: 3, wide: false)
-            SkeletonCard(lineCount: 2, wide: true)
-            SkeletonCard(lineCount: 4, wide: false)
+            ForEach(0..<clampedCount, id: \.self) { idx in
+                SkeletonCard(lineCount: lineCount(for: idx), wide: idx % 3 == 1)
+            }
         }
         .accessibilityHidden(true)
+    }
+
+    private func lineCount(for index: Int) -> Int {
+        let pattern = [3, 2, 4, 2, 3, 4]
+        return pattern[index % pattern.count]
     }
 }
 
