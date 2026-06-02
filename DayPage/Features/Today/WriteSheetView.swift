@@ -24,6 +24,15 @@ import SwiftUI
 // presentation-only in this round (no wiring) to match the design's quiet rail;
 // the inline composer remains the full multimodal capture surface.
 
+private struct SavePillPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect((!reduceMotion && configuration.isPressed) ? 0.96 : 1.0)
+            .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
 struct WriteSheetView: View {
 
     /// Live draft text — bound to the same `draftText` the inline composer uses
@@ -39,6 +48,7 @@ struct WriteSheetView: View {
     @State private var lastMilestone: Int = 0
     @GestureState private var dragOffset: CGFloat = 0
     @State private var committedClose: Bool = false
+    @State private var saveReadyPulse: Bool = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(AppSettings.Keys.writeSheetRailHintShown) private var railHintShown: Bool = false
     /// Snapshot taken at open time so the hint stays visible for the whole first session.
@@ -381,13 +391,28 @@ struct WriteSheetView: View {
             .frame(height: 38)
             .background(
                 Capsule().fill(canSave ? DSTokens.Colors.accent : DSTokens.Colors.surfaceSunken)
+                    .shadow(
+                        color: DSColor.accentAmber.opacity(saveReadyPulse ? 0.5 : 0),
+                        radius: saveReadyPulse ? 16 : 0
+                    )
+                    .animation(.easeOut(duration: 0.6), value: saveReadyPulse)
             )
+            .scaleEffect(saveReadyPulse ? 1.06 : 1.0)
+            .animation(reduceMotion ? nil : Motion.spring, value: saveReadyPulse)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(SavePillPressStyle())
         .disabled(!canSave)
         .animation(.easeOut(duration: 0.18), value: canSave)
         .accessibilityIdentifier("write-sheet-save")
         .accessibilityLabel(NSLocalizedString("write.sheet.save", comment: "保存"))
+        .onChange(of: canSave) { newValue in
+            guard newValue, !reduceMotion else { return }
+            saveReadyPulse = true
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 600_000_000)
+                saveReadyPulse = false
+            }
+        }
     }
 
     // MARK: - Saved-to caption (composer.jsx:333-341)
