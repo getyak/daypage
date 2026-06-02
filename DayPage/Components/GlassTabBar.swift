@@ -91,6 +91,7 @@ struct GlassTabBar: View {
                 Image(systemName: active.icon)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(DSColor.amberDeep)
+                    .accessibilityHidden(true)
 
                 Text(active.label)
                     .font(DSType.labelSM)
@@ -99,6 +100,7 @@ struct GlassTabBar: View {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(DSColor.inkMuted)
+                    .accessibilityHidden(true)
             }
             .padding(.top, 6)
             .padding(.leading, 12)
@@ -107,6 +109,9 @@ struct GlassTabBar: View {
             .liquidGlassPill()
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Navigation, currently \(active.label)")
+        .accessibilityHint("Opens the section menu")
+        .accessibilityIdentifier("glass-tabbar-pill")
     }
 
     // MARK: - Expanded Menu
@@ -137,6 +142,7 @@ struct GlassTabBar: View {
                     .font(.system(size: 14, weight: isActive ? .semibold : .regular))
                     .foregroundColor(isActive ? Color.white.opacity(0.92) : DSColor.inkPrimary)
                     .frame(width: 18)
+                    .accessibilityHidden(true)
 
                 Text(section.label)
                     .font(isActive ? DSType.labelSM.weight(.semibold) : DSType.labelSM)
@@ -157,6 +163,10 @@ struct GlassTabBar: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(section.label)
+        .accessibilityHint("Switches to the \(section.label) section")
+        .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
+        .accessibilityIdentifier("glass-tabbar-row-\(section.rawValue.lowercased())")
     }
 }
 
