@@ -45,6 +45,7 @@ struct GraphView: View {
     // both `emptyState` and `clearFiltersButton` read `reduceMotion`; deleting it
     // breaks the build — see incident around PR #466).
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
     private let nodeRadius: CGFloat = 16
     private let maxSimSteps = 200
 
@@ -311,6 +312,18 @@ struct GraphView: View {
         }
         .onDisappear {
             stopSimulation()
+        }
+        .onChange(of: scenePhase) { phase in
+            switch phase {
+            case .active:
+                if !viewModel.nodes.isEmpty && simulationSteps < maxSimSteps {
+                    startSimulation(reset: false)
+                }
+            case .inactive, .background:
+                stopSimulation()
+            @unknown default:
+                break
+            }
         }
         .sheet(isPresented: $showEntityPage) {
             if let node = selectedNode {
@@ -862,8 +875,8 @@ struct GraphView: View {
 
     // MARK: - Simulation
 
-    private func startSimulation() {
-        simulationSteps = 0
+    private func startSimulation(reset: Bool = true) {
+        if reset { simulationSteps = 0 }
         simulationTimer?.invalidate()
         simulationTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { _ in
             Task { @MainActor in
