@@ -205,7 +205,14 @@ struct SidebarView: View {
     /// STREAK / PAGES / WORDS triplet on a single hairline-divided white card.
     private var statsSection: some View {
         HStack(spacing: 0) {
-            statCell(label: "STREAK", value: "\(sidebarVM.currentStreak)", unit: "DAYS", first: true)
+            let streakUnit = sidebarVM.longestStreak > sidebarVM.currentStreak
+                ? "BEST \(sidebarVM.longestStreak)"
+                : "DAYS"
+            statCell(label: "STREAK", value: "\(sidebarVM.currentStreak)", unit: streakUnit, first: true)
+                .accessibilityLabel(sidebarVM.longestStreak > sidebarVM.currentStreak
+                    ? "Streak \(sidebarVM.currentStreak) days, personal best \(sidebarVM.longestStreak) days"
+                    : "Streak \(sidebarVM.currentStreak) days"
+                )
             statDivider
             statCell(label: "PAGES", value: "\(sidebarVM.totalPages)", unit: "TOTAL", first: false)
             statDivider

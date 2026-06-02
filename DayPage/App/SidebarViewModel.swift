@@ -54,6 +54,33 @@ final class SidebarViewModel: ObservableObject {
 
     /// Consecutive calendar days ending today (or yesterday) with at least one memo.
     /// Starts counting from the most recent active day and stops at the first gap.
+    /// Longest consecutive-day writing run ever recorded within the 365-day
+    /// scan window. Returns 0 for an empty vault.
+    var longestStreak: Int {
+        let cal = Calendar.current
+        let activeDates = Set(streakDays.map(\.dateString))
+        guard !activeDates.isEmpty else { return 0 }
+
+        // Parse and sort dates ascending.
+        let sorted = activeDates
+            .compactMap { Self.isoFormatter.date(from: $0) }
+            .map { cal.startOfDay(for: $0) }
+            .sorted()
+
+        var maxRun = 1
+        var currentRun = 1
+        for i in 1 ..< sorted.count {
+            let gap = cal.dateComponents([.day], from: sorted[i - 1], to: sorted[i]).day ?? 0
+            if gap == 1 {
+                currentRun += 1
+                if currentRun > maxRun { maxRun = currentRun }
+            } else {
+                currentRun = 1
+            }
+        }
+        return maxRun
+    }
+
     var currentStreak: Int {
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
