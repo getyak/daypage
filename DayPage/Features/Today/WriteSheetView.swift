@@ -100,32 +100,38 @@ struct WriteSheetView: View {
 
     // MARK: - Date / time strings (museum-tag style)
 
+    private static let weekdayFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US")
+        f.dateFormat = "EEEE"
+        return f
+    }()
+
+    private static let stampFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US")
+        f.dateFormat = "MMM d · HH:mm"
+        return f
+    }()
+
+    private static let isoFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
     /// Captured once so the stamp doesn't reshuffle while the sheet is open.
     private let now = Date()
 
     /// Full weekday, e.g. "Thursday" (design composer.jsx:236).
-    private var weekday: String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US")
-        f.dateFormat = "EEEE"
-        return f.string(from: now)
-    }
+    private var weekday: String { Self.weekdayFmt.string(from: now) }
 
     /// Mono stamp "MAY 28 · 15:47" (design composer.jsx:239).
-    private var stamp: String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US")
-        f.dateFormat = "MMM d · HH:mm"
-        return f.string(from: now).uppercased()
-    }
+    private var stamp: String { Self.stampFmt.string(from: now).uppercased() }
 
     /// ISO date for the vault caption "YYYY-MM-DD" (design composer.jsx:340).
-    private var isoDate: String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.dateFormat = "yyyy-MM-dd"
-        return f.string(from: now)
-    }
+    private var isoDate: String { Self.isoFmt.string(from: now) }
 
     // MARK: - Body
 
