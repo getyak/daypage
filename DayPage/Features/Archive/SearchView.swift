@@ -203,6 +203,7 @@ struct SearchView: View {
     @State private var searchTask: Task<Void, Never>? = nil
     @State private var appearedIDs: Set<UUID> = []
     @State private var didBuzzEmpty: Bool = false
+    @State private var clearPressed: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -322,6 +323,17 @@ struct SearchView: View {
 
                 if !vm.query.isEmpty {
                     Button(action: {
+                        Haptics.soft()
+                        if !reduceMotion {
+                            withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+                                clearPressed = true
+                            }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                                withAnimation(.spring(response: 0.25, dampingFraction: 0.6)) {
+                                    clearPressed = false
+                                }
+                            }
+                        }
                         vm.query = ""
                         vm.results = []
                         vm.hasSearched = false
@@ -330,6 +342,7 @@ struct SearchView: View {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 14))
                             .foregroundColor(DSColor.onSurfaceVariant)
+                            .scaleEffect(clearPressed ? 0.8 : 1.0)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("清除搜索内容")
