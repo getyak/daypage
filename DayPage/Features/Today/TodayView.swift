@@ -86,6 +86,9 @@ struct TodayView: View {
     @State private var showExportSheet: Bool = false
     @State private var exportFileURL: URL? = nil
 
+    /// One-time discoverable pulse on the export button (fires when button first appears with >=1 memo).
+    @State private var exportHintPulse: Bool = false
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var orbBreathing: Bool = false
 
@@ -1179,6 +1182,9 @@ struct TodayView: View {
                         .background(.ultraThinMaterial, in: Circle())
                         .overlay(Circle().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
                         .clipShape(Circle())
+                        .scaleEffect(exportHintPulse ? 1.12 : 1)
+                        .shadow(color: DSColor.accentAmber.opacity(exportHintPulse ? 0.4 : 0), radius: exportHintPulse ? 8 : 0)
+                        .animation(reduceMotion ? nil : Motion.spring, value: exportHintPulse)
                 }
                 .accessibilityLabel(NSLocalizedString("export.action.title", comment: ""))
                 .accessibilityHint(NSLocalizedString("export.action.hint", comment: ""))
@@ -1186,12 +1192,26 @@ struct TodayView: View {
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
                 .alignmentGuide(.firstTextBaseline) { d in d[VerticalAlignment.center] + 6 }
+                .onAppear {
+                    guard !UserDefaults.standard.bool(forKey: AppSettings.Keys.exportLongPressHintShown),
+                          !reduceMotion,
+                          !viewModel.memos.isEmpty else { return }
+                    UserDefaults.standard.set(true, forKey: AppSettings.Keys.exportLongPressHintShown)
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(0.8))
+                        Haptics.soft()
+                        withAnimation(Motion.spring) { exportHintPulse = true }
+                        try? await Task.sleep(for: .seconds(0.5))
+                        withAnimation(Motion.spring) { exportHintPulse = false }
+                    }
+                }
                 .onLongPressGesture(minimumDuration: 0.5) {
                     let content = MarkdownExportService.buildExportContent(
                         memos: viewModel.memos, date: Date(),
                         summary: viewModel.dailyPageSummary
                     )
                     UIPasteboard.general.string = content
+                    Haptics.medium()
                     Haptics.success()
                     bannerCenter.show(AppBannerModel(
                         kind: .info,
