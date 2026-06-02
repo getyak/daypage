@@ -367,10 +367,21 @@ struct TodayView: View {
                                 .background(DSColor.error)
                                 .padding(.top, 8)
                                 .transition(.move(edge: .top).combined(with: .opacity))
+                                .accessibilityIdentifier("submit-error-toast")
+                                .accessibilityLabel(err)
+                                .accessibilityAddTraits(.isStaticText)
+                                .onTapGesture {
+                                    withAnimation(Motion.rise) { viewModel.submitError = nil }
+                                }
                                 .onAppear {
+                                    Haptics.warn()
+                                    UIAccessibility.post(notification: .announcement, argument: err)
+                                    let captured = err
                                     Task { @MainActor in
                                         try? await Task.sleep(for: .seconds(3))
-                                        viewModel.submitError = nil
+                                        if viewModel.submitError == captured {
+                                            viewModel.submitError = nil
+                                        }
                                     }
                                 }
                         }
