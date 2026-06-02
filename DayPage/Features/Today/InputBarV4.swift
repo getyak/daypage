@@ -179,6 +179,12 @@ struct InputBarV4: View {
 
     // MARK: Derived
 
+    private var wordCount: Int {
+        text.split(whereSeparator: \.isWhitespace).count
+    }
+
+    private var charCount: Int { text.count }
+
     private var isComposing: Bool {
         composerState == .open || composerState == .expanding || !text.isEmpty || !pendingAttachments.isEmpty || pendingLocation != nil
     }
@@ -531,6 +537,27 @@ struct InputBarV4: View {
             .animation(.easeInOut(duration: 0.18), value: pressToTalkPhase)
     }
 
+    // MARK: - Word/Char Count Footer
+
+    private var countFooter: some View {
+        let wordsLabel = wordCount == 1
+            ? NSLocalizedString("writesheet.count.words.one", comment: "1 word")
+            : String(format: NSLocalizedString("writesheet.count.words.other", comment: "%d words"), wordCount)
+        return HStack {
+            Spacer()
+            Text("\(wordsLabel) · \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
+                .font(DSType.mono10)
+                .tracking(1.0)
+                .textCase(.uppercase)
+                .monospacedDigit()
+                .foregroundColor(DSColor.inkSubtle)
+                .accessibilityLabel("\(wordsLabel), \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
+                .accessibilityIdentifier("composer-word-count")
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 4)
+    }
+
     // MARK: - Composing Card Morph (US-008 / US-010)
     //
     // Full-width rounded-rect card that the idle capsule morphs into.
@@ -636,6 +663,13 @@ struct InputBarV4: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
+            // Live word/char count — fades in only while text is non-empty.
+            if !text.isEmpty {
+                countFooter
+                    .transition(.opacity)
+                    .animation(Motion.fade, value: text.isEmpty)
+            }
+
             // Text field — full width, no border, generous padding.
             // The native caret (amber) tracks the real insertion point. An
             // earlier build hid it (.tint(.clear)) and drew a decorative
@@ -659,6 +693,14 @@ struct InputBarV4: View {
                             templateSuffix = ""
                             activeTemplate = nil
                         }
+                    }
+                    if newValue.isEmpty { lastMilestone = 0 }
+                }
+                .onChange(of: wordCount) { newCount in
+                    let milestone = newCount / 50
+                    if milestone > lastMilestone {
+                        lastMilestone = milestone
+                        if !reduceMotion { Haptics.soft() }
                     }
                 }
 
@@ -835,6 +877,7 @@ struct InputBarV4: View {
     }
 
     @State private var breathingOpacity: Double = 1.0
+    @State private var lastMilestone: Int = 0
 
     private var sendButton: some View {
         let affordance = sendAffordance
