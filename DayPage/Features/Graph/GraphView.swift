@@ -292,8 +292,8 @@ struct GraphView: View {
                 DSColor.bgWarm.ignoresSafeArea()
 
                 if viewModel.isLoading {
-                    ProgressView()
-                        .tint(DSColor.onSurfaceVariant)
+                    GraphSkeleton()
+                        .padding(40)
                 } else if visibleNodes.isEmpty {
                     emptyState
                 } else {
