@@ -27,6 +27,12 @@ struct SidebarHeatmapView: View {
     /// All-time longest consecutive-day streak (footer fallback when streak == 0).
     let longestStreak: Int
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    @State private var selectedCell: (date: Date, count: Int)? = nil
+    @State private var selectedColumnIndex: Int = 0
+    @State private var tooltipDismissGeneration: Int = 0
+
     private let weeks = 16
     private let cellSpacing: CGFloat = 3
 
@@ -45,6 +51,13 @@ struct SidebarHeatmapView: View {
         return f
     }()
 
+    private static let monthDayFmt: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US")
+        f.dateFormat = "MMM d"
+        return f
+    }()
+
     private static let palette: [Color] = [
         DSColor.heatmapEmpty, DSColor.heatmapLow, DSColor.heatmapMid, DSColor.heatmapHigh,
     ]
@@ -52,6 +65,8 @@ struct SidebarHeatmapView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(accessibilityText)
             grid
             footer
         }
@@ -65,8 +80,6 @@ struct SidebarHeatmapView: View {
                 .strokeBorder(DSColor.borderSubtle, lineWidth: 0.5)
         )
         .shadow(color: Color.black.opacity(0.04), radius: 1, x: 0, y: 1)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityText)
     }
 
     // MARK: - Header
@@ -107,6 +120,7 @@ struct SidebarHeatmapView: View {
                         .frame(height: 11)
                 }
             }
+            .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 5) {
                 monthLabels(columns: columns)
@@ -116,11 +130,43 @@ struct SidebarHeatmapView: View {
                         ForEach(columns.indices, id: \.self) { ci in
                             VStack(spacing: cellSpacing) {
                                 ForEach(0..<7, id: \.self) { ri in
-                                    cellView(columns[ci][ri], size: cell)
+                                    cellView(columns[ci][ri], size: cell, columnIndex: ci)
                                 }
                             }
                         }
                     }
+                    .overlay(alignment: .top) {
+                        if let sel = selectedCell {
+                            let tooltipText = "\(Self.monthDayFmt.string(from: sel.date).uppercased()) · \(sel.count) 条"
+                            let xOffset = CGFloat(selectedColumnIndex) * (cell + cellSpacing) + cell / 2
+                            Text(tooltipText)
+                                .font(DSType.mono9)
+                                .tracking(0.8)
+                                .foregroundColor(DSColor.inkPrimary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(
+                                    Capsule(style: .continuous)
+                                        .fill(DSColor.surfaceWhite)
+                                        .overlay(
+                                            Capsule(style: .continuous)
+                                                .strokeBorder(DSColor.borderSubtle, lineWidth: 0.5)
+                                        )
+                                        .shadow(color: Color.black.opacity(0.06), radius: 4, x: 0, y: 2)
+                                )
+                                .fixedSize()
+                                .position(x: xOffset, y: -14)
+                                .transition(
+                                    reduceMotion
+                                        ? .opacity
+                                        : .opacity.combined(with: .scale(scale: 0.88, anchor: .bottom))
+                                )
+                                .animation(reduceMotion ? .default : .spring(response: 0.22, dampingFraction: 0.7), value: sel.date)
+                                .allowsHitTesting(false)
+                                .zIndex(10)
+                        }
+                    }
+                    .animation(reduceMotion ? .default : .spring(response: 0.22, dampingFraction: 0.7), value: selectedCell?.date)
                 }
                 .frame(height: 7 * 11 + 6 * cellSpacing)
             }
@@ -133,13 +179,14 @@ struct SidebarHeatmapView: View {
     }
 
     @ViewBuilder
-    private func cellView(_ cell: HeatCell, size: CGFloat) -> some View {
+    private func cellView(_ cell: HeatCell, size: CGFloat, columnIndex: Int) -> some View {
         switch cell {
         case .future:
             RoundedRectangle(cornerRadius: 2.5, style: .continuous)
                 .strokeBorder(DSColor.borderSubtle, style: StrokeStyle(lineWidth: 0.5, dash: [1.5, 1.5]))
                 .frame(height: 11)
-        case .day(_, let level, let isToday):
+                .accessibilityHidden(true)
+        case .day(let date, let level, let isToday, let count):
             RoundedRectangle(cornerRadius: 2.5, style: .continuous)
                 .fill(Self.palette[level])
                 .frame(height: 11)
@@ -151,6 +198,29 @@ struct SidebarHeatmapView: View {
                     RoundedRectangle(cornerRadius: 2.5, style: .continuous)
                         .strokeBorder(isToday ? DSColor.accentAmber : .clear, lineWidth: 1)
                 )
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    if let sel = selectedCell, Calendar.current.isDate(sel.date, inSameDayAs: date) {
+                        selectedCell = nil
+                    } else {
+                        selectedCell = (date: date, count: count)
+                        selectedColumnIndex = columnIndex
+                        Haptics.soft()
+                        tooltipDismissGeneration += 1
+                        let gen = tooltipDismissGeneration
+                        Task {
+                            try? await Task.sleep(nanoseconds: 2_000_000_000)
+                            if tooltipDismissGeneration == gen {
+                                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) {
+                                    selectedCell = nil
+                                }
+                            }
+                        }
+                    }
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(Self.monthDayFmt.string(from: date)), \(count) entries")
+                .accessibilityAddTraits(.isButton)
         }
     }
 
@@ -161,7 +231,7 @@ struct SidebarHeatmapView: View {
         let cal = Calendar.current
         for (ci, col) in columns.enumerated() {
             let firstDay = col.first(where: { if case .day = $0 { return true } else { return false } })
-            if case let .day(date, _, _) = firstDay {
+            if case let .day(date, _, _, _) = firstDay {
                 let m = cal.component(.month, from: date)
                 if !seenMonths.contains(m) {
                     seenMonths.insert(m)
@@ -250,7 +320,7 @@ struct SidebarHeatmapView: View {
 
     /// A single heatmap cell.
     private enum HeatCell {
-        case day(Date, level: Int, isToday: Bool)
+        case day(Date, level: Int, isToday: Bool, count: Int)
         case future
     }
 
@@ -279,7 +349,7 @@ struct SidebarHeatmapView: View {
                     let count = counts[key] ?? 0
                     let isToday = key == todayStr
                     let lvl = isToday ? 3 : level(for: count)
-                    col.append(.day(date, level: lvl, isToday: isToday))
+                    col.append(.day(date, level: lvl, isToday: isToday, count: count))
                 }
             }
             columns.append(col)
