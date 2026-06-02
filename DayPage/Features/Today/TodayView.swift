@@ -138,10 +138,7 @@ struct TodayView: View {
 
     /// Fraction of the current local day elapsed (0.0 at midnight, 1.0 at next midnight).
     private var dayProgress: CGFloat {
-        let now = currentTime
-        let start = Calendar.current.startOfDay(for: now)
-        let elapsed = now.timeIntervalSince(start)
-        return CGFloat(min(1, max(0, elapsed / 86400)))
+        DayProgress.fraction(at: currentTime)
     }
 
     /// Live drag offset for the daily page card (negative = pulled left).
