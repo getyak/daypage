@@ -163,40 +163,47 @@ final class SidebarViewModel: ObservableObject {
     /// off the main actor. Safe to call repeatedly (e.g. whenever the sidebar opens).
     func refreshRecentDays() {
         Task { [weak self] in
-            async let recent = Self.scanRecentDays(limit: 7)
-            async let streak = Self.scanRecentDays(limit: 365)
-            // 16 weeks = 112 days; scan a touch more to cover the partial
-            // leading week the grid renders.
-            async let heatmap = Self.scanRecentDays(limit: 119)
-            async let stats = Self.scanStats()
-            let (recentResult, streakResult, heatmapResult, statsResult) =
-                await (recent, streak, heatmap, stats)
-            await MainActor.run {
-                self?.recentDays = recentResult
-                self?.streakDays = streakResult
-                let counts = Dictionary(
-                    heatmapResult.map { ($0.dateString, $0.memoCount) },
-                    uniquingKeysWith: { a, _ in a }
-                )
-                self?.heatmapCounts = counts
-                // Count only memos within the 112-day (16-week) heatmap window.
-                // scanRecentDays limits by *file count*, so an intermittent
-                // journaler's 119 files can reach back well beyond 16 weeks;
-                // filter by calendar date so the "N ENTRIES" figure matches the
-                // grid the user actually sees.
-                let cal = Calendar.current
-                let windowStart = cal.date(
-                    byAdding: .day, value: -111, to: cal.startOfDay(for: Date())
-                )
-                self?.totalEntries16Weeks = heatmapResult.reduce(0) { acc, day in
-                    guard let windowStart,
-                          let date = Self.isoFormatter.date(from: day.dateString),
-                          date >= windowStart else { return acc }
-                    return acc + day.memoCount
-                }
-                self?.totalPages = statsResult.pages
-                self?.totalWordCount = statsResult.words
+            await self?.refreshRecentDaysAsync()
+        }
+    }
+
+    /// Awaitable variant of `refreshRecentDays`. Callers that need to act on
+    /// fresh streak data immediately after the scan (e.g. milestone celebration)
+    /// should `await` this instead of calling `refreshRecentDays()` + sleeping.
+    func refreshRecentDaysAsync() async {
+        async let recent = Self.scanRecentDays(limit: 7)
+        async let streak = Self.scanRecentDays(limit: 365)
+        // 16 weeks = 112 days; scan a touch more to cover the partial
+        // leading week the grid renders.
+        async let heatmap = Self.scanRecentDays(limit: 119)
+        async let stats = Self.scanStats()
+        let (recentResult, streakResult, heatmapResult, statsResult) =
+            await (recent, streak, heatmap, stats)
+        await MainActor.run {
+            self.recentDays = recentResult
+            self.streakDays = streakResult
+            let counts = Dictionary(
+                heatmapResult.map { ($0.dateString, $0.memoCount) },
+                uniquingKeysWith: { a, _ in a }
+            )
+            self.heatmapCounts = counts
+            // Count only memos within the 112-day (16-week) heatmap window.
+            // scanRecentDays limits by *file count*, so an intermittent
+            // journaler's 119 files can reach back well beyond 16 weeks;
+            // filter by calendar date so the "N ENTRIES" figure matches the
+            // grid the user actually sees.
+            let cal = Calendar.current
+            let windowStart = cal.date(
+                byAdding: .day, value: -111, to: cal.startOfDay(for: Date())
+            )
+            self.totalEntries16Weeks = heatmapResult.reduce(0) { acc, day in
+                guard let windowStart,
+                      let date = Self.isoFormatter.date(from: day.dateString),
+                      date >= windowStart else { return acc }
+                return acc + day.memoCount
             }
+            self.totalPages = statsResult.pages
+            self.totalWordCount = statsResult.words
         }
     }
 
