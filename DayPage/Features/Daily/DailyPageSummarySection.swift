@@ -7,6 +7,7 @@ import SwiftUI
 struct DailyPageSummarySection: View {
 
     let model: DailyPageModel
+    var onMentionTap: ((String) -> Void)? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -79,17 +80,33 @@ struct DailyPageSummarySection: View {
                 .tracking(1.6)
             FlowLayout(spacing: 8) {
                 ForEach(mentions, id: \.self) { mention in
-                    Text(mention)
-                        .font(DSFonts.inter(size: 12, weight: .medium))
-                        .foregroundColor(DSColor.amberDeep)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(DSColor.amberSoft)
-                        .overlay(Capsule().strokeBorder(DSColor.amberRim, lineWidth: 0.5))
-                        .clipShape(Capsule())
+                    if let handler = onMentionTap {
+                        Button(action: {
+                            HapticFeedback.soft()
+                            handler(mention)
+                        }) {
+                            mentionCapsule(mention)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("打开 \(mention) 的实体页")
+                        .accessibilityHint("双击以打开 \(mention) 的实体页")
+                    } else {
+                        mentionCapsule(mention)
+                    }
                 }
             }
         }
+    }
+
+    private func mentionCapsule(_ mention: String) -> some View {
+        Text(mention)
+            .font(DSFonts.inter(size: 12, weight: .medium))
+            .foregroundColor(DSColor.amberDeep)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(DSColor.amberSoft)
+            .overlay(Capsule().strokeBorder(DSColor.amberRim, lineWidth: 0.5))
+            .clipShape(Capsule())
     }
 
     // MARK: - Stubs

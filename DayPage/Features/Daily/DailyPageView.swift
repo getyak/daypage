@@ -490,7 +490,12 @@ struct DailyPageView: View {
                 .lineSpacing(2)
                 .padding(.bottom, 22)
 
-            DailyPageSummarySection(model: model)
+            DailyPageSummarySection(model: model, onMentionTap: { mention in
+                let slug = mention.hasPrefix("@") ? String(mention.dropFirst()) : mention
+                let (type, resolved) = resolveEntityTypeAndSlug(slug)
+                selectedEntityType = type
+                selectedEntitySlug = resolved
+            })
         }
         .padding(28)
         .liquidGlassCard(cornerRadius: 24, tone: .hi)
