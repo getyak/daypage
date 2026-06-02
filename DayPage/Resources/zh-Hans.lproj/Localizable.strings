@@ -227,6 +227,11 @@
 "memo.detail.meta.created" = "创建于";
 "memo.detail.meta.file" = "文件";
 "memo.detail.meta.kind" = "类型";
+"memo.detail.meta.words" = "字词数";
+"memo.detail.meta.characters" = "字符数";
+"memo.detail.meta.reading" = "阅读时间";
+"memo.detail.meta.reading.min" = "%d 分钟";
+"memo.detail.meta.reading.less_than_1" = "< 1 分钟";
 "memo.detail.meta.duration" = "时长";
 "memo.detail.meta.transcription" = "转写";
 "memo.detail.meta.aperture" = "光圈";

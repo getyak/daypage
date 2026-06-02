@@ -550,7 +550,49 @@ private struct DetailMetadataSection: View {
         return "vault/raw/\(f.string(from: memo.created)).md"
     }
 
+    // MARK: - Body stats
+
+    private struct BodyStats {
+        let wordCount: Int
+        let charCount: Int
+        let readingMinutes: Int  // 0 means "< 1 min"
+    }
+
+    private func bodyStats(for text: String) -> BodyStats {
+        func isCJK(_ scalar: Unicode.Scalar) -> Bool {
+            (0x4E00...0x9FFF).contains(scalar.value) ||
+            (0x3400...0x4DBF).contains(scalar.value) ||
+            (0x3040...0x30FF).contains(scalar.value)
+        }
+
+        var cjkCount = 0
+        var latinWords = 0
+        var inLatinRun = false
+
+        for scalar in text.unicodeScalars {
+            if isCJK(scalar) {
+                cjkCount += 1
+                inLatinRun = false
+            } else if scalar.properties.isWhitespace {
+                inLatinRun = false
+            } else {
+                if !inLatinRun { latinWords += 1 }
+                inLatinRun = true
+            }
+        }
+
+        // Reading time: CJK at 300 cpm, Latin at 220 wpm — sum independent estimates
+        let totalMinutes = Double(cjkCount) / 300.0 + Double(latinWords) / 220.0
+        return BodyStats(
+            wordCount: cjkCount + latinWords,
+            charCount: text.count,
+            readingMinutes: Int(totalMinutes.rounded())
+        )
+    }
+
     var body: some View {
+        let bodyTrimmed = memo.body.trimmingCharacters(in: .whitespacesAndNewlines)
+
         VStack(alignment: .leading, spacing: 12) {
             Text("Metadata")
                 .font(DSType.mono10)
@@ -562,6 +604,26 @@ private struct DetailMetadataSection: View {
             metaRow(label: "Created", value: createdFull)
             metaRow(label: "File", value: vaultFilePath)
             metaRow(label: "Kind", value: memo.type.rawValue.capitalized)
+
+            // Body stats — only shown when there is actual body text
+            if !bodyTrimmed.isEmpty {
+                let stats = bodyStats(for: bodyTrimmed)
+                metaRow(
+                    label: NSLocalizedString("memo.detail.meta.words", comment: ""),
+                    value: "\(stats.wordCount)"
+                )
+                metaRow(
+                    label: NSLocalizedString("memo.detail.meta.characters", comment: ""),
+                    value: "\(stats.charCount)"
+                )
+                let readingValue: String = stats.readingMinutes < 1
+                    ? NSLocalizedString("memo.detail.meta.reading.less_than_1", comment: "")
+                    : String(format: NSLocalizedString("memo.detail.meta.reading.min", comment: ""), stats.readingMinutes)
+                metaRow(
+                    label: NSLocalizedString("memo.detail.meta.reading", comment: ""),
+                    value: readingValue
+                )
+            }
 
             // Kind-specific fields
             kindSpecificRows

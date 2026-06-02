@@ -199,6 +199,11 @@
 "memo.detail.meta.created" = "Created";
 "memo.detail.meta.file" = "File";
 "memo.detail.meta.kind" = "Kind";
+"memo.detail.meta.words" = "Words";
+"memo.detail.meta.characters" = "Characters";
+"memo.detail.meta.reading" = "Reading";
+"memo.detail.meta.reading.min" = "%d min read";
+"memo.detail.meta.reading.less_than_1" = "< 1 min";
 "memo.detail.meta.duration" = "Duration";
 "memo.detail.meta.transcription" = "Transcription";
 "memo.detail.meta.aperture" = "Aperture";
