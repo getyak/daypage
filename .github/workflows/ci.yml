@@ -11,6 +11,11 @@ on:
       - "**.md"
       - ".gitignore"
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - closed
     paths-ignore:
       - "design/**"
       - "scripts/ralph/**"
@@ -24,13 +29,14 @@ on:
     - cron: "0 2 * * *"   # 每天 UTC 02:00（北京时间 10:00）对 main 跑全量回归
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   unit-tests:
     name: Swift Unit Tests (xcrun)
     runs-on: macos-15
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
 
     steps:
       - name: Checkout
@@ -79,6 +85,7 @@ jobs:
   secrets-audit:
     name: Secrets Hygiene Audit
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
 
     steps:
       - name: Checkout
@@ -132,6 +139,7 @@ jobs:
   tokens-check:
     name: Design Tokens Drift Check
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
 
     steps:
       - name: Checkout
@@ -159,6 +167,7 @@ jobs:
     name: Xcode Build (no signing)
     runs-on: macos-15
     needs: unit-tests
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
 
     steps:
       - name: Checkout
@@ -257,9 +266,10 @@ jobs:
   ui-tests:
     name: Maestro UI Tests
     runs-on: macos-15
+    timeout-minutes: 20
     needs: build
     # 仅 PR 和定时任务运行 UI 测试（push 跳过，加快常规开发循环）
-    if: github.event_name == 'pull_request' || github.event_name == 'schedule'
+    if: (github.event_name == 'pull_request' && github.event.action != 'closed') || github.event_name == 'schedule'
     permissions:
       contents: read
       pull-requests: write   # 允许发 PR comment
