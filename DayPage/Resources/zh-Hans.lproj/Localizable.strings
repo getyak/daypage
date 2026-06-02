@@ -121,6 +121,9 @@
 /* AI summary card long-press copy confirmation */
 "today.summary.copied" = "已复制今日一句";
 
+/* VoiceOver announcement on successful memo save */
+"today.memo.saved" = "备忘已保存";
+
 /* Archive Day Empty */
 "empty.archive_day.title" = "这一天还没有日记页。";
 "empty.archive_day.subtitle" = "这天尚未编译。先去「今天」添加备忘吧。";

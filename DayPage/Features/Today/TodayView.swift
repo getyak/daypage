@@ -1086,6 +1086,7 @@ struct TodayView: View {
                 draftText = ""
                 viewModel.submitCombinedMemo(body: body)
                 showUndoPill(for: body)
+                announceMemoSaved()
             },
             onPressToTalkTranscribe: { transcript in
                 if draftText.isEmpty {
@@ -1100,6 +1101,7 @@ struct TodayView: View {
                 draftText = ""
                 viewModel.submitCombinedMemo(body: body)
                 showUndoPill(for: body)
+                announceMemoSaved()
             },
             onAddPhotoAsset: nil,
             batchPhotoProgress: viewModel.batchPhotoProgress,
@@ -1126,6 +1128,7 @@ struct TodayView: View {
                     showWriteSheet = false
                     viewModel.submitCombinedMemo(body: body)
                     showUndoPill(for: body)
+                    announceMemoSaved()
                 },
                 onClose: { showWriteSheet = false }
             )
@@ -1722,6 +1725,12 @@ struct TodayView: View {
             guard !Task.isCancelled else { return }
             undoText = nil
         }
+    }
+
+    private func announceMemoSaved() {
+        Haptics.success()
+        UIAccessibility.post(notification: .announcement,
+                             argument: NSLocalizedString("today.memo.saved", comment: ""))
     }
 
     // US-006: Clear draft when it's more than 30 days old.
