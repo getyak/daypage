@@ -16,6 +16,7 @@ struct EmptyStateView: View {
     @State private var breathing = false
     @State private var ctaGlow = false
     @State private var revealTask: Task<Void, Never>?
+    @State private var idlePulseTask: Task<Void, Never>?
 
     var body: some View {
         VStack(spacing: 20) {
@@ -73,10 +74,14 @@ struct EmptyStateView: View {
                         try? await Task.sleep(nanoseconds: 70_000_000)
                         guard !Task.isCancelled else { return }
                         Haptics.soft()
-                        ctaGlow = true
-                        try? await Task.sleep(nanoseconds: 600_000_000)
-                        guard !Task.isCancelled else { return }
-                        ctaGlow = false
+                        await pulseCTA()
+                        idlePulseTask = Task { @MainActor in
+                            while !Task.isCancelled {
+                                try? await Task.sleep(nanoseconds: 6_000_000_000)
+                                guard !Task.isCancelled, !reduceMotion else { return }
+                                await pulseCTA()
+                            }
+                        }
                     }
                 }
             }
@@ -84,10 +89,18 @@ struct EmptyStateView: View {
         .onDisappear {
             revealTask?.cancel()
             revealTask = nil
+            idlePulseTask?.cancel()
+            idlePulseTask = nil
         }
     }
 
     // MARK: - Private
+
+    private func pulseCTA() async {
+        ctaGlow = true
+        try? await Task.sleep(nanoseconds: 600_000_000)
+        ctaGlow = false
+    }
 
     @ViewBuilder
     private var titleSection: some View {
