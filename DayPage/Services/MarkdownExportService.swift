@@ -117,11 +117,45 @@ enum MarkdownExportService {
         return lines.joined(separator: "\n")
     }
 
+    // MARK: - Export Directory
+
+    static var exportDirectory: URL {
+        FileManager.default.temporaryDirectory
+            .appendingPathComponent("DayPageExport", isDirectory: true)
+    }
+
+    // MARK: - Stale Export Cleanup
+
+    /// Removes `.md` files in `exportDirectory` whose modification date is older than `now - interval`.
+    /// Best-effort: per-file errors are logged and skipped.
+    static func purgeStaleExports(olderThan interval: TimeInterval = 86_400, now: Date = Date()) {
+        let fm = FileManager.default
+        let dir = exportDirectory
+        guard let contents = try? fm.contentsOfDirectory(
+            at: dir,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: .skipsHiddenFiles
+        ) else { return }
+
+        let cutoff = now.addingTimeInterval(-interval)
+        for fileURL in contents where fileURL.pathExtension == "md" {
+            guard let values = try? fileURL.resourceValues(forKeys: [.contentModificationDateKey]),
+                  let modDate = values.contentModificationDate else { continue }
+            if modDate < cutoff {
+                do {
+                    try fm.removeItem(at: fileURL)
+                } catch {
+                    DayPageLogger.log(level: "ERROR", message: "MarkdownExportService: failed to remove stale export \(fileURL.lastPathComponent): \(error)")
+                }
+            }
+        }
+    }
+
     /// Writes the export content to a temp file and returns the URL.
     static func writeExportFile(content: String, dateString: String) throws -> URL {
-        let dir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("DayPageExport", isDirectory: true)
+        let dir = exportDirectory
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        purgeStaleExports()
         let url = dir.appendingPathComponent("DayPage \(dateString).md")
         try content.write(to: url, atomically: true, encoding: .utf8)
         return url

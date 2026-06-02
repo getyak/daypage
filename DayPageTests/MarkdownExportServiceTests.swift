@@ -227,7 +227,53 @@ struct MarkdownExportServiceTests {
         #expect(url.lastPathComponent == "DayPage \(dateString).md")
     }
 
-    // MARK: - 5. Memo bodies ordered by created ascending
+    // MARK: - 5. purgeStaleExports removes old files, keeps fresh ones
+
+    @Test func purgeStaleExports_removesOldFile_keepsNewFile() throws {
+        let fm = FileManager.default
+        let dir = MarkdownExportService.exportDirectory
+        try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+
+        let staleURL = dir.appendingPathComponent("DayPage 2026-01-01.md")
+        let freshURL = dir.appendingPathComponent("DayPage 2026-06-01.md")
+
+        try "stale content".write(to: staleURL, atomically: true, encoding: .utf8)
+        try "fresh content".write(to: freshURL, atomically: true, encoding: .utf8)
+
+        // Backdate the stale file to 48 hours ago
+        let now = Date()
+        let staleDate = now.addingTimeInterval(-48 * 3600)
+        try fm.setAttributes([.modificationDate: staleDate], ofItemAtPath: staleURL.path)
+        // Keep the fresh file's modification date at now (default after write)
+
+        MarkdownExportService.purgeStaleExports(olderThan: 86_400, now: now)
+
+        #expect(!fm.fileExists(atPath: staleURL.path), "Stale file should have been removed")
+        #expect(fm.fileExists(atPath: freshURL.path), "Fresh file should still exist")
+
+        // Cleanup
+        try? fm.removeItem(at: freshURL)
+    }
+
+    // MARK: - 6. writeExportFile twice returns valid URL for current date
+
+    @Test func writeExportFileTwice_returnsValidURL() throws {
+        let date = makeDate(year: 2026, month: 6, day: 2)
+        let dateString = MarkdownExportService.exportDateString(for: date)
+        let content = MarkdownExportService.buildExportContent(
+            memos: [makeMemo(body: "round1")], date: date
+        )
+        let url1 = try MarkdownExportService.writeExportFile(content: content, dateString: dateString)
+        let content2 = MarkdownExportService.buildExportContent(
+            memos: [makeMemo(body: "round2")], date: date
+        )
+        let url2 = try MarkdownExportService.writeExportFile(content: content2, dateString: dateString)
+        let text = try String(contentsOf: url2, encoding: .utf8)
+        #expect(text.contains("round2"))
+        #expect(url1.lastPathComponent == url2.lastPathComponent)
+    }
+
+    // MARK: - 7. Memo bodies ordered by created ascending
 
     @Test func memoBodies_orderedByCreatedAscending() {
         let m1 = makeMemo(body: "first", secondsOffset: 0)
