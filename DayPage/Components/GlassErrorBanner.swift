@@ -113,16 +113,21 @@ struct GlassErrorBanner: View {
                 .frame(width: 24, height: 24)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(DSType.bodySM)
-                    .fontWeight(.semibold)
-                    .foregroundColor(DSColor.inkPrimary)
-
-                if let subtitle {
-                    Text(subtitle)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
                         .font(DSType.bodySM)
-                        .foregroundColor(DSColor.inkMuted)
+                        .fontWeight(.semibold)
+                        .foregroundColor(DSColor.inkPrimary)
+
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(DSType.bodySM)
+                            .foregroundColor(DSColor.inkMuted)
+                    }
                 }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(title)
+                .accessibilityHint(subtitle != nil ? subtitle! : "")
 
                 if let label = retryLabel, let action = retryAction {
                     Button {
@@ -137,6 +142,7 @@ struct GlassErrorBanner: View {
                     }
                     .buttonStyle(.plain)
                     .padding(.top, 2)
+                    .accessibilityLabel(label)
                 }
             }
 
@@ -151,7 +157,19 @@ struct GlassErrorBanner: View {
                     .frame(width: 20, height: 20)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss")
+            .accessibilityIdentifier("error-banner-dismiss")
         }
+        .accessibilityHint("Swipe up to dismiss")
+        .gesture(
+            DragGesture()
+                .onEnded { value in
+                    if value.translation.height < -10 {
+                        Haptics.soft()
+                        onDismiss?()
+                    }
+                }
+        )
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .background(
