@@ -158,6 +158,8 @@ extension AppSettings {
         static let memoSwipeHintShown = "memoswipeHintShown"
         // Streak milestone celebrations — comma-joined Int set, e.g. "3,7,14"
         static let streakMilestonesShown = "streakMilestonesShown"
+        // Export long-press hint — shown once when the button first appears with >=1 memo
+        static let exportLongPressHintShown = "today.exportLongPressHintShown"
     }
 }
 
