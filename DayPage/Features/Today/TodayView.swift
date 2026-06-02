@@ -1814,11 +1814,16 @@ struct TodayView: View {
             let notesKey = count == 1 ? "today.subline.notes.one" : "today.subline.notes.other"
             let notesStr = String(format: NSLocalizedString(notesKey, comment: ""), count)
             parts = [dateStr, notesStr]
+            let words = viewModel.todayWordCount
+            if words > 0 {
+                let wordsKey = words == 1 ? "today.subline.words.one" : "today.subline.words.other"
+                parts.append(String(format: NSLocalizedString(wordsKey, comment: ""), words))
+            }
         }
 
         // Museum-aesthetic subline: append today's weather + place when known.
         // Sourced from existing memos — no extra network/location fetch (M1 is UI-only).
-        // e.g. "MAY 28 · 2 NOTES · 28° · VIENTIANE"
+        // e.g. "MAY 28 · 2 NOTES · 340 WORDS · 28° · VIENTIANE"
         if let weather = todayWeatherShort() {
             parts.append(weather)
         }
@@ -1829,7 +1834,7 @@ struct TodayView: View {
     }
 
     /// Comma-separated version of the header subline for VoiceOver.
-    /// e.g. "May 28, 2 notes, 28°, Vientiane"
+    /// e.g. "May 28, 2 notes, 340 words, 28°, Vientiane"
     private func headerSublineAccessibilityLabel(_ date: Date) -> String {
         let count = viewModel.memos.count
         let dateStr = Self.headerDateFmt.string(from: date)
@@ -1840,6 +1845,11 @@ struct TodayView: View {
             let notesKey = count == 1 ? "today.subline.notes.one" : "today.subline.notes.other"
             let notesStr = String(format: NSLocalizedString(notesKey, comment: ""), count)
             parts = [dateStr, notesStr]
+            let words = viewModel.todayWordCount
+            if words > 0 {
+                let wordsKey = words == 1 ? "today.subline.words.one" : "today.subline.words.other"
+                parts.append(String(format: NSLocalizedString(wordsKey, comment: ""), words))
+            }
         }
         if let weather = todayWeatherShort() { parts.append(weather) }
         if let place = todayPlaceShort() { parts.append(place) }

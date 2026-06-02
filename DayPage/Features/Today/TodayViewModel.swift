@@ -87,6 +87,40 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     /// Number of signals (memos) captured today — drives the Day Orb readout.
     var signalCount: Int { memos.count }
 
+    /// Total word count across all of today's memo bodies.
+    var todayWordCount: Int {
+        memos.reduce(0) { $0 + TodayViewModel.wordCount(in: $1.body) }
+    }
+
+    /// CJK-aware word counter: each CJK ideograph = 1 word; runs of non-CJK
+    /// non-whitespace characters = 1 word each.
+    static func wordCount(in text: String) -> Int {
+        var count = 0
+        var inLatinRun = false
+        for scalar in text.unicodeScalars {
+            let v = scalar.value
+            let isCJK = (v >= 0x4E00 && v <= 0x9FFF)
+                     || (v >= 0x3400 && v <= 0x4DBF)
+                     || (v >= 0x20000 && v <= 0x2A6DF)
+                     || (v >= 0xF900 && v <= 0xFAFF)
+                     || (v >= 0x2E80 && v <= 0x2EFF)
+                     || (v >= 0x3000 && v <= 0x303F)
+            let isWhitespace = CharacterSet.whitespacesAndNewlines.contains(scalar)
+            if isCJK {
+                if inLatinRun { inLatinRun = false }
+                count += 1
+            } else if isWhitespace {
+                inLatinRun = false
+            } else {
+                if !inLatinRun {
+                    inLatinRun = true
+                    count += 1
+                }
+            }
+        }
+        return count
+    }
+
     /// Whether the Daily Page for today has been compiled.
     @Published var isDailyPageCompiled: Bool = false
 

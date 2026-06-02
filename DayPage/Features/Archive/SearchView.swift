@@ -35,12 +35,14 @@ final class SearchViewModel: ObservableObject {
     // MARK: Frequent entities — cached, loaded off the main thread
 
     @Published private(set) var topEntities: [EntityFrequency] = []
+    @Published private(set) var isLoadingEntities: Bool = false
 
     // Cache key: (file count, newest mtime since reference date)
     private var entitiesCacheKey: (Int, TimeInterval)? = nil
     private var entitiesCache: [EntityFrequency] = []
 
     func loadTopEntities(limit: Int = 5) {
+        isLoadingEntities = true
         let currentKey = entitiesCacheKey
         let currentCache = entitiesCache
         Task.detached(priority: .utility) {
@@ -54,6 +56,7 @@ final class SearchViewModel: ObservableObject {
                 self.entitiesCacheKey = key
                 self.entitiesCache = entities
                 self.topEntities = entities
+                self.isLoadingEntities = false
             }
         }
     }
@@ -601,22 +604,31 @@ struct SearchView: View {
                     }
                 }
 
-                if !entities.isEmpty {
+                if !entities.isEmpty || vm.isLoadingEntities {
                     sectionHeader(title: "高频实体", trailing: AnyView(EmptyView()))
 
-                    let maxCount = entities.map(\.count).max() ?? 1
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(Array(entities.enumerated()), id: \.element) { idx, entity in
-                                entityChipWithCount(entity, maxCount: maxCount, index: idx)
+                    Group {
+                        if vm.isLoadingEntities && entities.isEmpty {
+                            EntityChipSkeleton(reduceMotion: reduceMotion)
+                                .transition(.opacity)
+                        } else {
+                            let maxCount = entities.map(\.count).max() ?? 1
+                            ScrollView(.horizontal, showsIndicators: false) {
+                                HStack(spacing: 8) {
+                                    ForEach(Array(entities.enumerated()), id: \.element) { idx, entity in
+                                        entityChipWithCount(entity, maxCount: maxCount, index: idx)
+                                    }
+                                }
+                                .padding(.horizontal, 20)
+                                .padding(.vertical, 10)
                             }
+                            .transition(.opacity)
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 10)
                     }
+                    .animation(Motion.fade, value: vm.isLoadingEntities)
                 }
 
-                if recent.isEmpty && entities.isEmpty {
+                if recent.isEmpty && entities.isEmpty && !vm.isLoadingEntities {
                     VStack(spacing: 20) {
                         VStack(spacing: 12) {
                             Image(systemName: "magnifyingglass")
@@ -1173,6 +1185,41 @@ private struct ChipButtonStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed && !reduceMotion ? 0.94 : 1)
             .animation(reduceMotion ? nil : Motion.spring, value: configuration.isPressed)
+    }
+}
+
+// MARK: - EntityChipSkeleton
+
+private struct EntityChipSkeleton: View {
+
+    let reduceMotion: Bool
+
+    @State private var pulsing: Bool = false
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(0..<4, id: \.self) { _ in
+                    Capsule()
+                        .fill(DSColor.surfaceContainer)
+                        .frame(width: 80, height: 28)
+                        .opacity(pulsing ? 0.45 : 0.85)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 10)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(
+                .easeInOut(duration: 0.85)
+                    .repeatForever(autoreverses: true)
+            ) {
+                pulsing = true
+            }
+        }
     }
 }
 

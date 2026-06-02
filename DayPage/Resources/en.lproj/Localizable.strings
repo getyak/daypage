@@ -89,6 +89,10 @@
 "today.subline.notes.one"    = "%d note";
 "today.subline.notes.other"  = "%d notes";
 
+/* Today header subline — word count */
+"today.subline.words.one"    = "%d WORD";
+"today.subline.words.other"  = "%d WORDS";
+
 /* Today orb greeting — time-of-day serif greeting above kicker */
 "today.greeting.morning"     = "Good morning.";
 "today.greeting.afternoon"   = "Good afternoon.";
