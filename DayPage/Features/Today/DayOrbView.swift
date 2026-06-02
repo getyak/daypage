@@ -26,8 +26,20 @@ struct DayOrbView: View {
     @State private var countPop: CGFloat = 1.0
     @State private var invitePulse: Bool = false
     @State private var capturePulse: Bool = false
+    @State private var previousTier: Int = 0
+    @State private var tierUpGlow: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private func tier(for count: Int) -> Int {
+        switch count {
+        case 0:     return 0
+        case 1:     return 1
+        case 2...4: return 2
+        case 5...9: return 3
+        default:    return 4
+        }
+    }
 
     private var accessibilityLabelText: String {
         let pct = Int(dayProgress * 100)
@@ -43,6 +55,7 @@ struct DayOrbView: View {
             if signalCount == 0 { inviteHalo }
             halo
             if pulse { pulseHalo }
+            if tierUpGlow { tierUpHalo }
             orb
             dayProgressArc
         }
@@ -76,6 +89,7 @@ struct DayOrbView: View {
                 }
         )
         .onChange(of: signalCount) { new in
+            let newTier = tier(for: new)
             if new > previous {
                 Haptics.success()
                 pulse = true
@@ -94,9 +108,25 @@ struct DayOrbView: View {
                     try? await Task.sleep(nanoseconds: 650_000_000)
                     pulse = false
                 }
+
+                if newTier > previousTier && newTier >= 2 {
+                    Haptics.medium()
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 80_000_000)
+                        Haptics.success()
+                    }
+                    if !reduceMotion {
+                        tierUpGlow = true
+                        Task { @MainActor in
+                            try? await Task.sleep(nanoseconds: 700_000_000)
+                            tierUpGlow = false
+                        }
+                    }
+                }
             }
             if new > 0 { invitePulse = false }
             previous = new
+            previousTier = newTier
         }
         // Drop shadow: two-layer stack matching the glass card recipe
         .shadow(color: Color(hex: "2D1E0A").opacity(0.08), radius: 4, x: 0, y: 2)
@@ -157,6 +187,31 @@ struct DayOrbView: View {
             .scaleEffect(pulse ? 1.18 : 1.0)
             .opacity(pulse ? 1 : 0)
             .animation(.easeOut(duration: 0.6), value: pulse)
+            .allowsHitTesting(false)
+    }
+
+    // MARK: - Tier-Up Halo
+
+    // Brighter, larger one-shot ring fired only on tier boundary crossings.
+    // Scaled up relative to pulseHalo: +24pt endRadius, 0.7 peak opacity, 1.28× scale.
+    private var tierUpHalo: some View {
+        Circle()
+            .fill(
+                RadialGradient(
+                    colors: [
+                        Color(red: 232/255, green: 151/255, blue: 77/255).opacity(tierUpGlow ? 0.7 : 0),
+                        Color.clear
+                    ],
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: (size / 2) + 40
+                )
+            )
+            .frame(width: size + 80, height: size + 80)
+            .blur(radius: 14)
+            .scaleEffect(tierUpGlow ? 1.28 : 1.0)
+            .opacity(tierUpGlow ? 1 : 0)
+            .animation(.easeOut(duration: 0.7), value: tierUpGlow)
             .allowsHitTesting(false)
     }
 
@@ -307,7 +362,10 @@ struct DayOrbView: View {
                         .font(DSFonts.jetBrainsMono(size: 9, weight: .medium))
                         .tracking(1.4)
                         .foregroundColor(DSColor.amberDeep)
-                        .opacity(0.7)
+                        .opacity(tierUpGlow ? 1.0 : 0.7)
+                        .scaleEffect(tierUpGlow ? 1.12 : 1.0)
+                        .shadow(color: DSColor.accentAmber.opacity(tierUpGlow ? 0.9 : 0), radius: tierUpGlow ? 6 : 0)
+                        .animation(.easeOut(duration: 0.35), value: tierUpGlow)
                         .contentTransition(.opacity)
                         .animation(.easeInOut(duration: 0.25), value: readoutLabel)
                 }
