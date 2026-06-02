@@ -67,6 +67,7 @@ struct SmartTemplateRow: View {
 
     var body: some View {
         Button {
+            Haptics.soft()
             onTap(template)
         } label: {
             HStack(spacing: 0) {
@@ -88,8 +89,20 @@ struct SmartTemplateRow: View {
             .padding(.vertical, 10)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(SmartTemplateButtonStyle())
         .accessibilityLabel("模板：\(template.display)")
         .accessibilityHint("点击将模板填入输入框")
+    }
+}
+
+// MARK: - SmartTemplateButtonStyle
+
+private struct SmartTemplateButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(reduceMotion ? 1 : (configuration.isPressed ? 0.97 : 1))
+            .animation(reduceMotion ? nil : Motion.spring, value: configuration.isPressed)
     }
 }
