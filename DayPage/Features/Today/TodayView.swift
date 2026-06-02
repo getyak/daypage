@@ -46,6 +46,10 @@ struct TodayView: View {
     // If the draft is older than 30 days it is auto-cleared on next launch.
     @AppStorage("today.draftDate") private var draftDate: Double = 0
 
+    // Rolling count of the last successfully-loaded memo set for today.
+    // Drives MemoListSkeleton so placeholder height matches expected content height.
+    @AppStorage("today.skeletonCardCount") private var skeletonCardCount: Int = 3
+
     // US-009: Text to restore if undo is tapped within 5s of submit.
     @State private var undoText: String? = nil
     @State private var undoTask: Task<Void, Never>? = nil
@@ -1313,7 +1317,7 @@ struct TodayView: View {
                 }
 
                 if viewModel.loadState == .loading && viewModel.memos.isEmpty {
-                    MemoListSkeleton()
+                    MemoListSkeleton(count: skeletonCardCount)
                         .padding(.horizontal, 20)
                         .transition(.opacity)
                 }
@@ -1543,6 +1547,9 @@ struct TodayView: View {
                 }
             }
             lastMemoCount = count
+            if viewModel.loadState == .ready && count > 0 {
+                skeletonCardCount = count
+            }
         }
         .onChange(of: viewModel.isDailyPageCompiled) { compiled in
             if compiled && !didCelebrateCompile {
