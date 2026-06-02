@@ -545,6 +545,7 @@ struct GraphView: View {
 
                 if isTransformed { recenterButton }
                 if scale != 1.0 { zoomIndicator }
+                zoomControls
             }
             .onTapGesture(count: 2) {
                 guard isTransformed else { return }
@@ -632,6 +633,55 @@ struct GraphView: View {
             .accessibilityValue("\(Int(scale * 100)) percent")
             .transition(.opacity.combined(with: .scale))
             .animation(reduceMotion ? .default.speed(0) : Motion.spring, value: scale)
+    }
+
+    private var zoomControls: some View {
+        VStack(spacing: 0) {
+            Button {
+                zoom(by: 1.3)
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 18, weight: .regular))
+                    .foregroundColor(DSColor.inkPrimary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+                    .opacity(scale >= 5.0 ? 0.4 : 1.0)
+            }
+            .disabled(scale >= 5.0)
+            .accessibilityLabel(NSLocalizedString("放大", comment: "Graph zoom in button"))
+            .accessibilityAddTraits(.isButton)
+
+            Rectangle()
+                .fill(DSColor.glassRim)
+                .frame(height: 0.5)
+                .padding(.horizontal, 10)
+
+            Button {
+                zoom(by: 1 / 1.3)
+            } label: {
+                Image(systemName: "minus")
+                    .font(.system(size: 18, weight: .regular))
+                    .foregroundColor(DSColor.inkPrimary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+                    .opacity(scale <= 0.3 ? 0.4 : 1.0)
+            }
+            .disabled(scale <= 0.3)
+            .accessibilityLabel(NSLocalizedString("缩小", comment: "Graph zoom out button"))
+            .accessibilityAddTraits(.isButton)
+        }
+        .liquidGlassCard(cornerRadius: DSRadius.md, tone: .hi)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+        .padding(DSSpacing.lg)
+        .padding(.bottom, 110)
+    }
+
+    private func zoom(by factor: CGFloat) {
+        withAnimation(Motion.spring) {
+            scale = max(0.3, min(5.0, scale * factor))
+            lastScale = scale
+        }
+        Haptics.soft()
     }
 
     private func legendRow(type: String, color: Color, label: String, count: Int, isHidden: Bool) -> some View {
