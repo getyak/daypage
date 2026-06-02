@@ -16,6 +16,8 @@ struct DayOrbView: View {
     var pulseToggle: Bool = false
     /// Fraction of the current day elapsed (0 at local midnight, 1.0 at next midnight).
     var dayProgress: CGFloat = 0
+    /// Time-of-day accent color driving the halo and orb fill (dawn → midday → dusk → night).
+    var timeTint: Color = DSColor.accentAmber
 
     @State private var breatheScale: CGFloat = 1.0
     @State private var pulse: Bool = false
@@ -168,7 +170,7 @@ struct DayOrbView: View {
             .fill(
                 RadialGradient(
                     colors: [
-                        Color(red: 168/255, green: 84/255, blue: 27/255).opacity(invitePulse ? 0.18 : 0.08),
+                        timeTint.opacity(invitePulse ? 0.18 : 0.08),
                         Color.clear
                     ],
                     center: .center,
@@ -192,7 +194,7 @@ struct DayOrbView: View {
             .fill(
                 RadialGradient(
                     colors: [
-                        Color(red: 168/255, green: 84/255, blue: 27/255).opacity(haloOpacity),
+                        timeTint.opacity(haloOpacity),
                         Color.clear
                     ],
                     center: .center,
@@ -225,8 +227,8 @@ struct DayOrbView: View {
                     stops: [
                         .init(color: Color.white.opacity(0.425), location: 0),
                         .init(color: Color(red: 255/255, green: 206/255, blue: 140/255).opacity(0.2), location: 0.4),
-                        .init(color: Color(red: 168/255, green: 84/255, blue: 27/255).opacity(0.1), location: 0.8),
-                        .init(color: Color(red: 168/255, green: 84/255, blue: 27/255).opacity(0.025), location: 1)
+                        .init(color: timeTint.opacity(0.1), location: 0.8),
+                        .init(color: timeTint.opacity(0.025), location: 1)
                     ],
                     center: UnitPoint(x: 0.35, y: 0.30),
                     startRadius: 0,

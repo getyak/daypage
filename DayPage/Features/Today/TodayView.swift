@@ -843,10 +843,12 @@ struct TodayView: View {
             let signalCount = viewModel.signalCount
             let orbValueKey = signalCount == 1 ? "today.orb.value.one" : "today.orb.value.other"
             let orbValue = String(format: NSLocalizedString(orbValueKey, comment: ""), signalCount)
+            let tint = orbTimeTint(currentTime)
             DayOrbView(signalCount: signalCount, size: 140, onTap: {
                 Haptics.tapConfirm()
                 orbFocusToggle.toggle()
-            }, pulseToggle: orbCapturePulse, dayProgress: dayProgress)
+            }, pulseToggle: orbCapturePulse, dayProgress: dayProgress, timeTint: tint)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.8), value: tint)
             .scaleEffect(reduceMotion ? 1.0 : (orbBreathing ? 1.03 : 0.985))
             .shadow(
                 color: DSColor.accentAmber.opacity(orbBreathing ? 0.28 + glowBoost : 0.12 + glowBoost),
@@ -951,6 +953,17 @@ struct TodayView: View {
         case 12...17: return NSLocalizedString("today.greeting.afternoon", comment: "")
         case 18...22: return NSLocalizedString("today.greeting.evening",   comment: "")
         default:      return NSLocalizedString("today.greeting.latenight", comment: "")
+        }
+    }
+
+    // Dawn gold → midday amber → dusk rust → night indigo, matching the four greeting buckets.
+    private func orbTimeTint(_ date: Date) -> Color {
+        let hour = Calendar.current.component(.hour, from: date)
+        switch hour {
+        case 5...11:  return Color(red: 224/255, green: 162/255, blue:  77/255) // dawn gold   #E0A24D
+        case 12...17: return Color(red: 168/255, green:  84/255, blue:  27/255) // midday amber #A8541B
+        case 18...22: return Color(red: 154/255, green:  74/255, blue:  42/255) // dusk rust   #9A4A2A
+        default:      return Color(red:  62/255, green:  74/255, blue: 107/255) // night indigo #3E4A6B
         }
     }
 
