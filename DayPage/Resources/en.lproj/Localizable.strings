@@ -51,6 +51,11 @@
 "write.sheet.icon.location"  = "Location";
 "write.sheet.icon.tag"       = "Tag";
 
+/* WriteSheet — discard confirmation */
+"write.sheet.discard.prompt" = "Discard this draft?";
+"write.sheet.discard.keep"   = "Keep";
+"write.sheet.discard.confirm" = "Discard";
+
 /* WriteSheet — word/char counter */
 "writesheet.count.words.one"   = "1 word";
 "writesheet.count.words.other" = "%d words";

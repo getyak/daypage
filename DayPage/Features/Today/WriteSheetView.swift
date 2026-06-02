@@ -49,6 +49,7 @@ struct WriteSheetView: View {
     @GestureState private var dragOffset: CGFloat = 0
     @State private var committedClose: Bool = false
     @State private var saveReadyPulse: Bool = false
+    @State private var confirmingDiscard: Bool = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(AppSettings.Keys.writeSheetRailHintShown) private var railHintShown: Bool = false
     /// Snapshot taken at open time so the hint stays visible for the whole first session.
@@ -129,7 +130,7 @@ struct WriteSheetView: View {
             DSTokens.Colors.recordingBg.opacity(0.34)
                 .ignoresSafeArea()
                 .opacity(appeared ? Double(max(CGFloat.zero, CGFloat(1) - dragOffset / CGFloat(400))) : 0)
-                .onTapGesture { onClose() }
+                .onTapGesture { attemptClose() }
                 .accessibilityHidden(true)
 
             sheet
@@ -139,6 +140,7 @@ struct WriteSheetView: View {
         .animation(reduceMotion ? .easeOut(duration: 0.2) : Self.sheetUp, value: appeared)
         .onAppear {
             appeared = true
+            confirmingDiscard = false
             // Let the sheet-up settle before raising the keyboard.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                 isFocused = true
@@ -157,9 +159,7 @@ struct WriteSheetView: View {
             }
             .onEnded { value in
                 if value.translation.height > 120 || value.predictedEndTranslation.height > 240 {
-                    Haptics.soft()
-                    isFocused = false
-                    onClose()
+                    attemptClose()
                 }
             }
     }
@@ -177,8 +177,15 @@ struct WriteSheetView: View {
             if showRailHint {
                 railHintCaption
             }
-            savedCaption
+            if confirmingDiscard {
+                discardConfirmBar
+                    .transition(.opacity)
+            } else {
+                savedCaption
+                    .transition(.opacity)
+            }
         }
+        .animation(reduceMotion ? .easeOut(duration: 0.15) : Motion.spring, value: confirmingDiscard)
         .padding(.bottom, 28)
         .frame(maxWidth: .infinity)
         .onAppear {
@@ -234,7 +241,7 @@ struct WriteSheetView: View {
                 let shouldDismiss = value.translation.height > 120
                     || value.predictedEndTranslation.height > 260
                 if shouldDismiss {
-                    onClose()
+                    attemptClose()
                 } else if !reduceMotion {
                     withAnimation(Motion.spring) { }
                 } else {
@@ -262,7 +269,7 @@ struct WriteSheetView: View {
             Spacer()
 
             // Close button — 30pt sunken circle (composer.jsx:241-248).
-            Button(action: onClose) {
+            Button(action: attemptClose) {
                 Image(systemName: "xmark")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(DSTokens.Colors.fgMuted)
@@ -432,6 +439,53 @@ struct WriteSheetView: View {
         .accessibilityHidden(true)
     }
 
+    // MARK: - Discard confirm bar
+
+    private var discardConfirmBar: some View {
+        HStack(spacing: 8) {
+            Text(NSLocalizedString("write.sheet.discard.prompt", comment: "Discard this draft?"))
+                .font(DSFonts.jetBrainsMono(size: 9, weight: .semibold))
+                .tracking(1.2)
+                .textCase(.uppercase)
+                .foregroundColor(DSTokens.Colors.fgMuted)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Keep pill
+            Button {
+                withAnimation(Motion.spring) { confirmingDiscard = false }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { isFocused = true }
+            } label: {
+                Text(NSLocalizedString("write.sheet.discard.keep", comment: "Keep"))
+                    .font(DSFonts.inter(size: 12, weight: .semibold))
+                    .tracking(0.2)
+                    .foregroundColor(DSTokens.Colors.fgMuted)
+                    .padding(.horizontal, 12)
+                    .frame(height: 28)
+                    .background(Capsule().fill(DSTokens.Colors.surfaceSunken))
+            }
+            .buttonStyle(.plain)
+
+            // Discard pill
+            Button {
+                Haptics.soft()
+                isFocused = false
+                onClose()
+            } label: {
+                Text(NSLocalizedString("write.sheet.discard.confirm", comment: "Discard"))
+                    .font(DSFonts.inter(size: 12, weight: .semibold))
+                    .tracking(0.2)
+                    .foregroundColor(DSTokens.Colors.accentSoft)
+                    .padding(.horizontal, 12)
+                    .frame(height: 28)
+                    .background(Capsule().fill(DSTokens.Colors.accent))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 22)
+        .padding(.top, 10)
+        .accessibilityElement(children: .contain)
+    }
+
     // MARK: - Rail hint caption (one-time, gated by writeSheetRailHintShown)
 
     private var railHintCaption: some View {
@@ -494,6 +548,22 @@ struct WriteSheetView: View {
     }
 
     // MARK: - Actions
+
+    private func attemptClose() {
+        if canSave && !confirmingDiscard {
+            Haptics.warn()
+            withAnimation(Motion.spring) { confirmingDiscard = true }
+            isFocused = false
+            Task { @MainActor in
+                try? await Task.sleep(for: .seconds(4))
+                withAnimation(Motion.spring) { confirmingDiscard = false }
+            }
+        } else {
+            Haptics.soft()
+            isFocused = false
+            onClose()
+        }
+    }
 
     private func handleSave() {
         guard canSave else { return }
