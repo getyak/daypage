@@ -105,13 +105,15 @@ struct EmptyStateView: View {
         }
     }
 
+    // amberAccent (#A8541B) at low opacity — a soft warm bloom behind the title
+    // rather than the old saturated peach blob. (#590)
     private var orbAccent: some View {
         Circle()
             .fill(
                 RadialGradient(
                     colors: [
-                        Color(hex: "E8974D").opacity(0.55),
-                        Color(hex: "A8541B").opacity(0.28),
+                        Color(hex: "A8541B").opacity(0.22),
+                        Color(hex: "A8541B").opacity(0.10),
                         Color.clear
                     ],
                     center: .center,

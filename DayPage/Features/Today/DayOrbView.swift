@@ -161,12 +161,14 @@ struct DayOrbView: View {
     // MARK: - Invite Halo
 
     // Looping amber glow-pulse shown only when signalCount == 0 to signal tappability.
+    // Uses the restrained amberAccent (#A8541B) rather than the hot peach (#E8974D)
+    // so the halo reads as warm light bleeding through paper, not a glowing blob. (#590)
     private var inviteHalo: some View {
         Circle()
             .fill(
                 RadialGradient(
                     colors: [
-                        Color(red: 232/255, green: 151/255, blue: 77/255).opacity(invitePulse ? 0.5 : 0.15),
+                        Color(red: 168/255, green: 84/255, blue: 27/255).opacity(invitePulse ? 0.18 : 0.08),
                         Color.clear
                     ],
                     center: .center,
@@ -184,12 +186,13 @@ struct DayOrbView: View {
     // MARK: - Halo
 
     // Blurred radial gradient that bleeds +16pt past the orb edge on every side.
+    // amberAccent (#A8541B) for a warmer, less saturated bleed than the old peach. (#590)
     private var halo: some View {
         Circle()
             .fill(
                 RadialGradient(
                     colors: [
-                        Color(red: 232/255, green: 151/255, blue: 77/255).opacity(haloOpacity),
+                        Color(red: 168/255, green: 84/255, blue: 27/255).opacity(haloOpacity),
                         Color.clear
                     ],
                     center: .center,
