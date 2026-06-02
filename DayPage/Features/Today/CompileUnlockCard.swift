@@ -129,14 +129,29 @@ struct CompileUnlockCard: View {
             }
         }
         .onChange(of: memoCount) { newCount in
-            guard newCount > lastFilled, !reduceMotion else {
+            guard newCount > lastFilled else {
                 lastFilled = newCount
                 return
             }
-            poppedIndex = newCount - 1
-            Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 250_000_000)
-                poppedIndex = nil
+            // Haptic and VoiceOver announcement fire on every increment,
+            // regardless of Reduce Motion.
+            Haptics.soft()
+            let stillNeeded = max(0, 3 - newCount)
+            if stillNeeded > 0 {
+                let msg = NSLocalizedString(
+                    "compile.unlock.progress",
+                    value: "还需 \(stillNeeded) 条",
+                    comment: "VoiceOver progress after adding a memo while unlock card is visible"
+                )
+                UIAccessibility.post(notification: .announcement, argument: msg)
+            }
+            // Dot-pop scale animation is suppressed under Reduce Motion.
+            if !reduceMotion {
+                poppedIndex = newCount - 1
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 250_000_000)
+                    poppedIndex = nil
+                }
             }
             lastFilled = newCount
         }
