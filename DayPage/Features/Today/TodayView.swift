@@ -843,7 +843,7 @@ struct TodayView: View {
             let signalCount = viewModel.signalCount
             let orbValueKey = signalCount == 1 ? "today.orb.value.one" : "today.orb.value.other"
             let orbValue = String(format: NSLocalizedString(orbValueKey, comment: ""), signalCount)
-            let tint = orbTimeTint(currentTime)
+            let tint = orbTint(currentTime)
             DayOrbView(signalCount: signalCount, size: 140, onTap: {
                 Haptics.tapConfirm()
                 orbFocusToggle.toggle()
@@ -851,13 +851,14 @@ struct TodayView: View {
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.8), value: tint)
             .scaleEffect(reduceMotion ? 1.0 : (orbBreathing ? 1.03 : 0.985))
             .shadow(
-                color: DSColor.accentAmber.opacity(orbBreathing ? 0.28 + glowBoost : 0.12 + glowBoost),
+                color: tint.opacity(orbBreathing ? 0.28 + glowBoost : 0.12 + glowBoost),
                 radius: orbBreathing ? 22 + glowBoost * 40 : 12
             )
             .animation(
                 reduceMotion ? nil : .easeInOut(duration: 3.0).repeatForever(autoreverses: true),
                 value: orbBreathing
             )
+            .animation(reduceMotion ? nil : Motion.fade, value: orbTintBucket(currentTime))
             .shadow(
                 color: DSColor.accentAmber.opacity(refreshGlow ? 0.45 : 0),
                 radius: refreshGlow ? 18 : 0
@@ -956,14 +957,31 @@ struct TodayView: View {
         }
     }
 
-    // Dawn gold → midday amber → dusk rust → night indigo, matching the four greeting buckets.
-    private func orbTimeTint(_ date: Date) -> Color {
+    /// Returns an integer bucket index (0–3) for the current time-of-day bucket,
+    /// matching the same hour ranges used by `orbGreeting`. Used to key the tint
+    /// animation so crossfades fire only at bucket boundaries, not every minute.
+    private func orbTintBucket(_ date: Date) -> Int {
         let hour = Calendar.current.component(.hour, from: date)
         switch hour {
-        case 5...11:  return Color(red: 224/255, green: 162/255, blue:  77/255) // dawn gold   #E0A24D
-        case 12...17: return Color(red: 168/255, green:  84/255, blue:  27/255) // midday amber #A8541B
-        case 18...22: return Color(red: 154/255, green:  74/255, blue:  42/255) // dusk rust   #9A4A2A
-        default:      return Color(red:  62/255, green:  74/255, blue: 107/255) // night indigo #3E4A6B
+        case 5...11:  return 0  // morning
+        case 12...17: return 1  // afternoon
+        case 18...22: return 2  // evening
+        default:      return 3  // late-night
+        }
+    }
+
+    /// Derives a subtle ambient hue for the orb breathing glow from the
+    /// time-of-day bucket. Purely presentational — no storage changes.
+    ///   0 morning    → cool periwinkle-blue dawn
+    ///   1 afternoon  → canonical accentAmber (warm midday)
+    ///   2 evening    → warm orange-ember
+    ///   3 late-night → deep indigo
+    private func orbTint(_ date: Date) -> Color {
+        switch orbTintBucket(date) {
+        case 0: return Color(red: 0.45, green: 0.55, blue: 0.88)   // cool periwinkle dawn
+        case 1: return DSColor.accentAmber                          // midday amber (canonical)
+        case 2: return Color(red: 0.85, green: 0.40, blue: 0.15)   // warm orange-ember evening
+        default: return Color(red: 0.28, green: 0.22, blue: 0.60)  // deep indigo late-night
         }
     }
 
