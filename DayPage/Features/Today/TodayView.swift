@@ -608,7 +608,7 @@ struct TodayView: View {
                 onThisDayDateString = dateString
             }
         case .pureEmpty:
-            EmptyStateView.todayNoSignals(ctaAction: { orbFocusToggle.toggle() })
+            EmptyStateView.todayNoSignals(ctaAction: { orbFocusToggle.toggle() }, subtitleOverride: todayEmptySubtitle(currentTime))
                 .padding(.horizontal, 20)
         }
     }
@@ -946,6 +946,17 @@ struct TodayView: View {
 
     private func orbGreeting(_ date: Date) -> String {
         NSLocalizedString(TimeOfDay.from(date).greetingKey, comment: "")
+    }
+
+    private func todayEmptySubtitle(_ date: Date) -> String {
+        let key: String
+        switch TimeOfDay.from(date) {
+        case .morning:   key = "empty.today.subtitle.morning"
+        case .afternoon: key = "empty.today.subtitle.afternoon"
+        case .evening:   key = "empty.today.subtitle.evening"
+        case .lateNight: key = "empty.today.subtitle.night"
+        }
+        return NSLocalizedString(key, comment: "")
     }
 
     /// Returns an integer bucket index (0–3) for the current time-of-day bucket.
@@ -1350,7 +1361,7 @@ struct TodayView: View {
                 if viewModel.memos.isEmpty && viewModel.loadState == .ready {
                     let hasOnboarded = UserDefaults.standard.bool(forKey: AppSettings.Keys.hasOnboarded)
                     if !hasOnboarded {
-                        EmptyStateView.todayBlank { orbFocusToggle.toggle() }
+                        EmptyStateView.todayBlank(ctaAction: { orbFocusToggle.toggle() }, subtitleOverride: todayEmptySubtitle(currentTime))
                             .padding(.top, 48)
                             .padding(.horizontal, 20)
                     } else {

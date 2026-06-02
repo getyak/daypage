@@ -9,6 +9,12 @@
 "empty.today.no_signals.title" = "Nothing surfaced yet.";
 "empty.today.no_signals.subtitle" = "Keep logging — signals appear once you've captured a few memos.";
 
+/* Today empty-state time-of-day subtitles */
+"empty.today.subtitle.morning" = "What's the first thing on your mind today?";
+"empty.today.subtitle.afternoon" = "How's your afternoon shaping up?";
+"empty.today.subtitle.evening" = "What made today worth remembering?";
+"empty.today.subtitle.night" = "Anything to set down before the day closes?";
+
 /* Compile Locked */
 "empty.compile_locked.title" = "Not enough to compile.";
 "empty.compile_locked.subtitle" = "%d of 3 memos captured. Keep going to unlock daily compilation.";

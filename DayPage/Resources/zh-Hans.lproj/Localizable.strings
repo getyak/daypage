@@ -9,6 +9,12 @@
 "empty.today.no_signals.title" = "暂时没有信号浮现。";
 "empty.today.no_signals.subtitle" = "继续记录吧——积累几条备忘后，信号卡就会出现。";
 
+/* Today empty-state time-of-day subtitles */
+"empty.today.subtitle.morning" = "今天第一件想记下的事是什么？";
+"empty.today.subtitle.afternoon" = "下午过得怎么样？";
+"empty.today.subtitle.evening" = "今天有什么值得记住的瞬间？";
+"empty.today.subtitle.night" = "睡前，有什么想落下来的？";
+
 /* Compile Locked */
 "empty.compile_locked.title" = "备忘不够，还无法编译。";
 "empty.compile_locked.subtitle" = "当前 %d 条备忘，累计 3 条后可解锁每日编译。";
