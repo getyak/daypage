@@ -279,3 +279,6 @@
 "today.streak.milestone.subtitle.30"  = "A whole month of daily logging. Remarkable.";
 "today.streak.milestone.subtitle.100" = "100 days. This journey is yours.";
 "today.streak.milestone.subtitle.365" = "One full year. A nomad's complete orbit.";
+
+"scroll_to_top.label.default"      = "Scroll to top";
+"scroll_to_top.label.new_content"   = "Scroll to top, new content";

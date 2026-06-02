@@ -108,6 +108,10 @@ struct TodayView: View {
     /// Tracks the previous memo count so escalating haptics only fire on additions, not deletions.
     @State private var lastMemoCount: Int = 0
 
+    /// True when a new memo arrived while the user was scrolled past the ~240pt threshold.
+    /// Drives the amber dot badge on the scroll-to-top button. Cleared on scroll-to-top.
+    @State private var hasNewContentAboveFold: Bool = false
+
     /// Session-only: true once the compile-completion celebration has fired for the current daily page.
     /// Resets to false when isDailyPageCompiled becomes false (recompile/new day) so it re-fires.
     @State private var didCelebrateCompile: Bool = false
@@ -272,39 +276,53 @@ struct TodayView: View {
                 .overlay(alignment: .bottomTrailing) {
                     if timelineScrollOffset < -240 && !viewModel.memos.isEmpty && !isInSelectionMode {
                         Button {
+                            hasNewContentAboveFold = false
                             Haptics.soft()
                             withAnimation(reduceMotion ? nil : Motion.spring) {
                                 timelineScrollProxy?.scrollTo("timelineTop", anchor: .top)
                             }
                         } label: {
-                            Image(systemName: "chevron.up")
-                                .font(DSType.bodySM)
-                                .foregroundColor(DSColor.inkMuted)
-                                .frame(width: 28, height: 28)
-                                .background(DSColor.glassStd)
-                                .background(.ultraThinMaterial, in: Circle())
-                                .overlay(Circle().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
-                                .overlay(
+                            ZStack(alignment: .topTrailing) {
+                                Image(systemName: "chevron.up")
+                                    .font(DSType.bodySM)
+                                    .foregroundColor(DSColor.inkMuted)
+                                    .frame(width: 28, height: 28)
+                                    .background(DSColor.glassStd)
+                                    .background(.ultraThinMaterial, in: Circle())
+                                    .overlay(Circle().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                                    .overlay(
+                                        Circle()
+                                            .trim(from: 0, to: scrollProgress)
+                                            .stroke(
+                                                DSColor.accentAmber,
+                                                style: StrokeStyle(lineWidth: 1.5, lineCap: .round)
+                                            )
+                                            .rotationEffect(.degrees(-90))
+                                            .animation(reduceMotion ? nil : Motion.fade, value: scrollProgress)
+                                    )
+                                    .shadow(
+                                        color: DSColor.accentAmber.opacity(scrollRingGlow ? 0.5 : 0),
+                                        radius: scrollRingGlow ? 14 : 0
+                                    )
+                                    .animation(.easeOut(duration: 0.6), value: scrollRingGlow)
+                                    .clipShape(Circle())
+
+                                if hasNewContentAboveFold {
                                     Circle()
-                                        .trim(from: 0, to: scrollProgress)
-                                        .stroke(
-                                            DSColor.accentAmber,
-                                            style: StrokeStyle(lineWidth: 1.5, lineCap: .round)
-                                        )
-                                        .rotationEffect(.degrees(-90))
-                                        .animation(reduceMotion ? nil : Motion.fade, value: scrollProgress)
-                                )
-                                .shadow(
-                                    color: DSColor.accentAmber.opacity(scrollRingGlow ? 0.5 : 0),
-                                    radius: scrollRingGlow ? 14 : 0
-                                )
-                                .animation(.easeOut(duration: 0.6), value: scrollRingGlow)
-                                .clipShape(Circle())
+                                        .fill(DSColor.accentAmber)
+                                        .frame(width: 7, height: 7)
+                                        .offset(x: 1, y: -1)
+                                        .transition(.scale)
+                                        .animation(reduceMotion ? nil : Motion.spring, value: hasNewContentAboveFold)
+                                }
+                            }
                         }
                         .padding(.trailing, 20)
                         .padding(.bottom, 96)
                         .transition(.opacity.combined(with: .scale(scale: 0.8)))
-                        .accessibilityLabel("Scroll to top")
+                        .accessibilityLabel(hasNewContentAboveFold
+                            ? NSLocalizedString("scroll_to_top.label.new_content", comment: "")
+                            : NSLocalizedString("scroll_to_top.label.default", comment: ""))
                         .accessibilityHint("Returns to the top of today's timeline")
                         .accessibilityIdentifier("scroll-to-top-button")
                     }
@@ -313,6 +331,7 @@ struct TodayView: View {
                 .onChange(of: scrollProgress) { progress in
                     if progress >= 1.0 && !didReachScrollEnd {
                         didReachScrollEnd = true
+                        hasNewContentAboveFold = false
                         Haptics.soft()
                         if !reduceMotion {
                             scrollRingGlow = true
@@ -1575,9 +1594,16 @@ struct TodayView: View {
                 }
             }
             // Scroll to top on additions only, not deletions.
-            if count > lastMemoCount, let proxy = timelineScrollProxy {
-                withAnimation(reduceMotion ? nil : Motion.spring) {
-                    proxy.scrollTo("timelineTop", anchor: .top)
+            // When the user is scrolled far into history (past the button threshold),
+            // badge the scroll-to-top button instead of jumping them away from context.
+            if count > lastMemoCount {
+                if timelineScrollOffset < -240 {
+                    hasNewContentAboveFold = true
+                    Haptics.soft()
+                } else if let proxy = timelineScrollProxy {
+                    withAnimation(reduceMotion ? nil : Motion.spring) {
+                        proxy.scrollTo("timelineTop", anchor: .top)
+                    }
                 }
             }
             lastMemoCount = count
