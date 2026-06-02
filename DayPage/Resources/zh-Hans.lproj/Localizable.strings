@@ -51,6 +51,11 @@
 "write.sheet.icon.location"  = "位置";
 "write.sheet.icon.tag"       = "标签";
 
+/* WriteSheet — discard confirmation */
+"write.sheet.discard.prompt" = "丢弃这条草稿？";
+"write.sheet.discard.keep"   = "保留";
+"write.sheet.discard.confirm" = "丢弃";
+
 /* WriteSheet — word/char counter */
 "writesheet.count.words.one"   = "1 个词";
 "writesheet.count.words.other" = "%d 个词";
