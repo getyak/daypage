@@ -950,7 +950,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 HapticFeedback.error()
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .error,
-                    title: "DeepSeek API Key 未配置",
+                    title: "DashScope API Key 未配置",
                     primaryAction: BannerAction(label: "前往设置") { [weak self] in
                         self?.shouldShowSettings = true
                     }
