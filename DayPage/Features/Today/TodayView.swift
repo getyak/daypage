@@ -1063,32 +1063,11 @@ struct TodayView: View {
     @ViewBuilder
     private var sidebarSection: some View {
         let isScrolled = timelineScrollOffset < -8
-        ZStack(alignment: .bottom) {
-            // Glass background — height 0 when not scrolled so ZStack tracks the overlay HStack.
-            Group {
-                if isScrolled {
-                    Rectangle()
-                        .fill(.ultraThinMaterial)
-                        .overlay(
-                            Rectangle()
-                                .fill(DSColor.bgWarm.opacity(0.78))
-                        )
-                } else {
-                    Color.clear.frame(height: 0)
-                }
-            }
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: isScrolled)
-
-            // Bottom separator line
-            if isScrolled {
-                Rectangle()
-                    .fill(DSColor.borderSubtle)
-                    .frame(height: 0.5)
-                    .transition(.opacity)
-                    .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: isScrolled)
-            }
-        }
-        .overlay(alignment: .center) {
+        // The header HStack now participates in normal layout (it owns its
+        // height), with the glass/separator drawn as a `.background` behind it.
+        // Previously the HStack lived inside `.overlay()` on a zero-height
+        // ZStack, so it contributed 0pt to the parent VStack and the orbHero
+        // below it slid up and overlapped the 56pt hero title. (#590)
         HStack(alignment: .firstTextBaseline, spacing: 0) {
             Button {
                 nav.openSidebar()
@@ -1222,8 +1201,27 @@ struct TodayView: View {
         .onReceive(headerTimer) { date in
             currentTime = date
         }
-        } // end overlay
         .frame(maxWidth: .infinity)
+        // US-005: frosted glass + separator fade in behind the header once the
+        // timeline scrolls > 8pt. Drawn as a background so it never affects the
+        // header's intrinsic height (the cause of the old overlap bug). (#590)
+        .background(alignment: .bottom) {
+            ZStack(alignment: .bottom) {
+                if isScrolled {
+                    Rectangle()
+                        .fill(.ultraThinMaterial)
+                        .overlay(
+                            Rectangle()
+                                .fill(DSColor.bgWarm.opacity(0.78))
+                        )
+                    Rectangle()
+                        .fill(DSColor.borderSubtle)
+                        .frame(height: 0.5)
+                        .transition(.opacity)
+                }
+            }
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: isScrolled)
+        }
     }
 
     /// Scrollable timeline: daily page card, skeleton, memo cards, history supplement.
