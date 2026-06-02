@@ -16,6 +16,15 @@ enum MarkdownExportService {
 
     // MARK: - Export
 
+    /// Returns a yyyy-MM-dd string for the given date in the user's configured timezone.
+    static func exportDateString(for date: Date) -> String {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.timeZone = AppSettings.currentTimeZone()
+        return df.string(from: date)
+    }
+
     /// Builds an Obsidian-compatible `.md` string from the given memos and date.
     static func buildExportContent(
         memos: [Memo],
@@ -23,11 +32,7 @@ enum MarkdownExportService {
         weather: String? = nil,
         summary: String? = nil
     ) -> String {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.locale = Locale(identifier: "en_US_POSIX")
-        df.timeZone = AppSettings.currentTimeZone()
-        let dateString = df.string(from: date)
+        let dateString = exportDateString(for: date)
 
         let moods = memos.compactMap { $0.mood }.filter { !$0.isEmpty }
         let entities = Array(Set(memos.flatMap { $0.entityMentions })).sorted()
@@ -117,7 +122,7 @@ enum MarkdownExportService {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("DayPageExport", isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        let url = dir.appendingPathComponent("\(dateString).md")
+        let url = dir.appendingPathComponent("DayPage \(dateString).md")
         try content.write(to: url, atomically: true, encoding: .utf8)
         return url
     }
@@ -142,11 +147,7 @@ enum MarkdownExportService {
     /// Presents a share sheet for the exported markdown file.
     @MainActor
     static func share(memos: [Memo], date: Date, from viewController: UIViewController) {
-        let df = DateFormatter()
-        df.dateFormat = "yyyy-MM-dd"
-        df.locale = Locale(identifier: "en_US_POSIX")
-        df.timeZone = AppSettings.currentTimeZone()
-        let dateString = df.string(from: date)
+        let dateString = exportDateString(for: date)
 
         let content = buildExportContent(memos: memos, date: date)
         guard let url = try? writeExportFile(content: content, dateString: dateString) else {

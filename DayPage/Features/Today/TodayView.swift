@@ -1191,11 +1191,7 @@ struct TodayView: View {
                         memos: viewModel.memos, date: Date(),
                         summary: viewModel.dailyPageSummary
                     )
-                    let df = DateFormatter()
-                    df.dateFormat = "yyyy-MM-dd"
-                    df.locale = Locale(identifier: "en_US_POSIX")
-                    df.timeZone = AppSettings.currentTimeZone()
-                    let dateString = df.string(from: Date())
+                    let dateString = MarkdownExportService.exportDateString(for: Date())
                     do {
                         let url = try MarkdownExportService.writeExportFile(
                             content: content, dateString: dateString
