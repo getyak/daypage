@@ -118,7 +118,7 @@ struct WriteSheetView: View {
             // Fades proportionally as the sheet is dragged down.
             DSTokens.Colors.recordingBg.opacity(0.34)
                 .ignoresSafeArea()
-                .opacity(appeared ? max(0, 1 - dragOffset / 400) : 0)
+                .opacity(appeared ? max(0.0, 1.0 - dragOffset / 400.0) : 0)
                 .onTapGesture { onClose() }
                 .accessibilityHidden(true)
 
