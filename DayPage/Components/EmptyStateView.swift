@@ -11,6 +11,8 @@ struct EmptyStateView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private let maxIdlePulses = 3
+
     /// 0 = all hidden, 1 = orb visible, 2 = title, 3 = subtitle, 4 = CTA
     @State private var revealStep: Int = 0
     @State private var breathing = false
@@ -80,7 +82,7 @@ struct EmptyStateView: View {
                         Haptics.soft()
                         await pulseCTA()
                         idlePulseTask = Task { @MainActor in
-                            while !Task.isCancelled {
+                            for _ in 0..<maxIdlePulses {
                                 try? await Task.sleep(nanoseconds: 6_000_000_000)
                                 guard !Task.isCancelled, !reduceMotion else { return }
                                 await pulseCTA()
