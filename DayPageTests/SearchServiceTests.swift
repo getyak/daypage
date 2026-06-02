@@ -69,7 +69,7 @@ struct SearchServiceTests {
         try Self.writeMemo(shortMemo, dateString: "2026-04-14", to: tmp)
 
         // Long body — should get trailing ellipsis
-        let longBody = String(repeating: "x", count: 60) + "KEYWORD" + String(repeating: "y", count: 60)
+        let longBody = String(repeating: "x", count: 60) + "KEYWORD" + String(repeating: "y", count: 100)
         let longMemo = Memo(type: .text, created: Self.makeDate(year: 2026, month: 3, day: 1),
                             body: longBody)
         try Self.writeMemo(longMemo, dateString: "2026-03-01", to: tmp)
