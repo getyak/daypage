@@ -230,7 +230,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
             .publisher(for: .compilationDidFail)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                self?.compilationFailedError = "后台编译失败，请检查网络或 API Key 后重试"
+                self?.compilationFailedError = NSLocalizedString("today.compile.background.failed", comment: "")
             }
             .store(in: &cancellables)
 
@@ -937,21 +937,21 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 HapticFeedback.success()
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .success,
-                    title: "今日 Daily Page 已生成",
+                    title: NSLocalizedString("today.compile.success", comment: ""),
                     autoDismiss: true
                 ))
             } catch CompilationError.offline {
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .info,
-                    title: "当前离线，已加入队列",
+                    title: NSLocalizedString("today.compile.offline", comment: ""),
                     autoDismiss: true
                 ))
             } catch CompilationError.missingApiKey {
                 HapticFeedback.error()
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .error,
-                    title: "DashScope API Key 未配置",
-                    primaryAction: BannerAction(label: "前往设置") { [weak self] in
+                    title: NSLocalizedString("today.compile.missingKey", comment: ""),
+                    primaryAction: BannerAction(label: NSLocalizedString("today.compile.action.settings", comment: "")) { [weak self] in
                         self?.shouldShowSettings = true
                     }
                 ))
@@ -959,8 +959,8 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 HapticFeedback.error()
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .error,
-                    title: "API Key 无效或已过期",
-                    primaryAction: BannerAction(label: "前往设置") { [weak self] in
+                    title: NSLocalizedString("today.compile.invalidKey", comment: ""),
+                    primaryAction: BannerAction(label: NSLocalizedString("today.compile.action.settings", comment: "")) { [weak self] in
                         self?.shouldShowSettings = true
                     }
                 ))
@@ -968,8 +968,8 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 HapticFeedback.error()
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .error,
-                    title: "AI 返回格式异常",
-                    primaryAction: BannerAction(label: "查看日志") { }
+                    title: NSLocalizedString("today.compile.parseError", comment: ""),
+                    primaryAction: BannerAction(label: NSLocalizedString("today.compile.action.viewLog", comment: "")) { }
                 ))
             } catch {
                 HapticFeedback.error()

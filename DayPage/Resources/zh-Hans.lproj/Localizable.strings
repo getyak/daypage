@@ -310,3 +310,13 @@
 "scroll_to_top.label.default"      = "返回顶部";
 "scroll_to_top.label.new_content"   = "返回顶部，有新内容";
 "voice_recording_soft_cap_hint"        = "建议 5 分钟内";
+
+/* TodayViewModel compile() banners */
+"today.compile.success"           = "今日 Daily Page 已生成";
+"today.compile.offline"           = "当前离线，已加入队列";
+"today.compile.missingKey"        = "DashScope API Key 未配置";
+"today.compile.invalidKey"        = "API Key 无效或已过期";
+"today.compile.parseError"        = "AI 返回格式异常";
+"today.compile.action.settings"   = "前往设置";
+"today.compile.action.viewLog"    = "查看日志";
+"today.compile.background.failed" = "后台编译失败，请检查网络或 API Key 后重试";
