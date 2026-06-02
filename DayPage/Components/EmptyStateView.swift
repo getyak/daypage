@@ -10,6 +10,7 @@ struct EmptyStateView: View {
     var showOrbAccent: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
 
     /// 0 = all hidden, 1 = orb visible, 2 = title, 3 = subtitle, 4 = CTA
     @State private var revealStep: Int = 0
@@ -75,14 +76,18 @@ struct EmptyStateView: View {
                     guard !Task.isCancelled else { return }
                     revealStep = 4  // CTA
                     if ctaAction != nil {
+                        if let label = ctaLabel {
+                            UIAccessibility.post(notification: .announcement, argument: label)
+                        }
                         try? await Task.sleep(nanoseconds: 70_000_000)
                         guard !Task.isCancelled else { return }
                         Haptics.soft()
                         await pulseCTA()
+                        guard !voiceOverEnabled else { return }
                         idlePulseTask = Task { @MainActor in
                             while !Task.isCancelled {
                                 try? await Task.sleep(nanoseconds: 6_000_000_000)
-                                guard !Task.isCancelled, !reduceMotion else { return }
+                                guard !Task.isCancelled, !reduceMotion, !voiceOverEnabled else { return }
                                 await pulseCTA()
                             }
                         }
