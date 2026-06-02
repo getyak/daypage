@@ -279,6 +279,12 @@
 
 "search.undo.cleared" = "已清除搜索记录";
 
+/* CompileFooterButton — time-of-day hints */
+"compile.hint.morning"   = "今天才刚开始";
+"compile.hint.afternoon" = "记录还在继续";
+"compile.hint.evening"   = "夜深了，回顾今天吧";
+"compile.hint.night"     = "为今天画上句号";
+
 /* Streak milestone celebration (TodayView) */
 "today.streak.milestone.title"        = "连续 %d 天！🔥";
 "today.streak.milestone.subtitle.3"   = "连续三天，习惯正在形成。";

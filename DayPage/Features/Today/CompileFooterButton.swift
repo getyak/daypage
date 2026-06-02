@@ -148,10 +148,10 @@ struct CompileFooterButton: View {
     /// Contextual nudge based on time of day.
     private var timeHint: String {
         switch currentHour {
-        case 5..<12:  return "今天才刚开始"
-        case 12..<18: return "记录还在继续"
-        case 18..<24: return "夜深了，回顾今天吧"
-        default:      return "为今天画上句号"
+        case 5..<12:  return NSLocalizedString("compile.hint.morning", comment: "")
+        case 12..<18: return NSLocalizedString("compile.hint.afternoon", comment: "")
+        case 18..<24: return NSLocalizedString("compile.hint.evening", comment: "")
+        default:      return NSLocalizedString("compile.hint.night", comment: "")
         }
     }
 
