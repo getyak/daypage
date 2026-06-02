@@ -17,7 +17,12 @@ enum MarkdownExportService {
     // MARK: - Export
 
     /// Builds an Obsidian-compatible `.md` string from the given memos and date.
-    static func buildExportContent(memos: [Memo], date: Date) -> String {
+    static func buildExportContent(
+        memos: [Memo],
+        date: Date,
+        weather: String? = nil,
+        summary: String? = nil
+    ) -> String {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
         df.locale = Locale(identifier: "en_US_POSIX")
@@ -26,6 +31,7 @@ enum MarkdownExportService {
 
         let moods = memos.compactMap { $0.mood }.filter { !$0.isEmpty }
         let entities = Array(Set(memos.flatMap { $0.entityMentions })).sorted()
+        let resolvedWeather = weather ?? memos.first(where: { $0.weather != nil && !($0.weather!.isEmpty) })?.weather
 
         var lines: [String] = ["---"]
         lines.append("date: \(dateString)")
@@ -33,7 +39,11 @@ enum MarkdownExportService {
         lines.append("memo_count: \(memos.count)")
 
         if let mood = moods.first {
-            lines.append("mood: \"\(mood)\"")
+            lines.append("mood: \(yamlQuoted(mood))")
+        }
+
+        if let w = resolvedWeather {
+            lines.append("weather: \(yamlQuoted(w))")
         }
 
         if entities.isEmpty {
@@ -41,13 +51,18 @@ enum MarkdownExportService {
         } else {
             lines.append("entity_mentions:")
             for e in entities {
-                lines.append("  - \"\(e)\"")
+                lines.append("  - \(yamlQuoted(e))")
             }
         }
         lines.append("---")
         lines.append("")
         lines.append("# DayPage — \(dateString)")
         lines.append("")
+
+        if let s = summary, !s.isEmpty {
+            lines.append("> AI · \(s)")
+            lines.append("")
+        }
 
         let sorted = memos.sorted { $0.created < $1.created }
         for (idx, memo) in sorted.enumerated() {
@@ -105,6 +120,15 @@ enum MarkdownExportService {
         let url = dir.appendingPathComponent("\(dateString).md")
         try content.write(to: url, atomically: true, encoding: .utf8)
         return url
+    }
+
+    // MARK: - Private Helpers
+
+    private static func yamlQuoted(_ s: String) -> String {
+        let escaped = s
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        return "\"\(escaped)\""
     }
 
     /// Presents a share sheet for the exported markdown file.
