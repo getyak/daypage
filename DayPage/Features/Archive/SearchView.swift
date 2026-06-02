@@ -698,7 +698,10 @@ struct SearchView: View {
                 .background(DSColor.surfaceContainer)
                 .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ChipButtonStyle(reduceMotion: reduceMotion))
+        .accessibilityLabel("搜索 \(entity)")
+        .accessibilityHint("双击以该关键词搜索归档")
+        .accessibilityAddTraits(.isButton)
     }
 
     private func entityChipWithCount(_ entity: EntityFrequency, maxCount: Int, index: Int) -> some View {
@@ -1159,6 +1162,17 @@ private struct EntityFrequencyChip: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - ChipButtonStyle
+
+private struct ChipButtonStyle: ButtonStyle {
+    let reduceMotion: Bool
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.94 : 1)
+            .animation(reduceMotion ? nil : Motion.spring, value: configuration.isPressed)
     }
 }
 
