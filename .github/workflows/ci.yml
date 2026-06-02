@@ -2,6 +2,8 @@ name: CI
 
 on:
   push:
+    branches:
+      - main
     paths-ignore:
       - "design/**"
       - "scripts/ralph/**"
@@ -15,6 +17,9 @@ on:
       - "tasks/**"
       - "**.md"
       - ".gitignore"
+  merge_group:
+    types:
+      - checks_requested
   schedule:
     - cron: "0 2 * * *"   # 每天 UTC 02:00（北京时间 10:00）对 main 跑全量回归
 
