@@ -11,7 +11,7 @@ struct TodayView: View {
     @StateObject private var voiceQueue = VoiceAttachmentQueue.shared
     @StateObject private var migrationService = VaultMigrationService.shared
     @StateObject private var compilationService = CompilationService.shared
-    @StateObject private var sidebarVM = SidebarViewModel()
+    @EnvironmentObject private var sidebarVM: SidebarViewModel
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -1550,6 +1550,7 @@ struct TodayView: View {
         case 14:  return NSLocalizedString("today.streak.milestone.subtitle.14",  comment: "")
         case 30:  return NSLocalizedString("today.streak.milestone.subtitle.30",  comment: "")
         case 100: return NSLocalizedString("today.streak.milestone.subtitle.100", comment: "")
+        case 365: return NSLocalizedString("today.streak.milestone.subtitle.365", comment: "")
         default:  return NSLocalizedString("today.streak.milestone.subtitle.365", comment: "")
         }
     }

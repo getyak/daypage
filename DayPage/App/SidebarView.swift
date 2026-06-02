@@ -9,7 +9,7 @@ struct SidebarView: View {
     @EnvironmentObject private var authService: AuthService
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    @StateObject private var sidebarVM = SidebarViewModel()
+    @EnvironmentObject private var sidebarVM: SidebarViewModel
     @State private var showSettings = false
     @State private var showAccountSheet = false
 
