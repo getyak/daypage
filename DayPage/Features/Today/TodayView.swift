@@ -124,6 +124,8 @@ struct TodayView: View {
     /// Milestone feedback when the scroll-to-top progress ring fills to 100%.
     @State private var didReachScrollEnd: Bool = false
     @State private var scrollRingGlow: Bool = false
+    /// Tracks which 1/3-ring milestone bucket (0/1/2) has already fired a haptic tick this scroll gesture.
+    @State private var lastScrollMilestone: Int = 0
 
     /// Scroll proxy captured from the timeline ScrollViewReader; used by composeSection
     /// to scroll to the top anchor after a new memo is added.
@@ -329,6 +331,12 @@ struct TodayView: View {
                 }
                 .animation(reduceMotion ? nil : Motion.rise, value: timelineScrollOffset < -240)
                 .onChange(of: scrollProgress) { progress in
+                    // Intermediate milestone ticks at 33% and 66% fill.
+                    let milestone = Int(progress * 3) // 0/1/2/3
+                    if milestone > lastScrollMilestone && milestone < 3 && !reduceMotion {
+                        Haptics.rigid(intensity: 0.3 + 0.2 * CGFloat(milestone))
+                        lastScrollMilestone = milestone
+                    }
                     if progress >= 1.0 && !didReachScrollEnd {
                         didReachScrollEnd = true
                         hasNewContentAboveFold = false
@@ -342,6 +350,7 @@ struct TodayView: View {
                         }
                     } else if progress < 0.95 {
                         didReachScrollEnd = false
+                        lastScrollMilestone = 0
                     }
                 }
                 // Submit error toast — scoped animation lives on the overlay
