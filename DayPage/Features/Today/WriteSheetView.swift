@@ -42,6 +42,12 @@ struct WriteSheetView: View {
     let onSave: () -> Void
     /// Close — dismiss the sheet without saving.
     let onClose: () -> Void
+    /// Location attached to the memo being written; nil when none.
+    var pendingLocation: Memo.Location? = nil
+    /// True while a location fetch is in flight.
+    var isLocating: Bool = false
+    /// Toggle location: fetch if nil, clear if already set.
+    var onToggleLocation: () -> Void = {}
 
     @FocusState private var isFocused: Bool
     @State private var appeared: Bool = false
@@ -174,7 +180,7 @@ struct WriteSheetView: View {
             textArea
             hairline
             footerRail
-            if showRailHint {
+            if showRailHint && pendingLocation == nil {
                 railHintCaption
             }
             if confirmingDiscard {
@@ -335,7 +341,7 @@ struct WriteSheetView: View {
         HStack(spacing: 2) {
             railIcon("camera", label: NSLocalizedString("write.sheet.icon.camera", comment: "拍照"))
             railIcon("photo", label: NSLocalizedString("write.sheet.icon.photo", comment: "相册"))
-            railIcon("mappin.and.ellipse", label: NSLocalizedString("write.sheet.icon.location", comment: "位置"))
+            locationRailIcon
             railIcon("tag", label: NSLocalizedString("write.sheet.icon.tag", comment: "标签"))
 
             Spacer()
@@ -380,6 +386,41 @@ struct WriteSheetView: View {
             .accessibilityLabel(
                 NSLocalizedString("write.sheet.icon.disabled.hint", comment: "在主输入栏添加")
             )
+    }
+
+    /// Live location icon — active, tappable, amber when a location is attached.
+    @ViewBuilder
+    private var locationRailIcon: some View {
+        Button(action: {
+            Haptics.soft()
+            onToggleLocation()
+        }) {
+            ZStack {
+                if isLocating {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .scaleEffect(0.7)
+                        .tint(DSTokens.Colors.fgMuted)
+                } else {
+                    Image(systemName: "mappin.and.ellipse")
+                        .font(.system(size: 18, weight: .regular))
+                        .foregroundColor(
+                            pendingLocation != nil
+                                ? DSColor.accentAmber
+                                : DSColor.inkMuted
+                        )
+                }
+            }
+            .frame(width: 40, height: 40)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(NSLocalizedString("write.sheet.icon.location", comment: "位置"))
+        .accessibilityValue(
+            pendingLocation != nil
+                ? (pendingLocation?.name ?? NSLocalizedString("write.sheet.location.attached", comment: "已附加位置"))
+                : NSLocalizedString("write.sheet.location.none", comment: "未附加位置")
+        )
     }
 
     // MARK: - Save pill (composer.jsx:312-329)

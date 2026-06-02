@@ -1127,7 +1127,16 @@ struct TodayView: View {
                     viewModel.submitCombinedMemo(body: body)
                     showUndoPill(for: body)
                 },
-                onClose: { showWriteSheet = false }
+                onClose: { showWriteSheet = false },
+                pendingLocation: viewModel.pendingLocation,
+                isLocating: viewModel.isLocating,
+                onToggleLocation: {
+                    if viewModel.pendingLocation == nil {
+                        viewModel.fetchLocation()
+                    } else {
+                        viewModel.clearPendingLocation()
+                    }
+                }
             )
             .transition(.opacity)
             .zIndex(50)
