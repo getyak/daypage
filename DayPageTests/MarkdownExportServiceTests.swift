@@ -215,7 +215,19 @@ struct MarkdownExportServiceTests {
         #expect(content.contains("> AI · Productive day."))
     }
 
-    // MARK: - 4. Memo bodies ordered by created ascending
+    // MARK: - 4. writeExportFile produces a branded filename
+
+    @Test func writeExportFile_producesURLWithBrandedFilename() throws {
+        let date = makeDate(year: 2026, month: 6, day: 2)
+        let dateString = MarkdownExportService.exportDateString(for: date)
+        let content = MarkdownExportService.buildExportContent(
+            memos: [makeMemo(body: "test")], date: date
+        )
+        let url = try MarkdownExportService.writeExportFile(content: content, dateString: dateString)
+        #expect(url.lastPathComponent == "DayPage \(dateString).md")
+    }
+
+    // MARK: - 5. Memo bodies ordered by created ascending
 
     @Test func memoBodies_orderedByCreatedAscending() {
         let m1 = makeMemo(body: "first", secondsOffset: 0)
