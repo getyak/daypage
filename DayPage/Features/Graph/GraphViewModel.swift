@@ -48,12 +48,22 @@ final class GraphViewModel: ObservableObject {
     @Published var isLoading: Bool = false
 
     // MARK: - Filter State
-    @Published var searchQuery: String = ""
-    @Published var filterStartDate: Date? = nil
-    @Published var filterEndDate: Date? = nil
+    @Published var searchQuery: String = "" { didSet { _filteredNodes = nil } }
+    @Published var filterStartDate: Date? = nil { didSet { _filteredNodes = nil } }
+    @Published var filterEndDate: Date? = nil { didSet { _filteredNodes = nil } }
 
-    /// Nodes after applying search and date filters.
+    private var _filteredNodes: [GraphNode]? = nil
+
+    /// Nodes after applying search and date filters. Result is cached and
+    /// invalidated only when nodes, searchQuery, or date filters change.
     var filteredNodes: [GraphNode] {
+        if let cached = _filteredNodes { return cached }
+        let result = computeFilteredNodes()
+        _filteredNodes = result
+        return result
+    }
+
+    private func computeFilteredNodes() -> [GraphNode] {
         nodes.filter { node in
             let matchesSearch = searchQuery.isEmpty
                 || node.name.localizedCaseInsensitiveContains(searchQuery)
@@ -99,6 +109,7 @@ final class GraphViewModel: ObservableObject {
             let (nodes, edges) = Self.buildGraph()
             await MainActor.run { [weak self] in
                 self?.nodes = nodes
+                self?._filteredNodes = nil
                 self?.edges = edges
                 self?.isLoading = false
             }
