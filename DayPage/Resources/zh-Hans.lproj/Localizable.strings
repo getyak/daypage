@@ -307,6 +307,6 @@
 "today.streak.milestone.subtitle.30"  = "整整一个月的每日记录，了不起。";
 "today.streak.milestone.subtitle.100" = "100 天，这段旅程属于你。";
 "today.streak.milestone.subtitle.365" = "整整一年，游牧者完整的轨迹。";
-
 "scroll_to_top.label.default"      = "返回顶部";
 "scroll_to_top.label.new_content"   = "返回顶部，有新内容";
+"voice_recording_soft_cap_hint"        = "建议 5 分钟内";
