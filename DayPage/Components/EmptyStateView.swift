@@ -200,10 +200,10 @@ private struct PressableScaleStyle: ButtonStyle {
 
 extension EmptyStateView {
     /// Today tab — no memos yet.
-    static func todayBlank(ctaAction: @escaping () -> Void) -> EmptyStateView {
+    static func todayBlank(ctaAction: @escaping () -> Void, subtitleOverride: String? = nil) -> EmptyStateView {
         EmptyStateView(
             title: L10n.Empty.todayBlankTitle,
-            subtitle: L10n.Empty.todayBlankSubtitle,
+            subtitle: subtitleOverride ?? L10n.Empty.todayBlankSubtitle,
             ctaLabel: L10n.Empty.todayBlankCta,
             ctaAction: ctaAction,
             showOrbAccent: true
@@ -211,10 +211,10 @@ extension EmptyStateView {
     }
 
     /// Today tab — memos exist but no signal cards generated.
-    static func todayNoSignals(ctaAction: (() -> Void)? = nil) -> EmptyStateView {
+    static func todayNoSignals(ctaAction: (() -> Void)? = nil, subtitleOverride: String? = nil) -> EmptyStateView {
         EmptyStateView(
             title: L10n.Empty.todayNoSignalsTitle,
-            subtitle: L10n.Empty.todayNoSignalsSubtitle,
+            subtitle: subtitleOverride ?? L10n.Empty.todayNoSignalsSubtitle,
             ctaLabel: ctaAction != nil ? L10n.Empty.todayBlankCta : nil,
             ctaAction: ctaAction,
             showOrbAccent: true
