@@ -24,6 +24,8 @@ struct SidebarHeatmapView: View {
     let totalEntries: Int
     /// Current consecutive-day streak (footer pill).
     let streak: Int
+    /// All-time longest consecutive-day streak (footer fallback when streak == 0).
+    let longestStreak: Int
 
     private let weeks = 16
     private let cellSpacing: CGFloat = 3
@@ -64,7 +66,7 @@ struct SidebarHeatmapView: View {
         )
         .shadow(color: Color.black.opacity(0.04), radius: 1, x: 0, y: 1)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("活动热力图，过去 16 周共 \(totalEntries) 条记录，当前连续 \(streak) 天")
+        .accessibilityLabel(accessibilityText)
     }
 
     // MARK: - Header
@@ -199,21 +201,49 @@ struct SidebarHeatmapView: View {
             }
             Spacer()
             if streak > 0 {
-                HStack(spacing: 5) {
-                    Image(systemName: "flame.fill")
-                        .font(.system(size: 10))
-                        .foregroundColor(DSColor.accentAmber)
-                    Text("\(streak) DAYS")
-                        .font(DSType.mono9)
-                        .tracking(1.2)
-                        .foregroundColor(DSColor.accentAmber)
-                        .fixedSize()
-                }
-                .padding(.init(top: 4, leading: 7, bottom: 4, trailing: 9))
-                .background(DSColor.accentSoft, in: Capsule())
-                .overlay(Capsule().strokeBorder(DSColor.accentBorder, lineWidth: 0.5))
+                streakPill(
+                    icon: "flame.fill",
+                    text: "\(streak) DAYS",
+                    fg: DSColor.accentAmber,
+                    bg: DSColor.accentSoft,
+                    border: DSColor.accentBorder
+                )
+            } else if longestStreak > 0 {
+                streakPill(
+                    icon: "flame",
+                    text: "BEST \(longestStreak) DAYS",
+                    fg: DSColor.inkSubtle,
+                    bg: DSColor.glassStd,
+                    border: DSColor.borderSubtle
+                )
             }
         }
+    }
+
+    private func streakPill(icon: String, text: String, fg: Color, bg: Color, border: Color) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: icon)
+                .font(.system(size: 10))
+                .foregroundColor(fg)
+            Text(text)
+                .font(DSType.mono9)
+                .tracking(1.2)
+                .foregroundColor(fg)
+                .fixedSize()
+        }
+        .padding(.init(top: 4, leading: 7, bottom: 4, trailing: 9))
+        .background(bg, in: Capsule())
+        .overlay(Capsule().strokeBorder(border, lineWidth: 0.5))
+    }
+
+    private var accessibilityText: String {
+        let base = "活动热力图，过去 16 周共 \(totalEntries) 条记录"
+        if streak > 0 {
+            return "\(base)，当前连续 \(streak) 天"
+        } else if longestStreak > 0 {
+            return "\(base)，当前连续 0 天，历史最佳 \(longestStreak) 天"
+        }
+        return base
     }
 
     // MARK: - Grid data

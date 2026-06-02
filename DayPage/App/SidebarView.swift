@@ -196,7 +196,8 @@ struct SidebarView: View {
         SidebarHeatmapView(
             counts: sidebarVM.heatmapCounts,
             totalEntries: sidebarVM.totalEntries16Weeks,
-            streak: sidebarVM.currentStreak
+            streak: sidebarVM.currentStreak,
+            longestStreak: sidebarVM.longestStreak
         )
         .padding(.horizontal, 20)
         .padding(.top, 4)
