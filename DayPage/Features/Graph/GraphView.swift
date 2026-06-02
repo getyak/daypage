@@ -647,8 +647,8 @@ struct GraphView: View {
                     .contentShape(Rectangle())
                     .opacity(scale >= 5.0 ? 0.4 : 1.0)
             }
-            .disabled(scale >= 5.0)
             .accessibilityLabel(NSLocalizedString("放大", comment: "Graph zoom in button"))
+            .accessibilityHint(scale >= 5.0 ? NSLocalizedString("已达到最大缩放比例", comment: "Graph zoom in limit hint") : "")
             .accessibilityAddTraits(.isButton)
 
             Rectangle()
@@ -666,8 +666,8 @@ struct GraphView: View {
                     .contentShape(Rectangle())
                     .opacity(scale <= 0.3 ? 0.4 : 1.0)
             }
-            .disabled(scale <= 0.3)
             .accessibilityLabel(NSLocalizedString("缩小", comment: "Graph zoom out button"))
+            .accessibilityHint(scale <= 0.3 ? NSLocalizedString("已达到最小缩放比例", comment: "Graph zoom out limit hint") : "")
             .accessibilityAddTraits(.isButton)
         }
         .liquidGlassCard(cornerRadius: DSRadius.md, tone: .hi)
@@ -677,9 +677,15 @@ struct GraphView: View {
     }
 
     private func zoom(by factor: CGFloat) {
-        withAnimation(Motion.spring) {
-            scale = max(0.3, min(5.0, scale * factor))
-            lastScale = scale
+        let target = max(0.3, min(5.0, scale * factor))
+        guard abs(target - scale) >= 0.0001 else {
+            Haptics.warn()
+            return
+        }
+        if !reduceMotion {
+            withAnimation(Motion.spring) { scale = target; lastScale = target }
+        } else {
+            scale = target; lastScale = target
         }
         Haptics.soft()
     }
