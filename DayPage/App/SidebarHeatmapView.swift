@@ -14,8 +14,9 @@ import SwiftUI
 //   └────────────────────────────────────────────┘
 //
 // Columns are weeks (oldest → newest left→right); rows are weekdays Mon→Sun.
-// Today is forced to the highest tone; future cells render as a dashed
-// placeholder. Counts map to 4 tonal buckets via the heatmap-* color tokens.
+// Today is colored by its real memo count (amber strokeBorder marks it as today);
+// empty-today gets a dashed ghost border. Future cells render as a dashed placeholder.
+// Counts map to 4 tonal buckets via the heatmap-* color tokens.
 
 struct SidebarHeatmapView: View {
     /// Memo count per day keyed by `YYYY-MM-DD`.
@@ -32,6 +33,7 @@ struct SidebarHeatmapView: View {
     @State private var selectedCell: (date: Date, count: Int)? = nil
     @State private var selectedColumnIndex: Int = 0
     @State private var tooltipDismissGeneration: Int = 0
+    @State private var firstEntryGlow: Bool = false
 
     private let weeks = 16
     private let cellSpacing: CGFloat = 3
@@ -187,9 +189,18 @@ struct SidebarHeatmapView: View {
                 .frame(height: 11)
                 .accessibilityHidden(true)
         case .day(let date, let level, let isToday, let count):
+            let isTodayEmpty = isToday && level == 0
             RoundedRectangle(cornerRadius: 2.5, style: .continuous)
                 .fill(Self.palette[level])
                 .frame(height: 11)
+                .overlay(
+                    // Dashed ghost border for an unstarted today — reads as "open, awaiting capture"
+                    RoundedRectangle(cornerRadius: 2.5, style: .continuous)
+                        .strokeBorder(
+                            isTodayEmpty ? DSColor.borderSubtle : .clear,
+                            style: StrokeStyle(lineWidth: 0.5, dash: [1.5, 1.5])
+                        )
+                )
                 .overlay(
                     RoundedRectangle(cornerRadius: 2.5, style: .continuous)
                         .strokeBorder(Color.black.opacity(level == 3 ? 0.06 : 0), lineWidth: 0.5)
@@ -198,6 +209,19 @@ struct SidebarHeatmapView: View {
                     RoundedRectangle(cornerRadius: 2.5, style: .continuous)
                         .strokeBorder(isToday ? DSColor.accentAmber : .clear, lineWidth: 1)
                 )
+                .shadow(
+                    color: isToday && firstEntryGlow ? DSColor.accentAmber.opacity(0.55) : .clear,
+                    radius: firstEntryGlow ? 4 : 0
+                )
+                .onChange(of: count) { newCount in
+                    if isToday && newCount == 1 && !reduceMotion {
+                        withAnimation(.easeOut(duration: 0.25)) { firstEntryGlow = true }
+                        Task {
+                            try? await Task.sleep(nanoseconds: 600_000_000)
+                            withAnimation(.easeOut(duration: 0.5)) { firstEntryGlow = false }
+                        }
+                    }
+                }
                 .contentShape(Rectangle())
                 .onTapGesture {
                     if let sel = selectedCell, Calendar.current.isDate(sel.date, inSameDayAs: date) {
@@ -348,7 +372,7 @@ struct SidebarHeatmapView: View {
                     let key = Self.isoFmt.string(from: date)
                     let count = counts[key] ?? 0
                     let isToday = key == todayStr
-                    let lvl = isToday ? 3 : level(for: count)
+                    let lvl = level(for: count)
                     col.append(.day(date, level: lvl, isToday: isToday, count: count))
                 }
             }
