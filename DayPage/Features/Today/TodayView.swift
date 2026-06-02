@@ -1529,10 +1529,8 @@ struct TodayView: View {
             }
             // Celebrate streak milestone when today's first memo is added.
             if lastMemoCount == 0 && count == 1 {
-                sidebarVM.refreshRecentDays()
                 Task { @MainActor in
-                    // Let the async vault scan in refreshRecentDays complete.
-                    try? await Task.sleep(nanoseconds: 400_000_000)
+                    await sidebarVM.refreshRecentDaysAsync()
                     celebrateStreakIfNeeded()
                 }
             }
