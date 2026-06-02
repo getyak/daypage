@@ -369,10 +369,20 @@ struct TodayView: View {
                                 .transition(.move(edge: .top).combined(with: .opacity))
                                 .accessibilityIdentifier("submit-error-toast")
                                 .accessibilityLabel(err)
+                                .accessibilityHint(NSLocalizedString("Tap or swipe to dismiss", comment: "submit error toast dismiss hint"))
                                 .accessibilityAddTraits(.isStaticText)
                                 .onTapGesture {
                                     withAnimation(Motion.rise) { viewModel.submitError = nil }
                                 }
+                                .gesture(
+                                    DragGesture(minimumDistance: 20)
+                                        .onEnded { value in
+                                            if value.translation.height < -10 || abs(value.translation.width) > 40 {
+                                                Haptics.soft()
+                                                withAnimation(Motion.rise) { viewModel.submitError = nil }
+                                            }
+                                        }
+                                )
                                 .onAppear {
                                     Haptics.warn()
                                     UIAccessibility.post(notification: .announcement, argument: err)
