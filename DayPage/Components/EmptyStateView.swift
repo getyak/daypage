@@ -266,7 +266,7 @@ extension EmptyStateView {
         EmptyStateView(
             title: L10n.Empty.graphNoMatchesTitle,
             subtitle: L10n.Empty.graphNoMatchesSubtitle,
-            ctaLabel: "清除筛选",
+            ctaLabel: L10n.Empty.graphClearFilters,
             ctaAction: ctaAction,
             showOrbAccent: false
         )
