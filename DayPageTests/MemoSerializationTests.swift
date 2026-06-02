@@ -188,6 +188,35 @@ struct MemoSerializationTests {
         assertRoundTrip(memo)
     }
 
+    @Test func newlineAndTab_inTranscriptAndMood_roundTrip() {
+        let memo = Memo(
+            id: UUID(),
+            type: .voice,
+            created: fixedDate,
+            mood: "happy\nexcited",
+            attachments: [
+                Memo.Attachment(
+                    file: "audio.m4a",
+                    kind: "audio",
+                    duration: 5.0,
+                    transcript: "line one\nline two\ttabbed",
+                    transcriptionStatus: .done
+                )
+            ],
+            body: "Body text"
+        )
+        assertRoundTrip(memo)
+        // Literal backslash-n in source must NOT become a newline on round-trip.
+        let literalBackslashN = Memo(
+            id: UUID(),
+            type: .text,
+            created: fixedDate,
+            mood: "has \\n literal",
+            body: "ok"
+        )
+        assertRoundTrip(literalBackslashN)
+    }
+
     @Test func explicit_empty_entityMentions_and_attachments() {
         let memo = Memo(
             id: UUID(),

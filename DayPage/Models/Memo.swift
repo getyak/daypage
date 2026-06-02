@@ -266,13 +266,15 @@ extension Memo {
 
     // MARK: Private helpers
 
-    /// 将字符串用双引号包裹，转义内部引号、反斜杠和换行符，确保值保持在单行上。
+    /// 将字符串用双引号包裹，转义内部引号、反斜杠及换行符，确保标量值始终占一行。
     private func yamlQuote(_ s: String) -> String {
         let escaped = s
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
-            .replacingOccurrences(of: "\r", with: "\\r")
+            .replacingOccurrences(of: "\r\n", with: "\\n")
             .replacingOccurrences(of: "\n", with: "\\n")
+            .replacingOccurrences(of: "\r", with: "\\r")
+            .replacingOccurrences(of: "\t", with: "\\t")
         return "\"\(escaped)\""
     }
 }
@@ -432,10 +434,10 @@ struct YAMLParser {
         return nil
     }
 
-    /// 去除外围双引号并反转义 \"、\\n、\\r 和 \\。
-    /// 使用字符扫描而非顺序字符串替换，避免 \\\\ 被误解析为转义序列前缀。
+    /// 去除外围双引号并反转义所有转义序列（\ \" \n \r \t）。
+    /// 使用逐字符扫描确保 \n 被解码为字面反斜杠+n，而非换行符。
     private func yamlUnquote(_ s: String) -> String {
-        guard s.hasPrefix("\""), s.hasSuffix("\""), s.count >= 2 else { return s }
+        guard s.hasPrefix("\"") && s.hasSuffix("\"") && s.count >= 2 else { return s }
         let inner = s.dropFirst().dropLast()
         var result = ""
         result.reserveCapacity(inner.count)
@@ -446,9 +448,10 @@ struct YAMLParser {
                 let next = inner.index(after: idx)
                 if next < inner.endIndex {
                     switch inner[next] {
-                    case "\"": result.append("\"")
                     case "n":  result.append("\n")
                     case "r":  result.append("\r")
+                    case "t":  result.append("\t")
+                    case "\"": result.append("\"")
                     case "\\": result.append("\\")
                     default:   result.append(ch); result.append(inner[next])
                     }
