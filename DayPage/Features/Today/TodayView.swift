@@ -1146,7 +1146,8 @@ struct TodayView: View {
             if !viewModel.memos.isEmpty {
                 Button {
                     let content = MarkdownExportService.buildExportContent(
-                        memos: viewModel.memos, date: Date()
+                        memos: viewModel.memos, date: Date(),
+                        summary: viewModel.dailyPageSummary
                     )
                     let df = DateFormatter()
                     df.dateFormat = "yyyy-MM-dd"
@@ -1187,7 +1188,8 @@ struct TodayView: View {
                 .alignmentGuide(.firstTextBaseline) { d in d[VerticalAlignment.center] + 6 }
                 .onLongPressGesture(minimumDuration: 0.5) {
                     let content = MarkdownExportService.buildExportContent(
-                        memos: viewModel.memos, date: Date()
+                        memos: viewModel.memos, date: Date(),
+                        summary: viewModel.dailyPageSummary
                     )
                     UIPasteboard.general.string = content
                     Haptics.success()
