@@ -61,6 +61,25 @@ struct GraphView: View {
                         TextField("搜索节点...", text: $viewModel.searchQuery)
                             .font(DSFonts.jetBrainsMono(size: 12))
                             .foregroundColor(DSColor.inkPrimary)
+                            .submitLabel(.search)
+                            .onSubmit {
+                                let matches = searchMatches
+                                guard !matches.isEmpty else {
+                                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                                    return
+                                }
+                                if matches.count > 1 {
+                                    searchMatchIndex = (searchMatchIndex + 1) % matches.count
+                                    let node = matches[searchMatchIndex]
+                                    centerOn(node, in: simulationSize)
+                                    pulseNode(node)
+                                    Haptics.soft()
+                                } else {
+                                    centerOn(matches[0], in: simulationSize)
+                                    pulseNode(matches[0])
+                                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                                }
+                            }
                         if !viewModel.searchQuery.isEmpty {
                             Button {
                                 Haptics.soft()
