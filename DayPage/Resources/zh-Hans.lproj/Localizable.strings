@@ -50,6 +50,8 @@
 "write.sheet.icon.photo"     = "相册";
 "write.sheet.icon.location"  = "位置";
 "write.sheet.icon.tag"       = "标签";
+"write.sheet.icon.disabled.hint" = "请在主输入栏添加";
+"write.sheet.rail.hint"      = "轻点底部工具栏可添加照片、位置等";
 
 /* WriteSheet — word/char counter */
 "writesheet.count.words.one"   = "1 个词";
@@ -63,6 +65,15 @@
 "input.a11y.mic"             = "麦克风";
 "input.a11y.mic_hint_full"   = "单击进入录音页；长按说话松手发送";
 "input.a11y.write_text"      = "写文字";
+"input.a11y.mic_transcribe"  = "录音转文字";
+"input.a11y.mic_stop_transcribe" = "停止录音并转文字";
+"input.a11y.camera"          = "拍照";
+"input.a11y.photo_library"   = "从相册选择";
+"input.a11y.add_location"    = "添加当前位置";
+"input.a11y.clear_location"  = "清除位置";
+"input.a11y.collapse"        = "收起输入栏";
+"input.a11y.drag_handle"     = "拖动手柄";
+"input.a11y.drag_handle_hint" = "上下拖动可展开或收起输入栏";
 
 /* Dock button labels — shown next to each icon */
 "input.dock.more"            = "更多";
