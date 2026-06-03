@@ -26,8 +26,8 @@
 "compile.dock.unlocked" = "Daily compilation unlocked";
 
 /* InputBarV4 — press-to-talk hint states */
-"input.hint.placeholder"     = "记下此刻";
-"input.hint.idle"            = "轻点书写 · 长按录音";
+"input.hint.placeholder"     = "Capture this moment";
+"input.hint.idle"            = "Tap to write · Hold to record";
 "input.hint.pre_recording"   = "Hold a moment longer";
 "input.hint.recording"       = "Swipe up to cancel · Left to transcribe · Release to send";
 "input.hint.cancel_armed"    = "Release to cancel";
@@ -56,6 +56,8 @@
 "write.sheet.icon.photo"     = "Photos";
 "write.sheet.icon.location"  = "Location";
 "write.sheet.icon.tag"       = "Tag";
+"write.sheet.icon.disabled.hint" = "Add from the main input bar";
+"write.sheet.rail.hint"      = "Tap the dock to attach photos, location and more";
 
 /* WriteSheet — discard confirmation */
 "write.sheet.discard.prompt" = "Discard this draft?";
@@ -74,6 +76,15 @@
 "input.a11y.mic"             = "Microphone";
 "input.a11y.mic_hint_full"   = "Tap to open the recorder; press-and-hold to send a voice memo";
 "input.a11y.write_text"      = "Write text";
+"input.a11y.mic_transcribe"  = "Record and transcribe";
+"input.a11y.mic_stop_transcribe" = "Stop recording and transcribe";
+"input.a11y.camera"          = "Take photo";
+"input.a11y.photo_library"   = "Choose from library";
+"input.a11y.add_location"    = "Add current location";
+"input.a11y.clear_location"  = "Clear location";
+"input.a11y.collapse"        = "Collapse input bar";
+"input.a11y.drag_handle"     = "Drag handle";
+"input.a11y.drag_handle_hint" = "Drag up or down to expand or collapse the input bar";
 
 /* Dock button labels — shown next to each icon */
 "input.dock.more"            = "More";
