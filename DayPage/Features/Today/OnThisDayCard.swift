@@ -12,6 +12,7 @@ struct OnThisDayCard: View {
 
     var body: some View {
         Button {
+            Haptics.tapConfirm()
             onTap(entry)
         } label: {
             cardContent
