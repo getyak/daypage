@@ -64,9 +64,33 @@ struct WriteSheetView: View {
     /// Sheet-up easing — composer.jsx:219 `cubic-bezier(.2,.8,.2,1)` @ 320ms.
     private static let sheetUp = Animation.timingCurve(0.2, 0.8, 0.2, 1, duration: 0.32)
 
-    /// Actual word count — split on whitespace/newlines, filter empties.
+    /// CJK-aware word count: each CJK/Hiragana/Katakana ideograph = 1 word;
+    /// consecutive non-CJK non-whitespace scalars = 1 Latin word per run.
     private var wordCount: Int {
-        text.split(whereSeparator: \.isWhitespace).count
+        Self.wordCount(in: text)
+    }
+
+    static func wordCount(in text: String) -> Int {
+        var count = 0
+        var inLatinRun = false
+        for scalar in text.unicodeScalars {
+            switch scalar.value {
+            case 0x4E00...0x9FFF,  // CJK Unified Ideographs
+                 0x3400...0x4DBF,  // CJK Extension A
+                 0x3040...0x309F,  // Hiragana
+                 0x30A0...0x30FF:  // Katakana
+                if inLatinRun { inLatinRun = false }
+                count += 1
+            case _ where scalar.properties.isWhitespace:
+                inLatinRun = false
+            default:
+                if !inLatinRun {
+                    inLatinRun = true
+                    count += 1
+                }
+            }
+        }
+        return count
     }
 
     private var charCount: Int { text.count }
