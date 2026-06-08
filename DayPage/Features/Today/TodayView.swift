@@ -666,8 +666,24 @@ struct TodayView: View {
                 onThisDayDateString = dateString
             }
         case .pureEmpty:
-            EmptyStateView.todayNoSignals(ctaAction: { orbFocusToggle.toggle() }, subtitleOverride: todayEmptySubtitle(currentTime))
-                .padding(.horizontal, 20)
+            VStack(spacing: 12) {
+                EmptyStateView.todayNoSignals(ctaAction: { orbFocusToggle.toggle() }, subtitleOverride: todayEmptySubtitle(currentTime))
+                let streak = sidebarVM.currentStreak
+                if streak >= 1 {
+                    let kickerText: String = streak == 1
+                        ? String(format: NSLocalizedString("today.empty.streak.kicker.one", comment: ""), streak)
+                        : String(format: NSLocalizedString("today.empty.streak.kicker", comment: ""), streak)
+                    Text(kickerText)
+                        .font(DSType.mono10)
+                        .tracking(1.0)
+                        .foregroundColor(DSColor.inkSubtle)
+                        .textCase(.uppercase)
+                        .dynamicTypeSize(.xSmall ... .accessibility5)
+                        .accessibilityLabel(kickerText)
+                        .transition(.opacity)
+                }
+            }
+            .padding(.horizontal, 20)
         }
     }
 
