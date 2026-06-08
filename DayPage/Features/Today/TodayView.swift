@@ -1248,6 +1248,24 @@ struct TodayView: View {
             .accessibilityLabel("Open navigation")
             .accessibilityHint("Opens the sidebar navigation drawer")
             .accessibilityIdentifier("sidebar-menu-button")
+            .simultaneousGesture(
+                TapGesture(count: 2).onEnded {
+                    guard !viewModel.memos.isEmpty, timelineScrollOffset < -8 else { return }
+                    hasNewContentAboveFold = false
+                    Haptics.soft()
+                    withAnimation(reduceMotion ? nil : Motion.spring) {
+                        timelineScrollProxy?.scrollTo("timelineTop", anchor: .top)
+                    }
+                }
+            )
+            .accessibilityAction(named: Text(NSLocalizedString("today.header.scroll_to_top", comment: "Scroll to top accessibility action"))) {
+                guard !viewModel.memos.isEmpty else { return }
+                hasNewContentAboveFold = false
+                Haptics.soft()
+                withAnimation(reduceMotion ? nil : Motion.spring) {
+                    timelineScrollProxy?.scrollTo("timelineTop", anchor: .top)
+                }
+            }
             .onLongPressGesture(minimumDuration: 1.5) {
                 HapticFeedback.medium()
                 if let entry = OnThisDayScheduler.shared.forceRefresh() {
