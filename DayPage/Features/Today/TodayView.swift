@@ -467,6 +467,16 @@ struct TodayView: View {
                     viewModel.shouldShowSettings = false
                 }
             }
+            // Restore failed draft body into the composer so the user can retry.
+            // Only restores when the composer is empty — never clobbers a new draft.
+            .onChange(of: viewModel.lastFailedBody) { failedBody in
+                guard let body = failedBody else { return }
+                viewModel.lastFailedBody = nil
+                guard draftText.isEmpty else { return }
+                draftText = body
+                orbFocusToggle.toggle()
+                Haptics.warn()
+            }
             // Daily Page full-screen sheet
             .fullScreenCover(isPresented: $showDailyPage) {
                 let dateStr: String = {
