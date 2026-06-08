@@ -439,6 +439,10 @@ struct ArchiveView: View {
     @State private var todayPulse: Bool = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    // MARK: - List mode scroll-to-top
+    @State private var listScrollOffset: CGFloat = 0
+    @State private var listScrollProxy: ScrollViewProxy? = nil
+
     /// Issue #302: monthly summary → share-card sheet.
     @State private var sharePayload: SharePayload? = nil
     @Environment(\.colorScheme) private var colorScheme
@@ -458,7 +462,19 @@ struct ArchiveView: View {
                 VStack(spacing: 0) {
                     archiveHeader
 
+                    ScrollViewReader { proxy in
                     ScrollView {
+                        GeometryReader { geo in
+                            Color.clear
+                                .preference(
+                                    key: ArchiveListScrollOffsetKey.self,
+                                    value: mode == .list
+                                        ? geo.frame(in: .named("archiveListScroll")).minY
+                                        : 0
+                                )
+                        }
+                        .frame(height: 0)
+
                         VStack(spacing: 0) {
                             monthNavigationRow
                                 .padding(.horizontal, 20)
@@ -526,6 +542,37 @@ struct ArchiveView: View {
                             }
                         }
                     }
+                    .coordinateSpace(name: "archiveListScroll")
+                    .onPreferenceChange(ArchiveListScrollOffsetKey.self) { value in
+                        listScrollOffset = value
+                    }
+                    .onAppear { listScrollProxy = proxy }
+                    .overlay(alignment: .bottomTrailing) {
+                        if mode == .list && listScrollOffset < -240 && !viewModel.sortedDays.isEmpty {
+                            Button {
+                                Haptics.soft()
+                                withAnimation(reduceMotion ? nil : Motion.spring) {
+                                    listScrollProxy?.scrollTo("archiveListTop", anchor: .top)
+                                }
+                            } label: {
+                                Image(systemName: "chevron.up")
+                                    .font(DSType.bodySM)
+                                    .foregroundColor(DSColor.inkMuted)
+                                    .frame(width: 28, height: 28)
+                                    .background(DSColor.glassStd)
+                                    .background(.ultraThinMaterial, in: Circle())
+                                    .overlay(Circle().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                                    .clipShape(Circle())
+                            }
+                            .padding(.trailing, 20)
+                            .padding(.bottom, 20)
+                            .transition(.opacity.combined(with: .scale(scale: 0.8)))
+                            .accessibilityLabel(NSLocalizedString("archive.scroll_to_top", comment: "Scroll to top of archive list"))
+                            .accessibilityIdentifier("archive-scroll-to-top-button")
+                        }
+                    }
+                    .animation(reduceMotion ? nil : Motion.rise, value: mode == .list && listScrollOffset < -240)
+                    } // end ScrollViewReader
                 }
             }
             .navigationBarHidden(true)
@@ -1138,6 +1185,8 @@ struct ArchiveView: View {
 
     private var listContent: some View {
         LazyVStack(spacing: 8) {
+            Color.clear.frame(height: 0).id("archiveListTop")
+
             if viewModel.sortedDays.isEmpty {
                 EmptyStateView.archiveMonthEmpty {
                     nav.selectedTab = .today
@@ -1237,6 +1286,15 @@ struct ArchiveView: View {
                 .monoLabelStyle(size: 11)
                 .foregroundColor(DSColor.inkSubtle)
         }
+    }
+}
+
+// MARK: - ArchiveListScrollOffsetKey
+
+private struct ArchiveListScrollOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 
