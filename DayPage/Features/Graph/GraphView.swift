@@ -35,6 +35,9 @@ struct GraphView: View {
     @State private var lastCenteredMatchID: String? = nil
     @State private var searchMatchIndex: Int = 0
 
+    // Auto-fit state — fires once when simulation settles; re-arms on node-set change
+    @State private var didAutoFit: Bool = false
+
     // Zero-match haptic guard — fires warn() exactly once per zero-crossing
     @State private var lastZeroQuery: String? = nil
 
@@ -342,7 +345,11 @@ struct GraphView: View {
             viewModel.load()
         }
         .onChange(of: viewModel.nodes.count) { count in
-            if !viewModel.nodes.isEmpty { startSimulation() }
+            didAutoFit = false
+            if !viewModel.nodes.isEmpty {
+                startSimulation()
+                if simulationSteps >= maxSimSteps { attemptAutoFit() }
+            }
             let milestone = count / 10
             guard count > 0, milestone > lastNetworkMilestone else { return }
             lastNetworkMilestone = milestone
@@ -1044,6 +1051,12 @@ struct GraphView: View {
 
     // MARK: - Simulation
 
+    private func attemptAutoFit() {
+        guard !didAutoFit, !isTransformed, visibleNodes.count >= 2 else { return }
+        didAutoFit = true
+        fitToScreen(in: simulationSize)
+    }
+
     private func startSimulation(reset: Bool = true) {
         if reset { simulationSteps = 0 }
         simulationTimer?.invalidate()
@@ -1055,6 +1068,9 @@ struct GraphView: View {
                 }
                 self.viewModel.simulationStep(size: self.simulationSize)
                 self.simulationSteps += 1
+                if self.simulationSteps == self.maxSimSteps {
+                    self.attemptAutoFit()
+                }
             }
         }
     }
