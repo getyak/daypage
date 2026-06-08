@@ -331,6 +331,78 @@
 
 "search.undo.cleared" = "Recent searches cleared";
 
+/* Search — bar */
+"search.placeholder"              = "Search memos, places, or dates";
+"search.cancel"                   = "Cancel";
+
+/* Search — bar accessibility */
+"search.a11y.searchField"         = "Search field";
+"search.a11y.searching"           = "Searching";
+"search.a11y.clearSearch"         = "Clear search";
+"search.a11y.cancelSearch"        = "Cancel search";
+"search.a11y.filter"              = "Filter";
+"search.a11y.filter.hint"         = "Filter results by date, type, or location";
+"search.a11y.filter.enabled"      = "Active";
+"search.a11y.filter.disabled"     = "Inactive";
+
+/* Search — filter panel */
+"search.filter.dateRange"         = "Date";
+"search.filter.startDate"         = "Start date";
+"search.filter.type"              = "Type";
+"search.filter.location"          = "Place";
+"search.filter.location.placeholder" = "Filter by place name";
+"search.filter.clearAll"          = "Clear all filters";
+
+/* Search — section headers */
+"search.section.today"            = "Today";
+"search.section.thisWeek"         = "This Week";
+"search.section.thisMonth"        = "This Month";
+"search.section.earlier"          = "Earlier";
+"search.section.quickSearch"      = "Quick Search";
+"search.section.recentSearches"   = "Recent Searches";
+"search.section.topEntities"      = "Frequent Entities";
+
+/* Search — recent searches */
+"search.recent.clear"             = "Clear";
+
+/* Search — empty query state */
+"search.empty.prompt"             = "Type a keyword to search all archived content";
+"search.empty.hint"               = "Supports memo text, place names, and dates";
+"search.empty.trySuggestion"      = "Try searching";
+
+/* Search — empty result state */
+"search.empty.noMatchFiltered"        = "No results match the current filters";
+"search.empty.noMatchQueryFiltered"   = "No results for \"%@\" with current filters";
+"search.empty.noMatchQuery"           = "No results found for \"%@\"";
+"search.empty.clearFilters"           = "Clear filters";
+"search.empty.clearSearch"            = "Clear search";
+"search.empty.tryAnother"             = "Try a different keyword";
+
+/* Search — result list */
+"search.result.count"             = "%d results";
+"search.result.countFiltered"     = "%d / %d results";
+"search.result.filtered"          = "Filtered";
+
+/* Search — VoiceOver announcements */
+"search.a11y.noResults"           = "No results found";
+"search.a11y.resultCount"         = "%d results";
+"search.a11y.showingResults"      = "%d results — double tap to scroll to top";
+"search.a11y.entityChip"          = "Search %@";
+"search.a11y.entityChip.hint"     = "Double tap to search with this keyword";
+"search.a11y.scrollTop.hint"      = "Double tap to scroll to top";
+"search.a11y.kindChip"            = "%1$@, %2$d results";
+"search.a11y.kindChip.select.hint"   = "Double tap to filter by this type";
+"search.a11y.kindChip.deselect.hint" = "Double tap to remove this filter";
+"search.a11y.resultRow.hint"      = "Double tap to open this day's page";
+"search.a11y.deleteRecent"        = "Delete this search";
+
+/* Search — memo type filter chips */
+"search.type.text"                = "Text";
+"search.type.voice"               = "Voice";
+"search.type.photo"               = "Photo";
+"search.type.location"            = "Location";
+"search.type.mixed"               = "Mixed";
+
 /* Search result row — relative date labels */
 "search.result.today"     = "Today";
 "search.result.yesterday" = "Yesterday";
