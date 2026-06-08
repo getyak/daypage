@@ -22,6 +22,7 @@ final class SearchViewModel: ObservableObject {
     private let maxRecent = 10
 
     @Published var lastClearedSearches: [String]? = nil
+    private var clearUndoTask: Task<Void, Never>? = nil
 
     var recentSearches: [String] {
         get { UserDefaults.standard.stringArray(forKey: recentKey) ?? [] }
@@ -122,13 +123,26 @@ final class SearchViewModel: ObservableObject {
         lastClearedSearches = current
         recentSearches = []
         objectWillChange.send()
+        clearUndoTask?.cancel()
+        clearUndoTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(5))
+            guard !Task.isCancelled, lastClearedSearches != nil else { return }
+            lastClearedSearches = nil
+        }
     }
 
     func undoClearRecentSearches() {
         guard let snapshot = lastClearedSearches else { return }
+        clearUndoTask?.cancel()
+        clearUndoTask = nil
         recentSearches = snapshot
         lastClearedSearches = nil
         objectWillChange.send()
+    }
+
+    func cancelClearUndo() {
+        clearUndoTask?.cancel()
+        clearUndoTask = nil
     }
 
     // MARK: Result grouping
@@ -244,6 +258,7 @@ struct SearchView: View {
                             Haptics.soft()
                             vm.undoClearRecentSearches()
                         } onDismiss: {
+                            vm.cancelClearUndo()
                             vm.lastClearedSearches = nil
                         }
                         .padding(.bottom, 40)
