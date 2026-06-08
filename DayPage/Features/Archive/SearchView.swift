@@ -806,6 +806,7 @@ struct SearchView: View {
                         vm.hasSearched = false
                         didBuzzEmpty = false
                         setupDebounce()
+                        isInputFocused = true
                     }) {
                         Text("清除搜索")
                             .monoLabelStyle(size: 11)
