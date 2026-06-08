@@ -23,6 +23,10 @@ struct EmptyStateView: View {
 
     /// Captured once on appear so the tint stays stable across the breathing animation.
     @State private var orbTint: Color = TimeOfDay.from(Date()).tint
+    /// Tracks which TimeOfDay bucket is currently displayed; avoids float-equality churn.
+    @State private var tintBucket: Int = TimeOfDay.from(Date()).bucketIndex
+
+    private let tintTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
 
     var body: some View {
         VStack(spacing: 20) {
@@ -59,6 +63,15 @@ struct EmptyStateView: View {
             }
         }
         .padding(.horizontal, 32)
+        .onReceive(tintTimer) { now in
+            guard showOrbAccent else { return }
+            let tod = TimeOfDay.from(now)
+            guard tod.bucketIndex != tintBucket else { return }
+            tintBucket = tod.bucketIndex
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.8)) {
+                orbTint = tod.tint
+            }
+        }
         .onAppear {
             orbTint = TimeOfDay.from(Date()).tint
             if reduceMotion {
