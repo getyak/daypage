@@ -352,6 +352,15 @@
 
 "search.undo.cleared" = "已清除搜索记录";
 
+/* Search result row — relative date labels */
+"search.result.today"     = "今天";
+"search.result.yesterday" = "昨天";
+"search.result.daysAgo"   = "%d 天前";
+
+/* Search entity chips */
+"search.entity.mostFrequent"       = "最高频";
+"search.entity.relativeFrequency"  = "%d%%";
+
 /* CompileFooterButton — time-of-day hints */
 "compile.hint.morning"   = "今天才刚开始";
 "compile.hint.afternoon" = "记录还在继续";
