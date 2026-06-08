@@ -326,6 +326,7 @@
 "export.action.title"  = "Export as Markdown";
 "export.action.label"  = "Export";
 "export.action.hint"   = "Double tap to share, long press to copy";
+"export.success.title" = "Exported as Markdown";
 "export.error.title"   = "Export failed, please try again";
 "export.copied.title"  = "Markdown copied";
 
