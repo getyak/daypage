@@ -56,9 +56,9 @@ struct WikilinkText: View {
 // MARK: - Wikilink Body Text
 //
 // Renders a paragraph that may contain [[slug]] or [[slug|display]]
-// wiki-links. Links render in amber; tapping any of them triggers the
-// callback with the *first* link's inner slug — sufficient for
-// single-entity paragraphs which is the common case.
+// wiki-links. Each link is independently tappable and routes to its own
+// entity; plain text is inert. Uses AttributedString link attributes so
+// SwiftUI hit-tests individual runs rather than the whole Text view.
 
 struct WikilinkBodyText: View {
     let text: String
@@ -95,32 +95,35 @@ struct WikilinkBodyText: View {
         return result
     }
 
-    private var firstLinkInner: String? {
-        segments.first(where: { $0.isLink })?.inner
+    private var attributedString: AttributedString {
+        var result = AttributedString()
+        for seg in segments {
+            var part = AttributedString(seg.content)
+            if seg.isLink {
+                part.font = .custom("Inter-Medium", size: 15)
+                part.foregroundColor = DSColor.amberAccent
+                // Percent-encode the slug into the URL host so tapping routes to this specific entity.
+                let encoded = seg.inner.addingPercentEncoding(withAllowedCharacters: .urlHostAllowed) ?? seg.inner
+                part.link = URL(string: "wikilink://\(encoded)")
+            } else {
+                part.font = .custom("Inter-Regular", size: 15)
+                part.foregroundColor = DSColor.inkPrimary
+            }
+            result.append(part)
+        }
+        return result
     }
 
     var body: some View {
-        let rendered = segments.reduce(Text("")) { acc, seg in
-            if seg.isLink {
-                return acc + Text(seg.content)
-                    .font(.custom("Inter-Medium", size: 15))
-                    .foregroundColor(DSColor.amberAccent)
-            } else {
-                return acc + Text(seg.content)
-                    .font(.custom("Inter-Regular", size: 15))
-                    .foregroundColor(DSColor.inkPrimary)
-            }
-        }
-
-        if let linkInner = firstLinkInner {
-            rendered
-                .lineSpacing(3)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .onTapGesture { onWikilinkTap(linkInner) }
-        } else {
-            rendered
-                .lineSpacing(3)
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
+        Text(attributedString)
+            .lineSpacing(3)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .environment(\.openURL, OpenURLAction { url in
+                guard url.scheme == "wikilink" else { return .systemAction }
+                let slug = (url.host ?? url.path)
+                    .removingPercentEncoding ?? (url.host ?? url.path)
+                onWikilinkTap(slug)
+                return .handled
+            })
     }
 }
