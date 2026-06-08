@@ -27,6 +27,7 @@ struct MemoCardView: View {
     @State private var downloadStates: [URL: AttachmentDownloadState] = [:]
     @State private var downloadTask: Task<Void, Never>? = nil
     @State private var sharePayload: SharePayload? = nil
+    @State private var showPhotoViewer: Bool = false
 
     /// Precise 24h time for the content-first card meta line (rendered as "15·23").
     private static let cardTimeFmt: DateFormatter = {
@@ -193,8 +194,21 @@ struct MemoCardView: View {
                     case .current:
                         PhotoThumbnailView(fileURL: photoURL, thumbnail: $thumbnail, exifText: photoExifText)
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                Haptics.tapConfirm()
+                                showPhotoViewer = true
+                            }
                             .padding(.horizontal, 14)
                             .padding(.top, 14)
+                            .fullScreenCover(isPresented: $showPhotoViewer) {
+                                if let att = memo.attachments.first(where: { $0.kind == "photo" }) {
+                                    PhotoFullScreenViewer(
+                                        fileURL: VaultInitializer.vaultURL.appendingPathComponent(att.file),
+                                        exifText: photoExifText
+                                    )
+                                }
+                            }
                     case .downloading, .notDownloaded, .failed:
                         PhotoDownloadPlaceholder(state: photoState)
                             .padding(.top, 4)
@@ -390,6 +404,138 @@ struct MemoCardView: View {
             return "\(filename) // FOCUS: \(Int(focal))mm"
         }
         return filename
+    }
+}
+
+// MARK: - PhotoFullScreenViewer
+
+struct PhotoFullScreenViewer: View {
+
+    let fileURL: URL
+    let exifText: String?
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var image: UIImage?
+    @State private var isLoading: Bool = true
+
+    @State private var scale: CGFloat = 1.0
+    @State private var lastScale: CGFloat = 1.0
+    @State private var offset: CGSize = .zero
+    @State private var lastOffset: CGSize = .zero
+
+    private let minScale: CGFloat = 1.0
+    private let maxScale: CGFloat = 4.0
+    private let snapBackThreshold: CGFloat = 1.05
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            if isLoading {
+                ProgressView()
+                    .tint(.white)
+            } else if let img = image {
+                Image(uiImage: img)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .scaleEffect(scale)
+                    .offset(offset)
+                    .gesture(
+                        SimultaneousGesture(
+                            MagnificationGesture()
+                                .onChanged { value in
+                                    let newScale = lastScale * value
+                                    scale = min(maxScale, max(minScale, newScale))
+                                }
+                                .onEnded { value in
+                                    let newScale = lastScale * value
+                                    if newScale < snapBackThreshold {
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                            scale = minScale
+                                            offset = .zero
+                                        }
+                                        lastScale = minScale
+                                        lastOffset = .zero
+                                    } else {
+                                        scale = min(maxScale, max(minScale, newScale))
+                                        lastScale = scale
+                                    }
+                                },
+                            DragGesture()
+                                .onChanged { value in
+                                    if scale > 1.0 {
+                                        offset = CGSize(
+                                            width: lastOffset.width + value.translation.width,
+                                            height: lastOffset.height + value.translation.height
+                                        )
+                                    }
+                                }
+                                .onEnded { value in
+                                    if scale <= 1.0 {
+                                        let threshold: CGFloat = 100
+                                        if value.translation.height > threshold {
+                                            dismiss()
+                                        } else {
+                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                                offset = .zero
+                                            }
+                                            lastOffset = .zero
+                                        }
+                                    } else {
+                                        lastOffset = offset
+                                    }
+                                }
+                        )
+                    )
+            }
+
+            // Close button
+            VStack {
+                HStack {
+                    Spacer()
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 28))
+                            .foregroundColor(DSColor.amberSoft)
+                            .padding(16)
+                    }
+                    .buttonStyle(.plain)
+                }
+                Spacer()
+            }
+
+            // EXIF caption
+            if let exifText {
+                VStack {
+                    Spacer()
+                    Text(exifText)
+                        .font(DSFonts.jetBrainsMono(size: 10))
+                        .tracking(0.5)
+                        .textCase(.uppercase)
+                        .foregroundColor(DSColor.inkSubtle)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            LinearGradient(
+                                colors: [Color.clear, Color.black.opacity(0.7)],
+                                startPoint: .top, endPoint: .bottom
+                            )
+                        )
+                }
+            }
+        }
+        .task {
+            isLoading = true
+            image = await Task.detached(priority: .userInitiated) {
+                guard let data = try? Data(contentsOf: fileURL) else { return nil }
+                return UIImage(data: data)
+            }.value
+            isLoading = false
+        }
     }
 }
 
