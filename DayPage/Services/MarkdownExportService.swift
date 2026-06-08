@@ -42,6 +42,8 @@ enum MarkdownExportService {
         lines.append("date: \(dateString)")
         lines.append("export_source: DayPage")
         lines.append("memo_count: \(memos.count)")
+        let totalWords = memos.reduce(0) { $0 + Self.wordCount($1.body) }
+        lines.append("export_word_count: \(totalWords)")
 
         if let mood = moods.first {
             lines.append("mood: \(yamlQuoted(mood))")
@@ -126,6 +128,25 @@ enum MarkdownExportService {
             }
         }
 
+        if !sorted.isEmpty {
+            let tf2 = DateFormatter()
+            tf2.dateFormat = "HH:mm"
+            tf2.locale = Locale(identifier: "en_US_POSIX")
+            tf2.timeZone = AppSettings.currentTimeZone()
+            let firstTime = tf2.string(from: sorted.first!.created)
+            let lastTime  = tf2.string(from: sorted.last!.created)
+            let wordTotal = sorted.reduce(0) { $0 + Self.wordCount($1.body) }
+
+            lines.append("")
+            lines.append("---")
+            lines.append("")
+            lines.append("## Summary")
+            lines.append("")
+            lines.append("> \(sorted.count) memos")
+            lines.append("> \(wordTotal) words")
+            lines.append("> \(firstTime) – \(lastTime)")
+        }
+
         return lines.joined(separator: "\n")
     }
 
@@ -174,6 +195,10 @@ enum MarkdownExportService {
     }
 
     // MARK: - Private Helpers
+
+    private static func wordCount(_ text: String) -> Int {
+        text.split(whereSeparator: \.isWhitespace).filter { !$0.isEmpty }.count
+    }
 
     private static func yamlQuoted(_ s: String) -> String {
         var escaped = s

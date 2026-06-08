@@ -334,6 +334,47 @@ struct MarkdownExportServiceTests {
         #expect(url1.lastPathComponent == url2.lastPathComponent)
     }
 
+    // MARK: - Capture-stats footer
+
+    @Test func frontmatter_containsExportWordCount_summedFromTwoMemos() {
+        // "hello world" = 2 words, "foo bar baz" = 3 words → total 5
+        let m1 = makeMemo(body: "hello world", secondsOffset: 0)
+        let m2 = makeMemo(body: "foo bar baz", secondsOffset: 60)
+        let content = MarkdownExportService.buildExportContent(
+            memos: [m1, m2], date: makeDate()
+        )
+        #expect(content.contains("export_word_count: 5"))
+    }
+
+    @Test func summarySection_containsMemoCountWordCountAndTimeSpan() {
+        // Use a fixed UTC-based timezone so HH:mm is deterministic in tests.
+        // makeMemo uses timeIntervalSinceReferenceDate 800_000_000 (+offset).
+        // We only need first < last, and both within the same day.
+        let m1 = makeMemo(body: "hello world", secondsOffset: 0)
+        let m2 = makeMemo(body: "foo bar baz", secondsOffset: 3600)
+        let content = MarkdownExportService.buildExportContent(
+            memos: [m1, m2], date: makeDate()
+        )
+        #expect(content.contains("## Summary"))
+        #expect(content.contains("> 2 memos"))
+        #expect(content.contains("> 5 words"))
+        // Time span must contain " – " separator (first → last)
+        let summaryRange = content.range(of: "## Summary")
+        #expect(summaryRange != nil)
+        if let r = summaryRange {
+            let tail = String(content[r.lowerBound...])
+            #expect(tail.contains(" – "))
+        }
+    }
+
+    @Test func emptyMemos_producesNoSummaryFooter_andZeroWordCount() {
+        let content = MarkdownExportService.buildExportContent(
+            memos: [], date: makeDate()
+        )
+        #expect(content.contains("export_word_count: 0"))
+        #expect(!content.contains("## Summary"))
+    }
+
     // MARK: - 7. Memo bodies ordered by created ascending
 
     @Test func memoBodies_orderedByCreatedAscending() {
