@@ -136,7 +136,7 @@ struct MarkdownExportServiceTests {
         let df = DateFormatter()
         df.dateFormat = "EEEE, MMMM d, yyyy"
         df.locale = Locale.current
-        df.timeZone = TimeZone(identifier: "UTC")!
+        df.timeZone = AppSettings.currentTimeZone()
         let expected = df.string(from: date)
         #expect(content.contains("# DayPage — \(expected)"))
 
