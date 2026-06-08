@@ -1863,6 +1863,7 @@ struct TodayView: View {
         if let place = todayPlaceShort() {
             parts.append(place)
         }
+        parts.append(todayTimeZoneShort())
         return parts.joined(separator: "  ·  ")
     }
 
@@ -1886,6 +1887,7 @@ struct TodayView: View {
         }
         if let weather = todayWeatherShort() { parts.append(weather) }
         if let place = todayPlaceShort() { parts.append(place) }
+        parts.append(todayTimeZoneShort())
         return parts.joined(separator: ", ")
     }
 
@@ -1910,6 +1912,10 @@ struct TodayView: View {
             }
         }
         return nil
+    }
+
+    private func todayTimeZoneShort() -> String {
+        TimeZoneBadge.gmtOffset(for: .current, at: currentTime)
     }
 }
 
