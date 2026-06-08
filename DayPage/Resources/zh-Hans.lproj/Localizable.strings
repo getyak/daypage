@@ -163,6 +163,12 @@
 "empty.graph.subtitle" = "编译日记后，实体节点将在此出现，写点什么开始构建你的知识网络。";
 "empty.graph.cta" = "去写点什么";
 
+/* Graph empty-state time-of-day subtitles */
+"empty.graph.subtitle.morning" = "清晨是新的开始 — 开始记录，知识图谱将在这里生长。";
+"empty.graph.subtitle.afternoon" = "下午也是好时机 — 编译后的记录会以节点形式出现在这里。";
+"empty.graph.subtitle.evening" = "用傍晚的思绪收尾 — 写下来，它们会成为你知识图谱的一部分。";
+"empty.graph.subtitle.night" = "睡前记一笔 — 每一条记录都让图谱更丰富。";
+
 /* Graph search match VoiceOver announcements */
 "graph.search.match.announcement" = "%1$@，第 %2$d 个，共 %3$d 个";
 "graph.search.match.announcement.single" = "%1$@";
