@@ -367,6 +367,78 @@
 
 "search.undo.cleared" = "已清除搜索记录";
 
+/* Search — bar */
+"search.placeholder"              = "搜索 memo、地点或日期";
+"search.cancel"                   = "取消";
+
+/* Search — bar accessibility */
+"search.a11y.searchField"         = "搜索框";
+"search.a11y.searching"           = "正在搜索";
+"search.a11y.clearSearch"         = "清除搜索内容";
+"search.a11y.cancelSearch"        = "取消搜索";
+"search.a11y.filter"              = "筛选";
+"search.a11y.filter.hint"         = "按日期、类型、地点筛选结果";
+"search.a11y.filter.enabled"      = "已启用";
+"search.a11y.filter.disabled"     = "未启用";
+
+/* Search — filter panel */
+"search.filter.dateRange"         = "日期范围";
+"search.filter.startDate"         = "开始日期";
+"search.filter.type"              = "类型";
+"search.filter.location"          = "地点";
+"search.filter.location.placeholder" = "过滤地点名称";
+"search.filter.clearAll"          = "清除全部筛选";
+
+/* Search — section headers */
+"search.section.today"            = "今天";
+"search.section.thisWeek"         = "本周";
+"search.section.thisMonth"        = "本月";
+"search.section.earlier"          = "更早";
+"search.section.quickSearch"      = "快捷检索";
+"search.section.recentSearches"   = "最近搜索";
+"search.section.topEntities"      = "高频实体";
+
+/* Search — recent searches */
+"search.recent.clear"             = "清除";
+
+/* Search — empty query state */
+"search.empty.prompt"             = "输入关键词检索所有归档内容";
+"search.empty.hint"               = "支持 memo 正文、位置名、日期";
+"search.empty.trySuggestion"      = "试试搜索";
+
+/* Search — empty result state */
+"search.empty.noMatchFiltered"        = "当前筛选条件下无匹配结果";
+"search.empty.noMatchQueryFiltered"   = "「%@」在当前筛选条件下无匹配结果";
+"search.empty.noMatchQuery"           = "未找到「%@」的匹配结果";
+"search.empty.clearFilters"           = "清除筛选条件";
+"search.empty.clearSearch"            = "清除搜索";
+"search.empty.tryAnother"             = "换个关键词试试";
+
+/* Search — result list */
+"search.result.count"             = "%d 条结果";
+"search.result.countFiltered"     = "%d / %d 条结果";
+"search.result.filtered"          = "已筛选";
+
+/* Search — VoiceOver announcements */
+"search.a11y.noResults"           = "无匹配结果";
+"search.a11y.resultCount"         = "%d 条结果";
+"search.a11y.showingResults"      = "%d 条结果，双击回到顶部";
+"search.a11y.entityChip"          = "搜索 %@";
+"search.a11y.entityChip.hint"     = "双击以该关键词搜索归档";
+"search.a11y.scrollTop.hint"      = "双击滚动回列表顶部";
+"search.a11y.kindChip"            = "%1$@，%2$d 条结果";
+"search.a11y.kindChip.select.hint"   = "双击按此类型筛选";
+"search.a11y.kindChip.deselect.hint" = "双击取消筛选";
+"search.a11y.resultRow.hint"      = "双击打开当天页面";
+"search.a11y.deleteRecent"        = "删除该搜索记录";
+
+/* Search — memo type filter chips */
+"search.type.text"                = "文字";
+"search.type.voice"               = "语音";
+"search.type.photo"               = "照片";
+"search.type.location"            = "位置";
+"search.type.mixed"               = "混合";
+
 /* Search result row — relative date labels */
 "search.result.today"     = "今天";
 "search.result.yesterday" = "昨天";

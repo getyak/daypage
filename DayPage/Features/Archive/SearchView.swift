@@ -192,10 +192,10 @@ final class SearchViewModel: ObservableObject {
 
         var title: String {
             switch self {
-            case .today:     return "今天"
-            case .thisWeek:  return "本周"
-            case .thisMonth: return "本月"
-            case .earlier:   return "更早"
+            case .today:     return NSLocalizedString("search.section.today", comment: "Search section header: today")
+            case .thisWeek:  return NSLocalizedString("search.section.thisWeek", comment: "Search section header: this week")
+            case .thisMonth: return NSLocalizedString("search.section.thisMonth", comment: "Search section header: this month")
+            case .earlier:   return NSLocalizedString("search.section.earlier", comment: "Search section header: earlier")
             }
         }
     }
@@ -351,7 +351,9 @@ struct SearchView: View {
                     lastBuzzedEmptyQuery = nil
                 }
                 if UIAccessibility.isVoiceOverRunning && vm.hasSearched {
-                    let message = hits.isEmpty ? "无匹配结果" : "\(hits.count) 条结果"
+                    let message = hits.isEmpty
+                        ? NSLocalizedString("search.a11y.noResults", comment: "VoiceOver: no results found")
+                        : String(format: NSLocalizedString("search.a11y.resultCount", comment: "VoiceOver: result count announcement"), hits.count)
                     UIAccessibility.post(notification: .announcement, argument: message)
                 }
             }
@@ -367,7 +369,7 @@ struct SearchView: View {
                     .font(.system(size: 14, weight: .regular))
                     .foregroundColor(DSColor.onSurfaceVariant)
 
-                TextField("搜索 memo、地点或日期", text: $vm.query)
+                TextField(NSLocalizedString("search.placeholder", comment: "Search text field placeholder"), text: $vm.query)
                     .font(.custom("Inter-Regular", size: 14))
                     .foregroundColor(DSColor.onSurface)
                     .textInputAutocapitalization(.never)
@@ -377,13 +379,13 @@ struct SearchView: View {
                     .onSubmit {
                         vm.recordSearch(vm.query)
                     }
-                    .accessibilityLabel("搜索框")
+                    .accessibilityLabel(NSLocalizedString("search.a11y.searchField", comment: "Accessibility label for the search text field"))
 
                 if vm.isSearching {
                     ProgressView()
                         .scaleEffect(0.7)
                         .tint(DSColor.onSurfaceVariant)
-                        .accessibilityLabel("正在搜索")
+                        .accessibilityLabel(NSLocalizedString("search.a11y.searching", comment: "Accessibility label for the searching progress indicator"))
                 } else if !vm.query.isEmpty {
                     Button(action: {
                         Haptics.soft()
@@ -411,7 +413,7 @@ struct SearchView: View {
                             .scaleEffect(clearPressed ? 0.8 : 1.0)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("清除搜索内容")
+                    .accessibilityLabel(NSLocalizedString("search.a11y.clearSearch", comment: "Accessibility label for the clear search button"))
                 }
             }
             .padding(.horizontal, 12)
@@ -429,17 +431,17 @@ struct SearchView: View {
                     .foregroundColor(filters.isActive ? DSColor.primary : DSColor.onSurfaceVariant)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("筛选")
-            .accessibilityHint("按日期、类型、地点筛选结果")
-            .accessibilityValue(filters.isActive ? "已启用" : "未启用")
+            .accessibilityLabel(NSLocalizedString("search.a11y.filter", comment: "Accessibility label for the filter button"))
+            .accessibilityHint(NSLocalizedString("search.a11y.filter.hint", comment: "Accessibility hint for the filter button"))
+            .accessibilityValue(filters.isActive ? NSLocalizedString("search.a11y.filter.enabled", comment: "Filter active state") : NSLocalizedString("search.a11y.filter.disabled", comment: "Filter inactive state"))
 
             Button(action: { dismiss() }) {
-                Text("取消")
+                Text(NSLocalizedString("search.cancel", comment: "Cancel button in search bar"))
                     .monoLabelStyle(size: 11)
                     .foregroundColor(DSColor.primary)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("取消搜索")
+            .accessibilityLabel(NSLocalizedString("search.a11y.cancelSearch", comment: "Accessibility label for the cancel search button"))
         }
     }
 
@@ -453,7 +455,7 @@ struct SearchView: View {
                     .foregroundColor(DSColor.onSurfaceVariant)
                     .frame(width: 16)
 
-                Text("日期范围")
+                Text(NSLocalizedString("search.filter.dateRange", comment: "Filter panel label: date range"))
                     .monoLabelStyle(size: 11)
                     .foregroundColor(DSColor.onSurfaceVariant)
                     .frame(width: 48, alignment: .leading)
@@ -470,7 +472,7 @@ struct SearchView: View {
                 .frame(maxWidth: 120)
                 .overlay(
                     filters.startDate == nil
-                        ? Text("开始日期").monoLabelStyle(size: 11).foregroundColor(DSColor.onSurfaceVariant).allowsHitTesting(false)
+                        ? Text(NSLocalizedString("search.filter.startDate", comment: "Filter panel start date placeholder")).monoLabelStyle(size: 11).foregroundColor(DSColor.onSurfaceVariant).allowsHitTesting(false)
                         : nil
                 )
 
@@ -507,7 +509,7 @@ struct SearchView: View {
                     .foregroundColor(DSColor.onSurfaceVariant)
                     .frame(width: 16)
 
-                Text("类型")
+                Text(NSLocalizedString("search.filter.type", comment: "Filter panel label: memo type"))
                     .monoLabelStyle(size: 11)
                     .foregroundColor(DSColor.onSurfaceVariant)
                     .frame(width: 48, alignment: .leading)
@@ -527,13 +529,13 @@ struct SearchView: View {
                     .foregroundColor(DSColor.onSurfaceVariant)
                     .frame(width: 16)
 
-                Text("地点")
+                Text(NSLocalizedString("search.filter.location", comment: "Filter panel label: location"))
                     .monoLabelStyle(size: 11)
                     .foregroundColor(DSColor.onSurfaceVariant)
                     .frame(width: 48, alignment: .leading)
 
                 HStack(spacing: 6) {
-                    TextField("过滤地点名称", text: $filters.locationQuery)
+                    TextField(NSLocalizedString("search.filter.location.placeholder", comment: "Filter panel location text field placeholder"), text: $filters.locationQuery)
                         .font(.custom("Inter-Regular", size: 13))
                         .foregroundColor(DSColor.onSurface)
                         .textInputAutocapitalization(.never)
@@ -566,7 +568,7 @@ struct SearchView: View {
                         filters = .empty
                         runSearch(keyword: vm.query)
                     }) {
-                        Text("清除全部筛选")
+                        Text(NSLocalizedString("search.filter.clearAll", comment: "Clear all filters button"))
                             .monoLabelStyle(size: 10)
                             .foregroundColor(DSColor.primary)
                     }
@@ -630,7 +632,7 @@ struct SearchView: View {
                 let entities = vm.topEntities
 
                 if !recent.isEmpty || !entities.isEmpty {
-                    sectionHeader(title: "快捷检索", trailing: AnyView(EmptyView()))
+                    sectionHeader(title: NSLocalizedString("search.section.quickSearch", comment: "Quick search section header"), trailing: AnyView(EmptyView()))
 
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
@@ -644,12 +646,12 @@ struct SearchView: View {
                 }
 
                 if !recent.isEmpty {
-                    sectionHeader(title: "最近搜索", trailing: AnyView(
+                    sectionHeader(title: NSLocalizedString("search.section.recentSearches", comment: "Recent searches section header"), trailing: AnyView(
                         Button(action: {
                             Haptics.light()
                             vm.clearRecentSearches()
                         }) {
-                            Text("清除")
+                            Text(NSLocalizedString("search.recent.clear", comment: "Clear recent searches button"))
                                 .monoLabelStyle(size: 10)
                                 .foregroundColor(DSColor.primary)
                         }
@@ -662,7 +664,7 @@ struct SearchView: View {
                 }
 
                 if !entities.isEmpty || vm.isLoadingEntities {
-                    sectionHeader(title: "高频实体", trailing: AnyView(EmptyView()))
+                    sectionHeader(title: NSLocalizedString("search.section.topEntities", comment: "Top entities section header"), trailing: AnyView(EmptyView()))
 
                     Group {
                         if vm.isLoadingEntities && entities.isEmpty {
@@ -691,16 +693,16 @@ struct SearchView: View {
                             Image(systemName: "magnifyingglass")
                                 .font(.system(size: 32, weight: .regular))
                                 .foregroundColor(DSColor.outlineVariant)
-                            Text("输入关键词检索所有归档内容")
+                            Text(NSLocalizedString("search.empty.prompt", comment: "Empty search state main prompt"))
                                 .bodySMStyle()
                                 .foregroundColor(DSColor.onSurfaceVariant)
-                            Text("支持 memo 正文、位置名、日期")
+                            Text(NSLocalizedString("search.empty.hint", comment: "Empty search state hint text"))
                                 .monoLabelStyle(size: 10)
                                 .foregroundColor(DSColor.outline)
                         }
 
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("试试搜索")
+                            Text(NSLocalizedString("search.empty.trySuggestion", comment: "Try a suggestion label in empty search state"))
                                 .monoLabelStyle(size: 10)
                                 .foregroundColor(DSColor.onSurfaceVariant)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -775,8 +777,8 @@ struct SearchView: View {
                 .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
         }
         .buttonStyle(ChipButtonStyle(reduceMotion: reduceMotion))
-        .accessibilityLabel("搜索 \(entity)")
-        .accessibilityHint("双击以该关键词搜索归档")
+        .accessibilityLabel(String(format: NSLocalizedString("search.a11y.entityChip", comment: "Accessibility label for entity chip; %@ = entity name"), entity))
+        .accessibilityHint(NSLocalizedString("search.a11y.entityChip.hint", comment: "Accessibility hint for entity chip"))
         .accessibilityAddTraits(.isButton)
     }
 
@@ -809,19 +811,19 @@ struct SearchView: View {
                         .font(.system(size: 32, weight: .regular))
                         .foregroundColor(DSColor.outlineVariant)
                     if vm.query.isEmpty && filters.isActive {
-                        Text("当前筛选条件下无匹配结果")
+                        Text(NSLocalizedString("search.empty.noMatchFiltered", comment: "No results with active filters and no query"))
                             .bodySMStyle()
                             .foregroundColor(DSColor.onSurfaceVariant)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
                     } else if !vm.query.isEmpty && filters.isActive {
-                        Text("「\(vm.query)」在当前筛选条件下无匹配结果")
+                        Text(String(format: NSLocalizedString("search.empty.noMatchQueryFiltered", comment: "No results for query with active filters; %@ = query"), vm.query))
                             .bodySMStyle()
                             .foregroundColor(DSColor.onSurfaceVariant)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
                     } else {
-                        Text("未找到「\(vm.query)」的匹配结果")
+                        Text(String(format: NSLocalizedString("search.empty.noMatchQuery", comment: "No results for query; %@ = query"), vm.query))
                             .bodySMStyle()
                             .foregroundColor(DSColor.onSurfaceVariant)
                             .multilineTextAlignment(.center)
@@ -835,7 +837,7 @@ struct SearchView: View {
                         filters = .empty
                         runSearch(keyword: vm.query)
                     }) {
-                        Text("清除筛选条件")
+                        Text(NSLocalizedString("search.empty.clearFilters", comment: "Clear filters button in empty result state"))
                             .monoLabelStyle(size: 11)
                             .foregroundColor(DSColor.primary)
                             .padding(.horizontal, 14)
@@ -855,7 +857,7 @@ struct SearchView: View {
                         setupDebounce()
                         isInputFocused = true
                     }) {
-                        Text("清除搜索")
+                        Text(NSLocalizedString("search.empty.clearSearch", comment: "Clear search button in empty result state"))
                             .monoLabelStyle(size: 11)
                             .foregroundColor(DSColor.onSurfaceVariant)
                             .padding(.horizontal, 14)
@@ -868,7 +870,7 @@ struct SearchView: View {
                 let recentSuggestions = Array(vm.recentSearches.filter { $0 != vm.query }.prefix(4))
                 if !recentSuggestions.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("换个关键词试试")
+                        Text(NSLocalizedString("search.empty.tryAnother", comment: "Try another keyword suggestion label"))
                             .monoLabelStyle(size: 10)
                             .foregroundColor(DSColor.onSurfaceVariant)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -889,7 +891,7 @@ struct SearchView: View {
                 let entitySuggestions = vm.topEntities.prefix(6).map(\.name).filter { $0 != vm.query }
                 if !entitySuggestions.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("高频实体")
+                        Text(NSLocalizedString("search.section.topEntities", comment: "Top entities section header"))
                             .monoLabelStyle(size: 10)
                             .foregroundColor(DSColor.onSurfaceVariant)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -948,15 +950,15 @@ struct SearchView: View {
                 }) {
                 HStack {
                     Text(activeMatchKinds.isEmpty
-                         ? "\(total) 条结果"
-                         : "\(visibleCount) / \(total) 条结果")
+                         ? String(format: NSLocalizedString("search.result.count", comment: "Total result count label; %d = count"), total)
+                         : String(format: NSLocalizedString("search.result.countFiltered", comment: "Filtered result count label; first %d = visible, second %d = total"), visibleCount, total))
                         .monoLabelStyle(size: 10)
                         .foregroundColor(DSColor.onSurfaceVariant)
                         .modifier(NumericTextContentTransition(value: Double(visibleCount), reduceMotion: reduceMotion))
                         .animation(reduceMotion ? nil : Motion.spring, value: visibleCount)
                     Spacer()
                     if filters.isActive {
-                        Label("已筛选", systemImage: "line.3.horizontal.decrease.circle.fill")
+                        Label(NSLocalizedString("search.result.filtered", comment: "Filtered badge label"), systemImage: "line.3.horizontal.decrease.circle.fill")
                             .monoLabelStyle(size: 10)
                             .foregroundColor(DSColor.primary)
                     }
@@ -966,8 +968,8 @@ struct SearchView: View {
                 .padding(.bottom, activeMatchKinds.isEmpty && presentKinds.count <= 1 ? 8 : 4)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("\(activeMatchKinds.isEmpty ? total : visibleCount) 条结果，双击回到顶部")
-                .accessibilityHint("双击滚动回列表顶部")
+                .accessibilityLabel(String(format: NSLocalizedString("search.a11y.showingResults", comment: "Accessibility label for result count / scroll-to-top button; %d = count"), activeMatchKinds.isEmpty ? total : visibleCount))
+                .accessibilityHint(NSLocalizedString("search.a11y.scrollTop.hint", comment: "Accessibility hint for scroll to top button"))
 
                 // Match-kind filter chips — only when 2+ kinds are present
                 if presentKinds.count > 1 {
@@ -1042,7 +1044,7 @@ struct SearchView: View {
             let newVisible = activeMatchKinds.isEmpty ? vm.results.count
                 : vm.results.filter { activeMatchKinds.contains($0.matchKind) }.count
             if UIAccessibility.isVoiceOverRunning {
-                UIAccessibility.post(notification: .announcement, argument: "显示 \(newVisible) 条结果")
+                UIAccessibility.post(notification: .announcement, argument: String(format: NSLocalizedString("search.a11y.resultCount", comment: "VoiceOver: result count announcement"), newVisible))
             }
         }) {
             HStack(spacing: 4) {
@@ -1061,9 +1063,9 @@ struct SearchView: View {
             )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(matchLabel(for: kind)), \(kindCount) 条结果")
+        .accessibilityLabel(String(format: NSLocalizedString("search.a11y.kindChip", comment: "Accessibility label for match kind chip; %1$@ = kind label, %2$d = count"), matchLabel(for: kind), kindCount))
         .accessibilityAddTraits(isActive ? [.isSelected] : [])
-        .accessibilityHint(isActive ? "双击取消筛选" : "双击按此类型筛选")
+        .accessibilityHint(isActive ? NSLocalizedString("search.a11y.kindChip.deselect.hint", comment: "Accessibility hint to deselect kind filter") : NSLocalizedString("search.a11y.kindChip.select.hint", comment: "Accessibility hint to select kind filter"))
     }
 
     private func resultRow(_ result: SearchResult) -> some View {
@@ -1120,7 +1122,7 @@ struct SearchView: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(a11yLabel)
-        .accessibilityHint("双击打开当天页面")
+        .accessibilityHint(NSLocalizedString("search.a11y.resultRow.hint", comment: "Accessibility hint for a search result row"))
     }
 
     // MARK: - Keyword highlight via AttributedString
@@ -1415,7 +1417,7 @@ private struct SwipeableRecentRow: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("删除该搜索记录")
+            .accessibilityLabel(NSLocalizedString("search.a11y.deleteRecent", comment: "Accessibility label for delete recent search button"))
 
             // Row content
             HStack {
@@ -1445,7 +1447,7 @@ private struct SwipeableRecentRow: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("删除该搜索记录")
+                .accessibilityLabel(NSLocalizedString("search.a11y.deleteRecent", comment: "Accessibility label for delete recent search button"))
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 10)
@@ -1501,11 +1503,11 @@ private extension Memo.MemoType {
 
     var displayName: String {
         switch self {
-        case .text:     return "文字"
-        case .voice:    return "语音"
-        case .photo:    return "照片"
-        case .location: return "位置"
-        case .mixed:    return "混合"
+        case .text:     return NSLocalizedString("search.type.text", comment: "Memo type filter chip: text")
+        case .voice:    return NSLocalizedString("search.type.voice", comment: "Memo type filter chip: voice")
+        case .photo:    return NSLocalizedString("search.type.photo", comment: "Memo type filter chip: photo")
+        case .location: return NSLocalizedString("search.type.location", comment: "Memo type filter chip: location")
+        case .mixed:    return NSLocalizedString("search.type.mixed", comment: "Memo type filter chip: mixed")
         }
     }
 
