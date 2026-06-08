@@ -62,6 +62,9 @@ struct GraphView: View {
     private let nodeRadius: CGFloat = 16
     private let maxSimSteps = 200
 
+    @State private var currentTime: Date = Date()
+    private let headerTimer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
+
     var body: some View {
         VStack(spacing: 0) {
             // MARK: Header bar — Liquid Glass strip on the warm canvas
@@ -322,6 +325,9 @@ struct GraphView: View {
             }
         }
         .navigationBarHidden(true)
+        .onReceive(headerTimer) { date in
+            currentTime = date
+        }
         .onAppear {
             viewModel.load()
         }
@@ -367,9 +373,9 @@ struct GraphView: View {
     @ViewBuilder
     private var emptyState: some View {
         if viewModel.nodes.isEmpty {
-            EmptyStateView.graphEmpty {
+            EmptyStateView.graphEmpty(ctaAction: {
                 nav.navigate(to: .today)
-            }
+            }, subtitleOverride: graphEmptySubtitle(currentTime))
         } else {
             EmptyStateView.graphNoMatches {
                 Haptics.tapConfirm()
@@ -381,6 +387,17 @@ struct GraphView: View {
                 }
             }
         }
+    }
+
+    private func graphEmptySubtitle(_ date: Date) -> String {
+        let key: String
+        switch TimeOfDay.from(date) {
+        case .morning:   key = "empty.graph.subtitle.morning"
+        case .afternoon: key = "empty.graph.subtitle.afternoon"
+        case .evening:   key = "empty.graph.subtitle.evening"
+        case .lateNight: key = "empty.graph.subtitle.night"
+        }
+        return NSLocalizedString(key, comment: "")
     }
 
     private var clearFiltersButton: some View {

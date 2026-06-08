@@ -163,6 +163,12 @@
 "empty.graph.subtitle" = "Compiled entries will surface entity nodes here — write something to start building your network.";
 "empty.graph.cta" = "Write something";
 
+/* Graph empty-state time-of-day subtitles */
+"empty.graph.subtitle.morning" = "A fresh morning — start writing and your knowledge graph will take shape.";
+"empty.graph.subtitle.afternoon" = "Afternoon's a good time to log — compiled entries will appear here as nodes.";
+"empty.graph.subtitle.evening" = "End the day by capturing thoughts — they'll surface as your knowledge graph.";
+"empty.graph.subtitle.night" = "Before you sleep, jot something down — your graph grows one entry at a time.";
+
 /* Graph search match VoiceOver announcements */
 "graph.search.match.announcement" = "%1$@, match %2$d of %3$d";
 "graph.search.match.announcement.single" = "%1$@";

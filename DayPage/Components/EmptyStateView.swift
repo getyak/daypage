@@ -276,10 +276,10 @@ extension EmptyStateView {
     }
 
     /// Archive — selected month has no entries.
-    static func archiveMonthEmpty(ctaAction: @escaping () -> Void) -> EmptyStateView {
+    static func archiveMonthEmpty(ctaAction: @escaping () -> Void, subtitleOverride: String? = nil) -> EmptyStateView {
         EmptyStateView(
             title: L10n.Empty.archiveMonthEmptyTitle,
-            subtitle: L10n.Empty.archiveMonthEmptySubtitle,
+            subtitle: subtitleOverride ?? L10n.Empty.archiveMonthEmptySubtitle,
             ctaLabel: L10n.Empty.archiveMonthEmptyCta,
             ctaAction: ctaAction,
             showOrbAccent: true
@@ -309,10 +309,10 @@ extension EmptyStateView {
     }
 
     /// Graph tab — no compiled entities exist yet.
-    static func graphEmpty(ctaAction: @escaping () -> Void) -> EmptyStateView {
+    static func graphEmpty(ctaAction: @escaping () -> Void, subtitleOverride: String? = nil) -> EmptyStateView {
         EmptyStateView(
             title: L10n.Empty.graphEmptyTitle,
-            subtitle: L10n.Empty.graphEmptySubtitle,
+            subtitle: subtitleOverride ?? L10n.Empty.graphEmptySubtitle,
             ctaLabel: L10n.Empty.graphEmptyCta,
             ctaAction: ctaAction,
             showOrbAccent: true
