@@ -162,6 +162,8 @@ extension AppSettings {
         static let exportLongPressHintShown = "today.exportLongPressHintShown"
         // Graph legend — comma-joined hidden entity types, e.g. "places,people"
         static let graphHiddenTypes = "graph.hiddenTypes"
+        // Summary copy hint — shown once when a compiled summary first appears
+        static let summaryCopyHintShown = "today.summaryCopyHintShown"
     }
 }
 
