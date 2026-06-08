@@ -328,6 +328,10 @@
 "compile.hint.evening"   = "Wind down — look back on today";
 "compile.hint.night"     = "Put a period on today";
 
+/* Today empty-state streak kicker */
+"today.empty.streak.kicker.one" = "%d-DAY STREAK · KEEP IT ALIVE";
+"today.empty.streak.kicker" = "%d-DAY STREAK · KEEP IT ALIVE";
+
 /* Streak milestone celebration (TodayView) */
 "today.streak.milestone.title"        = "%d day streak! 🔥";
 "today.streak.milestone.subtitle.3"   = "Three days in a row — the habit is forming.";
