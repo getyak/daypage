@@ -156,6 +156,8 @@ struct DayPageApp: App {
         // Eagerly initialize WatchReceiveService so WCSession activates on launch.
         // Without this the lazy singleton never starts and Watch audio transfers are lost.
         _ = WatchReceiveService.shared
+        // Pre-warm Taptic Engine generators so first-tap haptics fire without latency.
+        Task { @MainActor in HapticFeedback.warmUp() }
     }
 
     var body: some Scene {
@@ -221,6 +223,8 @@ struct DayPageApp: App {
                     // actually changed (issue #345).
                     if phase == .active {
                         TimelineIndex.shared.refreshIfExternallyModified()
+                        // Re-warm generators after backgrounding so they're ready immediately.
+                        HapticFeedback.warmUp()
                     }
                 }
         }
