@@ -1889,7 +1889,6 @@ struct TodayView: View {
     /// Renders the header subline as an HStack so the word-count token can
     /// receive its own amber glow shadow independent of the surrounding text.
     @ViewBuilder
-    @ViewBuilder
     private func headerSublineView(_ date: Date) -> some View {
         let count = viewModel.memos.count
         let dateStr = Self.headerDateFmt.string(from: date)
