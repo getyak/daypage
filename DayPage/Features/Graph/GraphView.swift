@@ -674,7 +674,7 @@ struct GraphView: View {
                 }
 
                 if isTransformed { recenterButton }
-                if scale != 1.0 { zoomIndicator }
+                if isTransformed { zoomIndicator }
                 zoomControls
             }
             .onTapGesture(count: 2) {
@@ -762,19 +762,25 @@ struct GraphView: View {
     }
 
     private var zoomIndicator: some View {
-        Text("\(Int(scale * 100))%")
-            .font(DSFonts.jetBrainsMono(size: 10))
-            .foregroundColor(DSColor.inkPrimary)
-            .padding(.horizontal, DSSpacing.sm)
-            .padding(.vertical, 6)
-            .liquidGlassCard(cornerRadius: DSRadius.md, tone: .hi)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-            .padding(DSSpacing.lg)
-            .padding(.bottom, 56)
-            .accessibilityLabel("Zoom level")
-            .accessibilityValue("\(Int(scale * 100)) percent")
-            .transition(.opacity.combined(with: .scale))
-            .animation(reduceMotion ? .default.speed(0) : Motion.spring, value: scale)
+        Button {
+            Haptics.tapConfirm()
+            resetTransform()
+        } label: {
+            Text("\(Int(scale * 100))%")
+                .font(DSFonts.jetBrainsMono(size: 10))
+                .foregroundColor(DSColor.inkPrimary)
+                .padding(.horizontal, DSSpacing.sm)
+                .padding(.vertical, 6)
+        }
+        .liquidGlassCard(cornerRadius: DSRadius.md, tone: .hi)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+        .padding(DSSpacing.lg)
+        .padding(.bottom, 56)
+        .accessibilityLabel("Zoom level, tap to reset")
+        .accessibilityValue("\(Int(scale * 100)) percent")
+        .accessibilityAddTraits(.isButton)
+        .transition(.opacity.combined(with: .scale))
+        .animation(reduceMotion ? .default.speed(0) : Motion.spring, value: isTransformed)
     }
 
     private var zoomControls: some View {
