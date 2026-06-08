@@ -287,6 +287,19 @@
 /* Archive — async month loading (US-015) */
 "archive.loading_month" = "加载中…";
 
+/* Settings — Accessibility labels/hints */
+"settings.close.label" = "关闭设置";
+"settings.apikey.paste.label" = "从剪贴板粘贴 API Key";
+"settings.apikey.clear.label" = "清除 API Key";
+"settings.apikey.save.label" = "保存 API Key";
+"settings.apikey.test.label" = "测试连接";
+"settings.rollback.label" = "切换回本地存储";
+"settings.rollback.hint" = "危险操作，将把 Vault 位置从 iCloud 切换回设备本地存储。";
+"settings.cleanup_backup.label" = "清理本地备份";
+"settings.cleanup_backup.hint" = "危险操作，将永久删除本地备份，无法撤销。";
+"settings.clear_sample.label" = "清除示例数据";
+"settings.clear_sample.hint" = "危险操作，将永久删除所有示例数据，无法撤销。";
+
 /* Settings — AI Engine (US-014) */
 "settings.ai.section_title" = "AI 引擎";
 "settings.ai.model" = "模型";

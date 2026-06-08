@@ -74,11 +74,14 @@ struct SettingsView: View {
                 dataSection
                 aboutSection
             }
+            .accessibilityIdentifier("settings-list")
             .navigationTitle("设置")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("关闭") { dismiss() }
+                        .accessibilityLabel(NSLocalizedString("settings.close.label", comment: ""))
+                        .accessibilityIdentifier("settings-close-button")
                 }
             }
             .onAppear { computeVaultSize() }
@@ -127,6 +130,8 @@ struct SettingsView: View {
                         if let s = UIPasteboard.general.string { editingKeyValue = s }
                     }
                     .buttonStyle(.bordered)
+                    .accessibilityLabel(NSLocalizedString("settings.apikey.paste.label", comment: ""))
+                    .accessibilityIdentifier("api-key-paste-button")
 
                     Spacer()
 
@@ -135,6 +140,8 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.bordered)
                     .tint(.red)
+                    .accessibilityLabel(NSLocalizedString("settings.apikey.clear.label", comment: ""))
+                    .accessibilityIdentifier("api-key-clear-button")
                 }
                 .padding(.horizontal)
 
@@ -164,6 +171,8 @@ struct SettingsView: View {
                         showApiKeyEditor = false
                     }
                     .fontWeight(.semibold)
+                    .accessibilityLabel(NSLocalizedString("settings.apikey.save.label", comment: ""))
+                    .accessibilityIdentifier("api-key-save-button")
                 }
             }
         }
@@ -215,7 +224,8 @@ struct SettingsView: View {
                 key: Secrets.resolvedDeepSeekApiKey,
                 isTesting: deepSeekTesting,
                 result: deepSeekResult,
-                onTest: { Task { await testDeepSeek() } }
+                onTest: { Task { await testDeepSeek() } },
+                providerID: "deepseek"
             )
             apiKeyRow(
                 name: "OpenAI Whisper",
@@ -223,7 +233,8 @@ struct SettingsView: View {
                 key: Secrets.resolvedOpenAIWhisperApiKey,
                 isTesting: whisperTesting,
                 result: whisperResult,
-                onTest: { Task { await testWhisper() } }
+                onTest: { Task { await testWhisper() } },
+                providerID: "whisper"
             )
             apiKeyRow(
                 name: "OpenWeatherMap",
@@ -231,7 +242,8 @@ struct SettingsView: View {
                 key: Secrets.resolvedOpenWeatherApiKey,
                 isTesting: weatherTesting,
                 result: weatherResult,
-                onTest: { Task { await testWeather() } }
+                onTest: { Task { await testWeather() } },
+                providerID: "openweather"
             )
         }
     }
@@ -243,7 +255,8 @@ struct SettingsView: View {
         key: String,
         isTesting: Bool,
         result: APITestResult?,
-        onTest: @escaping () -> Void
+        onTest: @escaping () -> Void,
+        providerID: String = ""
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 12) {
@@ -296,6 +309,8 @@ struct SettingsView: View {
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                     .disabled(isTesting)
+                    .accessibilityLabel(NSLocalizedString("settings.apikey.test.label", comment: ""))
+                    .accessibilityIdentifier("api-key-test-button-\(providerID)")
                 }
             }
             if let result {
@@ -433,6 +448,7 @@ struct SettingsView: View {
             Toggle(isOn: $onThisDayEnabled) {
                 Label("On This Day", systemImage: "calendar.badge.clock")
             }
+            .accessibilityIdentifier("onthisday-enabled-toggle")
             .onChange(of: onThisDayEnabled) { val in
                 OnThisDayScheduler.shared.isEnabled = val
             }
@@ -443,6 +459,7 @@ struct SettingsView: View {
                     Text("清晨 06:00").tag(6)
                     Text("上午 09:00").tag(9)
                 }
+                .accessibilityIdentifier("onthisday-refresh-hour-picker")
                 .onChange(of: onThisDayRefreshHour) { val in
                     OnThisDayScheduler.shared.refreshHour = val
                 }
@@ -609,6 +626,9 @@ struct SettingsView: View {
             Button(role: .destructive, action: rollbackToLocal) {
                 Label("切换回本地存储", systemImage: "arrow.counterclockwise")
             }
+            .accessibilityLabel(NSLocalizedString("settings.rollback.label", comment: ""))
+            .accessibilityHint(NSLocalizedString("settings.rollback.hint", comment: ""))
+            .accessibilityIdentifier("settings-rollback-button")
         }
     }
 
@@ -632,6 +652,9 @@ struct SettingsView: View {
             Button(role: .destructive, action: { showCleanupConfirm = true }) {
                 Label("清理本地备份", systemImage: "trash")
             }
+            .accessibilityLabel(NSLocalizedString("settings.cleanup_backup.label", comment: ""))
+            .accessibilityHint(NSLocalizedString("settings.cleanup_backup.hint", comment: ""))
+            .accessibilityIdentifier("settings-cleanup-backup-button")
             .confirmationDialog(
                 "确认清理本地备份？",
                 isPresented: $showCleanupConfirm,
@@ -708,6 +731,9 @@ struct SettingsView: View {
                 Button(role: .destructive, action: { showClearSampleConfirm = true }) {
                     Label("清除示例数据", systemImage: "trash")
                 }
+                .accessibilityLabel(NSLocalizedString("settings.clear_sample.label", comment: ""))
+                .accessibilityHint(NSLocalizedString("settings.clear_sample.hint", comment: ""))
+                .accessibilityIdentifier("settings-clear-sample-button")
                 .confirmationDialog(
                     "确认清除示例数据？",
                     isPresented: $showClearSampleConfirm,
