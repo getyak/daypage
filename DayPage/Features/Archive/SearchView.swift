@@ -1095,7 +1095,8 @@ struct SearchView: View {
 
             attributed[attrRange].backgroundColor = UIColor(DSColor.amberAccent).withAlphaComponent(0.28)
             attributed[attrRange].foregroundColor = UIColor(DSColor.onSurface)
-            attributed[attrRange].font = .system(size: 13, weight: .semibold)
+            // Scaled font keeps highlight emphasis in lockstep with the snippet's Dynamic Type size.
+            attributed[attrRange].font = UIFontMetrics(forTextStyle: .footnote).scaledFont(for: .systemFont(ofSize: 13, weight: .semibold))
 
             searchStart = range.upperBound
         }
