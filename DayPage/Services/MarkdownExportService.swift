@@ -59,6 +59,18 @@ enum MarkdownExportService {
                 lines.append("  - \(yamlQuoted(e))")
             }
         }
+
+        let locations = memos.compactMap { $0.location?.name }.filter { !$0.isEmpty }
+        let dedupedLocations = Array(Set(locations)).sorted()
+        if dedupedLocations.isEmpty {
+            lines.append("locations: []")
+        } else {
+            lines.append("locations:")
+            for loc in dedupedLocations {
+                lines.append("  - \(yamlQuoted(loc))")
+            }
+        }
+
         lines.append("---")
         lines.append("")
         lines.append("# DayPage — \(dateString)")
