@@ -38,6 +38,9 @@ struct GraphView: View {
     // Zero-match haptic guard — fires warn() exactly once per zero-crossing
     @State private var lastZeroQuery: String? = nil
 
+    // Wrap-around flash state for the match-count pill
+    @State private var matchPillFlash: Bool = false
+
     // Legend type-visibility filter — persisted across tab switches and relaunches
     @AppStorage(AppSettings.Keys.graphHiddenTypes) private var hiddenTypesRaw: String = ""
 
@@ -168,15 +171,22 @@ struct GraphView: View {
                                 .background(DSColor.glassLo)
                                 .background(.ultraThinMaterial, in: Capsule())
                                 .overlay(Capsule().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                                .overlay(
+                                    Capsule()
+                                        .strokeBorder(DSColor.amberAccent, lineWidth: 1.5)
+                                        .opacity(matchPillFlash ? 1 : 0)
+                                        .animation(Motion.fade, value: matchPillFlash)
+                                )
+                                .overlay(
+                                    Capsule()
+                                        .fill(DSColor.amberAccent.opacity(0.15))
+                                        .opacity(matchPillFlash ? 1 : 0)
+                                        .animation(Motion.fade, value: matchPillFlash)
+                                )
                                 .accessibilityLabel("\(count) 个匹配结果")
                             if count > 1 {
                                 Button {
-                                    Haptics.soft()
-                                    searchMatchIndex = (searchMatchIndex - 1 + matches.count) % matches.count
-                                    let node = matches[searchMatchIndex]
-                                    centerOn(node, in: simulationSize)
-                                    pulseNode(node)
-                                    announceSearchMatch(node, index: searchMatchIndex, total: matches.count)
+                                    advanceMatch(by: -1, matches: matches, in: simulationSize)
                                 } label: {
                                     Image(systemName: "chevron.up")
                                         .font(.system(size: 12, weight: .medium))
@@ -189,12 +199,7 @@ struct GraphView: View {
                                 }
                                 .accessibilityLabel("上一个匹配")
                                 Button {
-                                    Haptics.soft()
-                                    searchMatchIndex = (searchMatchIndex + 1) % matches.count
-                                    let node = matches[searchMatchIndex]
-                                    centerOn(node, in: simulationSize)
-                                    pulseNode(node)
-                                    announceSearchMatch(node, index: searchMatchIndex, total: matches.count)
+                                    advanceMatch(by: +1, matches: matches, in: simulationSize)
                                 } label: {
                                     Image(systemName: "chevron.down")
                                         .font(.system(size: 12, weight: .medium))
@@ -510,6 +515,7 @@ struct GraphView: View {
                 .onChange(of: size) { simulationSize = $0 }
                 .onChange(of: viewModel.searchQuery) { query in
                     searchMatchIndex = 0
+                    matchPillFlash = false
                     guard !query.isEmpty else {
                         lastCenteredMatchID = nil
                         return
@@ -835,6 +841,32 @@ struct GraphView: View {
         .accessibilityLabel("\(label), \(count)个节点")
         .accessibilityValue(isHidden ? "已隐藏" : "已显示")
         .accessibilityAddTraits(.isButton)
+    }
+
+    // MARK: - Search Match Navigation
+
+    private func advanceMatch(by delta: Int, matches: [GraphNode], in size: CGSize) {
+        guard !matches.isEmpty else { return }
+        let oldIndex = searchMatchIndex
+        let newIndex = (oldIndex + delta + matches.count) % matches.count
+        let wrapped = delta > 0 ? newIndex < oldIndex : newIndex > oldIndex
+        searchMatchIndex = newIndex
+        let node = matches[newIndex]
+        centerOn(node, in: size)
+        pulseNode(node)
+        announceSearchMatch(node, index: newIndex, total: matches.count)
+        if wrapped {
+            Haptics.rigid(intensity: 0.7)
+            if !reduceMotion {
+                matchPillFlash = true
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 400_000_000)
+                    matchPillFlash = false
+                }
+            }
+        } else {
+            Haptics.soft()
+        }
     }
 
     // MARK: - Search Auto-Center
