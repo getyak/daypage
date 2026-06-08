@@ -38,8 +38,18 @@ struct GraphView: View {
     // Zero-match haptic guard — fires warn() exactly once per zero-crossing
     @State private var lastZeroQuery: String? = nil
 
-    // Legend type-visibility filter
-    @State private var hiddenTypes: Set<String> = []
+    // Legend type-visibility filter — persisted across tab switches and relaunches
+    @AppStorage(AppSettings.Keys.graphHiddenTypes) private var hiddenTypesRaw: String = ""
+
+    private var hiddenTypes: Set<String> {
+        get {
+            let parts = hiddenTypesRaw.split(separator: ",").map(String.init).filter { !$0.isEmpty }
+            return Set(parts)
+        }
+        set {
+            hiddenTypesRaw = newValue.sorted().joined(separator: ",")
+        }
+    }
 
     // Empty state animation + ClearFiltersPressStyle (do not remove this @Environment:
     // both `emptyState` and `clearFiltersButton` read `reduceMotion`; deleting it
@@ -362,7 +372,7 @@ struct GraphView: View {
                     viewModel.searchQuery = ""
                     viewModel.filterStartDate = nil
                     viewModel.filterEndDate = nil
-                    hiddenTypes = []
+                    hiddenTypes = Set()
                 }
             }
         }
@@ -375,6 +385,7 @@ struct GraphView: View {
                 viewModel.searchQuery = ""
                 viewModel.filterStartDate = nil
                 viewModel.filterEndDate = nil
+                hiddenTypes = Set()
             }
         } label: {
             Text("清除筛选")
@@ -793,11 +804,13 @@ struct GraphView: View {
         Button {
             Haptics.soft()
             withAnimation(Motion.spring) {
+                var updated = hiddenTypes
                 if isHidden {
-                    hiddenTypes.remove(type)
+                    updated.remove(type)
                 } else {
-                    hiddenTypes.insert(type)
+                    updated.insert(type)
                 }
+                hiddenTypes = updated
             }
         } label: {
             HStack(spacing: 6) {
