@@ -324,6 +324,15 @@
 
 "search.undo.cleared" = "Recent searches cleared";
 
+/* Search result row — relative date labels */
+"search.result.today"     = "Today";
+"search.result.yesterday" = "Yesterday";
+"search.result.daysAgo"   = "%d days ago";
+
+/* Search entity chips */
+"search.entity.mostFrequent"       = "Top";
+"search.entity.relativeFrequency"  = "%d%%";
+
 /* CompileFooterButton — time-of-day hints */
 "compile.hint.morning"   = "Your day is just getting started";
 "compile.hint.afternoon" = "Keep the day flowing";

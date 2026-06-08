@@ -1207,14 +1207,28 @@ struct SearchView: View {
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
-        f.dateFormat = "MMMM d, yyyy"
-        f.locale = Locale(identifier: "en_US_POSIX")
+        f.locale = .current
+        f.dateStyle = .long
         return f
     }()
 
     private func formatDate(_ dateString: String) -> String {
         guard let date = SearchView.dateParser.date(from: dateString) else { return dateString }
-        return SearchView.dateFormatter.string(from: date).uppercased()
+        let cal = Calendar.current
+        let now = Date()
+        let startOfDate = cal.startOfDay(for: date)
+        let startOfToday = cal.startOfDay(for: now)
+        let days = cal.dateComponents([.day], from: startOfDate, to: startOfToday).day ?? 0
+        switch days {
+        case 0:
+            return NSLocalizedString("search.result.today", comment: "Search result date label for today")
+        case 1:
+            return NSLocalizedString("search.result.yesterday", comment: "Search result date label for yesterday")
+        case 2...6:
+            return String(format: NSLocalizedString("search.result.daysAgo", comment: "Search result date label for N days ago"), days)
+        default:
+            return SearchView.dateFormatter.string(from: date)
+        }
     }
 
     private func matchIcon(for kind: SearchResult.MatchKind) -> String {
