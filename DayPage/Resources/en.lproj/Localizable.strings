@@ -161,6 +161,10 @@
 "empty.graph.subtitle" = "Compiled entries will surface entity nodes here — write something to start building your network.";
 "empty.graph.cta" = "Write something";
 
+/* Graph search match VoiceOver announcements */
+"graph.search.match.announcement" = "%1$@, match %2$d of %3$d";
+"graph.search.match.announcement.single" = "%1$@";
+
 /* Graph No Matches */
 "empty.graph.no_matches.title" = "No matching nodes.";
 "empty.graph.no_matches.subtitle" = "Adjust your search or filters to see nodes.";

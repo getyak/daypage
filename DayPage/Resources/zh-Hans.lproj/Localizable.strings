@@ -161,6 +161,10 @@
 "empty.graph.subtitle" = "编译日记后，实体节点将在此出现，写点什么开始构建你的知识网络。";
 "empty.graph.cta" = "去写点什么";
 
+/* Graph search match VoiceOver announcements */
+"graph.search.match.announcement" = "%1$@，第 %2$d 个，共 %3$d 个";
+"graph.search.match.announcement.single" = "%1$@";
+
 /* Graph No Matches */
 "empty.graph.no_matches.title" = "无匹配节点。";
 "empty.graph.no_matches.subtitle" = "调整搜索或筛选条件以查看节点。";
