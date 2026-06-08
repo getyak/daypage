@@ -279,6 +279,30 @@ extension Memo {
     }
 }
 
+// MARK: - CJK-aware word count
+
+enum TextCount {
+    static func words(_ text: String) -> Int {
+        var cjkCount = 0
+        var latinWords = 0
+        var inLatinRun = false
+        for scalar in text.unicodeScalars {
+            if (0x4E00...0x9FFF).contains(scalar.value) ||
+               (0x3400...0x4DBF).contains(scalar.value) ||
+               (0x3040...0x30FF).contains(scalar.value) {
+                cjkCount += 1
+                inLatinRun = false
+            } else if scalar.properties.isWhitespace {
+                inLatinRun = false
+            } else {
+                if !inLatinRun { latinWords += 1 }
+                inLatinRun = true
+            }
+        }
+        return cjkCount + latinWords
+    }
+}
+
 // MARK: - ISO8601DateFormatter extension
 
 extension ISO8601DateFormatter {

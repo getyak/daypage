@@ -559,18 +559,13 @@ private struct DetailMetadataSection: View {
     }
 
     private func bodyStats(for text: String) -> BodyStats {
-        func isCJK(_ scalar: Unicode.Scalar) -> Bool {
-            (0x4E00...0x9FFF).contains(scalar.value) ||
-            (0x3400...0x4DBF).contains(scalar.value) ||
-            (0x3040...0x30FF).contains(scalar.value)
-        }
-
         var cjkCount = 0
         var latinWords = 0
         var inLatinRun = false
-
         for scalar in text.unicodeScalars {
-            if isCJK(scalar) {
+            if (0x4E00...0x9FFF).contains(scalar.value) ||
+               (0x3400...0x4DBF).contains(scalar.value) ||
+               (0x3040...0x30FF).contains(scalar.value) {
                 cjkCount += 1
                 inLatinRun = false
             } else if scalar.properties.isWhitespace {
@@ -580,11 +575,10 @@ private struct DetailMetadataSection: View {
                 inLatinRun = true
             }
         }
-
         // Reading time: CJK at 300 cpm, Latin at 220 wpm — sum independent estimates
         let totalMinutes = Double(cjkCount) / 300.0 + Double(latinWords) / 220.0
         return BodyStats(
-            wordCount: cjkCount + latinWords,
+            wordCount: TextCount.words(text),
             charCount: text.count,
             readingMinutes: Int(totalMinutes.rounded())
         )
