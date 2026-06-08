@@ -592,9 +592,15 @@ struct GraphView: View {
                 zoomControls
             }
             .onTapGesture(count: 2) {
-                guard isTransformed else { return }
                 Haptics.tapConfirm()
-                resetTransform()
+                if isTransformed {
+                    resetTransform()
+                } else {
+                    withAnimation(reduceMotion ? nil : Motion.spring) {
+                        scale = max(0.3, min(5.0, 2.2))
+                        lastScale = scale
+                    }
+                }
             }
             .gesture(
                 SimultaneousGesture(
