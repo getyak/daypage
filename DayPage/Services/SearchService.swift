@@ -48,7 +48,7 @@ enum SearchService {
     nonisolated static func search(keyword rawKeyword: String,
                                    filters: SearchFilters = .empty) -> [SearchResult] {
         let keyword = rawKeyword.trimmingCharacters(in: .whitespacesAndNewlines)
-        let lowered = keyword.lowercased()
+        let folded = foldedForSearch(keyword)
         let hasKeyword = !keyword.isEmpty
         guard hasKeyword || filters.isActive else { return [] }
 
@@ -87,7 +87,7 @@ enum SearchService {
             let isDailyCompiled = fm.fileExists(atPath: dailyURL.path)
 
             // 日期字符串匹配（如 "2026-04" 或 "04-14"）—— 仅当有关键字且无类型过滤时
-            if hasKeyword && filters.types.isEmpty && dateString.lowercased().contains(lowered) {
+            if hasKeyword && filters.types.isEmpty && foldedForSearch(dateString).contains(folded) {
                 results.append(SearchResult(
                     dateString: dateString,
                     snippet: dateString,
@@ -108,26 +108,26 @@ enum SearchService {
 
                 // 位置查询过滤
                 if !filters.locationQuery.isEmpty {
-                    let locLowered = filters.locationQuery.lowercased()
+                    let foldedLoc = foldedForSearch(filters.locationQuery)
                     guard let name = memo.location?.name,
-                          name.lowercased().contains(locLowered) else { continue }
+                          foldedForSearch(name).contains(foldedLoc) else { continue }
                 }
 
                 if hasKeyword {
-                    if memo.body.lowercased().contains(lowered) {
+                    if foldedForSearch(memo.body).contains(folded) {
                         results.append(SearchResult(
                             dateString: dateString,
-                            snippet: makeSnippet(memo.body, around: lowered),
+                            snippet: makeSnippet(memo.body, around: folded),
                             matchKind: SearchResult.MatchKind.memoBody,
                             isDailyPageCompiled: isDailyCompiled,
                             memoType: memo.type
                         ))
                         continue
                     }
-                    if let transcript = firstMatchingTranscript(in: memo, keyword: lowered) {
+                    if let transcript = firstMatchingTranscript(in: memo, keyword: folded) {
                         results.append(SearchResult(
                             dateString: dateString,
-                            snippet: makeSnippet(transcript, around: lowered),
+                            snippet: makeSnippet(transcript, around: folded),
                             matchKind: SearchResult.MatchKind.memoBody,
                             isDailyPageCompiled: isDailyCompiled,
                             memoType: memo.type
@@ -135,7 +135,7 @@ enum SearchService {
                         continue
                     }
                     if let name = memo.location?.name,
-                       name.lowercased().contains(lowered) {
+                       foldedForSearch(name).contains(folded) {
                         results.append(SearchResult(
                             dateString: dateString,
                             snippet: name,
@@ -170,7 +170,7 @@ enum SearchService {
 
     private static func firstMatchingTranscript(in memo: Memo, keyword: String) -> String? {
         for att in memo.attachments {
-            if let t = att.transcript, t.lowercased().contains(keyword) {
+            if let t = att.transcript, foldedForSearch(t).contains(keyword) {
                 return t
             }
         }
@@ -178,23 +178,41 @@ enum SearchService {
     }
 
     /// 提取第一个匹配位置周围短上下文窗口（<=120 字符），
-    /// 回退到文本开头。
-    private static func makeSnippet(_ text: String, around keyword: String) -> String {
+    /// 回退到文本开头。匹配范围在折叠文本上定位，切片在原始文本上执行，
+    /// 以保留显示时的重音符号。
+    private static func makeSnippet(_ text: String, around foldedKeyword: String) -> String {
         let normalized = text.replacingOccurrences(of: "\n", with: " ")
-        let lowered = normalized.lowercased()
-        guard let range = lowered.range(of: keyword) else {
+        let foldedNormalized = foldedForSearch(normalized)
+        guard let range = foldedNormalized.range(of: foldedKeyword) else {
             return String(normalized.prefix(120))
         }
-        let windowStart = normalized.index(range.lowerBound,
+        // Convert offsets from the folded string to the original normalized string.
+        // Since folding may change character widths, use UTF-16 offset mapping.
+        let startOffset = foldedNormalized.utf16.distance(from: foldedNormalized.utf16.startIndex,
+                                                          to: range.lowerBound)
+        let endOffset   = foldedNormalized.utf16.distance(from: foldedNormalized.utf16.startIndex,
+                                                          to: range.upperBound)
+        let normStart = normalized.utf16.index(normalized.utf16.startIndex,
+                                               offsetBy: min(startOffset, normalized.utf16.count))
+        let normEnd   = normalized.utf16.index(normalized.utf16.startIndex,
+                                               offsetBy: min(endOffset, normalized.utf16.count))
+        let matchLower = normStart.samePosition(in: normalized) ?? normalized.startIndex
+        let matchUpper = normEnd.samePosition(in: normalized) ?? normalized.endIndex
+        let windowStart = normalized.index(matchLower,
                                            offsetBy: -30,
                                            limitedBy: normalized.startIndex) ?? normalized.startIndex
-        let windowEnd = normalized.index(range.upperBound,
+        let windowEnd = normalized.index(matchUpper,
                                          offsetBy: 90,
                                          limitedBy: normalized.endIndex) ?? normalized.endIndex
         var snippet = String(normalized[windowStart..<windowEnd])
         if windowStart != normalized.startIndex { snippet = "…" + snippet }
         if windowEnd != normalized.endIndex { snippet += "…" }
         return snippet
+    }
+
+    private static func foldedForSearch(_ s: String) -> String {
+        s.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
+                  locale: Locale(identifier: "en_US_POSIX"))
     }
 
     private static let dateValidator: DateFormatter = {
