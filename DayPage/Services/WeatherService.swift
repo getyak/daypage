@@ -142,7 +142,7 @@ final class WeatherService {
 
     // MARK: - Private Helpers
 
-    /// 解析 OpenWeatherMap JSON 响应，格式化为 "32°C, cloudy"。
+    /// 解析 OpenWeatherMap JSON 响应，格式化为 "☁️ 32°C, cloudy"。
     private func parseWeather(from data: Data) throws -> String {
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw WeatherError.invalidResponse
@@ -156,18 +156,44 @@ final class WeatherService {
             tempString = "\(rounded)\u{00B0}C"   // e.g. "32°C"
         }
 
-        // 从 "weather[0].description" 提取天气描述
+        // 从 "weather[0]" 提取描述、condition code 和 icon
         var descString = ""
+        var conditionGlyph: String? = nil
         if let weatherArray = json["weather"] as? [[String: Any]],
-           let first = weatherArray.first,
-           let desc = first["description"] as? String {
-            // 首字母大写
-            descString = desc.prefix(1).uppercased() + desc.dropFirst()
+           let first = weatherArray.first {
+            if let desc = first["description"] as? String {
+                // 首字母大写
+                descString = desc.prefix(1).uppercased() + desc.dropFirst()
+            }
+            if let code = first["id"] as? Int {
+                let icon = first["icon"] as? String
+                conditionGlyph = WeatherService.glyph(forConditionCode: code, icon: icon)
+            }
         }
 
         let parts = [tempString, descString].filter { !$0.isEmpty }
         guard !parts.isEmpty else { throw WeatherError.invalidResponse }
-        return parts.joined(separator: ", ")
+        let base = parts.joined(separator: ", ")
+        if let glyph = conditionGlyph {
+            return glyph + "\u{2009}" + base
+        }
+        return base
+    }
+
+    /// Maps an OpenWeatherMap condition code (and optional icon string for day/night) to an emoji glyph.
+    static func glyph(forConditionCode code: Int, icon: String?) -> String {
+        switch code {
+        case 200...299: return "⛈"
+        case 300...399: return "🌦"
+        case 500...599: return "🌧"
+        case 600...699: return "❄️"
+        case 700...799: return "🌫"
+        case 800:
+            let isNight = icon?.hasSuffix("n") == true
+            return isNight ? "🌙" : "☀️"
+        case 801...809: return "☁️"
+        default:        return "🌤"
+        }
     }
 }
 
