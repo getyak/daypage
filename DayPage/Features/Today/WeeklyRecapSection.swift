@@ -69,8 +69,13 @@ private struct WeeklyRecapDayCard: View {
     let entry: WeeklyRecapEntry
     let onTap: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
-        Button(action: onTap) {
+        Button(action: {
+            Haptics.tapConfirm()
+            onTap()
+        }) {
             HStack(alignment: .top, spacing: 14) {
                 dateRail
                 summaryColumn
@@ -85,8 +90,10 @@ private struct WeeklyRecapDayCard: View {
             .background(DSColor.surfaceContainer)
             .cornerRadius(DSSpacing.radiusCard)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(RecapCardButtonStyle(reduceMotion: reduceMotion))
         .accessibilityLabel(accessibilityLabel)
+        .accessibilityHint(NSLocalizedString("recap.card.accessibility_hint", value: "Double tap to open this day's page", comment: "Accessibility hint for weekly recap day cards"))
+        .accessibilityAddTraits(.isButton)
     }
 
     private var dateRail: some View {
@@ -140,5 +147,21 @@ private struct WeeklyRecapDayCard: View {
     private var accessibilityLabel: String {
         let summaryText = entry.summary.flatMap { $0.isEmpty ? nil : $0 } ?? "已编译"
         return "\(entry.dateString)，\(summaryText)"
+    }
+}
+
+// MARK: - RecapCardButtonStyle
+
+private struct RecapCardButtonStyle: ButtonStyle {
+    let reduceMotion: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect((!reduceMotion && configuration.isPressed) ? 0.97 : 1)
+            .opacity(configuration.isPressed ? 0.94 : 1)
+            .animation(
+                reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7),
+                value: configuration.isPressed
+            )
     }
 }
