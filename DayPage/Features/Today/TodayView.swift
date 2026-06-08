@@ -910,10 +910,22 @@ struct TodayView: View {
                 radius: refreshGlow ? 18 : 0
             )
             .animation(.easeOut(duration: 0.6), value: refreshGlow)
+            .onLongPressGesture(minimumDuration: 0.5) {
+                Haptics.medium()
+                guard draftText.isEmpty else { return }
+                draftText = orbCapturePrompt(currentTime)
+                orbFocusToggle.toggle()
+            }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(NSLocalizedString("today.orb.label", comment: ""))
             .accessibilityValue(orbValue)
             .accessibilityHint(NSLocalizedString("today.orb.hint", comment: ""))
+            .accessibilityAction(named: Text(NSLocalizedString("today.orb.prompt.action", comment: ""))) {
+                Haptics.medium()
+                guard draftText.isEmpty else { return }
+                draftText = orbCapturePrompt(currentTime)
+                orbFocusToggle.toggle()
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
@@ -1004,6 +1016,17 @@ struct TodayView: View {
         case .afternoon: key = "empty.today.subtitle.afternoon"
         case .evening:   key = "empty.today.subtitle.evening"
         case .lateNight: key = "empty.today.subtitle.night"
+        }
+        return NSLocalizedString(key, comment: "")
+    }
+
+    private func orbCapturePrompt(_ date: Date) -> String {
+        let key: String
+        switch TimeOfDay.from(date) {
+        case .morning:   key = "today.orb.prompt.morning"
+        case .afternoon: key = "today.orb.prompt.afternoon"
+        case .evening:   key = "today.orb.prompt.evening"
+        case .lateNight: key = "today.orb.prompt.night"
         }
         return NSLocalizedString(key, comment: "")
     }

@@ -125,7 +125,14 @@
 "today.orb.label"            = "Today's signal orb";
 "today.orb.value.one"        = "%d signal captured";
 "today.orb.value.other"      = "%d signals captured";
-"today.orb.hint"             = "Double tap to start a new note";
+"today.orb.hint"             = "Double tap to focus composer; long press for a writing prompt";
+"today.orb.prompt.action"    = "Get a writing prompt";
+
+/* Day Orb long-press capture prompts */
+"today.orb.prompt.morning"   = "What's the first thing on your mind?";
+"today.orb.prompt.afternoon" = "What's been on your mind this afternoon?";
+"today.orb.prompt.evening"   = "What made today worth remembering?";
+"today.orb.prompt.night"     = "How did today land?";
 
 /* DailyPage swipe action */
 "today.action.recompile"     = "Recompile";
