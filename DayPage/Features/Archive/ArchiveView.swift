@@ -716,17 +716,15 @@ struct ArchiveView: View {
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(DSColor.amberDeep, in: Capsule())
-                        .background(.ultraThinMaterial, in: Capsule())
                         .overlay(Capsule().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("回到本月")
                 .accessibilityHint("跳转到当前月份")
                 .transition(.scale.combined(with: .opacity))
-                .animation(reduceMotion ? nil : Motion.spring, value: viewModel.isViewingCurrentMonth)
-
-                Spacer()
             }
+
+            Spacer()
 
             Button(action: {
                 Haptics.rigid(intensity: 0.4)
@@ -744,6 +742,7 @@ struct ArchiveView: View {
             .accessibilityLabel("下个月")
             .accessibilityHint("切换到下一个月")
         }
+        .animation(reduceMotion ? nil : Motion.spring, value: viewModel.isViewingCurrentMonth)
     }
 
     private func toggleButton(_ label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
