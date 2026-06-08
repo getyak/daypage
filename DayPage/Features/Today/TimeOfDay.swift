@@ -1,5 +1,23 @@
 import SwiftUI
 
+/// Formats the device's current UTC offset as a compact GMT token for the Today header.
+/// e.g. GMT+7, GMT-3:30, GMT+5:45, GMT (zero offset)
+enum TimeZoneBadge {
+    static func gmtOffset(for tz: TimeZone, at date: Date) -> String {
+        let totalSeconds = tz.secondsFromGMT(for: date)
+        guard totalSeconds != 0 else { return "GMT" }
+        let sign = totalSeconds > 0 ? "+" : "-"
+        let abs = Swift.abs(totalSeconds)
+        let hours = abs / 3600
+        let minutes = (abs % 3600) / 60
+        if minutes == 0 {
+            return "GMT\(sign)\(hours)"
+        } else {
+            return String(format: "GMT\(sign)\(hours):%02d", minutes)
+        }
+    }
+}
+
 /// Pure time-of-day bucketing shared by the Day Orb and the kicker.
 enum TimeOfDay: Int {
     case morning    = 0

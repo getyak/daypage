@@ -59,6 +59,38 @@ struct TimeOfDayTests {
         #expect(Set(descriptions).count == 4)
     }
 
+    // MARK: - TimeZoneBadge
+
+    @Test func gmtZeroOffset() {
+        let tz = TimeZone(secondsFromGMT: 0)!
+        #expect(TimeZoneBadge.gmtOffset(for: tz, at: Date()) == "GMT")
+    }
+
+    @Test func gmtPositiveWholeHour() {
+        let tz = TimeZone(secondsFromGMT: 7 * 3600)!
+        #expect(TimeZoneBadge.gmtOffset(for: tz, at: Date()) == "GMT+7")
+    }
+
+    @Test func gmtNegativeWholeHour() {
+        let tz = TimeZone(secondsFromGMT: -5 * 3600)!
+        #expect(TimeZoneBadge.gmtOffset(for: tz, at: Date()) == "GMT-5")
+    }
+
+    @Test func gmtIndiaHalfHour() {
+        let tz = TimeZone(secondsFromGMT: 5 * 3600 + 30 * 60)!
+        #expect(TimeZoneBadge.gmtOffset(for: tz, at: Date()) == "GMT+5:30")
+    }
+
+    @Test func gmtNepalQuarterHour() {
+        let tz = TimeZone(secondsFromGMT: 5 * 3600 + 45 * 60)!
+        #expect(TimeZoneBadge.gmtOffset(for: tz, at: Date()) == "GMT+5:45")
+    }
+
+    @Test func gmtNewfoundlandNegativeHalfHour() {
+        let tz = TimeZone(secondsFromGMT: -(3 * 3600 + 30 * 60))!
+        #expect(TimeZoneBadge.gmtOffset(for: tz, at: Date()) == "GMT-3:30")
+    }
+
     // MARK: - from(_:calendar:) round-trip
 
     @Test func fromDateUsesCalendarHour() {
