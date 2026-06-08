@@ -700,9 +700,7 @@ struct SearchView: View {
     @ViewBuilder
     private func recentSearchRow(_ q: String) -> some View {
         SwipeableRecentRow(query: q, onSelect: { query in
-            Haptics.tapConfirm()
-            vm.query = query
-            runSearch(keyword: query)
+            selectSuggestion(query)
         }, onDelete: {
             vm.removeRecentSearch(q)
         })
@@ -711,11 +709,16 @@ struct SearchView: View {
             .background(DSColor.outlineVariant.opacity(0.5))
     }
 
+    private func selectSuggestion(_ term: String) {
+        Haptics.tapConfirm()
+        vm.query = term
+        vm.recordSearch(term)
+        runSearch(keyword: term)
+    }
+
     private func entityChip(_ entity: String) -> some View {
         Button(action: {
-            Haptics.tapConfirm()
-            vm.query = entity
-            runSearch(keyword: entity)
+            selectSuggestion(entity)
         }) {
             Text(entity)
                 .font(.custom("Inter-Regular", size: 13))
@@ -746,9 +749,7 @@ struct SearchView: View {
             reduceMotion: reduceMotion,
             a11yLabel: a11yLabel
         ) {
-            Haptics.tapConfirm()
-            vm.query = entity.name
-            runSearch(keyword: entity.name)
+            selectSuggestion(entity.name)
         }
     }
 
