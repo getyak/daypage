@@ -1007,6 +1007,8 @@ struct TodayView: View {
                 .tracking(1.5)
                 .textCase(.uppercase)
                 .foregroundColor(DSColor.inkPrimary)
+                .modifier(NumericTextContentTransition(value: Double(count), reduceMotion: reduceMotion))
+                .animation(reduceMotion ? nil : Motion.spring, value: count)
 
             Spacer()
 
@@ -1535,6 +1537,7 @@ struct TodayView: View {
                             },
                             onEnterSelectionMode: {
                                 Haptics.tapConfirm()
+                                if !reduceMotion { Haptics.soft() }
                                 selectedMemoIds = [memo.id]
                             },
                             isSelectionMode: isInSelectionMode,
@@ -1550,6 +1553,14 @@ struct TodayView: View {
                                     return
                                 }
                                 selectedMemoIds = set
+                                if !reduceMotion {
+                                    if set.count == 2 {
+                                        // Crossed shareable threshold — signal 'now you can share'
+                                        Haptics.rigid(intensity: 0.4)
+                                    } else {
+                                        Haptics.soft()
+                                    }
+                                }
                             },
                             onOpen: { openedMemoID = memo.id }
                         )
