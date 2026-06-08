@@ -618,6 +618,20 @@ struct SearchView: View {
                 let recent = vm.recentSearches
                 let entities = vm.topEntities
 
+                if !recent.isEmpty || !entities.isEmpty {
+                    sectionHeader(title: "快捷检索", trailing: AnyView(EmptyView()))
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(SearchView.starterSuggestions, id: \.self) { suggestion in
+                                entityChip(suggestion)
+                            }
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 4)
+                    }
+                }
+
                 if !recent.isEmpty {
                     sectionHeader(title: "最近搜索", trailing: AnyView(
                         Button(action: {
@@ -977,9 +991,7 @@ struct SearchView: View {
     }
 
     private func resultRow(_ result: SearchResult) -> some View {
-        let status = result.isDailyPageCompiled ? "VERIFIED" : "METADATA"
-        let snippet = String(result.snippet.prefix(80))
-        let a11yLabel = "\(formatDate(result.dateString)), \(matchLabel(for: result.matchKind)) match, \(status), \(snippet)"
+        let a11yLabel = "\(formatDate(result.dateString)), \(matchLabel(for: result.matchKind)) match, \(result.isDailyPageCompiled ? "VERIFIED" : "METADATA"), \(String(result.snippet.prefix(80)))"
         return Button(action: {
             Haptics.tapConfirm()
             vm.recordSearch(vm.query)
