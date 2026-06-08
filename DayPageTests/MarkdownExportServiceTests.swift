@@ -215,6 +215,67 @@ struct MarkdownExportServiceTests {
         #expect(content.contains("> AI · Productive day."))
     }
 
+    // MARK: - locations frontmatter
+
+    private func makeMemoWithLocation(
+        body: String,
+        locationName: String?,
+        secondsOffset: Double = 0
+    ) -> Memo {
+        let loc = locationName.map { Memo.Location(name: $0) }
+        return Memo(
+            id: UUID(),
+            type: .text,
+            created: Date(timeIntervalSinceReferenceDate: 800_000_000 + secondsOffset),
+            location: loc,
+            body: body
+        )
+    }
+
+    @Test func locations_deduped_whenTwoMemosShareSameLocation() {
+        let m1 = makeMemoWithLocation(body: "a", locationName: "Tokyo", secondsOffset: 0)
+        let m2 = makeMemoWithLocation(body: "b", locationName: "Tokyo", secondsOffset: 10)
+        let content = MarkdownExportService.buildExportContent(
+            memos: [m1, m2], date: makeDate()
+        )
+        // "Tokyo" must appear exactly once in the locations block
+        let locationSection = content.components(separatedBy: "locations:").last ?? ""
+        let tokyoCount = locationSection.components(separatedBy: "\"Tokyo\"").count - 1
+        #expect(tokyoCount == 1)
+        #expect(!content.contains("locations: []"))
+    }
+
+    @Test func locations_sorted_whenMultipleDistinctLocations() {
+        let m1 = makeMemoWithLocation(body: "a", locationName: "Zurich", secondsOffset: 0)
+        let m2 = makeMemoWithLocation(body: "b", locationName: "Amsterdam", secondsOffset: 10)
+        let m3 = makeMemoWithLocation(body: "c", locationName: "Berlin", secondsOffset: 20)
+        let content = MarkdownExportService.buildExportContent(
+            memos: [m1, m2, m3], date: makeDate()
+        )
+        let aRange = content.range(of: "\"Amsterdam\"")!
+        let bRange = content.range(of: "\"Berlin\"")!
+        let zRange = content.range(of: "\"Zurich\"")!
+        #expect(aRange.lowerBound < bRange.lowerBound)
+        #expect(bRange.lowerBound < zRange.lowerBound)
+    }
+
+    @Test func locations_yamlSpecialChars_areEscaped() {
+        let m = makeMemoWithLocation(body: "a", locationName: "O'ahu \"Hawaii\"")
+        let content = MarkdownExportService.buildExportContent(
+            memos: [m], date: makeDate()
+        )
+        #expect(content.contains("\"O'ahu \\\"Hawaii\\\"\""))
+    }
+
+    @Test func locations_emptyArray_whenNoGeotaggedMemos() {
+        let m1 = makeMemo(body: "no location")
+        let m2 = makeMemoWithLocation(body: "explicit nil", locationName: nil)
+        let content = MarkdownExportService.buildExportContent(
+            memos: [m1, m2], date: makeDate()
+        )
+        #expect(content.contains("locations: []"))
+    }
+
     // MARK: - 4. writeExportFile produces a branded filename
 
     @Test func writeExportFile_producesURLWithBrandedFilename() throws {
