@@ -164,6 +164,7 @@
 "today.wordcount.milestone" = "你今天已经写了 %d 个词";
 "today.wordcount.milestone.banner" = "不错 — 今天已写 %d 个词 ✍️";
 "today.wordcount.pill.hint" = "滚动到最新一条";
+"today.milestone.words" = "今天已写 %d 个词 ✍️";
 
 /* Archive Day Empty */
 "empty.archive_day.title" = "这一天还没有日记页。";

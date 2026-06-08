@@ -164,6 +164,7 @@
 "today.wordcount.milestone" = "You've written %d words today";
 "today.wordcount.milestone.banner" = "Nice — %d words today ✍️";
 "today.wordcount.pill.hint" = "Scroll to the latest entry";
+"today.milestone.words" = "%d words today ✍️";
 
 /* Archive Day Empty */
 "empty.archive_day.title" = "No page for this day.";
