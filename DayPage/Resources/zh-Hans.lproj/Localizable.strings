@@ -143,6 +143,13 @@
 "today.orb.prompt.evening"   = "今天有什么值得记住的瞬间？";
 "today.orb.prompt.night"     = "今天最终落在哪里了？";
 
+/* SwipeableMemoCard swipe-action labels */
+"memo.swipe.pin"    = "置顶";
+"memo.swipe.unpin"  = "取消置顶";
+"memo.swipe.more"   = "更多";
+"memo.swipe.share"  = "分享";
+"memo.swipe.delete" = "删除";
+
 /* DailyPage swipe action */
 "today.action.recompile"     = "重新编译";
 
