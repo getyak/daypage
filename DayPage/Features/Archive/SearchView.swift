@@ -1127,6 +1127,12 @@ struct SearchView: View {
 
     // MARK: - Keyword highlight via AttributedString
 
+    /// Mirrors SearchService's folding so the highlighter matches exactly what the service matched.
+    private func foldedForSearch(_ s: String) -> String {
+        s.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
+                  locale: Locale(identifier: "en_US_POSIX"))
+    }
+
     @ViewBuilder
     private func highlightedSnippet(_ snippet: String, keyword: String) -> some View {
         let trimmed = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1141,17 +1147,22 @@ struct SearchView: View {
         }
     }
 
-    /// Returns a ~80-char window of `snippet` centered just before the first
-    /// case-insensitive match of `keyword`, so the highlight is always visible.
+    /// Returns a ~80-char window of `snippet` centered just before the first folded match of
+    /// `keyword`, so the highlight is always visible even for diacritic/width/case differences.
     /// Prepends/appends '…' when the window doesn't reach the string boundaries.
     /// Falls back to the original snippet when `keyword` is not found.
     private func snippetWindow(_ snippet: String, keyword: String, context: Int = 24) -> String {
         let kw = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !kw.isEmpty else { return snippet }
 
-        guard let matchRange = snippet.range(of: kw, options: .caseInsensitive) else { return snippet }
+        let foldedSnippet = foldedForSearch(snippet)
+        let foldedKw = foldedForSearch(kw)
 
-        let matchOffset = snippet.distance(from: snippet.startIndex, to: matchRange.lowerBound)
+        // Locate the match in the folded string, then map the character offset back to original.
+        // Folding with these options is 1:1 per character, so character-distance mapping is safe.
+        guard let foldedRange = foldedSnippet.range(of: foldedKw) else { return snippet }
+
+        let matchOffset = foldedSnippet.distance(from: foldedSnippet.startIndex, to: foldedRange.lowerBound)
         let windowStartOffset = max(0, matchOffset - context)
 
         let windowStart = snippet.index(snippet.startIndex, offsetBy: windowStartOffset)
@@ -1169,15 +1180,16 @@ struct SearchView: View {
         var attributed = AttributedString(text)
         attributed.foregroundColor = UIColor(DSColor.onSurface)
 
-        let loweredText = text.lowercased()
-        let loweredKeyword = keyword.lowercased()
+        let foldedText = foldedForSearch(text)
+        let foldedKeyword = foldedForSearch(keyword)
+        guard !foldedKeyword.isEmpty else { return attributed }
 
-        var searchStart = loweredText.startIndex
-        while searchStart < loweredText.endIndex,
-              let range = loweredText.range(of: loweredKeyword, range: searchStart..<loweredText.endIndex) {
-            // Map the range from lowercased string to the original text
-            let offset = loweredText.distance(from: loweredText.startIndex, to: range.lowerBound)
-            let length = loweredText.distance(from: range.lowerBound, to: range.upperBound)
+        var searchStart = foldedText.startIndex
+        while searchStart < foldedText.endIndex,
+              let range = foldedText.range(of: foldedKeyword, range: searchStart..<foldedText.endIndex) {
+            // Folding is 1:1 per character for these options — character offset is safe to map back.
+            let offset = foldedText.distance(from: foldedText.startIndex, to: range.lowerBound)
+            let length = foldedText.distance(from: range.lowerBound, to: range.upperBound)
 
             let attrStart = attributed.index(attributed.startIndex, offsetByCharacters: offset)
             let attrEnd = attributed.index(attrStart, offsetByCharacters: length)
@@ -1494,6 +1506,16 @@ private struct SwipeableRecentRow: View {
 
 extension SearchViewModel.GroupedResults: Identifiable {
     var id: SearchViewModel.Section { section }
+}
+
+// MARK: - Testable folding helper
+
+extension SearchView {
+    /// Exposed for unit testing only — mirrors SearchService's folding options.
+    static func foldedForSearchTesting(_ s: String) -> String {
+        s.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
+                  locale: Locale(identifier: "en_US_POSIX"))
+    }
 }
 
 // MARK: - Memo.MemoType + UI helpers
