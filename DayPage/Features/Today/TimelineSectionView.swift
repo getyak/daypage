@@ -190,7 +190,7 @@ struct TimelineDayRow: View {
             Text("\(approxWordCount)")
                 .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
                 .foregroundColor(DSTokens.Colors.fgMuted)
-            Text("WORDS")
+            Text(wordUnitLabel)
                 .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
                 .foregroundColor(DSTokens.Colors.fgMuted.opacity(0.6))
         }
@@ -294,11 +294,32 @@ struct TimelineDayRow: View {
         return String(format: format, n)
     }
 
-    /// Rough word/character count to mirror the web's `item.words`. Uses the
-    /// summary length as a cheap proxy (no raw file read when collapsed).
+    /// CJK-aware word count using the canonical counter from TodayViewModel.
+    /// Falls back to memo count when no compiled summary is available.
     private var approxWordCount: Int {
         guard let summary = entry.summary, !summary.isEmpty else { return entry.memoCount }
-        return summary.count
+        return TodayViewModel.wordCount(in: summary)
+    }
+
+    /// "字" when the summary is majority-CJK, "WORDS" otherwise.
+    private var wordUnitLabel: String {
+        guard let summary = entry.summary, !summary.isEmpty else { return "WORDS" }
+        var cjkCount = 0
+        var nonWhitespaceCount = 0
+        for scalar in summary.unicodeScalars {
+            let v = scalar.value
+            guard !CharacterSet.whitespacesAndNewlines.contains(scalar) else { continue }
+            nonWhitespaceCount += 1
+            if (v >= 0x4E00 && v <= 0x9FFF)
+                || (v >= 0x3400 && v <= 0x4DBF)
+                || (v >= 0x20000 && v <= 0x2A6DF)
+                || (v >= 0xF900 && v <= 0xFAFF)
+                || (v >= 0x2E80 && v <= 0x2EFF)
+                || (v >= 0x3000 && v <= 0x303F) {
+                cjkCount += 1
+            }
+        }
+        return (nonWhitespaceCount > 0 && cjkCount * 2 > nonWhitespaceCount) ? "字" : "WORDS"
     }
 
     private var accessibilityLabel: String {
