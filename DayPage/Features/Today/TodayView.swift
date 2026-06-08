@@ -1314,19 +1314,29 @@ struct TodayView: View {
                     let wcLabel = wc == 1
                         ? NSLocalizedString("writesheet.count.words.one", comment: "")
                         : String(format: NSLocalizedString("writesheet.count.words.other", comment: ""), wc)
-                    Text("\(wc)")
-                        .font(DSType.mono10)
-                        .tracking(1.0)
-                        .monospacedDigit()
-                        .foregroundColor(DSColor.inkSubtle)
-                        .modifier(NumericTextContentTransition(value: Double(wc), reduceMotion: reduceMotion))
-                        .animation(reduceMotion ? nil : Motion.spring, value: wc)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(.ultraThinMaterial, in: Capsule())
-                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
-                        .accessibilityLabel(wcLabel)
-                        .accessibilityIdentifier("today-wordcount-pill")
+                    Button {
+                        hasNewContentAboveFold = false
+                        Haptics.soft()
+                        withAnimation(reduceMotion ? nil : Motion.spring) {
+                            timelineScrollProxy?.scrollTo("timelineTop", anchor: .top)
+                        }
+                    } label: {
+                        Text("\(wc)")
+                            .font(DSType.mono10)
+                            .tracking(1.0)
+                            .monospacedDigit()
+                            .foregroundColor(DSColor.inkSubtle)
+                            .modifier(NumericTextContentTransition(value: Double(wc), reduceMotion: reduceMotion))
+                            .animation(reduceMotion ? nil : Motion.spring, value: wc)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(.ultraThinMaterial, in: Capsule())
+                            .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(wcLabel)
+                    .accessibilityHint(NSLocalizedString("today.wordcount.pill.hint", comment: ""))
+                    .accessibilityIdentifier("today-wordcount-pill")
                 }
 
                 Button {
