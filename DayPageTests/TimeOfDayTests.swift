@@ -91,6 +91,79 @@ struct TimeOfDayTests {
         #expect(TimeZoneBadge.gmtOffset(for: tz, at: Date()) == "GMT-3:30")
     }
 
+    // MARK: - continuousTint
+
+    /// Helper: resolve a Color(red:green:blue:) to its (r,g,b) components in sRGB.
+    private func components(_ color: Color) -> (r: Double, g: Double, b: Double) {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+        return (Double(r), Double(g), Double(b))
+    }
+
+    private func makeDate(hour: Int, minute: Int = 0) -> (Date, Calendar) {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(secondsFromGMT: 0)!
+        var comps = DateComponents()
+        comps.year = 2026; comps.month = 1; comps.day = 1
+        comps.hour = hour; comps.minute = minute
+        return (cal.date(from: comps)!, cal)
+    }
+
+    @Test func continuousTintAtMorningAnchorApproximatesDiscrete() {
+        let (date, cal) = makeDate(hour: 8, minute: 0)
+        let continuous = TimeOfDay.continuousTint(at: date, calendar: cal)
+        let discrete = TimeOfDay.morning.tint
+        let c = components(continuous)
+        let d = components(discrete)
+        // Within 15% of the anchor — it's an interpolated midpoint, not exact equality
+        #expect(abs(c.r - d.r) < 0.15)
+        #expect(abs(c.g - d.g) < 0.15)
+        #expect(abs(c.b - d.b) < 0.15)
+    }
+
+    @Test func continuousTintAtEveningAnchorApproximatesDiscrete() {
+        let (date, cal) = makeDate(hour: 20, minute: 0)
+        let continuous = TimeOfDay.continuousTint(at: date, calendar: cal)
+        let discrete = TimeOfDay.evening.tint
+        let c = components(continuous)
+        let d = components(discrete)
+        #expect(abs(c.r - d.r) < 0.15)
+        #expect(abs(c.g - d.g) < 0.15)
+        #expect(abs(c.b - d.b) < 0.15)
+    }
+
+    @Test func continuousTintBetweenMorningAndAfternoonFallsBetweenAnchors() {
+        let (date, cal) = makeDate(hour: 11, minute: 15)
+        let mid = TimeOfDay.continuousTint(at: date, calendar: cal)
+        let morning = components(TimeOfDay.morning.tint)
+        let afternoon = components(Color(red: 1.0, green: 0.75, blue: 0.0))
+        let m = components(mid)
+        // Each component should lie between the two anchor components (monotonic interpolation)
+        func between(_ v: Double, _ a: Double, _ b: Double) -> Bool {
+            let lo = min(a, b), hi = max(a, b)
+            return v >= lo - 0.01 && v <= hi + 0.01
+        }
+        #expect(between(m.r, morning.r, afternoon.r))
+        #expect(between(m.g, morning.g, afternoon.g))
+        #expect(between(m.b, morning.b, afternoon.b))
+    }
+
+    @Test func continuousTintHasNoNaNComponents() {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(secondsFromGMT: 0)!
+        var comps = DateComponents()
+        comps.year = 2026; comps.month = 1; comps.day = 1
+        for hour in 0..<24 {
+            comps.hour = hour; comps.minute = 0
+            let date = cal.date(from: comps)!
+            let c = components(TimeOfDay.continuousTint(at: date, calendar: cal))
+            #expect(!c.r.isNaN && !c.g.isNaN && !c.b.isNaN,
+                    "NaN component at hour \(hour)")
+            #expect((0...1).contains(c.r) && (0...1).contains(c.g) && (0...1).contains(c.b),
+                    "Component out of [0,1] at hour \(hour)")
+        }
+    }
+
     // MARK: - from(_:calendar:) round-trip
 
     @Test func fromDateUsesCalendarHour() {

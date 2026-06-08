@@ -1047,9 +1047,9 @@ struct TodayView: View {
         TimeOfDay.from(date).bucketIndex
     }
 
-    /// Derives a subtle ambient hue for the orb breathing glow from the time-of-day bucket.
+    /// Derives a continuously-interpolated ambient hue for the orb breathing glow.
     private func orbTint(_ date: Date) -> Color {
-        TimeOfDay.from(date).tint
+        TimeOfDay.continuousTint(at: date)
     }
 
     private func orbKicker(_ date: Date) -> String {
