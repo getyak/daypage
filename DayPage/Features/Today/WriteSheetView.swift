@@ -56,6 +56,7 @@ struct WriteSheetView: View {
     @State private var committedClose: Bool = false
     @State private var saveReadyPulse: Bool = false
     @State private var confirmingDiscard: Bool = false
+    @State private var didCrossThreshold: Bool = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(AppSettings.Keys.writeSheetRailHintShown) private var railHintShown: Bool = false
     /// Snapshot taken at open time so the hint stays visible for the whole first session.
@@ -215,6 +216,7 @@ struct WriteSheetView: View {
             hairline
             textArea
             hairline
+            charCountChip
             footerRail
             if showRailHint && pendingLocation == nil {
                 railHintCaption
@@ -369,6 +371,37 @@ struct WriteSheetView: View {
         .padding(.top, 20)
         .padding(.bottom, 18)
         .frame(minHeight: 90, alignment: .topLeading)
+    }
+
+    // MARK: - Character count chip
+
+    private static let charThreshold = 80
+
+    private var charCountChipColor: Color {
+        charCount >= Self.charThreshold ? DSColor.accentAmber : DSColor.inkSubtle
+    }
+
+    private var charCountChip: some View {
+        Text("\(charCount)")
+            .font(DSType.mono10)
+            .tracking(1.0)
+            .monospacedDigit()
+            .foregroundColor(charCountChipColor)
+            .modifier(NumericTextContentTransition(value: Double(charCount), reduceMotion: reduceMotion))
+            .animation(reduceMotion ? nil : Motion.spring, value: charCount)
+            .animation(reduceMotion ? nil : Motion.spring, value: charCount >= Self.charThreshold)
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            .padding(.horizontal, 22)
+            .padding(.top, 8)
+            .accessibilityLabel(String(format: NSLocalizedString("writesheet.charcount.accessibility", comment: "%d characters written"), charCount))
+            .onChange(of: charCount) { newCount in
+                if newCount >= Self.charThreshold && !didCrossThreshold {
+                    didCrossThreshold = true
+                    Haptics.soft()
+                } else if newCount < Self.charThreshold && didCrossThreshold {
+                    didCrossThreshold = false
+                }
+            }
     }
 
     // MARK: - Footer rail (composer.jsx:282-330)
