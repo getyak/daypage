@@ -68,12 +68,15 @@ struct EmptyStateView: View {
                 breathing = true
                 revealTask = Task { @MainActor in
                     revealStep = 1  // orb blooms
+                    if !voiceOverEnabled { Haptics.rigid(intensity: 0.25) }
                     try? await Task.sleep(nanoseconds: 70_000_000)
                     guard !Task.isCancelled else { return }
                     revealStep = 2  // title rises
+                    if !voiceOverEnabled { Haptics.rigid(intensity: 0.35) }
                     try? await Task.sleep(nanoseconds: 70_000_000)
                     guard !Task.isCancelled else { return }
                     revealStep = 3  // subtitle
+                    if !voiceOverEnabled { Haptics.rigid(intensity: 0.45) }
                     try? await Task.sleep(nanoseconds: 70_000_000)
                     guard !Task.isCancelled else { return }
                     revealStep = 4  // CTA
