@@ -160,6 +160,8 @@ extension AppSettings {
         static let streakMilestonesShown = "streakMilestonesShown"
         // Export long-press hint — shown once when the button first appears with >=1 memo
         static let exportLongPressHintShown = "today.exportLongPressHintShown"
+        // Graph legend — comma-joined hidden entity types, e.g. "places,people"
+        static let graphHiddenTypes = "graph.hiddenTypes"
     }
 }
 
