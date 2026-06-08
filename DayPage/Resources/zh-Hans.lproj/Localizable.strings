@@ -329,6 +329,18 @@
 "scroll_to_top.label.new_content"   = "返回顶部，有新内容";
 "voice_recording_soft_cap_hint"        = "建议 5 分钟内";
 
+// MARK: Memo errors
+"error.memo.delete_failed"       = "删除失败：%@";
+"error.memo.undo_failed"         = "撤销失败：%@";
+"error.memo.save_failed"         = "保存失败：%@";
+"error.memo.pin_failed"          = "置顶失败：%@";
+"error.memo.unpin_failed"        = "取消置顶失败：%@";
+"error.memo.retranscribe_failed" = "重新转写失败：%@";
+"error.memo.load_failed"         = "加载失败：%@";
+"error.memo.photo_failed"        = "照片处理失败，请重试";
+"error.memo.file_copy_failed"    = "文件复制失败：%@";
+"error.memo.location_failed"     = "位置获取失败：%@";
+
 /* TodayViewModel compile() banners */
 "today.compile.success"           = "今日 Daily Page 已生成";
 "today.compile.offline"           = "当前离线，已加入队列";

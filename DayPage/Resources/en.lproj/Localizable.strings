@@ -301,6 +301,18 @@
 "scroll_to_top.label.new_content"   = "Scroll to top, new content";
 "voice_recording_soft_cap_hint"        = "Recommended under 5 min";
 
+// MARK: Memo errors
+"error.memo.delete_failed"       = "Delete failed: %@";
+"error.memo.undo_failed"         = "Undo failed: %@";
+"error.memo.save_failed"         = "Failed to save: %@";
+"error.memo.pin_failed"          = "Pin failed: %@";
+"error.memo.unpin_failed"        = "Unpin failed: %@";
+"error.memo.retranscribe_failed" = "Re-transcription failed: %@";
+"error.memo.load_failed"         = "Failed to load: %@";
+"error.memo.photo_failed"        = "Photo processing failed, please try again";
+"error.memo.file_copy_failed"    = "File copy failed: %@";
+"error.memo.location_failed"     = "Location fetch failed: %@";
+
 /* TodayViewModel compile() banners */
 "today.compile.success"           = "Today's Daily Page is ready";
 "today.compile.offline"           = "You're offline — added to queue";

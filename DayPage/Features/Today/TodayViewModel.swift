@@ -338,7 +338,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
             memos = remaining
         }
         Haptics.warn()
-        persistMemos(remaining, capturedDate: date, previous: previous, failureMessagePrefix: "删除失败")
+        persistMemos(remaining, capturedDate: date, previous: previous, failureMessagePrefix: NSLocalizedString("error.memo.delete_failed", comment: ""))
 
         // Start 5-second undo window
         deleteUndoTask?.cancel()
@@ -374,7 +374,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
             memos = restored
         }
         Haptics.soft()
-        persistMemos(restored, capturedDate: date, previous: previous, failureMessagePrefix: "撤销失败")
+        persistMemos(restored, capturedDate: date, previous: previous, failureMessagePrefix: NSLocalizedString("error.memo.undo_failed", comment: ""))
     }
 
     /// Replaces the body text of an existing memo and writes through to disk.
@@ -389,7 +389,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
             memos = newMemos
         }
         Haptics.commit()
-        persistMemos(newMemos, capturedDate: date, previous: previous, failureMessagePrefix: "保存失败")
+        persistMemos(newMemos, capturedDate: date, previous: previous, failureMessagePrefix: NSLocalizedString("error.memo.save_failed", comment: ""))
     }
 
     /// Pins a memo to the top of today's list without changing its original timestamp.
@@ -405,7 +405,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         withAnimation(.easeInOut(duration: 0.25)) {
             memos = updated
         }
-        persistMemos(updated, capturedDate: date, previous: previous, failureMessagePrefix: "置顶失败")
+        persistMemos(updated, capturedDate: date, previous: previous, failureMessagePrefix: NSLocalizedString("error.memo.pin_failed", comment: ""))
     }
 
     /// Unpins a memo, restoring it to its natural position based on original `created` time.
@@ -421,7 +421,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         withAnimation(.easeInOut(duration: 0.25)) {
             memos = updated
         }
-        persistMemos(updated, capturedDate: date, previous: previous, failureMessagePrefix: "取消置顶失败")
+        persistMemos(updated, capturedDate: date, previous: previous, failureMessagePrefix: NSLocalizedString("error.memo.unpin_failed", comment: ""))
     }
 
     /// Dispatches a `RawStorage.rewrite` off the MainActor so disk I/O never
@@ -446,7 +446,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                     withAnimation(Motion.rise) {
                         self.memos = previous
                     }
-                    self.submitError = "\(failureMessagePrefix)：\(error.localizedDescription)"
+                    self.submitError = String(format: failureMessagePrefix, error.localizedDescription)
                 }
             }
         }
@@ -535,7 +535,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                     }
                     self.errorMessage = nil
                 case .failure(let error):
-                    self.errorMessage = "加载失败：\(error.localizedDescription)"
+                    self.errorMessage = String(format: NSLocalizedString("error.memo.load_failed", comment: ""), error.localizedDescription)
                     self.memos = []
                 }
 
@@ -598,7 +598,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
             defer { isProcessingPhoto = false }
 
             guard let result = await photoService.processPickerItem(item) else {
-                submitError = "照片处理失败，请重试"
+                submitError = NSLocalizedString("error.memo.photo_failed", comment: "")
                 return
             }
 
@@ -656,7 +656,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
             newMemos[memoIdx] = updated
             let previous = memos
             withAnimation { memos = newMemos }
-            persistMemos(newMemos, capturedDate: date, previous: previous, failureMessagePrefix: "重新转写失败")
+            persistMemos(newMemos, capturedDate: date, previous: previous, failureMessagePrefix: NSLocalizedString("error.memo.retranscribe_failed", comment: ""))
         }
     }
 
@@ -721,7 +721,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         do {
             try fm.copyItem(at: url, to: finalURL)
         } catch {
-            submitError = "文件复制失败：\(error.localizedDescription)"
+            submitError = String(format: NSLocalizedString("error.memo.file_copy_failed", comment: ""), error.localizedDescription)
             return
         }
 
@@ -737,7 +737,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         cameraPhotoTask = Task { @MainActor in
             defer { isProcessingPhoto = false }
             guard let result = await photoService.processImageDataAsync(data) else {
-                submitError = "照片处理失败，请重试"
+                submitError = NSLocalizedString("error.memo.photo_failed", comment: "")
                 return
             }
             pendingAttachments.append(.photo(result))
@@ -751,7 +751,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         cameraPhotoTask = Task { @MainActor in
             defer { isProcessingPhoto = false }
             guard let result = await photoService.processImageDataAsync(data) else {
-                submitError = "照片处理失败，请重试"
+                submitError = NSLocalizedString("error.memo.photo_failed", comment: "")
                 return
             }
             pendingAttachments.append(.photo(result))
@@ -888,7 +888,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 let count = UserDefaults.standard.integer(forKey: AppSettings.Keys.memoSaveCount)
                 UserDefaults.standard.set(count + 1, forKey: AppSettings.Keys.memoSaveCount)
             } catch {
-                submitError = "保存失败：\(error.localizedDescription)"
+                submitError = String(format: NSLocalizedString("error.memo.save_failed", comment: ""), error.localizedDescription)
             }
         }
     }
@@ -928,7 +928,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 }
                 // Don't show error for timeout — coords-only is acceptable
             } catch {
-                submitError = "位置获取失败：\(error.localizedDescription)"
+                submitError = String(format: NSLocalizedString("error.memo.location_failed", comment: ""), error.localizedDescription)
             }
         }
     }
