@@ -259,6 +259,19 @@
 /* Archive — async month loading (US-015) */
 "archive.loading_month" = "Loading…";
 
+/* Settings — Accessibility labels/hints */
+"settings.close.label" = "Close Settings";
+"settings.apikey.paste.label" = "Paste API key from clipboard";
+"settings.apikey.clear.label" = "Clear API key";
+"settings.apikey.save.label" = "Save API key";
+"settings.apikey.test.label" = "Test connection";
+"settings.rollback.label" = "Switch back to local storage";
+"settings.rollback.hint" = "Destructive. Reverts vault location from iCloud to local device storage.";
+"settings.cleanup_backup.label" = "Delete local backup";
+"settings.cleanup_backup.hint" = "Destructive. Permanently deletes the local backup. This cannot be undone.";
+"settings.clear_sample.label" = "Clear sample data";
+"settings.clear_sample.hint" = "Destructive. Permanently deletes all sample data. This cannot be undone.";
+
 /* Settings — AI Engine (US-014) */
 "settings.ai.section_title" = "AI Engine";
 "settings.ai.model" = "Model";
