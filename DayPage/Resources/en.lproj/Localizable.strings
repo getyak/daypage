@@ -143,6 +143,13 @@
 "today.orb.prompt.evening"   = "What made today worth remembering?";
 "today.orb.prompt.night"     = "How did today land?";
 
+/* SwipeableMemoCard swipe-action labels */
+"memo.swipe.pin"    = "Pin";
+"memo.swipe.unpin"  = "Unpin";
+"memo.swipe.more"   = "More";
+"memo.swipe.share"  = "Share";
+"memo.swipe.delete" = "Delete";
+
 /* DailyPage swipe action */
 "today.action.recompile"     = "Recompile";
 

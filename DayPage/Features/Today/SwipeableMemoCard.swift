@@ -240,14 +240,16 @@ struct SwipeableMemoCard: View {
         var items: [SwipeAction] = []
         items.append(SwipeAction(
             id: .pin,
-            label: memo.pinnedAt != nil ? "取消置顶" : "置顶",
+            label: memo.pinnedAt != nil
+                ? NSLocalizedString("memo.swipe.unpin", comment: "Swipe action: unpin memo")
+                : NSLocalizedString("memo.swipe.pin",   comment: "Swipe action: pin memo"),
             systemImage: memo.pinnedAt != nil ? "pin.slash" : "pin",
             tone: .neutral,
             run: { runAction { onPin?() } }
         ))
         items.append(SwipeAction(
             id: .more,
-            label: "更多",
+            label: NSLocalizedString("memo.swipe.more", comment: "Swipe action: more options"),
             systemImage: "ellipsis",
             tone: .neutral,
             run: { runAction(haptic: .soft) { onMore?() } }
@@ -260,14 +262,14 @@ struct SwipeableMemoCard: View {
         [
             SwipeAction(
                 id: .share,
-                label: "分享",
+                label: NSLocalizedString("memo.swipe.share", comment: "Swipe action: share memo"),
                 systemImage: "square.and.arrow.up",
                 tone: .accent,
                 run: { runAction(haptic: .confirm) { onShare?() } }
             ),
             SwipeAction(
                 id: .delete,
-                label: "删除",
+                label: NSLocalizedString("memo.swipe.delete", comment: "Swipe action: delete memo"),
                 systemImage: "trash",
                 tone: .destructive,
                 run: { runAction(haptic: .confirm) { onDelete?() } }
