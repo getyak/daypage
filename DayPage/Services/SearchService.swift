@@ -11,7 +11,7 @@ struct SearchResult: Identifiable, Equatable {
     let isDailyPageCompiled: Bool
     let memoType: Memo.MemoType?        // matchKind == .date 时为 nil
 
-    enum MatchKind: Equatable {
+    enum MatchKind: Equatable, Hashable {
         case memoBody
         case location
         case date
