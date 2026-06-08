@@ -94,6 +94,7 @@
 /* UndoPillView — US-009 */
 "undo_pill.label.send"       = "Undo send";
 "undo_pill.label.delete"     = "Deleted · Undo";
+"undo_pill.closing"          = "Undo window closing soon";
 
 /* Today header subline — note count */
 "today.subline.notes.zero"   = "%d notes";
