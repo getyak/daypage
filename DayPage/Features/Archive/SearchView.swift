@@ -224,6 +224,8 @@ struct SearchView: View {
     @State private var didBuzzEmpty: Bool = false
     @State private var lastBuzzedEmptyQuery: String? = nil
     @State private var clearPressed: Bool = false
+    @State private var searchScrollProxy: ScrollViewProxy? = nil
+    @State private var lastScrolledQuery: String? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -280,6 +282,8 @@ struct SearchView: View {
             .onDisappear {
                 cancellable?.cancel()
                 searchTask?.cancel()
+                searchScrollProxy = nil
+                lastScrolledQuery = nil
             }
         }
     }
@@ -319,7 +323,15 @@ struct SearchView: View {
                 if willBeEmpty { appearedRecents = [] }
                 vm.results = hits
                 vm.hasSearched = !trimmed.isEmpty || capturedFilters.isActive
-                if wasEmpty && !hits.isEmpty && !trimmed.isEmpty { Haptics.soft() }
+                if !hits.isEmpty && !trimmed.isEmpty && wasEmpty { Haptics.soft() }
+                // Scroll to top when a different query yields results
+                let scrollKey = trimmed + (capturedFilters.isActive ? "|filtered" : "")
+                if !hits.isEmpty && scrollKey != lastScrolledQuery {
+                    lastScrolledQuery = scrollKey
+                    withAnimation(reduceMotion ? nil : Motion.spring) {
+                        searchScrollProxy?.scrollTo("searchTop", anchor: .top)
+                    }
+                }
                 if hits.isEmpty && vm.hasSearched {
                     if trimmed != lastBuzzedEmptyQuery {
                         if !reduceMotion { Haptics.warn() }
@@ -379,6 +391,7 @@ struct SearchView: View {
                         vm.results = []
                         vm.hasSearched = false
                         appearedRecents = []
+                        lastScrolledQuery = nil
                         isInputFocused = true
                     }) {
                         Image(systemName: "xmark.circle.fill")
@@ -813,6 +826,7 @@ struct SearchView: View {
                         vm.results = []
                         vm.hasSearched = false
                         didBuzzEmpty = false
+                        lastScrolledQuery = nil
                         setupDebounce()
                         isInputFocused = true
                     }) {
@@ -890,8 +904,9 @@ struct SearchView: View {
         ScrollViewReader { proxy in
         ScrollView {
             LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
-                // Invisible anchor for scroll-to-top
+                // Invisible anchor for scroll-to-top; also captures the ScrollViewProxy
                 Color.clear.frame(height: 0).id("searchTop")
+                    .onAppear { searchScrollProxy = proxy }
 
                 let groups = vm.groupedResults()
                 let total = vm.results.count
