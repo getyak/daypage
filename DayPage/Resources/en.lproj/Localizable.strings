@@ -155,6 +155,7 @@
 /* VoiceOver announcement on successful memo save */
 "today.memo.saved" = "Memo saved";
 "today.wordcount.milestone" = "You've written %d words today";
+"today.wordcount.milestone.banner" = "Nice — %d words today ✍️";
 "today.wordcount.pill.hint" = "Scroll to the latest entry";
 
 /* Archive Day Empty */

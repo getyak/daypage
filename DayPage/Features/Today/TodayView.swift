@@ -1789,6 +1789,8 @@ struct TodayView: View {
             Haptics.success()
             let message = String(format: NSLocalizedString("today.wordcount.milestone", comment: ""), crossed)
             UIAccessibility.post(notification: .announcement, argument: message)
+            let bannerTitle = String(format: NSLocalizedString("today.wordcount.milestone.banner", comment: ""), crossed)
+            bannerCenter.show(AppBannerModel(kind: .success, title: bannerTitle, autoDismiss: true))
         }
         .onChange(of: viewModel.memos.isEmpty) { isEmpty in
             if isEmpty { lastWordMilestone = 0 }
