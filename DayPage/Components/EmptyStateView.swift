@@ -246,24 +246,6 @@ extension EmptyStateView {
         )
     }
 
-    /// Compilation locked — not enough memos.
-    ///
-    /// **Orphaned.** Today screen no longer renders this as a card. The
-    /// compile-locked hint now lives as a single-line mono `Text` directly
-    /// above the input bar (see `TodayView` Compile Area). Kept temporarily
-    /// for the SwiftUI preview at the bottom of this file. Remove (along
-    /// with the preview and the `compileLockedTitle`/`compileLockedSubtitle`
-    /// L10n accessors) one release cycle after 2026-05-12 if no new caller
-    /// appears.
-    @available(*, deprecated, message: "Replaced by inline `compile.dock.locked` Text in TodayView. Pending removal — see doc comment.")
-    static func compileLocked(currentCount: Int) -> EmptyStateView {
-        EmptyStateView(
-            title: L10n.Empty.compileLockedTitle,
-            subtitle: L10n.Empty.compileLockedSubtitle(count: currentCount),
-            showOrbAccent: false
-        )
-    }
-
     /// Archive — selected day has no compiled page.
     static func archiveDayEmpty(ctaAction: @escaping () -> Void) -> EmptyStateView {
         EmptyStateView(
@@ -293,7 +275,7 @@ extension EmptyStateView {
             subtitle: L10n.Empty.graphNoMatchesSubtitle,
             ctaLabel: L10n.Empty.graphClearFilters,
             ctaAction: ctaAction,
-            showOrbAccent: false
+            showOrbAccent: true
         )
     }
 
@@ -304,7 +286,7 @@ extension EmptyStateView {
             subtitle: L10n.Empty.micDeniedSubtitle,
             ctaLabel: L10n.Empty.micDeniedCta,
             ctaAction: ctaAction,
-            showOrbAccent: false
+            showOrbAccent: true
         )
     }
 
