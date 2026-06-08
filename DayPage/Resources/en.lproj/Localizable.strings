@@ -178,6 +178,13 @@
 "empty.graph.no_matches.subtitle" = "Adjust your search or filters to see nodes.";
 "empty.graph.clear_filters" = "Clear Filters";
 
+/* Graph Network Size Pill */
+"graph.pill.nodes.prefix" = "";
+"graph.pill.nodes.suffix" = " nodes · ";
+"graph.pill.edges.suffix" = " connections";
+"graph.pill.accessibility" = "Knowledge network: %d nodes, %d connections";
+"graph.network.milestone.announcement" = "Knowledge network: %d nodes, %d connections";
+
 /* Mic Permission Denied */
 "empty.mic_denied.title" = "Microphone access needed.";
 "empty.mic_denied.subtitle" = "Allow microphone access in Settings to record voice memos.";
