@@ -1451,14 +1451,17 @@ private struct SwipeableRecentRow: View {
                 }
                 .buttonStyle(.plain)
 
-                Button(action: { onDelete() }) {
+                Button(action: {
+                    Haptics.warn()
+                    withAnimation(reduceMotion ? nil : snapAnimation) { onDelete() }
+                }) {
                     Image(systemName: "xmark")
                         .font(.system(size: 11))
                         .foregroundColor(DSColor.outline)
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(ChipButtonStyle(reduceMotion: reduceMotion))
                 .accessibilityLabel(NSLocalizedString("search.a11y.deleteRecent", comment: "Accessibility label for delete recent search button"))
             }
             .padding(.horizontal, 20)
