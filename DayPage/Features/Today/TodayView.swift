@@ -1931,11 +1931,18 @@ struct TodayView: View {
     private func todayWeatherShort() -> String? {
         for memo in viewModel.memos {  // memos is already newest-first
             if let w = memo.weather?.trimmingCharacters(in: .whitespaces), !w.isEmpty {
-                // Extract the temperature token (text before "·", or whole string).
-                let temp = w.split(separator: "·").first.map { $0.trimmingCharacters(in: .whitespaces) } ?? w
+                // Detect whether the string leads with a known condition glyph.
+                let foundGlyph = Self.conditionGlyphs.first(where: { w.hasPrefix($0) })
+                // Strip any leading glyph + thin-space before extracting the temperature.
+                let withoutGlyph = foundGlyph.map { w.dropFirst($0.count).trimmingCharacters(in: .whitespaces) } ?? w
+                // Keep only the first token (before "·" or ",") — the temperature.
+                let temp = withoutGlyph.split(omittingEmptySubsequences: true,
+                                              whereSeparator: { $0 == "·" || $0 == "," })
+                                       .first
+                                       .map { $0.trimmingCharacters(in: .whitespaces) }
+                                       ?? withoutGlyph
                 guard !temp.isEmpty else { continue }
-                // Scan the full weather string for a known condition glyph.
-                if let glyph = Self.conditionGlyphs.first(where: { w.contains($0) }) {
+                if let glyph = foundGlyph {
                     return "\(glyph) \(temp)"
                 }
                 return temp

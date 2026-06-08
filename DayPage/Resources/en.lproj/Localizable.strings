@@ -106,6 +106,17 @@
 "today.subline.words.one"    = "%d WORD";
 "today.subline.words.other"  = "%d WORDS";
 
+/* Today header subline — weather condition glyphs (VoiceOver) */
+"weather.glyph.sunny"        = "Sunny";
+"weather.glyph.cloudy"       = "Cloudy";
+"weather.glyph.rainy"        = "Rainy";
+"weather.glyph.snowy"        = "Snowy";
+"weather.glyph.stormy"       = "Stormy";
+"weather.glyph.showery"      = "Showery";
+"weather.glyph.foggy"        = "Foggy";
+"weather.glyph.night"        = "Clear night";
+"weather.glyph.partlycloudy" = "Partly cloudy";
+
 /* Today orb greeting — time-of-day serif greeting above kicker */
 "today.greeting.morning"     = "Good morning.";
 "today.greeting.afternoon"   = "Good afternoon.";
