@@ -180,7 +180,7 @@ struct InputBarV4: View {
     // MARK: Derived
 
     private var wordCount: Int {
-        text.split(whereSeparator: \.isWhitespace).count
+        TextCount.words(text)
     }
 
     private var charCount: Int { text.count }
