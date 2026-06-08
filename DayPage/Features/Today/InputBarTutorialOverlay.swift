@@ -16,6 +16,16 @@ struct InputBarTutorialOverlay: View {
         ("arrow.left.and.right", "Swipe for quick actions", "Swipe left to cancel, right to transcribe your voice memo.")
     ]
 
+    private var contentTransition: AnyTransition {
+        if reduceMotion {
+            return .opacity
+        }
+        return .asymmetric(
+            insertion: .move(edge: .trailing).combined(with: .opacity),
+            removal: .move(edge: .leading).combined(with: .opacity)
+        )
+    }
+
     var body: some View {
         ZStack {
             Color.black.opacity(0.45).ignoresSafeArea()
@@ -26,7 +36,7 @@ struct InputBarTutorialOverlay: View {
                 HStack {
                     Spacer()
                     if step < steps.count - 1 {
-                        Button(action: complete) {
+                        Button(action: { Haptics.soft(); complete() }) {
                             Text("Skip")
                                 .font(DSFonts.inter(size: 15, weight: .medium))
                                 .foregroundColor(DSColor.inkMuted)
@@ -40,33 +50,47 @@ struct InputBarTutorialOverlay: View {
                 Spacer()
 
                 VStack(spacing: 20) {
-                    // Step indicator dots
+                    // Step indicator dots — tappable for direct navigation
                     HStack(spacing: 6) {
                         ForEach(0..<steps.count, id: \.self) { i in
                             Circle()
                                 .fill(i == step ? DSColor.amberAccent : DSColor.inkFaint)
                                 .frame(width: 6, height: 6)
                                 .animation(Motion.respectReduceMotion(.easeInOut(duration: 0.2)), value: step)
+                                .contentShape(Rectangle().size(CGSize(width: 44, height: 44)).offset(x: -19, y: -19))
+                                .onTapGesture {
+                                    withAnimation(Motion.respectReduceMotion(Motion.slide)) {
+                                        step = i
+                                    }
+                                    Haptics.soft()
+                                }
+                                .accessibilityAddTraits(.isButton)
+                                .accessibilityLabel("Step \(i + 1)")
                         }
                     }
-                    .accessibilityElement(children: .ignore)
+                    .accessibilityElement(children: .combine)
                     .accessibilityLabel("Step \(step + 1) of \(steps.count)")
 
-                    Image(systemName: steps[step].icon)
-                        .font(.system(size: 32, weight: .medium))
-                        .foregroundColor(DSColor.amberAccent)
-                        .frame(height: 44)
-                        .accessibilityHidden(true)
+                    // Animated content block — slides left/right on step change
+                    VStack(spacing: 20) {
+                        Image(systemName: steps[step].icon)
+                            .font(.system(size: 32, weight: .medium))
+                            .foregroundColor(DSColor.amberAccent)
+                            .frame(height: 44)
+                            .accessibilityHidden(true)
 
-                    VStack(spacing: 6) {
-                        Text(steps[step].title)
-                            .font(DSFonts.inter(size: 17, weight: .semibold))
-                            .foregroundColor(DSColor.inkPrimary)
-                        Text(steps[step].body)
-                            .font(DSFonts.inter(size: 14))
-                            .foregroundColor(DSColor.inkMuted)
-                            .multilineTextAlignment(.center)
+                        VStack(spacing: 6) {
+                            Text(steps[step].title)
+                                .font(DSFonts.inter(size: 17, weight: .semibold))
+                                .foregroundColor(DSColor.inkPrimary)
+                            Text(steps[step].body)
+                                .font(DSFonts.inter(size: 14))
+                                .foregroundColor(DSColor.inkMuted)
+                                .multilineTextAlignment(.center)
+                        }
                     }
+                    .id(step)
+                    .transition(contentTransition)
 
                     Button(action: advance) {
                         Text(step < steps.count - 1 ? "Next" : "Got it")
@@ -84,6 +108,16 @@ struct InputBarTutorialOverlay: View {
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                 .padding(.horizontal, 24)
                 .padding(.bottom, 140)
+                .gesture(
+                    DragGesture(minimumDistance: 30)
+                        .onEnded { value in
+                            if value.translation.width < -40 {
+                                withAnimation(Motion.respectReduceMotion(Motion.slide)) { advance() }
+                            } else if value.translation.width > 40 {
+                                withAnimation(Motion.respectReduceMotion(Motion.swipeBack)) { retreat() }
+                            }
+                        }
+                )
             }
         }
         .animation(Motion.respectReduceMotion(.easeInOut(duration: 0.22)), value: step)
@@ -91,9 +125,18 @@ struct InputBarTutorialOverlay: View {
 
     private func advance() {
         if step < steps.count - 1 {
+            Haptics.soft()
             step += 1
         } else {
+            Haptics.success()
             complete()
+        }
+    }
+
+    private func retreat() {
+        if step > 0 {
+            Haptics.soft()
+            step -= 1
         }
     }
 
