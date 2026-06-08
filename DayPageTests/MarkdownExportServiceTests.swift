@@ -375,6 +375,59 @@ struct MarkdownExportServiceTests {
         #expect(!content.contains("## Summary"))
     }
 
+    // MARK: - Long date title and time_range frontmatter
+
+    @Test func titleLine_containsWeekdayName() {
+        // 2026-06-01 is a Monday
+        let memo = makeMemo(body: "test", secondsOffset: 0)
+        let content = MarkdownExportService.buildExportContent(
+            memos: [memo], date: makeDate(year: 2026, month: 6, day: 1)
+        )
+        // H1 must contain the weekday word
+        #expect(content.contains("# DayPage — Monday"))
+    }
+
+    @Test func titleLine_containsFullLongDate() {
+        // 2026-06-08 is a Monday
+        let memo = makeMemo(body: "test", secondsOffset: 0)
+        let content = MarkdownExportService.buildExportContent(
+            memos: [memo], date: makeDate(year: 2026, month: 6, day: 8)
+        )
+        #expect(content.contains("# DayPage — Monday, 8 June 2026"))
+    }
+
+    @Test func frontmatter_containsTimeRange_forMultipleMemos() {
+        let m1 = makeMemo(body: "first", secondsOffset: 0)
+        let m2 = makeMemo(body: "last", secondsOffset: 3600)
+        let content = MarkdownExportService.buildExportContent(
+            memos: [m1, m2], date: makeDate()
+        )
+        // time_range must appear in frontmatter (before the closing ---)
+        let frontmatterEnd = content.range(of: "\n---\n", range: content.range(of: "---\n")!.upperBound..<content.endIndex)
+        #expect(frontmatterEnd != nil)
+        if let fmEnd = frontmatterEnd {
+            let frontmatter = String(content[content.startIndex..<fmEnd.upperBound])
+            #expect(frontmatter.contains("time_range:"))
+            #expect(frontmatter.contains(" – "))
+        }
+    }
+
+    @Test func frontmatter_omitsTimeRange_forEmptyMemos() {
+        let content = MarkdownExportService.buildExportContent(
+            memos: [], date: makeDate()
+        )
+        #expect(!content.contains("time_range:"))
+    }
+
+    @Test func frontmatter_isoDateUnchanged_withLongTitle() {
+        // ISO date: frontmatter must still have `date: 2026-06-08`
+        let memo = makeMemo(body: "test", secondsOffset: 0)
+        let content = MarkdownExportService.buildExportContent(
+            memos: [memo], date: makeDate(year: 2026, month: 6, day: 8)
+        )
+        #expect(content.contains("date: 2026-06-08"))
+    }
+
     // MARK: - 7. Memo bodies ordered by created ascending
 
     @Test func memoBodies_orderedByCreatedAscending() {

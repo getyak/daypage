@@ -25,6 +25,15 @@ enum MarkdownExportService {
         return df.string(from: date)
     }
 
+    /// Returns a long-form human-readable date string, e.g. "Monday, 8 June 2026".
+    static func longDateString(for date: Date) -> String {
+        let df = DateFormatter()
+        df.dateFormat = "EEEE, d MMMM yyyy"
+        df.locale = Locale(identifier: "en_US_POSIX")
+        df.timeZone = AppSettings.currentTimeZone()
+        return df.string(from: date)
+    }
+
     /// Builds an Obsidian-compatible `.md` string from the given memos and date.
     static func buildExportContent(
         memos: [Memo],
@@ -38,12 +47,25 @@ enum MarkdownExportService {
         let entities = Array(Set(memos.flatMap { $0.entityMentions })).sorted()
         let resolvedWeather = weather ?? memos.first(where: { $0.weather != nil && !($0.weather!.isEmpty) })?.weather
 
+        // Compute time range once for use in both frontmatter and body
+        let sorted = memos.sorted { $0.created < $1.created }
+        let timeFmt = DateFormatter()
+        timeFmt.dateFormat = "HH:mm"
+        timeFmt.locale = Locale(identifier: "en_US_POSIX")
+        timeFmt.timeZone = AppSettings.currentTimeZone()
+
         var lines: [String] = ["---"]
         lines.append("date: \(dateString)")
         lines.append("export_source: DayPage")
         lines.append("memo_count: \(memos.count)")
         let totalWords = memos.reduce(0) { $0 + Self.wordCount($1.body) }
         lines.append("export_word_count: \(totalWords)")
+
+        if !sorted.isEmpty {
+            let firstTime = timeFmt.string(from: sorted.first!.created)
+            let lastTime  = timeFmt.string(from: sorted.last!.created)
+            lines.append("time_range: \"\(firstTime) – \(lastTime)\"")
+        }
 
         if let mood = moods.first {
             lines.append("mood: \(yamlQuoted(mood))")
@@ -75,7 +97,7 @@ enum MarkdownExportService {
 
         lines.append("---")
         lines.append("")
-        lines.append("# DayPage — \(dateString)")
+        lines.append("# DayPage — \(longDateString(for: date))")
         lines.append("")
 
         if let s = summary, !s.isEmpty {
@@ -83,7 +105,6 @@ enum MarkdownExportService {
             lines.append("")
         }
 
-        let sorted = memos.sorted { $0.created < $1.created }
         for (idx, memo) in sorted.enumerated() {
             if idx > 0 {
                 lines.append("")
@@ -92,11 +113,7 @@ enum MarkdownExportService {
             }
 
             // Timestamp header
-            let tf = DateFormatter()
-            tf.dateFormat = "HH:mm"
-            tf.locale = Locale(identifier: "en_US_POSIX")
-            tf.timeZone = AppSettings.currentTimeZone()
-            lines.append("## \(tf.string(from: memo.created))")
+            lines.append("## \(timeFmt.string(from: memo.created))")
             lines.append("")
 
             if !memo.body.isEmpty {
@@ -129,12 +146,8 @@ enum MarkdownExportService {
         }
 
         if !sorted.isEmpty {
-            let tf2 = DateFormatter()
-            tf2.dateFormat = "HH:mm"
-            tf2.locale = Locale(identifier: "en_US_POSIX")
-            tf2.timeZone = AppSettings.currentTimeZone()
-            let firstTime = tf2.string(from: sorted.first!.created)
-            let lastTime  = tf2.string(from: sorted.last!.created)
+            let firstTime = timeFmt.string(from: sorted.first!.created)
+            let lastTime  = timeFmt.string(from: sorted.last!.created)
             let wordTotal = sorted.reduce(0) { $0 + Self.wordCount($1.body) }
 
             lines.append("")
