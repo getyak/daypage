@@ -71,6 +71,12 @@ struct WriteSheetView: View {
 
     private var charCount: Int { text.count }
 
+    private var readingMinutes: Int {
+        max(1, Int(ceil(Double(wordCount) / 200.0)))
+    }
+
+    private var showReadingTime: Bool { wordCount >= 50 }
+
     private var canSave: Bool {
         !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -356,26 +362,39 @@ struct WriteSheetView: View {
             let wordsLabel = wordCount == 1
                 ? NSLocalizedString("writesheet.count.words.one", comment: "1 word")
                 : String(format: NSLocalizedString("writesheet.count.words.other", comment: "%d words"), wordCount)
-            Text("\(wordsLabel) · \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
-                .font(DSType.mono10)
-                .tracking(1.0)
-                .textCase(.uppercase)
-                .monospacedDigit()
-                .foregroundColor(wordCountColor)
-                .modifier(NumericTextContentTransition(value: Double(wordCount), reduceMotion: reduceMotion))
-                .animation(reduceMotion ? nil : Motion.fade, value: wordCount)
-                .animation(reduceMotion ? nil : Motion.spring, value: wordCount)
-                .padding(.trailing, 10)
-                .accessibilityLabel("\(wordsLabel), \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
-                .onChange(of: wordCount) { newCount in
-                    let milestone = newCount / 100
-                    if milestone > lastMilestone {
-                        lastMilestone = milestone
-                        if newCount > 0 { Haptics.soft() }
-                    } else if milestone < lastMilestone {
-                        lastMilestone = milestone
-                    }
+            let readLabel = String(format: NSLocalizedString("writesheet.count.read", comment: "~%d min read"), readingMinutes)
+            HStack(spacing: 0) {
+                Text("\(wordsLabel) · \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
+                    .modifier(NumericTextContentTransition(value: Double(wordCount), reduceMotion: reduceMotion))
+                    .animation(reduceMotion ? nil : Motion.fade, value: wordCount)
+                    .animation(reduceMotion ? nil : Motion.spring, value: wordCount)
+                if showReadingTime {
+                    Text(" · \(readLabel)")
+                        .modifier(NumericTextContentTransition(value: Double(readingMinutes), reduceMotion: reduceMotion))
+                        .animation(reduceMotion ? nil : Motion.fade, value: readingMinutes)
+                        .animation(reduceMotion ? nil : Motion.spring, value: readingMinutes)
+                        .transition(.opacity)
                 }
+            }
+            .font(DSType.mono10)
+            .tracking(1.0)
+            .textCase(.uppercase)
+            .monospacedDigit()
+            .foregroundColor(wordCountColor)
+            .animation(reduceMotion ? nil : Motion.spring, value: showReadingTime)
+            .padding(.trailing, 10)
+            .accessibilityLabel(showReadingTime
+                ? "\(wordsLabel), \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars")), \(readLabel)"
+                : "\(wordsLabel), \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
+            .onChange(of: wordCount) { newCount in
+                let milestone = newCount / 100
+                if milestone > lastMilestone {
+                    lastMilestone = milestone
+                    if newCount > 0 { Haptics.soft() }
+                } else if milestone < lastMilestone {
+                    lastMilestone = milestone
+                }
+            }
 
             savePill
         }
@@ -563,15 +582,27 @@ struct WriteSheetView: View {
         let wordsLabel = wordCount == 1
             ? NSLocalizedString("writesheet.count.words.one", comment: "1 word")
             : String(format: NSLocalizedString("writesheet.count.words.other", comment: "%d words"), wordCount)
-        Text("\(wordsLabel) · \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
-            .font(DSType.mono10)
-            .tracking(1.0)
-            .textCase(.uppercase)
-            .monospacedDigit()
-            .foregroundColor(wordCountColor)
-            .modifier(NumericTextContentTransition(value: Double(wordCount), reduceMotion: reduceMotion))
-            .animation(reduceMotion ? nil : Motion.spring, value: wordCount)
-            .accessibilityLabel("\(wordsLabel), \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
+        let readLabel = String(format: NSLocalizedString("writesheet.count.read", comment: "~%d min read"), readingMinutes)
+        HStack(spacing: 0) {
+            Text("\(wordsLabel) · \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
+                .modifier(NumericTextContentTransition(value: Double(wordCount), reduceMotion: reduceMotion))
+                .animation(reduceMotion ? nil : Motion.spring, value: wordCount)
+            if showReadingTime {
+                Text(" · \(readLabel)")
+                    .modifier(NumericTextContentTransition(value: Double(readingMinutes), reduceMotion: reduceMotion))
+                    .animation(reduceMotion ? nil : Motion.spring, value: readingMinutes)
+                    .transition(.opacity)
+            }
+        }
+        .font(DSType.mono10)
+        .tracking(1.0)
+        .textCase(.uppercase)
+        .monospacedDigit()
+        .foregroundColor(wordCountColor)
+        .animation(reduceMotion ? nil : Motion.spring, value: showReadingTime)
+        .accessibilityLabel(showReadingTime
+            ? "\(wordsLabel), \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars")), \(readLabel)"
+            : "\(wordsLabel), \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
 
         Spacer()
 
