@@ -1307,6 +1307,28 @@ struct TodayView: View {
 
             // US-019: Export as Markdown (tap → share sheet; long-press → copy to clipboard)
             if !viewModel.memos.isEmpty {
+                // Word-count pill: animated mono readout of today's total word count.
+                // Only rendered when there is at least one word to show.
+                let wc = viewModel.todayWordCount
+                if wc > 0 {
+                    let wcLabel = wc == 1
+                        ? NSLocalizedString("writesheet.count.words.one", comment: "")
+                        : String(format: NSLocalizedString("writesheet.count.words.other", comment: ""), wc)
+                    Text("\(wc)")
+                        .font(DSType.mono10)
+                        .tracking(1.0)
+                        .monospacedDigit()
+                        .foregroundColor(DSColor.inkSubtle)
+                        .modifier(NumericTextContentTransition(value: Double(wc), reduceMotion: reduceMotion))
+                        .animation(reduceMotion ? nil : Motion.spring, value: wc)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                        .accessibilityLabel(wcLabel)
+                        .accessibilityIdentifier("today-wordcount-pill")
+                }
+
                 Button {
                     let content = MarkdownExportService.buildExportContent(
                         memos: viewModel.memos, date: Date(),
