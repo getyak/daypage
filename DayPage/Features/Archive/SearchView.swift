@@ -220,6 +220,7 @@ struct SearchView: View {
     @State private var cancellable: AnyCancellable? = nil
     @State private var searchTask: Task<Void, Never>? = nil
     @State private var appearedIDs: Set<UUID> = []
+    @State private var appearedRecents: Set<String> = []
     @State private var didBuzzEmpty: Bool = false
     @State private var lastBuzzedEmptyQuery: String? = nil
     @State private var clearPressed: Bool = false
@@ -314,6 +315,8 @@ struct SearchView: View {
             await MainActor.run {
                 vm.isSearching = false
                 appearedIDs = []
+                let willBeEmpty = trimmed.isEmpty && !capturedFilters.isActive
+                if willBeEmpty { appearedRecents = [] }
                 vm.results = hits
                 vm.hasSearched = !trimmed.isEmpty || capturedFilters.isActive
                 if wasEmpty && !hits.isEmpty && !trimmed.isEmpty { Haptics.soft() }
@@ -375,6 +378,7 @@ struct SearchView: View {
                         vm.query = ""
                         vm.results = []
                         vm.hasSearched = false
+                        appearedRecents = []
                         isInputFocused = true
                     }) {
                         Image(systemName: "xmark.circle.fill")
@@ -614,8 +618,8 @@ struct SearchView: View {
                         .buttonStyle(.plain)
                     ))
 
-                    ForEach(recent, id: \.self) { q in
-                        recentSearchRow(q)
+                    ForEach(Array(recent.enumerated()), id: \.element) { idx, q in
+                        recentSearchRow(q, index: idx)
                     }
                 }
 
@@ -698,12 +702,16 @@ struct SearchView: View {
     }
 
     @ViewBuilder
-    private func recentSearchRow(_ q: String) -> some View {
-        SwipeableRecentRow(query: q, onSelect: { query in
-            selectSuggestion(query)
-        }, onDelete: {
-            vm.removeRecentSearch(q)
-        })
+    private func recentSearchRow(_ q: String, index: Int) -> some View {
+        SwipeableRecentRow(
+            query: q,
+            index: index,
+            appeared: appearedRecents.contains(q),
+            reduceMotion: reduceMotion,
+            onSelect: { query in selectSuggestion(query) },
+            onDelete: { vm.removeRecentSearch(q) },
+            onAppeared: { appearedRecents.insert(q) }
+        )
         Divider()
             .padding(.leading, 52)
             .background(DSColor.outlineVariant.opacity(0.5))
@@ -1244,16 +1252,18 @@ private struct EntityChipSkeleton: View {
 private struct SwipeableRecentRow: View {
 
     let query: String
+    let index: Int
+    let appeared: Bool
+    let reduceMotion: Bool
     let onSelect: (String) -> Void
     let onDelete: () -> Void
+    let onAppeared: () -> Void
 
     private let revealWidth: CGFloat = 64
     private let snapThreshold: CGFloat = 32
 
     @State private var revealed: Bool = false
     @GestureState private var drag: CGFloat = 0
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var currentOffset: CGFloat {
         let base: CGFloat = revealed ? -revealWidth : 0
@@ -1343,6 +1353,19 @@ private struct SwipeableRecentRow: View {
             )
         }
         .clipped()
+        .opacity(appeared ? 1 : 0)
+        .offset(y: appeared || reduceMotion ? 0 : 8)
+        .onAppear {
+            guard !appeared else { return }
+            let delay = Double(index) * 0.05
+            if reduceMotion {
+                onAppeared()
+            } else {
+                withAnimation(Motion.rise.delay(delay)) {
+                    onAppeared()
+                }
+            }
+        }
     }
 }
 
