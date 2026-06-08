@@ -5,9 +5,10 @@ import SwiftUI
 /// Pill shown for 5 seconds after a memo is submitted or deleted.
 /// Tapping it restores the submitted text / memo to its previous state.
 ///
-/// Escalating urgency cues over the final ~1.5s:
-///  - Ring stroke transitions from amber → error red and thickens (1.5 → 2 pt)
-///  - A single soft haptic fires at the 4s mark (1s remaining)
+/// Escalating urgency cues over the final ~3s:
+///  - Ring stroke transitions from amber → error red and thickens (1.5 → 2 pt) at 3.5s
+///  - Haptic ticks at 4s, 3s, 2s, 1s — intensifying in the last two (reduceMotion skips all)
+///  - VoiceOver announcement at the 3s mark
 struct UndoPillView: View {
     var label: String = NSLocalizedString("undo_pill.label.send", comment: "Undo send pill label")
     let onUndo: () -> Void
@@ -21,10 +22,6 @@ struct UndoPillView: View {
     @State private var crossedDismissThreshold: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    // Work item for the haptic — cancelled on disappear so stale
-    // firings don't happen after the pill is removed from the hierarchy.
-    private let hapticWorkItem = HapticWorkItemHolder()
 
 
     var body: some View {
@@ -125,21 +122,20 @@ struct UndoPillView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) {
                 isUrgent = true
             }
-            // Fire a single soft haptic at 4s (1s remaining)
-            let workItem = DispatchWorkItem {
-                HapticFeedback.light()
-            }
-            hapticWorkItem.item = workItem
-            DispatchQueue.main.asyncAfter(deadline: .now() + 4, execute: workItem)
-        }
-        .onDisappear {
-            hapticWorkItem.item?.cancel()
-            hapticWorkItem.item = nil
         }
         .task {
             for remaining in stride(from: 4, through: 1, by: -1) {
                 try? await Task.sleep(for: .seconds(1))
                 secondsRemaining = remaining
+                if !reduceMotion {
+                    Haptics.rigid(intensity: remaining <= 2 ? 0.6 : 0.3)
+                }
+                if remaining == 3 {
+                    UIAccessibility.post(
+                        notification: .announcement,
+                        argument: NSLocalizedString("undo_pill.closing", comment: "VoiceOver announcement when undo window is about to close")
+                    )
+                }
             }
         }
     }
@@ -161,10 +157,3 @@ struct UndoPillView: View {
     }
 }
 
-// MARK: - HapticWorkItemHolder
-
-/// Reference-type box so the work item can be shared between onAppear and
-/// onDisappear closures without capturing a mutating struct.
-private final class HapticWorkItemHolder {
-    var item: DispatchWorkItem?
-}

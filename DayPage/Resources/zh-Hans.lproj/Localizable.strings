@@ -94,6 +94,7 @@
 /* UndoPillView — US-009 */
 "undo_pill.label.send"       = "撤销发送";
 "undo_pill.label.delete"     = "已删除 · 撤销";
+"undo_pill.closing"          = "撤销窗口即将关闭";
 
 /* Today header subline — note count */
 "today.subline.notes.zero"   = "%d 条记录";
