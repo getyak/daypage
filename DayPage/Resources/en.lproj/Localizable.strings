@@ -178,9 +178,43 @@
 "empty.graph.subtitle.evening" = "End the day by capturing thoughts — they'll surface as your knowledge graph.";
 "empty.graph.subtitle.night" = "Before you sleep, jot something down — your graph grows one entry at a time.";
 
+/* Graph search */
+"graph.search.placeholder" = "Search nodes…";
+"graph.search.zero_match" = "No matching nodes";
+"graph.search.match_count.one" = "%d match";
+"graph.search.match_count.other" = "%d of %d matches";
+"graph.search.match_count.a11y" = "%d matching results";
+"graph.search.match_count.voiceover" = "%d matches";
+
 /* Graph search match VoiceOver announcements */
 "graph.search.match.announcement" = "%1$@, match %2$d of %3$d";
 "graph.search.match.announcement.single" = "%1$@";
+
+/* Graph date filter */
+"graph.filter.start" = "Start";
+"graph.filter.end" = "End";
+"graph.filter.clear" = "Clear";
+"graph.filter.clear_all" = "Clear Filters";
+
+/* Graph node type labels */
+"graph.node_type.places" = "Places";
+"graph.node_type.people" = "People";
+"graph.node_type.themes" = "Themes";
+
+/* Graph accessibility */
+"graph.a11y.open_entity" = "Open entity page";
+"graph.a11y.fit" = "Fit to screen";
+"graph.a11y.zoom_in" = "Zoom in";
+"graph.a11y.zoom_out" = "Zoom out";
+"graph.a11y.zoom_max" = "Maximum zoom reached";
+"graph.a11y.zoom_min" = "Minimum zoom reached";
+"graph.a11y.prev_match" = "Previous match";
+"graph.a11y.next_match" = "Next match";
+
+/* Graph legend */
+"graph.legend.value.hidden" = "Hidden";
+"graph.legend.value.shown" = "Shown";
+"graph.legend.node_count" = "%@, %d nodes";
 
 /* Graph No Matches */
 "empty.graph.no_matches.title" = "No matching nodes.";
