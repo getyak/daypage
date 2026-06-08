@@ -333,7 +333,17 @@ struct SearchView: View {
                 if willBeEmpty { appearedRecents = [] }
                 vm.results = hits
                 vm.hasSearched = !trimmed.isEmpty || capturedFilters.isActive
-                if !hits.isEmpty && !trimmed.isEmpty && wasEmpty { Haptics.soft() }
+                if hits.isEmpty && vm.hasSearched {
+                    if trimmed != lastBuzzedEmptyQuery {
+                        if !reduceMotion { Haptics.warn() }
+                        lastBuzzedEmptyQuery = trimmed
+                        didBuzzEmpty = false
+                    }
+                } else if !hits.isEmpty {
+                    lastBuzzedEmptyQuery = nil
+                    didBuzzEmpty = false
+                }
+                if wasEmpty && !hits.isEmpty && !trimmed.isEmpty { Haptics.soft() }
                 // Scroll to top when a different query yields results
                 let scrollKey = trimmed + (capturedFilters.isActive ? "|filtered" : "")
                 if !hits.isEmpty && scrollKey != lastScrolledQuery {
@@ -341,14 +351,6 @@ struct SearchView: View {
                     withAnimation(reduceMotion ? nil : Motion.spring) {
                         searchScrollProxy?.scrollTo("searchTop", anchor: .top)
                     }
-                }
-                if hits.isEmpty && vm.hasSearched {
-                    if trimmed != lastBuzzedEmptyQuery {
-                        if !reduceMotion { Haptics.warn() }
-                        lastBuzzedEmptyQuery = trimmed
-                    }
-                } else if !hits.isEmpty {
-                    lastBuzzedEmptyQuery = nil
                 }
                 if UIAccessibility.isVoiceOverRunning && vm.hasSearched {
                     let message = hits.isEmpty
