@@ -354,6 +354,7 @@
 "export.action.title"  = "导出为 Markdown";
 "export.action.label"  = "导出";
 "export.action.hint"   = "双击分享，长按复制";
+"export.success.title" = "已导出为 Markdown";
 "export.error.title"   = "导出失败，请重试";
 "export.copied.title"  = "已复制今日 Markdown";
 

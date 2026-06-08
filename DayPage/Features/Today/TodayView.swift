@@ -1358,6 +1358,11 @@ struct TodayView: View {
                         exportFileURL = url
                         showExportSheet = true
                         Haptics.tapConfirm()
+                        bannerCenter.show(AppBannerModel(
+                            kind: .success,
+                            title: NSLocalizedString("export.success.title", comment: ""),
+                            autoDismiss: true
+                        ))
                     } catch {
                         Haptics.warn()
                         bannerCenter.show(AppBannerModel(
