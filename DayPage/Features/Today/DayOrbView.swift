@@ -152,18 +152,33 @@ struct DayOrbView: View {
 
     // MARK: - Day Progress Arc
 
-    // Thin amber arc around the orb outer edge filling from 0 (midnight) to 1.0 (next midnight).
+    // Thin arc around the orb outer edge filling from 0 (midnight) to 1.0 (next midnight).
+    // Stroke tracks timeTint so the arc always harmonizes with the halo and orb fill.
+    // A small glowing dot sits at the arc's leading edge for at-a-glance time remaining.
     private var dayProgressArc: some View {
-        Circle()
-            .trim(from: 0, to: dayProgress)
-            .stroke(
-                DSColor.accentAmber.opacity(0.55),
-                style: StrokeStyle(lineWidth: 2, lineCap: .round)
-            )
-            .rotationEffect(.degrees(-90))
-            .frame(width: size + 6, height: size + 6)
-            .animation(reduceMotion ? nil : .linear(duration: 1), value: dayProgress)
-            .allowsHitTesting(false)
+        ZStack {
+            Circle()
+                .trim(from: 0, to: dayProgress)
+                .stroke(
+                    timeTint.opacity(0.65),
+                    style: StrokeStyle(lineWidth: 2, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+                .frame(width: size + 6, height: size + 6)
+                .animation(reduceMotion ? nil : .linear(duration: 1), value: dayProgress)
+                .allowsHitTesting(false)
+
+            if dayProgress > 0.01 {
+                Circle()
+                    .fill(timeTint)
+                    .frame(width: 5, height: 5)
+                    .shadow(color: timeTint.opacity(0.8), radius: 3, x: 0, y: 0)
+                    .offset(y: -(size + 6) / 2)
+                    .rotationEffect(.degrees(360 * dayProgress - 90))
+                    .animation(reduceMotion ? nil : .linear(duration: 1), value: dayProgress)
+                    .allowsHitTesting(false)
+            }
+        }
     }
 
     // MARK: - Pulse Halo
