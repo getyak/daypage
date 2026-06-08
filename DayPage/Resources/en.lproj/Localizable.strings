@@ -97,6 +97,13 @@
 "undo_pill.label.delete"     = "Deleted · Undo";
 "undo_pill.closing"          = "Undo window closing soon";
 
+/* Today multi-select toolbar (issue #309) */
+"today.select.cancel"    = "Cancel";
+"today.select.prompt"    = "Select memos";
+"today.select.count"     = "%d selected";
+"today.select.share"     = "Share %d";
+"today.select.share.min" = "Pick at least 2";
+
 /* Today header subline — note count */
 "today.subline.notes.zero"   = "%d notes";
 "today.subline.notes.one"    = "%d note";

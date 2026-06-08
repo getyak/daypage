@@ -991,7 +991,7 @@ struct TodayView: View {
         let count = selected.count
         let canShare = count >= 2 && count <= CollageSnapshot.maxItems
         HStack(spacing: 12) {
-            Button("取消") {
+            Button(NSLocalizedString("today.select.cancel", comment: "")) {
                 Haptics.soft()
                 selectedMemoIds = nil
             }
@@ -1002,7 +1002,9 @@ struct TodayView: View {
 
             Spacer()
 
-            Text(count == 0 ? "选择 memo" : "已选 \(count)")
+            Text(count == 0
+                 ? NSLocalizedString("today.select.prompt", comment: "")
+                 : String(format: NSLocalizedString("today.select.count", comment: ""), count))
                 .font(DSType.mono10)
                 .tracking(1.5)
                 .textCase(.uppercase)
@@ -1010,6 +1012,9 @@ struct TodayView: View {
 
             Spacer()
 
+            let shareLabel = count >= 2
+                ? String(format: NSLocalizedString("today.select.share", comment: ""), count)
+                : NSLocalizedString("today.select.share.min", comment: "")
             Button {
                 guard canShare else { return }
                 Haptics.tapConfirm()
@@ -1019,7 +1024,7 @@ struct TodayView: View {
                 // foreground; keeping the toolbar around would feel orphaned.
                 selectedMemoIds = nil
             } label: {
-                Text(count >= 2 ? "分享 \(count) 项" : "至少 2 项")
+                Text(shareLabel)
                     .font(DSType.mono10)
                     .tracking(1.0)
                     .textCase(.uppercase)
@@ -1033,6 +1038,7 @@ struct TodayView: View {
             }
             .buttonStyle(.plain)
             .disabled(!canShare)
+            .accessibilityLabel(shareLabel)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
