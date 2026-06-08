@@ -148,6 +148,7 @@
 /* VoiceOver announcement on successful memo save */
 "today.memo.saved" = "备忘已保存";
 "today.wordcount.milestone" = "你今天已经写了 %d 个词";
+"today.wordcount.milestone.banner" = "不错 — 今天已写 %d 个词 ✍️";
 "today.wordcount.pill.hint" = "滚动到最新一条";
 
 /* Archive Day Empty */
