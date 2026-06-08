@@ -203,6 +203,60 @@ struct SearchServiceTests {
         #expect(r.snippet.lowercased().contains("productive"))
     }
 
+    @Test func diacriticInsensitive_cafeMatchesCafe() throws {
+        let tmp = try Self.makeTempVault()
+        defer {
+            VaultInitializer.testOverrideURL = nil
+            try? FileManager.default.removeItem(at: tmp)
+        }
+        let memo = Memo(type: .text, created: Self.makeDate(year: 2026, month: 4, day: 14),
+                        body: "I visited a lovely café in the morning")
+        try Self.writeMemo(memo, dateString: "2026-04-14", to: tmp)
+        VaultInitializer.testOverrideURL = tmp
+
+        let results = SearchService.search(keyword: "cafe")
+        #expect(!results.isEmpty)
+        // Snippet must preserve the original accented character
+        let snippet = results.first?.snippet ?? ""
+        #expect(snippet.contains("café"))
+    }
+
+    @Test func diacriticInsensitive_zurichMatchesZurich() throws {
+        let tmp = try Self.makeTempVault()
+        defer {
+            VaultInitializer.testOverrideURL = nil
+            try? FileManager.default.removeItem(at: tmp)
+        }
+        let loc = Memo.Location(name: "Zürich", lat: 47.376, lng: 8.541)
+        let memo = Memo(id: UUID(), type: .location, created: Self.makeDate(year: 2026, month: 4, day: 14),
+                        location: loc, body: "arrived in the city")
+        try Self.writeMemo(memo, dateString: "2026-04-14", to: tmp)
+        VaultInitializer.testOverrideURL = tmp
+
+        let results = SearchService.search(keyword: "zurich")
+        #expect(!results.isEmpty)
+        let locationResult = results.first { $0.matchKind == .location }
+        #expect(locationResult != nil)
+        #expect(locationResult?.snippet == "Zürich")
+    }
+
+    @Test func diacriticInsensitive_saoPauloMatchesSaoPaulo() throws {
+        let tmp = try Self.makeTempVault()
+        defer {
+            VaultInitializer.testOverrideURL = nil
+            try? FileManager.default.removeItem(at: tmp)
+        }
+        let memo = Memo(type: .text, created: Self.makeDate(year: 2026, month: 4, day: 14),
+                        body: "flying into São Paulo tomorrow")
+        try Self.writeMemo(memo, dateString: "2026-04-14", to: tmp)
+        VaultInitializer.testOverrideURL = tmp
+
+        let results = SearchService.search(keyword: "sao paulo")
+        #expect(!results.isEmpty)
+        let snippet = results.first?.snippet ?? ""
+        #expect(snippet.contains("São Paulo"))
+    }
+
     @Test func resultsOrderedNewestFirst() throws {
         let tmp = try Self.makeTempVault()
         defer {
