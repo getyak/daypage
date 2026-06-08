@@ -41,6 +41,9 @@ struct GraphView: View {
     // Wrap-around flash state for the match-count pill
     @State private var matchPillFlash: Bool = false
 
+    // Network-size milestone tracking — fires soft haptic + VoiceOver every 10 nodes
+    @State private var lastNetworkMilestone: Int = 0
+
     // Legend type-visibility filter — persisted across tab switches and relaunches
     @AppStorage(AppSettings.Keys.graphHiddenTypes) private var hiddenTypesRaw: String = ""
 
@@ -140,6 +143,13 @@ struct GraphView: View {
                 }
                 .padding(.horizontal, DSSpacing.lg)
                 .padding(.vertical, DSSpacing.sm)
+
+                if !viewModel.nodes.isEmpty && !hasActiveFilter {
+                    networkSizePill
+                        .padding(.horizontal, DSSpacing.lg)
+                        .padding(.bottom, DSSpacing.sm)
+                        .transition(.opacity)
+                }
 
                 if !viewModel.searchQuery.isEmpty {
                     HStack(spacing: DSSpacing.xs) {
@@ -331,8 +341,19 @@ struct GraphView: View {
         .onAppear {
             viewModel.load()
         }
-        .onChange(of: viewModel.nodes.count) { _ in
+        .onChange(of: viewModel.nodes.count) { count in
             if !viewModel.nodes.isEmpty { startSimulation() }
+            let milestone = count / 10
+            guard count > 0, milestone > lastNetworkMilestone else { return }
+            lastNetworkMilestone = milestone
+            Haptics.soft()
+            if UIAccessibility.isVoiceOverRunning {
+                let msg = String(
+                    format: NSLocalizedString("graph.network.milestone.announcement", comment: "VoiceOver: network crossed a 10-node milestone"),
+                    count, viewModel.edges.count
+                )
+                UIAccessibility.post(notification: .announcement, argument: msg)
+            }
         }
         .onDisappear {
             stopSimulation()
@@ -423,6 +444,54 @@ struct GraphView: View {
         .buttonStyle(ClearFiltersPressStyle(reduceMotion: reduceMotion))
         .accessibilityLabel(L10n.Empty.graphClearFilters)
         .accessibilityAddTraits(.isButton)
+    }
+
+    // MARK: - Network Size Pill
+
+    private var networkSizePill: some View {
+        let nodeCount = viewModel.nodes.count
+        let edgeCount = viewModel.edges.count
+        return HStack(spacing: 0) {
+            Text(NSLocalizedString("graph.pill.nodes.prefix", comment: "Graph network pill — before node count"))
+                .font(DSType.mono10)
+                .foregroundColor(DSColor.inkMuted)
+                .textCase(.uppercase)
+                .tracking(0.5)
+            Text("\(nodeCount)")
+                .font(DSType.mono10)
+                .foregroundColor(DSColor.inkMuted)
+                .textCase(.uppercase)
+                .tracking(0.5)
+                .modifier(NumericTextContentTransition(value: Double(nodeCount), reduceMotion: reduceMotion))
+                .animation(reduceMotion ? nil : Motion.spring, value: nodeCount)
+            Text(NSLocalizedString("graph.pill.nodes.suffix", comment: "Graph network pill — between node and edge count"))
+                .font(DSType.mono10)
+                .foregroundColor(DSColor.inkMuted)
+                .textCase(.uppercase)
+                .tracking(0.5)
+            Text("\(edgeCount)")
+                .font(DSType.mono10)
+                .foregroundColor(DSColor.inkMuted)
+                .textCase(.uppercase)
+                .tracking(0.5)
+                .modifier(NumericTextContentTransition(value: Double(edgeCount), reduceMotion: reduceMotion))
+                .animation(reduceMotion ? nil : Motion.spring, value: edgeCount)
+            Text(NSLocalizedString("graph.pill.edges.suffix", comment: "Graph network pill — after edge count"))
+                .font(DSType.mono10)
+                .foregroundColor(DSColor.inkMuted)
+                .textCase(.uppercase)
+                .tracking(0.5)
+        }
+        .padding(.horizontal, DSSpacing.md)
+        .padding(.vertical, 5)
+        .background(DSColor.glassLo)
+        .background(.ultraThinMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(String(
+            format: NSLocalizedString("graph.pill.accessibility", comment: "VoiceOver: network size combined label"),
+            nodeCount, edgeCount
+        ))
     }
 
     // MARK: - Accessibility Helpers
@@ -987,6 +1056,23 @@ struct GraphView: View {
     private func stopSimulation() {
         simulationTimer?.invalidate()
         simulationTimer = nil
+    }
+}
+
+// MARK: - NumericTextContentTransition
+
+private struct NumericTextContentTransition: ViewModifier {
+    let value: Double
+    let reduceMotion: Bool
+
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *) {
+            content
+                .contentTransition(reduceMotion ? .identity : .numericText(value: value))
+        } else {
+            content
+                .contentTransition(.identity)
+        }
     }
 }
 
