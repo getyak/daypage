@@ -68,6 +68,7 @@
 "writesheet.count.words.one"   = "1 个词";
 "writesheet.count.words.other" = "%d 个词";
 "writesheet.count.chars"       = "字符";
+"writesheet.count.read"        = "~%d 分钟阅读";
 
 /* InputBarV4 — accessibility */
 "input.a11y.too_short"       = "录音太短，请按住麦克风继续说";

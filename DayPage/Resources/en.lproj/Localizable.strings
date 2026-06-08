@@ -68,6 +68,7 @@
 "writesheet.count.words.one"   = "1 word";
 "writesheet.count.words.other" = "%d words";
 "writesheet.count.chars"       = "chars";
+"writesheet.count.read"        = "~%d min read";
 
 /* InputBarV4 — accessibility */
 "input.a11y.too_short"       = "Recording too short. Hold the mic and keep speaking.";
