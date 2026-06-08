@@ -503,7 +503,8 @@ struct ArchiveView: View {
                                                     monthNavDirection = .leading
                                                     withAnimation(Motion.spring) { viewModel.goToPreviousMonth() }
                                                 }
-                                                Haptics.soft()
+                                                Haptics.rigid(intensity: 0.4)
+                                                UIAccessibility.post(notification: .announcement, argument: viewModel.currentMonthTitle)
                                             }
                                     )
 
@@ -659,9 +660,10 @@ struct ArchiveView: View {
     private var monthNavigationRow: some View {
         HStack {
             Button(action: {
-                Haptics.soft()
+                Haptics.rigid(intensity: 0.4)
                 monthNavDirection = .leading
                 withAnimation(Motion.spring) { viewModel.goToPreviousMonth() }
+                UIAccessibility.post(notification: .announcement, argument: viewModel.currentMonthTitle)
             }) {
                 Image(systemName: "chevron.left")
                     .font(DSType.bodySM)
@@ -689,9 +691,10 @@ struct ArchiveView: View {
             Spacer()
 
             Button(action: {
-                Haptics.soft()
+                Haptics.rigid(intensity: 0.4)
                 monthNavDirection = .trailing
                 withAnimation(Motion.spring) { viewModel.goToNextMonth() }
+                UIAccessibility.post(notification: .announcement, argument: viewModel.currentMonthTitle)
             }) {
                 Image(systemName: "chevron.right")
                     .font(DSType.bodySM)
@@ -837,7 +840,9 @@ struct ArchiveView: View {
             }
             .buttonStyle(CalendarCellButtonStyle())
             .frame(maxWidth: .infinity)
-            .accessibilityLabel(accessibilityLabel(dateStr: dateStr, state: data))
+            .accessibilityLabel(accessibilityLabel(dateStr: dateStr, state: data, stats: viewModel.dayStats[dateStr]))
+            .accessibilityValue(viewModel.dayStats[dateStr]?.densityLevel.label ?? "")
+            .accessibilityHint("双击打开当天详情")
         } else {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(Color.clear)
@@ -846,12 +851,27 @@ struct ArchiveView: View {
         }
     }
 
-    private func accessibilityLabel(dateStr: String, state: CellDataState) -> String {
+    private func accessibilityLabel(dateStr: String, state: CellDataState, stats: DayStats?) -> String {
+        let statePrefix: String
         switch state {
-        case .compiled: return "\(dateStr)，已编译 Daily Page"
-        case .rawOnly:  return "\(dateStr)，有原始记录"
+        case .compiled: statePrefix = "已编译 Daily Page"
+        case .rawOnly:  statePrefix = "有原始记录"
         case .none:     return "\(dateStr)，无记录"
         }
+        guard let s = stats, s.memoCount > 0 else {
+            return "\(dateStr)，\(statePrefix)"
+        }
+        let densityLabel: String
+        switch s.densityLevel {
+        case .empty:  densityLabel = "空"
+        case .low:    densityLabel = "较低"
+        case .medium: densityLabel = "中等"
+        case .high:   densityLabel = "较高"
+        }
+        var parts: [String] = ["\(dateStr)，\(statePrefix)，活跃度 \(densityLabel)，\(s.memoCount) 条记录"]
+        if s.photoCount > 0 { parts.append("\(s.photoCount) 张照片") }
+        if s.uniqueLocations > 0 { parts.append("\(s.uniqueLocations) 处位置") }
+        return parts.joined(separator: "，")
     }
 
     // MARK: - Heatmap Legend
