@@ -15,6 +15,7 @@ struct EntityPageView: View {
     var sourceDateString: String? = nil
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var model: EntityModel? = nil
     @State private var notFound: Bool = false
     @State private var selectedDate: String? = nil
@@ -22,6 +23,7 @@ struct EntityPageView: View {
     @State private var selectedEntityType: String = "themes"
     /// Memos from raw vault files that mention this entity slug.
     @State private var linkedMemos: [(dateStr: String, memo: Memo)] = []
+    @State private var skeletonBreathe = false
 
     var body: some View {
         NavigationStack {
@@ -48,8 +50,7 @@ struct EntityPageView: View {
                         }
                     }
                 } else {
-                    ProgressView()
-                        .tint(DSColor.onSurfaceVariant)
+                    entitySkeleton
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -98,6 +99,66 @@ struct EntityPageView: View {
                 EntityPageView(entityType: selectedEntityType, entitySlug: slug)
             }
         }
+    }
+
+    // MARK: - Skeleton
+
+    @ViewBuilder
+    private var entitySkeleton: some View {
+        let opacity = reduceMotion ? 1.0 : (skeletonBreathe ? 0.45 : 0.25)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                // Badge chip
+                Capsule()
+                    .fill(DSColor.glassStd)
+                    .frame(width: 60, height: 18)
+
+                // Title bar
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(DSColor.glassStd)
+                    .frame(maxWidth: .infinity * 0.7)
+                    .frame(width: UIScreen.main.bounds.width * 0.7 - 40, height: 32)
+
+                // Two mock sections
+                ForEach(0..<2, id: \.self) { _ in
+                    VStack(alignment: .leading, spacing: 10) {
+                        // Section label rule
+                        HStack(spacing: 12) {
+                            RoundedRectangle(cornerRadius: 1)
+                                .fill(DSColor.glassStd)
+                                .frame(width: 80, height: 11)
+                            Rectangle()
+                                .fill(DSColor.inkFaint)
+                                .frame(height: 1)
+                        }
+                        // Body lines at 94 / 80 / 55 %
+                        ForEach([0.94, 0.80, 0.55], id: \.self) { frac in
+                            RoundedRectangle(cornerRadius: 2)
+                                .fill(DSColor.glassStd)
+                                .frame(width: (UIScreen.main.bounds.width - 40) * frac, height: 14)
+                        }
+                    }
+                }
+
+                // Two related-entry row rectangles
+                ForEach(0..<2, id: \.self) { _ in
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(DSColor.glassStd)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 24)
+        }
+        .opacity(opacity)
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                skeletonBreathe = true
+            }
+        }
+        .accessibilityHidden(true)
     }
 
     // MARK: - Not Found
@@ -209,7 +270,7 @@ struct EntityPageView: View {
                 // Show individual memo snippets with navigation
                 ForEach(linkedMemos.indices, id: \.self) { idx in
                     let item = linkedMemos[idx]
-                    Button(action: { selectedDate = item.dateStr }) {
+                    Button(action: { Haptics.tapConfirm(); selectedDate = item.dateStr }) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(relativeDateLabel(item.dateStr))
                                 .monoLabelStyle(size: 9)
@@ -239,7 +300,7 @@ struct EntityPageView: View {
             } else {
                 // Fallback: daily page dates only (entity mentioned in compiled page but not raw)
                 ForEach(model.relatedDates, id: \.self) { dateStr in
-                    Button(action: { selectedDate = dateStr }) {
+                    Button(action: { Haptics.tapConfirm(); selectedDate = dateStr }) {
                         HStack {
                             Text(relativeDateLabel(dateStr))
                                 .monoLabelStyle(size: 11)
