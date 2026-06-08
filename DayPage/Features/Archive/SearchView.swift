@@ -145,30 +145,9 @@ final class SearchViewModel: ObservableObject {
         clearUndoTask = nil
     }
 
-    // MARK: Result grouping
+    // MARK: Result grouping — with optional kind filter
 
-    enum Section: Equatable {
-        case today
-        case thisWeek
-        case thisMonth
-        case earlier
-
-        var title: String {
-            switch self {
-            case .today:     return "今天"
-            case .thisWeek:  return "本周"
-            case .thisMonth: return "本月"
-            case .earlier:   return "更早"
-            }
-        }
-    }
-
-    struct GroupedResults {
-        let section: Section
-        let results: [SearchResult]
-    }
-
-    func groupedResults() -> [GroupedResults] {
+    func groupedResults(from source: [SearchResult]) -> [GroupedResults] {
         let cal = Calendar.current
         let now = Date()
         let todayStart = cal.startOfDay(for: now)
@@ -180,7 +159,7 @@ final class SearchViewModel: ObservableObject {
         fmt.locale = Locale(identifier: "en_US_POSIX")
 
         var groups: [Section: [SearchResult]] = [:]
-        for r in results {
+        for r in source {
             guard let date = fmt.date(from: r.dateString) else {
                 groups[.earlier, default: []].append(r)
                 continue
@@ -204,6 +183,31 @@ final class SearchViewModel: ObservableObject {
             return GroupedResults(section: s, results: items)
         }
     }
+
+    enum Section: Equatable {
+        case today
+        case thisWeek
+        case thisMonth
+        case earlier
+
+        var title: String {
+            switch self {
+            case .today:     return "今天"
+            case .thisWeek:  return "本周"
+            case .thisMonth: return "本月"
+            case .earlier:   return "更早"
+            }
+        }
+    }
+
+    struct GroupedResults {
+        let section: Section
+        let results: [SearchResult]
+    }
+
+    func groupedResults() -> [GroupedResults] {
+        groupedResults(from: results)
+    }
 }
 
 // MARK: - SearchView
@@ -220,6 +224,7 @@ struct SearchView: View {
     @State private var cancellable: AnyCancellable? = nil
     @State private var searchTask: Task<Void, Never>? = nil
     @State private var appearedIDs: Set<UUID> = []
+    @State private var activeMatchKinds: Set<SearchResult.MatchKind> = []
     @State private var appearedRecents: Set<String> = []
     @State private var didBuzzEmpty: Bool = false
     @State private var lastBuzzedEmptyQuery: String? = nil
@@ -230,6 +235,10 @@ struct SearchView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var onSelect: (String) -> Void
+
+    private var visibleResults: [SearchResult] {
+        activeMatchKinds.isEmpty ? vm.results : vm.results.filter { activeMatchKinds.contains($0.matchKind) }
+    }
 
     var body: some View {
         NavigationStack {
@@ -319,6 +328,7 @@ struct SearchView: View {
             await MainActor.run {
                 vm.isSearching = false
                 appearedIDs = []
+                activeMatchKinds = []
                 let willBeEmpty = trimmed.isEmpty && !capturedFilters.isActive
                 if willBeEmpty { appearedRecents = [] }
                 vm.results = hits
@@ -391,6 +401,7 @@ struct SearchView: View {
                         vm.results = []
                         vm.hasSearched = false
                         appearedRecents = []
+                        activeMatchKinds = []
                         lastScrolledQuery = nil
                         isInputFocused = true
                     }) {
@@ -922,8 +933,11 @@ struct SearchView: View {
                 Color.clear.frame(height: 0).id("searchTop")
                     .onAppear { searchScrollProxy = proxy }
 
-                let groups = vm.groupedResults()
+                let visible = visibleResults
+                let groups = vm.groupedResults(from: visible)
                 let total = vm.results.count
+                let visibleCount = visible.count
+                let presentKinds = Set(vm.results.map(\.matchKind))
 
                 // Total count header — tappable to scroll back to top
                 Button(action: {
@@ -933,11 +947,13 @@ struct SearchView: View {
                     }
                 }) {
                 HStack {
-                    Text("\(total) 条结果")
+                    Text(activeMatchKinds.isEmpty
+                         ? "\(total) 条结果"
+                         : "\(visibleCount) / \(total) 条结果")
                         .monoLabelStyle(size: 10)
                         .foregroundColor(DSColor.onSurfaceVariant)
-                        .modifier(NumericTextContentTransition(value: Double(total), reduceMotion: reduceMotion))
-                        .animation(reduceMotion ? nil : Motion.spring, value: total)
+                        .modifier(NumericTextContentTransition(value: Double(visibleCount), reduceMotion: reduceMotion))
+                        .animation(reduceMotion ? nil : Motion.spring, value: visibleCount)
                     Spacer()
                     if filters.isActive {
                         Label("已筛选", systemImage: "line.3.horizontal.decrease.circle.fill")
@@ -947,11 +963,17 @@ struct SearchView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
-                .padding(.bottom, 8)
+                .padding(.bottom, activeMatchKinds.isEmpty && presentKinds.count <= 1 ? 8 : 4)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("\(total) 条结果，双击回到顶部")
+                .accessibilityLabel("\(activeMatchKinds.isEmpty ? total : visibleCount) 条结果，双击回到顶部")
                 .accessibilityHint("双击滚动回列表顶部")
+
+                // Match-kind filter chips — only when 2+ kinds are present
+                if presentKinds.count > 1 {
+                    matchKindChipRow(presentKinds: presentKinds)
+                        .padding(.bottom, 8)
+                }
 
                 ForEach(groups, id: \.section) { group in
                     Section {
@@ -988,6 +1010,60 @@ struct SearchView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         } // end ScrollViewReader
+    }
+
+    private func matchKindChipRow(presentKinds: Set<SearchResult.MatchKind>) -> some View {
+        let kindOrder: [SearchResult.MatchKind] = [.memoBody, .location, .date]
+        let orderedKinds = kindOrder.filter { presentKinds.contains($0) }
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(orderedKinds, id: \.self) { kind in
+                    matchKindChip(kind)
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 2)
+        }
+    }
+
+    private func matchKindChip(_ kind: SearchResult.MatchKind) -> some View {
+        let isActive = activeMatchKinds.contains(kind)
+        let kindCount = vm.results.filter { $0.matchKind == kind }.count
+        let label = "\(matchLabel(for: kind)) \(kindCount)"
+        return Button(action: {
+            Haptics.soft()
+            withAnimation(reduceMotion ? nil : Motion.spring) {
+                if isActive {
+                    activeMatchKinds.remove(kind)
+                } else {
+                    activeMatchKinds.insert(kind)
+                }
+            }
+            let newVisible = activeMatchKinds.isEmpty ? vm.results.count
+                : vm.results.filter { activeMatchKinds.contains($0.matchKind) }.count
+            if UIAccessibility.isVoiceOverRunning {
+                UIAccessibility.post(notification: .announcement, argument: "显示 \(newVisible) 条结果")
+            }
+        }) {
+            HStack(spacing: 4) {
+                Image(systemName: matchIcon(for: kind))
+                    .font(.system(size: 10))
+                Text(label)
+                    .monoLabelStyle(size: 10)
+            }
+            .foregroundColor(isActive ? DSColor.onPrimary : DSColor.onSurfaceVariant)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(isActive ? DSColor.primary : DSColor.surfaceContainer)
+            .overlay(
+                Rectangle()
+                    .stroke(isActive ? DSColor.primary : DSColor.outlineVariant, lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(matchLabel(for: kind)), \(kindCount) 条结果")
+        .accessibilityAddTraits(isActive ? [.isSelected] : [])
+        .accessibilityHint(isActive ? "双击取消筛选" : "双击按此类型筛选")
     }
 
     private func resultRow(_ result: SearchResult) -> some View {
