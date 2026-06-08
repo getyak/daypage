@@ -19,12 +19,14 @@ struct MarkdownExportServiceTests {
         mood: String? = nil,
         weather: String? = nil,
         entityMentions: [String] = [],
+        location: Memo.Location? = nil,
         secondsOffset: Double = 0
     ) -> Memo {
         Memo(
             id: UUID(),
             type: .text,
             created: Date(timeIntervalSinceReferenceDate: 800_000_000 + secondsOffset),
+            location: location,
             weather: weather,
             mood: mood,
             entityMentions: entityMentions,
@@ -337,7 +339,6 @@ struct MarkdownExportServiceTests {
     // MARK: - Capture-stats footer
 
     @Test func frontmatter_containsExportWordCount_summedFromTwoMemos() {
-        // "hello world" = 2 words, "foo bar baz" = 3 words → total 5
         let m1 = makeMemo(body: "hello world", secondsOffset: 0)
         let m2 = makeMemo(body: "foo bar baz", secondsOffset: 60)
         let content = MarkdownExportService.buildExportContent(
@@ -347,9 +348,6 @@ struct MarkdownExportServiceTests {
     }
 
     @Test func summarySection_containsMemoCountWordCountAndTimeSpan() {
-        // Use a fixed UTC-based timezone so HH:mm is deterministic in tests.
-        // makeMemo uses timeIntervalSinceReferenceDate 800_000_000 (+offset).
-        // We only need first < last, and both within the same day.
         let m1 = makeMemo(body: "hello world", secondsOffset: 0)
         let m2 = makeMemo(body: "foo bar baz", secondsOffset: 3600)
         let content = MarkdownExportService.buildExportContent(
@@ -358,7 +356,6 @@ struct MarkdownExportServiceTests {
         #expect(content.contains("## Summary"))
         #expect(content.contains("> 2 memos"))
         #expect(content.contains("> 5 words"))
-        // Time span must contain " – " separator (first → last)
         let summaryRange = content.range(of: "## Summary")
         #expect(summaryRange != nil)
         if let r = summaryRange {
@@ -378,17 +375,14 @@ struct MarkdownExportServiceTests {
     // MARK: - Long date title and time_range frontmatter
 
     @Test func titleLine_containsWeekdayName() {
-        // 2026-06-01 is a Monday
         let memo = makeMemo(body: "test", secondsOffset: 0)
         let content = MarkdownExportService.buildExportContent(
             memos: [memo], date: makeDate(year: 2026, month: 6, day: 1)
         )
-        // H1 must contain the weekday word
         #expect(content.contains("# DayPage — Monday"))
     }
 
     @Test func titleLine_containsFullLongDate() {
-        // 2026-06-08 is a Monday
         let memo = makeMemo(body: "test", secondsOffset: 0)
         let content = MarkdownExportService.buildExportContent(
             memos: [memo], date: makeDate(year: 2026, month: 6, day: 8)
@@ -402,7 +396,6 @@ struct MarkdownExportServiceTests {
         let content = MarkdownExportService.buildExportContent(
             memos: [m1, m2], date: makeDate()
         )
-        // time_range must appear in frontmatter (before the closing ---)
         let frontmatterEnd = content.range(of: "\n---\n", range: content.range(of: "---\n")!.upperBound..<content.endIndex)
         #expect(frontmatterEnd != nil)
         if let fmEnd = frontmatterEnd {
@@ -420,12 +413,65 @@ struct MarkdownExportServiceTests {
     }
 
     @Test func frontmatter_isoDateUnchanged_withLongTitle() {
-        // ISO date: frontmatter must still have `date: 2026-06-08`
         let memo = makeMemo(body: "test", secondsOffset: 0)
         let content = MarkdownExportService.buildExportContent(
             memos: [memo], date: makeDate(year: 2026, month: 6, day: 8)
         )
         #expect(content.contains("date: 2026-06-08"))
+    }
+
+    // MARK: - 8. Entity tag line
+
+    @Test func entityTagLine_appearsUnderH1_forEntityBearingMemos() {
+        let memo = makeMemo(body: "test", entityMentions: ["Coffee Shop", "Anna"])
+        let content = MarkdownExportService.buildExportContent(
+            memos: [memo], date: makeDate()
+        )
+        #expect(content.contains("#coffee-shop"))
+        #expect(content.contains("#anna"))
+        let h1Range = content.range(of: "# DayPage —")!
+        let tagRange = content.range(of: "#coffee-shop")!
+        #expect(h1Range.upperBound < tagRange.lowerBound)
+    }
+
+    @Test func entityTagLine_isAbsent_whenEntitiesEmpty() {
+        let memo = makeMemo(body: "test")
+        let content = MarkdownExportService.buildExportContent(
+            memos: [memo], date: makeDate()
+        )
+        let afterH1 = content.components(separatedBy: "# DayPage —").last ?? ""
+        let bodyContent = afterH1.components(separatedBy: "\n").dropFirst().joined(separator: "\n")
+        #expect(!bodyContent.contains(try! #/^#\w/#))
+    }
+
+    @Test func entitySlug_replacesSpacesWithHyphens_andLowercases() {
+        let memo = makeMemo(body: "test", entityMentions: ["New York City"])
+        let content = MarkdownExportService.buildExportContent(
+            memos: [memo], date: makeDate()
+        )
+        #expect(content.contains("#new-york-city"))
+        #expect(!content.contains("#New York City"))
+    }
+
+    // MARK: - 9. Location coordinates
+
+    @Test func locationLine_includesCoords_with5DecimalPrecision() {
+        let loc = Memo.Location(name: "Tokyo Station", lat: 35.0123456, lng: 139.987654)
+        let memo = makeMemo(body: "test", location: loc)
+        let content = MarkdownExportService.buildExportContent(
+            memos: [memo], date: makeDate()
+        )
+        #expect(content.contains("> 📍 Tokyo Station (35.01235, 139.98765)"))
+    }
+
+    @Test func locationLine_omitsCoords_whenLatLonAbsent() {
+        let loc = Memo.Location(name: "Unknown Place", lat: nil, lng: nil)
+        let memo = makeMemo(body: "test", location: loc)
+        let content = MarkdownExportService.buildExportContent(
+            memos: [memo], date: makeDate()
+        )
+        #expect(content.contains("> 📍 Unknown Place"))
+        #expect(!content.contains("("))
     }
 
     // MARK: - 7. Memo bodies ordered by created ascending

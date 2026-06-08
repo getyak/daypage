@@ -100,6 +100,12 @@ enum MarkdownExportService {
         lines.append("# DayPage — \(longDateString(for: date))")
         lines.append("")
 
+        if !entities.isEmpty {
+            let tagLine = entities.map { "#" + slug($0) }.joined(separator: " ")
+            lines.append(tagLine)
+            lines.append("")
+        }
+
         if let s = summary, !s.isEmpty {
             lines.append("> AI · \(s)")
             lines.append("")
@@ -141,7 +147,11 @@ enum MarkdownExportService {
             // Location
             if let loc = memo.location, let name = loc.name, !name.isEmpty {
                 lines.append("")
-                lines.append("> 📍 \(name)")
+                var locLine = "> 📍 \(name)"
+                if let lat = loc.lat, let lon = loc.lng {
+                    locLine += " (\(coordFormatted(lat)), \(coordFormatted(lon)))"
+                }
+                lines.append(locLine)
             }
         }
 
@@ -211,6 +221,17 @@ enum MarkdownExportService {
 
     private static func wordCount(_ text: String) -> Int {
         text.split(whereSeparator: \.isWhitespace).filter { !$0.isEmpty }.count
+    }
+
+    private static func slug(_ entity: String) -> String {
+        entity.lowercased()
+            .components(separatedBy: .whitespaces)
+            .filter { !$0.isEmpty }
+            .joined(separator: "-")
+    }
+
+    private static func coordFormatted(_ value: Double) -> String {
+        String(format: "%.5f", value)
     }
 
     private static func yamlQuoted(_ s: String) -> String {
