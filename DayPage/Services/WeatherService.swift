@@ -28,7 +28,8 @@ final class WeatherService {
 
     // MARK: Private
 
-    private var cache: CacheEntry?
+    /// Bounded LRU cache: up to `cacheMaxEntries` geo-bucketed entries (most-recent last).
+    private var cache: [CacheEntry] = []
 
     /// 缓存 TTL：10 分钟
     private let cacheTTL: TimeInterval = 10 * 60
@@ -36,12 +37,31 @@ final class WeatherService {
     /// 缓存条目对新位置被认为过时的最大距离（米）
     private let cacheLocationRadius: CLLocationDistance = 1000
 
+    /// Maximum number of distinct geo-buckets kept in memory.
+    private let cacheMaxEntries = 6
+
     private init() {}
+
+    // MARK: - Test Hooks
+
+#if DEBUG
+    /// Creates a fresh, isolated instance for unit tests (bypasses the singleton).
+    convenience init(testing: Bool) { self.init() }
+
+    /// Seeds a cache entry directly, bypassing network, for unit-test use only.
+    func seedCacheEntry(weather: String, lat: Double, lng: Double, age: TimeInterval) {
+        let fetchedAt = Date(timeIntervalSinceNow: -age)
+        insertEntry(CacheEntry(weather: weather, fetchedAt: fetchedAt, lat: lat, lng: lng))
+    }
+#endif
 
     // MARK: - Public API
 
     /// 最近一次成功获取的天气字符串（同步，供 UI 快速读取）。
-    var cachedWeatherString: String? { cache?.weather }
+    var cachedWeatherString: String? { cache.last?.weather }
+
+    /// Number of entries currently held in the LRU cache (test hook).
+    var cacheCount: Int { cache.count }
 
     /// 返回给定位置的格式化天气字符串，如 "32°C, Overcast Clouds"。
     ///
@@ -54,14 +74,9 @@ final class WeatherService {
             return nil
         }
 
-        // 如果缓存仍然新鲜且位置足够近，返回缓存结果
-        if let entry = cache,
-           Date().timeIntervalSince(entry.fetchedAt) < cacheTTL {
-            let cachedCoord = CLLocation(latitude: entry.lat, longitude: entry.lng)
-            let requestCoord = CLLocation(latitude: lat, longitude: lng)
-            if cachedCoord.distance(from: requestCoord) <= cacheLocationRadius {
-                return entry.weather
-            }
+        // Return a fresh, nearby cached entry if one exists.
+        if let entry = cachedEntry(for: CLLocation(latitude: lat, longitude: lng)) {
+            return entry.weather
         }
 
         // 从 OpenWeatherMap 获取
@@ -91,11 +106,37 @@ final class WeatherService {
                 return nil
             }
             let formatted = try parseWeather(from: data)
-            cache = CacheEntry(weather: formatted, fetchedAt: Date(), lat: lat, lng: lng)
+            insertEntry(CacheEntry(weather: formatted, fetchedAt: Date(), lat: lat, lng: lng))
             return formatted
         } catch {
             // 网络/解析失败不阻塞 —— 调用方在没有天气数据的情况下继续执行
             return nil
+        }
+    }
+
+    // MARK: - Cache Helpers
+
+    /// Returns the first fresh entry whose location is within `cacheLocationRadius` of `coord`.
+    private func cachedEntry(for coord: CLLocation) -> CacheEntry? {
+        cache.first { entry in
+            guard Date().timeIntervalSince(entry.fetchedAt) < cacheTTL else { return false }
+            let entryCoord = CLLocation(latitude: entry.lat, longitude: entry.lng)
+            return entryCoord.distance(from: coord) <= cacheLocationRadius
+        }
+    }
+
+    /// Inserts `entry`, pruning any stale same-location entry first, then trims to `cacheMaxEntries`.
+    private func insertEntry(_ entry: CacheEntry) {
+        let coord = CLLocation(latitude: entry.lat, longitude: entry.lng)
+        // Remove any existing (possibly stale) entry for the same geo-bucket.
+        cache.removeAll { existing in
+            let existingCoord = CLLocation(latitude: existing.lat, longitude: existing.lng)
+            return existingCoord.distance(from: coord) <= cacheLocationRadius
+        }
+        cache.append(entry)
+        // Trim oldest entries beyond the max capacity.
+        if cache.count > cacheMaxEntries {
+            cache.removeFirst(cache.count - cacheMaxEntries)
         }
     }
 
