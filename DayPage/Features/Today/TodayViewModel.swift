@@ -150,6 +150,9 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     /// Transient submit error shown as a toast/alert.
     @Published var submitError: String? = nil
 
+    /// Body text of the most recently failed submission; non-nil until the view consumes it.
+    @Published var lastFailedBody: String? = nil
+
     /// Whether location fetch is in progress.
     @Published var isLocating: Bool = false
 
@@ -889,6 +892,9 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 UserDefaults.standard.set(count + 1, forKey: AppSettings.Keys.memoSaveCount)
             } catch {
                 submitError = String(format: NSLocalizedString("error.memo.save_failed", comment: ""), error.localizedDescription)
+                if !finalBody.isEmpty {
+                    lastFailedBody = finalBody
+                }
             }
         }
     }
