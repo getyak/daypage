@@ -74,6 +74,7 @@ struct GraphView: View {
                                     let node = matches[searchMatchIndex]
                                     centerOn(node, in: simulationSize)
                                     pulseNode(node)
+                                    announceSearchMatch(node, index: searchMatchIndex, total: matches.count)
                                     Haptics.soft()
                                 } else {
                                     centerOn(matches[0], in: simulationSize)
@@ -165,6 +166,7 @@ struct GraphView: View {
                                     let node = matches[searchMatchIndex]
                                     centerOn(node, in: simulationSize)
                                     pulseNode(node)
+                                    announceSearchMatch(node, index: searchMatchIndex, total: matches.count)
                                 } label: {
                                     Image(systemName: "chevron.up")
                                         .font(.system(size: 12, weight: .medium))
@@ -182,6 +184,7 @@ struct GraphView: View {
                                     let node = matches[searchMatchIndex]
                                     centerOn(node, in: simulationSize)
                                     pulseNode(node)
+                                    announceSearchMatch(node, index: searchMatchIndex, total: matches.count)
                                 } label: {
                                     Image(systemName: "chevron.down")
                                         .font(.system(size: 12, weight: .medium))
@@ -390,6 +393,17 @@ struct GraphView: View {
     }
 
     // MARK: - Accessibility Helpers
+
+    private func announceSearchMatch(_ node: GraphNode, index: Int, total: Int) {
+        guard UIAccessibility.isVoiceOverRunning else { return }
+        let message: String
+        if total == 1 {
+            message = String(format: NSLocalizedString("graph.search.match.announcement.single", comment: "VoiceOver: single search match"), node.name)
+        } else {
+            message = String(format: NSLocalizedString("graph.search.match.announcement", comment: "VoiceOver: search match position"), node.name, index + 1, total)
+        }
+        UIAccessibility.post(notification: .announcement, argument: message)
+    }
 
     private func localizedEntityTypeName(_ entityType: String) -> String {
         switch entityType {
