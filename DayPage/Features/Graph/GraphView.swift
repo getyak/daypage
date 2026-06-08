@@ -605,8 +605,14 @@ struct GraphView: View {
             .gesture(
                 SimultaneousGesture(
                     MagnificationGesture()
-                        .onChanged { value in scale = max(0.3, min(5.0, lastScale * value)) }
-                        .onEnded { _ in lastScale = scale },
+                        .onChanged { value in
+                            let newScale = max(0.3, min(5.0, lastScale * value))
+                            let ratio = newScale / scale
+                            offset.width *= ratio
+                            offset.height *= ratio
+                            scale = newScale
+                        }
+                        .onEnded { _ in lastScale = scale; lastOffset = offset },
                     DragGesture()
                         .onChanged { value in
                             offset = CGSize(
@@ -804,10 +810,16 @@ struct GraphView: View {
             Haptics.warn()
             return
         }
+        let ratio = target / scale
+        let newOffset = CGSize(width: offset.width * ratio, height: offset.height * ratio)
         if !reduceMotion {
-            withAnimation(Motion.spring) { scale = target; lastScale = target }
+            withAnimation(Motion.spring) {
+                scale = target; lastScale = target
+                offset = newOffset; lastOffset = newOffset
+            }
         } else {
             scale = target; lastScale = target
+            offset = newOffset; lastOffset = newOffset
         }
         Haptics.soft()
     }
