@@ -95,6 +95,7 @@ struct TodayView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var orbBreathing: Bool = false
+    @State private var orbTapBounce: Bool = false
 
     /// Hint offset for the one-time swipe-left nudge on the Daily Page card.
     @State private var dailyPageHintOffset: CGFloat = 0
@@ -902,10 +903,19 @@ struct TodayView: View {
             let tint = orbTint(currentTime)
             DayOrbView(signalCount: signalCount, size: 140, onTap: {
                 Haptics.tapConfirm()
+                if viewModel.memos.isEmpty && draftText.isEmpty {
+                    draftText = orbCapturePrompt(currentTime)
+                    if !reduceMotion {
+                        withAnimation(Motion.spring) { orbTapBounce = true }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                            withAnimation(Motion.spring) { orbTapBounce = false }
+                        }
+                    }
+                }
                 orbFocusToggle.toggle()
             }, pulseToggle: orbCapturePulse, dayProgress: dayProgress, timeTint: tint)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.8), value: tint)
-            .scaleEffect(reduceMotion ? 1.0 : (orbBreathing ? 1.03 : 0.985))
+            .scaleEffect(reduceMotion ? 1.0 : (orbTapBounce ? 0.9 : (orbBreathing ? 1.03 : 0.985)))
             .shadow(
                 color: tint.opacity(orbBreathing ? 0.28 + glowBoost : 0.12 + glowBoost),
                 radius: orbBreathing ? 22 + glowBoost * 40 : 12
