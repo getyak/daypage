@@ -121,6 +121,12 @@ struct TodayView: View {
     /// Drives the one-shot amber glow pulse on the orb / timeline top after pull-to-refresh.
     @State private var refreshGlow: Bool = false
 
+    /// Drives the amber glow pulse on the word-count token in the header subline at milestones.
+    @State private var wordMilestoneGlow: Bool = false
+    /// Tracks the last milestone index (count of thresholds crossed) so we only fire on additions.
+    @State private var lastWordMilestone: Int = 0
+    private let wordMilestones: [Int] = [100, 300, 500]
+
     /// Milestone feedback when the scroll-to-top progress ring fills to 100%.
     @State private var didReachScrollEnd: Bool = false
     @State private var scrollRingGlow: Bool = false
@@ -136,6 +142,11 @@ struct TodayView: View {
     @State private var timelineScrollOffset: CGFloat = 0
 
     private var isInSelectionMode: Bool { selectedMemoIds != nil }
+
+    /// Number of word milestones the user has currently crossed (0–3).
+    private var currentWordMilestoneIndex: Int {
+        wordMilestones.filter { $0 <= viewModel.todayWordCount }.count
+    }
 
     /// Progress of the scroll-to-top ring: 0 at 240pt (button appears), 1 after 1200pt more.
     private var scrollProgress: CGFloat {
@@ -438,6 +449,9 @@ struct TodayView: View {
                 if InputBarTutorialOverlay.shouldShow {
                     showTutorial = true
                 }
+                // Seed the milestone tracker from the current word count so that
+                // already-crossed milestones don't re-fire on launch.
+                lastWordMilestone = wordMilestones.filter { $0 <= viewModel.todayWordCount }.count
             }
             .onChange(of: draftText) { _ in
                 draftDate = Date().timeIntervalSince1970
@@ -452,6 +466,13 @@ struct TodayView: View {
             .onChange(of: scenePhase) { phase in
                 if phase == .active {
                     viewModel.load()
+                }
+            }
+            // Re-seed the word milestone tracker once data finishes loading so
+            // pre-existing word counts on app launch don't trigger celebrations.
+            .onChange(of: viewModel.loadState) { state in
+                if state == .ready {
+                    lastWordMilestone = wordMilestones.filter { $0 <= viewModel.todayWordCount }.count
                 }
             }
             // US-017: consume pending draft text from daypage://memo/new?text=…
@@ -1214,23 +1235,11 @@ struct TodayView: View {
                             .lineLimit(1)
                             .dynamicTypeSize(.xSmall ... .accessibility2)
                             .minimumScaleFactor(0.6)
-                        Text(headerSubline(currentTime))
-                            .font(DSType.mono10)
-                            .foregroundColor(DSColor.inkSubtle)
-                            .textCase(.uppercase)
-                            .tracking(1.0)
-                            .dynamicTypeSize(.xSmall ... .accessibility5)
-                            .minimumScaleFactor(0.75)
+                        headerSublineView(currentTime)
                             .accessibilityLabel(headerSublineAccessibilityLabel(currentTime))
                     }
                 } else {
-                    Text(headerSubline(currentTime))
-                        .font(DSType.mono10)
-                        .foregroundColor(DSColor.inkSubtle)
-                        .textCase(.uppercase)
-                        .tracking(1.0)
-                        .dynamicTypeSize(.xSmall ... .accessibility5)
-                        .minimumScaleFactor(0.75)
+                    headerSublineView(currentTime)
                         .accessibilityLabel(headerSublineAccessibilityLabel(currentTime))
                 }
             }
@@ -1347,6 +1356,27 @@ struct TodayView: View {
         .animation(reduceMotion ? nil : Motion.fade, value: viewModel.memos.isEmpty)
         .onReceive(headerTimer) { date in
             currentTime = date
+        }
+        .onChange(of: viewModel.todayWordCount) { newCount in
+            let newIndex = wordMilestones.filter { $0 <= newCount }.count
+            if newIndex > lastWordMilestone {
+                // Crossed a new milestone — escalating haptic + amber glow
+                let milestoneNumber = newIndex  // 1, 2, or 3
+                Haptics.rigid(intensity: 0.3 + 0.25 * CGFloat(milestoneNumber))
+                if !reduceMotion {
+                    wordMilestoneGlow = true
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 600_000_000)
+                        wordMilestoneGlow = false
+                    }
+                }
+                let milestone = wordMilestones[newIndex - 1]
+                UIAccessibility.post(
+                    notification: .announcement,
+                    argument: String(format: NSLocalizedString("today.wordmilestone.announcement", comment: ""), milestone)
+                )
+            }
+            lastWordMilestone = newIndex
         }
         .frame(maxWidth: .infinity)
         // US-005: frosted glass + separator fade in behind the header once the
@@ -1854,6 +1884,74 @@ struct TodayView: View {
             parts.append(place)
         }
         return parts.joined(separator: "  ·  ")
+    }
+
+    /// Renders the header subline as an HStack so the word-count token can
+    /// receive its own amber glow shadow independent of the surrounding text.
+    @ViewBuilder
+    @ViewBuilder
+    private func headerSublineView(_ date: Date) -> some View {
+        let count = viewModel.memos.count
+        let dateStr = Self.headerDateFmt.string(from: date)
+        let separator = "  ·  "
+
+        if count == 0 {
+            Text([dateStr, Self.headerTimeFmt.string(from: date)].joined(separator: separator))
+                .font(DSType.mono10)
+                .foregroundColor(DSColor.inkSubtle)
+                .textCase(.uppercase)
+                .tracking(1.0)
+                .dynamicTypeSize(.xSmall ... .accessibility5)
+                .minimumScaleFactor(0.75)
+        } else {
+            let notesKey = count == 1 ? "today.subline.notes.one" : "today.subline.notes.other"
+            let notesStr = String(format: NSLocalizedString(notesKey, comment: ""), count)
+            let words = viewModel.todayWordCount
+            let weatherStr = todayWeatherShort()
+            let placeStr = todayPlaceShort()
+            HStack(spacing: 0) {
+                // Date · Notes prefix
+                Text((dateStr + separator + notesStr).uppercased())
+                    .font(DSType.mono10)
+                    .foregroundColor(DSColor.inkSubtle)
+                    .tracking(1.0)
+
+                if words > 0 {
+                    let wordsKey = words == 1 ? "today.subline.words.one" : "today.subline.words.other"
+                    let wordsStr = String(format: NSLocalizedString(wordsKey, comment: ""), words)
+                    // Separator before word-count
+                    Text(separator.uppercased())
+                        .font(DSType.mono10)
+                        .foregroundColor(DSColor.inkSubtle)
+                        .tracking(1.0)
+                    // Word-count token — gets the amber glow at milestones
+                    Text(wordsStr.uppercased())
+                        .font(DSType.mono10)
+                        .foregroundColor(DSColor.inkSubtle)
+                        .tracking(1.0)
+                        .shadow(
+                            color: DSColor.accentAmber.opacity(wordMilestoneGlow ? 0.5 : 0),
+                            radius: wordMilestoneGlow ? 10 : 0
+                        )
+                        .animation(reduceMotion ? nil : .easeOut(duration: 0.6), value: wordMilestoneGlow)
+                }
+
+                if let weather = weatherStr {
+                    Text((separator + weather).uppercased())
+                        .font(DSType.mono10)
+                        .foregroundColor(DSColor.inkSubtle)
+                        .tracking(1.0)
+                }
+                if let place = placeStr {
+                    Text((separator + place).uppercased())
+                        .font(DSType.mono10)
+                        .foregroundColor(DSColor.inkSubtle)
+                        .tracking(1.0)
+                }
+            }
+            .dynamicTypeSize(.xSmall ... .accessibility5)
+            .minimumScaleFactor(0.75)
+        }
     }
 
     /// Comma-separated version of the header subline for VoiceOver.
