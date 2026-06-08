@@ -97,6 +97,13 @@
 "undo_pill.label.delete"     = "已删除 · 撤销";
 "undo_pill.closing"          = "撤销窗口即将关闭";
 
+/* Today multi-select toolbar (issue #309) */
+"today.select.cancel"    = "取消";
+"today.select.prompt"    = "选择 memo";
+"today.select.count"     = "已选 %d";
+"today.select.share"     = "分享 %d 项";
+"today.select.share.min" = "至少 2 项";
+
 /* Today header subline — note count */
 "today.subline.notes.zero"   = "%d 条记录";
 "today.subline.notes.one"    = "%d 条记录";
