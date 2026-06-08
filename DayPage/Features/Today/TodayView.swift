@@ -1903,23 +1903,56 @@ struct TodayView: View {
                 parts.append(String(format: NSLocalizedString(wordsKey, comment: ""), words))
             }
         }
-        if let weather = todayWeatherShort() { parts.append(weather) }
+        if let weather = todayWeatherAccessibility() { parts.append(weather) }
         if let place = todayPlaceShort() { parts.append(place) }
         parts.append(todayTimeZoneShort())
         return parts.joined(separator: ", ")
     }
 
-    /// Today's weather temperature, taken from the most recent memo that carries
-    /// a weather string (e.g. "28° · 多云" → "28°"). Returns nil when unknown.
+    /// Condition glyphs emitted by WeatherService.glyph(forConditionCode:icon:).
+    private static let conditionGlyphs: [String] = ["⛈", "🌦", "🌧", "❄️", "🌫", "🌙", "☀️", "☁️", "🌤"]
+
+    /// Maps a condition glyph to a VoiceOver-friendly word.
+    private static let glyphAccessibilityLabel: [String: String] = [
+        "☀️": NSLocalizedString("weather.glyph.sunny",   comment: ""),
+        "☁️": NSLocalizedString("weather.glyph.cloudy",  comment: ""),
+        "🌧": NSLocalizedString("weather.glyph.rainy",   comment: ""),
+        "❄️": NSLocalizedString("weather.glyph.snowy",   comment: ""),
+        "⛈": NSLocalizedString("weather.glyph.stormy",  comment: ""),
+        "🌦": NSLocalizedString("weather.glyph.showery", comment: ""),
+        "🌫": NSLocalizedString("weather.glyph.foggy",   comment: ""),
+        "🌙": NSLocalizedString("weather.glyph.night",   comment: ""),
+        "🌤": NSLocalizedString("weather.glyph.partlycloudy", comment: ""),
+    ]
+
+    /// Today's weather, taken from the most recent memo that carries a weather string.
+    /// Returns "<glyph> <temp>" (e.g. "☀️ 28°") when a condition glyph is present,
+    /// or just "<temp>" when none is found. Returns nil when no weather is available.
     private func todayWeatherShort() -> String? {
         for memo in viewModel.memos {  // memos is already newest-first
             if let w = memo.weather?.trimmingCharacters(in: .whitespaces), !w.isEmpty {
-                // Keep only the temperature token ("28° · 多云" → "28°").
+                // Extract the temperature token (text before "·", or whole string).
                 let temp = w.split(separator: "·").first.map { $0.trimmingCharacters(in: .whitespaces) } ?? w
-                return temp.isEmpty ? nil : temp
+                guard !temp.isEmpty else { continue }
+                // Scan the full weather string for a known condition glyph.
+                if let glyph = Self.conditionGlyphs.first(where: { w.contains($0) }) {
+                    return "\(glyph) \(temp)"
+                }
+                return temp
             }
         }
         return nil
+    }
+
+    /// Like `todayWeatherShort()` but substitutes glyphs with spoken words for VoiceOver.
+    private func todayWeatherAccessibility() -> String? {
+        guard let short = todayWeatherShort() else { return nil }
+        for (glyph, label) in Self.glyphAccessibilityLabel {
+            if short.hasPrefix(glyph) {
+                return short.replacingOccurrences(of: glyph, with: label).trimmingCharacters(in: .whitespaces)
+            }
+        }
+        return short
     }
 
     /// Today's place name, taken from the most recent memo carrying a location.
