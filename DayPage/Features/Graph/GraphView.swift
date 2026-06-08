@@ -685,15 +685,12 @@ struct GraphView: View {
                 zoomControls
             }
             .onTapGesture(count: 2) {
-                Haptics.tapConfirm()
-                if isTransformed {
-                    resetTransform()
-                } else {
-                    withAnimation(reduceMotion ? nil : Motion.spring) {
-                        scale = max(0.3, min(5.0, 2.2))
-                        lastScale = scale
-                    }
-                }
+                Haptics.soft()
+                fitToContent(in: size)
+            }
+            .accessibilityAction(named: Text(NSLocalizedString("Reset view", comment: "VoiceOver: graph canvas reset-view action"))) {
+                Haptics.soft()
+                fitToContent(in: size)
             }
             .gesture(
                 SimultaneousGesture(
@@ -848,6 +845,58 @@ struct GraphView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         .padding(DSSpacing.lg)
         .padding(.bottom, 110)
+    }
+
+    // Springs scale+offset to show all visible nodes — used by double-tap-to-reset
+    // and the fit-to-screen button. Caller is responsible for any haptic feedback.
+    private func fitToContent(in size: CGSize) {
+        let nodes = visibleNodes
+        guard nodes.count >= 2 else {
+            if let node = nodes.first {
+                let targetScale: CGFloat = 1.5
+                let newOffset = CGSize(
+                    width:  -node.position.x * targetScale,
+                    height: -node.position.y * targetScale
+                )
+                withAnimation(reduceMotion ? nil : Motion.spring) {
+                    scale = targetScale; lastScale = targetScale
+                    offset = newOffset; lastOffset = newOffset
+                }
+            } else {
+                withAnimation(reduceMotion ? nil : Motion.spring) {
+                    scale = 1.0; lastScale = 1.0
+                    offset = .zero; lastOffset = .zero
+                }
+            }
+            return
+        }
+
+        let inset: CGFloat = 40
+        var minX = nodes[0].position.x - nodes[0].displayRadius
+        var maxX = nodes[0].position.x + nodes[0].displayRadius
+        var minY = nodes[0].position.y - nodes[0].displayRadius
+        var maxY = nodes[0].position.y + nodes[0].displayRadius
+        for node in nodes.dropFirst() {
+            minX = min(minX, node.position.x - node.displayRadius)
+            maxX = max(maxX, node.position.x + node.displayRadius)
+            minY = min(minY, node.position.y - node.displayRadius)
+            maxY = max(maxY, node.position.y + node.displayRadius)
+        }
+        let contentWidth  = maxX - minX
+        let contentHeight = maxY - minY
+        guard contentWidth > 0, contentHeight > 0 else { return }
+
+        let availableWidth  = size.width  - inset * 2
+        let availableHeight = size.height - inset * 2
+        let targetScale = max(0.3, min(5.0, min(availableWidth / contentWidth, availableHeight / contentHeight)))
+        let midX = (minX + maxX) / 2
+        let midY = (minY + maxY) / 2
+        let newOffset = CGSize(width: -midX * targetScale, height: -midY * targetScale)
+
+        withAnimation(reduceMotion ? nil : Motion.spring) {
+            scale = targetScale; lastScale = targetScale
+            offset = newOffset; lastOffset = newOffset
+        }
     }
 
     private func fitToScreen(in size: CGSize) {
