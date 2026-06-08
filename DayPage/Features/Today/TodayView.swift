@@ -101,6 +101,10 @@ struct TodayView: View {
     @State private var dailyPageHintOffset: CGFloat = 0
     @State private var memoCardHintOffset: CGFloat = 0
 
+    /// Tracks the highest word-count milestone (100/250/500) already announced this session.
+    /// Reset to 0 when all memos are deleted so milestones re-arm on a fresh day.
+    @State private var lastWordMilestone: Int = 0
+
     /// Session-only: true once the 3-memo unlock celebration has fired this session.
     /// Resets to false when memo count drops back below 3 so delete+readd re-fires it.
     @State private var didCelebrateUnlock: Bool = false
@@ -1718,6 +1722,22 @@ struct TodayView: View {
             } else if !compiled {
                 didCelebrateCompile = false
             }
+        }
+        .onChange(of: viewModel.todayWordCount) { count in
+            if viewModel.memos.isEmpty {
+                lastWordMilestone = 0
+                return
+            }
+            let milestones = [100, 250, 500]
+            let crossed = milestones.filter { count >= $0 }.max() ?? 0
+            guard crossed > lastWordMilestone else { return }
+            lastWordMilestone = crossed
+            Haptics.success()
+            let message = String(format: NSLocalizedString("today.wordcount.milestone", comment: ""), crossed)
+            UIAccessibility.post(notification: .announcement, argument: message)
+        }
+        .onChange(of: viewModel.memos.isEmpty) { isEmpty in
+            if isEmpty { lastWordMilestone = 0 }
         }
 
         inputBarV4

@@ -147,6 +147,7 @@
 
 /* VoiceOver announcement on successful memo save */
 "today.memo.saved" = "Memo saved";
+"today.wordcount.milestone" = "You've written %d words today";
 
 /* Archive Day Empty */
 "empty.archive_day.title" = "No page for this day.";
