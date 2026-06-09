@@ -10,7 +10,6 @@
 		09C6E4728050D69F54949DD1 /* HapticFeedbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84FFEA3DDB8DCB528A4189BF /* HapticFeedbackTests.swift */; };
 		14188AFE740A834ADF7A41F4 /* DayPageWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1530E7C28C23499CFC14C498 /* HapticFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB12D96218034D3E4555B8AA /* HapticFeedback.swift */; };
-		1719257FE85120ED06CAB183 /* HeroBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF29E708CBF93A6DD500484C /* HeroBannerView.swift */; };
 		17B5829B738952DA183B1B90 /* DailyPageMetadataEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CF7E0148C3A6933A903247D /* DailyPageMetadataEditView.swift */; };
 		29C57DABF22715576844485C /* AISummaryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82AF0D6D988BC74555DFB3ED /* AISummaryCard.swift */; };
 		2B194E870578303558D461CD /* CompileUnlockCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DE151F5BCB87ACC047C18AD /* CompileUnlockCard.swift */; };
@@ -21,7 +20,6 @@
 		485EFA11789212D87CB1B74B /* StartRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF24DE1810B0DA979103772 /* StartRecordingIntent.swift */; };
 		4A862A4AB3CC3961B771EBC5 /* InputBarTutorialOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 912420086719F3FFFB45FE7A /* InputBarTutorialOverlay.swift */; };
 		60D39385300C46D08D8BF03C /* DraftStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC21412D29A6FB268CE43C58 /* DraftStorage.swift */; };
-		6CE74562753F924A0718DC46 /* DailyPageHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57C69070389BADB6984C1A1A /* DailyPageHeader.swift */; };
 		73BECCAED0BDBEFB612B15E4 /* DailyPageParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 371058C9DAB9A11AE7EAC835 /* DailyPageParser.swift */; };
 		787E4480A2797607F2DCDE5E /* PillSegmentedControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61EFC77A2EB872EA2279BA2A /* PillSegmentedControl.swift */; };
 		7BB7402C51CCBACF56E7F83A /* DailyPageModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08FF205E680406EC7E4B83DB /* DailyPageModel.swift */; };
@@ -83,7 +81,6 @@
 		A10000055 /* PressToTalkButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000055 /* PressToTalkButton.swift */; };
 		A10000056 /* VaultLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000056 /* VaultLocator.swift */; };
 		A10000063 /* SwipeableMemoCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000063 /* SwipeableMemoCard.swift */; };
-		A10000064 /* AttachmentMenuSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000064 /* AttachmentMenuSheet.swift */; };
 		A10000070 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000070 /* AuthService.swift */; };
 		A10000072 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000072 /* AuthView.swift */; };
 		A10000073 /* EmailAuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000073 /* EmailAuthView.swift */; };
@@ -152,7 +149,6 @@
 		DS0000012 /* DSButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000012 /* DSButton.swift */; };
 		DS0000013 /* DSChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000013 /* DSChip.swift */; };
 		DS0000014 /* DSBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000014 /* DSBanner.swift */; };
-		DS0000015 /* DSNavRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000015 /* DSNavRow.swift */; };
 		E20A68158C940060066B2B73 /* WatchReceiveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11E0748715A251EE4A0168A /* WatchReceiveService.swift */; };
 		E4AC46FA495D4BD178789A14 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0881AB423FF6F12FCDE27C5B /* Assets.xcassets */; };
 		E5077A7D97855770914BFB8D /* MarkdownExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC8043A3D3371852ACB3D6F3 /* MarkdownExportService.swift */; };
@@ -160,7 +156,6 @@
 		EA575F353C6AFD5EA7FF9A6F /* QuickCaptureWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7909ED56F96754E4C4FA21CC /* QuickCaptureWidget.swift */; };
 		ES0000001 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000001 /* EmptyStateView.swift */; };
 		ES0000002 /* GlassErrorBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000002 /* GlassErrorBanner.swift */; };
-		ES0000003 /* GlassTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000003 /* GlassTabBar.swift */; };
 		ES0000004 /* GraphSkeleton.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000004 /* GraphSkeleton.swift */; };
 		F617270BFC704FF5BBB99FD3 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 068FB068A000B6E61B1D8032 /* AppSettings.swift */; };
 		F66780AF157611A4283937FE /* MemoListSkeleton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0995108F7E2E8994F114A240 /* MemoListSkeleton.swift */; };
@@ -244,7 +239,6 @@
 		371058C9DAB9A11AE7EAC835 /* DailyPageParser.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DailyPageParser.swift; sourceTree = "<group>"; };
 		3DE151F5BCB87ACC047C18AD /* CompileUnlockCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CompileUnlockCard.swift; sourceTree = "<group>"; };
 		519B9B12CB68C0E6E2A06292 /* QuickCaptureControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuickCaptureControl.swift; sourceTree = "<group>"; };
-		57C69070389BADB6984C1A1A /* DailyPageHeader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DailyPageHeader.swift; sourceTree = "<group>"; };
 		5FD3383348F15CB7B4E82E53 /* DayPageShortcuts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DayPageShortcuts.swift; sourceTree = "<group>"; };
 		61EFC77A2EB872EA2279BA2A /* PillSegmentedControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PillSegmentedControl.swift; sourceTree = "<group>"; };
 		71FB6C74A43193A3DD725723 /* DayPageWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DayPageWidgetBundle.swift; sourceTree = "<group>"; };
@@ -309,7 +303,6 @@
 		A20000055 /* PressToTalkButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PressToTalkButton.swift; sourceTree = "<group>"; };
 		A20000056 /* VaultLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultLocator.swift; sourceTree = "<group>"; };
 		A20000063 /* SwipeableMemoCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeableMemoCard.swift; sourceTree = "<group>"; };
-		A20000064 /* AttachmentMenuSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentMenuSheet.swift; sourceTree = "<group>"; };
 		A20000070 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		A20000071 /* DayPage.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DayPage.entitlements; sourceTree = "<group>"; };
 		A20000072 /* AuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthView.swift; sourceTree = "<group>"; };
@@ -386,12 +379,9 @@
 		DS1000012 /* DSButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSButton.swift; sourceTree = "<group>"; };
 		DS1000013 /* DSChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSChip.swift; sourceTree = "<group>"; };
 		DS1000014 /* DSBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSBanner.swift; sourceTree = "<group>"; };
-		DS1000015 /* DSNavRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSNavRow.swift; sourceTree = "<group>"; };
 		E54B333332A1175CD3B31883 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		EF29E708CBF93A6DD500484C /* HeroBannerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HeroBannerView.swift; sourceTree = "<group>"; };
 		ES1000001 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		ES1000002 /* GlassErrorBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassErrorBanner.swift; sourceTree = "<group>"; };
-		ES1000003 /* GlassTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassTabBar.swift; sourceTree = "<group>"; };
 		ES1000004 /* GraphSkeleton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphSkeleton.swift; sourceTree = "<group>"; };
 		F11E0748715A251EE4A0168A /* WatchReceiveService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchReceiveService.swift; sourceTree = "<group>"; };
 		F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchTransferService.swift; sourceTree = "<group>"; };
@@ -586,7 +576,6 @@
 				DS1000012 /* DSButton.swift */,
 				DS1000013 /* DSChip.swift */,
 				DS1000014 /* DSBanner.swift */,
-				DS1000015 /* DSNavRow.swift */,
 			);
 			path = DesignSystem;
 			sourceTree = "<group>";
@@ -701,7 +690,6 @@
 				A20000050 /* CompileFooterButton.swift */,
 				A20000082 /* InputBarV4.swift */,
 				A20000052 /* AttachmentMenuPopover.swift */,
-				A20000064 /* AttachmentMenuSheet.swift */,
 				A20000054 /* RecordingOverlayView.swift */,
 				A20000510 /* RecordingSheetView.swift */,
 				A20000511 /* DynamicIslandView.swift */,
@@ -735,12 +723,10 @@
 				TH1000001 /* ThreadConversationViewModel.swift */,
 				TH1000002 /* ThreadConversationView.swift */,
 				TH1000003 /* InlineMicButton.swift */,
-				57C69070389BADB6984C1A1A /* DailyPageHeader.swift */,
 				0CF7E0148C3A6933A903247D /* DailyPageMetadataEditView.swift */,
 				08FF205E680406EC7E4B83DB /* DailyPageModel.swift */,
 				371058C9DAB9A11AE7EAC835 /* DailyPageParser.swift */,
 				A4EBD94EB4FD71CC10D478F3 /* DailyPageSummarySection.swift */,
-				EF29E708CBF93A6DD500484C /* HeroBannerView.swift */,
 			);
 			path = Daily;
 			sourceTree = "<group>";
@@ -904,7 +890,6 @@
 			children = (
 				ES1000001 /* EmptyStateView.swift */,
 				ES1000002 /* GlassErrorBanner.swift */,
-				ES1000003 /* GlassTabBar.swift */,
 				ES1000004 /* GraphSkeleton.swift */,
 				0995108F7E2E8994F114A240 /* MemoListSkeleton.swift */,
 				61EFC77A2EB872EA2279BA2A /* PillSegmentedControl.swift */,
@@ -1227,7 +1212,6 @@
 				A10000202 /* SmartTemplateRow.swift in Sources */,
 				A10000203 /* InlineLensStrip.swift in Sources */,
 				A10000052 /* AttachmentMenuPopover.swift in Sources */,
-				A10000064 /* AttachmentMenuSheet.swift in Sources */,
 				A10000053 /* InputTokens.swift in Sources */,
 				A10000054 /* RecordingOverlayView.swift in Sources */,
 				A10000510 /* RecordingSheetView.swift in Sources */,
@@ -1270,7 +1254,6 @@
 				LS0000002 /* L10n.swift in Sources */,
 				ES0000001 /* EmptyStateView.swift in Sources */,
 				ES0000002 /* GlassErrorBanner.swift in Sources */,
-				ES0000003 /* GlassTabBar.swift in Sources */,
 				ES0000004 /* GraphSkeleton.swift in Sources */,
 				DS0000001 /* Motion.swift in Sources */,
 				DS0000002 /* Haptics.swift in Sources */,
@@ -1279,7 +1262,6 @@
 				DS0000012 /* DSButton.swift in Sources */,
 				DS0000013 /* DSChip.swift in Sources */,
 				DS0000014 /* DSBanner.swift in Sources */,
-				DS0000015 /* DSNavRow.swift in Sources */,
 				FT0000001 /* DayOrbView.swift in Sources */,
 				MD0000001 /* MemoDetailView.swift in Sources */,
 				MD0000002 /* MemoDetailViewModel.swift in Sources */,
@@ -1288,12 +1270,10 @@
 				A10000095 /* ComposerContextProvider.swift in Sources */,
 				457A17AB7F3B4BE7C2E77026 /* StartRecordingIntent.swift in Sources */,
 				9D559EA9D4B9F2C77D942935 /* DayPageShortcuts.swift in Sources */,
-				6CE74562753F924A0718DC46 /* DailyPageHeader.swift in Sources */,
 				17B5829B738952DA183B1B90 /* DailyPageMetadataEditView.swift in Sources */,
 				7BB7402C51CCBACF56E7F83A /* DailyPageModel.swift in Sources */,
 				73BECCAED0BDBEFB612B15E4 /* DailyPageParser.swift in Sources */,
 				F9DD1FD8D9003975FAD95E17 /* DailyPageSummarySection.swift in Sources */,
-				1719257FE85120ED06CAB183 /* HeroBannerView.swift in Sources */,
 				60D39385300C46D08D8BF03C /* DraftStorage.swift in Sources */,
 				4A862A4AB3CC3961B771EBC5 /* InputBarTutorialOverlay.swift in Sources */,
 				3C0AE791CCB255E33198C9F9 /* UndoPillView.swift in Sources */,

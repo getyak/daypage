@@ -50,19 +50,6 @@ enum DSFonts {
         .custom(mono, size: size).weight(weight)
     }
 
-    /// Serif body font for memo content / Daily Page narrative.
-    /// - Deprecated: Use `serif(size:weight:italic:)` which cascades Source Serif 4 → Source Han Serif SC.
-    @available(*, deprecated, renamed: "serif")
-    static func newYork(size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        serif(size: size, weight: weight)
-    }
-
-    /// - Deprecated: Use `serif(size:italic:)` which cascades Source Serif 4 → Source Han Serif SC.
-    @available(*, deprecated, renamed: "serif")
-    static func newYorkItalic(size: CGFloat) -> Font {
-        serif(size: size, italic: true)
-    }
-
     // MARK: - Cascading Serif (Source Serif 4 + Source Han Serif SC)
 
     /// Returns a SwiftUI Font backed by a UIFontDescriptor cascade list so that:
