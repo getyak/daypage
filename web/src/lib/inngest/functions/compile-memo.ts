@@ -1,4 +1,4 @@
-import { inngest } from "@/lib/inngest/client";
+import { inngest, sendEvent } from "@/lib/inngest/client";
 import { db } from "@/lib/db/client";
 import {
   memos,
@@ -18,7 +18,9 @@ import { dispatchPageWebhooks, type PageWebhookEvent } from "@/lib/webhooks/disp
 import {
   commitMemoToTree,
   liveCommitMemoTreeDeps,
+  COMMIT_HEAT_INCREMENT,
 } from "@/lib/trees/commit-memo";
+import { crossedEvolveThreshold } from "@/lib/gateway/evolver";
 import fs from "fs";
 import path from "path";
 
@@ -1070,6 +1072,22 @@ export const compileMemo = inngest.createFunction(
           console.log(
             `[compile-memo] commit-to-tree: memo ${memo_id} committed to node ${result.node_id} (heat → ${result.heat_to})`,
           );
+
+          // US-020: event-driven evolution. If THIS commit pushed the node's
+          // heat across the evolve threshold, request the tree to evolve. Firing
+          // only on the crossing (not every commit) keeps a hot tree from
+          // re-evolving on every subsequent memo. sendEvent no-ops in dev
+          // without Inngest, so this is safe to call unconditionally.
+          const heatBefore = result.heat_to - COMMIT_HEAT_INCREMENT;
+          if (crossedEvolveThreshold(heatBefore, result.heat_to)) {
+            await sendEvent({
+              name: "gateway/evolve.requested",
+              data: { treeId: result.tree_id },
+            });
+            console.log(
+              `[compile-memo] commit-to-tree: tree ${result.tree_id} crossed evolve threshold (heat → ${result.heat_to}), requested evolve`,
+            );
+          }
         } else {
           console.log(
             `[compile-memo] commit-to-tree: memo ${memo_id} not committed (${result.reason})`,

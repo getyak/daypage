@@ -39,6 +39,22 @@ export const EVOLVE_MIN_EVIDENCE = 3;
 // Cap the nodes we ask the LLM about per run, hottest first.
 export const EVOLVE_MAX_CANDIDATES = 8;
 
+// US-020: heat threshold a tree node must reach for the tree to become "hot"
+// enough to evolve. compile-memo fires `gateway/evolve.requested` only on the
+// commit that pushes a node's heat ACROSS this line (not on every commit), so a
+// hot tree evolves once per crossing rather than on every memo.
+export const EVOLVE_HEAT_THRESHOLD = 5;
+
+// Did a commit that raised a node's heat from `heatBefore` to `heatAfter` cross
+// the evolve threshold? True only on the transition (heatBefore below, heatAfter
+// at/above) so repeated commits to an already-hot node don't re-trigger.
+export function crossedEvolveThreshold(
+  heatBefore: number,
+  heatAfter: number
+): boolean {
+  return heatBefore < EVOLVE_HEAT_THRESHOLD && heatAfter >= EVOLVE_HEAT_THRESHOLD;
+}
+
 // ── Observation (read-only view of the tree) ────────────────────────────────────
 
 export interface NodeObservation {
