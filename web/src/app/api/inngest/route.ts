@@ -9,6 +9,7 @@ import { weeklyReport } from "@/lib/inngest/functions/weekly-report";
 import { fetchRss } from "@/lib/inngest/functions/fetch-rss";
 import { weaveGraph } from "@/lib/inngest/functions/weave-graph";
 import { suggesterRun } from "@/lib/inngest/functions/suggester-run";
+import { schedulerTick } from "@/lib/inngest/functions/scheduler-tick";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -22,5 +23,6 @@ export const { GET, POST, PUT } = serve({
     fetchRss,
     weaveGraph,
     suggesterRun,
+    schedulerTick,
   ],
 });
