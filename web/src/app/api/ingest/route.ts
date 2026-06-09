@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { db } from "@/lib/db/client";
-import { users, memos, inbox_items, activities } from "@/lib/db/schema";
+import {
+  users,
+  memos,
+  inbox_items,
+  activities,
+  tree_nodes,
+  work_orders,
+} from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { authenticateApiKey, hasScope } from "@/lib/api-auth";
@@ -83,9 +90,111 @@ async function logActivity(
 
 const IngestSchema = z.object({
   source: z.string().min(1),
+  // US-017: `channel` distinguishes sub-streams within a source. The
+  // claude-code source uses channel='agent-return' for executor product
+  // flow-back; absent/other values fall through to the normal ingest path.
+  channel: z.string().min(1).optional(),
   type: z.enum(["memo", "observation", "activity"]),
   payload: z.record(z.string(), z.unknown()),
 });
+
+// US-017: an agent return carries the produced text plus a pointer back to the
+// task tree. The tree node may be named directly or resolved from the
+// originating work_order's `callback` ({ tree_node_id }).
+const AgentReturnPayloadSchema = z.object({
+  body: z.string().optional(),
+  result: z.string().optional(),
+  tree_node_id: z.string().min(1).optional(),
+  work_order_id: z.string().min(1).optional(),
+});
+
+// Resolve the tree node a return should commit back to: an explicit
+// tree_node_id wins; otherwise read it from the work_order's callback.
+async function resolveReturnTreeNodeId(
+  payload: z.infer<typeof AgentReturnPayloadSchema>
+): Promise<string | null> {
+  if (payload.tree_node_id) return payload.tree_node_id;
+  if (!payload.work_order_id) return null;
+
+  const rows = await db
+    .select({ callback: work_orders.callback })
+    .from(work_orders)
+    .where(eq(work_orders.id, payload.work_order_id))
+    .limit(1);
+
+  const callback = rows[0]?.callback;
+  if (callback && typeof callback === "object" && !Array.isArray(callback)) {
+    const node = (callback as Record<string, unknown>).tree_node_id;
+    if (typeof node === "string") return node;
+  }
+  return null;
+}
+
+// Append a memo id to the tree node's evidence list so the return is wired
+// back into the Git-style task tree before compilation commits it.
+async function linkMemoToTreeNode(treeNodeId: string, memoId: string) {
+  const rows = await db
+    .select({ evidence_memo_ids: tree_nodes.evidence_memo_ids })
+    .from(tree_nodes)
+    .where(eq(tree_nodes.id, treeNodeId))
+    .limit(1);
+
+  const current = rows[0]?.evidence_memo_ids;
+  if (!rows[0]) return; // node no longer exists — nothing to link
+
+  const existing = Array.isArray(current) ? (current as string[]) : [];
+  if (existing.includes(memoId)) return;
+
+  await db
+    .update(tree_nodes)
+    .set({ evidence_memo_ids: [...existing, memoId] })
+    .where(eq(tree_nodes.id, treeNodeId));
+}
+
+// US-017: ingest an agent product flow-back. Creates a memo marked
+// source='agent-return', links it to the originating tree node, and triggers
+// the existing compile pipeline so the result commits back to the tree.
+async function ingestAgentReturn(
+  req: NextRequest,
+  userId: string,
+  source: string,
+  payload: Record<string, unknown>
+): Promise<NextResponse> {
+  const parsed = AgentReturnPayloadSchema.safeParse(payload);
+  if (!parsed.success) {
+    return badRequest(req, parsed.error.issues[0]?.message ?? "Validation error");
+  }
+
+  const memoBody = parsed.data.body?.trim() || parsed.data.result?.trim();
+  if (!memoBody) {
+    return badRequest(req, "agent-return requires a non-empty body or result");
+  }
+
+  const [memo] = await db
+    .insert(memos)
+    .values({
+      user_id: userId,
+      type: "text",
+      body: memoBody,
+      origin: "api",
+      source: "agent-return",
+      device: source,
+    })
+    .returning();
+
+  if (!memo) return badRequest(req, "Failed to create memo");
+
+  const treeNodeId = await resolveReturnTreeNodeId(parsed.data);
+  if (treeNodeId) {
+    await linkMemoToTreeNode(treeNodeId, memo.id);
+  }
+
+  // Trigger the existing compile flow so the return commits back to the tree.
+  await sendEvent({ name: "memo/created", data: { memo_id: memo.id } });
+  await logActivity(userId, "agent-return", source, "memo", memo.id);
+
+  return withCors(req, NextResponse.json(memo, { status: 201 }));
+}
 
 // US-021: build a memo body from a browser clip. A clip carries a page title,
 // the source URL, and optionally a selected text snippet (when only part of the
@@ -140,7 +249,13 @@ export async function POST(req: NextRequest) {
     return badRequest(req, parsed.error.issues[0]?.message ?? "Validation error");
   }
 
-  const { source, type, payload } = parsed.data;
+  const { source, channel, type, payload } = parsed.data;
+
+  // US-017: agent product flow-back. claude-code's agent-return channel routes
+  // to a dedicated handler that marks the memo and wires it back to the tree.
+  if (source === "claude-code" && channel === "agent-return") {
+    return ingestAgentReturn(req, userId, source, payload);
+  }
 
   if (type === "memo") {
     const memoBody = buildMemoBody(payload);
