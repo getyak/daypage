@@ -39,6 +39,7 @@
 		A10000009 /* RawStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000009 /* RawStorage.swift */; };
 		A10000010 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010 /* TodayView.swift */; };
 		A10000011 /* ArchiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000011 /* ArchiveView.swift */; };
+		A1000ABC1 /* YearMonthPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000ABC1 /* YearMonthPicker.swift */; };
 		A10000012 /* GraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000012 /* GraphView.swift */; };
 		A10000013 /* TodayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000013 /* TodayViewModel.swift */; };
 		A10000014 /* MemoCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000014 /* MemoCardView.swift */; };
@@ -261,6 +262,7 @@
 		A20000009 /* RawStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawStorage.swift; sourceTree = "<group>"; };
 		A20000010 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
 		A20000011 /* ArchiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveView.swift; sourceTree = "<group>"; };
+		A2000ABC1 /* YearMonthPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YearMonthPicker.swift; sourceTree = "<group>"; };
 		A20000012 /* GraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphView.swift; sourceTree = "<group>"; };
 		A20000013 /* TodayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayViewModel.swift; sourceTree = "<group>"; };
 		A20000014 /* MemoCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoCardView.swift; sourceTree = "<group>"; };
@@ -737,6 +739,7 @@
 			isa = PBXGroup;
 			children = (
 				A20000011 /* ArchiveView.swift */,
+				A2000ABC1 /* YearMonthPicker.swift */,
 				A20000028 /* SearchView.swift */,
 				A20000031 /* RawMemoView.swift */,
 				A20000040 /* DayDetailView.swift */,
@@ -1168,6 +1171,7 @@
 				TD0000001 /* DayProgress.swift in Sources */,
 				TD0000002 /* TimeOfDay.swift in Sources */,
 				A10000011 /* ArchiveView.swift in Sources */,
+				A1000ABC1 /* YearMonthPicker.swift in Sources */,
 				A10000012 /* GraphView.swift in Sources */,
 				A10000035 /* GraphViewModel.swift in Sources */,
 				A10000013 /* TodayViewModel.swift in Sources */,

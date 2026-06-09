@@ -350,6 +350,16 @@ final class ArchiveViewModel: ObservableObject {
         loadMonth()
     }
 
+    /// Jump directly to an arbitrary year/month (driven by the YearMonthPicker).
+    /// No-ops when the target equals the current month so the picker doesn't
+    /// trigger a redundant reload + transition.
+    func goToMonth(year: Int, month: Int) {
+        guard year != currentYear || month != currentMonth else { return }
+        currentYear = year
+        currentMonth = month
+        loadMonth()
+    }
+
     var today: Int {
         Calendar.current.component(.day, from: Date())
     }
@@ -463,6 +473,21 @@ struct ArchiveView: View {
     // 二者皆无 → 50% 半透明灰色（仍可点击）。
     @State private var rawDates: Set<String> = []
     @State private var dailyDates: Set<String> = []
+
+    /// Controls the year/month jump picker overlay (opened by tapping the
+    /// Archive header's month title).
+    @State private var showMonthPicker: Bool = false
+
+    /// "yyyy-MM" set of months that hold at least one entry, derived from the
+    /// pre-scanned raw/daily date sets. Drives the activity dots in the picker
+    /// at zero extra disk cost.
+    private var monthsWithEntries: Set<String> {
+        var months = Set<String>()
+        for dateStr in rawDates.union(dailyDates) where dateStr.count == 10 {
+            months.insert(String(dateStr.prefix(7)))  // "yyyy-MM-dd" → "yyyy-MM"
+        }
+        return months
+    }
 
     var body: some View {
         NavigationStack {
@@ -620,6 +645,31 @@ struct ArchiveView: View {
                     }
                 }
             }
+            // Year/month jump picker — custom overlay (scrim + card) so it
+            // floats lightly over the calendar with the app's Motion curves.
+            .overlay {
+                if showMonthPicker {
+                    YearMonthPicker(
+                        selectedYear: viewModel.currentYear,
+                        selectedMonth: viewModel.currentMonth,
+                        monthsWithEntries: monthsWithEntries,
+                        onSelect: { year, month in
+                            let isBackward = (year, month) < (viewModel.currentYear, viewModel.currentMonth)
+                            monthNavDirection = isBackward ? .leading : .trailing
+                            withAnimation(reduceMotion ? nil : Motion.spring) {
+                                viewModel.goToMonth(year: year, month: month)
+                            }
+                            withAnimation(reduceMotion ? nil : Motion.fade) { showMonthPicker = false }
+                            UIAccessibility.post(notification: .announcement, argument: viewModel.currentMonthTitle)
+                        },
+                        onClose: {
+                            withAnimation(reduceMotion ? nil : Motion.fade) { showMonthPicker = false }
+                        }
+                    )
+                    .transition(.opacity)
+                    .zIndex(60)
+                }
+            }
         }
     }
 
@@ -671,22 +721,42 @@ struct ArchiveView: View {
 
     private var archiveHeader: some View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
-            Button {
-                nav.openSidebar()
-            } label: {
-                VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 2) {
+                // "Archive" title — opens the sidebar (tap), keeping the
+                // primary navigation affordance the rest of the app uses.
+                Button {
+                    nav.openSidebar()
+                } label: {
                     Text("Archive")
                         .font(DSType.serifDisplay28)
                         .foregroundColor(DSColor.inkPrimary)
-                    Text(viewModel.currentMonthTitle.uppercased())
-                        .font(DSType.mono10)
-                        .foregroundColor(DSColor.inkSubtle)
-                        .tracking(1.0)
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Open navigation")
+                .accessibilityIdentifier("sidebar-menu-button")
+
+                // Month subtitle — now a jump-to-month affordance. A chevron
+                // signals it's interactive; tapping opens the YearMonthPicker.
+                Button {
+                    Haptics.soft()
+                    withAnimation(reduceMotion ? nil : Motion.fade) { showMonthPicker = true }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(viewModel.currentMonthTitle.uppercased())
+                            .font(DSType.mono10)
+                            .foregroundColor(DSColor.inkSubtle)
+                            .tracking(1.0)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 8, weight: .semibold))
+                            .foregroundColor(DSColor.inkSubtle)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(format: NSLocalizedString("archive.picker.open", comment: "Jump to month, current %@"), viewModel.currentMonthTitle))
+                .accessibilityHint(NSLocalizedString("archive.picker.open.hint", comment: "Opens the month picker"))
+                .accessibilityIdentifier("archive-month-picker-button")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Open navigation")
-            .accessibilityIdentifier("sidebar-menu-button")
 
             Spacer()
 
