@@ -96,6 +96,17 @@ export const treeNodeStatusEnum = pgEnum("tree_node_status", [
   "pruned",
 ]);
 
+// US-002: lifecycle of a durable orchestrator job. `gated` = paused awaiting a
+// gate (e.g. user choice / budget); `dead` = exhausted retries, parked.
+export const gatewayJobStatusEnum = pgEnum("gateway_job_status", [
+  "queued",
+  "running",
+  "gated",
+  "done",
+  "failed",
+  "dead",
+]);
+
 // ─── US-006: Wave 1b — users + memos + memo_attachments ───────────────────────
 
 export const users = pgTable("users", {
@@ -766,6 +777,46 @@ export type Tree = typeof trees.$inferSelect;
 export type NewTree = typeof trees.$inferInsert;
 export type TreeNode = typeof tree_nodes.$inferSelect;
 export type NewTreeNode = typeof tree_nodes.$inferInsert;
+
+// ─── US-002: gateway_jobs (durable orchestrator job state machine) ────────────
+// The Gateway scheduler enqueues durable jobs here so the orchestrator survives
+// restarts. `idempotency_key` dedupes re-enqueues of the same logical job;
+// `attempts`/`last_error` drive retry/backoff; `gate_state` carries opaque
+// context while a job is `gated` (paused awaiting a user choice or budget).
+
+export const gateway_jobs = pgTable(
+  "gateway_jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    tree_id: uuid("tree_id").references(() => trees.id, {
+      onDelete: "set null",
+    }),
+    payload: jsonb("payload").notNull().default(sql`'{}'::jsonb`),
+    status: gatewayJobStatusEnum("status").notNull().default("queued"),
+    idempotency_key: text("idempotency_key").notNull(),
+    gate_state: text("gate_state"),
+    attempts: integer("attempts").notNull().default(0),
+    last_error: text("last_error"),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    index("gateway_jobs_user_status").on(t.user_id, t.status),
+    unique("gateway_jobs_idempotency_key_unique").on(t.idempotency_key),
+  ]
+);
+
+export type GatewayJob = typeof gateway_jobs.$inferSelect;
+export type NewGatewayJob = typeof gateway_jobs.$inferInsert;
 
 // ─── Re-export helper types ────────────────────────────────────────────────────
 
