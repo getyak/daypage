@@ -137,7 +137,7 @@ struct TodayView: View {
     /// Drives the amber glow pulse on the word-count token in the header subline at milestones.
     @State private var wordMilestoneGlow: Bool = false
     /// Tracks the last milestone index (count of thresholds crossed) so we only fire on additions.
-    @State private var lastWordMilestone: Int = 0
+    @State private var lastWordMilestoneIndex: Int = 0
     private let wordMilestones: [Int] = [100, 300, 500]
 
     /// Milestone feedback when the scroll-to-top progress ring fills to 100%.
@@ -474,12 +474,13 @@ struct TodayView: View {
                 viewModel.load()
                 updateVoiceQueueBanner(count: voiceQueue.pendingCount)
                 showDraftRestoredBannerIfNeeded()
+                applyLaunchPresentationFlags()
                 if InputBarTutorialOverlay.shouldShow {
                     showTutorial = true
                 }
                 // Seed the milestone tracker from the current word count so that
                 // already-crossed milestones don't re-fire on launch.
-                lastWordMilestone = wordMilestones.filter { $0 <= viewModel.todayWordCount }.count
+                lastWordMilestoneIndex = wordMilestones.filter { $0 <= viewModel.todayWordCount }.count
             }
             .onChange(of: draftText) { _ in
                 draftDate = Date().timeIntervalSince1970
@@ -500,7 +501,7 @@ struct TodayView: View {
             // pre-existing word counts on app launch don't trigger celebrations.
             .onChange(of: viewModel.loadState) { state in
                 if state == .ready {
-                    lastWordMilestone = wordMilestones.filter { $0 <= viewModel.todayWordCount }.count
+                    lastWordMilestoneIndex = wordMilestones.filter { $0 <= viewModel.todayWordCount }.count
                 }
             }
             // US-017: consume pending draft text from daypage://memo/new?text=…
@@ -673,6 +674,24 @@ struct TodayView: View {
         let sevenDays: TimeInterval = 7 * 24 * 3600
         if let last = lastShown, Date().timeIntervalSince(last) < sevenDays { return }
         showSyncBanner = true
+    }
+
+    private func applyLaunchPresentationFlags() {
+        let args = ProcessInfo.processInfo.arguments
+        if launchFlag("openVoiceRecorder", in: args) {
+            viewModel.isShowingVoiceRecorder = true
+        }
+        if launchFlag("openWriteSheet", in: args) {
+            showWriteSheet = true
+        }
+    }
+
+    private func launchFlag(_ key: String, in args: [String]) -> Bool {
+        guard let index = args.firstIndex(of: "-\(key)"),
+              args.indices.contains(index + 1) else {
+            return false
+        }
+        return ["1", "true", "yes", "YES", "True", "TRUE"].contains(args[index + 1])
     }
 
     private var syncBanner: some View {
@@ -1481,7 +1500,7 @@ struct TodayView: View {
         }
         .onChange(of: viewModel.todayWordCount) { newCount in
             let newIndex = wordMilestones.filter { $0 <= newCount }.count
-            if newIndex > lastWordMilestone {
+            if newIndex > lastWordMilestoneIndex {
                 // Crossed a new milestone — escalating haptic + amber glow
                 let milestoneNumber = newIndex  // 1, 2, or 3
                 Haptics.rigid(intensity: 0.3 + 0.25 * CGFloat(milestoneNumber))
@@ -1498,7 +1517,7 @@ struct TodayView: View {
                     argument: String(format: NSLocalizedString("today.wordmilestone.announcement", comment: ""), milestone)
                 )
             }
-            lastWordMilestone = newIndex
+            lastWordMilestoneIndex = newIndex
         }
         .frame(maxWidth: .infinity)
         // US-005: frosted glass + separator fade in behind the header once the

@@ -14,7 +14,7 @@ enum AppTab: Equatable {
 @MainActor
 final class AppNavigationModel: ObservableObject {
 
-    @Published var selectedTab: AppTab = .today
+    @Published var selectedTab: AppTab = AppNavigationModel.initialTab()
     @Published var isSidebarOpen: Bool = false
     @Published var isFeedbackPanelOpen: Bool = false
 
@@ -36,6 +36,20 @@ final class AppNavigationModel: ObservableObject {
     @Published var pendingDraftText: String? = nil
 
     init() {}
+
+    private static func initialTab() -> AppTab {
+        let args = ProcessInfo.processInfo.arguments
+        guard let index = args.firstIndex(of: "-selectedTab"),
+              args.indices.contains(index + 1) else {
+            return .today
+        }
+
+        switch args[index + 1].lowercased() {
+        case "archive": return .archive
+        case "graph": return .graph
+        default: return .today
+        }
+    }
 
     func openSidebar() {
         withAnimation(Motion.slide) {

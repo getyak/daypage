@@ -161,6 +161,7 @@
 		ES0000001 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000001 /* EmptyStateView.swift */; };
 		ES0000002 /* GlassErrorBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000002 /* GlassErrorBanner.swift */; };
 		ES0000003 /* GlassTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000003 /* GlassTabBar.swift */; };
+		ES0000004 /* GraphSkeleton.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000004 /* GraphSkeleton.swift */; };
 		F617270BFC704FF5BBB99FD3 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 068FB068A000B6E61B1D8032 /* AppSettings.swift */; };
 		F66780AF157611A4283937FE /* MemoListSkeleton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0995108F7E2E8994F114A240 /* MemoListSkeleton.swift */; };
 		F69AA7BDCB1C041959C26EB4 /* ShareCardSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986C8E3E042E690BA4CCC12D /* ShareCardSystem.swift */; };
@@ -170,6 +171,8 @@
 		FB0000003 /* FeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000003 /* FeedbackView.swift */; };
 		FB0000004 /* FeedbackContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000004 /* FeedbackContext.swift */; };
 		FT0000001 /* DayOrbView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FT1000001 /* DayOrbView.swift */; };
+		TD0000001 /* DayProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = TD1000001 /* DayProgress.swift */; };
+		TD0000002 /* TimeOfDay.swift in Sources */ = {isa = PBXBuildFile; fileRef = TD1000002 /* TimeOfDay.swift */; };
 		KC0000001 /* KeychainHelperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = KC1000001 /* KeychainHelperTests.swift */; };
 		LS0000001 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = LS1000001 /* Localizable.strings */; };
 		LS0000002 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = LS1000004 /* L10n.swift */; };
@@ -389,6 +392,7 @@
 		ES1000001 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		ES1000002 /* GlassErrorBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassErrorBanner.swift; sourceTree = "<group>"; };
 		ES1000003 /* GlassTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassTabBar.swift; sourceTree = "<group>"; };
+		ES1000004 /* GraphSkeleton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphSkeleton.swift; sourceTree = "<group>"; };
 		F11E0748715A251EE4A0168A /* WatchReceiveService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchReceiveService.swift; sourceTree = "<group>"; };
 		F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchTransferService.swift; sourceTree = "<group>"; };
 		F5BB61FECBCF7AB756E7A6CE /* WatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchApp.swift; sourceTree = "<group>"; };
@@ -398,6 +402,8 @@
 		FB1000004 /* FeedbackContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackContext.swift; sourceTree = "<group>"; };
 		FE91252BA9167A50BFF79FF0 /* StartRecordingIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartRecordingIntent.swift; sourceTree = "<group>"; };
 		FT1000001 /* DayOrbView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayOrbView.swift; sourceTree = "<group>"; };
+		TD1000001 /* DayProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayProgress.swift; sourceTree = "<group>"; };
+		TD1000002 /* TimeOfDay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeOfDay.swift; sourceTree = "<group>"; };
 		KC1000001 /* KeychainHelperTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelperTests.swift; sourceTree = "<group>"; };
 		LS1000002 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		LS1000003 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
@@ -706,6 +712,8 @@
 				A20000400 /* HorizontalPanGesture.swift */,
 				A20000084 /* WeeklyRecapSection.swift */,
 				A20000302 /* TimelineSectionView.swift */,
+				TD1000001 /* DayProgress.swift */,
+				TD1000002 /* TimeOfDay.swift */,
 				A20000200 /* ComposerStateMachine.swift */,
 				A20000201 /* SpotlightStripView.swift */,
 				A20000202 /* SmartTemplateRow.swift */,
@@ -897,6 +905,7 @@
 				ES1000001 /* EmptyStateView.swift */,
 				ES1000002 /* GlassErrorBanner.swift */,
 				ES1000003 /* GlassTabBar.swift */,
+				ES1000004 /* GraphSkeleton.swift */,
 				0995108F7E2E8994F114A240 /* MemoListSkeleton.swift */,
 				61EFC77A2EB872EA2279BA2A /* PillSegmentedControl.swift */,
 			);
@@ -1168,6 +1177,8 @@
 				A10000F00 /* FrontmatterParser.swift in Sources */,
 				A10000009 /* RawStorage.swift in Sources */,
 				A10000010 /* TodayView.swift in Sources */,
+				TD0000001 /* DayProgress.swift in Sources */,
+				TD0000002 /* TimeOfDay.swift in Sources */,
 				A10000011 /* ArchiveView.swift in Sources */,
 				A10000012 /* GraphView.swift in Sources */,
 				A10000035 /* GraphViewModel.swift in Sources */,
@@ -1260,6 +1271,7 @@
 				ES0000001 /* EmptyStateView.swift in Sources */,
 				ES0000002 /* GlassErrorBanner.swift in Sources */,
 				ES0000003 /* GlassTabBar.swift in Sources */,
+				ES0000004 /* GraphSkeleton.swift in Sources */,
 				DS0000001 /* Motion.swift in Sources */,
 				DS0000002 /* Haptics.swift in Sources */,
 				DS0000010 /* Radius.swift in Sources */,
