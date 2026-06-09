@@ -361,6 +361,9 @@
 "settings.clear_sample.label" = "Clear sample data";
 "settings.clear_sample.hint" = "Destructive. Permanently deletes all sample data. This cannot be undone.";
 
+/* Settings — About */
+"settings.about.version.copy_hint" = "Double tap to copy the version and build to the clipboard";
+
 /* Settings — AI Engine (US-014) */
 "settings.ai.section_title" = "AI Engine";
 "settings.ai.model" = "Model";
