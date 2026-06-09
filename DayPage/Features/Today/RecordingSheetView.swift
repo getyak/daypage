@@ -73,7 +73,31 @@ struct RecordingSheetView: View {
 
     @State private var pulse: Bool = false
     @State private var caretOn: Bool = true
+    @State private var didWarnLong: Bool = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    // MARK: - Duration Warning Thresholds
+    //
+    // Mirrors VoiceRecordingView (the legacy memo sheet): the timer warms to
+    // amber past 5:00 and red past 9:00 so the user knows a long take is
+    // approaching the practical transcription limit. Whole seconds.
+    private static let amberThreshold = 300  // 5:00
+    private static let redThreshold   = 540  // 9:00
+
+    /// Bright warm amber legible on the dark recording surface — between the
+    /// default off-white and `recordingRed`. Matches the orb's #FFD9A8 family.
+    private static let warnAmber = Color(red: 1.0, green: 0.70, blue: 0.35)
+
+    /// Timer tint: off-white by default, amber past 5:00, red past 9:00.
+    private var timerColor: Color {
+        if elapsedSeconds >= Self.redThreshold {
+            return DSTokens.Colors.recordingRed
+        } else if elapsedSeconds >= Self.amberThreshold {
+            return Self.warnAmber
+        } else {
+            return .white
+        }
+    }
 
     /// Fixed 64-bar strip: pad/trim the incoming history to exactly 64 samples
     /// so the trough never reflows. Newest samples sit at the right edge.
@@ -119,9 +143,22 @@ struct RecordingSheetView: View {
                     .font(DSFonts.jetBrainsMono(size: 28, weight: .medium))
                     .tracking(1.5)
                     .monospacedDigit()
-                    .foregroundColor(.white)
+                    .foregroundColor(timerColor)
+                    .animation(reduceMotion ? nil : Motion.fade, value: timerColor)
             }
             .padding(.bottom, 14)
+
+            // Soft-cap hint — surfaces once the take crosses 5:00 so the user
+            // knows a long recording approaches the transcription limit.
+            if elapsedSeconds >= Self.amberThreshold {
+                Text(NSLocalizedString("voice_recording_soft_cap_hint", comment: "建议 5 分钟内"))
+                    .font(DSFonts.jetBrainsMono(size: 11))
+                    .foregroundColor(timerColor)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.bottom, 10)
+                    .transition(.opacity)
+                    .animation(reduceMotion ? nil : Motion.fade, value: elapsedSeconds >= Self.amberThreshold)
+            }
 
             // Waveform trough — faint inset panel hosting the 64-bar strip.
             WaveformStripView(
@@ -210,6 +247,13 @@ struct RecordingSheetView: View {
         .onAppear {
             pulse = true
             startCaretBlink()
+        }
+        .onChange(of: elapsedSeconds) { seconds in
+            // Fire a single soft haptic the moment the take crosses 5:00.
+            if !didWarnLong && seconds >= Self.amberThreshold {
+                didWarnLong = true
+                Haptics.soft()
+            }
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(NSLocalizedString("recording.sheet.a11y", comment: "Recording in progress"))
