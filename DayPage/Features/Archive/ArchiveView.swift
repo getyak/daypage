@@ -341,6 +341,15 @@ final class ArchiveViewModel: ObservableObject {
         return now.year == currentYear && now.month == currentMonth
     }
 
+    var isViewingCurrentMonth: Bool { isCurrentMonthAndYear }
+
+    func goToCurrentMonth() {
+        let now = Calendar.current.dateComponents([.year, .month], from: Date())
+        currentYear = now.year ?? currentYear
+        currentMonth = now.month ?? currentMonth
+        loadMonth()
+    }
+
     var today: Int {
         Calendar.current.component(.day, from: Date())
     }
@@ -737,6 +746,33 @@ struct ArchiveView: View {
 
             Spacer()
 
+            if !viewModel.isViewingCurrentMonth {
+                Button(action: {
+                    Haptics.tapConfirm()
+                    let now = Calendar.current.dateComponents([.year, .month], from: Date())
+                    let targetYear = now.year ?? viewModel.currentYear
+                    let targetMonth = now.month ?? viewModel.currentMonth
+                    let isFuture = (viewModel.currentYear, viewModel.currentMonth) > (targetYear, targetMonth)
+                    monthNavDirection = isFuture ? .leading : .trailing
+                    withAnimation(reduceMotion ? nil : Motion.spring) { viewModel.goToCurrentMonth() }
+                    UIAccessibility.post(notification: .announcement, argument: viewModel.currentMonthTitle)
+                }) {
+                    Text("TODAY")
+                        .monoLabelStyle(size: 10)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(DSColor.amberDeep, in: Capsule())
+                        .overlay(Capsule().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("回到本月")
+                .accessibilityHint("跳转到当前月份")
+                .transition(.scale.combined(with: .opacity))
+            }
+
+            Spacer()
+
             Button(action: {
                 Haptics.rigid(intensity: 0.4)
                 monthNavDirection = .trailing
@@ -753,6 +789,7 @@ struct ArchiveView: View {
             .accessibilityLabel("下个月")
             .accessibilityHint("切换到下一个月")
         }
+        .animation(reduceMotion ? nil : Motion.spring, value: viewModel.isViewingCurrentMonth)
     }
 
     private func toggleButton(_ label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
