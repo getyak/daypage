@@ -94,6 +94,17 @@ enum CardDensity: String, CaseIterable {
         case .compact: return "紧凑"
         }
     }
+
+    /// Points to add to a body line's base `lineSpacing`. Compact tightens the
+    /// vertical rhythm of body text; comfortable keeps the design-system default.
+    /// Consumed by `BodyMDModifier` / `BodySMModifier` so the setting has a
+    /// visible effect (previously it was stored but never read anywhere).
+    var lineSpacingDelta: CGFloat {
+        switch self {
+        case .comfortable: return 0
+        case .compact: return -2
+        }
+    }
 }
 
 // MARK: - VaultLocation

@@ -389,6 +389,9 @@
 "settings.clear_sample.label" = "清除示例数据";
 "settings.clear_sample.hint" = "危险操作，将永久删除所有示例数据，无法撤销。";
 
+/* Settings — Appearance */
+"settings.appearance.preview.a11y" = "正文样式实时预览，会随下方的字号、卡片密度与强调色变化。";
+
 /* Settings — About */
 "settings.about.version.copy_hint" = "轻点两次复制版本号与构建号到剪贴板";
 

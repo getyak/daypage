@@ -395,7 +395,12 @@ struct SettingsView: View {
     // MARK: - Appearance Section
 
     private var appearanceSection: some View {
-        Section("外观") {
+        Section {
+            // Live preview — re-renders as the pickers below change so the
+            // abstract font-size / density / accent choices become tangible
+            // without leaving Settings. (#appearance-preview)
+            appearancePreviewCard
+
             // Theme (dark mode)
             Picker(selection: $appSettings.themeMode) {
                 ForEach(ThemeMode.allCases, id: \.self) { mode in
@@ -407,6 +412,7 @@ struct SettingsView: View {
             } label: {
                 Label("深色模式", systemImage: "moon.fill")
             }
+            .onChange(of: appSettings.themeMode) { _ in Haptics.soft() }
 
             // Accent color
             Picker(selection: $appSettings.accentColor) {
@@ -421,6 +427,7 @@ struct SettingsView: View {
             } label: {
                 Label("强调色", systemImage: "paintpalette")
             }
+            .onChange(of: appSettings.accentColor) { _ in Haptics.soft() }
 
             // Font size adjustment
             Picker(selection: $appSettings.fontSizeAdjust) {
@@ -430,6 +437,7 @@ struct SettingsView: View {
             } label: {
                 Label("正文字号", systemImage: "textformat.size")
             }
+            .onChange(of: appSettings.fontSizeAdjust) { _ in Haptics.soft() }
 
             // Card density
             Picker(selection: $appSettings.cardDensity) {
@@ -439,6 +447,7 @@ struct SettingsView: View {
             } label: {
                 Label("卡片密度", systemImage: "rectangle.expand.vertical")
             }
+            .onChange(of: appSettings.cardDensity) { _ in Haptics.soft() }
 
             // Press-to-talk (US-008). Invert the binding so the visible label reads
             // "Use legacy voice recording" per the PRD's legacy-fallback copy.
@@ -469,7 +478,55 @@ struct SettingsView: View {
                     OnThisDayScheduler.shared.refreshHour = val
                 }
             }
+        } header: {
+            Text("外观")
         }
+    }
+
+    // MARK: - Appearance Preview
+
+    /// A miniature memo card that mirrors the real card aesthetic (mono kicker
+    /// + serif title + body) and re-renders live as the appearance pickers
+    /// change. `bodyMDStyle()` / `bodySMStyle()` read `fontSizeAdjust` and
+    /// `cardDensity` from `AppSettings.shared`, so adjusting either control
+    /// updates this card immediately; the accent picker tints the kicker + dot.
+    private var appearancePreviewCard: some View {
+        let accent = appSettings.accentColor.color
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(accent)
+                    .frame(width: 6, height: 6)
+                Text("预览 · 14:30")
+                    .font(DSType.mono10)
+                    .tracking(1.0)
+                    .textCase(.uppercase)
+                    .foregroundColor(accent)
+            }
+            Text("一杯手冲，窗外是慢下来的城市。")
+                .bodyMDStyle()
+                .foregroundColor(DSColor.onBackgroundPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("调整下方字号与卡片密度，这张卡片会实时变化。")
+                .bodySMStyle()
+                .foregroundColor(DSColor.onSurfaceVariant)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .background(DSColor.glassLo)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
+                .strokeBorder(accent.opacity(0.18), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
+        .padding(.vertical, 2)
+        .animation(Motion.fade, value: appSettings.fontSizeAdjust)
+        .animation(Motion.fade, value: appSettings.cardDensity)
+        .animation(Motion.fade, value: appSettings.accentColor)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(NSLocalizedString("settings.appearance.preview.a11y", comment: "Appearance preview card accessibility label"))
     }
 
     private func themeIcon(for mode: ThemeMode) -> String {

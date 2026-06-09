@@ -361,6 +361,9 @@
 "settings.clear_sample.label" = "Clear sample data";
 "settings.clear_sample.hint" = "Destructive. Permanently deletes all sample data. This cannot be undone.";
 
+/* Settings — Appearance */
+"settings.appearance.preview.a11y" = "Live preview of the body text style. Reflects the font size, card density, and accent color selected below.";
+
 /* Settings — About */
 "settings.about.version.copy_hint" = "Double tap to copy the version and build to the clipboard";
 
