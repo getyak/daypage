@@ -1210,7 +1210,16 @@ struct SearchView: View {
 
     // MARK: - Starter suggestions (shown only when no history and no indexed entities)
 
-    private static let starterSuggestions: [String] = ["今天", "本周", "本月", "位置", "照片", "语音"]
+    /// Localized starter chips, parsed from a comma-separated string so each locale supplies
+    /// terms users in that language would actually type. Falls back to the English defaults.
+    private static let starterSuggestions: [String] = {
+        let raw = NSLocalizedString("search.starterSuggestions", comment: "Comma-separated starter search suggestions")
+        let parsed = raw
+            .split(separator: ",")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        return parsed.isEmpty ? ["Today", "This Week", "This Month", "Place", "Photo", "Voice"] : parsed
+    }()
 
     // MARK: - Formatting helpers
 
