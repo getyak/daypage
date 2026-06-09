@@ -447,6 +447,8 @@
 "search.section.quickSearch"      = "快捷检索";
 "search.section.recentSearches"   = "最近搜索";
 "search.section.topEntities"      = "高频实体";
+/* Comma-separated starter search suggestions, shown as tappable chips when there is no search history. */
+"search.starterSuggestions"       = "今天,本周,本月,位置,照片,语音";
 
 /* Search — recent searches */
 "search.recent.clear"             = "清除";

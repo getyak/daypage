@@ -419,6 +419,8 @@
 "search.section.quickSearch"      = "Quick Search";
 "search.section.recentSearches"   = "Recent Searches";
 "search.section.topEntities"      = "Frequent Entities";
+/* Comma-separated starter search suggestions, shown as tappable chips when there is no search history. Translate each term so it matches what users in this locale would actually type. */
+"search.starterSuggestions"       = "Today,This Week,This Month,Place,Photo,Voice";
 
 /* Search — recent searches */
 "search.recent.clear"             = "Clear";
