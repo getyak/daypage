@@ -92,9 +92,21 @@ struct OnThisDayCard: View {
         if let years = entry.yearsAgo {
             return "ON THIS DAY · \(years) YEAR\(years == 1 ? "" : "S") AGO"
         } else if let days = entry.daysAgo {
-            return "ON THIS DAY · \(days) DAYS AGO"
+            return "ON THIS DAY · \(Self.relativeSpan(days: days))"
         }
         return "ON THIS DAY"
+    }
+
+    /// Renders a day-count as natural, grammatically-correct relative copy for the
+    /// uppercase header (e.g. 180 → "6 MONTHS AGO", 30 → "1 MONTH AGO", 1 → "1 DAY AGO").
+    /// Clean multiples of 30 days collapse to months so the card reads naturally
+    /// instead of the awkward "180 DAYS AGO".
+    static func relativeSpan(days: Int) -> String {
+        if days >= 30, days % 30 == 0 {
+            let months = days / 30
+            return "\(months) MONTH\(months == 1 ? "" : "S") AGO"
+        }
+        return "\(days) DAY\(days == 1 ? "" : "S") AGO"
     }
 
     private var accessibilityCardLabel: String {
