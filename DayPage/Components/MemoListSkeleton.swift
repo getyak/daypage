@@ -8,7 +8,7 @@ import SwiftUI
 struct MemoListSkeleton: View {
     var count: Int = 3
 
-    private var clampedCount: Int { count.clamped(to: 1...6) }
+    private var clampedCount: Int { max(1, min(count, 6)) }
 
     var body: some View {
         VStack(spacing: 8) {

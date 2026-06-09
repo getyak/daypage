@@ -2,6 +2,7 @@ import UIKit
 
 // MARK: - Haptic Tokens
 
+@MainActor
 enum Haptics {
     // Quiet confirmation for low-stakes taps (toggle, pin, navigate).
     static func tapConfirm() { HapticFeedback.light() }

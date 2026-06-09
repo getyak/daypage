@@ -4,7 +4,14 @@ import Foundation
 
 /// Unit tests for KeychainHelper API-key storage — write/read/delete cycle
 /// and UserDefaults migration. Acceptance criteria for US-002.
-@Suite("KeychainHelperTests")
+///
+/// `.serialized`: the two migration tests below exercise
+/// `migrateAPIKeysFromUserDefaultsIfNeeded()`, which hard-codes the real key
+/// pair ("runtimeDeepSeekKey" → "deepSeekApiKey"). They therefore share one
+/// fixed Keychain/UserDefaults slot and cannot run in parallel without one
+/// test's seeded value leaking into the other. Serializing the whole suite
+/// keeps them deterministic.
+@Suite("KeychainHelperTests", .serialized)
 struct KeychainHelperTests {
 
     // Use a unique identifier prefix to isolate test keys from production data.

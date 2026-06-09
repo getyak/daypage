@@ -141,9 +141,11 @@ final class VaultMigrationService: ObservableObject {
             )
         }
 
-        // 对 3 个最大的 raw/*.md 文件进行哈希
+        // 对 3 个最大的 raw/*.md 文件进行哈希。
+        // 注意：allFiles 返回的相对路径无前导斜杠（如 "raw/2025-01-01.md"），
+        // 故此处匹配 "raw/" 前缀而非 "/raw/"，否则过滤结果恒为空、校验形同虚设。
         let rawFiles = localFiles
-            .filter { $0.contains("/raw/") && $0.hasSuffix(".md") }
+            .filter { ($0.hasPrefix("raw/") || $0.contains("/raw/")) && $0.hasSuffix(".md") }
             .compactMap { relPath -> (String, Int)? in
                 let url = localVault.appendingPathComponent(relPath)
                 let size = (try? fm.attributesOfItem(atPath: url.path)[.size] as? Int) ?? 0
@@ -153,9 +155,9 @@ final class VaultMigrationService: ObservableObject {
             .prefix(3)
             .map { $0.0 }
 
-        // Hash 3 latest wiki/daily/*.md files
+        // Hash 3 latest wiki/daily/*.md files（同样匹配无前导斜杠的相对路径）
         let wikiFiles = localFiles
-            .filter { $0.contains("/wiki/daily/") && $0.hasSuffix(".md") }
+            .filter { ($0.hasPrefix("wiki/daily/") || $0.contains("/wiki/daily/")) && $0.hasSuffix(".md") }
             .sorted()
             .suffix(3)
 
