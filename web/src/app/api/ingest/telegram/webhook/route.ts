@@ -4,6 +4,8 @@ import { memos, activities, ingest_sources } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { sendEvent } from "@/lib/inngest/client";
 import { decryptConfig } from "@/lib/secret-crypto";
+import { selectSuggestion } from "@/lib/gateway/select-suggestion";
+import { answerCallbackQuery } from "@/lib/connectors/outbound/telegram";
 
 // Telegram Update object (partial — only fields we use)
 interface TelegramMessage {
@@ -17,9 +19,19 @@ interface TelegramMessage {
   date: number;
 }
 
+// Sent when a user taps an inline-keyboard button. `data` carries our
+// `pick:<suggestion_id>` payload (US-010/US-013).
+interface TelegramCallbackQuery {
+  id: string;
+  from?: { id: number; username?: string };
+  message?: { chat: { id: number } };
+  data?: string;
+}
+
 interface TelegramUpdate {
   update_id: number;
   message?: TelegramMessage;
+  callback_query?: TelegramCallbackQuery;
 }
 
 async function logActivity(userId: string, verb: string, subject: string, targetType: string, targetId: string) {
@@ -48,6 +60,13 @@ export async function POST(req: NextRequest) {
     update = (await req.json()) as TelegramUpdate;
   } catch {
     return NextResponse.json({ ok: true });
+  }
+
+  // US-013: a tapped suggestion button. Resolve `pick:<id>` → mark the
+  // suggestion `selected` and enqueue its dispatch job (both idempotent), then
+  // ack the tap so the user sees a confirmation toast.
+  if (update.callback_query) {
+    return handleCallbackQuery(update.callback_query);
   }
 
   const message = update.message;
@@ -106,5 +125,43 @@ export async function POST(req: NextRequest) {
     await logActivity(userId, "ingest", "telegram", "memo", memo.id);
   }
 
+  return NextResponse.json({ ok: true });
+}
+
+// US-013: handle a tapped inline-keyboard button. We only understand the
+// `pick:<suggestion_id>` action; anything else is acked silently. The selection
+// itself is idempotent (selectSuggestion guards on `open` status), so repeated
+// taps land on the `already` branch and never re-dispatch.
+async function handleCallbackQuery(cb: TelegramCallbackQuery) {
+  const data = cb.data ?? "";
+  if (!data.startsWith("pick:")) {
+    // Unknown action — still answer so Telegram stops the button spinner.
+    await answerCallbackQuery({ callbackQueryId: cb.id });
+    return NextResponse.json({ ok: true });
+  }
+
+  const suggestionId = data.slice("pick:".length);
+  if (!suggestionId) {
+    await answerCallbackQuery({ callbackQueryId: cb.id });
+    return NextResponse.json({ ok: true });
+  }
+
+  const result = await selectSuggestion(suggestionId);
+
+  let toast: string;
+  switch (result.status) {
+    case "selected":
+      toast = "✅ Added to queue";
+      break;
+    case "already":
+      // Idempotent re-tap: already selected/dispatched. Reassure, don't re-run.
+      toast = "Already in queue";
+      break;
+    case "not_found":
+      toast = "Suggestion no longer available";
+      break;
+  }
+
+  await answerCallbackQuery({ callbackQueryId: cb.id, text: toast });
   return NextResponse.json({ ok: true });
 }

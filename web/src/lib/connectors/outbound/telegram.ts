@@ -151,3 +151,57 @@ export async function sendSuggestions(
 
   return { ok: true, messageId };
 }
+
+// ── answerCallbackQuery ──────────────────────────────────────────────────────
+// US-013: acknowledge a tapped inline button. Telegram shows the spinner on the
+// button until the bot answers; the optional `text` surfaces a brief toast to
+// the user (e.g. "Added to queue"). Like sendSuggestions, this never throws —
+// failure to ack is non-fatal to the selection that already landed.
+
+export interface AnswerCallbackQueryParams {
+  callbackQueryId: string;
+  // Short toast text shown to the user. Optional.
+  text?: string;
+  // Override the bot token; defaults to `process.env.TELEGRAM_BOT_TOKEN`.
+  botToken?: string;
+  // Injectable fetch for tests; defaults to the global `fetch`.
+  fetchImpl?: typeof fetch;
+}
+
+export type AnswerCallbackQueryResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+export async function answerCallbackQuery(
+  params: AnswerCallbackQueryParams
+): Promise<AnswerCallbackQueryResult> {
+  const botToken = params.botToken ?? process.env.TELEGRAM_BOT_TOKEN;
+  const fetchImpl = params.fetchImpl ?? fetch;
+
+  if (!botToken) {
+    return { ok: false, error: "TELEGRAM_BOT_TOKEN not configured" };
+  }
+
+  const url = `https://api.telegram.org/bot${botToken}/answerCallbackQuery`;
+  const requestBody: { callback_query_id: string; text?: string } = {
+    callback_query_id: params.callbackQueryId,
+  };
+  if (params.text) requestBody.text = params.text;
+
+  let res: Response;
+  try {
+    res = await fetchImpl(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestBody),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: `network error: ${message}` };
+  }
+
+  if (!res.ok) {
+    return { ok: false, error: `telegram responded ${res.status}` };
+  }
+  return { ok: true };
+}
