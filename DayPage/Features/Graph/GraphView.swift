@@ -81,7 +81,7 @@ struct GraphView: View {
                         Image(systemName: "magnifyingglass")
                             .font(.system(size: 13))
                             .foregroundColor(DSColor.inkMuted)
-                        TextField("搜索节点...", text: $viewModel.searchQuery)
+                        TextField(NSLocalizedString("graph.search.placeholder", comment: "Graph search field placeholder"), text: $viewModel.searchQuery)
                             .font(DSFonts.jetBrainsMono(size: 12))
                             .foregroundColor(DSColor.inkPrimary)
                             .submitLabel(.search)
@@ -165,7 +165,7 @@ struct GraphView: View {
                                 Image(systemName: "magnifyingglass.slash")
                                     .font(.system(size: 11))
                                     .foregroundColor(DSColor.inkMuted)
-                                Text(NSLocalizedString("无匹配节点", comment: "Graph search zero-match pill"))
+                                Text(NSLocalizedString("graph.search.zero_match", comment: "Graph search zero-match pill"))
                                     .font(DSFonts.jetBrainsMono(size: 11))
                                     .foregroundColor(DSColor.inkMuted)
                             }
@@ -174,11 +174,11 @@ struct GraphView: View {
                             .background(DSColor.glassLo)
                             .background(.ultraThinMaterial, in: Capsule())
                             .overlay(Capsule().strokeBorder(DSColor.amberAccent.opacity(0.5), lineWidth: 0.5))
-                            .accessibilityLabel(NSLocalizedString("无匹配节点", comment: ""))
+                            .accessibilityLabel(NSLocalizedString("graph.search.zero_match", comment: ""))
                         } else {
                             let pillText = count > 1
-                                ? "\(searchMatchIndex + 1)/\(count) 个匹配"
-                                : "\(count) 个匹配"
+                                ? String(format: NSLocalizedString("graph.search.match_count.other", comment: "Graph search match count pill, multiple"), searchMatchIndex + 1, count)
+                                : String(format: NSLocalizedString("graph.search.match_count.one", comment: "Graph search match count pill, single"), count)
                             Text(pillText)
                                 .font(DSFonts.jetBrainsMono(size: 11))
                                 .foregroundColor(DSColor.inkMuted)
@@ -199,7 +199,7 @@ struct GraphView: View {
                                         .opacity(matchPillFlash ? 1 : 0)
                                         .animation(Motion.fade, value: matchPillFlash)
                                 )
-                                .accessibilityLabel("\(count) 个匹配结果")
+                                .accessibilityLabel(String(format: NSLocalizedString("graph.search.match_count.a11y", comment: "Graph search match count accessibility label"), count))
                             if count > 1 {
                                 Button {
                                     advanceMatch(by: -1, matches: matches, in: simulationSize)
@@ -213,7 +213,7 @@ struct GraphView: View {
                                         .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(DSColor.glassRim, lineWidth: 0.5))
                                         .contentShape(Rectangle())
                                 }
-                                .accessibilityLabel("上一个匹配")
+                                .accessibilityLabel(NSLocalizedString("graph.a11y.prev_match", comment: "Graph previous match button"))
                                 Button {
                                     advanceMatch(by: +1, matches: matches, in: simulationSize)
                                 } label: {
@@ -226,7 +226,7 @@ struct GraphView: View {
                                         .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(DSColor.glassRim, lineWidth: 0.5))
                                         .contentShape(Rectangle())
                                 }
-                                .accessibilityLabel("下一个匹配")
+                                .accessibilityLabel(NSLocalizedString("graph.a11y.next_match", comment: "Graph next match button"))
                             }
                         }
                         Spacer()
@@ -245,13 +245,13 @@ struct GraphView: View {
                             lastZeroQuery = query
                             Haptics.warn()
                             if UIAccessibility.isVoiceOverRunning {
-                                let msg = NSLocalizedString("无匹配节点", comment: "Graph search zero-match pill")
+                                let msg = NSLocalizedString("graph.search.zero_match", comment: "Graph search zero-match VoiceOver announcement")
                                 UIAccessibility.post(notification: .announcement, argument: msg)
                             }
                         } else if count > 0 {
                             lastZeroQuery = nil
                             if UIAccessibility.isVoiceOverRunning {
-                                let msg = "\(count) 个匹配"
+                                let msg = String(format: NSLocalizedString("graph.search.match_count.voiceover", comment: "Graph search match count VoiceOver announcement"), count)
                                 UIAccessibility.post(notification: .announcement, argument: msg)
                             }
                         }
@@ -261,7 +261,7 @@ struct GraphView: View {
                 if showFilters {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: DSSpacing.sm) {
-                            Text("开始")
+                            Text(NSLocalizedString("graph.filter.start", comment: "Graph date filter start label"))
                                 .font(DSFonts.jetBrainsMono(size: 11))
                                 .foregroundColor(DSColor.inkMuted)
                                 .frame(width: 30)
@@ -278,14 +278,14 @@ struct GraphView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
 
                             if viewModel.filterStartDate != nil {
-                                Button("清除") { viewModel.filterStartDate = nil }
+                                Button(NSLocalizedString("graph.filter.clear", comment: "Graph date filter clear button")) { viewModel.filterStartDate = nil }
                                     .font(DSFonts.inter(size: 11))
                                     .foregroundColor(DSColor.amberAccent)
                                     .frame(minHeight: 44)
                             }
                         }
                         HStack(spacing: DSSpacing.sm) {
-                            Text("结束")
+                            Text(NSLocalizedString("graph.filter.end", comment: "Graph date filter end label"))
                                 .font(DSFonts.jetBrainsMono(size: 11))
                                 .foregroundColor(DSColor.inkMuted)
                                 .frame(width: 30)
@@ -302,7 +302,7 @@ struct GraphView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
 
                             if viewModel.filterEndDate != nil {
-                                Button("清除") { viewModel.filterEndDate = nil }
+                                Button(NSLocalizedString("graph.filter.clear", comment: "Graph date filter clear button")) { viewModel.filterEndDate = nil }
                                     .font(DSFonts.inter(size: 11))
                                     .foregroundColor(DSColor.amberAccent)
                                     .frame(minHeight: 44)
@@ -438,7 +438,7 @@ struct GraphView: View {
                 hiddenTypes = Set()
             }
         } label: {
-            Text("清除筛选")
+            Text(NSLocalizedString("graph.filter.clear_all", comment: "Graph clear all filters button"))
                 .font(DSType.sectionLabel)
                 .textCase(.uppercase)
                 .tracking(1.5)
@@ -516,9 +516,9 @@ struct GraphView: View {
 
     private func localizedEntityTypeName(_ entityType: String) -> String {
         switch entityType {
-        case "places":  return "地点"
-        case "people":  return "人物"
-        default:        return "主题"
+        case "places":  return NSLocalizedString("graph.node_type.places", comment: "Graph node type: places")
+        case "people":  return NSLocalizedString("graph.node_type.people", comment: "Graph node type: people")
+        default:        return NSLocalizedString("graph.node_type.themes", comment: "Graph node type: themes")
         }
     }
 
@@ -659,7 +659,7 @@ struct GraphView: View {
                         .accessibilityElement()
                         .accessibilityLabel(node.name)
                         .accessibilityValue(localizedEntityTypeName(node.entityType))
-                        .accessibilityHint("打开实体页面")
+                        .accessibilityHint(NSLocalizedString("graph.a11y.open_entity", comment: "Graph node accessibility hint"))
                         .accessibilityAddTraits(.isButton)
                         .accessibilityAction { openNode(node) }
                 }
@@ -718,10 +718,10 @@ struct GraphView: View {
 
     // MARK: - Legend
 
-    private static let legendTypes: [(type: String, color: Color, label: String)] = [
-        ("places", DSColor.amberDeep,   "地点"),
-        ("people", DSColor.inkMuted,    "人物"),
-        ("themes", DSColor.amberAccent, "主题"),
+    private static let legendTypes: [(type: String, color: Color)] = [
+        ("places", DSColor.amberDeep),
+        ("people", DSColor.inkMuted),
+        ("themes", DSColor.amberAccent),
     ]
 
     private var legend: some View {
@@ -729,7 +729,8 @@ struct GraphView: View {
             ForEach(Self.legendTypes, id: \.type) { entry in
                 let count = viewModel.filteredNodes.filter { $0.entityType == entry.type }.count
                 let isHidden = hiddenTypes.contains(entry.type)
-                legendRow(type: entry.type, color: entry.color, label: entry.label, count: count, isHidden: isHidden)
+                let label = localizedEntityTypeName(entry.type)
+                legendRow(type: entry.type, color: entry.color, label: label, count: count, isHidden: isHidden)
             }
         }
         .padding(DSSpacing.md)
@@ -800,7 +801,7 @@ struct GraphView: View {
                     .opacity(visibleNodes.count < 2 ? 0.4 : 1.0)
             }
             .disabled(visibleNodes.count < 2)
-            .accessibilityLabel(NSLocalizedString("适应屏幕", comment: "Graph fit-to-screen button"))
+            .accessibilityLabel(NSLocalizedString("graph.a11y.fit", comment: "Graph fit-to-screen button"))
             .accessibilityAddTraits(.isButton)
 
             Rectangle()
@@ -818,8 +819,8 @@ struct GraphView: View {
                     .contentShape(Rectangle())
                     .opacity(scale >= 5.0 ? 0.4 : 1.0)
             }
-            .accessibilityLabel(NSLocalizedString("放大", comment: "Graph zoom in button"))
-            .accessibilityHint(scale >= 5.0 ? NSLocalizedString("已达到最大缩放比例", comment: "Graph zoom in limit hint") : "")
+            .accessibilityLabel(NSLocalizedString("graph.a11y.zoom_in", comment: "Graph zoom in button"))
+            .accessibilityHint(scale >= 5.0 ? NSLocalizedString("graph.a11y.zoom_max", comment: "Graph zoom in limit hint") : "")
             .accessibilityAddTraits(.isButton)
 
             Rectangle()
@@ -837,8 +838,8 @@ struct GraphView: View {
                     .contentShape(Rectangle())
                     .opacity(scale <= 0.3 ? 0.4 : 1.0)
             }
-            .accessibilityLabel(NSLocalizedString("缩小", comment: "Graph zoom out button"))
-            .accessibilityHint(scale <= 0.3 ? NSLocalizedString("已达到最小缩放比例", comment: "Graph zoom out limit hint") : "")
+            .accessibilityLabel(NSLocalizedString("graph.a11y.zoom_out", comment: "Graph zoom out button"))
+            .accessibilityHint(scale <= 0.3 ? NSLocalizedString("graph.a11y.zoom_min", comment: "Graph zoom out limit hint") : "")
             .accessibilityAddTraits(.isButton)
         }
         .liquidGlassCard(cornerRadius: DSRadius.md, tone: .hi)
@@ -1004,8 +1005,8 @@ struct GraphView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(label), \(count)个节点")
-        .accessibilityValue(isHidden ? "已隐藏" : "已显示")
+        .accessibilityLabel(String(format: NSLocalizedString("graph.legend.node_count", comment: "Graph legend row accessibility label"), label, count))
+        .accessibilityValue(isHidden ? NSLocalizedString("graph.legend.value.hidden", comment: "Graph legend hidden state") : NSLocalizedString("graph.legend.value.shown", comment: "Graph legend shown state"))
         .accessibilityAddTraits(.isButton)
     }
 
@@ -1090,12 +1091,7 @@ struct GraphView: View {
     // MARK: - Helpers
 
     private func typeLabel(_ entityType: String) -> String {
-        switch entityType {
-        case "places":  return "地点"
-        case "people":  return "人物"
-        case "themes":  return "主题"
-        default:        return entityType
-        }
+        localizedEntityTypeName(entityType)
     }
 
     // MARK: - Simulation

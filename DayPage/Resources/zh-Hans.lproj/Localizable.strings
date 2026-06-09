@@ -197,9 +197,43 @@
 "empty.graph.subtitle.evening" = "用傍晚的思绪收尾 — 写下来，它们会成为你知识图谱的一部分。";
 "empty.graph.subtitle.night" = "睡前记一笔 — 每一条记录都让图谱更丰富。";
 
+/* Graph search */
+"graph.search.placeholder" = "搜索节点…";
+"graph.search.zero_match" = "无匹配节点";
+"graph.search.match_count.one" = "%d 个匹配";
+"graph.search.match_count.other" = "%d/%d 个匹配";
+"graph.search.match_count.a11y" = "%d 个匹配结果";
+"graph.search.match_count.voiceover" = "%d 个匹配";
+
 /* Graph search match VoiceOver announcements */
 "graph.search.match.announcement" = "%1$@，第 %2$d 个，共 %3$d 个";
 "graph.search.match.announcement.single" = "%1$@";
+
+/* Graph date filter */
+"graph.filter.start" = "开始";
+"graph.filter.end" = "结束";
+"graph.filter.clear" = "清除";
+"graph.filter.clear_all" = "清除筛选";
+
+/* Graph node type labels */
+"graph.node_type.places" = "地点";
+"graph.node_type.people" = "人物";
+"graph.node_type.themes" = "主题";
+
+/* Graph accessibility */
+"graph.a11y.open_entity" = "打开实体页面";
+"graph.a11y.fit" = "适应屏幕";
+"graph.a11y.zoom_in" = "放大";
+"graph.a11y.zoom_out" = "缩小";
+"graph.a11y.zoom_max" = "已达到最大缩放比例";
+"graph.a11y.zoom_min" = "已达到最小缩放比例";
+"graph.a11y.prev_match" = "上一个匹配";
+"graph.a11y.next_match" = "下一个匹配";
+
+/* Graph legend */
+"graph.legend.value.hidden" = "已隐藏";
+"graph.legend.value.shown" = "已显示";
+"graph.legend.node_count" = "%@，%d 个节点";
 
 /* Graph No Matches */
 "empty.graph.no_matches.title" = "无匹配节点。";
