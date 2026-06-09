@@ -44,3 +44,5 @@ Previous run archived: scripts/ralph/archive/2026-06-09-v8-ios-m3-m6/ (v8 iOS M3
 [2026-06-09T17:41:07Z] Story #US-018: Compiler 升级 — memo commit 进树 — PASSED
 [2026-06-09T17:47:57Z] Story #US-019: Evolver loop — observe/plan/act (长枝) — PASSED
 [2026-06-09T17:54:26Z] Story #US-020: Inngest function: evolver.step + 热度触发 — PASSED
+[2026-06-09T17:59:25Z] Story #US-021: 演化与推送时机设置 (后端) — FAILED (iteration 21)
+[2026-06-09T18:05:21Z] Story #US-021: 演化与推送时机设置 (后端) — PASSED
