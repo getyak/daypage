@@ -35,6 +35,23 @@ struct DynamicIslandView: View {
     private let expandedWidth: CGFloat = 248
     private let height: CGFloat = 37
 
+    // Duration warning thresholds — kept in lockstep with RecordingSheetView so
+    // the capsule timer and the sheet timer warm together on long takes.
+    private static let amberThreshold = 300  // 5:00
+    private static let redThreshold   = 540  // 9:00
+    private static let warnAmber = Color(red: 1.0, green: 0.70, blue: 0.35)
+
+    /// Timer tint: off-white by default, amber past 5:00, red past 9:00.
+    private var timerColor: Color {
+        if elapsedSeconds >= Self.redThreshold {
+            return DSTokens.Colors.recordingRed
+        } else if elapsedSeconds >= Self.amberThreshold {
+            return Self.warnAmber
+        } else {
+            return DSTokens.Colors.accentSoft
+        }
+    }
+
     /// Fixed 18-bar mini strip, newest samples right-aligned.
     private var miniBars: [Float] {
         let count = 18
@@ -64,7 +81,8 @@ struct DynamicIslandView: View {
                         .font(DSFonts.jetBrainsMono(size: 11, weight: .medium))
                         .tracking(1.0)
                         .monospacedDigit()
-                        .foregroundColor(DSTokens.Colors.accentSoft)
+                        .foregroundColor(timerColor)
+                        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: timerColor)
                 }
 
                 Spacer(minLength: 6)
@@ -84,7 +102,8 @@ struct DynamicIslandView: View {
                     .font(DSFonts.jetBrainsMono(size: 11, weight: .medium))
                     .tracking(1.0)
                     .monospacedDigit()
-                    .foregroundColor(DSTokens.Colors.accentSoft)
+                    .foregroundColor(timerColor)
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: timerColor)
             }
         }
         .padding(.leading, expanded ? 16 : 0)
