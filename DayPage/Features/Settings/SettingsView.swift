@@ -1003,15 +1003,36 @@ struct SettingsView: View {
             let vaultURL = VaultInitializer.vaultURL
             let fm = FileManager.default
             var totalBytes: Int64 = 0
+            // Count daily entries: files directly under vault/raw/ named
+            // YYYY-MM-DD.md (one per logged day). Assets and other dirs excluded.
+            let rawURL = vaultURL.appendingPathComponent("raw")
+            var dayCount = 0
             if let enumerator = fm.enumerator(at: vaultURL, includingPropertiesForKeys: [.fileSizeKey]) {
                 for case let fileURL as URL in enumerator {
                     let size = (try? fileURL.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
                     totalBytes += Int64(size)
+                    if fileURL.deletingLastPathComponent().path == rawURL.path,
+                       Self.isDayFileName(fileURL.lastPathComponent) {
+                        dayCount += 1
+                    }
                 }
             }
-            let label = ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file)
+            let sizeLabel = ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file)
+            // Surface the entry count alongside size so users see how much
+            // they've logged at a glance, e.g. "12 天 · 1.2 MB".
+            let label = dayCount > 0 ? "\(dayCount) 天 · \(sizeLabel)" : sizeLabel
             await MainActor.run { self.vaultSizeLabel = label }
         }
+    }
+
+    /// True for a raw day-file name of the form `YYYY-MM-DD.md`.
+    private static func isDayFileName(_ name: String) -> Bool {
+        guard name.hasSuffix(".md") else { return false }
+        let stem = String(name.dropLast(3))
+        let parts = stem.split(separator: "-", omittingEmptySubsequences: false)
+        guard parts.count == 3,
+              parts[0].count == 4, parts[1].count == 2, parts[2].count == 2 else { return false }
+        return parts.allSatisfy { $0.allSatisfy(\.isNumber) }
     }
 
     private func exportAll() {
