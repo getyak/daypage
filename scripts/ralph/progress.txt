@@ -1,20 +1,26 @@
-# DayPage v8 iOS M3–M6 — Ralph Progress Log
+# DayPage Agent OS — Ralph Progress Log
 
-Source PRD: tasks/prd-daypage-v8-museum-aesthetic.md (规格) + scripts/ralph/prd.json (执行清单)
-Branch: ralph/daypage-v8-ios-m3-m6
-Start: 2026-05-29
-Previous run archived: scripts/ralph/archive/2026-05-29-v8-web-ledby/ (Web-主导 33-story 版)
+Source PRD: tasks/prd-daypage-agent-os.md (规格) + scripts/ralph/prd.json (执行清单, 34 stories)
+Branch: ralph/agent-os
+Start: 2026-06-09
+Previous run archived: scripts/ralph/archive/2026-06-09-v8-ios-m3-m6/ (v8 iOS M3-M6 版)
 
 ## Codebase Patterns
-- 执行环境是 Linux 服务器，无 Xcode / 无 iOS 模拟器：iOS story 的 quality-check 步骤【跳过 xcodebuild/test】，在本条 progress 注明『需本地 MacBook 验证』即可，不要尝试 xcodebuild（会失败）。
-- 范围只做 iOS M3–M6 + 详情页。M1(Today, PR #483) / M2(侧边栏热力图, PR #486) 已实现，不要重做。
-- 设计 token 已 100% 就绪于 DayPage/DesignSystem/Colors.swift（DSColor.*）与 DayPage/App/DSTokens.swift。直接引用 token，0 hardcode hex（渐变端点等 token 缺失处除外，注释说明）。
-- serif 用 DSFonts.serif(size:weight:italic:)（Source Serif 4 级联 Source Han Serif SC），不引入 Fraunces。mono 用 DSFonts.jetBrainsMono / DSType.mono*。display 大字用 DSFonts.serif 或 DSFonts.spaceGrotesk。
-- 玻璃效果 = .ultraThinMaterial + .saturation(1.6)（参考 DayPage/DesignSystem/Surfaces.swift 的 LiquidGlassCard recipe）。
-- 纯白卡 = .solidCard(cornerRadius:14)（M1 在 Surfaces.swift 新增的 modifier：surfaceWhite + 0.5pt borderSubtle + 极淡 shadow）。
-- 动画曲线 cubic-bezier(.2,.8,.2,1) ≈ .spring(response:0.32, dampingFraction:0.86)；所有动画必须尊重 @Environment(\\.accessibilityReduceMotion)，reduce 时退化为无动画或 .linear(0.01)。
-- 新建 Swift 文件【必须】用 ruby xcodeproj gem 加入 DayPage target，否则不参与编译。做法：定位对应 PBXGroup → new_reference("File.swift") → target.add_file_references([ref]) → project.save。加完确认 grep -c "File.swift" DayPage.xcodeproj/project.pbxproj 输出 4（PBXBuildFile/PBXFileReference/group children/Sources phase 各 1）。
-- 新增 enum case（如 PosterStyle / TimelineSectionKind）务必补全所有 switch 分支，避免 non-exhaustive。
-- 编译产物 memo-*.png（app 运行时写到仓库根）不要提交。
-- DashScope 编译复用 DayPage/Services/CompilationService.swift 的 client/prompt 模式 + GeneratedSecrets 读 key，绝不硬编码密钥。
-- 真正的编译 + UI 视觉验证：见 GitHub issue #488『本地 MacBook UI 测试方案』，出 PR 后在本地 iPhone 17 模拟器执行（造 vault 数据 → 截图核对 → 清理 sandbox）。
+- 工作目录是 web/ (Next.js 16 App Router)。所有路径相对 web/。质量检查在 web/ 下跑: npm run typecheck / npm run test (vitest) / npm run lint。
+- 本地 dev 须同跑 `npm run dev`(:3000) 与 `npm run dev:inngest`(:8288)，否则 Inngest sendEvent 在无 INNGEST_EVENT_KEY 的 dev 下静默 no-op，job 永远不执行(见 web/CLAUDE.md)。涉及 Inngest 的 story 写测试时 mock client，不依赖真实 dev server。
+- DB schema 全在 web/src/lib/db/schema.ts (单文件, Drizzle pgTable)。新表加在此文件，drizzle-kit generate 生成 migration。已有 pgvector(vector(1536) customType)、pgEnum 大量使用、index/unique/primaryKey helper。
+- DB client: web/src/lib/db/client.ts 导出 db。
+- API route 模式(参考 api/agents/route.ts): "use server-only"; auth() 取 session; resolveUserId(email) 查 users.id; zod 校验 body; 未登录返回 401 {error:"Unauthorized"}; export const dynamic="force-dynamic"; runtime="nodejs"。
+- 现有审计表 change_log(action_kind/target_type/target_id/before/after/reason/performed_by 'user'|'agent')。Executor/Evolver 的树变更与派发都写它。
+- 现有预算表 prompt_log(user_id/kind/model/tokens_in/tokens_out)。Policy.checkBudget 读它。
+- 现有限速: @upstash/ratelimit + @upstash/redis 已装。
+- 现有 ingest: api/ingest(通用) + api/ingest/telegram/webhook + api/ingest/email。ingest_sources 表已含 source_type enum 'telegram'|'email'|'rss'|'webhook'|'api_claude'。回流复用此入口。
+- 现有 Inngest functions 在 web/src/lib/inngest/functions/(compile-memo/daily-page/weave-graph/weekly-report/gap-detect/orphan-detect/schema-detect/fetch-rss)。新 function 加这里并在注册数组登记(查 web/src/app/api/inngest/route.ts 或 lib/inngest 的 serve 注册)。
+- 知识图: pages(concept/source/synthesis/daily) + page_links(带时序 valid_from/valid_to) + page_sources。tree_nodes.page_id 关联到 pages 作记忆底座。
+- UI 复用 web/src/components/ui (Card/Btn/SectionLabel 等)。图可视化复用 d3-force(已装 d3-drag/force/selection/zoom)，参考 Graph 相关组件。
+- 不可变原则: 创建新对象/数组，勿原地 mutate。禁硬编码密钥(env 读取)。SQL 用 Drizzle 参数化。
+- 安全 story(US-023..025 沙箱/终端/浏览器)的测试必须含: 无密钥注入、危险命令拒绝(rm -rf/curl/cat ~/.ssh)、SSRF 内网地址拒绝。这些是验收硬指标。
+
+## Dependency Order (执行顺序已按 priority 排好)
+- W0 schema(US-001..004) → W0 服务(US-005..007) → W1 北极星(US-008..017) → W2 演化(US-018..021) → UI(US-022) → W3 沙箱(US-023..026) → W4 适配器(US-027..028) → W5 硬化(US-029..031) → 前端(US-032..034)
+- 北极星闭环 = US-001..017(每小时推 TG 建议→选择→派发→回流)。这一段跑通即 MVP 可用。

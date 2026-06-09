@@ -1,0 +1,358 @@
+{
+  "project": "DayPage",
+  "branchName": "ralph/daypage-v8-ios-m3-m6",
+  "description": "DayPage v8「日式美术馆」设计落地 — iOS 未实现部分（M3 Timeline 连续编译时光轴 / 详情页 metadata+HASH / M4 Composer+录音+灵动岛 / M5 分享卡5模板 / M6 周月年AI编译）。源规格: tasks/prd-daypage-v8-museum-aesthetic.md（逐像素 token + UI 指南）。M1(Today, PR #483)/M2(侧边栏热力图, PR #486) 已实现，不在本批次。执行环境为 Linux 服务器，无 iOS 模拟器、无 Xcode：每个 story 的验收均为 Linux 可静态检查项（代码写入正确、新文件加入 .pbxproj、引用的 DSColor/DSType/DSFonts token 与类型存在、遵循既有 SwiftUI/服务 模式、不留 hardcode 颜色）。绝不在本环境跑 xcodebuild/测试/模拟器（quality check 这一步对 iOS story 跳过并在 progress 注明『需本地 MacBook 验证』）。真正的编译+UI 视觉验证留到出 PR 后，按本地 MacBook UI 测试 issue（GitHub #488）在本地 iPhone 17 模拟器执行。设计基线: 色值 token 已在 DSColor/DSTokens 100% 对齐（accent #5D3000, heatmap 4 档 #F0EBE3/#E6D9C3/#C9A677/#5D3000, radius-card 14）; serif 用 DSFonts.serif (Source Serif 4 级联 Source Han Serif SC, 不引入 Fraunces); 玻璃用 .ultraThinMaterial+.saturation(1.6); 动画曲线 cubic-bezier(.2,.8,.2,1)≈.spring(response:0.32,dampingFraction:0.86) 且必须尊重 @Environment(\\.accessibilityReduceMotion)。新文件必须用 ruby xcodeproj gem 加入 DayPage target（参考既有 M1/M2 做法: 定位对应 PBXGroup → new_reference → target.add_file_references → save）。",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Memo 模型新增 humidity 字段 + 向后兼容解析",
+      "description": "作为开发者，我需要 Memo 模型携带湿度数据，以便详情页 Metadata tile row 显示 HUMIDITY，且不破坏既有 vault 文件。",
+      "acceptanceCriteria": [
+        "DayPage/Models/Memo.swift 的 Memo struct 新增 `var humidity: Int?`（可选，默认 nil）",
+        "YAML front-matter 解析（Memo.swift 内手写 parser / FrontmatterParser）支持读取 `humidity:` 整数字段；缺字段时为 nil",
+        "YAML 序列化（写回 raw .md）在 humidity != nil 时写出 `humidity: <int>` 行；为 nil 时不写该行",
+        "旧格式 .md（无 humidity 行）仍能解析为 humidity=nil，不抛错、不丢其它字段",
+        "不改变 memo 分隔符 `<!-- daypage-memo-separator -->` 与既有字段（id/type/created/location/weather/device/attachments）的解析",
+        "若已存在 Memo/Frontmatter 单元测试文件，补一条『旧格式无 humidity 行可解析』的断言（仅写测试代码，不在本 Linux 环境运行 xcodebuild/test）"
+      ],
+      "priority": 1,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。验收靠阅读 diff 确认字段/解析/序列化与向后兼容逻辑就位。"
+    },
+    {
+      "id": "US-002",
+      "title": "TimelineService 扩展 4 级颗粒度枚举（week/year 节点）",
+      "description": "作为开发者，我需要 TimelineSectionKind 支持 日/周/月/年 四级，以便时光轴 UI 按颗粒度分段。本 story 仅扩展类型与分组逻辑，真实周/月/年数据在 M6（US-020~US-024），此处用日 summary 聚合占位。",
+      "acceptanceCriteria": [
+        "DayPage/Services/TimelineService.swift 的 TimelineSectionKind 增加 `.week(Date)` 与 `.year(Int)`（保留 `.day`/`.month`，`.month` 语义调整为『月节点』）",
+        "新增按周分组逻辑：周起始日按 Locale 文化场景（中文默认周一），用 Calendar 计算 ISO 周",
+        "新增按年分组逻辑",
+        "本周=按天、本月=按周、今年=按月、历年=按年 的四级 section 生成函数存在；week/month/year section 暂用其覆盖区间内的 daily summary 聚合（标题取首条、lede 取拼接前若干字、words 累加）作为占位数据",
+        "保留并不破坏现有 by-day section 的生成与既有调用方（TodayView/TimelineSectionView）的接口",
+        "所有日期计算用用户时区（AppSettings.currentTimeZone()）"
+      ],
+      "priority": 2,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。新增枚举 case 时确保所有相关 switch 都补分支，避免 non-exhaustive。"
+    },
+    {
+      "id": "US-003",
+      "title": "TimelineMarker 4 级形状组件（点/横条/环/同心圆）",
+      "description": "作为开发者，我需要一个 SwiftUI 组件渲染日/周/月/年四种 spine marker，以便无字标示颗粒度。",
+      "acceptanceCriteria": [
+        "新建 DayPage/Features/Today/TimelineMarker.swift；定义 enum Granularity { day, week, month, year } 与一个 terminus 形态",
+        "day=实心圆点 7×7（Circle fill DSColor.accentAmber）；week=短横条 18×3 radius 2（accentAmber）；month=空心环 11×11 border 1.6 accentAmber 内填 backgroundWarm；year=同心圆 外环 15×15 border 1.6 + 内 5×5 实心 accentAmber；terminus=7×7 空心圆 border 0.5 borderDefault 填 backgroundWarm",
+        "每个 marker 外加 4pt backgroundWarm 同色描边/底色以遮断 spine（等价 CSS box-shadow 0 0 0 4px bg-warm）",
+        "颜色全部用 DSColor token（accentAmber/backgroundWarm/borderDefault），无 hardcode hex",
+        "新文件用 ruby xcodeproj gem 加入 DayPage target 的 Features/Today 组（确认 pbxproj 出现 4 处引用）"
+      ],
+      "priority": 3,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。验收确认文件创建 + pbxproj 引用 + 仅用 token。"
+    },
+    {
+      "id": "US-004",
+      "title": "Timeline 连续 spine + 裸 row 布局（移除卡壳）",
+      "description": "作为用户，我希望时光轴是一条连续挂轴而非卡片堆叠，专注内容。本 story 重写 section 渲染为裸 row + 贯穿 hairline spine。",
+      "acceptanceCriteria": [
+        "重写 DayPage/Features/Today/TimelineSectionView.swift：移除圆角卡壳（TimelineDayCard 外框），改为 grid 列 [52pt | 1fr] columnGap 24 的裸 row",
+        "section 内一条 0.5px 垂直 hairline（DSColor.borderSubtle）贯穿；marker 用 US-003 的 TimelineMarker 压在 spine 上",
+        "左栏铭牌右对齐：上行 mono 9.5/700 tracking 1.8 inkSubtle（weekday/W·NN/月份缩写/YEAR），下行 display 13/600 inkPrimary（日期/区间起始/年份/年）",
+        "标题用 DSFonts.serif，字号随级别 20→20→22→24 weight .semibold；lede opacity 0.85；底部 RowMeta：mono 9.5/700 tracking 1.6 tags 以 · 分隔 + 右对齐字数",
+        "section header：display 13/700 标签 + 中间 0.5px hairline + 右 mono 9.5/700 副标（如『BY DAY · N 条』）",
+        "末级 section 以 terminus 空心圆收尾；颜色全用 token"
+      ],
+      "priority": 4,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。依赖 US-002（四级数据）与 US-003（marker）。"
+    },
+    {
+      "id": "US-005",
+      "title": "Today 接入四级时光轴渲染",
+      "description": "作为用户，往下刷 Today 就是往回穿越时间（本周→本月→今年→历年）。",
+      "acceptanceCriteria": [
+        "DayPage/Features/Today/TodayView.swift 的 timeline 区按 本周/本月/今年/历年 顺序渲染四个 TimelineSection（数据来自 US-002 的四级 section）",
+        "全程一条连续 ScrollView，无分页、无卡壳",
+        "week/month/year row 点击暂无目标或仅触发轻提示（M6 后接编译详情）；day row 保持现有进详情行为",
+        "不破坏 Today 既有 Hero/AISummary/MemoCard/Composer 区（M1 已实现部分）"
+      ],
+      "priority": 5,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。"
+    },
+    {
+      "id": "US-006",
+      "title": "详情页顶栏：sticky glass + 时间锚 + share/三点",
+      "description": "作为用户，详情页顶栏应是 sticky 玻璃栏，左返回、中时间锚、右分享+三点。",
+      "acceptanceCriteria": [
+        "DayPage/Features/MemoDetail/MemoDetailView.swift：将 navBar 提到 ScrollView 外层（ZStack 顶部 sticky），加 .ultraThinMaterial 玻璃背景 + 底部 0.5px borderSubtle hairline",
+        "左侧用 DSGlassPill 返回按钮（chevron + 文本『今日』）",
+        "中间 mono 时间锚 DSType.mono10 tracking 1.5 inkSubtle，格式 `EEE · MMM d · HH:mm`（英文大写）",
+        "右侧 share glass pill（接 ShareCardSystem 的 SharePayload.auto(from:)）+ 三点 glass pill（保留现有 Menu）",
+        "颜色全用 token"
+      ],
+      "priority": 6,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。"
+    },
+    {
+      "id": "US-007",
+      "title": "详情页标题块：serif 地点名 + 元信息副标",
+      "description": "作为用户，详情页顶部应大字 serif 显示地点名，下方 mono 副标。",
+      "acceptanceCriteria": [
+        "MemoDetailView 标题块：DSFonts.serif(size:34, weight:.semibold) 显示 memo.place ?? memo.location?.name",
+        "无地点时 fallback：DSFonts.serif(size:30, italic:true) 显示『未命名片刻』",
+        "副标 mono10 tracking 1.4 inkSubtle：`{KIND} ENTRY · {LOCATION_UPPER}`，KIND 映射 text→TEXT/voice→VOICE/photo→PHOTO/mixed→MIXED",
+        "长地点名单行省略（lineLimit(1) + truncationMode）",
+        "颜色全用 token"
+      ],
+      "priority": 7,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。"
+    },
+    {
+      "id": "US-008",
+      "title": "详情页 Metadata tile row（4 列白卡）",
+      "description": "作为用户，标题下方应有 WEATHER/HUMIDITY/LIGHT/KIND 四列白卡。",
+      "acceptanceCriteria": [
+        "在 MemoDetailView 新增 4 列等分 grid 白卡（radius 14, surfaceWhite, 0.5px borderSubtle hairline 分隔, shadow-card）",
+        "每 tile 三行：mono 8.5/700/1.4 label + display 18/600 value + mono 8/600/1.2 sub",
+        "WEATHER 取自 memo.weather（如『28° · 多云』拆温度/描述）；HUMIDITY 取 memo.humidity（US-001，nil 显示『—』）；LIGHT 由 memo.created 时段计算（晨5-9/上午9-12/午12-14/下午14-17/傍晚17-19/夜19-5）；KIND 中文（混合/文本/语音/照片）",
+        "缺失字段显示 em dash『—』inkSubtle",
+        "颜色全用 token"
+      ],
+      "priority": 8,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。依赖 US-001（humidity 字段）。"
+    },
+    {
+      "id": "US-009",
+      "title": "详情页 Hero 照片 4:5 + caption + LOCATION glass chip + FILE HASH",
+      "description": "作为用户，详情页照片应 4:5 比例带 caption，地图带浮动 place chip，FILE 卡显示 HASH。",
+      "acceptanceCriteria": [
+        "Hero 照片 aspectRatio(4/5, contentMode:.fill) radius 18；下方 caption：mono 文件名+分辨率 + accent『TAP TO EXPAND』",
+        "LOCATION 卡：地图高度 150 radius 18；左下浮 glass place chip（rgba 玻璃 + 图钉 accentAmber + 地点名 body 12.5/600 + mono 地区/国家）",
+        "FILE 卡：标签列 80px 的 mono 键值网格，新增 HASH 行（对当前 raw .md 内容做 SHA256，显示前 6 位 + ` · ` + 后 5 位）；CREATED/PATH 保留",
+        "无 location 时不渲染 LOCATION 卡；无 photo 时不渲染 Hero 区",
+        "颜色全用 token"
+      ],
+      "priority": 9,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。SHA256 用 CryptoKit。"
+    },
+    {
+      "id": "US-010",
+      "title": "ComposerPill 视觉对齐（占位/渐变mic/hint/长按阈值）",
+      "description": "作为用户，休止态输入栏应像邀请书写的优雅输入框。",
+      "acceptanceCriteria": [
+        "DayPage/Features/Today/InputBarV4.swift：加『记下此刻』italic serif 15.5 占位（DSFonts.serif italic）+ 闪烁 accent caret",
+        "左 + 号前景 DSColor.inkPrimary → inkSubtle",
+        "mic 按钮背景改 amber 线性渐变 LinearGradient(#7A3F00→#5D3000, 180°)",
+        "hint 文案改『轻点书写 · 长按录音』（zh-Hans + en Localizable.strings）",
+        "DayPage/Features/Today/PressToTalkButton.swift 长按阈值 0.25 → 0.22（对齐 DSTokens.Gestures.longPressMs=220）",
+        "颜色全用 token（渐变端点除外）"
+      ],
+      "priority": 10,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。"
+    },
+    {
+      "id": "US-011",
+      "title": "WriteSheet 日期 header + 字数 + Vault 路径 caption",
+      "description": "作为用户，书写面板应有博物馆铭牌式日期、字数、和存储路径提示。",
+      "acceptanceCriteria": [
+        "InputBarV4.swift 的 composingCardMorph：drag handle 下加 serif Weekday + mono `MMM d · HH:mm` header",
+        "textarea 字号 16→18，加 lineSpacing 对应行高 1.7、tracking 0.2，caret 用 accentAmber；占位『此刻在想什么？』italic",
+        "footer 加 mono『N 字』计数（无内容时 inkSubtle）",
+        "底部加 mono『SAVED TO  VAULT / yyyy-MM-dd.md』caption（日期取当天）",
+        "面板圆角 20→28",
+        "颜色全用 token"
+      ],
+      "priority": 11,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。"
+    },
+    {
+      "id": "US-012",
+      "title": "AttachSheet 圆角/tile 细节对齐",
+      "description": "作为用户，附件弹窗圆角与 tile 应符合设计。",
+      "acceptanceCriteria": [
+        "DayPage/Features/Today/AttachmentMenuPopover.swift：sheet 圆角 22→28",
+        "每项 tile 56×56 surfaceSunken 圆角 18 + 图标 24（stroke 1.6）+ body 12 标签",
+        "4 列网格顺序 拍照/相册/位置/附件",
+        "颜色全用 token"
+      ],
+      "priority": 12,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。"
+    },
+    {
+      "id": "US-013",
+      "title": "VoiceService 实时转写 partialTranscript",
+      "description": "作为开发者，我需要 VoiceService 暴露实时转写文本供录音 sheet 显示。",
+      "acceptanceCriteria": [
+        "DayPage/Services/VoiceService.swift 新增 `@Published var partialTranscript: String`",
+        "走 SFSpeechRecognizer（zh-CN）`shouldReportPartialResults = true` 路径在录音中更新 partialTranscript（Whisper 不支持 streaming，此为中改动）",
+        "语音识别权限请求与失败降级正确（无权限/失败时 partialTranscript 保持空，不崩溃）",
+        "不破坏既有 Whisper batch 转写（停止后最终转写）路径"
+      ],
+      "priority": 13,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。需 Info.plist 已有 NSSpeechRecognitionUsageDescription，若无则补。"
+    },
+    {
+      "id": "US-014",
+      "title": "录音深色 sheet + 64 根实时波形 + 中文按钮 + 转写预览",
+      "description": "作为用户，按住录音时应是深色优雅底部 sheet，带细颗粒波形与实时转写。",
+      "acceptanceCriteria": [
+        "DayPage/Features/Today/VoiceRecordingView.swift（或重构 RecordingOverlayView）：深色 rgba(45,30,12,0.92) + .ultraThinMaterial + 圆角 34 的底部 sheet（非全屏遮罩）",
+        "计时 mono 字号 28；左红点脉冲（尊重 reduceMotion）",
+        "波形 64 根 / 宽 2 / gap 2 / 高 36 / 色 #F5EDE3 / 每根 ~80ms 平滑过渡；包络动画参考 PRD §22 Appendix A.2（env=0.55+0.45·sin, v=4+|sin·14+cos·8+rand·6|·env, clamp 2-28）",
+        "底部双按钮『取消』+『停止并转写』（中文）",
+        "显示 US-013 的 partialTranscript 实时转写预览 + 闪烁 caret（无 partial 时不显示该行）",
+        "颜色用 token（深色玻璃端点除外）"
+      ],
+      "priority": 14,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。依赖 US-013。"
+    },
+    {
+      "id": "US-015",
+      "title": "灵动岛 Live Activity（ActivityKit）",
+      "description": "作为用户，录音时灵动岛展开显示计时和迷你波形。",
+      "acceptanceCriteria": [
+        "新建 RecordingLiveActivity.swift（ActivityKit）于 DayPageWidget extension；定义 RecordingActivityAttributes（startTime）+ ContentState（elapsed/isRecording/currentDB）",
+        "DynamicIsland builder：compact（红点+计时）/ expanded（红点+mm:ss 计时 + 迷你波形 + 停止）/ minimal（单红点）",
+        "VoiceService 录音生命周期调 Activity.request（开始）/.update（每秒 elapsed）/.end（停止）",
+        "Info.plist 加 NSSupportsLiveActivities = true；deployment target 若需调到 16.1 则只在 progress/notes 记录并保持改动最小，不擅自全局乱改",
+        "波形/计时颜色用既有色值"
+      ],
+      "priority": 15,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。Live Activity 真机/模拟器验证留本地。新文件加入 widget target。"
+    },
+    {
+      "id": "US-016",
+      "title": "分享卡 PosterStyle 扩到 5 + displayName 修正",
+      "description": "作为开发者，需要 5 个分享模板枚举且名称正确。",
+      "acceptanceCriteria": [
+        "DayPage/Features/Shared/ShareCard/ShareCardSystem.swift：polaroid displayName『胶片』→『拍立得』",
+        "PosterStyle 新增 case .film（displayName『胶片』）/ .journal（『手账』）/ .postcard（『明信片』）",
+        "stylePicker 扩到 5 个 pill，横向可滚动；选中 accent 底白字，未选 surfaceWhite + hairline",
+        "新增 case 在所有 switch（displayName/渲染分发）中都有分支，无 non-exhaustive 编译隐患"
+      ],
+      "priority": 16,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。"
+    },
+    {
+      "id": "US-017",
+      "title": "FilmMemoTemplate（胶片分享模板）",
+      "description": "作为用户，胶片模板是黑底 + 胶卷打孔条 + 4:5 照片 + 经纬。",
+      "acceptanceCriteria": [
+        "DayPage/Features/Shared/ShareCard/PosterTemplates.swift 新增 FilmMemoTemplate：黑底 #0d0a07 padding 18 文字 #f5ede3",
+        "header mono『● 35mm · Kodak 400』(#e36b4a) + 日期；照片 4:5 radius 2 上下叠加 sprocket 打孔条（重复白色矩形等距）",
+        "正文 serif italic 14 lineHeight 1.6；底部 mono 经纬『VIENTIANE · 18.04°N 102.64°E』",
+        "用 UIGraphicsImageRenderer 离屏渲染（沿用既有模板渲染入口与 PosterStyle.film 分发）"
+      ],
+      "priority": 17,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。依赖 US-016。"
+    },
+    {
+      "id": "US-018",
+      "title": "JournalMemoTemplate（手账分享模板）",
+      "description": "作为用户，手账模板是米黄横线纸 + washi tape 装饰 + 手账感标题。",
+      "acceptanceCriteria": [
+        "PosterTemplates.swift 新增 JournalMemoTemplate：米黄 #FBF6E8 padding 20 + 横线纸纹理（等距横线 rgba(180,150,90,0.18)）",
+        "双 washi tape：左 90×18 rgba(227,107,74,0.55) rotate -5°，右 64×14 rgba(106,134,68,0.5) rotate 8°",
+        "serif 22 标题『Thursday · may 28』+ #c9a677 分隔线 + 照片 5:4 radius 8 + body 13 + 底部 18×18 圆点 + mono『VIENTIANE · 28°』",
+        "离屏渲染入口一致（PosterStyle.journal 分发）"
+      ],
+      "priority": 18,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。依赖 US-016。"
+    },
+    {
+      "id": "US-019",
+      "title": "PostcardMemoTemplate（明信片）+ Polaroid 倾斜",
+      "description": "作为用户，明信片模板是顶图+邮票框，拍立得模板加轻微倾斜。",
+      "acceptanceCriteria": [
+        "PosterTemplates.swift 新增 PostcardMemoTemplate：白底 + 3:2 顶图 radius 0 + 下区 serif 22『Vientiane』+ mono 日期 + dashed 分隔 + 左 body 12 + 右邮票框（56×64 dashed border, display DAYPAGE + mono 时间 + mono LAOS）",
+        "PolaroidMemoTemplate 加 rotationEffect(.degrees(-1.5))",
+        "离屏渲染入口一致（PosterStyle.postcard 分发）"
+      ],
+      "priority": 19,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。依赖 US-016。"
+    },
+    {
+      "id": "US-020",
+      "title": "WeeklyCompilationService（周编译）",
+      "description": "作为开发者，我需要把一周的日 wiki 页编译成周 wiki 页。",
+      "acceptanceCriteria": [
+        "新建 DayPage/Services/WeeklyCompilationService.swift（@MainActor final class）：读下层 7 个 vault/wiki/daily/*.md → 调 DashScope（复用 CompilationService 的 client/prompt 模式）→ 写 vault/wiki/weekly/YYYY-Www.md",
+        "周 wiki front-matter 含 date/range/summary/title/tags/entries/words",
+        "周起始日按 Locale（中文默认周一）",
+        "复用既有 CompilationService 的 API key 读取（GeneratedSecrets）与错误处理模式，不硬编码密钥",
+        "新文件加入 DayPage target"
+      ],
+      "priority": 20,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。先读 CompilationService.swift 复用其 client/prompt 结构。"
+    },
+    {
+      "id": "US-021",
+      "title": "MonthlyCompilationService（月编译）",
+      "description": "作为开发者，我需要把一月的周 wiki 页编译成月 wiki 页。",
+      "acceptanceCriteria": [
+        "新建 DayPage/Services/MonthlyCompilationService.swift：读下层周 wiki → DashScope → 写 vault/wiki/monthly/YYYY-MM.md",
+        "front-matter 同构（含 range/summary/title/tags/entries/words）",
+        "复用 CompilationService client/prompt 模式；新文件加入 target"
+      ],
+      "priority": 21,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。依赖 US-020 的模式。"
+    },
+    {
+      "id": "US-022",
+      "title": "YearlyCompilationService（年编译）",
+      "description": "作为开发者，我需要把一年的月 wiki 页编译成年 wiki 页。",
+      "acceptanceCriteria": [
+        "新建 DayPage/Services/YearlyCompilationService.swift：读下层月 wiki → DashScope → 写 vault/wiki/yearly/YYYY.md",
+        "front-matter 同构；复用 client/prompt 模式；新文件加入 target"
+      ],
+      "priority": 22,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。依赖 US-020/US-021 的模式。"
+    },
+    {
+      "id": "US-023",
+      "title": "周/月/年编译调度接入 BackgroundCompilationService",
+      "description": "作为用户，希望周/月/年编译在合适时机自动触发并回填遗漏。",
+      "acceptanceCriteria": [
+        "DayPage/Services/BackgroundCompilationService.swift：周末触发周编译、月底触发月编译、年末触发年编译",
+        "backfill：检测缺失的周/月/年 wiki 并补编译",
+        "复用既有 BGTaskScheduler 注册与调度模式，不破坏现有日编译调度",
+        "提供 debug 手动触发入口（便于本地测试各级编译）"
+      ],
+      "priority": 23,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。依赖 US-020~US-022。"
+    },
+    {
+      "id": "US-024",
+      "title": "Timeline week/month/year 节点接真实编译数据",
+      "description": "作为用户，时光轴的周/月/年条目应显示真实 AI 编译摘要而非占位聚合。",
+      "acceptanceCriteria": [
+        "TimelineService.swift 的 week/month/year section 数据源改为读取真实 vault/wiki/{weekly,monthly,yearly}/*.md（替换 US-002 的日 summary 聚合占位）",
+        "解析各级 wiki front-matter 的 summary/title/tags/entries/words 填充 timeline row",
+        "无对应编译 wiki 时优雅降级（回退占位或隐藏该节点，不崩溃）",
+        "TimelineMarker 展开/点击映射到对应编译 wiki（详情阅读，沿用既有导航）"
+      ],
+      "priority": 24,
+      "passes": false,
+      "notes": "Linux 环境不跑 xcodebuild。依赖 US-002/US-004/US-020~US-023。"
+    }
+  ]
+}

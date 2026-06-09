@@ -1,0 +1,20 @@
+# DayPage v8 iOS M3–M6 — Ralph Progress Log
+
+Source PRD: tasks/prd-daypage-v8-museum-aesthetic.md (规格) + scripts/ralph/prd.json (执行清单)
+Branch: ralph/daypage-v8-ios-m3-m6
+Start: 2026-05-29
+Previous run archived: scripts/ralph/archive/2026-05-29-v8-web-ledby/ (Web-主导 33-story 版)
+
+## Codebase Patterns
+- 执行环境是 Linux 服务器，无 Xcode / 无 iOS 模拟器：iOS story 的 quality-check 步骤【跳过 xcodebuild/test】，在本条 progress 注明『需本地 MacBook 验证』即可，不要尝试 xcodebuild（会失败）。
+- 范围只做 iOS M3–M6 + 详情页。M1(Today, PR #483) / M2(侧边栏热力图, PR #486) 已实现，不要重做。
+- 设计 token 已 100% 就绪于 DayPage/DesignSystem/Colors.swift（DSColor.*）与 DayPage/App/DSTokens.swift。直接引用 token，0 hardcode hex（渐变端点等 token 缺失处除外，注释说明）。
+- serif 用 DSFonts.serif(size:weight:italic:)（Source Serif 4 级联 Source Han Serif SC），不引入 Fraunces。mono 用 DSFonts.jetBrainsMono / DSType.mono*。display 大字用 DSFonts.serif 或 DSFonts.spaceGrotesk。
+- 玻璃效果 = .ultraThinMaterial + .saturation(1.6)（参考 DayPage/DesignSystem/Surfaces.swift 的 LiquidGlassCard recipe）。
+- 纯白卡 = .solidCard(cornerRadius:14)（M1 在 Surfaces.swift 新增的 modifier：surfaceWhite + 0.5pt borderSubtle + 极淡 shadow）。
+- 动画曲线 cubic-bezier(.2,.8,.2,1) ≈ .spring(response:0.32, dampingFraction:0.86)；所有动画必须尊重 @Environment(\\.accessibilityReduceMotion)，reduce 时退化为无动画或 .linear(0.01)。
+- 新建 Swift 文件【必须】用 ruby xcodeproj gem 加入 DayPage target，否则不参与编译。做法：定位对应 PBXGroup → new_reference("File.swift") → target.add_file_references([ref]) → project.save。加完确认 grep -c "File.swift" DayPage.xcodeproj/project.pbxproj 输出 4（PBXBuildFile/PBXFileReference/group children/Sources phase 各 1）。
+- 新增 enum case（如 PosterStyle / TimelineSectionKind）务必补全所有 switch 分支，避免 non-exhaustive。
+- 编译产物 memo-*.png（app 运行时写到仓库根）不要提交。
+- DashScope 编译复用 DayPage/Services/CompilationService.swift 的 client/prompt 模式 + GeneratedSecrets 读 key，绝不硬编码密钥。
+- 真正的编译 + UI 视觉验证：见 GitHub issue #488『本地 MacBook UI 测试方案』，出 PR 后在本地 iPhone 17 模拟器执行（造 vault 数据 → 截图核对 → 清理 sandbox）。
