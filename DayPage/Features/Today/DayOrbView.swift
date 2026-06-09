@@ -174,7 +174,7 @@ struct DayOrbView: View {
                     .frame(width: 5, height: 5)
                     .shadow(color: timeTint.opacity(0.8), radius: 3, x: 0, y: 0)
                     .offset(y: -(size + 6) / 2)
-                    .rotationEffect(.degrees(360 * dayProgress - 90))
+                    .rotationEffect(.degrees(360 * Double(dayProgress) - 90))
                     .animation(reduceMotion ? nil : .linear(duration: 1), value: dayProgress)
                     .allowsHitTesting(false)
             }
