@@ -3,6 +3,10 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db/client";
 import { users, user_settings } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import {
+  EVOLUTION_SETTINGS_KEY,
+  evolutionConfigSchema,
+} from "@/lib/settings/evolution";
 
 async function resolveUserId(email: string): Promise<string | null> {
   const rows = await db
@@ -59,6 +63,19 @@ export async function PUT(req: Request) {
 
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
     return NextResponse.json({ error: "Body must be a JSON object" }, { status: 400 });
+  }
+
+  // US-021: validate the `evolution` block (when present) and normalize it with
+  // schema defaults so the persisted shape is always complete.
+  if (EVOLUTION_SETTINGS_KEY in body) {
+    const parsed = evolutionConfigSchema.safeParse(body[EVOLUTION_SETTINGS_KEY]);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid evolution settings", details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+    body[EVOLUTION_SETTINGS_KEY] = parsed.data;
   }
 
   // Fetch existing settings for merge

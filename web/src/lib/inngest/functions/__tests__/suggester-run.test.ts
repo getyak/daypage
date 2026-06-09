@@ -36,6 +36,8 @@ function makeDeps(over: Partial<SuggesterDeps> = {}): SuggesterDeps {
       tokens_in: 10,
       tokens_out: 20,
       degraded: false,
+      perTreeBudgetTokens: 4000,
+      skipped: false,
     })),
     resolveTelegramChatId: vi.fn(async () => "12345"),
     sendSuggestions: vi.fn(async () => ({ ok: true, messageId: 99 }) as const),
@@ -113,6 +115,8 @@ describe("runSuggesterPipeline", () => {
         tokens_in: 5,
         tokens_out: 5,
         degraded: true,
+        perTreeBudgetTokens: 4000,
+        skipped: false,
       })),
     });
 

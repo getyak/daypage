@@ -29,6 +29,18 @@ vi.mock("@/lib/connectors/claude-code", () => ({
 }));
 
 import { generateSuggestions } from "../suggester";
+import {
+  DEFAULT_EVOLUTION_CONFIG,
+  type EvolutionConfig,
+} from "@/lib/settings/evolution";
+
+// US-021: the Suggester now skips entirely unless the user's evolution config is
+// enabled. These tests exercise the LLM path, so they all run with an enabled
+// config injected.
+const ENABLED_CONFIG: EvolutionConfig = {
+  ...DEFAULT_EVOLUTION_CONFIG,
+  enabled: true,
+};
 
 // ── Query-builder stubs ─────────────────────────────────────────────────────────
 // Each drizzle read is a thenable builder; these stub just the methods our
@@ -117,7 +129,7 @@ describe("generateSuggestions", () => {
       model: "qwen-plus",
     });
 
-    const result = await generateSuggestions({ userId: USER_ID });
+    const result = await generateSuggestions({ userId: USER_ID, evolutionConfig: ENABLED_CONFIG });
 
     expect(result.degraded).toBe(false);
     expect(result.suggestions).toHaveLength(1);
@@ -169,7 +181,7 @@ describe("generateSuggestions", () => {
       model: "qwen-plus",
     });
 
-    await generateSuggestions({ userId: USER_ID });
+    await generateSuggestions({ userId: USER_ID, evolutionConfig: ENABLED_CONFIG });
 
     const valuesArg = inserted.values.mock.calls[0][0];
     expect(valuesArg[0].tree_node_id).toBeNull();
@@ -198,7 +210,7 @@ describe("generateSuggestions", () => {
         model: "qwen-plus",
       });
 
-    const result = await generateSuggestions({ userId: USER_ID });
+    const result = await generateSuggestions({ userId: USER_ID, evolutionConfig: ENABLED_CONFIG });
 
     expect(mockChat).toHaveBeenCalledTimes(2);
     expect(result.degraded).toBe(false);
@@ -219,7 +231,7 @@ describe("generateSuggestions", () => {
       model: "qwen-plus",
     });
 
-    const result = await generateSuggestions({ userId: USER_ID });
+    const result = await generateSuggestions({ userId: USER_ID, evolutionConfig: ENABLED_CONFIG });
 
     expect(mockChat).toHaveBeenCalledTimes(2);
     expect(result.degraded).toBe(true);
@@ -240,7 +252,7 @@ describe("generateSuggestions", () => {
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mockChat.mockRejectedValue(new Error("network down"));
 
-    const result = await generateSuggestions({ userId: USER_ID });
+    const result = await generateSuggestions({ userId: USER_ID, evolutionConfig: ENABLED_CONFIG });
 
     expect(mockChat).toHaveBeenCalledTimes(2);
     expect(result.degraded).toBe(true);
@@ -273,6 +285,7 @@ describe("generateSuggestions", () => {
       userId: USER_ID,
       project: "/Users/me/dev/daypage",
       claudeHome: "/tmp/claude",
+      evolutionConfig: ENABLED_CONFIG,
     });
 
     expect(mockReadProgress).toHaveBeenCalledWith({
@@ -287,6 +300,30 @@ describe("generateSuggestions", () => {
     expect(userMsg.content).toContain("wrote suggester.ts");
   });
 
+  it("skips entirely (no LLM call) when the evolution config is disabled", async () => {
+    const result = await generateSuggestions({
+      userId: USER_ID,
+      evolutionConfig: { ...DEFAULT_EVOLUTION_CONFIG, enabled: false },
+    });
+
+    expect(result.skipped).toBe(true);
+    expect(result.suggestions).toEqual([]);
+    expect(result.perTreeBudgetTokens).toBe(
+      DEFAULT_EVOLUTION_CONFIG.perTreeBudgetTokens
+    );
+    // No model call, no DB read/write when disabled.
+    expect(mockChat).not.toHaveBeenCalled();
+    expect(mockDb.select).not.toHaveBeenCalled();
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+
+  it("defaults to disabled (skips) when no evolution config is given", async () => {
+    const result = await generateSuggestions({ userId: USER_ID });
+
+    expect(result.skipped).toBe(true);
+    expect(mockChat).not.toHaveBeenCalled();
+  });
+
   it("handles an empty suggestion list without inserting", async () => {
     wireReads([], []);
     mockChat.mockResolvedValue({
@@ -296,7 +333,7 @@ describe("generateSuggestions", () => {
       model: "qwen-plus",
     });
 
-    const result = await generateSuggestions({ userId: USER_ID });
+    const result = await generateSuggestions({ userId: USER_ID, evolutionConfig: ENABLED_CONFIG });
 
     expect(result.degraded).toBe(false);
     expect(result.suggestions).toEqual([]);

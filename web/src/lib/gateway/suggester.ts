@@ -12,6 +12,10 @@ import {
 import { dashscope } from "@/lib/ai/dashscope";
 import { logPrompt } from "@/lib/ai/prompt-log";
 import { readProgress } from "@/lib/connectors/claude-code";
+import {
+  DEFAULT_EVOLUTION_CONFIG,
+  type EvolutionConfig,
+} from "@/lib/settings/evolution";
 
 // US-009: Suggester — reason candidate tasks from the user's task trees, recent
 // Claude Code session progress, and recent memos. Output is a list of
@@ -51,6 +55,12 @@ export interface GenerateSuggestionsInput {
   project?: string;
   // Override the Claude home root; forwarded to the CC connector for tests.
   claudeHome?: string;
+  // US-021: the user's evolution config. The caller (suggester-run) reads it
+  // from user_settings and injects it so the Suggester stays DB-decoupled.
+  // When the config is disabled the run is skipped; `perTreeBudgetTokens` is
+  // echoed back so the caller can enforce the token budget. Defaults apply
+  // when omitted.
+  evolutionConfig?: EvolutionConfig;
 }
 
 export interface GenerateSuggestionsResult {
@@ -58,6 +68,12 @@ export interface GenerateSuggestionsResult {
   tokens_in: number;
   tokens_out: number;
   degraded: boolean;
+  // US-021: per-tree token budget the run was allowed (from the user's
+  // evolution config). Echoed so the caller can track/enforce budgeting.
+  perTreeBudgetTokens: number;
+  // True when the run was skipped because the user's evolution config is
+  // disabled (no LLM call made).
+  skipped: boolean;
 }
 
 // ── Context assembly ────────────────────────────────────────────────────────────
@@ -198,6 +214,21 @@ export async function generateSuggestions(
   input: GenerateSuggestionsInput
 ): Promise<GenerateSuggestionsResult> {
   const { userId } = input;
+  const config = input.evolutionConfig ?? DEFAULT_EVOLUTION_CONFIG;
+  const perTreeBudgetTokens = config.perTreeBudgetTokens;
+
+  // US-021: respect the user's evolution config — a disabled config means the
+  // Suggester must not run (no LLM call, no spend).
+  if (!config.enabled) {
+    return {
+      suggestions: [],
+      tokens_in: 0,
+      tokens_out: 0,
+      degraded: false,
+      perTreeBudgetTokens,
+      skipped: true,
+    };
+  }
 
   const [{ text: treeText, nodeIds }, ccProgress, memoText] = await Promise.all([
     summarizeTrees(userId),
@@ -256,11 +287,25 @@ export async function generateSuggestions(
     console.error(
       `[suggester] user ${userId}: degraded to 0 suggestions after retry`
     );
-    return { suggestions: [], tokens_in, tokens_out, degraded: true };
+    return {
+      suggestions: [],
+      tokens_in,
+      tokens_out,
+      degraded: true,
+      perTreeBudgetTokens,
+      skipped: false,
+    };
   }
 
   if (drafts.length === 0) {
-    return { suggestions: [], tokens_in, tokens_out, degraded: false };
+    return {
+      suggestions: [],
+      tokens_in,
+      tokens_out,
+      degraded: false,
+      perTreeBudgetTokens,
+      skipped: false,
+    };
   }
 
   // Only honor a linked_node_id the LLM actually got from our context; a
@@ -279,5 +324,12 @@ export async function generateSuggestions(
 
   const inserted = await db.insert(task_suggestions).values(rows).returning();
 
-  return { suggestions: inserted, tokens_in, tokens_out, degraded: false };
+  return {
+    suggestions: inserted,
+    tokens_in,
+    tokens_out,
+    degraded: false,
+    perTreeBudgetTokens,
+    skipped: false,
+  };
 }

@@ -12,16 +12,21 @@
 // split from the Inngest handler and injected, so the suppression logic is unit
 // testable without an Inngest runtime or a live database.
 
-import { eq, and, gte, sql } from "drizzle-orm";
+import { eq, and, gte } from "drizzle-orm";
 import { inngest } from "@/lib/inngest/client";
 import { sendEvent } from "@/lib/inngest/client";
 import { db } from "@/lib/db/client";
 import { memos, trees, tree_nodes, user_settings } from "@/lib/db/schema";
+import {
+  LEGACY_EVOLUTION_ENABLED_KEY,
+  readEvolutionConfig,
+  shouldRunOnTick,
+} from "@/lib/settings/evolution";
 
-// Settings key (under user_settings.settings) that opts a user into the
-// autonomous evolution loop. Mirrors the persona settings convention in
-// src/lib/ai/persona.ts.
-export const EVOLUTION_ENABLED_KEY = "evolution_enabled";
+// Legacy settings key (under user_settings.settings) that opts a user into the
+// autonomous evolution loop. Superseded by the US-021 `evolution` block, kept
+// exported for backward compatibility. See src/lib/settings/evolution.ts.
+export const EVOLUTION_ENABLED_KEY = LEGACY_EVOLUTION_ENABLED_KEY;
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
@@ -38,15 +43,28 @@ export function shouldSuggestUser(activity: UserActivity): boolean {
   return activity.hasNewMemo || activity.hasTreeChange;
 }
 
-// Returns the ids of users who have opted into evolution.
-export async function listEvolutionUsers(): Promise<string[]> {
+// Returns the ids of users whose evolution config says they should run on a
+// tick firing at `tickHour` (local hour, 0–23). Reads each user's `evolution`
+// block (US-021) — honouring the legacy `evolution_enabled` flag — and keeps
+// only those enabled whose schedule matches this tick (`hourly` always, `daily`
+// only on the configured hour). Filtering happens in JS so the cadence rules
+// live in one place (`shouldRunOnTick`).
+export async function listEvolutionUsers(tickHour: number): Promise<string[]> {
   const rows = await db
-    .select({ user_id: user_settings.user_id })
-    .from(user_settings)
-    .where(
-      sql`(${user_settings.settings} ->> ${EVOLUTION_ENABLED_KEY}) = 'true'`
-    );
-  return rows.map((r) => r.user_id);
+    .select({
+      user_id: user_settings.user_id,
+      settings: user_settings.settings,
+    })
+    .from(user_settings);
+
+  return rows
+    .filter((r) => {
+      const config = readEvolutionConfig(
+        r.settings as Record<string, unknown> | null
+      );
+      return shouldRunOnTick(config, tickHour);
+    })
+    .map((r) => r.user_id);
 }
 
 // Activity for one user inside the last-hour window: did a memo get created, or
@@ -78,7 +96,9 @@ export async function getUserActivity(
 // Dependencies the tick calls out to. Injectable so unit tests can drive the
 // suppression behaviour without a DB or Inngest runtime.
 export interface SchedulerDeps {
-  listEvolutionUsers: () => Promise<string[]>;
+  // `tickHour` is the local hour (0–23) this tick fires on; the implementation
+  // uses it to honour `daily` evolution schedules.
+  listEvolutionUsers: (tickHour: number) => Promise<string[]>;
   getUserActivity: (userId: string, since: Date) => Promise<UserActivity>;
   sendSuggestRequested: (userId: string) => Promise<void>;
   now: () => number;
@@ -104,8 +124,10 @@ export interface SchedulerTickResult {
 export async function runSchedulerTick(
   deps: SchedulerDeps = defaultDeps
 ): Promise<SchedulerTickResult> {
-  const since = new Date(deps.now() - ONE_HOUR_MS);
-  const userIds = await deps.listEvolutionUsers();
+  const now = deps.now();
+  const since = new Date(now - ONE_HOUR_MS);
+  const tickHour = new Date(now).getHours();
+  const userIds = await deps.listEvolutionUsers(tickHour);
 
   let dispatched = 0;
   let suppressed = 0;
