@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Banner Kind
 
@@ -107,6 +108,9 @@ struct AppBanner: View {
                     .padding(.top, 2)
                 }
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(accessibilityLabel)
+            .accessibilityAddTraits(.isStaticText)
             Spacer()
             Button {
                 bannerCenter.dismiss()
@@ -116,6 +120,8 @@ struct AppBanner: View {
                     .foregroundColor(foregroundColor.opacity(0.6))
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Dismiss")
+            .accessibilityIdentifier("banner-dismiss-button")
         }
         .padding(DSSpacing.cardGap)
         .background(backgroundColor)
@@ -125,6 +131,15 @@ struct AppBanner: View {
         )
         .cornerRadius(DSSpacing.radiusCard)
         .padding(.horizontal, DSSpacing.cardGap)
+        .onAppear {
+            switch model.kind {
+            case .error:            Haptics.warn()
+            case .success:          Haptics.success()
+            case .info, .progress:  Haptics.soft()
+            }
+            let announcement = [model.title, model.subtitle].compactMap { $0 }.joined(separator: ". ")
+            UIAccessibility.post(notification: .announcement, argument: announcement)
+        }
     }
 
     @ViewBuilder
@@ -147,6 +162,10 @@ struct AppBanner: View {
                 .font(.system(size: 20))
                 .foregroundColor(accentColor)
         }
+    }
+
+    private var accessibilityLabel: String {
+        [model.title, model.subtitle].compactMap { $0 }.joined(separator: ". ")
     }
 
     private var backgroundColor: Color {
