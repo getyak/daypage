@@ -15,6 +15,10 @@ import { chunkText, averageEmbeddings, hashText } from "@/lib/ai/embed-utils";
 import { getAssistantPersona, personaPreamble } from "@/lib/ai/persona";
 import { promoteBySourceCount } from "@/lib/pages/promote";
 import { dispatchPageWebhooks, type PageWebhookEvent } from "@/lib/webhooks/dispatch";
+import {
+  commitMemoToTree,
+  liveCommitMemoTreeDeps,
+} from "@/lib/trees/commit-memo";
 import fs from "fs";
 import path from "path";
 
@@ -1034,6 +1038,49 @@ export const compileMemo = inngest.createFunction(
 
       // US-013: push create/update lifecycle events to webhook targets.
       await dispatchPageWebhooks(user_id, webhookEvents);
+    });
+
+    // ── commit-to-tree (US-018) ─────────────────────────────────────────────────
+    // Best-effort: commit this compiled memo onto its most relevant task-tree
+    // node (heat bump + evidence). Runs in its own step so it does not block or
+    // roll back the already-applied pages above. Any failure is logged as a
+    // warning and swallowed — never throw.
+    await step.run("commit-to-tree", async () => {
+      try {
+        const [memo] = await db
+          .select({ embedding: memos.embedding, user_id: memos.user_id })
+          .from(memos)
+          .where(eq(memos.id, memo_id))
+          .limit(1);
+
+        if (!memo) {
+          console.warn(
+            `[compile-memo] commit-to-tree: memo ${memo_id} not found, skipping`,
+          );
+          return;
+        }
+
+        const result = await commitMemoToTree(liveCommitMemoTreeDeps, {
+          userId: memo.user_id,
+          memoId: memo_id,
+          embedding: memo.embedding ?? null,
+        });
+
+        if (result.committed) {
+          console.log(
+            `[compile-memo] commit-to-tree: memo ${memo_id} committed to node ${result.node_id} (heat → ${result.heat_to})`,
+          );
+        } else {
+          console.log(
+            `[compile-memo] commit-to-tree: memo ${memo_id} not committed (${result.reason})`,
+          );
+        }
+      } catch (err: unknown) {
+        // Non-fatal: tree commit failure must not roll back the compiled page.
+        console.warn(
+          `[compile-memo] commit-to-tree: error (non-fatal) — ${String(err)}`,
+        );
+      }
     });
 
     // ── notify ────────────────────────────────────────────────────────────────
