@@ -127,6 +127,27 @@ struct MarkdownExportServiceTests {
         #expect(content.contains("memo_count: 2"))
     }
 
+    // H1 heading uses long friendly date; YAML date: field keeps ISO form
+    @Test func h1Heading_usesLongDate_yamlDateKeepsISO() {
+        // June 8 2026 is a Monday
+        let date = makeDate(year: 2026, month: 6, day: 8)
+        let memo = makeMemo(body: "test")
+        let content = MarkdownExportService.buildExportContent(memos: [memo], date: date)
+
+        // H1 must contain a long-format date (EEEE, MMMM d, yyyy)
+        let df = DateFormatter()
+        df.dateFormat = "EEEE, MMMM d, yyyy"
+        df.locale = Locale.current
+        df.timeZone = AppSettings.currentTimeZone()
+        let expected = df.string(from: date)
+        #expect(content.contains("# DayPage — \(expected)"))
+
+        // YAML date: must still be ISO yyyy-MM-dd
+        #expect(content.contains("date: 2026-06-08"))
+        // H1 must NOT contain the raw ISO date
+        #expect(!content.contains("# DayPage — 2026-06-08"))
+    }
+
     // (2) Multiline mood produces a single-line, valid `mood:` value with no raw newline
     @Test func multilineMood_producesOneLineFrontmatterValue() {
         let memo = makeMemo(body: "test", mood: "happy\nthen sad")
