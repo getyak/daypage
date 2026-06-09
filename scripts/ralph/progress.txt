@@ -26,3 +26,4 @@ Previous run archived: scripts/ralph/archive/2026-06-09-v8-ios-m3-m6/ (v8 iOS M3
 - 北极星闭环 = US-001..017(每小时推 TG 建议→选择→派发→回流)。这一段跑通即 MVP 可用。
 [2026-06-09T16:19:16Z] Story #US-001: 新增 trees 与 tree_nodes 表 (任务树数据模型) — PASSED
 [2026-06-09T16:21:33Z] Story #US-002: 新增 gateway_jobs 表 (job 状态机) — PASSED
+[2026-06-09T16:23:48Z] Story #US-003: 新增 task_suggestions 表 — PASSED
