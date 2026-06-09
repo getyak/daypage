@@ -117,6 +117,45 @@ export const taskSuggestionStatusEnum = pgEnum("task_suggestion_status", [
   "dismissed",
 ]);
 
+// US-004: gating policy for a dispatched work order. `auto` = run with no human
+// gate; `approve-first` = pause for user OK before dispatch; `approve-result` =
+// run, then pause for user review of the result before it flows back.
+export const workOrderGateEnum = pgEnum("work_order_gate", [
+  "auto",
+  "approve-first",
+  "approve-result",
+]);
+
+// US-004: lifecycle of a work order. `gated` = paused at its gate awaiting user
+// action; otherwise the usual pending→running→done/failed progression.
+export const workOrderStatusEnum = pgEnum("work_order_status", [
+  "pending",
+  "gated",
+  "running",
+  "done",
+  "failed",
+]);
+
+// US-004: which executor backend an agent session runs on. `sandbox` = the
+// self-hosted lightweight runner for cheap work; the others are outsourced
+// heavy-lifting backends.
+export const agentBackendEnum = pgEnum("agent_backend", [
+  "claude-code",
+  "openclaw",
+  "ralph",
+  "sandbox",
+]);
+
+// US-004: liveness of an agent backend session. Driven by heartbeats: `idle` =
+// connected but no active work; `timed_out` = missed heartbeats; `closed` =
+// torn down.
+export const agentSessionStatusEnum = pgEnum("agent_session_status", [
+  "active",
+  "idle",
+  "timed_out",
+  "closed",
+]);
+
 // ─── US-006: Wave 1b — users + memos + memo_attachments ───────────────────────
 
 export const users = pgTable("users", {
@@ -859,6 +898,66 @@ export const task_suggestions = pgTable(
 
 export type TaskSuggestion = typeof task_suggestions.$inferSelect;
 export type NewTaskSuggestion = typeof task_suggestions.$inferInsert;
+
+// ─── US-004: work_orders + agent_sessions (dispatch + executor sessions) ───────
+// A `work_order` is a concrete unit of work dispatched to an executor. It may
+// originate from a `task_suggestion` (set null if that suggestion is removed).
+// `gate` controls whether/when it pauses for the user; `context`/`output_spec`
+// brief the executor; `callback` carries where to report back; `result_ref`
+// points at the produced artifact once `done`. An `agent_session` is a live
+// connection to an executor `backend` (sandbox or an outsourced agent), tracked
+// by heartbeats and token spend.
+
+export const work_orders = pgTable(
+  "work_orders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    suggestion_id: uuid("suggestion_id").references(
+      () => task_suggestions.id,
+      { onDelete: "set null" },
+    ),
+    intent: text("intent").notNull(),
+    context: jsonb("context").notNull().default(sql`'{}'::jsonb`),
+    output_spec: text("output_spec"),
+    gate: workOrderGateEnum("gate").notNull().default("approve-first"),
+    callback: jsonb("callback"),
+    budget_tokens: integer("budget_tokens"),
+    status: workOrderStatusEnum("status").notNull().default("pending"),
+    result_ref: text("result_ref"),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("work_orders_user_status").on(t.user_id, t.status)]
+);
+
+export const agent_sessions = pgTable(
+  "agent_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    backend: agentBackendEnum("backend").notNull(),
+    external_ref: text("external_ref"),
+    project: text("project"),
+    status: agentSessionStatusEnum("status").notNull().default("active"),
+    last_heartbeat_at: timestamp("last_heartbeat_at", { withTimezone: true }),
+    tokens_used: integer("tokens_used").notNull().default(0),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("agent_sessions_user_status").on(t.user_id, t.status)]
+);
+
+export type WorkOrder = typeof work_orders.$inferSelect;
+export type NewWorkOrder = typeof work_orders.$inferInsert;
+export type AgentSession = typeof agent_sessions.$inferSelect;
+export type NewAgentSession = typeof agent_sessions.$inferInsert;
 
 // ─── Re-export helper types ────────────────────────────────────────────────────
 
