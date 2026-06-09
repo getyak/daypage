@@ -106,8 +106,10 @@ struct TodayView: View {
     @State private var lastWordMilestone: Int = 0
 
     /// When non-nil, a glass milestone toast is shown at the top of the timeline.
-    /// Cleared automatically after 2.5 s by the scheduled Task in the word-count onChange.
+    /// Cleared automatically after 2.5 s by milestoneToastTask.
     @State private var wordMilestoneToast: Int? = nil
+    /// Tracks the active dismiss Task so a new milestone cancels the prior timer before starting its own.
+    @State private var milestoneToastTask: Task<Void, Never>? = nil
 
     /// Session-only: true once the 3-memo unlock celebration has fired this session.
     /// Resets to false when memo count drops back below 3 so delete+readd re-fires it.
@@ -1813,7 +1815,8 @@ struct TodayView: View {
             withAnimation(reduceMotion ? nil : Motion.rise) {
                 wordMilestoneToast = crossed
             }
-            Task { @MainActor in
+            milestoneToastTask?.cancel()
+            milestoneToastTask = Task { @MainActor in
                 try? await Task.sleep(for: .seconds(2.5))
                 withAnimation(reduceMotion ? nil : Motion.rise) {
                     wordMilestoneToast = nil
