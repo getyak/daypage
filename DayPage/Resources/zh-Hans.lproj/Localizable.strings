@@ -113,6 +113,17 @@
 "today.subline.words.one"    = "%d 字";
 "today.subline.words.other"  = "%d 字";
 
+/* Today header subline — weather condition glyphs (VoiceOver) */
+"weather.glyph.sunny"        = "晴天";
+"weather.glyph.cloudy"       = "多云";
+"weather.glyph.rainy"        = "雨天";
+"weather.glyph.snowy"        = "雪天";
+"weather.glyph.stormy"       = "雷暴";
+"weather.glyph.showery"      = "阵雨";
+"weather.glyph.foggy"        = "雾天";
+"weather.glyph.night"        = "夜晴";
+"weather.glyph.partlycloudy" = "晴间多云";
+
 /* Today orb greeting — time-of-day serif greeting above kicker */
 "today.greeting.morning"     = "早上好。";
 "today.greeting.afternoon"   = "下午好。";
