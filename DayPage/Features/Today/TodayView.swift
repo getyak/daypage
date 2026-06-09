@@ -92,6 +92,8 @@ struct TodayView: View {
 
     /// One-time discoverable pulse on the export button (fires when button first appears with >=1 memo).
     @State private var exportHintPulse: Bool = false
+    /// One-time discoverable pulse on the AI summary card (fires when a compiled summary first appears).
+    @State private var summaryHintPulse: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var orbBreathing: Bool = false
@@ -1493,7 +1495,22 @@ struct TodayView: View {
                     AISummaryCard(summary: summary, onTap: { Haptics.tapConfirm(); showDailyPage = true })
                         .padding(.horizontal, 20)
                         .padding(.bottom, 4)
+                        .scaleEffect(summaryHintPulse ? 1.03 : 1)
+                        .shadow(color: DSColor.accentAmber.opacity(summaryHintPulse ? 0.4 : 0), radius: summaryHintPulse ? 10 : 0)
+                        .animation(reduceMotion ? nil : Motion.spring, value: summaryHintPulse)
                         .transition(.opacity)
+                        .onAppear {
+                            guard !UserDefaults.standard.bool(forKey: AppSettings.Keys.summaryCopyHintShown),
+                                  !reduceMotion else { return }
+                            UserDefaults.standard.set(true, forKey: AppSettings.Keys.summaryCopyHintShown)
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .seconds(0.8))
+                                Haptics.soft()
+                                withAnimation(Motion.spring) { summaryHintPulse = true }
+                                try? await Task.sleep(for: .seconds(0.5))
+                                withAnimation(Motion.spring) { summaryHintPulse = false }
+                            }
+                        }
                         .onLongPressGesture(minimumDuration: 0.4) {
                             UIPasteboard.general.string = summary
                             Haptics.tapConfirm()
