@@ -8,6 +8,7 @@ import { gapDetect } from "@/lib/inngest/functions/gap-detect";
 import { weeklyReport } from "@/lib/inngest/functions/weekly-report";
 import { fetchRss } from "@/lib/inngest/functions/fetch-rss";
 import { weaveGraph } from "@/lib/inngest/functions/weave-graph";
+import { suggesterRun } from "@/lib/inngest/functions/suggester-run";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -20,5 +21,6 @@ export const { GET, POST, PUT } = serve({
     weeklyReport,
     fetchRss,
     weaveGraph,
+    suggesterRun,
   ],
 });
