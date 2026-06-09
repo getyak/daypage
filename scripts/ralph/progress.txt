@@ -36,3 +36,4 @@ Previous run archived: scripts/ralph/archive/2026-06-09-v8-ios-m3-m6/ (v8 iOS M3
 [2026-06-09T16:56:16Z] Story #US-010: Telegram 出站推送 adapter — PASSED
 [2026-06-09T17:03:03Z] Story #US-011: Inngest function: suggester.run + notify.send — PASSED
 [2026-06-09T17:08:40Z] Story #US-012: Scheduler — 每小时 cron 触发 suggest — PASSED
+[2026-06-09T17:14:13Z] Story #US-013: Telegram callback_query → 选择落库 — PASSED
