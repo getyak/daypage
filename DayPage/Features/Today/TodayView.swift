@@ -107,6 +107,12 @@ struct TodayView: View {
     /// Reset to 0 when all memos are deleted so milestones re-arm on a fresh day.
     @State private var lastWordMilestone: Int = 0
 
+    /// When non-nil, a glass milestone toast is shown at the top of the timeline.
+    /// Cleared automatically after 2.5 s by milestoneToastTask.
+    @State private var wordMilestoneToast: Int? = nil
+    /// Tracks the active dismiss Task so a new milestone cancels the prior timer before starting its own.
+    @State private var milestoneToastTask: Task<Void, Never>? = nil
+
     /// Session-only: true once the 3-memo unlock celebration has fired this session.
     /// Resets to false when memo count drops back below 3 so delete+readd re-fires it.
     @State private var didCelebrateUnlock: Bool = false
@@ -369,6 +375,23 @@ struct TodayView: View {
                         lastScrollMilestone = 0
                     }
                 }
+                // Word-count milestone glass toast — slides in from the top for 2.5 s.
+                .overlay(alignment: .top) {
+                    if let milestone = wordMilestoneToast {
+                        Text(String(format: NSLocalizedString("today.milestone.words", comment: ""), milestone))
+                            .font(DSType.mono10)
+                            .tracking(1.0)
+                            .textCase(.uppercase)
+                            .foregroundColor(DSColor.amberAccent)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 9)
+                            .glassSurface(in: Capsule())
+                            .padding(.top, 8)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                            .allowsHitTesting(false)
+                    }
+                }
+                .animation(reduceMotion ? nil : Motion.rise, value: wordMilestoneToast != nil)
                 // Submit error toast — scoped animation lives on the overlay
                 // container so only the toast itself animates, not the whole
                 // ZStack tree. (#217)
@@ -1849,11 +1872,19 @@ struct TodayView: View {
             let crossed = milestones.filter { count >= $0 }.max() ?? 0
             guard crossed > lastWordMilestone else { return }
             lastWordMilestone = crossed
-            Haptics.success()
-            let message = String(format: NSLocalizedString("today.wordcount.milestone", comment: ""), crossed)
-            UIAccessibility.post(notification: .announcement, argument: message)
-            let bannerTitle = String(format: NSLocalizedString("today.wordcount.milestone.banner", comment: ""), crossed)
-            bannerCenter.show(AppBannerModel(kind: .success, title: bannerTitle, autoDismiss: true))
+            Haptics.tapConfirm()
+            let announcement = String(format: NSLocalizedString("today.milestone.words", comment: ""), crossed)
+            UIAccessibility.post(notification: .announcement, argument: announcement)
+            withAnimation(reduceMotion ? nil : Motion.rise) {
+                wordMilestoneToast = crossed
+            }
+            milestoneToastTask?.cancel()
+            milestoneToastTask = Task { @MainActor in
+                try? await Task.sleep(for: .seconds(2.5))
+                withAnimation(reduceMotion ? nil : Motion.rise) {
+                    wordMilestoneToast = nil
+                }
+            }
         }
         .onChange(of: viewModel.memos.isEmpty) { isEmpty in
             if isEmpty { lastWordMilestone = 0 }
