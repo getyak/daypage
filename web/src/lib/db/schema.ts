@@ -107,6 +107,16 @@ export const gatewayJobStatusEnum = pgEnum("gateway_job_status", [
   "dead",
 ]);
 
+// US-003: lifecycle of an AI-generated task suggestion awaiting user choice.
+// `open` = surfaced, awaiting selection; `selected` = user picked it; `dispatched`
+// = handed to the executor; `dismissed` = user declined.
+export const taskSuggestionStatusEnum = pgEnum("task_suggestion_status", [
+  "open",
+  "selected",
+  "dispatched",
+  "dismissed",
+]);
+
 // ─── US-006: Wave 1b — users + memos + memo_attachments ───────────────────────
 
 export const users = pgTable("users", {
@@ -817,6 +827,38 @@ export const gateway_jobs = pgTable(
 
 export type GatewayJob = typeof gateway_jobs.$inferSelect;
 export type NewGatewayJob = typeof gateway_jobs.$inferInsert;
+
+// ─── US-003: task_suggestions (AI suggestions awaiting user selection) ─────────
+// The Suggester writes candidate tasks here for the user to pick from. Each row
+// optionally links to the `tree_node` it grew from (set null if that node is
+// pruned). `estimate`/`suggested_target` hint the executor tier; `payload`
+// carries opaque dispatch context (prompt, params) consumed when selected.
+
+export const task_suggestions = pgTable(
+  "task_suggestions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tree_node_id: uuid("tree_node_id").references(() => tree_nodes.id, {
+      onDelete: "set null",
+    }),
+    title: text("title").notNull(),
+    rationale: text("rationale").notNull(),
+    estimate: text("estimate"),
+    suggested_target: text("suggested_target"),
+    status: taskSuggestionStatusEnum("status").notNull().default("open"),
+    payload: jsonb("payload").notNull().default(sql`'{}'::jsonb`),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("task_suggestions_user_status").on(t.user_id, t.status)]
+);
+
+export type TaskSuggestion = typeof task_suggestions.$inferSelect;
+export type NewTaskSuggestion = typeof task_suggestions.$inferInsert;
 
 // ─── Re-export helper types ────────────────────────────────────────────────────
 
