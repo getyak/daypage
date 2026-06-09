@@ -348,6 +348,9 @@
 /* Archive — async month loading (US-015) */
 "archive.loading_month" = "Loading…";
 
+/* Archive — list-mode month digest. %1$@ month, %2$d active days, %3$d entries, %4$d photos, %5$d voice minutes, %6$d places */
+"archive.list.digest.a11y" = "%1$@ digest: %2$d active days, %3$d entries, %4$d photos, %5$d voice minutes, %6$d places";
+
 /* Archive — year/month jump picker */
 "archive.picker.open" = "Jump to month, currently %@";
 "archive.picker.open.hint" = "Opens a picker to jump to any month";

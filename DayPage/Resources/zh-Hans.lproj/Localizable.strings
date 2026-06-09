@@ -376,6 +376,9 @@
 /* Archive — async month loading (US-015) */
 "archive.loading_month" = "加载中…";
 
+/* Archive — list-mode month digest. %1$@ 月份, %2$d 活跃天数, %3$d 条记录, %4$d 张照片, %5$d 分钟语音, %6$d 个地点 */
+"archive.list.digest.a11y" = "%1$@ 摘要：%2$d 个活跃天，%3$d 条记录，%4$d 张照片，%5$d 分钟语音，%6$d 个地点";
+
 /* Archive — year/month jump picker */
 "archive.picker.open" = "跳转月份，当前 %@";
 "archive.picker.open.hint" = "打开选择器以跳转到任意月份";

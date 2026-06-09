@@ -318,6 +318,13 @@ final class ArchiveViewModel: ObservableObject {
     var totalVoiceMinutes: Int { dayStats.values.reduce(0) { $0 + $1.voiceMinutes } }
     var totalLocations: Int { dayStats.values.reduce(0) { $0 + $1.uniqueLocations } }
 
+    /// Number of days this month with at least one memo or a compiled page —
+    /// the "how many days did I actually log?" metric. Mirrors `sortedDays`'s
+    /// filter so the digest strip count always matches the rows below it.
+    var activeDayCount: Int {
+        dayStats.values.filter { $0.memoCount > 0 || $0.isDailyPageCompiled }.count
+    }
+
     // MARK: Calendar Helpers
 
     func daysInCurrentMonth() -> [Int?] {
@@ -1300,12 +1307,81 @@ struct ArchiveView: View {
                 }
                 .padding(.top, 40)
             } else {
+                // Compact monthly digest — list mode otherwise drops all the
+                // month-level context that calendar mode shows in its summary
+                // grid. (#archive-list-digest)
+                monthDigestStrip
+                    .padding(.bottom, 4)
+
                 ForEach(viewModel.sortedDays, id: \.dateString) { stats in
                     archiveListRow(stats: stats)
                 }
             }
         }
         .padding(.top, 8)
+    }
+
+    // MARK: - Month Digest Strip (list mode)
+
+    /// A single horizontally-scannable card that mirrors the calendar-mode
+    /// monthly summary, condensed for the dense list. Leads with the metric
+    /// that's absent everywhere else — active (logged) days this month — then
+    /// entries / photos / voice / locations. Numbers stay in sync with the
+    /// rows below because both derive from `dayStats`.
+    private var monthDigestStrip: some View {
+        let activeDays = viewModel.activeDayCount
+        let entries = viewModel.totalEntries
+        let photos = viewModel.totalPhotos
+        let voice = viewModel.totalVoiceMinutes
+        let locations = viewModel.totalLocations
+
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("\(viewModel.currentMonthTitle) · DIGEST")
+                .monoLabelStyle(size: 10)
+                .foregroundColor(DSColor.inkSubtle)
+
+            HStack(alignment: .top, spacing: 0) {
+                digestStat(value: "\(activeDays)", label: "DAYS", accent: true)
+                digestDivider
+                digestStat(value: "\(entries)", label: "ENTRIES", accent: false)
+                digestDivider
+                digestStat(value: "\(photos)", label: "PHOTOS", accent: false)
+                digestDivider
+                digestStat(value: "\(voice)", label: "VOICE MIN", accent: false)
+                digestDivider
+                digestStat(value: "\(locations)", label: "PLACES", accent: false)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlassCard(cornerRadius: DSSpacing.radiusCard)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(String(
+            format: NSLocalizedString("archive.list.digest.a11y", comment: "Month digest summary"),
+            viewModel.currentMonthTitle, activeDays, entries, photos, voice, locations
+        ))
+    }
+
+    private func digestStat(value: String, label: String, accent: Bool) -> some View {
+        VStack(alignment: .center, spacing: 4) {
+            Text(value)
+                .font(DSType.serifDisplay28)
+                .foregroundColor(accent ? DSColor.amberDeep : DSColor.inkPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+            Text(label)
+                .monoLabelStyle(size: 9)
+                .foregroundColor(DSColor.inkSubtle)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var digestDivider: some View {
+        Rectangle()
+            .fill(DSColor.inkFaint)
+            .frame(width: 0.5, height: 28)
     }
 
     private static let isoParser: DateFormatter = {
