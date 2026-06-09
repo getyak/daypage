@@ -413,6 +413,27 @@ struct MarkdownExportServiceTests {
         #expect(!content.contains("## Summary"))
     }
 
+    // CJK text has no spaces, so a naive whitespace split would count an entire
+    // sentence as one word. Each ideograph must count as a word, matching the
+    // in-app readout. "今天天气很好" = 6 ideographs.
+    @Test func wordCount_countsCJKIdeographsIndividually() {
+        let memo = makeMemo(body: "今天天气很好", secondsOffset: 0)
+        let content = MarkdownExportService.buildExportContent(
+            memos: [memo], date: makeDate()
+        )
+        #expect(content.contains("export_word_count: 6"))
+        #expect(content.contains("> 6 words"))
+    }
+
+    // Mixed CJK + Latin: "今天 coffee shop" = 2 ideographs + 2 latin runs = 4.
+    @Test func wordCount_handlesMixedCJKAndLatin() {
+        let memo = makeMemo(body: "今天 coffee shop", secondsOffset: 0)
+        let content = MarkdownExportService.buildExportContent(
+            memos: [memo], date: makeDate()
+        )
+        #expect(content.contains("export_word_count: 4"))
+    }
+
     // MARK: - Long date title and time_range frontmatter
 
     @Test func titleLine_containsWeekdayName() {

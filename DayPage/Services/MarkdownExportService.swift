@@ -219,8 +219,35 @@ enum MarkdownExportService {
 
     // MARK: - Private Helpers
 
+    /// CJK-aware word counter — mirrors `TodayViewModel.wordCount` so the
+    /// exported `export_word_count` and Summary footer match the in-app readout.
+    /// Each CJK ideograph counts as one word; runs of non-CJK non-whitespace
+    /// characters count as one word each. A naive whitespace split would count
+    /// an entire spaceless Chinese/Japanese sentence as a single word, badly
+    /// undercounting for users who journal in those scripts.
     private static func wordCount(_ text: String) -> Int {
-        text.split(whereSeparator: \.isWhitespace).filter { !$0.isEmpty }.count
+        var count = 0
+        var inLatinRun = false
+        for scalar in text.unicodeScalars {
+            let v = scalar.value
+            let isCJK = (v >= 0x4E00 && v <= 0x9FFF)
+                     || (v >= 0x3400 && v <= 0x4DBF)
+                     || (v >= 0x20000 && v <= 0x2A6DF)
+                     || (v >= 0xF900 && v <= 0xFAFF)
+                     || (v >= 0x2E80 && v <= 0x2EFF)
+                     || (v >= 0x3000 && v <= 0x303F)
+            let isWhitespace = CharacterSet.whitespacesAndNewlines.contains(scalar)
+            if isCJK {
+                inLatinRun = false
+                count += 1
+            } else if isWhitespace {
+                inLatinRun = false
+            } else if !inLatinRun {
+                inLatinRun = true
+                count += 1
+            }
+        }
+        return count
     }
 
     private static func slug(_ entity: String) -> String {
