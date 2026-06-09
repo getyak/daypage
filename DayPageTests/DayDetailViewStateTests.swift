@@ -147,4 +147,53 @@ final class DayDetailViewStateTests: XCTestCase {
         }
         XCTAssertTrue(message.contains("vault unreachable"), "Got message: \(message)")
     }
+
+    // MARK: - Day paging (steppedDate)
+
+    func testSteppedDate_forwardAndBackward_simpleDay() {
+        XCTAssertEqual(DayDetailView.steppedDate(from: "2025-06-15", forward: true), "2025-06-16")
+        XCTAssertEqual(DayDetailView.steppedDate(from: "2025-06-15", forward: false), "2025-06-14")
+    }
+
+    func testSteppedDate_rollsOverMonthBoundary() {
+        // End of a 30-day month forward, and first-of-month backward.
+        XCTAssertEqual(DayDetailView.steppedDate(from: "2025-06-30", forward: true), "2025-07-01")
+        XCTAssertEqual(DayDetailView.steppedDate(from: "2025-07-01", forward: false), "2025-06-30")
+    }
+
+    func testSteppedDate_rollsOverYearBoundary() {
+        XCTAssertEqual(DayDetailView.steppedDate(from: "2025-12-31", forward: true), "2026-01-01")
+        XCTAssertEqual(DayDetailView.steppedDate(from: "2026-01-01", forward: false), "2025-12-31")
+    }
+
+    func testSteppedDate_handlesLeapDay() {
+        // 2024 is a leap year — Feb 29 exists.
+        XCTAssertEqual(DayDetailView.steppedDate(from: "2024-02-28", forward: true), "2024-02-29")
+        XCTAssertEqual(DayDetailView.steppedDate(from: "2024-03-01", forward: false), "2024-02-29")
+        // 2025 is not — Feb 28 rolls straight to Mar 1.
+        XCTAssertEqual(DayDetailView.steppedDate(from: "2025-02-28", forward: true), "2025-03-01")
+    }
+
+    func testSteppedDate_forwardCapStopsAtBound() {
+        // Stepping onto the cap itself is allowed (inclusive)…
+        XCTAssertEqual(
+            DayDetailView.steppedDate(from: "2026-06-08", forward: true, notAfter: "2026-06-09"),
+            "2026-06-09"
+        )
+        // …but stepping past it returns nil so the caller halts at the boundary.
+        XCTAssertNil(DayDetailView.steppedDate(from: "2026-06-09", forward: true, notAfter: "2026-06-09"))
+    }
+
+    func testSteppedDate_backwardIgnoresForwardCap() {
+        // A nil cap (the backward case) never blocks.
+        XCTAssertEqual(
+            DayDetailView.steppedDate(from: "2026-06-09", forward: false, notAfter: nil),
+            "2026-06-08"
+        )
+    }
+
+    func testSteppedDate_returnsNilForUnparseableInput() {
+        XCTAssertNil(DayDetailView.steppedDate(from: "not-a-date", forward: true))
+        XCTAssertNil(DayDetailView.steppedDate(from: "", forward: false))
+    }
 }
