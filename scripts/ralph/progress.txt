@@ -48,3 +48,4 @@ Previous run archived: scripts/ralph/archive/2026-06-09-v8-ios-m3-m6/ (v8 iOS M3
 [2026-06-09T18:05:21Z] Story #US-021: 演化与推送时机设置 (后端) — PASSED
 [2026-06-09T18:11:34Z] Story #US-022: 设置页 UI — 演化与推送时机 — FAILED (iteration 23)
 [2026-06-09T18:14:15Z] Story #US-022: 设置页 UI — 演化与推送时机 — PASSED
+[2026-06-09T18:18:53Z] Story #US-023: 沙箱执行器 — 受限子进程框架 — PASSED
