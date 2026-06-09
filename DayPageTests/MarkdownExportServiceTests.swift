@@ -80,6 +80,26 @@ struct MarkdownExportServiceTests {
         #expect(content.contains("weather: \"cloudy\""))
     }
 
+    @Test func frontmatter_explicitWeatherArg_overridesMemoWeather() {
+        let memo = makeMemo(body: "test", weather: "晴 24°C")
+        let content = MarkdownExportService.buildExportContent(
+            memos: [memo], date: makeDate(), weather: "阴 18°C"
+        )
+        #expect(content.contains("weather: \"阴 18°C\""))
+        #expect(!content.contains("晴 24°C"))
+    }
+
+    @Test func frontmatter_weatherWithNewline_collapsesToSingleSpace() {
+        let memo = makeMemo(body: "test", weather: "晴\n24°C")
+        let content = MarkdownExportService.buildExportContent(
+            memos: [memo], date: makeDate()
+        )
+        // The newline must be collapsed to a space, not emitted as a raw newline
+        #expect(content.contains("weather: \"晴 24°C\""))
+        let weatherLines = content.components(separatedBy: "\n").filter { $0.hasPrefix("weather:") }
+        #expect(weatherLines.count == 1)
+    }
+
     // MARK: - 3. Summary blockquote
 
     @Test func summaryBlockquote_appearsUnderH1_whenSummarySupplied() {
