@@ -30,3 +30,4 @@ Previous run archived: scripts/ralph/archive/2026-06-09-v8-ios-m3-m6/ (v8 iOS M3
 [2026-06-09T16:27:39Z] Story #US-004: 新增 work_orders 与 agent_sessions 表 — PASSED
 [2026-06-09T16:32:09Z] Story #US-005: trees CRUD 服务与 /api/trees 端点 — PASSED
 [2026-06-09T16:37:39Z] Story #US-006: Policy/Gate Engine 模块 (预算+限速+gate判定) — PASSED
+[2026-06-09T16:42:18Z] Story #US-007: gateway_jobs 入队/出队 helper — PASSED
