@@ -175,24 +175,38 @@ enum RawStorage {
     ///
     /// 兼容性策略（issue #227）：
     /// 1. 若文件含**当前**分隔符 → 新格式，按当前分隔符切分。
-    /// 2. 否则先尝试将整个文件当作单条 memo 解析 — 这覆盖了所有
-    ///    新格式单 memo 文件，以及旧格式的单 memo 文件（两者磁盘
-    ///    表示相同）。若成功且整段被一条 memo 完整消费，返回该结果。
-    /// 3. 否则回退到历史分隔符 "\n\n---\n\n"，处理旧 vault 文件。
-    /// 该策略既保证旧文件可读，又避免新格式 memo 正文中偶尔出现的
-    /// "---" 被错误切分。
+    /// 2. 否则若文件含历史分隔符 "\n\n---\n\n"，**尝试**按它切分。仅当切分后
+    ///    每一块都能独立解析为合法 memo（含合法 frontmatter + id）时才采纳此结果——
+    ///    这区分了「旧格式的多条 memo」与「新格式单 memo 正文中恰好出现的 ---」：
+    ///    后者按 legacy 分隔符切开后会产生无合法 frontmatter 的碎片，于是被否决，
+    ///    回退到步骤 3 当作单条 memo。
+    /// 3. 否则将整个文件当作单条 memo 解析（覆盖新/旧格式的单 memo 文件，
+    ///    两者磁盘表示相同）。
+    /// 该策略既保证旧 vault 文件（含多条 memo）可读，又避免新格式 memo
+    /// 正文中偶尔出现的 "---" 被错误切分导致数据丢失。
     static func parse(fileContent: String) -> [Memo] {
         if fileContent.contains(memoSeparator) {
             return splitAndParse(fileContent, separator: memoSeparator)
         }
 
+        // 旧格式回退：只有当 legacy 分隔符切出的**每一非空块**都能独立解析为
+        // 合法 memo 时才采纳。这样「旧格式多条 memo」与「空块 + 单条 memo」都能
+        // 正确读出，而「新格式单 memo 正文里含 ---」会切出无 frontmatter 的碎片
+        // （解析失败），于是被否决并落到下面的单条解析分支，避免数据被错切。
+        if fileContent.contains(legacyMemoSeparator) {
+            let blocks = fileContent
+                .components(separatedBy: legacyMemoSeparator)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .filter { !$0.isEmpty }
+            let parsed = blocks.compactMap(Memo.fromMarkdown)
+            if !blocks.isEmpty, parsed.count == blocks.count {
+                return parsed
+            }
+        }
+
         let trimmed = fileContent.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty, let single = Memo.fromMarkdown(trimmed) {
             return [single]
-        }
-
-        if fileContent.contains(legacyMemoSeparator) {
-            return splitAndParse(fileContent, separator: legacyMemoSeparator)
         }
 
         return []

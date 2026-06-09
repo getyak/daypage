@@ -55,7 +55,9 @@ struct GraphView: View {
             let parts = hiddenTypesRaw.split(separator: ",").map(String.init).filter { !$0.isEmpty }
             return Set(parts)
         }
-        set {
+        // nonmutating: only writes to the @AppStorage-backed `hiddenTypesRaw`,
+        // never mutates `self`, so it can be assigned from escaping SwiftUI closures.
+        nonmutating set {
             hiddenTypesRaw = newValue.sorted().joined(separator: ",")
         }
     }
