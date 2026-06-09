@@ -1,6 +1,8 @@
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { eq } from "drizzle-orm";
+import type { WorkOrder as WorkOrderRow } from "@/lib/db/schema";
 
 // US-008: Claude Code connector — read a CC session's recent transcript so the
 // Gateway/Suggester can reason about what the agent has been doing locally.
@@ -198,4 +200,145 @@ export async function readProgress(
     summary: buildSummary(turns, maxTurns),
     lastActivityAt,
   };
+}
+
+// US-015: dispatch a WorkOrder to a Claude Code session.
+//
+// MVP shape: rather than spawning a live CC process, we materialize the order as
+// a task file (YAML front-matter + Markdown prompt) under a conventional drop
+// directory and register an `agent_sessions` row pointing at that file via
+// `external_ref`. A separate runner (out of scope here) picks the file up. This
+// keeps dispatch durable, inspectable, and testable without a live backend.
+
+// Default drop directory for materialized task files. Overridable for tests.
+const DEFAULT_DISPATCH_DIR = path.join(
+  os.homedir(),
+  ".daypage",
+  "work-orders"
+);
+
+export interface DispatchResult {
+  // The registered `agent_sessions` row id, or null when dispatch failed.
+  sessionId: string | null;
+  status: "active" | "failed";
+  // The materialized task-file path on success; the error message on failure.
+  externalRef?: string;
+  error?: string;
+}
+
+export interface DispatchOptions {
+  // Override the drop directory; primarily for tests.
+  dir?: string;
+  // Inject the dispatch timestamp for deterministic task files; defaults to now.
+  now?: Date;
+}
+
+// Render a WorkOrder row into a task file: YAML front-matter (machine fields) +
+// a Markdown prompt body (intent + the Suggester's context). Kept hand-rolled to
+// match the repo convention of no external YAML/Markdown deps.
+function renderTaskFile(order: WorkOrderRow, dispatchedAt: string): string {
+  const ctx = (order.context ?? {}) as Record<string, unknown>;
+  const rationale =
+    typeof ctx.rationale === "string" ? ctx.rationale : "";
+  const treeTitle =
+    typeof ctx.tree_title === "string" ? ctx.tree_title : null;
+  const nodeTitle =
+    typeof ctx.node_title === "string" ? ctx.node_title : null;
+
+  const front = [
+    "---",
+    `work_order_id: ${order.id}`,
+    `gate: ${order.gate}`,
+    `budget_tokens: ${order.budget_tokens ?? "null"}`,
+    `dispatched_at: ${dispatchedAt}`,
+    "---",
+  ].join("\n");
+
+  const bodyLines = [`# ${order.intent}`, ""];
+  if (treeTitle) bodyLines.push(`Goal: ${treeTitle}`);
+  if (nodeTitle) bodyLines.push(`Branch: ${nodeTitle}`);
+  if (rationale) bodyLines.push("", rationale);
+  if (order.output_spec) bodyLines.push("", "## Output", order.output_spec);
+
+  return `${front}\n\n${bodyLines.join("\n")}\n`;
+}
+
+/**
+ * Dispatch a WorkOrder to a Claude Code session.
+ *
+ * Writes the order out as a task file under the drop directory and registers an
+ * `agent_sessions` row (`backend='claude-code'`, `external_ref=<task path>`),
+ * then records a `change_log` entry (`action_kind='dispatch_workorder'`,
+ * `performed_by='agent'`). On any failure the work order is marked
+ * `status='failed'` and the error is returned — this never throws, so callers
+ * can branch on `result.status` rather than wrapping in try/catch.
+ */
+export async function dispatch(
+  order: WorkOrderRow,
+  opts: DispatchOptions = {}
+): Promise<DispatchResult> {
+  const dir = opts.dir ?? DEFAULT_DISPATCH_DIR;
+  const dispatchedAt = (opts.now ?? new Date()).toISOString();
+  const filePath = path.join(dir, `${order.id}.md`);
+
+  // Lazily pull in the db client + tables so that importing this module for the
+  // fs-only `readProgress` path never forces a DB connection (the client throws
+  // at import time when DATABASE_URL is unset).
+  const { db } = await import("@/lib/db/client");
+  const { agent_sessions, change_log, work_orders } = await import(
+    "@/lib/db/schema"
+  );
+
+  try {
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(filePath, renderTaskFile(order, dispatchedAt), "utf8");
+
+    const inserted = await db
+      .insert(agent_sessions)
+      .values({
+        user_id: order.user_id,
+        backend: "claude-code",
+        external_ref: filePath,
+        project: dir,
+        status: "active",
+      })
+      .returning({ id: agent_sessions.id });
+
+    const sessionId = inserted[0].id;
+
+    await db
+      .update(work_orders)
+      .set({ status: "running" })
+      .where(eq(work_orders.id, order.id));
+
+    await db.insert(change_log).values({
+      user_id: order.user_id,
+      action_kind: "dispatch_workorder",
+      target_type: "work_order",
+      target_id: order.id,
+      before: { status: order.status },
+      after: {
+        status: "running",
+        session_id: sessionId,
+        external_ref: filePath,
+      },
+      reason: `dispatched to claude-code: ${order.intent}`,
+      performed_by: "agent",
+    });
+
+    return { sessionId, status: "active", externalRef: filePath };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    // Best-effort: flip the order to failed so it isn't stuck pending. A failure
+    // here must not mask the original error, so swallow it.
+    try {
+      await db
+        .update(work_orders)
+        .set({ status: "failed" })
+        .where(eq(work_orders.id, order.id));
+    } catch {
+      // ignore — original error is what matters
+    }
+    return { sessionId: null, status: "failed", error: message };
+  }
 }
