@@ -61,6 +61,11 @@ struct SettingsView: View {
     @State private var showCleanupConfirm = false
     @State private var showClearSampleConfirm = false
 
+    // Tap-to-copy confirmation for the About → version row.
+    // Briefly true after the user taps the version row to copy it to the
+    // clipboard, swapping the value for a "已复制" checkmark for ~1.5s.
+    @State private var didCopyVersion = false
+
     var body: some View {
         NavigationStack {
             List {
@@ -766,13 +771,29 @@ struct SettingsView: View {
 
     private var aboutSection: some View {
         Section("关于") {
-            HStack {
-                Text("版本")
-                Spacer()
-                Text(appVersion)
-                    .foregroundColor(DSColor.onSurfaceVariant)
-                    .font(.caption)
+            // Tap to copy "DayPage <version> (<build>)" to the clipboard, so the
+            // exact version can be pasted into a support request or bug report.
+            Button(action: copyVersionInfo) {
+                HStack {
+                    Text("版本")
+                        .foregroundColor(DSColor.onSurface)
+                    Spacer()
+                    if didCopyVersion {
+                        Label("已复制", systemImage: "checkmark")
+                            .labelStyle(.titleAndIcon)
+                            .foregroundColor(DSColor.accentAmber)
+                            .font(.caption)
+                            .transition(.opacity)
+                    } else {
+                        Text(appVersion)
+                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .font(.caption)
+                            .transition(.opacity)
+                    }
+                }
             }
+            .buttonStyle(.plain)
+            .accessibilityHint(NSLocalizedString("settings.about.version.copy_hint", comment: "Tap to copy version hint"))
             HStack {
                 Text("Build")
                 Spacer()
@@ -780,6 +801,18 @@ struct SettingsView: View {
                     .foregroundColor(DSColor.onSurfaceVariant)
                     .font(.caption)
             }
+        }
+    }
+
+    /// Copies "DayPage <version> (<build>)" to the clipboard and shows a brief
+    /// "已复制" confirmation on the version row.
+    private func copyVersionInfo() {
+        UIPasteboard.general.string = "DayPage \(appVersion) (\(buildNumber))"
+        Haptics.success()
+        withAnimation(Motion.fade) { didCopyVersion = true }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.5))
+            withAnimation(Motion.fade) { didCopyVersion = false }
         }
     }
 
