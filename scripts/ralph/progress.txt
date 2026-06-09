@@ -34,3 +34,4 @@ Previous run archived: scripts/ralph/archive/2026-06-09-v8-ios-m3-m6/ (v8 iOS M3
 [2026-06-09T16:46:05Z] Story #US-008: CC connector readProgress (本地读 transcript) — PASSED
 [2026-06-09T16:51:14Z] Story #US-009: Suggester — 任务建议推理函数 — PASSED
 [2026-06-09T16:56:16Z] Story #US-010: Telegram 出站推送 adapter — PASSED
+[2026-06-09T17:03:03Z] Story #US-011: Inngest function: suggester.run + notify.send — PASSED
