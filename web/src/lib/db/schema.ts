@@ -12,6 +12,7 @@ import {
   unique,
   primaryKey,
   customType,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -76,6 +77,23 @@ export const pageStatusEnum = pgEnum("page_status", [
   "draft",
   "live",
   "archived",
+]);
+
+// ─── US-001: task tree (Git-style goal evolution) enums ───────────────────────
+
+export const treeStatusEnum = pgEnum("tree_status", ["active", "archived"]);
+
+export const treeNodeKindEnum = pgEnum("tree_node_kind", [
+  "goal",
+  "branch",
+  "leaf",
+]);
+
+export const treeNodeStatusEnum = pgEnum("tree_node_status", [
+  "growing",
+  "mature",
+  "merged",
+  "pruned",
 ]);
 
 // ─── US-006: Wave 1b — users + memos + memo_attachments ───────────────────────
@@ -686,6 +704,68 @@ export const agents = pgTable(
 
 export type Agent = typeof agents.$inferSelect;
 export type NewAgent = typeof agents.$inferInsert;
+
+// ─── US-001: trees + tree_nodes (Git-style task tree) ─────────────────────────
+// A `tree` is a long-term goal; its `tree_nodes` form a Git-style branch graph
+// that evolves over time. A node is a `goal` (root), a `branch` (a line of
+// pursuit), or a `leaf` (a concrete actionable). `parent_id` self-references to
+// build the tree; the root goal node has parent_id = NULL. `heat` ranks nodes
+// for the Suggester; `evidence_memo_ids` cites the raw memos that grew the node;
+// `page_id` optionally links a node to its compiled wiki page.
+
+export const trees = pgTable("trees", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  user_id: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  status: treeStatusEnum("status").notNull().default("active"),
+  created_at: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const tree_nodes = pgTable(
+  "tree_nodes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tree_id: uuid("tree_id")
+      .notNull()
+      .references(() => trees.id, { onDelete: "cascade" }),
+    // Self-reference for the Git-style branch graph; NULL on the root goal node.
+    parent_id: uuid("parent_id").references((): AnyPgColumn => tree_nodes.id, {
+      onDelete: "cascade",
+    }),
+    kind: treeNodeKindEnum("kind").notNull(),
+    status: treeNodeStatusEnum("status").notNull().default("growing"),
+    title: text("title").notNull(),
+    heat: real("heat").notNull().default(0),
+    evidence_memo_ids: jsonb("evidence_memo_ids")
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    page_id: uuid("page_id").references(() => pages.id, {
+      onDelete: "set null",
+    }),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    index("tree_nodes_tree").on(t.tree_id),
+    // "user 经由 tree": tree_nodes have no direct user_id; scoping a user's nodes
+    // goes through tree_id, so the per-tree index also serves user-scoped reads.
+    index("tree_nodes_tree_parent").on(t.tree_id, t.parent_id),
+  ]
+);
+
+export type Tree = typeof trees.$inferSelect;
+export type NewTree = typeof trees.$inferInsert;
+export type TreeNode = typeof tree_nodes.$inferSelect;
+export type NewTreeNode = typeof tree_nodes.$inferInsert;
 
 // ─── Re-export helper types ────────────────────────────────────────────────────
 
