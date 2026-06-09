@@ -224,6 +224,13 @@ pr*.png
 /today-*.png
 /drawer-*.png
 /composer-*.png
+/dp_home.png
+/home-desktop.png
+/shot-home.*
+/memo-*.png
+
+# Claude Code CLI 会话结果转储（误提交的 agent 运行 transcript，非入仓）
+/Web-*.json
 
 # 设计 handoff 本地资料（Claude Design 导出的原型 + 差距分析，非入仓）
 .design-handoff/
