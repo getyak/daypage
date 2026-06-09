@@ -182,6 +182,7 @@
 		T10000005 /* RawStorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000005 /* RawStorageTests.swift */; };
 		T10000006 /* ComposerContextProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000006 /* ComposerContextProviderTests.swift */; };
 		T10000050 /* TimelineIndexTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000050 /* TimelineIndexTests.swift */; };
+		T10000060 /* OnThisDayHeaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000060 /* OnThisDayHeaderTests.swift */; };
 		TH0000001 /* ThreadConversationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = TH1000001 /* ThreadConversationViewModel.swift */; };
 		TH0000002 /* ThreadConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TH1000002 /* ThreadConversationView.swift */; };
 		TH0000003 /* InlineMicButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = TH1000003 /* InlineMicButton.swift */; };
@@ -407,6 +408,7 @@
 		T20000005 /* RawStorageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawStorageTests.swift; sourceTree = "<group>"; };
 		T20000006 /* ComposerContextProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerContextProviderTests.swift; sourceTree = "<group>"; };
 		T20000050 /* TimelineIndexTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineIndexTests.swift; sourceTree = "<group>"; };
+		T20000060 /* OnThisDayHeaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayHeaderTests.swift; sourceTree = "<group>"; };
 		T30000001 /* DayPageTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DayPageTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		TH1000001 /* ThreadConversationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadConversationViewModel.swift; sourceTree = "<group>"; };
 		TH1000002 /* ThreadConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadConversationView.swift; sourceTree = "<group>"; };
@@ -924,6 +926,7 @@
 				T20000004 /* VaultLocatorTests.swift */,
 				T20000005 /* RawStorageTests.swift */,
 				T20000050 /* TimelineIndexTests.swift */,
+				T20000060 /* OnThisDayHeaderTests.swift */,
 				T20000006 /* ComposerContextProviderTests.swift */,
 				84FFEA3DDB8DCB528A4189BF /* HapticFeedbackTests.swift */,
 				KC1000001 /* KeychainHelperTests.swift */,
@@ -1299,6 +1302,7 @@
 				T10000004 /* VaultLocatorTests.swift in Sources */,
 				T10000005 /* RawStorageTests.swift in Sources */,
 				T10000050 /* TimelineIndexTests.swift in Sources */,
+				T10000060 /* OnThisDayHeaderTests.swift in Sources */,
 				T10000006 /* ComposerContextProviderTests.swift in Sources */,
 				09C6E4728050D69F54949DD1 /* HapticFeedbackTests.swift in Sources */,
 				KC0000001 /* KeychainHelperTests.swift in Sources */,
