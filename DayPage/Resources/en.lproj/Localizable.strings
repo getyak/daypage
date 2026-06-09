@@ -348,6 +348,17 @@
 /* Archive — async month loading (US-015) */
 "archive.loading_month" = "Loading…";
 
+/* Archive — year/month jump picker */
+"archive.picker.open" = "Jump to month, currently %@";
+"archive.picker.open.hint" = "Opens a picker to jump to any month";
+"archive.picker.dismiss" = "Dismiss month picker";
+"archive.picker.prev_year" = "Previous year";
+"archive.picker.next_year" = "Next year";
+"archive.picker.year_label" = "Year %d";
+"archive.picker.has_entries" = "Has entries";
+"archive.picker.no_entries" = "No entries";
+"archive.picker.future_unavailable" = "Future month, unavailable";
+
 /* Settings — Accessibility labels/hints */
 "settings.close.label" = "Close Settings";
 "settings.apikey.paste.label" = "Paste API key from clipboard";

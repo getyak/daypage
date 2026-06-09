@@ -376,6 +376,17 @@
 /* Archive — async month loading (US-015) */
 "archive.loading_month" = "加载中…";
 
+/* Archive — year/month jump picker */
+"archive.picker.open" = "跳转月份，当前 %@";
+"archive.picker.open.hint" = "打开选择器以跳转到任意月份";
+"archive.picker.dismiss" = "关闭月份选择器";
+"archive.picker.prev_year" = "上一年";
+"archive.picker.next_year" = "下一年";
+"archive.picker.year_label" = "%d 年";
+"archive.picker.has_entries" = "有记录";
+"archive.picker.no_entries" = "无记录";
+"archive.picker.future_unavailable" = "未来月份，不可用";
+
 /* Settings — Accessibility labels/hints */
 "settings.close.label" = "关闭设置";
 "settings.apikey.paste.label" = "从剪贴板粘贴 API Key";
