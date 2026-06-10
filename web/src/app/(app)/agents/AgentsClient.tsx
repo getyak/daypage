@@ -2,7 +2,17 @@
 
 import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
-import { Bot, Plus, Trash2, Pencil, X, Send, FileText } from "lucide-react";
+import {
+  Bot,
+  Plus,
+  Trash2,
+  Pencil,
+  X,
+  Send,
+  FileText,
+  Sparkles,
+  ShieldAlert,
+} from "lucide-react";
 import { Btn, Card, SectionLabel } from "@/components/ui";
 import { AGENT_MODELS, DEFAULT_AGENT_MODEL } from "@/lib/ai/agent-models";
 
@@ -19,6 +29,19 @@ export interface DomainDTO {
   id: string;
   slug: string;
   label: string;
+}
+
+// US-033: an open task suggestion surfaced for the user to act on. `gate` is the
+// dispatch gate predicted server-side (`auto` runs immediately; `approve-first`
+// asks for a second confirmation before enqueuing the dispatch).
+export interface SuggestionDTO {
+  id: string;
+  title: string;
+  rationale: string;
+  estimate: string | null;
+  suggested_target: string | null;
+  gate: "auto" | "approve-first";
+  created_at: string;
 }
 
 interface Citation {
@@ -77,9 +100,11 @@ const EMPTY_FORM: FormState = {
 export function AgentsClient({
   initialAgents,
   domains,
+  initialSuggestions = [],
 }: {
   initialAgents: AgentDTO[];
   domains: DomainDTO[];
+  initialSuggestions?: SuggestionDTO[];
 }) {
   const [agents, setAgents] = useState<AgentDTO[]>(initialAgents);
   const [form, setForm] = useState<FormState | null>(null);
@@ -172,6 +197,10 @@ export function AgentsClient({
 
   return (
     <div className="page" style={{ maxWidth: 920 }}>
+      {/* US-033: suggestions panel — review open task suggestions, dispatch or
+          dismiss them (approve-first picks need a second confirmation). */}
+      <SuggestionsPanel initialSuggestions={initialSuggestions} />
+
       <SectionLabel
         right={
           <Btn kind="primary" size="sm" icon={<Plus size={14} />} onClick={openCreate}>
@@ -568,5 +597,235 @@ function AgentChat({ agent }: { agent: AgentDTO }) {
         </div>
       </div>
     </Card>
+  );
+}
+
+// ─── US-033: Suggestions panel ────────────────────────────────────────────────
+// Lists open task suggestions and lets the user dispatch or dismiss each one.
+// Mirrors the inbox interaction model: a POST action followed by an optimistic
+// fade-out removal, with the card disabled while the request is in flight.
+// approve-first picks show an inline second-confirmation before dispatching.
+
+const SUGGESTION_FADE_MS = 300;
+
+async function postSuggestionAction(
+  id: string,
+  action: "select" | "dismiss"
+): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/suggestions/${id}/${action}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+function SuggestionCard({
+  suggestion,
+  removing,
+  onRemove,
+}: {
+  suggestion: SuggestionDTO;
+  removing: boolean;
+  onRemove: (id: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  // For approve-first picks, the first "Dispatch" click arms a confirm step.
+  const [confirming, setConfirming] = useState(false);
+
+  const dispatch = useCallback(async () => {
+    if (busy) return;
+    setBusy(true);
+    const ok = await postSuggestionAction(suggestion.id, "select");
+    if (ok) {
+      onRemove(suggestion.id);
+    } else {
+      setBusy(false);
+      setConfirming(false);
+    }
+  }, [busy, suggestion.id, onRemove]);
+
+  const dismiss = useCallback(async () => {
+    if (busy) return;
+    setBusy(true);
+    const ok = await postSuggestionAction(suggestion.id, "dismiss");
+    if (ok) onRemove(suggestion.id);
+    else setBusy(false);
+  }, [busy, suggestion.id, onRemove]);
+
+  const onDispatchClick = useCallback(() => {
+    if (suggestion.gate === "approve-first" && !confirming) {
+      setConfirming(true);
+      return;
+    }
+    void dispatch();
+  }, [suggestion.gate, confirming, dispatch]);
+
+  return (
+    <div
+      style={{
+        transition: `opacity ${SUGGESTION_FADE_MS}ms ease, transform ${SUGGESTION_FADE_MS}ms ease, max-height ${SUGGESTION_FADE_MS}ms ease`,
+        opacity: removing ? 0 : 1,
+        transform: removing ? "translateX(16px)" : "translateX(0)",
+        maxHeight: removing ? "0" : "600px",
+        overflow: "hidden",
+      }}
+    >
+      <Card>
+        <div
+          style={{ display: "flex", flexDirection: "column", gap: 8, padding: 4 }}
+          aria-busy={busy}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Sparkles size={14} strokeWidth={1.8} style={{ color: "var(--accent)" }} />
+            <strong style={{ fontSize: "0.9375rem", flex: 1, minWidth: 0 }}>
+              {suggestion.title}
+            </strong>
+            {suggestion.gate === "approve-first" && (
+              <span
+                className="chip chip--warning"
+                style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                title="This action needs your approval before it runs"
+              >
+                <ShieldAlert size={11} />
+                Approve first
+              </span>
+            )}
+          </div>
+
+          <div style={{ fontSize: "0.8125rem", color: "var(--fg-muted)" }}>
+            {suggestion.rationale}
+          </div>
+
+          {(suggestion.suggested_target || suggestion.estimate) && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              {suggestion.suggested_target && (
+                <span
+                  className="ds-mono-11"
+                  style={{
+                    color: "var(--fg-subtle)",
+                    border: "1px solid var(--accent-border)",
+                    borderRadius: 4,
+                    padding: "0 6px",
+                  }}
+                >
+                  → {suggestion.suggested_target}
+                </span>
+              )}
+              {suggestion.estimate && (
+                <span
+                  className="ds-mono-11"
+                  style={{ color: "var(--fg-subtle)", alignSelf: "center" }}
+                >
+                  {suggestion.estimate}
+                </span>
+              )}
+            </div>
+          )}
+
+          {confirming && (
+            <div
+              style={{
+                fontSize: "0.8125rem",
+                color: "var(--fg-primary)",
+                background: "var(--accent-soft, var(--surface-sunken))",
+                borderRadius: "var(--radius-sm, 6px)",
+                padding: "0.5rem 0.625rem",
+              }}
+            >
+              This dispatch needs approval — confirm to enqueue it?
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
+            <Btn
+              kind="primary"
+              size="sm"
+              loading={busy}
+              disabled={busy}
+              onClick={onDispatchClick}
+            >
+              {confirming ? "Confirm dispatch" : "Dispatch"}
+            </Btn>
+            {confirming && (
+              <Btn
+                kind="ghost"
+                size="sm"
+                disabled={busy}
+                onClick={() => setConfirming(false)}
+              >
+                Cancel
+              </Btn>
+            )}
+            <Btn kind="ghost" size="sm" disabled={busy} onClick={() => void dismiss()}>
+              Dismiss
+            </Btn>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function SuggestionsPanel({
+  initialSuggestions,
+}: {
+  initialSuggestions: SuggestionDTO[];
+}) {
+  const [suggestions, setSuggestions] = useState<SuggestionDTO[]>(initialSuggestions);
+  const [removing, setRemoving] = useState<Set<string>>(new Set());
+
+  const handleRemove = useCallback((id: string) => {
+    setRemoving((prev) => new Set(prev).add(id));
+    setTimeout(() => {
+      setSuggestions((prev) => prev.filter((s) => s.id !== id));
+      setRemoving((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }, SUGGESTION_FADE_MS + 50);
+  }, []);
+
+  if (suggestions.length === 0) return null;
+
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <SectionLabel>
+        <span className="settings-section-title">
+          <Sparkles size={14} strokeWidth={1.8} />
+          Suggestions
+          <span
+            className="ds-mono-11"
+            style={{ color: "var(--fg-subtle)", marginLeft: 4 }}
+          >
+            {suggestions.length}
+          </span>
+        </span>
+      </SectionLabel>
+
+      <p
+        className="ds-caption"
+        style={{ color: "var(--fg-muted)", margin: "8px 0 12px" }}
+      >
+        Tasks the Suggester proposed from your trees. Dispatch one to hand it to
+        an executor, or dismiss it. Picks marked{" "}
+        <strong>Approve first</strong> ask for a confirmation before they run.
+      </p>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {suggestions.map((s) => (
+          <SuggestionCard
+            key={s.id}
+            suggestion={s}
+            removing={removing.has(s.id)}
+            onRemove={handleRemove}
+          />
+        ))}
+      </div>
+    </div>
   );
 }

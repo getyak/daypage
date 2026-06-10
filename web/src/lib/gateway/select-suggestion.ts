@@ -61,3 +61,45 @@ export async function selectSuggestion(
   }
   return { status: "not_found" };
 }
+
+// Outcome of a dismiss action — distinct from selection so callers don't have to
+// reinterpret a "selected" status that never matches what actually happened.
+export type DismissSuggestionResult =
+  | { status: "dismissed"; suggestion: TaskSuggestion }
+  | { status: "already"; suggestion: TaskSuggestion }
+  | { status: "not_found" };
+
+// US-033: the user declined a suggestion in the web workbench. Flip `open` →
+// `dismissed`. Idempotent like selectSuggestion: the WHERE clause guards on the
+// current status, so a row already acted on is left untouched and the UPDATE
+// returns no rows. No dispatch is enqueued — a dismissed suggestion never runs.
+export async function dismissSuggestion(
+  suggestionId: string
+): Promise<DismissSuggestionResult> {
+  const updated = await db
+    .update(task_suggestions)
+    .set({ status: "dismissed" })
+    .where(
+      and(
+        eq(task_suggestions.id, suggestionId),
+        eq(task_suggestions.status, "open")
+      )
+    )
+    .returning();
+
+  const suggestion = updated[0];
+  if (suggestion) {
+    return { status: "dismissed", suggestion };
+  }
+
+  const existing = await db
+    .select()
+    .from(task_suggestions)
+    .where(eq(task_suggestions.id, suggestionId))
+    .limit(1);
+
+  if (existing[0]) {
+    return { status: "already", suggestion: existing[0] };
+  }
+  return { status: "not_found" };
+}

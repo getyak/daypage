@@ -99,3 +99,6 @@ Previous run archived: scripts/ralph/archive/2026-06-09-v8-ios-m3-m6/ (v8 iOS M3
 [2026-06-10T03:24:09Z] Story #US-031: 预算熔断与成本统计查询 — PASSED
 [2026-06-10T03:31:00Z] Story #US-032: 任务树可视化 API + 页面骨架 — FAILED (iteration 11)
 [2026-06-10T03:37:06Z] Story #US-032: 任务树可视化 API + 页面骨架 — PASSED
+[2026-06-10T03:43:52Z] Story #US-033: 建议列表与闸门审批 UI — FAILED (iteration 13)
+[2026-06-10T03:49:52Z] Story #US-033: 建议列表与闸门审批 UI — FAILED (iteration 14)
+[2026-06-10T03:55:49Z] Story #US-033: 建议列表与闸门审批 UI — PASSED
