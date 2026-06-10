@@ -93,3 +93,4 @@ Previous run archived: scripts/ralph/archive/2026-06-09-v8-ios-m3-m6/ (v8 iOS M3
 [2026-06-10T02:47:51Z] Story #US-026: WorkOrder 路由 — 轻活沙箱/重活外包 — PASSED
 [2026-06-10T02:54:36Z] Story #US-027: 适配器接口 + Ralph 适配器 — PASSED
 [2026-06-10T03:00:52Z] Story #US-028: OpenClaw 适配器 (骨架) — PASSED
+[2026-06-10T03:06:11Z] Story #US-029: 幂等与重试硬化 — PASSED
