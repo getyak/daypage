@@ -14,7 +14,7 @@ vi.mock("@/lib/db/schema", async (importOriginal) => {
   return { ...real };
 });
 
-import { classifyGate, checkBudget, dailyTokenLimit } from "../policy";
+import { classifyGate, classifyRoute, checkBudget, dailyTokenLimit } from "../policy";
 
 // Build a thenable select chain resolving to `result`, supporting the drizzle
 // builder methods checkBudget uses (from/where).
@@ -78,6 +78,66 @@ describe("classifyGate", () => {
 });
 
 // ── checkBudget ───────────────────────────────────────────────────────────────
+
+// ── classifyRoute (US-026) ──────────────────────────────────────────────────
+
+describe("classifyRoute", () => {
+  it("routes lightweight read-only intents to the sandbox", () => {
+    expect(classifyRoute("fetch the latest docs").target).toBe("sandbox");
+    expect(classifyRoute("read the changelog").target).toBe("sandbox");
+    expect(classifyRoute("search the web for prior art").target).toBe("sandbox");
+    expect(classifyRoute("scrape the pricing page").target).toBe("sandbox");
+    expect(classifyRoute("browse the issue tracker").target).toBe("sandbox");
+    expect(classifyRoute("analyze the repository structure").target).toBe("sandbox");
+  });
+
+  it("routes text-generation intents to the sandbox", () => {
+    expect(classifyRoute("summarize today's memos").target).toBe("sandbox");
+    expect(classifyRoute("compile the daily page").target).toBe("sandbox");
+    expect(classifyRoute("draft an outline of the post").target).toBe("sandbox");
+    expect(classifyRoute("translate the note to English").target).toBe("sandbox");
+  });
+
+  it("outsources code-mutation intents to claude-code", () => {
+    expect(classifyRoute("refactor the auth module").target).toBe("claude-code");
+    expect(classifyRoute("commit and push the fix").target).toBe("claude-code");
+    expect(classifyRoute("implement the new endpoint").target).toBe("claude-code");
+    expect(classifyRoute("fix the bug in the parser").target).toBe("claude-code");
+    expect(classifyRoute("create a PR for the change").target).toBe("claude-code");
+    expect(classifyRoute("modify the config file").target).toBe("claude-code");
+  });
+
+  it("outsources long / multi-step intents to ralph", () => {
+    expect(classifyRoute("migrate the database schema").target).toBe("ralph");
+    expect(classifyRoute("backfill the embeddings overnight").target).toBe("ralph");
+    expect(classifyRoute("run a long-running indexing job").target).toBe("ralph");
+    expect(classifyRoute("a multi-step research campaign").target).toBe("ralph");
+  });
+
+  it("outsources unknown / side-effecting intents to openclaw by default", () => {
+    expect(classifyRoute("frobnicate the widget").target).toBe("openclaw");
+    expect(classifyRoute("").target).toBe("openclaw");
+    expect(classifyRoute("post a tweet about the launch").target).toBe("openclaw");
+  });
+
+  it("lets the heaviest side effect win in mixed intents", () => {
+    // "refactor then summarize" still outsources to claude-code, not sandbox.
+    expect(classifyRoute("refactor the module then summarize it").target).toBe(
+      "claude-code"
+    );
+    // code mutation outranks a long-task keyword too.
+    expect(classifyRoute("implement and migrate the new feature").target).toBe(
+      "claude-code"
+    );
+  });
+
+  it("returns a human-readable reason alongside the target", () => {
+    const r = classifyRoute("fetch the docs");
+    expect(r.target).toBe("sandbox");
+    expect(typeof r.reason).toBe("string");
+    expect(r.reason.length).toBeGreaterThan(0);
+  });
+});
 
 describe("checkBudget", () => {
   beforeEach(() => {

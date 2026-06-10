@@ -101,6 +101,80 @@ export function classifyGate(intent: string): Extract<WorkOrderGate, "auto" | "a
   return "approve-first";
 }
 
+// ── Execution routing ────────────────────────────────────────────────────────
+// US-026: route a work order to an executor target by side-effect weight.
+// Lightweight, no-side-effect work (fetch a page, read, generate text) runs on
+// the self-hosted `sandbox`. Heavy / side-effecting work (mutate code, long
+// multi-step tasks, external writes) is outsourced to a heavy backend. The
+// rules live here in the policy so routing stays centralized and unit-tested.
+
+// The executor an order is dispatched to. `sandbox` is the self-hosted cheap
+// runner; the rest are outsourced heavy backends. Mirrors `agentBackendEnum`.
+export type ExecutionTarget = AgentBackend;
+
+// The three outsourced heavy backends. Code-mutation work goes to `claude-code`
+// (the only connector wired today); long/multi-step work to `ralph`; any other
+// side-effecting / external-write work to `openclaw`.
+export type OutsourcedBackend = Exclude<ExecutionTarget, "sandbox">;
+
+// Code-mutation intents — outsource to claude-code (repo edits, refactors, PRs).
+const CODE_MUTATION_PATTERNS: RegExp[] = [
+  /\b(commit|push|merge\s+pr|deploy|release|refactor|patch|rewrite\s+code|write\s+code|edit\s+code|implement)\b/i,
+  // "create [a] PR" — allow an optional intervening word ("create a PR").
+  /\bcreate\b\s+(?:\w+\s+)?\bpr\b/i,
+  // "modify [the] [config] file/code/repo" — allow intervening words.
+  /\bmodify\b\s+(?:\w+\s+)*(?:file|code|repo)\b/i,
+  // "fix [the] bug" — allow an optional intervening word.
+  /\bfix\b\s+(?:\w+\s+)?\bbug\b/i,
+];
+
+// Long-running / multi-step intents — outsource to ralph (the autonomous loop).
+const LONG_TASK_PATTERNS: RegExp[] = [
+  /\b(migrate|migration|backfill|build\s+(?:feature|system)|long[-\s]?running|multi[-\s]?step|campaign|overnight|loop\s+until|autonomous)\b/i,
+];
+
+// Lightweight, read-only / text-only intents — keep on the self-hosted sandbox.
+const SANDBOX_PATTERNS: RegExp[] = [
+  // external read-only
+  /\b(read|fetch|search|lookup|browse|scrape|crawl|analyze|review|inspect)\b/i,
+  // text generation / compilation (no external side effect)
+  /\b(summarize|compile|draft|generate\s+text|write\s+up|outline|suggest|annotate|embed|translate|format)\b/i,
+];
+
+export interface RouteDecision {
+  target: ExecutionTarget;
+  // Why this target was chosen — surfaced in logs / change_log for auditing.
+  reason: string;
+}
+
+/**
+ * Route a work-order intent to an executor target by side-effect weight.
+ *
+ * Order of precedence (heaviest side effect wins, so a mixed intent like
+ * "refactor then summarize" still outsources):
+ *   1. code mutation         → 'claude-code'
+ *   2. long / multi-step      → 'ralph'
+ *   3. lightweight read/text  → 'sandbox'
+ *   4. otherwise side-effecting → 'openclaw' (safe default for unknown intents,
+ *      since an unclassified intent may write to the outside world)
+ */
+export function classifyRoute(intent: string): RouteDecision {
+  const text = intent.trim();
+
+  if (CODE_MUTATION_PATTERNS.some((re) => re.test(text))) {
+    return { target: "claude-code", reason: "code-mutation → claude-code" };
+  }
+  if (LONG_TASK_PATTERNS.some((re) => re.test(text))) {
+    return { target: "ralph", reason: "long/multi-step → ralph" };
+  }
+  if (SANDBOX_PATTERNS.some((re) => re.test(text))) {
+    return { target: "sandbox", reason: "lightweight read/text → sandbox" };
+  }
+  // Unknown intent: assume it may have side effects and outsource it rather
+  // than running it unsupervised on the sandbox.
+  return { target: "openclaw", reason: "unclassified side-effecting → openclaw" };
+}
+
 // ── Circuit breaker ──────────────────────────────────────────────────────────
 
 // Trip the breaker for a backend after this many consecutive failed sessions.

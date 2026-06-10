@@ -55,6 +55,12 @@ function makeBuilt(order: WorkOrder): BuildWorkOrderResult {
 function makeDeps(over: Partial<DispatchDeps> = {}): DispatchDeps {
   return {
     buildWorkOrder: vi.fn(async () => makeBuilt(makeOrder())),
+    // Default to a claude-code route so the existing dispatch-path tests below
+    // exercise the connector; the routing-specific tests override this.
+    routeWorkOrder: vi.fn(() => ({
+      target: "claude-code" as const,
+      reason: "test-default",
+    })),
     checkBudget: vi.fn(async () => ({ allowed: true, spent: 0, limit: 1_000_000 })),
     circuitState: vi.fn(async () => ({ open: false, failures: 0, threshold: 5 })),
     dispatch: vi.fn(async () => ({
@@ -229,4 +235,49 @@ describe("runDispatchPipeline", () => {
     expect(deps.completeJob).not.toHaveBeenCalled();
     expect(result).toMatchObject({ outcome: "dispatched" });
   });
+
+  // ── US-026: connector routing ─────────────────────────────────────────────
+
+  it("claude-code route: dispatches via the connector and tags the target", async () => {
+    const { step, order } = makeFakeStep();
+    const deps = makeDeps({
+      routeWorkOrder: vi.fn(() => ({
+        target: "claude-code" as const,
+        reason: "code-mutation → claude-code",
+      })),
+    });
+
+    const result = await runDispatchPipeline(
+      { suggestionId: "sug-1", jobId: "job-1" },
+      step,
+      deps
+    );
+
+    expect(deps.dispatch).toHaveBeenCalledOnce();
+    expect(order).not.toContain("park-no-connector");
+    expect(result).toMatchObject({ outcome: "dispatched", target: "claude-code" });
+  });
+
+  it.each(["sandbox", "openclaw", "ralph"] as const)(
+    "%s route: no wired connector → parks gated, does not dispatch",
+    async (target) => {
+      const { step, order } = makeFakeStep();
+      const deps = makeDeps({
+        routeWorkOrder: vi.fn(() => ({ target, reason: `routed → ${target}` })),
+      });
+
+      const result = await runDispatchPipeline(
+        { suggestionId: "sug-1", jobId: "job-1" },
+        step,
+        deps
+      );
+
+      expect(deps.dispatch).not.toHaveBeenCalled();
+      expect(deps.markSuggestionDispatched).not.toHaveBeenCalled();
+      expect(order).toContain("park-no-connector");
+      expect(deps.parkAtGate).toHaveBeenCalledWith("wo-1");
+      expect(deps.completeJob).toHaveBeenCalledWith("job-1");
+      expect(result).toMatchObject({ outcome: "gated", target });
+    }
+  );
 });

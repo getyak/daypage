@@ -8,7 +8,13 @@ import {
   work_orders,
   type WorkOrder as WorkOrderRow,
 } from "@/lib/db/schema";
-import { classifyGate, type WorkOrderGate } from "@/lib/gateway/policy";
+import {
+  classifyGate,
+  classifyRoute,
+  type ExecutionTarget,
+  type RouteDecision,
+  type WorkOrderGate,
+} from "@/lib/gateway/policy";
 
 // US-014: WorkOrder contract + builder. A `WorkOrder` is the normalized brief an
 // executor runs from. The Gateway builds one when a user selects a suggestion:
@@ -184,3 +190,19 @@ export async function buildWorkOrder(
 
   return { workOrder, row: inserted[0] };
 }
+
+// ── Routing ──────────────────────────────────────────────────────────────────
+
+// US-026: route a built work order to an executor target by side-effect weight.
+// Accepts either an in-memory `WorkOrder` or the persisted `work_orders` row —
+// both carry the `intent` that drives the decision. The routing rules live in
+// the policy (`classifyRoute`); this is the thin wrapper dispatch consults to
+// pick a connector: lightweight read/text work → 'sandbox' (self-hosted),
+// heavy / side-effecting work → an outsourced backend.
+export function routeWorkOrder(
+  wo: Pick<WorkOrder, "intent"> | Pick<WorkOrderRow, "intent">
+): RouteDecision {
+  return classifyRoute(wo.intent);
+}
+
+export type { ExecutionTarget, RouteDecision };

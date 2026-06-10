@@ -28,9 +28,14 @@ import { db } from "@/lib/db/client";
 import { task_suggestions, work_orders } from "@/lib/db/schema";
 import {
   buildWorkOrder,
+  routeWorkOrder,
   type BuildWorkOrderResult,
 } from "@/lib/gateway/work-order";
-import { checkBudget, circuitState } from "@/lib/gateway/policy";
+import {
+  checkBudget,
+  circuitState,
+  type ExecutionTarget,
+} from "@/lib/gateway/policy";
 import { dispatch, type DispatchResult } from "@/lib/connectors/claude-code";
 import { completeJob } from "@/lib/gateway/jobs";
 
@@ -68,6 +73,7 @@ type StepRunner = <T>(id: string, fn: () => Promise<T>) => Promise<T>;
 // live database / filesystem.
 export interface DispatchDeps {
   buildWorkOrder: typeof buildWorkOrder;
+  routeWorkOrder: typeof routeWorkOrder;
   checkBudget: typeof checkBudget;
   circuitState: typeof circuitState;
   dispatch: typeof dispatch;
@@ -78,6 +84,7 @@ export interface DispatchDeps {
 
 const defaultDeps: DispatchDeps = {
   buildWorkOrder,
+  routeWorkOrder,
   checkBudget,
   circuitState,
   dispatch,
@@ -85,6 +92,14 @@ const defaultDeps: DispatchDeps = {
   markSuggestionDispatched,
   completeJob,
 };
+
+// US-026: which executor targets have a wired connector. Only `claude-code` has
+// a real connector today (US-015); orders routed to the self-hosted `sandbox`
+// or the other outsourced backends (`openclaw`/`ralph`) are parked `gated` until
+// their connectors land, rather than mis-dispatched to claude-code.
+const CONNECTED_TARGETS: ReadonlySet<ExecutionTarget> = new Set<ExecutionTarget>([
+  "claude-code",
+]);
 
 export type DispatchPipelineResult =
   | { skipped: true; reason: string; [k: string]: unknown }
@@ -94,6 +109,9 @@ export type DispatchPipelineResult =
       workOrderId: string;
       outcome: "dispatched" | "gated";
       sessionId: string | null;
+      // US-026: the executor target chosen by routeWorkOrder, when routing ran.
+      // Absent on the pre-routing gates (budget / circuit / approve-first).
+      target?: ExecutionTarget;
     };
 
 // Close out the gateway_jobs row when one is linked. No jobId (event fired
@@ -190,7 +208,31 @@ export async function runDispatchPipeline(
     };
   }
 
-  // ── 4. Dispatch to the executor (claude-code connector) ───────────────────
+  // ── 4. Route by side-effect weight, then dispatch via the matching connector ─
+  // routeWorkOrder picks an executor target from the intent: lightweight
+  // read/text work → 'sandbox'; heavy / side-effecting work → an outsourced
+  // backend. Only 'claude-code' has a wired connector today, so other targets
+  // park `gated` awaiting their connector rather than dispatching to the wrong
+  // backend.
+  const route = deps.routeWorkOrder(order);
+
+  if (!CONNECTED_TARGETS.has(route.target)) {
+    await step("park-no-connector", async () => deps.parkAtGate(order.id));
+    await step("complete-job", async () => finishJob(deps, jobId));
+    console.log(
+      `[executor-dispatch] order ${order.id} routed to '${route.target}' ` +
+        `(${route.reason}) — no connector wired, parking gated`
+    );
+    return {
+      skipped: false,
+      suggestionId,
+      workOrderId: order.id,
+      outcome: "gated",
+      sessionId: null,
+      target: route.target,
+    };
+  }
+
   const result: DispatchResult = await step("dispatch", async () => {
     return deps.dispatch(order);
   });
@@ -223,6 +265,7 @@ export async function runDispatchPipeline(
     workOrderId: order.id,
     outcome: "dispatched",
     sessionId: result.sessionId,
+    target: route.target,
   };
 }
 

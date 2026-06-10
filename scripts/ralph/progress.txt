@@ -89,3 +89,4 @@ Previous run archived: scripts/ralph/archive/2026-06-09-v8-ios-m3-m6/ (v8 iOS M3
 [2026-06-10T02:29:09Z] Story #US-024: 沙箱终端工具 — 命令白名单 — FAILED (iteration 63)
 [2026-06-10T02:35:09Z] Story #US-024: 沙箱终端工具 — 命令白名单 — PASSED
 [2026-06-10T02:39:48Z] Story #US-025: 沙箱 headless 浏览器工具 — PASSED
+[2026-06-10T02:45:23Z] Story #US-026: WorkOrder 路由 — 轻活沙箱/重活外包 — FAILED (iteration 3)
