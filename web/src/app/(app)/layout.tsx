@@ -166,8 +166,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       <MobileSidebarDrawer sidebar={sidebarContent}>
 
       {/* Main column — fills the remaining space next to the (collapsible) sidebar.
-          Using flex-1 + min-w-0 avoids hard-coding sidebar width here. */}
-      <div className="flex flex-col min-h-screen flex-1 min-w-0">
+          Using flex-1 + min-w-0 avoids hard-coding sidebar width here.
+          h-screen (not min-h-screen) gives the column a *definite* height so the
+          scrollable <main> below — and any child using height:100% (e.g. the
+          Orbit d3-force <svg>) — resolves against a real height instead of
+          collapsing. The inner <main> owns the scroll. */}
+      <div className="flex flex-col h-screen flex-1 min-w-0">
         {/* Topbar — hidden on mobile when the /today flow mounts its own
             glass toolbar (see .today-mobile-active rule in globals.css). */}
         <header
@@ -197,8 +201,20 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        {/* Page content */}
-        <main style={{ flex: 1, overflowY: "auto" }}>
+        {/* Page content. minHeight:0 lets this flex child shrink below its
+            content height so overflowY:auto actually scrolls. display:flex +
+            column makes the page's own flex:1 root (e.g. OrbitClient) fill the
+            available height instead of collapsing to content height — a plain
+            block parent silences a child's flex:1. */}
+        <main
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: "auto",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
           {children}
         </main>
       </div>

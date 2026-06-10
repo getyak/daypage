@@ -199,10 +199,37 @@ function NodeDetailAside({
 // ─── Graph canvas for a single tree ────────────────────────────────────────────
 
 function TreeGraph({ treeId }: { treeId: string }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [detail, setDetail] = useState<TreeDetailDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedNode, setSelectedNode] = useState<TreeNodeDTO | null>(null);
+  // Measured canvas size. The simulation's center force depends on this, so we
+  // must have a *real* size before laying out — reading svg.clientHeight inside
+  // the layout effect races with flexbox and can yield a collapsed height,
+  // which pins every node to the top of the canvas. A ResizeObserver feeds the
+  // true size (and keeps it current on resize / sidebar collapse).
+  const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const box = entries[0]?.contentRect;
+      if (!box) return;
+      // Ignore degenerate (pre-layout) sizes so we never center on a 0-height.
+      if (box.width < 1 || box.height < 1) return;
+      setDims((prev) =>
+        prev && prev.w === Math.round(box.width) && prev.h === Math.round(box.height)
+          ? prev
+          : { w: Math.round(box.width), h: Math.round(box.height) }
+      );
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+    // Re-run once the graph DOM (with wrapRef) actually mounts: while loading or
+    // empty, a different element tree renders and wrapRef.current is null.
+  }, [loading, detail]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -232,14 +259,16 @@ function TreeGraph({ treeId }: { treeId: string }) {
 
   // Build + run the simulation. parent_id → child edges form the branch graph.
   useEffect(() => {
-    if (!detail || !svgRef.current) return;
+    if (!detail || !svgRef.current || !dims) return;
     if (detail.nodes.length === 0) return;
 
     const svg = d3Selection.select(svgRef.current);
     svg.selectAll("*").remove();
 
-    const width = svgRef.current.clientWidth || 800;
-    const height = svgRef.current.clientHeight || 560;
+    // Use the ResizeObserver-measured size, not svg.clientHeight (which races
+    // with layout). Falls back defensively but dims is guaranteed non-null here.
+    const width = dims.w || 800;
+    const height = dims.h || 560;
     const addedSet = new Set(detail.diff.added_node_ids);
     const changedSet = new Set(detail.diff.changed_node_ids);
 
@@ -358,7 +387,7 @@ function TreeGraph({ treeId }: { treeId: string }) {
     return () => {
       simulation.stop();
     };
-  }, [detail, handleNodeClick]);
+  }, [detail, handleNodeClick, dims]);
 
   // Highlight the selected node with an extra ring.
   useEffect(() => {
@@ -441,7 +470,10 @@ function TreeGraph({ treeId }: { treeId: string }) {
     : false;
 
   return (
-    <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+    <div
+      ref={wrapRef}
+      style={{ flex: 1, position: "relative", overflow: "hidden", minHeight: 0 }}
+    >
       <svg
         ref={svgRef}
         style={{ width: "100%", height: "100%", display: "block" }}
