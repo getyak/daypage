@@ -12,6 +12,7 @@ import {
   unique,
   primaryKey,
   customType,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -76,6 +77,83 @@ export const pageStatusEnum = pgEnum("page_status", [
   "draft",
   "live",
   "archived",
+]);
+
+// ─── US-001: task tree (Git-style goal evolution) enums ───────────────────────
+
+export const treeStatusEnum = pgEnum("tree_status", ["active", "archived"]);
+
+export const treeNodeKindEnum = pgEnum("tree_node_kind", [
+  "goal",
+  "branch",
+  "leaf",
+]);
+
+export const treeNodeStatusEnum = pgEnum("tree_node_status", [
+  "growing",
+  "mature",
+  "merged",
+  "pruned",
+]);
+
+// US-002: lifecycle of a durable orchestrator job. `gated` = paused awaiting a
+// gate (e.g. user choice / budget); `dead` = exhausted retries, parked.
+export const gatewayJobStatusEnum = pgEnum("gateway_job_status", [
+  "queued",
+  "running",
+  "gated",
+  "done",
+  "failed",
+  "dead",
+]);
+
+// US-003: lifecycle of an AI-generated task suggestion awaiting user choice.
+// `open` = surfaced, awaiting selection; `selected` = user picked it; `dispatched`
+// = handed to the executor; `dismissed` = user declined.
+export const taskSuggestionStatusEnum = pgEnum("task_suggestion_status", [
+  "open",
+  "selected",
+  "dispatched",
+  "dismissed",
+]);
+
+// US-004: gating policy for a dispatched work order. `auto` = run with no human
+// gate; `approve-first` = pause for user OK before dispatch; `approve-result` =
+// run, then pause for user review of the result before it flows back.
+export const workOrderGateEnum = pgEnum("work_order_gate", [
+  "auto",
+  "approve-first",
+  "approve-result",
+]);
+
+// US-004: lifecycle of a work order. `gated` = paused at its gate awaiting user
+// action; otherwise the usual pending→running→done/failed progression.
+export const workOrderStatusEnum = pgEnum("work_order_status", [
+  "pending",
+  "gated",
+  "running",
+  "done",
+  "failed",
+]);
+
+// US-004: which executor backend an agent session runs on. `sandbox` = the
+// self-hosted lightweight runner for cheap work; the others are outsourced
+// heavy-lifting backends.
+export const agentBackendEnum = pgEnum("agent_backend", [
+  "claude-code",
+  "openclaw",
+  "ralph",
+  "sandbox",
+]);
+
+// US-004: liveness of an agent backend session. Driven by heartbeats: `idle` =
+// connected but no active work; `timed_out` = missed heartbeats; `closed` =
+// torn down.
+export const agentSessionStatusEnum = pgEnum("agent_session_status", [
+  "active",
+  "idle",
+  "timed_out",
+  "closed",
 ]);
 
 // ─── US-006: Wave 1b — users + memos + memo_attachments ───────────────────────
@@ -686,6 +764,200 @@ export const agents = pgTable(
 
 export type Agent = typeof agents.$inferSelect;
 export type NewAgent = typeof agents.$inferInsert;
+
+// ─── US-001: trees + tree_nodes (Git-style task tree) ─────────────────────────
+// A `tree` is a long-term goal; its `tree_nodes` form a Git-style branch graph
+// that evolves over time. A node is a `goal` (root), a `branch` (a line of
+// pursuit), or a `leaf` (a concrete actionable). `parent_id` self-references to
+// build the tree; the root goal node has parent_id = NULL. `heat` ranks nodes
+// for the Suggester; `evidence_memo_ids` cites the raw memos that grew the node;
+// `page_id` optionally links a node to its compiled wiki page.
+
+export const trees = pgTable("trees", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  user_id: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  status: treeStatusEnum("status").notNull().default("active"),
+  created_at: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const tree_nodes = pgTable(
+  "tree_nodes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tree_id: uuid("tree_id")
+      .notNull()
+      .references(() => trees.id, { onDelete: "cascade" }),
+    // Self-reference for the Git-style branch graph; NULL on the root goal node.
+    parent_id: uuid("parent_id").references((): AnyPgColumn => tree_nodes.id, {
+      onDelete: "cascade",
+    }),
+    kind: treeNodeKindEnum("kind").notNull(),
+    status: treeNodeStatusEnum("status").notNull().default("growing"),
+    title: text("title").notNull(),
+    heat: real("heat").notNull().default(0),
+    evidence_memo_ids: jsonb("evidence_memo_ids")
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    page_id: uuid("page_id").references(() => pages.id, {
+      onDelete: "set null",
+    }),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    index("tree_nodes_tree").on(t.tree_id),
+    // "user 经由 tree": tree_nodes have no direct user_id; scoping a user's nodes
+    // goes through tree_id, so the per-tree index also serves user-scoped reads.
+    index("tree_nodes_tree_parent").on(t.tree_id, t.parent_id),
+  ]
+);
+
+export type Tree = typeof trees.$inferSelect;
+export type NewTree = typeof trees.$inferInsert;
+export type TreeNode = typeof tree_nodes.$inferSelect;
+export type NewTreeNode = typeof tree_nodes.$inferInsert;
+
+// ─── US-002: gateway_jobs (durable orchestrator job state machine) ────────────
+// The Gateway scheduler enqueues durable jobs here so the orchestrator survives
+// restarts. `idempotency_key` dedupes re-enqueues of the same logical job;
+// `attempts`/`last_error` drive retry/backoff; `gate_state` carries opaque
+// context while a job is `gated` (paused awaiting a user choice or budget).
+
+export const gateway_jobs = pgTable(
+  "gateway_jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    tree_id: uuid("tree_id").references(() => trees.id, {
+      onDelete: "set null",
+    }),
+    payload: jsonb("payload").notNull().default(sql`'{}'::jsonb`),
+    status: gatewayJobStatusEnum("status").notNull().default("queued"),
+    idempotency_key: text("idempotency_key").notNull(),
+    gate_state: text("gate_state"),
+    attempts: integer("attempts").notNull().default(0),
+    last_error: text("last_error"),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    index("gateway_jobs_user_status").on(t.user_id, t.status),
+    unique("gateway_jobs_idempotency_key_unique").on(t.idempotency_key),
+  ]
+);
+
+export type GatewayJob = typeof gateway_jobs.$inferSelect;
+export type NewGatewayJob = typeof gateway_jobs.$inferInsert;
+
+// ─── US-003: task_suggestions (AI suggestions awaiting user selection) ─────────
+// The Suggester writes candidate tasks here for the user to pick from. Each row
+// optionally links to the `tree_node` it grew from (set null if that node is
+// pruned). `estimate`/`suggested_target` hint the executor tier; `payload`
+// carries opaque dispatch context (prompt, params) consumed when selected.
+
+export const task_suggestions = pgTable(
+  "task_suggestions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tree_node_id: uuid("tree_node_id").references(() => tree_nodes.id, {
+      onDelete: "set null",
+    }),
+    title: text("title").notNull(),
+    rationale: text("rationale").notNull(),
+    estimate: text("estimate"),
+    suggested_target: text("suggested_target"),
+    status: taskSuggestionStatusEnum("status").notNull().default("open"),
+    payload: jsonb("payload").notNull().default(sql`'{}'::jsonb`),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("task_suggestions_user_status").on(t.user_id, t.status)]
+);
+
+export type TaskSuggestion = typeof task_suggestions.$inferSelect;
+export type NewTaskSuggestion = typeof task_suggestions.$inferInsert;
+
+// ─── US-004: work_orders + agent_sessions (dispatch + executor sessions) ───────
+// A `work_order` is a concrete unit of work dispatched to an executor. It may
+// originate from a `task_suggestion` (set null if that suggestion is removed).
+// `gate` controls whether/when it pauses for the user; `context`/`output_spec`
+// brief the executor; `callback` carries where to report back; `result_ref`
+// points at the produced artifact once `done`. An `agent_session` is a live
+// connection to an executor `backend` (sandbox or an outsourced agent), tracked
+// by heartbeats and token spend.
+
+export const work_orders = pgTable(
+  "work_orders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    suggestion_id: uuid("suggestion_id").references(
+      () => task_suggestions.id,
+      { onDelete: "set null" },
+    ),
+    intent: text("intent").notNull(),
+    context: jsonb("context").notNull().default(sql`'{}'::jsonb`),
+    output_spec: text("output_spec"),
+    gate: workOrderGateEnum("gate").notNull().default("approve-first"),
+    callback: jsonb("callback"),
+    budget_tokens: integer("budget_tokens"),
+    status: workOrderStatusEnum("status").notNull().default("pending"),
+    result_ref: text("result_ref"),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("work_orders_user_status").on(t.user_id, t.status)]
+);
+
+export const agent_sessions = pgTable(
+  "agent_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    backend: agentBackendEnum("backend").notNull(),
+    external_ref: text("external_ref"),
+    project: text("project"),
+    status: agentSessionStatusEnum("status").notNull().default("active"),
+    last_heartbeat_at: timestamp("last_heartbeat_at", { withTimezone: true }),
+    tokens_used: integer("tokens_used").notNull().default(0),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("agent_sessions_user_status").on(t.user_id, t.status)]
+);
+
+export type WorkOrder = typeof work_orders.$inferSelect;
+export type NewWorkOrder = typeof work_orders.$inferInsert;
+export type AgentSession = typeof agent_sessions.$inferSelect;
+export type NewAgentSession = typeof agent_sessions.$inferInsert;
 
 // ─── Re-export helper types ────────────────────────────────────────────────────
 

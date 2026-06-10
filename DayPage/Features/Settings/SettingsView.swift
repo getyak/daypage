@@ -1083,7 +1083,9 @@ struct SettingsView: View {
     }
 
     /// True for a raw day-file name of the form `YYYY-MM-DD.md`.
-    private static func isDayFileName(_ name: String) -> Bool {
+    /// `nonisolated` so it can be called from the detached vault-size task,
+    /// which runs off the main actor.
+    private nonisolated static func isDayFileName(_ name: String) -> Bool {
         guard name.hasSuffix(".md") else { return false }
         let stem = String(name.dropLast(3))
         let parts = stem.split(separator: "-", omittingEmptySubsequences: false)

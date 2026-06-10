@@ -8,6 +8,11 @@ import { gapDetect } from "@/lib/inngest/functions/gap-detect";
 import { weeklyReport } from "@/lib/inngest/functions/weekly-report";
 import { fetchRss } from "@/lib/inngest/functions/fetch-rss";
 import { weaveGraph } from "@/lib/inngest/functions/weave-graph";
+import { suggesterRun } from "@/lib/inngest/functions/suggester-run";
+import { schedulerTick } from "@/lib/inngest/functions/scheduler-tick";
+import { executorDispatch } from "@/lib/inngest/functions/executor-dispatch";
+import { evolverStep } from "@/lib/inngest/functions/evolver-step";
+import { sessionReaper } from "@/lib/inngest/functions/session-reaper";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -20,5 +25,10 @@ export const { GET, POST, PUT } = serve({
     weeklyReport,
     fetchRss,
     weaveGraph,
+    suggesterRun,
+    schedulerTick,
+    executorDispatch,
+    evolverStep,
+    sessionReaper,
   ],
 });

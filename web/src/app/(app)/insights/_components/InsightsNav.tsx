@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { BarChart2, Activity, Cpu, Code2, Footprints } from "lucide-react";
+import { BarChart2, Activity, Cpu, Code2, Footprints, Bot } from "lucide-react";
 
 const SECTIONS = [
   { id: "knowledge", label: "Knowledge", icon: BarChart2 },
   { id: "activity", label: "Activity Stream", icon: Activity },
   { id: "system", label: "System & Cost", icon: Cpu },
+  { id: "agent", label: "Agent 成本", icon: Bot },
   { id: "dev", label: "Development", icon: Code2 },
   { id: "footprint", label: "Digital Footprint", icon: Footprints },
 ];

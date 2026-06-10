@@ -6,6 +6,7 @@ import { SourcesSection } from "./SourcesSection";
 import { TelegramSection } from "./TelegramSection";
 import { WebhookSection } from "./WebhookSection";
 import { ClipperSection } from "./ClipperSection";
+import { EvolutionSection } from "./EvolutionSection";
 
 export const metadata = {
   title: "Settings · DayPage",
@@ -32,6 +33,7 @@ export default async function SettingsPage() {
       />
       <div className="page settings-page" style={{ paddingTop: 0 }}>
         <SourcesSection />
+        <EvolutionSection />
         <TelegramSection />
         <WebhookSection />
         <ClipperSection />

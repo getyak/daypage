@@ -224,7 +224,7 @@ struct YearMonthPicker: View {
     /// app's mono label aesthetic. Uses standalone symbols so they read
     /// correctly out of a date context.
     private static func monthShortSymbol(_ month: Int) -> String {
-        let symbols = shortFormatter.standaloneShortMonthSymbols ?? shortFormatter.shortMonthSymbols
+        let symbols = shortFormatter.shortStandaloneMonthSymbols ?? shortFormatter.shortMonthSymbols
         guard let symbols, month >= 1, month <= symbols.count else { return String(month) }
         return symbols[month - 1].uppercased()
     }

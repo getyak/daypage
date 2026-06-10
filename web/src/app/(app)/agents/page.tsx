@@ -1,9 +1,15 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db/client";
-import { users, agents, domains } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
-import { AgentsClient, type AgentDTO, type DomainDTO } from "./AgentsClient";
+import { users, agents, domains, task_suggestions } from "@/lib/db/schema";
+import { eq, and, desc } from "drizzle-orm";
+import { classifyGate } from "@/lib/gateway/policy";
+import {
+  AgentsClient,
+  type AgentDTO,
+  type DomainDTO,
+  type SuggestionDTO,
+} from "./AgentsClient";
 
 export const metadata = {
   title: "Agents · DayPage",
@@ -28,9 +34,10 @@ export default async function AgentsPage() {
 
   let agentList: AgentDTO[] = [];
   let domainList: DomainDTO[] = [];
+  let suggestionList: SuggestionDTO[] = [];
 
   if (userId) {
-    const [agentRows, domainRows] = await Promise.all([
+    const [agentRows, domainRows, suggestionRows] = await Promise.all([
       db
         .select()
         .from(agents)
@@ -41,6 +48,16 @@ export default async function AgentsPage() {
         .from(domains)
         .where(eq(domains.user_id, userId))
         .orderBy(domains.position, domains.created_at),
+      db
+        .select()
+        .from(task_suggestions)
+        .where(
+          and(
+            eq(task_suggestions.user_id, userId),
+            eq(task_suggestions.status, "open")
+          )
+        )
+        .orderBy(desc(task_suggestions.created_at)),
     ]);
 
     agentList = agentRows.map((a) => ({
@@ -52,7 +69,24 @@ export default async function AgentsPage() {
       top_k: a.top_k,
     }));
     domainList = domainRows;
+    // Predict the dispatch gate per suggestion (same classifier the work-order
+    // builder uses) so the panel knows which picks need a second confirmation.
+    suggestionList = suggestionRows.map((s) => ({
+      id: s.id,
+      title: s.title,
+      rationale: s.rationale,
+      estimate: s.estimate,
+      suggested_target: s.suggested_target,
+      gate: classifyGate(s.title),
+      created_at: s.created_at.toISOString(),
+    }));
   }
 
-  return <AgentsClient initialAgents={agentList} domains={domainList} />;
+  return (
+    <AgentsClient
+      initialAgents={agentList}
+      domains={domainList}
+      initialSuggestions={suggestionList}
+    />
+  );
 }
