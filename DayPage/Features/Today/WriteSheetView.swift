@@ -63,7 +63,6 @@ struct WriteSheetView: View {
     @State private var committedClose: Bool = false
     @State private var saveReadyPulse: Bool = false
     @State private var confirmingDiscard: Bool = false
-    @State private var didCrossThreshold: Bool = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(AppSettings.Keys.writeSheetRailHintShown) private var railHintShown: Bool = false
     /// Snapshot taken at open time so the hint stays visible for the whole first session.
@@ -236,7 +235,6 @@ struct WriteSheetView: View {
             hairline
             textArea
             hairline
-            charCountChip
             footerRail
             if showRailHint && pendingLocation == nil {
                 railHintCaption
@@ -381,50 +379,11 @@ struct WriteSheetView: View {
                 .lineLimit(3...10)
                 .focused($isFocused)
                 .accessibilityIdentifier("write-sheet-input")
-                .toolbar {
-                    ToolbarItemGroup(placement: .keyboard) {
-                        keyboardToolbarContent
-                    }
-                }
         }
         .padding(.horizontal, 22)
         .padding(.top, 20)
         .padding(.bottom, 18)
         .frame(minHeight: 90, alignment: .topLeading)
-    }
-
-    // MARK: - Character count chip
-
-    private static let charThreshold = 80
-
-    private var charCountChipColor: Color {
-        charCount >= Self.charThreshold ? DSColor.accentAmber : DSColor.inkSubtle
-    }
-
-    private var charCountChip: some View {
-        Text("\(charCount)")
-            .font(DSType.mono10)
-            .tracking(1.0)
-            .monospacedDigit()
-            .foregroundColor(charCountChipColor)
-            // Per-keystroke spring + numericText used to re-trigger on EVERY
-            // character, stacking 0.35s animations faster than the user types.
-            // The digit now updates instantly (monospacedDigit keeps it from
-            // reflowing); only the color crossing the threshold gets a short,
-            // non-stacking tick so the "milestone" still reads as a soft cue.
-            .animation(reduceMotion ? nil : Motion.countTick, value: charCount >= Self.charThreshold)
-            .frame(maxWidth: .infinity, alignment: .trailing)
-            .padding(.horizontal, 22)
-            .padding(.top, 8)
-            .accessibilityLabel(String(format: NSLocalizedString("writesheet.charcount.accessibility", comment: "%d characters written"), charCount))
-            .onChange(of: charCount) { newCount in
-                if newCount >= Self.charThreshold && !didCrossThreshold {
-                    didCrossThreshold = true
-                    Haptics.soft()
-                } else if newCount < Self.charThreshold && didCrossThreshold {
-                    didCrossThreshold = false
-                }
-            }
     }
 
     // MARK: - Footer rail (composer.jsx:282-330)
@@ -643,62 +602,6 @@ struct WriteSheetView: View {
             .padding(.horizontal, 22)
             .padding(.top, 4)
             .accessibilityHidden(true)
-    }
-
-    // MARK: - Keyboard accessory toolbar
-
-    @ViewBuilder
-    private var keyboardToolbarContent: some View {
-        // Done — collapses keyboard, reveals footer rail and saved caption.
-        Button(NSLocalizedString("write.sheet.done", comment: "完成")) {
-            isFocused = false
-        }
-        .font(DSFonts.inter(size: 14, weight: .medium))
-        .foregroundColor(DSTokens.Colors.fgMuted)
-        .accessibilityLabel(NSLocalizedString("write.sheet.done", comment: "完成"))
-
-        // Live word / char counter — reuses footer-rail mono10 style.
-        let wordsLabel = wordCount == 1
-            ? NSLocalizedString("writesheet.count.words.one", comment: "1 word")
-            : String(format: NSLocalizedString("writesheet.count.words.other", comment: "%d words"), wordCount)
-        let readLabel = String(format: NSLocalizedString("writesheet.count.read", comment: "~%d min read"), readingMinutes)
-        HStack(spacing: 0) {
-            // Instant per-keystroke update (see footer-rail counter note).
-            Text("\(wordsLabel) · \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
-            if showReadingTime {
-                Text(" · \(readLabel)")
-                    .transition(.opacity)
-            }
-        }
-        .font(DSType.mono10)
-        .tracking(1.0)
-        .textCase(.uppercase)
-        .monospacedDigit()
-        .foregroundColor(wordCountColor)
-        .animation(reduceMotion ? nil : Motion.countTick, value: showReadingTime)
-        .accessibilityLabel(showReadingTime
-            ? "\(wordsLabel), \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars")), \(readLabel)"
-            : "\(wordsLabel), \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
-
-        Spacer()
-
-        // Accent save button — same path as the footer-rail pill.
-        Button(action: handleSave) {
-            Text(NSLocalizedString("write.sheet.save", comment: "保存"))
-                .font(DSFonts.inter(size: 14, weight: .semibold))
-                .tracking(0.2)
-                .foregroundColor(canSave ? DSTokens.Colors.accentSoft : DSTokens.Colors.fgSubtle)
-                .padding(.horizontal, 14)
-                .frame(height: 32)
-                .background(
-                    Capsule().fill(canSave ? DSTokens.Colors.accent : DSTokens.Colors.surfaceSunken)
-                )
-        }
-        .buttonStyle(.plain)
-        .disabled(!canSave)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: canSave)
-        .accessibilityLabel(NSLocalizedString("write.sheet.save", comment: "保存"))
-        .accessibilityIdentifier("write-sheet-keyboard-save")
     }
 
     // MARK: - Actions
