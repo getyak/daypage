@@ -1,0 +1,14 @@
+# Build artifacts
+/bin/
+*.exe
+*.out
+
+# Local workflow scripts (agent-teams orchestration, not part of the shipped product)
+/.workflow/
+
+# Agentry runtime state
+.agentry/
+
+# Editor / OS
+.DS_Store
+*.swp

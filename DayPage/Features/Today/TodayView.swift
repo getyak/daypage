@@ -99,6 +99,10 @@ struct TodayView: View {
     @State private var orbBreathing: Bool = false
     @State private var orbTapBounce: Bool = false
 
+    /// Accumulated rotation for the settings gear — a gear should turn when
+    /// tapped. Bumped by a quarter turn on each tap so the spin feels mechanical.
+    @State private var settingsGearRotation: Double = 0
+
     /// Hint offset for the one-time swipe-left nudge on the Daily Page card.
     @State private var dailyPageHintOffset: CGFloat = 0
     @State private var memoCardHintOffset: CGFloat = 0
@@ -1382,7 +1386,10 @@ struct TodayView: View {
                             timelineScrollProxy?.scrollTo("timelineTop", anchor: .top)
                         }
                     } label: {
-                        Text("\(wc)")
+                        // Locale-aware grouping (e.g. "1,234" / "1 234") so heavy
+                        // daily logs read cleanly across regions. The animation
+                        // driver below still keys off the raw Int.
+                        Text(wc.formatted(.number.grouping(.automatic)))
                             .font(DSType.mono10)
                             .tracking(1.0)
                             .monospacedDigit()
@@ -1475,6 +1482,10 @@ struct TodayView: View {
 
             Button {
                 Haptics.soft()
+                // A gear should turn when tapped — give it a quarter spin.
+                if !reduceMotion {
+                    withAnimation(Motion.spring) { settingsGearRotation += 90 }
+                }
                 showSettings = true
             } label: {
                 Image(systemName: "gearshape")
@@ -1483,6 +1494,7 @@ struct TodayView: View {
                     .frame(width: 28, height: 28)
                     .glassSurface(in: Circle())
                     .clipShape(Circle())
+                    .rotationEffect(.degrees(settingsGearRotation))
             }
             .accessibilityLabel("Settings")
             .accessibilityHint("Opens app settings")

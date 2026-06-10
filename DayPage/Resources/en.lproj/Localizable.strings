@@ -348,6 +348,20 @@
 /* Archive — async month loading (US-015) */
 "archive.loading_month" = "Loading…";
 
+/* Archive — list-mode month digest. %1$@ month, %2$d active days, %3$d entries, %4$d photos, %5$d voice minutes, %6$d places */
+"archive.list.digest.a11y" = "%1$@ digest: %2$d active days, %3$d entries, %4$d photos, %5$d voice minutes, %6$d places";
+
+/* Archive — year/month jump picker */
+"archive.picker.open" = "Jump to month, currently %@";
+"archive.picker.open.hint" = "Opens a picker to jump to any month";
+"archive.picker.dismiss" = "Dismiss month picker";
+"archive.picker.prev_year" = "Previous year";
+"archive.picker.next_year" = "Next year";
+"archive.picker.year_label" = "Year %d";
+"archive.picker.has_entries" = "Has entries";
+"archive.picker.no_entries" = "No entries";
+"archive.picker.future_unavailable" = "Future month, unavailable";
+
 /* Settings — Accessibility labels/hints */
 "settings.close.label" = "Close Settings";
 "settings.apikey.paste.label" = "Paste API key from clipboard";
@@ -360,6 +374,9 @@
 "settings.cleanup_backup.hint" = "Destructive. Permanently deletes the local backup. This cannot be undone.";
 "settings.clear_sample.label" = "Clear sample data";
 "settings.clear_sample.hint" = "Destructive. Permanently deletes all sample data. This cannot be undone.";
+
+/* Settings — Appearance */
+"settings.appearance.preview.a11y" = "Live preview of the body text style. Reflects the font size, card density, and accent color selected below.";
 
 /* Settings — About */
 "settings.about.version.copy_hint" = "Double tap to copy the version and build to the clipboard";
@@ -419,6 +436,8 @@
 "search.section.quickSearch"      = "Quick Search";
 "search.section.recentSearches"   = "Recent Searches";
 "search.section.topEntities"      = "Frequent Entities";
+/* Comma-separated starter search suggestions, shown as tappable chips when there is no search history. Translate each term so it matches what users in this locale would actually type. */
+"search.starterSuggestions"       = "Today,This Week,This Month,Place,Photo,Voice";
 
 /* Search — recent searches */
 "search.recent.clear"             = "Clear";

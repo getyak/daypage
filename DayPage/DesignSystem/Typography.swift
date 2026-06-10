@@ -247,9 +247,10 @@ struct BodyMDModifier: ViewModifier {
     func body(content: Content) -> some View {
         let baseSize: CGFloat = 16
         let adjusted = baseSize + appSettings.fontSizeAdjust.delta
+        let spacing = max(0, 4 + appSettings.cardDensity.lineSpacingDelta)
         content
             .font(DSFonts.inter(size: adjusted, weight: .regular))
-            .lineSpacing(4)
+            .lineSpacing(spacing)
             .dynamicTypeSize(.xSmall ... .xxxLarge)
             .minimumScaleFactor(0.85)
     }
@@ -261,9 +262,10 @@ struct BodySMModifier: ViewModifier {
     func body(content: Content) -> some View {
         let baseSize: CGFloat = 14
         let adjusted = baseSize + appSettings.fontSizeAdjust.delta
+        let spacing = max(0, 3 + appSettings.cardDensity.lineSpacingDelta)
         content
             .font(DSFonts.inter(size: adjusted, weight: .regular))
-            .lineSpacing(3)
+            .lineSpacing(spacing)
             .dynamicTypeSize(.xSmall ... .xxxLarge)
             .minimumScaleFactor(0.85)
     }

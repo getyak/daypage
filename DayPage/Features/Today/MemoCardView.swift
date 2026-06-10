@@ -289,15 +289,21 @@ struct MemoCardView: View {
             // overrides remain in the long-press contextMenu below.
             HStack(spacing: 8) {
                 // Single line of metadata: precise 24h time as "15·23".
-                let photoFlag = memo.type == .mixed && memo.attachments.contains { $0.kind == "photo" }
+                let photoFlag = memo.attachments.contains { $0.kind == "photo" }
+                let voiceFlag = memo.attachments.contains { $0.kind == "audio" }
                 Text(Self.cardTimeFmt.string(from: memo.created).replacingOccurrences(of: ":", with: "·"))
                     .font(DSFonts.jetBrainsMono(size: 10))
                     .tracking(1.6)
                     .foregroundColor(DSColor.inkSubtle)
 
-                // Tiny photo glyph hints a mixed entry without a loud chip.
+                // Tiny attachment glyphs hint content type without a loud chip.
                 if photoFlag {
                     Image(systemName: "photo")
+                        .font(.system(size: 8, weight: .medium))
+                        .foregroundColor(DSColor.inkSubtle)
+                }
+                if voiceFlag {
+                    Image(systemName: "mic")
                         .font(.system(size: 8, weight: .medium))
                         .foregroundColor(DSColor.inkSubtle)
                 }

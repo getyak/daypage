@@ -318,6 +318,13 @@ final class ArchiveViewModel: ObservableObject {
     var totalVoiceMinutes: Int { dayStats.values.reduce(0) { $0 + $1.voiceMinutes } }
     var totalLocations: Int { dayStats.values.reduce(0) { $0 + $1.uniqueLocations } }
 
+    /// Number of days this month with at least one memo or a compiled page —
+    /// the "how many days did I actually log?" metric. Mirrors `sortedDays`'s
+    /// filter so the digest strip count always matches the rows below it.
+    var activeDayCount: Int {
+        dayStats.values.filter { $0.memoCount > 0 || $0.isDailyPageCompiled }.count
+    }
+
     // MARK: Calendar Helpers
 
     func daysInCurrentMonth() -> [Int?] {
@@ -347,6 +354,16 @@ final class ArchiveViewModel: ObservableObject {
         let now = Calendar.current.dateComponents([.year, .month], from: Date())
         currentYear = now.year ?? currentYear
         currentMonth = now.month ?? currentMonth
+        loadMonth()
+    }
+
+    /// Jump directly to an arbitrary year/month (driven by the YearMonthPicker).
+    /// No-ops when the target equals the current month so the picker doesn't
+    /// trigger a redundant reload + transition.
+    func goToMonth(year: Int, month: Int) {
+        guard year != currentYear || month != currentMonth else { return }
+        currentYear = year
+        currentMonth = month
         loadMonth()
     }
 
@@ -463,6 +480,21 @@ struct ArchiveView: View {
     // 二者皆无 → 50% 半透明灰色（仍可点击）。
     @State private var rawDates: Set<String> = []
     @State private var dailyDates: Set<String> = []
+
+    /// Controls the year/month jump picker overlay (opened by tapping the
+    /// Archive header's month title).
+    @State private var showMonthPicker: Bool = false
+
+    /// "yyyy-MM" set of months that hold at least one entry, derived from the
+    /// pre-scanned raw/daily date sets. Drives the activity dots in the picker
+    /// at zero extra disk cost.
+    private var monthsWithEntries: Set<String> {
+        var months = Set<String>()
+        for dateStr in rawDates.union(dailyDates) where dateStr.count == 10 {
+            months.insert(String(dateStr.prefix(7)))  // "yyyy-MM-dd" → "yyyy-MM"
+        }
+        return months
+    }
 
     var body: some View {
         NavigationStack {
@@ -620,6 +652,31 @@ struct ArchiveView: View {
                     }
                 }
             }
+            // Year/month jump picker — custom overlay (scrim + card) so it
+            // floats lightly over the calendar with the app's Motion curves.
+            .overlay {
+                if showMonthPicker {
+                    YearMonthPicker(
+                        selectedYear: viewModel.currentYear,
+                        selectedMonth: viewModel.currentMonth,
+                        monthsWithEntries: monthsWithEntries,
+                        onSelect: { year, month in
+                            let isBackward = (year, month) < (viewModel.currentYear, viewModel.currentMonth)
+                            monthNavDirection = isBackward ? .leading : .trailing
+                            withAnimation(reduceMotion ? nil : Motion.spring) {
+                                viewModel.goToMonth(year: year, month: month)
+                            }
+                            withAnimation(reduceMotion ? nil : Motion.fade) { showMonthPicker = false }
+                            UIAccessibility.post(notification: .announcement, argument: viewModel.currentMonthTitle)
+                        },
+                        onClose: {
+                            withAnimation(reduceMotion ? nil : Motion.fade) { showMonthPicker = false }
+                        }
+                    )
+                    .transition(.opacity)
+                    .zIndex(60)
+                }
+            }
         }
     }
 
@@ -671,22 +728,42 @@ struct ArchiveView: View {
 
     private var archiveHeader: some View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
-            Button {
-                nav.openSidebar()
-            } label: {
-                VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 2) {
+                // "Archive" title — opens the sidebar (tap), keeping the
+                // primary navigation affordance the rest of the app uses.
+                Button {
+                    nav.openSidebar()
+                } label: {
                     Text("Archive")
                         .font(DSType.serifDisplay28)
                         .foregroundColor(DSColor.inkPrimary)
-                    Text(viewModel.currentMonthTitle.uppercased())
-                        .font(DSType.mono10)
-                        .foregroundColor(DSColor.inkSubtle)
-                        .tracking(1.0)
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Open navigation")
+                .accessibilityIdentifier("sidebar-menu-button")
+
+                // Month subtitle — now a jump-to-month affordance. A chevron
+                // signals it's interactive; tapping opens the YearMonthPicker.
+                Button {
+                    Haptics.soft()
+                    withAnimation(reduceMotion ? nil : Motion.fade) { showMonthPicker = true }
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(viewModel.currentMonthTitle.uppercased())
+                            .font(DSType.mono10)
+                            .foregroundColor(DSColor.inkSubtle)
+                            .tracking(1.0)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 8, weight: .semibold))
+                            .foregroundColor(DSColor.inkSubtle)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(String(format: NSLocalizedString("archive.picker.open", comment: "Jump to month, current %@"), viewModel.currentMonthTitle))
+                .accessibilityHint(NSLocalizedString("archive.picker.open.hint", comment: "Opens the month picker"))
+                .accessibilityIdentifier("archive-month-picker-button")
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Open navigation")
-            .accessibilityIdentifier("sidebar-menu-button")
 
             Spacer()
 
@@ -1230,12 +1307,81 @@ struct ArchiveView: View {
                 }
                 .padding(.top, 40)
             } else {
+                // Compact monthly digest — list mode otherwise drops all the
+                // month-level context that calendar mode shows in its summary
+                // grid. (#archive-list-digest)
+                monthDigestStrip
+                    .padding(.bottom, 4)
+
                 ForEach(viewModel.sortedDays, id: \.dateString) { stats in
                     archiveListRow(stats: stats)
                 }
             }
         }
         .padding(.top, 8)
+    }
+
+    // MARK: - Month Digest Strip (list mode)
+
+    /// A single horizontally-scannable card that mirrors the calendar-mode
+    /// monthly summary, condensed for the dense list. Leads with the metric
+    /// that's absent everywhere else — active (logged) days this month — then
+    /// entries / photos / voice / locations. Numbers stay in sync with the
+    /// rows below because both derive from `dayStats`.
+    private var monthDigestStrip: some View {
+        let activeDays = viewModel.activeDayCount
+        let entries = viewModel.totalEntries
+        let photos = viewModel.totalPhotos
+        let voice = viewModel.totalVoiceMinutes
+        let locations = viewModel.totalLocations
+
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("\(viewModel.currentMonthTitle) · DIGEST")
+                .monoLabelStyle(size: 10)
+                .foregroundColor(DSColor.inkSubtle)
+
+            HStack(alignment: .top, spacing: 0) {
+                digestStat(value: "\(activeDays)", label: "DAYS", accent: true)
+                digestDivider
+                digestStat(value: "\(entries)", label: "ENTRIES", accent: false)
+                digestDivider
+                digestStat(value: "\(photos)", label: "PHOTOS", accent: false)
+                digestDivider
+                digestStat(value: "\(voice)", label: "VOICE MIN", accent: false)
+                digestDivider
+                digestStat(value: "\(locations)", label: "PLACES", accent: false)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlassCard(cornerRadius: DSSpacing.radiusCard)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(String(
+            format: NSLocalizedString("archive.list.digest.a11y", comment: "Month digest summary"),
+            viewModel.currentMonthTitle, activeDays, entries, photos, voice, locations
+        ))
+    }
+
+    private func digestStat(value: String, label: String, accent: Bool) -> some View {
+        VStack(alignment: .center, spacing: 4) {
+            Text(value)
+                .font(DSType.serifDisplay28)
+                .foregroundColor(accent ? DSColor.amberDeep : DSColor.inkPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+            Text(label)
+                .monoLabelStyle(size: 9)
+                .foregroundColor(DSColor.inkSubtle)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var digestDivider: some View {
+        Rectangle()
+            .fill(DSColor.inkFaint)
+            .frame(width: 0.5, height: 28)
     }
 
     private static let isoParser: DateFormatter = {
