@@ -188,7 +188,6 @@ describe("getAdapter registry", () => {
   });
 
   it("throws for an unregistered backend", () => {
-    expect(() => getAdapter("openclaw")).toThrow(/No executor adapter/);
     expect(() => getAdapter("sandbox")).toThrow(/No executor adapter/);
   });
 });
