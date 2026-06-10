@@ -1386,7 +1386,10 @@ struct TodayView: View {
                             timelineScrollProxy?.scrollTo("timelineTop", anchor: .top)
                         }
                     } label: {
-                        Text("\(wc)")
+                        // Locale-aware grouping (e.g. "1,234" / "1 234") so heavy
+                        // daily logs read cleanly across regions. The animation
+                        // driver below still keys off the raw Int.
+                        Text(wc.formatted(.number.grouping(.automatic)))
                             .font(DSType.mono10)
                             .tracking(1.0)
                             .monospacedDigit()
