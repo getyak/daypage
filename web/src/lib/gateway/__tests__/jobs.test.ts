@@ -22,6 +22,7 @@ import {
   claimJob,
   completeJob,
   failJob,
+  alertDeadJob,
   nextStatusAfterFailure,
   MAX_ATTEMPTS,
 } from "../jobs";
@@ -134,6 +135,36 @@ describe("enqueueJob", () => {
       })
     ).rejects.toThrow(/no existing row/);
   });
+
+  // US-029: re-enqueuing the same logical job must not create a second
+  // executable row. The first enqueue inserts; the second hits the unique
+  // idempotency_key conflict (onConflictDoNothing → []) and reads back the SAME
+  // job. Both calls resolve to one job id → exactly one execution downstream.
+  it("dedupes a repeated enqueue to a single job (no duplicate execution)", async () => {
+    const input = {
+      userId: "user-1",
+      type: "dispatch",
+      idempotencyKey: "dispatch:sug-1",
+    };
+
+    // First enqueue: clean insert returns the canonical row.
+    const created = { ...baseJob, id: "job-A", idempotency_key: input.idempotencyKey };
+    mockDb.insert.mockReturnValueOnce(insertChain([created]));
+    const first = await enqueueJob(input);
+
+    // Second enqueue: insert conflicts (returns []), read-back yields the same row.
+    mockDb.insert.mockReturnValueOnce(insertChain([]));
+    mockDb.select.mockReturnValueOnce(selectChain([created]));
+    const second = await enqueueJob(input);
+
+    // Same job both times: nothing new to execute on the repeat.
+    expect(first.id).toBe("job-A");
+    expect(second.id).toBe("job-A");
+    expect(second.id).toBe(first.id);
+    // The repeat never produced a fresh row — the only row read back is the
+    // pre-existing one (insert returned [] on the conflict).
+    expect(mockDb.select).toHaveBeenCalledOnce();
+  });
 });
 
 // ── claimJob: atomic FOR UPDATE SKIP LOCKED ─────────────────────────────────────
@@ -214,10 +245,65 @@ describe("failJob", () => {
       last_error: "fatal",
     };
     mockDb.update.mockReturnValue(updateChain([dead]));
+    // Dead transition fires a single api_logs alert (US-029).
+    mockDb.insert.mockReturnValue(insertChain([{ id: "log-1" }]));
 
     const job = await failJob("job-1", "fatal");
     expect(job?.status).toBe("dead");
     expect(job?.last_error).toBe("fatal");
+  });
+
+  // ── US-029: dead-letter alert fires exactly once ────────────────────────────
+
+  it("writes one api_logs alert on the queued→dead transition", async () => {
+    const dead = { ...baseJob, status: "dead", attempts: 3, last_error: "fatal" };
+    mockDb.update.mockReturnValue(updateChain([dead]));
+    mockDb.insert.mockReturnValue(insertChain([{ id: "log-1" }]));
+
+    await failJob("job-1", "fatal");
+
+    expect(mockDb.insert).toHaveBeenCalledOnce();
+  });
+
+  it("does NOT alert when the job is requeued (still has retries)", async () => {
+    const requeued = { ...baseJob, status: "queued", attempts: 1, last_error: "boom" };
+    mockDb.update.mockReturnValue(updateChain([requeued]));
+
+    await failJob("job-1", "boom");
+
+    expect(mockDb.insert).not.toHaveBeenCalled();
+  });
+
+  it("does not throw if the alert write fails (best-effort)", async () => {
+    const dead = { ...baseJob, status: "dead", attempts: 3, last_error: "fatal" };
+    mockDb.update.mockReturnValue(updateChain([dead]));
+    mockDb.insert.mockReturnValue({
+      values: vi.fn().mockRejectedValue(new Error("log sink down")),
+    });
+
+    // The original failure must surface as a normal return, not be masked by an
+    // alerting error.
+    const job = await failJob("job-1", "fatal");
+    expect(job?.status).toBe("dead");
+  });
+});
+
+// ── alertDeadJob: durable sink shape ────────────────────────────────────────────
+
+describe("alertDeadJob", () => {
+  it("inserts a 500 JOB pseudo-request into api_logs", async () => {
+    const valuesSpy = vi.fn().mockResolvedValue([{ id: "log-1" }]);
+    mockDb.insert.mockReturnValue({ values: valuesSpy });
+
+    await alertDeadJob({ ...baseJob, status: "dead", attempts: 3, last_error: "fatal" });
+
+    expect(valuesSpy).toHaveBeenCalledOnce();
+    const row = valuesSpy.mock.calls[0][0];
+    expect(row.method).toBe("JOB");
+    expect(row.status).toBe(500);
+    expect(row.path).toContain(baseJob.type);
+    expect(row.user_id).toBe(baseJob.user_id);
+    expect(row.error).toContain("fatal");
   });
 });
 

@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db/client";
-import { gateway_jobs, type GatewayJob } from "@/lib/db/schema";
+import { api_logs, gateway_jobs, type GatewayJob } from "@/lib/db/schema";
 import { and, asc, eq, sql } from "drizzle-orm";
 
 // US-007: gateway_jobs enqueue/dequeue helpers — the durable work queue the
@@ -105,7 +105,13 @@ export async function completeJob(id: string): Promise<GatewayJob | null> {
 
 // Record a failure. The attempt count was already incremented at claim time, so
 // here we only decide the resting state: `dead` once attempts have reached the
-// retry ceiling, otherwise back to `queued` for another pass.
+// retry ceiling, otherwise back to `queued` for another pass. The SQL `case`
+// mirrors `nextStatusAfterFailure` so the boundary lives in one place.
+//
+// US-029: when this failure is the one that parks the job `dead` (retries
+// exhausted), fire exactly one alert. The transition is observed from the
+// returned row's status, so the alert fires once — on the queued→dead edge —
+// and never on the intermediate requeues.
 export async function failJob(
   id: string,
   error: string
@@ -118,7 +124,49 @@ export async function failJob(
     })
     .where(eq(gateway_jobs.id, id))
     .returning();
-  return rows[0] ?? null;
+
+  const job = rows[0] ?? null;
+  if (job && job.status === "dead") {
+    await alertDeadJob(job);
+  }
+  return job;
+}
+
+// US-029: emit a single dead-letter alert. Writes an `api_logs` row (the
+// project's durable error sink — synthesized as a pseudo-request since a dead
+// job has no HTTP shape) and forwards to Sentry when wired. Best-effort: an
+// alerting failure must never mask or re-throw over the original job failure,
+// so both sinks swallow their own errors.
+export async function alertDeadJob(job: GatewayJob): Promise<void> {
+  // Durable sink: api_logs. Shape a dead job as a 500 "JOB" request so it shows
+  // up alongside request errors in the same log.
+  try {
+    await db.insert(api_logs).values({
+      method: "JOB",
+      path: `gateway/dead/${job.type}`,
+      status: 500,
+      duration_ms: 0,
+      user_id: job.user_id,
+      error:
+        `gateway_job ${job.id} dead after ${job.attempts} attempts` +
+        (job.last_error ? `: ${job.last_error}` : ""),
+    });
+  } catch (err) {
+    console.error(`[gateway] failed to write dead-job api_log for ${job.id}`, err);
+  }
+
+  // Optional sink: Sentry, when the SDK is present at runtime. Loaded lazily so
+  // the dependency stays optional and absent in dev/test without breaking.
+  try {
+    const sentry = (
+      globalThis as { Sentry?: { captureMessage?: (m: string) => void } }
+    ).Sentry;
+    sentry?.captureMessage?.(
+      `gateway_job dead: ${job.type} (${job.id}) after ${job.attempts} attempts`
+    );
+  } catch (err) {
+    console.error(`[gateway] failed to send dead-job Sentry alert for ${job.id}`, err);
+  }
 }
 
 // Convenience: jobs currently parked as dead for a user (for ops/inspection).
