@@ -5,6 +5,7 @@ import {
   change_log,
   work_orders,
   user_settings,
+  agent_sessions,
 } from "@/lib/db/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { readEvolutionConfig } from "@/lib/settings/evolution";
@@ -27,12 +28,26 @@ export interface AgentCostSummaryInput {
   since?: Date;
 }
 
+// US-034: per-backend cost breakdown. Each executor backend (sandbox / claude-code
+// / openclaw / ralph) gets its own dispatch count + token tally, derived from the
+// `agent_sessions` rows a dispatch creates. Used by the /insights Agent cost card.
+export interface AgentBackendCost {
+  // The executor backend (agentBackendEnum value).
+  backend: string;
+  // Number of dispatched sessions on this backend over the window.
+  dispatchCount: number;
+  // Sum of tokens_used across this backend's sessions over the window.
+  tokensSpent: number;
+}
+
 export interface AgentCostSummary {
   userId: string;
   // Total LLM tokens (in + out) attributed to the user over the window.
   tokensSpent: number;
   // Number of work-order dispatches over the window (change_log dispatch rows).
   dispatchCount: number;
+  // Per-backend split of dispatches + tokens (agent_sessions), highest cost first.
+  byBackend: AgentBackendCost[];
   // The window floor used, echoed for callers that surface it. null = all-time.
   since: Date | null;
 }
@@ -60,7 +75,14 @@ export async function agentCostSummary(
         eq(change_log.action_kind, DISPATCH_ACTION_KIND)
       );
 
-  const [tokenRows, dispatchRows] = await Promise.all([
+  // US-034: per-backend split comes from agent_sessions (which carries `backend`),
+  // since change_log dispatch rows don't record the backend. Group by backend so
+  // the /insights card can show "sandbox vs claude-code vs ralph vs openclaw".
+  const backendWhere = since
+    ? and(eq(agent_sessions.user_id, userId), sql`${agent_sessions.created_at} >= ${since}`)
+    : eq(agent_sessions.user_id, userId);
+
+  const [tokenRows, dispatchRows, backendRows] = await Promise.all([
     db
       .select({
         spent: sql<number>`coalesce(sum(${prompt_log.tokens_in} + ${prompt_log.tokens_out}), 0)`,
@@ -71,12 +93,30 @@ export async function agentCostSummary(
       .select({ count: sql<number>`count(*)` })
       .from(change_log)
       .where(dispatchWhere),
+    db
+      .select({
+        backend: agent_sessions.backend,
+        count: sql<number>`count(*)`,
+        spent: sql<number>`coalesce(sum(${agent_sessions.tokens_used}), 0)`,
+      })
+      .from(agent_sessions)
+      .where(backendWhere)
+      .groupBy(agent_sessions.backend),
   ]);
+
+  const byBackend: AgentBackendCost[] = backendRows
+    .map((r) => ({
+      backend: String(r.backend),
+      dispatchCount: Number(r.count ?? 0),
+      tokensSpent: Number(r.spent ?? 0),
+    }))
+    .sort((a, b) => b.tokensSpent - a.tokensSpent || b.dispatchCount - a.dispatchCount);
 
   return {
     userId,
     tokensSpent: Number(tokenRows[0]?.spent ?? 0),
     dispatchCount: Number(dispatchRows[0]?.count ?? 0),
+    byBackend,
     since: since ?? null,
   };
 }

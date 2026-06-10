@@ -21,7 +21,8 @@ import {
 import { DEFAULT_PER_TREE_BUDGET_TOKENS } from "@/lib/settings/evolution";
 
 // A thenable select chain resolving to `result`, supporting the builder methods
-// the cost queries use (from/where/limit). `where` and `limit` both resolve.
+// the cost queries use (from/where/limit/groupBy). `where` resolves but also
+// exposes `limit` and `groupBy` for the per-backend aggregate.
 function selectChain(result: unknown[]) {
   const p = Promise.resolve(result);
   return Object.assign(p, {
@@ -29,6 +30,7 @@ function selectChain(result: unknown[]) {
     where: vi.fn().mockReturnValue(
       Object.assign(Promise.resolve(result), {
         limit: vi.fn().mockResolvedValue(result),
+        groupBy: vi.fn().mockResolvedValue(result),
       })
     ),
   });
@@ -42,25 +44,29 @@ beforeEach(() => {
 
 describe("agentCostSummary", () => {
   it("aggregates prompt_log token spend and change_log dispatch count", async () => {
-    // Two SELECTs run via Promise.all: first prompt_log (tokens), then change_log (count).
+    // Three SELECTs run via Promise.all: prompt_log (tokens), change_log (count),
+    // then agent_sessions grouped by backend.
     mockDb.select
       .mockReturnValueOnce(selectChain([{ spent: 12_345 }]))
-      .mockReturnValueOnce(selectChain([{ count: 7 }]));
+      .mockReturnValueOnce(selectChain([{ count: 7 }]))
+      .mockReturnValueOnce(selectChain([]));
 
     const summary = await agentCostSummary({ userId: "user-1" });
 
     expect(summary.userId).toBe("user-1");
     expect(summary.tokensSpent).toBe(12_345);
     expect(summary.dispatchCount).toBe(7);
+    expect(summary.byBackend).toEqual([]);
     expect(summary.since).toBeNull();
-    expect(mockDb.select).toHaveBeenCalledTimes(2);
+    expect(mockDb.select).toHaveBeenCalledTimes(3);
   });
 
   it("echoes the since window when provided", async () => {
     const since = new Date("2026-06-01T00:00:00Z");
     mockDb.select
       .mockReturnValueOnce(selectChain([{ spent: 100 }]))
-      .mockReturnValueOnce(selectChain([{ count: 1 }]));
+      .mockReturnValueOnce(selectChain([{ count: 1 }]))
+      .mockReturnValueOnce(selectChain([]));
 
     const summary = await agentCostSummary({ userId: "user-1", since });
     expect(summary.since).toEqual(since);
@@ -69,7 +75,8 @@ describe("agentCostSummary", () => {
   it("coerces string aggregates (postgres bigint) to numbers", async () => {
     mockDb.select
       .mockReturnValueOnce(selectChain([{ spent: "999" }]))
-      .mockReturnValueOnce(selectChain([{ count: "3" }]));
+      .mockReturnValueOnce(selectChain([{ count: "3" }]))
+      .mockReturnValueOnce(selectChain([]));
 
     const summary = await agentCostSummary({ userId: "user-1" });
     expect(summary.tokensSpent).toBe(999);
@@ -80,11 +87,49 @@ describe("agentCostSummary", () => {
   it("treats empty result rows as zero", async () => {
     mockDb.select
       .mockReturnValueOnce(selectChain([]))
+      .mockReturnValueOnce(selectChain([]))
       .mockReturnValueOnce(selectChain([]));
 
     const summary = await agentCostSummary({ userId: "user-1" });
     expect(summary.tokensSpent).toBe(0);
     expect(summary.dispatchCount).toBe(0);
+    expect(summary.byBackend).toEqual([]);
+  });
+
+  it("splits dispatches + tokens by backend, highest cost first", async () => {
+    mockDb.select
+      .mockReturnValueOnce(selectChain([{ spent: 0 }]))
+      .mockReturnValueOnce(selectChain([{ count: 0 }]))
+      .mockReturnValueOnce(
+        selectChain([
+          { backend: "sandbox", count: 4, spent: 1_000 },
+          { backend: "claude-code", count: 2, spent: 9_000 },
+        ])
+      );
+
+    const summary = await agentCostSummary({ userId: "user-1" });
+    // Sorted by tokensSpent desc → claude-code first.
+    expect(summary.byBackend).toEqual([
+      { backend: "claude-code", dispatchCount: 2, tokensSpent: 9_000 },
+      { backend: "sandbox", dispatchCount: 4, tokensSpent: 1_000 },
+    ]);
+  });
+
+  it("coerces per-backend bigint aggregates to numbers", async () => {
+    mockDb.select
+      .mockReturnValueOnce(selectChain([{ spent: 0 }]))
+      .mockReturnValueOnce(selectChain([{ count: 0 }]))
+      .mockReturnValueOnce(
+        selectChain([{ backend: "ralph", count: "3", spent: "500" }])
+      );
+
+    const summary = await agentCostSummary({ userId: "user-1" });
+    expect(summary.byBackend[0]).toEqual({
+      backend: "ralph",
+      dispatchCount: 3,
+      tokensSpent: 500,
+    });
+    expect(typeof summary.byBackend[0].tokensSpent).toBe("number");
   });
 });
 
