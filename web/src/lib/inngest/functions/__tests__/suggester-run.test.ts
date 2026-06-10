@@ -28,7 +28,12 @@ function makeFakeStep() {
 
 function makeDeps(over: Partial<SuggesterDeps> = {}): SuggesterDeps {
   return {
-    checkBudget: vi.fn(async () => ({ allowed: true, spent: 0, limit: 100_000 })),
+    checkBudget: vi.fn(async () => ({
+      allowed: true,
+      spent: 0,
+      limit: 100_000,
+      scope: "daily" as const,
+    })),
     generateSuggestions: vi.fn(async () => ({
       suggestions: [
         { id: "s1", title: "Write tests", rationale: "coverage gap" },
@@ -89,6 +94,7 @@ describe("runSuggesterPipeline", () => {
         allowed: false,
         spent: 200,
         limit: 100,
+        scope: "daily" as const,
       })),
     });
 

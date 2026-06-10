@@ -8,6 +8,7 @@ import {
 } from "@/lib/db/schema";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { Ratelimit } from "@upstash/ratelimit";
+import { treeSpentTokens } from "@/lib/gateway/cost";
 
 // US-006: Policy/Gate engine — a single module guarding budget, rate, and
 // side-effect gating for the Gateway. Every dispatch path should consult these
@@ -34,17 +35,54 @@ export interface BudgetCheck {
   allowed: boolean;
   spent: number;
   limit: number;
+  // Which budget the decision was made against: the user's trailing-24h daily
+  // token ceiling, or a single evolution tree's per-tree ceiling. Surfaced so
+  // the skip/park reason can name the right budget.
+  scope: "daily" | "per-tree";
+}
+
+// US-031: optional per-tree budget enforcement. When the caller passes both a
+// `treeId` and a positive `perTreeBudgetTokens` (read from the user's
+// `user_settings.evolution.perTreeBudgetTokens`), the targeted tree's committed
+// spend is checked against its own ceiling *in addition to* the user-level daily
+// limit — whichever budget is exhausted first blocks the dispatch.
+export interface CheckBudgetOptions {
+  // The evolution tree the work targets (from work_order.context.tree_id).
+  treeId?: string;
+  // The tree's token ceiling from the user's evolution config. Only enforced
+  // when > 0; omit/0 to skip per-tree enforcement and use the daily limit only.
+  perTreeBudgetTokens?: number;
 }
 
 // Sum a user's prompt_log token usage over the trailing 24h window and compare
-// against the daily limit. `treeId` is accepted for forward-compatibility (the
-// Gateway scopes spend per evolution tree); prompt_log has no tree column yet,
-// so the sum is currently user-scoped regardless.
+// against the daily limit. When per-tree options are supplied, additionally
+// gate the targeted tree's committed spend against its per-tree ceiling and
+// return the first budget that blocks.
+//
+// Backward-compatible: `checkBudget(userId)` and `checkBudget(userId, treeId)`
+// (the legacy positional string signature) both still work — a bare string
+// treeId enforces the daily limit only (no per-tree ceiling without a budget).
 export async function checkBudget(
   userId: string,
-  treeId?: string
+  options?: string | CheckBudgetOptions
 ): Promise<BudgetCheck> {
-  void treeId; // reserved for per-tree scoping once prompt_log carries a tree id
+  const opts: CheckBudgetOptions =
+    typeof options === "string" ? { treeId: options } : options ?? {};
+
+  // ── Per-tree gate (only when both a tree and a positive budget are given) ──
+  if (opts.treeId && opts.perTreeBudgetTokens && opts.perTreeBudgetTokens > 0) {
+    const treeSpent = await treeSpentTokens(userId, opts.treeId);
+    if (treeSpent >= opts.perTreeBudgetTokens) {
+      return {
+        allowed: false,
+        spent: treeSpent,
+        limit: opts.perTreeBudgetTokens,
+        scope: "per-tree",
+      };
+    }
+  }
+
+  // ── Daily user-level gate ─────────────────────────────────────────────────
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const rows = await db
     .select({
@@ -60,7 +98,7 @@ export async function checkBudget(
 
   const spent = Number(rows[0]?.spent ?? 0);
   const limit = dailyTokenLimit();
-  return { allowed: spent < limit, spent, limit };
+  return { allowed: spent < limit, spent, limit, scope: "daily" };
 }
 
 // ── Gate classification ─────────────────────────────────────────────────────────

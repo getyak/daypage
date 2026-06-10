@@ -36,6 +36,7 @@ import {
   circuitState,
   type ExecutionTarget,
 } from "@/lib/gateway/policy";
+import { readPerTreeBudgetTokens } from "@/lib/gateway/cost";
 import { dispatch, type DispatchResult } from "@/lib/connectors/claude-code";
 import { completeJob } from "@/lib/gateway/jobs";
 
@@ -75,6 +76,9 @@ export interface DispatchDeps {
   buildWorkOrder: typeof buildWorkOrder;
   routeWorkOrder: typeof routeWorkOrder;
   checkBudget: typeof checkBudget;
+  // US-031: read the user's per-tree token ceiling so the budget gate can
+  // enforce it alongside the daily limit.
+  readPerTreeBudgetTokens: typeof readPerTreeBudgetTokens;
   circuitState: typeof circuitState;
   dispatch: typeof dispatch;
   parkAtGate: (workOrderId: string) => Promise<void>;
@@ -86,6 +90,7 @@ const defaultDeps: DispatchDeps = {
   buildWorkOrder,
   routeWorkOrder,
   checkBudget,
+  readPerTreeBudgetTokens,
   circuitState,
   dispatch,
   parkAtGate,
@@ -146,13 +151,16 @@ export async function runDispatchPipeline(
   });
   const order = built.row;
 
-  // ── 2. Policy gate: budget + circuit breaker ──────────────────────────────
+  // ── 2. Policy gate: budget (daily + per-tree) + circuit breaker ───────────
+  const treeId = (order.context as { tree_id?: string } | null)?.tree_id;
   const gate = await step("gate", async () => {
+    // Read the per-tree ceiling only when the order targets a tree, so a
+    // tree-less order skips the extra settings read.
+    const perTreeBudgetTokens = treeId
+      ? await deps.readPerTreeBudgetTokens(order.user_id)
+      : 0;
     const [budget, circuit] = await Promise.all([
-      deps.checkBudget(
-        order.user_id,
-        (order.context as { tree_id?: string } | null)?.tree_id
-      ),
+      deps.checkBudget(order.user_id, { treeId, perTreeBudgetTokens }),
       deps.circuitState(DISPATCH_BACKEND),
     ]);
     return { budget, circuit };
@@ -162,7 +170,7 @@ export async function runDispatchPipeline(
     await step("park-over-budget", async () => deps.parkAtGate(order.id));
     await step("complete-job", async () => finishJob(deps, jobId));
     console.log(
-      `[executor-dispatch] over budget for user ${order.user_id} ` +
+      `[executor-dispatch] over ${gate.budget.scope} budget for user ${order.user_id} ` +
         `(spent ${gate.budget.spent}/${gate.budget.limit}), parking order ${order.id} gated`
     );
     return {

@@ -50,7 +50,12 @@ function makeEvolveResult(over: Record<string, unknown> = {}) {
 function makeDeps(over: Partial<EvolverStepDeps> = {}): EvolverStepDeps {
   return {
     resolveTreeOwner: vi.fn(async () => ({ userId: "user-1" })),
-    checkBudget: vi.fn(async () => ({ allowed: true, spent: 0, limit: 1_000_000 })),
+    checkBudget: vi.fn(async () => ({
+      allowed: true,
+      spent: 0,
+      limit: 1_000_000,
+      scope: "daily" as const,
+    })),
     evolveTree: vi.fn(async () => makeEvolveResult()),
     ...over,
   };
@@ -115,6 +120,7 @@ describe("runEvolverStep", () => {
         allowed: false,
         spent: 2_000_000,
         limit: 1_000_000,
+        scope: "daily" as const,
       })),
     });
 

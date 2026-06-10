@@ -95,3 +95,4 @@ Previous run archived: scripts/ralph/archive/2026-06-09-v8-ios-m3-m6/ (v8 iOS M3
 [2026-06-10T03:00:52Z] Story #US-028: OpenClaw 适配器 (骨架) — PASSED
 [2026-06-10T03:06:11Z] Story #US-029: 幂等与重试硬化 — PASSED
 [2026-06-10T03:13:30Z] Story #US-030: CC session 生命周期管理 — PASSED
+[2026-06-10T03:19:55Z] Story #US-031: 预算熔断与成本统计查询 — FAILED (iteration 9)

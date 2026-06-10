@@ -61,7 +61,13 @@ function makeDeps(over: Partial<DispatchDeps> = {}): DispatchDeps {
       target: "claude-code" as const,
       reason: "test-default",
     })),
-    checkBudget: vi.fn(async () => ({ allowed: true, spent: 0, limit: 1_000_000 })),
+    checkBudget: vi.fn(async () => ({
+      allowed: true,
+      spent: 0,
+      limit: 1_000_000,
+      scope: "daily" as const,
+    })),
+    readPerTreeBudgetTokens: vi.fn(async () => 4000),
     circuitState: vi.fn(async () => ({ open: false, failures: 0, threshold: 5 })),
     dispatch: vi.fn(async () => ({
       sessionId: "sess-1",
@@ -172,6 +178,7 @@ describe("runDispatchPipeline", () => {
         allowed: false,
         spent: 2_000_000,
         limit: 1_000_000,
+        scope: "daily" as const,
       })),
     });
 
@@ -180,6 +187,55 @@ describe("runDispatchPipeline", () => {
     expect(deps.dispatch).not.toHaveBeenCalled();
     expect(deps.parkAtGate).toHaveBeenCalledWith("wo-1");
     expect(result).toMatchObject({ outcome: "gated" });
+  });
+
+  // US-031: per-tree budget enforcement at the dispatch gate.
+  it("per-tree budget: passes the tree id + ceiling to checkBudget", async () => {
+    const { step } = makeFakeStep();
+    const deps = makeDeps({
+      readPerTreeBudgetTokens: vi.fn(async () => 4000),
+    });
+
+    await runDispatchPipeline({ suggestionId: "sug-1" }, step, deps);
+
+    expect(deps.readPerTreeBudgetTokens).toHaveBeenCalledWith("user-1");
+    expect(deps.checkBudget).toHaveBeenCalledWith("user-1", {
+      treeId: "tree-1",
+      perTreeBudgetTokens: 4000,
+    });
+  });
+
+  it("over per-tree budget: parks gated and names the per-tree scope", async () => {
+    const { step } = makeFakeStep();
+    const deps = makeDeps({
+      checkBudget: vi.fn(async () => ({
+        allowed: false,
+        spent: 5000,
+        limit: 4000,
+        scope: "per-tree" as const,
+      })),
+    });
+
+    const result = await runDispatchPipeline({ suggestionId: "sug-1" }, step, deps);
+
+    expect(deps.dispatch).not.toHaveBeenCalled();
+    expect(deps.parkAtGate).toHaveBeenCalledWith("wo-1");
+    expect(result).toMatchObject({ outcome: "gated" });
+  });
+
+  it("tree-less order: skips the per-tree read, daily budget only", async () => {
+    const { step } = makeFakeStep();
+    const deps = makeDeps({
+      buildWorkOrder: vi.fn(async () => makeBuilt(makeOrder({ context: {} }))),
+    });
+
+    await runDispatchPipeline({ suggestionId: "sug-1" }, step, deps);
+
+    expect(deps.readPerTreeBudgetTokens).not.toHaveBeenCalled();
+    expect(deps.checkBudget).toHaveBeenCalledWith("user-1", {
+      treeId: undefined,
+      perTreeBudgetTokens: 0,
+    });
   });
 
   it("circuit open: parks gated, never dispatches", async () => {
