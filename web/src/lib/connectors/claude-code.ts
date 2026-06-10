@@ -3,6 +3,13 @@ import os from "node:os";
 import path from "node:path";
 import { eq } from "drizzle-orm";
 import type { WorkOrder as WorkOrderRow } from "@/lib/db/schema";
+import type {
+  AdapterBackend,
+  CollectResult,
+  DispatchOutcome,
+  ExecutorAdapter,
+  PollResult,
+} from "./types";
 
 // US-008: Claude Code connector — read a CC session's recent transcript so the
 // Gateway/Suggester can reason about what the agent has been doing locally.
@@ -342,3 +349,69 @@ export async function dispatch(
     return { sessionId: null, status: "failed", error: message };
   }
 }
+
+// US-027: expose Claude Code as a uniform ExecutorAdapter so the Gateway can
+// dispatch/poll/collect without knowing the backend. `dispatch` wraps the
+// existing implementation (mapping DispatchResult → DispatchOutcome); `poll`
+// and `collect` resolve an `agent_sessions` row by id (the handle `dispatch`
+// returns) and normalize its `status`/`external_ref`.
+
+// Map an agent-session liveness status to a normalized poll state.
+function pollStateFromSession(
+  status: string
+): PollResult["state"] {
+  switch (status) {
+    case "active":
+    case "idle":
+      return "running";
+    case "closed":
+      return "done";
+    case "timed_out":
+      return "failed";
+    default:
+      return "unknown";
+  }
+}
+
+// Load an agent_sessions row by id, or null if absent/unreadable.
+async function loadSession(id: string) {
+  try {
+    const { db } = await import("@/lib/db/client");
+    const { agent_sessions } = await import("@/lib/db/schema");
+    const rows = await db
+      .select()
+      .from(agent_sessions)
+      .where(eq(agent_sessions.id, id))
+      .limit(1);
+    return rows[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+const backend: AdapterBackend = "claude-code";
+
+export const claudeCodeAdapter: ExecutorAdapter = {
+  backend,
+  async dispatch(wo: WorkOrderRow): Promise<DispatchOutcome> {
+    const r = await dispatch(wo);
+    return {
+      status: r.status,
+      ref: r.sessionId,
+      error: r.error,
+    };
+  },
+  async poll(id: string): Promise<PollResult> {
+    const session = await loadSession(id);
+    if (!session) return { state: "unknown", detail: "session not found" };
+    return { state: pollStateFromSession(session.status) };
+  },
+  async collect(id: string): Promise<CollectResult> {
+    const session = await loadSession(id);
+    if (!session) return { ready: false, ref: null, detail: "session not found" };
+    return {
+      ready: session.status === "closed",
+      ref: session.external_ref ?? null,
+    };
+  },
+};
