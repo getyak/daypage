@@ -52,6 +52,13 @@ struct WriteSheetView: View {
     @FocusState private var isFocused: Bool
     @State private var appeared: Bool = false
     @State private var lastMilestone: Int = 0
+    /// Cached counts. These were computed properties that re-ran an O(n)
+    /// full-text scan on EVERY SwiftUI body re-render — and a single keystroke
+    /// triggers several re-renders. Recomputing only inside `onChange(of: text)`
+    /// removes the per-keystroke O(n) cost that compounds into typing lag on
+    /// long drafts. All downstream readers keep using `wordCount`/`charCount`.
+    @State private var cachedWordCount: Int = 0
+    @State private var cachedCharCount: Int = 0
     @GestureState private var dragOffset: CGFloat = 0
     @State private var committedClose: Bool = false
     @State private var saveReadyPulse: Bool = false
@@ -67,8 +74,13 @@ struct WriteSheetView: View {
 
     /// CJK-aware word count: each CJK/Hiragana/Katakana ideograph = 1 word;
     /// consecutive non-CJK non-whitespace scalars = 1 Latin word per run.
-    private var wordCount: Int {
-        Self.wordCount(in: text)
+    /// Reads the cached count (recomputed once per text change, not per render).
+    private var wordCount: Int { cachedWordCount }
+
+    /// Recompute cached counts. Called once when `text` actually changes.
+    private func recomputeCounts() {
+        cachedWordCount = Self.wordCount(in: text)
+        cachedCharCount = text.count
     }
 
     static func wordCount(in text: String) -> Int {
@@ -94,7 +106,7 @@ struct WriteSheetView: View {
         return count
     }
 
-    private var charCount: Int { text.count }
+    private var charCount: Int { cachedCharCount }
 
     private var readingMinutes: Int {
         max(1, Int(ceil(Double(wordCount) / 200.0)))
@@ -181,11 +193,19 @@ struct WriteSheetView: View {
                 .gesture(swipeToDismiss)
         }
         .animation(reduceMotion ? .easeOut(duration: 0.2) : Self.sheetUp, value: appeared)
+        // Recompute the cached word/char counts ONCE per real text change,
+        // instead of on every body re-render. This is the single source of
+        // truth for both counters and keeps typing off the O(n) scan path.
+        .onChange(of: text) { _ in recomputeCounts() }
         .onAppear {
             appeared = true
             confirmingDiscard = false
-            // Let the sheet-up settle before raising the keyboard.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            recomputeCounts()
+            // Raise the keyboard almost immediately. The previous 0.2s delay
+            // (to "let the sheet-up settle") read as the keyboard arriving late
+            // after the tap. A 0.05s beat is enough to let the sheet-up start
+            // and avoid a layout race, while feeling effectively instant.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                 isFocused = true
             }
         }
@@ -387,9 +407,12 @@ struct WriteSheetView: View {
             .tracking(1.0)
             .monospacedDigit()
             .foregroundColor(charCountChipColor)
-            .modifier(NumericTextContentTransition(value: Double(charCount), reduceMotion: reduceMotion))
-            .animation(reduceMotion ? nil : Motion.spring, value: charCount)
-            .animation(reduceMotion ? nil : Motion.spring, value: charCount >= Self.charThreshold)
+            // Per-keystroke spring + numericText used to re-trigger on EVERY
+            // character, stacking 0.35s animations faster than the user types.
+            // The digit now updates instantly (monospacedDigit keeps it from
+            // reflowing); only the color crossing the threshold gets a short,
+            // non-stacking tick so the "milestone" still reads as a soft cue.
+            .animation(reduceMotion ? nil : Motion.countTick, value: charCount >= Self.charThreshold)
             .frame(maxWidth: .infinity, alignment: .trailing)
             .padding(.horizontal, 22)
             .padding(.top, 8)
@@ -421,15 +444,13 @@ struct WriteSheetView: View {
                 : String(format: NSLocalizedString("writesheet.count.words.other", comment: "%d words"), wordCount)
             let readLabel = String(format: NSLocalizedString("writesheet.count.read", comment: "~%d min read"), readingMinutes)
             HStack(spacing: 0) {
+                // Counter text updates instantly per keystroke — no per-character
+                // numericText/spring (those stacked 0.35s animations under the
+                // typing cadence and starved the main thread). monospacedDigit
+                // keeps the digits from reflowing as they change.
                 Text("\(wordsLabel) · \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
-                    .modifier(NumericTextContentTransition(value: Double(wordCount), reduceMotion: reduceMotion))
-                    .animation(reduceMotion ? nil : Motion.fade, value: wordCount)
-                    .animation(reduceMotion ? nil : Motion.spring, value: wordCount)
                 if showReadingTime {
                     Text(" · \(readLabel)")
-                        .modifier(NumericTextContentTransition(value: Double(readingMinutes), reduceMotion: reduceMotion))
-                        .animation(reduceMotion ? nil : Motion.fade, value: readingMinutes)
-                        .animation(reduceMotion ? nil : Motion.spring, value: readingMinutes)
                         .transition(.opacity)
                 }
             }
@@ -438,7 +459,8 @@ struct WriteSheetView: View {
             .textCase(.uppercase)
             .monospacedDigit()
             .foregroundColor(wordCountColor)
-            .animation(reduceMotion ? nil : Motion.spring, value: showReadingTime)
+            // Only the reading-time chip's appear/disappear gets a soft tick.
+            .animation(reduceMotion ? nil : Motion.countTick, value: showReadingTime)
             .padding(.trailing, 10)
             .accessibilityLabel(showReadingTime
                 ? "\(wordsLabel), \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars")), \(readLabel)"
@@ -641,13 +663,10 @@ struct WriteSheetView: View {
             : String(format: NSLocalizedString("writesheet.count.words.other", comment: "%d words"), wordCount)
         let readLabel = String(format: NSLocalizedString("writesheet.count.read", comment: "~%d min read"), readingMinutes)
         HStack(spacing: 0) {
+            // Instant per-keystroke update (see footer-rail counter note).
             Text("\(wordsLabel) · \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
-                .modifier(NumericTextContentTransition(value: Double(wordCount), reduceMotion: reduceMotion))
-                .animation(reduceMotion ? nil : Motion.spring, value: wordCount)
             if showReadingTime {
                 Text(" · \(readLabel)")
-                    .modifier(NumericTextContentTransition(value: Double(readingMinutes), reduceMotion: reduceMotion))
-                    .animation(reduceMotion ? nil : Motion.spring, value: readingMinutes)
                     .transition(.opacity)
             }
         }
@@ -656,7 +675,7 @@ struct WriteSheetView: View {
         .textCase(.uppercase)
         .monospacedDigit()
         .foregroundColor(wordCountColor)
-        .animation(reduceMotion ? nil : Motion.spring, value: showReadingTime)
+        .animation(reduceMotion ? nil : Motion.countTick, value: showReadingTime)
         .accessibilityLabel(showReadingTime
             ? "\(wordsLabel), \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars")), \(readLabel)"
             : "\(wordsLabel), \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
@@ -705,23 +724,6 @@ struct WriteSheetView: View {
         Haptics.medium()
         isFocused = false
         onSave()
-    }
-}
-
-// MARK: - NumericTextContentTransition
-
-private struct NumericTextContentTransition: ViewModifier {
-    let value: Double
-    let reduceMotion: Bool
-
-    func body(content: Content) -> some View {
-        if #available(iOS 17.0, *) {
-            content
-                .contentTransition(reduceMotion ? .identity : .numericText(value: value))
-        } else {
-            content
-                .contentTransition(.identity)
-        }
     }
 }
 

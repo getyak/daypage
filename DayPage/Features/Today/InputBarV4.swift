@@ -179,9 +179,8 @@ struct InputBarV4: View {
 
     // MARK: Derived
 
-    private var wordCount: Int {
-        TextCount.words(text)
-    }
+    /// Reads the cached count (recomputed once per text change, not per render).
+    private var wordCount: Int { cachedWordCount }
 
     private var charCount: Int { text.count }
 
@@ -686,7 +685,14 @@ struct InputBarV4: View {
                 .padding(.bottom, 14)
                 .onTapGesture { isFocused = true }
                 .accessibilityIdentifier("memo-input")
+                // Seed the cached count for any pre-filled draft (templates,
+                // restored text) so the footer is correct before the first edit.
+                .onAppear { cachedWordCount = TextCount.words(text) }
                 // US-015: clear placeholder suffix when user edits text.
+                // Single onChange owns BOTH the suffix reset and the cached word
+                // count + milestone haptic. Previously a second `onChange(of:
+                // wordCount)` forced SwiftUI to re-run the O(n) word scan every
+                // body pass just to diff its trigger value.
                 .onChange(of: text) { newValue in
                     if let tpl = activeTemplate, !templateSuffix.isEmpty {
                         if newValue != tpl.prefix {
@@ -694,9 +700,9 @@ struct InputBarV4: View {
                             activeTemplate = nil
                         }
                     }
+                    let newCount = TextCount.words(newValue)
+                    cachedWordCount = newCount
                     if newValue.isEmpty { lastMilestone = 0 }
-                }
-                .onChange(of: wordCount) { newCount in
                     let milestone = newCount / 50
                     if milestone > lastMilestone {
                         lastMilestone = milestone
@@ -878,6 +884,11 @@ struct InputBarV4: View {
 
     @State private var breathingOpacity: Double = 1.0
     @State private var lastMilestone: Int = 0
+    /// Cached word count. `wordCount` was a computed property calling the O(n)
+    /// `TextCount.words(text)`; because SwiftUI re-evaluates it on every body
+    /// pass (and to diff `onChange(of: wordCount)`), it ran the full-text scan
+    /// multiple times per keystroke. Recompute once per real text change.
+    @State private var cachedWordCount: Int = 0
 
     private var sendButton: some View {
         let affordance = sendAffordance
