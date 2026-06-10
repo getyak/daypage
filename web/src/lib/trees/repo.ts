@@ -65,3 +65,54 @@ export async function listNodes(
     .where(eq(tree_nodes.tree_id, treeId))
     .orderBy(desc(tree_nodes.heat), desc(tree_nodes.created_at));
 }
+
+// "This week" diff for a tree: node ids created or updated within the last 7
+// days. A node counts as `added` when its created_at is in-window; otherwise an
+// in-window updated_at marks it as `changed`. The two sets are disjoint so the
+// UI can highlight fresh growth (added) distinctly from re-touched nodes
+// (changed). Computed in-process over the already user-scoped node list.
+export interface TreeWeeklyDiff {
+  since: string; // ISO timestamp marking the start of the 7-day window
+  added_node_ids: string[];
+  changed_node_ids: string[];
+}
+
+export interface TreeDetail {
+  tree: Tree;
+  nodes: TreeNode[];
+  diff: TreeWeeklyDiff;
+}
+
+// Fetch a tree, its nodes, and the past-7-day diff in one user-scoped read.
+// Returns null when the tree does not exist or belongs to another user.
+export async function getTreeWithDiff(
+  userId: string,
+  treeId: string,
+  now: Date = new Date()
+): Promise<TreeDetail | null> {
+  const tree = await getTree(userId, treeId);
+  if (!tree) return null;
+
+  const nodes = await db
+    .select()
+    .from(tree_nodes)
+    .where(eq(tree_nodes.tree_id, treeId))
+    .orderBy(desc(tree_nodes.heat), desc(tree_nodes.created_at));
+
+  const since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const added_node_ids: string[] = [];
+  const changed_node_ids: string[] = [];
+  for (const node of nodes) {
+    if (node.created_at >= since) {
+      added_node_ids.push(node.id);
+    } else if (node.updated_at >= since) {
+      changed_node_ids.push(node.id);
+    }
+  }
+
+  return {
+    tree,
+    nodes,
+    diff: { since: since.toISOString(), added_node_ids, changed_node_ids },
+  };
+}

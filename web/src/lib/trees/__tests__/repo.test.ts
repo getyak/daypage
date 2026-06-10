@@ -37,7 +37,13 @@ vi.mock("@/lib/db/schema", async (importOriginal) => {
   return { ...real };
 });
 
-import { createTree, listTrees, getTree, listNodes } from "../repo";
+import {
+  createTree,
+  listTrees,
+  getTree,
+  listNodes,
+  getTreeWithDiff,
+} from "../repo";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -135,6 +141,54 @@ describe("trees repo", () => {
 
       const result = await listNodes("user-uuid-1", "tree-uuid-other");
       expect(result).toEqual([]);
+      expect(mockDb.select).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe("getTreeWithDiff", () => {
+    // Fixed "now" so the 7-day window is deterministic.
+    const now = new Date("2026-01-10T00:00:00Z");
+
+    it("classifies nodes into added / changed within the past 7 days", async () => {
+      const addedNode = {
+        ...mockNode,
+        id: "node-added",
+        created_at: new Date("2026-01-08T00:00:00Z"), // in window → added
+        updated_at: new Date("2026-01-08T00:00:00Z"),
+      };
+      const changedNode = {
+        ...mockNode,
+        id: "node-changed",
+        created_at: new Date("2025-12-01T00:00:00Z"), // old create
+        updated_at: new Date("2026-01-09T00:00:00Z"), // recent update → changed
+      };
+      const staleNode = {
+        ...mockNode,
+        id: "node-stale",
+        created_at: new Date("2025-11-01T00:00:00Z"),
+        updated_at: new Date("2025-11-01T00:00:00Z"), // neither
+      };
+
+      mockDb.select
+        .mockReturnValueOnce(selectChain([mockTree])) // ownership check
+        .mockReturnValueOnce(selectChain([addedNode, changedNode, staleNode]));
+
+      const result = await getTreeWithDiff("user-uuid-1", "tree-uuid-1", now);
+      expect(result).not.toBeNull();
+      expect(result!.tree).toEqual(mockTree);
+      expect(result!.nodes).toHaveLength(3);
+      expect(result!.diff.added_node_ids).toEqual(["node-added"]);
+      expect(result!.diff.changed_node_ids).toEqual(["node-changed"]);
+      // added and changed are disjoint sets.
+      expect(result!.diff.added_node_ids).not.toContain("node-changed");
+      expect(result!.diff.since).toBe("2026-01-03T00:00:00.000Z");
+    });
+
+    it("returns null for a missing or unowned tree", async () => {
+      mockDb.select.mockReturnValueOnce(selectChain([]));
+
+      const result = await getTreeWithDiff("user-uuid-1", "tree-uuid-x", now);
+      expect(result).toBeNull();
       expect(mockDb.select).toHaveBeenCalledOnce();
     });
   });
