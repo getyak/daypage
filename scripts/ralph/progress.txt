@@ -103,3 +103,4 @@ Previous run archived: scripts/ralph/archive/2026-06-09-v8-ios-m3-m6/ (v8 iOS M3
 [2026-06-10T03:49:52Z] Story #US-033: 建议列表与闸门审批 UI — FAILED (iteration 14)
 [2026-06-10T03:55:49Z] Story #US-033: 建议列表与闸门审批 UI — PASSED
 [2026-06-10T04:07:47Z] Story #US-034: Agent 成本看板维度 (/insights) — PASSED
+All stories pass: true
