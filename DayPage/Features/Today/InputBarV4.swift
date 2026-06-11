@@ -458,17 +458,10 @@ struct InputBarV4: View {
         .padding(.leading, 10)
         .padding(.trailing, 6)
         .padding(.vertical, 6)
-        .background(
-            Capsule()
-                .fill(Color(red: 1, green: 253/255, blue: 250/255).opacity(0.84))
-                .background(.ultraThinMaterial, in: Capsule())
-        )
-        .overlay(
-            Capsule().strokeBorder(
-                Color(red: 214/255, green: 206/255, blue: 192/255).opacity(0.55),
-                lineWidth: 0.5
-            )
-        )
+        // Liquid Glass vNext (Phase 1 demo): dual-track dock capsule.
+        // iOS 26 → native .glassEffect (refraction + specular + interactive),
+        // iOS 16–25 → warm faux-glass fallback. See docs/liquid-glass-vNext.md.
+        .dpGlass(.control, in: Capsule())
         .shadow(color: Color(hex: "3C280F").opacity(0.22), radius: 16, x: 0, y: 9)
         .shadow(color: Color(hex: "3C280F").opacity(0.08), radius: 3, x: 0, y: 1)
     }

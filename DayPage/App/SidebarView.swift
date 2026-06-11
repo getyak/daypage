@@ -15,25 +15,21 @@ struct SidebarView: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            // Liquid Glass drawer — warm cream base + ultraThinMaterial blur
-            // gives the sidebar the "floating panel above the timeline" feel
-            // that matches Today's ambient glass language. RootView's scrim
-            // sits behind this layer so the drawer reads as elevated.
-            ZStack {
-                DSColor.bgWarm
-                Rectangle()
-                    .fill(DSColor.glassHi)
-                    .background(.ultraThinMaterial)
-            }
-            .ignoresSafeArea()
-            .overlay(alignment: .trailing) {
-                // Hairline rim along the right edge — separates the drawer
-                // from the dimmed timeline behind the scrim.
-                Rectangle()
-                    .fill(DSColor.glassRimD)
-                    .frame(width: 0.5)
-                    .ignoresSafeArea(edges: .vertical)
-            }
+            // Liquid Glass drawer — dual-track (Phase 2 demo).
+            // iOS 26 → native .glassEffect panel: drops the opaque cream base
+            //          so the drawer genuinely refracts the timeline behind it.
+            // iOS 16–25 → warm cream base + ultraThinMaterial (current look).
+            // See docs/liquid-glass-vNext.md.
+            sidebarBackground
+                .ignoresSafeArea()
+                .overlay(alignment: .trailing) {
+                    // Hairline rim along the right edge — separates the drawer
+                    // from the dimmed timeline behind the scrim.
+                    Rectangle()
+                        .fill(DSColor.glassRimD)
+                        .frame(width: 0.5)
+                        .ignoresSafeArea(edges: .vertical)
+                }
 
             VStack(alignment: .leading, spacing: 0) {
                 brandHeader
@@ -93,6 +89,31 @@ struct SidebarView: View {
         }
         .sheet(isPresented: $showAccountSheet) {
             AccountSheet()
+        }
+    }
+
+    // MARK: - Drawer Background (dual-track Liquid Glass)
+
+    /// iOS 26 → native glass panel that refracts the timeline behind it.
+    /// iOS 16–25 → warm cream base + ultraThinMaterial (unchanged look).
+    @ViewBuilder
+    private var sidebarBackground: some View {
+        if #available(iOS 26.0, *) {
+            // No opaque cream base: let the native glass lens the content
+            // behind the drawer. A faint warm tint keeps the museum mood.
+            Color.clear
+                .background(DSColor.glassLo)
+                .glassEffect(
+                    .regular.tint(DSColor.amberSoft),
+                    in: Rectangle()
+                )
+        } else {
+            ZStack {
+                DSColor.bgWarm
+                Rectangle()
+                    .fill(DSColor.glassHi)
+                    .background(.ultraThinMaterial)
+            }
         }
     }
 
