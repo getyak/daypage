@@ -725,15 +725,15 @@ struct InputBarV4: View {
             composerActionRow
         }
         // NOTE: matchedGeometryEffect removed — see streamDockMorph for context. (#258)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(
-                    LinearGradient(
-                        colors: [Color.white.opacity(0.55), Color.white.opacity(0.12)],
-                        startPoint: .top, endPoint: .bottom),
-                    lineWidth: 0.6)
-        )
+        // Liquid Glass vNext (#769): the expanded card used to draw its own
+        // iOS-16-era faux glass (`.ultraThinMaterial` + a cold white-gradient
+        // rim) while the collapsed dock had already moved to the dual-track
+        // engine — so opening the composer visibly "dropped a generation".
+        // Route it through the same `.dpGlass(.panel)` dispatcher: iOS 26 →
+        // native `.glassEffect`, iOS 16–25 → the warm faux-glass fallback
+        // (matching the collapsed capsule), Reduce Transparency → opaque warm
+        // fill. The cold white rim is gone; the rim now comes from the engine.
+        .dpGlass(.panel, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .padding(.horizontal, 16)
         .padding(.top, 10)
         .padding(.bottom, 14)

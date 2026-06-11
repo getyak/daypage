@@ -256,10 +256,14 @@ struct WriteSheetView: View {
             showRailHint = !railHintShown
             railHintShown = true
         }
-        .background(
-            DSColor.glassHi
-                .background(.ultraThinMaterial)
-        )
+        // Liquid Glass vNext (#769): route the sheet surface through the same
+        // dual-track engine as the dock/composer instead of the hand-built
+        // glassHi + ultraThinMaterial stack. iOS 26 → native `.glassEffect`,
+        // iOS 16–25 → warm faux-glass fallback, Reduce Transparency → opaque
+        // warm fill. The engine paints a full RoundedRectangle (bottom edge is
+        // off-screen behind the safe area); the UnevenRoundedRectangle clip
+        // below still reveals only the top corners so the sheet reads correctly.
+        .dpGlass(.panel, in: RoundedRectangle(cornerRadius: DSTokens.Radii.sheet, style: .continuous))
         .clipShape(
             UnevenRoundedRectangle(
                 topLeadingRadius: DSTokens.Radii.sheet,
