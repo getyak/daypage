@@ -94,12 +94,10 @@ struct DSBanner: View {
         }
         .padding(.horizontal, DSSpacing.lg)
         .padding(.vertical, DSSpacing.md)
-        .background(kind.background)
-        .background(.ultraThinMaterial)
-        .overlay(
-            RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
-                .strokeBorder(DSColor.glassRim, lineWidth: 0.5)
-        )
+        // #771: banner → glass engine (.toast) while keeping each kind's
+        // semantic background colour via the tint override (success green /
+        // warning amber / error red / info cream). The engine owns the rim.
+        .dpGlass(.toast, in: RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous), tint: kind.background)
         .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
         .elevation(.glass)
         .accessibilityElement(children: .combine)

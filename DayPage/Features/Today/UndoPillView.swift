@@ -53,15 +53,9 @@ struct UndoPillView: View {
             .foregroundColor(DSColor.inkPrimary)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(DSColor.glassStd)
-                    .background(.ultraThinMaterial, in: Capsule(style: .continuous))
-            )
-            .overlay(
-                Capsule(style: .continuous)
-                    .strokeBorder(DSColor.glassRim, lineWidth: 0.5)
-            )
+            // #771: undo pill is a transient hint → glass engine (.toast role).
+            // The engine supplies the hairline rim.
+            .dpGlass(.toast, in: Capsule(style: .continuous))
             .shadow(color: Color.black.opacity(0.08), radius: 8, x: 0, y: 2)
         }
         .buttonStyle(.plain)

@@ -90,12 +90,8 @@ struct YearMonthPicker: View {
             monthGrid
         }
         .padding(20)
-        .background(DSColor.glassLo)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(DSColor.glassRim, lineWidth: 0.5)
-        )
+        // #771: year/month picker card → glass engine (.panel). Engine owns rim.
+        .dpGlass(.panel, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .shadow(color: Color.black.opacity(0.18), radius: 24, y: 10)
         // Stop scrim taps from falling through the card.

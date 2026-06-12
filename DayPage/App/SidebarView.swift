@@ -94,27 +94,13 @@ struct SidebarView: View {
 
     // MARK: - Drawer Background (dual-track Liquid Glass)
 
-    /// iOS 26 → native glass panel that refracts the timeline behind it.
-    /// iOS 16–25 → warm cream base + ultraThinMaterial (unchanged look).
-    @ViewBuilder
+    /// Drawer background routed through the dual-track engine (#771):
+    /// iOS 26 → native glass panel that refracts the timeline behind it;
+    /// iOS 16–25 → warm faux-glass; Reduce Transparency → opaque warm fill.
+    /// This replaces the bespoke hand-written OS branch — `dpGlass` is exactly
+    /// the abstraction this property used to inline.
     private var sidebarBackground: some View {
-        if #available(iOS 26.0, *) {
-            // No opaque cream base: let the native glass lens the content
-            // behind the drawer. A faint warm tint keeps the museum mood.
-            Color.clear
-                .background(DSColor.glassLo)
-                .glassEffect(
-                    .regular.tint(DSColor.amberSoft),
-                    in: Rectangle()
-                )
-        } else {
-            ZStack {
-                DSColor.bgWarm
-                Rectangle()
-                    .fill(DSColor.glassHi)
-                    .background(.ultraThinMaterial)
-            }
-        }
+        Color.clear.dpGlass(.panel, in: Rectangle())
     }
 
     // MARK: - Brand Header

@@ -600,9 +600,8 @@ struct ArchiveView: View {
                                     .font(DSType.bodySM)
                                     .foregroundColor(DSColor.inkMuted)
                                     .frame(width: 28, height: 28)
-                                    .background(DSColor.glassStd)
-                                    .background(.ultraThinMaterial, in: Circle())
-                                    .overlay(Circle().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                                    // #771: scroll-to-top button → glass engine (.control).
+                                    .dpGlass(.control, in: Circle())
                                     .clipShape(Circle())
                             }
                             .padding(.trailing, 20)
@@ -772,9 +771,8 @@ struct ArchiveView: View {
                     .font(DSType.bodyMD)
                     .foregroundColor(DSColor.inkMuted)
                     .frame(width: 36, height: 36)
-                    .background(DSColor.glassStd)
-                    .background(.ultraThinMaterial, in: Circle())
-                    .overlay(Circle().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                    // #771: search button → glass engine (.control).
+                    .dpGlass(.control, in: Circle())
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
@@ -816,9 +814,8 @@ struct ArchiveView: View {
                 toggleButton("LIST", isSelected: mode == .list) { mode = .list }
             }
             .padding(3)
-            .background(DSColor.glassLo)
-            .background(.ultraThinMaterial, in: Capsule())
-            .overlay(Capsule().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+            // #771: CAL/LIST view-mode toggle → glass engine (.pill).
+            .dpGlass(.pill, in: Capsule())
             .clipShape(Capsule())
 
             Spacer()
@@ -910,12 +907,8 @@ struct ArchiveView: View {
                 }
             }
         }
-        .background(DSColor.glassLo)
-        .background(.ultraThinMaterial)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(DSColor.glassRim, lineWidth: 0.5)
-        )
+        // #771: month calendar grid → glass engine (.panel). Engine owns rim.
+        .dpGlass(.panel, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 

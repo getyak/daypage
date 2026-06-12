@@ -48,14 +48,9 @@ struct AttachmentMenuPopover: View {
             .padding(.horizontal, 8)
             .padding(.vertical, 16)
             .frame(maxWidth: .infinity)
-            .background(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(.ultraThinMaterial)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.6), lineWidth: 0.5)
-            )
+            // #771: attachment menu → glass engine (.panel). Drops the cold
+            // white rim (the "old-version" look) for the warm engine hairline.
+            .dpGlass(.panel, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .shadow(color: DSColor.accentAmber.opacity(0.08), radius: 16, x: 0, y: 8)
             .padding(.horizontal, 16)
 

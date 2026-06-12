@@ -37,37 +37,46 @@ struct LiquidGlassCard: ViewModifier {
     var cornerRadius: CGFloat = 18
     var tone: GlassTone = .std
 
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+    }
+
     func body(content: Content) -> some View {
-        content
-            .background(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(tone.fill)
-                    .background(
-                        .ultraThinMaterial,
-                        in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    )
-                    .saturation(1.6)
+        Group {
+            if case .amberHero = tone {
+                // Deep-amber hero is an opaque, non-glass surface (Daily Page
+                // card). Keep the original solid recipe — routing it through
+                // the glass engine would wash out its intentional density.
+                content
+                    .background(shape.fill(tone.fill))
+            } else {
+                // std / hi / lo glass tones route through the dual-track engine
+                // (#771): iOS 26 → native Liquid Glass tinted with the tone's
+                // own fill (preserving the std/hi/lo brightness hierarchy);
+                // iOS 16–25 → warm faux-glass. The wet-glass highlight and the
+                // per-tone hairline below are kept as the bespoke outer shell.
+                content
+                    .dpGlass(.panel, in: shape, tint: tone.fill)
+            }
+        }
+        .overlay(
+            // Top inner highlight — gives the "wet glass" rim.
+            shape.strokeBorder(
+                LinearGradient(
+                    colors: [DSColor.glassEdge, Color.clear],
+                    startPoint: .top,
+                    endPoint: .center
+                ),
+                lineWidth: 0.6
             )
-            .overlay(
-                // Top inner highlight — gives the "wet glass" rim.
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(
-                        LinearGradient(
-                            colors: [DSColor.glassEdge, Color.clear],
-                            startPoint: .top,
-                            endPoint: .center
-                        ),
-                        lineWidth: 0.6
-                    )
-            )
-            .overlay(
-                // 0.5 pt hairline around the full perimeter.
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(tone.rim, lineWidth: 0.5)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .shadow(color: Color(hex: "2D1E0A").opacity(0.04), radius: 1, x: 0, y: 1)
-            .shadow(color: Color(hex: "2D1E0A").opacity(0.08), radius: 24, x: 0, y: 8)
+        )
+        .overlay(
+            // 0.5 pt hairline around the full perimeter (per-tone).
+            shape.strokeBorder(tone.rim, lineWidth: 0.5)
+        )
+        .clipShape(shape)
+        .shadow(color: Color(hex: "2D1E0A").opacity(0.04), radius: 1, x: 0, y: 1)
+        .shadow(color: Color(hex: "2D1E0A").opacity(0.08), radius: 24, x: 0, y: 8)
     }
 }
 

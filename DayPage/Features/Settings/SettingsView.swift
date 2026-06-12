@@ -121,12 +121,8 @@ struct SettingsView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .padding(DSSpacing.md)
-                    .background(DSColor.glassLo)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous)
-                            .strokeBorder(DSColor.glassRim, lineWidth: 0.5)
-                    )
+                    // #771: API-key field → glass engine (.control). Engine owns rim.
+                    .dpGlass(.control, in: RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous))
                     .clipShape(RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous))
                     .padding(.horizontal)
 
@@ -514,8 +510,9 @@ struct SettingsView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(DSColor.glassLo)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
+        // #771: live type-preview card → glass engine (.panel), keeping its
+        // dynamic accent emphasis stroke on top.
+        .dpGlass(.panel, in: RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                 .strokeBorder(accent.opacity(0.18), lineWidth: 1)

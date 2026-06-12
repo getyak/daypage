@@ -38,15 +38,22 @@ extension View {
     /// - iOS 26+ → native `.glassEffect()`, warm-tinted; `.control` is interactive.
     /// - iOS 16–25 → existing faux-glass (warm fill + ultraThinMaterial + rim).
     /// - Reduce Transparency (either path) → opaque warm fill so text stays legible.
+    ///
+    /// - Parameter tint: optional surface tint that overrides the default
+    ///   `amberSoft` (native) / `role.fallbackTone.fill` (legacy). Pass a
+    ///   semantic colour (e.g. `DSColor.errorSoft`) when a surface must keep
+    ///   its own meaning — error / warning / success banners — while still
+    ///   routing through the glass engine. `nil` keeps the warm-cream default.
     @ViewBuilder
     func dpGlass<S: Shape & InsettableShape>(
         _ role: GlassRole,
-        in shape: S
+        in shape: S,
+        tint: Color? = nil
     ) -> some View {
         if #available(iOS 26.0, *) {
-            modifier(NativeGlassModifier(role: role, shape: shape))
+            modifier(NativeGlassModifier(role: role, shape: shape, tint: tint))
         } else {
-            modifier(LegacyGlassModifier(role: role, shape: shape))
+            modifier(LegacyGlassModifier(role: role, shape: shape, tint: tint))
         }
     }
 }
@@ -57,23 +64,29 @@ extension View {
 private struct NativeGlassModifier<S: Shape & InsettableShape>: ViewModifier {
     let role: GlassRole
     let shape: S
+    var tint: Color?
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    /// Native glass tint — semantic override or the warm-amber brand default.
+    private var glassTint: Color { tint ?? DSColor.amberSoft }
+    /// Reduce-Transparency opaque fill — semantic override or warm fallback tone.
+    private var opaqueFill: Color { (tint ?? role.fallbackTone.fill).opacity(0.96) }
 
     func body(content: Content) -> some View {
         if reduceTransparency {
             content
-                .background(role.fallbackTone.fill.opacity(0.96), in: shape)
+                .background(opaqueFill, in: shape)
                 .overlay(shape.strokeBorder(role.fallbackTone.rim, lineWidth: 0.5))
         } else {
             switch role {
             case .control:
                 content.glassEffect(
-                    .regular.tint(DSColor.amberSoft).interactive(),
+                    .regular.tint(glassTint).interactive(),
                     in: shape
                 )
             case .panel, .pill, .toast:
                 content.glassEffect(
-                    .regular.tint(DSColor.amberSoft),
+                    .regular.tint(glassTint),
                     in: shape
                 )
             }
@@ -88,16 +101,20 @@ private struct NativeGlassModifier<S: Shape & InsettableShape>: ViewModifier {
 private struct LegacyGlassModifier<S: Shape & InsettableShape>: ViewModifier {
     let role: GlassRole
     let shape: S
+    var tint: Color?
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    /// Faux-glass base fill — semantic override or the role's warm tone.
+    private var baseFill: Color { tint ?? role.fallbackTone.fill }
 
     func body(content: Content) -> some View {
         if reduceTransparency {
             content
-                .background(role.fallbackTone.fill.opacity(0.96), in: shape)
+                .background(baseFill.opacity(0.96), in: shape)
                 .overlay(shape.strokeBorder(role.fallbackTone.rim, lineWidth: 0.5))
         } else {
             content
-                .background(role.fallbackTone.fill)
+                .background(baseFill)
                 .background(.ultraThinMaterial, in: shape)
                 .overlay(shape.strokeBorder(role.fallbackTone.rim, lineWidth: 0.5))
         }

@@ -126,12 +126,8 @@ struct GraphView: View {
                     .animation(Motion.fade, value: viewModel.searchQuery.isEmpty)
                     .padding(.horizontal, DSSpacing.md)
                     .padding(.vertical, 7)
-                    .background(DSColor.glassLo)
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous)
-                            .strokeBorder(DSColor.glassRim, lineWidth: 0.5)
-                    )
+                    // #771: search field → glass engine (.control). Engine owns rim.
+                    .dpGlass(.control, in: RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous))
                     .clipShape(RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous))
 
                     // Filter toggle — amber when active
@@ -173,8 +169,9 @@ struct GraphView: View {
                             }
                             .padding(.horizontal, DSSpacing.md)
                             .padding(.vertical, 5)
-                            .background(DSColor.glassLo)
-                            .background(.ultraThinMaterial, in: Capsule())
+                            // #771: zero-match hint → glass engine (.toast),
+                            // keeping the amber emphasis rim on top.
+                            .dpGlass(.toast, in: Capsule())
                             .overlay(Capsule().strokeBorder(DSColor.amberAccent.opacity(0.5), lineWidth: 0.5))
                             .accessibilityLabel(NSLocalizedString("graph.search.zero_match", comment: ""))
                         } else {
@@ -186,9 +183,9 @@ struct GraphView: View {
                                 .foregroundColor(DSColor.inkMuted)
                                 .padding(.horizontal, DSSpacing.md)
                                 .padding(.vertical, 5)
-                                .background(DSColor.glassLo)
-                                .background(.ultraThinMaterial, in: Capsule())
-                                .overlay(Capsule().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                                // #771: match-count badge → glass engine (.pill),
+                                // keeping the amber flash overlays on top.
+                                .dpGlass(.pill, in: Capsule())
                                 .overlay(
                                     Capsule()
                                         .strokeBorder(DSColor.amberAccent, lineWidth: 1.5)
@@ -210,9 +207,8 @@ struct GraphView: View {
                                         .font(.system(size: 12, weight: .medium))
                                         .foregroundColor(DSColor.inkMuted)
                                         .frame(width: 28, height: 28)
-                                        .background(DSColor.glassLo)
-                                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                                        // #771: match nav button → glass engine (.control).
+                                        .dpGlass(.control, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                                         .contentShape(Rectangle())
                                 }
                                 .accessibilityLabel(NSLocalizedString("graph.a11y.prev_match", comment: "Graph previous match button"))
@@ -223,9 +219,8 @@ struct GraphView: View {
                                         .font(.system(size: 12, weight: .medium))
                                         .foregroundColor(DSColor.inkMuted)
                                         .frame(width: 28, height: 28)
-                                        .background(DSColor.glassLo)
-                                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                                        // #771: match nav button → glass engine (.control).
+                                        .dpGlass(.control, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                                         .contentShape(Rectangle())
                                 }
                                 .accessibilityLabel(NSLocalizedString("graph.a11y.next_match", comment: "Graph next match button"))
@@ -313,8 +308,10 @@ struct GraphView: View {
                     }
                     .padding(.horizontal, DSSpacing.lg)
                     .padding(.vertical, DSSpacing.md)
-                    .background(DSColor.glassLo)
-                    .background(.ultraThinMaterial)
+                    // #771: filter drop-down panel → glass engine (.panel).
+                    // Full-width Rectangle so the bottom hairline divider below
+                    // remains the visual seam (no rounded corners here).
+                    .dpGlass(.panel, in: Rectangle())
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
 
@@ -493,9 +490,8 @@ struct GraphView: View {
         }
         .padding(.horizontal, DSSpacing.md)
         .padding(.vertical, 5)
-        .background(DSColor.glassLo)
-        .background(.ultraThinMaterial, in: Capsule())
-        .overlay(Capsule().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+        // #771: network-size stat badge → glass engine (.pill). Engine owns rim.
+        .dpGlass(.pill, in: Capsule())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(String(
             format: NSLocalizedString("graph.pill.accessibility", comment: "VoiceOver: network size combined label"),
