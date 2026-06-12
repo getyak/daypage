@@ -254,8 +254,10 @@ func toWireMessage(m provider.Message) wireMessage {
 	switch m.Role {
 	case provider.RoleTool:
 		// A tool result: role:tool with the originating call id and content.
+		// The name must match the (encoded) function name the model emitted, so
+		// the backend can correlate the result with its tool call.
 		wm.ToolCallID = m.ToolCallID
-		wm.Name = m.Name
+		wm.Name = encodeToolName(m.Name)
 		c := m.Text
 		wm.Content = &c
 	case provider.RoleAssistant:
@@ -270,7 +272,7 @@ func toWireMessage(m provider.Message) wireMessage {
 					ID:   tc.ID,
 					Type: "function",
 					Function: wireFunctionCall{
-						Name:      tc.Name,
+						Name:      encodeToolName(tc.Name),
 						Arguments: argsToString(tc.Args),
 					},
 				})
@@ -284,12 +286,41 @@ func toWireMessage(m provider.Message) wireMessage {
 	return wm
 }
 
+// Agentry tool names use a "<namespace>.<verb>" convention (e.g. "fs.read",
+// "web.fetch", "agent.<name>"), but some OpenAI-compatible backends — notably
+// DeepSeek — reject function names that don't match ^[a-zA-Z0-9_-]+$, so the dot
+// triggers an HTTP 400 before any tool can run. encodeToolName/decodeToolName
+// are a transport-only escaping that keeps the wire name within that charset
+// while preserving the real registry key on the way back.
+//
+// Only the dot is rewritten ("." <-> "__"); names already within the charset —
+// including ones that legitimately contain underscores like "get_weather" — are
+// passed through untouched, so this is invisible to backends that never had a
+// problem. The namespaced convention never places an underscore directly against
+// the dot, so "__" is an unambiguous stand-in for the separator.
+func encodeToolName(name string) string {
+	if !strings.Contains(name, ".") {
+		return name // already wire-safe (covers plain and underscore-only names)
+	}
+	return strings.ReplaceAll(name, ".", "__")
+}
+
+// decodeToolName reverses encodeToolName, mapping the "__" separator back to a
+// dot. Names without "__" (the common case, and any plain underscore name)
+// round-trip unchanged.
+func decodeToolName(name string) string {
+	if !strings.Contains(name, "__") {
+		return name
+	}
+	return strings.ReplaceAll(name, "__", ".")
+}
+
 // toWireTool maps a ToolSpec to the OpenAI function-tool shape.
 func toWireTool(t provider.ToolSpec) wireTool {
 	return wireTool{
 		Type: "function",
 		Function: wireFunctionSpec{
-			Name:        t.Name,
+			Name:        encodeToolName(t.Name),
 			Description: t.Description,
 			Parameters:  t.Schema,
 		},
@@ -483,8 +514,10 @@ func flushToolCalls(send func(provider.Event) bool, calls map[int]*toolCallAccum
 			args = "{}"
 		}
 		tc := &provider.ToolCall{
-			ID:   acc.id,
-			Name: acc.name,
+			ID: acc.id,
+			// Decode the wire name back to the real registry key (e.g.
+			// "fs__read" -> "fs.read") so the engine can resolve the tool.
+			Name: decodeToolName(acc.name),
 			Args: json.RawMessage(args),
 		}
 		if !send(provider.Event{Kind: provider.EventToolCall, ToolCall: tc}) {
