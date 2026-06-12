@@ -172,15 +172,11 @@ struct GlassErrorBanner: View {
         )
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(DSColor.errorSoft)
-                .background(
-                    .ultraThinMaterial,
-                    in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-                )
-                .saturation(1.6)
-        )
+        // #771: error banner → glass engine (.toast) but keeps its semantic
+        // errorSoft tint via the tint override, so the warning meaning is not
+        // washed out to neutral cream. The engine owns the material + rim; the
+        // wet-glass top highlight is preserved as the bespoke outer shell.
+        .dpGlass(.toast, in: RoundedRectangle(cornerRadius: 16, style: .continuous), tint: DSColor.errorSoft)
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(
@@ -191,10 +187,6 @@ struct GlassErrorBanner: View {
                     ),
                     lineWidth: 0.6
                 )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(DSColor.errorSoft.opacity(0.5), lineWidth: 0.5)
         )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .shadow(color: Color(hex: "2D1E0A").opacity(0.04), radius: 1, x: 0, y: 1)

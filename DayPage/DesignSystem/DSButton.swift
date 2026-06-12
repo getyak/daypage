@@ -77,18 +77,10 @@ struct DSSecondaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity)
             .frame(height: size.height)
             .padding(.horizontal, size.horizontalPadding)
-            .background(
-                RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
-                    .fill(DSColor.glassStd)
-                    .background(
-                        .ultraThinMaterial,
-                        in: RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
-                    )
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
-                    .strokeBorder(DSColor.glassRim, lineWidth: 0.5)
-            )
+            // Secondary button surface routed through the dual-track engine
+            // (#771): iOS 26 → interactive native glass; iOS 16–25 → warm
+            // faux-glass. The engine supplies the hairline rim.
+            .dpGlass(.control, in: RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
             .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
             .animation(Motion.respectReduceMotion(.spring(response: 0.25, dampingFraction: 0.85)),

@@ -254,19 +254,14 @@ extension View {
 /// warm fill so glyphs remain legible against any background.
 struct GlassSurfaceModifier<S: Shape & InsettableShape>: ViewModifier {
     let shape: S
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     func body(content: Content) -> some View {
-        if reduceTransparency {
-            content
-                .background(DSColor.bgWarm.opacity(0.96), in: shape)
-                .overlay(shape.strokeBorder(DSColor.glassRim, lineWidth: 0.5))
-        } else {
-            content
-                .background(DSColor.glassStd)
-                .background(.ultraThinMaterial, in: shape)
-                .overlay(shape.strokeBorder(DSColor.glassRim, lineWidth: 0.5))
-        }
+        // Routes the standard frosted-glass treatment through the dual-track
+        // engine (#771): iOS 26 → native Liquid Glass, iOS 16–25 → warm
+        // faux-glass, Reduce Transparency → opaque warm fill. The engine owns
+        // the rim + accessibility fallback, so this wrapper is now a thin
+        // semantic alias (`.panel`) over `dpGlass`.
+        content.dpGlass(.panel, in: shape)
     }
 }
 

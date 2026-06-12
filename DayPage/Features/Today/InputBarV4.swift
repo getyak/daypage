@@ -263,8 +263,8 @@ struct InputBarV4: View {
                 .foregroundColor(DSColor.inkPrimary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
-                .background(DSColor.glassHi)
-                .background(.ultraThinMaterial, in: Capsule())
+                // #771: transient toast → glass engine (.toast role).
+                .dpGlass(.toast, in: Capsule())
                 .clipShape(Capsule())
                 .shadow(color: Color(hex: "2D1E0A").opacity(0.08), radius: 8, x: 0, y: 2)
                 .padding(.top, -34)
@@ -281,8 +281,8 @@ struct InputBarV4: View {
                 .foregroundColor(DSColor.inkPrimary)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
-                .background(DSColor.glassHi)
-                .background(.ultraThinMaterial, in: Capsule())
+                // #771: transient toast → glass engine (.toast role).
+                .dpGlass(.toast, in: Capsule())
                 .clipShape(Capsule())
                 .shadow(color: Color(hex: "2D1E0A").opacity(0.08), radius: 8, x: 0, y: 2)
                 .padding(.top, -34)

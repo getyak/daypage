@@ -1113,11 +1113,8 @@ struct TodayView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(DSColor.inkFaint.opacity(0.6), lineWidth: 0.5)
-        )
+        // #771: share action bar → glass engine (.control). Engine owns the rim.
+        .dpGlass(.control, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private func orbGreeting(_ date: Date) -> String {
@@ -1398,7 +1395,8 @@ struct TodayView: View {
                             .animation(reduceMotion ? nil : Motion.spring, value: wc)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 5)
-                            .background(.ultraThinMaterial, in: Capsule())
+                            // #771: word-count badge → glass engine (.pill).
+                            .dpGlass(.pill, in: Capsule())
                             .transition(.opacity.combined(with: .scale(scale: 0.9)))
                     }
                     .buttonStyle(.plain)
@@ -2302,15 +2300,13 @@ struct LocationDraftCard: View {
             Divider().background(DSColor.inkFaint)
             draftRows
         }
-        .background(DSColor.glassStd)
-        .background(.ultraThinMaterial)
+        // #771: location-draft panel → glass engine (.panel). The wet-glass
+        // top highlight is kept as the bespoke outer shell; the engine supplies
+        // the material + perimeter rim.
+        .dpGlass(.panel, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(LinearGradient(colors: [DSColor.glassEdge, Color.clear], startPoint: .top, endPoint: .center), lineWidth: 0.6)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(DSColor.glassRim, lineWidth: 0.5)
         )
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .shadow(color: Color(hex: "2D1E0A").opacity(0.04), radius: 1, x: 0, y: 1)
@@ -2410,8 +2406,8 @@ private struct LocationDraftRow: View {
                         .font(DSType.label)
                         .foregroundColor(DSColor.inkMuted)
                         .frame(width: 30, height: 30)
-                        .background(DSColor.glassLo)
-                        .background(.ultraThinMaterial, in: Circle())
+                        // #771: ignore-location button → glass engine (.control).
+                        .dpGlass(.control, in: Circle())
                         .clipShape(Circle())
                 }
                 .frame(width: 44, height: 44)

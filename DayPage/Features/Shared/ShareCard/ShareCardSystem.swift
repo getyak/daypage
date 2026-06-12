@@ -551,7 +551,10 @@ struct ShareCardSheet: View {
                         .monoLabelStyle(size: 12)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
-                        .background(.ultraThinMaterial, in: Capsule())
+                        // #771: on-screen "saved" toast → glass engine
+                        // (.toast). This overlay is screen-only, not part of
+                        // the off-screen ImageRenderer export path.
+                        .dpGlass(.toast, in: Capsule())
                         .padding(.bottom, 100)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }

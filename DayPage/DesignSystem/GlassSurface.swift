@@ -59,16 +59,11 @@ struct GlassDisc: ViewModifier {
     func body(content: Content) -> some View {
         content
             .frame(width: size, height: size)
-            .background(DSColor.glassStd)
-            .background(.ultraThinMaterial, in: Circle())
-            .overlay(
-                Circle()
-                    .strokeBorder(DSColor.glassEdge, lineWidth: 0.6)
-            )
-            .overlay(
-                Circle()
-                    .strokeBorder(DSColor.glassRim, lineWidth: 0.5)
-            )
+            // Core glass sandwich routed through the dual-track engine (#771):
+            // iOS 26 → interactive native glass; iOS 16–25 → warm faux-glass.
+            // The engine supplies its own hairline rim, so the bespoke
+            // glassEdge/glassRim double-stroke is dropped to avoid doubling up.
+            .dpGlass(.control, in: Circle())
             .clipShape(Circle())
             .shadow(color: Color(hex: "2D1E0A").opacity(0.05), radius: 1, x: 0, y: 1)
             .shadow(color: Color(hex: "2D1E0A").opacity(0.10), radius: 14, x: 0, y: 6)
