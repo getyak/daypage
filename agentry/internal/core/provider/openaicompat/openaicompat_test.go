@@ -442,3 +442,51 @@ func TestStreamFatal4xxNoRetry(t *testing.T) {
 		t.Errorf("server calls = %d, want 1 (401 not retried)", n)
 	}
 }
+
+// isWireSafe reports whether s matches the strict ^[A-Za-z0-9_-]+$ charset that
+// backends like DeepSeek enforce on function names.
+func isWireSafe(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '_', r == '-':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func TestToolNameEncodeRoundTrip(t *testing.T) {
+	cases := []string{
+		"fs.read", "fs.write", "fs.list", "shell.exec",
+		"web.fetch", "web.extract", "web.search",
+		"browser.navigate", "browser.screenshot",
+		"agent.researcher", "agent.code_reviewer", // profile name with underscore
+		"plain", "echo", "with-dash", "get_weather", // already wire-safe
+		"a.b.c", // multiple dots
+	}
+	for _, original := range cases {
+		enc := encodeToolName(original)
+		if !isWireSafe(enc) {
+			t.Errorf("encodeToolName(%q) = %q is not wire-safe", original, enc)
+		}
+		if got := decodeToolName(enc); got != original {
+			t.Errorf("round-trip failed: %q -> %q -> %q", original, enc, got)
+		}
+	}
+}
+
+func TestToolNameEncodeFastPath(t *testing.T) {
+	// Names already within the charset must pass through untouched (no alloc/escaping).
+	for _, s := range []string{"plain", "echo", "with-dash", "abc123"} {
+		if got := encodeToolName(s); got != s {
+			t.Errorf("encodeToolName(%q) = %q, want unchanged", s, got)
+		}
+		if got := decodeToolName(s); got != s {
+			t.Errorf("decodeToolName(%q) = %q, want unchanged", s, got)
+		}
+	}
+}
