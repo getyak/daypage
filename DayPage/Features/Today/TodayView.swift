@@ -740,7 +740,12 @@ struct TodayView: View {
             }
         case .pureEmpty:
             VStack(spacing: 12) {
-                EmptyStateView.todayNoSignals(ctaAction: { orbFocusToggle.toggle() }, subtitleOverride: todayEmptySubtitle(currentTime))
+                // #773: drop the ADD A MEMO CTA here — it fired the exact same
+                // action as the Day Orb tap (orbFocusToggle), so the two sat
+                // side-by-side as duplicate write entries. The Day Orb stays as
+                // the ambient primary entry; the bottom dock is the other. New
+                // users (todayBlank, not yet onboarded) still get a guiding CTA.
+                EmptyStateView.todayNoSignals(subtitleOverride: todayEmptySubtitle(currentTime))
                 let streak = sidebarVM.currentStreak
                 if streak >= 1 {
                     let kickerText: String = streak == 1
