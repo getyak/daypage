@@ -10,7 +10,7 @@
 #
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ENV_FILE="$REPO_ROOT/.env"
 BIN="$SCRIPT_DIR/bin/agentry"
@@ -19,9 +19,16 @@ BIN="$SCRIPT_DIR/bin/agentry"
 [ -x "$BIN" ] || { echo "error: $BIN missing — build with: go build -o bin/agentry ./cmd/agentry" >&2; exit 1; }
 
 # Load .env (skip comments / blank lines) into the environment.
+#
+# NOTE: macOS ships bash 3.2.57, whose `source <(...)` process substitution
+# breaks under `set -u` (it aborts before loading any var, so every key looks
+# "not set"). Source a real temp file instead — portable back to bash 3.2.
+ENV_TMP="$(mktemp -t agentry-env)"
+trap 'rm -f "$ENV_TMP"' EXIT
+grep -vE '^\s*#|^\s*$' "$ENV_FILE" > "$ENV_TMP"
 set -a
 # shellcheck disable=SC1090
-source <(grep -vE '^\s*#|^\s*$' "$ENV_FILE")
+source "$ENV_TMP"
 set +a
 
 # Map DeepSeek (OpenAI-compatible) onto agentry's `openai` provider.
