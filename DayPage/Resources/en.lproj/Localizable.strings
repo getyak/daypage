@@ -532,3 +532,27 @@
 "today.compile.action.settings"   = "Go to Settings";
 "today.compile.action.viewLog"    = "View Log";
 "today.compile.background.failed" = "Background compilation failed — check your network or API Key and try again";
+
+/* Timeline section dividers (en parity — previously missing, fell back to raw keys) */
+"today.section.earlier"   = "EARLIER";
+"today.section.yesterday" = "YESTERDAY";
+
+/* Banners */
+"today.banner.draft_restored" = "Restored your unsent draft";
+"today.banner.voice_queue"    = "You have %d voice notes pending transcription";
+"today.sync.banner"           = "Sync your journal across devices →";
+
+/* Compile-failed banner actions */
+"today.compile_failed.retry"        = "Retry";
+"today.compile_failed.retry_a11y"   = "Retry compilation";
+"today.compile_failed.dismiss_a11y" = "Dismiss error";
+
+/* Passive location arrival draft */
+"today.location_draft.header"               = "Location arrival detected";
+"today.location_draft.confirm_all"          = "Confirm all";
+"today.location_draft.ignore_all"           = "Ignore all";
+"today.location_draft.still_here"           = "Still here";
+"today.location_draft.unknown_place"        = "Unknown place";
+"today.location_draft.stayed_hours"         = "Stayed %d hours";
+"today.location_draft.stayed_hours_minutes" = "Stayed %d h %d min";
+"today.location_draft.stayed_minutes"       = "Stayed %d min";
