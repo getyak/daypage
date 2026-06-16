@@ -499,6 +499,7 @@
 "compile.hint.afternoon" = "Keep the day flowing";
 "compile.hint.evening"   = "Wind down — look back on today";
 "compile.hint.night"     = "Put a period on today";
+"compile.configure_ai"   = "Configure AI Engine";
 
 /* Today empty-state streak kicker */
 "today.empty.streak.kicker.one" = "%d-DAY STREAK · KEEP IT ALIVE";

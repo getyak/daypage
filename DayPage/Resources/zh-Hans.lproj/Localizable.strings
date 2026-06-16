@@ -527,6 +527,7 @@
 "compile.hint.afternoon" = "记录还在继续";
 "compile.hint.evening"   = "夜深了，回顾今天吧";
 "compile.hint.night"     = "为今天画上句号";
+"compile.configure_ai"   = "配置 AI 引擎";
 
 /* Today empty-state streak kicker */
 "today.empty.streak.kicker.one" = "连续 %d 天 · 别断了";

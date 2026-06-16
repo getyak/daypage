@@ -21,6 +21,8 @@ struct CompileFooterButton: View {
     let onTap: () -> Void
     /// 用户点击重试时触发（US-020）。
     var onRetry: (() -> Void)? = nil
+    /// AI key 未配置时为 true，按钮显示引导态。
+    var aiKeyMissing: Bool = false
 
     /// Controls the one-shot scale pulse on first reveal (visual only).
     @State private var didAppearPulse = false
@@ -86,6 +88,13 @@ struct CompileFooterButton: View {
                             .scaleEffect(0.7)
                             .tint(DSColor.onSurface)
                         Text(stageLabel)
+                            .font(.custom("Inter-Medium", size: 13))
+                            .foregroundColor(DSColor.onSurface)
+                    } else if aiKeyMissing {
+                        Image(systemName: "gearshape")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundColor(DSColor.onSurface)
+                        Text(NSLocalizedString("compile.configure_ai", comment: "Configure AI engine"))
                             .font(.custom("Inter-Medium", size: 13))
                             .foregroundColor(DSColor.onSurface)
                     } else {

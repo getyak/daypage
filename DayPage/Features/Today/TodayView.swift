@@ -1817,16 +1817,30 @@ struct TodayView: View {
                             )
                         )
                 } else {
+                    let aiKeyMissing = Secrets.resolvedDeepSeekApiKey.isEmpty
                     HStack {
                         Spacer()
                         CompileFooterButton(
                             memoCount: viewModel.memos.count,
-                            isCompiling: viewModel.isCompiling,
+                            isCompiling: aiKeyMissing ? false : viewModel.isCompiling,
                             isVisible: true,
                             stage: compilationService.stage,
-                            errorMessage: viewModel.submitError,
-                            onTap: { viewModel.compile() },
-                            onRetry: { viewModel.compile() }
+                            errorMessage: aiKeyMissing ? nil : viewModel.submitError,
+                            onTap: {
+                                if aiKeyMissing {
+                                    showSettings = true
+                                } else {
+                                    viewModel.compile()
+                                }
+                            },
+                            onRetry: {
+                                if aiKeyMissing {
+                                    showSettings = true
+                                } else {
+                                    viewModel.compile()
+                                }
+                            },
+                            aiKeyMissing: aiKeyMissing
                         )
                         .shadow(
                             color: DSColor.accentAmber.opacity(unlockGlow ? 0.5 : 0),

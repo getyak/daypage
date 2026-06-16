@@ -68,7 +68,7 @@
   - 任务：将延迟从 0.05s 调整到 0.35s（sheet 动画结束后），或改用 `task { try? await Task.sleep(for: .milliseconds(350)); isFocused = true }` 确保在主线程动画结束后聚焦。
   - 验收：点击输入栏 → WriteSheet 弹出 → 键盘自动弹出，光标在文本区域闪烁，无需二次点击。
 
-- [ ] **P1-4｜AI 未配置时编译按钮改为引导态并深链跳转 Settings**
+- [x] **P1-4｜AI 未配置时编译按钮改为引导态并深链跳转 Settings** ✅ 2026-06-16｜CompileFooterButton 新增 aiKeyMissing 引导态（⚙ 配置 AI 引擎）；TodayView 检测 key 为空时跳转 Settings sheet；en/zh 新增 compile.configure_ai key；模拟器验证按钮态 + 点击跳转均正常
   - 文件：`DayPage/Features/Today/TodayView.swift`、`CompileFooterButton.swift`、`CompileUnlockCard.swift`、`DayPage/App/AppNavigationModel.swift`
   - 背景：未配 key 时编译按钮仍可点，点了才失败；顶部红 banner 每次常驻。
   - 任务：(a) 检测 `Secrets.resolvedDeepSeekApiKey` 为空时，编译按钮显示"配置 AI 引擎"态，点击直接打开 Settings 并定位到 API Keys 区（可在 AppNavigationModel 加 pendingSettingsSection 或 deep link `daypage://settings/apikeys`）；(b) "DashScope API Key not configured" banner 支持 dismiss 后短期不再每次弹（复用现有 BannerCenter 抑制机制）。
