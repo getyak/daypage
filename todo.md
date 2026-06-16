@@ -61,7 +61,14 @@
   - 验收：配置可用 AI key 后编译当日，daily 文件含 ≥1 个 wikilink，对应 entity page 被创建，Graph 出现节点与边。
   - 依赖：需要可用的 DashScope API key 做端到端验证。
 
-- [ ] **P1-3｜AI 未配置时编译按钮改为引导态并深链跳转 Settings**
+- [ ] **P1-3｜WriteSheet 弹出后键盘未自动弹出，需二次点击**
+  - 文件：`DayPage/Features/Today/WriteSheetView.swift`（第 207-209 行）
+  - 背景：点击输入栏 "Capture this moment" 弹出 WriteSheet 后，文本编辑区域未获焦，软键盘不弹出，用户需要再手动点一次 "What's on your mind?" 区域才能开始输入。
+  - 根因：`onAppear` 中 `DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { isFocused = true }` 的 0.05s 延迟太短——sheet-up 动画 320ms 尚在进行中，SwiftUI 的 `@FocusState` 请求被动画吞掉。
+  - 任务：将延迟从 0.05s 调整到 0.35s（sheet 动画结束后），或改用 `task { try? await Task.sleep(for: .milliseconds(350)); isFocused = true }` 确保在主线程动画结束后聚焦。
+  - 验收：点击输入栏 → WriteSheet 弹出 → 键盘自动弹出，光标在文本区域闪烁，无需二次点击。
+
+- [ ] **P1-4｜AI 未配置时编译按钮改为引导态并深链跳转 Settings**
   - 文件：`DayPage/Features/Today/TodayView.swift`、`CompileFooterButton.swift`、`CompileUnlockCard.swift`、`DayPage/App/AppNavigationModel.swift`
   - 背景：未配 key 时编译按钮仍可点，点了才失败；顶部红 banner 每次常驻。
   - 任务：(a) 检测 `Secrets.resolvedDeepSeekApiKey` 为空时，编译按钮显示"配置 AI 引擎"态，点击直接打开 Settings 并定位到 API Keys 区（可在 AppNavigationModel 加 pendingSettingsSection 或 deep link `daypage://settings/apikeys`）；(b) "DashScope API Key not configured" banner 支持 dismiss 后短期不再每次弹（复用现有 BannerCenter 抑制机制）。
@@ -70,6 +77,13 @@
 ---
 
 ## P2 · 界面打磨
+
+- [ ] **P2-0｜WriteSheet footer 计数器中文长文本时布局溢出换行**
+  - 文件：`DayPage/Features/Today/WriteSheetView.swift`（第 409-427 行，`footerRail`）
+  - 背景：输入 52 个中文字时，底部 footer rail 的 "52 WORDS · 52 CHARS · ~1 MIN READ" 文本换行，排版混乱——数字和标签错位成多行。英文短文本无此问题。
+  - 根因：footer rail 使用 `HStack(spacing: 2)`，计数文本区域没有 `lineLimit` 或 `minimumScaleFactor` 约束，当中文 CJK 字数较多（两位数以上）+ 阅读时间标签出现时，文本被左侧图标和右侧 Save 按钮挤压到换行。
+  - 任务：给计数器 `HStack` 添加 `.lineLimit(1).minimumScaleFactor(0.75)` 防止换行，或调整间距/字号以适配最长计数文本（如 "999 WORDS · 999 CHARS · ~5 MIN READ"）。
+  - 验收：输入 50+ 中文字时，footer rail 保持单行显示，计数文本完整可读；200+ 字时仍不换行。
 
 - [ ] **P2-1｜Today 有内容时保留迷你光球作为今日进度锚点**
   - 文件：`DayPage/Features/Today/TodayView.swift`（`orbHero` / `sidebarSection`）、`DayOrbView.swift`
@@ -107,7 +121,13 @@
   - 任务：天气（OpenWeatherMap）未配置时用中性"可选 · 未配置"灰标签；AI（DeepSeek）保留红色强提示。
   - 验收：天气未配不再红色告警，AI 未配仍醒目。
 
-- [ ] **P2-7｜实拍验证 Memo 详情页与 DailyPage 编译结果页排版**
+- [ ] **P2-7｜Memo 卡片右滑手势无操作反馈**
+  - 文件：`DayPage/Features/Today/SwipeableMemoCard.swift`
+  - 背景：左滑露出 Delete/Share 操作正常，但右滑没有任何反应。根据设计历史记录，右滑应有置顶/更多按钮。
+  - 任务：确认设计意图——若右滑操作已移除则无需处理；若仍需要，在右滑方向添加 Pin/More 操作按钮。
+  - 验收：确认设计方案并记录结论；若保留右滑，操作按钮功能正常。
+
+- [ ] **P2-8｜实拍验证 Memo 详情页与 DailyPage 编译结果页排版**
   - 文件：`DayPage/Features/MemoDetail/`、`DayPage/Features/Daily/DailyPageView.swift`
   - 背景：本轮自动化点击被 SwipeableMemoCard 的 UIKit pan host 吞掉，未实拍详情页（真机手指可进，非 bug）。
   - 任务：真机或录屏走查 Memo 详情 + DailyPage 结果页 + 分享卡，记录排版/可读性问题并补充任务。
@@ -146,6 +166,6 @@
 ### 建议落地顺序
 1. ENV-1（让构建可直接出安装包，扫清验证障碍）
 2. P0-1 → P0-2 → P0-3（i18n 一次性收口）
-3. P1-1 → P1-2 → P1-3（打通 Today→编译→Graph 价值链）
-4. P2 逐屏打磨（每条独立开 issue + 分支 + PR）
+3. P1-1 → P1-2 → P1-3（WriteSheet 键盘焦点）→ P1-4（打通 Today→编译→Graph 价值链）
+4. P2-0（计数器溢出）→ P2 逐屏打磨（每条独立开 issue + 分支 + PR）
 5. P3 探索类（设计先行，开 issue 讨论）

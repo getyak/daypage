@@ -4,6 +4,7 @@
 package session
 
 import (
+	"encoding/json"
 	"sync"
 	"time"
 
@@ -139,6 +140,22 @@ func (s *Session) History() []provider.Message {
 			msgs = append(msgs, provider.Message{Role: provider.RoleUser, Text: e.Text})
 		case EvAssistant:
 			msgs = append(msgs, provider.Message{Role: provider.RoleAssistant, Text: e.Text})
+		case EvToolCall:
+			// A tool_call must be carried by an assistant message's ToolCalls
+			// (the OpenAI/Anthropic contract: every role:tool result answers a
+			// preceding assistant tool_calls entry). Strict backends like
+			// DeepSeek reject a role:tool message that isn't preceded by one,
+			// so attach this call to the trailing assistant message, synthesizing
+			// an empty-text assistant carrier if the previous message isn't one.
+			tc := provider.ToolCall{ID: e.CallID, Name: e.Tool, Args: eventArgs(e.Args)}
+			if n := len(msgs); n > 0 && msgs[n-1].Role == provider.RoleAssistant {
+				msgs[n-1].ToolCalls = append(msgs[n-1].ToolCalls, tc)
+			} else {
+				msgs = append(msgs, provider.Message{
+					Role:      provider.RoleAssistant,
+					ToolCalls: []provider.ToolCall{tc},
+				})
+			}
 		case EvToolResult:
 			msgs = append(msgs, provider.Message{
 				Role:       provider.RoleTool,
@@ -149,4 +166,28 @@ func (s *Session) History() []provider.Message {
 		}
 	}
 	return msgs
+}
+
+// eventArgs normalizes an EvToolCall's Args back into the json.RawMessage that
+// provider.ToolCall expects. Args is stored as `any`: in a live (in-memory)
+// session it is already a json.RawMessage, but after a session is persisted and
+// replayed from JSONL it decodes into a map/slice/scalar, so re-marshal those.
+// A nil or unmarshalable value degrades to an empty object so the wire arguments
+// are always valid JSON.
+func eventArgs(args any) json.RawMessage {
+	switch v := args.(type) {
+	case nil:
+		return nil
+	case json.RawMessage:
+		return v
+	case []byte:
+		return json.RawMessage(v)
+	case string:
+		return json.RawMessage(v)
+	default:
+		if b, err := json.Marshal(v); err == nil {
+			return b
+		}
+		return json.RawMessage(`{}`)
+	}
 }
