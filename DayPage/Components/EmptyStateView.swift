@@ -290,6 +290,17 @@ extension EmptyStateView {
         )
     }
 
+    /// Graph tab — compiled dailies exist but no wikilinks/entities have been generated yet.
+    static func graphNotConnected(ctaAction: @escaping () -> Void) -> EmptyStateView {
+        EmptyStateView(
+            title: L10n.Empty.graphNotConnectedTitle,
+            subtitle: L10n.Empty.graphNotConnectedSubtitle,
+            ctaLabel: L10n.Empty.graphNotConnectedCta,
+            ctaAction: ctaAction,
+            showOrbAccent: true
+        )
+    }
+
     /// Graph tab — no compiled entities exist yet.
     static func graphEmpty(ctaAction: @escaping () -> Void, subtitleOverride: String? = nil) -> EmptyStateView {
         EmptyStateView(
@@ -347,6 +358,13 @@ extension EmptyStateView {
     ZStack {
         AmbientBackground()
         EmptyStateView.graphEmpty { }
+    }
+}
+
+#Preview("Graph Not Connected") {
+    ZStack {
+        AmbientBackground()
+        EmptyStateView.graphNotConnected { }
     }
 }
 

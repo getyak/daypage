@@ -192,6 +192,11 @@
 "empty.graph.subtitle" = "编译日记后，实体节点将在此出现，写点什么开始构建你的知识网络。";
 "empty.graph.cta" = "去写点什么";
 
+/* Graph Not Connected — 已有日记但未生成连接 */
+"empty.graph.not_connected.title" = "已有日记，尚未成网。";
+"empty.graph.not_connected.subtitle" = "你的日记已编译，但还未生成实体连接。重新编译以构建知识图谱。";
+"empty.graph.not_connected.cta" = "重新编译生成图谱";
+
 /* Graph empty-state time-of-day subtitles */
 "empty.graph.subtitle.morning" = "清晨是新的开始 — 开始记录，知识图谱将在这里生长。";
 "empty.graph.subtitle.afternoon" = "下午也是好时机 — 编译后的记录会以节点形式出现在这里。";

@@ -47,6 +47,11 @@ enum L10n {
         static let graphEmptySubtitle = NSLocalizedString("empty.graph.subtitle", comment: "")
         static let graphEmptyCta      = NSLocalizedString("empty.graph.cta", comment: "")
 
+        // Graph Not Connected (has dailies but no wikilinks)
+        static let graphNotConnectedTitle    = LocalizedStringKey("empty.graph.not_connected.title")
+        static let graphNotConnectedSubtitle = NSLocalizedString("empty.graph.not_connected.subtitle", comment: "")
+        static let graphNotConnectedCta      = NSLocalizedString("empty.graph.not_connected.cta", comment: "")
+
         // Graph No Matches
         static let graphNoMatchesTitle    = LocalizedStringKey("empty.graph.no_matches.title")
         static let graphNoMatchesSubtitle = NSLocalizedString("empty.graph.no_matches.subtitle", comment: "")

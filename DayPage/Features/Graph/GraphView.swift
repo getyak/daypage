@@ -400,9 +400,18 @@ struct GraphView: View {
     @ViewBuilder
     private var emptyState: some View {
         if viewModel.nodes.isEmpty {
-            EmptyStateView.graphEmpty(ctaAction: {
-                nav.navigate(to: .today)
-            }, subtitleOverride: graphEmptySubtitle(currentTime))
+            if viewModel.hasCompiledDailies {
+                EmptyStateView.graphNotConnected {
+                    Task { @MainActor in
+                        try? await CompilationService.shared.compile(trigger: "manual") { _, _ in }
+                        viewModel.load()
+                    }
+                }
+            } else {
+                EmptyStateView.graphEmpty(ctaAction: {
+                    nav.navigate(to: .today)
+                }, subtitleOverride: graphEmptySubtitle(currentTime))
+            }
         } else {
             EmptyStateView.graphNoMatches {
                 Haptics.tapConfirm()

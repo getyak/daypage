@@ -46,6 +46,7 @@ final class GraphViewModel: ObservableObject {
     @Published var nodes: [GraphNode] = []
     @Published var edges: [GraphEdge] = []
     @Published var isLoading: Bool = false
+    @Published var hasCompiledDailies: Bool = false
 
     // MARK: - Filter State
     @Published var searchQuery: String = "" { didSet { _filteredNodes = nil } }
@@ -106,17 +107,24 @@ final class GraphViewModel: ObservableObject {
         guard !isLoading else { return }
         isLoading = true
         Task.detached(priority: .userInitiated) { [weak self] in
-            let (nodes, edges) = Self.buildGraph()
+            let result = Self.buildGraph()
             await MainActor.run { [weak self] in
-                self?.nodes = nodes
+                self?.nodes = result.nodes
                 self?._filteredNodes = nil
-                self?.edges = edges
+                self?.edges = result.edges
+                self?.hasCompiledDailies = result.hasCompiledDailies
                 self?.isLoading = false
             }
         }
     }
 
-    nonisolated private static func buildGraph() -> ([GraphNode], [GraphEdge]) {
+    private struct BuildResult {
+        let nodes: [GraphNode]
+        let edges: [GraphEdge]
+        let hasCompiledDailies: Bool
+    }
+
+    nonisolated private static func buildGraph() -> BuildResult {
         let fm = FileManager.default
         let vaultURL = VaultInitializer.vaultURL
         let wikiURL = vaultURL.appendingPathComponent("wiki", isDirectory: true)
@@ -131,6 +139,7 @@ final class GraphViewModel: ObservableObject {
         let dailyFiles: [URL]
         do { dailyFiles = try fm.contentsOfDirectory(at: dailyURL, includingPropertiesForKeys: nil) }
         catch { dailyFiles = [] }
+        let hasCompiledDailies = dailyFiles.contains { $0.pathExtension == "md" }
         for fileURL in dailyFiles where fileURL.pathExtension == "md" {
             let content: String
             do { content = try String(contentsOf: fileURL, encoding: .utf8) }
@@ -211,7 +220,7 @@ final class GraphViewModel: ObservableObject {
             idx += 1
         }
 
-        return (nodes, rawEdges)
+        return BuildResult(nodes: nodes, edges: rawEdges, hasCompiledDailies: hasCompiledDailies)
     }
 
     // MARK: - Wikilink Extraction

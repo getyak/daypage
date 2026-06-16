@@ -48,7 +48,7 @@
 
 ## P1 · 核心体验断点
 
-- [ ] **P1-1｜修复 Graph 冷启动死锁——区分"无数据"与"有数据未成网"空状态**
+- [x] **P1-1｜修复 Graph 冷启动死锁——区分"无数据"与"有数据未成网"空状态** ✅ 2026-06-16｜GraphViewModel 增加 hasCompiledDailies 检测；新增 graphNotConnected 空状态（en/zh 各 491 key 对齐）；模拟器两态验证通过
   - 文件：`DayPage/Features/Graph/GraphView.swift`、`GraphViewModel.swift`
   - 背景：图谱靠扫描 `wiki/daily/*.md` 里的 `[[wiki/type/slug|Name]]` wikilink 构建；现有 daily 文件无 wikilink、`wiki/{places,people,themes}` 为空，导致 Graph 恒为 "No knowledge graph yet."。
   - 任务：在 GraphViewModel 增加判定——若存在已编译 daily 但 nodes 为空，空状态文案改为"已有日记但还未生成连接"，CTA 改为"重新编译生成图谱"（触发 `CompilationService.compile`），而非 "WRITE SOMETHING"。

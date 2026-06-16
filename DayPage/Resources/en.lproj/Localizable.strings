@@ -192,6 +192,11 @@
 "empty.graph.subtitle" = "Compiled entries will surface entity nodes here — write something to start building your network.";
 "empty.graph.cta" = "Write something";
 
+/* Graph Not Connected — dailies exist but no wikilinks generated */
+"empty.graph.not_connected.title" = "Entries compiled, not yet connected.";
+"empty.graph.not_connected.subtitle" = "Your journal has compiled entries but no entity links yet. Recompile to generate knowledge connections.";
+"empty.graph.not_connected.cta" = "Recompile to build graph";
+
 /* Graph empty-state time-of-day subtitles */
 "empty.graph.subtitle.morning" = "A fresh morning — start writing and your knowledge graph will take shape.";
 "empty.graph.subtitle.afternoon" = "Afternoon's a good time to log — compiled entries will appear here as nodes.";
