@@ -189,8 +189,8 @@
 
 /* Graph Empty */
 "empty.graph.title" = "No knowledge graph yet.";
-"empty.graph.subtitle" = "Compiled entries will surface entity nodes here — write something to start building your network.";
-"empty.graph.cta" = "Write something";
+"empty.graph.subtitle" = "Compiled entries will surface entity nodes here — add a memo to start building your network.";
+"empty.graph.cta" = "Add a memo";
 
 /* Graph Not Connected — dailies exist but no wikilinks generated */
 "empty.graph.not_connected.title" = "Entries compiled, not yet connected.";
@@ -198,10 +198,10 @@
 "empty.graph.not_connected.cta" = "Recompile to build graph";
 
 /* Graph empty-state time-of-day subtitles */
-"empty.graph.subtitle.morning" = "A fresh morning — start writing and your knowledge graph will take shape.";
-"empty.graph.subtitle.afternoon" = "Afternoon's a good time to log — compiled entries will appear here as nodes.";
-"empty.graph.subtitle.evening" = "End the day by capturing thoughts — they'll surface as your knowledge graph.";
-"empty.graph.subtitle.night" = "Before you sleep, jot something down — your graph grows one entry at a time.";
+"empty.graph.subtitle.morning" = "A fresh morning — add a memo and your knowledge graph will take shape.";
+"empty.graph.subtitle.afternoon" = "Afternoon's a good time to log — add a memo and it'll appear here as a node.";
+"empty.graph.subtitle.evening" = "End the day by capturing thoughts — add a memo, it'll join your knowledge graph.";
+"empty.graph.subtitle.night" = "Before you sleep, add a memo — your graph grows one entry at a time.";
 
 /* Graph search */
 "graph.search.placeholder" = "Search nodes…";

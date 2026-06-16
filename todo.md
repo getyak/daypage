@@ -137,7 +137,7 @@
 
 ## P3 · 增量探索
 
-- [ ] **P3-1｜统一空状态 CTA 文案动词**
+- [x] **P3-1｜统一空状态 CTA 文案动词** ✅ 2026-06-16｜Graph 空状态 CTA 从 "Write something"/"去写点什么" 统一为 "Add a memo"/"添加备忘"，与 Today 空状态一致；subtitle 和时段变体也统一动词；en/zh 492 key 对齐；模拟器验证 Graph 空状态 CTA 显示"添加备忘"
   - 文件：Graph/Today 空状态相关视图 + 本地化 strings
   - 任务：把 "WRITE SOMETHING" 与 "ADD A MEMO" 收敛为一致动词（如统一 "Add a memo"）。
   - 验收：各空状态 CTA 用词一致。
