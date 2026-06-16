@@ -77,6 +77,7 @@ struct GraphView: View {
         VStack(spacing: 0) {
             // MARK: Header bar — Liquid Glass strip on the warm canvas
             VStack(spacing: 0) {
+                if !viewModel.nodes.isEmpty {
                 HStack(spacing: DSSpacing.sm) {
                     // Search field — glass-tinted capsule
                     HStack(spacing: 6) {
@@ -314,6 +315,7 @@ struct GraphView: View {
                     .dpGlass(.panel, in: Rectangle())
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
+                } // end if !viewModel.nodes.isEmpty
 
                 Rectangle()
                     .fill(DSColor.glassRim)
