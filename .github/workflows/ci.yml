@@ -136,6 +136,18 @@ jobs:
           if [ "$FAIL" -eq 1 ]; then exit 1; fi
           echo "✅ No hardcoded secret patterns found in tracked files"
 
+  localization-parity:
+    name: Localization Key Parity (en/zh)
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check en.lproj / zh-Hans.lproj key parity
+        run: bash scripts/check_localization_parity.sh
+
   tokens-check:
     name: Design Tokens Drift Check
     runs-on: ubuntu-latest

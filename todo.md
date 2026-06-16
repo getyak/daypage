@@ -33,12 +33,12 @@
   - 注意：保留 `%d` 占位符顺序与数量，与 zh 一致。
   - 验收：模拟器系统语言设为英文，Today 时间线底部分隔符显示 "EARLIER" 而非 key 名。
 
-- [ ] **P0-2｜为 en/zh 本地化 key 对齐加 CI 校验脚本**
+- [x] **P0-2｜为 en/zh 本地化 key 对齐加 CI 校验脚本** ✅ 2026-06-16｜scripts/check_localization_parity.sh + ci.yml 新增 localization-parity job；正负向测试均通过
   - 新建：`scripts/check-localization-parity.sh`（或纳入现有 CI）
   - 逻辑：提取 en.lproj 与 zh-Hans.lproj 的 key 集合，diff；任一侧缺失则非零退出并打印缺失清单。
   - 验收：当前缺失被检出；补齐 P0-1 后脚本通过；故意删一个 key 能复现失败。
 
-- [ ] **P0-3｜SettingsView 整页中文硬编码抽取为本地化 key**
+- [x] **P0-3｜SettingsView 整页中文硬编码抽取为本地化 key** ✅ 2026-06-16｜抽取 104 个新 key（settings.* 共 122），en/zh 各 485 对齐；Swift 编译 0 错误；模拟器英文环境实机启动通过；en settings.* 值无中文残留
   - 文件：`DayPage/Features/Settings/SettingsView.swift` + en/zh 两份 `Localizable.strings`
   - 背景：英文用户进设置页满屏中文。需抽取的字面量包括但不限于：`"设置"`、`"账号"`、`"未登录"`、`"点击登录"`、`"管理账号"`、`"API Keys"`、`"未配置"`、`"测试连接"`、`"权限"`、`"麦克风"`、`"定位"`、`"外观"`、`"深色模式"`、`"强调色"`、`"正文字号"`、`"卡片密度"`、`"时间与日期"`、`"偏好时区"`、`"恢复设备时区"`、`"iCloud 同步"`、`"数据"`、`"Vault 大小"`、`"计算中…"`、`"关于"`、`"版本"`、`"关闭"`、API Key editor 内全部文案、各类 banner/confirmationDialog 文案。
   - 约定：key 命名前缀统一 `settings.*`；占位符场景用 `%@`/`%d`。

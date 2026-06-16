@@ -48,7 +48,7 @@ struct SettingsView: View {
     @State private var showAccountSheet = false
 
     // Data section state
-    @State private var vaultSizeLabel: String = "计算中…"
+    @State private var vaultSizeLabel: String = NSLocalizedString("settings.data.vault.computing", comment: "")
     @State private var showExportAlert = false
     @State private var exportResult: String? = nil
 
@@ -80,11 +80,11 @@ struct SettingsView: View {
                 aboutSection
             }
             .accessibilityIdentifier("settings-list")
-            .navigationTitle("设置")
+            .navigationTitle(NSLocalizedString("settings.nav.title", comment: ""))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("关闭") { dismiss() }
+                    Button(NSLocalizedString("settings.nav.close", comment: "")) { dismiss() }
                         .accessibilityLabel(NSLocalizedString("settings.close.label", comment: ""))
                         .accessibilityIdentifier("settings-close-button")
                 }
@@ -113,11 +113,11 @@ struct SettingsView: View {
     private var apiKeyEditorSheet: some View {
         NavigationStack {
             VStack(spacing: 20) {
-                Text("填入 \(editingKeyName) 的 API Key")
+                Text(String(format: NSLocalizedString("settings.apikey.editor.title", comment: ""), editingKeyName))
                     .font(.headline)
                     .padding(.top, 8)
 
-                SecureField("sk-... 或直接粘贴", text: $editingKeyValue)
+                SecureField(NSLocalizedString("settings.apikey.editor.placeholder", comment: ""), text: $editingKeyValue)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .padding(DSSpacing.md)
@@ -127,7 +127,7 @@ struct SettingsView: View {
                     .padding(.horizontal)
 
                 HStack {
-                    Button("粘贴") {
+                    Button(NSLocalizedString("settings.apikey.editor.paste", comment: "")) {
                         if let s = UIPasteboard.general.string { editingKeyValue = s }
                     }
                     .buttonStyle(.bordered)
@@ -136,7 +136,7 @@ struct SettingsView: View {
 
                     Spacer()
 
-                    Button("清除") {
+                    Button(NSLocalizedString("settings.apikey.editor.clear", comment: "")) {
                         editingKeyValue = ""
                     }
                     .buttonStyle(.bordered)
@@ -148,14 +148,14 @@ struct SettingsView: View {
 
                 Spacer()
             }
-            .navigationTitle("配置 API Key")
+            .navigationTitle(NSLocalizedString("settings.apikey.editor.nav.title", comment: ""))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { showApiKeyEditor = false }
+                    Button(NSLocalizedString("settings.apikey.editor.cancel", comment: "")) { showApiKeyEditor = false }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
+                    Button(NSLocalizedString("settings.apikey.editor.save", comment: "")) {
                         // Trim whitespace AND newlines — pasted API keys frequently
                         // carry a trailing `\n` from the source (terminal copy,
                         // password manager export), which silently makes the
@@ -187,7 +187,7 @@ struct SettingsView: View {
     /// the account avatar was removed from the Today header (#US-004) but
     /// the corresponding `accountSection` view was never landed.
     private var accountSection: some View {
-        Section("账号") {
+        Section(NSLocalizedString("settings.account.section", comment: "")) {
             Button {
                 showAccountSheet = true
             } label: {
@@ -196,10 +196,10 @@ struct SettingsView: View {
                         .font(DSType.h2)
                         .foregroundColor(DSColor.onSurfaceVariant)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(authService.session?.user.email ?? "未登录")
+                        Text(authService.session?.user.email ?? NSLocalizedString("settings.account.signed_out", comment: ""))
                             .font(DSType.bodyMD)
                             .foregroundColor(DSColor.onBackgroundPrimary)
-                        Text(authService.session == nil ? "点击登录" : "管理账号")
+                        Text(authService.session == nil ? NSLocalizedString("settings.account.tap_to_sign_in", comment: "") : NSLocalizedString("settings.account.manage", comment: ""))
                             .font(DSType.labelSM)
                             .foregroundColor(DSColor.onSurfaceVariant)
                     }
@@ -265,7 +265,7 @@ struct SettingsView: View {
                     Text(name)
                         .font(.body)
                     if key.isEmpty {
-                        Text("未配置")
+                        Text(NSLocalizedString("settings.apikey.unconfigured", comment: ""))
                             .font(.caption)
                             .foregroundColor(.red)
                     } else {
@@ -289,7 +289,7 @@ struct SettingsView: View {
                 .controlSize(.small)
 
                 if key.isEmpty {
-                    Text("未配置")
+                    Text(NSLocalizedString("settings.apikey.unconfigured", comment: ""))
                         .font(.caption)
                         .fontWeight(.medium)
                         .padding(.horizontal, 8)
@@ -302,7 +302,7 @@ struct SettingsView: View {
                         if isTesting {
                             ProgressView().controlSize(.mini)
                         } else {
-                            Text("测试连接")
+                            Text(NSLocalizedString("settings.apikey.test_connection", comment: ""))
                                 .font(.caption)
                                 .fontWeight(.medium)
                         }
@@ -332,10 +332,10 @@ struct SettingsView: View {
     // MARK: - Permissions Section
 
     private var permissionsSection: some View {
-        Section("权限") {
+        Section(NSLocalizedString("settings.permission.section", comment: "")) {
             // Microphone
             HStack {
-                Label("麦克风", systemImage: "mic.fill")
+                Label(NSLocalizedString("settings.permission.mic", comment: ""), systemImage: "mic.fill")
                 Spacer()
                 micStatusView
             }
@@ -344,7 +344,7 @@ struct SettingsView: View {
 
             // Location
             HStack {
-                Label("定位", systemImage: "location.fill")
+                Label(NSLocalizedString("settings.permission.location", comment: ""), systemImage: "location.fill")
                 Spacer()
                 Text(locationAuthLabel)
                     .font(.caption)
@@ -358,8 +358,8 @@ struct SettingsView: View {
             if locationService.hasAlwaysAuthorization {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("被动位置已启用")
-                        Text("自动记录到访地点")
+                        Text(NSLocalizedString("settings.permission.passive.enabled", comment: ""))
+                        Text(NSLocalizedString("settings.permission.passive.subtitle", comment: ""))
                             .font(.caption)
                             .foregroundColor(DSColor.onSurfaceVariant)
                     }
@@ -369,7 +369,7 @@ struct SettingsView: View {
                 }
             } else {
                 Button(action: { locationService.requestAlwaysAuthorization() }) {
-                    Label("启用被动位置记录（需始终授权）", systemImage: "location.circle")
+                    Label(NSLocalizedString("settings.permission.passive.enable_button", comment: ""), systemImage: "location.circle")
                 }
             }
         }
@@ -380,11 +380,11 @@ struct SettingsView: View {
         let status = AVAudioSession.sharedInstance().recordPermission
         switch status {
         case .granted:
-            Text("已授权").font(.caption).foregroundColor(.green)
+            Text(NSLocalizedString("settings.permission.mic.granted", comment: "")).font(.caption).foregroundColor(.green)
         case .denied:
-            Text("已拒绝").font(.caption).foregroundColor(.red)
+            Text(NSLocalizedString("settings.permission.mic.denied", comment: "")).font(.caption).foregroundColor(.red)
         default:
-            Text("未确定").font(.caption).foregroundColor(.orange)
+            Text(NSLocalizedString("settings.permission.mic.undetermined", comment: "")).font(.caption).foregroundColor(.orange)
         }
     }
 
@@ -406,7 +406,7 @@ struct SettingsView: View {
                     }.tag(mode)
                 }
             } label: {
-                Label("深色模式", systemImage: "moon.fill")
+                Label(NSLocalizedString("settings.appearance.darkmode", comment: ""), systemImage: "moon.fill")
             }
             .onChange(of: appSettings.themeMode) { _ in Haptics.soft() }
 
@@ -421,7 +421,7 @@ struct SettingsView: View {
                     }.tag(color)
                 }
             } label: {
-                Label("强调色", systemImage: "paintpalette")
+                Label(NSLocalizedString("settings.appearance.accent", comment: ""), systemImage: "paintpalette")
             }
             .onChange(of: appSettings.accentColor) { _ in Haptics.soft() }
 
@@ -431,7 +431,7 @@ struct SettingsView: View {
                     Text(adjust.label).tag(adjust)
                 }
             } label: {
-                Label("正文字号", systemImage: "textformat.size")
+                Label(NSLocalizedString("settings.appearance.fontsize", comment: ""), systemImage: "textformat.size")
             }
             .onChange(of: appSettings.fontSizeAdjust) { _ in Haptics.soft() }
 
@@ -441,7 +441,7 @@ struct SettingsView: View {
                     Text(density.label).tag(density)
                 }
             } label: {
-                Label("卡片密度", systemImage: "rectangle.expand.vertical")
+                Label(NSLocalizedString("settings.appearance.density", comment: ""), systemImage: "rectangle.expand.vertical")
             }
             .onChange(of: appSettings.cardDensity) { _ in Haptics.soft() }
 
@@ -451,7 +451,7 @@ struct SettingsView: View {
                 get: { !usePressToTalk },
                 set: { usePressToTalk = !$0 }
             )) {
-                Label("使用旧版语音录制", systemImage: "mic.circle")
+                Label(NSLocalizedString("settings.appearance.legacy_voice", comment: ""), systemImage: "mic.circle")
             }
 
             // On This Day configuration
@@ -464,10 +464,10 @@ struct SettingsView: View {
             }
 
             if onThisDayEnabled {
-                Picker("刷新时间", selection: $onThisDayRefreshHour) {
-                    Text("午夜 00:00").tag(0)
-                    Text("清晨 06:00").tag(6)
-                    Text("上午 09:00").tag(9)
+                Picker(NSLocalizedString("settings.appearance.onthisday.refresh_time", comment: ""), selection: $onThisDayRefreshHour) {
+                    Text(NSLocalizedString("settings.appearance.onthisday.midnight", comment: "")).tag(0)
+                    Text(NSLocalizedString("settings.appearance.onthisday.dawn", comment: "")).tag(6)
+                    Text(NSLocalizedString("settings.appearance.onthisday.morning", comment: "")).tag(9)
                 }
                 .accessibilityIdentifier("onthisday-refresh-hour-picker")
                 .onChange(of: onThisDayRefreshHour) { val in
@@ -475,7 +475,7 @@ struct SettingsView: View {
                 }
             }
         } header: {
-            Text("外观")
+            Text(NSLocalizedString("settings.appearance.section", comment: ""))
         }
     }
 
@@ -493,17 +493,17 @@ struct SettingsView: View {
                 Circle()
                     .fill(accent)
                     .frame(width: 6, height: 6)
-                Text("预览 · 14:30")
+                Text(NSLocalizedString("settings.appearance.preview.kicker", comment: ""))
                     .font(DSType.mono10)
                     .tracking(1.0)
                     .textCase(.uppercase)
                     .foregroundColor(accent)
             }
-            Text("一杯手冲，窗外是慢下来的城市。")
+            Text(NSLocalizedString("settings.appearance.preview.body", comment: ""))
                 .bodyMDStyle()
                 .foregroundColor(DSColor.onBackgroundPrimary)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("调整下方字号与卡片密度，这张卡片会实时变化。")
+            Text(NSLocalizedString("settings.appearance.preview.hint", comment: ""))
                 .bodySMStyle()
                 .foregroundColor(DSColor.onSurfaceVariant)
                 .fixedSize(horizontal: false, vertical: true)
@@ -540,7 +540,7 @@ struct SettingsView: View {
         Section {
             NavigationLink(destination: timeZonePickerView) {
                 HStack {
-                    Label("偏好时区", systemImage: "clock.badge.questionmark")
+                    Label(NSLocalizedString("settings.timezone.preferred", comment: ""), systemImage: "clock.badge.questionmark")
                     Spacer()
                     Text(appSettings.preferredTimeZone.localizedLabel)
                         .font(.caption)
@@ -552,13 +552,13 @@ struct SettingsView: View {
                     appSettings.resetToDeviceTimeZone()
                     BackgroundCompilationService.shared.scheduleIfNeeded()
                 } label: {
-                    Label("恢复设备时区", systemImage: "arrow.counterclockwise")
+                    Label(NSLocalizedString("settings.timezone.reset", comment: ""), systemImage: "arrow.counterclockwise")
                 }
             }
         } header: {
-            Text("时间与日期")
+            Text(NSLocalizedString("settings.timezone.section", comment: ""))
         } footer: {
-            Text("所有 Memo 归属日期与编译触发时间均以此时区为准。旅行时锁定家乡时区，避免记录错位。")
+            Text(NSLocalizedString("settings.timezone.footer", comment: ""))
                 .font(.caption)
         }
     }
@@ -582,7 +582,7 @@ struct SettingsView: View {
             rollbackButton
             cleanupBackupButton
         } header: {
-            Text("iCloud 同步")
+            Text(NSLocalizedString("settings.icloud.section", comment: ""))
         }
     }
 
@@ -598,7 +598,7 @@ struct SettingsView: View {
                     .fill(Color.green)
                     .frame(width: 8, height: 8)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("已连接").font(.body).fontWeight(.medium)
+                    Text(NSLocalizedString("settings.icloud.connected", comment: "")).font(.body).fontWeight(.medium)
                     Text("iCloud Drive").font(.caption).foregroundColor(DSColor.onSurfaceVariant)
                 }
                 Spacer()
@@ -614,8 +614,8 @@ struct SettingsView: View {
                 ProgressView()
                     .controlSize(.small)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("同步中").font(.body).fontWeight(.medium)
-                    Text("\(pendingFiles) 个文件待传")
+                    Text(NSLocalizedString("settings.icloud.syncing", comment: "")).font(.body).fontWeight(.medium)
+                    Text(String(format: NSLocalizedString("settings.icloud.pending_files", comment: ""), pendingFiles))
                         .font(.caption)
                         .foregroundColor(DSColor.onSurfaceVariant)
                 }
@@ -626,7 +626,7 @@ struct SettingsView: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundColor(.red)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("同步错误").font(.body).fontWeight(.medium).foregroundColor(.red)
+                    Text(NSLocalizedString("settings.icloud.error", comment: "")).font(.body).fontWeight(.medium).foregroundColor(.red)
                     Text(message)
                         .font(.caption)
                         .foregroundColor(.red)
@@ -642,16 +642,16 @@ struct SettingsView: View {
                 Text("☁️")
                     .font(.title2)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("开启多设备同步")
+                    Text(NSLocalizedString("settings.icloud.enable.title", comment: ""))
                         .font(.body)
                         .fontWeight(.semibold)
-                    Text("在 iPhone 与 iPad 之间同步你的日记")
+                    Text(NSLocalizedString("settings.icloud.enable.subtitle", comment: ""))
                         .font(.caption)
                         .foregroundColor(DSColor.onSurfaceVariant)
                 }
             }
             Button(action: openSettings) {
-                Label("前往 iOS 设置开启 iCloud Drive", systemImage: "arrow.up.right.square")
+                Label(NSLocalizedString("settings.icloud.enable.button", comment: ""), systemImage: "arrow.up.right.square")
                     .font(.caption)
                     .fontWeight(.medium)
             }
@@ -670,10 +670,10 @@ struct SettingsView: View {
                 get: { appSettings.attachmentPolicy },
                 set: { appSettings.attachmentPolicy = $0 }
             )) {
-                Text("按需下载（节省空间）").tag(AttachmentPolicy.onDemand)
-                Text("始终保留本地副本").tag(AttachmentPolicy.alwaysLocal)
+                Text(NSLocalizedString("settings.icloud.attachment.ondemand", comment: "")).tag(AttachmentPolicy.onDemand)
+                Text(NSLocalizedString("settings.icloud.attachment.alwayslocal", comment: "")).tag(AttachmentPolicy.alwaysLocal)
             } label: {
-                Label("附件下载策略", systemImage: "square.and.arrow.down")
+                Label(NSLocalizedString("settings.icloud.attachment.policy", comment: ""), systemImage: "square.and.arrow.down")
             }
         }
     }
@@ -683,7 +683,7 @@ struct SettingsView: View {
         if let migratedAt = appSettings.migrationCompletedAt,
            Date().timeIntervalSince(migratedAt) < 30 * 24 * 3600 {
             Button(role: .destructive, action: rollbackToLocal) {
-                Label("切换回本地存储", systemImage: "arrow.counterclockwise")
+                Label(NSLocalizedString("settings.icloud.rollback.button", comment: ""), systemImage: "arrow.counterclockwise")
             }
             .accessibilityLabel(NSLocalizedString("settings.rollback.label", comment: ""))
             .accessibilityHint(NSLocalizedString("settings.rollback.hint", comment: ""))
@@ -696,7 +696,7 @@ struct SettingsView: View {
         VaultInitializer.shared = LocalVaultLocator()
         bannerCenter.show(AppBannerModel(
             kind: .info,
-            title: "已切换回本地存储",
+            title: NSLocalizedString("settings.icloud.rollback.done", comment: ""),
             autoDismiss: true
         ))
     }
@@ -709,20 +709,20 @@ struct SettingsView: View {
            appSettings.vaultLocation == .iCloud,
            FileManager.default.fileExists(atPath: LocalVaultLocator().vaultURL.path) {
             Button(role: .destructive, action: { showCleanupConfirm = true }) {
-                Label("清理本地备份", systemImage: "trash")
+                Label(NSLocalizedString("settings.icloud.cleanup.button", comment: ""), systemImage: "trash")
             }
             .accessibilityLabel(NSLocalizedString("settings.cleanup_backup.label", comment: ""))
             .accessibilityHint(NSLocalizedString("settings.cleanup_backup.hint", comment: ""))
             .accessibilityIdentifier("settings-cleanup-backup-button")
             .confirmationDialog(
-                "确认清理本地备份？",
+                NSLocalizedString("settings.icloud.cleanup.confirm.title", comment: ""),
                 isPresented: $showCleanupConfirm,
                 titleVisibility: .visible
             ) {
-                Button("清理备份", role: .destructive, action: cleanupLocalBackup)
-                Button("取消", role: .cancel) {}
+                Button(NSLocalizedString("settings.icloud.cleanup.confirm.action", comment: ""), role: .destructive, action: cleanupLocalBackup)
+                Button(NSLocalizedString("settings.common.cancel", comment: ""), role: .cancel) {}
             } message: {
-                Text("本地备份将被永久删除，此操作无法撤销。")
+                Text(NSLocalizedString("settings.icloud.cleanup.confirm.message", comment: ""))
             }
         }
     }
@@ -732,13 +732,13 @@ struct SettingsView: View {
             try VaultMigrationService.shared.deleteLocalBackup()
             bannerCenter.show(AppBannerModel(
                 kind: .info,
-                title: "本地备份已清理",
+                title: NSLocalizedString("settings.icloud.cleanup.done", comment: ""),
                 autoDismiss: true
             ))
         } catch {
             bannerCenter.show(AppBannerModel(
                 kind: .error,
-                title: "清理失败：\(error.localizedDescription)",
+                title: String(format: NSLocalizedString("settings.icloud.cleanup.failed", comment: ""), error.localizedDescription),
                 autoDismiss: true
             ))
         }
@@ -759,9 +759,9 @@ struct SettingsView: View {
     // MARK: - Data Section
 
     private var dataSection: some View {
-        Section("数据") {
+        Section(NSLocalizedString("settings.data.section", comment: "")) {
             HStack {
-                Label("Vault 大小", systemImage: "internaldrive")
+                Label(NSLocalizedString("settings.data.vault_size", comment: ""), systemImage: "internaldrive")
                 Spacer()
                 Text(vaultSizeLabel)
                     .font(.caption)
@@ -769,46 +769,46 @@ struct SettingsView: View {
             }
 
             Button(action: exportAll) {
-                Label("前往 Archive 页面导出", systemImage: "archivebox")
+                Label(NSLocalizedString("settings.data.export_archive", comment: ""), systemImage: "archivebox")
             }
             .foregroundColor(DSColor.onSurfaceVariant)
 
             Button(action: { Task { await exportObsidianVault() } }) {
                 if isExportingObsidian {
                     HStack {
-                        Label("导出中…", systemImage: "square.and.arrow.up")
+                        Label(NSLocalizedString("settings.data.exporting", comment: ""), systemImage: "square.and.arrow.up")
                         Spacer()
                         ProgressView().scaleEffect(0.8)
                     }
                 } else {
-                    Label("导出日记 (Obsidian 兼容)", systemImage: "square.and.arrow.up")
+                    Label(NSLocalizedString("settings.data.export_obsidian", comment: ""), systemImage: "square.and.arrow.up")
                 }
             }
             .disabled(isExportingObsidian)
 
             if SampleDataSeeder.hasSeededSamples {
                 Button(role: .destructive, action: { showClearSampleConfirm = true }) {
-                    Label("清除示例数据", systemImage: "trash")
+                    Label(NSLocalizedString("settings.data.clear_sample.button", comment: ""), systemImage: "trash")
                 }
                 .accessibilityLabel(NSLocalizedString("settings.clear_sample.label", comment: ""))
                 .accessibilityHint(NSLocalizedString("settings.clear_sample.hint", comment: ""))
                 .accessibilityIdentifier("settings-clear-sample-button")
                 .confirmationDialog(
-                    "确认清除示例数据？",
+                    NSLocalizedString("settings.data.clear_sample.confirm.title", comment: ""),
                     isPresented: $showClearSampleConfirm,
                     titleVisibility: .visible
                 ) {
-                    Button("清除", role: .destructive) {
+                    Button(NSLocalizedString("settings.data.clear_sample.confirm.action", comment: ""), role: .destructive) {
                         SampleDataSeeder.clearSampleData()
                         bannerCenter.show(AppBannerModel(
                             kind: .success,
-                            title: "示例数据已清除",
+                            title: NSLocalizedString("settings.data.clear_sample.done", comment: ""),
                             autoDismiss: true
                         ))
                     }
-                    Button("取消", role: .cancel) {}
+                    Button(NSLocalizedString("settings.common.cancel", comment: ""), role: .cancel) {}
                 } message: {
-                    Text("所有示例数据将被永久删除，此操作无法撤销。")
+                    Text(NSLocalizedString("settings.data.clear_sample.confirm.message", comment: ""))
                 }
             }
 
@@ -824,16 +824,16 @@ struct SettingsView: View {
     // MARK: - About Section
 
     private var aboutSection: some View {
-        Section("关于") {
+        Section(NSLocalizedString("settings.about.section", comment: "")) {
             // Tap to copy "DayPage <version> (<build>)" to the clipboard, so the
             // exact version can be pasted into a support request or bug report.
             Button(action: copyVersionInfo) {
                 HStack {
-                    Text("版本")
+                    Text(NSLocalizedString("settings.about.version", comment: ""))
                         .foregroundColor(DSColor.onSurface)
                     Spacer()
                     if didCopyVersion {
-                        Label("已复制", systemImage: "checkmark")
+                        Label(NSLocalizedString("settings.about.copied", comment: ""), systemImage: "checkmark")
                             .labelStyle(.titleAndIcon)
                             .foregroundColor(DSColor.accentAmber)
                             .font(.caption)
@@ -925,7 +925,7 @@ struct SettingsView: View {
         let model = Secrets.deepSeekModel.isEmpty ? "deepseek-v4-pro" : Secrets.deepSeekModel
 
         guard let url = URL(string: "\(baseURL)/chat/completions") else {
-            deepSeekResult = .failure("URL 无效：\(baseURL)")
+            deepSeekResult = .failure(String(format: NSLocalizedString("settings.test.url_invalid", comment: ""), baseURL))
             return
         }
 
@@ -944,7 +944,7 @@ struct SettingsView: View {
             let (_, resp) = try await URLSession.shared.data(for: req)
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
             if code == 200 {
-                deepSeekResult = .success("连接成功 · 模型 \(model)")
+                deepSeekResult = .success(String(format: NSLocalizedString("settings.test.success_model", comment: ""), model))
             } else {
                 deepSeekResult = .failure("HTTP \(code) · \(hintForDeepSeek(status: code))")
             }
@@ -969,7 +969,7 @@ struct SettingsView: View {
             let (_, resp) = try await URLSession.shared.data(for: req)
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
             if code == 200 {
-                whisperResult = .success("连接成功 · Whisper")
+                whisperResult = .success(NSLocalizedString("settings.test.success_whisper", comment: ""))
             } else {
                 whisperResult = .failure("HTTP \(code) · \(hintForOpenAI(status: code))")
             }
@@ -994,7 +994,7 @@ struct SettingsView: View {
             let (_, resp) = try await URLSession.shared.data(for: req)
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
             if code == 200 {
-                weatherResult = .success("连接成功 · OpenWeather")
+                weatherResult = .success(NSLocalizedString("settings.test.success_weather", comment: ""))
             } else {
                 weatherResult = .failure("HTTP \(code) · \(hintForOpenWeather(status: code))")
             }
@@ -1007,31 +1007,31 @@ struct SettingsView: View {
 
     private func hintForDeepSeek(status: Int) -> String {
         switch status {
-        case 401, 403: return "API key 无效或权限不足"
-        case 404: return "URL 不存在，检查 baseURL"
-        case 429: return "频率限制，稍后重试"
-        case 500...599: return "服务端错误，稍后重试"
-        default: return "请求失败"
+        case 401, 403: return NSLocalizedString("settings.test.hint.key_invalid_or_forbidden", comment: "")
+        case 404: return NSLocalizedString("settings.test.hint.url_not_found", comment: "")
+        case 429: return NSLocalizedString("settings.test.hint.rate_limited", comment: "")
+        case 500...599: return NSLocalizedString("settings.test.hint.server_error", comment: "")
+        default: return NSLocalizedString("settings.test.hint.request_failed", comment: "")
         }
     }
 
     private func hintForOpenAI(status: Int) -> String {
         switch status {
-        case 401, 403: return "API key 无效或权限不足"
-        case 404: return "URL 不存在，检查 baseURL"
-        case 429: return "频率限制或额度不足"
-        case 500...599: return "服务端错误，稍后重试"
-        default: return "请求失败"
+        case 401, 403: return NSLocalizedString("settings.test.hint.key_invalid_or_forbidden", comment: "")
+        case 404: return NSLocalizedString("settings.test.hint.url_not_found", comment: "")
+        case 429: return NSLocalizedString("settings.test.hint.rate_or_quota", comment: "")
+        case 500...599: return NSLocalizedString("settings.test.hint.server_error", comment: "")
+        default: return NSLocalizedString("settings.test.hint.request_failed", comment: "")
         }
     }
 
     private func hintForOpenWeather(status: Int) -> String {
         switch status {
-        case 401: return "API key 无效"
-        case 404: return "URL 不存在"
-        case 429: return "免费套餐额度用尽"
-        case 500...599: return "服务端错误，稍后重试"
-        default: return "请求失败"
+        case 401: return NSLocalizedString("settings.test.hint.key_invalid", comment: "")
+        case 404: return NSLocalizedString("settings.test.hint.url_not_found_short", comment: "")
+        case 429: return NSLocalizedString("settings.test.hint.free_quota_exhausted", comment: "")
+        case 500...599: return NSLocalizedString("settings.test.hint.server_error", comment: "")
+        default: return NSLocalizedString("settings.test.hint.request_failed", comment: "")
         }
     }
 
@@ -1039,15 +1039,15 @@ struct SettingsView: View {
         let nsError = error as NSError
         if nsError.domain == NSURLErrorDomain {
             switch nsError.code {
-            case NSURLErrorTimedOut: return "网络不可达，检查代理（超时）"
-            case NSURLErrorNotConnectedToInternet: return "未连接到互联网"
+            case NSURLErrorTimedOut: return NSLocalizedString("settings.test.net.timeout", comment: "")
+            case NSURLErrorNotConnectedToInternet: return NSLocalizedString("settings.test.net.no_internet", comment: "")
             case NSURLErrorCannotFindHost, NSURLErrorCannotConnectToHost:
-                return "URL 不存在，检查 baseURL"
-            case NSURLErrorNetworkConnectionLost: return "网络连接已断开"
-            default: return "网络错误：\(nsError.localizedDescription)"
+                return NSLocalizedString("settings.test.hint.url_not_found", comment: "")
+            case NSURLErrorNetworkConnectionLost: return NSLocalizedString("settings.test.net.connection_lost", comment: "")
+            default: return String(format: NSLocalizedString("settings.test.net.error", comment: ""), nsError.localizedDescription)
             }
         }
-        return "连接失败：\(nsError.localizedDescription)"
+        return String(format: NSLocalizedString("settings.test.net.connect_failed", comment: ""), nsError.localizedDescription)
     }
 
     // MARK: - Data Helpers
@@ -1074,7 +1074,7 @@ struct SettingsView: View {
             let sizeLabel = ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file)
             // Surface the entry count alongside size so users see how much
             // they've logged at a glance, e.g. "12 天 · 1.2 MB".
-            let label = dayCount > 0 ? "\(dayCount) 天 · \(sizeLabel)" : sizeLabel
+            let label = dayCount > 0 ? String(format: NSLocalizedString("settings.data.vault.days_size", comment: ""), dayCount, sizeLabel) : sizeLabel
             await MainActor.run { self.vaultSizeLabel = label }
         }
     }
@@ -1093,8 +1093,8 @@ struct SettingsView: View {
 
     private func exportAll() {
         // Export is not implemented here; direct the user to the Archive tab.
-        exportResult = "请前往 Archive 页面使用导出功能"
-        bannerCenter.show(.init(kind: .info, title: "导出功能在 Archive 页面可用"))
+        exportResult = NSLocalizedString("settings.data.export.use_archive", comment: "")
+        bannerCenter.show(.init(kind: .info, title: NSLocalizedString("settings.data.export.archive_banner", comment: "")))
     }
 
     // MARK: - Obsidian Export
@@ -1112,7 +1112,7 @@ struct SettingsView: View {
             obsidianExportURL = zipURL
             showObsidianShareSheet = true
         case .failure(let error):
-            bannerCenter.show(.init(kind: .error, title: "导出失败：\(error.localizedDescription)", autoDismiss: true))
+            bannerCenter.show(.init(kind: .error, title: String(format: NSLocalizedString("settings.data.export.failed", comment: ""), error.localizedDescription), autoDismiss: true))
         }
     }
 
@@ -1151,12 +1151,12 @@ struct SettingsView: View {
 
     private var locationAuthLabel: String {
         switch locationService.authorizationStatus {
-        case .notDetermined: return "未授权"
-        case .denied: return "已拒绝"
-        case .restricted: return "受限"
-        case .authorizedWhenInUse: return "使用时"
-        case .authorizedAlways: return "始终"
-        @unknown default: return "未知"
+        case .notDetermined: return NSLocalizedString("settings.permission.location.notdetermined", comment: "")
+        case .denied: return NSLocalizedString("settings.permission.location.denied", comment: "")
+        case .restricted: return NSLocalizedString("settings.permission.location.restricted", comment: "")
+        case .authorizedWhenInUse: return NSLocalizedString("settings.permission.location.wheninuse", comment: "")
+        case .authorizedAlways: return NSLocalizedString("settings.permission.location.always", comment: "")
+        @unknown default: return NSLocalizedString("settings.permission.location.unknown", comment: "")
         }
     }
 
@@ -1223,7 +1223,7 @@ enum ObsidianExporter {
 
         guard !pages.isEmpty else {
             return .failure(NSError(domain: "ObsidianExporter", code: 1,
-                                   userInfo: [NSLocalizedDescriptionKey: "没有已编译的日记页面可导出"]))
+                                   userInfo: [NSLocalizedDescriptionKey: NSLocalizedString("settings.data.export.no_pages", comment: "")]))
         }
 
         // Build a temporary directory containing all pages
