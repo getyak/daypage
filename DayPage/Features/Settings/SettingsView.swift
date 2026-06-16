@@ -244,7 +244,8 @@ struct SettingsView: View {
                 isTesting: weatherTesting,
                 result: weatherResult,
                 onTest: { Task { await testWeather() } },
-                providerID: "openweather"
+                providerID: "openweather",
+                isRequired: false
             )
         }
     }
@@ -257,17 +258,22 @@ struct SettingsView: View {
         isTesting: Bool,
         result: APITestResult?,
         onTest: @escaping () -> Void,
-        providerID: String = ""
+        providerID: String = "",
+        isRequired: Bool = true
     ) -> some View {
+        let badgeColor: Color = isRequired ? .red : DSColor.inkSubtle
+        let badgeLabel = isRequired
+            ? NSLocalizedString("settings.apikey.unconfigured", comment: "")
+            : NSLocalizedString("settings.apikey.optional", comment: "")
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(name)
                         .font(.body)
                     if key.isEmpty {
-                        Text(NSLocalizedString("settings.apikey.unconfigured", comment: ""))
+                        Text(badgeLabel)
                             .font(.caption)
-                            .foregroundColor(.red)
+                            .foregroundColor(badgeColor)
                     } else {
                         Text("…" + String(key.suffix(4)))
                             .font(DSType.labelSM)
@@ -275,7 +281,6 @@ struct SettingsView: View {
                     }
                 }
                 Spacer()
-                // Edit button — always visible
                 Button {
                     editingKeyName = name
                     editingKeyID = keychainID
@@ -289,13 +294,13 @@ struct SettingsView: View {
                 .controlSize(.small)
 
                 if key.isEmpty {
-                    Text(NSLocalizedString("settings.apikey.unconfigured", comment: ""))
+                    Text(badgeLabel)
                         .font(.caption)
                         .fontWeight(.medium)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
-                        .background(Color.red.opacity(0.12))
-                        .foregroundColor(.red)
+                        .background(badgeColor.opacity(0.12))
+                        .foregroundColor(badgeColor)
                         .clipShape(Capsule())
                 } else {
                     Button(action: onTest) {

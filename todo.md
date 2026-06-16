@@ -115,7 +115,7 @@
   - 任务：未登录时副标题改为"本地账户 · 点击同步"之类（走本地化 key），已登录显示邮箱/账号。
   - 验收：未登录与已登录两态文案清晰区分。
 
-- [ ] **P2-6｜API Key 区分"必需(AI)"与"可选(天气)"视觉**
+- [x] **P2-6｜API Key 区分"必需(AI)"与"可选(天气)"视觉** ✅ 2026-06-16｜apiKeyRow 新增 isRequired 参数；OpenWeatherMap 使用灰色"可选"badge 而非红色"未配置"；en/zh 新增 settings.apikey.optional key；模拟器验证三行 API Key badge 颜色和文案区分正确
   - 文件：`DayPage/Features/Settings/SettingsView.swift`（`apiKeyRow`）
   - 背景：三项未配置全标红"未配置"，造成焦虑。
   - 任务：天气（OpenWeatherMap）未配置时用中性"可选 · 未配置"灰标签；AI（DeepSeek）保留红色强提示。

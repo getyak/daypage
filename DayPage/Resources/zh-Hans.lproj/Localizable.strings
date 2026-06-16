@@ -583,6 +583,7 @@
 "settings.account.tap_to_sign_in"            = "点击登录";
 "settings.account.manage"                    = "管理账号";
 "settings.apikey.unconfigured"               = "未配置";
+"settings.apikey.optional"                   = "可选";
 "settings.apikey.test_connection"            = "测试连接";
 "settings.permission.section"                = "权限";
 "settings.permission.mic"                    = "麦克风";
