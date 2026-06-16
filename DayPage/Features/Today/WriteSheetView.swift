@@ -200,11 +200,8 @@ struct WriteSheetView: View {
             appeared = true
             confirmingDiscard = false
             recomputeCounts()
-            // Raise the keyboard almost immediately. The previous 0.2s delay
-            // (to "let the sheet-up settle") read as the keyboard arriving late
-            // after the tap. A 0.05s beat is enough to let the sheet-up start
-            // and avoid a layout race, while feeling effectively instant.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(350))
                 isFocused = true
             }
         }

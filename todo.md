@@ -61,7 +61,7 @@
   - 验收：配置可用 AI key 后编译当日，daily 文件含 ≥1 个 wikilink，对应 entity page 被创建，Graph 出现节点与边。
   - 依赖：需要可用的 DashScope API key 做端到端验证。
 
-- [ ] **P1-3｜WriteSheet 弹出后键盘未自动弹出，需二次点击**
+- [x] **P1-3｜WriteSheet 弹出后键盘未自动弹出，需二次点击** ✅ 2026-06-16｜onAppear 延迟从 0.05s 调整为 350ms（Task.sleep），sheet-up 动画结束后 @FocusState 生效；模拟器验证文本框自动获焦
   - 文件：`DayPage/Features/Today/WriteSheetView.swift`（第 207-209 行）
   - 背景：点击输入栏 "Capture this moment" 弹出 WriteSheet 后，文本编辑区域未获焦，软键盘不弹出，用户需要再手动点一次 "What's on your mind?" 区域才能开始输入。
   - 根因：`onAppear` 中 `DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { isFocused = true }` 的 0.05s 延迟太短——sheet-up 动画 320ms 尚在进行中，SwiftUI 的 `@FocusState` 请求被动画吞掉。
