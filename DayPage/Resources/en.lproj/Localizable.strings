@@ -668,3 +668,7 @@
 "settings.permission.location.always"        = "Always";
 "settings.permission.location.unknown"       = "Unknown";
 "settings.data.export.no_pages"              = "No compiled journal pages to export";
+
+/* Sidebar profile */
+"sidebar.profile.local_account"              = "Local Account";
+"sidebar.profile.tap_to_sync"                = "LOCAL · TAP TO SYNC";

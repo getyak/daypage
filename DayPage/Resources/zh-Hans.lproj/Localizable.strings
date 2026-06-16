@@ -672,3 +672,7 @@
 "settings.permission.location.always"        = "始终";
 "settings.permission.location.unknown"       = "未知";
 "settings.data.export.no_pages"              = "没有已编译的日记页面可导出";
+
+/* Sidebar profile */
+"sidebar.profile.local_account"              = "本地账户";
+"sidebar.profile.tap_to_sync"                = "本地 · 点击同步";

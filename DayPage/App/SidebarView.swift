@@ -182,19 +182,22 @@ struct SidebarView: View {
     }
 
     private var profileName: String {
-        guard sidebarVM.isLoggedIn, !sidebarVM.accountEmail.isEmpty else { return "DayPage" }
-        // Use the local part of the email as a friendly display name.
+        guard sidebarVM.isLoggedIn, !sidebarVM.accountEmail.isEmpty else {
+            return NSLocalizedString("sidebar.profile.local_account", comment: "")
+        }
         return String(sidebarVM.accountEmail.prefix(while: { $0 != "@" }))
     }
 
     /// "MEMBER · SINCE <year>" using the real account creation year from the
-    /// auth session. Falls back to a yearless "MEMBER" when signed out or the
-    /// join year is unavailable, rather than printing a misleading hardcoded year.
+    /// auth session. Falls back to a local-account hint when signed out.
     private var membershipLine: String {
         if let year = sidebarVM.joinYear {
             return "MEMBER · SINCE \(year)"
         }
-        return "MEMBER"
+        if sidebarVM.isLoggedIn {
+            return "MEMBER"
+        }
+        return NSLocalizedString("sidebar.profile.tap_to_sync", comment: "")
     }
 
     // MARK: - Heatmap + Stats
