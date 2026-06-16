@@ -121,7 +121,7 @@
   - 任务：天气（OpenWeatherMap）未配置时用中性"可选 · 未配置"灰标签；AI（DeepSeek）保留红色强提示。
   - 验收：天气未配不再红色告警，AI 未配仍醒目。
 
-- [ ] **P2-7｜Memo 卡片右滑手势无操作反馈**
+- [x] **P2-7｜Memo 卡片右滑手势无操作反馈** ✅ 2026-06-16｜功能已在此前开发中实现：右滑露出"置顶"+"更多"两个操作按钮（SwipeableMemoCard leadingActions），onPin/onMore 回调已在 TodayView 中接入；模拟器验证右滑手势+按钮显示正常
   - 文件：`DayPage/Features/Today/SwipeableMemoCard.swift`
   - 背景：左滑露出 Delete/Share 操作正常，但右滑没有任何反应。根据设计历史记录，右滑应有置顶/更多按钮。
   - 任务：确认设计意图——若右滑操作已移除则无需处理；若仍需要，在右滑方向添加 Pin/More 操作按钮。
