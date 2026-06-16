@@ -156,7 +156,7 @@
 
 ## 附：工程环境（非产品，建议先处理以便后续验证）
 
-- [ ] **ENV-1｜修复测试 framework 误嵌入主 App bundle**
+- [x] **ENV-1｜修复测试 framework 误嵌入主 App bundle** ✅ 2026-06-16｜验证 DayPage.app/Frameworks/ 仅含 Sentry.framework，无 XCTest 相关 framework 泄漏；simctl install 正常无报错；问题已在此前修复
   - 现象：`xcodebuild -scheme DayPage build` 在 Validate 阶段失败——`XCTest/Testing/XCUIAutomation/XCTestSupport/XCTestCore/XCTAutomationSupport.framework` 被嵌入 `DayPage.app/Frameworks/`，致 `simctl install` 报 "Info.plist missing"。
   - 任务：核查 DayPage target 的 Embed Frameworks 阶段与测试依赖链，移除测试框架向主 App 的泄漏（很可能是某依赖把 XCTest 作为链接库带入）。
   - 验收：`xcodebuild -scheme DayPage build` 直接产出可被 `simctl install` 安装的 .app，无需手动删 framework。
