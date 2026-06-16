@@ -1335,8 +1335,28 @@ struct TodayView: View {
                             .accessibilityLabel(headerSublineAccessibilityLabel(currentTime))
                     }
                 } else {
-                    headerSublineView(currentTime)
-                        .accessibilityLabel(headerSublineAccessibilityLabel(currentTime))
+                    HStack(spacing: 8) {
+                        DayOrbView(
+                            signalCount: viewModel.signalCount,
+                            size: 28,
+                            haloOpacity: 0.08,
+                            onTap: {
+                                Haptics.soft()
+                                orbFocusToggle.toggle()
+                            },
+                            pulseToggle: orbCapturePulse,
+                            dayProgress: dayProgress,
+                            timeTint: orbTint(currentTime)
+                        )
+                        .frame(width: 36, height: 36)
+                        .scaleEffect(reduceMotion ? 1.0 : (orbBreathing ? 1.02 : 0.99))
+                        .animation(
+                            reduceMotion ? nil : .easeInOut(duration: 3.0).repeatForever(autoreverses: true),
+                            value: orbBreathing
+                        )
+                        headerSublineView(currentTime)
+                            .accessibilityLabel(headerSublineAccessibilityLabel(currentTime))
+                    }
                 }
             }
             .buttonStyle(.plain)

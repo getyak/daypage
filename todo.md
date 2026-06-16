@@ -85,7 +85,7 @@
   - 任务：给计数器 `HStack` 添加 `.lineLimit(1).minimumScaleFactor(0.75)` 防止换行，或调整间距/字号以适配最长计数文本（如 "999 WORDS · 999 CHARS · ~5 MIN READ"）。
   - 验收：输入 50+ 中文字时，footer rail 保持单行显示，计数文本完整可读；200+ 字时仍不换行。
 
-- [ ] **P2-1｜Today 有内容时保留迷你光球作为今日进度锚点**
+- [x] **P2-1｜Today 有内容时保留迷你光球作为今日进度锚点** ✅ 2026-06-16｜sidebarSection 有 memo 时在 headerSublineView 前添加 28pt DayOrbView，复用 dayProgress/orbTint 驱动，点击触发 orbFocusToggle 聚焦输入框；模拟器验证光球显示+点击弹出 WriteSheet
   - 文件：`DayPage/Features/Today/TodayView.swift`（`orbHero` / `sidebarSection`）、`DayOrbView.swift`
   - 背景：空状态 140pt 光球很出彩，但有 memo 后整块消失，过渡突兀。
   - 任务：有 memo 时在 header 区放一个小尺寸（约 24–32pt）光球，复用 `dayProgress` 驱动，点击聚焦输入框。
