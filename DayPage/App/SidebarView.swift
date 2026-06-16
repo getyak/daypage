@@ -222,7 +222,7 @@ struct SidebarView: View {
                     : "Streak \(sidebarVM.currentStreak) days"
                 )
             statDivider
-            statCell(label: "PAGES", value: "\(sidebarVM.totalPages)", unit: "TOTAL", first: false)
+            statCell(label: "DAILIES", value: "\(sidebarVM.totalPages)", unit: "COMPILED", first: false)
             statDivider
             statCell(label: "WORDS", value: formatWords(sidebarVM.totalWordCount), unit: "TOTAL", first: false)
         }

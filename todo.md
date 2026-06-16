@@ -103,7 +103,7 @@
   - 任务：`nodes.isEmpty` 时隐藏搜索栏与筛选按钮，仅保留空状态主体。
   - 验收：空图谱时无搜索/筛选 chrome；有节点时恢复显示。
 
-- [ ] **P2-4｜统一并核对统计口径（侧边栏 PAGES vs Archive TOTAL ENTRIES）**
+- [x] **P2-4｜统一并核对统计口径（侧边栏 PAGES vs Archive TOTAL ENTRIES）** ✅ 2026-06-16｜侧边栏 "PAGES/TOTAL" 改为 "DAILIES/COMPILED"（编译产物），Archive "TOTAL ENTRIES"（原始 memo 数）保持不变；两处口径定义清晰不矛盾；模拟器验证标签显示正确
   - 文件：`DayPage/App/SidebarViewModel.swift`、`SidebarView.swift`、`ArchiveView.swift`
   - 背景：侧边栏 "PAGES 4 TOTAL" 与 Archive "TOTAL ENTRIES" 口径需明确，避免两处数字打架。
   - 任务：统一定义（建议：PAGES=已编译 daily 数，ENTRIES=有 raw memo 的天数），在两处使用同一计算源；标签语义清晰。
