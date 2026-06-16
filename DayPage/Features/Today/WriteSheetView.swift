@@ -418,6 +418,8 @@ struct WriteSheetView: View {
             .tracking(1.0)
             .textCase(.uppercase)
             .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.75)
             .foregroundColor(wordCountColor)
             // Only the reading-time chip's appear/disappear gets a soft tick.
             .animation(reduceMotion ? nil : Motion.countTick, value: showReadingTime)

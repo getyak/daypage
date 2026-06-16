@@ -78,7 +78,7 @@
 
 ## P2 · 界面打磨
 
-- [ ] **P2-0｜WriteSheet footer 计数器中文长文本时布局溢出换行**
+- [x] **P2-0｜WriteSheet footer 计数器中文长文本时布局溢出换行** ✅ 2026-06-16｜计数器 HStack 添加 lineLimit(1)+minimumScaleFactor(0.75)；模拟器验证 100+ 字时 footer 保持单行
   - 文件：`DayPage/Features/Today/WriteSheetView.swift`（第 409-427 行，`footerRail`）
   - 背景：输入 52 个中文字时，底部 footer rail 的 "52 WORDS · 52 CHARS · ~1 MIN READ" 文本换行，排版混乱——数字和标签错位成多行。英文短文本无此问题。
   - 根因：footer rail 使用 `HStack(spacing: 2)`，计数文本区域没有 `lineLimit` 或 `minimumScaleFactor` 约束，当中文 CJK 字数较多（两位数以上）+ 阅读时间标签出现时，文本被左侧图标和右侧 Save 按钮挤压到换行。
