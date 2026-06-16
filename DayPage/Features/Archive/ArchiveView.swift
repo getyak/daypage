@@ -1068,9 +1068,15 @@ struct ArchiveView: View {
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 summaryCard("TOTAL ENTRIES", value: "\(viewModel.totalEntries)", accentPrimary: true)
-                summaryCard("VOICE DURATION", value: "\(viewModel.totalVoiceMinutes)", unit: "min", accentPrimary: false)
-                summaryCard("PHOTOS CAPTURED", value: "\(viewModel.totalPhotos)", accentPrimary: false)
-                summaryCard("TRAVEL LOCATIONS", value: "\(viewModel.totalLocations)", accentPrimary: true)
+                if viewModel.totalVoiceMinutes > 0 {
+                    summaryCard("VOICE DURATION", value: "\(viewModel.totalVoiceMinutes)", unit: "min", accentPrimary: false)
+                }
+                if viewModel.totalPhotos > 0 {
+                    summaryCard("PHOTOS CAPTURED", value: "\(viewModel.totalPhotos)", accentPrimary: false)
+                }
+                if viewModel.totalLocations > 0 {
+                    summaryCard("TRAVEL LOCATIONS", value: "\(viewModel.totalLocations)", accentPrimary: true)
+                }
             }
 
             // Filter chips
@@ -1337,12 +1343,18 @@ struct ArchiveView: View {
                 digestStat(value: "\(activeDays)", label: "DAYS", accent: true)
                 digestDivider
                 digestStat(value: "\(entries)", label: "ENTRIES", accent: false)
-                digestDivider
-                digestStat(value: "\(photos)", label: "PHOTOS", accent: false)
-                digestDivider
-                digestStat(value: "\(voice)", label: "VOICE MIN", accent: false)
-                digestDivider
-                digestStat(value: "\(locations)", label: "PLACES", accent: false)
+                if photos > 0 {
+                    digestDivider
+                    digestStat(value: "\(photos)", label: "PHOTOS", accent: false)
+                }
+                if voice > 0 {
+                    digestDivider
+                    digestStat(value: "\(voice)", label: "VOICE MIN", accent: false)
+                }
+                if locations > 0 {
+                    digestDivider
+                    digestStat(value: "\(locations)", label: "PLACES", accent: false)
+                }
             }
         }
         .padding(.horizontal, 16)

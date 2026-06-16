@@ -91,7 +91,7 @@
   - 任务：有 memo 时在 header 区放一个小尺寸（约 24–32pt）光球，复用 `dayProgress` 驱动，点击聚焦输入框。
   - 验收：有内容时 header 出现迷你光球，点击聚焦输入栏，reduceMotion 下不做呼吸动画。
 
-- [ ] **P2-2｜Archive 月度统计卡按用户实际维度动态显隐**
+- [x] **P2-2｜Archive 月度统计卡按用户实际维度动态显隐** ✅ 2026-06-16｜monthlySummary LazyVGrid 和 monthDigestStrip 中 voice/photos/locations 为 0 时隐藏对应卡片；TOTAL ENTRIES 始终保留；模拟器验证 VOICE DURATION 0 被隐藏
   - 文件：`DayPage/Features/Archive/ArchiveView.swift`、`MetadataGridView.swift`
   - 背景：纯文字用户的 "VOICE DURATION 0 MIN / PHOTOS CAPTURED 0" 恒为 0，显空。
   - 任务：当某维度当月为 0 时隐藏该卡（或灰显折叠），保证至少展示 TOTAL ENTRIES；维度全 0 时给占位文案。
