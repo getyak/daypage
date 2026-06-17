@@ -6,11 +6,18 @@ import UIKit
 
 // MARK: - BlinkingModifier (composer.jsx caret animation)
 private struct BlinkingModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var visible = true
     func body(content: Content) -> some View {
         content
             .opacity(visible ? 1 : 0)
             .onAppear {
+                // Vestibular-sensitive: skip the repeating blink entirely when
+                // Reduce Motion is on; leave the caret in its solid state.
+                guard !reduceMotion else {
+                    visible = true
+                    return
+                }
                 withAnimation(.easeInOut(duration: 0.6).repeatForever()) {
                     visible = false
                 }
@@ -227,21 +234,25 @@ struct InputBarV4: View {
                 locationChipRow(loc: loc)
             }
 
-            // Liquid Morph — idle capsule ↔ composing card.
-            // matchedGeometryEffect(id: .surface) carries the background shape
-            // through the spring so every in-between frame is geometrically
-            // continuous (AC: 录屏验证任意一帧截图取出来形状都能解释从哪来).
-            if isComposing {
-                composingCardMorph
-            } else {
-                VStack(spacing: 8) {
-                    streamDockMorph
-                    dockHintLabel
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 10)
-                .padding(.bottom, 14)
+            // Dock-only surface. The previous "composing card" morph
+            // (`composingCardMorph` further down in this file) is no longer
+            // reachable: it duplicated the WriteSheet's text-input surface
+            // and confused users into thinking the app had two composers.
+            // All rich composing now happens inside WriteSheetView. The
+            // dock is a pure entry point: + (attachments) · "记下此刻"
+            // (opens WriteSheet) · mic (press-to-talk). Attachment chips,
+            // location chip, and recording overlay still render around the
+            // dock as ambient affordances. `composingCardMorph` and its
+            // helpers are intentionally left in the file as dead code; the
+            // next pass will excise them once we've verified no other
+            // surface depends on the templating / send-affordance internals.
+            VStack(spacing: 8) {
+                streamDockMorph
+                dockHintLabel
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 10)
+            .padding(.bottom, 14)
         }
         // V4: transparent dock — ambient page background shows through.
         // Warm gradient veil fades the list content behind the dock.

@@ -29,6 +29,10 @@
 		9B0FAA7690FA2EEED5AB7A96 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BAC7527E8128E6A865349FB9 /* Foundation.framework */; };
 		9B65087D6C50A363072E40A7 /* LiquidGlassEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DB2FBA71981BA7516DA9A3F /* LiquidGlassEngine.swift */; };
 		9D559EA9D4B9F2C77D942935 /* DayPageShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FD3383348F15CB7B4E82E53 /* DayPageShortcuts.swift */; };
+		IN1000001 /* QuickCaptureTextIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = IN2000001 /* QuickCaptureTextIntent.swift */; };
+		IN1000002 /* OpenDailyPageIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = IN2000002 /* OpenDailyPageIntent.swift */; };
+		IN1000003 /* AskTodayIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = IN2000003 /* AskTodayIntent.swift */; };
+		TI1000001 /* AppIntentsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TI2000001 /* AppIntentsTests.swift */; };
 		A10000001 /* DayPageApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000001 /* DayPageApp.swift */; };
 		A10000002 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000002 /* RootView.swift */; };
 		A10000003 /* VaultInitializer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000003 /* VaultInitializer.swift */; };
@@ -169,6 +173,7 @@
 		FB0000004 /* FeedbackContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000004 /* FeedbackContext.swift */; };
 		FT0000001 /* DayOrbView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FT1000001 /* DayOrbView.swift */; };
 		KC0000001 /* KeychainHelperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = KC1000001 /* KeychainHelperTests.swift */; };
+		A11Y0001 /* AccessibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11Y1001 /* AccessibilityTests.swift */; };
 		LS0000001 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = LS1000001 /* Localizable.strings */; };
 		LS0000002 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = LS1000004 /* L10n.swift */; };
 		MD0000001 /* MemoDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = MD1000001 /* MemoDetailView.swift */; };
@@ -243,6 +248,10 @@
 		3DE151F5BCB87ACC047C18AD /* CompileUnlockCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CompileUnlockCard.swift; sourceTree = "<group>"; };
 		519B9B12CB68C0E6E2A06292 /* QuickCaptureControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuickCaptureControl.swift; sourceTree = "<group>"; };
 		5FD3383348F15CB7B4E82E53 /* DayPageShortcuts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DayPageShortcuts.swift; sourceTree = "<group>"; };
+		IN2000001 /* QuickCaptureTextIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuickCaptureTextIntent.swift; sourceTree = "<group>"; };
+		IN2000002 /* OpenDailyPageIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OpenDailyPageIntent.swift; sourceTree = "<group>"; };
+		IN2000003 /* AskTodayIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AskTodayIntent.swift; sourceTree = "<group>"; };
+		TI2000001 /* AppIntentsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppIntentsTests.swift; sourceTree = "<group>"; };
 		61EFC77A2EB872EA2279BA2A /* PillSegmentedControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PillSegmentedControl.swift; sourceTree = "<group>"; };
 		71FB6C74A43193A3DD725723 /* DayPageWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DayPageWidgetBundle.swift; sourceTree = "<group>"; };
 		73FCD3E2EC4D7257BA7A22BD /* TimeZonePickerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimeZonePickerView.swift; sourceTree = "<group>"; };
@@ -398,6 +407,7 @@
 		FE91252BA9167A50BFF79FF0 /* StartRecordingIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartRecordingIntent.swift; sourceTree = "<group>"; };
 		FT1000001 /* DayOrbView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayOrbView.swift; sourceTree = "<group>"; };
 		KC1000001 /* KeychainHelperTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelperTests.swift; sourceTree = "<group>"; };
+		A11Y1001 /* AccessibilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityTests.swift; sourceTree = "<group>"; };
 		LS1000002 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		LS1000003 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		LS1000004 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
@@ -863,6 +873,9 @@
 			children = (
 				2EF24DE1810B0DA979103772 /* StartRecordingIntent.swift */,
 				5FD3383348F15CB7B4E82E53 /* DayPageShortcuts.swift */,
+				IN2000001 /* QuickCaptureTextIntent.swift */,
+				IN2000002 /* OpenDailyPageIntent.swift */,
+				IN2000003 /* AskTodayIntent.swift */,
 			);
 			name = Intents;
 			path = Intents;
@@ -936,6 +949,8 @@
 				T20000006 /* ComposerContextProviderTests.swift */,
 				84FFEA3DDB8DCB528A4189BF /* HapticFeedbackTests.swift */,
 				KC1000001 /* KeychainHelperTests.swift */,
+				TI2000001 /* AppIntentsTests.swift */,
+				A11Y1001 /* AccessibilityTests.swift */,
 			);
 			path = DayPageTests;
 			sourceTree = "<group>";
@@ -1280,6 +1295,9 @@
 				A10000095 /* ComposerContextProvider.swift in Sources */,
 				457A17AB7F3B4BE7C2E77026 /* StartRecordingIntent.swift in Sources */,
 				9D559EA9D4B9F2C77D942935 /* DayPageShortcuts.swift in Sources */,
+				IN1000001 /* QuickCaptureTextIntent.swift in Sources */,
+				IN1000002 /* OpenDailyPageIntent.swift in Sources */,
+				IN1000003 /* AskTodayIntent.swift in Sources */,
 				17B5829B738952DA183B1B90 /* DailyPageMetadataEditView.swift in Sources */,
 				7BB7402C51CCBACF56E7F83A /* DailyPageModel.swift in Sources */,
 				73BECCAED0BDBEFB612B15E4 /* DailyPageParser.swift in Sources */,
@@ -1314,6 +1332,8 @@
 				T10000006 /* ComposerContextProviderTests.swift in Sources */,
 				09C6E4728050D69F54949DD1 /* HapticFeedbackTests.swift in Sources */,
 				KC0000001 /* KeychainHelperTests.swift in Sources */,
+				TI1000001 /* AppIntentsTests.swift in Sources */,
+				A11Y0001 /* AccessibilityTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

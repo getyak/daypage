@@ -76,13 +76,13 @@ struct DayOrbView: View {
                 .onChanged { _ in
                     if !isPressed {
                         Haptics.soft()
-                        withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.2, dampingFraction: 0.6)) {
                             isPressed = true
                         }
                     }
                 }
                 .onEnded { _ in
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.55)) {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.55)) {
                         isPressed = false
                     }
                     onTap?()

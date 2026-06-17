@@ -10,16 +10,17 @@ import SwiftUI
 /// 几乎不可见。`onPressingChanged` 在手指按下时回调 `true`、抬起或被高优先级手势
 /// 取消时回调 `false`，行为正确且不干扰水平滑动手势。
 struct PressableCardModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPressed: Bool = false
 
     func body(content: Content) -> some View {
         content
-            .scaleEffect(isPressed ? 0.98 : 1.0)
+            .scaleEffect((!reduceMotion && isPressed) ? 0.98 : 1.0)
             .overlay(
                 Color.black.opacity(isPressed ? 0.04 : 0)
                     .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard, style: .continuous))
             )
-            .animation(.spring(response: 0.25, dampingFraction: 0.8), value: isPressed)
+            .animation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.8), value: isPressed)
             .onLongPressGesture(minimumDuration: 0.0, maximumDistance: .infinity) {
                 // 轻触动作由 MemoCardView 内部的 .onTapGesture 处理
                 // 此处不执行任何操作

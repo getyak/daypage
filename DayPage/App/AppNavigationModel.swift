@@ -35,6 +35,12 @@ final class AppNavigationModel: ObservableObject {
     /// TodayView consumes this once and resets it to nil.
     @Published var pendingDraftText: String? = nil
 
+    /// Pre-filled search query delivered via `daypage://search?q=…` (e.g. from
+    /// `AskTodayIntent`). ArchiveView observes this, presents SearchView with
+    /// the query pre-populated, and clears it so re-tapping the same shortcut
+    /// re-fires the navigation.
+    @Published var pendingSearchQuery: String? = nil
+
     init() {}
 
     private static func initialTab() -> AppTab {

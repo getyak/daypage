@@ -146,6 +146,7 @@ struct TypewriterText: View {
     /// the reveal; the parent can store and call it on a first-tap skip.
     var onCompleteHandler: Binding<(() -> Void)?> = .constant(nil)
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shownCount: Int = 0
     @State private var caretVisible: Bool = true
     @State private var didStart = false
@@ -186,7 +187,7 @@ struct TypewriterText: View {
     private func complete() {
         generation += 1          // invalidates all in-flight scheduleNextChar closures
         shownCount = fullText.count
-        withAnimation(.easeInOut(duration: 0.15)) { caretVisible = false }
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) { caretVisible = false }
         isComplete.wrappedValue = true
     }
 
@@ -205,8 +206,13 @@ struct TypewriterText: View {
         // Design app.jsx:439-442 shows the caret strictly while the reveal is
         // incomplete; we stop the repeating blink in scheduleNextChar() once
         // the last char is shown so it doesn't animate a hidden view forever.
-        withAnimation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true)) {
-            caretVisible = false
+        //
+        // Vestibular-sensitive: skip the repeating blink entirely under
+        // Reduce Motion; leave the caret in its solid visible state.
+        if !reduceMotion {
+            withAnimation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true)) {
+                caretVisible = false
+            }
         }
         // Kick off the reveal after a short beat (mirrors the design's 380ms lead-in).
         scheduleNextChar(after: 0.38)
@@ -225,7 +231,7 @@ struct TypewriterText: View {
             // (the caret view itself disappears via `isTyping`, but halting the
             // animation prevents a lingering repeatForever on a hidden layer).
             if shownCount >= fullText.count {
-                withAnimation(.easeInOut(duration: 0.2)) { caretVisible = false }
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { caretVisible = false }
                 isComplete.wrappedValue = true
                 return
             }
