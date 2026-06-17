@@ -1,4 +1,6 @@
 import SwiftUI
+import PhotosUI
+import CoreLocation
 
 // MARK: - WriteSheetView
 //
@@ -49,9 +51,40 @@ struct WriteSheetView: View {
     /// Toggle location: fetch if nil, clear if already set.
     var onToggleLocation: () -> Void = {}
 
+    /// CoreLocation authorization. Used to decide whether to silently
+    /// pre-fetch a location on open (only when already authorized — never
+    /// triggers the system permission alert on first open).
+    var locationAuthStatus: CLAuthorizationStatus = .notDetermined
+    /// Pending attachments (photo / voice / file). Shown as chips above the
+    /// text area when non-empty.
+    var pendingAttachments: [PendingAttachment] = []
+    /// Remove a pending attachment by id (xmark button on each chip).
+    var onRemoveAttachment: (String) -> Void = { _ in }
+    /// Photo library picker tile.
+    var onAddPhoto: ([PhotosPickerItem]) -> Void = { _ in }
+    /// In-app camera capture (uses CameraPickerView via the parent VM).
+    var onCapturePhoto: () -> Void = {}
+    /// Press-to-talk: long-press records, release sends a voice memo.
+    var onPressToTalkSend: (VoiceRecordingResult) -> Void = { _ in }
+    /// Press-to-talk: short-tap opens the persistent voice recorder.
+    var onStartVoiceRecording: () -> Void = {}
+    /// Press-to-talk: release-transcribe inserts transcript into the draft.
+    var onPressToTalkTranscribe: (String) -> Void = { _ in }
+    /// Submit the composed memo when text + attachments are flushed inline
+    /// (used by the send-arrow when there's text or attachments).
+    var onSubmit: () -> Void = {}
+
     @FocusState private var isFocused: Bool
     @State private var appeared: Bool = false
     @State private var lastMilestone: Int = 0
+    /// PhotosPicker plumbing — flipped by the photo rail icon.
+    @State private var showPhotosPicker: Bool = false
+    @State private var photosPickerItems: [PhotosPickerItem] = []
+    /// Press-to-talk phase mirrored from PressToTalkButton for the overlay.
+    @State private var pressToTalkPhase: PressToTalkPhase = .idle
+    /// One-shot guard so the auto-location fetch only fires on first open.
+    @State private var didAutoFetchLocation: Bool = false
+    @StateObject private var voiceService = VoiceService.shared
     /// Cached counts. These were computed properties that re-ran an O(n)
     /// full-text scan on EVERY SwiftUI body re-render — and a single keystroke
     /// triggers several re-renders. Recomputing only inside `onChange(of: text)`
@@ -114,7 +147,10 @@ struct WriteSheetView: View {
     private var showReadingTime: Bool { wordCount >= 50 }
 
     private var canSave: Bool {
-        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasText = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasAttachments = !pendingAttachments.isEmpty
+        let hasLocation = pendingLocation != nil
+        return hasText || hasAttachments || hasLocation
     }
 
     /// Counter color: interpolates from fgMuted → accentAmber as wordCount grows from 100…200.
@@ -200,9 +236,26 @@ struct WriteSheetView: View {
             appeared = true
             confirmingDiscard = false
             recomputeCounts()
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(350))
+            // Focus on next runloop tick so the keyboard rises in lockstep
+            // with the sheet-up animation. The previous 350ms Task.sleep
+            // gated typing behind the animation and was the root cause of
+            // "first tap does nothing — I have to tap twice" — the user
+            // expects to start typing the instant the sheet appears.
+            DispatchQueue.main.async {
                 isFocused = true
+            }
+            // Auto-embed location on first open when CoreLocation is already
+            // authorized — silent UX, never raises the system permission
+            // alert. Users who haven't granted access still see the grey
+            // mappin and can tap to opt in explicitly.
+            if !didAutoFetchLocation
+                && pendingLocation == nil
+                && !isLocating
+                && (locationAuthStatus == .authorizedWhenInUse
+                    || locationAuthStatus == .authorizedAlways)
+            {
+                didAutoFetchLocation = true
+                onToggleLocation()
             }
         }
     }
@@ -230,6 +283,10 @@ struct WriteSheetView: View {
             dragHandle
             header
             hairline
+            if !pendingAttachments.isEmpty {
+                attachmentPreviewRow
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
             textArea
             hairline
             footerRail
@@ -243,6 +300,17 @@ struct WriteSheetView: View {
                 savedCaption
                     .transition(.opacity)
             }
+        }
+        .photosPicker(
+            isPresented: $showPhotosPicker,
+            selection: $photosPickerItems,
+            matching: .images,
+            photoLibrary: .shared()
+        )
+        .onChange(of: photosPickerItems) { newItems in
+            guard !newItems.isEmpty else { return }
+            onAddPhoto(newItems)
+            photosPickerItems = []
         }
         .animation(reduceMotion ? .easeOut(duration: 0.15) : Motion.spring, value: confirmingDiscard)
         .padding(.bottom, 28)
@@ -391,8 +459,8 @@ struct WriteSheetView: View {
 
     private var footerRail: some View {
         HStack(spacing: 2) {
-            railIcon("camera", label: NSLocalizedString("write.sheet.icon.camera", comment: "拍照"))
-            railIcon("photo", label: NSLocalizedString("write.sheet.icon.photo", comment: "相册"))
+            cameraRailIcon
+            photoRailIcon
             locationRailIcon
             railIcon("tag", label: NSLocalizedString("write.sheet.icon.tag", comment: "标签"))
 
@@ -437,10 +505,138 @@ struct WriteSheetView: View {
                 }
             }
 
-            savePill
+            // Trailing action: when the draft is empty, show a press-to-talk
+            // mic (long-press = voice memo, short tap = open recorder). The
+            // moment any content exists, it morphs into the amber save pill.
+            // This is the single send affordance — no more dock-level mic.
+            if canSave {
+                savePill
+            } else {
+                writeSheetMicButton
+            }
         }
         .padding(.horizontal, 18)
         .padding(.top, 14)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: canSave)
+    }
+
+    /// Camera capture — opens the in-app CameraPickerView via the parent VM.
+    private var cameraRailIcon: some View {
+        Button {
+            Haptics.soft()
+            onCapturePhoto()
+        } label: {
+            Image(systemName: "camera")
+                .font(.system(size: 18, weight: .regular))
+                .foregroundColor(DSColor.inkMuted)
+                .frame(width: 40, height: 40)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(NSLocalizedString("write.sheet.icon.camera", comment: "拍照"))
+    }
+
+    /// Photo library — flips the local PhotosPicker flag.
+    private var photoRailIcon: some View {
+        Button {
+            Haptics.soft()
+            showPhotosPicker = true
+        } label: {
+            Image(systemName: "photo")
+                .font(.system(size: 18, weight: .regular))
+                .foregroundColor(DSColor.inkMuted)
+                .frame(width: 40, height: 40)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(NSLocalizedString("write.sheet.icon.photo", comment: "相册"))
+    }
+
+    /// Empty-draft press-to-talk button. Short tap opens the persistent
+    /// voice recorder; long-press records and sends a voice memo inline.
+    /// Mirrors the dock's mic semantics so users keep one mental model.
+    private var writeSheetMicButton: some View {
+        PressToTalkButton(
+            onPressStart: { Task { await voiceService.startRecording() } },
+            onReleaseSend: handleMicReleaseSend,
+            onReleaseCancel: { voiceService.cancelRecording() },
+            onReleaseTranscribe: handleMicReleaseTranscribe,
+            onPhaseChange: { pressToTalkPhase = $0 },
+            onTapShortRelease: {
+                Haptics.soft()
+                onStartVoiceRecording()
+            },
+            size: 38,
+            idleBackgroundColor: DSColor.amberDeep,
+            idleIconColor: .white
+        )
+        .frame(width: 44, height: 38)
+        .accessibilityLabel(NSLocalizedString("input.a11y.mic", comment: ""))
+    }
+
+    private func handleMicReleaseSend() {
+        Task {
+            if let result = await voiceService.stopAndTranscribe() {
+                onPressToTalkSend(result)
+            }
+        }
+    }
+
+    private func handleMicReleaseTranscribe() {
+        Task {
+            if let result = await voiceService.stopAndTranscribe(),
+               let transcript = result.transcript,
+               !transcript.isEmpty {
+                onPressToTalkTranscribe(transcript)
+            }
+        }
+    }
+
+    /// Horizontal chip strip showing pending attachments (photos / voice /
+    /// files) above the text area. Each chip has an inline xmark to remove.
+    private var attachmentPreviewRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(pendingAttachments) { att in
+                    attachmentChip(att)
+                }
+            }
+            .padding(.horizontal, 22)
+            .padding(.vertical, 8)
+        }
+    }
+
+    private func attachmentChip(_ att: PendingAttachment) -> some View {
+        let (icon, label) = chipContent(att)
+        return HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(DSType.mono11)
+                .foregroundStyle(DSColor.inkMuted)
+            Text(label)
+                .font(DSType.labelSM)
+                .foregroundStyle(DSColor.inkMuted)
+                .lineLimit(1)
+            Button {
+                Haptics.light()
+                onRemoveAttachment(att.id)
+            } label: {
+                Image(systemName: "xmark")
+                    .font(DSType.mono9)
+                    .foregroundStyle(DSColor.inkSubtle)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(DSColor.glassLo, in: Capsule())
+    }
+
+    private func chipContent(_ att: PendingAttachment) -> (icon: String, label: String) {
+        switch att {
+        case .photo(let r): return ("photo", r.fileURL.lastPathComponent)
+        case .voice(let r): return ("mic",   r.filePath.split(separator: "/").last.map(String.init) ?? "Voice")
+        case .file(let r):  return ("doc",   r.fileName)
+        }
     }
 
     private func railIcon(_ systemName: String, label: String) -> some View {
@@ -509,14 +705,14 @@ struct WriteSheetView: View {
                         color: DSColor.accentAmber.opacity(saveReadyPulse ? 0.5 : 0),
                         radius: saveReadyPulse ? 16 : 0
                     )
-                    .animation(.easeOut(duration: 0.6), value: saveReadyPulse)
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.6), value: saveReadyPulse)
             )
             .scaleEffect(saveReadyPulse ? 1.06 : 1.0)
             .animation(reduceMotion ? nil : Motion.spring, value: saveReadyPulse)
         }
         .buttonStyle(SavePillPressStyle())
         .disabled(!canSave)
-        .animation(.easeOut(duration: 0.18), value: canSave)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: canSave)
         .accessibilityIdentifier("write-sheet-save")
         .accessibilityLabel(NSLocalizedString("write.sheet.save", comment: "保存"))
         .onChange(of: canSave) { newValue in

@@ -24,6 +24,7 @@ struct CompileFooterButton: View {
     /// AI key 未配置时为 true，按钮显示引导态。
     var aiKeyMissing: Bool = false
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Controls the one-shot scale pulse on first reveal (visual only).
     @State private var didAppearPulse = false
     /// Cached hour component, refreshed every minute so the hint stays current across hour boundaries.
@@ -41,9 +42,9 @@ struct CompileFooterButton: View {
                     )
             }
         }
-        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isVisible)
-        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: isCompiling)
-        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: errorMessage)
+        .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85), value: isVisible)
+        .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85), value: isCompiling)
+        .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85), value: errorMessage)
     }
 
     // MARK: 内容

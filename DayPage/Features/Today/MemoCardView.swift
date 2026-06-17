@@ -421,6 +421,7 @@ struct PhotoFullScreenViewer: View {
     let exifText: String?
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var image: UIImage?
     @State private var isLoading: Bool = true
@@ -457,7 +458,7 @@ struct PhotoFullScreenViewer: View {
                                 .onEnded { value in
                                     let newScale = lastScale * value
                                     if newScale < snapBackThreshold {
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                        withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.75)) {
                                             scale = minScale
                                             offset = .zero
                                         }
@@ -483,7 +484,7 @@ struct PhotoFullScreenViewer: View {
                                         if value.translation.height > threshold {
                                             dismiss()
                                         } else {
-                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.75)) {
+                                            withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.75)) {
                                                 offset = .zero
                                             }
                                             lastOffset = .zero
@@ -1099,6 +1100,8 @@ struct CompilePromptCard: View {
     var isCompiling: Bool = false
     var onCompile: (() -> Void)?
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         HStack(spacing: 14) {
             // Icon
@@ -1166,7 +1169,7 @@ struct CompilePromptCard: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 14)
         .liquidGlassCard(cornerRadius: 18)
-        .animation(.easeInOut(duration: 0.2), value: isCompiling)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: isCompiling)
     }
 }
 

@@ -236,6 +236,12 @@ struct SearchView: View {
 
     var onSelect: (String) -> Void
 
+    /// Optional pre-filled query string set when SearchView is presented from
+    /// a deep link (e.g. `AskTodayIntent` → `daypage://search?q=…`). Applied
+    /// once in `.onAppear`; further user input flows through `vm.query` as
+    /// usual.
+    var initialQuery: String? = nil
+
     private var visibleResults: [SearchResult] {
         activeMatchKinds.isEmpty ? vm.results : vm.results.filter { activeMatchKinds.contains($0.matchKind) }
     }
@@ -259,8 +265,8 @@ struct SearchView: View {
                     }
 
                     contentArea
-                        .animation(.easeInOut(duration: 0.2), value: vm.hasSearched)
-                        .animation(.easeInOut(duration: 0.2), value: vm.results.isEmpty)
+                        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: vm.hasSearched)
+                        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: vm.results.isEmpty)
                 }
                 .overlay(alignment: .bottom) {
                     if vm.lastClearedSearches != nil {
@@ -277,16 +283,23 @@ struct SearchView: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
-                .animation(Motion.rise, value: vm.lastClearedSearches != nil)
+                .animation(reduceMotion ? nil : Motion.rise, value: vm.lastClearedSearches != nil)
             }
             .navigationBarHidden(true)
-            .animation(.easeInOut(duration: 0.2), value: showFilters)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: showFilters)
             .onAppear {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     isInputFocused = true
                 }
                 setupDebounce()
                 vm.loadTopEntities()
+                // Pre-populate query when SearchView was opened from a deep
+                // link (e.g. `daypage://search?q=…`). Only runs on first
+                // appear; setupDebounce → Combine pipeline will execute the
+                // search via the debounced subscription.
+                if let initial = initialQuery, !initial.isEmpty, vm.query.isEmpty {
+                    vm.query = initial
+                }
             }
             .onDisappear {
                 cancellable?.cancel()

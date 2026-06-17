@@ -458,6 +458,10 @@ struct ArchiveView: View {
     @State private var selectedDateString: String? = nil
     @State private var showDayDetail: Bool = false
     @State private var showSearch: Bool = false
+    /// Pre-filled query passed into SearchView when opened via deep link
+    /// (`daypage://search?q=…` from `AskTodayIntent`). Cleared after consume
+    /// so re-triggering the same shortcut re-fires the navigation.
+    @State private var searchInitialQuery: String? = nil
     @State private var summaryFilter: MonthlySummaryFilter = .all
     @State private var showShareSheet: Bool = false
     @State private var shareItems: [Any] = []
@@ -631,11 +635,15 @@ struct ArchiveView: View {
                 viewModel.loadMonth()
                 Task { await preScanVault() }
                 consumePendingArchiveDate()
+                consumePendingSearchQuery()
                 guard !reduceMotion else { return }
                 withAnimation(Motion.breathing) { todayPulse = true }
             }
             .onChange(of: nav.pendingArchiveDate) { _ in
                 consumePendingArchiveDate()
+            }
+            .onChange(of: nav.pendingSearchQuery) { _ in
+                consumePendingSearchQuery()
             }
             .fullScreenCover(isPresented: $showDayDetail) {
                 if let dateStr = selectedDateString {
@@ -643,13 +651,16 @@ struct ArchiveView: View {
                 }
             }
             .sheet(isPresented: $showSearch) {
-                SearchView { dateStr in
-                    selectedDateString = dateStr
-                    showSearch = false
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                        showDayDetail = true
-                    }
-                }
+                SearchView(
+                    onSelect: { dateStr in
+                        selectedDateString = dateStr
+                        showSearch = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                            showDayDetail = true
+                        }
+                    },
+                    initialQuery: searchInitialQuery
+                )
             }
             // Year/month jump picker — custom overlay (scrim + card) so it
             // floats lightly over the calendar with the app's Motion curves.
@@ -701,6 +712,19 @@ struct ArchiveView: View {
         // race and skip the animation on some iOS 16 builds.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             showDayDetail = true
+        }
+    }
+
+    /// Consume a pending search query delivered via `daypage://search?q=…`
+    /// (e.g. from `AskTodayIntent`). Mirrors `consumePendingArchiveDate` —
+    /// clears the nav state immediately, then presents SearchView on the
+    /// next runloop so the tab-switch animation commits first.
+    private func consumePendingSearchQuery() {
+        guard let q = nav.pendingSearchQuery else { return }
+        nav.pendingSearchQuery = nil
+        searchInitialQuery = q
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            showSearch = true
         }
     }
 

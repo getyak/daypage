@@ -332,7 +332,7 @@ struct TodayView: View {
                                         color: DSColor.accentAmber.opacity(scrollRingGlow ? 0.5 : 0),
                                         radius: scrollRingGlow ? 14 : 0
                                     )
-                                    .animation(.easeOut(duration: 0.6), value: scrollRingGlow)
+                                    .animation(reduceMotion ? nil : .easeOut(duration: 0.6), value: scrollRingGlow)
                                     .clipShape(Circle())
 
                                 if hasNewContentAboveFold {
@@ -1021,7 +1021,7 @@ struct TodayView: View {
                 color: DSColor.accentAmber.opacity(refreshGlow ? 0.45 : 0),
                 radius: refreshGlow ? 18 : 0
             )
-            .animation(.easeOut(duration: 0.6), value: refreshGlow)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.6), value: refreshGlow)
             .onLongPressGesture(minimumDuration: 0.5) {
                 Haptics.medium()
                 guard draftText.isEmpty else { return }
@@ -1217,6 +1217,12 @@ struct TodayView: View {
             onRemoveAttachment: { id in viewModel.removePendingAttachment(id: id) },
             onStartVoiceRecording: { viewModel.startVoiceRecording() },
             onOpenWriteSheet: {
+                // Debounce: if the sheet is already presented or transitioning
+                // in, ignore the second tap. Prior behavior would flip the
+                // bool twice in rapid succession, which SwiftUI coalesced into
+                // a no-op render on slow first-launches — the reason users
+                // reported "the first tap does nothing, I have to tap twice".
+                guard !showWriteSheet else { return }
                 Haptics.soft()
                 showWriteSheet = true
             },
@@ -1279,6 +1285,40 @@ struct TodayView: View {
                     } else {
                         viewModel.clearPendingLocation()
                     }
+                },
+                locationAuthStatus: LocationService.shared.authorizationStatus,
+                pendingAttachments: viewModel.pendingAttachments,
+                onRemoveAttachment: { id in viewModel.removePendingAttachment(id: id) },
+                onAddPhoto: { items in
+                    for item in items {
+                        viewModel.addPhotoAttachment(item: item)
+                    }
+                },
+                onCapturePhoto: { viewModel.startCameraCapture() },
+                onPressToTalkSend: { result in
+                    viewModel.addVoiceAttachment(result: result)
+                    let body = draftText
+                    draftText = ""
+                    showWriteSheet = false
+                    viewModel.submitCombinedMemo(body: body)
+                    showUndoPill(for: body)
+                    announceMemoSaved()
+                },
+                onStartVoiceRecording: { viewModel.startVoiceRecording() },
+                onPressToTalkTranscribe: { transcript in
+                    if draftText.isEmpty {
+                        draftText = transcript
+                    } else {
+                        draftText += (draftText.hasSuffix(" ") ? "" : " ") + transcript
+                    }
+                },
+                onSubmit: {
+                    let body = draftText
+                    draftText = ""
+                    showWriteSheet = false
+                    viewModel.submitCombinedMemo(body: body)
+                    showUndoPill(for: body)
+                    announceMemoSaved()
                 }
             )
             .transition(.opacity)
@@ -1648,9 +1688,9 @@ struct TodayView: View {
                             radius: compileRevealGlow ? 20 : 0
                         )
                         .scaleEffect(reduceMotion ? 1 : (compileRevealGlow ? 1.0 : 0.97))
-                        .animation(.easeOut(duration: 0.7), value: compileRevealGlow)
+                        .animation(reduceMotion ? nil : .easeOut(duration: 0.7), value: compileRevealGlow)
                         .transition(.scale(scale: 0.95).combined(with: .opacity))
-                        .animation(Motion.spring, value: viewModel.isDailyPageCompiled)
+                        .animation(reduceMotion ? nil : Motion.spring, value: viewModel.isDailyPageCompiled)
                 }
 
                 if viewModel.loadState == .loading && viewModel.memos.isEmpty {
@@ -1790,7 +1830,7 @@ struct TodayView: View {
                 color: DSColor.accentAmber.opacity(refreshGlow ? 0.45 : 0),
                 radius: refreshGlow ? 18 : 0
             )
-            .animation(.easeOut(duration: 0.6), value: refreshGlow)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.6), value: refreshGlow)
         }
         .refreshable {
             await viewModel.refresh()
@@ -1866,7 +1906,7 @@ struct TodayView: View {
                             color: DSColor.accentAmber.opacity(unlockGlow ? 0.5 : 0),
                             radius: unlockGlow ? 18 : 0
                         )
-                        .animation(.easeOut(duration: 0.6), value: unlockGlow)
+                        .animation(reduceMotion ? nil : .easeOut(duration: 0.6), value: unlockGlow)
                         Spacer()
                     }
                     .padding(.bottom, 4)
@@ -1959,6 +1999,11 @@ struct TodayView: View {
         }
 
         inputBarV4
+            // While WriteSheet is presented (overlay layer, not a true UISheet),
+            // disable hit-testing on the dock beneath. Otherwise taps at the
+            // edge of the scrim can fall through to the dock's `+` / mic and
+            // present a second sheet on top of the open WriteSheet.
+            .allowsHitTesting(!showWriteSheet)
     }
 
     // MARK: - Helpers
@@ -2497,6 +2542,8 @@ private struct LocationDraftRow: View {
 struct CompilationProgressBar: View {
     let stage: CompilationStage
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private var progress: Double {
         switch stage {
         case .extracting: return 0.25
@@ -2525,7 +2572,7 @@ struct CompilationProgressBar: View {
                     Capsule()
                         .fill(DSColor.accentAmber)
                         .frame(width: geo.size.width * progress, height: 3)
-                        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: progress)
+                        .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.8), value: progress)
                 }
             }
             .frame(height: 3)
@@ -2573,6 +2620,8 @@ struct TimelineRow: View {
     /// Drives the right-swipe MORE confirmation dialog (pin / delete / …).
     @State private var showMoreActions = false
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         ZStack(alignment: .topTrailing) {
             // In selection mode the inner NavigationLink must be disabled
@@ -2603,8 +2652,8 @@ struct TimelineRow: View {
             // Dimmer when in selection mode but not selected — pulls focus
             // toward the picked memos without hiding the others completely.
             .opacity(isSelectionMode && !isSelected ? 0.55 : 1)
-            .animation(.easeInOut(duration: 0.18), value: isSelected)
-            .animation(.easeInOut(duration: 0.18), value: isSelectionMode)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: isSelected)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: isSelectionMode)
 
             // Selection circle indicator, top-trailing.
             if isSelectionMode {

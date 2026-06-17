@@ -110,7 +110,7 @@ struct GraphView: View {
                         if !viewModel.searchQuery.isEmpty {
                             Button {
                                 Haptics.soft()
-                                withAnimation(.easeInOut(duration: 0.15)) {
+                                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) {
                                     viewModel.searchQuery = ""
                                 }
                             } label: {
@@ -133,7 +133,7 @@ struct GraphView: View {
 
                     // Filter toggle — amber when active
                     Button {
-                        withAnimation(.easeInOut) { showFilters.toggle() }
+                        withAnimation(reduceMotion ? nil : .easeInOut) { showFilters.toggle() }
                     } label: {
                         Image(systemName: showFilters ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
                             .font(.system(size: 20))
@@ -417,7 +417,7 @@ struct GraphView: View {
         } else {
             EmptyStateView.graphNoMatches {
                 Haptics.tapConfirm()
-                withAnimation(.easeInOut(duration: 0.15)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) {
                     viewModel.searchQuery = ""
                     viewModel.filterStartDate = nil
                     viewModel.filterEndDate = nil
@@ -441,7 +441,7 @@ struct GraphView: View {
     private var clearFiltersButton: some View {
         Button {
             Haptics.tapConfirm()
-            withAnimation(.easeInOut(duration: 0.15)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) {
                 viewModel.searchQuery = ""
                 viewModel.filterStartDate = nil
                 viewModel.filterEndDate = nil
@@ -538,7 +538,7 @@ struct GraphView: View {
         tapPulseProgress = 0
         tapPulseGeneration += 1
         let gen = tapPulseGeneration
-        withAnimation(.easeOut(duration: 0.35)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.35)) {
             tapPulseProgress = 1
         }
         Task { @MainActor in
@@ -563,7 +563,7 @@ struct GraphView: View {
             scale = targetScale; lastScale = targetScale
             offset = newOffset; lastOffset = newOffset
         }
-        withAnimation(.easeOut(duration: 0.35)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.35)) {
             tapPulseProgress = 1
         }
         Task { @MainActor in
@@ -1062,7 +1062,7 @@ struct GraphView: View {
         tapPulseProgress = 0
         tapPulseGeneration += 1
         let gen = tapPulseGeneration
-        withAnimation(.easeOut(duration: 0.35)) {
+        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.35)) {
             tapPulseProgress = 1
         }
         Task { @MainActor in

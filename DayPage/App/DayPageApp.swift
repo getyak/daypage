@@ -190,6 +190,32 @@ struct DayPageApp: App {
                         return
                     }
 
+                    // daypage://daily?date=YYYY-MM-DD — open Archive at that date.
+                    // (Driven by `OpenDailyPageIntent`.) Validate the format
+                    // before consuming so a malformed shortcut payload is
+                    // ignored rather than navigating to a bogus row.
+                    if url.host?.lowercased() == "daily" {
+                        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                           let dateString = components.queryItems?.first(where: { $0.name == "date" })?.value,
+                           dateString.range(of: #"^\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) != nil {
+                            navModel.openArchive(at: dateString)
+                        }
+                        return
+                    }
+
+                    // daypage://search?q=… — open SearchView pre-populated with
+                    // the query. SearchView lives under Archive, so we switch
+                    // to .archive and let ArchiveView observe pendingSearchQuery.
+                    if url.host?.lowercased() == "search" {
+                        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                           let q = components.queryItems?.first(where: { $0.name == "q" })?.value,
+                           !q.isEmpty {
+                            navModel.pendingSearchQuery = q
+                        }
+                        navModel.navigate(to: .archive)
+                        return
+                    }
+
                     // Handle Magic Link / OTP deep-link callbacks.
                     // Session updates are emitted by authStateChanges — no manual assignment needed.
                     Task {
