@@ -73,6 +73,9 @@
 		A10000040 /* DayDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000040 /* DayDetailView.swift */; };
 		A10000041 /* Spacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000041 /* Spacing.swift */; };
 		A10000042 /* RelativeTimeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000042 /* RelativeTimeFormatter.swift */; };
+		A10000801 /* DateFormatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000801 /* DateFormatters.swift */; };
+		A10000802 /* HTTPClientHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000802 /* HTTPClientHelper.swift */; };
+		A10000803 /* RetryHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000803 /* RetryHelper.swift */; };
 		A10000043 /* Interactions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000043 /* Interactions.swift */; };
 		A10000045 /* OnThisDayIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000045 /* OnThisDayIndex.swift */; };
 		A10000046 /* OnThisDayCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000046 /* OnThisDayCard.swift */; };
@@ -309,6 +312,9 @@
 		A20000040 /* DayDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayDetailView.swift; sourceTree = "<group>"; };
 		A20000041 /* Spacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Spacing.swift; sourceTree = "<group>"; };
 		A20000042 /* RelativeTimeFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeTimeFormatter.swift; sourceTree = "<group>"; };
+		A20000801 /* DateFormatters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateFormatters.swift; sourceTree = "<group>"; };
+		A20000802 /* HTTPClientHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPClientHelper.swift; sourceTree = "<group>"; };
+		A20000803 /* RetryHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryHelper.swift; sourceTree = "<group>"; };
 		A20000043 /* Interactions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Interactions.swift; sourceTree = "<group>"; };
 		A20000045 /* OnThisDayIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayIndex.swift; sourceTree = "<group>"; };
 		A20000046 /* OnThisDayCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayCard.swift; sourceTree = "<group>"; };
@@ -685,6 +691,8 @@
 				CF559C11C922ACB683565E7C /* LLMClient.swift */,
 				DD333392AE2B7F775D6E8D99 /* GraphRetriever.swift */,
 				A19989C44C3E9887FC01F382 /* MemoryChatService.swift */,
+				A20000802 /* HTTPClientHelper.swift */,
+				A20000803 /* RetryHelper.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -835,6 +843,7 @@
 			isa = PBXGroup;
 			children = (
 				A20000042 /* RelativeTimeFormatter.swift */,
+				A20000801 /* DateFormatters.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -1277,6 +1286,9 @@
 				A10000063 /* SwipeableMemoCard.swift in Sources */,
 				A10000400 /* HorizontalPanGesture.swift in Sources */,
 				A10000042 /* RelativeTimeFormatter.swift in Sources */,
+				A10000801 /* DateFormatters.swift in Sources */,
+				A10000802 /* HTTPClientHelper.swift in Sources */,
+				A10000803 /* RetryHelper.swift in Sources */,
 				A10000079 /* iCloudSyncMonitor.swift in Sources */,
 				A10000085 /* iCloudConflictMonitor.swift in Sources */,
 				A10000080 /* AppNavigationModel.swift in Sources */,

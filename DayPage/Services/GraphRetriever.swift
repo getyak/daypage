@@ -110,8 +110,19 @@ enum GraphRetriever {
 
         for dateString in hitDates {
             guard memoHits.count < maxMemoHits else { break }
-            guard let date = dayFormatter.date(from: dateString) else { continue }
-            let memos = (try? RawStorage.read(for: date)) ?? []
+            guard let date = DateFormatters.isoDate.date(from: dateString) else { continue }
+            let memos: [Memo]
+            do {
+                memos = try RawStorage.read(for: date)
+            } catch {
+                // I/O 失败不应让整次检索黑屏。逐天降级为空集，但记录到 logger，
+                // 让 Sentry 看得到磁盘/权限/iCloud 冲突这类信号，不再 silent fail.
+                DayPageLogger.log(
+                    level: "WARN",
+                    message: "[GraphRetriever] read \(dateString) failed: \(error.localizedDescription)"
+                )
+                continue
+            }
             for memo in memos where memoMatches(memo, foldedQuery: folded) {
                 guard memoHits.count < maxMemoHits else { break }
                 memoHits.append(RetrievedContext.MemoHit(
@@ -165,19 +176,44 @@ enum GraphRetriever {
     // MARK: - Step 3: Entity expansion
 
     /// 把候选 slug 集合扩展为实体页摘要，按 occurrence_count 降序取前 N。
+    ///
+    /// 双阶段命中：先 O(1) 走精确 slug；命中不到时再用 ``EntityPageService.isFuzzyMatch``
+    /// 扫描同 type 目录。这与 `EntityPageService.resolveSlug` 的写路径策略
+    /// 对称，避免 "coffee" 在写时被 canonicalize 成 "coffee-shop"、读时却查不到。
     private static func expandEntities(slugs: Set<String>, limit: Int) -> [RetrievedContext.EntityHit] {
         guard !slugs.isEmpty else { return [] }
         let types = ["places", "people", "themes"]
         var hits: [RetrievedContext.EntityHit] = []
+        var resolvedFiles = Set<URL>()  // 防止同一实体被多 slug 候选重复入选
 
         for slug in slugs {
+            var matched = false
             for type in types {
                 let url = entityURL(type: type, slug: slug)
-                guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
-                if let hit = parseEntityPage(content, slug: slug, type: type) {
+                let content: String
+                do {
+                    content = try String(contentsOf: url, encoding: .utf8)
+                } catch {
+                    // ENOENT (slug 不在该目录) 是绝大多数情形，刻意静默。其它
+                    // 错误（权限、IO）记一条 WARN 便于诊断，但不中断扩展循环。
+                    if (error as NSError).code != NSFileReadNoSuchFileError {
+                        DayPageLogger.log(
+                            level: "WARN",
+                            message: "[GraphRetriever] read entity \(type)/\(slug) failed: \(error.localizedDescription)"
+                        )
+                    }
+                    continue
+                }
+                if resolvedFiles.insert(url).inserted,
+                   let hit = parseEntityPage(content, slug: slug, type: type) {
                     hits.append(hit)
+                    matched = true
                 }
                 break // 一个 slug 只会在一种类型目录里
+            }
+            if !matched {
+                // 精确路径没命中——回退到 fuzzy 扫描，复用写侧的同一规则。
+                fuzzyResolve(slug: slug, in: types, into: &hits, resolvedFiles: &resolvedFiles)
             }
         }
 
@@ -188,10 +224,11 @@ enum GraphRetriever {
     }
 
     /// 解析实体页：从 frontmatter 取 name / occurrence_count，从正文取摘要。
+    /// frontmatter 字段提取走共用的 `FrontmatterParser.extractFieldInBlock`，
+    /// 保证与未来新增的实体字段（如 occurrence_count_zh）解析一致。
     static func parseEntityPage(_ content: String, slug: String, type: String) -> RetrievedContext.EntityHit? {
-        let displayName = frontmatterValue(in: content, key: "name")?
-            .trimmingCharacters(in: CharacterSet(charactersIn: "\"")) ?? slug
-        let occurrence = Int(frontmatterValue(in: content, key: "occurrence_count") ?? "") ?? 1
+        let displayName = FrontmatterParser.extractFieldInBlock("name", from: content) ?? slug
+        let occurrence = Int(FrontmatterParser.extractFieldInBlock("occurrence_count", from: content) ?? "") ?? 1
         let summary = bodySummary(from: content)
         return RetrievedContext.EntityHit(
             slug: slug,
@@ -200,24 +237,6 @@ enum GraphRetriever {
             occurrenceCount: occurrence,
             summary: summary
         )
-    }
-
-    /// 取 frontmatter（首个 `---` 与第二个 `---` 之间）中 `key:` 的值。
-    private static func frontmatterValue(in content: String, key: String) -> String? {
-        let lines = content.components(separatedBy: "\n")
-        var inFrontmatter = false
-        for (index, line) in lines.enumerated() {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if index == 0 && trimmed == "---" { inFrontmatter = true; continue }
-            if inFrontmatter && trimmed == "---" { break }
-            if inFrontmatter {
-                let prefix = "\(key):"
-                if trimmed.hasPrefix(prefix) {
-                    return String(trimmed.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
-                }
-            }
-        }
-        return nil
     }
 
     /// 取实体页正文（frontmatter 之后）的前若干行非空内容作为摘要。
@@ -273,10 +292,34 @@ enum GraphRetriever {
                   locale: Locale(identifier: "en_US_POSIX"))
     }
 
-    private static let dayFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
+    /// Fallback when a candidate slug had no exact entity file: scan each type
+    /// directory and pick the first existing slug that passes the same fuzzy
+    /// rule the write path uses. Cheap because there are at most a few hundred
+    /// entity files in a real vault, and we early-exit on first match per type.
+    private static func fuzzyResolve(
+        slug: String,
+        in types: [String],
+        into hits: inout [RetrievedContext.EntityHit],
+        resolvedFiles: inout Set<URL>
+    ) {
+        let fm = FileManager.default
+        for type in types {
+            let dir = VaultInitializer.vaultURL
+                .appendingPathComponent("wiki")
+                .appendingPathComponent(type)
+            guard let entries = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else {
+                continue
+            }
+            for url in entries where url.pathExtension == "md" {
+                let candidate = url.deletingPathExtension().lastPathComponent
+                guard EntityPageService.isFuzzyMatch(slug, candidate) else { continue }
+                guard resolvedFiles.insert(url).inserted else { continue }
+                guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
+                if let hit = parseEntityPage(content, slug: candidate, type: type) {
+                    hits.append(hit)
+                }
+                return // one fuzzy hit per candidate is enough
+            }
+        }
+    }
 }

@@ -175,10 +175,94 @@ jobs:
           fi
           echo "✅ Generated tokens match design-tokens/tokens.json"
 
+  xcode-tests:
+    name: Xcode Unit Tests (DayPageTests)
+    runs-on: macos-15
+    needs: unit-tests
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select newest Xcode
+        run: |
+          LATEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$LATEST" ]; then
+            echo "Selecting: $LATEST"
+            sudo xcode-select -s "$LATEST/Contents/Developer"
+          fi
+          xcodebuild -version
+
+      - name: Cache DerivedData
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData
+          key: deriveddata-tests-${{ hashFiles('DayPage.xcodeproj/project.pbxproj') }}-${{ runner.os }}
+          restore-keys: |
+            deriveddata-tests-${{ hashFiles('DayPage.xcodeproj/project.pbxproj') }}-
+            deriveddata-tests-
+
+      # Same CI placeholder used by the build job. Required because the test
+      # build links against the app target which references Secrets.*.
+      - name: Ensure GeneratedSecrets.swift exists
+        run: |
+          mkdir -p DayPage/Config
+          cat > DayPage/Config/GeneratedSecrets.swift << 'SWIFT'
+          // CI placeholder — real values injected at runtime via .env
+          enum Secrets {
+              static let deepSeekApiKey: String = ""
+              static let deepSeekBaseURL: String = "https://api.deepseek.com/v1"
+              static let deepSeekModel: String = "deepseek-v4-pro"
+              static let openAIWhisperApiKey: String = ""
+              static let openWeatherApiKey: String = ""
+              static let supabaseURL: String = "https://placeholder.supabase.co"
+              static let supabaseAnonKey: String = ""
+              static let sentryDSN: String = ""
+              static let kubotGitHubToken: String = ""
+          }
+          SWIFT
+
+      - name: Write simulator picker script
+        run: |
+          printf '%s\n' \
+            'import json,sys,re' \
+            'd=json.load(sys.stdin)' \
+            'iphones=[(dev["name"],dev["udid"]) for devs in d["devices"].values() for dev in devs if dev.get("name","").startswith("iPhone") and dev.get("isAvailable",False)]' \
+            'iphones.sort(key=lambda x:[int(c) if c.isdigit() else c for c in re.split(r"(\d+)",x[0])])' \
+            'print(iphones[-1][1] if iphones else "")' \
+            > /tmp/pick_sim.py
+
+      - name: Run DayPageTests
+        run: |
+          set -o pipefail
+          SIM_UDID=$(xcrun simctl list devices available --json 2>/dev/null | python3 /tmp/pick_sim.py 2>/dev/null || true)
+          if [ -n "$SIM_UDID" ]; then
+            DEST="platform=iOS Simulator,id=$SIM_UDID"
+          else
+            DEST="platform=iOS Simulator,name=iPhone 16"
+          fi
+          echo "Using simulator: $DEST"
+          xcodebuild test \
+            -scheme DayPage \
+            -destination "$DEST" \
+            -configuration Debug \
+            -resultBundlePath TestResults.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee xcode-tests.log
+
+      - name: Upload xcresult bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: DayPageTests-xcresult-${{ github.sha }}
+          path: TestResults.xcresult
+          retention-days: 7
+
   build:
     name: Xcode Build (no signing)
     runs-on: macos-15
-    needs: unit-tests
+    needs: [unit-tests, xcode-tests]
     if: github.event_name != 'pull_request' || github.event.action != 'closed'
 
     steps:

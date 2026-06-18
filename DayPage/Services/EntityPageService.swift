@@ -119,7 +119,7 @@ final class EntityPageService {
         }
 
         // 2. Fuzzy match — find a close existing slug.
-        if let fuzzyMatch = existingSlugs.first(where: { isFuzzyMatch(normalized, $0) }) {
+        if let fuzzyMatch = existingSlugs.first(where: { Self.isFuzzyMatch(normalized, $0) }) {
             return fuzzyMatch
         }
 
@@ -132,7 +132,13 @@ final class EntityPageService {
     ///   - Hyphen-stripped equality ("coffee-shop" == "coffeeshop")
     ///   - Edit distance ≤ 2
     ///   - Shared prefix of ≥ 6 characters
-    func isFuzzyMatch(_ a: String, _ b: String) -> Bool {
+    ///
+    /// Exposed as `nonisolated static` so the read-side (GraphRetriever) can
+    /// reuse the exact same matching rule the write-side uses to canonicalise
+    /// slugs. Before this change, the write path collapsed "coffee" into
+    /// "coffee-shop" but the read path's slugCandidates only looked for
+    /// "coffee" verbatim, so the entity was effectively invisible.
+    nonisolated static func isFuzzyMatch(_ a: String, _ b: String) -> Bool {
         // Hyphen-stripped comparison catches "coffee-shop" ≈ "coffeeshop" / "CoffeeShop" (after sanitize).
         let aStripped = a.replacingOccurrences(of: "-", with: "")
         let bStripped = b.replacingOccurrences(of: "-", with: "")
@@ -144,7 +150,7 @@ final class EntityPageService {
     }
 
     /// Minimal Levenshtein distance (capped at 3 for performance).
-    private func levenshtein(_ s: String, _ t: String) -> Int {
+    nonisolated private static func levenshtein(_ s: String, _ t: String) -> Int {
         let sArr = Array(s), tArr = Array(t)
         let m = sArr.count, n = tArr.count
         guard m > 0 else { return n }

@@ -132,7 +132,7 @@ struct VoiceRecordingView: View {
                             .stroke(DSColor.error.opacity(0.4), lineWidth: 8)
                             .scaleEffect(1.5)
                     )
-                    .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true),
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.8).repeatForever(autoreverses: true),
                                value: voiceService.state)
             } else if voiceService.state == .paused {
                 Image(systemName: "pause.fill")

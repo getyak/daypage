@@ -673,3 +673,15 @@
 /* Sidebar profile */
 "sidebar.profile.local_account"              = "Local Account";
 "sidebar.profile.tap_to_sync"                = "LOCAL · TAP TO SYNC";
+
+/* Settings — iCloud */
+"settings.icloud_drive"                      = "iCloud Drive";
+
+/* Archive — heat-map density labels */
+"archive.density.empty"                      = "EMPTY";
+"archive.density.low"                        = "LOW";
+"archive.density.medium"                     = "MEDIUM";
+"archive.density.high"                       = "HIGH";
+
+/* DSBanner — accessibility */
+"banner.close.a11y"                          = "Close";

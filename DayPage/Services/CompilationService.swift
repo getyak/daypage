@@ -1,6 +1,4 @@
 import Foundation
-import Network
-import Sentry
 
 // MARK: - CompilationStage
 
@@ -110,20 +108,55 @@ final class CompilationService: ObservableObject {
 
     // MARK: - Step 3: Call AI
 
-    /// Calls the AI API with retry, returning the raw LLM response string.
+    /// System prompt for the compilation engine. Kept on the class so it can be
+    /// reused without rebuilding the string.
+    private static let compilationSystemPrompt = "You are DayPage's AI compilation engine. Output only a single valid JSON object as specified in the user prompt. No extra commentary outside the JSON."
+
+    /// Calls the LLM API via the shared ``LLMClient`` (transport + retry +
+    /// Sentry span). This layer only translates ``LLMError`` into
+    /// ``CompilationError`` so existing UX copy / error paths stay intact.
     private func callAI(prompt: String, onRetry: ((Int, Int) -> Void)?) async throws -> String {
-        let apiKey = Secrets.resolvedDeepSeekApiKey
-        guard !apiKey.isEmpty else {
-            throw CompilationError.missingApiKey
-        }
+        let client = LLMClient(
+            config: .deepSeek(maxTokens: 4096, temperature: 0.7, timeout: 120),
+            spanName: "compile.daily"
+        )
         do {
-            return try await callDeepSeekWithRetry(prompt: prompt, apiKey: apiKey, onRetry: onRetry)
-        } catch let err as CompilationError {
-            throw err
+            return try await client.complete(
+                messages: [
+                    .system(Self.compilationSystemPrompt),
+                    .user(prompt)
+                ],
+                onRetry: onRetry
+            )
+        } catch let llm as LLMError {
+            throw Self.mapLLMError(llm)
         } catch let urlErr as URLError where urlErr.code == .timedOut {
             throw CompilationError.networkTimeout
         } catch {
             throw CompilationError.unknown(error)
+        }
+    }
+
+    /// Map ``LLMError`` to ``CompilationError`` so callers of the compilation
+    /// pipeline keep their existing error vocabulary and UX copy.
+    private static func mapLLMError(_ error: LLMError) -> CompilationError {
+        switch error {
+        case .missingApiKey:
+            return .missingApiKey
+        case .invalidURL:
+            return .invalidURL
+        case .offline:
+            return .offline
+        case .networkTimeout:
+            return .networkTimeout
+        case .rateLimited:
+            return .apiRateLimited
+        case .apiError(let code, let body):
+            return .apiError(statusCode: code, body: body)
+        case .emptyResponse:
+            return .parseError("Unexpected response structure")
+        case .unknown(let err):
+            return .unknown(err)
         }
     }
 
@@ -528,116 +561,6 @@ final class CompilationService: ObservableObject {
             let dayNames = ["", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
             return "Day type: \(dayNames[weekday]) (weekday — may involve work/routine context)"
         }
-    }
-
-    // MARK: - DeepSeek API (with retry)
-
-    private func callDeepSeekWithRetry(
-        prompt: String,
-        apiKey: String,
-        onRetry: ((Int, Int) -> Void)?
-    ) async throws -> String {
-        let maxAttempts = 3
-        let backoffSeconds: [Double] = [0, 2, 6]
-        var lastError: Error = CompilationError.networkError("Unknown")
-
-        for attempt in 1...maxAttempts {
-            if attempt > 1 {
-                onRetry?(attempt, maxAttempts)
-                let delay = backoffSeconds[min(attempt - 1, backoffSeconds.count - 1)]
-                try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-            }
-            do {
-                return try await callDeepSeek(prompt: prompt, apiKey: apiKey)
-            } catch let error as CompilationError {
-                switch error {
-                case .apiError(let code, _) where code == 429:
-                    lastError = CompilationError.apiRateLimited
-                case .apiError(let code, _) where code == 401 || code == 403 || code == 400:
-                    throw error // 不重试认证/请求格式错误
-                case .parseError(let msg):
-                    throw CompilationError.parseFailure(msg) // 不重试解析错误
-                case .parseFailure:
-                    throw error
-                case .missingApiKey, .invalidURL:
-                    throw error
-                default:
-                    lastError = error
-                }
-            } catch let urlError as URLError {
-                switch urlError.code {
-                case .timedOut:
-                    lastError = CompilationError.networkTimeout
-                case .notConnectedToInternet, .networkConnectionLost:
-                    lastError = urlError
-                default:
-                    throw urlError
-                }
-            } catch {
-                lastError = error
-            }
-        }
-        throw lastError
-    }
-
-    private func callDeepSeek(prompt: String, apiKey: String) async throws -> String {
-        let baseURL = Secrets.deepSeekBaseURL.isEmpty
-            ? "https://api.deepseek.com/v1"
-            : Secrets.deepSeekBaseURL
-        let model = Secrets.deepSeekModel.isEmpty ? "deepseek-v4-pro" : Secrets.deepSeekModel
-
-        guard let url = URL(string: "\(baseURL)/chat/completions") else {
-            throw CompilationError.invalidURL
-        }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = 120
-
-        let body: [String: Any] = [
-            "model": model,
-            "messages": [
-                ["role": "system", "content": "You are DayPage's AI compilation engine. Output only a single valid JSON object as specified in the user prompt. No extra commentary outside the JSON."],
-                ["role": "user", "content": prompt]
-            ],
-            "max_tokens": 4096,
-            "temperature": 0.7
-        ]
-
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let span = Secrets.sentryDSN.isEmpty ? nil
-            : SentrySDK.startTransaction(name: "compilation.deepseek", operation: "http.client")
-        defer { span?.finish() }
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let http = response as? HTTPURLResponse else {
-            DayPageLogger.shared.error("[DeepSeek] status=- body=No HTTP response")
-            throw CompilationError.networkError("No HTTP response")
-        }
-
-        guard http.statusCode == 200 else {
-            let bodyStr = String(data: data, encoding: .utf8) ?? "(empty)"
-            let snippet = String(bodyStr.prefix(500))
-            DayPageLogger.shared.error("[DeepSeek] status=\(http.statusCode) body=\(snippet)")
-            throw CompilationError.apiError(statusCode: http.statusCode, body: bodyStr)
-        }
-
-        return try parseCompletionContent(from: data)
-    }
-
-    private func parseCompletionContent(from data: Data) throws -> String {
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let choices = json["choices"] as? [[String: Any]],
-              let first = choices.first,
-              let message = first["message"] as? [String: Any],
-              let content = message["content"] as? String else {
-            throw CompilationError.parseError("Unexpected response structure")
-        }
-        return content.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     // MARK: - Hot Cache

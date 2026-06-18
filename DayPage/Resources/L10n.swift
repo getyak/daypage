@@ -58,6 +58,33 @@ enum L10n {
         static let graphClearFilters      = NSLocalizedString("empty.graph.clear_filters", comment: "")
     }
 
+    enum Recording {
+        // Visible labels
+        static let cancel               = LocalizedStringKey("recording.cancel")
+        static let transcribe           = LocalizedStringKey("recording.transcribe")
+        static let save                 = LocalizedStringKey("recording.save")
+        static let releaseToCancel      = LocalizedStringKey("recording.release_to_cancel")
+        static let releaseToTranscribe  = LocalizedStringKey("recording.release_to_transcribe")
+        static let listening            = LocalizedStringKey("recording.listening")
+        static let transcribing         = LocalizedStringKey("recording.transcribing")
+
+        // Status strings (non-LocalizedStringKey for use in computed String props)
+        static let listeningString          = NSLocalizedString("recording.listening", comment: "Recording status: actively listening")
+        static let transcribingString       = NSLocalizedString("recording.transcribing", comment: "Recording status: Whisper transcription in flight")
+        static let releaseToCancelString    = NSLocalizedString("recording.release_to_cancel", comment: "Recording status: drag-up cancel armed")
+        static let releaseToTranscribeString = NSLocalizedString("recording.release_to_transcribe", comment: "Recording status: drag-left transcribe armed")
+
+        // VoiceOver labels & hints
+        static let cancelA11yLabel      = NSLocalizedString("recording.cancel.a11y.label", comment: "VoiceOver label for cancel-recording button")
+        static let cancelA11yHint       = NSLocalizedString("recording.cancel.a11y.hint", comment: "VoiceOver hint for cancel-recording button")
+        static let saveA11yLabel        = NSLocalizedString("recording.save.a11y.label", comment: "VoiceOver label for save-recording button")
+        static let saveA11yHint         = NSLocalizedString("recording.save.a11y.hint", comment: "VoiceOver hint for save-recording button")
+        static let transcribeA11yLabel  = NSLocalizedString("recording.transcribe.a11y.label", comment: "VoiceOver label for transcribe-recording button")
+        static let transcribeA11yHint   = NSLocalizedString("recording.transcribe.a11y.hint", comment: "VoiceOver hint for transcribe-recording button")
+        static let cancelHintA11yLabel  = NSLocalizedString("recording.cancel_hint.a11y.label", comment: "VoiceOver label for cancel directional hint")
+        static let transcribeHintA11yLabel = NSLocalizedString("recording.transcribe_hint.a11y.label", comment: "VoiceOver label for transcribe directional hint")
+    }
+
     enum Error {
         static let compileTitle    = LocalizedStringKey("error.compile.title")
         static let compileSubtitle = LocalizedStringKey("error.compile.subtitle")
@@ -73,5 +100,24 @@ enum L10n {
         static let locationDeniedTitle    = LocalizedStringKey("error.location_denied.title")
         static let locationDeniedSubtitle = LocalizedStringKey("error.location_denied.subtitle")
         static let locationDeniedCta      = NSLocalizedString("error.location_denied.cta", comment: "")
+    }
+
+    enum Settings {
+        // Brand name — funnelled through NSLocalizedString so any future
+        // localized override can ship without touching source.
+        static let iCloudDrive = NSLocalizedString("settings.icloud_drive", comment: "iCloud Drive feature name")
+    }
+
+    enum Archive {
+        // Heat-map density legend labels rendered on each day cell.
+        static let densityEmpty  = NSLocalizedString("archive.density.empty", comment: "Archive heat-map label: no memos")
+        static let densityLow    = NSLocalizedString("archive.density.low", comment: "Archive heat-map label: few memos")
+        static let densityMedium = NSLocalizedString("archive.density.medium", comment: "Archive heat-map label: some memos")
+        static let densityHigh   = NSLocalizedString("archive.density.high", comment: "Archive heat-map label: many memos")
+    }
+
+    enum Banner {
+        // VoiceOver label for the banner dismiss button.
+        static let closeA11y = NSLocalizedString("banner.close.a11y", comment: "VoiceOver label for the banner close button")
     }
 }

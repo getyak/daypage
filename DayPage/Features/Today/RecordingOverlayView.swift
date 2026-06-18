@@ -105,38 +105,46 @@ struct RecordingOverlayView: View {
                         VStack(spacing: 4) {
                             Image(systemName: "arrow.left")
                                 .font(.system(size: 14, weight: .semibold))
-                            Text("Cancel")
+                            Text(L10n.Recording.cancel)
                                 .font(DSFonts.inter(size: 11, weight: .medium))
                         }
                         .foregroundColor(Color.white.opacity(0.55))
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel(Text(L10n.Recording.cancelHintA11yLabel))
 
                         VStack(spacing: 4) {
                             Image(systemName: "arrow.right")
                                 .font(.system(size: 14, weight: .semibold))
-                            Text("Transcribe")
+                            Text(L10n.Recording.transcribe)
                                 .font(DSFonts.inter(size: 11, weight: .medium))
                         }
                         .foregroundColor(Color.white.opacity(0.55))
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel(Text(L10n.Recording.transcribeHintA11yLabel))
                     }
                     .padding(.top, 8)
                 } else if mode == .cancelArmed {
                     HStack(spacing: 4) {
                         Image(systemName: "arrow.left")
                             .font(.system(size: 14, weight: .semibold))
-                        Text("Release to cancel")
+                        Text(L10n.Recording.releaseToCancel)
                             .font(DSFonts.inter(size: 12, weight: .medium))
                     }
                     .foregroundColor(DSTokens.Colors.recordingRed)
                     .padding(.top, 8)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(Text(L10n.Recording.releaseToCancel))
                 } else if mode == .transcribeArmed {
                     HStack(spacing: 4) {
                         Image(systemName: "arrow.right")
                             .font(.system(size: 14, weight: .semibold))
-                        Text("Release to transcribe")
+                        Text(L10n.Recording.releaseToTranscribe)
                             .font(DSFonts.inter(size: 12, weight: .medium))
                     }
-                    .foregroundColor(Color(red: 0.30, green: 0.55, blue: 1.0))
+                    .foregroundColor(DSColor.transcribeBlue)
                     .padding(.top, 8)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(Text(L10n.Recording.releaseToTranscribe))
                 }
 
                 // Status + timer
@@ -167,7 +175,7 @@ struct RecordingOverlayView: View {
                             VStack(spacing: 4) {
                                 Image(systemName: "xmark")
                                     .font(.system(size: 16, weight: .semibold))
-                                Text("Cancel")
+                                Text(L10n.Recording.cancel)
                                     .font(DSFonts.inter(size: 12, weight: .medium))
                             }
                             .foregroundColor(mode == .cancelArmed ? DSTokens.Colors.recordingRed : Color.white.opacity(0.75))
@@ -176,6 +184,9 @@ struct RecordingOverlayView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
                         .buttonStyle(.plain)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel(Text(L10n.Recording.cancelA11yLabel))
+                        .accessibilityHint(Text(L10n.Recording.cancelA11yHint))
 
                         // Save / Transcribe
                         Button {
@@ -184,7 +195,7 @@ struct RecordingOverlayView: View {
                             VStack(spacing: 4) {
                                 Image(systemName: mode == .transcribeArmed ? "text.bubble" : "checkmark")
                                     .font(.system(size: 16, weight: .semibold))
-                                Text(mode == .transcribeArmed ? "Transcribe" : "Save")
+                                Text(mode == .transcribeArmed ? L10n.Recording.transcribe : L10n.Recording.save)
                                     .font(DSFonts.inter(size: 12, weight: .medium))
                             }
                             .foregroundColor(mode == .transcribeArmed ? Color(red: 0.30, green: 0.55, blue: 1.0) : Color.white.opacity(0.90))
@@ -193,6 +204,9 @@ struct RecordingOverlayView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
                         .buttonStyle(.plain)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel(Text(mode == .transcribeArmed ? L10n.Recording.transcribeA11yLabel : L10n.Recording.saveA11yLabel))
+                        .accessibilityHint(Text(mode == .transcribeArmed ? L10n.Recording.transcribeA11yHint : L10n.Recording.saveA11yHint))
                     }
                 }
             }
@@ -204,10 +218,10 @@ struct RecordingOverlayView: View {
 
     private var statusText: String {
         switch mode {
-        case .recording: return "Listening…"
-        case .cancelArmed: return "Release to cancel"
-        case .transcribeArmed: return "Release to transcribe"
-        case .transcribing: return "Transcribing…"
+        case .recording: return L10n.Recording.listeningString
+        case .cancelArmed: return L10n.Recording.releaseToCancelString
+        case .transcribeArmed: return L10n.Recording.releaseToTranscribeString
+        case .transcribing: return L10n.Recording.transcribingString
         }
     }
 
