@@ -176,12 +176,18 @@ enum GraphRetriever {
     // MARK: - Step 3: Entity expansion
 
     /// 把候选 slug 集合扩展为实体页摘要，按 occurrence_count 降序取前 N。
+    ///
+    /// 双阶段命中：先 O(1) 走精确 slug；命中不到时再用 ``EntityPageService.isFuzzyMatch``
+    /// 扫描同 type 目录。这与 `EntityPageService.resolveSlug` 的写路径策略
+    /// 对称，避免 "coffee" 在写时被 canonicalize 成 "coffee-shop"、读时却查不到。
     private static func expandEntities(slugs: Set<String>, limit: Int) -> [RetrievedContext.EntityHit] {
         guard !slugs.isEmpty else { return [] }
         let types = ["places", "people", "themes"]
         var hits: [RetrievedContext.EntityHit] = []
+        var resolvedFiles = Set<URL>()  // 防止同一实体被多 slug 候选重复入选
 
         for slug in slugs {
+            var matched = false
             for type in types {
                 let url = entityURL(type: type, slug: slug)
                 let content: String
@@ -198,10 +204,16 @@ enum GraphRetriever {
                     }
                     continue
                 }
-                if let hit = parseEntityPage(content, slug: slug, type: type) {
+                if resolvedFiles.insert(url).inserted,
+                   let hit = parseEntityPage(content, slug: slug, type: type) {
                     hits.append(hit)
+                    matched = true
                 }
                 break // 一个 slug 只会在一种类型目录里
+            }
+            if !matched {
+                // 精确路径没命中——回退到 fuzzy 扫描，复用写侧的同一规则。
+                fuzzyResolve(slug: slug, in: types, into: &hits, resolvedFiles: &resolvedFiles)
             }
         }
 
@@ -278,5 +290,36 @@ enum GraphRetriever {
     private static func foldedForSearch(_ s: String) -> String {
         s.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
                   locale: Locale(identifier: "en_US_POSIX"))
+    }
+
+    /// Fallback when a candidate slug had no exact entity file: scan each type
+    /// directory and pick the first existing slug that passes the same fuzzy
+    /// rule the write path uses. Cheap because there are at most a few hundred
+    /// entity files in a real vault, and we early-exit on first match per type.
+    private static func fuzzyResolve(
+        slug: String,
+        in types: [String],
+        into hits: inout [RetrievedContext.EntityHit],
+        resolvedFiles: inout Set<URL>
+    ) {
+        let fm = FileManager.default
+        for type in types {
+            let dir = VaultInitializer.vaultURL
+                .appendingPathComponent("wiki")
+                .appendingPathComponent(type)
+            guard let entries = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else {
+                continue
+            }
+            for url in entries where url.pathExtension == "md" {
+                let candidate = url.deletingPathExtension().lastPathComponent
+                guard EntityPageService.isFuzzyMatch(slug, candidate) else { continue }
+                guard resolvedFiles.insert(url).inserted else { continue }
+                guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
+                if let hit = parseEntityPage(content, slug: candidate, type: type) {
+                    hits.append(hit)
+                }
+                return // one fuzzy hit per candidate is enough
+            }
+        }
     }
 }

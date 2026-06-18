@@ -52,31 +52,31 @@ struct EntitySlugDedupTests {
     @Test func fuzzyMatch_hyphenStripped_coffeeShopVariants() {
         defer { cleanup() }
         // "coffee-shop" and "coffeeshop" differ only by a hyphen
-        #expect(service.isFuzzyMatch("coffee-shop", "coffeeshop"))
-        #expect(service.isFuzzyMatch("coffeeshop", "coffee-shop"))
+        #expect(EntityPageService.isFuzzyMatch("coffee-shop", "coffeeshop"))
+        #expect(EntityPageService.isFuzzyMatch("coffeeshop", "coffee-shop"))
     }
 
     @Test func fuzzyMatch_hyphenStripped_multiHyphen() {
         defer { cleanup() }
-        #expect(service.isFuzzyMatch("new-york-city", "newyorkcity"))
+        #expect(EntityPageService.isFuzzyMatch("new-york-city", "newyorkcity"))
     }
 
     @Test func fuzzyMatch_editDistance_smallDiff() {
         defer { cleanup() }
         // "joma-coffe" vs "joma-coffee" — edit distance 1
-        #expect(service.isFuzzyMatch("joma-coffe", "joma-coffee"))
+        #expect(EntityPageService.isFuzzyMatch("joma-coffe", "joma-coffee"))
     }
 
     @Test func fuzzyMatch_sharedPrefix() {
         defer { cleanup() }
         // share 6-char prefix "bangko"
-        #expect(service.isFuzzyMatch("bangkokx", "bangkoky"))
+        #expect(EntityPageService.isFuzzyMatch("bangkokx", "bangkoky"))
     }
 
     @Test func fuzzyMatch_dissimilarSlugs_returnsFalse() {
         defer { cleanup() }
-        #expect(!service.isFuzzyMatch("alice", "bangkok"))
-        #expect(!service.isFuzzyMatch("coffee-shop", "tea-house"))
+        #expect(!EntityPageService.isFuzzyMatch("alice", "bangkok"))
+        #expect(!EntityPageService.isFuzzyMatch("coffee-shop", "tea-house"))
     }
 
     // MARK: - resolveSlug: dedup via apply()
