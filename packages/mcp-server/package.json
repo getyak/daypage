@@ -10,7 +10,8 @@
     "build": "tsc",
     "dev": "node --loader ts-node/esm src/index.ts",
     "start": "node dist/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsc && node --test \"dist/**/*.test.js\""
   },
   "dependencies": {
     "drizzle-orm": "^0.45.2",

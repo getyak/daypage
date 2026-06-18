@@ -203,6 +203,18 @@ struct DayPageApp: App {
                         return
                     }
 
+                    // daypage://ask?q=… — open the "和过去对话" memory-chat agent
+                    // (D1). RootView observes pendingAskQuery and presents
+                    // AskPastView seeded with the question. Driven by AskTodayIntent.
+                    if url.host?.lowercased() == "ask" {
+                        if let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+                           let q = components.queryItems?.first(where: { $0.name == "q" })?.value,
+                           !q.isEmpty {
+                            navModel.pendingAskQuery = q
+                        }
+                        return
+                    }
+
                     // daypage://search?q=… — open SearchView pre-populated with
                     // the query. SearchView lives under Archive, so we switch
                     // to .archive and let ArchiveView observe pendingSearchQuery.

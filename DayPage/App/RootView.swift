@@ -231,7 +231,34 @@ struct RootView: View {
                     .accessibilityHidden(true)
             }
         }
+        // D1「和过去对话」chat sheet. Driven by `nav.pendingAskQuery`
+        // (set by AskTodayIntent → daypage://ask). Wrapping the query in an
+        // Identifiable lets `.sheet(item:)` present once and auto-clear the
+        // pending value on dismissal so re-firing the shortcut re-opens it.
+        .sheet(item: askSheetBinding) { item in
+            AskPastView(seedQuestion: item.query) {
+                nav.pendingAskQuery = nil
+            }
+        }
     }
+
+    /// Bridges the optional `pendingAskQuery` string to a `.sheet(item:)`
+    /// binding: presents AskPastView while the query is non-nil, and clears it
+    /// on dismissal.
+    private var askSheetBinding: Binding<AskQuery?> {
+        Binding(
+            get: { nav.pendingAskQuery.map(AskQuery.init) },
+            set: { if $0 == nil { nav.pendingAskQuery = nil } }
+        )
+    }
+}
+
+// MARK: - AskQuery
+
+/// Identifiable wrapper so a seed question can drive `.sheet(item:)`.
+private struct AskQuery: Identifiable {
+    let query: String
+    var id: String { query }
 }
 
 // MARK: - FeedbackCloseSwipeModifier
