@@ -4,7 +4,11 @@ import { pgSql } from "../db.js";
 
 const searchTool: ToolHandler = {
   name: "daypage_search",
-  description: "Search DayPage memos and pages by keyword or phrase",
+  description:
+    "Search DayPage memos and pages by keyword or phrase. Graph-augmented: " +
+    "after matching pages, it also surfaces their one-hop neighbours from the " +
+    "knowledge graph (page_links), so an agent sees the network around a hit, " +
+    "not just the isolated match (OmniQuery-style retrieve-then-connect).",
   inputSchema: {
     type: "object",
     properties: {
@@ -69,6 +73,51 @@ const searchTool: ToolHandler = {
       LIMIT ${limit}
     `;
 
+    // Graph augmentation: expand one hop out from the matched pages along
+    // page_links, so the agent sees the knowledge network around each hit
+    // rather than isolated matches. Skip pages already in the direct results.
+    const matchedPageIds = pageRows.map((p) => p.id);
+    const matchedPageIdSet = new Set(matchedPageIds);
+    let neighborRows: Array<{
+      page_id: string;
+      slug: string;
+      title: string;
+      type: string;
+      weight: number;
+      rationale: string | null;
+      direction: string;
+    }> = [];
+
+    if (matchedPageIds.length > 0) {
+      neighborRows = await pgSql<Array<{
+        page_id: string;
+        slug: string;
+        title: string;
+        type: string;
+        weight: number;
+        rationale: string | null;
+        direction: string;
+      }>>`
+        SELECT p.id AS page_id, p.slug, p.title, p.type, pl.weight, pl.rationale,
+               'outbound' AS direction
+        FROM page_links pl
+        JOIN pages p ON p.id = pl.to_page_id
+        WHERE pl.user_id = ${userId}
+          AND pl.from_page_id = ANY(${matchedPageIds})
+        UNION
+        SELECT p.id AS page_id, p.slug, p.title, p.type, pl.weight, pl.rationale,
+               'inbound' AS direction
+        FROM page_links pl
+        JOIN pages p ON p.id = pl.from_page_id
+        WHERE pl.user_id = ${userId}
+          AND pl.to_page_id = ANY(${matchedPageIds})
+        ORDER BY weight DESC
+        LIMIT 10
+      `;
+      // Drop neighbours that are already direct hits to avoid duplication.
+      neighborRows = neighborRows.filter((n) => !matchedPageIdSet.has(n.page_id));
+    }
+
     const lines: string[] = [`Search results for: "${query}"`, ""];
 
     // Pages section
@@ -88,6 +137,19 @@ const searchTool: ToolHandler = {
         }
         lines.push("");
       }
+    }
+
+    // Related pages from the knowledge graph (one-hop neighbours of the hits).
+    // Only shown when direct page matches exist and have neighbours.
+    if (neighborRows.length > 0) {
+      lines.push(`=== Related (knowledge graph, ${neighborRows.length}) ===`);
+      for (const n of neighborRows) {
+        const arrow = n.direction === "outbound" ? "→" : "←";
+        lines.push(`  ${arrow} [${n.type}] ${n.title} (weight: ${n.weight})`);
+        lines.push(`    slug: ${n.slug}`);
+        if (n.rationale) lines.push(`    rationale: ${n.rationale}`);
+      }
+      lines.push("");
     }
 
     // Memos section

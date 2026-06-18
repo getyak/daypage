@@ -36,6 +36,10 @@ struct TimelineDayEntry: Identifiable, Equatable {
 /// Identifies which time band a section represents. The view layer maps this
 /// to a localized title; the service stays locale-agnostic.
 enum TimelineSectionKind: Hashable {
+    /// User-pinned days, surfaced at the very top of the timeline. Days in
+    /// this section are *removed* from their natural time-band section so the
+    /// pin acts as a single source of truth — no duplicate rows.
+    case pinned
     case thisWeekOthers
     case lastWeek
     case weekBeforeLast
@@ -55,6 +59,7 @@ struct TimelineSection: Identifiable, Equatable {
 
     var id: String {
         switch kind {
+        case .pinned: return "pinned"
         case .thisWeekOthers: return "thisWeekOthers"
         case .lastWeek: return "lastWeek"
         case .weekBeforeLast: return "weekBeforeLast"
@@ -178,10 +183,15 @@ enum TimelineService {
     /// Groups timeline entries into the four bands described above, hiding any
     /// section whose `days` list is empty. The "today" entry is excluded from
     /// every section — the view layer renders today separately at the top.
+    ///
+    /// User-pinned days bubble up into a leading "📌 PINNED" section and are
+    /// removed from their natural time band, so a pin acts as a single source
+    /// of truth without producing a duplicate row.
     @MainActor
     static func sections(referenceDate: Date = Date()) -> [TimelineSection] {
         let all = entries(referenceDate: referenceDate)
-        return group(entries: all, referenceDate: referenceDate)
+        let pinned = TimelinePinService.shared.pinned
+        return group(entries: all, referenceDate: referenceDate, pinnedDateStrings: pinned)
     }
 
     /// Loads the raw memos for one timeline day on demand. Returns memos in
@@ -205,7 +215,15 @@ enum TimelineService {
     /// Pure function: classify pre-loaded entries into sections. Exposed at
     /// internal scope so future unit tests can exercise the boundary math
     /// without touching the file system.
-    static func group(entries: [TimelineDayEntry], referenceDate: Date) -> [TimelineSection] {
+    ///
+    /// `pinnedDateStrings` are pulled out into a leading `.pinned` section and
+    /// excluded from their natural time band; passing an empty set yields the
+    /// original four-band layout for backward-compatible call sites and tests.
+    static func group(
+        entries: [TimelineDayEntry],
+        referenceDate: Date,
+        pinnedDateStrings: Set<String> = []
+    ) -> [TimelineSection] {
         let cal = systemCalendar()
         let today = cal.startOfDay(for: referenceDate)
 
@@ -214,6 +232,7 @@ enum TimelineService {
               let weekBeforeStart = cal.date(byAdding: .weekOfYear, value: -2, to: thisWeekStart)
         else { return [] }
 
+        var pinned: [TimelineDayEntry] = []
         var thisWeekOthers: [TimelineDayEntry] = []
         var lastWeek: [TimelineDayEntry] = []
         var weekBeforeLast: [TimelineDayEntry] = []
@@ -222,6 +241,13 @@ enum TimelineService {
         for entry in entries {
             let day = cal.startOfDay(for: entry.date)
             if day == today { continue }                  // today rendered separately
+
+            // Pinned days bubble up regardless of their natural time band.
+            if pinnedDateStrings.contains(entry.dateString) {
+                pinned.append(entry)
+                continue
+            }
+
             if day >= thisWeekStart {
                 thisWeekOthers.append(entry)
             } else if day >= lastWeekStart {
@@ -238,6 +264,10 @@ enum TimelineService {
         }
 
         var sections: [TimelineSection] = []
+        // Pinned first, newest-first within the section.
+        if !pinned.isEmpty {
+            sections.append(TimelineSection(kind: .pinned, days: pinned.sorted { $0.date > $1.date }))
+        }
         if !thisWeekOthers.isEmpty {
             sections.append(TimelineSection(kind: .thisWeekOthers, days: thisWeekOthers))
         }

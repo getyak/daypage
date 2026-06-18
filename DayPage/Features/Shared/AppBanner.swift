@@ -27,7 +27,7 @@ struct AppBannerModel: Identifiable {
         subtitle: String? = nil,
         primaryAction: BannerAction? = nil,
         secondaryAction: BannerAction? = nil,
-        autoDismiss: Bool = false
+        autoDismiss: Bool = true
     ) {
         self.kind = kind
         self.title = title
@@ -56,12 +56,20 @@ final class BannerCenter: ObservableObject {
 
     func show(_ model: AppBannerModel) {
         autoDismissTask?.cancel()
-        currentBanner = model
+        withAnimation(.spring(response: 0.55, dampingFraction: 0.88)) {
+            currentBanner = model
+        }
         if model.autoDismiss {
+            // Banners with primary/secondary actions linger longer so users can
+            // read and tap them; pure info/success/error toasts fade after 5s.
+            let hasAction = model.primaryAction != nil || model.secondaryAction != nil
+            let delayNanos: UInt64 = hasAction ? 8_000_000_000 : 5_000_000_000
             autoDismissTask = Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                try? await Task.sleep(nanoseconds: delayNanos)
                 if !Task.isCancelled {
-                    withAnimation { currentBanner = nil }
+                    withAnimation(.spring(response: 0.55, dampingFraction: 0.88)) {
+                        currentBanner = nil
+                    }
                 }
             }
         }
@@ -69,7 +77,9 @@ final class BannerCenter: ObservableObject {
 
     func dismiss() {
         autoDismissTask?.cancel()
-        withAnimation { currentBanner = nil }
+        withAnimation(.spring(response: 0.55, dampingFraction: 0.88)) {
+            currentBanner = nil
+        }
     }
 }
 
@@ -212,11 +222,16 @@ struct BannerOverlayModifier: ViewModifier {
             if let banner = bannerCenter.currentBanner {
                 AppBanner(model: banner)
                     .padding(.top, 8)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                    // Asymmetric: slide-down + fade-in on entry; pure fade-up
+                    // on exit so dismissal feels gentle rather than yanked.
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .top).combined(with: .opacity),
+                        removal: .opacity.combined(with: .offset(y: -8))
+                    ))
                     .zIndex(100)
             }
         }
-        .animation(.spring(response: 0.4, dampingFraction: 0.85), value: bannerCenter.currentBanner?.id)
+        .animation(.spring(response: 0.55, dampingFraction: 0.88), value: bannerCenter.currentBanner?.id)
     }
 }
 

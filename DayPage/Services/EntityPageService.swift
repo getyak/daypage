@@ -501,7 +501,7 @@ final class EntityPageService {
         return nil
     }
 
-    static func sanitizeSlug(_ raw: String) -> String {
+    nonisolated static func sanitizeSlug(_ raw: String) -> String {
         raw
             .lowercased()
             .components(separatedBy: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-")).inverted)

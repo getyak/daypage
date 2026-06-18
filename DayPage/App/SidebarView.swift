@@ -274,14 +274,47 @@ struct SidebarView: View {
 
     // MARK: - Nav Items
 
-    /// Primary nav: Today / Archive / Graph.
+    /// Primary nav: Today / Archive / Graph + the "Ask the past" agent (D1).
     private var navSection: some View {
         VStack(alignment: .leading, spacing: 2) {
             navItem(tab: .today, icon: "square.and.pencil", label: "Today")
             navItem(tab: .archive, icon: "archivebox", label: "Archive")
             navItem(tab: .graph, icon: "point.3.connected.trianglepath.dotted", label: "Graph")
+            askRow
         }
         .padding(.horizontal, 12)
+    }
+
+    /// In-app entry point for the D1 "和过去对话" memory-chat agent. Without
+    /// this the agent is only reachable via the Siri/Shortcuts intent, leaving
+    /// it invisible to most users. Tapping seeds `pendingAskQuery` with an empty
+    /// string so RootView presents AskPastView in its empty-prompt state.
+    private var askRow: some View {
+        Button {
+            Haptics.light()
+            nav.closeSidebar()
+            nav.pendingAskQuery = ""
+        } label: {
+            HStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 1, style: .continuous)
+                    .fill(Color.clear)
+                    .frame(width: 2, height: 20)
+                Image(systemName: "sparkle.magnifyingglass")
+                    .font(.system(size: 16, weight: .regular))
+                    .frame(width: 20)
+                    .foregroundColor(DSColor.inkMuted)
+                Text("和过去对话")
+                    .font(DSType.bodyMD)
+                    .foregroundColor(DSColor.inkMuted)
+            }
+            .padding(.trailing, 16)
+            .padding(.vertical, 11)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("和过去对话")
+        .accessibilityHint("基于你的记录提问")
     }
 
     private var feedbackSection: some View {

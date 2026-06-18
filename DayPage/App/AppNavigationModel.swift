@@ -41,6 +41,14 @@ final class AppNavigationModel: ObservableObject {
     /// re-fires the navigation.
     @Published var pendingSearchQuery: String? = nil
 
+    /// Pre-filled question delivered via `daypage://ask?q=…` (from `AskTodayIntent`).
+    /// RootView observes this, presents the "和过去对话" chat sheet seeded with the
+    /// question, and clears it so re-firing the same shortcut re-opens the sheet.
+    /// This is the D1 entry point (research doc §3 D1); kept separate from
+    /// `pendingSearchQuery` so the Shortcuts surface can route to either the
+    /// keyword search (Archive) or the memory-chat agent without ambiguity.
+    @Published var pendingAskQuery: String? = nil
+
     init() {}
 
     private static func initialTab() -> AppTab {

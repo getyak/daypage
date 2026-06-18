@@ -27,6 +27,15 @@ struct TodayView: View {
     /// Date string for the fallback yesterday daily page sheet.
     @State private var fallbackDailyPageDateString: String? = nil
 
+    /// Date string for opening a historical day from the timeline via tap or
+    /// long-press → "Open Daily Page". Drives a dedicated `.fullScreenCover`
+    /// so it doesn't collide with the today/fallback covers.
+    @State private var timelineNavDateString: String? = nil
+
+    /// Plain-text payload for the system share sheet when the user shares a
+    /// timeline day. Identifiable wrapper because `.sheet(item:)` needs an id.
+    @State private var timelineShareText: TimelineShareText? = nil
+
     /// Whether to show the Settings sheet.
     @State private var showSettings: Bool = false
 
@@ -617,6 +626,24 @@ struct TodayView: View {
                     }
                 )
             }
+            // Timeline tap / contextMenu → open that historical day's Daily Page.
+            // Kept separate from showDailyPage / fallbackDailyPageDateString so the
+            // three navigation entry points don't collide on a single binding.
+            .fullScreenCover(item: Binding(
+                get: { timelineNavDateString.map { OnThisDayNavTarget(dateString: $0) } },
+                set: { timelineNavDateString = $0?.dateString }
+            )) { target in
+                DailyPageView(
+                    dateString: target.dateString,
+                    onReturnToToday: { _ in
+                        timelineNavDateString = nil
+                    }
+                )
+            }
+            // Timeline share sheet — plain text payload, no poster pipeline.
+            .sheet(item: $timelineShareText) { payload in
+                ShareSheet(activityItems: [payload.text])
+            }
             .bannerOverlay()
             // US-010: First-run input bar tutorial
             .overlay {
@@ -796,9 +823,18 @@ struct TodayView: View {
     @ViewBuilder
     private var historySupplement: some View {
         if !viewModel.memos.isEmpty && viewModel.loadState == .ready && !viewModel.timelineSections.isEmpty {
-            earlierDivider
+            // Quiet breathing room replaces the redundant "EARLIER" rule —
+            // the timeline's own SectionHeader (本周/上周) already separates bands.
+            Color.clear
+                .frame(height: 20)
+                .accessibilityLabel(Text(NSLocalizedString("today.section.earlier", comment: "")))
             ForEach(viewModel.timelineSections) { section in
-                TimelineSectionView(section: section)
+                TimelineSectionView(
+                    section: section,
+                    onOpenDate: { dateString in timelineNavDateString = dateString },
+                    onShareDate: { entry in shareTimelineDay(entry) },
+                    onDeleteDate: { entry in deleteTimelineDay(entry) }
+                )
             }
         }
     }
@@ -1375,17 +1411,24 @@ struct TodayView: View {
                             .accessibilityLabel(headerSublineAccessibilityLabel(currentTime))
                     }
                 } else {
-                    HStack(spacing: 8) {
+                    HStack(spacing: 12) {
                         DayOrbView(
                             signalCount: viewModel.signalCount,
-                            size: 28,
-                            haloOpacity: 0.08,
+                            size: 22,
+                            // Halo + day-progress arc both disabled in this inline
+                            // chip-row context: at 22pt the amber bloom overlaps
+                            // the meta chip text and the thin progress arc reads
+                            // as a smudge rather than a clock. The standalone
+                            // DayOrb in the day-summary section (TodayView.swift:1000)
+                            // keeps both — that's where the clock metaphor earns
+                            // its space.
+                            haloOpacity: 0,
                             onTap: {
                                 Haptics.soft()
                                 orbFocusToggle.toggle()
                             },
                             pulseToggle: orbCapturePulse,
-                            dayProgress: dayProgress,
+                            dayProgress: 0,
                             timeTint: orbTint(currentTime)
                         )
                         .frame(width: 36, height: 36)
@@ -1633,7 +1676,7 @@ struct TodayView: View {
             }
             .frame(height: 0)
 
-            LazyVStack(spacing: 8) {
+            LazyVStack(spacing: 10) {
                 // Invisible anchor: scrollTo("timelineTop") brings the list to the very top.
                 Color.clear.frame(height: 0).id("timelineTop")
 
@@ -1801,7 +1844,8 @@ struct TodayView: View {
                     && viewModel.memos.count < 3 {
                     CompileUnlockCard(memoCount: viewModel.memos.count, onTap: { orbFocusToggle.toggle() })
                         .padding(.horizontal, 20)
-                        .padding(.top, 4)
+                        .padding(.top, 16)
+                        .padding(.bottom, 4)
                         .transition(.opacity)
                 }
 
@@ -1823,7 +1867,10 @@ struct TodayView: View {
                         .padding(.horizontal, 20)
                 }
 
-                Spacer(minLength: 16)
+                // Reserve room for the floating Undo pill (bottom: 96) +
+                // the input bar above it so the last timeline card never sits
+                // beneath chrome.
+                Spacer(minLength: 140)
             }
             .padding(.top, 12)
             .shadow(
@@ -2329,6 +2376,44 @@ struct TodayView: View {
     private func todayTimeZoneShort() -> String {
         TimeZoneBadge.gmtOffset(for: .current, at: currentTime)
     }
+
+    // MARK: - Timeline row actions
+
+    /// Share a timeline day via the system share sheet. The payload is the
+    /// compiled summary if present, otherwise a placeholder pointing at the
+    /// day's date — never empty, so the share sheet has something to display.
+    private func shareTimelineDay(_ entry: TimelineDayEntry) {
+        let text: String
+        if let summary = entry.summary, !summary.isEmpty {
+            text = "\(entry.dateString)\n\n\(summary)"
+        } else {
+            text = "\(entry.dateString)\n\n\(entry.memoCount) memos"
+        }
+        timelineShareText = TimelineShareText(text: text)
+    }
+
+    /// Permanently delete a timeline day: removes the raw file, the compiled
+    /// daily page, and drops the pin if any. Notifies TimelineIndex via the
+    /// `.rawStorageDidWrite` notification path so the timeline re-renders.
+    private func deleteTimelineDay(_ entry: TimelineDayEntry) {
+        let dateString = entry.dateString
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"
+        fmt.locale = Locale(identifier: "en_US_POSIX")
+        fmt.timeZone = TimeZone.current
+        guard let date = fmt.date(from: dateString) else { return }
+
+        Task.detached(priority: .userInitiated) {
+            try? RawStorage.rewrite([], for: date)        // posts rawStorageDidWrite
+            let dailyURL = VaultInitializer.vaultURL
+                .appendingPathComponent("wiki/daily/\(dateString).md")
+            try? FileManager.default.removeItem(at: dailyURL)
+            await MainActor.run {
+                TimelinePinService.shared.unpin(dateString)
+                Haptics.warn()
+            }
+        }
+    }
 }
 
 // MARK: - OnThisDayNavTarget
@@ -2336,6 +2421,16 @@ struct TodayView: View {
 private struct OnThisDayNavTarget: Identifiable {
     let dateString: String
     var id: String { dateString }
+}
+
+// MARK: - TimelineShareText
+
+/// Identifiable wrapper around a plain-text share payload so it can drive
+/// `.sheet(item:)`. Each tap on "Share" gets a fresh UUID so consecutive
+/// shares of the same day still re-trigger the sheet.
+struct TimelineShareText: Identifiable {
+    let id = UUID()
+    let text: String
 }
 
 // MARK: - CompilationFailedBanner

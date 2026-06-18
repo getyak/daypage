@@ -254,7 +254,12 @@ struct GlassErrorBannerOverlayModifier: ViewModifier {
                             retryAction: item.retryAction,
                             onDismiss: { stack.dismiss(id: item.id) }
                         )
-                        .transition(.move(edge: .top).combined(with: .opacity))
+                        // Mirror AppBanner's asymmetric entry/exit so the two
+                        // banner systems feel like one polished surface.
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .top).combined(with: .opacity),
+                            removal: .opacity.combined(with: .offset(y: -8))
+                        ))
                         .id(item.id)
                     }
                 }
@@ -263,7 +268,7 @@ struct GlassErrorBannerOverlayModifier: ViewModifier {
                 .zIndex(200)
             }
         }
-        .animation(Motion.slide, value: stack.items.map(\.id))
+        .animation(.spring(response: 0.55, dampingFraction: 0.88), value: stack.items.map(\.id))
     }
 }
 

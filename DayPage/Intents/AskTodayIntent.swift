@@ -6,18 +6,18 @@ import UIKit
 
 // MARK: - AskTodayIntent
 //
-// AppIntent for ad-hoc questions answered against the user's vault. For now
-// the routing target is SearchView, which already does full-text + entity
-// search across memos. The intent is named with the "ask" framing so the
-// shortcut is discoverable as an assistant entry point — once an on-device
-// MCP/LLM pipeline is wired up we can re-route the URL without changing
-// the Siri / Shortcuts surface.
+// AppIntent for ad-hoc questions answered against the user's vault.
 //
-// Routing: opens `daypage://search?q=<URL-encoded query>`.
-// `DayPageApp.onOpenURL` switches to the Archive tab and stashes the
-// query in `AppNavigationModel.pendingSearchQuery`. ArchiveView observes
-// the property, presents SearchView pre-populated with the query, and
-// clears the pending value (one-shot).
+// Routing: opens `daypage://ask?q=<URL-encoded query>`, which RootView turns
+// into the "和过去对话" memory-chat agent (D1, research doc §3) — graph-augmented
+// retrieval (D2) over the vault + an LLM answer with cited sources. This is the
+// pipeline the intent's "ask" framing always pointed at; it previously routed to
+// keyword SearchView as a placeholder until the chat agent existed.
+//
+// `DayPageApp.onOpenURL` stashes the query in
+// `AppNavigationModel.pendingAskQuery`. RootView observes the property, presents
+// the AskPastView chat sheet seeded with the question, and clears the pending
+// value (one-shot, so re-firing the shortcut re-opens the sheet).
 
 @available(iOS 16.0, *)
 struct AskTodayIntent: AppIntent {
@@ -45,7 +45,7 @@ struct AskTodayIntent: AppIntent {
     static func buildURL(query: String) -> URL? {
         var components = URLComponents()
         components.scheme = "daypage"
-        components.host = "search"
+        components.host = "ask"
         components.queryItems = [URLQueryItem(name: "q", value: query)]
         return components.url
     }

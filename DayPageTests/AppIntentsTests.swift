@@ -40,10 +40,12 @@ struct AppIntentsTests {
 
     // MARK: - AskTodayIntent URL contract
 
-    @Test func askToday_buildsSearchURL() throws {
+    @Test func askToday_buildsAskURL() throws {
+        // AskTodayIntent now routes to the D1 memory-chat agent via
+        // daypage://ask (previously daypage://search as a placeholder).
         let url = try #require(AskTodayIntent.buildURL(query: "weekend plans"))
         #expect(url.scheme == "daypage")
-        #expect(url.host == "search")
+        #expect(url.host == "ask")
         let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
         let q = components.queryItems?.first(where: { $0.name == "q" })?.value
         #expect(q == "weekend plans")
