@@ -40,11 +40,14 @@ final class MemoryChatService: ObservableObject {
     /// 注入式 LLM 调用闭包，便于测试替身。默认走云端 DeepSeek。
     private let send: ([LLMMessage]) async throws -> String
     /// 注入式检索闭包，默认走图谱增强检索。
-    private let retrieve: (String) -> RetrievedContext
+    /// `@Sendable` 标注让它可以安全地跨 actor 边界传给 detached task —— 真实
+    /// 默认值 `GraphRetriever.retrieve` 是 `nonisolated static`，本身无主线程
+    /// 依赖；测试桩通常是值语义闭包，也可跨线程调度。
+    private let retrieve: @Sendable (String) -> RetrievedContext
 
     init(
         send: (([LLMMessage]) async throws -> String)? = nil,
-        retrieve: @escaping (String) -> RetrievedContext = { GraphRetriever.retrieve(query: $0) }
+        retrieve: @escaping @Sendable (String) -> RetrievedContext = { GraphRetriever.retrieve(query: $0) }
     ) {
         self.retrieve = retrieve
         if let send {
@@ -86,8 +89,16 @@ final class MemoryChatService: ObservableObject {
         isResponding = true
         defer { isResponding = false }
 
-        // Step 1: 图谱增强检索（纯本地）。
-        let context = retrieve(question)
+        // Step 1: 图谱增强检索——磁盘 I/O 走 detached task 避免阻塞主线程。
+        // GraphRetriever.retrieve 是 nonisolated 静态函数，捕获 question 不可
+        // 变副本进入后台，再回到主 actor 装配 messages。
+        let retrieveClosure = self.retrieve
+        let context = await Task.detached(priority: .userInitiated) { @Sendable in
+            retrieveClosure(question)
+        }.value
+
+        // Allow caller (e.g. sheet dismissal) to cancel mid-flight.
+        if Task.isCancelled { return }
 
         // Step 2: 组装 messages（system + 检索上下文 + 近几轮历史 + 当前问题）。
         let messages = buildMessages(question: question, context: context)

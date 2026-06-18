@@ -122,7 +122,11 @@ struct RetrievedContextTests {
 @MainActor
 struct MemoryChatServiceTests {
 
-    private func fixedContext(_ q: String) -> RetrievedContext {
+    // static + nonisolated so we can pass it into the @Sendable `retrieve`
+    // closure that MemoryChatService now requires. The suite as a whole is
+    // @MainActor, so without nonisolated the static method inherits the
+    // actor and the compiler rejects synchronous use from a Sendable closure.
+    nonisolated static func fixedContext(_ q: String) -> RetrievedContext {
         RetrievedContext(
             query: q,
             memoHits: [.init(dateString: "2026-05-01", snippet: "测试记录", mood: nil, entityMentions: [])],
@@ -133,7 +137,7 @@ struct MemoryChatServiceTests {
     @Test func askAppendsUserThenAssistantTurns() async {
         let service = MemoryChatService(
             send: { _ in "这是回答" },
-            retrieve: { self.fixedContext($0) }
+            retrieve: { Self.fixedContext($0) }
         )
         await service.ask("我做了什么？")
         #expect(service.turns.count == 2)
@@ -149,7 +153,7 @@ struct MemoryChatServiceTests {
     @Test func askSurfacesErrorWithoutAssistantTurn() async {
         let service = MemoryChatService(
             send: { _ in throw LLMError.rateLimited },
-            retrieve: { self.fixedContext($0) }
+            retrieve: { Self.fixedContext($0) }
         )
         await service.ask("会失败")
         // 只有 user 回合；assistant 回合不入队，错误走 errorMessage。
@@ -159,14 +163,14 @@ struct MemoryChatServiceTests {
     }
 
     @Test func emptyQuestionIsIgnored() async {
-        let service = MemoryChatService(send: { _ in "x" }, retrieve: { self.fixedContext($0) })
+        let service = MemoryChatService(send: { _ in "x" }, retrieve: { Self.fixedContext($0) })
         await service.ask("   ")
         #expect(service.turns.isEmpty)
     }
 
     @Test func buildMessagesIncludesSystemAndRetrievedContext() {
-        let service = MemoryChatService(send: { _ in "" }, retrieve: { self.fixedContext($0) })
-        let ctx = fixedContext("问题")
+        let service = MemoryChatService(send: { _ in "" }, retrieve: { Self.fixedContext($0) })
+        let ctx = Self.fixedContext("问题")
         let messages = service.buildMessages(question: "我去过哪里？", context: ctx)
         #expect(messages.first?.role == .system)
         #expect(messages.last?.role == .user)
@@ -175,7 +179,7 @@ struct MemoryChatServiceTests {
     }
 
     @Test func resetClearsConversation() async {
-        let service = MemoryChatService(send: { _ in "答" }, retrieve: { self.fixedContext($0) })
+        let service = MemoryChatService(send: { _ in "答" }, retrieve: { Self.fixedContext($0) })
         await service.ask("Q")
         service.reset()
         #expect(service.turns.isEmpty)

@@ -107,53 +107,51 @@ struct LLMClient {
     // MARK: - Chat Completion
 
     /// 发送一组 messages，返回 assistant 的纯文本回复（已 trim）。
-    /// 带指数退避重试（与原编译管线一致：3 次，0/2/6s）。
-    /// - Parameter onRetry: 每次重试前回调 `(当前次数, 最大次数)`。
+    /// 带指数退避重试（默认 `RetryPolicy.standard`：3 次，0/2/6s）。
+    /// - Parameters:
+    ///   - messages: 完整的对话消息列表（含 system / user / assistant）。
+    ///   - policy: 重试策略，便于编译管线与对话各自调优。
+    ///   - onRetry: 每次重试前回调 `(当前次数, 最大次数)`，用于 UI 反馈。
     func complete(
         messages: [LLMMessage],
+        policy: RetryPolicy = .standard,
         onRetry: ((Int, Int) -> Void)? = nil
     ) async throws -> String {
         let online = await MainActor.run { NetworkMonitor.shared.isOnline }
         guard online else { throw LLMError.offline }
         guard !config.apiKey.isEmpty else { throw LLMError.missingApiKey }
 
-        let maxAttempts = 3
-        let backoffSeconds: [Double] = [0, 2, 6]
-        var lastError: Error = LLMError.networkTimeout
+        return try await retryAsync(
+            policy: policy,
+            onRetry: onRetry,
+            shouldRetry: Self.shouldRetry,
+            operation: { try await self.sendOnce(messages: messages) }
+        )
+    }
 
-        for attempt in 1...maxAttempts {
-            if attempt > 1 {
-                onRetry?(attempt, maxAttempts)
-                let delay = backoffSeconds[min(attempt - 1, backoffSeconds.count - 1)]
-                try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
-            }
-            do {
-                return try await sendOnce(messages: messages)
-            } catch let error as LLMError {
-                switch error {
-                case .rateLimited:
-                    lastError = error
-                case .apiError(let code, _) where code == 401 || code == 403 || code == 400:
-                    throw error  // 不重试认证/请求格式错误
-                case .missingApiKey, .invalidURL, .emptyResponse:
-                    throw error
-                default:
-                    lastError = error
-                }
-            } catch let urlError as URLError {
-                switch urlError.code {
-                case .timedOut:
-                    lastError = LLMError.networkTimeout
-                case .notConnectedToInternet, .networkConnectionLost:
-                    lastError = LLMError.offline
-                default:
-                    throw LLMError.unknown(urlError)
-                }
-            } catch {
-                lastError = error
+    /// Error classifier for retry: terminal errors short-circuit; transient
+    /// errors (timeout, 429, generic network drop) retry. URLError values get
+    /// normalized to ``LLMError`` cases inside ``sendOnce``.
+    static func shouldRetry(_ error: Error) -> RetryDecision {
+        if let llm = error as? LLMError {
+            switch llm {
+            case .missingApiKey, .invalidURL, .emptyResponse:
+                return .stop
+            case .apiError(let code, _) where code == 400 || code == 401 || code == 403:
+                return .stop
+            default:
+                return .retry
             }
         }
-        throw lastError
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .timedOut, .notConnectedToInternet, .networkConnectionLost:
+                return .retry
+            default:
+                return .stop
+            }
+        }
+        return .retry
     }
 
     // MARK: - Single request
@@ -163,37 +161,50 @@ struct LLMClient {
             throw LLMError.invalidURL
         }
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.timeoutInterval = config.timeout
-
         let body: [String: Any] = [
             "model": config.model,
             "messages": messages.map { ["role": $0.role.rawValue, "content": $0.content] },
             "max_tokens": config.maxTokens,
             "temperature": config.temperature
         ]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let request = try HTTPClientHelper.bearerJSON(
+            url: url,
+            apiKey: config.apiKey,
+            timeout: config.timeout,
+            body: body
+        )
 
         let dsnEmpty = await MainActor.run { Secrets.sentryDSN.isEmpty }
         let span = dsnEmpty ? nil : SentrySDK.startTransaction(name: spanName, operation: "http.client")
         defer { span?.finish() }
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let http = response as? HTTPURLResponse else {
-            throw LLMError.apiError(statusCode: -1, body: "No HTTP response")
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                span?.setTag(value: "no-http-response", key: "error.kind")
+                throw LLMError.apiError(statusCode: -1, body: "No HTTP response")
+            }
+            span?.setTag(value: String(http.statusCode), key: "http.status_code")
+            guard http.statusCode == 200 else {
+                let bodyStr = String(data: data, encoding: .utf8) ?? "(empty)"
+                DayPageLogger.log(level: "ERROR", message: "[LLMClient/\(spanName)] status=\(http.statusCode) body=\(bodyStr.prefix(500))")
+                span?.setTag(value: "true", key: "error")
+                if http.statusCode == 429 { throw LLMError.rateLimited }
+                throw LLMError.apiError(statusCode: http.statusCode, body: bodyStr)
+            }
+            return try Self.parseContent(from: data)
+        } catch let urlError as URLError {
+            // Normalize URL errors to LLMError so the retry classifier and UI
+            // copy can speak a single vocabulary.
+            switch urlError.code {
+            case .timedOut:
+                throw LLMError.networkTimeout
+            case .notConnectedToInternet, .networkConnectionLost:
+                throw LLMError.offline
+            default:
+                throw LLMError.unknown(urlError)
+            }
         }
-        guard http.statusCode == 200 else {
-            let bodyStr = String(data: data, encoding: .utf8) ?? "(empty)"
-            DayPageLogger.log(level: "ERROR", message: "[LLMClient/\(spanName)] status=\(http.statusCode) body=\(bodyStr.prefix(500))")
-            if http.statusCode == 429 { throw LLMError.rateLimited }
-            throw LLMError.apiError(statusCode: http.statusCode, body: bodyStr)
-        }
-
-        return try Self.parseContent(from: data)
     }
 
     // MARK: - Response parsing

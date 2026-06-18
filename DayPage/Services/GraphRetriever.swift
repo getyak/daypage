@@ -110,8 +110,19 @@ enum GraphRetriever {
 
         for dateString in hitDates {
             guard memoHits.count < maxMemoHits else { break }
-            guard let date = dayFormatter.date(from: dateString) else { continue }
-            let memos = (try? RawStorage.read(for: date)) ?? []
+            guard let date = DateFormatters.isoDate.date(from: dateString) else { continue }
+            let memos: [Memo]
+            do {
+                memos = try RawStorage.read(for: date)
+            } catch {
+                // I/O 失败不应让整次检索黑屏。逐天降级为空集，但记录到 logger，
+                // 让 Sentry 看得到磁盘/权限/iCloud 冲突这类信号，不再 silent fail.
+                DayPageLogger.log(
+                    level: "WARN",
+                    message: "[GraphRetriever] read \(dateString) failed: \(error.localizedDescription)"
+                )
+                continue
+            }
             for memo in memos where memoMatches(memo, foldedQuery: folded) {
                 guard memoHits.count < maxMemoHits else { break }
                 memoHits.append(RetrievedContext.MemoHit(
@@ -173,7 +184,20 @@ enum GraphRetriever {
         for slug in slugs {
             for type in types {
                 let url = entityURL(type: type, slug: slug)
-                guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
+                let content: String
+                do {
+                    content = try String(contentsOf: url, encoding: .utf8)
+                } catch {
+                    // ENOENT (slug 不在该目录) 是绝大多数情形，刻意静默。其它
+                    // 错误（权限、IO）记一条 WARN 便于诊断，但不中断扩展循环。
+                    if (error as NSError).code != NSFileReadNoSuchFileError {
+                        DayPageLogger.log(
+                            level: "WARN",
+                            message: "[GraphRetriever] read entity \(type)/\(slug) failed: \(error.localizedDescription)"
+                        )
+                    }
+                    continue
+                }
                 if let hit = parseEntityPage(content, slug: slug, type: type) {
                     hits.append(hit)
                 }
@@ -272,11 +296,4 @@ enum GraphRetriever {
         s.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
                   locale: Locale(identifier: "en_US_POSIX"))
     }
-
-    private static let dayFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
 }
