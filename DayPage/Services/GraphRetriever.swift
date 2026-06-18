@@ -212,10 +212,11 @@ enum GraphRetriever {
     }
 
     /// 解析实体页：从 frontmatter 取 name / occurrence_count，从正文取摘要。
+    /// frontmatter 字段提取走共用的 `FrontmatterParser.extractFieldInBlock`，
+    /// 保证与未来新增的实体字段（如 occurrence_count_zh）解析一致。
     static func parseEntityPage(_ content: String, slug: String, type: String) -> RetrievedContext.EntityHit? {
-        let displayName = frontmatterValue(in: content, key: "name")?
-            .trimmingCharacters(in: CharacterSet(charactersIn: "\"")) ?? slug
-        let occurrence = Int(frontmatterValue(in: content, key: "occurrence_count") ?? "") ?? 1
+        let displayName = FrontmatterParser.extractFieldInBlock("name", from: content) ?? slug
+        let occurrence = Int(FrontmatterParser.extractFieldInBlock("occurrence_count", from: content) ?? "") ?? 1
         let summary = bodySummary(from: content)
         return RetrievedContext.EntityHit(
             slug: slug,
@@ -224,24 +225,6 @@ enum GraphRetriever {
             occurrenceCount: occurrence,
             summary: summary
         )
-    }
-
-    /// 取 frontmatter（首个 `---` 与第二个 `---` 之间）中 `key:` 的值。
-    private static func frontmatterValue(in content: String, key: String) -> String? {
-        let lines = content.components(separatedBy: "\n")
-        var inFrontmatter = false
-        for (index, line) in lines.enumerated() {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if index == 0 && trimmed == "---" { inFrontmatter = true; continue }
-            if inFrontmatter && trimmed == "---" { break }
-            if inFrontmatter {
-                let prefix = "\(key):"
-                if trimmed.hasPrefix(prefix) {
-                    return String(trimmed.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
-                }
-            }
-        }
-        return nil
     }
 
     /// 取实体页正文（frontmatter 之后）的前若干行非空内容作为摘要。

@@ -322,10 +322,10 @@ struct SettingsView: View {
             if let result {
                 HStack(spacing: 6) {
                     Image(systemName: result.isSuccess ? "checkmark.circle.fill" : "xmark.circle.fill")
-                        .foregroundColor(result.isSuccess ? .green : .red)
+                        .foregroundColor(result.isSuccess ? DSColor.statusSuccess : DSColor.statusError)
                     Text(result.message)
                         .font(.caption)
-                        .foregroundColor(result.isSuccess ? .green : .red)
+                        .foregroundColor(result.isSuccess ? DSColor.statusSuccess : DSColor.statusError)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -370,7 +370,7 @@ struct SettingsView: View {
                     }
                     Spacer()
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
+                        .foregroundColor(DSColor.statusSuccess)
                 }
             } else {
                 Button(action: { locationService.requestAlwaysAuthorization() }) {
@@ -385,11 +385,11 @@ struct SettingsView: View {
         let status = AVAudioSession.sharedInstance().recordPermission
         switch status {
         case .granted:
-            Text(NSLocalizedString("settings.permission.mic.granted", comment: "")).font(.caption).foregroundColor(.green)
+            Text(NSLocalizedString("settings.permission.mic.granted", comment: "")).font(.caption).foregroundColor(DSColor.statusSuccess)
         case .denied:
-            Text(NSLocalizedString("settings.permission.mic.denied", comment: "")).font(.caption).foregroundColor(.red)
+            Text(NSLocalizedString("settings.permission.mic.denied", comment: "")).font(.caption).foregroundColor(DSColor.statusError)
         default:
-            Text(NSLocalizedString("settings.permission.mic.undetermined", comment: "")).font(.caption).foregroundColor(.orange)
+            Text(NSLocalizedString("settings.permission.mic.undetermined", comment: "")).font(.caption).foregroundColor(DSColor.statusWarning)
         }
     }
 
@@ -604,7 +604,7 @@ struct SettingsView: View {
                     .frame(width: 8, height: 8)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(NSLocalizedString("settings.icloud.connected", comment: "")).font(.body).fontWeight(.medium)
-                    Text("iCloud Drive").font(.caption).foregroundColor(DSColor.onSurfaceVariant)
+                    Text(L10n.Settings.iCloudDrive).font(.caption).foregroundColor(DSColor.onSurfaceVariant)
                 }
                 Spacer()
                 if let date = lastSync {

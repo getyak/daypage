@@ -677,3 +677,15 @@
 /* Sidebar profile */
 "sidebar.profile.local_account"              = "本地账户";
 "sidebar.profile.tap_to_sync"                = "本地 · 点击同步";
+
+/* Settings — iCloud */
+"settings.icloud_drive"                      = "iCloud Drive";
+
+/* Archive — heat-map density labels */
+"archive.density.empty"                      = "空白";
+"archive.density.low"                        = "少";
+"archive.density.medium"                     = "中";
+"archive.density.high"                       = "多";
+
+/* DSBanner — accessibility */
+"banner.close.a11y"                          = "关闭";

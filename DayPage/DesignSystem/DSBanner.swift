@@ -89,7 +89,7 @@ struct DSBanner: View {
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
-                .accessibilityLabel("关闭")
+                .accessibilityLabel(L10n.Banner.closeA11y)
             }
         }
         .padding(.horizontal, DSSpacing.lg)

@@ -96,6 +96,31 @@ enum DSColor {
     static let densityMid    = Color(hex: "A8541B").opacity(0.45)
     static let densityHigh   = Color(hex: "A8541B").opacity(0.85)
 
+    /// Foreground ink on amber-deep / amber-accent surfaces. Stays near-white
+    /// in both light and dark schemes since the amber substrate carries the
+    /// same chroma either way. Use instead of `Color.white` whenever drawing
+    /// glyphs / dots on a saturated amber chip or artifact panel.
+    static let onAmber        = Color(light: Color(hex: "FFFBF3"), dark: Color(hex: "FFF6E4"))
+
+    // V4 status semantic tokens — adaptive in dark mode to preserve contrast
+    // against `bgWarm` deep-charcoal-brown. Use these instead of system
+    // `.green` / `.red` / `.orange`, which key off iOS system tints and lose
+    // the warm-amber language under dark scheme.
+    /// Granted / connected / OK state — warmer than system green so it sits
+    /// against the amber palette without clashing.
+    static let statusSuccess  = Color(light: Color(hex: "4C7A3F"), dark: Color(hex: "8FBE7A"))
+    /// Denied / failed state — desaturated red that survives dark mode.
+    static let statusError    = Color(light: Color(hex: "A23A2E"), dark: Color(hex: "E08577"))
+    /// Limited / undetermined / requires-attention state — warm orange tied
+    /// to the amber accent family.
+    static let statusWarning  = Color(light: Color(hex: "A66A00"), dark: Color(hex: "E8A33B"))
+
+    /// Transcribe-armed cue — cool blue tone used by the recording overlay to
+    /// distinguish the "release-to-transcribe" gesture from the warmer
+    /// "release-to-cancel" red. Tuned for legibility on the dark recording
+    /// scrim in both schemes.
+    static let transcribeBlue = Color(light: Color(hex: "4D8CFF"), dark: Color(hex: "7AA8FF"))
+
     // MARK: - V3 Warm-White Tokens
 
     /// 页面 / 屏幕背景 — 暖色调米白 / 深暖棕

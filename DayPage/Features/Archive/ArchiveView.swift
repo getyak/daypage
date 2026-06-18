@@ -68,22 +68,26 @@ struct DayStats {
         var textColor: Color {
             switch self {
             case .empty, .low: return DSColor.inkPrimary
-            case .medium, .high: return Color.white
+            // medium / high density chips fill with amber → use onAmber token
+            // so the warm-cream foreground tracks dark mode correctly.
+            case .medium, .high: return DSColor.onAmber
             }
         }
 
         var label: String {
             switch self {
-            case .empty: return "EMPTY"
-            case .low: return "LOW"
-            case .medium: return "MEDIUM"
-            case .high: return "HIGH"
+            case .empty: return L10n.Archive.densityEmpty
+            case .low: return L10n.Archive.densityLow
+            case .medium: return L10n.Archive.densityMedium
+            case .high: return L10n.Archive.densityHigh
             }
         }
 
         /// Right-corner dot color — amber accent on today cell, text color otherwise.
         func dotColor(isToday: Bool) -> Color {
-            isToday ? Color.white : textColor
+            // Today cell fill is amber-accent; use onAmber so the dot stays
+            // legible without hardcoded white.
+            isToday ? DSColor.onAmber : textColor
         }
     }
 }
@@ -972,13 +976,17 @@ struct ArchiveView: View {
             let textColor: Color = {
                 if let d = density { return d.textColor }
                 switch data {
-                case .compiled: return Color.white
+                // `compiled` cell fills with amberDeep — onAmber keeps the
+                // foreground legible in both light and dark schemes.
+                case .compiled: return DSColor.onAmber
                 case .rawOnly:  return DSColor.inkPrimary
                 case .none:     return DSColor.inkSubtle
                 }
             }()
 
-            let dotColor: Color = isToday ? Color.white : DSColor.amberAccent
+            // Today dot sits on the amber today-cell fill — onAmber instead
+            // of pure white so dark mode keeps the warm-cream language.
+            let dotColor: Color = isToday ? DSColor.onAmber : DSColor.amberAccent
 
             Button(action: {
                 Haptics.tapConfirm()
@@ -1287,9 +1295,12 @@ struct ArchiveView: View {
                     // Status label
                     VStack(spacing: 6) {
                         HStack(spacing: 6) {
+                            // Artifact panel background is amberDeep@0.92 — use
+                            // onAmber so the label tracks dark mode instead of
+                            // sitting on a pure-white system color.
                             Text("SYSTEM STATUS:")
                                 .font(DSFonts.jetBrainsMono(size: 11, weight: .medium))
-                                .foregroundColor(Color.white.opacity(0.4))
+                                .foregroundColor(DSColor.onAmber.opacity(0.4))
                                 .tracking(0.5)
 
                             Text(viewModel.systemStatus.label)
@@ -1300,7 +1311,7 @@ struct ArchiveView: View {
 
                         Text("LAST SYNC // \(viewModel.lastSyncTimestamp)")
                             .font(DSFonts.jetBrainsMono(size: 10, weight: .regular))
-                            .foregroundColor(Color.white.opacity(0.3))
+                            .foregroundColor(DSColor.onAmber.opacity(0.3))
                             .tracking(0.5)
                     }
                 }
@@ -1312,7 +1323,9 @@ struct ArchiveView: View {
 
     private var statusTextColor: Color {
         switch viewModel.systemStatus {
-        case .synchronized:       return Color.white.opacity(0.6)
+        // Synchronized label sits on the amberDeep artifact panel — onAmber
+        // so the warm-cream foreground tracks dark mode.
+        case .synchronized:       return DSColor.onAmber.opacity(0.6)
         case .pendingCompilation: return DSColor.warningAmber
         case .offline:            return DSColor.errorRed
         }

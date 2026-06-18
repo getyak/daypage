@@ -33,4 +33,36 @@ enum FrontmatterParser {
         }
         return nil
     }
+
+    /// Same extraction, but constrained to the leading `---\n...\n---` block.
+    ///
+    /// Use this when the file body may contain `key:` look-alikes (e.g. an
+    /// entity page that mentions `occurrence_count:` inside a quoted body
+    /// snippet). ``GraphRetriever`` requires this stricter semantics; Daily
+    /// Page parsing keeps using ``extractField(_:from:)`` so behaviour stays
+    /// stable for files without a closing `---`.
+    ///
+    /// - Returns: the field's value, or `nil` when the file has no opening
+    ///   `---` on line 0, when the key isn't found inside the block, or
+    ///   when the trimmed value is empty.
+    static func extractFieldInBlock(_ key: String, from content: String) -> String? {
+        let prefix = "\(key):"
+        let lines = content.components(separatedBy: "\n")
+        var inBlock = false
+        for (index, line) in lines.enumerated() {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if index == 0 {
+                guard trimmed == "---" else { return nil }
+                inBlock = true
+                continue
+            }
+            if inBlock && trimmed == "---" { break }
+            guard inBlock, trimmed.hasPrefix(prefix) else { continue }
+            let value = String(trimmed.dropFirst(prefix.count))
+                .trimmingCharacters(in: .whitespaces)
+                .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+            return value.isEmpty ? nil : value
+        }
+        return nil
+    }
 }
