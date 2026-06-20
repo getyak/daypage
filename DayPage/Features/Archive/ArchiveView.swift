@@ -194,15 +194,41 @@ final class ArchiveViewModel: ObservableObject {
                 return range.count
             }
 
-            func countMemoBlocks(in content: String) -> Int {
-                content.components(separatedBy: "\n\n---\n\n").count
-            }
-
             // DateFormatter is not Sendable; create a local instance for this task.
             let fmt = DateFormatter()
             fmt.dateFormat = "yyyy-MM-dd"
             fmt.locale = Locale(identifier: "en_US_POSIX")
             fmt.timeZone = TimeZone.current
+
+            // Issue #28: single contentsOfDirectory scan + on-disk filename
+            // filter beats 31 fileExists() probes. Most months have <10
+            // populated days; the previous code paid 31 full RawStorage.read
+            // calls (= 31 YAML parses + 31 Memo[] allocations) regardless.
+            //
+            // We restrict to filenames matching the current `yyyy-MM-` prefix
+            // and only parse the days that actually have a file. The empty
+            // days fall through to the default DayStats below.
+            let monthPrefix = String(format: "%04d-%02d-", year, month)
+            let presentRawStems: Set<String>
+            if let entries = try? FileManager.default.contentsOfDirectory(atPath: rawDir.path) {
+                presentRawStems = Set(
+                    entries
+                        .filter { $0.hasSuffix(".md") && $0.hasPrefix(monthPrefix) }
+                        .map { String($0.dropLast(3)) }
+                )
+            } else {
+                presentRawStems = []
+            }
+            let presentDailyStems: Set<String>
+            if let entries = try? FileManager.default.contentsOfDirectory(atPath: dailyDir.path) {
+                presentDailyStems = Set(
+                    entries
+                        .filter { $0.hasSuffix(".md") && $0.hasPrefix(monthPrefix) }
+                        .map { String($0.dropLast(3)) }
+                )
+            } else {
+                presentDailyStems = []
+            }
 
             var result: [String: DayStats] = [:]
             let totalDays = daysInMonth(year: year, month: month)
@@ -221,48 +247,48 @@ final class ArchiveViewModel: ObservableObject {
                 guard let date = Calendar.current.date(from: comps) else { continue }
                 let dateStr = fmt.string(from: date)
 
-                let rawURL = rawDir.appendingPathComponent("\(dateStr).md")
-                let dailyURL = dailyDir.appendingPathComponent("\(dateStr).md")
+                let hasRaw = presentRawStems.contains(dateStr)
+                let isDailyCompiled = presentDailyStems.contains(dateStr)
+
+                // Skip the entire YAML-parse + Memo allocation cost on empty
+                // days. They get no DayStats entry and the calendar simply
+                // renders no dot — which is the same visual outcome as the
+                // previous all-zero entry.
+                guard hasRaw || isDailyCompiled else { continue }
 
                 var memoCount = 0
                 var photoCount = 0
                 var voiceSeconds = 0
                 var uniqueLocations = Set<String>()
 
-                // RawStorage.read returns [] when the file is missing and parses
-                // the day's memos in one pass. Calling it directly avoids a redundant
-                // disk read (the previous `String(contentsOf:)` guard only existed
-                // to provide a fallback when read threw — handled below).
-                let memos: [Memo]
-                do {
-                    memos = try RawStorage.read(for: date)
-                } catch {
-                    // Fallback: parse-failure should not zero the day. Read raw and
-                    // count blocks so the calendar density still reflects activity.
-                    let raw = (try? String(contentsOf: rawURL, encoding: .utf8)) ?? ""
-                    memoCount = raw.isEmpty ? 0 : countMemoBlocks(in: raw)
-                    memos = []
-                }
-                if !memos.isEmpty { memoCount = memos.count }
-                for memo in memos {
-                    if memo.type == .photo || memo.type == .mixed {
-                        photoCount += memo.attachments.filter { $0.kind == "photo" }.count
+                if hasRaw {
+                    let memos: [Memo]
+                    do {
+                        memos = try RawStorage.read(for: date)
+                    } catch {
+                        memos = []
                     }
-                    if memo.type == .voice || memo.type == .mixed {
-                        for att in memo.attachments where att.kind == "audio" {
-                            if let dur = att.duration {
-                                voiceSeconds += Int(dur)
+                    memoCount = memos.count
+                    for memo in memos {
+                        if memo.type == .photo || memo.type == .mixed {
+                            photoCount += memo.attachments.filter { $0.kind == "photo" }.count
+                        }
+                        if memo.type == .voice || memo.type == .mixed {
+                            for att in memo.attachments where att.kind == "audio" {
+                                if let dur = att.duration {
+                                    voiceSeconds += Int(dur)
+                                }
                             }
                         }
-                    }
-                    if let loc = memo.location, let name = loc.name, !name.isEmpty {
-                        uniqueLocations.insert(name)
+                        if let loc = memo.location, let name = loc.name, !name.isEmpty {
+                            uniqueLocations.insert(name)
+                        }
                     }
                 }
 
-                let isDailyCompiled = FileManager.default.fileExists(atPath: dailyURL.path)
                 var dailySummary: String? = nil
                 if isDailyCompiled {
+                    let dailyURL = dailyDir.appendingPathComponent("\(dateStr).md")
                     if let content = (try? String(contentsOf: dailyURL, encoding: .utf8)) {
                         dailySummary = FrontmatterParser.extractField("summary", from: content)
                     }
