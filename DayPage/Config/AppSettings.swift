@@ -135,6 +135,10 @@ extension AppSettings {
         // Onboarding / auth
         static let hasOnboarded       = "hasOnboarded"
         static let authSkipped        = "authSkipped"
+        // Issue #25: timestamp the user accepted the data-flow disclosure
+        // (the onboarding page that lists every outbound third-party call).
+        // 0 / unset → user has never seen the disclosure.
+        static let dataFlowDisclosureAcceptedAt = "dataFlowDisclosureAcceptedAt"
         // Engagement / prompts
         static let memoSaveCount      = "memoSaveCount"
         static let lastSyncBannerDate = "lastSyncBannerDate"

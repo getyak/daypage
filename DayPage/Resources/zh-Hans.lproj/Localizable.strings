@@ -299,6 +299,27 @@
 "onboarding.permissions.status.denied" = "已拒绝";
 "onboarding.permissions.next" = "下一步";
 
+/* DataFlowPage — P0 privacy disclosure (issue #25) */
+"onboarding.dataflow.title" = "你的数据去哪儿";
+"onboarding.dataflow.subtitle" = "DayPage 本地优先。以下功能在你配置对应 Key 后才会向第三方发送数据。";
+"onboarding.dataflow.voice.feature" = "语音转写";
+"onboarding.dataflow.voice.payload" = "录音文件（M4A）";
+"onboarding.dataflow.voice.destination" = "→ OpenAI Whisper API";
+"onboarding.dataflow.compile.feature" = "AI 日记编译";
+"onboarding.dataflow.compile.payload" = "当天所有 memo 文本（约 2–5k tokens）";
+"onboarding.dataflow.compile.destination" = "→ DeepSeek / 阿里云 DashScope";
+"onboarding.dataflow.weather.feature" = "天气元数据";
+"onboarding.dataflow.weather.payload" = "经纬度（仅当你授权了定位）";
+"onboarding.dataflow.weather.destination" = "→ OpenWeatherMap API";
+"onboarding.dataflow.photo.feature" = "照片";
+"onboarding.dataflow.photo.payload" = "原图与 EXIF 仅存本地，不会上传任何服务器";
+"onboarding.dataflow.photo.destination" = "→ 不出设备";
+"onboarding.dataflow.sentry.feature" = "崩溃报告（可选）";
+"onboarding.dataflow.sentry.payload" = "崩溃堆栈和不含密钥的诊断面包屑";
+"onboarding.dataflow.sentry.destination" = "→ Sentry";
+"onboarding.dataflow.footer" = "你可以随时在设置里清除任意 Key，对应功能将立刻停止任何网络请求。";
+"onboarding.dataflow.continue" = "我了解了，继续";
+
 /* ApiKeysPage */
 "onboarding.apikeys.title" = "配置 API Key";
 "onboarding.apikeys.subtitle" = "填入你的 API Key，或跳过稍后在设置中配置";

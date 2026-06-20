@@ -299,6 +299,27 @@
 "onboarding.permissions.status.denied" = "Denied";
 "onboarding.permissions.next" = "Next";
 
+/* DataFlowPage — P0 privacy disclosure (issue #25) */
+"onboarding.dataflow.title" = "Where your data goes";
+"onboarding.dataflow.subtitle" = "DayPage is local-first. The features below only send data to third-party providers if you configure the matching API key.";
+"onboarding.dataflow.voice.feature" = "Voice transcription";
+"onboarding.dataflow.voice.payload" = "Audio recording (M4A)";
+"onboarding.dataflow.voice.destination" = "→ OpenAI Whisper API";
+"onboarding.dataflow.compile.feature" = "AI daily compilation";
+"onboarding.dataflow.compile.payload" = "All memo text for the day (~2–5k tokens)";
+"onboarding.dataflow.compile.destination" = "→ DeepSeek / Aliyun DashScope";
+"onboarding.dataflow.weather.feature" = "Weather metadata";
+"onboarding.dataflow.weather.payload" = "Latitude/longitude (only if you grant location)";
+"onboarding.dataflow.weather.destination" = "→ OpenWeatherMap API";
+"onboarding.dataflow.photo.feature" = "Photos";
+"onboarding.dataflow.photo.payload" = "Originals and EXIF stay on device, never uploaded";
+"onboarding.dataflow.photo.destination" = "→ Stays on device";
+"onboarding.dataflow.sentry.feature" = "Crash reports (optional)";
+"onboarding.dataflow.sentry.payload" = "Crash stacks and diagnostic breadcrumbs with no secrets";
+"onboarding.dataflow.sentry.destination" = "→ Sentry";
+"onboarding.dataflow.footer" = "You can clear any API key in Settings at any time; the matching feature will stop making any network call immediately.";
+"onboarding.dataflow.continue" = "I understand, continue";
+
 /* ApiKeysPage */
 "onboarding.apikeys.title" = "Configure API Keys";
 "onboarding.apikeys.subtitle" = "Enter your API keys, or skip to configure them later in Settings.";
