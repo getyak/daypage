@@ -236,7 +236,9 @@ final class BackgroundCompilationService {
     }()
 
     /// 如果 `date` 存在 raw memo 文件且尚未编译 Daily Page，则返回 true。
-    private func shouldCompile(for date: Date) -> Bool {
+    /// `internal` so unit tests (issue #32) can exercise the state-machine
+    /// boundary directly without spinning up a real BGAppRefreshTask.
+    func shouldCompile(for date: Date) -> Bool {
         let rawURL = RawStorage.fileURL(for: date)
         guard FileManager.default.fileExists(atPath: rawURL.path) else { return false }
 
