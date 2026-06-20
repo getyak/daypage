@@ -260,6 +260,12 @@ final class VoiceService: NSObject, ObservableObject {
     // MARK: - Whisper Transcription
 
     func transcribeAudio(at url: URL) async -> String? {
+        // C4 fix: when the master AI toggle is off, do not call Whisper even
+        // if the network is up. Fall back to on-device SFSpeechRecognizer so
+        // the user still gets a transcript without any third-party upload.
+        if !AppSettings.aiFeaturesEnabled {
+            return await transcribeAudioOffline(at: url)
+        }
         // US-013: If offline, skip Whisper and try on-device SFSpeechRecognizer
         if !NetworkMonitor.shared.isOnline {
             return await transcribeAudioOffline(at: url)

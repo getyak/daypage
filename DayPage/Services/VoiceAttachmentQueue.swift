@@ -75,45 +75,54 @@ final class VoiceAttachmentQueue: ObservableObject {
         isProcessing = true
         defer { isProcessing = false }
 
-        var entries = load()
-        var changed = false
+        // H1 fix: the previous implementation recursed via `await processQueue()`
+        // at the end. The recursive call's reentrant `isProcessing` guard
+        // returned immediately, so pending entries past the first break were
+        // never processed in the same session. Use a single iterative loop —
+        // no stack growth, all pending entries handled before returning.
+        while NetworkMonitor.shared.isOnline {
+            var entries = load()
+            var changedThisPass = false
+            var consumedOne = false
 
-        for i in entries.indices {
-            guard !entries[i].failed else { continue }
-            let entry = entries[i]
+            for i in entries.indices {
+                guard !entries[i].failed else { continue }
+                let entry = entries[i]
 
-            let audioURL = VaultInitializer.vaultURL.appendingPathComponent(entry.audioPath)
-            guard FileManager.default.fileExists(atPath: audioURL.path) else {
-                entries[i].failed = true
-                entries[i].lastError = "audio file not found"
-                changed = true
-                continue
-            }
-
-            if let transcript = await VoiceService.shared.transcribeAudio(at: audioURL) {
-                writeTranscriptBack(transcript: transcript, entry: entry)
-                entries.remove(at: i)
-                changed = true
-                break // reload after mutation
-            } else {
-                entries[i].attempts += 1
-                entries[i].lastError = "transcription returned nil"
-                if entries[i].attempts >= maxAttempts {
+                let audioURL = VaultInitializer.vaultURL.appendingPathComponent(entry.audioPath)
+                guard FileManager.default.fileExists(atPath: audioURL.path) else {
                     entries[i].failed = true
+                    entries[i].lastError = "audio file not found"
+                    changedThisPass = true
+                    continue
                 }
-                changed = true
+
+                if let transcript = await VoiceService.shared.transcribeAudio(at: audioURL) {
+                    writeTranscriptBack(transcript: transcript, entry: entry)
+                    entries.remove(at: i)
+                    changedThisPass = true
+                    consumedOne = true
+                    break // reload after mutation so indices stay coherent
+                } else {
+                    entries[i].attempts += 1
+                    entries[i].lastError = "transcription returned nil"
+                    if entries[i].attempts >= maxAttempts {
+                        entries[i].failed = true
+                    }
+                    changedThisPass = true
+                }
             }
-        }
 
-        if changed {
-            save(entries)
-            updateCount()
-        }
+            if changedThisPass {
+                save(entries)
+                updateCount()
+            }
 
-        // If there are still pending non-failed entries, recurse
-        let remaining = entries.filter { !$0.failed }
-        if !remaining.isEmpty {
-            await processQueue()
+            // Exit when nothing actionable remains. `consumedOne` covers the
+            // success path; if the whole pass produced no transcripts and the
+            // remaining entries are all failed or attempts-exhausted, stop.
+            let remaining = entries.filter { !$0.failed }
+            if remaining.isEmpty || !consumedOne { return }
         }
     }
 

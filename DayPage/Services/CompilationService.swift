@@ -50,6 +50,12 @@ final class CompilationService: ObservableObject {
         trigger: String = "manual",
         onRetry: ((Int, Int) -> Void)? = nil
     ) async throws {
+        // C4 fix: respect the master AI toggle. When the user has opted into
+        // local-only mode, refuse the call rather than silently shipping memo
+        // text to a third-party LLM even though a key is configured.
+        guard AppSettings.aiFeaturesEnabled else {
+            throw CompilationError.aiDisabled
+        }
         guard NetworkMonitor.shared.isOnline else {
             throw CompilationError.offline
         }
@@ -743,6 +749,8 @@ enum CompilationError: LocalizedError {
     case emptyInput
     case parseFailure(String)
     case unknown(Error)
+    // C4 fix: user has disabled AI features in Settings — local-only mode.
+    case aiDisabled
 
     var errorDescription: String? {
         switch self {
@@ -775,6 +783,9 @@ enum CompilationError: LocalizedError {
             return "AI 返回解析失败：\(msg)"
         case .unknown(let err):
             return "未知错误：\(err.localizedDescription)"
+        case .aiDisabled:
+            return NSLocalizedString("compile.error.ai_disabled",
+                                     comment: "Error shown when the master AI toggle is off")
         }
     }
 }

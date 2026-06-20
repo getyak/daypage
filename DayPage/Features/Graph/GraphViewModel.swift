@@ -49,11 +49,34 @@ final class GraphViewModel: ObservableObject {
     @Published var hasCompiledDailies: Bool = false
 
     // MARK: - Filter State
+    // searchInput: TextField binding, changes per keystroke.
+    // searchQuery: debounced output observed by filtering + canvas redraw.
+    // 200ms debounce keeps O(n) filter + full canvas redraw off the keystroke path on big graphs.
+    @Published var searchInput: String = "" { didSet { scheduleSearchDebounce() } }
     @Published var searchQuery: String = "" { didSet { _filteredNodes = nil } }
     @Published var filterStartDate: Date? = nil { didSet { _filteredNodes = nil } }
     @Published var filterEndDate: Date? = nil { didSet { _filteredNodes = nil } }
 
     private var _filteredNodes: [GraphNode]? = nil
+    private var searchDebounceTask: Task<Void, Never>? = nil
+
+    private func scheduleSearchDebounce() {
+        searchDebounceTask?.cancel()
+        // Empty input flushes immediately so the clear button feels instant.
+        if searchInput.isEmpty {
+            if !searchQuery.isEmpty { searchQuery = "" }
+            return
+        }
+        let snapshot = searchInput
+        searchDebounceTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self else { return }
+                if self.searchQuery != snapshot { self.searchQuery = snapshot }
+            }
+        }
+    }
 
     /// Nodes after applying search and date filters. Result is cached and
     /// invalidated only when nodes, searchQuery, or date filters change.

@@ -84,7 +84,7 @@ struct GraphView: View {
                         Image(systemName: "magnifyingglass")
                             .font(.system(size: 13))
                             .foregroundColor(DSColor.inkMuted)
-                        TextField(NSLocalizedString("graph.search.placeholder", comment: "Graph search field placeholder"), text: $viewModel.searchQuery)
+                        TextField(NSLocalizedString("graph.search.placeholder", comment: "Graph search field placeholder"), text: $viewModel.searchInput)
                             .font(DSFonts.jetBrainsMono(size: 12))
                             .foregroundColor(DSColor.inkPrimary)
                             .submitLabel(.search)
@@ -107,11 +107,11 @@ struct GraphView: View {
                                     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                                 }
                             }
-                        if !viewModel.searchQuery.isEmpty {
+                        if !viewModel.searchInput.isEmpty {
                             Button {
                                 Haptics.soft()
                                 withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) {
-                                    viewModel.searchQuery = ""
+                                    viewModel.searchInput = ""
                                 }
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
@@ -120,11 +120,11 @@ struct GraphView: View {
                                     .frame(width: 28, height: 28)
                                     .contentShape(Rectangle())
                             }
-                            .accessibilityLabel("Clear search")
+                            .accessibilityLabel(NSLocalizedString("graph.search.clear.a11y", comment: "VoiceOver label for the Clear search button in the graph"))
                             .transition(.opacity)
                         }
                     }
-                    .animation(Motion.fade, value: viewModel.searchQuery.isEmpty)
+                    .animation(Motion.fade, value: viewModel.searchInput.isEmpty)
                     .padding(.horizontal, DSSpacing.md)
                     .padding(.vertical, 7)
                     // #771: search field → glass engine (.control). Engine owns rim.
@@ -418,7 +418,7 @@ struct GraphView: View {
             EmptyStateView.graphNoMatches {
                 Haptics.tapConfirm()
                 withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) {
-                    viewModel.searchQuery = ""
+                    viewModel.searchInput = ""
                     viewModel.filterStartDate = nil
                     viewModel.filterEndDate = nil
                     hiddenTypes = Set()
@@ -442,7 +442,7 @@ struct GraphView: View {
         Button {
             Haptics.tapConfirm()
             withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) {
-                viewModel.searchQuery = ""
+                viewModel.searchInput = ""
                 viewModel.filterStartDate = nil
                 viewModel.filterEndDate = nil
                 hiddenTypes = Set()

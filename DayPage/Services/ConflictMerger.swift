@@ -165,9 +165,19 @@ enum ConflictMerger {
                     let conflictMemos = parseMemos(from: conflictData)
                     original = mergeRawMemos(original: original, conflict: conflictMemos)
                 } catch {
+                    // C7 fix: instead of silently skipping (which lost the
+                    // conflict version's memos forever after isResolved=true),
+                    // quarantine the raw bytes so they survive for manual
+                    // recovery. If even the raw copy fails, escalate to Sentry
+                    // with NSFileVersion metadata so the loss is observable.
+                    quarantineConflictVersion(
+                        version: version,
+                        primaryURL: primaryURL,
+                        reason: "read-failed: \(error)"
+                    )
                     DayPageLogger.log(
                         level: "WARN",
-                        message: "[ConflictMerger] Could not read conflict version for \(primaryURL.lastPathComponent): \(error) — version skipped, memos in that version may be lost"
+                        message: "[ConflictMerger] Could not read conflict version for \(primaryURL.lastPathComponent): \(error) — quarantined for recovery"
                     )
                 }
             }
@@ -195,11 +205,57 @@ enum ConflictMerger {
                         merged = mergeLogLines(original: merged, conflict: conflictText)
                     }
                 } catch {
+                    quarantineConflictVersion(
+                        version: version,
+                        primaryURL: primaryURL,
+                        reason: "log-read-failed: \(error)"
+                    )
                     DayPageLogger.log(level: "WARN",
-                                     message: "[ConflictMerger] Skipping unreadable log conflict version \(version.url.lastPathComponent): \(error)")
+                                     message: "[ConflictMerger] Skipping unreadable log conflict version \(version.url.lastPathComponent): \(error) — quarantined for recovery")
                 }
             }
             try writeMerged(data: Data(merged.utf8), to: primaryURL)
+        }
+    }
+
+    // C7 fix: copy the conflict version's raw bytes into
+    // `vault/raw/.broken/conflict-quarantine/` before NSFileVersion drops it.
+    // If even the raw copy fails (e.g., iCloud not yet downloaded), emit a
+    // Sentry event with the NSFileVersion metadata so the loss is observable.
+    private static func quarantineConflictVersion(version: NSFileVersion, primaryURL: URL, reason: String) {
+        let rawBytes = try? Data(contentsOf: version.url)
+        let dir = primaryURL.deletingLastPathComponent()
+            .appendingPathComponent(".broken", isDirectory: true)
+            .appendingPathComponent("conflict-quarantine", isDirectory: true)
+        let timestamp = Int(version.modificationDate?.timeIntervalSince1970 ?? Date().timeIntervalSince1970)
+        let stem = primaryURL.deletingPathExtension().lastPathComponent
+        let ext = primaryURL.pathExtension.isEmpty ? "md" : primaryURL.pathExtension
+        let target = dir.appendingPathComponent("\(stem)-conflict-\(timestamp).\(ext)")
+
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            if let data = rawBytes {
+                try RawStorage.atomicWrite(data: data, to: target)
+                SentryReporter.breadcrumb(
+                    category: "conflict_merger",
+                    level: .warning,
+                    message: "quarantined conflict version → \(target.lastPathComponent) reason=\(reason)"
+                )
+            } else {
+                // Raw bytes unreadable too — surface enough metadata that a
+                // human can correlate the loss with an iCloud transient.
+                SentryReporter.breadcrumb(
+                    category: "conflict_merger",
+                    level: .error,
+                    message: "conflict version unrecoverable for \(primaryURL.lastPathComponent) modifier=\(version.localizedNameOfSavingComputer ?? "?") at=\(String(describing: version.modificationDate)) reason=\(reason)"
+                )
+            }
+        } catch {
+            SentryReporter.breadcrumb(
+                category: "conflict_merger",
+                level: .error,
+                message: "quarantine write failed for \(primaryURL.lastPathComponent): \(error) (original reason=\(reason))"
+            )
         }
     }
 
@@ -218,17 +274,12 @@ enum ConflictMerger {
     }
 
     private static func writeMerged(data: Data, to url: URL) throws {
-        var coordinatorError: NSError?
-        var writeError: Error?
-        let coordinator = NSFileCoordinator()
-        coordinator.coordinate(writingItemAt: url, options: .forReplacing, error: &coordinatorError) { coordinatedURL in
-            do {
-                try data.write(to: coordinatedURL, options: .atomic)
-            } catch {
-                writeError = error
-            }
-        }
-        if let err = coordinatorError ?? writeError { throw err }
+        // Delegate to RawStorage.atomicWrite — it does NSFileCoordinator *and*
+        // an explicit temp-file + replaceItemAt rename inside the coordinator
+        // block, so a crash mid-write cannot leave a partial or zero-length
+        // file on disk. The prior `data.write(.atomic)` gave only per-call
+        // atomicity and lost the temp-file recovery path on coordinator failure.
+        try RawStorage.atomicWrite(data: data, to: url)
     }
 
     private static func parseMemos(from data: Data) -> [Memo] {

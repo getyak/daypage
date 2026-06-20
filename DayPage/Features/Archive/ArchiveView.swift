@@ -10,9 +10,17 @@ enum ArchiveMode {
 // MARK: - MonthlySummaryFilter
 
 enum MonthlySummaryFilter: String, CaseIterable {
-    case all = "全部"
-    case hasLocation = "有位置"
-    case hasPhoto = "有照片"
+    case all = "all"
+    case hasLocation = "hasLocation"
+    case hasPhoto = "hasPhoto"
+
+    var localizedLabel: String {
+        switch self {
+        case .all:         return L10n.Archive.filterAll
+        case .hasLocation: return L10n.Archive.filterHasLocation
+        case .hasPhoto:    return L10n.Archive.filterHasPhoto
+        }
+    }
 }
 
 // MARK: - SystemStatus
@@ -24,9 +32,9 @@ enum SystemStatus {
 
     var label: String {
         switch self {
-        case .synchronized:       return "SYNCHRONIZED"
-        case .pendingCompilation: return "PENDING COMPILATION"
-        case .offline:            return "OFFLINE"
+        case .synchronized:       return L10n.Archive.statusSynchronized
+        case .pendingCompilation: return L10n.Archive.statusPendingCompilation
+        case .offline:            return L10n.Archive.statusOffline
         }
     }
 }
@@ -435,7 +443,7 @@ final class ArchiveViewModel: ObservableObject {
         lines.append("- 地点：\(totalLocations) 处")
         lines.append("")
         if filter != .all {
-            lines.append("> 筛选：\(filter.rawValue)")
+            lines.append("> 筛选：\(filter.localizedLabel)")
             lines.append("")
         }
         lines.append("---")
@@ -1230,7 +1238,7 @@ struct ArchiveView: View {
             Haptics.soft()
             withAnimation(Motion.spring) { summaryFilter = filter }
         }) {
-            Text(filter.rawValue)
+            Text(filter.localizedLabel)
                 .monoLabelStyle(size: 10)
                 .foregroundColor(isSelected ? Color.white : DSColor.inkSubtle)
                 .padding(.horizontal, 10)
@@ -1239,7 +1247,7 @@ struct ArchiveView: View {
                 .animation(Motion.spring, value: isSelected)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(filter.rawValue)
+        .accessibilityLabel(filter.localizedLabel)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 

@@ -51,10 +51,39 @@ final class BannerCenter: ObservableObject {
     @Published var currentBanner: AppBannerModel?
 
     private var autoDismissTask: Task<Void, Never>?
+    // F5 fix: previously every show() overwrote the current banner, so when
+    // background compile + voice transcribe + iCloud conflict all failed at
+    // once the user only saw the last error. Errors now queue and display
+    // one after another; success/info/progress still overrides immediately.
+    private var queue: [AppBannerModel] = []
+    private let maxQueueSize = 3
 
     private init() {}
 
     func show(_ model: AppBannerModel) {
+        // If an error is currently visible and a NEW error comes in, queue it
+        // instead of clobbering. Non-error banners still display immediately so
+        // a "Saved ✓" toast can interrupt a stale error.
+        if case .error = currentBanner?.kind, case .error = model.kind {
+            if queue.count < maxQueueSize {
+                queue.append(model)
+            }
+            return
+        }
+        present(model)
+    }
+
+    func dismiss() {
+        autoDismissTask?.cancel()
+        withAnimation(.spring(response: 0.55, dampingFraction: 0.88)) {
+            currentBanner = nil
+        }
+        drainNextIfAny()
+    }
+
+    // MARK: - Private
+
+    private func present(_ model: AppBannerModel) {
         autoDismissTask?.cancel()
         withAnimation(.spring(response: 0.55, dampingFraction: 0.88)) {
             currentBanner = model
@@ -68,17 +97,23 @@ final class BannerCenter: ObservableObject {
                 try? await Task.sleep(nanoseconds: delayNanos)
                 if !Task.isCancelled {
                     withAnimation(.spring(response: 0.55, dampingFraction: 0.88)) {
-                        currentBanner = nil
+                        self.currentBanner = nil
                     }
+                    self.drainNextIfAny()
                 }
             }
         }
     }
 
-    func dismiss() {
-        autoDismissTask?.cancel()
-        withAnimation(.spring(response: 0.55, dampingFraction: 0.88)) {
-            currentBanner = nil
+    private func drainNextIfAny() {
+        guard !queue.isEmpty else { return }
+        // Give the dismiss animation a beat so the next banner doesn't pop
+        // before the prior is visually gone.
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            guard !self.queue.isEmpty else { return }
+            let next = self.queue.removeFirst()
+            self.present(next)
         }
     }
 }

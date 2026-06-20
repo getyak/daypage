@@ -110,9 +110,12 @@ final class BackgroundCompilationService {
         guard !missedDates.isEmpty else { return }
 
         Task {
+            // F6 fix: post compilationDidStart/End ONCE around the whole batch
+            // instead of per-date. Previously a 7-day backfill emitted 7 pairs,
+            // causing TodayView + SidebarViewModel to refresh 14 times.
+            NotificationCenter.default.post(name: .compilationDidStart, object: nil)
+            defer { NotificationCenter.default.post(name: .compilationDidEnd, object: nil) }
             for date in missedDates.prefix(maxBackfillDays) {
-                NotificationCenter.default.post(name: .compilationDidStart, object: nil)
-                defer { NotificationCenter.default.post(name: .compilationDidEnd, object: nil) }
                 do {
                     // Foreground backfill: full exponential backoff (no iOS BGTask budget).
                     try await compileWithRetry(for: date, trigger: "backfill", delays: Self.foregroundRetryDelays)

@@ -704,5 +704,41 @@
 "archive.density.medium"                     = "MEDIUM";
 "archive.density.high"                       = "HIGH";
 
+/* Archive — monthly summary filter chips */
+"archive.filter.all"                         = "All";
+"archive.filter.has_location"                = "With location";
+"archive.filter.has_photo"                   = "With photo";
+
+/* Archive — system status footer */
+"archive.status.synchronized"                = "SYNCHRONIZED";
+"archive.status.pending_compilation"         = "PENDING COMPILATION";
+"archive.status.offline"                     = "OFFLINE";
+
+/* AI master toggle */
+"settings.ai.enabled"                        = "Enable AI features";
+"compile.error.ai_disabled"                  = "AI features are turned off in Settings. Turn them on to compile.";
+"compile.dock.ai_disabled"                   = "AI features off · enable in Settings";
+
+/* Today header — mode badge */
+"today.badge.ai_off"                         = "AI off · local only";
+"today.badge.offline"                        = "Offline · local only";
+
+/* Graph — search a11y */
+"graph.search.clear.a11y"                    = "Clear search";
+
+/* AuthView */
+"auth.tagline"                               = "Every day, captured.";
+"auth.skip"                                  = "Skip for now";
+"auth.skip.a11y"                             = "Skip login. You can sign in later in Settings.";
+
+/* Settings — Delete All Local Data (GDPR right-to-be-forgotten) */
+"settings.data.purge_all.button"             = "Delete All Local Data";
+"settings.data.purge_all.confirm.title"      = "Delete everything stored on this device?";
+"settings.data.purge_all.confirm.message"    = "This permanently removes your vault, API keys, and onboarding state from this device. iCloud copies and your account are not affected.";
+"settings.data.purge_all.confirm.action"     = "Delete on this device";
+"settings.data.purge_all.done"               = "Local data deleted.";
+"settings.data.purge_all.done.subtitle"      = "Your cloud account is untouched. Relaunch DayPage to start fresh.";
+"settings.data.purge_all.partial"            = "Some local data could not be deleted.";
+
 /* DSBanner — accessibility */
 "banner.close.a11y"                          = "Close";

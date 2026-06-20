@@ -25,6 +25,7 @@
 		6587243C5DB109B930AB5D92 /* MemoryChatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04B9410B749C82B6E34779E4 /* MemoryChatTests.swift */; };
 		VTW0000001 /* VoiceTranscriptWritebackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = VTW1000001 /* VoiceTranscriptWritebackTests.swift */; };
 		OVS0000002 /* OrphanedVoiceScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = OVS1000002 /* OrphanedVoiceScannerTests.swift */; };
+		OPS0000002 /* OrphanedPhotoScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = OPS1000002 /* OrphanedPhotoScannerTests.swift */; };
 		INF0000001 /* InflightDraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = INF1000001 /* InflightDraftStore.swift */; };
 		INF0000002 /* InflightDraftStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = INF1000002 /* InflightDraftStoreTests.swift */; };
 		SRD0000001 /* SentryRedactor.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRD1000001 /* SentryRedactor.swift */; };
@@ -81,6 +82,7 @@
 		A10000038 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000038 /* NetworkMonitor.swift */; };
 		A10000039 /* VoiceAttachmentQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000039 /* VoiceAttachmentQueue.swift */; };
 		OVS0000001 /* OrphanedVoiceScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = OVS1000001 /* OrphanedVoiceScanner.swift */; };
+		OPS0000001 /* OrphanedPhotoScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = OPS1000001 /* OrphanedPhotoScanner.swift */; };
 		A10000040 /* DayDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000040 /* DayDetailView.swift */; };
 		A10000041 /* Spacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000041 /* Spacing.swift */; };
 		A10000042 /* RelativeTimeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000042 /* RelativeTimeFormatter.swift */; };
@@ -258,6 +260,7 @@
 		04B9410B749C82B6E34779E4 /* MemoryChatTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoryChatTests.swift; sourceTree = "<group>"; };
 		VTW1000001 /* VoiceTranscriptWritebackTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceTranscriptWritebackTests.swift; sourceTree = "<group>"; };
 		OVS1000002 /* OrphanedVoiceScannerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OrphanedVoiceScannerTests.swift; sourceTree = "<group>"; };
+		OPS1000002 /* OrphanedPhotoScannerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OrphanedPhotoScannerTests.swift; sourceTree = "<group>"; };
 		INF1000002 /* InflightDraftStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InflightDraftStoreTests.swift; sourceTree = "<group>"; };
 		SRD1000002 /* SentryRedactorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SentryRedactorTests.swift; sourceTree = "<group>"; };
 		GSM1000002 /* GraphSimulationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GraphSimulationTests.swift; sourceTree = "<group>"; };
@@ -328,6 +331,7 @@
 		A20000038 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		A20000039 /* VoiceAttachmentQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceAttachmentQueue.swift; sourceTree = "<group>"; };
 		OVS1000001 /* OrphanedVoiceScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrphanedVoiceScanner.swift; sourceTree = "<group>"; };
+		OPS1000001 /* OrphanedPhotoScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrphanedPhotoScanner.swift; sourceTree = "<group>"; };
 		INF1000001 /* InflightDraftStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InflightDraftStore.swift; sourceTree = "<group>"; };
 		SRD1000001 /* SentryRedactor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryRedactor.swift; sourceTree = "<group>"; };
 		HTP1000001 /* HTTPTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPTransport.swift; sourceTree = "<group>"; };
@@ -692,6 +696,7 @@
 				A20000038 /* NetworkMonitor.swift */,
 				A20000039 /* VoiceAttachmentQueue.swift */,
 				OVS1000001 /* OrphanedVoiceScanner.swift */,
+				OPS1000001 /* OrphanedPhotoScanner.swift */,
 				A20000045 /* OnThisDayIndex.swift */,
 				A20000047 /* OnThisDayScheduler.swift */,
 				A20000049 /* SampleDataSeeder.swift */,
@@ -1015,6 +1020,7 @@
 				04B9410B749C82B6E34779E4 /* MemoryChatTests.swift */,
 				VTW1000001 /* VoiceTranscriptWritebackTests.swift */,
 				OVS1000002 /* OrphanedVoiceScannerTests.swift */,
+				OPS1000002 /* OrphanedPhotoScannerTests.swift */,
 				INF1000002 /* InflightDraftStoreTests.swift */,
 				SRD1000002 /* SentryRedactorTests.swift */,
 				GSM1000002 /* GraphSimulationTests.swift */,
@@ -1291,6 +1297,7 @@
 				A10000038 /* NetworkMonitor.swift in Sources */,
 				A10000039 /* VoiceAttachmentQueue.swift in Sources */,
 				OVS0000001 /* OrphanedVoiceScanner.swift in Sources */,
+				OPS0000001 /* OrphanedPhotoScanner.swift in Sources */,
 				INF0000001 /* InflightDraftStore.swift in Sources */,
 				A10000045 /* OnThisDayIndex.swift in Sources */,
 				A10000047 /* OnThisDayScheduler.swift in Sources */,
@@ -1419,6 +1426,7 @@
 				6587243C5DB109B930AB5D92 /* MemoryChatTests.swift in Sources */,
 				VTW0000001 /* VoiceTranscriptWritebackTests.swift in Sources */,
 				OVS0000002 /* OrphanedVoiceScannerTests.swift in Sources */,
+				OPS0000002 /* OrphanedPhotoScannerTests.swift in Sources */,
 				INF0000002 /* InflightDraftStoreTests.swift in Sources */,
 				SRD0000002 /* SentryRedactorTests.swift in Sources */,
 				GSM0000002 /* GraphSimulationTests.swift in Sources */,

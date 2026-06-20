@@ -25,6 +25,9 @@ struct CompileFooterButton: View {
     var aiKeyMissing: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// F3: master AI toggle — when off, disable the compile button up-front
+    /// so the user doesn't tap and only then learn AI is disabled.
+    @AppStorage(AppSettings.Keys.aiFeaturesEnabled) private var aiFeaturesEnabled: Bool = true
     /// Controls the one-shot scale pulse on first reveal (visual only).
     @State private var didAppearPulse = false
     /// Cached hour component, refreshed every minute so the hint stays current across hour boundaries.
@@ -123,8 +126,8 @@ struct CompileFooterButton: View {
                 )
                 .surfaceElevatedShadow()
             }
-            .buttonStyle(CompilePressStyle(isDisabled: isCompiling))
-            .disabled(isCompiling)
+            .buttonStyle(CompilePressStyle(isDisabled: isCompiling || !aiFeaturesEnabled))
+            .disabled(isCompiling || !aiFeaturesEnabled)
             .scaleEffect(didAppearPulse ? 1.06 : 1.0)
             .animation(
                 Motion.respectReduceMotion(.spring(response: 0.4, dampingFraction: 0.55)),
@@ -140,8 +143,17 @@ struct CompileFooterButton: View {
                 }
             }
 
-            // Time-of-day hint — only when idle and no error
-            if !isCompiling && errorMessage == nil {
+            // F3: surface why the button is disabled when AI is off.
+            if !aiFeaturesEnabled && !isCompiling {
+                Text(NSLocalizedString("compile.dock.ai_disabled",
+                                       comment: "Hint under compile button when AI features are off"))
+                    .font(DSType.mono10)
+                    .foregroundColor(DSColor.inkSubtle)
+                    .tracking(0.5)
+                    .opacity(0.8)
+            }
+            // Time-of-day hint — only when idle and no error and AI is on
+            else if !isCompiling && errorMessage == nil {
                 Text(timeHint)
                     .font(DSType.mono10)
                     .foregroundColor(DSColor.inkSubtle)

@@ -156,9 +156,10 @@ struct DayPageApp: App {
         DSFonts.registerAll()
         Task.detached(priority: .background) { RawStorage.pruneTrashOlderThan(days: 7) }
         VaultInitializer.initializeIfNeeded()
-        // Voice orphan reconciliation: vault initialization must run first so
-        // VaultInitializer.vaultURL resolves to a real directory.
+        // Voice + photo orphan reconciliation. Vault initialization must run
+        // first so VaultInitializer.vaultURL resolves to a real directory.
         Task.detached(priority: .background) { OrphanedVoiceScanner.runStartupScan() }
+        Task.detached(priority: .background) { OrphanedPhotoScanner.runStartupScan() }
         // 在 SwiftUI 渲染之前注册后台任务处理器
         BackgroundCompilationService.shared.registerTask()
         // 设置通知代理以处理点击

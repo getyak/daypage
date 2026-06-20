@@ -38,7 +38,7 @@ struct AuthView: View {
                         .font(.custom("SpaceGrotesk-Bold", size: 32))
                         .foregroundColor(Color(hex: "F5F0E8"))
 
-                    Text("Every day, captured.")
+                    Text(NSLocalizedString("auth.tagline", comment: "AuthView brand tagline under DayPage logo"))
                         .font(.custom("SpaceGrotesk-Regular", size: 15))
                         .foregroundColor(Color(hex: "6B6B6B"))
                 }
@@ -63,13 +63,13 @@ struct AuthView: View {
                     Button {
                         onSkip?()
                     } label: {
-                        Text("Skip for now")
+                        Text(NSLocalizedString("auth.skip", comment: "AuthView Skip-login button"))
                             .font(.custom("Inter-Regular", size: 13))
                             .foregroundColor(Color(hex: "4A4A4A"))
                     }
                     .padding(.top, 16)
                     .padding(.bottom, 32)
-                    .accessibilityLabel("Skip login for now")
+                    .accessibilityLabel(NSLocalizedString("auth.skip.a11y", comment: "VoiceOver label for Skip login"))
                 }
                 .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 0) }
             }

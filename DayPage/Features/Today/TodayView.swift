@@ -11,6 +11,10 @@ struct TodayView: View {
     @StateObject private var voiceQueue = VoiceAttachmentQueue.shared
     @StateObject private var migrationService = VaultMigrationService.shared
     @StateObject private var compilationService = CompilationService.shared
+    // F2: surface offline / AI-disabled state right under the header so the
+    // user knows why compile + voice transcribe behave differently.
+    @StateObject private var networkMonitor = NetworkMonitor.shared
+    @AppStorage(AppSettings.Keys.aiFeaturesEnabled) private var aiFeaturesEnabled: Bool = true
     @EnvironmentObject private var sidebarVM: SidebarViewModel
 
     @Environment(\.scenePhase) private var scenePhase
@@ -729,6 +733,26 @@ struct TodayView: View {
         return ["1", "true", "yes", "YES", "True", "TRUE"].contains(args[index + 1])
     }
 
+    /// F2: tiny pill rendered above the orb greeting when the app is in
+    /// offline / AI-disabled mode. Mono10 + inkSubtle + dot keeps it visually
+    /// quiet — informational, not alarming.
+    private func modeBadge(text: String) -> some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(DSColor.inkSubtle.opacity(0.5))
+                .frame(width: 6, height: 6)
+            Text(text)
+                .font(DSType.mono10)
+                .foregroundColor(DSColor.inkSubtle)
+                .textCase(.uppercase)
+                .tracking(0.8)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(Capsule().fill(DSColor.glassLo))
+        .accessibilityElement(children: .combine)
+    }
+
     private var syncBanner: some View {
         DSBanner(
             kind: .info,
@@ -997,6 +1021,18 @@ struct TodayView: View {
         // empty-state orb block only carries the orb + kicker to avoid a
         // duplicate weekday title.
         VStack(spacing: 6) {
+            // F2: subtle mode badge above the greeting when AI features are off
+            // OR the device is offline — answers "why doesn't compile/voice
+            // work right now?" without forcing the user to dig into Settings.
+            if !aiFeaturesEnabled {
+                modeBadge(text: NSLocalizedString("today.badge.ai_off",
+                                                  comment: "Today header badge: AI features are turned off"))
+                    .padding(.bottom, 2)
+            } else if !networkMonitor.isOnline {
+                modeBadge(text: NSLocalizedString("today.badge.offline",
+                                                  comment: "Today header badge: device is offline"))
+                    .padding(.bottom, 2)
+            }
             Text(orbGreeting(currentTime))
                 .font(DSType.serifDisplay28)
                 .foregroundColor(DSColor.inkPrimary)

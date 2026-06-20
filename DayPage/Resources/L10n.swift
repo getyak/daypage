@@ -114,6 +114,16 @@ enum L10n {
         static let densityLow    = NSLocalizedString("archive.density.low", comment: "Archive heat-map label: few memos")
         static let densityMedium = NSLocalizedString("archive.density.medium", comment: "Archive heat-map label: some memos")
         static let densityHigh   = NSLocalizedString("archive.density.high", comment: "Archive heat-map label: many memos")
+
+        // Monthly summary filter chip labels.
+        static let filterAll         = NSLocalizedString("archive.filter.all", comment: "Monthly summary filter: show all days")
+        static let filterHasLocation = NSLocalizedString("archive.filter.has_location", comment: "Monthly summary filter: days with a location")
+        static let filterHasPhoto    = NSLocalizedString("archive.filter.has_photo", comment: "Monthly summary filter: days with a photo")
+
+        // System status banner labels rendered in the archive footer.
+        static let statusSynchronized        = NSLocalizedString("archive.status.synchronized", comment: "Archive footer status: vault is synchronized")
+        static let statusPendingCompilation  = NSLocalizedString("archive.status.pending_compilation", comment: "Archive footer status: daily compilation pending")
+        static let statusOffline             = NSLocalizedString("archive.status.offline", comment: "Archive footer status: device offline")
     }
 
     enum Banner {

@@ -129,6 +129,16 @@ enum AttachmentPolicy: String {
 // MARK: - AppSettings.Keys
 
 extension AppSettings {
+    // C4 fix: master AI toggle. Defaults to true; flipping to false in Settings
+    // makes CompilationService / VoiceService refuse outbound LLM calls even
+    // when API keys remain configured. Read at every call site rather than
+    // cached so a toggle in Settings takes effect on the next request.
+    nonisolated static var aiFeaturesEnabled: Bool {
+        let store = UserDefaults.standard
+        if store.object(forKey: Keys.aiFeaturesEnabled) == nil { return true }
+        return store.bool(forKey: Keys.aiFeaturesEnabled)
+    }
+
     /// Centralized UserDefaults key constants. Use these instead of bare string
     /// literals so typos produce a compile error rather than a silent data loss.
     enum Keys {
@@ -165,6 +175,11 @@ extension AppSettings {
         static let cardDensity        = "cardDensity"
         // Input
         static let usePressToTalk     = "usePressToTalk"
+        // C4 fix: master switch for any third-party AI / cloud call (compile,
+        // transcribe). Default true once the user has accepted the data-flow
+        // disclosure. Setting this false puts the app in "local only" mode
+        // even when API keys are still configured.
+        static let aiFeaturesEnabled  = "aiFeaturesEnabled"
         // Swipe-hint nudge — shown once when the first compiled Daily Page appears
         static let dailyPageSwipeHintShown = "today.dailyPageSwipeHintShown"
         // WriteSheet rail hint — shown once to explain media is attached via the dock

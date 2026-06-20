@@ -36,6 +36,10 @@ struct SettingsView: View {
     // Press-to-talk fallback toggle (US-008).
     @AppStorage(AppSettings.Keys.usePressToTalk) private var usePressToTalk: Bool = true
 
+    // C4 fix: master switch for any third-party AI/cloud call (compile, voice
+    // transcription). Default true; user can disable to enter "local only" mode.
+    @AppStorage(AppSettings.Keys.aiFeaturesEnabled) private var aiFeaturesEnabled: Bool = true
+
     // API key editing sheet
     @State private var editingKeyName: String = ""
     @State private var editingKeyID: String = ""        // Keychain identifier
@@ -60,6 +64,8 @@ struct SettingsView: View {
     // Confirmation dialogs for destructive operations
     @State private var showCleanupConfirm = false
     @State private var showClearSampleConfirm = false
+    // C3 fix: two-step confirmation for irreversible vault purge.
+    @State private var showPurgeAllConfirm = false
 
     // Tap-to-copy confirmation for the About → version row.
     // Briefly true after the user taps the version row to copy it to the
@@ -817,6 +823,28 @@ struct SettingsView: View {
                 }
             }
 
+            // C3 fix: GDPR right-to-be-forgotten entry. Purges the local vault
+            // (raw, wiki, exports), wipes API keys from Keychain, and resets
+            // onboarding flags so the user returns to a fresh state. Two-step
+            // confirmation is intentional — this is irreversible on-device.
+            Button(role: .destructive, action: { showPurgeAllConfirm = true }) {
+                Label(NSLocalizedString("settings.data.purge_all.button", comment: "Delete all local data button"),
+                      systemImage: "trash.fill")
+            }
+            .accessibilityIdentifier("settings-purge-all-button")
+            .confirmationDialog(
+                NSLocalizedString("settings.data.purge_all.confirm.title", comment: ""),
+                isPresented: $showPurgeAllConfirm,
+                titleVisibility: .visible
+            ) {
+                Button(NSLocalizedString("settings.data.purge_all.confirm.action", comment: ""), role: .destructive) {
+                    purgeAllLocalData()
+                }
+                Button(NSLocalizedString("settings.common.cancel", comment: ""), role: .cancel) {}
+            } message: {
+                Text(NSLocalizedString("settings.data.purge_all.confirm.message", comment: ""))
+            }
+
             if let result = exportResult {
                 Text(result)
                     .font(.caption)
@@ -879,6 +907,13 @@ struct SettingsView: View {
 
     private var aiEngineSection: some View {
         Section {
+            // C4 fix: master enable toggle. When off, CompilationService and
+            // VoiceService skip every outbound LLM call regardless of API key
+            // state — true offline mode without revoking keys.
+            Toggle(isOn: $aiFeaturesEnabled) {
+                Label(NSLocalizedString("settings.ai.enabled", comment: "AI features master toggle"),
+                      systemImage: "sparkles")
+            }
             // Model name (read-only)
             HStack {
                 Label(NSLocalizedString("settings.ai.model", comment: ""), systemImage: "cpu")
@@ -1100,6 +1135,75 @@ struct SettingsView: View {
         // Export is not implemented here; direct the user to the Archive tab.
         exportResult = NSLocalizedString("settings.data.export.use_archive", comment: "")
         bannerCenter.show(.init(kind: .info, title: NSLocalizedString("settings.data.export.archive_banner", comment: "")))
+    }
+
+    // C3 fix (GDPR right-to-be-forgotten): wipe local user-generated state.
+    // Scope is intentionally local-only — cloud account deletion (Supabase) is
+    // a separate flow and out of scope for this entry point, so this is named
+    // "Delete All Local Data" in copy. Includes:
+    //   • the vault directory (raw memos, wiki, exports)
+    //   • all API keys in Keychain (com.daypage.apikeys)
+    //   • onboarding / engagement flags so the user starts fresh
+    private func purgeAllLocalData() {
+        let fm = FileManager.default
+        var failures: [String] = []
+
+        // 1. Vault directory.
+        let vaultURL = VaultInitializer.vaultURL
+        if fm.fileExists(atPath: vaultURL.path) {
+            do {
+                try fm.removeItem(at: vaultURL)
+            } catch {
+                failures.append("vault: \(error.localizedDescription)")
+            }
+        }
+
+        // 2. API keys in Keychain. Match identifiers used by SettingsView.
+        for keychainID in ["deepseek", "openai", "openweather"] {
+            KeychainHelper.deleteAPIKey(for: keychainID)
+        }
+
+        // 3. UserDefaults — reset onboarding + engagement keys. Targeted rather
+        // than removePersistentDomain so we don't nuke Apple-managed defaults.
+        let store = UserDefaults.standard
+        let keysToReset: [String] = [
+            AppSettings.Keys.hasOnboarded,
+            AppSettings.Keys.authSkipped,
+            AppSettings.Keys.dataFlowDisclosureAcceptedAt,
+            AppSettings.Keys.memoSaveCount,
+            AppSettings.Keys.lastSyncBannerDate,
+            AppSettings.Keys.onThisDayDismissed,
+            AppSettings.Keys.dailyPageSwipeHintShown,
+            AppSettings.Keys.writeSheetRailHintShown,
+            AppSettings.Keys.memoSwipeHintShown,
+            AppSettings.Keys.streakMilestonesShown,
+            AppSettings.Keys.exportLongPressHintShown,
+            AppSettings.Keys.summaryCopyHintShown,
+            AppSettings.Keys.migrationCompletedAt,
+            AppSettings.Keys.graphHiddenTypes,
+        ]
+        for key in keysToReset { store.removeObject(forKey: key) }
+
+        // 4. Surface result. On failure, the user should know what survived so
+        // they can decide whether to retry or escalate. On success, F7: hold
+        // the banner (no auto-dismiss) and remind the user that this is a
+        // local-only purge — cloud account deletion is a separate flow.
+        if failures.isEmpty {
+            bannerCenter.show(AppBannerModel(
+                kind: .success,
+                title: NSLocalizedString("settings.data.purge_all.done", comment: ""),
+                subtitle: NSLocalizedString("settings.data.purge_all.done.subtitle",
+                                            comment: "Hint that cloud account stays + restart suggestion"),
+                autoDismiss: false
+            ))
+        } else {
+            bannerCenter.show(AppBannerModel(
+                kind: .error,
+                title: NSLocalizedString("settings.data.purge_all.partial", comment: ""),
+                subtitle: failures.joined(separator: " · "),
+                autoDismiss: false
+            ))
+        }
     }
 
     // MARK: - Obsidian Export
