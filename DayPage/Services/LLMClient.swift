@@ -98,10 +98,18 @@ struct LLMClient {
     let config: Config
     /// Sentry transaction 名称，用于区分 compilation / chat 调用。
     let spanName: String
+    /// HTTP transport. Defaults to the production URLSession via
+    /// `HTTPTransports.shared`; tests inject a fake. Issue #31.
+    let transport: HTTPTransport
 
-    init(config: Config, spanName: String = "llm.chat") {
+    init(
+        config: Config,
+        spanName: String = "llm.chat",
+        transport: HTTPTransport = HTTPTransports.shared
+    ) {
         self.config = config
         self.spanName = spanName
+        self.transport = transport
     }
 
     // MARK: - Chat Completion
@@ -179,7 +187,7 @@ struct LLMClient {
         defer { span?.finish() }
 
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await transport.data(for: request)
             guard let http = response as? HTTPURLResponse else {
                 span?.setTag(value: "no-http-response", key: "error.kind")
                 throw LLMError.apiError(statusCode: -1, body: "No HTTP response")

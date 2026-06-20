@@ -99,16 +99,19 @@ final class PhotoService {
                 jpegData = data
             }
 
-            // Write atomically.
-            let tmpURL = assetsURL.appendingPathComponent(".\(UUID().uuidString).tmp")
+            // Write atomically via the shared RawStorage helper — same
+            // NSFileCoordinator + tmp + replaceItemAt path used for raw memo
+            // files, so iCloud sync sees one coherent write and a
+            // permission / disk-full / coordinator failure propagates instead
+            // of being silently swallowed.
             do {
-                try jpegData.write(to: tmpURL, options: .atomic)
-                _ = try? FileManager.default.replaceItemAt(fileURL, withItemAt: tmpURL)
-                if !FileManager.default.fileExists(atPath: fileURL.path) {
-                    try FileManager.default.moveItem(at: tmpURL, to: fileURL)
-                }
+                try RawStorage.atomicWrite(data: jpegData, to: fileURL)
             } catch {
-                try? FileManager.default.removeItem(at: tmpURL)
+                SentryReporter.breadcrumb(
+                    category: "photo",
+                    level: .error,
+                    message: "processImageDataAsync: atomicWrite failed: \(error)"
+                )
                 return nil
             }
 
@@ -137,19 +140,11 @@ final class PhotoService {
         let filename = "IMG_\(timestamp).jpg"
         let fileURL = assetsURL.appendingPathComponent(filename)
 
-        // 原子写入原始数据
-        let tmpURL = assetsURL.appendingPathComponent(".\(UUID().uuidString).tmp")
+        // 原子写入原始数据 — see processImageDataAsync for rationale.
         do {
-            try data.write(to: tmpURL, options: .atomic)
-            _ = try? FileManager.default.replaceItemAt(fileURL, withItemAt: tmpURL)
-            // 如果 replaceItemAt 失败（没有现有文件），尝试移动
-            if !FileManager.default.fileExists(atPath: fileURL.path) {
-                try FileManager.default.moveItem(at: tmpURL, to: fileURL)
-            }
+            try RawStorage.atomicWrite(data: data, to: fileURL)
         } catch {
-            do { try FileManager.default.removeItem(at: tmpURL) } catch let cleanupError {
-                DayPageLogger.shared.warn("PhotoService: tmp file cleanup failed: \(cleanupError)")
-            }
+            DayPageLogger.shared.error("PhotoService: atomicWrite failed: \(error)")
             return nil
         }
 

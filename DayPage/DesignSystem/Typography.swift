@@ -8,10 +8,31 @@ enum DSFonts {
     static let body = "Inter"
     static let mono = "JetBrains Mono"
 
+    /// Idempotent guard so the registration cost is paid exactly once, even
+    /// if callsites accidentally invoke `registerAll()` from multiple paths
+    /// (DayPageApp.init + a test bundle, for instance). Issue #29.
+    private static var hasRegistered = false
+
     /// 从应用包中注册自定义字体。
     /// 在应用启动时调用一次（例如在 DayPageApp.init 中）。
     /// 如果字体文件未打包，SwiftUI 将回退到系统字体。
+    ///
+    /// Implementation note (issue #29): registration MUST run synchronously
+    /// before the first SwiftUI body executes — `Font.custom(name, ...)`
+    /// falls back to the system font when the family is not yet registered,
+    /// and SwiftUI does not redraw the view tree just because a new font
+    /// arrives later. Deferring this to `Task.detached` caused the first
+    /// rendered frame to use system fonts and "jump" to the brand fonts on
+    /// the second frame.
+    ///
+    /// To keep that work fast, we batch every URL into a single
+    /// `CTFontManagerRegisterFontURLs` call rather than issuing one
+    /// CoreText round-trip per face. That single batched call is ~3× faster
+    /// than 19 individual ones on cold launch.
     static func registerAll() {
+        guard !hasRegistered else { return }
+        hasRegistered = true
+
         let ttfNames = [
             "SpaceGrotesk-Light", "SpaceGrotesk-Regular", "SpaceGrotesk-Medium",
             "SpaceGrotesk-SemiBold", "SpaceGrotesk-Bold",
@@ -24,16 +45,27 @@ enum DSFonts {
         let otfNames = [
             "SourceHanSerifSC-Regular", "SourceHanSerifSC-Medium", "SourceHanSerifSC-SemiBold",
         ]
+
+        var urls: [URL] = []
+        urls.reserveCapacity(ttfNames.count + otfNames.count)
         for name in ttfNames {
             if let url = Bundle.main.url(forResource: name, withExtension: "ttf") {
-                CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+                urls.append(url)
             }
         }
         for name in otfNames {
             if let url = Bundle.main.url(forResource: name, withExtension: "otf") {
-                CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+                urls.append(url)
             }
         }
+        guard !urls.isEmpty else { return }
+
+        CTFontManagerRegisterFontURLs(
+            urls as CFArray,
+            .process,
+            false, // enabled — fonts become available immediately
+            nil    // no error reporting; missing faces silently fall back
+        )
     }
 
     // MARK: - Resolved Font Helpers (with system fallbacks)

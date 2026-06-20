@@ -68,6 +68,51 @@ final class RawStorageTests: XCTestCase {
         XCTAssertEqual(readBack, text, "atomicWrite must preserve UTF-8 content including emoji and CJK")
     }
 
+    // MARK: - atomicWrite(data:) — binary-safe overload
+
+    func testAtomicWriteData_roundTripsBinaryContent() throws {
+        // Non-UTF-8 byte stream — must survive write/read unchanged.
+        let payload = Data([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x00])
+        let url = tempDir.appendingPathComponent("photo.jpg")
+        try RawStorage.atomicWrite(data: payload, to: url)
+        let readBack = try Data(contentsOf: url)
+        XCTAssertEqual(readBack, payload, "atomicWrite(data:) must preserve arbitrary bytes")
+    }
+
+    func testAtomicWriteData_overwritesExistingFile() throws {
+        let url = tempDir.appendingPathComponent("rewrite.bin")
+        try RawStorage.atomicWrite(data: Data([0x01, 0x02]), to: url)
+        try RawStorage.atomicWrite(data: Data([0x03, 0x04, 0x05]), to: url)
+        let readBack = try Data(contentsOf: url)
+        XCTAssertEqual(readBack, Data([0x03, 0x04, 0x05]))
+    }
+
+    func testAtomicWriteData_failureLeavesNoTempFile() throws {
+        // Writing into a path whose parent cannot be created (a regular file
+        // sitting where a directory needs to be) must throw and must NOT
+        // leave a stray `.tmp.*` file behind in the parent directory.
+        // This is the regression guard for issue #20 — PhotoService used to
+        // swallow replaceItemAt errors and leak temp files into raw/assets/.
+        let blocker = tempDir.appendingPathComponent("blocker")
+        try Data([0]).write(to: blocker)
+        let badURL = blocker.appendingPathComponent("photo.jpg") // parent is a file
+        XCTAssertThrowsError(try RawStorage.atomicWrite(data: Data([0xAA]), to: badURL))
+
+        let leftovers = try fm.contentsOfDirectory(atPath: tempDir.path)
+            .filter { $0.contains(".tmp.") }
+        XCTAssertTrue(leftovers.isEmpty, "atomicWrite must not leave tmp files on failure: \(leftovers)")
+    }
+
+    func testAtomicWriteData_createsIntermediateDirectories() throws {
+        let nested = tempDir
+            .appendingPathComponent("a/b/c", isDirectory: true)
+            .appendingPathComponent("nested.bin")
+        try RawStorage.atomicWrite(data: Data([0x42]), to: nested)
+        XCTAssertTrue(fm.fileExists(atPath: nested.path))
+    }
+
+    // MARK: - String overload still works via Data overload
+
     func testAtomicWrite_concurrentWrites_allSucceed() throws {
         let url = tempDir.appendingPathComponent("concurrent.md")
         let group = DispatchGroup()
@@ -240,6 +285,117 @@ final class RawStorageTests: XCTestCase {
         let name = url.deletingPathExtension().lastPathComponent
         let parts = name.split(separator: "-")
         XCTAssertEqual(parts.count, 3, "Filename must be YYYY-MM-DD: got '\(name)'")
+    }
+
+    // MARK: - issue #22: broken-block quarantine
+
+    /// Multi-memo file with one corrupted middle block: the parseable memos
+    /// must come through, AND the broken block bytes must survive in
+    /// `vault/raw/.broken/` so a future rewrite does not silently destroy
+    /// them. Pre-fix, the parser used compactMap and the bad block vanished
+    /// without trace.
+    func testParse_brokenMiddleBlock_isQuarantined_andOthersSurvive() throws {
+        let date = Date()
+        let dayURL = RawStorage.fileURL(for: date)
+        let good1 = validMemoBlock()
+        let good2 = validMemoBlock()
+        let brokenBlock = "---\nthis is not a valid frontmatter\nthere is no closing dashes or id\n"
+        let content = good1 + RawStorage.memoSeparator + brokenBlock + RawStorage.memoSeparator + good2
+
+        try RawStorage.atomicWrite(string: content, to: dayURL)
+
+        let memos = try RawStorage.read(for: date)
+        XCTAssertEqual(memos.count, 2, "Two parseable memos must come through; the broken one is quarantined, not returned")
+
+        let brokenDir = dayURL.deletingLastPathComponent().appendingPathComponent(".broken")
+        let quarantined = try fm.contentsOfDirectory(atPath: brokenDir.path)
+        XCTAssertEqual(quarantined.count, 1, "Exactly one quarantine file expected")
+
+        let dayStem = dayURL.deletingPathExtension().lastPathComponent
+        let qFile = quarantined.first!
+        XCTAssertTrue(qFile.hasPrefix(dayStem),
+            "Quarantine filename must be prefixed with the source day stem (got '\(qFile)')")
+        XCTAssertTrue(qFile.hasSuffix(".md"),
+            "Quarantine filename must keep .md extension (got '\(qFile)')")
+
+        let qContent = try String(contentsOf: brokenDir.appendingPathComponent(qFile), encoding: .utf8)
+        XCTAssertTrue(qContent.contains("this is not a valid frontmatter"),
+            "Quarantine copy must preserve the original broken bytes verbatim")
+        XCTAssertTrue(qContent.contains("daypage broken block quarantined"),
+            "Quarantine copy must carry the diagnostic header")
+    }
+
+    /// Quarantine must be idempotent: parsing the same broken file twice
+    /// must NOT produce two quarantine copies. The SHA-prefixed filename
+    /// guarantees content-addressing.
+    func testParse_brokenBlockQuarantine_isIdempotentAcrossReads() throws {
+        let date = Date()
+        let dayURL = RawStorage.fileURL(for: date)
+        let broken = "---\nbroken broken\nno id here at all\n"
+        let content = validMemoBlock() + RawStorage.memoSeparator + broken
+        try RawStorage.atomicWrite(string: content, to: dayURL)
+
+        _ = try RawStorage.read(for: date)
+        _ = try RawStorage.read(for: date)
+        _ = try RawStorage.read(for: date)
+
+        let brokenDir = dayURL.deletingLastPathComponent().appendingPathComponent(".broken")
+        let entries = try fm.contentsOfDirectory(atPath: brokenDir.path)
+        XCTAssertEqual(entries.count, 1, "Repeated reads of the same broken block must produce exactly one quarantine file")
+    }
+
+    /// After a broken-middle-block file goes through `mutate` (which is what
+    /// happens when a transcript writeback or any in-place update runs), the
+    /// main day file is rewritten without the broken block — but the broken
+    /// bytes still exist on disk in the quarantine area. This is the load-
+    /// bearing guarantee: a corrupted block cannot be silently erased by a
+    /// later mutation.
+    func testMutate_afterBrokenBlock_mainFileShrinks_butQuarantineRetainsBytes() throws {
+        let date = Date()
+        let dayURL = RawStorage.fileURL(for: date)
+        let good = validMemoBlock()
+        let broken = "---\nthis block has no id\nstill no id\n"
+        try RawStorage.atomicWrite(
+            string: good + RawStorage.memoSeparator + broken,
+            to: dayURL
+        )
+
+        try RawStorage.mutate(for: date) { existing in
+            // Identity transform — simulates any in-place rewrite path
+            // (transcript writeback, pin toggle, etc.).
+            return existing
+        }
+
+        let rewritten = try String(contentsOf: dayURL, encoding: .utf8)
+        XCTAssertFalse(rewritten.contains("this block has no id"),
+            "Main file must no longer carry the broken block (it cannot round-trip)")
+
+        let brokenDir = dayURL.deletingLastPathComponent().appendingPathComponent(".broken")
+        let entries = try fm.contentsOfDirectory(atPath: brokenDir.path)
+        XCTAssertGreaterThanOrEqual(entries.count, 1,
+            "Broken bytes must survive in quarantine even after main-file rewrite")
+        let qContent = try String(contentsOf: brokenDir.appendingPathComponent(entries.first!), encoding: .utf8)
+        XCTAssertTrue(qContent.contains("this block has no id"))
+    }
+
+    /// Single-memo file whose entire content is unparseable (e.g. fully
+    /// truncated to half a YAML block) must produce `[]` AND quarantine the
+    /// raw bytes — never silently return `[]` and drop the disk content on
+    /// the next write.
+    func testParse_whollyUnparseableFile_isQuarantined() throws {
+        let date = Date()
+        let dayURL = RawStorage.fileURL(for: date)
+        let garbage = "this is not yaml\nno --- markers anywhere\nnothing parseable"
+        try RawStorage.atomicWrite(string: garbage, to: dayURL)
+
+        let memos = try RawStorage.read(for: date)
+        XCTAssertEqual(memos, [], "Wholly unparseable file must yield no memos")
+
+        let brokenDir = dayURL.deletingLastPathComponent().appendingPathComponent(".broken")
+        let entries = try fm.contentsOfDirectory(atPath: brokenDir.path)
+        XCTAssertEqual(entries.count, 1, "The unparseable file's bytes must be quarantined")
+        let qContent = try String(contentsOf: brokenDir.appendingPathComponent(entries.first!), encoding: .utf8)
+        XCTAssertTrue(qContent.contains("this is not yaml"))
     }
 
     // MARK: - Helpers

@@ -485,6 +485,10 @@ struct TodayView: View {
             .onAppear {
                 clearDraftIfExpired()
                 viewModel.load()
+                // Drain any inflight drafts left behind by a submit that
+                // never reached RawStorage.append (kill-during-await, OS
+                // eviction, explicit cancel). Issue #23.
+                viewModel.recoverInflightDrafts()
                 updateVoiceQueueBanner(count: voiceQueue.pendingCount)
                 showDraftRestoredBannerIfNeeded()
                 applyLaunchPresentationFlags()

@@ -1,5 +1,6 @@
 import Foundation
 import WidgetKit
+import CryptoKit
 
 // MARK: - RawStorage
 
@@ -143,6 +144,61 @@ enum RawStorage {
         }
     }
 
+    // MARK: - Mutate (read + transform + write inside the write queue)
+
+    /// Atomically reads the day file, applies `transform`, and writes the
+    /// result back — all inside `writeQueue.sync` so concurrent mutations
+    /// cannot interleave at the read-modify-write boundary.
+    ///
+    /// Why this exists: writers like the voice-transcript queue read the
+    /// current memos, mutate one attachment, and call `rewrite`. If two
+    /// such writers run concurrently, each `read()` returns the same
+    /// pre-image, and the second `rewrite` clobbers the first writer's
+    /// change. `rewrite` itself is serialized — but the read happens
+    /// outside the queue, so the staleness is established before either
+    /// rewrite enters the critical section. This API closes that gap.
+    ///
+    /// `transform` runs on the write queue and must be fast and side-
+    /// effect-free (no I/O, no awaiting). Returning `nil` aborts the
+    /// mutation without writing.
+    ///
+    /// Throws on read/write failure. `transform` cannot throw.
+    static func mutate(
+        for date: Date,
+        transform: ([Memo]) -> [Memo]?
+    ) throws {
+        try writeQueue.sync {
+            let url = fileURL(for: date)
+            let existing: [Memo]
+            if FileManager.default.fileExists(atPath: url.path) {
+                let content = try String(contentsOf: url, encoding: .utf8)
+                existing = parse(fileContent: content, sourceFile: url)
+            } else {
+                existing = []
+            }
+
+            guard let updated = transform(existing) else { return }
+
+            if updated.isEmpty {
+                let fm = FileManager.default
+                if fm.fileExists(atPath: url.path) {
+                    try fm.removeItem(at: url)
+                }
+            } else {
+                let content = serialize(updated)
+                try atomicWrite(string: content, to: url)
+            }
+
+            SentryReporter.breadcrumb(
+                category: "rawstorage",
+                message: "mutate \(updated.count) memos in \(url.lastPathComponent)"
+            )
+
+            WidgetCenter.shared.reloadAllTimelines()
+            notifyDidWrite(for: date)
+        }
+    }
+
     // MARK: - Read
 
     /// 读取给定日期日文件中的所有 Memo。
@@ -159,7 +215,7 @@ enum RawStorage {
         }
 
         let content = try String(contentsOf: url, encoding: .utf8)
-        let memos = parse(fileContent: content)
+        let memos = parse(fileContent: content, sourceFile: url)
 
         SentryReporter.breadcrumb(
             category: "rawstorage",
@@ -185,8 +241,16 @@ enum RawStorage {
     /// 该策略既保证旧 vault 文件（含多条 memo）可读，又避免新格式 memo
     /// 正文中偶尔出现的 "---" 被错误切分导致数据丢失。
     static func parse(fileContent: String) -> [Memo] {
+        parse(fileContent: fileContent, sourceFile: nil)
+    }
+
+    /// Internal entry point that knows the source filename, used for
+    /// quarantining unparseable blocks. Callers in production (`read`,
+    /// `mutate`) supply the day file URL so the quarantine path can derive
+    /// `YYYY-MM-DD-{sha8}.md`. Tests can still call the public 1-arg overload.
+    static func parse(fileContent: String, sourceFile: URL?) -> [Memo] {
         if fileContent.contains(memoSeparator) {
-            return splitAndParse(fileContent, separator: memoSeparator)
+            return splitAndParse(fileContent, separator: memoSeparator, sourceFile: sourceFile)
         }
 
         // 旧格式回退：只有当 legacy 分隔符切出的**每一非空块**都能独立解析为
@@ -199,6 +263,11 @@ enum RawStorage {
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
             let parsed = blocks.compactMap(Memo.fromMarkdown)
+            // Whole-or-nothing: only accept the legacy split when every
+            // non-empty block parses. A partial parse here is the signature
+            // of a modern single-memo body that happens to contain "---",
+            // not of a broken legacy file — falling through to the single-
+            // memo branch preserves the body intact.
             if !blocks.isEmpty, parsed.count == blocks.count {
                 return parsed
             }
@@ -209,14 +278,87 @@ enum RawStorage {
             return [single]
         }
 
+        // Whole-file fallback failed too. If we have a source file we know
+        // the user-visible day this came from — quarantine the raw bytes so
+        // a later rewrite doesn't silently overwrite them with `[]`.
+        if !trimmed.isEmpty, let sourceFile = sourceFile {
+            quarantineBrokenBlock(trimmed, sourceFile: sourceFile, reason: "whole-file-unparseable")
+        }
         return []
     }
 
-    private static func splitAndParse(_ content: String, separator: String) -> [Memo] {
-        content.components(separatedBy: separator).compactMap { block -> Memo? in
+    private static func splitAndParse(_ content: String, separator: String, sourceFile: URL?) -> [Memo] {
+        var result: [Memo] = []
+        for block in content.components(separatedBy: separator) {
             let trimmed = block.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { return nil }
-            return Memo.fromMarkdown(trimmed)
+            guard !trimmed.isEmpty else { continue }
+            if let memo = Memo.fromMarkdown(trimmed) {
+                result.append(memo)
+            } else if let sourceFile = sourceFile {
+                // Broken block in a multi-memo file is the truly dangerous
+                // case: the next rewrite would silently drop it. Persist
+                // the raw bytes under .broken/ so they survive even if the
+                // main file is overwritten with the parseable subset.
+                quarantineBrokenBlock(trimmed, sourceFile: sourceFile, reason: "block-unparseable")
+            }
+        }
+        return result
+    }
+
+    // MARK: - Broken-block quarantine
+
+    /// Writes `block` to `vault/raw/.broken/<dayfile-stem>-<sha8>.md` with a
+    /// short reason header so the user (or a future recovery UI) can see what
+    /// was salvaged. Idempotent: the SHA-256 prefix is derived from `block`'s
+    /// bytes, so the same broken block hitting `parse` twice produces the same
+    /// filename and the second write is a no-op.
+    ///
+    /// Failures are intentionally swallowed (breadcrumbed) — the day-file
+    /// caller already lost the block in memory; we never want quarantine I/O
+    /// errors to propagate up and break the user's read path.
+    static func quarantineBrokenBlock(_ block: String, sourceFile: URL, reason: String) {
+        let bytes = Data(block.utf8)
+        let digest = SHA256.hash(data: bytes)
+        let hex = digest.map { String(format: "%02x", $0) }.joined()
+        let sha8 = String(hex.prefix(8))
+
+        let stem = sourceFile.deletingPathExtension().lastPathComponent
+        let brokenDir = sourceFile.deletingLastPathComponent()
+            .appendingPathComponent(".broken", isDirectory: true)
+        let target = brokenDir.appendingPathComponent("\(stem)-\(sha8).md")
+
+        // Idempotent: skip if a quarantine copy with the same content hash
+        // already exists. Avoids re-writing on every read.
+        if FileManager.default.fileExists(atPath: target.path) {
+            SentryReporter.breadcrumb(
+                category: "rawstorage",
+                level: .warning,
+                message: "quarantine skipped (already present) \(target.lastPathComponent) reason=\(reason)"
+            )
+            return
+        }
+
+        let header = "<!-- daypage broken block quarantined\n"
+            + "  source: \(sourceFile.lastPathComponent)\n"
+            + "  reason: \(reason)\n"
+            + "  sha256: \(hex)\n"
+            + "  bytes: \(bytes.count)\n"
+            + "-->\n\n"
+        let payload = header + block
+
+        do {
+            try atomicWrite(string: payload, to: target)
+            SentryReporter.breadcrumb(
+                category: "rawstorage",
+                level: .error,
+                message: "quarantined broken block \(target.lastPathComponent) bytes=\(bytes.count) reason=\(reason)"
+            )
+        } catch {
+            SentryReporter.breadcrumb(
+                category: "rawstorage",
+                level: .error,
+                message: "quarantine write failed for \(target.lastPathComponent): \(error)"
+            )
         }
     }
 
@@ -226,10 +368,19 @@ enum RawStorage {
     /// iCloud Drive sees the write as a single coherent operation.
     /// The temp-file + replaceItemAt pattern runs inside the coordinator block.
     static func atomicWrite(string: String, to url: URL) throws {
-        let data = Data(string.utf8)
-        let fm = FileManager.default
+        try atomicWrite(data: Data(string.utf8), to: url)
+    }
 
-        // Ensure parent directory exists
+    /// Binary-safe atomic write. Same NSFileCoordinator-guarded temp-file +
+    /// replaceItemAt pattern as the `String` overload above — extracted so
+    /// asset writers (PhotoService, etc.) get the same crash/iCloud safety
+    /// without each duplicating the rename dance.
+    ///
+    /// Any error (permission, disk full, iCloud conflict) is propagated. The
+    /// implementation owns the temp file and cleans it up before throwing,
+    /// so callers don't need a `try? removeItem` cleanup path on failure.
+    static func atomicWrite(data: Data, to url: URL) throws {
+        let fm = FileManager.default
         let dir = url.deletingLastPathComponent()
         if !fm.fileExists(atPath: dir.path) {
             try fm.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -240,12 +391,17 @@ enum RawStorage {
 
         let coordinator = NSFileCoordinator()
         coordinator.coordinate(writingItemAt: url, options: .forReplacing, error: &coordinatorError) { coordinatedURL in
+            let tempURL = dir.appendingPathComponent(
+                ".\(coordinatedURL.lastPathComponent).tmp.\(UUID().uuidString)"
+            )
             do {
-                let tempURL = dir.appendingPathComponent(
-                    ".\(coordinatedURL.lastPathComponent).tmp.\(UUID().uuidString)"
-                )
                 try data.write(to: tempURL, options: .atomic)
 
+                // Choose replace vs move based on PRE-write existence: using
+                // post-replace existence as the signal (as the previous
+                // PhotoService code did) lets a silently-swallowed
+                // replaceItemAt error look like "file already existed before
+                // we started", which suppresses the real failure.
                 if fm.fileExists(atPath: coordinatedURL.path) {
                     _ = try fm.replaceItemAt(coordinatedURL, withItemAt: tempURL)
                 } else {
@@ -253,6 +409,8 @@ enum RawStorage {
                 }
             } catch {
                 writeError = error
+                // Best-effort cleanup of orphaned temp file on failure.
+                try? fm.removeItem(at: tempURL)
             }
         }
 

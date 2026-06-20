@@ -119,13 +119,46 @@ struct DayPageApp: App {
                 options.dsn = Secrets.sentryDSN
                 options.tracesSampleRate = ProcessInfo.processInfo.environment["DEBUG"] != nil ? 1.0 : 0.2
                 options.enableCrashHandler = true
-                options.attachScreenshot = true
-                options.attachViewHierarchy = true
+                // Issue #26: do NOT auto-capture screenshots or view
+                // hierarchy. DayPage screens often display the user's
+                // memo text, API-key entry fields, and named locations
+                // — none of which should be uploaded with a crash event.
+                options.attachScreenshot = false
+                options.attachViewHierarchy = false
+                // Issue #26: redact secrets/PII from every payload before
+                // it leaves the device. Applies to both event messages and
+                // breadcrumb messages. Failure cases (nil event, no
+                // message field) pass through unchanged.
+                options.beforeSend = { event in
+                    // SentryMessage.formatted is read-only; the writable
+                    // field is `message`. Sentry's web UI falls back to
+                    // `message` when `formatted` is absent, so scrubbing
+                    // `message` is sufficient.
+                    if let m = event.message?.message {
+                        event.message?.message = SentryRedactor.redact(m) ?? m
+                    }
+                    if let crumbs = event.breadcrumbs {
+                        for crumb in crumbs {
+                            crumb.message = SentryRedactor.redact(crumb.message)
+                        }
+                    }
+                    return event
+                }
+                options.beforeBreadcrumb = { crumb in
+                    crumb.message = SentryRedactor.redact(crumb.message)
+                    return crumb
+                }
             }
         }
-        Task.detached(priority: .utility) { DSFonts.registerAll() }
+        // Issue #29: must run synchronously before the first SwiftUI body
+        // — otherwise Font.custom(...) falls back to system fonts for the
+        // first frame and "jumps" when registration finishes async.
+        DSFonts.registerAll()
         Task.detached(priority: .background) { RawStorage.pruneTrashOlderThan(days: 7) }
         VaultInitializer.initializeIfNeeded()
+        // Voice orphan reconciliation: vault initialization must run first so
+        // VaultInitializer.vaultURL resolves to a real directory.
+        Task.detached(priority: .background) { OrphanedVoiceScanner.runStartupScan() }
         // 在 SwiftUI 渲染之前注册后台任务处理器
         BackgroundCompilationService.shared.registerTask()
         // 设置通知代理以处理点击
