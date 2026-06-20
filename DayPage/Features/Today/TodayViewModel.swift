@@ -457,6 +457,46 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
 
     // MARK: - Load Memos
 
+    /// Drains the inflight-draft store left behind by a submit that never
+    /// completed (kill-during-await, OS-memory-eviction, explicit cancel).
+    /// Routes the most recent body into `lastFailedBody` so TodayView's
+    /// existing restore-into-composer hook picks it up — no second UI path.
+    ///
+    /// Older inflights (>1) are discarded after breadcrumbing: in practice
+    /// >1 inflight means the user submitted, was interrupted, relaunched,
+    /// submitted again, and was interrupted *again* before recovering — a
+    /// genuinely rare path where surfacing only the freshest body keeps the
+    /// recovery UI simple. The discarded bodies are still on disk in
+    /// `vault/raw/.inflight/` until clearAll() runs, so a future "view all
+    /// drafts" screen can surface them.
+    ///
+    /// Idempotent: safe to call from every `onAppear`. A no-op when no
+    /// inflight records exist.
+    func recoverInflightDrafts() {
+        let drafts = InflightDraftStore.pending()
+        guard !drafts.isEmpty else { return }
+
+        if drafts.count > 1 {
+            SentryReporter.breadcrumb(
+                category: "inflight",
+                level: .warning,
+                message: "recover: \(drafts.count) inflight drafts found, surfacing newest"
+            )
+        }
+
+        // Restore the newest body. Only when the composer is empty (the
+        // onChange-of-lastFailedBody hook guards that, so a fresh in-progress
+        // draft is never clobbered).
+        if let newest = drafts.first, !newest.body.isEmpty {
+            lastFailedBody = newest.body
+        }
+        // Clear all on-disk records — the surfaced body is now in
+        // lastFailedBody (which TodayView restores into draftText, which
+        // SceneStorage will persist). The other bodies are intentionally
+        // dropped per the Beta v1.0 scope above.
+        InflightDraftStore.clearAll()
+    }
+
     /// Loads today's memos from the raw storage file and checks compiled status.
     /// Signature is intentionally synchronous so call sites (TodayView.onAppear) need
     /// no changes. Disk I/O is offloaded to a background task to avoid blocking the
@@ -812,6 +852,18 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         let loc = pendingLocation
         let snapshotAttachments = attachments
 
+        // Persist an inflight record BEFORE we await anything. If the user
+        // kills the app (or the OS does) during the location/weather/append
+        // await chain, this on-disk record lets the next launch restore the
+        // body into the composer — without it, the synchronous `draftText
+        // = ""` in TodayView's Send handler would have silently destroyed
+        // the user's typed text. Issue #23.
+        let inflightAttachmentPaths = snapshotAttachments.map { $0.attachment.file }
+        let inflightURL = InflightDraftStore.enqueue(
+            body: trimmed,
+            attachmentPaths: inflightAttachmentPaths
+        )
+
         submitMemoTask = Task { @MainActor in
             defer { isSubmitting = false }
 
@@ -881,6 +933,11 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
 
             do {
                 try RawStorage.append(memo)
+                // Only after the bytes are on disk do we remove the
+                // inflight record. If the app dies between this line and
+                // the next call, we re-show the body on next launch —
+                // safe duplicate, never silent loss.
+                InflightDraftStore.dequeue(inflightURL)
                 withAnimation(Motion.spring) {
                     memos.insert(memo, at: 0)
                 }
@@ -891,6 +948,8 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 let count = UserDefaults.standard.integer(forKey: AppSettings.Keys.memoSaveCount)
                 UserDefaults.standard.set(count + 1, forKey: AppSettings.Keys.memoSaveCount)
             } catch {
+                // The inflight record stays on disk — next launch (or the
+                // user retrying via lastFailedBody) gets the body back.
                 submitError = String(format: NSLocalizedString("error.memo.save_failed", comment: ""), error.localizedDescription)
                 if !finalBody.isEmpty {
                     lastFailedBody = finalBody

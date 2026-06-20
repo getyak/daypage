@@ -39,8 +39,7 @@ final class VoiceAttachmentQueue: ObservableObject {
     @Published private(set) var failedEntries: [FailedVoiceEntry] = []
 
     private var queueURL: URL {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let drafts = docs.appendingPathComponent("vault/drafts", isDirectory: true)
+        let drafts = VaultInitializer.vaultURL.appendingPathComponent("drafts", isDirectory: true)
         do { try FileManager.default.createDirectory(at: drafts, withIntermediateDirectories: true) } catch { DayPageLogger.shared.error("VoiceAttachmentQueue: createDirectory: \(error)") }
         return drafts.appendingPathComponent("voice_queue.json")
     }
@@ -83,8 +82,7 @@ final class VoiceAttachmentQueue: ObservableObject {
             guard !entries[i].failed else { continue }
             let entry = entries[i]
 
-            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            let audioURL = docs.appendingPathComponent("vault").appendingPathComponent(entry.audioPath)
+            let audioURL = VaultInitializer.vaultURL.appendingPathComponent(entry.audioPath)
             guard FileManager.default.fileExists(atPath: audioURL.path) else {
                 entries[i].failed = true
                 entries[i].lastError = "audio file not found"
@@ -147,20 +145,94 @@ final class VoiceAttachmentQueue: ObservableObject {
     }
 
     private func writeTranscriptBack(transcript: String, entry: VoiceQueueEntry) {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let vaultDir = docs.appendingPathComponent("vault")
-        let memoFile = vaultDir.appendingPathComponent("raw/\(entry.memoDate).md")
-        let content: String
-        do { content = try String(contentsOf: memoFile, encoding: .utf8) }
-        catch { DayPageLogger.shared.error("VoiceAttachmentQueue: read memo: \(error)"); return }
-        let audioPath = entry.audioPath
-        let updated = content.replacingOccurrences(
-            of: "file: \(audioPath)\n  kind: audio",
-            with: "file: \(audioPath)\n  kind: audio\n  transcript: \"\(transcript.replacingOccurrences(of: "\"", with: "\\\""))\""
+        Self.applyTranscript(
+            transcript: transcript,
+            audioPath: entry.audioPath,
+            memoDate: entry.memoDate
         )
-        guard updated != content else { return }
-        do { try RawStorage.atomicWrite(string: updated, to: memoFile) }
-        catch { DayPageLogger.shared.error("VoiceAttachmentQueue: write memo: \(error)") }
+    }
+
+    /// Parse → mutate → rewrite the day file so the transcript is written back
+    /// to the exact attachment whose `file` matches `audioPath`, regardless of
+    /// other concurrent writers.
+    ///
+    /// Why this shape (not string replace): the previous implementation did a
+    /// read-modify-atomicWrite using `replacingOccurrences` against a brittle
+    /// 2-space-indented substring. That substring never matched the 4-space
+    /// indentation produced by `Memo.toMarkdown`, so transcripts silently
+    /// failed to land; and even if it had matched, two transcripts completing
+    /// in the same window would each read the same pre-image and the second
+    /// `atomicWrite` would clobber the first.
+    ///
+    /// `RawStorage.rewrite` runs inside the shared `writeQueue.sync`, so
+    /// concurrent transcript callbacks are serialized at the storage layer
+    /// and each one re-reads the latest on-disk state before mutating its
+    /// own attachment. `Memo.toMarkdown` handles YAML quoting (quotes,
+    /// backslashes, newlines), eliminating the prior escape bug.
+    ///
+    /// Returns `true` when a matching attachment was found and rewritten.
+    /// `internal` for test access; not part of the public API.
+    @discardableResult
+    nonisolated static func applyTranscript(
+        transcript: String,
+        audioPath: String,
+        memoDate: String
+    ) -> Bool {
+        guard let date = parseMemoDate(memoDate) else {
+            SentryReporter.breadcrumb(
+                category: "voice-queue",
+                level: .warning,
+                message: "applyTranscript: invalid memoDate"
+            )
+            return false
+        }
+
+        var matched = false
+        do {
+            try RawStorage.mutate(for: date) { memos in
+                let updated = memos.map { memo -> Memo in
+                    var copy = memo
+                    copy.attachments = memo.attachments.map { att -> Memo.Attachment in
+                        guard att.file == audioPath, att.kind == "audio" else { return att }
+                        matched = true
+                        var a = att
+                        a.transcript = transcript
+                        a.transcriptionStatus = .done
+                        return a
+                    }
+                    return copy
+                }
+                // Skip the write entirely when no attachment matched, both
+                // to avoid pointless I/O and to preserve the on-disk file's
+                // mtime so caches that key off it don't see spurious churn.
+                return matched ? updated : nil
+            }
+        } catch {
+            SentryReporter.breadcrumb(
+                category: "voice-queue",
+                level: .error,
+                message: "applyTranscript: mutate failed: \(error)"
+            )
+            return false
+        }
+
+        guard matched else {
+            SentryReporter.breadcrumb(
+                category: "voice-queue",
+                level: .warning,
+                message: "applyTranscript: no matching attachment on \(memoDate)"
+            )
+            return false
+        }
+        return true
+    }
+
+    nonisolated private static func parseMemoDate(_ s: String) -> Date? {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = AppSettings.currentTimeZone()
+        return f.date(from: s)
     }
 
     private func load() -> [VoiceQueueEntry] {
@@ -188,10 +260,15 @@ final class VoiceAttachmentQueue: ObservableObject {
     }
 
     private func isoDateString(_ date: Date) -> String {
+        // Must match RawStorage.dateFormatter timezone so the round-trip
+        // (Date → memoDate string → Date in writeTranscriptBack) resolves to
+        // the same day file. Using TimeZone.current here while RawStorage uses
+        // AppSettings.currentTimeZone() would silently drop transcripts when
+        // the user overrides the vault timezone.
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
         f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
+        f.timeZone = AppSettings.currentTimeZone()
         return f.string(from: date)
     }
 }

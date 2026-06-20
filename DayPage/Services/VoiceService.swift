@@ -217,12 +217,26 @@ final class VoiceService: NSObject, ObservableObject {
     // MARK: - Cancel
 
     /// 中止录制，不保存。
+    ///
+    /// On removeItem failure we breadcrumb instead of swallowing — the
+    /// resulting orphan .m4a will be reconciled by OrphanedVoiceScanner
+    /// on the next launch (>24h → deleted; <24h → retained for future
+    /// recovery UI), but the breadcrumb tells us when this path is
+    /// firing so we can debug if orphans pile up.
     func cancelRecording() {
         stopTimer()
         stopMeteringTimer()
         recorder?.stop()
         if let url = currentFileURL {
-            try? FileManager.default.removeItem(at: url)
+            do {
+                try FileManager.default.removeItem(at: url)
+            } catch {
+                SentryReporter.breadcrumb(
+                    category: "voice",
+                    level: .warning,
+                    message: "cancelRecording: removeItem failed: \(error)"
+                )
+            }
         }
         recorder = nil
         currentFileURL = nil
