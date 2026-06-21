@@ -688,7 +688,17 @@ struct GraphView: View {
                         .onTapGesture(count: 2) { focusNode(node, in: size) }
                         .onTapGesture { openNode(node) }
                         .accessibilityElement()
-                        .accessibilityLabel(node.name)
+                        // R4 — VoiceOver gets entity name + recurrence count
+                        // so users can scan the graph by frequency without
+                        // seeing the visual node-size cue.
+                        .accessibilityLabel(String(
+                            format: NSLocalizedString(
+                                "graph.node.a11y.full",
+                                value: "实体：%@，出现 %lld 次",
+                                comment: "VoiceOver label: entity name + occurrence count"
+                            ),
+                            node.name, Int64(node.occurrenceCount)
+                        ))
                         .accessibilityValue(localizedEntityTypeName(node.entityType))
                         .accessibilityHint(NSLocalizedString("graph.a11y.open_entity", comment: "Graph node accessibility hint"))
                         .accessibilityAddTraits(.isButton)

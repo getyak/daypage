@@ -746,3 +746,93 @@
 
 /* DSBanner — accessibility */
 "banner.close.a11y"                          = "关闭";
+
+/* ===== Round 4: i18n catch-up (R4-HIGH #37) ===== */
+
+/* Recording — status & a11y (录音) */
+"recording.listening"                        = "正在聆听…";
+"recording.transcribing"                     = "正在转写…";
+"recording.release_to_cancel"                = "上滑松手取消";
+"recording.release_to_transcribe"            = "左滑松手转写";
+"recording.cancel.a11y.label"                = "取消录音";
+"recording.cancel.a11y.hint"                 = "丢弃当前录音并关闭面板";
+"recording.save.a11y.label"                  = "保存录音";
+"recording.save.a11y.hint"                   = "停止并保留录音为草稿";
+"recording.transcribe.a11y.label"            = "转写录音";
+"recording.transcribe.a11y.hint"             = "停止录音并发送给 Whisper 转写";
+"recording.cancel_hint.a11y.label"           = "向上滑动取消";
+"recording.transcribe_hint.a11y.label"       = "向左滑动转写";
+
+/* Today — submit error / banner / actions */
+"submit.error.retry"                         = "重试";
+"Tap or swipe to dismiss"                    = "点按或滑动以关闭";
+"today.header.scroll_to_top"                 = "回到顶部";
+"today.wordmilestone.announcement"           = "已写满 %lld 字";
+
+/* Today — timeline (历史轨迹) */
+"today.timeline.pinned"                      = "📌 置顶";
+"today.timeline.thisWeek"                    = "本周";
+"today.timeline.lastWeek"                    = "上周";
+"today.timeline.weekBeforeLast"              = "前两周";
+"today.timeline.openDailyPage"               = "打开当日页面";
+"today.timeline.action.share"                = "分享";
+"today.timeline.action.pin"                  = "置顶";
+"today.timeline.action.unpin"                = "取消置顶";
+"today.timeline.delete.title"                = "删除这一天？";
+"today.timeline.delete.confirm"              = "删除";
+"today.timeline.delete.cancel"               = "取消";
+"today.timeline.menu.open"                   = "打开当日页面";
+"today.timeline.menu.share"                  = "分享";
+"today.timeline.menu.pin"                    = "置顶";
+"today.timeline.menu.unpin"                  = "取消置顶";
+"today.timeline.menu.copy"                   = "复制摘要";
+"today.timeline.menu.delete"                 = "删除";
+"today.timeline.swipe.pin"                   = "置顶";
+"today.timeline.swipe.unpin"                 = "取消置顶";
+"today.timeline.swipe.share"                 = "分享";
+"today.timeline.preview.noSummary"           = "尚未生成摘要";
+
+/* Weekly recap card */
+"recap.card.accessibility_hint"              = "双击打开当日页面";
+
+/* Archive */
+"archive.scroll_to_top"                      = "回到归档顶部";
+
+/* Graph — VoiceOver actions */
+"Reset view"                                 = "重置视图";
+
+/* Write sheet — location chip */
+"write.sheet.location.attached"              = "已附加位置";
+"write.sheet.location.none"                  = "未附加位置";
+
+/* Settings — API key reveal */
+"settings.apikey.reveal.label"               = "显示密钥";
+
+/* Onboarding — skip API keys */
+"onboarding.apikeys.skip"                    = "稍后再说";
+
+/* ===== Round 4: new keys not yet referenced in code ===== */
+
+/* 编译完成通知 (R4-HIGH #35) */
+"notif.compile.success.title"                = "今日页面已生成";
+"notif.compile.success.body"                 = "DayPage 已编译完成你的今日记录。点按查看。";
+"notif.compile.success.body.partial"         = "已编译部分内容（%lld/%lld）。点按查看。";
+
+/* 错误 — 定位忙 */
+"error.location.busy"                        = "定位服务繁忙，请稍后再试。";
+
+/* Today — AI key banner */
+"today.aibanner.title"                       = "未配置 AI 密钥，无法编译";
+"today.aibanner.openSettings"                = "前往设置";
+
+/* Settings — 编译完成通知开关 */
+"settings.notify.compile.title"              = "编译完成通知";
+"settings.notify.compile.footer"             = "在每天 02:00 自动编译完成后发送本地通知。";
+
+/* Settings — 实验功能 (FeatureFlags) */
+"settings.experiments.section"               = "实验功能";
+"settings.experiments.footer"                = "开启或关闭实验中的功能。重启 App 后生效。";
+
+/* iCloud 冲突 banner (R4-MEDIUM #38) */
+"icloud.conflict.banner.title"               = "检测到 iCloud 冲突";
+"icloud.conflict.banner.body"                = "已自动保留最新版本（%@）。";

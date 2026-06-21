@@ -213,6 +213,7 @@ struct DayPageApp: App {
                     if url.host?.lowercased() == "record" {
                         navModel.navigate(to: .today)
                         navModel.pendingRecordingTrigger = UUID()
+                        print("[deepLink] set pendingRecordingTrigger")
                         return
                     }
 
@@ -289,7 +290,15 @@ struct DayPageApp: App {
                     else { return }
                     navModel.openArchive(at: dateStr)
                 }
-                .onAppear {
+                .task {
+                    // B1: use `.task` instead of `.onAppear` so the SwiftUI view
+                    // tree (including TodayView) is guaranteed to be mounted
+                    // before we kick off background scheduling + Widget cold-
+                    // launch recording triggers. `.onAppear` fires during the
+                    // RootView lifecycle but before Today's `.onAppear` has
+                    // registered its trigger observer, leading to the race
+                    // where the Widget-initiated `pendingRecordingTrigger` was
+                    // consumed before Today started listening.
                     // 安排每晚自动编译并回填任何遗漏的日期
                     BackgroundCompilationService.shared.scheduleIfNeeded()
                     BackgroundCompilationService.shared.backfillIfNeeded()
@@ -326,6 +335,12 @@ struct DayPageApp: App {
                         TimelineIndex.shared.refreshIfExternallyModified()
                         // Re-warm generators after backgrounding so they're ready immediately.
                         HapticFeedback.warmUp()
+                        // B3: 2am 后台编译失败时，前台回流再试一次。
+                        // foregroundRetryIfNeeded 内部已 debounce 60s，
+                        // 多次 scenePhase 切换不会重复打 API。
+                        Task { @MainActor in
+                            await BackgroundCompilationService.shared.foregroundRetryIfNeeded()
+                        }
                     }
                 }
         }

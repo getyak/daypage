@@ -215,10 +215,29 @@ final class CompilationService: ObservableObject {
 
     /// Extracts per-memo mood + entity mention + date reference annotations from
     /// the `memo_updates` array in the LLM JSON response.
+    ///
+    /// A missing `memo_updates` key is a valid response (the LLM just had
+    /// nothing to backfill), but a JSON parse failure on the surrounding
+    /// payload is a genuine engine-side error and used to vanish silently
+    /// behind `try?`. We now do-catch around `JSONSerialization` so the
+    /// failure shows up in Sentry instead of degrading the compilation to
+    /// "success with zero memo updates".
     private func extractMemoUpdates(_ rawLLMResponse: String) -> [MemoUpdateInstruction] {
         guard let jsonBlock = Self.extractJSONBlockStatic(from: rawLLMResponse),
-              let data = jsonBlock.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let data = jsonBlock.data(using: .utf8) else { return [] }
+
+        let parsed: [String: Any]?
+        do {
+            parsed = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        } catch {
+            SentryReporter.breadcrumb(
+                category: "compilation",
+                level: .error,
+                message: "extractMemoUpdates: JSON parse failed: \(error)"
+            )
+            return []
+        }
+        guard let json = parsed,
               let updates = json["memo_updates"] as? [[String: Any]] else { return [] }
 
         var results: [MemoUpdateInstruction] = []

@@ -185,10 +185,19 @@ final class LocationService: NSObject, ObservableObject {
     }
 
     /// 将经纬度量化到 ~1km 网格（保留 2 位小数 ≈ 1.1km @ 赤道）作为缓存 key。
+    /// R4-B4: 拆出 `static nonisolated` 形式，便于单测在不依赖 CoreLocation
+    /// 的前提下验证 "~1km 桶 + 边界稳定" 不变式。`nonisolated` 因为它是纯
+    /// 函数 — 不访问 LocationService 的任何可变状态。实例方法仍然保留并
+    /// 转发，保证既有调用路径不变。
+    nonisolated static func bucketKey(lat: Double, lng: Double) -> String {
+        let qLat = (lat * 100).rounded() / 100
+        let qLng = (lng * 100).rounded() / 100
+        return String(format: "%.2f,%.2f", qLat, qLng)
+    }
+
     private func bucketKey(for location: CLLocation) -> String {
-        let lat = (location.coordinate.latitude * 100).rounded() / 100
-        let lng = (location.coordinate.longitude * 100).rounded() / 100
-        return String(format: "%.2f,%.2f", lat, lng)
+        Self.bucketKey(lat: location.coordinate.latitude,
+                       lng: location.coordinate.longitude)
     }
 
     /// 将一个可能抛出错误的异步操作与超时进行竞速。

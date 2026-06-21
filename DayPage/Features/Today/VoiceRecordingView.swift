@@ -195,6 +195,19 @@ struct VoiceRecordingView: View {
             Text("已暂停")
                 .bodySMStyle()
                 .foregroundColor(DSColor.onSurfaceVariant)
+        case .interrupted:
+            // System interruption (call / Siri / alarm). Surface the
+            // localized message produced by VoiceService so the user knows
+            // the audio is preserved and will auto-resume when possible.
+            Text(voiceService.interruptionMessage ?? NSLocalizedString(
+                "voice.interruption.paused",
+                value: "录音已暂停 — 通话/Siri 结束后会自动恢复",
+                comment: "Fallback shown when interruption message is missing"
+            ))
+                .bodySMStyle()
+                .foregroundColor(DSColor.onSurfaceVariant)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
         case .processing:
             HStack(spacing: 8) {
                 ProgressView()

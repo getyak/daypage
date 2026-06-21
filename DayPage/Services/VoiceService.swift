@@ -9,7 +9,8 @@ enum RecordingState: Equatable {
     case idle
     case requesting        // waiting for mic permission
     case recording         // actively recording
-    case paused            // paused mid-recording
+    case paused            // paused mid-recording (user-initiated)
+    case interrupted       // paused by AVAudioSession interruption (call / Siri / alarm)
     case processing        // stopped, transcribing
     case done              // transcription complete / saved
     case failed(String)    // error with user-facing message
@@ -18,6 +19,7 @@ enum RecordingState: Equatable {
         switch (lhs, rhs) {
         case (.idle, .idle), (.requesting, .requesting),
              (.recording, .recording), (.paused, .paused),
+             (.interrupted, .interrupted),
              (.processing, .processing), (.done, .done):
             return true
         case let (.failed(a), .failed(b)):
@@ -61,6 +63,14 @@ final class VoiceService: NSObject, ObservableObject {
     @Published var waveformLevel: Float = 0.0
     /// 波形电平滚动历史记录（最近 40 个采样），用于条形显示
     @Published var waveformHistory: [Float] = Array(repeating: 0.04, count: 40)
+    /// True once an AVAudioSession interruption has paused the recording at
+    /// least once during this session. Consumed by the UI to surface a hint
+    /// so the user knows audio was preserved across the interruption.
+    @Published var wasInterrupted: Bool = false
+    /// Human-readable message describing the current interruption state, or
+    /// `nil` when no interruption is active. Cleared once recording resumes
+    /// or the session terminates.
+    @Published var interruptionMessage: String? = nil
 
     // MARK: Private
 
@@ -69,6 +79,131 @@ final class VoiceService: NSObject, ObservableObject {
     private var recordingStartDate: Date?
     private var timer: Timer?
     private var meteringTimer: Timer?
+    /// Token returned by `NotificationCenter.addObserver(forName:...)` so the
+    /// observer can be removed in `deinit`. Lives as long as the singleton
+    /// (which is for the app lifetime) — held for symmetry / future cleanup
+    /// if VoiceService becomes non-singleton.
+    private var interruptionObserver: NSObjectProtocol?
+
+    // MARK: - Init
+
+    override init() {
+        super.init()
+        registerInterruptionObserver()
+    }
+
+    deinit {
+        if let token = interruptionObserver {
+            NotificationCenter.default.removeObserver(token)
+        }
+    }
+
+    // MARK: - AVAudioSession Interruption
+
+    /// Registers for `AVAudioSession.interruptionNotification` so calls,
+    /// Siri, alarms, and other audio-priority events can pause the recorder
+    /// cleanly instead of silently corrupting the in-flight file.
+    ///
+    /// Without this, an interruption mid-recording would leave the
+    /// recorder running against a deactivated session — the on-disk file
+    /// gets truncated or empty, and the state machine remains stuck in
+    /// `.recording` so the UI keeps showing waveforms that no longer
+    /// reflect captured audio.
+    private func registerInterruptionObserver() {
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { [weak self] note in
+            Task { @MainActor in
+                self?.handleInterruption(note)
+            }
+        }
+    }
+
+    /// Handles the .began / .ended phases of an AVAudioSession interruption.
+    ///
+    /// `.began`: pause the recorder and timers, transition to `.interrupted`,
+    /// and surface a user-facing hint that the recording is preserved.
+    ///
+    /// `.ended`: inspect `.shouldResume`. If the system permits us to resume,
+    /// reactivate the session and resume the recorder + timers; otherwise
+    /// drop back to `.idle` and breadcrumb so we can track how often a
+    /// recording is lost to a non-resumable interruption.
+    private func handleInterruption(_ note: Notification) {
+        guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
+
+        switch type {
+        case .began:
+            // Only act when there is something to interrupt.
+            guard state == .recording else { return }
+            recorder?.pause()
+            stopTimer()
+            stopMeteringTimer()
+            wasInterrupted = true
+            interruptionMessage = NSLocalizedString(
+                "voice.interruption.paused",
+                value: "录音已暂停 — 通话/Siri 结束后会自动恢复",
+                comment: "Shown when the recording is paused by an AVAudioSession interruption"
+            )
+            state = .interrupted
+            SentryReporter.breadcrumb(
+                category: "voice",
+                level: .warning,
+                message: "audio interruption began — recording paused"
+            )
+
+        case .ended:
+            // Only meaningful if we previously transitioned to .interrupted.
+            guard state == .interrupted else { return }
+            let options: AVAudioSession.InterruptionOptions
+            if let rawOpts = note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt {
+                options = AVAudioSession.InterruptionOptions(rawValue: rawOpts)
+            } else {
+                options = []
+            }
+            if options.contains(.shouldResume) {
+                do {
+                    try AVAudioSession.sharedInstance().setActive(true)
+                    recorder?.record()
+                    startTimer()
+                    startMeteringTimer()
+                    interruptionMessage = nil
+                    state = .recording
+                    SentryReporter.breadcrumb(
+                        category: "voice",
+                        level: .info,
+                        message: "audio interruption ended — recording resumed"
+                    )
+                } catch {
+                    interruptionMessage = nil
+                    state = .failed("录音恢复失败：\(error.localizedDescription)")
+                    SentryReporter.breadcrumb(
+                        category: "voice",
+                        level: .error,
+                        message: "audio interruption resume failed: \(error)"
+                    )
+                }
+            } else {
+                // System refused to authorize resume — release everything and
+                // surface state.idle so the UI offers a fresh start instead of
+                // pretending the partial recording is still active.
+                recorder?.stop()
+                recorder = nil
+                interruptionMessage = nil
+                state = .idle
+                SentryReporter.breadcrumb(
+                    category: "voice",
+                    level: .warning,
+                    message: "audio interruption ended without resume — recording released"
+                )
+            }
+
+        @unknown default:
+            return
+        }
+    }
 
     // MARK: - Permission
 
@@ -262,6 +397,8 @@ final class VoiceService: NSObject, ObservableObject {
         elapsedSeconds = 0
         waveformLevel = 0.0
         waveformHistory = Array(repeating: 0.04, count: 40)
+        wasInterrupted = false
+        interruptionMessage = nil
         state = .idle
     }
 
@@ -375,7 +512,15 @@ final class VoiceService: NSObject, ObservableObject {
 
         let audioData: Data
         do { audioData = try Data(contentsOf: url) }
-        catch { DayPageLogger.shared.error("transcribeAudio: read file: \(error)"); return nil }
+        catch {
+            DayPageLogger.shared.error("transcribeAudio: read file: \(error)")
+            SentryReporter.breadcrumb(
+                category: "voice",
+                level: .error,
+                message: "transcribeAudioWhisper: readFailed \(url.lastPathComponent): \(error)"
+            )
+            return nil
+        }
 
         let boundary = UUID().uuidString
         var body = Data()

@@ -742,3 +742,93 @@
 
 /* DSBanner — accessibility */
 "banner.close.a11y"                          = "Close";
+
+/* ===== Round 4: i18n catch-up (R4-HIGH #37) ===== */
+
+/* Recording — status & a11y */
+"recording.listening"                        = "Listening…";
+"recording.transcribing"                     = "Transcribing…";
+"recording.release_to_cancel"                = "Release to cancel";
+"recording.release_to_transcribe"            = "Release to transcribe";
+"recording.cancel.a11y.label"                = "Cancel recording";
+"recording.cancel.a11y.hint"                 = "Discards the current recording and closes the sheet";
+"recording.save.a11y.label"                  = "Save recording";
+"recording.save.a11y.hint"                   = "Stops and keeps the recording as a draft";
+"recording.transcribe.a11y.label"            = "Transcribe recording";
+"recording.transcribe.a11y.hint"             = "Stops recording and sends to Whisper for transcription";
+"recording.cancel_hint.a11y.label"           = "Drag up to cancel";
+"recording.transcribe_hint.a11y.label"       = "Drag left to transcribe";
+
+/* Today — submit error / banner / actions */
+"submit.error.retry"                         = "Retry";
+"Tap or swipe to dismiss"                    = "Tap or swipe to dismiss";
+"today.header.scroll_to_top"                 = "Scroll to top";
+"today.wordmilestone.announcement"           = "%lld words written";
+
+/* Today — timeline */
+"today.timeline.pinned"                      = "📌 PINNED";
+"today.timeline.thisWeek"                    = "This week";
+"today.timeline.lastWeek"                    = "Last week";
+"today.timeline.weekBeforeLast"              = "Two weeks ago";
+"today.timeline.openDailyPage"               = "Open Daily Page";
+"today.timeline.action.share"                = "Share";
+"today.timeline.action.pin"                  = "Pin";
+"today.timeline.action.unpin"                = "Unpin";
+"today.timeline.delete.title"                = "Delete this day?";
+"today.timeline.delete.confirm"              = "Delete";
+"today.timeline.delete.cancel"               = "Cancel";
+"today.timeline.menu.open"                   = "Open Daily Page";
+"today.timeline.menu.share"                  = "Share";
+"today.timeline.menu.pin"                    = "Pin to top";
+"today.timeline.menu.unpin"                  = "Unpin";
+"today.timeline.menu.copy"                   = "Copy summary";
+"today.timeline.menu.delete"                 = "Delete";
+"today.timeline.swipe.pin"                   = "Pin";
+"today.timeline.swipe.unpin"                 = "Unpin";
+"today.timeline.swipe.share"                 = "Share";
+"today.timeline.preview.noSummary"           = "No summary yet";
+
+/* Weekly recap card */
+"recap.card.accessibility_hint"              = "Double tap to open this day's page";
+
+/* Archive */
+"archive.scroll_to_top"                      = "Scroll to top of archive";
+
+/* Graph — VoiceOver actions */
+"Reset view"                                 = "Reset view";
+
+/* Write sheet — location chip */
+"write.sheet.location.attached"              = "Location attached";
+"write.sheet.location.none"                  = "No location";
+
+/* Settings — API key reveal */
+"settings.apikey.reveal.label"               = "Reveal key";
+
+/* Onboarding — skip API keys */
+"onboarding.apikeys.skip"                    = "Skip for now";
+
+/* ===== Round 4: new keys not yet referenced in code ===== */
+
+/* Compile finished notification (R4-HIGH #35) */
+"notif.compile.success.title"                = "Today's page is ready";
+"notif.compile.success.body"                 = "DayPage has compiled your entries for today. Tap to read.";
+"notif.compile.success.body.partial"         = "Compiled partial entries (%lld/%lld). Tap to read.";
+
+/* Error — location busy */
+"error.location.busy"                        = "Location service is busy. Please try again.";
+
+/* Today — AI key banner */
+"today.aibanner.title"                       = "AI key not configured — compile disabled";
+"today.aibanner.openSettings"                = "Open Settings";
+
+/* Settings — compile-finished notification toggle */
+"settings.notify.compile.title"              = "Compile notifications";
+"settings.notify.compile.footer"             = "Send a local notification when the 02:00 daily compile finishes.";
+
+/* Settings — experimental features (FeatureFlags) */
+"settings.experiments.section"               = "Experiments";
+"settings.experiments.footer"                = "Turn experimental features on or off. Some changes need an app restart.";
+
+/* iCloud conflict banner (R4-MEDIUM #38) */
+"icloud.conflict.banner.title"               = "iCloud conflict detected";
+"icloud.conflict.banner.body"                = "Kept the most recent version (%@).";

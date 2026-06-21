@@ -95,6 +95,9 @@ struct SettingsView: View {
     // clipboard, swapping the value for a "已复制" checkmark for ~1.5s.
     @State private var didCopyVersion = false
 
+    // R4-MEDIUM #39 — drives the Experiments section toggles.
+    @StateObject private var flagStore = FeatureFlagStore.shared
+
     var body: some View {
         NavigationStack {
             List {
@@ -107,6 +110,7 @@ struct SettingsView: View {
                 timeZoneSection
                 iCloudSyncSection
                 dataSection
+                experimentsSection
                 aboutSection
             }
             .accessibilityIdentifier("settings-list")
@@ -904,6 +908,33 @@ struct SettingsView: View {
             }
         }
         .onAppear { computeVaultSize() }
+    }
+
+    // MARK: - Experiments Section (R4-MEDIUM #39)
+    //
+    // Renders one Toggle per FeatureFlag.allCases, backed by FeatureFlagStore.
+    // Defaults are all "on" so the toggles look pre-checked — flipping a
+    // toggle off is the user-facing kill switch for a recent feature.
+
+    private var experimentsSection: some View {
+        Section {
+            ForEach(FeatureFlag.allCases, id: \.rawValue) { flag in
+                Toggle(
+                    flag.title,
+                    isOn: Binding(
+                        get: { flagStore.isEnabled(flag) },
+                        set: { flagStore.set(flag, enabled: $0) }
+                    )
+                )
+                .accessibilityIdentifier("experiments-flag-\(flag.rawValue)")
+            }
+        } header: {
+            Text(NSLocalizedString("settings.experiments.section", comment: ""))
+        } footer: {
+            Text(NSLocalizedString("settings.experiments.footer", comment: ""))
+                .font(.caption)
+                .foregroundColor(DSColor.onSurfaceVariant)
+        }
     }
 
     // MARK: - About Section

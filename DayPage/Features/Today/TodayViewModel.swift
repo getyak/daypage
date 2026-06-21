@@ -985,6 +985,11 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 let loc = try await locationService.currentLocation(timeout: 3)
                 pendingLocation = loc
             } catch LocationError.denied {
+                SentryReporter.breadcrumb(
+                    category: "location",
+                    level: .error,
+                    message: "location.denied"
+                )
                 GlassErrorBannerStack.shared.push(
                     GlassErrorBannerItem(
                         icon: Image(systemName: "location.slash"),
@@ -998,12 +1003,22 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                     )
                 )
             } catch LocationError.timeout {
+                SentryReporter.breadcrumb(
+                    category: "location",
+                    level: .warning,
+                    message: "location.timeout — falling back to lastLocation if available"
+                )
                 // Even on timeout, LocationService may have returned coords-only
                 if let loc = locationService.lastLocation {
                     pendingLocation = loc
                 }
                 // Don't show error for timeout — coords-only is acceptable
             } catch LocationError.busy {
+                SentryReporter.breadcrumb(
+                    category: "location",
+                    level: .info,
+                    message: "location.busy concurrent request"
+                )
                 // Another location request is in-flight; don't reset the pending
                 // attachment, don't block the memo submission flow — just surface
                 // a soft error message so the user can retry shortly.
@@ -1013,6 +1028,11 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                     comment: "Shown when fetchLocation is called while a previous request is still in flight"
                 )
             } catch {
+                SentryReporter.breadcrumb(
+                    category: "location",
+                    level: .error,
+                    message: "location.\(error)"
+                )
                 submitError = String(format: NSLocalizedString("error.memo.location_failed", comment: ""), error.localizedDescription)
             }
         }

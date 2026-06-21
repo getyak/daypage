@@ -18,7 +18,46 @@ extension Notification.Name {
     static let rawStorageDidWrite = Notification.Name("rawStorageDidWrite")
 }
 
-// MARK: - ConflictMerger
+// MARK: - Conflict Merge Strategy (R4-MEDIUM #38)
+//
+// When iCloud reports an unresolved conflict on a vault file (it materialises
+// a sibling .conflicted file alongside the canonical one), ConflictMerger
+// runs in three layers:
+//
+//   1. Memo arrays — mergeRawMemos(original:conflict:)
+//      Concatenate both arrays, sort by `created`, then drop duplicates by
+//      UUID, preserving the earliest occurrence. This is the safest default
+//      because memo IDs are stable across devices, so concurrent additions
+//      from two phones are merged rather than overwritten.
+//
+//   2. Wiki append-only logs — mergeWikiLines(original:conflict:)
+//      Both copies are line-sets; union them and re-sort. Append-only files
+//      cannot lose data this way; duplicate lines collapse via Set.
+//
+//   3. JSON entry maps — mergeJSONEntries(original:conflict:)
+//      Keys are dates / entity ids. For each key present in both copies we
+//      keep the entry with the later `mtime` (last-writer-wins on a key).
+//      Ties fall back to the *longer* serialized form (heuristic: a user is
+//      far more likely to append to a daily entry than to truncate it).
+//
+// File-level winner selection (used when we have to pick *one* side, e.g.
+// for the rare case where a layer is opaque):
+//   a. Compare NSFileVersion.modificationDate — take the newest one.
+//   b. If timestamps tie, take the version whose serialized payload is
+//      longer (additive-writes heuristic, same reasoning as JSON map ties).
+//
+// After a successful merge, ConflictMerger posts:
+//   • Notification.Name.vaultConflictResolved (object = ConflictResolutionInfo)
+//     — listened to by TodayView, which surfaces an orange banner explaining
+//     "detected an iCloud conflict — kept the most recent version (date)".
+//   • Notification.Name.vaultConflictFailed when the merge itself errors out
+//     so we can fall back to surfacing the .conflicted file to the user.
+//
+// `NSFileVersion.unresolvedConflictVersionsOfItem(at:)` drives detection;
+// once we have a merged payload we persist it via the atomic
+// `FileManager.replaceItem` path used by RawStorage, then call
+// `NSFileVersion.removeOtherVersionsOfItem(at:)` so the sibling .conflicted
+// files disappear from the UI.
 
 /// 合并原始备忘录文件、wiki 日志行及 JSON 条目的 iCloud 冲突副本。
 /// 冲突检测由 NSMetadataQuery 监听 NSMetadataUbiquitousItemHasUnresolvedConflictsKey 驱动。

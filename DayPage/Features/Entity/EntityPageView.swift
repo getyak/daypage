@@ -72,9 +72,14 @@ struct EntityPageView: View {
                                 .padding(.horizontal, 20)
                                 .padding(.bottom, 40)
 
-                            backlinksSection
-                                .padding(.horizontal, 20)
-                                .padding(.bottom, 40)
+                            // R4-MEDIUM #39 — backlinks gated behind a
+                            // FeatureFlag so we can kill-switch it in TestFlight
+                            // without a hot-fix build. Default-on.
+                            if FeatureFlagStore.shared.isEnabled(.backlinks) {
+                                backlinksSection
+                                    .padding(.horizontal, 20)
+                                    .padding(.bottom, 40)
+                            }
                         }
                     }
                 } else {
@@ -503,7 +508,9 @@ struct EntityPageView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(item.dateStr): \(backlinkSnippet(item.memo))")
+        // R4 — wording matches the brief: "<date> 的 memo：<snippet>" so
+        // VoiceOver users hear the relationship before the content excerpt.
+        .accessibilityLabel("\(item.dateStr) 的 memo：\(backlinkSnippet(item.memo))")
         .accessibilityHint("跳转到归档查看该日期")
     }
 

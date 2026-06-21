@@ -73,6 +73,13 @@ struct TodayView: View {
     /// Session-only flag: true once the "restored unsent draft" banner has been shown this session.
     @State private var draftRestoredBannerShown: Bool = false
 
+    // R4-MEDIUM #38 — iCloud conflict banner.
+    // When ConflictMerger posts `.vaultConflictResolved` we surface a brief
+    // orange banner explaining that an automatic merge happened and which
+    // day's file was affected. Auto-fades after 3 seconds.
+    @State private var iCloudConflictBannerVisible: Bool = false
+    @State private var iCloudConflictBannerDate: String = ""
+
     // US-006: Date the draft was last modified, stored in UserDefaults.
     // If the draft is older than 30 days it is auto-cleared on next launch.
     @AppStorage("today.draftDate") private var draftDate: Double = 0
@@ -269,6 +276,11 @@ struct TodayView: View {
                     // MARK: Sync Prompt Banner
                     if showSyncBanner {
                         syncBanner
+                    }
+
+                    // MARK: iCloud Conflict Resolved Banner (R4-MEDIUM #38)
+                    if iCloudConflictBannerVisible {
+                        iCloudConflictBanner
                     }
 
                     // MARK: Location Draft Card
@@ -559,6 +571,16 @@ struct TodayView: View {
             }
             .onAppear {
                 clearDraftIfExpired()
+                // R4-B2: SceneStorage may come back empty after a process kill
+                // even though we wrote on every keystroke. Fall back to the
+                // UserDefaults mirror so the user doesn't lose the in-flight
+                // draft. Only restore when SceneStorage is empty — never
+                // clobber a fresh keystroke that's already in flight.
+                if draftText.isEmpty,
+                   let backup = UserDefaults.standard.string(forKey: "today.draftText.backup"),
+                   !backup.isEmpty {
+                    draftText = backup
+                }
                 viewModel.load()
                 // Drain any inflight drafts left behind by a submit that
                 // never reached RawStorage.append (kill-during-await, OS
@@ -582,12 +604,22 @@ struct TodayView: View {
                 // B3: Debounce — only persist `draftDate` after typing pauses
                 // for 0.8s. Cancels any in-flight write each keystroke, so a
                 // burst of typing produces exactly one UserDefaults write.
+                //
+                // R4-B2: also mirror the body into UserDefaults under
+                // `today.draftText.backup`. SceneStorage survives backgrounding
+                // but NOT a process kill — iOS may evict saved scene state
+                // under memory pressure, and the user loses every keystroke
+                // since the last "Send". UserDefaults is flushed at process
+                // exit, so it acts as the cold-launch fallback that TodayView
+                // .onAppear reads when SceneStorage comes back empty.
                 draftSaveTask?.cancel()
+                let snapshot = draftText
                 draftSaveTask = Task {
                     try? await Task.sleep(nanoseconds: 800_000_000)
                     guard !Task.isCancelled else { return }
                     await MainActor.run {
                         draftDate = Date().timeIntervalSince1970
+                        UserDefaults.standard.set(snapshot, forKey: "today.draftText.backup")
                     }
                 }
             }
@@ -631,10 +663,47 @@ struct TodayView: View {
             .onChange(of: viewModel.lastFailedBody) { failedBody in
                 guard let body = failedBody else { return }
                 viewModel.lastFailedBody = nil
+                // R4-B2: clear UserDefaults backup mirror together with the
+                // failure-restore path. The restored body has now flowed back
+                // into `draftText`, which is itself mirrored to the backup on
+                // every keystroke — but if the user dismisses without typing,
+                // the stale backup would survive next launch.
+                UserDefaults.standard.removeObject(forKey: "today.draftText.backup")
                 guard draftText.isEmpty else { return }
                 draftText = body
                 orbFocusToggle.toggle()
                 Haptics.warn()
+            }
+            // R4-B3: 2am 后台编译失败后，前台 scenePhase active 自动重试
+            // 成功时收到这条通知。仅显示 ds-style toast — 不再发系统通知，
+            // 避免与已经推过的 2am 失败通知互相打架。
+            .onReceive(NotificationCenter.default.publisher(for: .compileSucceededForeground)) { _ in
+                bannerCenter.show(AppBannerModel(
+                    kind: .success,
+                    title: NSLocalizedString(
+                        "today.compile.foregroundRetry.success",
+                        value: "今日 Daily Page 已编译完成",
+                        comment: "Toast shown when 2am-failed compile is retried on foreground and succeeds"
+                    ),
+                    autoDismiss: true
+                ))
+            }
+            // R4-MEDIUM #38 — iCloud conflict resolution surfaces here so the
+            // user sees that an automatic merge happened. The notification's
+            // object is ConflictResolutionInfo; we pull `date` for the banner
+            // subtitle and auto-dismiss after 3 seconds.
+            .onReceive(NotificationCenter.default.publisher(for: .vaultConflictResolved)) { note in
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy-MM-dd"
+                if let info = note.object as? ConflictResolutionInfo {
+                    iCloudConflictBannerDate = formatter.string(from: info.date)
+                } else {
+                    iCloudConflictBannerDate = formatter.string(from: Date())
+                }
+                withAnimation { iCloudConflictBannerVisible = true }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                    withAnimation { iCloudConflictBannerVisible = false }
+                }
             }
             // Daily Page full-screen sheet
             .fullScreenCover(isPresented: $showDailyPage) {
@@ -841,6 +910,31 @@ struct TodayView: View {
         .accessibilityElement(children: .combine)
     }
 
+    // R4-MEDIUM #38 — banner shown when ConflictMerger reports a successful
+    // automatic merge. Stays visible 3 seconds, then fades. Tapping the
+    // banner currently just dismisses — a "view details" sheet is tracked as
+    // a follow-up; the goal here is to acknowledge that something happened
+    // so the user doesn't silently lose a write.
+    private var iCloudConflictBanner: some View {
+        DSBanner(
+            kind: .warning,
+            title: NSLocalizedString("icloud.conflict.banner.title", comment: ""),
+            subtitle: String(
+                format: NSLocalizedString("icloud.conflict.banner.body", comment: ""),
+                iCloudConflictBannerDate
+            ),
+            primaryAction: nil,
+            onDismiss: {
+                withAnimation { iCloudConflictBannerVisible = false }
+            }
+        )
+        .padding(.horizontal, DSSpacing.pageMargin)
+        .padding(.bottom, DSSpacing.xs)
+        .onTapGesture {
+            withAnimation { iCloudConflictBannerVisible = false }
+        }
+    }
+
     private var syncBanner: some View {
         DSBanner(
             kind: .info,
@@ -989,7 +1083,10 @@ struct TodayView: View {
         .frame(height: 44)
         .frame(maxWidth: .infinity)
         .background(DSColor.amberAccent.opacity(0.18))
-        .accessibilityElement(children: .contain)
+        // R4 — `.combine` reads the icon + title + CTA + dismiss as one
+        // grouped element so VoiceOver users hear "AI key missing, open
+        // settings, dismiss" rather than four separate items in row order.
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: - Fallback Content (zero-memo today)
@@ -2389,6 +2486,10 @@ struct TodayView: View {
         if age > 30 * 24 * 3600 {
             draftText = ""
             draftDate = 0
+            // R4-B2: keep the UserDefaults backup mirror aligned with the
+            // SceneStorage truth — otherwise a stale 31-day-old draft would
+            // be resurrected by .onAppear on the next cold launch.
+            UserDefaults.standard.removeObject(forKey: "today.draftText.backup")
         }
     }
 

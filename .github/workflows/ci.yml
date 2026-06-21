@@ -148,6 +148,25 @@ jobs:
       - name: Check en.lproj / zh-Hans.lproj key parity
         run: bash scripts/check_localization_parity.sh
 
+  swiftlint:
+    name: SwiftLint (baseline, non-blocking)
+    runs-on: macos-15
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
+
+    # R4-LOW #42 — first SwiftLint pass on a 100kLOC codebase. We deliberately
+    # run with `|| true` so it never fails the build during the baseline
+    # period; once we burn down the existing violations we'll drop the suffix
+    # and make it gate-the-merge.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install SwiftLint
+        run: brew install swiftlint || true
+
+      - name: Run SwiftLint
+        run: swiftlint --strict || true
+
   tokens-check:
     name: Design Tokens Drift Check
     runs-on: ubuntu-latest

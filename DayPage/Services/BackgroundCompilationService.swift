@@ -3,6 +3,15 @@ import BackgroundTasks
 import UserNotifications
 import Sentry
 
+// MARK: - Foreground Compile Notification
+
+extension Notification.Name {
+    /// 前台自动重试编译成功后发布。
+    /// Today 监听此通知，显示 ds-style toast "今日 Daily Page 已编译完成"。
+    /// 与 2am 系统通知互斥（前台静默，不重复推送系统通知）。
+    static let compileSucceededForeground = Notification.Name("com.daypage.compileSucceededForeground")
+}
+
 // MARK: - BackgroundCompilationService
 
 /// 管理 iOS BGAppRefreshTask 注册和执行，用于夜间自动编译。
@@ -28,6 +37,11 @@ final class BackgroundCompilationService {
     /// Maximum number of missed days to compile per backfill session.
     /// Prevents API flooding when the app hasn't been opened in a long time.
     private let maxBackfillDays = 7
+
+    /// 上次前台自动重试的时间戳。foregroundRetryIfNeeded 内部 60s 防抖，
+    /// 避免 scenePhase 在短时间内多次切换（锁屏/解锁、Notification Center
+    /// 滑动）触发重复 API 调用。
+    private var lastForegroundRetry: Date?
 
     // MARK: - Singleton
 
@@ -125,6 +139,59 @@ final class BackgroundCompilationService {
                     // Continue to next date, don't abort the whole batch
                 }
             }
+        }
+    }
+
+    // MARK: - Foreground Retry (B3)
+
+    /// 2am 后台编译失败后，应用回到前台时自动重试今日的编译。
+    ///
+    /// 触发条件：今日的 raw 文件已存在但 daily page 缺失（即 2am 后台任务
+    /// 失败 / 被 iOS expirationHandler kill / 用户禁用了后台刷新）。
+    /// 60 秒防抖避免 scenePhase 快速切换重复触发。
+    ///
+    /// 成功路径：发布 `compileSucceededForeground` 通知（Today 在 banner 上
+    /// 显示 ds-style toast）。**不发系统通知**，避免与 2am 的
+    /// `sendSuccessNotification` 重复。
+    ///
+    /// 失败路径：静默 + Sentry breadcrumb（用户不需要看到第二条失败通知）。
+    func foregroundRetryIfNeeded() async {
+        let formatter = Self.dateFormatter
+        formatter.timeZone = AppSettings.currentTimeZone()
+        let today = formatter.string(from: Date())
+
+        let vaultURL = VaultInitializer.vaultURL
+        let dailyPath = vaultURL
+            .appendingPathComponent("wiki")
+            .appendingPathComponent("daily")
+            .appendingPathComponent("\(today).md")
+        let rawPath = vaultURL
+            .appendingPathComponent("raw")
+            .appendingPathComponent("\(today).md")
+
+        // Only retry when there IS raw content but NO compiled daily page.
+        // Both conditions checked together — a missing raw means nothing to
+        // compile, a present daily means we're done.
+        guard !FileManager.default.fileExists(atPath: dailyPath.path),
+              FileManager.default.fileExists(atPath: rawPath.path) else { return }
+
+        // 60s debounce — protects against rapid scenePhase flapping
+        // (notification center pull, lock/unlock without backgrounding).
+        let now = Date()
+        if let last = lastForegroundRetry, now.timeIntervalSince(last) < 60 { return }
+        lastForegroundRetry = now
+
+        do {
+            try await CompilationService.shared.compile(for: Date(), trigger: "foreground-retry")
+            // 成功路径：广播给 Today，由 banner 体现，避免与 2am 系统通知重复。
+            NotificationCenter.default.post(name: .compileSucceededForeground, object: nil)
+        } catch {
+            // 失败静默 — Today 已有失败 banner 链路；这里仅留 breadcrumb。
+            SentryReporter.breadcrumb(
+                category: "compilation",
+                level: .warning,
+                message: "foreground retry failed: \(error.localizedDescription)"
+            )
         }
     }
 

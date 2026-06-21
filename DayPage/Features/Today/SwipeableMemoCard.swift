@@ -299,14 +299,17 @@ struct SwipeableMemoCard: View {
                 : NSLocalizedString("memo.swipe.pin",   comment: "Swipe action: pin memo"),
             systemImage: memo.pinnedAt != nil ? "pin.slash" : "pin",
             tone: .neutral,
-            run: { runAction { onPin?() } }
+            run: { runAction { onPin?() } },
+            // R4 a11y — actor + object named for VoiceOver.
+            a11yLabel: memo.pinnedAt != nil ? "取消置顶 memo" : "置顶 memo"
         ))
         items.append(SwipeAction(
             id: .more,
             label: NSLocalizedString("memo.swipe.more", comment: "Swipe action: more options"),
             systemImage: "ellipsis",
             tone: .neutral,
-            run: { runAction(haptic: .soft) { onMore?() } }
+            run: { runAction(haptic: .soft) { onMore?() } },
+            a11yLabel: "更多操作"
         ))
         return items
     }
@@ -319,7 +322,8 @@ struct SwipeableMemoCard: View {
                 label: NSLocalizedString("memo.swipe.share", comment: "Swipe action: share memo"),
                 systemImage: "square.and.arrow.up",
                 tone: .accent,
-                run: { runAction(haptic: .confirm) { onShare?() } }
+                run: { runAction(haptic: .confirm) { onShare?() } },
+                a11yLabel: "分享 memo"
             ),
             SwipeAction(
                 id: .delete,
@@ -330,7 +334,10 @@ struct SwipeableMemoCard: View {
                 // pulse (not the lighter confirm tick) so the user feels an
                 // unmistakable "irreversible action ahead" cue before the
                 // close animation runs and the parent's actual delete fires.
-                run: { runAction(haptic: .warn) { onDelete?() } }
+                run: { runAction(haptic: .warn) { onDelete?() } },
+                // R4 — VoiceOver hint warns that delete is irreversible.
+                a11yLabel: "删除 memo",
+                a11yHint: "将永久移除该条记录"
             ),
         ]
     }
@@ -475,6 +482,12 @@ struct SwipeAction: Identifiable {
     let systemImage: String
     let tone: Tone
     let run: () -> Void
+
+    // R4 — richer a11y. `label` is the visible swipe-button text (kept short
+    // so it fits the 56pt button). Callers may supply an additional
+    // VoiceOver-only label/hint that names the actor and the consequence.
+    var a11yLabel: String? = nil
+    var a11yHint: String? = nil
 }
 
 // MARK: - SwipeActionPanel
@@ -560,7 +573,8 @@ private struct SwipeActionButton: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(action.label)
+        .accessibilityLabel(action.a11yLabel ?? action.label)
+        .accessibilityHint(action.a11yHint ?? "")
     }
 
     private var background: some View {

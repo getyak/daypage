@@ -24,6 +24,9 @@
 		60D39385300C46D08D8BF03C /* DraftStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC21412D29A6FB268CE43C58 /* DraftStorage.swift */; };
 		6587243C5DB109B930AB5D92 /* MemoryChatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04B9410B749C82B6E34779E4 /* MemoryChatTests.swift */; };
 		MYT0000001 /* MemoYAMLTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MYT1000001 /* MemoYAMLTests.swift */; };
+		R4B0000001 /* RawStorageWriteFailedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R4B1000001 /* RawStorageWriteFailedTests.swift */; };
+		R4B0000002 /* LocationServiceLRUTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R4B1000002 /* LocationServiceLRUTests.swift */; };
+		R4B0000003 /* ArchiveViewModelGroupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R4B1000003 /* ArchiveViewModelGroupTests.swift */; };
 		VTW0000001 /* VoiceTranscriptWritebackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = VTW1000001 /* VoiceTranscriptWritebackTests.swift */; };
 		OVS0000002 /* OrphanedVoiceScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = OVS1000002 /* OrphanedVoiceScannerTests.swift */; };
 		OPS0000002 /* OrphanedPhotoScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = OPS1000002 /* OrphanedPhotoScannerTests.swift */; };
@@ -126,6 +129,7 @@
 		A10000094 /* SidebarViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000094 /* SidebarViewModel.swift */; };
 		A10000095 /* ComposerContextProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000095 /* ComposerContextProvider.swift */; };
 		A100000B4 /* SecretsRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000B4 /* SecretsRuntime.swift */; };
+		A10000FF1 /* FeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000FF1 /* FeatureFlags.swift */; };
 		A100000F1 /* GlassSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000F1 /* GlassSurface.swift */; };
 		A100000F2 /* Surfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000F2 /* Surfaces.swift */; };
 		A10000200 /* ComposerStateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000200 /* ComposerStateMachine.swift */; };
@@ -261,6 +265,9 @@
 /* Begin PBXFileReference section */
 		04B9410B749C82B6E34779E4 /* MemoryChatTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoryChatTests.swift; sourceTree = "<group>"; };
 		MYT1000001 /* MemoYAMLTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoYAMLTests.swift; sourceTree = "<group>"; };
+		R4B1000001 /* RawStorageWriteFailedTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RawStorageWriteFailedTests.swift; sourceTree = "<group>"; };
+		R4B1000002 /* LocationServiceLRUTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LocationServiceLRUTests.swift; sourceTree = "<group>"; };
+		R4B1000003 /* ArchiveViewModelGroupTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArchiveViewModelGroupTests.swift; sourceTree = "<group>"; };
 		VTW1000001 /* VoiceTranscriptWritebackTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceTranscriptWritebackTests.swift; sourceTree = "<group>"; };
 		OVS1000002 /* OrphanedVoiceScannerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OrphanedVoiceScannerTests.swift; sourceTree = "<group>"; };
 		OPS1000002 /* OrphanedPhotoScannerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OrphanedPhotoScannerTests.swift; sourceTree = "<group>"; };
@@ -381,6 +388,7 @@
 		A20000094 /* SidebarViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarViewModel.swift; sourceTree = "<group>"; };
 		A20000095 /* ComposerContextProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerContextProvider.swift; sourceTree = "<group>"; };
 		A200000B4 /* SecretsRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecretsRuntime.swift; sourceTree = "<group>"; };
+		A20000FF1 /* FeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureFlags.swift; sourceTree = "<group>"; };
 		A200000F1 /* GlassSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassSurface.swift; sourceTree = "<group>"; };
 		A200000F2 /* Surfaces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Surfaces.swift; sourceTree = "<group>"; };
 		A20000200 /* ComposerStateMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerStateMachine.swift; sourceTree = "<group>"; };
@@ -747,6 +755,7 @@
 				A20000004 /* GeneratedSecrets.swift */,
 				A200000B4 /* SecretsRuntime.swift */,
 				068FB068A000B6E61B1D8032 /* AppSettings.swift */,
+				A20000FF1 /* FeatureFlags.swift */,
 			);
 			path = Config;
 			sourceTree = "<group>";
@@ -1032,6 +1041,9 @@
 				GSM1000002 /* GraphSimulationTests.swift */,
 				LLM1000002 /* LLMClientTests.swift */,
 				BGC1000002 /* BackgroundCompilationServiceTests.swift */,
+				R4B1000001 /* RawStorageWriteFailedTests.swift */,
+				R4B1000002 /* LocationServiceLRUTests.swift */,
+				R4B1000003 /* ArchiveViewModelGroupTests.swift */,
 			);
 			path = DayPageTests;
 			sourceTree = "<group>";
@@ -1255,6 +1267,7 @@
 				A10000003 /* VaultInitializer.swift in Sources */,
 				A10000004 /* GeneratedSecrets.swift in Sources */,
 				A100000B4 /* SecretsRuntime.swift in Sources */,
+				A10000FF1 /* FeatureFlags.swift in Sources */,
 				A10000005 /* Colors.swift in Sources */,
 				A10000006 /* Typography.swift in Sources */,
 				A10000007 /* Components.swift in Sources */,
@@ -1440,6 +1453,9 @@
 				GSM0000002 /* GraphSimulationTests.swift in Sources */,
 				LLM0000002 /* LLMClientTests.swift in Sources */,
 				BGC0000002 /* BackgroundCompilationServiceTests.swift in Sources */,
+				R4B0000001 /* RawStorageWriteFailedTests.swift in Sources */,
+				R4B0000002 /* LocationServiceLRUTests.swift in Sources */,
+				R4B0000003 /* ArchiveViewModelGroupTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

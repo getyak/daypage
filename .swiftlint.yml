@@ -1,0 +1,37 @@
+# .swiftlint.yml — DayPage Round 4 baseline (R4-LOW #42)
+#
+# Intentionally permissive — we're introducing SwiftLint to a 100kLOC
+# codebase, so the first wave runs in `|| true` mode and only flags
+# high-signal opt-in rules. We can tighten as we cut tickets to fix
+# existing violations.
+
+disabled_rules:
+  # Many existing files are deliberately long (RootView, TodayView, ArchiveView
+  # — these are top-level SwiftUI views with section subviews inline). Splitting
+  # them is a separate refactor effort, not something to gate CI on.
+  - line_length
+  - file_length
+  - type_body_length
+  - function_body_length
+  # Single-letter identifiers (`x`, `y`, `r`) are idiomatic in the graph
+  # simulation code; flipping this on would create noise.
+  - identifier_name
+  # Round 4 still has open TODOs intentionally — they're tracked in GitHub
+  # issues, and the lint warning would just create churn.
+  - todo
+
+opt_in_rules:
+  - empty_count          # `array.isEmpty` is cheaper than `array.count == 0`
+  - explicit_init        # avoid `.init(...)` when the type can be inferred
+  - first_where          # `first(where:)` over `filter().first`
+  - sorted_first_last    # `min()`/`max()` over `sorted().first`/`.last`
+
+excluded:
+  - DayPage/App/DSTokens.swift   # AUTO-GENERATED from design-tokens/tokens.json
+  - DayPage.xcodeproj
+  - .build
+  - build
+  - DayPageTests/Snapshots
+  - DayPage/Config/GeneratedSecrets.swift   # AUTO-GENERATED from env
+
+reporter: "github-actions-logging"
