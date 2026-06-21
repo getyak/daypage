@@ -22,6 +22,24 @@ struct TodayView: View {
     @State private var showSyncBanner: Bool = false
     @State private var showAuthSheet: Bool = false
 
+    // R3 — A2: Reflects "AI compile + Whisper are gagged because either the
+    // DeepSeek (Qwen-compatible) or OpenAI Whisper key is missing in Keychain
+    // AND no compile-time fallback was bundled". Recomputed onAppear + on
+    // scenePhase=.active so editing keys in Settings flips the banner without
+    // a relaunch.
+    @State private var aiKeyMissing: Bool = false
+
+    // R3 — A2: Session-only "user dismissed the banner" flag. Combined with
+    // `aiBannerDismissedUntil` (SceneStorage, see below) so a tap on the
+    // close x hides the banner for 24h, while a relaunch in the same scene
+    // honours the cooldown too. The session flag is cleared on a fresh
+    // process launch (because @State is per-instance), so a relaunch with
+    // expired cooldown will re-show the banner.
+    @State private var aiBannerDismissedSession: Bool = false
+    /// Epoch-seconds timestamp until which the banner stays suppressed.
+    /// Zero or past = show again. 24h cooldown after manual dismiss.
+    @SceneStorage("aiKeyBanner.dismissedUntil") private var aiBannerDismissedUntil: Double = 0
+
     /// 输入栏中的草稿文本。SceneStorage persists the draft across backgrounding and process kills.
     @SceneStorage("today.draftText") private var draftText: String = ""
 
@@ -213,6 +231,23 @@ struct TodayView: View {
                 VStack(spacing: 0) {
                     // MARK: Sidebar/Header (US-021: extracted subview)
                     sidebarSection
+
+                    // MARK: AI key missing banner (R3 — A2)
+                    //
+                    // Sits directly under the sidebar header so it precedes
+                    // transient compile chrome (progress bar, failure banner)
+                    // and the timeline. Only renders when both:
+                    //   1. at least one critical key (DeepSeek/Qwen compile or
+                    //      OpenAI Whisper) is empty in Keychain AND in the
+                    //      compile-time fallback;
+                    //   2. the user has finished onboarding (else the
+                    //      onboarding ApiKeysPage already covers this);
+                    //   3. the 24h "dismissed" cooldown is not active;
+                    //   4. this session hasn't already dismissed it.
+                    if shouldShowAIKeyBanner {
+                        aiKeyMissingBanner
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
 
                     // MARK: Compilation Progress Bar
                     if viewModel.isCompiling {
@@ -538,6 +573,10 @@ struct TodayView: View {
                 // Seed the milestone tracker from the current word count so that
                 // already-crossed milestones don't re-fire on launch.
                 lastWordMilestoneIndex = wordMilestones.filter { $0 <= viewModel.todayWordCount }.count
+                // R3 — A2: seed AI key state so the banner appears (or stays
+                // hidden) on the very first render rather than only after the
+                // next scenePhase flip.
+                refreshAIKeyMissing()
             }
             .onChange(of: draftText) { _ in
                 // B3: Debounce — only persist `draftDate` after typing pauses
@@ -562,6 +601,9 @@ struct TodayView: View {
             .onChange(of: scenePhase) { phase in
                 if phase == .active {
                     viewModel.load()
+                    // R3 — A2: re-check Keychain so the banner flips off the
+                    // moment the user comes back from Settings → API Keys.
+                    refreshAIKeyMissing()
                 }
             }
             // Re-seed the word milestone tracker once data finishes loading so
@@ -821,6 +863,133 @@ struct TodayView: View {
                     }
                 }
         )
+    }
+
+    // MARK: - AI key missing banner (R3 — A2)
+    //
+    // Shown when either the DeepSeek (Qwen-compatible) compile key or the
+    // OpenAI Whisper key is missing in Keychain AND not bundled at build
+    // time. Both keys gate user-visible behaviour (daily compile + voice
+    // transcription), so a single banner that covers either signal avoids
+    // a second-banner sprawl. CTA jumps to the in-app SettingsView (the
+    // API Keys section) rather than UIApplication.openSettingsURLString
+    // (which would take the user to the system Settings app where there's
+    // nothing to configure).
+
+    /// True when the banner should appear in this render. Combines:
+    /// missing key + onboarded + within session not dismissed + 24h
+    /// cooldown elapsed.
+    private var shouldShowAIKeyBanner: Bool {
+        guard aiKeyMissing else { return false }
+        // justOnboarded ≡ user hasn't finished onboarding yet. The
+        // Onboarding ApiKeysPage already handles the key-entry flow, and
+        // surfacing this banner over the onboarding chrome would be
+        // double-talk.
+        let hasOnboarded = UserDefaults.standard.bool(forKey: AppSettings.Keys.hasOnboarded)
+        guard hasOnboarded else { return false }
+        // Manual dismiss this session always wins.
+        guard !aiBannerDismissedSession else { return false }
+        // 24h cooldown — store as absolute epoch so a SceneStorage round-
+        // trip is enough; no Date(timeIntervalSinceReferenceDate:) drift.
+        if aiBannerDismissedUntil > Date().timeIntervalSince1970 { return false }
+        return true
+    }
+
+    /// Inspect Keychain (+ compile-time fallback) for the two AI keys we
+    /// surface in this banner: DeepSeek/Qwen compile and OpenAI Whisper.
+    /// OpenWeather is omitted by design — its absence is not a hard
+    /// block on the diary loop.
+    private func refreshAIKeyMissing() {
+        let compileMissing  = Secrets.resolvedDeepSeekApiKey.isEmpty
+        let whisperMissing  = Secrets.resolvedOpenAIWhisperApiKey.isEmpty
+        let next = compileMissing || whisperMissing
+        if next != aiKeyMissing {
+            withAnimation(reduceMotion ? nil : Motion.rise) {
+                aiKeyMissing = next
+            }
+        }
+    }
+
+    /// The actual banner row. 44pt tall, warm-amber tinted, with a
+    /// settings CTA on the right and an x dismiss on the far right.
+    private var aiKeyMissingBanner: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "key.slash")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(DSColor.amberAccent)
+                .accessibilityHidden(true)
+
+            Text(NSLocalizedString(
+                "today.banner.ai_key_missing",
+                value: "AI 编译已暂停 — 配置密钥后可启用",
+                comment: "Today banner shown when DeepSeek/Whisper API key is missing"
+            ))
+                .font(DSFonts.inter(size: 13, weight: .medium))
+                .foregroundColor(DSColor.inkPrimary)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button {
+                Haptics.tapConfirm()
+                // The in-app Settings sheet is the keychain editor; the
+                // system Settings deep-link has nothing to configure for
+                // an AI provider key, so jump in-app instead.
+                showSettings = true
+            } label: {
+                HStack(spacing: 4) {
+                    Text(NSLocalizedString(
+                        "today.banner.ai_key_missing.cta",
+                        value: "前往设置",
+                        comment: "Today banner CTA: open Settings to enter API key"
+                    ))
+                        .font(DSFonts.inter(size: 12, weight: .semibold))
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 10, weight: .semibold))
+                }
+                .foregroundColor(DSColor.amberAccent)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(
+                    Capsule().stroke(DSColor.amberAccent.opacity(0.55), lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(NSLocalizedString(
+                "today.banner.ai_key_missing.cta.a11y",
+                value: "前往设置配置 API 密钥",
+                comment: "VoiceOver label for the banner CTA"
+            ))
+
+            Button {
+                Haptics.soft()
+                // 24h cooldown — store the future "show again" epoch so a
+                // reentry within the next day stays quiet.
+                aiBannerDismissedUntil = Date().timeIntervalSince1970 + 24 * 3600
+                aiBannerDismissedSession = true
+                withAnimation(reduceMotion ? nil : Motion.dismiss) {
+                    // shouldShowAIKeyBanner now flips false via the two
+                    // flags above; no need to mutate aiKeyMissing.
+                }
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundColor(DSColor.inkMuted)
+                    .frame(width: 22, height: 22)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(NSLocalizedString(
+                "today.banner.ai_key_missing.dismiss",
+                value: "关闭提示",
+                comment: "VoiceOver label for the banner dismiss button"
+            ))
+        }
+        .padding(.horizontal, DSSpacing.pageMargin)
+        .frame(height: 44)
+        .frame(maxWidth: .infinity)
+        .background(DSColor.amberAccent.opacity(0.18))
+        .accessibilityElement(children: .contain)
     }
 
     // MARK: - Fallback Content (zero-memo today)

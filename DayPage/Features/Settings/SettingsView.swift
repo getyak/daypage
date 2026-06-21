@@ -55,6 +55,10 @@ struct SettingsView: View {
     // transcription). Default true; user can disable to enter "local only" mode.
     @AppStorage(AppSettings.Keys.aiFeaturesEnabled) private var aiFeaturesEnabled: Bool = true
 
+    // Issue #20: 2am 编译完成本地通知开关。Default true.
+    // BackgroundCompilationService.sendSuccessNotification 在发送前 guard 此值。
+    @AppStorage(AppSettings.Keys.notifyCompile) private var notifyCompile: Bool = true
+
     // API key editing sheet
     @State private var editingKeyName: String = ""
     @State private var editingKeyID: String = ""        // Keychain identifier
@@ -97,6 +101,7 @@ struct SettingsView: View {
                 accountSection
                 apiKeysSection
                 aiEngineSection
+                notificationsSection
                 permissionsSection
                 appearanceSection
                 timeZoneSection
@@ -992,6 +997,36 @@ struct SettingsView: View {
         } footer: {
             Text(NSLocalizedString("settings.ai.footer", comment: ""))
                 .font(.caption)
+        }
+    }
+
+    // MARK: - Notifications Section (Issue #20)
+
+    private var notificationsSection: some View {
+        Section {
+            Toggle(isOn: $notifyCompile) {
+                Label(
+                    NSLocalizedString(
+                        "settings.notifications.compile",
+                        value: "编译完成通知",
+                        comment: "Toggle: send a local notification once nightly Daily Page compile finishes"
+                    ),
+                    systemImage: "bell.badge"
+                )
+            }
+        } header: {
+            Text(NSLocalizedString(
+                "settings.notifications.section_title",
+                value: "通知",
+                comment: "Settings section title for local-notification controls"
+            ))
+        } footer: {
+            Text(NSLocalizedString(
+                "settings.notifications.footer",
+                value: "凌晨 2:00 后台自动编译完成时，会发本地通知到锁屏。",
+                comment: "Footer explaining when the compile-complete notification fires"
+            ))
+            .font(.caption)
         }
     }
 

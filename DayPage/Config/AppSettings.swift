@@ -194,6 +194,12 @@ extension AppSettings {
         static let graphHiddenTypes = "graph.hiddenTypes"
         // Summary copy hint — shown once when a compiled summary first appears
         static let summaryCopyHintShown = "today.summaryCopyHintShown"
+        // Issue #20 — 2am 编译完成本地通知：用户开关 (true → 发通知；false → 不发)。
+        // 默认 true：编译完成时弹本地通知；用户在 Settings 里可关闭。
+        static let notifyCompile = "settings.notifyCompile"
+        // Issue #20 — 是否已经请求过通知权限（避免冷启动重复弹系统权限弹窗，
+        // Onboarding 已请求时也走这条 guard）。
+        static let hasRequestedNotifications = "settings.hasRequestedNotifications"
     }
 }
 

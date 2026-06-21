@@ -12,6 +12,10 @@ extension Notification.Name {
     static let compilationDidStart = Notification.Name("com.daypage.compilationDidStart")
     /// 后台编译结束时发布（无论成功或失败）。
     static let compilationDidEnd = Notification.Name("com.daypage.compilationDidEnd")
+    /// EntityPageView backlink 行点击时发布；userInfo["date"]: String = "YYYY-MM-DD"。
+    /// DayPageApp.body 监听并转发到 navModel.openArchive(at:)，解耦视图层 — 因为
+    /// EntityPageView 在多个 sheet 入口下展示，无法稳定拿到 @EnvironmentObject。
+    static let openArchiveAt = Notification.Name("com.daypage.openArchiveAt")
 }
 
 // MARK: - NotificationDelegate
@@ -275,10 +279,35 @@ struct DayPageApp: App {
                         }
                     }
                 }
+                .onReceive(NotificationCenter.default.publisher(for: .openArchiveAt)) { note in
+                    // EntityPageView 的 backlink 行点击后，通过通知转发到 navModel。
+                    // 走通知是因为 EntityPageView 在多个 sheet 入口下展示（Graph、
+                    // DailyPage、recursive Entity），@EnvironmentObject 链路不稳定。
+                    // 校验 date 格式，避免脏 userInfo 导致跳到不存在的归档日期。
+                    guard let dateStr = note.userInfo?["date"] as? String,
+                          dateStr.range(of: #"^\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) != nil
+                    else { return }
+                    navModel.openArchive(at: dateStr)
+                }
                 .onAppear {
                     // 安排每晚自动编译并回填任何遗漏的日期
                     BackgroundCompilationService.shared.scheduleIfNeeded()
                     BackgroundCompilationService.shared.backfillIfNeeded()
+                    // Issue #20: 请求本地通知权限（用于 2am 编译完成回执）。
+                    // Onboarding 路径可能已请求过；用 hasRequestedNotifications
+                    // guard 避免冷启动重复弹系统授权框。注意：.onAppear 会在
+                    // RootView 首次出现 + 后续场景切换时重入，所以 guard 是必需的。
+                    let defaults = UserDefaults.standard
+                    if !defaults.bool(forKey: AppSettings.Keys.hasRequestedNotifications) {
+                        defaults.set(true, forKey: AppSettings.Keys.hasRequestedNotifications)
+                        UNUserNotificationCenter.current().requestAuthorization(
+                            options: [.alert, .sound, .badge]
+                        ) { _, _ in
+                            // 用户拒绝时 BGCompile.sendSuccessNotification 的
+                            // center.add() 会静默失败（log 一行 error），不影响
+                            // 主流程；不需要在此处理 granted 状态。
+                        }
+                    }
                     // 如果已授权"始终"权限，启动被动访问监控
                     PassiveLocationService.shared.startMonitoringIfAuthorized()
                     // 加载"历史上的今天"索引

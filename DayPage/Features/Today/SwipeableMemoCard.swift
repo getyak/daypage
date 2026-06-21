@@ -122,6 +122,13 @@ struct SwipeableMemoCard: View {
     // mid-drag haptic tick fires once per cross, not once per frame.
     @State private var armedSide: Side? = nil
 
+    // R3 — fires a stronger "fully revealed" light-impact tick the first
+    // time the user pulls the panel all the way open (≥ panelWidth) within
+    // a single drag. Distinct from the early `armedSide` tick (which fires
+    // at openThreshold to signal "release-to-arm"). Resets when the drag
+    // ends or the drag direction flips.
+    @State private var fullyRevealedSide: Side? = nil
+
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     fileprivate enum Side { case leading, trailing }
@@ -158,6 +165,47 @@ struct SwipeableMemoCard: View {
 
     private var snapAnimation: Animation {
         reduceMotion ? SwipePhysics.reducedSnap : SwipePhysics.snapSpring
+    }
+
+    /// Long-press fallback menu — SHARE / PIN(or UNPIN) / DELETE. Mirrors
+    /// the swipe-revealed actions so users who haven't found the gesture
+    /// (or are using VoiceOver) can still reach every option. Disabled in
+    /// selection mode by attaching only when not selecting.
+    @ViewBuilder private func contextMenuItems() -> some View {
+        if !isSelectionMode {
+            Button {
+                Haptics.tapConfirm()
+                onShare?()
+            } label: {
+                Label(
+                    NSLocalizedString("memo.swipe.share", comment: "Swipe/contextMenu: share memo"),
+                    systemImage: "square.and.arrow.up"
+                )
+            }
+
+            Button {
+                Haptics.tapConfirm()
+                onPin?()
+            } label: {
+                let label = memo.pinnedAt != nil
+                    ? NSLocalizedString("memo.swipe.unpin", comment: "Swipe/contextMenu: unpin memo")
+                    : NSLocalizedString("memo.swipe.pin",   comment: "Swipe/contextMenu: pin memo")
+                Label(label, systemImage: memo.pinnedAt != nil ? "pin.slash" : "pin")
+            }
+
+            // role:.destructive paints the menu row red in iOS 15+; the
+            // warning notification haptic before the delete callback
+            // mirrors the swipe-revealed DELETE behaviour.
+            Button(role: .destructive) {
+                Haptics.warningNotification()
+                onDelete?()
+            } label: {
+                Label(
+                    NSLocalizedString("memo.swipe.delete", comment: "Swipe/contextMenu: delete memo"),
+                    systemImage: "trash"
+                )
+            }
+        }
     }
 
     var body: some View {
@@ -212,6 +260,12 @@ struct SwipeableMemoCard: View {
             .allowsHitTesting(revealedSide != nil && !isSelectionMode)
         }
         .clipped()
+        // R3 — long-press contextMenu fallback. The swipe drawer is the
+        // primary discovery path, but users who don't yet know the gesture
+        // (or who are using accessibility tools) can still reach every
+        // action via long-press. Disabled in selection mode so a long
+        // press there doesn't fight the toggle.
+        .contextMenu(menuItems: contextMenuItems)
         .accessibilityLabel(accessibilityMemoLabel)
         .accessibilityAction(named: "Share") { onShare?() }
         .accessibilityAction(named: "More") { onMore?() }
@@ -272,7 +326,11 @@ struct SwipeableMemoCard: View {
                 label: NSLocalizedString("memo.swipe.delete", comment: "Swipe action: delete memo"),
                 systemImage: "trash",
                 tone: .destructive,
-                run: { runAction(haptic: .confirm) { onDelete?() } }
+                // R3 — destructive actions get the system warning notification
+                // pulse (not the lighter confirm tick) so the user feels an
+                // unmistakable "irreversible action ahead" cue before the
+                // close animation runs and the parent's actual delete fires.
+                run: { runAction(haptic: .warn) { onDelete?() } }
             ),
         ]
     }
@@ -293,11 +351,15 @@ struct SwipeableMemoCard: View {
     /// Shared run-then-close choreography: fire a haptic, snap the panel
     /// closed, then run the action after the close settles so the detail
     /// sheet / dialog doesn't animate over a still-open drawer.
-    private enum ActionHaptic { case soft, confirm }
+    private enum ActionHaptic { case soft, confirm, warn }
     private func runAction(haptic: ActionHaptic = .soft, _ action: @escaping () -> Void) {
         switch haptic {
         case .soft:    Haptics.soft()
         case .confirm: Haptics.tapConfirm()
+        // R3 — UINotificationFeedbackGenerator(.warning) for destructive
+        // commits (delete / discard). Distinct from the lighter `.confirm`
+        // tick used for benign saves like share / pin.
+        case .warn:    Haptics.warningNotification()
         }
         snapClose()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: action)
@@ -318,12 +380,14 @@ struct SwipeableMemoCard: View {
         dragDelta = 0
         decideSnap(dx: translation, velocity: velocity)
         armedSide = nil
+        fullyRevealedSide = nil
     }
 
     private func handlePanCancelled() {
         // Snap back to the prior resting state without touching settledOffset.
         dragDelta = 0
         armedSide = nil
+        fullyRevealedSide = nil
     }
 
     /// Fires a soft tick the first time a drag crosses the open threshold
@@ -343,6 +407,23 @@ struct SwipeableMemoCard: View {
         if armingSide != armedSide {
             armedSide = armingSide
             if armingSide != nil { Haptics.soft() }
+        }
+
+        // R3 — second tick at the *full* panelWidth so the user feels a
+        // confirmable "drawer fully out" cue distinct from the early
+        // armed-at-threshold tick. UIImpactFeedbackGenerator(.light) via
+        // Haptics.light() keeps the impact crisp without being shouty.
+        let fullSide: Side?
+        if offset >= SwipePhysics.panelWidth {
+            fullSide = .leading
+        } else if offset <= -SwipePhysics.panelWidth {
+            fullSide = .trailing
+        } else {
+            fullSide = nil
+        }
+        if fullSide != fullyRevealedSide {
+            fullyRevealedSide = fullSide
+            if fullSide != nil { Haptics.light() }
         }
     }
 
@@ -420,7 +501,20 @@ private struct SwipeActionPanel: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(orderedActions) { action in
+            // R3 — interleave a 1pt hairline between adjacent action columns
+            // so the share/delete (or pin/more) boundary reads as two distinct
+            // tap targets rather than a single colored slab. `inkFaint` is the
+            // same low-opacity ink token used by other DS rules and keeps the
+            // divider readable in both schemes.
+            ForEach(Array(orderedActions.enumerated()), id: \.element.id) { index, action in
+                if index > 0 {
+                    Rectangle()
+                        .fill(DSColor.inkFaint)
+                        .frame(width: 1)
+                        .frame(maxHeight: .infinity)
+                        .opacity(progress > 0.02 ? 1 : 0)
+                        .allowsHitTesting(false)
+                }
                 SwipeActionButton(action: action, progress: progress)
             }
         }
@@ -499,7 +593,14 @@ private struct SwipeActionButton: View {
 
     private var baseColor: Color {
         switch action.tone {
-        case .accent:      return DSColor.accentAmber
+        // R3 — SHARE switches from the darker `accentAmber` (#5D3000) to
+        // the brighter primary `amberAccent` (#A8541B) so the action
+        // surface reads as warm-amber-active rather than near-black. This
+        // is the warm-cream "primary action" amber the rest of the v4
+        // language uses for active state.
+        case .accent:      return DSColor.amberAccent
+        // R3 — DELETE uses the existing semantic `errorRed` (#A23A2E) —
+        // already the spec'd destructive token, no new color needed.
         case .destructive: return DSColor.errorRed
         case .neutral:     return DSColor.surfaceSunken
         }
@@ -507,7 +608,11 @@ private struct SwipeActionButton: View {
 
     private var foreground: Color {
         switch action.tone {
-        case .accent, .destructive: return .white
+        // R3 — both saturated tones use `onRecording` (near-white in both
+        // schemes, the same token the recording overlay uses on its dark
+        // amber substrate) instead of raw `Color.white`. Keeps amber +
+        // red surfaces token-driven and dark-mode-correct.
+        case .accent, .destructive: return DSColor.onRecording
         case .neutral:              return DSColor.inkPrimary
         }
     }

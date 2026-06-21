@@ -30,6 +30,9 @@ struct EntityPageView: View {
     /// True while the background scan is enumerating vault/raw — used to show
     /// a shimmer/spinner in the RELATED ENTRIES section instead of "empty".
     @State private var isScanningRelated: Bool = true
+    /// When false, the backlinks section caps at 10 rows with a "查看更多" CTA.
+    /// Tapping the CTA flips this to true so the rest of `linkedMemos` reveals.
+    @State private var backlinksExpanded: Bool = false
 
     // MARK: - NotFoundReason
 
@@ -66,6 +69,10 @@ struct EntityPageView: View {
                                 .padding(.bottom, 40)
 
                             relatedMemos(model: model)
+                                .padding(.horizontal, 20)
+                                .padding(.bottom, 40)
+
+                            backlinksSection
                                 .padding(.horizontal, 20)
                                 .padding(.bottom, 40)
                         }
@@ -371,6 +378,145 @@ struct EntityPageView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Backlinks (📌 被 N 个 memo 引用)
+
+    /// New section showing raw-memo backlinks for this entity. Distinct from
+    /// "RELATED ENTRIES" above: that section navigates to DailyPageView via a
+    /// sheet; this one routes back to ArchiveView so the user can scroll the
+    /// timeline at that date. Empty state hides the entire section.
+    @ViewBuilder
+    private var backlinksSection: some View {
+        if isScanningRelated && linkedMemos.isEmpty {
+            // Loading state: reuse the same "scanning" copy as RELATED ENTRIES so
+            // the user doesn't see a flash-of-empty-section while the background
+            // scan is still walking vault/raw.
+            VStack(alignment: .leading, spacing: 12) {
+                backlinksHeader(count: 0)
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .scaleEffect(0.8)
+                    Text("正在扫描关联记录…")
+                        .bodySMStyle()
+                        .foregroundColor(DSColor.onSurfaceVariant)
+                }
+                .padding(.vertical, 8)
+            }
+        } else if !linkedMemos.isEmpty {
+            let total = linkedMemos.count
+            let visibleCount = backlinksExpanded ? total : min(10, total)
+            VStack(alignment: .leading, spacing: 0) {
+                backlinksHeader(count: total)
+                    .padding(.bottom, 12)
+
+                ForEach(0..<visibleCount, id: \.self) { idx in
+                    backlinkRow(linkedMemos[idx])
+                    if idx < visibleCount - 1 {
+                        Rectangle()
+                            .fill(DSColor.glassEdge)
+                            .frame(height: 0.5)
+                    }
+                }
+
+                if !backlinksExpanded && total > 10 {
+                    Button {
+                        Haptics.soft()
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+                            backlinksExpanded = true
+                        }
+                    } label: {
+                        HStack {
+                            Text("查看更多 (\(total - 10))")
+                                .font(DSType.bodyMD)
+                                .foregroundColor(DSColor.amberArchival)
+                            Spacer()
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 11))
+                                .foregroundColor(DSColor.amberArchival)
+                        }
+                        .padding(.vertical, 12)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("查看更多 \(total - 10) 条引用")
+                }
+            }
+        }
+        // Empty (!isScanningRelated && linkedMemos.isEmpty) → render nothing.
+    }
+
+    private func backlinksHeader(count: Int) -> some View {
+        // "📌 被 N 个 memo 引用" — count = total linkedMemos (not the visible
+        // window) so the header always reflects the full backlink fan-in.
+        HStack(spacing: 16) {
+            Text("📌 被 \(count) 个 memo 引用")
+                .font(.custom("SpaceGrotesk-Bold", size: 11))
+                .foregroundColor(DSColor.outline)
+                .kerning(2)
+            Rectangle()
+                .fill(DSColor.outlineVariant)
+                .frame(height: 1)
+        }
+    }
+
+    @ViewBuilder
+    private func backlinkRow(_ item: (dateStr: String, memo: Memo)) -> some View {
+        Button {
+            Haptics.tapConfirm()
+            // Two-step nav: dismiss this sheet first, then route to Archive.
+            // EntityPageView is presented from several entry points (Graph,
+            // DailyPage, recursive Entity) where the nav environment object
+            // is not consistently available, so we go through Notification
+            // instead of @EnvironmentObject. DayPageApp observes the
+            // notification and calls navModel.openArchive(at:).
+            let dateStr = item.dateStr
+            dismiss()
+            // Defer the post by one runloop so SwiftUI's dismiss animation
+            // doesn't race with ArchiveView's onChange(of: pendingArchiveDate).
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 200_000_000)
+                NotificationCenter.default.post(
+                    name: .openArchiveAt,
+                    object: nil,
+                    userInfo: ["date": dateStr]
+                )
+            }
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.dateStr)
+                        .monoLabelStyle(size: 10)
+                        .foregroundColor(DSColor.onSurfaceVariant)
+                    Text(backlinkSnippet(item.memo))
+                        .font(DSType.bodyMD)
+                        .foregroundColor(DSColor.onSurface)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11))
+                    .foregroundColor(DSColor.onSurfaceVariant)
+            }
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(item.dateStr): \(backlinkSnippet(item.memo))")
+        .accessibilityHint("跳转到归档查看该日期")
+    }
+
+    /// First non-empty line of the memo body, truncated to 60 chars.
+    /// Falls back to a typed placeholder (e.g. "[voice]") when the body
+    /// is empty — those memos exist when the user records audio without
+    /// adding text.
+    private func backlinkSnippet(_ memo: Memo) -> String {
+        let trimmed = memo.body.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "[\(memo.type.rawValue)]" }
+        let firstLine = trimmed.components(separatedBy: "\n").first ?? trimmed
+        if firstLine.count <= 60 { return firstLine }
+        return String(firstLine.prefix(60)) + "…"
     }
 
     // MARK: - Wikilink Text

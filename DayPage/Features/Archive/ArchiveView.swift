@@ -417,6 +417,27 @@ final class ArchiveViewModel: ObservableObject {
             .sorted { $0.dateString > $1.dateString }
     }
 
+    // MARK: Grouped By Month (list-mode sectioning, Issue #13 perf)
+    //
+    // Buckets `sortedDays` by their "yyyy-MM" prefix so the LazyVStack can
+    // render proper Sections with month headers. SwiftUI's LazyVStack is
+    // smarter about offscreen-row layout when it sees an explicit Section
+    // boundary, which is what unsticks the 1-2s first-scroll freeze on
+    // months with many populated days.
+    //
+    // The underlying scan is O(n) and `n` is at most ~31 within the loaded
+    // month, so this is cheap to recompute on every dayStats change.
+    var groupedByMonth: [(monthKey: String, days: [DayStats])] {
+        var groups: [String: [DayStats]] = [:]
+        for stats in sortedDays {
+            let monthKey = String(stats.dateString.prefix(7))
+            groups[monthKey, default: []].append(stats)
+        }
+        return groups
+            .map { (monthKey: $0.key, days: $0.value) }
+            .sorted { $0.monthKey > $1.monthKey }
+    }
+
     // MARK: Monthly Filter
 
     func filteredDays(filter: MonthlySummaryFilter) -> [DayStats] {
@@ -1368,7 +1389,12 @@ struct ArchiveView: View {
     // MARK: - List Content
 
     private var listContent: some View {
-        LazyVStack(spacing: 8) {
+        // Issue #13 perf: month-grouped Sections let LazyVStack lay out only
+        // the rows it actually needs (one bucket at a time), eliminating the
+        // 1-2s freeze on the first scroll when a month has many populated
+        // days. iOS 16 compatibility: do NOT use pinnedViews — sticky-header
+        // behavior is inconsistent on 16.x; a plain header View is enough.
+        LazyVStack(spacing: 8, pinnedViews: []) {
             Color.clear.frame(height: 0).id("archiveListTop")
 
             if viewModel.sortedDays.isEmpty {
@@ -1383,12 +1409,49 @@ struct ArchiveView: View {
                 monthDigestStrip
                     .padding(.bottom, 4)
 
-                ForEach(viewModel.sortedDays, id: \.dateString) { stats in
-                    archiveListRow(stats: stats)
+                ForEach(viewModel.groupedByMonth, id: \.monthKey) { group in
+                    Section {
+                        ForEach(group.days, id: \.dateString) { stats in
+                            archiveListRow(stats: stats)
+                                .id(stats.dateString)
+                        }
+                    } header: {
+                        monthSectionHeader(monthKey: group.monthKey, dayCount: group.days.count)
+                    }
                 }
             }
         }
         .padding(.top, 8)
+    }
+
+    // MARK: - Month Section Header (list mode, Issue #13)
+    //
+    // Renders "YYYY 年 M 月" on the left and "<count> 天" on the right. Uses
+    // `.ultraThinMaterial` as the background since `DSColor.bgCard` is not
+    // defined in this design system.
+    private func monthSectionHeader(monthKey: String, dayCount: Int) -> some View {
+        // Parse "yyyy-MM" → "YYYY 年 M 月" without spinning up a DateFormatter
+        // every section render. monthKey is a fixed-width 7-char "yyyy-MM".
+        let yearPart = String(monthKey.prefix(4))
+        let monthRaw = String(monthKey.suffix(2))
+        let monthInt = Int(monthRaw) ?? 0
+        let headerTitle = "\(yearPart) 年 \(monthInt) 月"
+
+        return HStack(alignment: .firstTextBaseline) {
+            Text(headerTitle)
+                .font(DSType.titleSM)
+                .foregroundColor(DSColor.inkPrimary)
+            Spacer(minLength: 8)
+            Text("\(dayCount) 天")
+                .font(DSType.labelSM)
+                .foregroundColor(DSColor.inkMuted)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.ultraThinMaterial)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(headerTitle), \(dayCount) 天")
     }
 
     // MARK: - Month Digest Strip (list mode)

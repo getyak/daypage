@@ -45,6 +45,11 @@ struct GraphView: View {
     // Wrap-around flash state for the match-count pill
     @State private var matchPillFlash: Bool = false
 
+    // Zero-match glass toast — fades out after 3s; cancelled when query changes.
+    @State private var showZeroMatchToast: Bool = false
+    @State private var zeroMatchToastQuery: String = ""
+    @State private var zeroMatchToastGen: Int = 0
+
     // Network-size milestone tracking — fires soft haptic + VoiceOver every 10 nodes
     @State private var lastNetworkMilestone: Int = 0
 
@@ -238,22 +243,31 @@ struct GraphView: View {
                         let query = viewModel.searchQuery
                         guard !query.isEmpty else {
                             lastZeroQuery = nil
+                            dismissZeroMatchToast()
                             return
                         }
                         if count == 0 && lastZeroQuery != query {
                             lastZeroQuery = query
                             Haptics.warn()
+                            presentZeroMatchToast(for: query)
                             if UIAccessibility.isVoiceOverRunning {
                                 let msg = NSLocalizedString("graph.search.zero_match", comment: "Graph search zero-match VoiceOver announcement")
                                 UIAccessibility.post(notification: .announcement, argument: msg)
                             }
                         } else if count > 0 {
                             lastZeroQuery = nil
+                            dismissZeroMatchToast()
                             if UIAccessibility.isVoiceOverRunning {
                                 let msg = String(format: NSLocalizedString("graph.search.match_count.voiceover", comment: "Graph search match count VoiceOver announcement"), count)
                                 UIAccessibility.post(notification: .announcement, argument: msg)
                             }
                         }
+                    }
+                    .onChange(of: viewModel.searchQuery) { _ in
+                        // New query → cancel any pending toast so the next zero-hit
+                        // can re-trigger from a clean state, and stale toasts don't
+                        // linger over an in-flight new query.
+                        dismissZeroMatchToast()
                     }
                 }
 
@@ -337,6 +351,13 @@ struct GraphView: View {
                     graphCanvas
                     legend
                 }
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if showZeroMatchToast {
+                zeroMatchToast
+                    .padding(.bottom, 96)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
         .navigationBarHidden(true)
@@ -1018,6 +1039,56 @@ struct GraphView: View {
         .accessibilityLabel(String(format: NSLocalizedString("graph.legend.node_count", comment: "Graph legend row accessibility label"), label, count))
         .accessibilityValue(isHidden ? NSLocalizedString("graph.legend.value.hidden", comment: "Graph legend hidden state") : NSLocalizedString("graph.legend.value.shown", comment: "Graph legend shown state"))
         .accessibilityAddTraits(.isButton)
+    }
+
+    // MARK: - Zero-Match Toast
+
+    private var zeroMatchToast: some View {
+        // Chinese-by-default string (consistent with other in-product copy like
+        // "暂无关联记录" in EntityPageView). Quoted query is the user's literal
+        // input so they see exactly what didn't match.
+        let msg = "没有匹配 '\(zeroMatchToastQuery)'"
+        return Text(msg)
+            .font(DSFonts.jetBrainsMono(size: 12))
+            .foregroundColor(DSColor.inkPrimary)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            // #771: zero-match toast → glass engine (.toast). Engine owns rim.
+            .dpGlass(.toast, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .accessibilityLabel(msg)
+    }
+
+    private func presentZeroMatchToast(for query: String) {
+        zeroMatchToastQuery = query
+        zeroMatchToastGen += 1
+        let gen = zeroMatchToastGen
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+            showZeroMatchToast = true
+        }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            // A newer toast (or a dismissZeroMatchToast call) bumped the
+            // generation — drop this stale fade-out so it doesn't snuff a
+            // freshly-presented toast.
+            guard gen == zeroMatchToastGen else { return }
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
+                showZeroMatchToast = false
+            }
+        }
+    }
+
+    private func dismissZeroMatchToast() {
+        guard showZeroMatchToast else {
+            // Still bump the generation so any pending fade-out task drops
+            // the next-toast schedule, even if no toast is on screen yet.
+            zeroMatchToastGen += 1
+            return
+        }
+        zeroMatchToastGen += 1
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
+            showZeroMatchToast = false
+        }
     }
 
     // MARK: - Search Match Navigation

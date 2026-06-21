@@ -259,19 +259,59 @@ final class BackgroundCompilationService {
     // MARK: - Private: Local Notifications
 
     private func sendSuccessNotification(for date: Date) {
-        let center = UNUserNotificationCenter.current()
+        // Issue #20: respect the user toggle. UserDefaults.bool returns false
+        // when the key is absent, so we treat "key missing" as on-by-default
+        // — only an explicit `false` suppresses notifications.
+        let store = UserDefaults.standard
+        if store.object(forKey: AppSettings.Keys.notifyCompile) != nil,
+           store.bool(forKey: AppSettings.Keys.notifyCompile) == false {
+            return
+        }
+
+        // Issue #20: surface partial-failure context so the user knows that
+        // N memo writes failed even though the Daily Page itself landed.
+        // `lastMemoUpdateFailures` is reset to 0 at the start of every
+        // CompilationService.compile() call (see CompilationService.swift:74),
+        // so this value is scoped to the just-completed run.
+        let failures = CompilationService.shared.lastMemoUpdateFailures
+
+        let dateString = Self.dateFormatter.string(from: date)
 
         let content = UNMutableNotificationContent()
-        content.title = "DayPage"
-        content.body = "昨天的 Daily Page 已编译完成"
+        content.title = NSLocalizedString(
+            "notif.compile.success.title",
+            value: "今日 Daily Page 已生成",
+            comment: "Local notification title fired after a successful nightly compilation"
+        )
+        if failures > 0 {
+            let fmt = NSLocalizedString(
+                "notif.compile.success.body.partial",
+                value: "AI 已编译完成 (%d 条更新失败)，点击查看今日的故事",
+                comment: "Notification body when compile succeeded but some memo writes failed"
+            )
+            content.body = String(format: fmt, failures)
+        } else {
+            content.body = NSLocalizedString(
+                "notif.compile.success.body",
+                value: "AI 已编译完成，点击查看今日的故事",
+                comment: "Notification body for a fully successful nightly compilation"
+            )
+        }
         content.sound = .default
+        content.userInfo = [
+            "type": "compile_success",
+            "date": dateString
+        ]
 
+        // Stable per-day identifier collapses duplicate notifications when the
+        // same date is compiled twice (e.g. backfill after a failed bg run).
         let request = UNNotificationRequest(
-            identifier: "com.daypage.compiled-\(date.timeIntervalSince1970)",
+            identifier: "daypage.compile.\(dateString)",
             content: content,
             trigger: nil
         )
 
+        let center = UNUserNotificationCenter.current()
         center.add(request) { error in
             if let error {
                 DayPageLogger.shared.error("[BGCompile] Notification error: \(error.localizedDescription)")
