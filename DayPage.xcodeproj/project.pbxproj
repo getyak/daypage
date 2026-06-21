@@ -78,6 +78,7 @@
 		A10000033 /* CameraPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000033 /* CameraPickerView.swift */; };
 		A10000034 /* DocumentPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000034 /* DocumentPickerView.swift */; };
 		A10000035 /* GraphViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000035 /* GraphViewModel.swift */; };
+		A10000F50 /* GraphDisplayLinkController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000F50 /* GraphDisplayLinkController.swift */; };
 		A10000036 /* DayPageLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000036 /* DayPageLogger.swift */; };
 		A10000037 /* AppBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000037 /* AppBanner.swift */; };
 		A10000038 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000038 /* NetworkMonitor.swift */; };
@@ -328,6 +329,7 @@
 		A20000033 /* CameraPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPickerView.swift; sourceTree = "<group>"; };
 		A20000034 /* DocumentPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPickerView.swift; sourceTree = "<group>"; };
 		A20000035 /* GraphViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphViewModel.swift; sourceTree = "<group>"; };
+		A20000F50 /* GraphDisplayLinkController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphDisplayLinkController.swift; sourceTree = "<group>"; };
 		A20000036 /* DayPageLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPageLogger.swift; sourceTree = "<group>"; };
 		A20000037 /* AppBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBanner.swift; sourceTree = "<group>"; };
 		A20000038 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
@@ -841,6 +843,7 @@
 			children = (
 				A20000012 /* GraphView.swift */,
 				A20000035 /* GraphViewModel.swift */,
+				A20000F50 /* GraphDisplayLinkController.swift */,
 			);
 			path = Graph;
 			sourceTree = "<group>";
@@ -1270,6 +1273,7 @@
 				A1000ABC1 /* YearMonthPicker.swift in Sources */,
 				A10000012 /* GraphView.swift in Sources */,
 				A10000035 /* GraphViewModel.swift in Sources */,
+				A10000F50 /* GraphDisplayLinkController.swift in Sources */,
 				A10000013 /* TodayViewModel.swift in Sources */,
 				A10000014 /* MemoCardView.swift in Sources */,
 				A10000016 /* LocationService.swift in Sources */,

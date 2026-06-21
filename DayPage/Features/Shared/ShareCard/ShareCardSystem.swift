@@ -442,7 +442,21 @@ enum PosterDispatcher {
     /// new styles fall back to the closest existing renderer (Minimal for the
     /// editorial film/postcard look, Polaroid for the warm journal look) so a
     /// shared card is still on-brand without 12 extra rarely-used templates.
-    static func render(payload: SharePayload, style: PosterStyle) -> UIImage {
+    /// `colorScheme` is threaded through to `PosterRenderTrait` so the
+    /// dynamic-provider UIColors in the palettes resolve to their dark
+    /// variants when the sheet is rendered in dark mode. Default `.light`
+    /// keeps existing call sites that don't pass a scheme source-compatible.
+    static func render(
+        payload: SharePayload,
+        style: PosterStyle,
+        colorScheme: PosterColorScheme = .light
+    ) -> UIImage {
+        return PosterRenderTrait.with(colorScheme: colorScheme) {
+            renderInner(payload: payload, style: style)
+        }
+    }
+
+    private static func renderInner(payload: SharePayload, style: PosterStyle) -> UIImage {
         switch (style, payload) {
         // MARK: Minimal
         case (.minimal,  .memo):    return MinimalMemoTemplate.render(payload)
@@ -502,6 +516,7 @@ struct ShareCardSheet: View {
     let payload: SharePayload
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @State private var style: PosterStyle = .minimal
     @State private var renderedImage: UIImage?
     @State private var showSystemShare = false
@@ -565,6 +580,11 @@ struct ShareCardSheet: View {
             await rerender()
         }
         .onChange(of: style) { _ in
+            Task { await rerender() }
+        }
+        .onChange(of: colorScheme) { _ in
+            // Re-render when the system flips light/dark so the off-screen
+            // canvas picks up the new palette (#R2-CRITICAL).
             Task { await rerender() }
         }
         .sheet(isPresented: $showSystemShare) {
@@ -644,8 +664,12 @@ struct ShareCardSheet: View {
         // Off-main rendering keeps the UI responsive on long memos. Rendering at
         // 1080 width is ~10-30ms but CJK + many highlights can spike it.
         let snapshot = (payload, style)
+        // Capture the SwiftUI colorScheme on the main actor and translate it
+        // for the renderer — UITraitCollection.current is per-thread, so the
+        // detached Task needs an explicit value to set it from.
+        let scheme: PosterColorScheme = colorScheme == .dark ? .dark : .light
         let img = await Task.detached(priority: .userInitiated) {
-            PosterDispatcher.render(payload: snapshot.0, style: snapshot.1)
+            PosterDispatcher.render(payload: snapshot.0, style: snapshot.1, colorScheme: scheme)
         }.value
         renderedImage = img
         Haptics.soft()

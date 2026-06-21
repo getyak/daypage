@@ -2,6 +2,21 @@ import SwiftUI
 import CoreLocation
 import AVFoundation
 
+// MARK: - ApiKeyKind
+
+/// B2: single source of truth for every API key identifier persisted in the
+/// `com.daypage.apikeys` Keychain service. Both the apiKeysSection rows and
+/// the `purgeAllLocalData` clear-button consume this so the two cannot drift.
+///
+/// `rawValue` MUST match the historical identifier strings the rest of the
+/// codebase (Onboarding/ApiKeysPage, Secrets resolution helpers) already
+/// uses — renaming them would orphan existing user keychain entries.
+enum ApiKeyKind: String, CaseIterable {
+    case deepSeek         = "deepSeekApiKey"
+    case openAIWhisper    = "openAIWhisperApiKey"
+    case openWeather      = "openWeatherApiKey"
+}
+
 // MARK: - SettingsView
 
 @MainActor
@@ -46,6 +61,10 @@ struct SettingsView: View {
     @State private var editingKeyValue: String = ""
     @State private var showApiKeyEditor = false
     @State private var keyRefreshToken: UUID = UUID()   // bump to force apiKeysSection redraw
+
+    // B1: per-key reveal toggle. Set member = keychainID currently revealed.
+    // Default is masked (••••••••); tapping eye flips for one row at a time.
+    @State private var revealedKeys: Set<String> = []
 
     // Account sheet
     @EnvironmentObject private var authService: AuthService
@@ -227,7 +246,7 @@ struct SettingsView: View {
             let _ = keyRefreshToken  // read token so SwiftUI re-evaluates when key is saved
             apiKeyRow(
                 name: "DeepSeek",
-                keychainID: "deepSeekApiKey",
+                keychainID: ApiKeyKind.deepSeek.rawValue,
                 key: Secrets.resolvedDeepSeekApiKey,
                 isTesting: deepSeekTesting,
                 result: deepSeekResult,
@@ -236,7 +255,7 @@ struct SettingsView: View {
             )
             apiKeyRow(
                 name: "OpenAI Whisper",
-                keychainID: "openAIWhisperApiKey",
+                keychainID: ApiKeyKind.openAIWhisper.rawValue,
                 key: Secrets.resolvedOpenAIWhisperApiKey,
                 isTesting: whisperTesting,
                 result: whisperResult,
@@ -245,7 +264,7 @@ struct SettingsView: View {
             )
             apiKeyRow(
                 name: "OpenWeatherMap",
-                keychainID: "openWeatherApiKey",
+                keychainID: ApiKeyKind.openWeather.rawValue,
                 key: Secrets.resolvedOpenWeatherApiKey,
                 isTesting: weatherTesting,
                 result: weatherResult,
@@ -281,12 +300,40 @@ struct SettingsView: View {
                             .font(.caption)
                             .foregroundColor(badgeColor)
                     } else {
-                        Text("…" + String(key.suffix(4)))
+                        // B1: default render is fully masked + last 2 chars so the
+                        // value is recognizable without leaking the secret. The
+                        // user can opt in to reveal via the eye button below.
+                        let revealed = revealedKeys.contains(keychainID)
+                        Text(revealed ? key : "••••••••" + String(key.suffix(2)))
                             .font(DSType.labelSM)
                             .foregroundColor(DSColor.onSurfaceVariant)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .accessibilityIdentifier("api-key-value-\(providerID)")
                     }
                 }
                 Spacer()
+
+                // B1: eye toggle. Only meaningful once a key exists — hide for
+                // empty rows to avoid a dangling icon on first-run state.
+                if !key.isEmpty {
+                    let revealed = revealedKeys.contains(keychainID)
+                    Button {
+                        if revealed {
+                            revealedKeys.remove(keychainID)
+                        } else {
+                            revealedKeys.insert(keychainID)
+                        }
+                    } label: {
+                        Image(systemName: revealed ? "eye" : "eye.slash")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .accessibilityLabel(NSLocalizedString("settings.apikey.reveal.label", comment: ""))
+                    .accessibilityIdentifier("api-key-reveal-button-\(providerID)")
+                }
+
                 Button {
                     editingKeyName = name
                     editingKeyID = keychainID
@@ -1158,9 +1205,12 @@ struct SettingsView: View {
             }
         }
 
-        // 2. API keys in Keychain. Match identifiers used by SettingsView.
-        for keychainID in ["deepseek", "openai", "openweather"] {
-            KeychainHelper.deleteAPIKey(for: keychainID)
+        // 2. API keys in Keychain. B2: drive off ApiKeyKind so this can never
+        // drift from apiKeysSection again. Previously this passed the wrong
+        // identifiers ("deepseek" instead of "deepSeekApiKey"), so the
+        // "Delete All Local Data" button silently left every API key behind.
+        for kind in ApiKeyKind.allCases {
+            KeychainHelper.deleteAPIKey(for: kind.rawValue)
         }
 
         // 3. UserDefaults — reset onboarding + engagement keys. Targeted rather

@@ -31,6 +31,14 @@ final class LocationService: NSObject, ObservableObject {
     private let manager = CLLocationManager()
     private var locationContinuation: CheckedContinuation<CLLocation, Error>?
 
+    /// LRU geocoding cache. Quantizes lat/lng to ~1km buckets and stores
+    /// the resolved place name with a 30-minute TTL. Capped at 10 entries —
+    /// when full, evicts the oldest (front) entry. Saves a network round-trip
+    /// for repeated reverse-geocodes within the same neighborhood.
+    private var geocodeCache: [(bucket: String, name: String, expiry: Date)] = []
+    private let geocodeCacheLimit = 10
+    private let geocodeCacheTTL: TimeInterval = 30 * 60
+
     // MARK: - Init
 
     private override init() {
@@ -130,7 +138,19 @@ final class LocationService: NSObject, ObservableObject {
     }
 
     /// 通过 CLGeocoder 将 CLLocation 转换为人类可读的字符串。
+    /// 命中 LRU 缓存（按 ~1km 网格、30 分钟 TTL）时跳过网络调用。
     private func reverseGeocode(_ location: CLLocation) async throws -> String {
+        let key = bucketKey(for: location)
+        let now = Date()
+
+        // Cache lookup — drop expired entries first, then check the live cache.
+        geocodeCache.removeAll { $0.expiry <= now }
+        if let hit = geocodeCache.first(where: { $0.bucket == key }) {
+            print("[geocode] cache hit \(key)")
+            return hit.name
+        }
+        print("[geocode] cache miss \(key)")
+
         let geocoder = CLGeocoder()
         let placemarks = try await geocoder.reverseGeocodeLocation(location)
         guard let placemark = placemarks.first else {
@@ -153,7 +173,22 @@ final class LocationService: NSObject, ObservableObject {
             parts.append(country)
         }
 
-        return parts.joined(separator: ", ")
+        let resolved = parts.joined(separator: ", ")
+
+        // LRU insert: evict the oldest (front) entry when at capacity, append latest at end.
+        if geocodeCache.count >= geocodeCacheLimit {
+            geocodeCache.removeFirst()
+        }
+        geocodeCache.append((bucket: key, name: resolved, expiry: now.addingTimeInterval(geocodeCacheTTL)))
+
+        return resolved
+    }
+
+    /// 将经纬度量化到 ~1km 网格（保留 2 位小数 ≈ 1.1km @ 赤道）作为缓存 key。
+    private func bucketKey(for location: CLLocation) -> String {
+        let lat = (location.coordinate.latitude * 100).rounded() / 100
+        let lng = (location.coordinate.longitude * 100).rounded() / 100
+        return String(format: "%.2f,%.2f", lat, lng)
     }
 
     /// 将一个可能抛出错误的异步操作与超时进行竞速。

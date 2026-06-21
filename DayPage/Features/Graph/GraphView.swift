@@ -14,8 +14,9 @@ struct GraphView: View {
     @State private var lastScale: CGFloat = 1.0
     @State private var lastOffset: CGSize = .zero
 
-    // Simulation timer
-    @State private var simulationTimer: Timer? = nil
+    // Simulation tick — CADisplayLink-backed, synced to screen refresh and
+    // pinned to 30fps; honors Low Power Mode. See GraphDisplayLinkController.
+    @StateObject private var displayLink = GraphDisplayLinkController()
     @State private var simulationSize: CGSize = .zero
     @State private var simulationSteps: Int = 0
 
@@ -1113,25 +1114,25 @@ struct GraphView: View {
 
     private func startSimulation(reset: Bool = true) {
         if reset { simulationSteps = 0 }
-        simulationTimer?.invalidate()
-        simulationTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30.0, repeats: true) { _ in
-            Task { @MainActor in
-                guard self.simulationSteps < self.maxSimSteps else {
-                    self.stopSimulation()
-                    return
-                }
-                self.viewModel.simulationStep(size: self.simulationSize)
-                self.simulationSteps += 1
-                if self.simulationSteps == self.maxSimSteps {
-                    self.attemptAutoFit()
-                }
+        // CADisplayLink ticks on the main thread @ 30fps; controller is
+        // idempotent (start() is a no-op when already running), so we just
+        // reinstall the closure to capture the latest state and (re)start it.
+        displayLink.onTick = {
+            guard self.simulationSteps < self.maxSimSteps else {
+                self.stopSimulation()
+                return
+            }
+            self.viewModel.simulationStep(size: self.simulationSize)
+            self.simulationSteps += 1
+            if self.simulationSteps == self.maxSimSteps {
+                self.attemptAutoFit()
             }
         }
+        displayLink.start()
     }
 
     private func stopSimulation() {
-        simulationTimer?.invalidate()
-        simulationTimer = nil
+        displayLink.stop()
     }
 }
 

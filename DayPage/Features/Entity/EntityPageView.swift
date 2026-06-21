@@ -18,12 +18,33 @@ struct EntityPageView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var model: EntityModel? = nil
     @State private var notFound: Bool = false
+    @State private var notFoundReason: NotFoundReason = .neverMentioned
     @State private var selectedDate: String? = nil
     @State private var selectedEntitySlug: String? = nil
     @State private var selectedEntityType: String = "themes"
     /// Memos from raw vault files that mention this entity slug.
     @State private var linkedMemos: [(dateStr: String, memo: Memo)] = []
     @State private var skeletonBreathe = false
+    /// Tracks the in-flight load+scan so re-appearances cancel stale work.
+    @State private var scanTask: Task<Void, Never>? = nil
+    /// True while the background scan is enumerating vault/raw — used to show
+    /// a shimmer/spinner in the RELATED ENTRIES section instead of "empty".
+    @State private var isScanningRelated: Bool = true
+
+    // MARK: - NotFoundReason
+
+    /// Three states that the entity-not-found placeholder must distinguish so
+    /// the empty state can guide the user toward the right next action.
+    /// - neverMentioned: entity slug is absent from any vault/raw memo
+    /// - pendingCompilation: slug appears in raw memos but tonight's 02:00
+    ///   compilation hasn't run yet → page will exist tomorrow
+    /// - compilationFailed: daily page exists but the entity page is missing
+    ///   → next app launch retries compilation
+    enum NotFoundReason {
+        case neverMentioned
+        case pendingCompilation
+        case compilationFailed
+    }
 
     var body: some View {
         NavigationStack {
@@ -31,7 +52,7 @@ struct EntityPageView: View {
                 DSColor.background.ignoresSafeArea()
 
                 if notFound {
-                    notFoundView
+                    notFoundView(reason: notFoundReason)
                 } else if let model {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
@@ -83,6 +104,12 @@ struct EntityPageView: View {
             }
         }
         .onAppear { loadEntity() }
+        .onDisappear {
+            // Cancel any in-flight scan so a quick dismiss/re-open doesn't
+            // pile up detached tasks racing on @MainActor writes.
+            scanTask?.cancel()
+            scanTask = nil
+        }
         .sheet(isPresented: Binding(
             get: { selectedDate != nil },
             set: { if !$0 { selectedDate = nil } }
@@ -163,14 +190,27 @@ struct EntityPageView: View {
 
     // MARK: - Not Found
 
-    private var notFoundView: some View {
+    private func notFoundView(reason: NotFoundReason) -> some View {
         VStack(spacing: 16) {
-            Text("该实体页尚未生成")
+            Text(notFoundMessage(reason: reason))
                 .bodyMDStyle()
                 .foregroundColor(DSColor.onSurfaceVariant)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
             Text("[[" + entitySlug + "]]")
                 .monoLabelStyle(size: 11)
                 .foregroundColor(DSColor.amberArchival)
+        }
+    }
+
+    private func notFoundMessage(reason: NotFoundReason) -> String {
+        switch reason {
+        case .neverMentioned:
+            return "「\(entitySlug)」从未在你的日记里出现过"
+        case .pendingCompilation:
+            return "「\(entitySlug)」会在今晚 02:00 编译后生成实体页"
+        case .compilationFailed:
+            return "编译失败，下次打开 App 时会自动重试"
         }
     }
 
@@ -262,7 +302,19 @@ struct EntityPageView: View {
                     .frame(height: 1)
             }
 
-            if linkedMemos.isEmpty && model.relatedDates.isEmpty {
+            if isScanningRelated && linkedMemos.isEmpty && model.relatedDates.isEmpty {
+                // Background scan of vault/raw is still running. Show a small
+                // inline spinner so users distinguish "scanning" from "empty".
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .scaleEffect(0.8)
+                    Text("正在扫描关联记录…")
+                        .bodySMStyle()
+                        .foregroundColor(DSColor.onSurfaceVariant)
+                }
+                .padding(.vertical, 8)
+            } else if linkedMemos.isEmpty && model.relatedDates.isEmpty {
                 Text("暂无关联记录")
                     .bodySMStyle()
                     .foregroundColor(DSColor.onSurfaceVariant)
@@ -367,28 +419,50 @@ struct EntityPageView: View {
     // MARK: - Load
 
     private func loadEntity() {
+        // Cancel any stale work from a previous appearance before starting
+        // a new scan — keeps @MainActor writes serialised.
+        scanTask?.cancel()
+
         let url = VaultInitializer.vaultURL
             .appendingPathComponent("wiki")
             .appendingPathComponent(entityType)
             .appendingPathComponent("\(entitySlug).md")
         let slug = entitySlug
-        let rawDir = VaultInitializer.vaultURL.appendingPathComponent("raw")
+        let vaultURL = VaultInitializer.vaultURL
+        let rawDir = vaultURL.appendingPathComponent("raw")
+        let dailyDir = vaultURL.appendingPathComponent("daily")
 
-        Task.detached(priority: .userInitiated) {
+        isScanningRelated = true
+
+        scanTask = Task.detached(priority: .userInitiated) {
             let rawContent: String?
             do { rawContent = try String(contentsOf: url, encoding: .utf8) }
             catch { rawContent = nil }
 
+            // Even on the not-found path we want backlink-aware reason
+            // classification, so scan first regardless of wiki file presence.
+            if Task.isCancelled { return }
+            let memoLinks = Self.scanRawMemosWithContent(in: rawDir, mentioning: slug)
+            if Task.isCancelled { return }
+
             guard let rawContent else {
-                await MainActor.run { self.notFound = true }
+                // Decide WHY the wiki file is missing so the placeholder copy
+                // matches the user's actual situation (#R2-MEDIUM).
+                let reason = Self.classifyNotFound(
+                    slug: slug,
+                    memoLinks: memoLinks,
+                    dailyDir: dailyDir
+                )
+                await MainActor.run {
+                    self.notFoundReason = reason
+                    self.notFound = true
+                    self.isScanningRelated = false
+                }
                 return
             }
 
             var parsed = EntityPageParser.parse(content: rawContent, slug: slug)
 
-            // Scan vault/raw/*.md for memos that reference this slug,
-            // build bidirectional (entity → memos) link list.
-            let memoLinks = Self.scanRawMemosWithContent(in: rawDir, mentioning: slug)
             let backlinkedDates = memoLinks.map { $0.dateStr }
             if !backlinkedDates.isEmpty {
                 let merged = Array(Set(parsed.relatedDates + backlinkedDates)).sorted(by: >)
@@ -402,11 +476,37 @@ struct EntityPageView: View {
                 )
             }
 
+            if Task.isCancelled { return }
             await MainActor.run {
                 self.model = parsed
                 self.linkedMemos = memoLinks
+                self.isScanningRelated = false
             }
         }
+    }
+
+    /// Classifies the not-found state into one of three user-facing reasons.
+    /// - If no raw memo mentions the slug → `neverMentioned`
+    /// - Else if no daily.md exists for any backlinked date → `pendingCompilation`
+    /// - Else (daily exists but no wiki page was produced) → `compilationFailed`
+    private static func classifyNotFound(
+        slug: String,
+        memoLinks: [(dateStr: String, memo: Memo)],
+        dailyDir: URL
+    ) -> NotFoundReason {
+        if memoLinks.isEmpty {
+            return .neverMentioned
+        }
+        let fm = FileManager.default
+        // Backlinks exist. If at least one backlinked day has been compiled
+        // into daily/ but still no entity page → compilation produced an
+        // incomplete graph → failed. Otherwise compilation simply hasn't
+        // run yet for those days → pending.
+        let dailyExistsForAny = memoLinks.contains { link in
+            let url = dailyDir.appendingPathComponent("\(link.dateStr).md")
+            return fm.fileExists(atPath: url.path)
+        }
+        return dailyExistsForAny ? .compilationFailed : .pendingCompilation
     }
 
     /// Scans all `vault/raw/YYYY-MM-DD.md` files and returns (dateStr, Memo) pairs

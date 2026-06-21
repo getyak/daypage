@@ -20,64 +20,226 @@ import UIKit
 //   weight, ≥ 3:1 at title weight.
 
 // MARK: - Palettes
+//
+// Each palette below uses `UIColor(dynamicProvider:)` so the bg / ink / accent
+// pairs auto-swap between light and dark variants. The renderer sets
+// `UITraitCollection.current.userInterfaceStyle` before drawing (see
+// `PosterRenderTrait.with(colorScheme:)`), which triggers the dynamic
+// providers to resolve. Dark variants are tuned to keep WCAG AA (≥ 4.5 : 1
+// body text on bg, ≥ 3 : 1 for titles). Call sites stay unchanged because
+// each value is still a `UIColor`.
+
+// Helper: build a dynamic UIColor from two static UIColors.
+private func dyn(light: UIColor, dark: UIColor) -> UIColor {
+    UIColor { trait in
+        trait.userInterfaceStyle == .dark ? dark : light
+    }
+}
 
 private enum MinimalPalette {
-    static let bg          = UIColor(red: 0.980, green: 0.969, blue: 0.949, alpha: 1)
-    static let ink         = UIColor(red: 0.141, green: 0.106, blue: 0.063, alpha: 1)
-    static let inkMuted    = UIColor(red: 0.141, green: 0.106, blue: 0.063, alpha: 0.62)
-    static let inkFaint    = UIColor(red: 0.141, green: 0.106, blue: 0.063, alpha: 0.18)
-    static let accent      = UIColor(red: 0.659, green: 0.329, blue: 0.106, alpha: 1)
-    static let accentDeep  = UIColor(red: 0.365, green: 0.188, blue: 0.000, alpha: 1)
+    static let bg          = dyn(
+        light: UIColor(red: 0.980, green: 0.969, blue: 0.949, alpha: 1),
+        dark:  UIColor(red: 0.090, green: 0.071, blue: 0.047, alpha: 1)  // #17120C
+    )
+    static let ink         = dyn(
+        light: UIColor(red: 0.141, green: 0.106, blue: 0.063, alpha: 1),
+        dark:  UIColor(red: 0.961, green: 0.937, blue: 0.890, alpha: 1)  // #F5EFE3
+    )
+    static let inkMuted    = dyn(
+        light: UIColor(red: 0.141, green: 0.106, blue: 0.063, alpha: 0.62),
+        dark:  UIColor(red: 0.961, green: 0.937, blue: 0.890, alpha: 0.70)
+    )
+    static let inkFaint    = dyn(
+        light: UIColor(red: 0.141, green: 0.106, blue: 0.063, alpha: 0.18),
+        dark:  UIColor(red: 0.961, green: 0.937, blue: 0.890, alpha: 0.22)
+    )
+    static let accent      = dyn(
+        light: UIColor(red: 0.659, green: 0.329, blue: 0.106, alpha: 1),
+        dark:  UIColor(red: 0.890, green: 0.541, blue: 0.310, alpha: 1)
+    )
+    static let accentDeep  = dyn(
+        light: UIColor(red: 0.365, green: 0.188, blue: 0.000, alpha: 1),
+        dark:  UIColor(red: 0.945, green: 0.690, blue: 0.420, alpha: 1)
+    )
 }
 
 private enum PolaroidPalette {
-    static let paper         = UIColor(red: 0.992, green: 0.985, blue: 0.970, alpha: 1)
-    static let paperShadow   = UIColor(red: 0.000, green: 0.000, blue: 0.000, alpha: 0.08)
-    static let frame         = UIColor.white
-    static let ink           = UIColor(red: 0.106, green: 0.090, blue: 0.067, alpha: 1)
-    static let pencil        = UIColor(red: 0.247, green: 0.220, blue: 0.196, alpha: 1)
-    static let inkMuted      = UIColor(red: 0.106, green: 0.090, blue: 0.067, alpha: 0.55)
-    static let accent        = UIColor(red: 0.745, green: 0.420, blue: 0.165, alpha: 1)
-    static let placeholderBg = UIColor(red: 0.910, green: 0.890, blue: 0.855, alpha: 1)
+    static let paper         = dyn(
+        light: UIColor(red: 0.992, green: 0.985, blue: 0.970, alpha: 1),
+        dark:  UIColor(red: 0.082, green: 0.063, blue: 0.043, alpha: 1)  // #15100B
+    )
+    static let paperShadow   = dyn(
+        light: UIColor(red: 0.000, green: 0.000, blue: 0.000, alpha: 0.08),
+        dark:  UIColor(red: 0.000, green: 0.000, blue: 0.000, alpha: 0.42)
+    )
+    // Polaroid frame: pure white in light, #1A1410 in dark (per task spec).
+    static let frame         = dyn(
+        light: UIColor.white,
+        dark:  UIColor(red: 0.102, green: 0.078, blue: 0.063, alpha: 1)  // #1A1410
+    )
+    static let ink           = dyn(
+        light: UIColor(red: 0.106, green: 0.090, blue: 0.067, alpha: 1),
+        dark:  UIColor(red: 0.957, green: 0.933, blue: 0.886, alpha: 1)
+    )
+    static let pencil        = dyn(
+        light: UIColor(red: 0.247, green: 0.220, blue: 0.196, alpha: 1),
+        dark:  UIColor(red: 0.831, green: 0.788, blue: 0.733, alpha: 1)
+    )
+    static let inkMuted      = dyn(
+        light: UIColor(red: 0.106, green: 0.090, blue: 0.067, alpha: 0.55),
+        dark:  UIColor(red: 0.957, green: 0.933, blue: 0.886, alpha: 0.65)
+    )
+    static let accent        = dyn(
+        light: UIColor(red: 0.745, green: 0.420, blue: 0.165, alpha: 1),
+        dark:  UIColor(red: 0.902, green: 0.580, blue: 0.341, alpha: 1)
+    )
+    static let placeholderBg = dyn(
+        light: UIColor(red: 0.910, green: 0.890, blue: 0.855, alpha: 1),
+        dark:  UIColor(red: 0.184, green: 0.149, blue: 0.122, alpha: 1)  // #2F2620
+    )
 }
 
-// Film palette — dark "film gate" (detail.jsx:861-887).
-// #0d0a07 bg, #f5ede3 perforation/ink, #e36b4a Kodak orange, #a39f99 mono grey,
-// #e8dccc serif body. Hex values transcribed directly from FilmTemplate.tsx.
+// Film palette — dark "film gate" (detail.jsx:861-887). Light variant already
+// IS dark; dark variant deepens bg slightly and softens .perf (#f5ede3 →
+// #D4C9B8) so perforations don't glare on OLED.
 private enum FilmPalette {
-    static let bg        = UIColor(red: 0.051, green: 0.039, blue: 0.027, alpha: 1) // #0d0a07
-    static let perf      = UIColor(red: 0.961, green: 0.929, blue: 0.890, alpha: 1) // #f5ede3
-    static let photoBg   = UIColor(red: 0.102, green: 0.082, blue: 0.059, alpha: 1) // #1A150F
-    static let orange    = UIColor(red: 0.890, green: 0.420, blue: 0.290, alpha: 1) // #e36b4a
-    static let mutedGrey = UIColor(red: 0.639, green: 0.624, blue: 0.600, alpha: 1) // #a39f99
-    static let serifInk  = UIColor(red: 0.910, green: 0.863, blue: 0.800, alpha: 1) // #e8dccc
-    static let iconStroke = UIColor(red: 0.290, green: 0.267, blue: 0.235, alpha: 1) // #4a443c
+    static let bg        = dyn(
+        light: UIColor(red: 0.051, green: 0.039, blue: 0.027, alpha: 1),  // #0d0a07
+        dark:  UIColor(red: 0.039, green: 0.027, blue: 0.020, alpha: 1)
+    )
+    static let perf      = dyn(
+        light: UIColor(red: 0.961, green: 0.929, blue: 0.890, alpha: 1),  // #f5ede3
+        dark:  UIColor(red: 0.831, green: 0.788, blue: 0.722, alpha: 1)   // #D4C9B8
+    )
+    static let photoBg   = dyn(
+        light: UIColor(red: 0.102, green: 0.082, blue: 0.059, alpha: 1),
+        dark:  UIColor(red: 0.082, green: 0.063, blue: 0.043, alpha: 1)
+    )
+    static let orange    = dyn(
+        light: UIColor(red: 0.890, green: 0.420, blue: 0.290, alpha: 1),  // #e36b4a
+        dark:  UIColor(red: 0.918, green: 0.486, blue: 0.349, alpha: 1)
+    )
+    static let mutedGrey = dyn(
+        light: UIColor(red: 0.639, green: 0.624, blue: 0.600, alpha: 1),  // #a39f99
+        dark:  UIColor(red: 0.741, green: 0.722, blue: 0.694, alpha: 1)
+    )
+    static let serifInk  = dyn(
+        light: UIColor(red: 0.910, green: 0.863, blue: 0.800, alpha: 1),  // #e8dccc
+        dark:  UIColor(red: 0.831, green: 0.788, blue: 0.722, alpha: 1)
+    )
+    static let iconStroke = dyn(
+        light: UIColor(red: 0.290, green: 0.267, blue: 0.235, alpha: 1),
+        dark:  UIColor(red: 0.388, green: 0.353, blue: 0.310, alpha: 1)
+    )
 }
 
 // Journal palette — ruled cream paper + washi tape (detail.jsx:904-933).
+// Dark: warm paper-feel (#2A2520) per task spec; ink inverted to warm cream.
 private enum JournalPalette {
-    static let bg          = UIColor(red: 0.984, green: 0.965, blue: 0.910, alpha: 1) // #FBF6E8
-    static let rule        = UIColor(red: 0.706, green: 0.588, blue: 0.353, alpha: 0.18) // rgba(180,150,90,.18)
-    static let marginLine  = UIColor(red: 0.890, green: 0.420, blue: 0.290, alpha: 0.30) // rgba(227,107,74,.3)
-    static let washiOrange = UIColor(red: 0.890, green: 0.420, blue: 0.290, alpha: 0.55) // rgba(227,107,74,.55)
-    static let washiGreen  = UIColor(red: 0.416, green: 0.525, blue: 0.267, alpha: 0.50) // rgba(106,134,68,.5)
-    static let titleInk    = UIColor(red: 0.227, green: 0.165, blue: 0.094, alpha: 1) // #3a2a18
-    static let subInk      = UIColor(red: 0.541, green: 0.416, blue: 0.227, alpha: 1) // #8a6a3a
-    static let divider     = UIColor(red: 0.788, green: 0.651, blue: 0.467, alpha: 0.70) // #c9a677 @ .7
-    static let redDot      = UIColor(red: 0.890, green: 0.420, blue: 0.290, alpha: 1) // #E36B4A
-    static let photoBg     = UIColor(red: 0.910, green: 0.890, blue: 0.855, alpha: 1)
+    static let bg          = dyn(
+        light: UIColor(red: 0.984, green: 0.965, blue: 0.910, alpha: 1),  // #FBF6E8
+        dark:  UIColor(red: 0.165, green: 0.145, blue: 0.125, alpha: 1)   // #2A2520
+    )
+    static let rule        = dyn(
+        light: UIColor(red: 0.706, green: 0.588, blue: 0.353, alpha: 0.18),
+        dark:  UIColor(red: 0.949, green: 0.871, blue: 0.682, alpha: 0.18)
+    )
+    static let marginLine  = dyn(
+        light: UIColor(red: 0.890, green: 0.420, blue: 0.290, alpha: 0.30),
+        dark:  UIColor(red: 0.918, green: 0.486, blue: 0.349, alpha: 0.40)
+    )
+    static let washiOrange = dyn(
+        light: UIColor(red: 0.890, green: 0.420, blue: 0.290, alpha: 0.55),
+        dark:  UIColor(red: 0.918, green: 0.486, blue: 0.349, alpha: 0.65)
+    )
+    static let washiGreen  = dyn(
+        light: UIColor(red: 0.416, green: 0.525, blue: 0.267, alpha: 0.50),
+        dark:  UIColor(red: 0.518, green: 0.631, blue: 0.349, alpha: 0.60)
+    )
+    static let titleInk    = dyn(
+        light: UIColor(red: 0.227, green: 0.165, blue: 0.094, alpha: 1),  // #3a2a18
+        dark:  UIColor(red: 0.957, green: 0.918, blue: 0.831, alpha: 1)
+    )
+    static let subInk      = dyn(
+        light: UIColor(red: 0.541, green: 0.416, blue: 0.227, alpha: 1),  // #8a6a3a
+        dark:  UIColor(red: 0.831, green: 0.745, blue: 0.580, alpha: 1)
+    )
+    static let divider     = dyn(
+        light: UIColor(red: 0.788, green: 0.651, blue: 0.467, alpha: 0.70),
+        dark:  UIColor(red: 0.788, green: 0.651, blue: 0.467, alpha: 0.55)
+    )
+    static let redDot      = dyn(
+        light: UIColor(red: 0.890, green: 0.420, blue: 0.290, alpha: 1),  // #E36B4A
+        dark:  UIColor(red: 0.918, green: 0.486, blue: 0.349, alpha: 1)
+    )
+    static let photoBg     = dyn(
+        light: UIColor(red: 0.910, green: 0.890, blue: 0.855, alpha: 1),
+        dark:  UIColor(red: 0.220, green: 0.196, blue: 0.169, alpha: 1)
+    )
 }
 
 // Postcard palette — clean white card + dashed stamp (detail.jsx:935-965).
+// Dark: #14110E paper (per task spec) with cream ink for AA contrast.
 private enum PostcardPalette {
-    static let bg        = UIColor.white
-    static let photoBg   = UIColor(red: 0.847, green: 0.812, blue: 0.768, alpha: 1) // #D8CFC4
-    static let border    = UIColor(red: 0.839, green: 0.808, blue: 0.753, alpha: 1) // #D6CEC0
-    static let serifInk  = UIColor(red: 0.169, green: 0.157, blue: 0.133, alpha: 1) // #2B2822
-    static let muted     = UIColor(red: 0.420, green: 0.396, blue: 0.376, alpha: 1) // #6B6560
-    static let subtle    = UIColor(red: 0.639, green: 0.624, blue: 0.600, alpha: 1) // #A39F99
-    static let accent    = UIColor(red: 0.365, green: 0.188, blue: 0.000, alpha: 1) // #5D3000
-    static let iconStroke = UIColor(red: 0.659, green: 0.596, blue: 0.502, alpha: 1) // #A89880
+    static let bg        = dyn(
+        light: UIColor.white,
+        dark:  UIColor(red: 0.078, green: 0.067, blue: 0.055, alpha: 1)   // #14110E
+    )
+    static let photoBg   = dyn(
+        light: UIColor(red: 0.847, green: 0.812, blue: 0.768, alpha: 1),  // #D8CFC4
+        dark:  UIColor(red: 0.235, green: 0.208, blue: 0.180, alpha: 1)
+    )
+    static let border    = dyn(
+        light: UIColor(red: 0.839, green: 0.808, blue: 0.753, alpha: 1),  // #D6CEC0
+        dark:  UIColor(red: 0.310, green: 0.275, blue: 0.231, alpha: 1)
+    )
+    static let serifInk  = dyn(
+        light: UIColor(red: 0.169, green: 0.157, blue: 0.133, alpha: 1),  // #2B2822
+        dark:  UIColor(red: 0.945, green: 0.918, blue: 0.875, alpha: 1)
+    )
+    static let muted     = dyn(
+        light: UIColor(red: 0.420, green: 0.396, blue: 0.376, alpha: 1),  // #6B6560
+        dark:  UIColor(red: 0.745, green: 0.706, blue: 0.659, alpha: 1)
+    )
+    static let subtle    = dyn(
+        light: UIColor(red: 0.639, green: 0.624, blue: 0.600, alpha: 1),  // #A39F99
+        dark:  UIColor(red: 0.620, green: 0.580, blue: 0.541, alpha: 1)
+    )
+    static let accent    = dyn(
+        light: UIColor(red: 0.365, green: 0.188, blue: 0.000, alpha: 1),  // #5D3000
+        dark:  UIColor(red: 0.945, green: 0.690, blue: 0.420, alpha: 1)
+    )
+    static let iconStroke = dyn(
+        light: UIColor(red: 0.659, green: 0.596, blue: 0.502, alpha: 1),  // #A89880
+        dark:  UIColor(red: 0.541, green: 0.490, blue: 0.408, alpha: 1)
+    )
+}
+
+// MARK: - PosterRenderTrait
+//
+// Drives `UIColor(dynamicProvider:)` resolution during off-screen render. The
+// renderer wraps the draw block in `PosterRenderTrait.with(colorScheme:) { ... }`
+// which temporarily sets `UITraitCollection.current.userInterfaceStyle` to the
+// caller's preference. Without this, dynamic colours resolve against the
+// process-default trait collection (always light on a fresh detached Task),
+// which is why the dark Share card was previously unreadable.
+enum PosterRenderTrait {
+    static func with<T>(colorScheme: PosterColorScheme, _ work: () -> T) -> T {
+        let style: UIUserInterfaceStyle = colorScheme == .dark ? .dark : .light
+        let traits = UITraitCollection(userInterfaceStyle: style)
+        var result: T!
+        traits.performAsCurrent {
+            result = work()
+        }
+        return result
+    }
+}
+
+/// Mirrors SwiftUI `ColorScheme` without forcing every poster template to
+/// `import SwiftUI`. Maps to `UIUserInterfaceStyle` inside the renderer.
+enum PosterColorScheme {
+    case light
+    case dark
 }
 
 private enum CardGeom {

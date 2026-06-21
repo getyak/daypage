@@ -232,6 +232,13 @@ private struct PermissionsPage: View {
     @State private var locationStatus: PermissionStatus = .unknown
     @State private var notifStatus: PermissionStatus = .unknown
 
+    // B3: re-poll permission state whenever the app returns to the foreground.
+    // Required because iOS routes the user to Settings.app to change Location
+    // and Notifications, and the onboarding sheet stays mounted the entire
+    // time — without scenePhase awareness the row labels would be stuck on
+    // whatever they showed before the user left.
+    @Environment(\.scenePhase) private var scenePhase
+
     private enum PermissionStatus {
         case unknown, granted, denied
         var label: String {
@@ -295,6 +302,10 @@ private struct PermissionsPage: View {
 
             Spacer()
 
+            // B4: Next is always enabled. iOS users routinely skip these
+            // prompts and grant permissions later from Settings, and there's
+            // no path here to recover from a forced .denied → we'd lock them
+            // out of onboarding. Underlying features already degrade safely.
             Button(action: onNext) {
                 Text("onboarding.permissions.next", bundle: .main)
                     .bodyText()
@@ -308,7 +319,12 @@ private struct PermissionsPage: View {
             .padding(.bottom, 48)
         }
         .padding(.horizontal, 24)
-        .onAppear { checkCurrentStatuses() }
+        .onAppear { pollAllPermissions() }
+        // B3: re-poll on every foreground transition so a trip through
+        // Settings.app instantly updates the row labels here.
+        .onChange(of: scenePhase) { phase in
+            if phase == .active { pollAllPermissions() }
+        }
     }
 
     private func permissionCard(
@@ -348,7 +364,10 @@ private struct PermissionsPage: View {
         .surfaceElevatedShadow()
     }
 
-    private func checkCurrentStatuses() {
+    /// B3: single entry point that refreshes mic/location/notification status.
+    /// Called from onAppear, scenePhase=.active, and immediately after each
+    /// request callback — replaces the previous 1s asyncAfter race.
+    private func pollAllPermissions() {
         switch AVAudioSession.sharedInstance().recordPermission {
         case .granted: micStatus = .granted
         case .denied: micStatus = .denied
@@ -382,10 +401,14 @@ private struct PermissionsPage: View {
     }
 
     private func requestLocation() {
+        // B3: drop the 1s asyncAfter — it both raced the system prompt (often
+        // re-reading "not determined" before the user tapped Allow) and left
+        // stale state forever if the user took longer than 1s to decide. The
+        // scenePhase observer in body now handles the come-back-from-prompt
+        // case; we also poll synchronously here for the in-app prompt that
+        // doesn't backgound the app.
         LocationService.shared.requestPermissionIfNeeded()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            checkCurrentStatuses()
-        }
+        pollAllPermissions()
     }
 
     private func requestNotifications() {
@@ -448,6 +471,21 @@ private struct ApiKeysPage: View {
                         .cornerRadius(DSSpacing.radiusCard)
                 }
                 .padding(.top, 8)
+
+                // B5: dedicated skip path. Pasting keys here is optional; the
+                // user can always wire them up later in Settings → API Keys.
+                // We deliberately bypass `saveAndComplete` so an empty field
+                // can never get committed into Keychain.
+                Button {
+                    onComplete()
+                } label: {
+                    Text(NSLocalizedString("onboarding.apikeys.skip", comment: ""))
+                        .font(.footnote)
+                        .foregroundColor(DSColor.inkMuted)
+                        .underline()
+                }
+                .padding(.top, 4)
+                .accessibilityIdentifier("onboarding-apikeys-skip")
 
                 Spacer(minLength: 48)
             }

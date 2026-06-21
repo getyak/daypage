@@ -1003,6 +1003,15 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                     pendingLocation = loc
                 }
                 // Don't show error for timeout — coords-only is acceptable
+            } catch LocationError.busy {
+                // Another location request is in-flight; don't reset the pending
+                // attachment, don't block the memo submission flow — just surface
+                // a soft error message so the user can retry shortly.
+                submitError = NSLocalizedString(
+                    "error.location.busy",
+                    value: "位置请求进行中，请稍后再试",
+                    comment: "Shown when fetchLocation is called while a previous request is still in flight"
+                )
             } catch {
                 submitError = String(format: NSLocalizedString("error.memo.location_failed", comment: ""), error.localizedDescription)
             }
