@@ -38,6 +38,12 @@ final class CompilationService: ObservableObject {
     @Published var stage: CompilationStage = .extracting
     @Published var compilationProgress: CompilationStage = .extracting
 
+    /// Number of memo back-fill updates that failed during the last
+    /// compilation run. Published so the BG service / UI can surface
+    /// partial-success state instead of silently misreporting success.
+    /// Reset to 0 at the start of every compile.
+    @Published var lastMemoUpdateFailures: Int = 0
+
     // MARK: - Compile
 
     /// 将给定日期的原始备忘录编译为每日页面。
@@ -62,6 +68,10 @@ final class CompilationService: ObservableObject {
 
         let startTime = Date()
         let dateString = dateFormatter.string(from: date)
+
+        // Reset partial-failure tracking at the start of every run so the
+        // BG service / UI can observe the latest result without stale data.
+        lastMemoUpdateFailures = 0
 
         // Step 1: Collect memos
         stage = .extracting
@@ -265,7 +275,10 @@ final class CompilationService: ObservableObject {
         }
 
         try EntityPageService.shared.apply(instructions: parsed.entityInstructions, date: dateString)
-        applyMemoUpdates(parsed.memoUpdates, dateString: dateString)
+        let memoUpdateResult = applyMemoUpdates(parsed.memoUpdates, dateString: dateString)
+        if memoUpdateResult.failed > 0 {
+            lastMemoUpdateFailures = memoUpdateResult.failed
+        }
         updateHotCache(summary: parsed.hotCacheText, compiledDate: dateString)
 
         let elapsed = Date().timeIntervalSince(startTime)
@@ -278,44 +291,87 @@ final class CompilationService: ObservableObject {
         )
     }
 
-    /// Back-fills mood and entityMentions into the raw memo file for each MemoUpdateInstruction.
-    /// Non-fatal: failures are logged but do not abort compilation.
-    private func applyMemoUpdates(_ updates: [MemoUpdateInstruction], dateString: String) {
-        guard !updates.isEmpty else { return }
-        guard let date = ISO8601DateFormatter.dayOnly.date(from: dateString) else { return }
+    /// Back-fills mood and entityMentions into the raw memo file for each
+    /// MemoUpdateInstruction.
+    ///
+    /// Returns `(updated, failed)`:
+    /// - `updated`: number of memos whose mood/entityMentions were merged
+    ///   in-memory and (on a successful write) persisted to disk.
+    /// - `failed`: number of memo updates that could not be persisted,
+    ///   either because the day-file failed to read or because the atomic
+    ///   write threw. When > 0, a warning-level breadcrumb is recorded so
+    ///   we can track partial-success rate in production rather than
+    ///   reporting full success in the UI.
+    private func applyMemoUpdates(
+        _ updates: [MemoUpdateInstruction],
+        dateString: String
+    ) -> (updated: Int, failed: Int) {
+        guard !updates.isEmpty else { return (0, 0) }
+        guard let date = ISO8601DateFormatter.dayOnly.date(from: dateString) else {
+            return (0, 0)
+        }
 
         let rawURL = RawStorage.fileURL(for: date)
+        var failedUpdates: [URL] = []
 
         var memos: [Memo]
         do { memos = try RawStorage.read(for: date) }
-        catch { DayPageLogger.shared.error("applyMemoUpdates: read failed: \(error)"); return }
-        guard !memos.isEmpty else { return }
+        catch {
+            DayPageLogger.shared.error("applyMemoUpdates: read failed: \(error)")
+            // Read failure makes every requested update fail; surface the
+            // raw URL so the breadcrumb shows the affected day-file.
+            failedUpdates = Array(repeating: rawURL, count: updates.count)
+            SentryReporter.breadcrumb(
+                category: "compilation",
+                level: .warning,
+                message: "applyMemoUpdates partial failure (read): count=\(failedUpdates.count) files=\(failedUpdates.map(\.lastPathComponent))"
+            )
+            return (0, failedUpdates.count)
+        }
+        guard !memos.isEmpty else { return (0, 0) }
 
-        var changed = false
+        var changedCount = 0
         for update in updates {
             guard let idx = memos.firstIndex(where: { $0.id == update.memoID }) else { continue }
             var memo = memos[idx]
+            var thisMemoChanged = false
             if let mood = update.mood, !mood.isEmpty {
                 memo.mood = mood
-                changed = true
+                thisMemoChanged = true
             }
             if !update.entityMentions.isEmpty {
                 let merged = Array(Set(memo.entityMentions + update.entityMentions)).sorted()
                 if merged != memo.entityMentions {
                     memo.entityMentions = merged
-                    changed = true
+                    thisMemoChanged = true
                 }
             }
             memos[idx] = memo
+            if thisMemoChanged { changedCount += 1 }
         }
 
-        guard changed else { return }
+        guard changedCount > 0 else { return (0, 0) }
         let newContent = memos.map { $0.toMarkdown() }.joined(separator: RawStorage.memoSeparator)
         do {
             try RawStorage.atomicWrite(string: newContent, to: rawURL)
         } catch {
             DayPageLogger.shared.error("applyMemoUpdates: failed to write raw file: \(error)")
+            // The batched write covers every changed memo, so on failure
+            // every "changed" memo is also failed. Record one URL per
+            // failed memo so the count in the breadcrumb matches.
+            failedUpdates = Array(repeating: rawURL, count: changedCount)
         }
+
+        if !failedUpdates.isEmpty {
+            SentryReporter.breadcrumb(
+                category: "compilation",
+                level: .warning,
+                message: "applyMemoUpdates partial failure (write): count=\(failedUpdates.count) files=\(failedUpdates.map(\.lastPathComponent))"
+            )
+            return (updated: 0, failed: failedUpdates.count)
+        }
+
+        return (updated: changedCount, failed: 0)
     }
 
     // MARK: - URL Helpers

@@ -2,6 +2,17 @@ import Foundation
 import WidgetKit
 import CryptoKit
 
+// MARK: - RawStorageError
+
+/// Errors thrown by atomic write/read operations on raw memo day-files.
+/// `writeFailed` is raised when `replaceItemAt` returns nil (silent failure
+/// path) or `moveItem` fails — historically these paths were swallowed and
+/// the UI thought the write had succeeded.
+enum RawStorageError: Error {
+    case writeFailed(URL)
+    case readFailed(URL)
+}
+
 // MARK: - RawStorage
 
 /// 读取和写入 Memo 记录到 vault/raw/YYYY-MM-DD.md 文件。
@@ -395,15 +406,22 @@ enum RawStorage {
                 ".\(coordinatedURL.lastPathComponent).tmp.\(UUID().uuidString)"
             )
             do {
+                // Step 1: write bytes to the temp file. If this throws, the
+                // catch block cleans up the (possibly partial) temp file and
+                // surfaces the underlying error to the caller.
                 try data.write(to: tempURL, options: .atomic)
 
-                // Choose replace vs move based on PRE-write existence: using
-                // post-replace existence as the signal (as the previous
-                // PhotoService code did) lets a silently-swallowed
-                // replaceItemAt error look like "file already existed before
-                // we started", which suppresses the real failure.
+                // Step 2: atomic rename. We always go through replaceItemAt
+                // when the destination exists; for first-write we moveItem.
+                // Critically we INSPECT the NSURL replaceItemAt returns —
+                // when the underlying coordinator silently refuses the swap
+                // it returns nil with no thrown error, which previously made
+                // the UI report success while the bytes never landed.
                 if fm.fileExists(atPath: coordinatedURL.path) {
-                    _ = try fm.replaceItemAt(coordinatedURL, withItemAt: tempURL)
+                    let replaced = try fm.replaceItemAt(coordinatedURL, withItemAt: tempURL)
+                    if replaced == nil {
+                        throw RawStorageError.writeFailed(coordinatedURL)
+                    }
                 } else {
                     try fm.moveItem(at: tempURL, to: coordinatedURL)
                 }

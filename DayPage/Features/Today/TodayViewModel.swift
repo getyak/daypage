@@ -846,6 +846,12 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         let attachments = pendingAttachments
         guard hasText || !attachments.isEmpty else { return }
 
+        // B4: re-entrancy guard. Without this, a rapid double-tap on the send
+        // arrow (or send + an auto-submit from photo batch processing) can
+        // enqueue two parallel Tasks that both append the same memo and race
+        // on the inflight-draft store. Drops the second call as a no-op.
+        guard !isSubmitting else { return }
+
         isSubmitting = true
         submitError = nil
 
@@ -944,6 +950,11 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 Haptics.successNotification()
                 pendingLocation = nil
                 pendingAttachments = []
+                // B4: clear any residual failed-body breadcrumb from a prior
+                // attempt. Without this, after recovery + successful resubmit
+                // the next onChange of `lastFailedBody` could re-fire and
+                // restore stale text into the now-clean composer.
+                lastFailedBody = nil
                 // Track save count for sync banner (US-010)
                 let count = UserDefaults.standard.integer(forKey: AppSettings.Keys.memoSaveCount)
                 UserDefaults.standard.set(count + 1, forKey: AppSettings.Keys.memoSaveCount)

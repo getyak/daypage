@@ -177,12 +177,20 @@ final class VoiceService: NSObject, ObservableObject {
         rec.stop()
         recorder = nil
 
-        do {
-            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
-        } catch {
-            // Non-fatal: deactivating the session may fail if another active session
-            // is still running. Log a warning so we can track frequency in production.
-            DayPageLogger.shared.warn("VoiceService: setActive(false) failed: \(error)")
+        // Release the AVAudioSession on every exit path, including thrown
+        // errors from `transcribeAudio` below. Without the defer, an early
+        // return (e.g. a future throw from transcription, or a crash during
+        // file path derivation) would leave the session active and silently
+        // mute the rest of the app's audio playback until the process
+        // restarted.
+        defer {
+            do {
+                try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            } catch {
+                // Non-fatal: deactivating the session may fail if another active session
+                // is still running. Log a warning so we can track frequency in production.
+                DayPageLogger.shared.warn("VoiceService: setActive(false) failed: \(error)")
+            }
         }
 
         state = .processing

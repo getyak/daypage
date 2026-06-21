@@ -67,6 +67,12 @@ struct TodayView: View {
     @State private var undoText: String? = nil
     @State private var undoTask: Task<Void, Never>? = nil
 
+    // B3: Debounces the per-keystroke draftDate UserDefaults write. Without
+    // this, every character typed in the composer issued a synchronous
+    // UserDefaults.set(...) — a known cause of main-thread hitches on long
+    // drafts. We coalesce into one write 0.8s after the user pauses typing.
+    @State private var draftSaveTask: Task<Void, Never>? = nil
+
     // US-010: First-run tutorial overlay
     @State private var showTutorial: Bool = false
 
@@ -415,18 +421,48 @@ struct TodayView: View {
                 .overlay(alignment: .top) {
                     ZStack(alignment: .top) {
                         if let err = viewModel.submitError {
-                            Text(err)
-                                .bodySMStyle()
-                                .foregroundColor(DSColor.onError)
+                            // B1: Add an inline "retry" affordance when the
+                            // failed-body breadcrumb is still around so the
+                            // user doesn't have to manually re-fire the send.
+                            // Falls back to text-only when no body is staged
+                            // (e.g. photo/voice-only flows).
+                            HStack(spacing: 12) {
+                                Text(err)
+                                    .bodySMStyle()
+                                    .foregroundColor(DSColor.onError)
+                                    .accessibilityLabel(err)
+
+                                if let retryBody = viewModel.lastFailedBody, !retryBody.isEmpty {
+                                    Button {
+                                        Haptics.soft()
+                                        // Keep the body around for ANOTHER
+                                        // failure: submitCombinedMemo will
+                                        // re-stamp lastFailedBody on error.
+                                        viewModel.submitError = nil
+                                        viewModel.submitCombinedMemo(body: retryBody)
+                                    } label: {
+                                        Text(NSLocalizedString("submit.error.retry", comment: "Retry submit"))
+                                            .font(DSFonts.inter(size: 12, weight: .semibold))
+                                            .foregroundColor(DSColor.onError)
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 4)
+                                            .background(
+                                                Capsule().stroke(DSColor.onError.opacity(0.6), lineWidth: 1)
+                                            )
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityIdentifier("submit-error-retry")
+                                    .accessibilityLabel(NSLocalizedString("submit.error.retry", comment: "Retry submit"))
+                                }
+                            }
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 10)
                                 .background(DSColor.error)
                                 .padding(.top, 8)
                                 .transition(.move(edge: .top).combined(with: .opacity))
                                 .accessibilityIdentifier("submit-error-toast")
-                                .accessibilityLabel(err)
+                                .accessibilityElement(children: .contain)
                                 .accessibilityHint(NSLocalizedString("Tap or swipe to dismiss", comment: "submit error toast dismiss hint"))
-                                .accessibilityAddTraits(.isStaticText)
                                 .onTapGesture {
                                     withAnimation(Motion.rise) { viewModel.submitError = nil }
                                 }
@@ -504,7 +540,17 @@ struct TodayView: View {
                 lastWordMilestoneIndex = wordMilestones.filter { $0 <= viewModel.todayWordCount }.count
             }
             .onChange(of: draftText) { _ in
-                draftDate = Date().timeIntervalSince1970
+                // B3: Debounce — only persist `draftDate` after typing pauses
+                // for 0.8s. Cancels any in-flight write each keystroke, so a
+                // burst of typing produces exactly one UserDefaults write.
+                draftSaveTask?.cancel()
+                draftSaveTask = Task {
+                    try? await Task.sleep(nanoseconds: 800_000_000)
+                    guard !Task.isCancelled else { return }
+                    await MainActor.run {
+                        draftDate = Date().timeIntervalSince1970
+                    }
+                }
             }
             .onChange(of: voiceQueue.pendingCount) { count in
                 updateVoiceQueueBanner(count: count)

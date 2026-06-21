@@ -116,9 +116,12 @@ final class LocationService: NSObject, ObservableObject {
     /// 发起单次位置请求并等待第一个结果。
     private func fetchCLLocation() async throws -> CLLocation {
         // Guard against overlapping calls: if a continuation is already in-flight,
-        // resuming it would be silently dropped and the caller would hang forever.
+        // assigning a new one would orphan the previous continuation (never
+        // resumed) and the first caller would hang forever. Throwing `.busy`
+        // lets the second caller fall back / retry instead of silently
+        // colliding with the in-flight request.
         guard locationContinuation == nil else {
-            throw LocationError.timeout
+            throw LocationError.busy
         }
         return try await withCheckedThrowingContinuation { continuation in
             locationContinuation = continuation
@@ -164,9 +167,16 @@ final class LocationService: NSObject, ObservableObject {
                 try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
                 throw LocationError.timeout
             }
-            // 返回第一个结果（或抛出第一个错误）
+            // 返回第一个结果（或抛出第一个错误）。
+            // group.next() may legitimately return nil if the group races
+            // and yields no result (both branches cancelled before producing
+            // a value); force-unwrapping there used to crash the whole
+            // process. Treat that race as a timeout instead.
             defer { group.cancelAll() }
-            return try await group.next()!
+            guard let result = try await group.next() else {
+                throw LocationError.timeout
+            }
+            return result
         }
     }
 }
@@ -209,6 +219,7 @@ enum LocationError: LocalizedError {
     case denied
     case timeout
     case geocodingFailed
+    case busy
 
     var errorDescription: String? {
         switch self {
@@ -218,6 +229,8 @@ enum LocationError: LocalizedError {
             return "位置获取超时，已记录坐标"
         case .geocodingFailed:
             return "无法解析地名"
+        case .busy:
+            return "位置请求进行中，请稍后再试"
         }
     }
 }

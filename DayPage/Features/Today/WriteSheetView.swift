@@ -236,12 +236,14 @@ struct WriteSheetView: View {
             appeared = true
             confirmingDiscard = false
             recomputeCounts()
-            // Focus on next runloop tick so the keyboard rises in lockstep
-            // with the sheet-up animation. The previous 350ms Task.sleep
-            // gated typing behind the animation and was the root cause of
-            // "first tap does nothing — I have to tap twice" — the user
-            // expects to start typing the instant the sheet appears.
-            DispatchQueue.main.async {
+            // B2: Focus shortly after appear so the keyboard rises in lockstep
+            // with the sheet-up animation. A bare DispatchQueue.main.async
+            // sometimes fired BEFORE the sheet's UITextField was attached
+            // (intermittent "first tap does nothing"). 80ms is long enough
+            // for the SwiftUI commit + keyboard handoff, short enough to
+            // feel instantaneous.
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 80_000_000)
                 isFocused = true
             }
             // Auto-embed location on first open when CoreLocation is already

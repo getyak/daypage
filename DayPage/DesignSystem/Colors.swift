@@ -121,6 +121,33 @@ enum DSColor {
     /// scrim in both schemes.
     static let transcribeBlue = Color(light: Color(hex: "4D8CFF"), dark: Color(hex: "7AA8FF"))
 
+    // MARK: - Recording semantic tokens
+    //
+    // The press-to-talk overlay and bottom recording sheet share a single
+    // dark warm substrate (#2D1E0C — same family as the v4 amber palette).
+    // These tokens centralize the "white text / amber warn / dark substrate"
+    // trio so callers do not hardcode `Color.white` or per-component RGB
+    // tuples. They live in DSColor (semantic layer) on purpose — DSTokens
+    // is generated from `design-tokens/tokens.json` and adding semantic
+    // synonyms there would either drift or require a JSON edit.
+
+    /// Recording substrate — the deep warm-brown scrim used by the recording
+    /// overlay and sheet. Dark in both schemes since the recording UI is a
+    /// "studio" mode that ignores ambient light.
+    static let recordingSurface = Color(light: Color(hex: "2D1E0C"), dark: Color(hex: "1A1207"))
+
+    /// Foreground ink on `recordingSurface` — near-white in both schemes
+    /// because the substrate carries the dark amber chroma either way.
+    /// Use instead of `Color.white` inside the recording overlay/sheet.
+    static let onRecording = Color(light: .white, dark: .white)
+
+    /// Soft-cap warn amber — bright warm amber that's legible on the dark
+    /// recording surface (#FFB266). The recording sheet's timer warms to
+    /// this past the 5:00 soft cap before flipping to `recordingRed` past
+    /// 9:00. Lives here (and not in DSTokens) so design-tokens drift checks
+    /// stay green.
+    static let warnAmber = Color(red: 1.0, green: 0.70, blue: 0.35)
+
     // MARK: - V3 Warm-White Tokens
 
     /// 页面 / 屏幕背景 — 暖色调米白 / 深暖棕

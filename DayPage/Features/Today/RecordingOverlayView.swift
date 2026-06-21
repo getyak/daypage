@@ -83,7 +83,7 @@ struct RecordingOverlayView: View {
                         )
                         .frame(width: 110, height: 110)
                         .shadow(color: Color(red: 1.0, green: 0.608, blue: 0.302).opacity(0.55), radius: 20, x: 0, y: 0)
-                        .overlay(Circle().strokeBorder(Color.white.opacity(0.60), lineWidth: 0.5))
+                        .overlay(Circle().strokeBorder(DSColor.onRecording.opacity(0.60), lineWidth: 0.5))
 
                     // Mic icon in center
                     Image(systemName: mode == .transcribing ? "waveform" : "mic.fill")
@@ -108,7 +108,7 @@ struct RecordingOverlayView: View {
                             Text(L10n.Recording.cancel)
                                 .font(DSFonts.inter(size: 11, weight: .medium))
                         }
-                        .foregroundColor(Color.white.opacity(0.55))
+                        .foregroundColor(DSColor.onRecording.opacity(0.55))
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel(Text(L10n.Recording.cancelHintA11yLabel))
 
@@ -118,7 +118,7 @@ struct RecordingOverlayView: View {
                             Text(L10n.Recording.transcribe)
                                 .font(DSFonts.inter(size: 11, weight: .medium))
                         }
-                        .foregroundColor(Color.white.opacity(0.55))
+                        .foregroundColor(DSColor.onRecording.opacity(0.55))
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel(Text(L10n.Recording.transcribeHintA11yLabel))
                     }
@@ -151,16 +151,16 @@ struct RecordingOverlayView: View {
                 VStack(spacing: 6) {
                     Text(statusText)
                         .font(DSFonts.inter(size: 15, weight: .medium))
-                        .foregroundColor(Color.white.opacity(0.90))
+                        .foregroundColor(DSColor.onRecording.opacity(0.90))
 
                     Text(formattedTime(elapsedSeconds))
                         .font(DSFonts.jetBrainsMono(size: 24, weight: .medium))
-                        .foregroundColor(Color.white)
+                        .foregroundColor(DSColor.onRecording)
                         .monospacedDigit()
 
                     if mode == .transcribing {
                         ProgressView()
-                            .tint(Color.white.opacity(0.80))
+                            .tint(DSColor.onRecording.opacity(0.80))
                             .scaleEffect(0.85)
                     }
                 }
@@ -178,9 +178,9 @@ struct RecordingOverlayView: View {
                                 Text(L10n.Recording.cancel)
                                     .font(DSFonts.inter(size: 12, weight: .medium))
                             }
-                            .foregroundColor(mode == .cancelArmed ? DSTokens.Colors.recordingRed : Color.white.opacity(0.75))
+                            .foregroundColor(mode == .cancelArmed ? DSTokens.Colors.recordingRed : DSColor.onRecording.opacity(0.75))
                             .frame(width: 72, height: 56)
-                            .background(Color.white.opacity(mode == .cancelArmed ? 0.25 : 0.12))
+                            .background(DSColor.onRecording.opacity(mode == .cancelArmed ? 0.25 : 0.12))
                             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
                         .buttonStyle(.plain)
@@ -198,9 +198,9 @@ struct RecordingOverlayView: View {
                                 Text(mode == .transcribeArmed ? L10n.Recording.transcribe : L10n.Recording.save)
                                     .font(DSFonts.inter(size: 12, weight: .medium))
                             }
-                            .foregroundColor(mode == .transcribeArmed ? Color(red: 0.30, green: 0.55, blue: 1.0) : Color.white.opacity(0.90))
+                            .foregroundColor(mode == .transcribeArmed ? Color(red: 0.30, green: 0.55, blue: 1.0) : DSColor.onRecording.opacity(0.90))
                             .frame(width: 72, height: 56)
-                            .background(Color.white.opacity(mode == .transcribeArmed ? 0.25 : 0.15))
+                            .background(DSColor.onRecording.opacity(mode == .transcribeArmed ? 0.25 : 0.15))
                             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
                         .buttonStyle(.plain)

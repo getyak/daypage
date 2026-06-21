@@ -267,15 +267,32 @@ extension Memo {
     // MARK: Private helpers
 
     /// 将字符串用双引号包裹，转义内部引号、反斜杠及换行符，确保标量值始终占一行。
-    private func yamlQuote(_ s: String) -> String {
-        let escaped = s
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-            .replacingOccurrences(of: "\r\n", with: "\\n")
-            .replacingOccurrences(of: "\n", with: "\\n")
-            .replacingOccurrences(of: "\r", with: "\\r")
-            .replacingOccurrences(of: "\t", with: "\\t")
-        return "\"\(escaped)\""
+    /// 字符级扫描避免链式 `replacingOccurrences` 的级联与顺序陷阱（例如
+    /// 用户输入字面 `\n` 时被先转义成 `\\n` 后再被换行规则误碰）。
+    static func yamlQuote(_ s: String) -> String {
+        var out = ""
+        out.reserveCapacity(s.count + 2)
+        for ch in s {
+            switch ch {
+            case "\\": out += "\\\\"
+            case "\"": out += "\\\""
+            case "\n": out += "\\n"
+            case "\r": out += "\\r"
+            case "\t": out += "\\t"
+            default: out.append(ch)
+            }
+        }
+        return "\"" + out + "\""
+    }
+
+    /// Instance shim so existing call sites in `toMarkdown()` keep working
+    /// without `Memo.yamlQuote(...)`. New code should prefer the static form.
+    private func yamlQuote(_ s: String) -> String { Memo.yamlQuote(s) }
+
+    /// Inverse of `yamlQuote`: takes a fully-quoted YAML scalar like `"foo\\nbar"`
+    /// and returns the original string. Exposed for round-trip testing.
+    static func yamlUnquote(_ s: String) -> String {
+        YAMLParser.unquote(s)
     }
 }
 
@@ -460,7 +477,11 @@ struct YAMLParser {
 
     /// 去除外围双引号并反转义所有转义序列（\ \" \n \r \t）。
     /// 使用逐字符扫描确保 \n 被解码为字面反斜杠+n，而非换行符。
-    private func yamlUnquote(_ s: String) -> String {
+    private func yamlUnquote(_ s: String) -> String { YAMLParser.unquote(s) }
+
+    /// Static, test-visible variant of `yamlUnquote`. Pure function — safe to
+    /// call without instantiating a parser.
+    static func unquote(_ s: String) -> String {
         guard s.hasPrefix("\"") && s.hasSuffix("\"") && s.count >= 2 else { return s }
         let inner = s.dropFirst().dropLast()
         var result = ""

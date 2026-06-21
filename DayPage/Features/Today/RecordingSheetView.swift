@@ -84,18 +84,17 @@ struct RecordingSheetView: View {
     private static let amberThreshold = 300  // 5:00
     private static let redThreshold   = 540  // 9:00
 
-    /// Bright warm amber legible on the dark recording surface — between the
-    /// default off-white and `recordingRed`. Matches the orb's #FFD9A8 family.
-    private static let warnAmber = Color(red: 1.0, green: 0.70, blue: 0.35)
-
     /// Timer tint: off-white by default, amber past 5:00, red past 9:00.
+    /// Colors are now sourced from `DSColor` semantic tokens instead of being
+    /// hardcoded — keeps the design-tokens drift check green while preserving
+    /// the same warn/red thresholds.
     private var timerColor: Color {
         if elapsedSeconds >= Self.redThreshold {
             return DSTokens.Colors.recordingRed
         } else if elapsedSeconds >= Self.amberThreshold {
-            return Self.warnAmber
+            return DSColor.warnAmber
         } else {
-            return .white
+            return DSColor.onRecording
         }
     }
 
@@ -173,11 +172,11 @@ struct RecordingSheetView: View {
             .frame(maxWidth: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(Color.white.opacity(0.05))
+                    .fill(DSColor.onRecording.opacity(0.05))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5)
+                    .strokeBorder(DSColor.onRecording.opacity(0.08), lineWidth: 0.5)
             )
 
             // Live transcript preview + blinking caret.
@@ -209,7 +208,7 @@ struct RecordingSheetView: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 46)
                         .background(
-                            Capsule().fill(Color.white.opacity(0.10))
+                            Capsule().fill(DSColor.onRecording.opacity(0.10))
                         )
                 }
                 .buttonStyle(.plain)

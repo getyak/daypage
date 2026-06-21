@@ -23,6 +23,7 @@
 		4A862A4AB3CC3961B771EBC5 /* InputBarTutorialOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 912420086719F3FFFB45FE7A /* InputBarTutorialOverlay.swift */; };
 		60D39385300C46D08D8BF03C /* DraftStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC21412D29A6FB268CE43C58 /* DraftStorage.swift */; };
 		6587243C5DB109B930AB5D92 /* MemoryChatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04B9410B749C82B6E34779E4 /* MemoryChatTests.swift */; };
+		MYT0000001 /* MemoYAMLTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MYT1000001 /* MemoYAMLTests.swift */; };
 		VTW0000001 /* VoiceTranscriptWritebackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = VTW1000001 /* VoiceTranscriptWritebackTests.swift */; };
 		OVS0000002 /* OrphanedVoiceScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = OVS1000002 /* OrphanedVoiceScannerTests.swift */; };
 		OPS0000002 /* OrphanedPhotoScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = OPS1000002 /* OrphanedPhotoScannerTests.swift */; };
@@ -258,6 +259,7 @@
 
 /* Begin PBXFileReference section */
 		04B9410B749C82B6E34779E4 /* MemoryChatTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoryChatTests.swift; sourceTree = "<group>"; };
+		MYT1000001 /* MemoYAMLTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoYAMLTests.swift; sourceTree = "<group>"; };
 		VTW1000001 /* VoiceTranscriptWritebackTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceTranscriptWritebackTests.swift; sourceTree = "<group>"; };
 		OVS1000002 /* OrphanedVoiceScannerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OrphanedVoiceScannerTests.swift; sourceTree = "<group>"; };
 		OPS1000002 /* OrphanedPhotoScannerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OrphanedPhotoScannerTests.swift; sourceTree = "<group>"; };
@@ -1018,6 +1020,7 @@
 				TI2000001 /* AppIntentsTests.swift */,
 				A11Y1001 /* AccessibilityTests.swift */,
 				04B9410B749C82B6E34779E4 /* MemoryChatTests.swift */,
+				MYT1000001 /* MemoYAMLTests.swift */,
 				VTW1000001 /* VoiceTranscriptWritebackTests.swift */,
 				OVS1000002 /* OrphanedVoiceScannerTests.swift */,
 				OPS1000002 /* OrphanedPhotoScannerTests.swift */,
@@ -1424,6 +1427,7 @@
 				TI1000001 /* AppIntentsTests.swift in Sources */,
 				A11Y0001 /* AccessibilityTests.swift in Sources */,
 				6587243C5DB109B930AB5D92 /* MemoryChatTests.swift in Sources */,
+				MYT0000001 /* MemoYAMLTests.swift in Sources */,
 				VTW0000001 /* VoiceTranscriptWritebackTests.swift in Sources */,
 				OVS0000002 /* OrphanedVoiceScannerTests.swift in Sources */,
 				OPS0000002 /* OrphanedPhotoScannerTests.swift in Sources */,
