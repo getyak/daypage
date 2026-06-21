@@ -14,6 +14,28 @@ struct QuickCaptureWidget: Widget {
 
     let kind: String = "com.daypage.widget.quickcapture"
 
+    // R5: feature-flag aware family list. `.systemMedium` is the only
+    // family gated by `.widgetSystemMedium` — flipping that flag off in
+    // Settings → Experiments collapses the widget back to the original
+    // small + accessory set without a rebuild. Lock-screen accessory
+    // families always stay because they're independent of the home-
+    // screen layout flag.
+    //
+    // Note: `FeatureFlagStore.shared` is `@MainActor`. WidgetKit calls
+    // `body` on the main actor at registration time, so the access is
+    // safe. The store reads `UserDefaults.standard` — the widget
+    // extension has its own .standard suite, which is intentional: the
+    // flag default-on means new users see the same widget regardless of
+    // whether the main app has ever launched.
+    @MainActor
+    private static var supportedFamilies: [WidgetFamily] {
+        var families: [WidgetFamily] = [.systemSmall, .accessoryCircular, .accessoryRectangular]
+        if FeatureFlagStore.shared.isEnabled(.widgetSystemMedium) {
+            families.append(.systemMedium)
+        }
+        return families
+    }
+
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: QuickCaptureProvider()) { entry in
             QuickCaptureWidgetView(entry: entry)
@@ -26,7 +48,7 @@ struct QuickCaptureWidget: Widget {
         }
         .configurationDisplayName("快速记录")
         .description("一键开启 DayPage 语音录音。")
-        .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular])
+        .supportedFamilies(Self.supportedFamilies)
     }
 }
 

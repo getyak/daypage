@@ -146,10 +146,10 @@ final class LocationService: NSObject, ObservableObject {
         // Cache lookup — drop expired entries first, then check the live cache.
         geocodeCache.removeAll { $0.expiry <= now }
         if let hit = geocodeCache.first(where: { $0.bucket == key }) {
-            print("[geocode] cache hit \(key)")
+            DayPageLogger.shared.info("[geocode] cache hit \(key)")
             return hit.name
         }
-        print("[geocode] cache miss \(key)")
+        DayPageLogger.shared.info("[geocode] cache miss \(key)")
 
         let geocoder = CLGeocoder()
         let placemarks = try await geocoder.reverseGeocodeLocation(location)

@@ -67,7 +67,7 @@ struct VoiceRecordingView: View {
                 .padding(.top, 12)
 
             // Post-record transcription notice
-            Text("停止后自动转写")
+            Text(NSLocalizedString("voice.recording.autoTranscribe", value: "停止后自动转写", comment: "Voice recording — hint shown beneath waveform"))
                 .bodySMStyle()
                 .foregroundColor(DSColor.onSurfaceVariant.opacity(0.7))
                 .padding(.top, 12)
@@ -132,7 +132,7 @@ struct VoiceRecordingView: View {
                             .stroke(DSColor.error.opacity(0.4), lineWidth: 8)
                             .scaleEffect(1.5)
                     )
-                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.8).repeatForever(autoreverses: true),
+                    .animation(reduceMotion ? nil : Motion.sustain.repeatForever(autoreverses: true),
                                value: voiceService.state)
             } else if voiceService.state == .paused {
                 Image(systemName: "pause.fill")
@@ -172,7 +172,7 @@ struct VoiceRecordingView: View {
                 RoundedRectangle(cornerRadius: 1)
                     .fill(DSColor.amberArchival)
                     .frame(width: 3, height: max(4, CGFloat(level) * 32))
-                    .animation(.easeOut(duration: 0.05), value: level)
+                    .animation(Motion.instant, value: level)
             }
         }
         .frame(height: 36)
@@ -184,15 +184,15 @@ struct VoiceRecordingView: View {
     private var statusMessage: some View {
         switch voiceService.state {
         case .requesting:
-            Text("请求麦克风权限…")
+            Text(NSLocalizedString("voice.recording.requestingMic", value: "请求麦克风权限…", comment: "Voice recording — status while requesting mic permission"))
                 .bodySMStyle()
                 .foregroundColor(DSColor.onSurfaceVariant)
         case .recording:
-            Text("正在录音")
+            Text(NSLocalizedString("voice.recording.status.recording", value: "正在录音", comment: "Voice recording — active status"))
                 .bodySMStyle()
                 .foregroundColor(DSColor.error)
         case .paused:
-            Text("已暂停")
+            Text(NSLocalizedString("voice.recording.status.paused", value: "已暂停", comment: "Voice recording — paused status"))
                 .bodySMStyle()
                 .foregroundColor(DSColor.onSurfaceVariant)
         case .interrupted:
@@ -212,7 +212,7 @@ struct VoiceRecordingView: View {
             HStack(spacing: 8) {
                 ProgressView()
                     .tint(DSColor.onSurfaceVariant)
-                Text("正在转写…")
+                Text(NSLocalizedString("voice.recording.status.transcribing", value: "正在转写…", comment: "Voice recording — Whisper transcribing status"))
                     .bodySMStyle()
                     .foregroundColor(DSColor.onSurfaceVariant)
             }
@@ -262,6 +262,10 @@ struct VoiceRecordingView: View {
                 }
                 .buttonStyle(.plain)
                 .cornerRadius(0)
+                .accessibilityLabel(voiceService.state == .paused
+                    ? NSLocalizedString("voice.recording.a11y.resume", value: "继续录音", comment: "Voice recording — resume button a11y label")
+                    : NSLocalizedString("voice.recording.a11y.pause",  value: "暂停录音", comment: "Voice recording — pause button a11y label"))
+                .accessibilityHint(NSLocalizedString("voice.recording.a11y.pause.hint", value: "暂停或继续当前录音", comment: "Voice recording — pause/resume hint"))
             }
             .padding(.horizontal, 0)
         }
@@ -283,6 +287,8 @@ struct VoiceRecordingView: View {
             .disabled(isProcessing)
             .buttonStyle(.plain)
             .cornerRadius(0)
+            .accessibilityLabel(NSLocalizedString("voice.recording.a11y.discard", value: "丢弃录音", comment: "Voice recording — discard button a11y label"))
+            .accessibilityHint(NSLocalizedString("voice.recording.a11y.discard.hint", value: "永久删除此次录音内容", comment: "Voice recording — discard hint"))
 
             // Separator
             Rectangle()
@@ -310,6 +316,8 @@ struct VoiceRecordingView: View {
             .disabled(!canSave)
             .buttonStyle(.plain)
             .cornerRadius(0)
+            .accessibilityLabel(NSLocalizedString("voice.recording.a11y.save", value: "保存录音", comment: "Voice recording — save button a11y label"))
+            .accessibilityHint(NSLocalizedString("voice.recording.a11y.save.hint", value: "停止录音并发送给 AI 转写", comment: "Voice recording — save hint"))
         }
         .overlay(alignment: .top) {
             Rectangle()

@@ -24,6 +24,11 @@ enum FeatureFlag: String, CaseIterable {
     case widgetSystemMedium
     case aiKeyBanner
     case foregroundCompileRetry
+    // R5 — Round 5: kill switch for the offline-memo sync queue + Today banner.
+    // Default-on; flipping to false hides the banner and skips enqueueing if
+    // the underlying network layer ever starts misbehaving on a TestFlight
+    // build. The queue itself stays installed but inert.
+    case offlineQueue
 
     /// Default state when the user has never touched the toggle. All Round 4
     /// flags default-on so the app behaves the way the user already expects
@@ -34,7 +39,8 @@ enum FeatureFlag: String, CaseIterable {
              .compileNotification,
              .widgetSystemMedium,
              .aiKeyBanner,
-             .foregroundCompileRetry:
+             .foregroundCompileRetry,
+             .offlineQueue:
             return true
         }
     }
@@ -49,6 +55,7 @@ enum FeatureFlag: String, CaseIterable {
         case .widgetSystemMedium:     return "Widget 中等尺寸"
         case .aiKeyBanner:            return "AI 密钥提示"
         case .foregroundCompileRetry: return "前台自动重试编译"
+        case .offlineQueue:           return "离线同步队列"
         }
     }
 }

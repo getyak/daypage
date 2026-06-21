@@ -274,9 +274,7 @@ struct DayPageApp: App {
                             try await authService.supabase.auth.session(from: url)
                         } catch {
                             SentrySDK.capture(error: error)
-                            #if DEBUG
-                            print("[DayPageApp] Deep-link auth session error: \(error)")
-                            #endif
+                            DayPageLogger.shared.error("[DayPageApp] Deep-link auth session error: \(error)")
                         }
                     }
                 }
@@ -338,8 +336,14 @@ struct DayPageApp: App {
                         // B3: 2am 后台编译失败时，前台回流再试一次。
                         // foregroundRetryIfNeeded 内部已 debounce 60s，
                         // 多次 scenePhase 切换不会重复打 API。
+                        //
+                        // R5: gated by `.foregroundCompileRetry` flag so a
+                        // misbehaving retry loop can be killed from
+                        // Settings → Experiments without a hot-fix build.
                         Task { @MainActor in
-                            await BackgroundCompilationService.shared.foregroundRetryIfNeeded()
+                            if FeatureFlagStore.shared.isEnabled(.foregroundCompileRetry) {
+                                await BackgroundCompilationService.shared.foregroundRetryIfNeeded()
+                            }
                         }
                     }
                 }

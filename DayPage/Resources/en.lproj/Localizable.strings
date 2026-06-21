@@ -832,3 +832,17 @@
 /* iCloud conflict banner (R4-MEDIUM #38) */
 "icloud.conflict.banner.title"               = "iCloud conflict detected";
 "icloud.conflict.banner.body"                = "Kept the most recent version (%@).";
+
+/* ===== Round 5: VoiceRecordingView i18n + a11y (R5-MEDIUM/LOW) ===== */
+"voice.recording.autoTranscribe"             = "Auto-transcribes when you stop";
+"voice.recording.requestingMic"              = "Requesting microphone access…";
+"voice.recording.status.recording"           = "Recording";
+"voice.recording.status.paused"              = "Paused";
+"voice.recording.status.transcribing"        = "Transcribing…";
+"voice.recording.a11y.discard"               = "Discard recording";
+"voice.recording.a11y.discard.hint"          = "Permanently delete this recording";
+"voice.recording.a11y.save"                  = "Save recording";
+"voice.recording.a11y.save.hint"             = "Stop recording and send to AI for transcription";
+"voice.recording.a11y.pause"                 = "Pause recording";
+"voice.recording.a11y.resume"                = "Resume recording";
+"voice.recording.a11y.pause.hint"            = "Pause or resume the current recording";

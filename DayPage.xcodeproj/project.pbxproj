@@ -94,6 +94,8 @@
 		A10000801 /* DateFormatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000801 /* DateFormatters.swift */; };
 		A10000802 /* HTTPClientHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000802 /* HTTPClientHelper.swift */; };
 		A10000803 /* RetryHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000803 /* RetryHelper.swift */; };
+		SQS0000001 /* SyncQueueService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SQS1000001 /* SyncQueueService.swift */; };
+		SQS0000002 /* SyncQueueServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SQS1000002 /* SyncQueueServiceTests.swift */; };
 		A10000043 /* Interactions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000043 /* Interactions.swift */; };
 		A10000045 /* OnThisDayIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000045 /* OnThisDayIndex.swift */; };
 		A10000046 /* OnThisDayCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000046 /* OnThisDayCard.swift */; };
@@ -130,6 +132,7 @@
 		A10000095 /* ComposerContextProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000095 /* ComposerContextProvider.swift */; };
 		A100000B4 /* SecretsRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000B4 /* SecretsRuntime.swift */; };
 		A10000FF1 /* FeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000FF1 /* FeatureFlags.swift */; };
+		FFW0000001 /* FeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000FF1 /* FeatureFlags.swift */; };
 		A100000F1 /* GlassSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000F1 /* GlassSurface.swift */; };
 		A100000F2 /* Surfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000F2 /* Surfaces.swift */; };
 		A10000200 /* ComposerStateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000200 /* ComposerStateMachine.swift */; };
@@ -180,6 +183,7 @@
 		DS0000012 /* DSButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000012 /* DSButton.swift */; };
 		DS0000013 /* DSChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000013 /* DSChip.swift */; };
 		DS0000014 /* DSBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000014 /* DSBanner.swift */; };
+		DS0000015 /* DSPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000015 /* DSPicker.swift */; };
 		E20A68158C940060066B2B73 /* WatchReceiveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11E0748715A251EE4A0168A /* WatchReceiveService.swift */; };
 		E4AC46FA495D4BD178789A14 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0881AB423FF6F12FCDE27C5B /* Assets.xcassets */; };
 		E5077A7D97855770914BFB8D /* MarkdownExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC8043A3D3371852ACB3D6F3 /* MarkdownExportService.swift */; };
@@ -352,6 +356,8 @@
 		A20000801 /* DateFormatters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateFormatters.swift; sourceTree = "<group>"; };
 		A20000802 /* HTTPClientHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPClientHelper.swift; sourceTree = "<group>"; };
 		A20000803 /* RetryHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryHelper.swift; sourceTree = "<group>"; };
+		SQS1000001 /* SyncQueueService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueService.swift; sourceTree = "<group>"; };
+		SQS1000002 /* SyncQueueServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueServiceTests.swift; sourceTree = "<group>"; };
 		A20000043 /* Interactions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Interactions.swift; sourceTree = "<group>"; };
 		A20000045 /* OnThisDayIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayIndex.swift; sourceTree = "<group>"; };
 		A20000046 /* OnThisDayCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayCard.swift; sourceTree = "<group>"; };
@@ -446,6 +452,7 @@
 		DS1000012 /* DSButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSButton.swift; sourceTree = "<group>"; };
 		DS1000013 /* DSChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSChip.swift; sourceTree = "<group>"; };
 		DS1000014 /* DSBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSBanner.swift; sourceTree = "<group>"; };
+		DS1000015 /* DSPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSPicker.swift; sourceTree = "<group>"; };
 		E54B333332A1175CD3B31883 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		ES1000001 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		ES1000002 /* GlassErrorBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassErrorBanner.swift; sourceTree = "<group>"; };
@@ -657,6 +664,7 @@
 				DS1000012 /* DSButton.swift */,
 				DS1000013 /* DSChip.swift */,
 				DS1000014 /* DSBanner.swift */,
+				DS1000015 /* DSPicker.swift */,
 				8DB2FBA71981BA7516DA9A3F /* LiquidGlassEngine.swift */,
 			);
 			path = DesignSystem;
@@ -735,6 +743,7 @@
 				A19989C44C3E9887FC01F382 /* MemoryChatService.swift */,
 				A20000802 /* HTTPClientHelper.swift */,
 				A20000803 /* RetryHelper.swift */,
+				SQS1000001 /* SyncQueueService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -1044,6 +1053,7 @@
 				R4B1000001 /* RawStorageWriteFailedTests.swift */,
 				R4B1000002 /* LocationServiceLRUTests.swift */,
 				R4B1000003 /* ArchiveViewModelGroupTests.swift */,
+				SQS1000002 /* SyncQueueServiceTests.swift */,
 			);
 			path = DayPageTests;
 			sourceTree = "<group>";
@@ -1242,6 +1252,7 @@
 				EA575F353C6AFD5EA7FF9A6F /* QuickCaptureWidget.swift in Sources */,
 				97FA675FF46459D5CE5E8CF3 /* QuickCaptureControl.swift in Sources */,
 				485EFA11789212D87CB1B74B /* StartRecordingIntent.swift in Sources */,
+				FFW0000001 /* FeatureFlags.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1353,6 +1364,7 @@
 				A10000801 /* DateFormatters.swift in Sources */,
 				A10000802 /* HTTPClientHelper.swift in Sources */,
 				A10000803 /* RetryHelper.swift in Sources */,
+				SQS0000001 /* SyncQueueService.swift in Sources */,
 				A10000079 /* iCloudSyncMonitor.swift in Sources */,
 				A10000085 /* iCloudConflictMonitor.swift in Sources */,
 				A10000080 /* AppNavigationModel.swift in Sources */,
@@ -1392,6 +1404,7 @@
 				DS0000012 /* DSButton.swift in Sources */,
 				DS0000013 /* DSChip.swift in Sources */,
 				DS0000014 /* DSBanner.swift in Sources */,
+				DS0000015 /* DSPicker.swift in Sources */,
 				FT0000001 /* DayOrbView.swift in Sources */,
 				MD0000001 /* MemoDetailView.swift in Sources */,
 				MD0000002 /* MemoDetailViewModel.swift in Sources */,
@@ -1456,6 +1469,7 @@
 				R4B0000001 /* RawStorageWriteFailedTests.swift in Sources */,
 				R4B0000002 /* LocationServiceLRUTests.swift in Sources */,
 				R4B0000003 /* ArchiveViewModelGroupTests.swift in Sources */,
+				SQS0000002 /* SyncQueueServiceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

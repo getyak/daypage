@@ -14,6 +14,10 @@ struct TodayView: View {
     // F2: surface offline / AI-disabled state right under the header so the
     // user knows why compile + voice transcribe behave differently.
     @StateObject private var networkMonitor = NetworkMonitor.shared
+    // R5: offline sync queue — drives the "N 条 memo 待同步" banner just
+    // under the AI key banner. Observes pendingCount + oldestPendingDate to
+    // switch between neutral and "已等待 N 小时" red variants.
+    @StateObject private var syncQueue = SyncQueueService.shared
     @AppStorage(AppSettings.Keys.aiFeaturesEnabled) private var aiFeaturesEnabled: Bool = true
     @EnvironmentObject private var sidebarVM: SidebarViewModel
 
@@ -42,6 +46,19 @@ struct TodayView: View {
 
     /// 输入栏中的草稿文本。SceneStorage persists the draft across backgrounding and process kills.
     @SceneStorage("today.draftText") private var draftText: String = ""
+
+    /// R5: iPad multi-window safety — Info.plist sets
+    /// `UIApplicationSupportsMultipleScenes = true`, so two windows (split-view
+    /// / Stage Manager) can run TodayView simultaneously. Without a per-scene
+    /// suffix, both windows write the same `today.draftText.backup`
+    /// UserDefaults key on every keystroke and clobber each other. SceneStorage
+    /// is per-scene, so each window gets its own stable UUID that survives
+    /// backgrounding and process kills, scoping the backup key to this scene.
+    @SceneStorage("today.draftBackupSceneID") private var draftBackupSceneID: String = UUID().uuidString
+
+    /// Per-scene UserDefaults key for the draft backup mirror. See
+    /// `draftBackupSceneID` for the multi-window rationale.
+    private var draftBackupKey: String { "today.draftText.backup.\(draftBackupSceneID)" }
 
     /// Whether to show the Daily Page sheet.
     @State private var showDailyPage: Bool = false
@@ -253,6 +270,19 @@ struct TodayView: View {
                     //   4. this session hasn't already dismissed it.
                     if shouldShowAIKeyBanner {
                         aiKeyMissingBanner
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+
+                    // MARK: Offline Sync Queue Banner (R5)
+                    //
+                    // Sits next to the AI-key banner because both
+                    // communicate "background work is paused for a reason
+                    // you might care about". Only renders when the feature
+                    // flag is on AND there's actually something queued —
+                    // otherwise it disappears entirely so the layout
+                    // collapses cleanly.
+                    if FeatureFlagStore.shared.isEnabled(.offlineQueue) && !syncQueue.isEmpty {
+                        syncQueuePendingBanner
                             .transition(.opacity.combined(with: .move(edge: .top)))
                     }
 
@@ -577,7 +607,7 @@ struct TodayView: View {
                 // draft. Only restore when SceneStorage is empty — never
                 // clobber a fresh keystroke that's already in flight.
                 if draftText.isEmpty,
-                   let backup = UserDefaults.standard.string(forKey: "today.draftText.backup"),
+                   let backup = UserDefaults.standard.string(forKey: draftBackupKey),
                    !backup.isEmpty {
                     draftText = backup
                 }
@@ -619,7 +649,7 @@ struct TodayView: View {
                     guard !Task.isCancelled else { return }
                     await MainActor.run {
                         draftDate = Date().timeIntervalSince1970
-                        UserDefaults.standard.set(snapshot, forKey: "today.draftText.backup")
+                        UserDefaults.standard.set(snapshot, forKey: draftBackupKey)
                     }
                 }
             }
@@ -668,7 +698,7 @@ struct TodayView: View {
                 // into `draftText`, which is itself mirrored to the backup on
                 // every keystroke — but if the user dismisses without typing,
                 // the stale backup would survive next launch.
-                UserDefaults.standard.removeObject(forKey: "today.draftText.backup")
+                UserDefaults.standard.removeObject(forKey: draftBackupKey)
                 guard draftText.isEmpty else { return }
                 draftText = body
                 orbFocusToggle.toggle()
@@ -974,6 +1004,11 @@ struct TodayView: View {
     /// missing key + onboarded + within session not dismissed + 24h
     /// cooldown elapsed.
     private var shouldShowAIKeyBanner: Bool {
+        // R5: feature-flag kill switch — flipping `.aiKeyBanner` off in
+        // Settings → Experiments hides the banner entirely without
+        // touching the underlying key-detection logic. The flag default-on
+        // means upgraders see the banner exactly like before.
+        guard FeatureFlagStore.shared.isEnabled(.aiKeyBanner) else { return false }
         guard aiKeyMissing else { return false }
         // justOnboarded ≡ user hasn't finished onboarding yet. The
         // Onboarding ApiKeysPage already handles the key-entry flow, and
@@ -1086,6 +1121,108 @@ struct TodayView: View {
         // R4 — `.combine` reads the icon + title + CTA + dismiss as one
         // grouped element so VoiceOver users hear "AI key missing, open
         // settings, dismiss" rather than four separate items in row order.
+        .accessibilityElement(children: .combine)
+    }
+
+    // MARK: - Offline Sync Queue Banner (R5)
+    //
+    // 44pt amber-tinted row mirroring the AI-key banner so the two never
+    // visually fight. Left icon spins while `isFlushingNow`, the centre
+    // text reports `pendingCount` and (when the oldest pending memo is
+    // > 1h old) a red "已等待 N 小时" coda nudges the user to check
+    // their network. Tapping the row shows a simple alert.
+
+    /// True when the oldest pending memo has been queued for more than
+    /// one hour — used to escalate the banner to a red sub-label. Treats
+    /// nil as "no time yet, don't escalate".
+    private var syncQueueWaitedTooLong: Bool {
+        guard let oldest = syncQueue.oldestPendingDate else { return false }
+        return Date().timeIntervalSince(oldest) > 3600
+    }
+
+    /// Whole-hour count of how long the oldest memo has been waiting.
+    /// Clamped to a minimum of 1 so we never print "已等待 0 小时" —
+    /// `syncQueueWaitedTooLong` already gates on > 1h.
+    private var syncQueueWaitedHours: Int {
+        guard let oldest = syncQueue.oldestPendingDate else { return 0 }
+        return max(1, Int(Date().timeIntervalSince(oldest) / 3600))
+    }
+
+    private var syncQueuePendingBanner: some View {
+        Button {
+            // Single-line alert via the shared BannerCenter so we don't
+            // sprout a per-banner sheet. The detail page is intentionally
+            // deferred — this round only ships the surfacing.
+            Haptics.tapConfirm()
+            bannerCenter.show(AppBannerModel(
+                kind: .info,
+                title: NSLocalizedString(
+                    "today.banner.sync_queue.tap.title",
+                    value: "等待网络恢复",
+                    comment: "Banner title shown when user taps the offline sync banner"
+                ),
+                subtitle: NSLocalizedString(
+                    "today.banner.sync_queue.tap.body",
+                    value: "等待网络恢复后自动同步。",
+                    comment: "Banner subtitle shown when user taps the offline sync banner"
+                ),
+                autoDismiss: true
+            ))
+        } label: {
+            HStack(spacing: 10) {
+                // Spinning sync icon when an upload is actually in
+                // flight, static otherwise. SF Symbol rotation is cheap
+                // and signals "we're trying" without a separate spinner.
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(DSColor.amberAccent)
+                    .rotationEffect(.degrees(syncQueue.isFlushingNow ? 360 : 0))
+                    .animation(
+                        syncQueue.isFlushingNow
+                            ? .linear(duration: 1.0).repeatForever(autoreverses: false)
+                            : .default,
+                        value: syncQueue.isFlushingNow
+                    )
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(
+                        format: NSLocalizedString(
+                            "today.banner.sync_queue.pending",
+                            value: "%d 条 memo 待同步",
+                            comment: "Today banner: N memos waiting for cloud sync"
+                        ),
+                        syncQueue.pendingCount
+                    ))
+                        .font(DSFonts.inter(size: 13, weight: .medium))
+                        .foregroundColor(DSColor.inkPrimary)
+                        .lineLimit(1)
+
+                    if syncQueueWaitedTooLong {
+                        Text(String(
+                            format: NSLocalizedString(
+                                "today.banner.sync_queue.waited",
+                                value: "已等待 %d 小时",
+                                comment: "Today banner sub-label: queue stuck for N hours"
+                            ),
+                            syncQueueWaitedHours
+                        ))
+                            .font(DSFonts.inter(size: 11, weight: .semibold))
+                            .foregroundColor(.red)
+                            .lineLimit(1)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, DSSpacing.pageMargin)
+            .frame(maxWidth: .infinity)
+            .frame(height: 44)
+            .background(DSColor.amberAccent.opacity(0.14))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        // VoiceOver hears the full picture (count + wait time) as a
+        // single element rather than two unrelated labels.
         .accessibilityElement(children: .combine)
     }
 
@@ -2489,7 +2626,7 @@ struct TodayView: View {
             // R4-B2: keep the UserDefaults backup mirror aligned with the
             // SceneStorage truth — otherwise a stale 31-day-old draft would
             // be resurrected by .onAppear on the next cold launch.
-            UserDefaults.standard.removeObject(forKey: "today.draftText.backup")
+            UserDefaults.standard.removeObject(forKey: draftBackupKey)
         }
     }
 

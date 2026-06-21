@@ -836,3 +836,17 @@
 /* iCloud 冲突 banner (R4-MEDIUM #38) */
 "icloud.conflict.banner.title"               = "检测到 iCloud 冲突";
 "icloud.conflict.banner.body"                = "已自动保留最新版本（%@）。";
+
+/* ===== Round 5: VoiceRecordingView i18n + a11y (R5-MEDIUM/LOW) ===== */
+"voice.recording.autoTranscribe"             = "停止后自动转写";
+"voice.recording.requestingMic"              = "请求麦克风权限…";
+"voice.recording.status.recording"           = "正在录音";
+"voice.recording.status.paused"              = "已暂停";
+"voice.recording.status.transcribing"        = "正在转写…";
+"voice.recording.a11y.discard"               = "丢弃录音";
+"voice.recording.a11y.discard.hint"          = "永久删除此次录音内容";
+"voice.recording.a11y.save"                  = "保存录音";
+"voice.recording.a11y.save.hint"             = "停止录音并发送给 AI 转写";
+"voice.recording.a11y.pause"                 = "暂停录音";
+"voice.recording.a11y.resume"                = "继续录音";
+"voice.recording.a11y.pause.hint"            = "暂停或继续当前录音";

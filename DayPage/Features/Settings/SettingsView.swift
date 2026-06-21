@@ -492,12 +492,13 @@ struct SettingsView: View {
             }
             .onChange(of: appSettings.accentColor) { _ in Haptics.soft() }
 
-            // Font size adjustment
-            Picker(selection: $appSettings.fontSizeAdjust) {
-                ForEach(FontSizeAdjust.allCases, id: \.self) { adjust in
-                    Text(adjust.label).tag(adjust)
-                }
-            } label: {
+            // Font size adjustment — first SettingsView migration to DSPicker
+            // (DSPicker pilot; remaining Pickers below stay native for now).
+            DSPicker(
+                title: NSLocalizedString("settings.appearance.fontsize", comment: ""),
+                selection: $appSettings.fontSizeAdjust,
+                options: FontSizeAdjust.allCases.map { (value: $0, label: $0.label) }
+            ) {
                 Label(NSLocalizedString("settings.appearance.fontsize", comment: ""), systemImage: "textformat.size")
             }
             .onChange(of: appSettings.fontSizeAdjust) { _ in Haptics.soft() }

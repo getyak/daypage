@@ -192,6 +192,10 @@ final class BackgroundCompilationService {
                 level: .warning,
                 message: "foreground retry failed: \(error.localizedDescription)"
             )
+            // R5: 失败时清掉 debounce 时间戳，让用户下次回前台立即可重试，
+            // 而不是被 60s debounce 锁住。成功路径保留 lastForegroundRetry
+            // 以阻止 60s 内无意义的二次编译。
+            lastForegroundRetry = nil
         }
     }
 
@@ -326,6 +330,13 @@ final class BackgroundCompilationService {
     // MARK: - Private: Local Notifications
 
     private func sendSuccessNotification(for date: Date) {
+        // R5: feature-flag kill switch. If `.compileNotification` is off
+        // in Settings → Experiments, suppress the local notification
+        // entirely — even when the user-facing notifyCompile toggle is
+        // still on. This is a separate, lower-level escape hatch in
+        // case the iOS notification surface itself misbehaves.
+        guard FeatureFlagStore.shared.isEnabled(.compileNotification) else { return }
+
         // Issue #20: respect the user toggle. UserDefaults.bool returns false
         // when the key is absent, so we treat "key missing" as on-by-default
         // — only an explicit `false` suppresses notifications.

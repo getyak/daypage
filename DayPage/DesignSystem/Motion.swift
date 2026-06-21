@@ -31,6 +31,13 @@ enum Motion {
     static let breathing: Animation = .easeInOut(duration: 1.8).repeatForever(autoreverses: true)
     // Back-swipe navigation gesture following deceleration.
     static let swipeBack: Animation = .timingCurve(0.4, 0.0, 0.2, 1, duration: 0.30)
+    // Sustained ambient pulse (e.g. recording indicator). Slower than `spring`
+    // so the ring breathes calmly without feeling jittery; meant to be paired
+    // with `.repeatForever(autoreverses: true)` at the call site.
+    static let sustain: Animation = .easeInOut(duration: 0.8)
+    // Near-instant tick used for high-frequency visual updates such as the
+    // live waveform bars — short enough that consecutive frames don't queue.
+    static let instant: Animation = .easeOut(duration: 0.05)
 
     // MARK: - Reduce-Motion Helpers
 
