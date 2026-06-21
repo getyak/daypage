@@ -846,3 +846,25 @@
 "voice.recording.a11y.pause"                 = "Pause recording";
 "voice.recording.a11y.resume"                = "Resume recording";
 "voice.recording.a11y.pause.hint"            = "Pause or resume the current recording";
+
+// MARK: - On This Day card (R6 — 时光胶囊)
+"onthisday.card.preview.empty"                          = "Open that day's notes";
+"onthisday.card.cta"                                    = "Open that day →";
+"onthisday.card.accessibility.label"                    = "Time capsule: %@ — %@";
+"onthisday.card.accessibility.hint"                     = "Double tap to open the full memo";
+"onthisday.card.accessibility.action.dismiss"           = "Dismiss today's memory";
+"onthisday.card.dismiss.accessibility.label"            = "Dismiss today's memory";
+"onthisday.card.dismiss.accessibility.hint"             = "Hide for the rest of today";
+
+/* R6 — Today SyncQueue banner + sheet */
+"today.syncqueue.banner.pending"             = "%d memo(s) waiting to sync";
+"today.syncqueue.banner.flushing"            = "Syncing %d memo(s)…";
+"today.syncqueue.banner.waited_hours"        = "Waiting %d hour(s)";
+"today.syncqueue.banner.waited_over_day"     = "Not synced for over 24 hours";
+"today.syncqueue.sheet.title"                = "Pending sync";
+"today.syncqueue.sheet.summary"              = "%d memo(s) waiting to upload";
+"today.syncqueue.sheet.oldest"               = "Oldest: %@";
+"today.syncqueue.sheet.list_header"          = "Pending memos (first 5)";
+"today.syncqueue.sheet.empty"                = "Queue is empty.";
+"today.syncqueue.sheet.footnote"             = "Auto-syncs when the network returns.";
+"today.syncqueue.sheet.close"                = "Close";

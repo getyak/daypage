@@ -850,3 +850,25 @@
 "voice.recording.a11y.pause"                 = "暂停录音";
 "voice.recording.a11y.resume"                = "继续录音";
 "voice.recording.a11y.pause.hint"            = "暂停或继续当前录音";
+
+// MARK: - On This Day card (R6 — 时光胶囊)
+"onthisday.card.preview.empty"                          = "查看那一天的记录";
+"onthisday.card.cta"                                    = "翻开那天 →";
+"onthisday.card.accessibility.label"                    = "时光胶囊：%@ — %@";
+"onthisday.card.accessibility.hint"                     = "点击查看完整 memo";
+"onthisday.card.accessibility.action.dismiss"           = "关闭今日回忆";
+"onthisday.card.dismiss.accessibility.label"            = "关闭今日回忆";
+"onthisday.card.dismiss.accessibility.hint"             = "今日不再显示";
+
+/* R6 — Today SyncQueue banner + sheet */
+"today.syncqueue.banner.pending"             = "%d 条 memo 待同步";
+"today.syncqueue.banner.flushing"            = "正在同步 %d 条…";
+"today.syncqueue.banner.waited_hours"        = "已等待 %d 小时";
+"today.syncqueue.banner.waited_over_day"     = "超过 24 小时未同步";
+"today.syncqueue.sheet.title"                = "待同步队列";
+"today.syncqueue.sheet.summary"              = "%d 条 memo 等待上传";
+"today.syncqueue.sheet.oldest"               = "最早一条：%@";
+"today.syncqueue.sheet.list_header"          = "待同步 memo（前 5 条）";
+"today.syncqueue.sheet.empty"                = "队列已清空。";
+"today.syncqueue.sheet.footnote"             = "等待网络恢复后自动同步。";
+"today.syncqueue.sheet.close"                = "关闭";

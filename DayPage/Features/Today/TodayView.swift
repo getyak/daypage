@@ -24,6 +24,10 @@ struct TodayView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var showSyncBanner: Bool = false
+    // R6: drives the modal sheet that surfaces the first N pending memo
+    // IDs when the user taps the sync-queue banner. Replaces the bare
+    // BannerCenter alert with a sheet you can actually scan.
+    @State private var showSyncQueueSheet: Bool = false
     @State private var showAuthSheet: Bool = false
 
     // R3 — A2: Reflects "AI compile + Whisper are gagged because either the
@@ -1148,60 +1152,88 @@ struct TodayView: View {
         return max(1, Int(Date().timeIntervalSince(oldest) / 3600))
     }
 
+    /// R6: stricter escalation — when the oldest pending memo is more
+    /// than 24h old we surface a louder red sub-label nudging the user
+    /// to actually do something (check network, re-auth). 24h is the
+    /// threshold beyond which "spotty Wi-Fi" stops being a credible
+    /// explanation.
+    private var syncQueueWaitedOverDay: Bool {
+        guard let oldest = syncQueue.oldestPendingDate else { return false }
+        return Date().timeIntervalSince(oldest) > 86_400
+    }
+
+    /// Headline copy for the banner. Shifts from neutral "N 条 memo 待同步"
+    /// to the active "正在同步 N 条…" while an upload is in flight so
+    /// the user can tell the spin actually means progress.
+    private var syncQueuePrimaryLabel: String {
+        let count = syncQueue.pendingCount
+        if syncQueue.isFlushingNow {
+            return String(
+                format: NSLocalizedString(
+                    "today.syncqueue.banner.flushing",
+                    value: "正在同步 %d 条…",
+                    comment: "Today banner headline while an upload pass is running"
+                ),
+                count
+            )
+        }
+        return String(
+            format: NSLocalizedString(
+                "today.syncqueue.banner.pending",
+                value: "%d 条 memo 待同步",
+                comment: "Today banner headline: N memos waiting for cloud sync"
+            ),
+            count
+        )
+    }
+
     private var syncQueuePendingBanner: some View {
         Button {
-            // Single-line alert via the shared BannerCenter so we don't
-            // sprout a per-banner sheet. The detail page is intentionally
-            // deferred — this round only ships the surfacing.
+            // R6: open the detail sheet so the user can actually see which
+            // memos are stuck. The bare BannerCenter alert worked but
+            // hid the data behind one more tap.
             Haptics.tapConfirm()
-            bannerCenter.show(AppBannerModel(
-                kind: .info,
-                title: NSLocalizedString(
-                    "today.banner.sync_queue.tap.title",
-                    value: "等待网络恢复",
-                    comment: "Banner title shown when user taps the offline sync banner"
-                ),
-                subtitle: NSLocalizedString(
-                    "today.banner.sync_queue.tap.body",
-                    value: "等待网络恢复后自动同步。",
-                    comment: "Banner subtitle shown when user taps the offline sync banner"
-                ),
-                autoDismiss: true
-            ))
+            showSyncQueueSheet = true
         } label: {
             HStack(spacing: 10) {
                 // Spinning sync icon when an upload is actually in
-                // flight, static otherwise. SF Symbol rotation is cheap
-                // and signals "we're trying" without a separate spinner.
+                // flight, static otherwise. Spin faster (0.6s vs 1.0s)
+                // while flushing so the change of state is legible at
+                // a glance, not just inferable from the icon being in
+                // motion at all.
                 Image(systemName: "arrow.triangle.2.circlepath")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(DSColor.amberAccent)
                     .rotationEffect(.degrees(syncQueue.isFlushingNow ? 360 : 0))
                     .animation(
                         syncQueue.isFlushingNow
-                            ? .linear(duration: 1.0).repeatForever(autoreverses: false)
+                            ? .linear(duration: 0.6).repeatForever(autoreverses: false)
                             : .default,
                         value: syncQueue.isFlushingNow
                     )
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(String(
-                        format: NSLocalizedString(
-                            "today.banner.sync_queue.pending",
-                            value: "%d 条 memo 待同步",
-                            comment: "Today banner: N memos waiting for cloud sync"
-                        ),
-                        syncQueue.pendingCount
-                    ))
+                    Text(syncQueuePrimaryLabel)
                         .font(DSFonts.inter(size: 13, weight: .medium))
                         .foregroundColor(DSColor.inkPrimary)
                         .lineLimit(1)
 
-                    if syncQueueWaitedTooLong {
+                    // 24h escalation takes precedence over the 1h variant
+                    // — losing the day is the bigger story.
+                    if syncQueueWaitedOverDay {
+                        Text(NSLocalizedString(
+                            "today.syncqueue.banner.waited_over_day",
+                            value: "超过 24 小时未同步",
+                            comment: "Today banner sub-label: queue stuck > 24h"
+                        ))
+                            .font(DSFonts.inter(size: 11, weight: .semibold))
+                            .foregroundColor(.red)
+                            .lineLimit(1)
+                    } else if syncQueueWaitedTooLong {
                         Text(String(
                             format: NSLocalizedString(
-                                "today.banner.sync_queue.waited",
+                                "today.syncqueue.banner.waited_hours",
                                 value: "已等待 %d 小时",
                                 comment: "Today banner sub-label: queue stuck for N hours"
                             ),
@@ -1224,6 +1256,100 @@ struct TodayView: View {
         // VoiceOver hears the full picture (count + wait time) as a
         // single element rather than two unrelated labels.
         .accessibilityElement(children: .combine)
+        .sheet(isPresented: $showSyncQueueSheet) {
+            syncQueuePendingSheet
+        }
+    }
+
+    /// Detail sheet listing the first 5 pending memo IDs and the oldest-
+    /// pending timestamp. Deliberately read-only — surfacing the data
+    /// avoids the "ghost queue" feeling without letting the user dig
+    /// themselves a hole by manually retrying every entry.
+    private var syncQueuePendingSheet: some View {
+        let pending = Array(syncQueue.pendingMemoIDs).sorted().prefix(5)
+        let oldest = syncQueue.oldestPendingDate
+        return NavigationView {
+            List {
+                Section {
+                    Text(String(
+                        format: NSLocalizedString(
+                            "today.syncqueue.sheet.summary",
+                            value: "%d 条 memo 等待上传",
+                            comment: "Sync queue sheet summary: N memos pending"
+                        ),
+                        syncQueue.pendingCount
+                    ))
+                        .font(DSFonts.inter(size: 14, weight: .medium))
+                    if let oldest = oldest {
+                        Text(String(
+                            format: NSLocalizedString(
+                                "today.syncqueue.sheet.oldest",
+                                value: "最早一条：%@",
+                                comment: "Sync queue sheet: oldest pending timestamp"
+                            ),
+                            DateFormatter.localizedString(
+                                from: oldest,
+                                dateStyle: .short,
+                                timeStyle: .short
+                            )
+                        ))
+                            .font(DSFonts.inter(size: 12, weight: .regular))
+                            .foregroundColor(DSColor.inkSecondary)
+                    }
+                }
+
+                Section(header: Text(NSLocalizedString(
+                    "today.syncqueue.sheet.list_header",
+                    value: "待同步 memo（前 5 条）",
+                    comment: "Sync queue sheet: section header for the truncated pending list"
+                ))) {
+                    if pending.isEmpty {
+                        Text(NSLocalizedString(
+                            "today.syncqueue.sheet.empty",
+                            value: "队列已清空。",
+                            comment: "Sync queue sheet: empty-state body"
+                        ))
+                            .font(DSFonts.inter(size: 13, weight: .regular))
+                            .foregroundColor(DSColor.inkSecondary)
+                    } else {
+                        ForEach(pending, id: \.self) { id in
+                            Text(id)
+                                .font(.system(.footnote, design: .monospaced))
+                                .foregroundColor(DSColor.inkPrimary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                    }
+                }
+
+                Section {
+                    Text(NSLocalizedString(
+                        "today.syncqueue.sheet.footnote",
+                        value: "等待网络恢复后自动同步。",
+                        comment: "Sync queue sheet: footnote explaining auto-retry"
+                    ))
+                        .font(DSFonts.inter(size: 12, weight: .regular))
+                        .foregroundColor(DSColor.inkSecondary)
+                }
+            }
+            .navigationTitle(NSLocalizedString(
+                "today.syncqueue.sheet.title",
+                value: "待同步队列",
+                comment: "Sync queue sheet navigation title"
+            ))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(NSLocalizedString(
+                        "today.syncqueue.sheet.close",
+                        value: "关闭",
+                        comment: "Sync queue sheet: close button"
+                    )) {
+                        showSyncQueueSheet = false
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Fallback Content (zero-memo today)
@@ -1347,21 +1473,57 @@ struct TodayView: View {
 
     @ViewBuilder
     private func onThisDayFallback(memos: [Memo]) -> some View {
-        // Prefer the structured `onThisDayEntry` (carries yearsAgo + filePath);
-        // synthesize a lightweight one from memos when the index is cold.
-        let entry = viewModel.onThisDayEntry ?? OnThisDayEntry(
-            originalDate: memos.first?.created ?? Date(),
-            yearsAgo: nil,
-            daysAgo: nil,
-            preview: memos.first?.body.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
-            filePath: ""
-        )
-        OnThisDayCard(
-            entry: entry,
-            onDismiss: { viewModel.onThisDayEntry = nil },
-            onTap: { tapped in
-                onThisDayDateString = Self.dateString(from: tapped.originalDate)
-            }
+        // R6 — 时光胶囊 kill switch. When the user flips
+        // Settings → Experiments → 时光胶囊 off, suppress the card entirely
+        // (the index / scheduler stay installed but inert) so a misbehaving
+        // candidate selector can be killed without a hot-fix build.
+        if FeatureFlagStore.shared.isEnabled(.onThisDay) {
+            // Prefer the structured `onThisDayEntry` (carries yearsAgo + filePath);
+            // synthesize a lightweight one from memos when the index is cold.
+            let entry = viewModel.onThisDayEntry ?? OnThisDayEntry(
+                originalDate: memos.first?.created ?? Date(),
+                yearsAgo: nil,
+                daysAgo: nil,
+                preview: memos.first?.body.trimmingCharacters(in: .whitespacesAndNewlines) ?? "",
+                filePath: ""
+            )
+            OnThisDayCard(
+                entry: entry,
+                onDismiss: {
+                    // R6: persist the dismiss for the rest of the day via
+                    // Scheduler so a relaunch within the same local day stays
+                    // quiet. The session-only `onThisDayEntry = nil` also
+                    // hides the card immediately while the persistence
+                    // round-trips.
+                    OnThisDayScheduler.shared.markDismissedForToday()
+                    viewModel.onThisDayEntry = nil
+                },
+                onTap: { tapped in
+                    handleOnThisDayTap(tapped)
+                }
+            )
+            .transition(.opacity.combined(with: .move(edge: .top)))
+        }
+    }
+
+    /// R6 — tap callback for the OnThisDayCard. Drives the in-Today
+    /// `fullScreenCover` (existing `onThisDayDateString` binding) AND posts
+    /// `.openArchiveAt` so a deep-link consumer (Archive tab, navigation
+    /// model) can pivot to the historical day. The Notification post is
+    /// harmless when there's no listener — Archive may not be mounted yet
+    /// on a cold tap, in which case the fullScreenCover path handles UX.
+    private func handleOnThisDayTap(_ entry: OnThisDayEntry) {
+        let dateStr = Self.dateString(from: entry.originalDate)
+        // Keep the in-Today fullScreenCover path so the existing UX (open the
+        // historical DayDetail without switching tabs) still works.
+        onThisDayDateString = dateStr
+        // Forward to .openArchiveAt for consumers that want to pivot to
+        // Archive instead — R5 backlinks + EntityPageView already use this
+        // bus, so OnThisDay rides the same channel.
+        NotificationCenter.default.post(
+            name: .openArchiveAt,
+            object: nil,
+            userInfo: ["date": dateStr]
         )
     }
 

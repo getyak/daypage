@@ -96,6 +96,7 @@
 		A10000803 /* RetryHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000803 /* RetryHelper.swift */; };
 		SQS0000001 /* SyncQueueService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SQS1000001 /* SyncQueueService.swift */; };
 		SQS0000002 /* SyncQueueServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SQS1000002 /* SyncQueueServiceTests.swift */; };
+		SQS0000003 /* SyncQueueObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = SQS1000003 /* SyncQueueObserver.swift */; };
 		A10000043 /* Interactions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000043 /* Interactions.swift */; };
 		A10000045 /* OnThisDayIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000045 /* OnThisDayIndex.swift */; };
 		A10000046 /* OnThisDayCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000046 /* OnThisDayCard.swift */; };
@@ -219,6 +220,7 @@
 		T10000006 /* ComposerContextProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000006 /* ComposerContextProviderTests.swift */; };
 		T10000050 /* TimelineIndexTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000050 /* TimelineIndexTests.swift */; };
 		T10000060 /* OnThisDayHeaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000060 /* OnThisDayHeaderTests.swift */; };
+		T10000061 /* OnThisDayIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000061 /* OnThisDayIntegrationTests.swift */; };
 		TD0000001 /* DayProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = TD1000001 /* DayProgress.swift */; };
 		TD0000002 /* TimeOfDay.swift in Sources */ = {isa = PBXBuildFile; fileRef = TD1000002 /* TimeOfDay.swift */; };
 		TH0000001 /* ThreadConversationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = TH1000001 /* ThreadConversationViewModel.swift */; };
@@ -358,6 +360,7 @@
 		A20000803 /* RetryHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryHelper.swift; sourceTree = "<group>"; };
 		SQS1000001 /* SyncQueueService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueService.swift; sourceTree = "<group>"; };
 		SQS1000002 /* SyncQueueServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueServiceTests.swift; sourceTree = "<group>"; };
+		SQS1000003 /* SyncQueueObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueObserver.swift; sourceTree = "<group>"; };
 		A20000043 /* Interactions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Interactions.swift; sourceTree = "<group>"; };
 		A20000045 /* OnThisDayIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayIndex.swift; sourceTree = "<group>"; };
 		A20000046 /* OnThisDayCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayCard.swift; sourceTree = "<group>"; };
@@ -483,6 +486,7 @@
 		T20000006 /* ComposerContextProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerContextProviderTests.swift; sourceTree = "<group>"; };
 		T20000050 /* TimelineIndexTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineIndexTests.swift; sourceTree = "<group>"; };
 		T20000060 /* OnThisDayHeaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayHeaderTests.swift; sourceTree = "<group>"; };
+		T20000061 /* OnThisDayIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayIntegrationTests.swift; sourceTree = "<group>"; };
 		T30000001 /* DayPageTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DayPageTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		TD1000001 /* DayProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayProgress.swift; sourceTree = "<group>"; };
 		TD1000002 /* TimeOfDay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeOfDay.swift; sourceTree = "<group>"; };
@@ -744,6 +748,7 @@
 				A20000802 /* HTTPClientHelper.swift */,
 				A20000803 /* RetryHelper.swift */,
 				SQS1000001 /* SyncQueueService.swift */,
+				SQS1000003 /* SyncQueueObserver.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -1035,6 +1040,7 @@
 				T20000005 /* RawStorageTests.swift */,
 				T20000050 /* TimelineIndexTests.swift */,
 				T20000060 /* OnThisDayHeaderTests.swift */,
+				T20000061 /* OnThisDayIntegrationTests.swift */,
 				T20000006 /* ComposerContextProviderTests.swift */,
 				84FFEA3DDB8DCB528A4189BF /* HapticFeedbackTests.swift */,
 				KC1000001 /* KeychainHelperTests.swift */,
@@ -1365,6 +1371,7 @@
 				A10000802 /* HTTPClientHelper.swift in Sources */,
 				A10000803 /* RetryHelper.swift in Sources */,
 				SQS0000001 /* SyncQueueService.swift in Sources */,
+				SQS0000003 /* SyncQueueObserver.swift in Sources */,
 				A10000079 /* iCloudSyncMonitor.swift in Sources */,
 				A10000085 /* iCloudConflictMonitor.swift in Sources */,
 				A10000080 /* AppNavigationModel.swift in Sources */,
@@ -1451,6 +1458,7 @@
 				T10000005 /* RawStorageTests.swift in Sources */,
 				T10000050 /* TimelineIndexTests.swift in Sources */,
 				T10000060 /* OnThisDayHeaderTests.swift in Sources */,
+				T10000061 /* OnThisDayIntegrationTests.swift in Sources */,
 				T10000006 /* ComposerContextProviderTests.swift in Sources */,
 				09C6E4728050D69F54949DD1 /* HapticFeedbackTests.swift in Sources */,
 				KC0000001 /* KeychainHelperTests.swift in Sources */,

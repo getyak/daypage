@@ -317,8 +317,15 @@ struct DayPageApp: App {
                     }
                     // 如果已授权"始终"权限，启动被动访问监控
                     PassiveLocationService.shared.startMonitoringIfAuthorized()
-                    // 加载"历史上的今天"索引
-                    Task { await OnThisDayIndex.shared.loadIndex() }
+                    // 加载"历史上的今天"索引。Detached + background so the
+                    // first-launch vault scan never competes with UI work on
+                    // the main actor — loadIndex itself hops back to @MainActor
+                    // to mutate the index dictionary, and the heavy scan runs
+                    // inside its own Task.detached(.utility) (see
+                    // OnThisDayIndex.rebuildIndex).
+                    Task.detached(priority: .background) {
+                        await OnThisDayIndex.shared.loadIndex()
+                    }
                     // 在首次启动且完成引导后填充示例数据
                     if UserDefaults.standard.bool(forKey: AppSettings.Keys.hasOnboarded) {
                         SampleDataSeeder.seedIfNeeded()

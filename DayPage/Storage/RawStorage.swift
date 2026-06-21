@@ -83,6 +83,17 @@ enum RawStorage {
 
             WidgetCenter.shared.reloadAllTimelines()
             notifyDidWrite(for: memo.created)
+
+            // R6: enqueue for offline sync. Memo.id is a UUID so its
+            // canonical string is the SyncQueueService key. Hop to the
+            // main actor because SyncQueueService is @MainActor-isolated;
+            // the write queue itself is a DispatchQueue and cannot touch
+            // it directly.
+            let sizeBytes = newBlock.utf8.count
+            let memoIDString = memo.id.uuidString
+            Task { @MainActor in
+                SyncQueueService.shared.enqueue(memoID: memoIDString, sizeBytes: sizeBytes)
+            }
         }
     }
 
@@ -152,6 +163,21 @@ enum RawStorage {
 
             WidgetCenter.shared.reloadAllTimelines()
             notifyDidWrite(for: date)
+
+            // R6: enqueue every rewritten memo for offline sync. We don't
+            // know which subset actually changed at this layer, so we
+            // enqueue all of them — SyncQueueService.enqueue is idempotent
+            // (Set semantics) so re-enqueuing an already-pending memo is
+            // a no-op, and an already-synced memo will simply be re-tried,
+            // which is exactly what we want after a body edit / pin.
+            let enqueuePayload: [(String, Int)] = memos.map { memo in
+                (memo.id.uuidString, memo.toMarkdown().utf8.count)
+            }
+            Task { @MainActor in
+                for (memoIDString, sizeBytes) in enqueuePayload {
+                    SyncQueueService.shared.enqueue(memoID: memoIDString, sizeBytes: sizeBytes)
+                }
+            }
         }
     }
 
@@ -207,6 +233,20 @@ enum RawStorage {
 
             WidgetCenter.shared.reloadAllTimelines()
             notifyDidWrite(for: date)
+
+            // R6: enqueue surviving memos for offline sync. Skipping the
+            // empty-file branch is intentional: if the user deleted the
+            // last memo for a day we have nothing to upload. The transform
+            // returning nil bypasses this entire tail (guard above), which
+            // is the documented "no-change" path.
+            let enqueuePayload: [(String, Int)] = updated.map { memo in
+                (memo.id.uuidString, memo.toMarkdown().utf8.count)
+            }
+            Task { @MainActor in
+                for (memoIDString, sizeBytes) in enqueuePayload {
+                    SyncQueueService.shared.enqueue(memoID: memoIDString, sizeBytes: sizeBytes)
+                }
+            }
         }
     }
 

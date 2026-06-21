@@ -65,6 +65,14 @@ struct RootView: View {
                 // Async session restoration: re-evaluate once the view appears in
                 // case AuthService's listener fires after @State initialisation (RC3).
                 if phase == .auth && authService.session != nil { phase = .ready }
+
+                // R6: force the SyncQueueObserver singleton to instantiate so it
+                // registers its `.syncQueueFlushRequested` NotificationCenter
+                // observer. Without this the flush trigger SyncQueueService posts
+                // when the network returns would land on no listener and the
+                // pending banner would never drain. Idempotent — subsequent
+                // .onAppear calls hit the already-initialised shared instance.
+                _ = SyncQueueObserver.shared
             }
             .preferredColorScheme(resolvedColorScheme)
             .tint(appSettings.accentColor.color)

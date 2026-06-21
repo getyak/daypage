@@ -60,6 +60,22 @@ final class OnThisDayScheduler: ObservableObject {
         return OnThisDayIndex.shared.candidate(for: Date())
     }
 
+    /// R6 — public dismiss API. Persists today's date under
+    /// `AppSettings.Keys.onThisDayDismissed` so `shouldShowToday()` returns
+    /// nil for the rest of the local day. Survives backgrounding and
+    /// relaunch; rolls off at the next local midnight (the key compares
+    /// against `dayString(from: Date())`).
+    func markDismissedForToday() {
+        UserDefaults.standard.set(dayString(from: Date()), forKey: dismissedDateKey)
+    }
+
+    /// Test seam — exposes the persisted-dismiss check so unit tests can
+    /// verify markDismissedForToday() flips the flag without reaching into
+    /// UserDefaults directly. Production paths call shouldShowToday().
+    func isDismissedTodayForTesting() -> Bool {
+        isDismissedToday()
+    }
+
     // MARK: - Private
 
     private func isDismissedToday() -> Bool {

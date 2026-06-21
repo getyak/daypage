@@ -29,6 +29,12 @@ enum FeatureFlag: String, CaseIterable {
     // the underlying network layer ever starts misbehaving on a TestFlight
     // build. The queue itself stays installed but inert.
     case offlineQueue
+    // R6 — 时光胶囊：kill switch for the "On This Day" memory card surfaced
+    // in TodayView's zero-memo fallback. Default-on; flipping false hides
+    // the card entirely (the index/scheduler stay installed but inert) so
+    // a misbehaving candidate selector can be killed from Settings →
+    // Experiments without a hot-fix build.
+    case onThisDay
 
     /// Default state when the user has never touched the toggle. All Round 4
     /// flags default-on so the app behaves the way the user already expects
@@ -40,7 +46,8 @@ enum FeatureFlag: String, CaseIterable {
              .widgetSystemMedium,
              .aiKeyBanner,
              .foregroundCompileRetry,
-             .offlineQueue:
+             .offlineQueue,
+             .onThisDay:
             return true
         }
     }
@@ -56,6 +63,7 @@ enum FeatureFlag: String, CaseIterable {
         case .aiKeyBanner:            return "AI 密钥提示"
         case .foregroundCompileRetry: return "前台自动重试编译"
         case .offlineQueue:           return "离线同步队列"
+        case .onThisDay:              return "时光胶囊"
         }
     }
 }

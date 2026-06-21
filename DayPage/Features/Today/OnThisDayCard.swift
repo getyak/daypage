@@ -19,12 +19,22 @@ struct OnThisDayCard: View {
         }
         .buttonStyle(OnThisDayPressStyle(reduceMotion: reduceMotion))
         .padding(.horizontal, 20)
-        // Single accessible element: card body + dismiss action
+        // Single accessible element: card body + dismiss action. R6 — explicit
+        // .ignore so VoiceOver reads only the composed label below; inner
+        // Text nodes would otherwise double-up "ON THIS DAY · 1 YEAR AGO".
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityCardLabel)
-        .accessibilityHint("翻开那天")
+        .accessibilityHint(NSLocalizedString(
+            "onthisday.card.accessibility.hint",
+            value: "点击查看完整 memo",
+            comment: "VoiceOver hint for the On This Day card tap"
+        ))
         .accessibilityAddTraits(.isButton)
-        .accessibilityAction(named: Text("Dismiss")) {
+        .accessibilityAction(named: Text(NSLocalizedString(
+            "onthisday.card.accessibility.action.dismiss",
+            value: "关闭今日回忆",
+            comment: "VoiceOver custom action label for dismissing the On This Day card"
+        ))) {
             onDismiss()
         }
         // 44pt dismiss overlay wins hit-testing over the card button
@@ -48,14 +58,20 @@ struct OnThisDayCard: View {
                 Color.clear.frame(width: 44, height: 24)
             }
 
-            Text(entry.preview.isEmpty ? "查看那一天的记录" : entry.preview)
+            Text(entry.preview.isEmpty
+                 ? NSLocalizedString("onthisday.card.preview.empty",
+                                     value: "查看那一天的记录",
+                                     comment: "Fallback preview text when the on-this-day candidate has no body")
+                 : entry.preview)
                 .bodyText()
                 .foregroundColor(DSColor.onBackgroundPrimary)
                 .lineLimit(2)
 
             HStack {
                 Spacer()
-                Text("翻开那天 →")
+                Text(NSLocalizedString("onthisday.card.cta",
+                                       value: "翻开那天 →",
+                                       comment: "Trailing CTA on the On This Day card"))
                     .captionText()
                     .foregroundColor(DSColor.accentAmber)
             }
@@ -81,7 +97,16 @@ struct OnThisDayCard: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Dismiss")
+        .accessibilityLabel(NSLocalizedString(
+            "onthisday.card.dismiss.accessibility.label",
+            value: "关闭今日回忆",
+            comment: "VoiceOver label for the On This Day card dismiss button"
+        ))
+        .accessibilityHint(NSLocalizedString(
+            "onthisday.card.dismiss.accessibility.hint",
+            value: "今日不再显示",
+            comment: "VoiceOver hint for the On This Day card dismiss button"
+        ))
         .accessibilityIdentifier("onthisday-dismiss")
         .zIndex(1)
     }
@@ -110,8 +135,17 @@ struct OnThisDayCard: View {
     }
 
     private var accessibilityCardLabel: String {
-        let preview = entry.preview.isEmpty ? "查看那一天的记录" : entry.preview
-        return "\(headerLabel), \(preview)"
+        let preview = entry.preview.isEmpty
+            ? NSLocalizedString("onthisday.card.preview.empty",
+                                value: "查看那一天的记录",
+                                comment: "Fallback preview text when the on-this-day candidate has no body")
+            : entry.preview
+        let template = NSLocalizedString(
+            "onthisday.card.accessibility.label",
+            value: "时光胶囊：%@ — %@",
+            comment: "Composed VoiceOver label for On This Day card: %1$@=relative date, %2$@=snippet"
+        )
+        return String(format: template, headerLabel, preview)
     }
 }
 
