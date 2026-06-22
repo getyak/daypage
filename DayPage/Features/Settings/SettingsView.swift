@@ -469,30 +469,22 @@ struct SettingsView: View {
             // without leaving Settings. (#appearance-preview)
             appearancePreviewCard
 
-            // Theme (dark mode)
-            Picker(selection: $appSettings.themeMode) {
-                ForEach(ThemeMode.allCases, id: \.self) { mode in
-                    HStack {
-                        Image(systemName: themeIcon(for: mode))
-                        Text(mode.label)
-                    }.tag(mode)
-                }
-            } label: {
+            // Theme (dark mode) — DSPicker to match 日式美术馆 visual language
+            DSPicker(
+                title: NSLocalizedString("settings.appearance.darkmode", comment: ""),
+                selection: $appSettings.themeMode,
+                options: ThemeMode.allCases.map { (value: $0, label: $0.label) }
+            ) {
                 Label(NSLocalizedString("settings.appearance.darkmode", comment: ""), systemImage: "moon.fill")
             }
             .onChange(of: appSettings.themeMode) { _ in Haptics.soft() }
 
-            // Accent color
-            Picker(selection: $appSettings.accentColor) {
-                ForEach(AccentColorOption.allCases, id: \.self) { color in
-                    HStack {
-                        Circle()
-                            .fill(color.color)
-                            .frame(width: 14, height: 14)
-                        Text(color.label)
-                    }.tag(color)
-                }
-            } label: {
+            // Accent color — DSPicker
+            DSPicker(
+                title: NSLocalizedString("settings.appearance.accent", comment: ""),
+                selection: $appSettings.accentColor,
+                options: AccentColorOption.allCases.map { (value: $0, label: $0.label) }
+            ) {
                 Label(NSLocalizedString("settings.appearance.accent", comment: ""), systemImage: "paintpalette")
             }
             .onChange(of: appSettings.accentColor) { _ in Haptics.soft() }
@@ -508,12 +500,12 @@ struct SettingsView: View {
             }
             .onChange(of: appSettings.fontSizeAdjust) { _ in Haptics.soft() }
 
-            // Card density
-            Picker(selection: $appSettings.cardDensity) {
-                ForEach(CardDensity.allCases, id: \.self) { density in
-                    Text(density.label).tag(density)
-                }
-            } label: {
+            // Card density — DSPicker
+            DSPicker(
+                title: NSLocalizedString("settings.appearance.density", comment: ""),
+                selection: $appSettings.cardDensity,
+                options: CardDensity.allCases.map { (value: $0, label: $0.label) }
+            ) {
                 Label(NSLocalizedString("settings.appearance.density", comment: ""), systemImage: "rectangle.expand.vertical")
             }
             .onChange(of: appSettings.cardDensity) { _ in Haptics.soft() }
@@ -739,13 +731,19 @@ struct SettingsView: View {
         if case .notConfigured = syncMonitor.status {
             EmptyView()
         } else {
-            Picker(selection: Binding(
-                get: { appSettings.attachmentPolicy },
-                set: { appSettings.attachmentPolicy = $0 }
-            )) {
-                Text(NSLocalizedString("settings.icloud.attachment.ondemand", comment: "")).tag(AttachmentPolicy.onDemand)
-                Text(NSLocalizedString("settings.icloud.attachment.alwayslocal", comment: "")).tag(AttachmentPolicy.alwaysLocal)
-            } label: {
+            DSPicker(
+                title: NSLocalizedString("settings.icloud.attachment.policy", comment: ""),
+                selection: Binding(
+                    get: { appSettings.attachmentPolicy },
+                    set: { appSettings.attachmentPolicy = $0 }
+                ),
+                options: [
+                    (value: AttachmentPolicy.onDemand,
+                     label: NSLocalizedString("settings.icloud.attachment.ondemand", comment: "")),
+                    (value: AttachmentPolicy.alwaysLocal,
+                     label: NSLocalizedString("settings.icloud.attachment.alwayslocal", comment: ""))
+                ]
+            ) {
                 Label(NSLocalizedString("settings.icloud.attachment.policy", comment: ""), systemImage: "square.and.arrow.down")
             }
         }

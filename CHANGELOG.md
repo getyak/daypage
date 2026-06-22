@@ -5,6 +5,7 @@ Conventional changelog 格式：日期倒序，每个 release 标题 + 分类列
 ## [Unreleased] — v0.5.0 candidate
 
 ### Features
+- Settings 视觉统一：themeMode / accentColor / cardDensity / attachmentPolicy 4 处原生 Picker → DSPicker amber-rim glass，与日式美术馆设计语言一致
 - 离线同步队列：网络受限时暂存 memo，恢复后自动 flush（SyncQueueService + Today banner + Settings "模拟离线" 调试）
 - 时光胶囊（On This Day）：每天打开自动显示"1 年前的今天"/"6 个月前"，点击跳归档
 - 周回顾（Weekly Recap）：周一 02:00 后台自动 LLM 编译上周日记成 keyword + mood + places + highlights；Today preview + Archive 详情入口
