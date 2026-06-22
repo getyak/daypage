@@ -221,7 +221,7 @@ struct DayPageApp: App {
                     if url.host?.lowercased() == "record" {
                         navModel.navigate(to: .today)
                         navModel.pendingRecordingTrigger = UUID()
-                        print("[deepLink] set pendingRecordingTrigger")
+                        DayPageLogger.shared.info("[deepLink] set pendingRecordingTrigger")
                         return
                     }
 

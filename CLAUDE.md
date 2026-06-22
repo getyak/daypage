@@ -50,6 +50,55 @@ DayPage/
 
 **Pipeline**: Today (raw input) → AI compilation → Daily Page (structured diary) → Entity Pages → Graph (knowledge graph view).
 
+## Architecture (Round 5-9 累计追加)
+
+### 离线同步队列 (R5-R6, R8-R9 加固)
+- `DayPage/Services/SyncQueueService.swift` — @MainActor singleton；@Published pendingMemoIDs/totalBytes/oldestPendingDate；UserDefaults 持久化；memoSizes dict 记录 enqueue size 用于 markSynced 正确递减；R9 加 estimateMemoSize fallback 扫 vault/raw 处理 legacy 数据
+- `DayPage/Services/SyncQueueObserver.swift` — 监听 .syncQueueFlushRequested → RemoteUploader protocol（占位 NoopRemoteUploader sleep 300ms，5s 前置 debounce 让 banner 可见）；后续真实 Supabase 同步从此处注入
+- `DayPage/Services/NetworkMonitor.swift` — realIsOnline + simulateOffline computed；Settings 实验功能 toggle 绑定 @AppStorage "debug.simulateOffline" 让 dogfood 用户能真实测试 banner
+- TodayView 顶部 syncQueuePendingBanner（条件：FeatureFlag.offlineQueue && !isEmpty && bannerCount<3）；点击 sheet 显示前 50 条 pendingID，行 tap → post .openMemo
+
+### 时光胶囊 OnThisDay (R6, R8-R9 调位)
+- `DayPage/Services/OnThisDayIndex.swift` — 扫 vault/raw 按 MMDD 索引；candidate(for:) 优先 1 年前 → 180 天前 → 2 年前；@Published isReady；#if DEBUG resetForTesting() 用于测试隔离
+- `DayPage/Services/OnThisDayScheduler.swift` — todayEntry @Published；refreshTodayEntry() 重新计算；markDismissedForToday() 持久化 dismiss
+- `DayPage/Features/Today/OnThisDayCard.swift` — Card UI；i18n + a11y 完整
+- TodayView 顶部独立 section（脱离 fallback，普通用户也能看到）；条件：FeatureFlag.onThisDay && viewModel.onThisDayEntry != nil && bannerCount<2；fallback 也保留（用 !shouldShowOnThisDayAtTop 互斥）
+- DayPageApp 启动 priority .userInitiated（首次 1-2s 内卡片可见）
+
+### 周回顾 WeeklyRecap (R7, R8-R9 自动化)
+- `DayPage/Services/WeeklyCompilationService.swift` (~480 行) — 3 个公共方法 collectWeekMetadata / compileWeekly / loadCached；ISO-8601 周（firstWeekday=2, minDaysInFirstWeek=4）→ "YYYY-Www"；扫 vault/wiki/daily/ 解析 frontmatter；DeepSeek LLM 调用 + extractJSONBlock 解析；atomicWrite vault/wiki/weekly/{isoWeek}.md
+- `DayPage/Features/Archive/WeeklyRecapDetailView.swift` — keywords chip + mood 卡 + places 列表 + highlights bullet；chip/place 改 Button → push EntityPageView；10 个 error case 各自文案；offline 自动监听 NetworkMonitor 重试
+- BackgroundCompilationService.tryAutoCompileWeekly — 周一 + 上周 ≥3 daily 自动触发；post .weeklyRecapAvailable notification
+- TodayView weeklyRecapPreview section（amber 14% bg + 3 keyword chip + "查看全部"），条件 FeatureFlag.weeklyRecap && bannerCount<3；weeklyReloadTask debounce(300ms) 单路 reload
+- ArchiveView 顶部入口卡 entries.count >= 3 才显示
+
+### FeatureFlag 框架 (R4 起点，R6-R8 加 case)
+- `DayPage/Config/FeatureFlags.swift` — enum FeatureFlag: backlinks / compileNotification / widgetSystemMedium / aiKeyBanner / foregroundCompileRetry / offlineQueue / onThisDay / weeklyRecap（8 case，全部 default-on）
+- FeatureFlagStore.shared @MainActor + UserDefaults 后端；Settings "实验功能" section 自动列出所有 case（CaseIterable + Toggle）
+- Widget extension target 共享同一 FeatureFlags.swift 文件
+
+### Notification.Name 中心化
+集中声明位置：
+- `.syncQueueFlushRequested` — SyncQueueService.swift
+- `.openArchiveAt` — DayPageApp.swift（R3 backlinks + R6 OnThisDay tap 共用）
+- `.compileSucceededForeground` — BackgroundCompilationService.swift（R4 前台编译重试成功）
+- `.weeklyRecapAvailable` — BackgroundCompilationService.swift（R8 周一自动编译完成）
+- `.simulateOfflineChanged` — NetworkMonitor.swift（R8 调试 toggle 联动）
+- `.openMemo` / `.openEntityPage` — DayPageApp.swift（R8 跨页跳转规范）
+- `.vaultConflictResolved` — ConflictMerger.swift（R4 iCloud 冲突 banner）
+- `.rawStorageDidWrite` — RawStorage.swift
+
+### 测试覆盖矩阵 (9 个 suite, 55 个 case)
+- MemoYAMLTests (R1) — yamlQuote 转义 round-trip 8 case
+- RawStorageWriteFailedTests (R4) — replaceItemAt 错误传播
+- LocationServiceLRUTests (R4) — geocoding cache 命中/淘汰/过期
+- ArchiveViewModelGroupTests (R4) — 月度分组 + 跨月跨年
+- SyncQueueServiceTests (R5+R9) — enqueue/markSynced + legacy migration 估算
+- OnThisDayIntegrationTests (R6+R7) — candidate fallback + scheduler dismiss + FeatureFlag toggle
+- WeeklyCompilationServiceTests (R7) — ISO 周 + frontmatter 聚合 + JSON parse + cache 读写
+- NetworkMonitorTests (R8) — simulateOffline toggle 切换
+- WeeklyRecapAutoTriggerTests (R8+R9) — 周一触发条件 + 真实 service path
+
 ## Coding Conventions
 
 - SwiftUI views: value types; extract subviews when a `body` exceeds ~80 lines

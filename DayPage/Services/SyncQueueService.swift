@@ -180,15 +180,6 @@ final class SyncQueueService: ObservableObject {
         return fallback
     }
 
-    /// Legacy 2-arg variant kept for backward compatibility with callers
-    /// that still pass `sizeBytes` explicitly. The argument is ignored —
-    /// the size that was recorded at enqueue time is the source of truth.
-    /// Prefer the 1-arg form for new code.
-    @available(*, deprecated, message: "Use markSynced(memoID:) — sizeBytes is now tracked internally.")
-    func markSynced(memoID: String, sizeBytes: Int) {
-        markSynced(memoID: memoID)
-    }
-
     /// Trigger a flush attempt if (a) online, (b) not already flushing,
     /// (c) the queue is non-empty. We deliberately don't perform the
     /// upload here — instead we post `.syncQueueFlushRequested` so the

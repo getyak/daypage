@@ -19,27 +19,47 @@ import SwiftUI
 /// All known runtime flags. Add new cases here — `CaseIterable` drives the
 /// Settings → Experiments list automatically.
 enum FeatureFlag: String, CaseIterable {
+    /// **Used in**: `EntityPageView.backlinksSection` (Features/Entity/EntityPageView.swift)
+    /// **When off**: Entity 页隐藏 "被 N 个 memo 引用" 区块；索引仍由 EntityPageService 维护。
+    /// **Default**: on
     case backlinks
+
+    /// **Used in**: `BackgroundCompilationService.sendSuccessNotification` (Services/BackgroundCompilationService.swift)
+    /// **When off**: 02:00 BGTask 编译成功后不发本地通知（编译本身仍照常执行，写入 daily 文件）。
+    /// **Default**: on
     case compileNotification
+
+    /// **Used in**: `QuickCaptureWidget.supportedFamilies` (DayPageWidget/QuickCaptureWidget.swift)
+    /// **When off**: Widget 不暴露 `systemMedium` 尺寸（只保留 small / accessory）。需要用户重新添加 Widget 才会生效。
+    /// **Default**: on
     case widgetSystemMedium
+
+    /// **Used in**: `TodayView.shouldShowAIKeyBanner` (Features/Today/TodayView.swift)
+    /// **When off**: AI key 缺失时不显示顶部黄色 banner；BackgroundCompilationService 仍会因缺 key 而 fail-fast。
+    /// **Default**: on
     case aiKeyBanner
+
+    /// **Used in**: `DayPageApp.body` 的 `scenePhase == .active` 分支（App/DayPageApp.swift）
+    /// **When off**: 回前台不调 `BackgroundCompilationService.foregroundRetryIfNeeded`；仅 02:00 BGTask 触发编译。
+    /// **Default**: on
     case foregroundCompileRetry
-    // R5 — Round 5: kill switch for the offline-memo sync queue + Today banner.
-    // Default-on; flipping to false hides the banner and skips enqueueing if
-    // the underlying network layer ever starts misbehaving on a TestFlight
-    // build. The queue itself stays installed but inert.
+
+    /// **Used in**: `TodayView.syncQueuePendingBanner` + `syncStatusCount` (Features/Today/TodayView.swift)
+    /// **When off**: Today 顶部 SyncQueue banner 不显示；RawStorage 仍照常 enqueue，队列继续累积（仅 UI 屏蔽）。
+    /// **R5**: 离线同步队列 kill switch — 给 TestFlight 网络层异常一个无需 hot-fix 的兜底开关。
+    /// **Default**: on
     case offlineQueue
-    // R6 — 时光胶囊：kill switch for the "On This Day" memory card surfaced
-    // in TodayView's zero-memo fallback. Default-on; flipping false hides
-    // the card entirely (the index/scheduler stay installed but inert) so
-    // a misbehaving candidate selector can be killed from Settings →
-    // Experiments without a hot-fix build.
+
+    /// **Used in**: `TodayView.shouldShowOnThisDayAtTop` + `onThisDayFallback` (Features/Today/TodayView.swift)
+    /// **When off**: Today 顶部 + zero-memo fallback 内 OnThisDayCard 都不显示；索引/调度器仍 installed but inert。
+    /// **R6**: 时光胶囊 — 给 candidate 选择器异常一个无需 hot-fix 的兜底开关。
+    /// **Default**: on
     case onThisDay
-    // R7 — 周回顾：kill switch for the AI-generated weekly recap entry card
-    // in ArchiveView and the detail view it pushes to. Default-on; flipping
-    // false hides the entry card entirely (the service stays installed but
-    // inert) so a misbehaving prompt / parse path can be killed from
-    // Settings → Experiments without a hot-fix build.
+
+    /// **Used in**: `TodayView.weeklyRecapPreviewSection` + `ArchiveView.weeklyRecapEntryCard` (Features/Today/TodayView.swift, Features/Archive/ArchiveView.swift)
+    /// **When off**: Today preview + Archive 周入口卡都不显示；后台自动编译仍会跑（service 不下线，只屏蔽 UI 入口）。
+    /// **R7**: 周回顾 — 给 prompt/parse 异常一个无需 hot-fix 的兜底开关。
+    /// **Default**: on
     case weeklyRecap
 
     /// Default state when the user has never touched the toggle. All Round 4
