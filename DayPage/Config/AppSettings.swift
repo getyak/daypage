@@ -200,6 +200,11 @@ extension AppSettings {
         // Issue #20 — 是否已经请求过通知权限（避免冷启动重复弹系统权限弹窗，
         // Onboarding 已请求时也走这条 guard）。
         static let hasRequestedNotifications = "settings.hasRequestedNotifications"
+        // R8 debug — when true, NetworkMonitor reports isOnline=false
+        // regardless of the real NWPathMonitor state. Lets the user
+        // dogfood the offline SyncQueue banner without putting the
+        // device into airplane mode. Default false.
+        static let debugSimulateOffline = "debug.simulateOffline"
     }
 }
 

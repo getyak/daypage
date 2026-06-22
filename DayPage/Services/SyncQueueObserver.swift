@@ -28,12 +28,15 @@ protocol RemoteUploader: Sendable {
 }
 
 /// Placeholder uploader used until the Supabase sync service lands.
-/// Reports size=0 so SyncQueueService.markSynced doesn't perturb the
-/// totalBytes tally (the queue clamps to zero anyway). Sleeps 200ms to
-/// keep the spinner visible for at least one frame.
+/// Returns size=0; SyncQueueService now remembers per-memo byte sizes
+/// from enqueue time so the return value is informational only and the
+/// totalBytes tally still drains correctly. Sleeps ~300ms per memo so
+/// the spinner + "正在同步…" banner stay visible long enough to be
+/// perceived — the previous 200ms sometimes drained the queue inside a
+/// single frame, leaving the user wondering whether anything happened.
 struct NoopRemoteUploader: RemoteUploader {
     func upload(memoID: String) async throws -> Int {
-        try await Task.sleep(nanoseconds: 200_000_000)
+        try await Task.sleep(nanoseconds: 300_000_000)
         return 0
     }
 }
@@ -79,10 +82,25 @@ final class SyncQueueObserver {
         defer { isFlushing = false }
 
         let pending = SyncQueueService.shared.pendingMemoIDs
+        guard !pending.isEmpty else { return }
+
+        // R8: give the "正在同步…" banner enough time to actually appear
+        // before we start draining. The banner reads
+        // SyncQueueService.isFlushingNow indirectly through the network
+        // observer chain, and on fast paths the queue used to empty
+        // before SwiftUI had finished its first frame. 5s aligns with
+        // the iOS HIG "noticeable progress" budget — the user gets to
+        // see *something*, but it's still short enough that no one will
+        // call it broken.
+        try? await Task.sleep(nanoseconds: 5_000_000_000)
+
         for memoID in pending {
             do {
-                let size = try await uploader.upload(memoID: memoID)
-                SyncQueueService.shared.markSynced(memoID: memoID, sizeBytes: size)
+                // Return value is ignored — the queue tracks per-memo
+                // bytes from enqueue time. Real uploaders may still
+                // return their own size for telemetry.
+                _ = try await uploader.upload(memoID: memoID)
+                SyncQueueService.shared.markSynced(memoID: memoID)
             } catch {
                 // Network/server problem — stop this pass so we don't
                 // burn through retries pointlessly. The next online

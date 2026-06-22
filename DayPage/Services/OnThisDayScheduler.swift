@@ -60,6 +60,23 @@ final class OnThisDayScheduler: ObservableObject {
         return OnThisDayIndex.shared.candidate(for: Date())
     }
 
+    /// R8 — async wrapper invoked by TodayView after `OnThisDayIndex.isReady`
+    /// flips. Re-runs candidate selection against the freshly-loaded index
+    /// and broadcasts the result on the same `.onThisDayShouldShow` channel
+    /// the becomeActive observer uses, so `TodayViewModel.onThisDayEntry`
+    /// updates through one well-known seam. Respects isDismissedToday so a
+    /// user who dismissed the card earlier today doesn't see it re-emerge
+    /// after a background index refresh.
+    func refreshTodayEntry() async {
+        guard isEnabled else { return }
+        guard !isDismissedToday() else { return }
+        guard let entry = OnThisDayIndex.shared.candidate(for: Date()) else { return }
+        NotificationCenter.default.post(
+            name: .onThisDayShouldShow,
+            object: entry
+        )
+    }
+
     /// R6 — public dismiss API. Persists today's date under
     /// `AppSettings.Keys.onThisDayDismissed` so `shouldShowToday()` returns
     /// nil for the rest of the local day. Survives backgrounding and

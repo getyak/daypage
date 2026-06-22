@@ -24,6 +24,15 @@ struct TodayView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var showSyncBanner: Bool = false
+    // R8-HIGH B1: cached weekly recap preview shown above the timeline.
+    // Refreshed on appear, scene = .active, and on `.weeklyRecapAvailable`
+    // notification (posted by BackgroundCompilationService after the 2am
+    // auto-compile). The associated `referenceDate` is the date the cache
+    // belongs to (this week, or last week as a fallback). Reading both
+    // together avoids a second lookup when the preview is tapped.
+    @State private var weeklyRecapPreview: WeeklyRecapOutput? = nil
+    @State private var weeklyRecapRefDate: Date? = nil
+    @State private var showWeeklyRecapDetail: Bool = false
     // R6: drives the modal sheet that surfaces the first N pending memo
     // IDs when the user taps the sync-queue banner. Replaces the bare
     // BannerCenter alert with a sheet you can actually scan.
@@ -84,6 +93,12 @@ struct TodayView: View {
 
     /// Date string for On This Day navigation.
     @State private var onThisDayDateString: String? = nil
+
+    /// R8 — true while the top-of-Today OnThisDayCard is actually rendered.
+    /// Used as a guard inside `onThisDayFallback(memos:)` so the empty-state
+    /// fallback path skips re-rendering the card when the top card is also
+    /// up, preventing two identical cards from stacking.
+    @State private var onThisDayShownAtTop: Bool = false
 
     /// Current time for the header timestamp (refreshed every minute).
     @State private var currentTime: Date = Date()
@@ -260,6 +275,20 @@ struct TodayView: View {
                     // MARK: Sidebar/Header (US-021: extracted subview)
                     sidebarSection
 
+                    // MARK: Weekly Recap preview (R8-HIGH B1)
+                    //
+                    // Compact entry card surfaced when (a) `.weeklyRecap` flag is on,
+                    // (b) there's a cached recap for the current ISO week or last
+                    // week. Sits right under the header so the user notices it
+                    // immediately on launch — Archive's entry card is still the
+                    // canonical surface, this is just a "your weekly is ready" nudge.
+                    if FeatureFlagStore.shared.isEnabled(.weeklyRecap),
+                       let preview = weeklyRecapPreview,
+                       let refDate = weeklyRecapRefDate {
+                        weeklyRecapPreviewSection(preview: preview, referenceDate: refDate)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+
                     // MARK: AI key missing banner (R3 — A2)
                     //
                     // Sits directly under the sidebar header so it precedes
@@ -288,6 +317,43 @@ struct TodayView: View {
                     if FeatureFlagStore.shared.isEnabled(.offlineQueue) && !syncQueue.isEmpty {
                         syncQueuePendingBanner
                             .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+
+                    // MARK: On This Day Top Card (R8-CRITICAL)
+                    //
+                    // 顶部独立 OnThisDayCard section — 脱离 fallbackContentView
+                    // 那条只在 viewModel.memos.isEmpty 时才显示的死路。 普通用户
+                    // 每天都会写 memo， 之前永远看不到时光胶囊； 现在只要存在
+                    // viewModel.onThisDayEntry（由 OnThisDayIndex.candidate 或
+                    // .onThisDayShouldShow 注入）就在头条位置出现。
+                    //
+                    // Sits AFTER the AI key / sync queue banners (those are
+                    // sticky "system status" rows that must always own the
+                    // very top) but BEFORE every Today-content section
+                    // (orbHero / timeline / fallback). Dismiss persists for
+                    // the rest of the day via OnThisDayScheduler — same
+                    // behavior the fallback path uses, so users can't
+                    // double-dismiss.
+                    //
+                    // `onThisDayShownAtTop` is read by `onThisDayFallback`
+                    // so the empty-state fallback skips its own copy of the
+                    // card when this top one is rendered, preventing visual
+                    // duplication on an empty day with an old anniversary.
+                    if FeatureFlagStore.shared.isEnabled(.onThisDay),
+                       let entry = viewModel.onThisDayEntry {
+                        OnThisDayCard(
+                            entry: entry,
+                            onDismiss: {
+                                OnThisDayScheduler.shared.markDismissedForToday()
+                                viewModel.onThisDayEntry = nil
+                            },
+                            onTap: { tapped in
+                                handleOnThisDayTap(tapped)
+                            }
+                        )
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                        .onAppear { onThisDayShownAtTop = true }
+                        .onDisappear { onThisDayShownAtTop = false }
                     }
 
                     // MARK: Compilation Progress Bar
@@ -633,6 +699,9 @@ struct TodayView: View {
                 // hidden) on the very first render rather than only after the
                 // next scenePhase flip.
                 refreshAIKeyMissing()
+                // R8-HIGH B1: seed weekly recap preview from cache. No LLM
+                // call — read-only loadCached probe.
+                refreshWeeklyRecapPreview(hint: nil)
             }
             .onChange(of: draftText) { _ in
                 // B3: Debounce — only persist `draftDate` after typing pauses
@@ -670,6 +739,10 @@ struct TodayView: View {
                     // R3 — A2: re-check Keychain so the banner flips off the
                     // moment the user comes back from Settings → API Keys.
                     refreshAIKeyMissing()
+                    // R8-HIGH B1: 2am compile may have landed while the app
+                    // was backgrounded — re-probe the weekly cache so the
+                    // preview catches up on resume.
+                    refreshWeeklyRecapPreview(hint: nil)
                 }
             }
             // Re-seed the word milestone tracker once data finishes loading so
@@ -708,9 +781,28 @@ struct TodayView: View {
                 orbFocusToggle.toggle()
                 Haptics.warn()
             }
+            // R8 — wake the top OnThisDayCard as soon as the OnThisDayIndex
+            // finishes its first-launch scan. Without this hook, the index
+            // would finish ~1-2s after cold launch but the card would stay
+            // dark until the next .onAppear / becomeActive pass (or a long-
+            // press on the header). Pairs with the @Published isReady flag
+            // and the .userInitiated detached task in DayPageApp.
+            .onReceive(OnThisDayIndex.shared.$isReady) { ready in
+                guard ready else { return }
+                Task { @MainActor in
+                    await OnThisDayScheduler.shared.refreshTodayEntry()
+                }
+            }
             // R4-B3: 2am 后台编译失败后，前台 scenePhase active 自动重试
             // 成功时收到这条通知。仅显示 ds-style toast — 不再发系统通知，
             // 避免与已经推过的 2am 失败通知互相打架。
+            // R8-HIGH B1: weekly recap auto-compile completed (posted by
+            // BackgroundCompilationService.tryAutoCompileWeekly). Refresh the
+            // preview state so the new card lights up immediately.
+            .onReceive(NotificationCenter.default.publisher(for: .weeklyRecapAvailable)) { note in
+                let hint = note.userInfo?["referenceDate"] as? Date
+                refreshWeeklyRecapPreview(hint: hint)
+            }
             .onReceive(NotificationCenter.default.publisher(for: .compileSucceededForeground)) { _ in
                 bannerCenter.show(AppBannerModel(
                     kind: .success,
@@ -855,6 +947,17 @@ struct TodayView: View {
             .animation(Motion.dismiss, value: showTutorial)
             .sheet(isPresented: $showAuthSheet) {
                 AuthView()
+            }
+            // R8-HIGH B1: push WeeklyRecapDetailView when the preview is
+            // tapped. NavigationStack inside `.sheet` so we get a proper
+            // nav bar without polluting Today's primary NavigationStack
+            // destination set.
+            .sheet(isPresented: $showWeeklyRecapDetail) {
+                if let refDate = weeklyRecapRefDate {
+                    NavigationStack {
+                        WeeklyRecapDetailView(referenceDate: refDate)
+                    }
+                }
             }
             // iCloud migration progress sheet — shown during vault migration
             .sheet(isPresented: $migrationService.isMigrating) {
@@ -1261,12 +1364,15 @@ struct TodayView: View {
         }
     }
 
-    /// Detail sheet listing the first 5 pending memo IDs and the oldest-
-    /// pending timestamp. Deliberately read-only — surfacing the data
-    /// avoids the "ghost queue" feeling without letting the user dig
-    /// themselves a hole by manually retrying every entry.
+    /// Detail sheet listing pending memo IDs (R8: up to 50) and the
+    /// oldest-pending timestamp. Each row is a tappable button that posts
+    /// `.openMemo` for a future memo-detail router. Until that router
+    /// lands the post is harmless — the sheet dismisses and a Sentry
+    /// breadcrumb confirms the tap landed.
     private var syncQueuePendingSheet: some View {
-        let pending = Array(syncQueue.pendingMemoIDs).sorted().prefix(5)
+        // R8: cap at 50 to avoid SwiftUI List perf cliffs on very large
+        // queues. The summary line still reports the true total.
+        let pending = Array(syncQueue.pendingMemoIDs).sorted().prefix(50)
         let oldest = syncQueue.oldestPendingDate
         return NavigationView {
             List {
@@ -1300,24 +1406,67 @@ struct TodayView: View {
 
                 Section(header: Text(NSLocalizedString(
                     "today.syncqueue.sheet.list_header",
-                    value: "待同步 memo（前 5 条）",
-                    comment: "Sync queue sheet: section header for the truncated pending list"
+                    value: "待同步 memo（最多 50 条）",
+                    comment: "Sync queue sheet: section header for the pending list"
                 ))) {
                     if pending.isEmpty {
+                        // R8: explicit empty state — distinct from the
+                        // "queue drained while sheet was open" UX so the
+                        // user isn't left looking at a blank section.
                         Text(NSLocalizedString(
                             "today.syncqueue.sheet.empty",
-                            value: "队列已清空。",
+                            value: "无待同步条目",
                             comment: "Sync queue sheet: empty-state body"
                         ))
                             .font(DSFonts.inter(size: 13, weight: .regular))
                             .foregroundColor(DSColor.inkSecondary)
                     } else {
                         ForEach(pending, id: \.self) { id in
-                            Text(id)
-                                .font(.system(.footnote, design: .monospaced))
-                                .foregroundColor(DSColor.inkPrimary)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
+                            Button {
+                                // Forward to a (future) memo detail
+                                // router. Listener TODO — for now the
+                                // post is observable via Sentry
+                                // breadcrumb so dogfooders can verify
+                                // taps reach this code path.
+                                NotificationCenter.default.post(
+                                    name: .openMemo,
+                                    object: nil,
+                                    userInfo: ["memoID": id]
+                                )
+                                SentryReporter.breadcrumb(
+                                    category: "syncqueue",
+                                    level: .info,
+                                    message: "syncQueue.sheet tap memoID=\(id.prefix(8))"
+                                )
+                                showSyncQueueSheet = false
+                            } label: {
+                                HStack(spacing: 12) {
+                                    // Left: compact ID prefix as a
+                                    // disambiguator. We don't have a
+                                    // per-memo created timestamp on the
+                                    // queue (it's metadata-only), so we
+                                    // surface 8 chars of the ID rather
+                                    // than claim to know more than we do.
+                                    Text(id.prefix(8))
+                                        .font(.system(.footnote, design: .monospaced))
+                                        .foregroundColor(DSColor.inkSecondary)
+                                    Text(NSLocalizedString(
+                                        "today.syncqueue.sheet.memo_row",
+                                        value: "memo",
+                                        comment: "Sync queue sheet: per-row label"
+                                    ))
+                                        .font(DSFonts.inter(size: 13, weight: .regular))
+                                        .foregroundColor(DSColor.inkPrimary)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.footnote)
+                                        .foregroundColor(DSColor.inkSecondary)
+                                }
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("syncqueue-row-\(id.prefix(8))")
                         }
                     }
                 }
@@ -1477,7 +1626,13 @@ struct TodayView: View {
         // Settings → Experiments → 时光胶囊 off, suppress the card entirely
         // (the index / scheduler stay installed but inert) so a misbehaving
         // candidate selector can be killed without a hot-fix build.
-        if FeatureFlagStore.shared.isEnabled(.onThisDay) {
+        //
+        // R8 — also suppress here when the new top-of-Today card is
+        // already rendering (`onThisDayShownAtTop`). The top section
+        // covers viewModel.onThisDayEntry directly; this fallback path
+        // still survives so empty-day users who only have a synthesized
+        // memo-derived entry (no real candidate) still see one card.
+        if FeatureFlagStore.shared.isEnabled(.onThisDay) && !onThisDayShownAtTop {
             // Prefer the structured `onThisDayEntry` (carries yearsAgo + filePath);
             // synthesize a lightweight one from memos when the index is cold.
             let entry = viewModel.onThisDayEntry ?? OnThisDayEntry(
@@ -3068,6 +3223,111 @@ struct TodayView: View {
                 Haptics.warn()
             }
         }
+    }
+
+    // MARK: - Weekly Recap Preview (R8-HIGH B1)
+
+    /// Try to populate `weeklyRecapPreview` from the cached vault file.
+    /// Order:
+    ///   1. If `hint` is provided (.weeklyRecapAvailable userInfo), probe it
+    ///      first — that's the exact ISO week the daemon just compiled.
+    ///   2. Else probe current week. (After Monday's first compile the
+    ///      current-week cache won't exist, but a manual recap might.)
+    ///   3. Else fall back to last week (yesterday's reference). Covers the
+    ///      Monday-morning auto path where the daemon compiled "last week"
+    ///      before the user opens the app.
+    /// All probes are file-system reads, no LLM round-trip.
+    private func refreshWeeklyRecapPreview(hint: Date?) {
+        let probes: [Date]
+        if let hint = hint {
+            probes = [hint]
+        } else {
+            let now = Date()
+            let cal = WeeklyCompilationService.weekCalendar
+            let lastWeek = cal.date(byAdding: .day, value: -7, to: now) ?? now
+            probes = [now, lastWeek]
+        }
+        for ref in probes {
+            if let cached = WeeklyCompilationService.shared.loadCached(for: ref) {
+                withAnimation(reduceMotion ? nil : Motion.fade) {
+                    weeklyRecapPreview = cached
+                    weeklyRecapRefDate = ref
+                }
+                return
+            }
+        }
+        // No cache available — hide the section.
+        if weeklyRecapPreview != nil {
+            withAnimation(reduceMotion ? nil : Motion.dismiss) {
+                weeklyRecapPreview = nil
+                weeklyRecapRefDate = nil
+            }
+        }
+    }
+
+    /// Compact entry card: amber-tinted background, title with calendar
+    /// emoji, up to 3 keyword chips, "查看全部 →" affordance. Tap pushes
+    /// `WeeklyRecapDetailView` via `.sheet` (see body).
+    @ViewBuilder
+    private func weeklyRecapPreviewSection(preview: WeeklyRecapOutput, referenceDate: Date) -> some View {
+        let kw = Array(preview.keywords.prefix(3))
+        Button {
+            Haptics.tapConfirm()
+            showWeeklyRecapDetail = true
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Text("📅 \(NSLocalizedString("weekly.recap.title", comment: ""))")
+                        .font(DSFonts.inter(size: 13, weight: .semibold))
+                        .foregroundColor(DSColor.inkPrimary)
+                    Spacer(minLength: 0)
+                    Text(NSLocalizedString(
+                        "today.weekly.preview.cta",
+                        value: "查看全部 →",
+                        comment: "CTA label on the Today weekly-recap preview card"
+                    ))
+                        .font(DSType.mono10)
+                        .foregroundColor(DSColor.amberAccent)
+                        .accessibilityHidden(true)
+                }
+                if !kw.isEmpty {
+                    HStack(spacing: 6) {
+                        ForEach(kw, id: \.self) { word in
+                            Text(word)
+                                .font(DSType.mono10)
+                                .foregroundColor(DSColor.amberAccent)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .background(
+                                    Capsule().fill(DSColor.amberAccent.opacity(0.20))
+                                )
+                                .lineLimit(1)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                }
+            }
+            .padding(.horizontal, DSSpacing.pageMargin)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(DSColor.amberAccent.opacity(0.14))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text(String(
+            format: NSLocalizedString(
+                "today.weekly.preview.a11y",
+                value: "周回顾就绪：%@",
+                comment: "VoiceOver label for the Today weekly-recap preview"
+            ),
+            preview.isoWeek
+        )))
+        .accessibilityHint(Text(NSLocalizedString(
+            "today.weekly.preview.a11y.hint",
+            value: "打开本周 AI 回顾",
+            comment: "VoiceOver hint for the Today weekly-recap preview"
+        )))
     }
 }
 

@@ -97,6 +97,8 @@
 		SQS0000001 /* SyncQueueService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SQS1000001 /* SyncQueueService.swift */; };
 		SQS0000002 /* SyncQueueServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SQS1000002 /* SyncQueueServiceTests.swift */; };
 		SQS0000003 /* SyncQueueObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = SQS1000003 /* SyncQueueObserver.swift */; };
+		NMT0000001 /* NetworkMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = NMT1000001 /* NetworkMonitorTests.swift */; };
+		WRA0000001 /* WeeklyRecapAutoTriggerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = WRA1000001 /* WeeklyRecapAutoTriggerTests.swift */; };
 		A10000043 /* Interactions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000043 /* Interactions.swift */; };
 		A10000045 /* OnThisDayIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000045 /* OnThisDayIndex.swift */; };
 		A10000046 /* OnThisDayCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000046 /* OnThisDayCard.swift */; };
@@ -364,6 +366,8 @@
 		SQS1000001 /* SyncQueueService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueService.swift; sourceTree = "<group>"; };
 		SQS1000002 /* SyncQueueServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueServiceTests.swift; sourceTree = "<group>"; };
 		SQS1000003 /* SyncQueueObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueObserver.swift; sourceTree = "<group>"; };
+		NMT1000001 /* NetworkMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitorTests.swift; sourceTree = "<group>"; };
+		WRA1000001 /* WeeklyRecapAutoTriggerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapAutoTriggerTests.swift; sourceTree = "<group>"; };
 		A20000043 /* Interactions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Interactions.swift; sourceTree = "<group>"; };
 		A20000045 /* OnThisDayIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayIndex.swift; sourceTree = "<group>"; };
 		A20000046 /* OnThisDayCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayCard.swift; sourceTree = "<group>"; };
@@ -1069,6 +1073,8 @@
 				R4B1000002 /* LocationServiceLRUTests.swift */,
 				R4B1000003 /* ArchiveViewModelGroupTests.swift */,
 				SQS1000002 /* SyncQueueServiceTests.swift */,
+				NMT1000001 /* NetworkMonitorTests.swift */,
+				WRA1000001 /* WeeklyRecapAutoTriggerTests.swift */,
 			);
 			path = DayPageTests;
 			sourceTree = "<group>";
@@ -1490,6 +1496,8 @@
 				R4B0000002 /* LocationServiceLRUTests.swift in Sources */,
 				R4B0000003 /* ArchiveViewModelGroupTests.swift in Sources */,
 				SQS0000002 /* SyncQueueServiceTests.swift in Sources */,
+				NMT0000001 /* NetworkMonitorTests.swift in Sources */,
+				WRA0000001 /* WeeklyRecapAutoTriggerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

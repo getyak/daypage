@@ -98,6 +98,11 @@ struct SettingsView: View {
     // R4-MEDIUM #39 — drives the Experiments section toggles.
     @StateObject private var flagStore = FeatureFlagStore.shared
 
+    // R8 — debug toggle for the offline-mode simulation. Flipping this
+    // posts `.simulateOfflineChanged` so NetworkMonitor recomputes its
+    // published `isOnline` without waiting for a real NWPath update.
+    @AppStorage(AppSettings.Keys.debugSimulateOffline) private var simulateOffline: Bool = false
+
     var body: some View {
         NavigationStack {
             List {
@@ -928,6 +933,21 @@ struct SettingsView: View {
                     )
                 )
                 .accessibilityIdentifier("experiments-flag-\(flag.rawValue)")
+            }
+
+            // R8 — debug-only toggle that forces NetworkMonitor.isOnline=false
+            // so the user can verify the SyncQueue banner + offline capture
+            // flow without putting the device into airplane mode. We post
+            // an explicit notification because @AppStorage doesn't deliver
+            // cross-actor KVO reliably under the MainActor model.
+            Toggle(NSLocalizedString(
+                "settings.experiments.simulate_offline",
+                value: "模拟离线模式",
+                comment: "Experiments: force NetworkMonitor offline for testing"
+            ), isOn: $simulateOffline)
+            .accessibilityIdentifier("experiments-simulate-offline")
+            .onChange(of: simulateOffline) { _ in
+                NotificationCenter.default.post(name: .simulateOfflineChanged, object: nil)
             }
         } header: {
             Text(NSLocalizedString("settings.experiments.section", comment: ""))

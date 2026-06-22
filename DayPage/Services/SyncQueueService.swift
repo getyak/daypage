@@ -54,6 +54,13 @@ final class SyncQueueService: ObservableObject {
     var pendingCount: Int { pendingMemoIDs.count }
     var isEmpty: Bool { pendingMemoIDs.isEmpty }
 
+    // R8 fix: remember the size each memo was enqueued with so markSynced
+    // doesn't have to trust an out-of-band caller (e.g. NoopRemoteUploader
+    // returns 0, which used to leave totalBytes stuck at the original
+    // enqueue value). Keys = memo IDs in `pendingMemoIDs`; values = bytes
+    // counted into `totalBytes`. Persisted alongside the ID set.
+    private var memoSizes: [String: Int] = [:]
+
     // MARK: - Persistence
 
     // The queue must survive process restarts — if a user enqueued five
@@ -64,6 +71,7 @@ final class SyncQueueService: ObservableObject {
     private let userDefaultsKey = "syncQueue.pendingMemoIDs"
     private let bytesKey        = "syncQueue.totalBytes"
     private let oldestKey       = "syncQueue.oldestDate"
+    private let sizesKey        = "syncQueue.memoSizes"
 
     /// Allows tests to inject a private UserDefaults suite so they don't
     /// pollute the shared standard suite. Production callers use
@@ -93,7 +101,9 @@ final class SyncQueueService: ObservableObject {
     func enqueue(memoID: String, sizeBytes: Int) {
         guard !pendingMemoIDs.contains(memoID) else { return }
         pendingMemoIDs.insert(memoID)
-        totalBytes += max(0, sizeBytes)
+        let clamped = max(0, sizeBytes)
+        memoSizes[memoID] = clamped
+        totalBytes += clamped
         // Only stamp the oldest-pending clock when transitioning from
         // empty → non-empty. Subsequent enqueues should not push the
         // "已等待 N 小时" counter back to zero.
@@ -104,19 +114,35 @@ final class SyncQueueService: ObservableObject {
     }
 
     /// Mark a memo as successfully synced. Removes the ID from the set
-    /// and decrements the byte tally. When the queue empties, the
-    /// oldest-pending clock is cleared so a future enqueue starts fresh.
-    func markSynced(memoID: String, sizeBytes: Int) {
+    /// and decrements the byte tally using the size that was recorded at
+    /// enqueue time, so a remote uploader returning size=0 (e.g. the
+    /// placeholder Noop uploader) still produces a correct totalBytes
+    /// decrement instead of leaving a phantom byte count behind. When
+    /// the queue empties, the oldest-pending clock is cleared so a
+    /// future enqueue starts fresh.
+    func markSynced(memoID: String) {
         guard pendingMemoIDs.contains(memoID) else { return }
         pendingMemoIDs.remove(memoID)
-        totalBytes = max(0, totalBytes - max(0, sizeBytes))
+        let recorded = memoSizes.removeValue(forKey: memoID) ?? 0
+        totalBytes = max(0, totalBytes - recorded)
         if pendingMemoIDs.isEmpty {
             oldestPendingDate = nil
-            // Zero out totalBytes too — a drift between enqueue/markSynced
-            // sizeBytes args would otherwise leave a phantom byte count.
+            // Belt-and-braces: if memoSizes ever drifts from totalBytes
+            // (e.g. legacy state restored from an older build), zero out
+            // here so the UI never shows a phantom byte count.
             totalBytes = 0
+            memoSizes.removeAll()
         }
         persistToDisk()
+    }
+
+    /// Legacy 2-arg variant kept for backward compatibility with callers
+    /// that still pass `sizeBytes` explicitly. The argument is ignored —
+    /// the size that was recorded at enqueue time is the source of truth.
+    /// Prefer the 1-arg form for new code.
+    @available(*, deprecated, message: "Use markSynced(memoID:) — sizeBytes is now tracked internally.")
+    func markSynced(memoID: String, sizeBytes: Int) {
+        markSynced(memoID: memoID)
     }
 
     /// Trigger a flush attempt if (a) online, (b) not already flushing,
@@ -158,6 +184,9 @@ final class SyncQueueService: ObservableObject {
         defaults.set(Array(pendingMemoIDs), forKey: userDefaultsKey)
         defaults.set(totalBytes, forKey: bytesKey)
         defaults.set(oldestPendingDate, forKey: oldestKey)
+        // memoSizes serialised as [String: Int] — UserDefaults can store
+        // Dictionary<String, Int> natively.
+        defaults.set(memoSizes, forKey: sizesKey)
     }
 
     /// Pull persisted state on init. Missing keys leave the @Published
@@ -168,6 +197,15 @@ final class SyncQueueService: ObservableObject {
         }
         totalBytes = defaults.integer(forKey: bytesKey)
         oldestPendingDate = defaults.object(forKey: oldestKey) as? Date
+        if let dict = defaults.dictionary(forKey: sizesKey) as? [String: Int] {
+            memoSizes = dict
+        }
+        // Migration: if we restored IDs but no memoSizes (older build),
+        // seed each ID with size=0. markSynced will then decrement
+        // totalBytes by 0 per memo — better than mis-decrementing.
+        for id in pendingMemoIDs where memoSizes[id] == nil {
+            memoSizes[id] = 0
+        }
     }
 }
 

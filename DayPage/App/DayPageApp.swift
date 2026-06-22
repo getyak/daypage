@@ -16,6 +16,14 @@ extension Notification.Name {
     /// DayPageApp.body 监听并转发到 navModel.openArchive(at:)，解耦视图层 — 因为
     /// EntityPageView 在多个 sheet 入口下展示，无法稳定拿到 @EnvironmentObject。
     static let openArchiveAt = Notification.Name("com.daypage.openArchiveAt")
+    /// R8 — 用户在 SyncQueue sheet 里点击某一行 pending memo 时发布；
+    /// userInfo["memoID"]: String。目前还没有 listener（memo detail 路由
+    /// 待落地）。该通知集中声明在 App 层，方便后续 router 监听。
+    static let openMemo = Notification.Name("com.daypage.openMemo")
+    /// R8 — 用户在 EntityPageView (or future graph entry) 点击某 entity
+    /// 时发布；userInfo["entityID"]: String。集中声明位置，方便后续多入口
+    /// 统一接入 EntityPage 路由。
+    static let openEntityPage = Notification.Name("com.daypage.openEntityPage")
 }
 
 // MARK: - NotificationDelegate
@@ -317,13 +325,20 @@ struct DayPageApp: App {
                     }
                     // 如果已授权"始终"权限，启动被动访问监控
                     PassiveLocationService.shared.startMonitoringIfAuthorized()
-                    // 加载"历史上的今天"索引。Detached + background so the
-                    // first-launch vault scan never competes with UI work on
-                    // the main actor — loadIndex itself hops back to @MainActor
-                    // to mutate the index dictionary, and the heavy scan runs
-                    // inside its own Task.detached(.utility) (see
-                    // OnThisDayIndex.rebuildIndex).
-                    Task.detached(priority: .background) {
+                    // 加载"历史上的今天"索引。Detached so the first-launch vault
+                    // scan never competes with UI work on the main actor — loadIndex
+                    // itself hops back to @MainActor to mutate the index dictionary,
+                    // and the heavy scan runs inside its own Task.detached(.utility)
+                    // (see OnThisDayIndex.rebuildIndex).
+                    //
+                    // R8 — priority bumped .background → .userInitiated. The user
+                    // *sees* the OnThisDayCard at the top of Today right after
+                    // launch, so this load isn't really background work; .background
+                    // could be deferred 10s+ on a busy device. .userInitiated lands
+                    // ~1-2s earlier on cold launch, and OnThisDayIndex now broadcasts
+                    // via `isReady` so TodayView wakes the top card immediately when
+                    // the scan finishes.
+                    Task.detached(priority: .userInitiated) {
                         await OnThisDayIndex.shared.loadIndex()
                     }
                     // 在首次启动且完成引导后填充示例数据

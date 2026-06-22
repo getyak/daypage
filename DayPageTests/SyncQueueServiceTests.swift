@@ -66,13 +66,13 @@ struct SyncQueueServiceTests {
         #expect(svc.pendingCount == 2)
         #expect(svc.totalBytes == 1200)
 
-        svc.markSynced(memoID: "memo-A", sizeBytes: 500)
+        svc.markSynced(memoID: "memo-A")
         // Still one outstanding — clock should stay set.
         #expect(svc.pendingCount == 1)
         #expect(svc.totalBytes == 700)
         #expect(svc.oldestPendingDate != nil)
 
-        svc.markSynced(memoID: "memo-B", sizeBytes: 700)
+        svc.markSynced(memoID: "memo-B")
         // Queue drained — clock + bytes must reset.
         #expect(svc.pendingCount == 0)
         #expect(svc.totalBytes == 0)
@@ -141,8 +141,8 @@ struct SyncQueueServiceTests {
         #expect(svc.oldestPendingDate == firstStamp)
 
         // Drain the queue — the clock should clear.
-        svc.markSynced(memoID: "memo-A", sizeBytes: 100)
-        svc.markSynced(memoID: "memo-B", sizeBytes: 200)
+        svc.markSynced(memoID: "memo-A")
+        svc.markSynced(memoID: "memo-B")
         #expect(svc.oldestPendingDate == nil)
 
         // A new enqueue after drain should stamp a *fresh* clock,
@@ -154,5 +154,32 @@ struct SyncQueueServiceTests {
         } else {
             Issue.record("expected a fresh oldestPendingDate after drain+enqueue")
         }
+    }
+
+    // MARK: - size tracking (R8 fix)
+
+    /// Regression test for the R8 SyncQueue fix: callers (e.g. the Noop
+    /// uploader) used to be trusted to pass `sizeBytes` back into
+    /// `markSynced`, but the placeholder uploader returns 0, which left
+    /// `totalBytes` stuck at the original enqueue value. The new
+    /// `markSynced(memoID:)` form looks the size up from the dict
+    /// populated at enqueue, so a partial drain produces an accurate
+    /// running total.
+    @Test
+    func markSyncedDecrementsByEnqueueRecordedSize() {
+        let svc = makeService()
+        svc.enqueue(memoID: "memo-A", sizeBytes: 1000)
+        svc.enqueue(memoID: "memo-B", sizeBytes: 250)
+        #expect(svc.totalBytes == 1250)
+
+        // Caller passes no size — service must subtract 1000 (memo-A's
+        // recorded size), not leave totalBytes at 1250.
+        svc.markSynced(memoID: "memo-A")
+        #expect(svc.pendingCount == 1)
+        #expect(svc.totalBytes == 250)
+
+        svc.markSynced(memoID: "memo-B")
+        #expect(svc.totalBytes == 0)
+        #expect(svc.isEmpty)
     }
 }

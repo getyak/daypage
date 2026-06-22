@@ -886,3 +886,24 @@
 "weekly.recap.section.mood.a11y"                  = "Mood section";
 "weekly.recap.section.places.a11y"                = "Places section";
 "weekly.recap.section.highlights.a11y"            = "Highlights section";
+
+// R8 — chip/place tap (B2) + detailed error state (B3) + Today preview (B1)
+"weekly.recap.keyword.hint"                       = "Open entity page";
+"weekly.recap.place.hint"                         = "Open place page";
+"weekly.recap.error.noData"                       = "Not enough entries this week (need at least 3 days)";
+"weekly.recap.error.offline"                      = "Waiting for network…";
+"weekly.recap.error.offline.detail"               = "Will retry automatically when online";
+"weekly.recap.error.offline.waiting"              = "Waiting for network…";
+"weekly.recap.error.aiDisabled"                   = "AI features are off";
+"weekly.recap.error.aiDisabled.detail"            = "Re-enable AI compile in Settings";
+"weekly.recap.error.missingApiKey"                = "API key not configured";
+"weekly.recap.error.missingApiKey.detail"         = "Add a DeepSeek key in Settings → API Keys";
+"weekly.recap.error.networkTimeout"               = "Network timed out — tap to retry";
+"weekly.recap.error.rateLimited"                  = "Too many requests, try again shortly";
+"weekly.recap.error.llmFailed"                    = "AI service not responding (%@) — tap to retry";
+"weekly.recap.error.parseFailed"                  = "AI response could not be parsed — tap to retry";
+"weekly.recap.error.fileSystem"                   = "File write failed — tap to retry";
+"weekly.recap.error.unknown"                      = "Unknown error — tap to retry";
+"today.weekly.preview.cta"                        = "View all →";
+"today.weekly.preview.a11y"                       = "Weekly recap ready: %@";
+"today.weekly.preview.a11y.hint"                  = "Open this week's AI recap";

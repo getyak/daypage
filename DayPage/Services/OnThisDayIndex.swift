@@ -26,6 +26,14 @@ final class OnThisDayIndex: ObservableObject {
 
     static let shared = OnThisDayIndex()
 
+    /// R8 — signal that the on-disk / built index is loaded and `candidate(for:)`
+    /// is safe to call against real data. TodayView observes this so the top
+    /// OnThisDayCard can light up as soon as the first-launch vault scan
+    /// finishes, instead of waiting for the next .onAppear / scenePhase pass.
+    /// Flips true at the end of `loadIndex()` and `rebuildIndex()`; reset to
+    /// false only in `resetForTesting()` (DEBUG).
+    @Published private(set) var isReady: Bool = false
+
     private var index: [String: [DayRecord]] = [:]  // 键："MMDD"
     private let indexURL: URL = {
         VaultInitializer.vaultURL
@@ -70,12 +78,20 @@ final class OnThisDayIndex: ObservableObject {
         }.value
         index = built
         await persistIndex(built)
+        // R8 — flip isReady AFTER index assign + persist so any observer
+        // (TodayView.onReceive) that reacts by calling candidate(for:) sees
+        // the fresh index, not the empty initial dictionary.
+        isReady = true
     }
 
     func loadIndex() async {
         // 尝试先从磁盘加载，若缺失则重建
         if let loaded = loadIndexFromDisk() {
             index = loaded
+            // R8 — disk-hit fast path also sets isReady so the top
+            // OnThisDayCard wakes immediately on warm launches (no rebuild
+            // needed). rebuildIndex() handles the cold-launch case.
+            isReady = true
         } else {
             await rebuildIndex()
         }
@@ -88,6 +104,7 @@ final class OnThisDayIndex: ObservableObject {
     /// the next test's candidate(for:) lookup).
     func resetForTesting() {
         index = [:]
+        isReady = false
     }
     #endif
 

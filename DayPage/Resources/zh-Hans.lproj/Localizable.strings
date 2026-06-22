@@ -890,3 +890,24 @@
 "weekly.recap.section.mood.a11y"                  = "本周心情区域";
 "weekly.recap.section.places.a11y"                = "本周地点区域";
 "weekly.recap.section.highlights.a11y"            = "本周高光区域";
+
+// R8 — chip/place tap (B2) + detailed error state (B3) + Today preview (B1)
+"weekly.recap.keyword.hint"                       = "打开实体页";
+"weekly.recap.place.hint"                         = "打开地点页";
+"weekly.recap.error.noData"                       = "本周还没有足够日记（至少需要 3 天）";
+"weekly.recap.error.offline"                      = "等待网络恢复…";
+"weekly.recap.error.offline.detail"               = "网络恢复后会自动重新编译";
+"weekly.recap.error.offline.waiting"              = "等待网络恢复…";
+"weekly.recap.error.aiDisabled"                   = "AI 功能已关闭";
+"weekly.recap.error.aiDisabled.detail"            = "请在设置中重新启用 AI 编译";
+"weekly.recap.error.missingApiKey"                = "尚未配置 API 密钥";
+"weekly.recap.error.missingApiKey.detail"         = "请在设置 → API 密钥中填入 DeepSeek 密钥";
+"weekly.recap.error.networkTimeout"               = "网络请求超时，点击重试";
+"weekly.recap.error.rateLimited"                  = "请求过于频繁，请稍后再试";
+"weekly.recap.error.llmFailed"                    = "AI 服务暂时无响应（%@），点击重试";
+"weekly.recap.error.parseFailed"                  = "AI 返回内容无法解析，点击重试";
+"weekly.recap.error.fileSystem"                   = "文件写入失败，点击重试";
+"weekly.recap.error.unknown"                      = "出现未知错误，点击重试";
+"today.weekly.preview.cta"                        = "查看全部 →";
+"today.weekly.preview.a11y"                       = "周回顾就绪：%@";
+"today.weekly.preview.a11y.hint"                  = "打开本周 AI 回顾";

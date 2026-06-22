@@ -10,6 +10,11 @@ extension Notification.Name {
     /// Today 监听此通知，显示 ds-style toast "今日 Daily Page 已编译完成"。
     /// 与 2am 系统通知互斥（前台静默，不重复推送系统通知）。
     static let compileSucceededForeground = Notification.Name("com.daypage.compileSucceededForeground")
+
+    /// 2am 后台编译完成后，若周一上午并且上周 >= 3 篇 daily，自动触发周回顾。
+    /// 编译成功后发布；userInfo["referenceDate"]: Date = 上周内任一日期（昨天=周日）。
+    /// TodayView 监听此通知刷新顶部 weeklyRecapPreview section。
+    static let weeklyRecapAvailable = Notification.Name("com.daypage.weeklyRecapAvailable")
 }
 
 // MARK: - BackgroundCompilationService
@@ -199,6 +204,54 @@ final class BackgroundCompilationService {
         }
     }
 
+    // MARK: - Auto Weekly Recap (R8-HIGH)
+
+    /// 周一上午 2am daily 编译成功后调用：尝试编译上周的周回顾。
+    ///
+    /// 触发条件（同时满足）：
+    ///   1. 当前 weekday 是周一（Calendar weekday=2，firstWeekday=2）；
+    ///   2. 上周（昨天=周日所在的 ISO 周）已编译的 daily ≥ 3 篇。
+    /// 任一条件不满足 → 直接 return，无副作用。
+    ///
+    /// 不抛错 — 周回顾失败不应该让 2am daily 编译路径看起来"失败"。
+    /// 用 Sentry breadcrumb 记录跳过/失败原因，并在成功路径发布
+    /// `.weeklyRecapAvailable`，让 TodayView 的顶部 preview section 刷新。
+    @MainActor
+    private func tryAutoCompileWeekly() async {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = AppSettings.currentTimeZone()
+        cal.firstWeekday = 2 // Monday
+        let now = Date()
+        let weekday = cal.component(.weekday, from: now)
+        // Calendar weekday: 1=Sunday, 2=Monday — 仅周一触发
+        guard weekday == 2 else { return }
+        // 昨天=周日，归属上周；用昨天作为 referenceDate
+        guard let lastWeekRef = cal.date(byAdding: .day, value: -1, to: now) else { return }
+        do {
+            let metadata = try WeeklyCompilationService.shared.collectWeekMetadata(for: lastWeekRef)
+            guard metadata.days.count >= 3 else {
+                SentryReporter.breadcrumb(
+                    category: "weekly-auto",
+                    level: .info,
+                    message: "auto weekly skipped: only \(metadata.days.count) daily pages last week"
+                )
+                return
+            }
+            _ = try await WeeklyCompilationService.shared.compileWeekly(for: lastWeekRef)
+            NotificationCenter.default.post(
+                name: .weeklyRecapAvailable,
+                object: nil,
+                userInfo: ["referenceDate": lastWeekRef]
+            )
+        } catch {
+            SentryReporter.breadcrumb(
+                category: "weekly-auto",
+                level: .warning,
+                message: "auto weekly skipped: \(error)"
+            )
+        }
+    }
+
     // MARK: - Private: Background Task Handler
 
     private func handleBackgroundTask(_ task: BGAppRefreshTask) async {
@@ -235,6 +288,10 @@ final class BackgroundCompilationService {
                 transaction?.finish()
                 if !Secrets.sentryDSN.isEmpty { SentrySDK.flush(timeout: 5) }
                 self.sendSuccessNotification(for: yesterday)
+                // R8-HIGH: 2am compile 成功后顺手尝试编译上周回顾。
+                // 仅周一早上触发；内部已做 ≥3 daily / referenceDate 守卫。
+                // 失败静默 — 周回顾是次要产物，不应阻塞 daily 编译完成回执。
+                await self.tryAutoCompileWeekly()
                 return true
             } catch is CancellationError {
                 DayPageLogger.shared.warn("[BGCompile] Background compile cancelled by iOS expiration")
