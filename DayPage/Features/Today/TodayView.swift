@@ -1,6 +1,21 @@
 import SwiftUI
 import CoreLocation
 
+// MARK: - View.modify helper (crash-fix utility)
+//
+// Applies a transform that returns `some View`, inserting a type-erasure-free
+// boundary between modifier groups. Used by TodayView.body to split a giant
+// modifier chain into several shallower generic types — see the crash-fix
+// comment in TodayView.body. The transform itself decides the concrete type,
+// so each `.modify { ... }` call caps the nesting depth the Swift runtime must
+// resolve at launch on arm64e Release builds.
+extension View {
+    @ViewBuilder
+    func modify<Transformed: View>(_ transform: (Self) -> Transformed) -> Transformed {
+        transform(self)
+    }
+}
+
 struct TodayView: View {
 
     @EnvironmentObject private var authService: AuthService
@@ -652,6 +667,27 @@ struct TodayView: View {
                     .animation(Motion.rise, value: viewModel.submitError)
                 }
             }
+            // CRASH-FIX (真机 arm64e Release 启动栈溢出): TodayView.body 原本在
+            // 单一 NavigationStack/ZStack 上链式挂了 ~37 个顶层 modifier
+            // (.onChange/.onReceive/.sheet/.fullScreenCover/.overlay)，编译成一个
+            // 极深的嵌套泛型类型。真机 Release 下 Swift runtime 用
+            // swift_getTypeByMangledName 解析该类型时递归深度超限 → SIGSEGV
+            // (KERN_PROTECTION_FAILURE at Stack Guard)。模拟器/Debug 栈布局不同
+            // 故不复现。把 modifier 链拆成 3 个 @ViewBuilder 修饰函数，每个返回
+            // 独立 `some View` 类型，在中间插入类型边界，打断运行时递归深度。
+            .modify { applyNavigationAndOverlays($0) }
+            .modify { applyLifecycleHooks($0) }
+            .modify { applySheetsAndCovers($0) }
+            .modify { applyAuxiliarySheets($0) }
+        }
+    }
+
+    // MARK: - Body modifier groups (crash-fix: break giant generic type)
+
+    /// navigationBar 隐藏 + 侧栏边缘手势 + memo 详情 navigationDestination。
+    @ViewBuilder
+    private func applyNavigationAndOverlays(_ content: some View) -> some View {
+        content
             .navigationBarHidden(true)
             // US-030: left-edge swipe (within first 20pt) opens sidebar
             .gesture(
@@ -683,6 +719,12 @@ struct TodayView: View {
                     MemoDetailView(memo: memo, vm: viewModel)
                 }
             }
+    }
+
+    /// 所有生命周期/状态监听 hook（onAppear / onChange / onReceive）。
+    @ViewBuilder
+    private func applyLifecycleHooks(_ content: some View) -> some View {
+        content
             .onAppear {
                 clearDraftIfExpired()
                 // R4-B2: SceneStorage may come back empty after a process kill
@@ -851,6 +893,12 @@ struct TodayView: View {
                     withAnimation { iCloudConflictBannerVisible = false }
                 }
             }
+    }
+
+    /// 所有 sheet / fullScreenCover / banner / writeSheet overlay 与 quick-capture hook。
+    @ViewBuilder
+    private func applySheetsAndCovers(_ content: some View) -> some View {
+        content
             // Daily Page full-screen sheet
             .fullScreenCover(isPresented: $showDailyPage) {
                 let dateStr: String = {
@@ -955,6 +1003,14 @@ struct TodayView: View {
             .sheet(item: $timelineShareText) { payload in
                 ShareSheet(activityItems: [payload.text])
             }
+    }
+
+    /// banner overlay + tutorial + auth/weekly/migration/share-card sheets +
+    /// writeSheet overlay + quick-capture hooks。`applySheetsAndCovers` 的后半，
+    /// 进一步拆分以把单段嵌套泛型深度压到栈安全范围内（crash-fix 第二刀）。
+    @ViewBuilder
+    private func applyAuxiliarySheets(_ content: some View) -> some View {
+        content
             .bannerOverlay()
             // US-010: First-run input bar tutorial
             .overlay {
@@ -1009,7 +1065,6 @@ struct TodayView: View {
                 viewModel.isShowingVoiceRecorder = true
                 nav.pendingRecordingTrigger = nil
             }
-        }
     }
 
     // MARK: - Sync Banner Logic
