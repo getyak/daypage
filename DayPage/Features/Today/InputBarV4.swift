@@ -4,22 +4,28 @@ import Photos
 import PhotosUI
 import UIKit
 
-// MARK: - BlinkingModifier (composer.jsx caret animation)
-private struct BlinkingModifier: ViewModifier {
+// MARK: - BreathingCaretModifier (composer.jsx caret animation)
+//
+// The idle dock caret used to hard-blink (opacity 1 → 0 every 0.6s), which on a
+// deliberately quiet, museum-still home surface reads as visual noise that keeps
+// tugging the eye. We replace the blink with a slow, low-contrast "breath"
+// (opacity 1 → 0.3 over 1.1s) so the caret signals "writable here" without ever
+// fully disappearing or demanding attention.
+private struct BreathingCaretModifier: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var visible = true
+    @State private var dimmed = false
     func body(content: Content) -> some View {
         content
-            .opacity(visible ? 1 : 0)
+            .opacity(dimmed ? 0.3 : 1)
             .onAppear {
-                // Vestibular-sensitive: skip the repeating blink entirely when
+                // Vestibular-sensitive: skip the repeating motion entirely when
                 // Reduce Motion is on; leave the caret in its solid state.
                 guard !reduceMotion else {
-                    visible = true
+                    dimmed = false
                     return
                 }
-                withAnimation(.easeInOut(duration: 0.6).repeatForever()) {
-                    visible = false
+                withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
+                    dimmed = true
                 }
             }
     }
@@ -437,9 +443,9 @@ struct InputBarV4: View {
                         .foregroundStyle(DSColor.inkSubtle)
                         .lineLimit(1)
                     Rectangle()
-                        .fill(DSColor.amberDeep.opacity(0.5))
+                        .fill(DSColor.amberDeep.opacity(0.35))
                         .frame(width: 2, height: 14)
-                        .modifier(BlinkingModifier())
+                        .modifier(BreathingCaretModifier())
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.leading, 4)
@@ -923,11 +929,28 @@ struct InputBarV4: View {
         .disabled(isDisabled)
         .accessibilityLabel(affordance.accessibilityLabel)
         .accessibilityIdentifier("memo-send")
-        .onAppear { startBreathing() }
-        .onChange(of: affordance) { _ in startBreathing() }
+        .onAppear { startBreathing(for: affordance) }
+        .onChange(of: affordance) { startBreathing(for: $0) }
     }
 
-    private func startBreathing() {
+    /// The ambient "breathing" pulse is only ever visible for the `.empty`
+    /// (translucent mic ring) and `.multimodal` (white ring) affordances —
+    /// every other state paints a solid amber fill that masks `breathingOpacity`
+    /// entirely. Previously a `repeatForever` animation was (re)started for ALL
+    /// states, so while the user was simply typing (`.textOnly`) an invisible,
+    /// perpetual animation kept driving state changes and the compositor for no
+    /// visual payoff. Gate it to the states that use it, reset the rest to solid,
+    /// and honor Reduce Motion (a frozen mid-pulse value would otherwise stick).
+    private func startBreathing(for affordance: SendAffordance) {
+        let usesBreathing: Bool
+        switch affordance {
+        case .empty, .multimodal: usesBreathing = true
+        case .textOnly, .textAndPhoto, .locationOnly: usesBreathing = false
+        }
+        guard usesBreathing, !reduceMotion else {
+            withAnimation(Motion.fade) { breathingOpacity = 1.0 }
+            return
+        }
         withAnimation(Motion.breathing) {
             breathingOpacity = 0.45
         }
