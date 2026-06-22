@@ -2704,18 +2704,8 @@ struct TodayView: View {
                     }
                 }
 
-                // Museum-aesthetic inline "unlock today's page" placeholder —
-                // shown once the day has memos but hasn't been compiled and is
-                // still short of the threshold that triggers AI compilation.
-                if !viewModel.memos.isEmpty
-                    && !viewModel.isDailyPageCompiled
-                    && viewModel.memos.count < 3 {
-                    CompileUnlockCard(memoCount: viewModel.memos.count, onTap: { orbFocusToggle.toggle() })
-                        .padding(.horizontal, 20)
-                        .padding(.top, 16)
-                        .padding(.bottom, 4)
-                        .transition(.opacity)
-                }
+                // R12: "再记 N 条解锁今日成稿" 卡片已移除。编译不再有 3 条门槛——
+                // 每天 0 点自动编译前一天，手动编译按钮在 composeSection 中始终可用。
 
                 historySupplement
 
@@ -2777,55 +2767,48 @@ struct TodayView: View {
         } // end ScrollViewReader
     }
 
-    /// Compose area: compile progress dock / compile button + input bar.
+    /// Compose area: compile button + input bar.
+    ///
+    /// 编译不再有"记满 3 条才解锁"的门槛——每天用户时区 0 点会自动编译前一天
+    /// （BackgroundCompilationService），手动编译入口在此始终可用：只要当天有
+    /// memo 且尚未编译，就直接显示编译按钮，无论几条。
     @ViewBuilder
     private var composeSection: some View {
         Group {
             if !viewModel.isDailyPageCompiled && !viewModel.memos.isEmpty {
-                if viewModel.memos.count < 3 {
-                    CompileProgressDock(memoCount: viewModel.memos.count)
-                        .padding(.vertical, 6)
-                        .transition(
-                            .asymmetric(
-                                insertion: .opacity,
-                                removal: .opacity.combined(with: .scale(scale: 0.9))
-                            )
-                        )
-                } else {
-                    let aiKeyMissing = Secrets.resolvedDeepSeekApiKey.isEmpty
-                    HStack {
-                        Spacer()
-                        CompileFooterButton(
-                            memoCount: viewModel.memos.count,
-                            isCompiling: aiKeyMissing ? false : viewModel.isCompiling,
-                            isVisible: true,
-                            stage: compilationService.stage,
-                            errorMessage: aiKeyMissing ? nil : viewModel.submitError,
-                            onTap: {
-                                if aiKeyMissing {
-                                    showSettings = true
-                                } else {
-                                    viewModel.compile()
-                                }
-                            },
-                            onRetry: {
-                                if aiKeyMissing {
-                                    showSettings = true
-                                } else {
-                                    viewModel.compile()
-                                }
-                            },
-                            aiKeyMissing: aiKeyMissing
-                        )
-                        .shadow(
-                            color: DSColor.accentAmber.opacity(unlockGlow ? 0.5 : 0),
-                            radius: unlockGlow ? 18 : 0
-                        )
-                        .animation(reduceMotion ? nil : .easeOut(duration: 0.6), value: unlockGlow)
-                        Spacer()
-                    }
-                    .padding(.bottom, 4)
+                let aiKeyMissing = Secrets.resolvedDeepSeekApiKey.isEmpty
+                HStack {
+                    Spacer()
+                    CompileFooterButton(
+                        memoCount: viewModel.memos.count,
+                        isCompiling: aiKeyMissing ? false : viewModel.isCompiling,
+                        isVisible: true,
+                        stage: compilationService.stage,
+                        errorMessage: aiKeyMissing ? nil : viewModel.submitError,
+                        onTap: {
+                            if aiKeyMissing {
+                                showSettings = true
+                            } else {
+                                viewModel.compile()
+                            }
+                        },
+                        onRetry: {
+                            if aiKeyMissing {
+                                showSettings = true
+                            } else {
+                                viewModel.compile()
+                            }
+                        },
+                        aiKeyMissing: aiKeyMissing
+                    )
+                    .shadow(
+                        color: DSColor.accentAmber.opacity(unlockGlow ? 0.5 : 0),
+                        radius: unlockGlow ? 18 : 0
+                    )
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.6), value: unlockGlow)
+                    Spacer()
                 }
+                .padding(.bottom, 4)
             }
         }
         .animation(Motion.spring, value: viewModel.memos.count)
