@@ -9,12 +9,12 @@ extension Notification.Name {
     /// Posted by: BackgroundCompilationService.compileForegroundIfDue — after a
     /// successful foreground auto-retry compile.
     /// Observed by: TodayView.body (.onReceive — shows ds-style toast
-    /// "今日 Daily Page 已编译完成"). Mutex with the 2am system notification (silent in
-    /// foreground, no duplicate push).
+    /// "今日 Daily Page 已编译完成"). Mutex with the midnight (00:00) system
+    /// notification (silent in foreground, no duplicate push).
     static let compileSucceededForeground = Notification.Name("com.daypage.compileSucceededForeground")
 
     /// Posted by: BackgroundCompilationService.tryAutoCompileWeekly (R7-R8) — after
-    /// the 2am compile finishes if it's Monday AM and the prior week has >= 3 dailies.
+    /// the midnight compile finishes if it's Monday AM and the prior week has >= 3 dailies.
     /// userInfo["referenceDate"]: Date = any date inside the prior week (yesterday = Sun).
     /// Observed by: TodayView.weeklyRecapPreview (.onReceive — refreshes the top
     /// preview section).
@@ -82,12 +82,12 @@ final class BackgroundCompilationService {
 
     // MARK: - Schedule
 
-    /// 调度下一次后台应用刷新，大约在当地时间凌晨 2:00。
+    /// 调度下一次后台应用刷新，最早在用户当地时间午夜 00:00。
     /// 可重复调用；系统会忽略重复请求。
     func scheduleIfNeeded() {
         let request = BGAppRefreshTaskRequest(identifier: BackgroundCompilationService.taskIdentifier)
-        // 请求最早在今天凌晨 2:00 执行，如果已经过了，则请求明天
-        request.earliestBeginDate = nextTwoAM()
+        // 请求最早在下一个 0 点执行（iOS 只保证不早于此时刻）
+        request.earliestBeginDate = nextMidnight()
 
         do {
             try BGTaskScheduler.shared.submit(request)
@@ -153,14 +153,14 @@ final class BackgroundCompilationService {
 
     // MARK: - Foreground Retry (B3)
 
-    /// 2am 后台编译失败后，应用回到前台时自动重试今日的编译。
+    /// 0 点 后台编译失败后，应用回到前台时自动重试今日的编译。
     ///
-    /// 触发条件：今日的 raw 文件已存在但 daily page 缺失（即 2am 后台任务
+    /// 触发条件：今日的 raw 文件已存在但 daily page 缺失（即 0 点 后台任务
     /// 失败 / 被 iOS expirationHandler kill / 用户禁用了后台刷新）。
     /// 60 秒防抖避免 scenePhase 快速切换重复触发。
     ///
     /// 成功路径：发布 `compileSucceededForeground` 通知（Today 在 banner 上
-    /// 显示 ds-style toast）。**不发系统通知**，避免与 2am 的
+    /// 显示 ds-style toast）。**不发系统通知**，避免与 0 点 的
     /// `sendSuccessNotification` 重复。
     ///
     /// 失败路径：静默 + Sentry breadcrumb（用户不需要看到第二条失败通知）。
@@ -192,7 +192,7 @@ final class BackgroundCompilationService {
 
         do {
             try await CompilationService.shared.compile(for: Date(), trigger: "foreground-retry")
-            // 成功路径：广播给 Today，由 banner 体现，避免与 2am 系统通知重复。
+            // 成功路径：广播给 Today，由 banner 体现，避免与 0 点 系统通知重复。
             NotificationCenter.default.post(name: .compileSucceededForeground, object: nil)
         } catch {
             // 失败静默 — Today 已有失败 banner 链路；这里仅留 breadcrumb。
@@ -210,14 +210,14 @@ final class BackgroundCompilationService {
 
     // MARK: - Auto Weekly Recap (R8-HIGH)
 
-    /// 周一上午 2am daily 编译成功后调用：尝试编译上周的周回顾。
+    /// 周一上午 0 点 daily 编译成功后调用：尝试编译上周的周回顾。
     ///
     /// 触发条件（同时满足）：
     ///   1. 当前 weekday 是周一（Calendar weekday=2，firstWeekday=2）；
     ///   2. 上周（昨天=周日所在的 ISO 周）已编译的 daily ≥ 3 篇。
     /// 任一条件不满足 → 直接 return，无副作用。
     ///
-    /// 不抛错 — 周回顾失败不应该让 2am daily 编译路径看起来"失败"。
+    /// 不抛错 — 周回顾失败不应该让 0 点 daily 编译路径看起来"失败"。
     /// 用 Sentry breadcrumb 记录跳过/失败原因，并在成功路径发布
     /// `.weeklyRecapAvailable`，让 TodayView 的顶部 preview section 刷新。
     // internal for testability (R9-MEDIUM): WeeklyRecapAutoTriggerTests
@@ -296,7 +296,7 @@ final class BackgroundCompilationService {
                 transaction?.finish()
                 if !Secrets.sentryDSN.isEmpty { SentrySDK.flush(timeout: 5) }
                 self.sendSuccessNotification(for: yesterday)
-                // R8-HIGH: 2am compile 成功后顺手尝试编译上周回顾。
+                // R8-HIGH: 0 点 compile 成功后顺手尝试编译上周回顾。
                 // 仅周一早上触发；内部已做 ≥3 daily / referenceDate 守卫。
                 // 失败静默 — 周回顾是次要产物，不应阻塞 daily 编译完成回执。
                 await self.tryAutoCompileWeekly()
@@ -495,25 +495,29 @@ final class BackgroundCompilationService {
         return cal
     }
 
-    // MARK: - Private: Next 2:00 AM
+    // MARK: - Private: Next Midnight (00:00)
 
-    /// 计算设备当前时区中的下一个凌晨 2:00。
-    /// 如果现在还没到今天凌晨 2:00，返回今天的凌晨 2:00；否则返回明天的。
-    private func nextTwoAM() -> Date {
+    /// 计算用户当前时区中的下一个午夜 00:00。
+    /// 午夜是一天的起点，`now >= 今天 00:00` 几乎总成立，所以这里基本总是
+    /// 返回明天午夜，即"下一个 0 点"。BGTask 的 earliestBeginDate 只是
+    /// "最早可执行时间"，iOS 会在该时刻之后择机运行；真正"确保编译成功"
+    /// 靠前台 backfill / 前台重试兜底（见 backfillIfNeeded /
+    /// foregroundRetryIfNeeded）。
+    private func nextMidnight() -> Date {
         let calendar = Self.calendar
         let now = Date()
 
         var components = calendar.dateComponents([.year, .month, .day], from: now)
-        components.hour = 2
+        components.hour = 0
         components.minute = 0
         components.second = 0
 
-        guard let todayTwoAM = calendar.date(from: components) else { return now }
+        guard let todayMidnight = calendar.date(from: components) else { return now }
 
-        if todayTwoAM > now {
-            return todayTwoAM
+        if todayMidnight > now {
+            return todayMidnight
         }
 
-        return calendar.date(byAdding: .day, value: 1, to: todayTwoAM) ?? now
+        return calendar.date(byAdding: .day, value: 1, to: todayMidnight) ?? now
     }
 }
