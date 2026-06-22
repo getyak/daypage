@@ -33,6 +33,12 @@ struct TodayView: View {
     @State private var weeklyRecapPreview: WeeklyRecapOutput? = nil
     @State private var weeklyRecapRefDate: Date? = nil
     @State private var showWeeklyRecapDetail: Bool = false
+    // R9-HIGH A1: debounce handle for refreshWeeklyRecapPreview. Cold launch
+    // used to fire onAppear + .weeklyRecapAvailable + scenePhase.active in
+    // quick succession → 3 reload paths × 2 probes = 6 loadCached races plus
+    // 3 withAnimation passes fighting each other. Coalescing through a 300ms
+    // cancellable Task collapses the burst into a single file read.
+    @State private var weeklyReloadTask: Task<Void, Never>? = nil
     // R6: drives the modal sheet that surfaces the first N pending memo
     // IDs when the user taps the sync-queue banner. Replaces the bare
     // BannerCenter alert with a sheet you can actually scan.
@@ -94,11 +100,10 @@ struct TodayView: View {
     /// Date string for On This Day navigation.
     @State private var onThisDayDateString: String? = nil
 
-    /// R8 — true while the top-of-Today OnThisDayCard is actually rendered.
-    /// Used as a guard inside `onThisDayFallback(memos:)` so the empty-state
-    /// fallback path skips re-rendering the card when the top card is also
-    /// up, preventing two identical cards from stacking.
-    @State private var onThisDayShownAtTop: Bool = false
+    // R9-HIGH A2: `onThisDayShownAtTop` @State removed. The top vs fallback
+    // OnThisDay card decision is now driven by the `shouldShowOnThisDayAtTop`
+    // computed property, which both call sites read in the same render pass
+    // — eliminating the lazy-onAppear race that briefly rendered two cards.
 
     /// Current time for the header timestamp (refreshed every minute).
     @State private var currentTime: Date = Date()
@@ -282,9 +287,17 @@ struct TodayView: View {
                     // week. Sits right under the header so the user notices it
                     // immediately on launch — Archive's entry card is still the
                     // canonical surface, this is just a "your weekly is ready" nudge.
+                    //
+                    // R9-HIGH A3: `bannerCount < 3` keeps this nudge visible
+                    // when banner stacking is mild but hides it once the top
+                    // is fully occupied. Slightly more tolerant than the
+                    // OnThisDay top card (`< 2`) because the preview row is
+                    // ~52pt vs the card's ~90pt — composer breathing room
+                    // still survives a 3-banner stack.
                     if FeatureFlagStore.shared.isEnabled(.weeklyRecap),
                        let preview = weeklyRecapPreview,
-                       let refDate = weeklyRecapRefDate {
+                       let refDate = weeklyRecapRefDate,
+                       bannerCount < 3 {
                         weeklyRecapPreviewSection(preview: preview, referenceDate: refDate)
                             .transition(.opacity.combined(with: .move(edge: .top)))
                     }
@@ -335,11 +348,14 @@ struct TodayView: View {
                     // behavior the fallback path uses, so users can't
                     // double-dismiss.
                     //
-                    // `onThisDayShownAtTop` is read by `onThisDayFallback`
-                    // so the empty-state fallback skips its own copy of the
-                    // card when this top one is rendered, preventing visual
-                    // duplication on an empty day with an old anniversary.
-                    if FeatureFlagStore.shared.isEnabled(.onThisDay),
+                    // R9-HIGH A2: gated by `shouldShowOnThisDayAtTop`, which
+                    // the fallback path negates in the same render pass. No
+                    // more lazy `.onAppear` flag flip — the two paths agree
+                    // synchronously, eliminating the brief double-card race.
+                    // R9-HIGH A3: the same computed also yields to ≥ 2
+                    // sticky banners so the composer isn't pushed off the
+                    // visible viewport on small devices (iPhone 12 mini).
+                    if shouldShowOnThisDayAtTop,
                        let entry = viewModel.onThisDayEntry {
                         OnThisDayCard(
                             entry: entry,
@@ -352,8 +368,6 @@ struct TodayView: View {
                             }
                         )
                         .transition(.opacity.combined(with: .move(edge: .top)))
-                        .onAppear { onThisDayShownAtTop = true }
-                        .onDisappear { onThisDayShownAtTop = false }
                     }
 
                     // MARK: Compilation Progress Bar
@@ -701,7 +715,10 @@ struct TodayView: View {
                 refreshAIKeyMissing()
                 // R8-HIGH B1: seed weekly recap preview from cache. No LLM
                 // call — read-only loadCached probe.
-                refreshWeeklyRecapPreview(hint: nil)
+                // R9-HIGH A1: routed through the 300ms-debounced wrapper so
+                // it coalesces with the .weeklyRecapAvailable notification
+                // path that often fires within the same cold-launch tick.
+                refreshWeeklyRecapPreviewDebounced(hint: nil)
             }
             .onChange(of: draftText) { _ in
                 // B3: Debounce — only persist `draftDate` after typing pauses
@@ -739,10 +756,11 @@ struct TodayView: View {
                     // R3 — A2: re-check Keychain so the banner flips off the
                     // moment the user comes back from Settings → API Keys.
                     refreshAIKeyMissing()
-                    // R8-HIGH B1: 2am compile may have landed while the app
-                    // was backgrounded — re-probe the weekly cache so the
-                    // preview catches up on resume.
-                    refreshWeeklyRecapPreview(hint: nil)
+                    // R9-HIGH A1: removed the third refreshWeeklyRecapPreview
+                    // call here. .onAppear (cold launch) + .weeklyRecapAvailable
+                    // (mid-session daemon publish) already cover the cache-
+                    // miss-then-hit window; the scenePhase trigger was a
+                    // redundant third path that just thrashed the debounce.
                 }
             }
             // Re-seed the word milestone tracker once data finishes loading so
@@ -801,7 +819,9 @@ struct TodayView: View {
             // preview state so the new card lights up immediately.
             .onReceive(NotificationCenter.default.publisher(for: .weeklyRecapAvailable)) { note in
                 let hint = note.userInfo?["referenceDate"] as? Date
-                refreshWeeklyRecapPreview(hint: hint)
+                // R9-HIGH A1: debounced so this and the .onAppear seed
+                // collapse into one cache probe on cold launch.
+                refreshWeeklyRecapPreviewDebounced(hint: hint)
             }
             .onReceive(NotificationCenter.default.publisher(for: .compileSucceededForeground)) { _ in
                 bannerCenter.show(AppBannerModel(
@@ -1107,6 +1127,36 @@ struct TodayView: View {
     // (which would take the user to the system Settings app where there's
     // nothing to configure).
 
+    // MARK: - R9-HIGH A2/A3 — Banner stack guards
+    //
+    // `bannerCount` counts the always-renders-at-top sections (AI key,
+    // sync queue, iCloud conflict). When too many fire at once the
+    // composer gets pushed below the fold on iPhone 12 mini, so the
+    // OnThisDay top card and WeeklyRecap preview defer to it. Read by
+    // both `shouldShowOnThisDayAtTop` and the top WeeklyRecap section
+    // guard in `body`.
+    private var bannerCount: Int {
+        var n = 0
+        if shouldShowAIKeyBanner { n += 1 }
+        if FeatureFlagStore.shared.isEnabled(.offlineQueue) && !syncQueue.isEmpty { n += 1 }
+        if iCloudConflictBannerVisible { n += 1 }
+        return n
+    }
+
+    /// R9-HIGH A2: single source of truth for whether the top-of-Today
+    /// OnThisDay card renders. Used by both the `body` top section and
+    /// the `onThisDayFallback(memos:)` inverse guard so the two paths
+    /// agree inside the same SwiftUI render pass — no more lazy
+    /// `.onAppear` flip that briefly stacked two cards. The `bannerCount`
+    /// guard yields to the "system status" banners when ≥ 2 already
+    /// occupy the top: in that case the fallback (empty-day) path still
+    /// surfaces the card if the day has no memos to push it offscreen.
+    private var shouldShowOnThisDayAtTop: Bool {
+        FeatureFlagStore.shared.isEnabled(.onThisDay)
+            && viewModel.onThisDayEntry != nil
+            && bannerCount < 2
+    }
+
     /// True when the banner should appear in this render. Combines:
     /// missing key + onboarded + within session not dismissed + 24h
     /// cooldown elapsed.
@@ -1157,7 +1207,11 @@ struct TodayView: View {
 
             Text(NSLocalizedString(
                 "today.banner.ai_key_missing",
-                value: "AI 编译已暂停 — 配置密钥后可启用",
+                // R9-LOW A4: active-voice rewrite — "AI 编译已暂停 — 配置
+                // 密钥后可启用" reads as a status report; "配置 AI 密钥以
+                // 启用编译" frames the same condition as an action the user
+                // can take. Better aligned with the CTA right next to it.
+                value: "配置 AI 密钥以启用编译",
                 comment: "Today banner shown when DeepSeek/Whisper API key is missing"
             ))
                 .font(DSFonts.inter(size: 13, weight: .medium))
@@ -1327,7 +1381,11 @@ struct TodayView: View {
                     if syncQueueWaitedOverDay {
                         Text(NSLocalizedString(
                             "today.syncqueue.banner.waited_over_day",
-                            value: "超过 24 小时未同步",
+                            // R9-LOW A4: rewrite explains *why* the queue is
+                            // stuck. The old "超过 24 小时未同步" implies the
+                            // app is broken; the new phrasing surfaces the
+                            // real cause (network) so users know what to do.
+                            value: "网络受限，已等待超过 24 小时",
                             comment: "Today banner sub-label: queue stuck > 24h"
                         ))
                             .font(DSFonts.inter(size: 11, weight: .semibold))
@@ -1627,12 +1685,16 @@ struct TodayView: View {
         // (the index / scheduler stay installed but inert) so a misbehaving
         // candidate selector can be killed without a hot-fix build.
         //
-        // R8 — also suppress here when the new top-of-Today card is
-        // already rendering (`onThisDayShownAtTop`). The top section
-        // covers viewModel.onThisDayEntry directly; this fallback path
-        // still survives so empty-day users who only have a synthesized
-        // memo-derived entry (no real candidate) still see one card.
-        if FeatureFlagStore.shared.isEnabled(.onThisDay) && !onThisDayShownAtTop {
+        // R9-HIGH A2: gated on `!shouldShowOnThisDayAtTop` so this
+        // fallback path is the inverse of the top section's guard. Both
+        // paths read the same computed in the same render pass — no
+        // more lazy onAppear flag flip, no more brief double-render.
+        // Empty-day users with only a synthesized memo-derived entry
+        // still see a card here (because `viewModel.onThisDayEntry` may
+        // be nil and the top guard skips). Same goes for the A3
+        // banner-overflow path: when banners crowd the top, the top
+        // card is suppressed but this fallback still surfaces it.
+        if FeatureFlagStore.shared.isEnabled(.onThisDay) && !shouldShowOnThisDayAtTop {
             // Prefer the structured `onThisDayEntry` (carries yearsAgo + filePath);
             // synthesize a lightweight one from memos when the index is cold.
             let entry = viewModel.onThisDayEntry ?? OnThisDayEntry(
@@ -3262,6 +3324,22 @@ struct TodayView: View {
                 weeklyRecapPreview = nil
                 weeklyRecapRefDate = nil
             }
+        }
+    }
+
+    /// R9-HIGH A1: debounced wrapper around `refreshWeeklyRecapPreview`.
+    /// Cold launch fires three near-simultaneous reloads (onAppear seed,
+    /// `.weeklyRecapAvailable` notification, scenePhase=.active), which
+    /// previously raced through the same `loadCached` probes and stacked
+    /// three competing `withAnimation` passes. Coalescing into a single
+    /// 300ms-debounced Task collapses the burst into one file read.
+    /// Cancellation on every call ensures only the latest hint wins.
+    private func refreshWeeklyRecapPreviewDebounced(hint: Date?) {
+        weeklyReloadTask?.cancel()
+        weeklyReloadTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled else { return }
+            refreshWeeklyRecapPreview(hint: hint)
         }
     }
 

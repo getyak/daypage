@@ -123,7 +123,19 @@ final class SyncQueueService: ObservableObject {
     func markSynced(memoID: String) {
         guard pendingMemoIDs.contains(memoID) else { return }
         pendingMemoIDs.remove(memoID)
-        let recorded = memoSizes.removeValue(forKey: memoID) ?? 0
+        // R9 fix: if a memo arrived via legacy restoreFromDisk (older
+        // build wrote pendingMemoIDs but never persisted memoSizes), the
+        // dict will be empty for that ID. Falling back to 0 leaves
+        // totalBytes phantom-high; instead, walk vault/raw to find the
+        // actual file size — slow (O(N files)) but only on first drain
+        // after a legacy migration. New enqueue/markSynced cycles keep
+        // hitting the dict cache.
+        let recorded: Int
+        if let cached = memoSizes.removeValue(forKey: memoID) {
+            recorded = cached
+        } else {
+            recorded = estimateMemoSize(memoID)
+        }
         totalBytes = max(0, totalBytes - recorded)
         if pendingMemoIDs.isEmpty {
             oldestPendingDate = nil
@@ -134,6 +146,38 @@ final class SyncQueueService: ObservableObject {
             memoSizes.removeAll()
         }
         persistToDisk()
+    }
+
+    /// Fallback size estimator for legacy queue entries whose `memoSizes`
+    /// dict entry was lost across a build upgrade. Scans `vault/raw/*.md`
+    /// for a memo whose frontmatter `id:` field matches `memoID` and
+    /// returns the file's UTF-8 byte count. Returns 200 (rough average
+    /// memo length) when the vault is unreachable or the memo can't be
+    /// found — better to over-credit a small constant than to under-
+    /// credit zero and leave a phantom byte tally behind.
+    ///
+    /// Intentionally O(N files): only invoked on the cold path where a
+    /// markSynced lookup misses the in-memory dict, i.e. once per
+    /// legacy-migrated memo during the next drain.
+    private func estimateMemoSize(_ memoID: String) -> Int {
+        let fallback = 200
+        let rawDir = VaultInitializer.vaultURL.appendingPathComponent("raw", isDirectory: true)
+        let fm = FileManager.default
+        guard let files = try? fm.contentsOfDirectory(
+            at: rawDir,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else {
+            return fallback
+        }
+        let needle = "id: \(memoID)"
+        for file in files where file.pathExtension == "md" {
+            guard let content = try? String(contentsOf: file, encoding: .utf8) else { continue }
+            if content.contains(needle) {
+                return content.utf8.count
+            }
+        }
+        return fallback
     }
 
     /// Legacy 2-arg variant kept for backward compatibility with callers
@@ -200,12 +244,13 @@ final class SyncQueueService: ObservableObject {
         if let dict = defaults.dictionary(forKey: sizesKey) as? [String: Int] {
             memoSizes = dict
         }
-        // Migration: if we restored IDs but no memoSizes (older build),
-        // seed each ID with size=0. markSynced will then decrement
-        // totalBytes by 0 per memo — better than mis-decrementing.
-        for id in pendingMemoIDs where memoSizes[id] == nil {
-            memoSizes[id] = 0
-        }
+        // R9 migration: do NOT pre-seed missing IDs with size=0 — that
+        // used to mask the legacy-state case where pendingMemoIDs was
+        // persisted but memoSizes never was. Instead, leave the dict
+        // sparse so `markSynced` falls into `estimateMemoSize` and walks
+        // vault/raw for the real byte count. The fallback runs at most
+        // once per legacy-migrated memo; subsequent enqueues populate
+        // the dict normally.
     }
 }
 

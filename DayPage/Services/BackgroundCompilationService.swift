@@ -216,8 +216,12 @@ final class BackgroundCompilationService {
     /// 不抛错 — 周回顾失败不应该让 2am daily 编译路径看起来"失败"。
     /// 用 Sentry breadcrumb 记录跳过/失败原因，并在成功路径发布
     /// `.weeklyRecapAvailable`，让 TodayView 的顶部 preview section 刷新。
+    // internal for testability (R9-MEDIUM): WeeklyRecapAutoTriggerTests
+    // drives this through the real Calendar / VaultInitializer path so
+    // the "skip when non-Monday" and "skip when <3 dailies" guards are
+    // covered by integration-shape tests, not just the pure helper.
     @MainActor
-    private func tryAutoCompileWeekly() async {
+    internal func tryAutoCompileWeekly() async {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = AppSettings.currentTimeZone()
         cal.firstWeekday = 2 // Monday

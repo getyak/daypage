@@ -182,4 +182,120 @@ struct SyncQueueServiceTests {
         #expect(svc.totalBytes == 0)
         #expect(svc.isEmpty)
     }
+
+    // MARK: - Legacy restore + estimateMemoSize fallback (R9-LOW)
+    //
+    // Older builds wrote `syncQueue.pendingMemoIDs` + `syncQueue.totalBytes`
+    // but never persisted `syncQueue.memoSizes`. On restart the queue
+    // restored the IDs with no per-ID size info, and the previous
+    // markSynced implementation defaulted the missing size to 0 — which
+    // left `totalBytes` phantom-high until the queue was completely
+    // drained. The R9 fix walks `vault/raw/` to estimate the size when
+    // the dict misses, returning the file's UTF-8 byte count (or a
+    // 200-byte fallback when the vault is unreachable).
+
+    /// Smoke-test the fallback path with an empty vault: `estimateMemoSize`
+    /// should return the constant fallback (200), not 0, when the memo
+    /// can't be located. The queue-empty clamp then drives `totalBytes`
+    /// to 0 — the phantom 5000-byte tally is gone.
+    @Test
+    func testLegacyRestore_estimatesSizeWhenMemoSizesMissing() {
+        let suite = "SyncQueueServiceTests.legacy.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+
+        // Simulate the legacy on-disk shape: pendingMemoIDs + totalBytes
+        // set, memoSizes key missing. The totalBytes value is
+        // intentionally inflated to demonstrate the phantom-tally bug
+        // the fallback fixes.
+        defaults.set(["legacy-abc-123"], forKey: "syncQueue.pendingMemoIDs")
+        defaults.set(5000, forKey: "syncQueue.totalBytes")
+        defaults.set(Date(), forKey: "syncQueue.oldestDate")
+        // syncQueue.memoSizes deliberately NOT set — that's the
+        // condition we're testing.
+
+        // Point the vault override at an empty temp dir so
+        // estimateMemoSize takes the "can't find the memo" branch and
+        // returns the 200-byte fallback rather than scanning the user's
+        // real vault.
+        let tempVault = FileManager.default.temporaryDirectory
+            .appendingPathComponent("syncq-legacy-\(UUID().uuidString)", isDirectory: true)
+        try? FileManager.default.createDirectory(
+            at: tempVault.appendingPathComponent("raw"),
+            withIntermediateDirectories: true
+        )
+        VaultInitializer.testOverrideURL = tempVault
+        defer {
+            VaultInitializer.testOverrideURL = nil
+            try? FileManager.default.removeItem(at: tempVault)
+            UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite)
+        }
+
+        let svc = SyncQueueService.makeForTesting(defaults: defaults)
+        // Sanity: legacy state was restored.
+        #expect(svc.pendingMemoIDs.contains("legacy-abc-123"))
+        #expect(svc.totalBytes == 5000, "legacy totalBytes restored verbatim")
+
+        svc.markSynced(memoID: "legacy-abc-123")
+
+        // After mark: queue must drain, totalBytes must reset to 0 —
+        // either via the per-memo subtraction (200 fallback) or the
+        // "queue emptied → zero" belt-and-braces guard. Either way the
+        // user no longer sees a 5000-byte phantom tally.
+        #expect(svc.isEmpty, "legacy memo must drain")
+        #expect(svc.totalBytes == 0,
+                "phantom totalBytes must be cleared, not left at 5000")
+        #expect(svc.oldestPendingDate == nil)
+    }
+
+    /// Same legacy shape, but this time a real memo file lives under
+    /// vault/raw so the fallback walks the directory and finds it.
+    /// Confirms `estimateMemoSize` actually scans for the `id:` needle
+    /// instead of always returning the 200-byte fallback.
+    @Test
+    func testLegacyRestore_estimateScansVaultRaw() throws {
+        let suite = "SyncQueueServiceTests.legacy-scan.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+
+        let memoID = "vault-memo-\(UUID().uuidString)"
+        defaults.set([memoID], forKey: "syncQueue.pendingMemoIDs")
+        defaults.set(9999, forKey: "syncQueue.totalBytes")
+        defaults.set(Date(), forKey: "syncQueue.oldestDate")
+
+        // Build a temp vault containing a real memo file whose
+        // frontmatter holds `id: <memoID>`.
+        let tempVault = FileManager.default.temporaryDirectory
+            .appendingPathComponent("syncq-legacy-scan-\(UUID().uuidString)", isDirectory: true)
+        let rawDir = tempVault.appendingPathComponent("raw", isDirectory: true)
+        try FileManager.default.createDirectory(at: rawDir, withIntermediateDirectories: true)
+        let memoBody = """
+        ---
+        id: \(memoID)
+        type: text
+        created: 2026-06-22T08:00:00.000Z
+        ---
+
+        Hello from a fixture memo.
+        """
+        let memoFile = rawDir.appendingPathComponent("2026-06-22.md")
+        try Data(memoBody.utf8).write(to: memoFile, options: .atomic)
+
+        VaultInitializer.testOverrideURL = tempVault
+        defer {
+            VaultInitializer.testOverrideURL = nil
+            try? FileManager.default.removeItem(at: tempVault)
+            UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite)
+        }
+
+        let svc = SyncQueueService.makeForTesting(defaults: defaults)
+        #expect(svc.totalBytes == 9999)
+
+        svc.markSynced(memoID: memoID)
+        // Queue emptied — the belt-and-braces clamp drives totalBytes
+        // to 0 even if estimateMemoSize returned the full file byte
+        // count.
+        #expect(svc.isEmpty)
+        #expect(svc.totalBytes == 0)
+    }
 }

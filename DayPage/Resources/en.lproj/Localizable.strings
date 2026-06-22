@@ -818,7 +818,7 @@
 "error.location.busy"                        = "Location service is busy. Please try again.";
 
 /* Today — AI key banner */
-"today.aibanner.title"                       = "AI key not configured — compile disabled";
+"today.aibanner.title"                       = "Configure your AI key to enable compile";
 "today.aibanner.openSettings"                = "Open Settings";
 
 /* Settings — compile-finished notification toggle */
@@ -860,7 +860,7 @@
 "today.syncqueue.banner.pending"             = "%d memo(s) waiting to sync";
 "today.syncqueue.banner.flushing"            = "Syncing %d memo(s)…";
 "today.syncqueue.banner.waited_hours"        = "Waiting %d hour(s)";
-"today.syncqueue.banner.waited_over_day"     = "Not synced for over 24 hours";
+"today.syncqueue.banner.waited_over_day"     = "Network unavailable — waiting over 24 hours";
 "today.syncqueue.sheet.title"                = "Pending sync";
 "today.syncqueue.sheet.summary"              = "%d memo(s) waiting to upload";
 "today.syncqueue.sheet.oldest"               = "Oldest: %@";

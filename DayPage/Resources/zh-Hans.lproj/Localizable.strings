@@ -822,7 +822,7 @@
 "error.location.busy"                        = "定位服务繁忙，请稍后再试。";
 
 /* Today — AI key banner */
-"today.aibanner.title"                       = "未配置 AI 密钥，无法编译";
+"today.aibanner.title"                       = "配置 AI 密钥以启用编译";
 "today.aibanner.openSettings"                = "前往设置";
 
 /* Settings — 编译完成通知开关 */
@@ -864,7 +864,7 @@
 "today.syncqueue.banner.pending"             = "%d 条 memo 待同步";
 "today.syncqueue.banner.flushing"            = "正在同步 %d 条…";
 "today.syncqueue.banner.waited_hours"        = "已等待 %d 小时";
-"today.syncqueue.banner.waited_over_day"     = "超过 24 小时未同步";
+"today.syncqueue.banner.waited_over_day"     = "网络受限，已等待超过 24 小时";
 "today.syncqueue.sheet.title"                = "待同步队列";
 "today.syncqueue.sheet.summary"              = "%d 条 memo 等待上传";
 "today.syncqueue.sheet.oldest"               = "最早一条：%@";

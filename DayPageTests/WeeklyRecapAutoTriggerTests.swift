@@ -99,4 +99,225 @@ struct WeeklyRecapAutoTriggerTests {
         let monday = date("2026-06-22")
         #expect(shouldTriggerWeeklyOnMonday(referenceDate: monday, dailyCount: 3))
     }
+
+    // MARK: - Real BackgroundCompilationService.tryAutoCompileWeekly path
+    //
+    // R9-MEDIUM: the pure-function tests above pin the decision rule, but
+    // they don't catch a regression where someone deletes / breaks the
+    // guard inside `BackgroundCompilationService.tryAutoCompileWeekly`
+    // itself. These tests exercise the real method through
+    // `@testable internal` access, seeding a temp vault via
+    // `VaultInitializer.testOverrideURL` (same pattern as
+    // `BackgroundCompilationServiceTests`).
+    //
+    // We can't override `Date()` without a clock seam, so each test
+    // gates on the *actual* current weekday and asserts the correct
+    // branch for that day. At least one of the three cases will run on
+    // any given CI day; across a Mon–Sun rotation the suite covers all
+    // branches.
+
+    /// Seed a temp vault, point `VaultInitializer.testOverrideURL` at
+    /// it, run the body, then tear down so state doesn't leak. Async
+    /// because callers `await BackgroundCompilationService.shared.tryAutoCompileWeekly()`.
+    private func withTempVault<T>(_ body: (URL) async throws -> T) async rethrows -> T {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("weekly-auto-\(UUID().uuidString)", isDirectory: true)
+        let dailyDir = root.appendingPathComponent("wiki/daily", isDirectory: true)
+        let weeklyDir = root.appendingPathComponent("wiki/weekly", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dailyDir, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(at: weeklyDir, withIntermediateDirectories: true)
+        VaultInitializer.testOverrideURL = root
+        defer {
+            VaultInitializer.testOverrideURL = nil
+            try? FileManager.default.removeItem(at: root)
+        }
+        return try await body(root)
+    }
+
+    /// Minimal daily-page frontmatter that satisfies
+    /// `collectWeekMetadata`'s mood/summary/entities/locations
+    /// extraction. The gate is "file exists and is parseable".
+    private func dailyStub(date: String) -> String {
+        """
+        ---
+        type: daily_page
+        date: \(date)
+        mood: calm
+        summary: stub
+        entities:
+          - work
+        locations:
+          - home
+        ---
+
+        # \(date)
+        body
+        """
+    }
+
+    private func ymd(_ d: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = AppSettings.currentTimeZone()
+        return f.string(from: d)
+    }
+
+    /// True if `now` falls on a Monday under the same calendar
+    /// configuration `tryAutoCompileWeekly` uses. Each test gates on
+    /// this to run the branch that's actually reachable today.
+    private func isCurrentMonday() -> Bool {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = AppSettings.currentTimeZone()
+        cal.firstWeekday = 2
+        return cal.component(.weekday, from: Date()) == 2
+    }
+
+    /// Capture whether `.weeklyRecapAvailable` fires during `body`.
+    /// Returns the captured count once the awaited body completes.
+    private func captureWeeklyRecapNotifications(_ body: () async -> Void) async -> Int {
+        var count = 0
+        let token = NotificationCenter.default.addObserver(
+            forName: .weeklyRecapAvailable,
+            object: nil,
+            queue: .main
+        ) { _ in count += 1 }
+        defer { NotificationCenter.default.removeObserver(token) }
+        await body()
+        return count
+    }
+
+    @Test
+    func tryAutoCompileWeekly_skipsOnNonMonday() async throws {
+        // Only meaningful on non-Monday days. On Mondays this branch is
+        // unreachable; soft-skip via early return (Swift Testing has no
+        // first-class skip primitive — `#require(false)` records an
+        // expectation failure, which we don't want for a calendar-gated
+        // case).
+        guard !isCurrentMonday() else { return }
+
+        try await withTempVault { root in
+            // Seed 7 daily files for "last week" — the week containing
+            // yesterday. Non-Monday guard wins regardless of how many
+            // daily pages exist.
+            var cal = Calendar(identifier: .gregorian)
+            cal.timeZone = AppSettings.currentTimeZone()
+            cal.firstWeekday = 2
+            let yesterday = cal.date(byAdding: .day, value: -1, to: Date())!
+            let weekInterval = cal.dateInterval(of: .weekOfYear, for: yesterday)!
+            let weekStart = cal.startOfDay(for: weekInterval.start)
+            let dailyDir = root.appendingPathComponent("wiki/daily", isDirectory: true)
+            for offset in 0..<7 {
+                let d = cal.date(byAdding: .day, value: offset, to: weekStart)!
+                let url = dailyDir.appendingPathComponent("\(ymd(d)).md")
+                try? Data(dailyStub(date: ymd(d)).utf8).write(to: url, options: .atomic)
+            }
+
+            let count = await captureWeeklyRecapNotifications {
+                await BackgroundCompilationService.shared.tryAutoCompileWeekly()
+            }
+            // Non-Monday: must NOT enter compile path, must NOT post.
+            #expect(count == 0, "non-Monday must not fire weeklyRecapAvailable")
+        }
+    }
+
+    @Test
+    func tryAutoCompileWeekly_skipsWhenInsufficientDays() async throws {
+        // Monday-only branch; soft-skip on other days.
+        guard isCurrentMonday() else { return }
+
+        try await withTempVault { root in
+            // Seed only 2 daily files — below the `>= 3` floor.
+            var cal = Calendar(identifier: .gregorian)
+            cal.timeZone = AppSettings.currentTimeZone()
+            cal.firstWeekday = 2
+            let yesterday = cal.date(byAdding: .day, value: -1, to: Date())!
+            let weekInterval = cal.dateInterval(of: .weekOfYear, for: yesterday)!
+            let weekStart = cal.startOfDay(for: weekInterval.start)
+            let dailyDir = root.appendingPathComponent("wiki/daily", isDirectory: true)
+            for offset in 0..<2 {
+                let d = cal.date(byAdding: .day, value: offset, to: weekStart)!
+                let url = dailyDir.appendingPathComponent("\(ymd(d)).md")
+                try? Data(dailyStub(date: ymd(d)).utf8).write(to: url, options: .atomic)
+            }
+
+            let count = await captureWeeklyRecapNotifications {
+                await BackgroundCompilationService.shared.tryAutoCompileWeekly()
+            }
+            // Insufficient dailies: guard returns before compileWeekly,
+            // so no notification fires.
+            #expect(count == 0, "<3 dailies must not fire weeklyRecapAvailable")
+        }
+    }
+
+    @Test
+    func tryAutoCompileWeekly_triggersOnMondayWithSufficientDays() async throws {
+        // Monday-only happy path; soft-skip on other days.
+        guard isCurrentMonday() else { return }
+
+        try await withTempVault { root in
+            // Seed 5 daily files + a pre-cached weekly file. compileWeekly
+            // hits the cache path (no LLM round-trip) and returns
+            // successfully → tryAutoCompileWeekly posts the refresh
+            // notification. This is the "happy path" smoke test: the
+            // success branch is wired without depending on the network
+            // or AI key.
+            var cal = Calendar(identifier: .gregorian)
+            cal.timeZone = AppSettings.currentTimeZone()
+            cal.firstWeekday = 2
+            let yesterday = cal.date(byAdding: .day, value: -1, to: Date())!
+            let weekInterval = cal.dateInterval(of: .weekOfYear, for: yesterday)!
+            let weekStart = cal.startOfDay(for: weekInterval.start)
+            let dailyDir = root.appendingPathComponent("wiki/daily", isDirectory: true)
+            for offset in 0..<5 {
+                let d = cal.date(byAdding: .day, value: offset, to: weekStart)!
+                let url = dailyDir.appendingPathComponent("\(ymd(d)).md")
+                try? Data(dailyStub(date: ymd(d)).utf8).write(to: url, options: .atomic)
+            }
+
+            // Pre-cache the weekly recap so compileWeekly short-circuits
+            // on the cache hit. The format mirrors what
+            // WeeklyCompilationService.write produces.
+            let isoWeek = WeeklyCompilationService.isoWeekKey(for: weekStart)
+            let weeklyFile = root
+                .appendingPathComponent("wiki/weekly")
+                .appendingPathComponent("\(isoWeek).md")
+            let weekEndStr = ymd(cal.date(byAdding: .day, value: 6, to: weekStart)!)
+            // Cache field names mirror what
+            // WeeklyCompilationService.renderMarkdown writes:
+            // isoWeek / dateRange / compiledAt (camelCase, not snake).
+            let cachedRecap = """
+            ---
+            type: weekly_recap
+            isoWeek: \(isoWeek)
+            dateRange: \(ymd(weekStart)) to \(weekEndStr)
+            compiledAt: 2026-01-01T00:00:00Z
+            ---
+
+            ## 本周关键词
+
+            - test
+
+            ## 本周心情
+
+            ok
+
+            ## 本周地点
+
+            ok
+
+            ## 本周高光
+
+            - cached fixture
+            """
+            try? Data(cachedRecap.utf8).write(to: weeklyFile, options: .atomic)
+
+            let count = await captureWeeklyRecapNotifications {
+                await BackgroundCompilationService.shared.tryAutoCompileWeekly()
+            }
+            // Monday + ≥3 dailies + cache hit: compileWeekly succeeds
+            // synchronously, notification fires at least once.
+            #expect(count >= 1, "Monday with sufficient dailies + cache hit must post weeklyRecapAvailable")
+        }
+    }
 }
