@@ -198,4 +198,107 @@ struct VaultExportServiceTests {
         let manifest = try VaultExportService.computeManifest(vaultURL: missing)
         #expect(manifest == nil)
     }
+
+    // MARK: - R13 zip packaging tests
+
+    /// Happy path. Seed a small fixture vault, ask for `.all`, assert a
+    /// non-empty zip lands at the returned URL. Doesn't try to validate the
+    /// zip's internal structure — that's the OS's responsibility; we only
+    /// care that NSFileCoordinator actually produced an archive.
+    @Test func exportVaultZip_producesNonEmptyZipFile() async throws {
+        let root = try seedVault(raw: 2, daily: 1, places: 1, assets: 1)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        VaultInitializer.testOverrideURL = root
+        defer { VaultInitializer.testOverrideURL = nil }
+
+        let zipURL = try await VaultExportService.shared.exportVaultZip(includes: .all)
+        defer { try? FileManager.default.removeItem(at: zipURL) }
+
+        #expect(FileManager.default.fileExists(atPath: zipURL.path))
+        let attrs = try FileManager.default.attributesOfItem(atPath: zipURL.path)
+        let size = (attrs[.size] as? NSNumber)?.int64Value ?? 0
+        #expect(size > 0)
+    }
+
+    /// Empty vault -> .noData. Matches the manifest path's contract so
+    /// callers see one well-defined error class for "nothing to export yet".
+    @Test func exportVaultZip_throwsNoDataForEmptyVault() async throws {
+        let root = try seedVault() // all zero
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        VaultInitializer.testOverrideURL = root
+        defer { VaultInitializer.testOverrideURL = nil }
+
+        var caught: VaultExportError?
+        do {
+            _ = try await VaultExportService.shared.exportVaultZip(includes: .all)
+        } catch let e as VaultExportError {
+            caught = e
+        }
+        #expect(caught == .noData)
+    }
+
+    /// `[]` (empty OptionSet) is rejected up front with .exportFailed —
+    /// guards against silently producing a zip that only contains an
+    /// empty staging directory.
+    @Test func exportVaultZip_throwsExportFailedForEmptyIncludes() async throws {
+        let root = try seedVault(raw: 2)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        VaultInitializer.testOverrideURL = root
+        defer { VaultInitializer.testOverrideURL = nil }
+
+        var caught: VaultExportError?
+        do {
+            _ = try await VaultExportService.shared.exportVaultZip(includes: [])
+        } catch let e as VaultExportError {
+            caught = e
+        }
+        // Pattern-match the associated value so the assertion focuses on
+        // intent ("contains 'no subdirectories'") rather than the exact
+        // wording, which can drift across rounds.
+        if case let .exportFailed(reason) = caught {
+            #expect(reason.contains("no subdirectories"))
+        } else {
+            Issue.record("expected .exportFailed, got \(String(describing: caught))")
+        }
+    }
+
+    /// Progress reaches 1.0. We don't assert every milestone — that would
+    /// over-couple the test to the current step layout — only that the
+    /// terminal value is at least ~1.0 so SwiftUI progress UIs can rely on
+    /// seeing a clean "done" signal.
+    @Test func exportVaultZip_progressReachesOne() async throws {
+        let root = try seedVault(raw: 1)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        VaultInitializer.testOverrideURL = root
+        defer { VaultInitializer.testOverrideURL = nil }
+
+        let box = ProgressBox()
+        let zipURL = try await VaultExportService.shared.exportVaultZip(
+            includes: .all,
+            progress: { value in
+                // Closure is `@MainActor @Sendable`; we're already on the
+                // main actor here so the call into `box.update` is direct.
+                box.update(value)
+            }
+        )
+        defer { try? FileManager.default.removeItem(at: zipURL) }
+
+        #expect(box.maxSeen >= 0.99)
+    }
+}
+
+/// Tiny @MainActor sink that just records the highest progress value seen.
+/// We isolate it to the main actor because `exportVaultZip`'s progress
+/// callback is itself `@MainActor @Sendable` — keeping the storage on the
+/// same actor avoids any cross-actor hop inside the test.
+@MainActor
+private final class ProgressBox {
+    var maxSeen: Double = 0
+    func update(_ v: Double) {
+        if v > maxSeen { maxSeen = v }
+    }
 }
