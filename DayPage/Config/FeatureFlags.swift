@@ -62,6 +62,12 @@ enum FeatureFlag: String, CaseIterable {
     /// **Default**: on
     case weeklyRecap
 
+    /// **Used in**: `SettingsView` 数据 section (R13+) — 入口卡进入 `VaultExportView`。
+    /// **When off**: 隐藏 "导出 vault" 入口；`VaultExportService` 仍存在，纯数据层；不影响 BGTask 编译 / sync。
+    /// **R11**: Vault 整体导出 — 给 manifest 扫描 / zip 打包异常一个无需 hot-fix 的兜底开关。
+    /// **Default**: on
+    case vaultExport
+
     /// Default state when the user has never touched the toggle. All Round 4
     /// flags default-on so the app behaves the way the user already expects
     /// after upgrading — Experiments only lets them *opt out*.
@@ -74,7 +80,8 @@ enum FeatureFlag: String, CaseIterable {
              .foregroundCompileRetry,
              .offlineQueue,
              .onThisDay,
-             .weeklyRecap:
+             .weeklyRecap,
+             .vaultExport:
             return true
         }
     }
@@ -92,6 +99,7 @@ enum FeatureFlag: String, CaseIterable {
         case .offlineQueue:           return "离线同步队列"
         case .onThisDay:              return "时光胶囊"
         case .weeklyRecap:            return "周回顾"
+        case .vaultExport:            return "Vault 导出"
         }
     }
 }

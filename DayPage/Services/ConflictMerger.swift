@@ -10,11 +10,21 @@ struct ConflictResolutionInfo {
 }
 
 extension Notification.Name {
+    /// Posted by: ConflictMerger.resolveIfNeeded — after a successful 3-way merge
+    /// of an iCloud `.conflicted` sibling file. `object` is `ConflictResolutionInfo`.
+    /// Observed by: TodayViewModel (.publisher), TodayView.body (.onReceive — surfaces
+    /// the "Merged from <device>" banner), TimelineIndex (.addObserver — forces full
+    /// rebuild), iCloudConflictMonitor (.publisher — telemetry).
     static let vaultConflictResolved = Notification.Name("vaultConflictResolved")
+    /// Posted by: ConflictMerger.resolveIfNeeded — when the merge itself errors out.
+    /// `object` is the primary `URL`. Observed by: (unverified — currently no live
+    /// listener; declared here so future error-banner UI can subscribe).
     static let vaultConflictFailed = Notification.Name("vaultConflictFailed")
 
-    /// Posted by RawStorage after a raw day-file write/delete. `object` is the
-    /// affected day's `Date`. TimelineIndex listens to update incrementally.
+    /// Posted by: RawStorage.write / rewrite / delete — after a raw day-file
+    /// write/delete completes. `object` is the affected day's `Date`.
+    /// Observed by: TimelineIndex (.addObserver — incremental section refresh
+    /// without disk re-scan).
     static let rawStorageDidWrite = Notification.Name("rawStorageDidWrite")
 }
 

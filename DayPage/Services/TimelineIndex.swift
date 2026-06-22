@@ -232,7 +232,9 @@ final class TimelineIndex {
 // MARK: - Notification
 
 extension Notification.Name {
-    /// Posted (on the main actor) whenever the in-memory timeline index changes,
-    /// so views can refresh their displayed sections without re-scanning disk.
+    /// Posted by: TimelineIndex.applyIncrementalUpdate / rebuildAll — whenever the
+    /// in-memory timeline index changes (raw-storage write merged in or full rebuild).
+    /// Observed by: TodayViewModel (.publisher — drives sectioned timeline refresh
+    /// without re-scanning disk).
     static let timelineIndexDidUpdate = Notification.Name("timelineIndexDidUpdate")
 }

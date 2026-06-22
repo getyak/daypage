@@ -911,3 +911,18 @@
 "today.weekly.preview.cta"                        = "查看全部 →";
 "today.weekly.preview.a11y"                       = "周回顾就绪：%@";
 "today.weekly.preview.a11y.hint"                  = "打开本周 AI 回顾";
+
+/* R12 — Settings appearance picker labels (i18n for AppSettings enum .label getters) */
+"settings.appearance.theme.system"        = "系统";
+"settings.appearance.theme.light"         = "浅色";
+"settings.appearance.theme.dark"          = "深色";
+"settings.appearance.accent.amber"        = "琥珀";
+"settings.appearance.accent.sage"         = "鼠尾草";
+"settings.appearance.accent.slate"        = "青石";
+"settings.appearance.accent.rose"         = "玫瑰";
+"settings.appearance.accent.ink"          = "墨";
+"settings.appearance.fontsize.small"      = "小";
+"settings.appearance.fontsize.normal"     = "默认";
+"settings.appearance.fontsize.large"      = "大";
+"settings.appearance.density.comfortable" = "舒适";
+"settings.appearance.density.compact"     = "紧凑";

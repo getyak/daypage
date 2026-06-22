@@ -90,7 +90,7 @@ enum DailyPageParser {
         // -- 解析 AI FOLLOW-UP 段落（以 > 开头的行） --
         let followUpQuestions = parseFollowUpQuestions(from: bodyText)
 
-        // TODO: Parse threads/mentions from compiled markdown when format is defined — follow-up issue.
+        // TODO(R13+): Parse threads/mentions from compiled markdown when format is defined — follow-up issue.
         let threads = parseThreads(from: bodyText)
         let mentions = parseMentions(from: bodyText)
 

@@ -6,14 +6,18 @@ import Sentry
 // MARK: - Foreground Compile Notification
 
 extension Notification.Name {
-    /// 前台自动重试编译成功后发布。
-    /// Today 监听此通知，显示 ds-style toast "今日 Daily Page 已编译完成"。
-    /// 与 2am 系统通知互斥（前台静默，不重复推送系统通知）。
+    /// Posted by: BackgroundCompilationService.compileForegroundIfDue — after a
+    /// successful foreground auto-retry compile.
+    /// Observed by: TodayView.body (.onReceive — shows ds-style toast
+    /// "今日 Daily Page 已编译完成"). Mutex with the 2am system notification (silent in
+    /// foreground, no duplicate push).
     static let compileSucceededForeground = Notification.Name("com.daypage.compileSucceededForeground")
 
-    /// 2am 后台编译完成后，若周一上午并且上周 >= 3 篇 daily，自动触发周回顾。
-    /// 编译成功后发布；userInfo["referenceDate"]: Date = 上周内任一日期（昨天=周日）。
-    /// TodayView 监听此通知刷新顶部 weeklyRecapPreview section。
+    /// Posted by: BackgroundCompilationService.tryAutoCompileWeekly (R7-R8) — after
+    /// the 2am compile finishes if it's Monday AM and the prior week has >= 3 dailies.
+    /// userInfo["referenceDate"]: Date = any date inside the prior week (yesterday = Sun).
+    /// Observed by: TodayView.weeklyRecapPreview (.onReceive — refreshes the top
+    /// preview section).
     static let weeklyRecapAvailable = Notification.Name("com.daypage.weeklyRecapAvailable")
 }
 

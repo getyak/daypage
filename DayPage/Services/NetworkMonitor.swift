@@ -100,9 +100,10 @@ final class NetworkMonitor: ObservableObject {
 // MARK: - Notification name
 
 extension Notification.Name {
-    /// Posted by SettingsView when the user flips the "Simulate Offline"
-    /// toggle. NetworkMonitor listens and recomputes `isOnline`. Kept
-    /// in this file because it's a tight coupling between the toggle UI
-    /// and the monitor; no other component should need to post it.
+    /// Posted by: SettingsView.debugSimulateOffline toggle (R8) — when the user flips
+    /// the "Simulate Offline" debug switch.
+    /// Observed by: NetworkMonitor.init (.addObserver — recomputes `isOnline` regardless
+    /// of real NWPathMonitor state). Kept in this file because the coupling is tight
+    /// between the toggle UI and the monitor; no other component should need to post it.
     static let simulateOfflineChanged = Notification.Name("com.daypage.simulateOfflineChanged")
 }

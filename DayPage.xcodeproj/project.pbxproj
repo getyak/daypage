@@ -96,6 +96,8 @@
 		A10000803 /* RetryHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000803 /* RetryHelper.swift */; };
 		SQS0000001 /* SyncQueueService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SQS1000001 /* SyncQueueService.swift */; };
 		SQS0000002 /* SyncQueueServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SQS1000002 /* SyncQueueServiceTests.swift */; };
+		VES0000001 /* VaultExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = VES1000001 /* VaultExportService.swift */; };
+		VES0000002 /* VaultExportServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = VES1000002 /* VaultExportServiceTests.swift */; };
 		SQS0000003 /* SyncQueueObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = SQS1000003 /* SyncQueueObserver.swift */; };
 		NMT0000001 /* NetworkMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = NMT1000001 /* NetworkMonitorTests.swift */; };
 		WRA0000001 /* WeeklyRecapAutoTriggerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = WRA1000001 /* WeeklyRecapAutoTriggerTests.swift */; };
@@ -365,6 +367,8 @@
 		A20000803 /* RetryHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryHelper.swift; sourceTree = "<group>"; };
 		SQS1000001 /* SyncQueueService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueService.swift; sourceTree = "<group>"; };
 		SQS1000002 /* SyncQueueServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueServiceTests.swift; sourceTree = "<group>"; };
+		VES1000001 /* VaultExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultExportService.swift; sourceTree = "<group>"; };
+		VES1000002 /* VaultExportServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultExportServiceTests.swift; sourceTree = "<group>"; };
 		SQS1000003 /* SyncQueueObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueObserver.swift; sourceTree = "<group>"; };
 		NMT1000001 /* NetworkMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitorTests.swift; sourceTree = "<group>"; };
 		WRA1000001 /* WeeklyRecapAutoTriggerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapAutoTriggerTests.swift; sourceTree = "<group>"; };
@@ -760,6 +764,7 @@
 				A20000803 /* RetryHelper.swift */,
 				SQS1000001 /* SyncQueueService.swift */,
 				SQS1000003 /* SyncQueueObserver.swift */,
+				VES1000001 /* VaultExportService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -1073,6 +1078,7 @@
 				R4B1000002 /* LocationServiceLRUTests.swift */,
 				R4B1000003 /* ArchiveViewModelGroupTests.swift */,
 				SQS1000002 /* SyncQueueServiceTests.swift */,
+				VES1000002 /* VaultExportServiceTests.swift */,
 				NMT1000001 /* NetworkMonitorTests.swift */,
 				WRA1000001 /* WeeklyRecapAutoTriggerTests.swift */,
 			);
@@ -1389,6 +1395,7 @@
 				A10000803 /* RetryHelper.swift in Sources */,
 				SQS0000001 /* SyncQueueService.swift in Sources */,
 				SQS0000003 /* SyncQueueObserver.swift in Sources */,
+				VES0000001 /* VaultExportService.swift in Sources */,
 				A10000079 /* iCloudSyncMonitor.swift in Sources */,
 				A10000085 /* iCloudConflictMonitor.swift in Sources */,
 				A10000080 /* AppNavigationModel.swift in Sources */,
@@ -1496,6 +1503,7 @@
 				R4B0000002 /* LocationServiceLRUTests.swift in Sources */,
 				R4B0000003 /* ArchiveViewModelGroupTests.swift in Sources */,
 				SQS0000002 /* SyncQueueServiceTests.swift in Sources */,
+				VES0000002 /* VaultExportServiceTests.swift in Sources */,
 				NMT0000001 /* NetworkMonitorTests.swift in Sources */,
 				WRA0000001 /* WeeklyRecapAutoTriggerTests.swift in Sources */,
 			);

@@ -168,5 +168,9 @@ final class OnThisDayScheduler: ObservableObject {
 // MARK: - Notification Name
 
 extension Notification.Name {
+    /// Posted by: OnThisDayScheduler.evaluateAndBroadcast / scheduleDeliveryIfNeeded —
+    /// when an anniversary daily-page should surface at the top of Today (e.g. "1 year ago today").
+    /// Observed by: TodayViewModel (.publisher — injects the On-This-Day card into the
+    /// top of the timeline feed).
     static let onThisDayShouldShow = Notification.Name("com.daypage.onThisDayShouldShow")
 }

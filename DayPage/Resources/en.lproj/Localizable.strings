@@ -907,3 +907,18 @@
 "today.weekly.preview.cta"                        = "View all →";
 "today.weekly.preview.a11y"                       = "Weekly recap ready: %@";
 "today.weekly.preview.a11y.hint"                  = "Open this week's AI recap";
+
+/* R12 — Settings appearance picker labels (i18n for AppSettings enum .label getters) */
+"settings.appearance.theme.system"        = "System";
+"settings.appearance.theme.light"         = "Light";
+"settings.appearance.theme.dark"          = "Dark";
+"settings.appearance.accent.amber"        = "Amber";
+"settings.appearance.accent.sage"         = "Sage";
+"settings.appearance.accent.slate"        = "Slate";
+"settings.appearance.accent.rose"         = "Rose";
+"settings.appearance.accent.ink"          = "Ink";
+"settings.appearance.fontsize.small"      = "Small";
+"settings.appearance.fontsize.normal"     = "Default";
+"settings.appearance.fontsize.large"      = "Large";
+"settings.appearance.density.comfortable" = "Comfortable";
+"settings.appearance.density.compact"     = "Compact";

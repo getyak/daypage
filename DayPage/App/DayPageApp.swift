@@ -5,24 +5,32 @@ import Sentry
 // MARK: - App Notification Names
 
 extension Notification.Name {
-    /// 后台编译在所有重试后失败时发布。
-    /// TodayViewModel 监听此通知以显示错误横幅和重试按钮。
+    /// Posted by: DayPageApp (BG task expiration handler) and BackgroundCompilationService
+    /// retry path — when background compile fails after all retries.
+    /// Observed by: TodayViewModel (.publisher — shows error banner + retry CTA).
     static let compilationDidFail = Notification.Name("com.daypage.compilationDidFail")
-    /// 后台编译开始时发布。
+    /// Posted by: BackgroundCompilationService.compileForegroundIfDue /
+    /// tryAutoCompileWeekly — when a compile pass starts.
+    /// Observed by: TodayViewModel (.publisher — drives the in-progress shimmer/state).
     static let compilationDidStart = Notification.Name("com.daypage.compilationDidStart")
-    /// 后台编译结束时发布（无论成功或失败）。
+    /// Posted by: BackgroundCompilationService — `defer` block at end of every compile
+    /// pass (success or failure).
+    /// Observed by: TodayViewModel (.publisher — tears down the in-progress shimmer).
     static let compilationDidEnd = Notification.Name("com.daypage.compilationDidEnd")
-    /// EntityPageView backlink 行点击时发布；userInfo["date"]: String = "YYYY-MM-DD"。
-    /// DayPageApp.body 监听并转发到 navModel.openArchive(at:)，解耦视图层 — 因为
-    /// EntityPageView 在多个 sheet 入口下展示，无法稳定拿到 @EnvironmentObject。
+    /// Posted by: EntityPageView backlink-row tap, TodayView (timeline date pivot).
+    /// userInfo["date"]: String = "YYYY-MM-DD".
+    /// Observed by: DayPageApp.body (.onReceive — forwards to navModel.openArchive(at:)).
+    /// Used to decouple the view layer — EntityPageView is presented from multiple
+    /// sheet entry points and can't reliably reach @EnvironmentObject navModel.
     static let openArchiveAt = Notification.Name("com.daypage.openArchiveAt")
-    /// R8 — 用户在 SyncQueue sheet 里点击某一行 pending memo 时发布；
-    /// userInfo["memoID"]: String。目前还没有 listener（memo detail 路由
-    /// 待落地）。该通知集中声明在 App 层，方便后续 router 监听。
+    /// Posted by: TodayView SyncQueue sheet row tap (R8) — userInfo["memoID"]: String.
+    /// Observed by: (unverified — no live listener; memo-detail router is pending).
+    /// Declared at the App layer so the future router can subscribe centrally.
     static let openMemo = Notification.Name("com.daypage.openMemo")
-    /// R8 — 用户在 EntityPageView (or future graph entry) 点击某 entity
-    /// 时发布；userInfo["entityID"]: String。集中声明位置，方便后续多入口
-    /// 统一接入 EntityPage 路由。
+    /// Posted by: EntityPageView (or future graph entry) on entity tap (R8) —
+    /// userInfo["entityID"]: String.
+    /// Observed by: (unverified — declared centrally so multi-entry EntityPage routing
+    /// can wire up later).
     static let openEntityPage = Notification.Name("com.daypage.openEntityPage")
 }
 

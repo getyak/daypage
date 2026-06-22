@@ -248,10 +248,9 @@ final class SyncQueueService: ObservableObject {
 // MARK: - Notification name
 
 extension Notification.Name {
-    /// Posted by `SyncQueueService.flushIfOnline()` when an upload pass
-    /// should run. The Supabase sync service (or test double) listens
-    /// and uses `SyncQueueService.shared.pendingMemoIDs` to drive the
-    /// upload + `markSynced` callbacks. Decouples this file from the
-    /// concrete sync implementation.
+    /// Posted by: SyncQueueService.flushIfOnline (R8) — when an upload pass should run.
+    /// Observed by: SyncQueueObserver.start (.addObserver) — drives Supabase upload +
+    /// markSynced callbacks via SyncQueueService.shared.pendingMemoIDs. Decouples this
+    /// file from the concrete sync implementation.
     static let syncQueueFlushRequested = Notification.Name("DayPage.syncQueue.flushRequested")
 }

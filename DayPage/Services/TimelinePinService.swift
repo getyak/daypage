@@ -88,7 +88,9 @@ final class TimelinePinService: ObservableObject {
 // MARK: - Notification
 
 extension Notification.Name {
-    /// Posted on the main queue whenever the pin set changes. TimelineService
-    /// listeners use this to rebuild their sections snapshot.
+    /// Posted by: TimelinePinService.togglePin / clear — whenever the pin set
+    /// changes (always on the main queue).
+    /// Observed by: TimelineService listeners (unverified — no active .addObserver
+    /// found in grep; channel kept for future timeline rebuild on pin change).
     static let timelinePinsDidChange = Notification.Name("timelinePinsDidChange")
 }

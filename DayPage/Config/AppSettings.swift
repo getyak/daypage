@@ -10,9 +10,9 @@ enum ThemeMode: String, CaseIterable {
 
     var label: String {
         switch self {
-        case .system: return "系统"
-        case .light: return "浅色"
-        case .dark: return "深色"
+        case .system: return NSLocalizedString("settings.appearance.theme.system", comment: "ThemeMode label: follow system")
+        case .light: return NSLocalizedString("settings.appearance.theme.light", comment: "ThemeMode label: light")
+        case .dark: return NSLocalizedString("settings.appearance.theme.dark", comment: "ThemeMode label: dark")
         }
     }
 }
@@ -28,11 +28,11 @@ enum AccentColorOption: String, CaseIterable {
 
     var label: String {
         switch self {
-        case .amber: return "琥珀"
-        case .sage: return "鼠尾草"
-        case .slate: return "青石"
-        case .rose: return "玫瑰"
-        case .ink: return "墨"
+        case .amber: return NSLocalizedString("settings.appearance.accent.amber", comment: "AccentColorOption label: amber")
+        case .sage: return NSLocalizedString("settings.appearance.accent.sage", comment: "AccentColorOption label: sage")
+        case .slate: return NSLocalizedString("settings.appearance.accent.slate", comment: "AccentColorOption label: slate")
+        case .rose: return NSLocalizedString("settings.appearance.accent.rose", comment: "AccentColorOption label: rose")
+        case .ink: return NSLocalizedString("settings.appearance.accent.ink", comment: "AccentColorOption label: ink")
         }
     }
 
@@ -66,9 +66,9 @@ enum FontSizeAdjust: String, CaseIterable {
 
     var label: String {
         switch self {
-        case .small: return "小"
-        case .normal: return "默认"
-        case .large: return "大"
+        case .small: return NSLocalizedString("settings.appearance.fontsize.small", comment: "FontSizeAdjust label: small")
+        case .normal: return NSLocalizedString("settings.appearance.fontsize.normal", comment: "FontSizeAdjust label: default")
+        case .large: return NSLocalizedString("settings.appearance.fontsize.large", comment: "FontSizeAdjust label: large")
         }
     }
 
@@ -90,8 +90,8 @@ enum CardDensity: String, CaseIterable {
 
     var label: String {
         switch self {
-        case .comfortable: return "舒适"
-        case .compact: return "紧凑"
+        case .comfortable: return NSLocalizedString("settings.appearance.density.comfortable", comment: "CardDensity label: comfortable")
+        case .compact: return NSLocalizedString("settings.appearance.density.compact", comment: "CardDensity label: compact")
         }
     }
 
