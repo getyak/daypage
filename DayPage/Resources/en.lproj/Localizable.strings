@@ -868,3 +868,21 @@
 "today.syncqueue.sheet.empty"                = "Queue is empty.";
 "today.syncqueue.sheet.footnote"             = "Auto-syncs when the network returns.";
 "today.syncqueue.sheet.close"                = "Close";
+
+// MARK: - Weekly Recap (R7)
+"weekly.recap.title"                              = "Weekly Recap";
+"weekly.recap.section.keywords"                   = "Keywords";
+"weekly.recap.section.mood"                       = "Mood";
+"weekly.recap.section.places"                     = "Places";
+"weekly.recap.section.highlights"                 = "Highlights";
+"weekly.recap.loading"                            = "Compiling weekly recap…";
+"weekly.recap.error.body"                         = "Compile failed. Tap to retry.";
+"weekly.recap.refresh"                            = "Recompile";
+"weekly.recap.refresh.hint"                       = "Re-run the AI weekly recap, ~3-5s";
+"weekly.recap.entrycard.title"                    = "This week";
+"weekly.recap.entrycard.subtitle.format"          = "%@ to %@";
+"weekly.recap.entrycard.hint"                     = "Open this week's AI recap";
+"weekly.recap.section.keywords.a11y"              = "Keywords section";
+"weekly.recap.section.mood.a11y"                  = "Mood section";
+"weekly.recap.section.places.a11y"                = "Places section";
+"weekly.recap.section.highlights.a11y"            = "Highlights section";

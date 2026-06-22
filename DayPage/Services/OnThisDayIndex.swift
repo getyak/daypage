@@ -81,6 +81,16 @@ final class OnThisDayIndex: ObservableObject {
         }
     }
 
+    #if DEBUG
+    /// Test-only hook to clear the in-memory index. Used by tests to avoid
+    /// process-wide state pollution between cases (OnThisDayIndex.shared is
+    /// a singleton; without this, a vault seeded by one test can leak into
+    /// the next test's candidate(for:) lookup).
+    func resetForTesting() {
+        index = [:]
+    }
+    #endif
+
     // MARK: - Private helpers
 
     private func makeEntry(record: DayRecord, currentYear: Int) -> OnThisDayEntry {

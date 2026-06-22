@@ -1403,6 +1403,12 @@ struct ArchiveView: View {
                 }
                 .padding(.top, 40)
             } else {
+                // R7 — Weekly Recap entry card, hoisted above the month digest.
+                // Gated on `.weeklyRecap` flag + ≥3 compiled daily pages this
+                // week so the entry doesn't tease an empty AI experience.
+                weeklyRecapEntryCard
+                    .padding(.bottom, 4)
+
                 // Compact monthly digest — list mode otherwise drops all the
                 // month-level context that calendar mode shows in its summary
                 // grid. (#archive-list-digest)
@@ -1521,6 +1527,60 @@ struct ArchiveView: View {
         Rectangle()
             .fill(DSColor.inkFaint)
             .frame(width: 0.5, height: 28)
+    }
+
+    // MARK: - Weekly Recap Entry Card (R7)
+
+    /// Gated entry card pushing `WeeklyRecapDetailView`. Two gates:
+    ///   * `FeatureFlag.weeklyRecap` — kill switch.
+    ///   * ≥3 compiled daily pages this week — avoids surfacing an AI
+    ///     experience that has nothing to summarise. Uses the existing
+    ///     `WeeklyRecapService.entries` since it already reads from
+    ///     `vault/wiki/daily/` for the same week boundary.
+    @ViewBuilder
+    private var weeklyRecapEntryCard: some View {
+        let flagOn = FeatureFlagStore.shared.isEnabled(.weeklyRecap)
+        let recentDailyCount = WeeklyRecapService.shared.entries(referenceDate: Date()).count
+        if flagOn && recentDailyCount >= 3 {
+            NavigationLink {
+                WeeklyRecapDetailView(referenceDate: Date())
+            } label: {
+                weeklyRecapEntryCardBody
+            }
+            .buttonStyle(.plain)
+        } else {
+            EmptyView()
+        }
+    }
+
+    private var weeklyRecapEntryCardBody: some View {
+        let isoWeek = WeeklyCompilationService.isoWeekKey(for: Date())
+        let title = NSLocalizedString("weekly.recap.entrycard.title", comment: "")
+
+        return HStack(alignment: .center, spacing: 14) {
+            Text("📅")
+                .font(.system(size: 28))
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(DSType.titleSM)
+                    .foregroundColor(DSColor.inkPrimary)
+                Text(isoWeek)
+                    .font(DSType.mono11)
+                    .foregroundColor(DSColor.inkSubtle)
+            }
+            Spacer(minLength: 0)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(DSColor.inkMuted)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .liquidGlassCard(cornerRadius: DSSpacing.radiusCard)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title), \(isoWeek)")
+        .accessibilityHint(NSLocalizedString("weekly.recap.entrycard.hint", comment: ""))
+        .accessibilityAddTraits(.isButton)
     }
 
     private static let isoParser: DateFormatter = {

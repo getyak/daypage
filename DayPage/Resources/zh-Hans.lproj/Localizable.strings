@@ -872,3 +872,21 @@
 "today.syncqueue.sheet.empty"                = "队列已清空。";
 "today.syncqueue.sheet.footnote"             = "等待网络恢复后自动同步。";
 "today.syncqueue.sheet.close"                = "关闭";
+
+// MARK: - Weekly Recap (R7 — 周回顾)
+"weekly.recap.title"                              = "周回顾";
+"weekly.recap.section.keywords"                   = "本周关键词";
+"weekly.recap.section.mood"                       = "本周心情";
+"weekly.recap.section.places"                     = "本周地点";
+"weekly.recap.section.highlights"                 = "本周高光";
+"weekly.recap.loading"                            = "正在编译本周回顾…";
+"weekly.recap.error.body"                         = "编译失败，点击重试";
+"weekly.recap.refresh"                            = "重新编译";
+"weekly.recap.refresh.hint"                       = "重新调用 AI 编译本周回顾，约需 3-5 秒";
+"weekly.recap.entrycard.title"                    = "本周回顾";
+"weekly.recap.entrycard.subtitle.format"          = "%@ 至 %@";
+"weekly.recap.entrycard.hint"                     = "查看本周由 AI 编译的回顾";
+"weekly.recap.section.keywords.a11y"              = "本周关键词区域";
+"weekly.recap.section.mood.a11y"                  = "本周心情区域";
+"weekly.recap.section.places.a11y"                = "本周地点区域";
+"weekly.recap.section.highlights.a11y"            = "本周高光区域";

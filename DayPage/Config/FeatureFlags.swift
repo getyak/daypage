@@ -35,6 +35,12 @@ enum FeatureFlag: String, CaseIterable {
     // a misbehaving candidate selector can be killed from Settings →
     // Experiments without a hot-fix build.
     case onThisDay
+    // R7 — 周回顾：kill switch for the AI-generated weekly recap entry card
+    // in ArchiveView and the detail view it pushes to. Default-on; flipping
+    // false hides the entry card entirely (the service stays installed but
+    // inert) so a misbehaving prompt / parse path can be killed from
+    // Settings → Experiments without a hot-fix build.
+    case weeklyRecap
 
     /// Default state when the user has never touched the toggle. All Round 4
     /// flags default-on so the app behaves the way the user already expects
@@ -47,7 +53,8 @@ enum FeatureFlag: String, CaseIterable {
              .aiKeyBanner,
              .foregroundCompileRetry,
              .offlineQueue,
-             .onThisDay:
+             .onThisDay,
+             .weeklyRecap:
             return true
         }
     }
@@ -64,6 +71,7 @@ enum FeatureFlag: String, CaseIterable {
         case .foregroundCompileRetry: return "前台自动重试编译"
         case .offlineQueue:           return "离线同步队列"
         case .onThisDay:              return "时光胶囊"
+        case .weeklyRecap:            return "周回顾"
         }
     }
 }

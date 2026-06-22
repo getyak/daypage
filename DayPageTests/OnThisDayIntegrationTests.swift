@@ -19,6 +19,7 @@ import Foundation
 @testable import DayPage
 
 @MainActor
+@Suite(.serialized)
 struct OnThisDayIntegrationTests {
 
     // MARK: - Test fixture helpers
@@ -82,6 +83,9 @@ struct OnThisDayIntegrationTests {
         ])
         defer { teardownVault(at: root) }
 
+        // Reset shared singleton state so prior tests' seeded entries
+        // can't pollute this candidate lookup.
+        OnThisDayIndex.shared.resetForTesting()
         await OnThisDayIndex.shared.rebuildIndex()
         let entry = OnThisDayIndex.shared.candidate(for: today)
 
@@ -92,16 +96,10 @@ struct OnThisDayIntegrationTests {
 
     // MARK: - Test 2: candidate falls back to 2-years-ago when no exact-year match
 
-    // TODO(R6 follow-up): OnThisDayIndex.shared is a process-wide singleton; its
-    // `index` dictionary persists between tests within the same test target run,
-    // so a vault containing only a 2-years-ago entry doesn't behave the same
-    // when run in isolation vs after another test. The fallback logic itself
-    // works (verified by reading candidate(for:) lines 58-61); we need to
-    // expose a reset/inject hook on OnThisDayIndex before this test is stable.
-    // Disabled to keep CI green; happy path is covered by
-    // indexPicksExactlyOneYearAgo.
-    @Test(.disabled("singleton state leaks between tests — needs index inject hook"))
-    func indexFallsBackToTwoYearsAgoWhenNoOneYearMatch() async throws {
+    // R7: re-enabled. OnThisDayIndex now exposes a #if DEBUG `resetForTesting()`
+    // hook, and this suite is @Suite(.serialized) so the singleton's in-memory
+    // dict is cleared and rebuilt per test against a fresh temp vault.
+    @Test func indexFallsBackToTwoYearsAgoWhenNoOneYearMatch() async throws {
         let cal = Calendar.current
         let today = cal.date(from: DateComponents(year: 2026, month: 6, day: 22))!
         let twoYearsAgo = cal.date(byAdding: .year, value: -2, to: today)!
@@ -111,6 +109,7 @@ struct OnThisDayIntegrationTests {
         ])
         defer { teardownVault(at: root) }
 
+        OnThisDayIndex.shared.resetForTesting()
         await OnThisDayIndex.shared.rebuildIndex()
         let entry = OnThisDayIndex.shared.candidate(for: today)
 
@@ -134,6 +133,7 @@ struct OnThisDayIntegrationTests {
         ])
         defer { teardownVault(at: root) }
 
+        OnThisDayIndex.shared.resetForTesting()
         await OnThisDayIndex.shared.rebuildIndex()
         let entry = OnThisDayIndex.shared.candidate(for: today)
         #expect(entry == nil)

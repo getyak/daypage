@@ -78,6 +78,8 @@ enum VaultInitializer {
         "wiki/places",
         "wiki/people",
         "wiki/themes",
+        // R7 — weekly recap output lands here as `{ISOWeek}.md`.
+        "wiki/weekly",
     ]
 
     private static func createDirectories() {

@@ -221,6 +221,9 @@
 		T10000050 /* TimelineIndexTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000050 /* TimelineIndexTests.swift */; };
 		T10000060 /* OnThisDayHeaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000060 /* OnThisDayHeaderTests.swift */; };
 		T10000061 /* OnThisDayIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000061 /* OnThisDayIntegrationTests.swift */; };
+		WR0000001 /* WeeklyCompilationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = WR1000001 /* WeeklyCompilationService.swift */; };
+		WR0000002 /* WeeklyRecapDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = WR1000002 /* WeeklyRecapDetailView.swift */; };
+		WR0000003 /* WeeklyCompilationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = WR1000003 /* WeeklyCompilationServiceTests.swift */; };
 		TD0000001 /* DayProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = TD1000001 /* DayProgress.swift */; };
 		TD0000002 /* TimeOfDay.swift in Sources */ = {isa = PBXBuildFile; fileRef = TD1000002 /* TimeOfDay.swift */; };
 		TH0000001 /* ThreadConversationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = TH1000001 /* ThreadConversationViewModel.swift */; };
@@ -487,6 +490,9 @@
 		T20000050 /* TimelineIndexTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineIndexTests.swift; sourceTree = "<group>"; };
 		T20000060 /* OnThisDayHeaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayHeaderTests.swift; sourceTree = "<group>"; };
 		T20000061 /* OnThisDayIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayIntegrationTests.swift; sourceTree = "<group>"; };
+		WR1000001 /* WeeklyCompilationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyCompilationService.swift; sourceTree = "<group>"; };
+		WR1000002 /* WeeklyRecapDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapDetailView.swift; sourceTree = "<group>"; };
+		WR1000003 /* WeeklyCompilationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyCompilationServiceTests.swift; sourceTree = "<group>"; };
 		T30000001 /* DayPageTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DayPageTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		TD1000001 /* DayProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayProgress.swift; sourceTree = "<group>"; };
 		TD1000002 /* TimeOfDay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeOfDay.swift; sourceTree = "<group>"; };
@@ -733,6 +739,7 @@
 				A20000087 /* AuthRateLimiter.swift */,
 				FB1000001 /* FeedbackService.swift */,
 				A20000083 /* WeeklyRecapService.swift */,
+				WR1000001 /* WeeklyCompilationService.swift */,
 				A20000301 /* TimelineService.swift */,
 				A20000350 /* TimelineIndex.swift */,
 				A20000370 /* TimelinePinService.swift */,
@@ -849,6 +856,7 @@
 				A20000031 /* RawMemoView.swift */,
 				A20000040 /* DayDetailView.swift */,
 				A20000512 /* MetadataGridView.swift */,
+				WR1000002 /* WeeklyRecapDetailView.swift */,
 			);
 			path = Archive;
 			sourceTree = "<group>";
@@ -1041,6 +1049,7 @@
 				T20000050 /* TimelineIndexTests.swift */,
 				T20000060 /* OnThisDayHeaderTests.swift */,
 				T20000061 /* OnThisDayIntegrationTests.swift */,
+				WR1000003 /* WeeklyCompilationServiceTests.swift */,
 				T20000006 /* ComposerContextProviderTests.swift */,
 				84FFEA3DDB8DCB528A4189BF /* HapticFeedbackTests.swift */,
 				KC1000001 /* KeychainHelperTests.swift */,
@@ -1342,6 +1351,8 @@
 				A10000050 /* CompileFooterButton.swift in Sources */,
 				A10000082 /* InputBarV4.swift in Sources */,
 				A10000083 /* WeeklyRecapService.swift in Sources */,
+				WR0000001 /* WeeklyCompilationService.swift in Sources */,
+				WR0000002 /* WeeklyRecapDetailView.swift in Sources */,
 				A10000301 /* TimelineService.swift in Sources */,
 				A10000350 /* TimelineIndex.swift in Sources */,
 				A10000370 /* TimelinePinService.swift in Sources */,
@@ -1459,6 +1470,7 @@
 				T10000050 /* TimelineIndexTests.swift in Sources */,
 				T10000060 /* OnThisDayHeaderTests.swift in Sources */,
 				T10000061 /* OnThisDayIntegrationTests.swift in Sources */,
+				WR0000003 /* WeeklyCompilationServiceTests.swift in Sources */,
 				T10000006 /* ComposerContextProviderTests.swift in Sources */,
 				09C6E4728050D69F54949DD1 /* HapticFeedbackTests.swift in Sources */,
 				KC0000001 /* KeychainHelperTests.swift in Sources */,
