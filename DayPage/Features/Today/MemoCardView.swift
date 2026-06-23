@@ -495,6 +495,25 @@ struct PhotoFullScreenViewer: View {
                                 }
                         )
                     )
+                    // Double-tap to zoom: matches the iOS muscle memory for
+                    // full-screen photos (pinch + swipe-to-dismiss were already
+                    // here, but a quick double-tap was the missing reflex).
+                    // Centered toggle between fit (1x) and 2x; reuses the existing
+                    // snap spring and honors Reduce Motion. A two-finger pinch and
+                    // a one-finger double-tap can't collide, so this composes
+                    // cleanly with the SimultaneousGesture above.
+                    .onTapGesture(count: 2) {
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.75)) {
+                            if scale > 1.0 {
+                                scale = minScale
+                                offset = .zero
+                            } else {
+                                scale = 2.0
+                            }
+                        }
+                        lastScale = scale
+                        lastOffset = offset
+                    }
             }
 
             // Close button

@@ -1200,7 +1200,10 @@ private struct SendAffordanceIcon: View {
                 }
             }
         }
-        .animation(Motion.spring, value: affordance)
+        // Affordance transitions are already animated by the parent button's
+        // `.animation(Motion.spring, value: affordance)` (which wraps this icon),
+        // so an inner copy only made SwiftUI interpolate the same change twice.
+        // Removed for a single, crisp morph. (P2 #7)
     }
 }
 
