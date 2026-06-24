@@ -66,10 +66,23 @@ final class SyncQueueObserver {
     }
 
     /// Swap in the production uploader. Tests call this with a stub that
-    /// asserts ordering / failure behaviour. The real Supabase service
+    /// asserts ordering / failure behaviour. The real sync service
     /// will call it at app launch, post-AuthService.
     func setUploader(_ uploader: RemoteUploader) {
         self.uploader = uploader
+    }
+
+    /// #785: pick the right uploader based on the user's sync configuration.
+    /// When a web endpoint + API key are present, install the real
+    /// `MemoSyncUploader`; otherwise fall back to the Noop double so the
+    /// pending banner still drains locally without pretending data reached the
+    /// server. Call this at launch and whenever Settings changes the config.
+    func installConfiguredUploader() {
+        if SyncSettings.isConfigured {
+            self.uploader = MemoSyncUploader()
+        } else {
+            self.uploader = NoopRemoteUploader()
+        }
     }
 
     /// Walk every pending ID once. We grab the snapshot up-front so a
