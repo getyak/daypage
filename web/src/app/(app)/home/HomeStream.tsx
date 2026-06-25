@@ -60,18 +60,36 @@ function computeToday(): TodayStrings {
 
 // A clock that re-derives the date strings once a minute, so a tab left open
 // across midnight rolls over to the new day rather than freezing on mount.
-function useTodayStrings(): TodayStrings {
+// When the iso day flips, `onCross` fires once — callers use it to refetch
+// "today's" memos (so cards left over from 23:59 don't claim to be today's).
+function useTodayStrings(onCross?: (prevIso: string, nextIso: string) => void): TodayStrings {
   const [today, setToday] = useState<TodayStrings>(computeToday);
+  const crossRef = useRef(onCross);
+  useEffect(() => { crossRef.current = onCross; }, [onCross]);
+
   useEffect(() => {
     const t = setInterval(() => {
       setToday((prev) => {
         const next = computeToday();
-        return next.iso === prev.iso ? prev : next;
+        if (next.iso === prev.iso) return prev;
+        try { crossRef.current?.(prev.iso, next.iso); } catch { /* ignore */ }
+        return next;
       });
     }, 60_000);
     return () => clearInterval(t);
   }, []);
   return today;
+}
+
+// Pull the first complete sentence from an excerpt — preferring 。 / ！/ ？
+// (Chinese punctuation) then falling back to . / ! / ? (Latin), then to the
+// first newline. We never truncate mid-word; if no boundary is found within
+// 64 chars, we let the excerpt speak for itself (the CSS will clamp).
+function firstSentence(excerpt: string): string {
+  const trimmed = excerpt.replace(/\s+/g, " ").trim();
+  if (!trimmed) return "";
+  const match = trimmed.match(/^[^。！？.!?\n]{2,64}[。！？.!?]/);
+  return match ? match[0].trim() : trimmed;
 }
 
 // Friendly relative label for a daily wiki card: 昨天 / 前天 / N 天前 / date.
@@ -92,10 +110,23 @@ function relativeDayLabel(dateStr: string): string {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function HomeStream({ initialToday, dailyPages }: HomeStreamProps) {
-  const { weekday, long, iso } = useTodayStrings();
-
   const [memos, setMemos] = useState<MemoCardData[]>(initialToday);
   const [serviceConnected, setServiceConnected] = useState(true);
+
+  // Midnight-crossing toast — fires once when the iso day flips while the tab
+  // is open. The reload below will pull the new day's (likely empty) memo set,
+  // and this toast turns the moment into a product beat rather than a glitch.
+  const [midnightToast, setMidnightToast] = useState<string | null>(null);
+  const midnightToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const reloadMemosRef = useRef<() => Promise<void>>(async () => {});
+  const onCrossMidnight = useCallback(() => {
+    void reloadMemosRef.current();
+    setMidnightToast("刚跨过了 00 点，昨天正在编织…");
+    if (midnightToastTimer.current) clearTimeout(midnightToastTimer.current);
+    midnightToastTimer.current = setTimeout(() => setMidnightToast(null), 6000);
+  }, []);
+  const { weekday, long, iso } = useTodayStrings(onCrossMidnight);
 
   // Composer state
   const [draft, setDraft] = useState("");
@@ -126,6 +157,7 @@ export function HomeStream({ initialToday, dailyPages }: HomeStreamProps) {
     () => () => {
       if (compileNoteTimer.current) clearTimeout(compileNoteTimer.current);
       if (saveOkTimer.current) clearTimeout(saveOkTimer.current);
+      if (midnightToastTimer.current) clearTimeout(midnightToastTimer.current);
     },
     []
   );
@@ -145,6 +177,9 @@ export function HomeStream({ initialToday, dailyPages }: HomeStreamProps) {
       /* keep last good */
     }
   }, []);
+  // Expose the latest reloadMemos to onCrossMidnight without re-arming the
+  // clock interval (the clock effect runs once on mount).
+  useEffect(() => { reloadMemosRef.current = reloadMemos; }, [reloadMemos]);
 
   // Probe the compile pipeline once; surface an honest banner when unreachable
   // (mirrors the per-card status logic in MemoCard / the iOS sync queue banner).
@@ -190,20 +225,22 @@ export function HomeStream({ initialToday, dailyPages }: HomeStreamProps) {
       if (r.ok) {
         setDraft("");
         setSaveOk(true);
-        announce("已保存到今天");
+        announce("收下了，夜里见");
         if (saveOkTimer.current) clearTimeout(saveOkTimer.current);
         saveOkTimer.current = setTimeout(() => setSaveOk(false), 1800);
         await reloadMemos();
       } else {
         const d = await r.json().catch(() => null);
-        const msg = d?.error ? String(d.error) : "保存失败，已为你保留草稿";
+        // Prefer the server's exact reason when it gives one (validation,
+        // rate-limit, auth), otherwise fall back to product voice.
+        const msg = d?.error ? String(d.error) : "夜里还远，先再试一次";
         setSaveError(msg);
         announce(msg);
       }
     } catch {
       // Network error — the textarea keeps the draft so nothing is lost.
-      setSaveError("网络错误，已为你保留草稿，可重试");
-      announce("保存失败，网络错误");
+      setSaveError("夜里还远，先再试一次");
+      announce("夜里还远，先再试一次");
     } finally {
       setSaving(false);
     }
@@ -298,6 +335,18 @@ export function HomeStream({ initialToday, dailyPages }: HomeStreamProps) {
     (m) => m.compile_status === "pending" || m.compile_status === "running"
   ).length;
   const compiledCount = memos.filter((m) => m.compile_status === "done").length;
+  const todayCount = memos.length;
+
+  // Hero rhythm — the slogan retreats as the day fills up:
+  //   0 records  → full two-line slogan (welcome / onboarding mood)
+  //   ≥1 record  → single calm status line ("已记下 N 条，等夜里编织")
+  // The serif title stays, but its content adapts to the user's actual day.
+  const heroMode: "intro" | "active" = todayCount === 0 ? "intro" : "active";
+
+  // The on-demand compile button is intentionally restrained: when there's
+  // little to weave, we don't tempt the user to break the midnight ritual.
+  // It surfaces only once the day has accumulated some material (≥5 raws).
+  const showCompileButton = todayCount >= 5;
 
   return (
     <div className="page home-stream">
@@ -313,58 +362,97 @@ export function HomeStream({ initialToday, dailyPages }: HomeStreamProps) {
             <Sparkles size={12} strokeWidth={2} aria-hidden="true" />
             {long} · {weekday}
           </div>
-          <h1 className="home-hero__title">
-            今天，先把此刻记下来。
-            <br />
-            <span className="accent">夜里 00 点，它会自己编织成网。</span>
-          </h1>
-          <p className="home-hero__sub">
-            随手记录原始念头，像便签一样留在「今天」。每天午夜自动编译成结构化的日记页，
-            昨天与更早的，都会沉淀为可回溯的 wiki。
-          </p>
+
+          {heroMode === "intro" ? (
+            <>
+              <h1 className="home-hero__title">
+                今天，先把此刻记下来。
+                <br />
+                <span className="accent">夜里 00 点，它会自己编织成网。</span>
+              </h1>
+              <p className="home-hero__sub">
+                随手记录原始念头，像便签一样留在「今天」。每天午夜自动编译成结构化的日记页，
+                昨天与更早的，都会沉淀为可回溯的 wiki。
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="home-hero__title home-hero__title--calm">
+                今天 · <span className="accent">已记下 {todayCount} 条</span>
+                <span className="home-hero__title-tail">，等夜里编织。</span>
+              </h1>
+              {dailyPages.length > 0 && (
+                <p className="home-hero__sub home-hero__sub--quiet">
+                  <Link href={`/wiki/${dailyPages[0]!.slug}`} className="home-hero__yesterday">
+                    昨天已编织好 <ArrowUpRight size={12} strokeWidth={2} aria-hidden="true" />
+                  </Link>
+                </p>
+              )}
+            </>
+          )}
         </div>
 
         {/* Daily compile card */}
-        <section className="daily-compile-card" aria-label="今日编译">
+        <section className="daily-compile-card" aria-label="今日编译状态">
           <div className="daily-compile-card__head">
-            <span className="daily-compile-card__label">今日编译</span>
+            <span className="daily-compile-card__label">今日</span>
             <span className="daily-compile-card__date">{iso}</span>
           </div>
 
+          {/* Three-beat narrative: 念头 → 已织入网中 → 等夜里 / 已就绪.
+              The third beat flips to "已就绪" when the day is fully compiled,
+              giving users a felt sense of state progression instead of static
+              counts that always sum to the first. */}
           <div className="daily-compile-card__metrics">
             <div className="dcc-metric">
-              <div className="dcc-metric__value">{memos.length}</div>
-              <div className="dcc-metric__label">今日记录</div>
+              <div className="dcc-metric__value">{todayCount}</div>
+              <div className="dcc-metric__label">此刻的念头</div>
             </div>
             <div className="dcc-metric">
               <div className="dcc-metric__value">{compiledCount}</div>
-              <div className="dcc-metric__label">已编译</div>
+              <div className="dcc-metric__label">已织入网中</div>
             </div>
             <div className="dcc-metric">
-              <div className="dcc-metric__value">{pendingCount}</div>
-              <div className="dcc-metric__label">待编译</div>
+              {pendingCount === 0 && todayCount > 0 ? (
+                <>
+                  <div className="dcc-metric__value dcc-metric__value--ready" aria-label="已就绪">
+                    <span className="dcc-ready-dot" aria-hidden="true" />
+                  </div>
+                  <div className="dcc-metric__label">已就绪</div>
+                </>
+              ) : (
+                <>
+                  <div className="dcc-metric__value">{pendingCount}</div>
+                  <div className="dcc-metric__label">等夜里</div>
+                </>
+              )}
             </div>
           </div>
 
-          <button
-            type="button"
-            className={`dcc-compile-btn${pendingCount === 0 && !compiling ? " dcc-compile-btn--ghost" : ""}`}
-            onClick={handleCompileToday}
-            disabled={compiling}
-            aria-busy={compiling}
-          >
-            {compiling ? (
-              <>
-                <Loader2 size={14} strokeWidth={2} style={SPIN} aria-hidden="true" />
-                正在送编译…
-              </>
-            ) : (
-              <>
-                <Sparkles size={14} strokeWidth={2} aria-hidden="true" />
-                立即编译今天
-              </>
-            )}
-          </button>
+          {/* Compile button is restrained: only surfaces once enough material
+              has accumulated. Below the threshold we keep the midnight ritual
+              the only path — quietness reinforces the slogan's promise. */}
+          {showCompileButton && (
+            <button
+              type="button"
+              className={`dcc-compile-btn${pendingCount === 0 && !compiling ? " dcc-compile-btn--ghost" : ""}`}
+              onClick={handleCompileToday}
+              disabled={compiling}
+              aria-busy={compiling}
+            >
+              {compiling ? (
+                <>
+                  <Loader2 size={14} strokeWidth={2} style={SPIN} aria-hidden="true" />
+                  正在送编译…
+                </>
+              ) : (
+                <>
+                  <Sparkles size={14} strokeWidth={2} aria-hidden="true" />
+                  提前看看今天会织成什么
+                </>
+              )}
+            </button>
+          )}
 
           {/* Visual-only: the dedicated .sr-only live region already announces
               compile outcomes to AT, so this avoids a duplicate read. */}
@@ -374,12 +462,21 @@ export function HomeStream({ initialToday, dailyPages }: HomeStreamProps) {
             ) : (
               <>
                 <Clock size={11} strokeWidth={2} aria-hidden="true" />
-                每天 00:00 自动编译昨天
+                每天 00:00 自动编织昨天
               </>
             )}
           </p>
         </section>
       </div>
+
+      {/* Midnight-crossing toast: a one-off product beat when the tab stays
+          open across 00:00 — turns a potential glitch into a small moment. */}
+      {midnightToast && (
+        <div className="home-midnight-toast" role="status">
+          <Sparkles size={13} strokeWidth={2} aria-hidden="true" />
+          {midnightToast}
+        </div>
+      )}
 
       {/* Pipeline-unreachable banner (dev w/o Inngest, or outage). */}
       {!serviceConnected && (
@@ -419,9 +516,9 @@ export function HomeStream({ initialToday, dailyPages }: HomeStreamProps) {
             {saveError
               ? saveError
               : saveOk
-                ? "已保存 ✓"
+                ? "收下了，夜里见 ✓"
                 : wordCount > 0
-                  ? `${wordCount} 字 · ⌘/Ctrl + ↵ 保存`
+                  ? `${wordCount} 字 · ⌘/Ctrl + ↵ 收下`
                   : "记下此刻，余下交给夜里"}
           </span>
           <button
@@ -436,7 +533,7 @@ export function HomeStream({ initialToday, dailyPages }: HomeStreamProps) {
             ) : (
               <Check size={13} strokeWidth={2.2} aria-hidden="true" />
             )}
-            保存
+            收下
           </button>
         </div>
       </section>
@@ -484,28 +581,41 @@ export function HomeStream({ initialToday, dailyPages }: HomeStreamProps) {
             <p>还没有编译过的日记页 —— 记录满一天，午夜会自动生成。</p>
           </div>
         ) : (
-          <div className="home-wiki-grid">
-            {dailyPages.map((p) => (
-              <Link
-                key={p.slug}
-                href={`/wiki/${p.slug}`}
-                className="wiki-day-card"
-                aria-label={`${relativeDayLabel(p.date)}的日记页：${p.title}`}
-              >
-                <div className="wiki-day-card__head">
-                  <span className="wiki-day-card__rel">{relativeDayLabel(p.date)}</span>
-                  <span className="wiki-day-card__date">{p.date}</span>
-                </div>
-                <h3 className="wiki-day-card__title">{p.title}</h3>
-                <p className="wiki-day-card__excerpt">{p.excerpt}</p>
-                <div className="wiki-day-card__foot">
-                  <span>
-                    <FileText size={11} strokeWidth={2} aria-hidden="true" /> {p.source_count} 条原始
-                  </span>
-                  <ArrowUpRight size={14} strokeWidth={2} aria-hidden="true" />
-                </div>
-              </Link>
-            ))}
+          /* Each daily page becomes a "small book": title + one whole
+             opening line, with a thin spine of N short rules along the
+             bottom edge (visual stand-in for "N raw memos went into this").
+             Date sits as a quiet corner stamp; full excerpt only emerges
+             on hover, so the grid reads like a shelf, not a list. */
+          <div className="home-wiki-grid home-wiki-grid--books">
+            {dailyPages.map((p) => {
+              // Cap the spine at 9 lines so a 50-memo day doesn't become a
+              // solid bar; a 9-line spine still reads as "thicker than usual".
+              const spineCount = Math.max(0, Math.min(9, p.source_count));
+              const pull = firstSentence(p.excerpt);
+              return (
+                <Link
+                  key={p.slug}
+                  href={`/wiki/${p.slug}`}
+                  className="wiki-book"
+                  aria-label={`${relativeDayLabel(p.date)}的日记页：${p.title}（${p.source_count} 条原始）`}
+                >
+                  <span className="wiki-book__stamp">{p.date}</span>
+                  <span className="wiki-book__rel">{relativeDayLabel(p.date)}</span>
+                  <h3 className="wiki-book__title">{p.title}</h3>
+                  {pull && <p className="wiki-book__pull">{pull}</p>}
+                  <p className="wiki-book__excerpt">{p.excerpt}</p>
+                  <div
+                    className="wiki-book__spine"
+                    aria-hidden="true"
+                    title={`${p.source_count} 条原始`}
+                  >
+                    {Array.from({ length: spineCount }).map((_, i) => (
+                      <span key={i} className="wiki-book__spine-line" />
+                    ))}
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         )}
       </section>
