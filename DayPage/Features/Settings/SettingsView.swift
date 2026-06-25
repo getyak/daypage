@@ -48,6 +48,14 @@ struct SettingsView: View {
     // iCloud sync monitor
     @StateObject private var syncMonitor = iCloudSyncMonitor.shared
 
+    // #785: iOS → Web sync config. Mirrors SyncSettings (UserDefaults baseURL +
+    // Keychain API key); edits are committed on submit and re-install the
+    // uploader so changes take effect without an app restart.
+    @State private var webSyncBaseURL: String = SyncSettings.baseURLString ?? ""
+    @State private var webSyncAPIKey: String = SyncSettings.apiKey ?? ""
+    @State private var webSyncSaved: Bool = false
+    @StateObject private var syncQueue = SyncQueueService.shared
+
     // Press-to-talk fallback toggle (US-008).
     @AppStorage(AppSettings.Keys.usePressToTalk) private var usePressToTalk: Bool = true
 
@@ -114,6 +122,7 @@ struct SettingsView: View {
                 appearanceSection
                 timeZoneSection
                 iCloudSyncSection
+                webSyncSection
                 dataSection
                 experimentsSection
                 aboutSection
@@ -825,6 +834,93 @@ struct SettingsView: View {
             formatter.dateFormat = "M月d日 HH:mm"
         }
         return formatter.string(from: date)
+    }
+
+    // MARK: - Web Sync Section (#785)
+
+    /// iOS → Web 同步配置。用户在 web Settings → API Keys 生成 `write` scope
+    /// 的 key,这里填 web 地址 + key,App 写的 memo 会自动推送到 web 端。
+    private var webSyncSection: some View {
+        Section {
+            // Web 地址
+            HStack {
+                Label("Web 地址", systemImage: "globe")
+                Spacer()
+                TextField("https://daypage.app", text: $webSyncBaseURL)
+                    .multilineTextAlignment(.trailing)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled(true)
+                    .keyboardType(.URL)
+                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .accessibilityIdentifier("sync-baseurl-field")
+            }
+
+            // API Key（敏感,用 SecureField）
+            HStack {
+                Label("API Key", systemImage: "key.fill")
+                Spacer()
+                SecureField("粘贴 web 生成的 key", text: $webSyncAPIKey)
+                    .multilineTextAlignment(.trailing)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled(true)
+                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .accessibilityIdentifier("sync-apikey-field")
+            }
+
+            // 保存 + 立即同步
+            Button {
+                saveWebSyncConfig()
+            } label: {
+                HStack {
+                    Label(webSyncSaved ? "已保存" : "保存并同步",
+                          systemImage: webSyncSaved ? "checkmark.circle.fill" : "arrow.up.circle")
+                    Spacer()
+                    if SyncSettings.isConfigured {
+                        Text("已配置").font(DSType.labelSM).foregroundColor(.green)
+                    }
+                }
+            }
+            .accessibilityIdentifier("sync-save-button")
+
+            // 待同步状态
+            if syncQueue.pendingCount > 0 {
+                HStack {
+                    Label("待同步", systemImage: "clock.arrow.circlepath")
+                    Spacer()
+                    Text("\(syncQueue.pendingCount) 条")
+                        .font(DSType.labelSM)
+                        .foregroundColor(.orange)
+                }
+            } else if SyncSettings.isConfigured {
+                HStack {
+                    Label("已全部同步", systemImage: "checkmark.icloud")
+                    Spacer()
+                }
+                .foregroundColor(DSColor.onSurfaceVariant)
+            }
+        } header: {
+            Text("同步到 Web")
+        } footer: {
+            Text("在 web 端 设置 → API Keys 生成一个带 write 权限的 key,粘贴到这里。App 写下的 memo 会自动同步到你的 web 账号。")
+                .font(.caption)
+        }
+    }
+
+    /// Commit the sync config to SyncSettings, re-install the uploader, and
+    /// kick a flush so any backlog goes out immediately.
+    private func saveWebSyncConfig() {
+        SyncSettings.baseURLString = webSyncBaseURL
+        SyncSettings.apiKey = webSyncAPIKey
+        // Reflect normalization back into the field.
+        webSyncBaseURL = SyncSettings.baseURLString ?? ""
+        SyncQueueObserver.shared.installConfiguredUploader()
+        webSyncSaved = true
+        Task { await SyncQueueService.shared.flushIfOnline() }
+        // Reset the "已保存" affordance after a beat.
+        Task {
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            await MainActor.run { webSyncSaved = false }
+        }
     }
 
     // MARK: - Data Section

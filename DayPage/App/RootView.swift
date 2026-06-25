@@ -73,6 +73,12 @@ struct RootView: View {
                 // pending banner would never drain. Idempotent — subsequent
                 // .onAppear calls hit the already-initialised shared instance.
                 _ = SyncQueueObserver.shared
+
+                // #785: install the real iOS→web uploader when the user has
+                // configured a web endpoint + API key under Settings → 同步.
+                // When unconfigured this leaves the Noop double in place so the
+                // queue still drains locally instead of pretending forever.
+                SyncQueueObserver.shared.installConfiguredUploader()
             }
             .preferredColorScheme(resolvedColorScheme)
             .tint(appSettings.accentColor.color)

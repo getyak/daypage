@@ -99,7 +99,11 @@
 		VES0000001 /* VaultExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = VES1000001 /* VaultExportService.swift */; };
 		VES0000002 /* VaultExportServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = VES1000002 /* VaultExportServiceTests.swift */; };
 		SQS0000003 /* SyncQueueObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = SQS1000003 /* SyncQueueObserver.swift */; };
+		MSU0000001 /* MemoSyncUploader.swift in Sources */ = {isa = PBXBuildFile; fileRef = MSU1000001 /* MemoSyncUploader.swift */; };
+		SSU0000001 /* SyncSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = SSU1000001 /* SyncSettings.swift */; };
 		NMT0000001 /* NetworkMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = NMT1000001 /* NetworkMonitorTests.swift */; };
+		MSE0000001 /* MemoSyncE2EIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MSE1000001 /* MemoSyncE2EIntegrationTests.swift */; };
+		MST0000001 /* MemoSyncUploaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MST1000001 /* MemoSyncUploaderTests.swift */; };
 		WRA0000001 /* WeeklyRecapAutoTriggerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = WRA1000001 /* WeeklyRecapAutoTriggerTests.swift */; };
 		A10000043 /* Interactions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000043 /* Interactions.swift */; };
 		A10000045 /* OnThisDayIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000045 /* OnThisDayIndex.swift */; };
@@ -370,7 +374,11 @@
 		VES1000001 /* VaultExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultExportService.swift; sourceTree = "<group>"; };
 		VES1000002 /* VaultExportServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultExportServiceTests.swift; sourceTree = "<group>"; };
 		SQS1000003 /* SyncQueueObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueObserver.swift; sourceTree = "<group>"; };
+		MSU1000001 /* MemoSyncUploader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoSyncUploader.swift; sourceTree = "<group>"; };
+		SSU1000001 /* SyncSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncSettings.swift; sourceTree = "<group>"; };
 		NMT1000001 /* NetworkMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitorTests.swift; sourceTree = "<group>"; };
+		MSE1000001 /* MemoSyncE2EIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoSyncE2EIntegrationTests.swift; sourceTree = "<group>"; };
+		MST1000001 /* MemoSyncUploaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoSyncUploaderTests.swift; sourceTree = "<group>"; };
 		WRA1000001 /* WeeklyRecapAutoTriggerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapAutoTriggerTests.swift; sourceTree = "<group>"; };
 		A20000043 /* Interactions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Interactions.swift; sourceTree = "<group>"; };
 		A20000045 /* OnThisDayIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayIndex.swift; sourceTree = "<group>"; };
@@ -764,6 +772,8 @@
 				A20000803 /* RetryHelper.swift */,
 				SQS1000001 /* SyncQueueService.swift */,
 				SQS1000003 /* SyncQueueObserver.swift */,
+				MSU1000001 /* MemoSyncUploader.swift */,
+				SSU1000001 /* SyncSettings.swift */,
 				VES1000001 /* VaultExportService.swift */,
 			);
 			path = Services;
@@ -1080,6 +1090,8 @@
 				SQS1000002 /* SyncQueueServiceTests.swift */,
 				VES1000002 /* VaultExportServiceTests.swift */,
 				NMT1000001 /* NetworkMonitorTests.swift */,
+				MSE1000001 /* MemoSyncE2EIntegrationTests.swift */,
+				MST1000001 /* MemoSyncUploaderTests.swift */,
 				WRA1000001 /* WeeklyRecapAutoTriggerTests.swift */,
 			);
 			path = DayPageTests;
@@ -1395,6 +1407,8 @@
 				A10000803 /* RetryHelper.swift in Sources */,
 				SQS0000001 /* SyncQueueService.swift in Sources */,
 				SQS0000003 /* SyncQueueObserver.swift in Sources */,
+				MSU0000001 /* MemoSyncUploader.swift in Sources */,
+				SSU0000001 /* SyncSettings.swift in Sources */,
 				VES0000001 /* VaultExportService.swift in Sources */,
 				A10000079 /* iCloudSyncMonitor.swift in Sources */,
 				A10000085 /* iCloudConflictMonitor.swift in Sources */,
@@ -1505,6 +1519,8 @@
 				SQS0000002 /* SyncQueueServiceTests.swift in Sources */,
 				VES0000002 /* VaultExportServiceTests.swift in Sources */,
 				NMT0000001 /* NetworkMonitorTests.swift in Sources */,
+				MSE0000001 /* MemoSyncE2EIntegrationTests.swift in Sources */,
+				MST0000001 /* MemoSyncUploaderTests.swift in Sources */,
 				WRA0000001 /* WeeklyRecapAutoTriggerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

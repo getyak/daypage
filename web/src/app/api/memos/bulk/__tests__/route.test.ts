@@ -29,8 +29,27 @@ vi.mock("@/lib/ratelimit", () => ({
   }),
 }));
 
+// API-key auth is opt-in per request: default to "no API key" so the existing
+// session-based tests exercise the NextAuth path unchanged. Individual tests
+// override authenticateApiKey to exercise the Bearer path.
+vi.mock("@/lib/api-auth", () => ({
+  authenticateApiKey: vi.fn().mockResolvedValue(null),
+  hasScope: vi.fn((auth: { scopes: string[] }, scope: string) =>
+    auth.scopes.includes("admin") || auth.scopes.includes(scope)
+  ),
+}));
+
 import { auth } from "@/auth";
 import { checkMutationRateLimit } from "@/lib/ratelimit";
+import { authenticateApiKey } from "@/lib/api-auth";
+
+// Build a UUID for index `i` by zero-padding it into the last segment, so bulk
+// payloads of N memos all carry distinct, schema-valid UUIDs (the zod schema
+// rejects non-UUID ids before the count check, so naive string concatenation
+// would mask count-limit assertions).
+function uuidFor(i: number): string {
+  return `550e8400-e29b-41d4-a716-${String(i).padStart(12, "0")}`;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -124,6 +143,7 @@ describe("POST /api/memos/bulk", () => {
 
   it("returns 400 for invalid JSON body", async () => {
     mockSession("alice@example.com");
+    mockUserLookup(mockUser); // auth must resolve before body parsing is reached
     const req = new NextRequest("http://localhost/api/memos/bulk", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -149,7 +169,7 @@ describe("POST /api/memos/bulk", () => {
     mockUserLookup(mockUser);
     const { POST } = await import("../route");
     const tooMany = Array.from({ length: 101 }, (_, i) =>
-      makeMemo({ id: `550e8400-e29b-41d4-a716-4466554400${String(i).padStart(2, "0")}` })
+      makeMemo({ id: uuidFor(i) })
     );
     const res = await POST(makeRequest({ memos: tooMany }));
     expect(res.status).toBe(400);
@@ -267,5 +287,96 @@ describe("POST /api/memos/bulk", () => {
     expect(res.status).toBe(200);
     const data = await res.json() as { accepted: string[] };
     expect(data.accepted).toHaveLength(100);
+  });
+});
+
+// ── API-key Bearer auth (iOS sync path) ─────────────────────────────────────────
+
+describe("POST /api/memos/bulk — API key auth", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function makeKeyRequest(body: unknown, key = "dp_live_testkey"): NextRequest {
+    return new NextRequest("http://localhost/api/memos/bulk", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${key}`,
+      },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it("accepts a memo when a valid write-scoped API key is presented (no session)", async () => {
+    // No NextAuth session — auth resolves purely from the API key.
+    mockNoSession();
+    vi.mocked(authenticateApiKey).mockResolvedValue({
+      userId: mockUser.id,
+      scopes: ["write"],
+    });
+    const insertChain = mockInsertChain();
+
+    const { POST } = await import("../route");
+    const memo = makeMemo();
+    const res = await POST(makeKeyRequest({ memos: [memo] }));
+
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as { accepted: string[]; skipped: unknown[] };
+    expect(data.accepted).toContain(memo.id);
+    // The memo must be bound to the key's user, not anyone else.
+    const callArg = (insertChain.values as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as { user_id: string };
+    expect(callArg.user_id).toBe(mockUser.id);
+  });
+
+  it("returns 403 when the API key lacks the write scope", async () => {
+    mockNoSession();
+    vi.mocked(authenticateApiKey).mockResolvedValue({
+      userId: mockUser.id,
+      scopes: ["read"],
+    });
+    const { POST } = await import("../route");
+    const res = await POST(makeKeyRequest({ memos: [makeMemo()] }));
+    expect(res.status).toBe(403);
+    const data = (await res.json()) as { error: string };
+    expect(data.error).toMatch(/write/i);
+  });
+
+  it("admin-scoped key implicitly satisfies the write requirement", async () => {
+    mockNoSession();
+    vi.mocked(authenticateApiKey).mockResolvedValue({
+      userId: mockUser.id,
+      scopes: ["admin"],
+    });
+    mockInsertChain();
+    const { POST } = await import("../route");
+    const res = await POST(makeKeyRequest({ memos: [makeMemo()] }));
+    expect(res.status).toBe(200);
+  });
+
+  it("falls back to 401 when neither API key nor session is present", async () => {
+    mockNoSession();
+    vi.mocked(authenticateApiKey).mockResolvedValue(null);
+    const { POST } = await import("../route");
+    // No Authorization header at all.
+    const res = await POST(makeRequest({ memos: [makeMemo()] }));
+    expect(res.status).toBe(401);
+  });
+
+  it("API key takes precedence over a session (key user wins)", async () => {
+    // A session exists for user B, but a key for user A is presented; memos
+    // must bind to user A (the key holder).
+    mockSession("bob@example.com");
+    vi.mocked(authenticateApiKey).mockResolvedValue({
+      userId: mockUser.id,
+      scopes: ["write"],
+    });
+    const insertChain = mockInsertChain();
+    const { POST } = await import("../route");
+    await POST(makeKeyRequest({ memos: [makeMemo()] }));
+    const callArg = (insertChain.values as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as { user_id: string };
+    expect(callArg.user_id).toBe(mockUser.id);
   });
 });
