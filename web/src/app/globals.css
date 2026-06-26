@@ -2188,6 +2188,177 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
 }
 
 /* ─── Login / landing page ────────────────────────────────────────────────── */
+
+/* Skip link */
+.login-skip-link {
+  position: absolute;
+  top: -100%;
+  left: 0;
+  padding: 8px 16px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--font-inter, sans-serif);
+  text-decoration: none;
+  border-radius: 0 0 8px 0;
+  z-index: 9999;
+  transition: top 100ms;
+}
+.login-skip-link:focus { top: 0; outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* Two-column root */
+.login-root {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100dvh;
+}
+
+/* Left brand panel */
+.login-panel-brand {
+  position: relative;
+  background: var(--accent);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+.login-panel-brand__inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+  padding: 48px 52px;
+  flex: 1;
+}
+.login-panel-brand__mark {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.login-panel-brand__logo { flex-shrink: 0; }
+.login-panel-brand__wordmark {
+  font-family: var(--font-space-grotesk, sans-serif);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.12em;
+  color: rgba(255,255,255,0.95);
+}
+.login-panel-brand__badge {
+  font-family: var(--font-inter, sans-serif);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+  padding: 2px 7px;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 20px;
+}
+.login-panel-brand__content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  flex: 1;
+  justify-content: center;
+}
+.login-panel-brand__title {
+  font-family: var(--font-fraunces, serif);
+  font-weight: 600;
+  font-size: clamp(36px, 5vw, 52px);
+  line-height: 1.08;
+  color: #fff;
+  margin: 0;
+}
+.login-panel-brand__accent {
+  font-style: italic;
+  color: rgba(255,200,130,0.9);
+}
+.login-panel-brand__sub {
+  font-family: var(--font-inter, sans-serif);
+  font-size: 15px;
+  line-height: 1.6;
+  color: rgba(255,255,255,0.72);
+  max-width: 34ch;
+  margin: 0;
+}
+.login-panel-features {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-top: 1px solid rgba(255,255,255,0.12);
+  padding-top: 24px;
+}
+.login-panel-feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.login-panel-feature__icon {
+  font-size: 13px;
+  color: rgba(255,200,130,0.8);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.login-panel-feature__text {
+  font-family: var(--font-inter, sans-serif);
+  font-size: 13.5px;
+  color: rgba(255,255,255,0.78);
+  line-height: 1.5;
+}
+/* Dot grid texture */
+.login-panel-brand__grid {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events: none;
+}
+
+/* Right auth panel */
+.login-panel-auth {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 48px 40px;
+  background: var(--bg-warm);
+}
+.login-panel-auth .login-card {
+  width: 100%;
+  max-width: 420px;
+}
+
+/* Responsive: collapse to single column at 860px */
+@media (max-width: 860px) {
+  .login-root {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+  .login-panel-brand {
+    min-height: auto;
+  }
+  .login-panel-brand__inner {
+    padding: 32px 28px 28px;
+    gap: 20px;
+  }
+  .login-panel-brand__title { font-size: 30px; }
+  .login-panel-brand__sub { font-size: 14px; }
+  .login-panel-auth {
+    padding: 32px 20px 48px;
+  }
+}
+@media (max-width: 480px) {
+  .login-panel-brand__inner { padding: 24px 20px 20px; }
+  .login-panel-brand__title { font-size: 26px; }
+  .login-panel-auth { padding: 24px 16px 40px; }
+  .login-panel-auth .login-card { padding: 24px 20px; }
+}
+
 .login-shell {
   min-height: 100dvh;
   background: var(--bg-warm);
