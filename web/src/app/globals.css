@@ -2201,3 +2201,100 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
   .home-memo-grid,
   .home-wiki-grid { grid-template-columns: 1fr; }
 }
+
+/* ─── Landing page ──────────────────────────────────────────────── */
+@keyframes landing-fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.landing-fade-in {
+  animation: landing-fade-in 0.45s var(--motion-ease-out) both;
+}
+.landing-fade-in--delayed {
+  animation: landing-fade-in 0.45s var(--motion-ease-out) 0.12s both;
+}
+.landing-fade-in--card {
+  animation: landing-fade-in 0.45s var(--motion-ease-out) 0.18s both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-fade-in,
+  .landing-fade-in--delayed,
+  .landing-fade-in--card { animation: none; }
+}
+
+/* ─── Login page ────────────────────────────────────────────────── */
+.login-error-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-small);
+  background: var(--error-soft);
+  color: var(--error);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--fg-subtle);
+  font-size: 0.75rem;
+  font-family: var(--font-inter), ui-sans-serif, sans-serif;
+}
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-subtle);
+}
+
+/* ─── Landing feature list items ───────────────────────────────── */
+.landing-feature {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 12px;
+  border-radius: var(--radius-small);
+  transition: background var(--motion-fast) var(--motion-ease-out);
+  margin: -10px -12px;
+}
+.landing-feature:hover {
+  background: var(--accent-soft);
+}
+.landing-feature__icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-small);
+  background: var(--accent-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  transition: background var(--motion-fast) var(--motion-ease-out);
+}
+.landing-feature:hover .landing-feature__icon {
+  background: var(--accent-border);
+}
+/* Make the "or" divider lines slightly more visible */
+.login-divider::before,
+.login-divider::after {
+  background: var(--border-default);
+}
+
+/* ─── Landing page logo hover ───────────────────────────────────── */
+.landing-logo-mark {
+  transition: transform var(--motion-fast) var(--motion-spring),
+              box-shadow var(--motion-fast) var(--motion-ease-out);
+}
+.landing-logo-mark:hover {
+  transform: scale(1.06);
+  box-shadow: 0 4px 12px rgba(93,48,0,0.25);
+}
+/* Auth card keyboard focus-within indicator */
+.landing-auth-card:focus-within {
+  border-color: var(--accent-border);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+}
