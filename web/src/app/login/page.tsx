@@ -1,5 +1,11 @@
 import { signIn } from "@/auth";
+import { EmailSignInForm } from "./EmailSignInForm";
 import { LoginSubmitButton } from "./LoginSubmitButton";
+
+export const metadata = {
+  title: "Sign in — DayPage",
+  description: "Capture anything. AI compiles everything.",
+};
 
 const ERROR_MESSAGES: Record<string, string> = {
   OAuthAccountNotLinked:
@@ -23,21 +29,52 @@ export default async function LoginPage({
     : null;
 
   return (
-    <div className="min-h-screen bg-bg-warm flex items-center justify-center px-4 py-12">
-      <div className="card w-full max-w-sm flex flex-col gap-6">
-        {/* ── Header ── */}
-        <div className="flex flex-col gap-1.5">
-          <div
-            className="w-8 h-8 rounded-[var(--radius-small)] bg-accent flex items-center justify-center mb-2"
-            aria-hidden="true"
-          >
-            <span className="text-white font-display font-bold text-sm leading-none">D</span>
+    <div className="login-shell">
+      <main className="login-card" role="main" aria-labelledby="login-heading">
+        {/* Brand */}
+        <div className="login-brand">
+          <div className="login-brand__mark" aria-hidden="true">
+            <svg
+              width="36"
+              height="36"
+              viewBox="0 0 36 36"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect x="1" y="1" width="34" height="34" rx="10" fill="var(--accent)" />
+              <path d="M18 8 L28 18 L18 28 L8 18 Z" fill="white" opacity="0.9" />
+              <circle cx="18" cy="18" r="4" fill="var(--accent)" />
+            </svg>
           </div>
-          <h1 className="ds-h1">DayPage</h1>
-          <p className="ds-body-md text-fg-muted">Your personal AI knowledge system</p>
+          <div>
+            <h1 id="login-heading" className="login-brand__name">
+              DayPage
+            </h1>
+            <p className="login-brand__tagline">
+              Capture anything. AI compiles everything.
+            </p>
+          </div>
         </div>
 
-        {/* ── Error banner ── */}
+        {/* Feature highlights */}
+        <ul className="login-bullets" aria-label="Key features">
+          <li>
+            <span className="login-bullet__icon" aria-hidden="true">✦</span>
+            Dump notes, photos, voice memos freely
+          </li>
+          <li>
+            <span className="login-bullet__icon" aria-hidden="true">✦</span>
+            AI turns your day into a structured diary
+          </li>
+          <li>
+            <span className="login-bullet__icon" aria-hidden="true">✦</span>
+            Knowledge graph grows with every entry
+          </li>
+        </ul>
+
+        <hr className="login-divider" aria-hidden="true" />
+
+        {/* URL-param error banner (from NextAuth callback errors) */}
         {errorMsg && (
           <div role="alert" className="login-error-banner" aria-live="assertive">
             <svg
@@ -49,14 +86,19 @@ export default async function LoginPage({
               style={{ flexShrink: 0, marginTop: 1 }}
             >
               <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
-              <path d="M8 5v3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <path
+                d="M8 5v3.5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
               <circle cx="8" cy="11.5" r="0.75" fill="currentColor" />
             </svg>
             <span>{errorMsg}</span>
           </div>
         )}
 
-        {/* ── Apple sign-in ── */}
+        {/* Apple sign-in */}
         <form
           action={async () => {
             "use server";
@@ -70,50 +112,24 @@ export default async function LoginPage({
               viewBox="0 0 814 1000"
               fill="currentColor"
               aria-hidden="true"
+              focusable="false"
               style={{ flexShrink: 0 }}
             >
-              <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.3-164-39.3c-76.5 0-103.7 40.8-165.9 40.8s-105.5-41-148.2-128.2c-49.5-101.2-75.2-290.9-75.2-378.4 0-178.4 116.9-272.5 231.7-272.5 61.4 0 112.6 40.4 151.8 40.4 37.5 0 96.7-41.9 162.5-41.9zm-90.5-166.8c34.5-39.5 60.9-94.1 60.9-148.6 0-7.6-.9-15.2-2.4-22.1-57 2.2-124.3 38.3-165.9 88.3-32 36.5-62.8 95-62.8 150.6 0 8.7 1.4 17.1 2.1 19.8 3.6.6 8.7 1.4 13.7 1.4 52.1 0 117.2-34.6 154.4-89.4z" />
+              <path d="M788.1 340.9c-5.8 4.5-108.2 62.2-108.2 190.5 0 148.4 130.3 200.9 134.2 202.2-.6 3.2-20.7 71.9-68.7 141.9-42.8 61.6-87.5 123.1-155.5 123.1s-85.5-39.5-164-39.5c-76.5 0-103.7 40.8-165.9 40.8s-105-37.6-152.8-103.9C119 447.8 93.1 302.2 93.1 263.4c0-137.1 89.2-209.3 176.4-209.3 63.8 0 117 43.1 156.5 43.1 37.5 0 96.8-45.1 171.9-45.1 27.6 0 128 2.6 198.7 99.8zm-234-181.5c31.1-36.9 53.1-88.1 53.1-139.3 0-7.1-.6-14.3-1.9-20.1-50.6 1.9-110.8 33.7-147.1 75.8-28.5 32.4-55.1 83.6-55.1 135.5 0 7.8 1.3 15.6 1.9 18.1 3.2.6 8.4 1.3 13.6 1.3 45.4 0 102.5-30.4 135.5-71.3z" />
             </svg>
-            Sign in with Apple
+            Continue with Apple
           </LoginSubmitButton>
         </form>
 
-        {/* ── Divider ── */}
-        <div className="login-divider" aria-hidden="true">or</div>
+        {/* OR divider */}
+        <div className="login-or" role="separator" aria-label="or">
+          <span aria-hidden="true">or</span>
+        </div>
 
-        {/* ── Magic link ── */}
-        <form
-          action={async (formData) => {
-            "use server";
-            await signIn("nodemailer", {
-              email: formData.get("email"),
-              redirectTo: "/home",
-            });
-          }}
-          className="flex flex-col gap-3"
-        >
-          <div>
-            <label
-              htmlFor="login-email"
-              className="block text-sm font-medium text-fg-primary mb-1.5"
-            >
-              Email address
-            </label>
-            <input
-              id="login-email"
-              type="email"
-              name="email"
-              required
-              placeholder="your@email.com"
-              autoComplete="email"
-              className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-accent-border bg-surface-white text-fg-primary text-sm outline-none focus:ring-2 focus:ring-accent/30 transition-all placeholder:text-fg-subtle"
-              suppressHydrationWarning
-            />
-          </div>
-          <LoginSubmitButton kind="secondary">Send magic link</LoginSubmitButton>
-        </form>
+        {/* Email magic link — full state management (loading/success/error) */}
+        <EmailSignInForm />
 
-        {/* ── Dev shortcut ── */}
+        {/* Dev-only shortcut */}
         {process.env.NODE_ENV === "development" && (
           <form
             action={async (formData) => {
@@ -123,22 +139,33 @@ export default async function LoginPage({
                 redirectTo: "/home",
               });
             }}
-            className="flex flex-col gap-3 pt-4 border-t border-dashed border-accent-border"
+            className="login-dev"
           >
-            <p className="ds-body-sm text-fg-muted">Dev-only (E2E shortcut)</p>
+            <p className="ds-body-sm" style={{ color: "var(--fg-muted)" }}>
+              Dev-only (E2E shortcut)
+            </p>
             <input
               type="email"
               name="email"
               defaultValue="dev@daypage.local"
               placeholder="dev@daypage.local"
               aria-label="Dev email address"
-              className="w-full px-3 py-2 rounded-[var(--radius-sm)] border border-accent-border bg-surface-sunken text-fg-primary text-sm outline-none"
+              className="login-input login-input--sunken"
               suppressHydrationWarning
             />
             <LoginSubmitButton kind="ghost">Dev login (no email)</LoginSubmitButton>
           </form>
         )}
-      </div>
+
+        {/* Privacy footnote */}
+        <p className="login-footnote">
+          By signing in you agree to our{" "}
+          <a href="/privacy" className="login-footnote__link">
+            privacy policy
+          </a>
+          .
+        </p>
+      </main>
     </div>
   );
 }
