@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { auth, signOut } from "@/auth";
+import { auth, signOut } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { db } from "@/lib/db/client";
@@ -83,7 +83,19 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
     <>
       {/* Brand */}
       <div className="sb__brand">
-        <div className="sb__brand-mark">DAYPAGE</div>
+        <div
+          className="sb__brand-mark"
+          style={{
+            fontFamily: "var(--font-fraunces), var(--font-family-serif), serif",
+            fontWeight: 500,
+            fontSize: 19,
+            letterSpacing: "-0.01em",
+            color: "var(--fg-primary)",
+            textTransform: "none",
+          }}
+        >
+          DayPage
+        </div>
         <div className="sb__brand-tag">v0.4 · private</div>
       </div>
 
@@ -187,15 +199,36 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             flexShrink: 0,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0 }}>
             {/* Hamburger — visible on mobile only, inside MobileSidebarDrawer context */}
             <HamburgerButton />
-            <span className="ds-section-label">DayPage</span>
+            <span
+              style={{
+                fontFamily: "var(--font-fraunces), var(--font-family-serif), serif",
+                fontSize: 14,
+                fontWeight: 500,
+                letterSpacing: "-0.005em",
+                color: "var(--fg-primary)",
+              }}
+            >
+              DayPage
+            </span>
             <span style={{ color: "var(--fg-subtle)", fontSize: "0.75rem" }}>/</span>
             <BreadcrumbLabel />
+            <span
+              aria-hidden="true"
+              style={{
+                color: "var(--fg-subtle)",
+                fontSize: "0.65rem",
+                marginLeft: 10,
+                marginRight: 2,
+              }}
+            >
+              ·
+            </span>
+            <TopbarDate />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <TopbarDate />
             <Link href="/chat" className="btn btn--soft btn--sm" aria-label="Ask — open chat">Ask</Link>
             <Link href="/add" className="btn btn--primary btn--sm">Add</Link>
           </div>

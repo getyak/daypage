@@ -50,7 +50,7 @@ vi.mock("@/lib/inngest/client", () => ({
   sendEvent: (...args: unknown[]) => sendEvent(...args),
 }));
 
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth/session";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db/client";
 import { users } from "@/lib/db/schema";

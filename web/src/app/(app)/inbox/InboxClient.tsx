@@ -754,7 +754,17 @@ export function InboxClient({ items: initialItems, counts: initialCounts }: Inbo
               key={key}
               onClick={() => setActiveFilter(key)}
               className={`chip chip--interactive ${isActive ? "chip--accent" : "chip--default"}`}
-              style={{ fontWeight: isActive ? 600 : 400 }}
+              style={{
+                fontWeight: isActive ? 600 : 500,
+                border: isActive
+                  ? "1px solid var(--accent-border)"
+                  : "1px solid var(--border-subtle)",
+                background: isActive ? "var(--accent-soft)" : "transparent",
+                color: isActive ? "var(--accent)" : "var(--fg-muted)",
+                boxShadow: isActive
+                  ? "0 1px 2px rgba(60,40,15,0.06)"
+                  : "none",
+              }}
             >
               {label}
               {count > 0 && (

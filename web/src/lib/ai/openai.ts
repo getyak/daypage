@@ -14,21 +14,40 @@ import {
 } from "./provider";
 import { logPrompt } from "./prompt-log";
 
-const BASE_URL = "https://api.openai.com/v1";
+// Base URL is configurable so the same provider can target OpenAI directly or
+// any OpenAI-compatible gateway (e.g. OpenRouter at /api/v1).
+const BASE_URL =
+  process.env.OPENAI_BASE_URL ||
+  process.env.OPENROUTER_BASE_URL ||
+  "https://api.openai.com/v1";
 const DEFAULT_CHAT_MODEL = "gpt-4o-mini";
 const DEFAULT_EMBED_MODEL = "text-embedding-3-small"; // 1536-dim
 const DEFAULT_TRANSCRIBE_MODEL = "whisper-1";
+
+function isOpenRouter(): boolean {
+  return /openrouter\.ai/i.test(BASE_URL);
+}
+
+// Prepend "openai/" when calling OpenRouter so a bare model name still resolves.
+function withVendorPrefix(model: string): string {
+  if (!isOpenRouter()) return model;
+  if (model.includes("/")) return model;
+  return `openai/${model}`;
+}
 
 function getDefaultChatModel(): string {
   return process.env.OPENAI_MODEL || DEFAULT_CHAT_MODEL;
 }
 
 function getApiKey(): string {
-  const key = process.env.OPENAI_API_KEY || process.env.OPENAI_WHISPER_API_KEY;
+  const key =
+    process.env.OPENROUTER_API_KEY ||
+    process.env.OPENAI_API_KEY ||
+    process.env.OPENAI_WHISPER_API_KEY;
   if (!key)
     throw new ProviderError(
       "auth",
-      "OPENAI_API_KEY (or OPENAI_WHISPER_API_KEY) is not set"
+      "OPENAI_API_KEY / OPENROUTER_API_KEY is not set"
     );
   return key;
 }
@@ -74,7 +93,7 @@ export class OpenAIProvider implements LLMProvider {
   ): Promise<ChatResponse> {
     const model = opts.model ?? getDefaultChatModel();
     const body: Record<string, unknown> = {
-      model,
+      model: withVendorPrefix(model),
       messages,
       temperature: opts.temperature ?? 0.7,
     };
@@ -132,7 +151,7 @@ export class OpenAIProvider implements LLMProvider {
   ): Promise<{ tokens_in: number; tokens_out: number; model: string }> {
     const model = opts.model ?? getDefaultChatModel();
     const body: Record<string, unknown> = {
-      model,
+      model: withVendorPrefix(model),
       messages,
       temperature: opts.temperature ?? 0.7,
       stream: true,

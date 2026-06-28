@@ -39,7 +39,7 @@ vi.mock("@/lib/api-auth", () => ({
   ),
 }));
 
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth/session";
 import { checkMutationRateLimit } from "@/lib/ratelimit";
 import { authenticateApiKey } from "@/lib/api-auth";
 

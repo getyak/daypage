@@ -406,10 +406,18 @@ body {
 
 /* kinds */
 .btn--primary {
-  background: var(--accent);
+  background: var(--accent-hover);
   color: #fff;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.08) inset,
+              0 1px 2px rgba(60,40,15,0.18),
+              0 4px 12px -6px rgba(60,40,15,0.35);
 }
-.btn--primary:hover:not(:disabled) { background: var(--accent-hover); }
+.btn--primary:hover:not(:disabled) {
+  background: var(--accent);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.10) inset,
+              0 1px 3px rgba(60,40,15,0.22),
+              0 6px 14px -6px rgba(60,40,15,0.42);
+}
 
 .btn--secondary {
   background: transparent;
@@ -502,6 +510,114 @@ body {
   border-color: transparent;
 }
 
+/* ─── Login ─────────────────────────────────────────────────────── */
+.login-shell {
+  min-height: 100vh;
+  background: var(--bg-warm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  gap: 28px;
+  position: relative;
+}
+.login-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 20%, rgba(201,166,119,0.10), transparent 70%),
+    radial-gradient(ellipse 50% 30% at 50% 90%, rgba(93,48,0,0.05), transparent 70%);
+  pointer-events: none;
+}
+.login-hero {
+  position: relative;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 420px;
+}
+.login-wordmark {
+  font-family: var(--font-fraunces), var(--font-family-serif), serif;
+  font-size: 44px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--fg-primary);
+  line-height: 1.05;
+  margin: 0;
+}
+.login-tagline {
+  font-family: var(--font-inter), ui-sans-serif, sans-serif;
+  font-size: 14.5px;
+  color: var(--fg-muted);
+  line-height: 1.55;
+  margin: 0;
+  max-width: 36ch;
+  margin-inline: auto;
+}
+.login-card {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+  background: var(--surface-white);
+  border-radius: 18px;
+  border: 1px solid var(--border-subtle);
+  padding: 28px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow:
+    0 1px 2px rgba(60,40,15,0.05),
+    0 24px 48px -20px rgba(60,40,15,0.18);
+}
+.login-dev {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-subtle);
+}
+.login-dev__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-subtle-aa);
+}
+.login-dev__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--heatmap-mid);
+}
+.login-dev__input {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--radius-small);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-sunken);
+  color: var(--fg-primary);
+  font-size: 13.5px;
+  outline: none;
+}
+.login-dev__input:focus {
+  border-color: var(--accent-border);
+  background: var(--surface-white);
+}
+.login-footer {
+  position: relative;
+  font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--fg-subtle-aa);
+  margin: 0;
+}
+
 /* ─── Wiki body (react-markdown output) ─────────────────────────── */
 .wiki-body {
   font-family: var(--font-inter), ui-sans-serif, sans-serif;
@@ -577,6 +693,12 @@ body {
 
 /* === Home page primitives === */
 .page { max-width: 1100px; margin: 0 auto; padding: 32px 40px 80px; }
+@media (min-width: 1440px) {
+  .page { max-width: 1280px; padding-inline: 56px; }
+}
+@media (min-width: 1680px) {
+  .page { max-width: 1360px; }
+}
 
 .hero { display: grid; grid-template-columns: 1.6fr 1fr; gap: 24px; }
 .hero-headline {
@@ -892,9 +1014,9 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
   gap: 4px; overflow-y: auto;
   height: 100vh; position: sticky; top: 0;
 }
-.sb__brand { display: flex; align-items: baseline; gap: 8px; padding: 0 10px 22px; }
-.sb__brand-mark { font-family: var(--font-display); font-weight: 700; font-size: 18px; letter-spacing: 2px; color: var(--accent); text-transform: uppercase; }
-.sb__brand-tag { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.6px; color: var(--fg-subtle); text-transform: uppercase; }
+.sb__brand { display: flex; align-items: baseline; gap: 8px; padding: 4px 10px 22px; }
+.sb__brand-mark { font-family: var(--font-fraunces), var(--font-family-serif), serif; font-weight: 500; font-size: 19px; letter-spacing: -0.01em; color: var(--fg-primary); }
+.sb__brand-tag { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.6px; color: var(--fg-subtle-aa); text-transform: uppercase; }
 .sb__group-label { font-family: var(--font-display); font-weight: 700; font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--fg-subtle); padding: 18px 10px 8px; display: flex; justify-content: space-between; align-items: center; }
 .sb__group-label .count { font-family: var(--font-mono); font-weight: 500; letter-spacing: 0.4px; }
 .sb__item { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: var(--radius-small); cursor: pointer; font-family: var(--font-body); font-size: 14px; font-weight: 500; color: var(--fg-primary); user-select: none; text-decoration: none; transition: background 140ms ease-out; }
@@ -903,7 +1025,8 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
 .sb__item.is-active .sb__item-icon { color: var(--accent); }
 .sb__item-icon { width: 18px; height: 18px; color: var(--fg-muted); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .sb__item-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sb__item-meta { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.4px; color: var(--fg-subtle); text-transform: uppercase; }
+.sb__item-meta { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.3px; color: var(--fg-subtle-aa); text-transform: uppercase; padding: 1px 6px; border-radius: 5px; background: var(--surface-sunken); border: 1px solid var(--border-subtle); }
+.sb__item.is-active .sb__item-meta { background: var(--surface-white); border-color: var(--accent-border); color: var(--accent); }
 .sb__item-badge { background: var(--accent); color: var(--bg-warm); font-family: var(--font-mono); font-size: 10px; padding: 2px 6px; border-radius: 999px; font-weight: 500; }
 .sb__domain { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: var(--radius-small); cursor: pointer; font-size: 13px; font-family: var(--font-body); color: var(--fg-primary); text-decoration: none; }
 .sb__domain:hover { background: var(--surface-sunken); }
@@ -1045,7 +1168,9 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
   transform: translateY(0.5px);
 }
 .btn--primary:active:not(:disabled) {
-  background: color-mix(in srgb, var(--accent) 92%, black);
+  background: color-mix(in srgb, var(--accent) 94%, black);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset,
+              0 1px 2px rgba(60,40,15,0.24);
 }
 .inbox-card:hover {
   border-color: var(--accent-border);
@@ -1579,11 +1704,13 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
   }
 }
 
+/* Reduce-motion: keep the toast still. Lightning CSS (Turbopack v4) chokes on
+   nested @keyframes inside @media here and silently drops every rule that
+   follows it, so the entire HomeStream stylesheet (home-stream, home-hero,
+   wiki-book, …) goes missing from the bundle. We disable the animation on
+   the *element* instead — canonical reduce-motion pattern, no nested rules. */
 @media (prefers-reduced-motion: reduce) {
-  @keyframes toast-in {
-    from { opacity: 0; }
-    to   { opacity: 1; }
-  }
+  .home-midnight-toast { animation: none; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1704,10 +1831,10 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
 
 /* Daily-compile card */
 .daily-compile-card {
-  background: var(--surface-white);
-  border: 0.5px solid var(--border-subtle);
+  background: var(--surface-sunken);
+  border: 1px solid transparent;
   border-radius: 18px;
-  box-shadow: var(--shadow-card);
+  box-shadow: none;
   padding: 20px 22px 18px;
 }
 .daily-compile-card__head {
@@ -1821,16 +1948,21 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
 .home-composer {
   margin-top: 28px;
   background: var(--surface-white);
-  border: 0.5px solid var(--border-subtle);
+  border: 1px solid var(--border-default);
   border-radius: 18px;
-  box-shadow: var(--shadow-card);
+  box-shadow:
+    0 1px 0 rgba(60,40,15,0.04) inset,
+    var(--shadow-card);
   padding: 18px 20px 14px;
   transition: border-color 160ms ease-out, box-shadow 160ms ease-out;
 }
 .home-composer:focus-within {
-  /* genuine, perceivable focus ring on the page's primary control (SC 2.4.11) */
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent-soft);
+  /* genuine, perceivable focus ring on the page's primary control (SC 2.4.11).
+     Distinct from the daily-card hairline by using accent + a soft outer ring. */
+  border-color: var(--accent-hover);
+  box-shadow:
+    0 0 0 3px var(--accent-soft),
+    0 1px 2px rgba(60,40,15,0.10);
 }
 .home-composer__ta {
   width: 100%;

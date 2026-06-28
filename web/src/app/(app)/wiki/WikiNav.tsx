@@ -247,36 +247,58 @@ export function WikiNav({
       </div>
 
       {totalPages === 0 ? (
-        <>
-          {(["concept", "synthesis", "entity", "source"] as const).map((type) => (
-            <div key={type} className="wiki__group" style={{ marginTop: 18 }}>
-              <div className="wiki__group-head">
-                <span
-                  className="ds-section-label"
-                  style={{ color: "var(--fg-subtle)" }}
-                >
-                  {TYPE_LABELS[type] ?? type}
-                </span>
-                <span
-                  className="ds-mono-11"
-                  style={{ color: "var(--fg-subtle)" }}
-                >
-                  0
-                </span>
-              </div>
-              <div
+        <div
+          className="wiki__group"
+          style={{
+            marginTop: 18,
+            padding: "14px 12px",
+            border: "1px dashed var(--border-subtle)",
+            borderRadius: 14,
+            background: "transparent",
+          }}
+        >
+          <div
+            className="ds-section-label"
+            style={{ color: "var(--fg-subtle-aa)", marginBottom: 6 }}
+          >
+            Knowledge layers
+          </div>
+          <p
+            style={{
+              fontSize: 12.5,
+              lineHeight: 1.55,
+              color: "var(--fg-muted)",
+              margin: 0,
+            }}
+          >
+            Concepts · Synthesis · Entities · Sources will appear here once
+            tonight&apos;s compile weaves your raw memos into a network.
+          </p>
+          <div
+            style={{
+              marginTop: 10,
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 6,
+            }}
+          >
+            {(["concept", "synthesis", "entity", "source"] as const).map((type) => (
+              <span
+                key={type}
+                className="ds-mono-11"
                 style={{
-                  padding: "6px 10px",
-                  fontSize: 12,
-                  color: "var(--fg-subtle)",
-                  fontStyle: "italic",
+                  padding: "2px 8px",
+                  borderRadius: 999,
+                  background: "var(--surface-sunken)",
+                  color: "var(--fg-subtle-aa)",
+                  letterSpacing: "0.04em",
                 }}
               >
-                —
-              </div>
-            </div>
-          ))}
-        </>
+                {TYPE_LABELS[type] ?? type}
+              </span>
+            ))}
+          </div>
+        </div>
       ) : (
         TYPE_ORDER.map((type) => (
           <PageGroup

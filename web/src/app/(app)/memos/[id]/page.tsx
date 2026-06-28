@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
 import { memos, memo_attachments, users, page_sources, pages, annotations } from "@/lib/db/schema";
 import { eq, and, inArray } from "drizzle-orm";

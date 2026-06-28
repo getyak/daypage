@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
 import { users, chat_threads } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
@@ -150,10 +150,48 @@ export default async function ChatPage() {
             <NewButton kind="primary" label="Start a conversation" />
           </div>
           <div
-            className="ds-caption"
-            style={{ marginTop: 12, color: "var(--fg-muted)" }}
+            style={{
+              marginTop: 18,
+              color: "var(--fg-subtle-aa)",
+              fontFamily: "var(--font-mono)",
+              fontSize: 10,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+            }}
           >
-            Try: &ldquo;What did I read about Raft this month?&rdquo;
+            Try one of these
+          </div>
+          <div
+            style={{
+              marginTop: 8,
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              maxWidth: 420,
+              marginInline: "auto",
+            }}
+          >
+            {[
+              "“What did I read about Raft this month?”",
+              "“Summarise everything I’ve captured about Berlin.”",
+              "“Which projects haven’t I touched in 2 weeks?”",
+            ].map((q, i) => (
+              <div
+                key={i}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 12,
+                  border: "1px solid var(--border-subtle)",
+                  background: "var(--surface-white)",
+                  fontSize: 13.5,
+                  color: "var(--fg-muted)",
+                  textAlign: "left",
+                  lineHeight: 1.5,
+                }}
+              >
+                {q}
+              </div>
+            ))}
           </div>
         </div>
       </main>

@@ -19,7 +19,7 @@
 set -euo pipefail
 
 INPUT_FILE="${1:-}"
-BASE_URL="${2:-http://localhost:3000}"
+BASE_URL="${2:-http://localhost:13000}"
 ENDPOINT="${BASE_URL}/api/ingest"
 
 # ── Validate inputs ────────────────────────────────────────────────────────────

@@ -54,7 +54,7 @@ vi.mock("@/lib/ratelimit", () => ({
   }),
 }));
 
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth/session";
 import { checkMutationRateLimit } from "@/lib/ratelimit";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

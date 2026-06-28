@@ -1,7 +1,7 @@
 import { UnifiedInput } from "./UnifiedInput";
 import { CompileQueue, type Memo } from "./CompileQueue";
 import { RecentlyCompiled } from "./RecentlyCompiled";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
 import { memos, users } from "@/lib/db/schema";
 import { eq, and, desc, or } from "drizzle-orm";

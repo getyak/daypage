@@ -54,7 +54,7 @@ vi.mock("@/lib/inngest/client", () => ({
   sendEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth/session";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

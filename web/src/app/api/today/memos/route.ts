@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
 import { users, memos, memo_attachments } from "@/lib/db/schema";
 import { eq, and, gte, lt, desc } from "drizzle-orm";
