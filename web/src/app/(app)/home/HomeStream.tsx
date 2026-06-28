@@ -92,7 +92,11 @@ function firstSentence(excerpt: string): string {
   return match ? match[0].trim() : trimmed;
 }
 
-// Friendly relative label for a daily wiki card: 昨天 / 前天 / N 天前 / date.
+// Friendly relative label for a daily wiki card: 昨天 / 前天 / N 天前 / N 周前.
+// We deliberately avoid returning a month-day string here — the ISO date already
+// sits in the corner stamp, and rendering "6月2日" right next to "2026-06-02"
+// reads as a duplicate (and is what produced the "2026-06-026月2日" run-together
+// glitch in earlier screenshots).
 function relativeDayLabel(dateStr: string): string {
   const [y, m, d] = dateStr.split("-").map(Number);
   if (!y || !m || !d) return dateStr;
@@ -104,7 +108,9 @@ function relativeDayLabel(dateStr: string): string {
   if (diffDays === 1) return "昨天";
   if (diffDays === 2) return "前天";
   if (diffDays < 7) return `${diffDays} 天前`;
-  return that.toLocaleDateString("zh-CN", { month: "long", day: "numeric" });
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} 周前`;
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)} 个月前`;
+  return `${Math.floor(diffDays / 365)} 年前`;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -378,8 +384,8 @@ export function HomeStream({ initialToday, dailyPages }: HomeStreamProps) {
           ) : (
             <>
               <h1 className="home-hero__title home-hero__title--calm">
-                今天 · <span className="accent">已记下 {todayCount} 条</span>
-                <span className="home-hero__title-tail">，等夜里编织。</span>
+                今天还在 <span className="accent">收集念头</span>
+                <span className="home-hero__title-tail">。夜里 00 点交给系统编织。</span>
               </h1>
               {dailyPages.length > 0 && (
                 <p className="home-hero__sub home-hero__sub--quiet">
@@ -592,18 +598,24 @@ export function HomeStream({ initialToday, dailyPages }: HomeStreamProps) {
               // solid bar; a 9-line spine still reads as "thicker than usual".
               const spineCount = Math.max(0, Math.min(9, p.source_count));
               const pull = firstSentence(p.excerpt);
+              // Hover excerpt should reveal *more* than the resting pull line.
+              // If excerpt starts with the same first sentence we already show
+              // in `pull`, strip it so hover doesn't read as a duplicate.
+              const hoverExcerpt = pull && p.excerpt.startsWith(pull)
+                ? p.excerpt.slice(pull.length).trim()
+                : p.excerpt;
               return (
                 <Link
                   key={p.slug}
                   href={`/wiki/${p.slug}`}
                   className="wiki-book"
-                  aria-label={`${relativeDayLabel(p.date)}的日记页：${p.title}（${p.source_count} 条原始）`}
+                  aria-label={`${p.date} ${relativeDayLabel(p.date)} 的日记页：${p.title}（${p.source_count} 条原始）`}
                 >
-                  <span className="wiki-book__stamp">{p.date}</span>
-                  <span className="wiki-book__rel">{relativeDayLabel(p.date)}</span>
+                  <span className="wiki-book__stamp" aria-hidden="true">{p.date}</span>
+                  <span className="wiki-book__rel" aria-hidden="true">{relativeDayLabel(p.date)}</span>
                   <h3 className="wiki-book__title">{p.title}</h3>
                   {pull && <p className="wiki-book__pull">{pull}</p>}
-                  <p className="wiki-book__excerpt">{p.excerpt}</p>
+                  {hoverExcerpt && <p className="wiki-book__excerpt">{hoverExcerpt}</p>}
                   <div
                     className="wiki-book__spine"
                     aria-hidden="true"

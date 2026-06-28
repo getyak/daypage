@@ -1,4 +1,6 @@
-import { signIn } from "@/auth";
+import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { createClient } from "@/lib/supabase/server";
 import { EmailSignInForm } from "./EmailSignInForm";
 import { LoginSubmitButton } from "./LoginSubmitButton";
 
@@ -23,6 +25,17 @@ const FEATURES = [
   { icon: "⊙", text: "AI compiles your day into a structured diary" },
   { icon: "◈", text: "Builds a personal knowledge graph over time" },
 ];
+
+// Compute the absolute callback URL Supabase should redirect back to after the
+// magic-link confirmation or OAuth completes. Reads the actual request host so
+// it works in dev (localhost:3000) and any preview/prod deploy without needing
+// a separate env var.
+async function emailRedirectTo(): Promise<string> {
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? "http";
+  return `${proto}://${host}/api/auth/callback?next=/home`;
+}
 
 export default async function LoginPage({
   searchParams,
@@ -133,11 +146,21 @@ export default async function LoginPage({
             </div>
           )}
 
-          {/* Apple sign-in */}
+          {/* Apple sign-in — Supabase OAuth (PKCE). Requires Apple provider in
+              Supabase Dashboard — see docs/supabase-auth-setup.md. */}
           <form
             action={async () => {
               "use server";
-              await signIn("apple", { redirectTo: "/home" });
+              const supabase = await createClient();
+              const redirectTo = await emailRedirectTo();
+              const { data, error } = await supabase.auth.signInWithOAuth({
+                provider: "apple",
+                options: { redirectTo },
+              });
+              if (error) {
+                redirect(`/login?error=${encodeURIComponent(error.message)}`);
+              }
+              if (data?.url) redirect(data.url);
             }}
           >
             <LoginSubmitButton kind="primary">
@@ -164,15 +187,24 @@ export default async function LoginPage({
           {/* Email magic link */}
           <EmailSignInForm />
 
-          {/* Dev-only shortcut */}
+          {/* Dev-only shortcut — Supabase password sign-in against the seeded
+              dev@daypage.local user. */}
           {process.env.NODE_ENV === "development" && (
             <form
               action={async (formData) => {
                 "use server";
-                await signIn("dev", {
-                  email: formData.get("email") || "dev@daypage.local",
-                  redirectTo: "/home",
+                const email =
+                  String(formData.get("email") ?? "").trim() ||
+                  "dev@daypage.local";
+                const supabase = await createClient();
+                const { error } = await supabase.auth.signInWithPassword({
+                  email,
+                  password: "devpassword",
                 });
+                if (error) {
+                  redirect(`/login?error=${encodeURIComponent(error.message)}`);
+                }
+                redirect("/home");
               }}
               className="login-dev"
             >

@@ -1,4 +1,4 @@
-import { auth, signOut } from "@/auth";
+import { auth, signOut } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
 import { SettingsClient } from "./SettingsClient";
 import { ApiKeysSection } from "./ApiKeysSection";

@@ -62,7 +62,7 @@ vi.mock("@/lib/sanitize", () => ({
   sanitizeMemoBody: (s: string) => s,
 }));
 
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth/session";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

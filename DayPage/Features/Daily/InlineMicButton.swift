@@ -10,6 +10,7 @@ struct InlineMicButton: View {
 
     let onTranscript: (String) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isRecording = false
     @State private var isTranscribing = false
     @State private var recorder: AVAudioRecorder?
@@ -90,7 +91,10 @@ struct InlineMicButton: View {
         tempURL = url
 
         withAnimation(.easeOut(duration: 0.15)) { isRecording = true }
-        // Animate pulse only while recording.
+        // Animate pulse only while recording, and only when the user hasn't
+        // asked to reduce motion — the amber fill already signals the
+        // recording state, so a static button stays fully legible.
+        guard !reduceMotion else { return }
         withAnimation(Animation.easeInOut(duration: 0.55).repeatForever(autoreverses: true)) {
             pulseScale = 1.18
         }

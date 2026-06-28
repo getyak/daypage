@@ -10,7 +10,7 @@ import { ArrowUpRight, ChevronRight, Sparkles, Inbox, Activity, Clock } from "lu
 import { Btn, Card, Chip, Icon, SectionLabel } from "@/components/ui";
 import { HomeStream, type DailyPageCard } from "./HomeStream";
 import type { MemoCardData } from "../today/MemoCard";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
 import {
   users,
@@ -150,14 +150,21 @@ async function getDailyPages(userId: string): Promise<DailyPageCard[]> {
 }
 
 // First ~160 chars of body, stripped of markdown noise — a calm card preview.
+// We deliberately drop section headings like "### Highlights" *with their text*
+// (not just the `#` prefix). If we kept the word "Highlights" the excerpt would
+// read "Highlights - You noted… Mood 清晨的咖啡馆…" — visually that looks like
+// the same content rendered twice when paired with the card's pull line.
 function excerptFromMarkdown(md: string): string {
+  const SECTION_HEADINGS = /^#{1,6}\s+(highlights|locations|themes|mood|tags|topics|summary|wiki)\s*$/gim;
   const plain = md
     .replace(/^---[\s\S]*?\r?\n---\r?\n/, "") // strip YAML frontmatter (LF or CRLF)
-    .replace(/^#{1,6}\s+/gm, "")
+    .replace(SECTION_HEADINGS, "") // drop boilerplate section headings entirely
+    .replace(/^#{1,6}\s+/gm, "") // strip leading # on remaining headings
     .replace(/^\s*[-*_]{3,}\s*$/gm, "") // strip horizontal rules
     .replace(/^[|].*[|]\s*$/gm, "") // strip table rows
     .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^\s*[-*+]\s+/gm, "") // strip list bullets so excerpt reads as prose
     .replace(/[*_`>#]/g, "")
     .replace(/\s+/g, " ")
     .trim();

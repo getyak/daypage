@@ -580,6 +580,48 @@ export function OrbitClient({ trees }: { trees: TreeSummary[] }) {
           Task trees grow as the system compiles your memos into goals. Once one
           exists, it will appear here as a living graph.
         </p>
+        {/* Sample preview — show what an orbit looks like, even before one exists */}
+        <div
+          aria-hidden="true"
+          style={{
+            marginTop: 12,
+            padding: "18px 22px",
+            border: "1px dashed var(--border-subtle)",
+            borderRadius: 16,
+            background: "var(--surface-sunken)",
+            display: "flex",
+            alignItems: "center",
+            gap: 18,
+          }}
+        >
+          <svg width="120" height="80" viewBox="0 0 120 80" fill="none">
+            <line x1="60" y1="40" x2="20" y2="20" stroke="var(--accent-border)" strokeWidth="1" />
+            <line x1="60" y1="40" x2="100" y2="20" stroke="var(--accent-border)" strokeWidth="1" />
+            <line x1="60" y1="40" x2="30" y2="65" stroke="var(--accent-border)" strokeWidth="1" />
+            <line x1="60" y1="40" x2="90" y2="65" stroke="var(--accent-border)" strokeWidth="1" />
+            <circle cx="60" cy="40" r="9" fill="var(--accent-hover)" />
+            <circle cx="20" cy="20" r="5" fill="var(--heatmap-mid)" />
+            <circle cx="100" cy="20" r="5" fill="var(--heatmap-low)" />
+            <circle cx="30" cy="65" r="4" fill="var(--heatmap-low)" />
+            <circle cx="90" cy="65" r="6" fill="var(--heatmap-mid)" />
+          </svg>
+          <div style={{ textAlign: "left", fontSize: 12.5, color: "var(--fg-muted)", lineHeight: 1.55 }}>
+            <div
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: "var(--fg-subtle-aa)",
+              }}
+            >
+              Preview
+            </div>
+            One goal · five sub-nodes,
+            <br />
+            heat-mapped by how recent.
+          </div>
+        </div>
       </div>
     );
   }

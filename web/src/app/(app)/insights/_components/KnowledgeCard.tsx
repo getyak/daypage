@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
 import { users, memos } from "@/lib/db/schema";
 import { eq, and, gte, sql } from "drizzle-orm";
@@ -105,33 +105,103 @@ function StatBox({ label, value, sub }: { label: string; value: number; sub?: st
 }
 
 function BarChart({ data, maxCount }: { data: { date: string; count: number }[]; maxCount: number }) {
-  const BAR_H = 80;
+  const BAR_H = 96;
   const show = data.length > 60 ? data.filter((_, i) => i % 2 === 0) : data;
+  // Cap bar width so a single-day dataset doesn't render as one giant slab.
+  const MAX_BAR_W = 14;
+  const half = Math.max(1, Math.round(maxCount / 2));
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: BAR_H, overflow: "hidden" }}>
-        {show.map((d) => {
-          const pct = d.count / maxCount;
-          const h = Math.max(2, Math.round(pct * BAR_H));
-          return (
+      {/* y-axis ticks + plot — grid lines at 50% / 100% give visual scale */}
+      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 10 }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "space-between",
+            alignItems: "flex-end",
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            color: "var(--fg-subtle-aa)",
+            letterSpacing: "0.04em",
+            height: BAR_H,
+            paddingBottom: 2,
+          }}
+        >
+          <span>{maxCount}</span>
+          <span>{half}</span>
+          <span>0</span>
+        </div>
+        <div style={{ position: "relative", height: BAR_H }}>
+          {/* horizontal grid lines */}
+          {[0, 0.5, 1].map((t) => (
             <div
-              key={d.date}
-              title={`${fmtDate(d.date)}: ${d.count} memo${d.count !== 1 ? "s" : ""}`}
+              key={t}
+              aria-hidden="true"
               style={{
-                flex: 1,
-                minWidth: 3,
-                height: h,
-                background: pct > 0.6 ? "var(--heatmap-high)" : pct > 0.3 ? "var(--heatmap-mid)" : "var(--heatmap-low)",
-                borderRadius: "2px 2px 0 0",
-                transition: "height 200ms ease-out",
-                cursor: "default",
+                position: "absolute",
+                left: 0,
+                right: 0,
+                top: `${(1 - t) * 100}%`,
+                borderTop: t === 0 ? "1px solid var(--border-default)" : "1px dashed var(--border-subtle)",
               }}
             />
-          );
-        })}
+          ))}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              display: "flex",
+              alignItems: "flex-end",
+              gap: 3,
+              paddingInline: 2,
+              overflow: "hidden",
+            }}
+          >
+            {show.map((d) => {
+              const pct = maxCount > 0 ? d.count / maxCount : 0;
+              const h = Math.max(d.count > 0 ? 4 : 2, Math.round(pct * BAR_H));
+              return (
+                <div
+                  key={d.date}
+                  title={`${fmtDate(d.date)}: ${d.count} memo${d.count !== 1 ? "s" : ""}`}
+                  style={{
+                    flex: 1,
+                    maxWidth: MAX_BAR_W,
+                    minWidth: 3,
+                    height: h,
+                    background:
+                      d.count === 0
+                        ? "var(--heatmap-empty)"
+                        : pct > 0.6
+                        ? "var(--heatmap-high)"
+                        : pct > 0.3
+                        ? "var(--heatmap-mid)"
+                        : "var(--heatmap-low)",
+                    borderRadius: "3px 3px 0 0",
+                    transition: "height 200ms ease-out",
+                    cursor: "default",
+                  }}
+                />
+              );
+            })}
+          </div>
+        </div>
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: "0.7rem", color: "var(--fg-subtle)" }}>
+      {/* x-axis range labels */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginTop: 8,
+          marginLeft: 28,
+          fontFamily: "var(--font-mono)",
+          fontSize: 10,
+          letterSpacing: "0.04em",
+          color: "var(--fg-subtle-aa)",
+        }}
+      >
         <span>{fmtDate(data[0]?.date ?? "")}</span>
         <span>{fmtDate(data[data.length - 1]?.date ?? "")}</span>
       </div>

@@ -27,6 +27,8 @@ struct RecordingOverlayView: View {
     let elapsedSeconds: Int
     let waveform: [Float]
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     // Dual-pulse halo animation state
     @State private var pulseOuter: Bool = false
     @State private var pulseInner: Bool = false
@@ -49,8 +51,9 @@ struct RecordingOverlayView: View {
                         .frame(width: 142, height: 142)
                         .scaleEffect(pulseOuter ? 1.10 : 0.85)
                         .animation(
-                            // motion-exception: dual-ring pulse 1.6s is the only allowed motion in v4
-                            .easeInOut(duration: 1.6).repeatForever(autoreverses: true),
+                            // motion-exception: dual-ring pulse 1.6s is the only allowed motion in v4.
+                            // Reduce Motion → no repeatForever pulse; the ring holds its calm resting pose.
+                            reduceMotion ? nil : .easeInOut(duration: 1.6).repeatForever(autoreverses: true),
                             value: pulseOuter
                         )
 
@@ -63,8 +66,9 @@ struct RecordingOverlayView: View {
                         .frame(width: 130, height: 130)
                         .scaleEffect(pulseInner ? 1.10 : 0.85)
                         .animation(
-                            // motion-exception: dual-ring pulse 1.6s is the only allowed motion in v4
-                            .easeInOut(duration: 1.6).repeatForever(autoreverses: true),
+                            // motion-exception: dual-ring pulse 1.6s is the only allowed motion in v4.
+                            // Reduce Motion → no repeatForever pulse; the ring holds its calm resting pose.
+                            reduceMotion ? nil : .easeInOut(duration: 1.6).repeatForever(autoreverses: true),
                             value: pulseInner
                         )
 
@@ -92,6 +96,12 @@ struct RecordingOverlayView: View {
                 }
                 .frame(width: 142, height: 142)
                 .onAppear {
+                    // Reduce Motion: leave both halo rings at their calm resting
+                    // pose instead of starting an infinite dual-ring pulse
+                    // (vestibular comfort + a small battery saving while the
+                    // overlay is held). Mirrors the guards already added to
+                    // PressToTalkButton.startRingPulse() and InlineMicButton.
+                    guard !reduceMotion else { return }
                     pulseOuter = true
                     // 0.3s phase offset for inner ring
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {

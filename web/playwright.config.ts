@@ -10,7 +10,7 @@ export default defineConfig({
     ["json", { outputFile: "playwright-report/results.json" }],
   ],
   use: {
-    baseURL: process.env.BASE_URL ?? "http://localhost:3000",
+    baseURL: process.env.BASE_URL ?? "http://localhost:13000",
     trace: "on-first-retry",
     screenshot: "on",
   },
@@ -48,7 +48,7 @@ export default defineConfig({
     ? undefined
     : {
         command: "pnpm dev",
-        url: "http://localhost:3000",
+        url: "http://localhost:13000",
         reuseExistingServer: true,
         timeout: 60_000,
       },

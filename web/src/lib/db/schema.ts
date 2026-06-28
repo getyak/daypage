@@ -158,64 +158,21 @@ export const agentSessionStatusEnum = pgEnum("agent_session_status", [
 
 // ─── US-006: Wave 1b — users + memos + memo_attachments ───────────────────────
 
+// `public.users` is now a profile table: id mirrors `auth.users.id` (synced by
+// the `handle_new_auth_user` trigger from migration 0024). The legacy
+// `emailVerified`/`image` columns (required by @auth/drizzle-adapter) are gone.
 export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
+  id: uuid("id").primaryKey(),
   email: text("email").unique(),
   apple_sub: text("apple_sub").unique(),
   name: text("name"),
   avatar_url: text("avatar_url"),
-  // NextAuth (@auth/drizzle-adapter) requires these column names verbatim
-  emailVerified: timestamp("emailVerified", { mode: "date", withTimezone: true }),
-  image: text("image"),
   created_at: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
   onboarded_at: timestamp("onboarded_at", { withTimezone: true }),
   settings: jsonb("settings"),
 });
-
-// ─── NextAuth (@auth/drizzle-adapter) tables ──────────────────────────────────
-// Column names match the adapter's `DefaultPostgresSchema` exactly; do not
-// rename to snake_case without also passing an overridden schema to
-// `PostgresDrizzleAdapter` in src/auth.ts.
-
-export const accounts = pgTable(
-  "accounts",
-  {
-    userId: uuid("userId")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    type: text("type").notNull(),
-    provider: text("provider").notNull(),
-    providerAccountId: text("providerAccountId").notNull(),
-    refresh_token: text("refresh_token"),
-    access_token: text("access_token"),
-    expires_at: integer("expires_at"),
-    token_type: text("token_type"),
-    scope: text("scope"),
-    id_token: text("id_token"),
-    session_state: text("session_state"),
-  },
-  (t) => [primaryKey({ columns: [t.provider, t.providerAccountId] })],
-);
-
-export const sessions = pgTable("sessions", {
-  sessionToken: text("sessionToken").primaryKey(),
-  userId: uuid("userId")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  expires: timestamp("expires", { mode: "date", withTimezone: true }).notNull(),
-});
-
-export const verificationTokens = pgTable(
-  "verificationTokens",
-  {
-    identifier: text("identifier").notNull(),
-    token: text("token").notNull(),
-    expires: timestamp("expires", { mode: "date", withTimezone: true }).notNull(),
-  },
-  (t) => [primaryKey({ columns: [t.identifier, t.token] })],
-);
 
 export const memos = pgTable(
   "memos",

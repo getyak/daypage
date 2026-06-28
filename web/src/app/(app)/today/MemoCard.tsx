@@ -8,6 +8,9 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
+  Type,
+  Mic,
+  Layers,
 } from "lucide-react";
 import { applyRubberBand, snapTarget } from "@/lib/gestures/rubberBand";
 
@@ -43,6 +46,28 @@ function formatTime(isoString: string): string {
   const hh = String(d.getHours()).padStart(2, "0");
   const mm = String(d.getMinutes()).padStart(2, "0");
   return `${hh}·${mm}`;
+}
+
+// Strip any leaked ISO timestamps (`2026-06-28T11:34:33.335Z` etc.) from raw
+// memo bodies — DB artefacts from earlier seeders that surface inside otherwise
+// human-written text. Belt-and-braces: also drop trailing "  - <iso>" suffixes
+// the iOS sync occasionally pasted in.
+function cleanBody(body: string): string {
+  return body
+    .replace(/\s*[-–—]\s*\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\s*$/g, "")
+    .replace(/\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z\b/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+// Count CJK characters individually + Latin words as one token each. Cleans
+// ISO timestamps first so meta matches the rendered text.
+function wordCountOf(body: string): number {
+  const text = cleanBody(body);
+  if (!text) return 0;
+  const cjk = (text.match(/[一-鿿぀-ゟ゠-ヿ]/g) ?? []).length;
+  const latin = (text.match(/[A-Za-z][A-Za-z'-]*/g) ?? []).length;
+  return cjk + latin;
 }
 
 export function MemoCard({
@@ -302,9 +327,48 @@ export function MemoCard({
                 size={13}
                 strokeWidth={1.7}
                 aria-hidden="true"
-                style={{ color: "var(--fg-subtle)", flexShrink: 0 }}
+                style={{ color: "var(--fg-subtle-aa)", flexShrink: 0 }}
               />
             )}
+            {memo.type === "text" && (
+              <Type
+                size={12}
+                strokeWidth={1.7}
+                aria-label="文本"
+                style={{ color: "var(--fg-subtle-aa)", flexShrink: 0 }}
+              />
+            )}
+            {memo.type === "voice" && (
+              <Mic
+                size={12}
+                strokeWidth={1.7}
+                aria-label="语音"
+                style={{ color: "var(--fg-subtle-aa)", flexShrink: 0 }}
+              />
+            )}
+            {memo.type === "mixed" && (
+              <Layers
+                size={12}
+                strokeWidth={1.7}
+                aria-label="混合"
+                style={{ color: "var(--fg-subtle-aa)", flexShrink: 0 }}
+              />
+            )}
+
+            {/* Word-count micro-meta — pushed to the right with margin-left:auto */}
+            <span
+              aria-label={`字数 ${wordCountOf(memo.body)} 字`}
+              style={{
+                marginLeft: "auto",
+                fontFamily: "var(--font-family-mono), monospace",
+                fontSize: 10,
+                letterSpacing: "0.04em",
+                color: "var(--fg-subtle-aa)",
+                fontWeight: 500,
+              }}
+            >
+              {wordCountOf(memo.body)}w
+            </span>
           </div>
 
           {/* Body text — clamp 5 lines */}
@@ -469,12 +533,13 @@ function CompileStatusBar({
 function BodyText({ body }: { body: string }) {
   const clampRef = useRef<HTMLDivElement>(null);
   const [clamped, setClamped] = useState(false);
+  const cleaned = cleanBody(body);
 
   useEffect(() => {
     const el = clampRef.current;
     if (!el) return;
     setClamped(el.scrollHeight > el.clientHeight + 2);
-  }, [body]);
+  }, [cleaned]);
 
   return (
     <div style={{ position: "relative" }}>
@@ -493,7 +558,7 @@ function BodyText({ body }: { body: string }) {
           overflow: "hidden",
         } as React.CSSProperties}
       >
-        {body}
+        {cleaned}
       </div>
 
       {/* Gradient fade when text is clamped */}

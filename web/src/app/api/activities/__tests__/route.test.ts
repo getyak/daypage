@@ -25,7 +25,7 @@ vi.mock("@/lib/db/schema", async (importOriginal) => {
   return { ...real };
 });
 
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth/session";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

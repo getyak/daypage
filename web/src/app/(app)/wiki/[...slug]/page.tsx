@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
 import { pages, users, page_sources, page_links, memos, domains, annotations } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";

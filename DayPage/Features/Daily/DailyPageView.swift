@@ -554,7 +554,7 @@ struct DailyPageView: View {
             .onTapGesture {
                 // First tap expands and fires the initial question.
                 guard !vm.isExpanded else { return }
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+                withAnimation(Motion.respectReduceMotion(Motion.expand)) {
                     // Collapse all other threads and freeform before expanding.
                     for key in threadVMs.keys where key != question {
                         threadVMs[key]?.isExpanded = false

@@ -405,7 +405,9 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         updated.remove(at: idx)
         updated.insert(pinned, at: 0)
         let previous = memos
-        withAnimation(.easeInOut(duration: 0.25)) {
+        // List reorder physically moves rows — wrap the same curve in
+        // respectReduceMotion so Reduce-Motion users get an instant settle.
+        withAnimation(Motion.respectReduceMotion(.easeInOut(duration: 0.25))) {
             memos = updated
         }
         persistMemos(updated, capturedDate: date, previous: previous, failureMessagePrefix: NSLocalizedString("error.memo.pin_failed", comment: ""))
@@ -421,7 +423,9 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         let insertIdx = updated.firstIndex(where: { $0.created < unpinned.created }) ?? updated.endIndex
         updated.insert(unpinned, at: insertIdx)
         let previous = memos
-        withAnimation(.easeInOut(duration: 0.25)) {
+        // List reorder physically moves rows — wrap the same curve in
+        // respectReduceMotion so Reduce-Motion users get an instant settle.
+        withAnimation(Motion.respectReduceMotion(.easeInOut(duration: 0.25))) {
             memos = updated
         }
         persistMemos(updated, capturedDate: date, previous: previous, failureMessagePrefix: NSLocalizedString("error.memo.unpin_failed", comment: ""))

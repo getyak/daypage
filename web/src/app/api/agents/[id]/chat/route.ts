@@ -1,6 +1,6 @@
 import "server-only";
 import { NextRequest } from "next/server";
-import { auth } from "@/auth";
+import { auth } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
 import {
   users,
