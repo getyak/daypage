@@ -228,6 +228,21 @@ pr*.png
 /home-desktop.png
 /shot-home.*
 /memo-*.png
+/home-*.png
+/v2-*.png
+/v3-*.png
+/marketing-landing-*.png
+/login-*.png
+/add.png
+/chat.png
+/inbox.png
+/insights.png
+/orbit.png
+/wiki.png
+/daypage-design.png
+/design-*.png
+/us-*.png
+/us[0-9]*.png
 
 # Claude Code CLI 会话结果转储（误提交的 agent 运行 transcript，非入仓）
 /Web-*.json

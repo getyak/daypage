@@ -299,12 +299,15 @@ struct MemoCardView: View {
                 // Tiny attachment glyphs hint content type without a loud chip.
                 if photoFlag {
                     Image(systemName: "photo")
-                        .font(.system(size: 8, weight: .medium))
+                        // 9pt (was 8) — 8pt SF Symbols fall below the legibility
+                        // floor; 9pt keeps the quiet inkSubtle tone while letting
+                        // the glyph optically match the 10pt mono timestamp.
+                        .font(.system(size: 9, weight: .medium))
                         .foregroundColor(DSColor.inkSubtle)
                 }
                 if voiceFlag {
                     Image(systemName: "mic")
-                        .font(.system(size: 8, weight: .medium))
+                        .font(.system(size: 9, weight: .medium))
                         .foregroundColor(DSColor.inkSubtle)
                 }
 
@@ -809,6 +812,10 @@ struct VoiceMemoPlayerRow: View {
                     Text(CJKTextPolish.polish(t))
                         .font(DSType.serifQuote)
                         .foregroundColor(DSColor.inkMuted)
+                        // 18pt italic pull-quote reads tight when it wraps; the
+                        // 16pt body uses additive lineSpacing(2), so give the
+                        // larger italic quote a touch more air (4pt) to breathe.
+                        .lineSpacing(4)
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .contextMenu {

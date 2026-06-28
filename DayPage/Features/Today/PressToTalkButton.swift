@@ -87,6 +87,7 @@ struct PressToTalkButton: View {
 
     // MARK: State
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @GestureState private var isPressing: Bool = false
     @State private var currentPhase: PressToTalkPhase = .idle
     @State private var lastTranslation: CGSize = .zero
@@ -212,6 +213,15 @@ struct PressToTalkButton: View {
     // MARK: - Ring Animation
 
     private func startRingPulse() {
+        // Reduce Motion: show a calm static ring instead of an infinitely
+        // expanding/fading pulse, which can cause vestibular discomfort and
+        // carries a small battery cost while held. (Mirrors the guard used by
+        // InputBarV4's BreathingCaretModifier.)
+        guard !reduceMotion else {
+            ringScale = 1.2
+            ringOpacity = 0.35
+            return
+        }
         ringScale = 1.0
         ringOpacity = 0.5
         withAnimation(

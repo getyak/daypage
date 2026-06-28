@@ -19,6 +19,20 @@ enum Motion {
     static let slide: Animation = .timingCurve(0.2, 0.8, 0.2, 1, duration: 0.28)
     // Interactive controls with elastic settle (buttons, toggles).
     static let spring: Animation = .spring(response: 0.35, dampingFraction: 0.8)
+    // Panel / card entrance that scales or rises into place (recording panel,
+    // popovers, send-confirm settle). Slightly snappier than `spring`. Pair with
+    // `.dsAnimation(Motion.panel, value:)` so translation/scale honors Reduce Motion.
+    static let panel: Animation = .spring(response: 0.32, dampingFraction: 0.85)
+    // Banner slide-in/out (AppBanner, error banners). Soft, well-damped settle
+    // for a notification dropping into or out of view. Honors Reduce Motion via
+    // `.dsAnimation`.
+    static let bannerSlide: Animation = .spring(response: 0.55, dampingFraction: 0.88)
+    // Disclosure expand / collapse (thread cards, list reorder). A well-damped
+    // settle for content that grows or moves into place. Because the disclosure
+    // shifts position (`.move` transition / list reorder), pair with
+    // `.dsAnimation(Motion.expand, value:)` or `respectReduceMotion` so it
+    // honors Reduce Motion. Previously duplicated inline as spring(0.3, 0.82).
+    static let expand: Animation = .spring(response: 0.3, dampingFraction: 0.82)
     // High-frequency counters (word/char count) that update on EVERY keystroke.
     // A 0.35s spring here stacks and re-interrupts faster than the user types,
     // starving the main thread and making typing feel "sticky". This curve is

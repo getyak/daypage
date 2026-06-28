@@ -75,7 +75,7 @@ final class BannerCenter: ObservableObject {
 
     func dismiss() {
         autoDismissTask?.cancel()
-        withAnimation(.spring(response: 0.55, dampingFraction: 0.88)) {
+        withAnimation(Motion.respectReduceMotion(Motion.bannerSlide)) {
             currentBanner = nil
         }
         drainNextIfAny()
@@ -85,7 +85,7 @@ final class BannerCenter: ObservableObject {
 
     private func present(_ model: AppBannerModel) {
         autoDismissTask?.cancel()
-        withAnimation(.spring(response: 0.55, dampingFraction: 0.88)) {
+        withAnimation(Motion.respectReduceMotion(Motion.bannerSlide)) {
             currentBanner = model
         }
         if model.autoDismiss {
@@ -96,7 +96,7 @@ final class BannerCenter: ObservableObject {
             autoDismissTask = Task { @MainActor in
                 try? await Task.sleep(nanoseconds: delayNanos)
                 if !Task.isCancelled {
-                    withAnimation(.spring(response: 0.55, dampingFraction: 0.88)) {
+                    withAnimation(Motion.respectReduceMotion(Motion.bannerSlide)) {
                         self.currentBanner = nil
                     }
                     self.drainNextIfAny()
@@ -266,7 +266,7 @@ struct BannerOverlayModifier: ViewModifier {
                     .zIndex(100)
             }
         }
-        .animation(.spring(response: 0.55, dampingFraction: 0.88), value: bannerCenter.currentBanner?.id)
+        .dsAnimation(Motion.bannerSlide, value: bannerCenter.currentBanner?.id)
     }
 }
 

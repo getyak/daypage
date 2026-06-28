@@ -28,7 +28,9 @@ struct ThreadConversationView: View {
         }
         .background(DSColor.surfaceContainerHigh)
         .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard, style: .continuous))
-        .animation(.spring(response: 0.3, dampingFraction: 0.82), value: vm.isExpanded)
+        // Expand/collapse shifts content position (`.move` transition above) —
+        // route through the shared `expand` token so it honors Reduce Motion.
+        .dsAnimation(Motion.expand, value: vm.isExpanded)
     }
 
     // MARK: - Question header
@@ -175,7 +177,7 @@ struct ThreadConversationView: View {
     }
 
     private func toggleExpanded() {
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+        withAnimation(Motion.respectReduceMotion(Motion.expand)) {
             vm.isExpanded.toggle()
         }
     }

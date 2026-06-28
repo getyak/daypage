@@ -308,7 +308,9 @@ struct InputBarV4: View {
                 .accessibilityHidden(!showMicHintToast)
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: showTooShortToast || showMicHintToast)
+        // Toast show/hide → unify on the `fade` token so adjacent transient
+        // hints share one curve (was an inline easeInOut(0.2)).
+        .animation(Motion.fade, value: showTooShortToast || showMicHintToast)
         .sheet(isPresented: $showAttachmentMenu) {
             AttachmentMenuPopover(
                 onCapturePhoto: { showAttachmentMenu = false; onCapturePhoto() },
@@ -393,7 +395,9 @@ struct InputBarV4: View {
                 )
             }
             .ignoresSafeArea()
-            .animation(.spring(response: 0.32, dampingFraction: 0.85), value: overlayMode)
+            // Recording panel scales+rises into place — route through the
+            // `panel` token so it honors Reduce Motion (was an inline spring).
+            .dsAnimation(Motion.panel, value: overlayMode)
         }
     }
 
@@ -733,7 +737,8 @@ struct InputBarV4: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 8)
                 .transition(.opacity)
-                .animation(.easeInOut(duration: 0.15), value: templateSuffix.isEmpty)
+                // Template-suffix fade → `fade` token (was inline easeInOut(0.15)).
+                .animation(Motion.fade, value: templateSuffix.isEmpty)
             }
 
             // Inline action row — one continuous surface with the card, so it
