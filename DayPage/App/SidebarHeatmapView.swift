@@ -71,6 +71,13 @@ struct SidebarHeatmapView: View {
                 .accessibilityLabel(accessibilityText)
             grid
             footer
+                // Footer = LESS/MORE swatches + streak pill — the swatches are a
+                // pure legend (no signal beyond the accessibilityText already
+                // exposed by `header`), and the streak pill duplicates the
+                // streak phrase in `accessibilityText`. Hide the whole row from
+                // VoiceOver so users land on the next focusable element instead
+                // of trekking through 7+ decorative children.
+                .accessibilityHidden(true)
         }
         .padding(.init(top: 16, leading: 16, bottom: 14, trailing: 16))
         .background(
@@ -126,6 +133,11 @@ struct SidebarHeatmapView: View {
 
             VStack(alignment: .leading, spacing: 5) {
                 monthLabels(columns: columns)
+                    // MAR / APR / MAY are purely visual context for the grid —
+                    // each day cell already announces its own MMM-d in its
+                    // accessibilityLabel, so reading these labels aloud is
+                    // duplicative.
+                    .accessibilityHidden(true)
                 GeometryReader { geo in
                     let cell = cellSize(in: geo.size.width)
                     HStack(spacing: cellSpacing) {
