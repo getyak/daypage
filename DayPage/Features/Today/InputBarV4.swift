@@ -256,9 +256,13 @@ struct InputBarV4: View {
                 streamDockMorph
                 dockHintLabel
             }
-            .padding(.horizontal, 16)
+            // Museum-aesthetic redesign (#793): widen breathing room so the
+            // floating dock reads as an island, not a wall-to-wall toolbar.
+            // 32pt horizontal + 22pt bottom lift matches the comp's
+            // ~20% side margins on iPhone 17.
+            .padding(.horizontal, 32)
             .padding(.top, 10)
-            .padding(.bottom, 14)
+            .padding(.bottom, 22)
         }
         // V4: transparent dock — ambient page background shows through.
         // Warm gradient veil fades the list content behind the dock.
@@ -530,11 +534,16 @@ struct InputBarV4: View {
     }
 
     // Hint label below the dock — JetBrains Mono uppercase, like the design.
-    // Morphs based on press-to-talk phase so the gesture stays legible.
+    // Museum-aesthetic redesign (#793): the idle hint ("轻点书写 · 长按录音")
+    // is now hidden so the dock reads as a single quiet capsule on rest. The
+    // hint still appears during a press-to-talk session so the gesture stays
+    // legible (pre/recording/cancel/transcribe stages). Idle collapses to a
+    // 0-height spacer to keep the dock's vertical rhythm stable when a
+    // recording session ends.
     private var dockHintLabel: some View {
         let raw: String
         switch pressToTalkPhase {
-        case .idle:            raw = NSLocalizedString("input.hint.idle", comment: "")
+        case .idle:            raw = ""
         case .preRecording:    raw = NSLocalizedString("input.hint.pre_recording", comment: "")
         case .recording:       raw = NSLocalizedString("input.hint.recording", comment: "")
         case .cancelArmed:     raw = NSLocalizedString("input.hint.cancel_armed", comment: "")
@@ -546,7 +555,8 @@ struct InputBarV4: View {
             .tracking(1.4)
             .textCase(.uppercase)
             .foregroundStyle(DSColor.inkSubtle)
-            .frame(height: 12)
+            .frame(height: raw.isEmpty ? 0 : 12)
+            .opacity(raw.isEmpty ? 0 : 1)
             .animation(.easeInOut(duration: 0.18), value: pressToTalkPhase)
     }
 

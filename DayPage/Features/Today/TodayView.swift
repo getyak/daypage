@@ -319,30 +319,31 @@ struct TodayView: View {
 
                     // MARK: AI key missing banner (R3 — A2)
                     //
-                    // Sits directly under the sidebar header so it precedes
-                    // transient compile chrome (progress bar, failure banner)
-                    // and the timeline. Only renders when both:
-                    //   1. at least one critical key (DeepSeek/Qwen compile or
-                    //      OpenAI Whisper) is empty in Keychain AND in the
-                    //      compile-time fallback;
-                    //   2. the user has finished onboarding (else the
-                    //      onboarding ApiKeysPage already covers this);
-                    //   3. the 24h "dismissed" cooldown is not active;
-                    //   4. this session hasn't already dismissed it.
-                    if shouldShowAIKeyBanner {
+                    // Museum-aesthetic redesign (#793): the banner used to
+                    // dominate the first screen with an amber wash + CTA.
+                    // For a calm capture surface we now surface it ONLY
+                    // when the user genuinely needs to act — i.e. the day
+                    // is empty (nothing to compile = a teaching moment),
+                    // not every launch. With memos present the same
+                    // condition shows up as a small amber dot on the
+                    // settings gear (a quieter affordance, set elsewhere).
+                    if shouldShowAIKeyBanner && viewModel.memos.isEmpty {
                         aiKeyMissingBanner
                             .transition(.opacity.combined(with: .move(edge: .top)))
                     }
 
                     // MARK: Offline Sync Queue Banner (R5)
                     //
-                    // Sits next to the AI-key banner because both
-                    // communicate "background work is paused for a reason
-                    // you might care about". Only renders when the feature
-                    // flag is on AND there's actually something queued —
-                    // otherwise it disappears entirely so the layout
-                    // collapses cleanly.
-                    if FeatureFlagStore.shared.isEnabled(.offlineQueue) && !syncQueue.isEmpty {
+                    // Museum-aesthetic redesign (#793): "1 条待同步" used to
+                    // claim a full 44pt row on the first screen — too noisy
+                    // for a normal capture flow. Now we only surface the
+                    // banner when something is actually stuck (>= 5 memos
+                    // pending OR oldest entry waited > 1h). Small queues
+                    // are invisible — the round-trip still happens in the
+                    // background and the queue indicator on the settings
+                    // gear (set elsewhere) lets the curious user dig in.
+                    if FeatureFlagStore.shared.isEnabled(.offlineQueue)
+                        && (syncQueue.pendingCount >= 5 || syncQueueWaitedTooLong) {
                         syncQueuePendingBanner
                             .transition(.opacity.combined(with: .move(edge: .top)))
                     }
@@ -1192,8 +1193,12 @@ struct TodayView: View {
     // guard in `body`.
     private var bannerCount: Int {
         var n = 0
-        if shouldShowAIKeyBanner { n += 1 }
-        if FeatureFlagStore.shared.isEnabled(.offlineQueue) && !syncQueue.isEmpty { n += 1 }
+        // R10 (#793): AI key banner now only shows on empty days; align
+        // bannerCount so OnThisDay / WeeklyRecap cards don't yield
+        // pre-emptively to a banner that won't actually render.
+        if shouldShowAIKeyBanner && viewModel.memos.isEmpty { n += 1 }
+        if FeatureFlagStore.shared.isEnabled(.offlineQueue)
+            && (syncQueue.pendingCount >= 5 || syncQueueWaitedTooLong) { n += 1 }
         if iCloudConflictBannerVisible { n += 1 }
         return n
     }
@@ -2316,77 +2321,133 @@ struct TodayView: View {
         // Previously the HStack lived inside `.overlay()` on a zero-height
         // ZStack, so it contributed 0pt to the parent VStack and the orbHero
         // below it slid up and overlapped the 56pt hero title. (#590)
-        HStack(alignment: .firstTextBaseline, spacing: 0) {
-            Button {
-                nav.openSidebar()
-            } label: {
-                // Compact header when memos exist: content first, date chip only.
-                // Full 56pt hero reserved for the empty-day capture prompt.
-                if viewModel.memos.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(weekdayName(currentTime))
-                            .font(DSType.serifDisplay56)
-                            .foregroundColor(DSColor.inkPrimary)
-                            .lineLimit(1)
-                            .dynamicTypeSize(.xSmall ... .accessibility2)
-                            .minimumScaleFactor(0.6)
-                        headerSublineView(currentTime)
-                            .accessibilityLabel(headerSublineAccessibilityLabel(currentTime))
-                    }
-                } else {
-                    HStack(spacing: 12) {
-                        DayOrbView(
-                            signalCount: viewModel.signalCount,
-                            size: 22,
-                            // Halo + day-progress arc both disabled in this inline
-                            // chip-row context: at 22pt the amber bloom overlaps
-                            // the meta chip text and the thin progress arc reads
-                            // as a smudge rather than a clock. The standalone
-                            // DayOrb in the day-summary section (TodayView.swift:1000)
-                            // keeps both — that's where the clock metaphor earns
-                            // its space.
-                            haloOpacity: 0,
-                            onTap: {
-                                Haptics.soft()
-                                orbFocusToggle.toggle()
-                            },
-                            pulseToggle: orbCapturePulse,
-                            dayProgress: 0,
-                            timeTint: orbTint(currentTime)
-                        )
+        // Museum-aesthetic hero header — always shows the large weekday title
+        // (Thursday / 星期四) over a fine MAY 28 · 2 NOTES · ☀ 28° · CITY subline.
+        // The compact Orb-chip variant for non-empty days has been removed:
+        // it crowded the top bar with metadata and broke the calm rhythm
+        // shown in the design comp. Toolbar icons (☰ / share / ⚙) live in
+        // a separate row above this hero.
+        VStack(alignment: .leading, spacing: 16) {
+            // MARK: Top toolbar — sidebar / export / settings only.
+            HStack(spacing: 12) {
+                Button {
+                    nav.openSidebar()
+                } label: {
+                    Image(systemName: "line.3.horizontal")
+                        .font(DSType.bodySM)
+                        .foregroundColor(DSColor.inkMuted)
                         .frame(width: 36, height: 36)
-                        .scaleEffect(reduceMotion ? 1.0 : (orbBreathing ? 1.02 : 0.99))
-                        .animation(
-                            reduceMotion ? nil : .easeInOut(duration: 3.0).repeatForever(autoreverses: true),
-                            value: orbBreathing
+                        .glassSurface(in: Circle())
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(NSLocalizedString("a11y.nav.open", comment: "Sidebar open button"))
+                .accessibilityHint(NSLocalizedString("a11y.nav.open.hint", comment: "Opens the sidebar navigation drawer"))
+                .accessibilityIdentifier("sidebar-menu-button")
+
+                Spacer()
+
+                // Export markdown — tap = share sheet, long-press = copy.
+                if !viewModel.memos.isEmpty {
+                    Button {
+                        let content = MarkdownExportService.buildExportContent(
+                            memos: viewModel.memos, date: Date(),
+                            summary: viewModel.dailyPageSummary
                         )
-                        headerSublineView(currentTime)
-                            .accessibilityLabel(headerSublineAccessibilityLabel(currentTime))
+                        let dateString = MarkdownExportService.exportDateString(for: Date())
+                        do {
+                            let url = try MarkdownExportService.writeExportFile(
+                                content: content, dateString: dateString
+                            )
+                            exportFileURL = url
+                            showExportSheet = true
+                            Haptics.tapConfirm()
+                            bannerCenter.show(AppBannerModel(
+                                kind: .success,
+                                title: NSLocalizedString("export.success.title", comment: ""),
+                                autoDismiss: true
+                            ))
+                        } catch {
+                            Haptics.warn()
+                            bannerCenter.show(AppBannerModel(
+                                kind: .error,
+                                title: NSLocalizedString("export.error.title", comment: ""),
+                                autoDismiss: true
+                            ))
+                            DayPageLogger.shared.error("TodayView: export failed: \(error)")
+                        }
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(DSType.bodySM)
+                            .foregroundColor(DSColor.inkMuted)
+                            .frame(width: 36, height: 36)
+                            .glassSurface(in: Circle())
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(NSLocalizedString("export.action.title", comment: ""))
+                    .accessibilityHint(NSLocalizedString("export.action.hint", comment: ""))
+                    .accessibilityIdentifier("export-markdown-button")
+                    .onLongPressGesture(minimumDuration: 0.5) {
+                        let content = MarkdownExportService.buildExportContent(
+                            memos: viewModel.memos, date: Date(),
+                            summary: viewModel.dailyPageSummary
+                        )
+                        UIPasteboard.general.string = content
+                        Haptics.medium()
+                        Haptics.success()
+                        bannerCenter.show(AppBannerModel(
+                            kind: .info,
+                            title: NSLocalizedString("export.copied.title", comment: ""),
+                            autoDismiss: true
+                        ))
                     }
                 }
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(NSLocalizedString("a11y.nav.open", comment: "Sidebar open button"))
-            .accessibilityHint(NSLocalizedString("a11y.nav.open.hint", comment: "Opens the sidebar navigation drawer"))
-            .accessibilityIdentifier("sidebar-menu-button")
-            .simultaneousGesture(
-                TapGesture(count: 2).onEnded {
-                    guard !viewModel.memos.isEmpty, timelineScrollOffset < -8 else { return }
-                    hasNewContentAboveFold = false
+
+                Button {
                     Haptics.soft()
-                    withAnimation(reduceMotion ? nil : Motion.spring) {
-                        timelineScrollProxy?.scrollTo("timelineTop", anchor: .top)
+                    if !reduceMotion {
+                        withAnimation(Motion.spring) { settingsGearRotation += 90 }
                     }
+                    showSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(DSType.bodySM)
+                        .foregroundColor(DSColor.inkMuted)
+                        .frame(width: 36, height: 36)
+                        .glassSurface(in: Circle())
+                        .clipShape(Circle())
+                        .rotationEffect(.degrees(settingsGearRotation))
                 }
-            )
-            .accessibilityAction(named: Text(NSLocalizedString("today.header.scroll_to_top", comment: "Scroll to top accessibility action"))) {
-                guard !viewModel.memos.isEmpty else { return }
+                .buttonStyle(.plain)
+                .accessibilityLabel(NSLocalizedString("a11y.settings", comment: "Settings button"))
+                .accessibilityHint(NSLocalizedString("a11y.settings.hint", comment: "Opens app settings"))
+                .accessibilityIdentifier("settings-gear-button")
+            }
+
+            // MARK: Hero title — weekday + subline.
+            Button {
                 hasNewContentAboveFold = false
                 Haptics.soft()
                 withAnimation(reduceMotion ? nil : Motion.spring) {
                     timelineScrollProxy?.scrollTo("timelineTop", anchor: .top)
                 }
+            } label: {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(weekdayName(currentTime))
+                        .font(DSType.serifDisplay56)
+                        .foregroundColor(DSColor.inkPrimary)
+                        .lineLimit(1)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
+                        .minimumScaleFactor(0.6)
+                    headerSublineView(currentTime)
+                        .accessibilityLabel(headerSublineAccessibilityLabel(currentTime))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(NSLocalizedString("today.header.scroll_to_top", comment: "Scroll to top of timeline"))
+            .accessibilityIdentifier("today-hero-title")
             .onLongPressGesture(minimumDuration: 1.5) {
                 HapticFeedback.medium()
                 if let entry = OnThisDayScheduler.shared.forceRefresh() {
@@ -2395,147 +2456,10 @@ struct TodayView: View {
                     HapticFeedback.warning()
                 }
             }
-
-            Spacer()
-
-            // US-019: Export as Markdown (tap → share sheet; long-press → copy to clipboard)
-            if !viewModel.memos.isEmpty {
-                // Word-count pill: animated mono readout of today's total word count.
-                // Only rendered when there is at least one word to show.
-                let wc = viewModel.todayWordCount
-                if wc > 0 {
-                    let wcLabel = wc == 1
-                        ? NSLocalizedString("writesheet.count.words.one", comment: "")
-                        : String(format: NSLocalizedString("writesheet.count.words.other", comment: ""), wc)
-                    Button {
-                        hasNewContentAboveFold = false
-                        Haptics.soft()
-                        withAnimation(reduceMotion ? nil : Motion.spring) {
-                            timelineScrollProxy?.scrollTo("timelineTop", anchor: .top)
-                        }
-                    } label: {
-                        // Locale-aware grouping (e.g. "1,234" / "1 234") so heavy
-                        // daily logs read cleanly across regions. The animation
-                        // driver below still keys off the raw Int.
-                        Text(wc.formatted(.number.grouping(.automatic)))
-                            .font(DSType.mono10)
-                            .tracking(1.0)
-                            .monospacedDigit()
-                            .foregroundColor(DSColor.inkSubtle)
-                            .modifier(NumericTextContentTransition(value: Double(wc), reduceMotion: reduceMotion))
-                            .animation(reduceMotion ? nil : Motion.spring, value: wc)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            // #771: word-count badge → glass engine (.pill).
-                            .dpGlass(.pill, in: Capsule())
-                            .transition(.opacity.combined(with: .scale(scale: 0.9)))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(wcLabel)
-                    .accessibilityHint(NSLocalizedString("today.wordcount.pill.hint", comment: ""))
-                    .accessibilityIdentifier("today-wordcount-pill")
-                }
-
-                Button {
-                    let content = MarkdownExportService.buildExportContent(
-                        memos: viewModel.memos, date: Date(),
-                        summary: viewModel.dailyPageSummary
-                    )
-                    let dateString = MarkdownExportService.exportDateString(for: Date())
-                    do {
-                        let url = try MarkdownExportService.writeExportFile(
-                            content: content, dateString: dateString
-                        )
-                        exportFileURL = url
-                        showExportSheet = true
-                        Haptics.tapConfirm()
-                        bannerCenter.show(AppBannerModel(
-                            kind: .success,
-                            title: NSLocalizedString("export.success.title", comment: ""),
-                            autoDismiss: true
-                        ))
-                    } catch {
-                        Haptics.warn()
-                        bannerCenter.show(AppBannerModel(
-                            kind: .error,
-                            title: NSLocalizedString("export.error.title", comment: ""),
-                            autoDismiss: true
-                        ))
-                        DayPageLogger.shared.error("TodayView: export failed: \(error)")
-                    }
-                } label: {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(DSType.bodySM)
-                        .foregroundColor(DSColor.inkMuted)
-                        .frame(width: 28, height: 28)
-                        .glassSurface(in: Circle())
-                        .clipShape(Circle())
-                        .scaleEffect(exportHintPulse ? 1.12 : 1)
-                        .shadow(color: DSColor.accentAmber.opacity(exportHintPulse ? 0.4 : 0), radius: exportHintPulse ? 8 : 0)
-                        .animation(reduceMotion ? nil : Motion.spring, value: exportHintPulse)
-                }
-                .accessibilityLabel(NSLocalizedString("export.action.title", comment: ""))
-                .accessibilityHint(NSLocalizedString("export.action.hint", comment: ""))
-                .accessibilityIdentifier("export-markdown-button")
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-                .alignmentGuide(.firstTextBaseline) { d in d[VerticalAlignment.center] + 6 }
-                .onAppear {
-                    guard !UserDefaults.standard.bool(forKey: AppSettings.Keys.exportLongPressHintShown),
-                          !reduceMotion,
-                          !viewModel.memos.isEmpty else { return }
-                    UserDefaults.standard.set(true, forKey: AppSettings.Keys.exportLongPressHintShown)
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .seconds(0.8))
-                        Haptics.soft()
-                        withAnimation(Motion.spring) { exportHintPulse = true }
-                        try? await Task.sleep(for: .seconds(0.5))
-                        withAnimation(Motion.spring) { exportHintPulse = false }
-                    }
-                }
-                .onLongPressGesture(minimumDuration: 0.5) {
-                    let content = MarkdownExportService.buildExportContent(
-                        memos: viewModel.memos, date: Date(),
-                        summary: viewModel.dailyPageSummary
-                    )
-                    UIPasteboard.general.string = content
-                    Haptics.medium()
-                    Haptics.success()
-                    bannerCenter.show(AppBannerModel(
-                        kind: .info,
-                        title: NSLocalizedString("export.copied.title", comment: ""),
-                        autoDismiss: true
-                    ))
-                }
-            }
-
-            Button {
-                Haptics.soft()
-                // A gear should turn when tapped — give it a quarter spin.
-                if !reduceMotion {
-                    withAnimation(Motion.spring) { settingsGearRotation += 90 }
-                }
-                showSettings = true
-            } label: {
-                Image(systemName: "gearshape")
-                    .font(DSType.bodySM)
-                    .foregroundColor(DSColor.inkMuted)
-                    .frame(width: 28, height: 28)
-                    .glassSurface(in: Circle())
-                    .clipShape(Circle())
-                    .rotationEffect(.degrees(settingsGearRotation))
-            }
-            .accessibilityLabel(NSLocalizedString("a11y.settings", comment: "Settings button"))
-            .accessibilityHint(NSLocalizedString("a11y.settings.hint", comment: "Opens app settings"))
-            .accessibilityIdentifier("settings-gear-button")
-            .frame(width: 44, height: 44)
-            .contentShape(Rectangle())
-            .alignmentGuide(.firstTextBaseline) { d in d[VerticalAlignment.center] + 6 }
         }
-        .padding(.horizontal, 14)
-        .padding(.top, viewModel.memos.isEmpty ? 16 : 10)
-        .padding(.bottom, viewModel.memos.isEmpty ? 10 : 6)
-        .animation(reduceMotion ? nil : Motion.fade, value: viewModel.memos.isEmpty)
+        .padding(.horizontal, 24)
+        .padding(.top, 8)
+        .padding(.bottom, 16)
         .onReceive(headerTimer) { date in
             currentTime = date
         }
@@ -2830,7 +2754,18 @@ struct TodayView: View {
     @ViewBuilder
     private var composeSection: some View {
         Group {
-            if !viewModel.isDailyPageCompiled && !viewModel.memos.isEmpty {
+            // Museum-aesthetic redesign (#793): the persistent "编译今日"
+            // CTA used to live here on every day with memos and added a
+            // mid-screen amber pill plus a "夜深了…" hint that broke the
+            // calm capture surface. With background compilation now
+            // running automatically at the user's local 02:00 (and the
+            // per-memo "compile" affordance still on the day-summary
+            // card), the floating CTA is redundant. We keep this section
+            // ONLY as a recovery surface — i.e. when a manual compile or
+            // background pass produced an error the user has to retry.
+            if !viewModel.isDailyPageCompiled
+                && !viewModel.memos.isEmpty
+                && (viewModel.isCompiling || viewModel.submitError != nil) {
                 let aiKeyMissing = Secrets.resolvedDeepSeekApiKey.isEmpty
                 HStack {
                     Spacer()
@@ -3069,19 +3004,22 @@ struct TodayView: View {
         }
     }
 
+    // Weekday "Thursday / 星期四" — follows the user's current locale so
+    // Chinese users see 星期四 and English users see Thursday on the hero.
     private static let weekdayFmt: DateFormatter = {
         let f = DateFormatter()
-        f.dateFormat = "EEEE"
-        f.locale = Locale(identifier: "en_US_POSIX")
+        f.locale = Locale.current
         f.timeZone = TimeZone.current
+        f.setLocalizedDateFormatFromTemplate("EEEE")
         return f
     }()
 
+    // "MAY 28" / "5月28日" subline — also locale-aware.
     private static let headerDateFmt: DateFormatter = {
         let f = DateFormatter()
-        f.dateFormat = "MMM d"
-        f.locale = Locale(identifier: "en_US_POSIX")
+        f.locale = Locale.current
         f.timeZone = TimeZone.current
+        f.setLocalizedDateFormatFromTemplate("MMM d")
         return f
     }()
 
