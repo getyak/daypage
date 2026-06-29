@@ -26,7 +26,7 @@
 "compile.dock.unlocked" = "已解锁今日编译";
 
 /* InputBarV4 — press-to-talk hint states */
-"input.hint.placeholder"     = "记下此刻";
+"input.hint.placeholder"     = "说点什么，或按住说话…";
 "input.hint.idle"            = "轻点书写 · 长按录音";
 "input.hint.pre_recording"   = "再按住一下";
 "input.hint.recording"       = "上滑取消 · 左滑转文字 · 松开发送";
@@ -76,6 +76,7 @@
 "input.a11y.more_attachments" = "更多附件";
 "input.a11y.mic"             = "麦克风";
 "input.a11y.mic_hint_full"   = "单击进入录音页；长按说话松手发送";
+"input.a11y.ask_ai"          = "和过去对话";
 "input.a11y.write_text"      = "写文字";
 "input.a11y.mic_transcribe"  = "录音转文字";
 "input.a11y.mic_stop_transcribe" = "停止录音并转文字";
@@ -147,6 +148,12 @@
 "today.orb.value.other"      = "已捕获 %d 条信号";
 "today.orb.hint"             = "轻点两下聚焦输入框；长按获取写作提示";
 "today.orb.prompt.action"    = "获取写作提示";
+
+/* Empty-state museum poem (#793 R3) — reference comp 4.png */
+"today.empty.poem.title"     = "把今天放下来。";
+"today.empty.poem.subtitle"  = "我陪你整理。";
+"today.empty.poem.a11y"      = "把今天放下来。我陪你整理。";
+"today.empty.ai_cta"         = "让 AI 陪你聊聊今天";
 
 /* Day Orb long-press capture prompts */
 "today.orb.prompt.morning"   = "今天第一件想记下的事是什么？";

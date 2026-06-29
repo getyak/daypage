@@ -26,7 +26,7 @@
 "compile.dock.unlocked" = "Daily compilation unlocked";
 
 /* InputBarV4 — press-to-talk hint states */
-"input.hint.placeholder"     = "Capture this moment";
+"input.hint.placeholder"     = "Say something, or hold to talk…";
 "input.hint.idle"            = "Tap to write · Hold to record";
 "input.hint.pre_recording"   = "Hold a moment longer";
 "input.hint.recording"       = "Swipe up to cancel · Left to transcribe · Release to send";
@@ -76,6 +76,7 @@
 "input.a11y.more_attachments" = "More attachments";
 "input.a11y.mic"             = "Microphone";
 "input.a11y.mic_hint_full"   = "Tap to open the recorder; press-and-hold to send a voice memo";
+"input.a11y.ask_ai"          = "Chat with your past";
 "input.a11y.write_text"      = "Write text";
 "input.a11y.mic_transcribe"  = "Record and transcribe";
 "input.a11y.mic_stop_transcribe" = "Stop recording and transcribe";
@@ -147,6 +148,12 @@
 "today.orb.value.other"      = "%d signals captured";
 "today.orb.hint"             = "Double tap to focus composer; long press for a writing prompt";
 "today.orb.prompt.action"    = "Get a writing prompt";
+
+/* Empty-state museum poem (#793 R3) — reference comp 4.png */
+"today.empty.poem.title"     = "Set today down.";
+"today.empty.poem.subtitle"  = "I'll tidy it with you.";
+"today.empty.poem.a11y"      = "Set today down. I'll tidy it with you.";
+"today.empty.ai_cta"         = "Let AI talk through today with you";
 
 /* Day Orb long-press capture prompts */
 "today.orb.prompt.morning"   = "What's the first thing on your mind?";
