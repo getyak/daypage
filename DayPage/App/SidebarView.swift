@@ -128,6 +128,9 @@ struct SidebarView: View {
                 .font(DSType.mono10)
                 .tracking(2.0)
                 .foregroundColor(DSColor.inkMuted)
+                // Wordmark — purely decorative; VoiceOver users land on the
+                // close button and then go straight into the profile row.
+                .accessibilityHidden(true)
         }
         .padding(.horizontal, 20)
         .padding(.top, 58)
@@ -179,6 +182,15 @@ struct SidebarView: View {
         .buttonStyle(.plain)
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
+        // Merge avatar + name + membership line into a single VoiceOver focus
+        // so the user hears "<name>, <membership>" once instead of three
+        // separate elements that read as "·, Local Account, LOCAL · TAP TO SYNC".
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(profileName), \(membershipLine)")
+        .accessibilityHint(sidebarVM.isLoggedIn
+            ? "Opens account details"
+            : "Opens sign-in"
+        )
     }
 
     private var profileName: String {
@@ -226,8 +238,10 @@ struct SidebarView: View {
                 )
             statDivider
             statCell(label: "DAILIES", value: "\(sidebarVM.totalPages)", unit: "COMPILED", first: false)
+                .accessibilityLabel("\(sidebarVM.totalPages) dailies compiled")
             statDivider
             statCell(label: "WORDS", value: formatWords(sidebarVM.totalWordCount), unit: "TOTAL", first: false)
+                .accessibilityLabel("\(sidebarVM.totalWordCount) words total")
         }
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -256,6 +270,10 @@ struct SidebarView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
+        // Each stat cell reads as one focus (e.g. "STREAK 5 BEST 12") instead
+        // of three separate StaticText nodes. Call sites that need a richer
+        // phrase override via `.accessibilityLabel(...)`.
+        .accessibilityElement(children: .combine)
     }
 
     private var statDivider: some View {
@@ -263,6 +281,7 @@ struct SidebarView: View {
             .fill(DSColor.borderSubtle)
             .frame(width: 0.5)
             .padding(.vertical, 12)
+            .accessibilityHidden(true)
     }
 
     /// "58k" style compaction for the word stat.
@@ -382,6 +401,15 @@ struct SidebarView: View {
         }
         .disabled(disabled)
         .buttonStyle(.plain)
+        // Merge the amber strip + icon + label + "Post-MVP" badge into one
+        // focus, then announce the destination + selection state.
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(label)
+        .accessibilityHint(disabled
+            ? "Coming after MVP"
+            : (tab == .feedback ? "Opens feedback" : "Navigates to \(label)")
+        )
+        .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
     }
 
     // MARK: - Recent Section
@@ -438,6 +466,11 @@ struct SidebarView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        // "Today, 3 entries" / "Apr 13, 1 entry" — one phrase, then trait.
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(Self.formatRowTitle(day.dateString)), \(day.memoCount) \(day.memoCount == 1 ? "entry" : "entries")")
+        .accessibilityHint("Opens this day in Archive")
+        .accessibilityAddTraits(.isButton)
     }
 
     private func sectionLabel(_ text: String) -> some View {
@@ -448,6 +481,9 @@ struct SidebarView: View {
             .textCase(.uppercase)
             .padding(.leading, 34)  // align with row text column (2 + 12 + 20)
             .padding(.bottom, 4)
+            // Use isHeader so VoiceOver rotor lists these as section titles
+            // rather than skipping them; users can jump between sections.
+            .accessibilityAddTraits(.isHeader)
     }
 
     // MARK: - Bottom Section
@@ -474,6 +510,10 @@ struct SidebarView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Settings")
+            .accessibilityHint("Opens app settings")
+            .accessibilityAddTraits(.isButton)
 
             // Account (when logged in)
             if sidebarVM.isLoggedIn {
@@ -516,6 +556,10 @@ struct SidebarView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Signed in as \(email)")
+        .accessibilityHint("Opens account details")
+        .accessibilityAddTraits(.isButton)
     }
 
     // MARK: - Date Formatting

@@ -173,6 +173,10 @@ struct RootView: View {
                 .ignoresSafeArea()
                 .shadow(color: Color.black.opacity(0.10), radius: 20, x: 6, y: 0)
                 .offset(x: nav.isSidebarOpen ? 0 : -sidebarWidth)
+                // Take the panel out of the accessibility tree when it's off-
+                // screen, otherwise VoiceOver users can still focus Settings /
+                // Recent rows that are visually at negative x coordinates.
+                .accessibilityHidden(!nav.isSidebarOpen)
 
             // Right-side feedback panel — same scrim treatment as the sidebar
             // so both drawers feel like they belong to the same elevation tier.
