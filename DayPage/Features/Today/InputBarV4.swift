@@ -82,6 +82,9 @@ struct InputBarV4: View {
     var onPressToTalkTranscribe: (String) -> Void
     var onAddFile: () -> Void
     var onSubmit: () -> Void
+    /// Opens the AI chat surface (AskPastView). Optional so previews and unit
+    /// tests can leave it nil; the dock then hides the sparkle slot.
+    var onAskAI: (() -> Void)? = nil
     var onAddPhotoAsset: ((PHAsset) -> Void)? = nil
     // US-012: batch photo progress bar
     var batchPhotoProgress: Double = 0
@@ -478,6 +481,28 @@ struct InputBarV4: View {
             .shadow(color: Color(hex: "5D3000").opacity(0.18), radius: 1, x: 0, y: 1)
             .accessibilityLabel(NSLocalizedString("input.a11y.mic", comment: ""))
             .accessibilityHint(NSLocalizedString("input.a11y.mic_hint_full", comment: ""))
+
+            // FAR-RIGHT — AI chat sparkle. The amber sparkle is the dock's
+            // entry into AskPastView (D1 「和过去对话」). We only render the
+            // slot when `onAskAI` is wired, so previews and unit tests can
+            // omit it cleanly. Visual weight is intentionally lighter than
+            // the mic (no filled orb, just a tinted glyph) — the mic is the
+            // primary recording action; the sparkle is the calm AI side-door.
+            if onAskAI != nil {
+                Button {
+                    Haptics.tapConfirm()
+                    onAskAI?()
+                } label: {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(DSColor.amberDeep)
+                        .frame(width: 40, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(NSLocalizedString("input.a11y.ask_ai", comment: "Open AI chat"))
+                .accessibilityIdentifier("dock-ask-ai-button")
+            }
         }
         .padding(.leading, 10)
         .padding(.trailing, 6)

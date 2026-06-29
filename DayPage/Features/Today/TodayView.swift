@@ -181,6 +181,10 @@ struct TodayView: View {
     /// (the same path the inline composer uses) via `draftText`.
     @State private var showWriteSheet: Bool = false
 
+    /// Controls the AskPastView sheet — the AI chat surface reachable from the
+    /// dock sparkle button and the empty-state "让 AI 陪你聊聊今天" CTA.
+    @State private var showAskAI: Bool = false
+
     /// Toggled each time the Day Orb is tapped to focus the composer input.
     @State private var orbFocusToggle: Bool = false
     /// Toggled each time a new memo is added while the orb hero is visible, triggering a capture-reward glow pulse.
@@ -935,6 +939,17 @@ struct TodayView: View {
             .sheet(isPresented: $showSettings) {
                 SettingsView()
             }
+            // AI chat — AskPastView (D1 「和过去对话」). Reached from the
+            // dock sparkle button and the empty-state CTA "让 AI 陪你聊聊今天".
+            // .large detent (default) since the conversation surface needs
+            // full vertical space; the AskPastView's own NavigationStack
+            // owns its "关闭" toolbar item.
+            .sheet(isPresented: $showAskAI) {
+                AskPastView(
+                    seedQuestion: nil,
+                    onClose: { showAskAI = false }
+                )
+            }
             // US-019: Markdown export share sheet
             .sheet(isPresented: $showExportSheet) {
                 if let url = exportFileURL {
@@ -1258,91 +1273,43 @@ struct TodayView: View {
 
     /// The actual banner row. 44pt tall, warm-amber tinted, with a
     /// settings CTA on the right and an x dismiss on the far right.
+    /// R3 (#793 comp 4.png): the AI-key surface used to be a 44pt amber-washed
+    /// banner with title + CTA pill + dismiss-X. Against the museum reference
+    /// that whole strip read as an alert. The comp shows a single thin row of
+    /// muted text — "🔑 钥匙就绪后，夜间编译会自动开启 ›" — that taps to open
+    /// Settings. No background, no dismiss; the row simply disappears once a
+    /// key is present.
     private var aiKeyMissingBanner: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "key.slash")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(DSColor.amberAccent)
-                .accessibilityHidden(true)
-
-            Text(NSLocalizedString(
-                "today.banner.ai_key_missing",
-                // R9-LOW A4: active-voice rewrite — "AI 编译已暂停 — 配置
-                // 密钥后可启用" reads as a status report; "配置 AI 密钥以
-                // 启用编译" frames the same condition as an action the user
-                // can take. Better aligned with the CTA right next to it.
-                value: "配置 AI 密钥以启用编译",
-                comment: "Today banner shown when DeepSeek/Whisper API key is missing"
-            ))
-                .font(DSFonts.inter(size: 13, weight: .medium))
-                .foregroundColor(DSColor.inkPrimary)
-                .lineLimit(2)
-                .minimumScaleFactor(0.85)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            Button {
-                Haptics.tapConfirm()
-                // The in-app Settings sheet is the keychain editor; the
-                // system Settings deep-link has nothing to configure for
-                // an AI provider key, so jump in-app instead.
-                showSettings = true
-            } label: {
-                HStack(spacing: 4) {
-                    Text(NSLocalizedString(
-                        "today.banner.ai_key_missing.cta",
-                        value: "前往设置",
-                        comment: "Today banner CTA: open Settings to enter API key"
-                    ))
-                        .font(DSFonts.inter(size: 12, weight: .semibold))
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 10, weight: .semibold))
-                }
-                .foregroundColor(DSColor.amberAccent)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(
-                    Capsule().stroke(DSColor.amberAccent.opacity(0.55), lineWidth: 1)
-                )
+        Button {
+            Haptics.soft()
+            showSettings = true
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "key")
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundColor(DSColor.amberDeep.opacity(0.85))
+                    .accessibilityHidden(true)
+                Text(NSLocalizedString(
+                    "today.banner.ai_key_missing",
+                    value: "钥匙就绪后，夜间编译会自动开启",
+                    comment: "Today status line shown when DeepSeek/Whisper key is missing"
+                ))
+                    .font(DSFonts.serif(size: 13, weight: .regular))
+                    .foregroundColor(DSColor.inkSubtle)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(DSColor.inkMuted.opacity(0.7))
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(NSLocalizedString(
-                "today.banner.ai_key_missing.cta.a11y",
-                value: "前往设置配置 API 密钥",
-                comment: "VoiceOver label for the banner CTA"
-            ))
-
-            Button {
-                Haptics.soft()
-                // 24h cooldown — store the future "show again" epoch so a
-                // reentry within the next day stays quiet.
-                aiBannerDismissedUntil = Date().timeIntervalSince1970 + 24 * 3600
-                aiBannerDismissedSession = true
-                withAnimation(reduceMotion ? nil : Motion.dismiss) {
-                    // shouldShowAIKeyBanner now flips false via the two
-                    // flags above; no need to mutate aiKeyMissing.
-                }
-            } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(DSColor.inkMuted)
-                    .frame(width: 22, height: 22)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(NSLocalizedString(
-                "today.banner.ai_key_missing.dismiss",
-                value: "关闭提示",
-                comment: "VoiceOver label for the banner dismiss button"
-            ))
+            .padding(.vertical, 6)
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
         }
-        .padding(.horizontal, DSSpacing.pageMargin)
-        .frame(height: 44)
-        .frame(maxWidth: .infinity)
-        .background(DSColor.amberAccent.opacity(0.18))
-        // R4 — `.combine` reads the icon + title + CTA + dismiss as one
-        // grouped element so VoiceOver users hear "AI key missing, open
-        // settings, dismiss" rather than four separate items in row order.
-        .accessibilityElement(children: .combine)
+        .buttonStyle(.plain)
+        .accessibilityLabel(NSLocalizedString(
+            "today.banner.ai_key_missing.cta.a11y",
+            value: "前往设置配置 API 密钥",
+            comment: "VoiceOver label for the AI key row"
+        ))
     }
 
     // MARK: - Offline Sync Queue Banner (R5)
@@ -1636,18 +1603,20 @@ struct TodayView: View {
                 onThisDayDateString = dateString
             }
         case .pureEmpty:
-            VStack(spacing: 12) {
-                // #773: drop the ADD A MEMO CTA here — it fired the exact same
-                // action as the Day Orb tap (orbFocusToggle), so the two sat
-                // side-by-side as duplicate write entries. The Day Orb stays as
-                // the ambient primary entry; the bottom dock is the other. New
-                // users (todayBlank, not yet onboarded) still get a guiding CTA.
-                EmptyStateView.todayNoSignals(subtitleOverride: todayEmptySubtitle(currentTime))
+            // R3 (#793 comp 4.png): orbHero now carries the full empty-state
+            // expression — warm glow + serif poem ("把今天放下来。" / "我陪你
+            //整理。") + AI CTA. The previous EmptyStateView.todayNoSignals
+            // line ("暂时没有信号浮现。") read as a second, heavier headline
+            // stacked under the poem and broke the calm museum rhythm.
+            // Streak kicker still surfaces for users on a multi-day streak —
+            // that's earned context, not space-filler.
+            VStack(spacing: 8) {
                 let streak = sidebarVM.currentStreak
-                if streak >= 1 {
-                    let kickerText: String = streak == 1
-                        ? String(format: NSLocalizedString("today.empty.streak.kicker.one", comment: ""), streak)
-                        : String(format: NSLocalizedString("today.empty.streak.kicker", comment: ""), streak)
+                if streak >= 2 {
+                    let kickerText = String(
+                        format: NSLocalizedString("today.empty.streak.kicker", comment: ""),
+                        streak
+                    )
                     Text(kickerText)
                         .font(DSType.mono10)
                         .tracking(1.0)
@@ -1656,6 +1625,7 @@ struct TodayView: View {
                         .dynamicTypeSize(.xSmall ... .accessibility5)
                         .accessibilityLabel(kickerText)
                         .transition(.opacity)
+                        .padding(.top, 12)
                 }
             }
             .padding(.horizontal, 20)
@@ -1902,106 +1872,131 @@ struct TodayView: View {
 
     // MARK: - Day Orb Hero
 
-    /// Hero region shown at the top of Today: serif date + mono signal kicker + 200pt Day Orb.
+    /// Hero region shown at the top of Today on an empty day — designed against
+    /// the museum-aesthetic reference (#793 R3): a soft warm-cream glow ellipse
+    /// behind a two-line serif poem ("把今天放下来。" / "我陪你整理。"), with a
+    /// quiet "让 AI 陪你聊聊今天" CTA at the bottom that opens AskPastView.
+    /// The 140pt DayOrbView still anchors the glow's tap-to-focus behavior but
+    /// is now visually subordinate to the poem; the orb's halo IS the warm
+    /// ellipse the comp shows. The old mono kicker (DATE · TIME · N SIGNALS)
+    /// is dropped — empty days don't need metadata, they need an invitation.
     @ViewBuilder
     private var orbHero: some View {
-        // The 56pt hero title now lives in `sidebarSection` (always-on), so the
-        // empty-state orb block only carries the orb + kicker to avoid a
-        // duplicate weekday title.
-        VStack(spacing: 6) {
-            // F2: subtle mode badge above the greeting when AI features are off
-            // OR the device is offline — answers "why doesn't compile/voice
-            // work right now?" without forcing the user to dig into Settings.
+        VStack(spacing: 0) {
+            // F2: status badge stays at the very top — it's a "why doesn't
+            // compile work?" affordance, not decoration.
             if !aiFeaturesEnabled {
                 modeBadge(text: NSLocalizedString("today.badge.ai_off",
                                                   comment: "Today header badge: AI features are turned off"))
-                    .padding(.bottom, 2)
+                    .padding(.bottom, 18)
             } else if !networkMonitor.isOnline {
                 modeBadge(text: NSLocalizedString("today.badge.offline",
                                                   comment: "Today header badge: device is offline"))
-                    .padding(.bottom, 2)
+                    .padding(.bottom, 18)
+            } else {
+                // Reserve a similar amount of breathing room so the poem's
+                // vertical center is stable whether the badge is shown or not.
+                Spacer().frame(height: 6)
             }
-            Text(orbGreeting(currentTime))
-                .font(DSType.serifDisplay28)
-                .foregroundColor(DSColor.inkPrimary)
-                .dynamicTypeSize(.xSmall ... .accessibility2)
-                .minimumScaleFactor(0.7)
-                .padding(.bottom, 2)
 
-            // Split the kicker so the signal count can animate with numericText
-            // while date/time remain stable. HStack(spacing:0) keeps the line
-            // visually identical to the old single-Text layout.
-            HStack(spacing: 0) {
-                Text(orbKickerPrefix(currentTime))
-                    .font(DSType.mono10)
-                    .foregroundColor(DSColor.inkSubtle)
-                    .textCase(.uppercase)
-                    .tracking(1.0)
-                Text("\(viewModel.signalCount)")
-                    .font(DSType.mono10)
-                    .foregroundColor(DSColor.inkSubtle)
-                    .textCase(.uppercase)
-                    .tracking(1.0)
-                    .modifier(NumericTextContentTransition(value: Double(viewModel.signalCount), reduceMotion: reduceMotion))
-                    .animation(reduceMotion ? nil : Motion.spring, value: viewModel.signalCount)
-                Text(orbKickerSuffix())
-                    .font(DSType.mono10)
-                    .foregroundColor(DSColor.inkSubtle)
-                    .textCase(.uppercase)
-                    .tracking(1.0)
-            }
-            .accessibilityLabel(orbKicker(currentTime))
-
-            let glowBoost = min(Double(viewModel.signalCount), 5) * 0.04
-            let signalCount = viewModel.signalCount
-            let orbValueKey = signalCount == 1 ? "today.orb.value.one" : "today.orb.value.other"
-            let orbValue = String(format: NSLocalizedString(orbValueKey, comment: ""), signalCount)
-            let tint = orbTint(currentTime)
-            DayOrbView(signalCount: signalCount, size: 140, onTap: {
-                Haptics.tapConfirm()
-                if viewModel.memos.isEmpty && draftText.isEmpty {
-                    draftText = orbCapturePrompt(currentTime)
-                    if !reduceMotion {
-                        withAnimation(Motion.spring) { orbTapBounce = true }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                            withAnimation(Motion.spring) { orbTapBounce = false }
-                        }
+            // The warm glow + poem stack. The glow is the orb's own halo —
+            // we drop a DayOrbView under the text and let its breathing shadow
+            // become the cream ellipse the comp shows. The orb itself is set
+            // to a very low base opacity so the *light* shows but the *ball*
+            // does not draw attention away from the poem.
+            ZStack {
+                // Warm amber glow — pure radial gradient instead of the
+                // tinted DayOrbView. The previous code passed `orbTint(now)`
+                // into the orb's gradient which in deep-night reads as cold
+                // gray (reference comp shows cream/amber regardless of time).
+                // A hand-rolled RadialGradient keeps the museum warmth fixed.
+                RadialGradient(
+                    gradient: Gradient(stops: [
+                        .init(color: DSColor.amberDeep.opacity(orbBreathing ? 0.32 : 0.22), location: 0.0),
+                        .init(color: DSColor.amberDeep.opacity(orbBreathing ? 0.20 : 0.14), location: 0.30),
+                        .init(color: DSColor.accentAmber.opacity(orbBreathing ? 0.10 : 0.07), location: 0.55),
+                        .init(color: Color.clear, location: 1.0)
+                    ]),
+                    center: .center,
+                    startRadius: 0,
+                    endRadius: 180
+                )
+                .frame(width: 360, height: 320)
+                .blur(radius: 28)
+                .scaleEffect(reduceMotion ? 1.0 : (orbBreathing ? 1.03 : 0.99))
+                .animation(
+                    reduceMotion ? nil : .easeInOut(duration: 3.6).repeatForever(autoreverses: true),
+                    value: orbBreathing
+                )
+                .accessibilityHidden(true)
+                // Invisible tap target — preserves "tap orb to focus composer"
+                // behavior the original DayOrbView wired up.
+                .contentShape(Ellipse())
+                .onTapGesture {
+                    Haptics.tapConfirm()
+                    if draftText.isEmpty {
+                        draftText = orbCapturePrompt(currentTime)
                     }
+                    orbFocusToggle.toggle()
                 }
-                orbFocusToggle.toggle()
-            }, pulseToggle: orbCapturePulse, dayProgress: dayProgress, timeTint: tint)
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.8), value: tint)
-            .scaleEffect(reduceMotion ? 1.0 : (orbTapBounce ? 0.9 : (orbBreathing ? 1.03 : 0.985)))
-            .shadow(
-                color: tint.opacity(orbBreathing ? 0.28 + glowBoost : 0.12 + glowBoost),
-                radius: orbBreathing ? 22 + glowBoost * 40 : 12
-            )
-            .animation(
-                reduceMotion ? nil : .easeInOut(duration: 3.0).repeatForever(autoreverses: true),
-                value: orbBreathing
-            )
-            .animation(reduceMotion ? nil : Motion.fade, value: orbTintBucket(currentTime))
-            .shadow(
-                color: DSColor.accentAmber.opacity(refreshGlow ? 0.45 : 0),
-                radius: refreshGlow ? 18 : 0
-            )
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.6), value: refreshGlow)
+
+                VStack(spacing: 8) {
+                    Text(NSLocalizedString("today.empty.poem.title",
+                                           comment: "Empty-state poem main line (e.g. 把今天放下来。)"))
+                        .font(DSFonts.serif(size: 28, weight: .regular))
+                        .foregroundColor(DSColor.inkPrimary)
+                        .multilineTextAlignment(.center)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
+                        .minimumScaleFactor(0.7)
+                    Text(NSLocalizedString("today.empty.poem.subtitle",
+                                           comment: "Empty-state poem secondary line (e.g. 我陪你整理。)"))
+                        .font(DSFonts.serif(size: 17, weight: .regular))
+                        .foregroundColor(DSColor.inkSubtle)
+                        .multilineTextAlignment(.center)
+                        .dynamicTypeSize(.xSmall ... .accessibility2)
+                        .minimumScaleFactor(0.7)
+                }
+            }
+            .frame(height: 280)
+            .padding(.vertical, 8)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(NSLocalizedString("today.empty.poem.a11y",
+                                                  comment: "Combined accessibility label for the empty-state poem and orb"))
+            .accessibilityHint(NSLocalizedString("today.orb.hint", comment: ""))
             .onLongPressGesture(minimumDuration: 0.5) {
                 Haptics.medium()
                 guard draftText.isEmpty else { return }
                 draftText = orbCapturePrompt(currentTime)
                 orbFocusToggle.toggle()
             }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(NSLocalizedString("today.orb.label", comment: ""))
-            .accessibilityValue(orbValue)
-            .accessibilityHint(NSLocalizedString("today.orb.hint", comment: ""))
-            .accessibilityAction(named: Text(NSLocalizedString("today.orb.prompt.action", comment: ""))) {
-                Haptics.medium()
-                guard draftText.isEmpty else { return }
-                draftText = orbCapturePrompt(currentTime)
-                orbFocusToggle.toggle()
+
+            // CTA: 让 AI 陪你聊聊今天 — quiet amber sparkle + serif text.
+            // Tapping opens AskPastView (the same surface the dock sparkle
+            // routes to). Hidden when AI features are off so the user can't
+            // hit a dead-end button.
+            if aiFeaturesEnabled {
+                Button {
+                    Haptics.tapConfirm()
+                    showAskAI = true
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(DSColor.amberDeep)
+                        Text(NSLocalizedString("today.empty.ai_cta",
+                                               comment: "Empty-state AI chat CTA (e.g. 让 AI 陪你聊聊今天)"))
+                            .font(DSFonts.serif(size: 15, weight: .medium))
+                            .foregroundStyle(DSColor.amberDeep)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("today-empty-ai-cta")
+                .padding(.top, 12)
             }
+
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
@@ -2212,6 +2207,10 @@ struct TodayView: View {
                 viewModel.submitCombinedMemo(body: body)
                 showUndoPill(for: body)
                 announceMemoSaved()
+            },
+            onAskAI: {
+                Haptics.tapConfirm()
+                showAskAI = true
             },
             onAddPhotoAsset: nil,
             batchPhotoProgress: viewModel.batchPhotoProgress,
@@ -2425,13 +2424,13 @@ struct TodayView: View {
                 .accessibilityIdentifier("settings-gear-button")
             }
 
-            // MARK: Hero title — weekday + subline.
-            // R2 (#793): Chinese "星期X" at 56pt visually overpowered the
-            // calm canvas — two CJK glyphs at that point size read as a
-            // poster headline, not a museum label. Latin "Thursday" was
-            // closer to the comp at 56pt because seven slim letters
-            // occupy similar horizontal space. We compromise at 40pt:
-            // big enough to anchor the screen, light enough for CJK.
+            // MARK: Hero title — weekday + subline, CENTERED.
+            // R3 (#793 comp 4.png): the comp puts the hero between the
+            // hamburger and the gear, not left-aligned under them. The
+            // toolbar row above carries ☰ · ⚙; the hero sits below
+            // centered so the eye lands on the date before the dock.
+            // Chinese "星期X" at 28pt keeps the calm museum scale; the
+            // subline (30 JUN · 深夜) is a small caps caption.
             Button {
                 hasNewContentAboveFold = false
                 Haptics.soft()
@@ -2439,9 +2438,9 @@ struct TodayView: View {
                     timelineScrollProxy?.scrollTo("timelineTop", anchor: .top)
                 }
             } label: {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .center, spacing: 6) {
                     Text(weekdayName(currentTime))
-                        .font(DSFonts.serif(size: 40, weight: .semibold))
+                        .font(DSFonts.serif(size: 26, weight: .regular))
                         .foregroundColor(DSColor.inkPrimary)
                         .lineLimit(1)
                         .dynamicTypeSize(.xSmall ... .accessibility2)
@@ -2449,7 +2448,7 @@ struct TodayView: View {
                     headerSublineView(currentTime)
                         .accessibilityLabel(headerSublineAccessibilityLabel(currentTime))
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .center)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(NSLocalizedString("today.header.scroll_to_top", comment: "Scroll to top of timeline"))
