@@ -600,8 +600,13 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 // Auto-compile on load when today has uncompiled memos. The compile
                 // button was removed in #213 — the user expects today's diary to be
                 // ready whenever they open the app, no manual trigger required.
+                // R4 (#793 comp 4.png): the auto path is silent so a missing /
+                // invalid key does NOT pop a red banner on top of the calm
+                // first screen. The amber "钥匙就绪后…" status row in the
+                // header already nudges the user; the loud banner only fires
+                // for the manual compile tap.
                 if !self.isDailyPageCompiled && !self.memos.isEmpty && !self.isCompiling {
-                    self.compile()
+                    self.compile(silent: true)
                 }
             }
         }
@@ -1054,13 +1059,21 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
 
     // MARK: - Compile Trigger
 
-    /// Triggers manual AI compilation for today's memos.
+    /// Triggers AI compilation for today's memos.
     /// During compilation, the only on-screen indicator is `CompilePromptCard`'s compiling state
     /// (US-004). BannerCenter is reserved for terminal outcomes — success / offline / error.
-    func compile() {
+    /// - Parameter silent: When true, suppresses BannerCenter notifications for
+    ///   recoverable error paths (missing/invalid key, offline). Used by the
+    ///   auto-compile-on-load entry point so the first screen reads as the
+    ///   intended museum-aesthetic surface even when the user hasn't entered
+    ///   a key yet — the calmer "钥匙就绪后" status row already covers this
+    ///   state. Manual taps stay loud so the user sees the consequence of
+    ///   their own action.
+    func compile(silent: Bool = false) {
         guard !isCompiling else { return }
         isCompiling = true
         submitError = nil
+        let silentMode = silent
 
         compilationTask?.cancel()
         compilationTask = Task { @MainActor in
@@ -1084,29 +1097,35 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                     autoDismiss: true
                 ))
             } catch CompilationError.offline {
-                BannerCenter.shared.show(AppBannerModel(
-                    kind: .info,
-                    title: NSLocalizedString("today.compile.offline", comment: ""),
-                    autoDismiss: true
-                ))
+                if !silentMode {
+                    BannerCenter.shared.show(AppBannerModel(
+                        kind: .info,
+                        title: NSLocalizedString("today.compile.offline", comment: ""),
+                        autoDismiss: true
+                    ))
+                }
             } catch CompilationError.missingApiKey {
-                HapticFeedback.error()
-                BannerCenter.shared.show(AppBannerModel(
-                    kind: .error,
-                    title: NSLocalizedString("today.compile.missingKey", comment: ""),
-                    primaryAction: BannerAction(label: NSLocalizedString("today.compile.action.settings", comment: "")) { [weak self] in
-                        self?.shouldShowSettings = true
-                    }
-                ))
+                if !silentMode {
+                    HapticFeedback.error()
+                    BannerCenter.shared.show(AppBannerModel(
+                        kind: .error,
+                        title: NSLocalizedString("today.compile.missingKey", comment: ""),
+                        primaryAction: BannerAction(label: NSLocalizedString("today.compile.action.settings", comment: "")) { [weak self] in
+                            self?.shouldShowSettings = true
+                        }
+                    ))
+                }
             } catch CompilationError.apiError(let code, _) where code == 401 {
-                HapticFeedback.error()
-                BannerCenter.shared.show(AppBannerModel(
-                    kind: .error,
-                    title: NSLocalizedString("today.compile.invalidKey", comment: ""),
-                    primaryAction: BannerAction(label: NSLocalizedString("today.compile.action.settings", comment: "")) { [weak self] in
-                        self?.shouldShowSettings = true
-                    }
-                ))
+                if !silentMode {
+                    HapticFeedback.error()
+                    BannerCenter.shared.show(AppBannerModel(
+                        kind: .error,
+                        title: NSLocalizedString("today.compile.invalidKey", comment: ""),
+                        primaryAction: BannerAction(label: NSLocalizedString("today.compile.action.settings", comment: "")) { [weak self] in
+                            self?.shouldShowSettings = true
+                        }
+                    ))
+                }
             } catch CompilationError.parseError {
                 HapticFeedback.error()
                 BannerCenter.shared.show(AppBannerModel(
