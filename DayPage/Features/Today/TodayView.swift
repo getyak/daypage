@@ -1832,7 +1832,7 @@ struct TodayView: View {
                         .background(DSColor.accentAmber)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Recompile")
+                .accessibilityLabel(NSLocalizedString("a11y.recompile", comment: "Recompile daily page"))
             }
 
             DailyPageEntryCard(
@@ -1885,9 +1885,9 @@ struct TodayView: View {
             )
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Daily page")
+        .accessibilityLabel(NSLocalizedString("a11y.daily_page", comment: "Daily page card"))
         .accessibilityValue(viewModel.dailyPageSummary ?? "")
-        .accessibilityHint("Double tap to open the daily page")
+        .accessibilityHint(NSLocalizedString("a11y.daily_page.hint", comment: "Daily page open hint"))
         .accessibilityAction { showDailyPage = true }
         .accessibilityAction(named: Text(NSLocalizedString("today.action.recompile", comment: ""))) {
             dailyPageRevealed = false
@@ -2366,8 +2366,8 @@ struct TodayView: View {
                 }
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Open navigation")
-            .accessibilityHint("Opens the sidebar navigation drawer")
+            .accessibilityLabel(NSLocalizedString("a11y.nav.open", comment: "Sidebar open button"))
+            .accessibilityHint(NSLocalizedString("a11y.nav.open.hint", comment: "Opens the sidebar navigation drawer"))
             .accessibilityIdentifier("sidebar-menu-button")
             .simultaneousGesture(
                 TapGesture(count: 2).onEnded {
@@ -2525,8 +2525,8 @@ struct TodayView: View {
                     .clipShape(Circle())
                     .rotationEffect(.degrees(settingsGearRotation))
             }
-            .accessibilityLabel("Settings")
-            .accessibilityHint("Opens app settings")
+            .accessibilityLabel(NSLocalizedString("a11y.settings", comment: "Settings button"))
+            .accessibilityHint(NSLocalizedString("a11y.settings.hint", comment: "Opens app settings"))
             .accessibilityIdentifier("settings-gear-button")
             .frame(width: 44, height: 44)
             .contentShape(Rectangle())

@@ -857,12 +857,12 @@
 "onthisday.card.dismiss.accessibility.hint"             = "Hide for the rest of today";
 
 /* R6 — Today SyncQueue banner + sheet */
-"today.syncqueue.banner.pending"             = "%d memo(s) waiting to sync";
-"today.syncqueue.banner.flushing"            = "Syncing %d memo(s)…";
-"today.syncqueue.banner.waited_hours"        = "Waiting %d hour(s)";
+"today.syncqueue.banner.pending"             = "%d memos pending sync";
+"today.syncqueue.banner.flushing"            = "Syncing %d memos…";
+"today.syncqueue.banner.waited_hours"        = "Waiting %d hours";
 "today.syncqueue.banner.waited_over_day"     = "Network unavailable — waiting over 24 hours";
 "today.syncqueue.sheet.title"                = "Pending sync";
-"today.syncqueue.sheet.summary"              = "%d memo(s) waiting to upload";
+"today.syncqueue.sheet.summary"              = "%d memos waiting to upload";
 "today.syncqueue.sheet.oldest"               = "Oldest: %@";
 "today.syncqueue.sheet.list_header"          = "Pending memos (first 5)";
 "today.syncqueue.sheet.empty"                = "Queue is empty.";
@@ -922,3 +922,63 @@
 "settings.appearance.fontsize.large"      = "Large";
 "settings.appearance.density.comfortable" = "Comfortable";
 "settings.appearance.density.compact"     = "Compact";
+
+/* Round-2 — a11y label key parity with zh-Hans */
+"a11y.nav.open"          = "Open sidebar";
+"a11y.nav.close"         = "Close sidebar";
+"a11y.settings"          = "Settings";
+"a11y.settings.hint"     = "Opens app settings";
+"a11y.dismiss"           = "Dismiss";
+"a11y.recompile"         = "Recompile";
+"a11y.daily_page"        = "Daily page";
+"a11y.activity_legend"   = "Activity density legend";
+"a11y.activity_legend.value" = "Ranges from empty to high";
+"a11y.nav.open.hint"     = "Opens the sidebar navigation drawer";
+"a11y.daily_page.hint"   = "Double tap to open the daily page";
+"a11y.recenter_graph"    = "Recenter graph";
+"a11y.zoom_reset"        = "Zoom level, tap to reset";
+"a11y.continue_email"    = "Continue with email";
+"a11y.continue_email.hint" = "Sign in using a one-time email code";
+"a11y.back_to_email"     = "Back to email input";
+"a11y.begin"             = "Begin";
+"a11y.begin.hint"        = "Starts using DayPage";
+
+/* Round-2 — Input-bar tutorial overlay (first launch coachmarks) */
+"tutorial.input.step1.title" = "Tap to type";
+"tutorial.input.step1.body"  = "Tap the text area to start writing your memo.";
+"tutorial.input.step2.title" = "Hold mic to record";
+"tutorial.input.step2.body"  = "Press and hold the mic button for quick voice capture.";
+"tutorial.input.step3.title" = "Swipe for quick actions";
+"tutorial.input.step3.body"  = "Swipe left to cancel, right to transcribe your voice memo.";
+"tutorial.skip"              = "Skip";
+"tutorial.next"              = "Next";
+"tutorial.gotIt"             = "Got it";
+"tutorial.step.indicator"    = "Step %d";
+"tutorial.step.of"           = "Step %d of %d";
+"tutorial.next.hint"         = "Advances to the next tip";
+"tutorial.dismiss.hint"      = "Dismisses the tutorial";
+
+/* Round-3 — MemoCard state copy (was hardcoded English) */
+"memocard.digest.ready"      = "Your daily digest is ready.";
+"memocard.state.ready"       = "Ready to compile";
+"memocard.state.captured"    = "%d signals captured today";
+"memocard.state.empty"       = "Start capturing";
+"memocard.state.tonight"     = "Your signals will compile tonight.";
+"memocard.cta.compile"       = "Compile";
+"memocard.attachment.tapToDownload" = "Tap to download";
+"section.this_week"          = "This week";
+"weekly.recap.compiled"      = "Daily page compiled.";
+"voice.recording.title"      = "Voice memo";
+"voice.recording.discard"    = "Discard";
+"memo.not_found"             = "Memo no longer exists";
+"sidebar.settings"           = "Settings";
+"sidebar.ask_past"           = "Ask the past";
+"sidebar.ask_past.hint"      = "Ask based on your notes";
+"sidebar.nav.today"          = "Today";
+"sidebar.nav.archive"        = "Archive";
+"sidebar.nav.graph"          = "Graph";
+"sidebar.nav.feedback"       = "Feedback";
+"heatmap.entries"            = "ENTRIES";
+"archive.title"              = "Archive";
+"archive.today"              = "TODAY";
+"archive.heatmap.higher"     = "Higher Density";

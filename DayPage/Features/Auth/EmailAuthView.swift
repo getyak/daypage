@@ -154,7 +154,7 @@ struct EmailAuthView: View {
                 .font(.system(size: 18, weight: .medium))
                 .padding(.vertical, 6)
         }
-        .accessibilityLabel("Dismiss")
+        .accessibilityLabel(NSLocalizedString("a11y.dismiss", comment: "Dismiss button"))
     }
 }
 

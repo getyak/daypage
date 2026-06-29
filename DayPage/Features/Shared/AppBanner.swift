@@ -165,7 +165,7 @@ struct AppBanner: View {
                     .foregroundColor(foregroundColor.opacity(0.6))
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Dismiss")
+            .accessibilityLabel(NSLocalizedString("a11y.dismiss", comment: "Dismiss banner"))
             .accessibilityIdentifier("banner-dismiss-button")
         }
         .padding(DSSpacing.cardGap)

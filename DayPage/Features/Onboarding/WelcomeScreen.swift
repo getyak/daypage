@@ -90,8 +90,8 @@ struct WelcomeScreen: View {
                 .buttonStyle(PressableButtonStyle())
                 .opacity(buttonAppeared ? 1 : 0)
                 .offset(y: buttonAppeared ? 0 : 12)
-                .accessibilityLabel("Begin")
-                .accessibilityHint("Starts using DayPage")
+                .accessibilityLabel(NSLocalizedString("a11y.begin", comment: "Begin button"))
+                .accessibilityHint(NSLocalizedString("a11y.begin.hint", comment: "Starts using DayPage"))
 
                 Spacer().frame(height: 40)
             }

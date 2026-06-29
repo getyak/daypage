@@ -47,7 +47,7 @@ struct VoiceRecordingView: View {
                 .padding(.top, 12)
 
             // Title
-            Text("VOICE MEMO")
+            Text(NSLocalizedString("voice.recording.title", comment: "Voice memo title"))
                 .headlineCapsStyle()
                 .foregroundColor(DSColor.onSurface)
                 .padding(.top, 20)
@@ -277,7 +277,7 @@ struct VoiceRecordingView: View {
                 voiceService.cancelRecording()
                 onCancel()
             }) {
-                Text("DISCARD")
+                Text(NSLocalizedString("voice.recording.discard", comment: "Discard recording"))
                     .monoLabelStyle(size: 14)
                     .foregroundColor(isProcessing ? DSColor.onSurfaceVariant : DSColor.onSurface)
                     .frame(maxWidth: .infinity)

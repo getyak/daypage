@@ -106,7 +106,7 @@ struct OTPVerificationView: View {
                 .font(.system(size: 18, weight: .medium))
                 .padding(.vertical, 6)
         }
-        .accessibilityLabel("Back to email input")
+        .accessibilityLabel(NSLocalizedString("a11y.back_to_email", comment: "Back to email"))
     }
 
     private var heading: some View {

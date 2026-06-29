@@ -11,9 +11,15 @@ struct InputBarTutorialOverlay: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let steps: [(icon: String, title: String, body: String)] = [
-        ("keyboard", "Tap to type", "Tap the text area to start writing your memo."),
-        ("mic.fill", "Hold mic to record", "Press and hold the mic button for quick voice capture."),
-        ("arrow.left.and.right", "Swipe for quick actions", "Swipe left to cancel, right to transcribe your voice memo.")
+        ("keyboard",
+         NSLocalizedString("tutorial.input.step1.title", comment: "Step 1 title"),
+         NSLocalizedString("tutorial.input.step1.body",  comment: "Step 1 body")),
+        ("mic.fill",
+         NSLocalizedString("tutorial.input.step2.title", comment: "Step 2 title"),
+         NSLocalizedString("tutorial.input.step2.body",  comment: "Step 2 body")),
+        ("arrow.left.and.right",
+         NSLocalizedString("tutorial.input.step3.title", comment: "Step 3 title"),
+         NSLocalizedString("tutorial.input.step3.body",  comment: "Step 3 body")),
     ]
 
     private var contentTransition: AnyTransition {
@@ -37,7 +43,7 @@ struct InputBarTutorialOverlay: View {
                     Spacer()
                     if step < steps.count - 1 {
                         Button(action: { Haptics.soft(); complete() }) {
-                            Text("Skip")
+                            Text(NSLocalizedString("tutorial.skip", comment: "Skip tutorial"))
                                 .font(DSFonts.inter(size: 15, weight: .medium))
                                 .foregroundColor(DSColor.inkMuted)
                         }
@@ -65,11 +71,11 @@ struct InputBarTutorialOverlay: View {
                                     Haptics.soft()
                                 }
                                 .accessibilityAddTraits(.isButton)
-                                .accessibilityLabel("Step \(i + 1)")
+                                .accessibilityLabel(String(format: NSLocalizedString("tutorial.step.indicator", comment: "Step N"), i + 1))
                         }
                     }
                     .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Step \(step + 1) of \(steps.count)")
+                    .accessibilityLabel(String(format: NSLocalizedString("tutorial.step.of", comment: "Step N of M"), step + 1, steps.count))
 
                     // Animated content block — slides left/right on step change
                     VStack(spacing: 20) {
@@ -93,7 +99,9 @@ struct InputBarTutorialOverlay: View {
                     .transition(contentTransition)
 
                     Button(action: advance) {
-                        Text(step < steps.count - 1 ? "Next" : "Got it")
+                        Text(step < steps.count - 1
+                             ? NSLocalizedString("tutorial.next", comment: "Next step")
+                             : NSLocalizedString("tutorial.gotIt", comment: "Done"))
                             .font(DSFonts.inter(size: 15, weight: .semibold))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
@@ -101,7 +109,9 @@ struct InputBarTutorialOverlay: View {
                             .background(DSColor.amberAccent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
                     .buttonStyle(.plain)
-                    .accessibilityHint(step < steps.count - 1 ? "Advances to the next tip" : "Dismisses the tutorial")
+                    .accessibilityHint(step < steps.count - 1
+                                       ? NSLocalizedString("tutorial.next.hint", comment: "Advances to next tip")
+                                       : NSLocalizedString("tutorial.dismiss.hint", comment: "Dismisses tutorial"))
                 }
                 .padding(24)
                 .background(DSColor.bgWarm)

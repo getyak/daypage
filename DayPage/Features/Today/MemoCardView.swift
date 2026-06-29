@@ -1083,7 +1083,7 @@ struct DailyPageEntryCard: View {
                             .lineLimit(2)
                             .lineSpacing(2)
                     } else {
-                        Text("Your daily digest is ready.")
+                        Text(NSLocalizedString("memocard.digest.ready", comment: "Daily digest fallback"))
                             .font(DSType.serifBody18)
                             .foregroundColor(DSColor.inkPrimary)
                     }
@@ -1156,21 +1156,21 @@ struct CompilePromptCard: View {
                         .tracking(1)
                         .foregroundColor(DSColor.amberDeep)
                 } else if memoCount > 0 {
-                    Text("Ready to compile")
+                    Text(NSLocalizedString("memocard.state.ready", comment: "Ready to compile"))
                         .font(DSFonts.spaceGrotesk(size: 13, weight: .semibold))
                         .textCase(.uppercase)
                         .tracking(1)
                         .foregroundColor(DSColor.inkSubtle)
-                    Text("\(memoCount) signals captured today")
+                    Text(String(format: NSLocalizedString("memocard.state.captured", comment: "N signals captured today"), memoCount))
                         .font(DSType.bodySM)
                         .foregroundColor(DSColor.inkSubtle)
                 } else {
-                    Text("Start capturing")
+                    Text(NSLocalizedString("memocard.state.empty", comment: "Start capturing"))
                         .font(DSFonts.spaceGrotesk(size: 13, weight: .semibold))
                         .textCase(.uppercase)
                         .tracking(1)
                         .foregroundColor(DSColor.inkSubtle)
-                    Text("Your signals will compile tonight.")
+                    Text(NSLocalizedString("memocard.state.tonight", comment: "Signals will compile tonight"))
                         .font(DSType.bodySM)
                         .foregroundColor(DSColor.inkSubtle)
                 }
@@ -1179,7 +1179,7 @@ struct CompilePromptCard: View {
 
             if !isCompiling && memoCount > 0 {
                 Button(action: { onCompile?() }) {
-                    Text("Compile")
+                    Text(NSLocalizedString("memocard.cta.compile", comment: "Compile CTA"))
                         .font(DSFonts.jetBrainsMono(size: 10))
                         .tracking(0.8)
                         .textCase(.uppercase)
@@ -1215,7 +1215,7 @@ struct PhotoDownloadPlaceholder: View {
                     Image(systemName: "icloud.and.arrow.down")
                         .font(.system(size: 28, weight: .regular))
                         .foregroundColor(DSColor.inkSubtle)
-                    Text("Tap to download")
+                    Text(NSLocalizedString("memocard.attachment.tapToDownload", comment: "Attachment download CTA"))
                         .font(DSFonts.jetBrainsMono(size: 10))
                         .textCase(.uppercase)
                         .foregroundColor(DSColor.inkSubtle)

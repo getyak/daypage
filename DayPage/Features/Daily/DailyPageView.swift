@@ -91,7 +91,7 @@ struct DailyPageView: View {
                 if let memo = memoVM.memos.first(where: { $0.id == memoID }) {
                     MemoDetailView(memo: memo, vm: memoVM)
                 } else {
-                    Text("Memo no longer exists").foregroundColor(DSColor.inkMuted)
+                    Text(NSLocalizedString("memo.not_found", comment: "Memo missing fallback")).foregroundColor(DSColor.inkMuted)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
