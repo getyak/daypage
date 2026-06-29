@@ -214,11 +214,15 @@ struct InputBarV4: View {
     // MARK: Body
 
     var body: some View {
+        // Museum-aesthetic redesign (#793 R2): the dock was reading as a
+        // "ground floor" stuck to the bottom because of a full-width
+        // hairline separator + warm gradient veil behind everything.
+        // Both are removed: the dock now floats as a true capsule island
+        // on the ambient warm canvas. Attachment / location / progress
+        // rows still stack above it (they need full width when they
+        // appear), but the resting dock + hint is just a capsule on the
+        // page.
         VStack(spacing: 0) {
-            Rectangle()
-                .fill(DSColor.inkFaint)
-                .frame(height: 0.5)
-
             if !pendingAttachments.isEmpty {
                 attachmentPreviewRow
             }
@@ -256,23 +260,18 @@ struct InputBarV4: View {
                 streamDockMorph
                 dockHintLabel
             }
-            // Museum-aesthetic redesign (#793): widen breathing room so the
-            // floating dock reads as an island, not a wall-to-wall toolbar.
-            // 32pt horizontal + 22pt bottom lift matches the comp's
-            // ~20% side margins on iPhone 17.
-            .padding(.horizontal, 32)
+            // Museum-aesthetic redesign (#793 R2): widen breathing room
+            // so the dock reads as a floating island, not a wall-to-wall
+            // toolbar. 24pt horizontal + 24pt bottom lift gives the
+            // capsule visible margins on all four sides.
+            .padding(.horizontal, 24)
             .padding(.top, 10)
-            .padding(.bottom, 22)
+            .padding(.bottom, 24)
         }
-        // V4: transparent dock — ambient page background shows through.
-        // Warm gradient veil fades the list content behind the dock.
-        .background(
-            LinearGradient(
-                colors: [Color.clear, DSColor.bgWarm.opacity(0.92), DSColor.bgWarm],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        )
+        // No background veil here — the dock surface itself supplies the
+        // contrast against the warm canvas. A gradient behind the whole
+        // section makes the dock read as "ground", which broke the
+        // floating capsule comp.
         .overlay(alignment: .top) {
             if showTooShortToast {
                 HStack(spacing: 6) {

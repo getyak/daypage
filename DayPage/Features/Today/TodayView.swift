@@ -2426,6 +2426,12 @@ struct TodayView: View {
             }
 
             // MARK: Hero title — weekday + subline.
+            // R2 (#793): Chinese "星期X" at 56pt visually overpowered the
+            // calm canvas — two CJK glyphs at that point size read as a
+            // poster headline, not a museum label. Latin "Thursday" was
+            // closer to the comp at 56pt because seven slim letters
+            // occupy similar horizontal space. We compromise at 40pt:
+            // big enough to anchor the screen, light enough for CJK.
             Button {
                 hasNewContentAboveFold = false
                 Haptics.soft()
@@ -2435,7 +2441,7 @@ struct TodayView: View {
             } label: {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(weekdayName(currentTime))
-                        .font(DSType.serifDisplay56)
+                        .font(DSFonts.serif(size: 40, weight: .semibold))
                         .foregroundColor(DSColor.inkPrimary)
                         .lineLimit(1)
                         .dynamicTypeSize(.xSmall ... .accessibility2)
