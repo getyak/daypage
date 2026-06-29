@@ -120,7 +120,7 @@ struct SidebarView: View {
                     .background(DSColor.surfaceSunken, in: Circle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Close navigation")
+            .accessibilityLabel(NSLocalizedString("a11y.nav.close", comment: "Sidebar close button"))
 
             Spacer()
 
@@ -296,9 +296,12 @@ struct SidebarView: View {
     /// Primary nav: Today / Archive / Graph + the "Ask the past" agent (D1).
     private var navSection: some View {
         VStack(alignment: .leading, spacing: 2) {
-            navItem(tab: .today, icon: "square.and.pencil", label: "Today")
-            navItem(tab: .archive, icon: "archivebox", label: "Archive")
-            navItem(tab: .graph, icon: "point.3.connected.trianglepath.dotted", label: "Graph")
+            navItem(tab: .today, icon: "square.and.pencil",
+                    label: NSLocalizedString("sidebar.nav.today", comment: "Today nav"))
+            navItem(tab: .archive, icon: "archivebox",
+                    label: NSLocalizedString("sidebar.nav.archive", comment: "Archive nav"))
+            navItem(tab: .graph, icon: "point.3.connected.trianglepath.dotted",
+                    label: NSLocalizedString("sidebar.nav.graph", comment: "Graph nav"))
             askRow
         }
         .padding(.horizontal, 12)
@@ -322,7 +325,7 @@ struct SidebarView: View {
                     .font(.system(size: 16, weight: .regular))
                     .frame(width: 20)
                     .foregroundColor(DSColor.inkMuted)
-                Text("和过去对话")
+                Text(NSLocalizedString("sidebar.ask_past", comment: "Ask the past chat entry"))
                     .font(DSType.bodyMD)
                     .foregroundColor(DSColor.inkMuted)
             }
@@ -332,14 +335,15 @@ struct SidebarView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("和过去对话")
-        .accessibilityHint("基于你的记录提问")
+        .accessibilityLabel(NSLocalizedString("sidebar.ask_past", comment: "Ask the past chat entry"))
+        .accessibilityHint(NSLocalizedString("sidebar.ask_past.hint", comment: "Ask based on your notes"))
     }
 
     private var feedbackSection: some View {
         VStack(alignment: .leading, spacing: 2) {
             sectionLabel("Support")
-            navItem(tab: .feedback, icon: "bubble.left.and.exclamationmark.bubble.right", label: "Feedback")
+            navItem(tab: .feedback, icon: "bubble.left.and.exclamationmark.bubble.right",
+                    label: NSLocalizedString("sidebar.nav.feedback", comment: "Feedback nav"))
         }
         .padding(.horizontal, 12)
     }
@@ -500,7 +504,7 @@ struct SidebarView: View {
                         .font(.system(size: 16, weight: .regular))
                         .frame(width: 20)
                         .foregroundColor(DSColor.inkMuted)
-                    Text("Settings")
+                    Text(NSLocalizedString("sidebar.settings", comment: "Settings row"))
                         .font(DSType.bodyMD)
                         .foregroundColor(DSColor.inkMuted)
                 }
@@ -511,8 +515,8 @@ struct SidebarView: View {
             }
             .buttonStyle(.plain)
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("Settings")
-            .accessibilityHint("Opens app settings")
+            .accessibilityLabel(NSLocalizedString("a11y.settings", comment: "Settings entry"))
+            .accessibilityHint(NSLocalizedString("a11y.settings.hint", comment: "Opens app settings"))
             .accessibilityAddTraits(.isButton)
 
             // Account (when logged in)

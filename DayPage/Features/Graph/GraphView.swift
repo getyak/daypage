@@ -802,7 +802,7 @@ struct GraphView: View {
         .liquidGlassCard(cornerRadius: DSRadius.md, tone: .hi)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         .padding(DSSpacing.lg)
-        .accessibilityLabel("Recenter graph")
+        .accessibilityLabel(NSLocalizedString("a11y.recenter_graph", comment: "Recenter graph"))
         .transition(.opacity.combined(with: .scale))
         .animation(Motion.spring, value: isTransformed)
     }
@@ -822,7 +822,7 @@ struct GraphView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         .padding(DSSpacing.lg)
         .padding(.bottom, 56)
-        .accessibilityLabel("Zoom level, tap to reset")
+        .accessibilityLabel(NSLocalizedString("a11y.zoom_reset", comment: "Zoom indicator"))
         .accessibilityValue("\(Int(scale * 100)) percent")
         .accessibilityAddTraits(.isButton)
         .transition(.opacity.combined(with: .scale))

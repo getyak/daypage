@@ -69,7 +69,14 @@ struct SidebarHeatmapView: View {
             header
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(accessibilityText)
-            grid
+            // Hide the 105-cell grid from VoiceOver entirely. The header above
+            // already exposes the full summary (`accessibilityText` — e.g. "15
+            // weeks heatmap, 3 days with entries, current streak 1"), so the
+            // per-cell labels were 100+ identical "Jun 15, 0 entries" rotor
+            // stops with no extra signal. Sighted users still tap cells for
+            // the day-detail tooltip; VoiceOver users navigate days via the
+            // Recent rows below the grid.
+            grid.accessibilityHidden(true)
             footer
                 // Footer = LESS/MORE swatches + streak pill — the swatches are a
                 // pure legend (no signal beyond the accessibilityText already
@@ -104,7 +111,7 @@ struct SidebarHeatmapView: View {
                 Text("\(totalEntries)")
                     .font(DSFonts.serif(size: 18, weight: .semibold))
                     .foregroundColor(DSColor.inkPrimary)
-                Text("ENTRIES")
+                Text(NSLocalizedString("heatmap.entries", comment: "Entries unit"))
                     .font(DSType.mono9)
                     .tracking(1.2)
                     .foregroundColor(DSColor.inkSubtle)
@@ -254,9 +261,10 @@ struct SidebarHeatmapView: View {
                         }
                     }
                 }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(Self.monthDayFmt.string(from: date)), \(count) entries")
-                .accessibilityAddTraits(.isButton)
+                // Per-cell a11y intentionally omitted: the parent `grid` is
+                // .accessibilityHidden(true), so VoiceOver gets a single
+                // summary line from the heatmap header instead of 105
+                // identical "Jun 15, 0 entries" rotor stops.
         }
     }
 

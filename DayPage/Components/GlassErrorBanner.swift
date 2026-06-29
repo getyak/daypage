@@ -157,7 +157,7 @@ struct GlassErrorBanner: View {
                     .frame(width: 20, height: 20)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Dismiss")
+            .accessibilityLabel(NSLocalizedString("a11y.dismiss", comment: "Dismiss banner"))
             .accessibilityIdentifier("error-banner-dismiss")
         }
         .accessibilityHint("Swipe up to dismiss")

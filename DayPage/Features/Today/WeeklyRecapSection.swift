@@ -45,7 +45,7 @@ struct WeeklyRecapSection: View {
                 .fill(DSColor.outlineVariant)
                 .frame(height: 1)
                 .frame(maxWidth: 24)
-            Text("THIS WEEK")
+            Text(NSLocalizedString("section.this_week", comment: "This week section label"))
                 .sectionLabelStyle()
                 .foregroundColor(DSColor.onSurfaceVariant)
             Rectangle()
@@ -117,7 +117,7 @@ private struct WeeklyRecapDayCard: View {
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
             } else {
-                Text("Daily page compiled.")
+                Text(NSLocalizedString("weekly.recap.compiled", comment: "Weekly recap default"))
                     .bodySMStyle()
                     .foregroundColor(DSColor.onSurfaceVariant)
                     .italic()

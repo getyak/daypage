@@ -816,12 +816,12 @@ struct ArchiveView: View {
                 Button {
                     nav.openSidebar()
                 } label: {
-                    Text("Archive")
+                    Text(NSLocalizedString("archive.title", comment: "Archive page title"))
                         .font(DSType.serifDisplay28)
                         .foregroundColor(DSColor.inkPrimary)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Open navigation")
+                .accessibilityLabel(NSLocalizedString("a11y.nav.open", comment: "Sidebar open button"))
                 .accessibilityIdentifier("sidebar-menu-button")
 
                 // Month subtitle — now a jump-to-month affordance. A chevron
@@ -914,7 +914,7 @@ struct ArchiveView: View {
                     withAnimation(reduceMotion ? nil : Motion.spring) { viewModel.goToCurrentMonth() }
                     UIAccessibility.post(notification: .announcement, argument: viewModel.currentMonthTitle)
                 }) {
-                    Text("TODAY")
+                    Text(NSLocalizedString("archive.today", comment: "Today button"))
                         .monoLabelStyle(size: 10)
                         .foregroundColor(.white)
                         .padding(.horizontal, 10)
@@ -1129,15 +1129,15 @@ struct ArchiveView: View {
                     .frame(width: 12, height: 12)
             }
 
-            Text("Higher Density")
+            Text(NSLocalizedString("archive.heatmap.higher", comment: "Heatmap legend higher"))
                 .monoLabelStyle(size: 9)
                 .foregroundColor(DSColor.inkSubtle)
 
             Spacer()
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Activity density legend")
-        .accessibilityValue("Ranges from empty to high")
+        .accessibilityLabel(NSLocalizedString("a11y.activity_legend", comment: "Activity legend"))
+        .accessibilityValue(NSLocalizedString("a11y.activity_legend.value", comment: "Legend range"))
     }
 
     // MARK: - Monthly Summary

@@ -126,8 +126,8 @@ struct AuthView: View {
             }
             .buttonStyle(AuthButtonStyle())
             .disabled(viewModel.isLoading)
-            .accessibilityLabel("Continue with Email")
-            .accessibilityHint("Sign in using a one-time email code")
+            .accessibilityLabel(NSLocalizedString("a11y.continue_email", comment: "Continue with email"))
+            .accessibilityHint(NSLocalizedString("a11y.continue_email.hint", comment: "Email OTP sign-in hint"))
         }
     }
 

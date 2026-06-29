@@ -926,3 +926,63 @@
 "settings.appearance.fontsize.large"      = "大";
 "settings.appearance.density.comfortable" = "舒适";
 "settings.appearance.density.compact"     = "紧凑";
+
+/* Round-2 — a11y label 统一中文化（之前硬编码英文，VoiceOver 在中文 Locale 下也读英文）*/
+"a11y.nav.open"          = "打开侧边栏";
+"a11y.nav.close"         = "关闭侧边栏";
+"a11y.settings"          = "设置";
+"a11y.settings.hint"     = "进入应用设置";
+"a11y.dismiss"           = "关闭";
+"a11y.recompile"         = "重新编译";
+"a11y.daily_page"        = "今日页";
+"a11y.activity_legend"   = "活跃度图例";
+"a11y.activity_legend.value" = "从空到高";
+"a11y.nav.open.hint"     = "打开侧边导航抽屉";
+"a11y.daily_page.hint"   = "双击打开今日页";
+"a11y.recenter_graph"    = "回到中心";
+"a11y.zoom_reset"        = "缩放级别，点击重置";
+"a11y.continue_email"    = "用邮箱继续";
+"a11y.continue_email.hint" = "通过一次性邮箱验证码登录";
+"a11y.back_to_email"     = "返回邮箱输入";
+"a11y.begin"             = "开始";
+"a11y.begin.hint"        = "开始使用 DayPage";
+
+/* Round-2 — Input-bar tutorial overlay (first launch coachmarks) */
+"tutorial.input.step1.title" = "轻点输入";
+"tutorial.input.step1.body"  = "轻点文本框，开始写下此刻。";
+"tutorial.input.step2.title" = "长按麦克风录音";
+"tutorial.input.step2.body"  = "按住麦克风按钮，松手即可保存语音备忘。";
+"tutorial.input.step3.title" = "左右滑动快捷操作";
+"tutorial.input.step3.body"  = "左滑取消，右滑把语音转成文字。";
+"tutorial.skip"              = "跳过";
+"tutorial.next"              = "下一步";
+"tutorial.gotIt"             = "我知道了";
+"tutorial.step.indicator"    = "第 %d 步";
+"tutorial.step.of"           = "第 %d 步，共 %d 步";
+"tutorial.next.hint"         = "前往下一条提示";
+"tutorial.dismiss.hint"      = "关闭新手引导";
+
+/* Round-3 — MemoCard 状态文案（之前硬编码英文） */
+"memocard.digest.ready"      = "今日摘要已生成。";
+"memocard.state.ready"       = "可以编译了";
+"memocard.state.captured"    = "今日已捕获 %d 条信号";
+"memocard.state.empty"       = "开始记录";
+"memocard.state.tonight"     = "今晚自动编译你的信号。";
+"memocard.cta.compile"       = "编译";
+"memocard.attachment.tapToDownload" = "轻点下载";
+"section.this_week"          = "本周";
+"weekly.recap.compiled"      = "今日页已生成。";
+"voice.recording.title"      = "语音备忘";
+"voice.recording.discard"    = "丢弃";
+"memo.not_found"             = "该 memo 已不存在";
+"sidebar.settings"           = "设置";
+"sidebar.ask_past"           = "和过去对话";
+"sidebar.ask_past.hint"      = "基于你的记录提问";
+"sidebar.nav.today"          = "今日";
+"sidebar.nav.archive"        = "归档";
+"sidebar.nav.graph"          = "图谱";
+"sidebar.nav.feedback"       = "反馈";
+"heatmap.entries"            = "条";
+"archive.title"              = "归档";
+"archive.today"              = "今日";
+"archive.heatmap.higher"     = "密度更高";
