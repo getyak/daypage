@@ -30,6 +30,8 @@ if existing
 else
   target = project.new_target(:application, TARGET_NAME, :osx, MAC_DEPLOY_TARGET)
   target.build_configurations.each do |config|
+    config.build_settings["PRODUCT_NAME"]                         = TARGET_NAME
+    config.build_settings["PRODUCT_MODULE_NAME"]                  = TARGET_NAME
     config.build_settings["PRODUCT_BUNDLE_IDENTIFIER"]            = BUNDLE_ID
     config.build_settings["MACOSX_DEPLOYMENT_TARGET"]             = MAC_DEPLOY_TARGET
     config.build_settings["SWIFT_VERSION"]                        = "5.0"
