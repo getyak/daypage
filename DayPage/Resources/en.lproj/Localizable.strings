@@ -109,6 +109,10 @@
 "today.subline.notes.zero"   = "%d notes";
 "today.subline.notes.one"    = "%d note";
 "today.subline.notes.other"  = "%d notes";
+"today.subline.time.morning"   = "MORNING";
+"today.subline.time.afternoon" = "AFTERNOON";
+"today.subline.time.evening"   = "EVENING";
+"today.subline.time.night"     = "NIGHT";
 
 /* Today header subline — word count */
 "today.subline.words.one"    = "%d WORD";

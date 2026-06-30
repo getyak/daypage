@@ -25,7 +25,8 @@ appId: com.daypage.app
 - tapOn:
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
-- tapOn: "Archive"
+- tapOn:
+    text: "Archive|归档"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/archive_light_empty_en
 
@@ -33,7 +34,7 @@ appId: com.daypage.app
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
 - tapOn:
-    text: "Graph"
+    text: "Graph|图谱"
     optional: true
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_light_empty_en
@@ -58,7 +59,8 @@ appId: com.daypage.app
 - tapOn:
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
-- tapOn: "Archive"
+- tapOn:
+    text: "Archive|归档"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/archive_light_memos_en
 
@@ -66,7 +68,7 @@ appId: com.daypage.app
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
 - tapOn:
-    text: "Graph"
+    text: "Graph|图谱"
     optional: true
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_light_memos_en
@@ -91,7 +93,8 @@ appId: com.daypage.app
 - tapOn:
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
-- tapOn: "Archive"
+- tapOn:
+    text: "Archive|归档"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/archive_dark_empty_en
 
@@ -99,7 +102,7 @@ appId: com.daypage.app
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
 - tapOn:
-    text: "Graph"
+    text: "Graph|图谱"
     optional: true
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_dark_empty_en
@@ -124,7 +127,8 @@ appId: com.daypage.app
 - tapOn:
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
-- tapOn: "Archive"
+- tapOn:
+    text: "Archive|归档"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/archive_dark_memos_en
 
@@ -132,7 +136,7 @@ appId: com.daypage.app
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
 - tapOn:
-    text: "Graph"
+    text: "Graph|图谱"
     optional: true
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_dark_memos_en
@@ -157,7 +161,8 @@ appId: com.daypage.app
 - tapOn:
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
-- tapOn: "Archive"
+- tapOn:
+    text: "Archive|归档"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/archive_light_empty_zh
 
@@ -165,7 +170,7 @@ appId: com.daypage.app
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
 - tapOn:
-    text: "Graph"
+    text: "Graph|图谱"
     optional: true
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_light_empty_zh
@@ -190,7 +195,8 @@ appId: com.daypage.app
 - tapOn:
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
-- tapOn: "Archive"
+- tapOn:
+    text: "Archive|归档"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/archive_light_memos_zh
 
@@ -198,7 +204,7 @@ appId: com.daypage.app
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
 - tapOn:
-    text: "Graph"
+    text: "Graph|图谱"
     optional: true
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_light_memos_zh
@@ -223,7 +229,8 @@ appId: com.daypage.app
 - tapOn:
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
-- tapOn: "Archive"
+- tapOn:
+    text: "Archive|归档"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/archive_dark_empty_zh
 
@@ -231,7 +238,7 @@ appId: com.daypage.app
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
 - tapOn:
-    text: "Graph"
+    text: "Graph|图谱"
     optional: true
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_dark_empty_zh
@@ -256,7 +263,8 @@ appId: com.daypage.app
 - tapOn:
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
-- tapOn: "Archive"
+- tapOn:
+    text: "Archive|归档"
 - waitForAnimationToEnd
 - takeScreenshot: baseline/archive_dark_memos_zh
 
@@ -264,7 +272,7 @@ appId: com.daypage.app
     id: "sidebar-menu-button"
 - waitForAnimationToEnd
 - tapOn:
-    text: "Graph"
+    text: "Graph|图谱"
     optional: true
 - waitForAnimationToEnd
 - takeScreenshot: baseline/graph_dark_memos_zh

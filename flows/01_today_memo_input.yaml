@@ -15,29 +15,37 @@ appId: com.daypage.app
 
 - takeScreenshot: today_view_loaded
 
-# Tap the pen button on the STREAM dock to expand the text composer
-# (InputBarV4 idle dock shows mic-hero centered, pen on the right).
+# Tap the dock's center "记下此刻" stub to open the WriteSheet bottom
+# sheet (composer.jsx:183). In TodayView this stub's `onOpenWriteSheet`
+# is wired up, so the dock no longer expands into an inline composer
+# with a `memo-input` TextField — the composing surface lives inside
+# WriteSheetView (`write-sheet-input` / `write-sheet-save`).
 - tapOn:
     id: "expand-text-composer"
-    optional: true
 
-# Wait for the composer expand animation to finish
-- waitForAnimationToEnd
+# Wait for the bottom-sheet present animation. The sheet is presented
+# via SwiftUI .sheet(), which can take 300-500ms to fully render on
+# the CI runner before the TextField is hittable — extendedWaitUntil
+# gives us a hard ceiling instead of guessing with sleeps.
+- extendedWaitUntil:
+    visible:
+      id: "write-sheet-input"
+    timeout: 5000
 
-# Tap the TextField (accessibilityIdentifier="memo-input")
+# Tap the WriteSheet TextField (accessibilityIdentifier="write-sheet-input")
 - tapOn:
-    id: "memo-input"
+    id: "write-sheet-input"
 
 - inputText: "UI测试：今天天气很好，适合写代码"
 - takeScreenshot: after_input
 
-# Verify the typed text is visible inside the composer
+# Verify the typed text is visible inside the WriteSheet
 - assertVisible: "UI测试：今天天气很好，适合写代码"
 - takeScreenshot: text_visible_in_input
 
-# Send the memo (accessibilityIdentifier="memo-send", label "发送")
+# Save & dismiss the sheet (accessibilityIdentifier="write-sheet-save")
 - tapOn:
-    id: "memo-send"
+    id: "write-sheet-save"
     optional: true
 
 - takeScreenshot: after_send

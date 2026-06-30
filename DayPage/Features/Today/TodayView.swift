@@ -2346,8 +2346,15 @@ struct TodayView: View {
 
                 Spacer()
 
-                // Export markdown — tap = share sheet, long-press = copy.
-                if !viewModel.memos.isEmpty {
+                // R4 (#793 comp 4.png): the comp's top bar is exactly two
+                // chips — ☰ left, ⚙ right. The export-as-markdown button
+                // used to appear in the middle once the day had memos, but
+                // that made the toolbar drift between 2-chip and 3-chip
+                // layouts as the day filled in. The export action stays
+                // available via long-pressing the hero title (gesture wired
+                // below); the visible chip is removed so the toolbar
+                // rhythm is invariant.
+                if false {
                     Button {
                         let content = MarkdownExportService.buildExportContent(
                             memos: viewModel.memos, date: Date(),
@@ -2459,6 +2466,51 @@ struct TodayView: View {
                     viewModel.onThisDayEntry = entry
                 } else {
                     HapticFeedback.warning()
+                }
+            }
+            // R4 (#793 comp 4.png): the export-as-markdown affordance moved
+            // off the visible toolbar into a hero context menu — long-press
+            // for share, repeat for copy. Disabled on empty days because
+            // there's nothing to share.
+            .contextMenu {
+                if !viewModel.memos.isEmpty {
+                    Button {
+                        let content = MarkdownExportService.buildExportContent(
+                            memos: viewModel.memos, date: Date(),
+                            summary: viewModel.dailyPageSummary
+                        )
+                        let dateString = MarkdownExportService.exportDateString(for: Date())
+                        do {
+                            let url = try MarkdownExportService.writeExportFile(
+                                content: content, dateString: dateString
+                            )
+                            exportFileURL = url
+                            showExportSheet = true
+                            Haptics.tapConfirm()
+                        } catch {
+                            Haptics.warn()
+                            DayPageLogger.shared.error("TodayView: export failed: \(error)")
+                        }
+                    } label: {
+                        Label(NSLocalizedString("export.action.title", comment: ""),
+                              systemImage: "square.and.arrow.up")
+                    }
+                    Button {
+                        let content = MarkdownExportService.buildExportContent(
+                            memos: viewModel.memos, date: Date(),
+                            summary: viewModel.dailyPageSummary
+                        )
+                        UIPasteboard.general.string = content
+                        Haptics.success()
+                        bannerCenter.show(AppBannerModel(
+                            kind: .info,
+                            title: NSLocalizedString("export.copied.title", comment: ""),
+                            autoDismiss: true
+                        ))
+                    } label: {
+                        Label(NSLocalizedString("export.copied.title", comment: ""),
+                              systemImage: "doc.on.doc")
+                    }
                 }
             }
         }
@@ -2768,10 +2820,19 @@ struct TodayView: View {
             // card), the floating CTA is redundant. We keep this section
             // ONLY as a recovery surface — i.e. when a manual compile or
             // background pass produced an error the user has to retry.
+            // R4 (#793 comp 4.png): the "配置 AI 引擎" / "为今天画上句号"
+            // capsule duplicated the role of the calmer header status row
+            // ("钥匙就绪后…") when a key was missing. We now hide the entire
+            // footer once the key is absent — the header row already carries
+            // the call to Settings, and the footer reappears only for real
+            // recovery cases (mid-compile or a non-key error the user must
+            // see). Keeps the bottom area clean so the dock keeps its
+            // floating-island read against the warm canvas.
+            let aiKeyMissing = Secrets.resolvedDeepSeekApiKey.isEmpty
             if !viewModel.isDailyPageCompiled
                 && !viewModel.memos.isEmpty
-                && (viewModel.isCompiling || viewModel.submitError != nil) {
-                let aiKeyMissing = Secrets.resolvedDeepSeekApiKey.isEmpty
+                && (viewModel.isCompiling || viewModel.submitError != nil)
+                && !aiKeyMissing {
                 HStack {
                     Spacer()
                     CompileFooterButton(
@@ -3072,71 +3133,43 @@ struct TodayView: View {
         return parts.joined(separator: "  ·  ")
     }
 
-    /// Renders the header subline as an HStack so the word-count token can
-    /// receive its own amber glow shadow independent of the surrounding text.
+    /// Renders the header subline as a single concise mono row.
+    ///
+    /// R4 (#793 comp 4.png): the previous implementation appended every
+    /// available metadatum (date · notes · words · weather · place · TZ),
+    /// which on a writing-active day stretched the subline across the whole
+    /// screen and broke the calm rhythm the comp establishes. The comp shows
+    /// just "30 JUN · 深夜" — two beats: when and what feels like.
+    ///
+    /// New surface = "date · timeOfDay". Counts/weather/place live one tap
+    /// away in the header long-press, or implicitly in the timeline cards.
+    /// The word-count milestone glow becomes a one-shot ripple on the
+    /// hero scale handled elsewhere, so the subline stays quiet on writes.
     @ViewBuilder
     private func headerSublineView(_ date: Date) -> some View {
-        let count = viewModel.memos.count
         let dateStr = Self.headerDateFmt.string(from: date)
+        let timeOfDay = headerTimeOfDay(date)
         let separator = "  ·  "
-
-        if count == 0 {
-            Text([dateStr, Self.headerTimeFmt.string(from: date)].joined(separator: separator))
-                .font(DSType.mono10)
-                .foregroundColor(DSColor.inkSubtle)
-                .textCase(.uppercase)
-                .tracking(1.0)
-                .dynamicTypeSize(.xSmall ... .accessibility5)
-                .minimumScaleFactor(0.75)
-        } else {
-            let notesKey = count == 1 ? "today.subline.notes.one" : "today.subline.notes.other"
-            let notesStr = String(format: NSLocalizedString(notesKey, comment: ""), count)
-            let words = viewModel.todayWordCount
-            let weatherStr = todayWeatherShort()
-            let placeStr = todayPlaceShort()
-            HStack(spacing: 0) {
-                // Date · Notes prefix
-                Text((dateStr + separator + notesStr).uppercased())
-                    .font(DSType.mono10)
-                    .foregroundColor(DSColor.inkSubtle)
-                    .tracking(1.0)
-
-                if words > 0 {
-                    let wordsKey = words == 1 ? "today.subline.words.one" : "today.subline.words.other"
-                    let wordsStr = String(format: NSLocalizedString(wordsKey, comment: ""), words)
-                    // Separator before word-count
-                    Text(separator.uppercased())
-                        .font(DSType.mono10)
-                        .foregroundColor(DSColor.inkSubtle)
-                        .tracking(1.0)
-                    // Word-count token — gets the amber glow at milestones
-                    Text(wordsStr.uppercased())
-                        .font(DSType.mono10)
-                        .foregroundColor(DSColor.inkSubtle)
-                        .tracking(1.0)
-                        .shadow(
-                            color: DSColor.accentAmber.opacity(wordMilestoneGlow ? 0.5 : 0),
-                            radius: wordMilestoneGlow ? 10 : 0
-                        )
-                        .animation(reduceMotion ? nil : .easeOut(duration: 0.6), value: wordMilestoneGlow)
-                }
-
-                if let weather = weatherStr {
-                    Text((separator + weather).uppercased())
-                        .font(DSType.mono10)
-                        .foregroundColor(DSColor.inkSubtle)
-                        .tracking(1.0)
-                }
-                if let place = placeStr {
-                    Text((separator + place).uppercased())
-                        .font(DSType.mono10)
-                        .foregroundColor(DSColor.inkSubtle)
-                        .tracking(1.0)
-                }
-            }
+        Text((dateStr + separator + timeOfDay).uppercased())
+            .font(DSType.mono10)
+            .foregroundColor(DSColor.inkSubtle)
+            .tracking(1.0)
             .dynamicTypeSize(.xSmall ... .accessibility5)
             .minimumScaleFactor(0.75)
+    }
+
+    /// Maps an hour to one of four poetic time-of-day buckets used by the
+    /// header subline ("黎明 / 上午 / 下午 / 深夜").
+    private func headerTimeOfDay(_ date: Date) -> String {
+        let hour = Calendar.current.component(.hour, from: date)
+        let key: String
+        switch hour {
+        case 5..<11:  key = "today.subline.time.morning"
+        case 11..<17: key = "today.subline.time.afternoon"
+        case 17..<22: key = "today.subline.time.evening"
+        default:      key = "today.subline.time.night"
         }
+        return NSLocalizedString(key, comment: "Header subline time-of-day bucket")
     }
 
     /// Comma-separated version of the header subline for VoiceOver.

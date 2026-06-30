@@ -109,6 +109,10 @@
 "today.subline.notes.zero"   = "%d 条记录";
 "today.subline.notes.one"    = "%d 条记录";
 "today.subline.notes.other"  = "%d 条记录";
+"today.subline.time.morning"   = "上午";
+"today.subline.time.afternoon" = "下午";
+"today.subline.time.evening"   = "傍晚";
+"today.subline.time.night"     = "深夜";
 
 /* Today header subline — word count */
 "today.subline.words.one"    = "%d 字";
