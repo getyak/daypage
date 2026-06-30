@@ -37,14 +37,14 @@ public final class CompilationService: ObservableObject {
 
     // MARK: - Published Stage
 
-    @Published var stage: CompilationStage = .extracting
-    @Published var compilationProgress: CompilationStage = .extracting
+    @Published public var stage: CompilationStage = .extracting
+    @Published public var compilationProgress: CompilationStage = .extracting
 
     /// Number of memo back-fill updates that failed during the last
     /// compilation run. Published so the BG service / UI can surface
     /// partial-success state instead of silently misreporting success.
     /// Reset to 0 at the start of every compile.
-    @Published var lastMemoUpdateFailures: Int = 0
+    @Published public var lastMemoUpdateFailures: Int = 0
 
     // MARK: - Compile
 

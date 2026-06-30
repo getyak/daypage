@@ -31,9 +31,9 @@ public final class MemoryChatService: ObservableObject {
 
     // MARK: Published state
 
-    @Published var turns: [ChatTurn] = []
-    @Published var isResponding = false
-    @Published var errorMessage: String?
+    @Published public var turns: [ChatTurn] = []
+    @Published public var isResponding = false
+    @Published public var errorMessage: String?
 
     // MARK: Dependencies
 
@@ -45,7 +45,7 @@ public final class MemoryChatService: ObservableObject {
     /// 依赖；测试桩通常是值语义闭包，也可跨线程调度。
     private let retrieve: @Sendable (String) -> RetrievedContext
 
-    init(
+    public init(
         send: (([LLMMessage]) async throws -> String)? = nil,
         retrieve: @escaping @Sendable (String) -> RetrievedContext = { GraphRetriever.retrieve(query: $0) }
     ) {

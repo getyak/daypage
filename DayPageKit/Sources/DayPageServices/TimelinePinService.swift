@@ -25,7 +25,7 @@ public final class TimelinePinService: ObservableObject {
 
     /// The set of pinned date strings (`yyyy-MM-dd`). `@Published` so SwiftUI
     /// views observing the service get a fresh render whenever it mutates.
-    @Published private(set) var pinned: Set<String> = []
+    @Published public private(set) var pinned: Set<String> = []
 
     /// Lazy storage URL — computed at first access so we don't touch the
     /// vault before `VaultInitializer.initializeIfNeeded()` runs.

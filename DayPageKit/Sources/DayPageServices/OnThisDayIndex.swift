@@ -9,6 +9,14 @@ public struct OnThisDayEntry: Codable {
     public let daysAgo: Int?
     public let preview: String
     public let filePath: String
+
+    public init(originalDate: Date, yearsAgo: Int?, daysAgo: Int?, preview: String, filePath: String) {
+        self.originalDate = originalDate
+        self.yearsAgo = yearsAgo
+        self.daysAgo = daysAgo
+        self.preview = preview
+        self.filePath = filePath
+    }
 }
 
 // MARK: - Index storage types
@@ -33,7 +41,7 @@ public final class OnThisDayIndex: ObservableObject {
     /// finishes, instead of waiting for the next .onAppear / scenePhase pass.
     /// Flips true at the end of `loadIndex()` and `rebuildIndex()`; reset to
     /// false only in `resetForTesting()` (DEBUG).
-    @Published private(set) var isReady: Bool = false
+    @Published public private(set) var isReady: Bool = false
 
     private var index: [String: [DayRecord]] = [:]  // 键："MMDD"
     private let indexURL: URL = {

@@ -134,68 +134,68 @@ public extension AppSettings {
     /// literals so typos produce a compile error rather than a silent data loss.
     public enum Keys {
         // Onboarding / auth
-        static let hasOnboarded       = "hasOnboarded"
-        static let authSkipped        = "authSkipped"
+        public static let hasOnboarded       = "hasOnboarded"
+        public static let authSkipped        = "authSkipped"
         // Issue #25: timestamp the user accepted the data-flow disclosure
         // (the onboarding page that lists every outbound third-party call).
         // 0 / unset → user has never seen the disclosure.
-        static let dataFlowDisclosureAcceptedAt = "dataFlowDisclosureAcceptedAt"
+        public static let dataFlowDisclosureAcceptedAt = "dataFlowDisclosureAcceptedAt"
         // Engagement / prompts
-        static let memoSaveCount      = "memoSaveCount"
-        static let lastSyncBannerDate = "lastSyncBannerDate"
-        static let onThisDayDismissed = "onThisDayDismissedDate"
+        public static let memoSaveCount      = "memoSaveCount"
+        public static let lastSyncBannerDate = "lastSyncBannerDate"
+        public static let onThisDayDismissed = "onThisDayDismissedDate"
         // Runtime API keys — US-002: migrated to Keychain (com.daypage.apikeys).
         // These string literals are kept only for the one-time UserDefaults → Keychain migration
         // performed by KeychainHelper.migrateAPIKeysFromUserDefaultsIfNeeded() at launch.
-        static let runtimeDeepSeekKey    = "runtimeDeepSeekKey"
-        static let runtimeOpenAIKey      = "runtimeOpenAIKey"
-        static let runtimeOpenWeatherKey = "runtimeOpenWeatherKey"
+        public static let runtimeDeepSeekKey    = "runtimeDeepSeekKey"
+        public static let runtimeOpenAIKey      = "runtimeOpenAIKey"
+        public static let runtimeOpenWeatherKey = "runtimeOpenWeatherKey"
         // Settings — time zone, vault, attachment
-        static let preferredTimeZone  = "preferredTimeZone"
-        static let vaultLocation      = "vaultLocation"
-        static let attachmentPolicy   = "attachmentPolicy"
+        public static let preferredTimeZone  = "preferredTimeZone"
+        public static let vaultLocation      = "vaultLocation"
+        public static let attachmentPolicy   = "attachmentPolicy"
         // GitHub feedback repo
-        static let githubRepoOwner    = "githubRepoOwner"
-        static let githubRepoName     = "githubRepoName"
+        public static let githubRepoOwner    = "githubRepoOwner"
+        public static let githubRepoName     = "githubRepoName"
         // Migration
-        static let migrationCompletedAt = "migrationCompletedAt"
+        public static let migrationCompletedAt = "migrationCompletedAt"
         // Appearance
-        static let themeMode          = "themeMode"
-        static let accentColor        = "accentColor"
-        static let fontSizeAdjust     = "fontSizeAdjust"
-        static let cardDensity        = "cardDensity"
+        public static let themeMode          = "themeMode"
+        public static let accentColor        = "accentColor"
+        public static let fontSizeAdjust     = "fontSizeAdjust"
+        public static let cardDensity        = "cardDensity"
         // Input
-        static let usePressToTalk     = "usePressToTalk"
+        public static let usePressToTalk     = "usePressToTalk"
         // C4 fix: master switch for any third-party AI / cloud call (compile,
         // transcribe). Default true once the user has accepted the data-flow
         // disclosure. Setting this false puts the app in "local only" mode
         // even when API keys are still configured.
-        static let aiFeaturesEnabled  = "aiFeaturesEnabled"
+        public static let aiFeaturesEnabled  = "aiFeaturesEnabled"
         // Swipe-hint nudge — shown once when the first compiled Daily Page appears
-        static let dailyPageSwipeHintShown = "today.dailyPageSwipeHintShown"
+        public static let dailyPageSwipeHintShown = "today.dailyPageSwipeHintShown"
         // WriteSheet rail hint — shown once to explain media is attached via the dock
-        static let writeSheetRailHintShown = "today.writeSheetRailHintShown"
+        public static let writeSheetRailHintShown = "today.writeSheetRailHintShown"
         // Swipe-hint nudge — shown once on the newest memo card to teach left/right swipe actions
-        static let memoSwipeHintShown = "memoswipeHintShown"
+        public static let memoSwipeHintShown = "memoswipeHintShown"
         // Streak milestone celebrations — comma-joined Int set, e.g. "3,7,14"
-        static let streakMilestonesShown = "streakMilestonesShown"
+        public static let streakMilestonesShown = "streakMilestonesShown"
         // Export long-press hint — shown once when the button first appears with >=1 memo
-        static let exportLongPressHintShown = "today.exportLongPressHintShown"
+        public static let exportLongPressHintShown = "today.exportLongPressHintShown"
         // Graph legend — comma-joined hidden entity types, e.g. "places,people"
-        static let graphHiddenTypes = "graph.hiddenTypes"
+        public static let graphHiddenTypes = "graph.hiddenTypes"
         // Summary copy hint — shown once when a compiled summary first appears
-        static let summaryCopyHintShown = "today.summaryCopyHintShown"
+        public static let summaryCopyHintShown = "today.summaryCopyHintShown"
         // Issue #20 — 2am 编译完成本地通知：用户开关 (true → 发通知；false → 不发)。
         // 默认 true：编译完成时弹本地通知；用户在 Settings 里可关闭。
-        static let notifyCompile = "settings.notifyCompile"
+        public static let notifyCompile = "settings.notifyCompile"
         // Issue #20 — 是否已经请求过通知权限（避免冷启动重复弹系统权限弹窗，
         // Onboarding 已请求时也走这条 guard）。
-        static let hasRequestedNotifications = "settings.hasRequestedNotifications"
+        public static let hasRequestedNotifications = "settings.hasRequestedNotifications"
         // R8 debug — when true, NetworkMonitor reports isOnline=false
         // regardless of the real NWPathMonitor state. Lets the user
         // dogfood the offline SyncQueue banner without putting the
         // device into airplane mode. Default false.
-        static let debugSimulateOffline = "debug.simulateOffline"
+        public static let debugSimulateOffline = "debug.simulateOffline"
     }
 }
 

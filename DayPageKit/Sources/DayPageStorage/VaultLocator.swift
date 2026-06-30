@@ -14,6 +14,8 @@ public protocol VaultLocator {
 /// Default implementation: stores vault under the app's local Documents directory.
 /// Behavior is identical to the previous hard-coded VaultInitializer.vaultURL.
 public struct LocalVaultLocator: VaultLocator {
+    public init() {}
+
     // FileManager.urls(for:) is safe to call repeatedly but allocates on every
     // call. Cache the result once at the static level — the Documents path never
     // changes within a process lifetime.
@@ -31,6 +33,7 @@ public struct LocalVaultLocator: VaultLocator {
 /// iCloud Drive implementation: stores vault under the app's ubiquity container.
 /// Falls back gracefully when iCloud is unavailable (e.g., Simulator without account).
 public struct iCloudVaultLocator: VaultLocator {
+    public init() {}
     public let containerID = "iCloud.com.daypage.app"
 
     // Resolve the ubiquity container fresh on every access. On cold launch
