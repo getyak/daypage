@@ -1,4 +1,5 @@
 import XCTest
+import DayPageStorage
 @testable import DayPage
 
 /// Unit tests for VaultLocator protocol, LocalVaultLocator, iCloudVaultLocator,

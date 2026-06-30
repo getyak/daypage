@@ -40,7 +40,7 @@ public final class PassiveLocationService: NSObject, ObservableObject {
 
     // MARK: - Published
 
-    @Published var pendingDrafts: [VisitDraft] = []
+    @Published public var pendingDrafts: [VisitDraft] = []
 
     // MARK: - Private
 

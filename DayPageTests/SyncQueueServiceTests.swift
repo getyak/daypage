@@ -13,6 +13,8 @@
 
 import Testing
 import Foundation
+import DayPageStorage
+import DayPageServices
 @testable import DayPage
 
 @MainActor

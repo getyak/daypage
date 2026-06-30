@@ -18,6 +18,9 @@
 
 import Testing
 import Foundation
+import DayPageModels
+import DayPageStorage
+import DayPageServices
 @testable import DayPage
 
 @Suite(.serialized)

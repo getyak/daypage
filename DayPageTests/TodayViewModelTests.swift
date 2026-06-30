@@ -1,5 +1,8 @@
 import Testing
 import Foundation
+import DayPageModels
+import DayPageStorage
+import DayPageServices
 @testable import DayPage
 
 /// US-020: Unit tests for TodayViewModel core paths: addMemo, deleteMemo, toggleFavorite (pin/unpin).

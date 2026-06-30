@@ -1,5 +1,7 @@
 import Testing
 import Foundation
+import DayPageStorage
+import DayPageServices
 @testable import DayPage
 
 /// R4-B4: Targeted tests for the `RawStorage.atomicWrite` failure surface.

@@ -81,6 +81,22 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
+  // 3a. First-visit i18n hint: if the visitor lands on root with no language
+  // cookie and their browser advertises Chinese, hop to /zh. Cookie is set on
+  // the redirected response so later visits respect the explicit choice.
+  const langCookie = request.cookies.get("daypage-lang")?.value;
+  const acceptLang = request.headers.get("accept-language") ?? "";
+  const wantsZh = /\bzh\b/i.test(acceptLang.split(",")[0] ?? "");
+  if (pathname === "/" && !langCookie && wantsZh) {
+    const redirect = NextResponse.redirect(new URL("/zh", request.url));
+    redirect.cookies.set("daypage-lang", "zh", {
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: "lax",
+      path: "/",
+    });
+    return redirect;
+  }
+
   // 4. Augment response with timing/security headers (kept from old proxy).
   response.headers.set("x-middleware-start", start.toString());
   response.headers.set("x-pathname", pathname);

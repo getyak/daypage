@@ -25,9 +25,16 @@ require "xcodeproj"
 require "set"
 
 PROJECT_PATH = File.expand_path("../DayPage.xcodeproj", __dir__)
-TARGET_NAME  = "DayPage"
 PACKAGE_REL  = "DayPageKit"                      # relative to project root
-PRODUCTS     = %w[DayPageModels DayPageStorage DayPageServices].freeze
+# Targets that need DayPageKit. Each maps to the list of product libs to link.
+# DayPageWatch + DayPageTests may or may not exist depending on project state —
+# the script tolerates missing targets.
+TARGETS_AND_PRODUCTS = {
+  "DayPage"        => %w[DayPageModels DayPageStorage DayPageServices],
+  "DayPageWidget"  => %w[DayPageModels DayPageStorage DayPageServices],
+  "DayPageTests"   => %w[DayPageModels DayPageStorage DayPageServices],
+  "DayPageWatch"   => %w[DayPageModels DayPageStorage DayPageServices],
+}.freeze
 
 # Files git-mv'd to DayPageKit. Their PBXFileReference entries (relative paths
 # like DayPage/Services/RawStorage.swift) are now dangling — remove them.
@@ -81,8 +88,6 @@ ORPHANED_FILES = %w[
 ].freeze
 
 project = Xcodeproj::Project.open(PROJECT_PATH)
-target  = project.targets.find { |t| t.name == TARGET_NAME }
-raise "Target #{TARGET_NAME} not found" unless target
 
 # === 1. Attach local SwiftPM package ===
 
@@ -100,27 +105,35 @@ else
   puts "+ Attached local package #{PACKAGE_REL}"
 end
 
-# === 2. Link product libraries to the DayPage target ===
+# === 2. Link product libraries to each target that needs them ===
 
-PRODUCTS.each do |product_name|
-  existing_dep = target.package_product_dependencies.find { |d| d.product_name == product_name }
-  if existing_dep
-    puts "✓ Product #{product_name} already linked to #{TARGET_NAME}"
+TARGETS_AND_PRODUCTS.each do |target_name, products|
+  target = project.targets.find { |t| t.name == target_name }
+  unless target
+    puts "  skip: target #{target_name} not in project"
     next
   end
 
-  dep = project.new(Xcodeproj::Project::Object::XCSwiftPackageProductDependency)
-  dep.package = pkg_ref
-  dep.product_name = product_name
-  target.package_product_dependencies << dep
+  products.each do |product_name|
+    existing_dep = target.package_product_dependencies.find { |d| d.product_name == product_name }
+    if existing_dep
+      puts "✓ Product #{product_name} already linked to #{target_name}"
+      next
+    end
 
-  # Also add to Frameworks build phase so it actually links at build time.
-  frameworks_phase = target.frameworks_build_phase
-  build_file = project.new(Xcodeproj::Project::Object::PBXBuildFile)
-  build_file.product_ref = dep
-  frameworks_phase.files << build_file
+    dep = project.new(Xcodeproj::Project::Object::XCSwiftPackageProductDependency)
+    dep.package = pkg_ref
+    dep.product_name = product_name
+    target.package_product_dependencies << dep
 
-  puts "+ Linked #{product_name} → #{TARGET_NAME}"
+    # Also add to Frameworks build phase so it actually links at build time.
+    frameworks_phase = target.frameworks_build_phase
+    build_file = project.new(Xcodeproj::Project::Object::PBXBuildFile)
+    build_file.product_ref = dep
+    frameworks_phase.files << build_file
+
+    puts "+ Linked #{product_name} → #{target_name}"
+  end
 end
 
 # === 3. Remove orphaned file references ===

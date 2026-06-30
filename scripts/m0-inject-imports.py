@@ -26,7 +26,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 KIT = ROOT / "DayPageKit" / "Sources"
-APP = ROOT / "DayPage"
+# All app-target source roots that need Kit imports.
+APP_ROOTS = [
+    ROOT / "DayPage",
+    ROOT / "DayPageWidget",
+    ROOT / "DayPageWatch",
+    ROOT / "DayPageTests",
+]
 
 # Build ownership map: type_name -> module_name
 OWNERSHIP = {}
@@ -121,7 +127,10 @@ def inject_imports(file_path: Path):
 
 
 def main():
-    swift_files = list(APP.rglob("*.swift"))
+    swift_files = []
+    for root in APP_ROOTS:
+        if root.exists():
+            swift_files.extend(root.rglob("*.swift"))
     swift_files.sort()
     changed = 0
     for f in swift_files:

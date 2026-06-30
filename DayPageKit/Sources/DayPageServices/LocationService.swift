@@ -23,10 +23,10 @@ public final class LocationService: NSObject, ObservableObject {
     // MARK: Published
 
     /// 当前授权状态；UI 可以监听此值来显示权限提示。
-    @Published var authorizationStatus: CLAuthorizationStatus = .notDetermined
+    @Published public var authorizationStatus: CLAuthorizationStatus = .notDetermined
 
     /// 最近解析的位置结果（名称 + 坐标）。
-    @Published var lastLocation: Memo.Location? = nil
+    @Published public var lastLocation: Memo.Location? = nil
 
     // MARK: Private
 

@@ -1,4 +1,6 @@
 import XCTest
+import DayPageStorage
+import DayPageServices
 @testable import DayPage
 
 /// Tests for the BackgroundCompilationService state machine — issue #32.

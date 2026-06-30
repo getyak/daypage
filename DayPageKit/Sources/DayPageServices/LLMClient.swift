@@ -1,5 +1,4 @@
 import Foundation
-import Sentry
 import DayPageStorage
 
 // MARK: - LLMMessage
@@ -183,21 +182,20 @@ public struct LLMClient {
             body: body
         )
 
-        let dsnEmpty = await MainActor.run { !SentryReporter.isSentryEnabled }
-        let span = dsnEmpty ? nil : SentrySDK.startTransaction(name: spanName, operation: "http.client")
+        let span = SentryReporter.startTransaction(name: spanName, operation: "http.client")
         defer { span?.finish() }
 
         do {
             let (data, response) = try await transport.data(for: request)
             guard let http = response as? HTTPURLResponse else {
-                span?.setTag(value: "no-http-response", key: "error.kind")
+                span?.setTag("no-http-response", key: "error.kind")
                 throw LLMError.apiError(statusCode: -1, body: "No HTTP response")
             }
-            span?.setTag(value: String(http.statusCode), key: "http.status_code")
+            span?.setTag(String(http.statusCode), key: "http.status_code")
             guard http.statusCode == 200 else {
                 let bodyStr = String(data: data, encoding: .utf8) ?? "(empty)"
                 DayPageLogger.log(level: "ERROR", message: "[LLMClient/\(spanName)] status=\(http.statusCode) body=\(bodyStr.prefix(500))")
-                span?.setTag(value: "true", key: "error")
+                span?.setTag("true", key: "error")
                 if http.statusCode == 429 { throw LLMError.rateLimited }
                 throw LLMError.apiError(statusCode: http.statusCode, body: bodyStr)
             }

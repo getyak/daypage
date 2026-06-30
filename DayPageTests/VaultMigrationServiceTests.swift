@@ -1,4 +1,6 @@
 import XCTest
+import DayPageStorage
+import DayPageServices
 @testable import DayPage
 
 /// Unit tests for VaultMigrationService.

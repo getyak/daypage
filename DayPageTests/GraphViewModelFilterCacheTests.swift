@@ -1,4 +1,5 @@
 import Testing
+import DayPageServices
 @testable import DayPage
 
 @Suite("GraphViewModel filter cache")

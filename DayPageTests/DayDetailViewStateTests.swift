@@ -1,4 +1,5 @@
 import XCTest
+import DayPageStorage
 @testable import DayPage
 
 /// Covers the 4 LoadState outcomes + 1 vault-corruption path for DayDetailView.

@@ -2875,3 +2875,103 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
   border-color: var(--accent-border);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
 }
+
+/* ─── SEO/UX globals (Wave C polish) ─────────────────────────────── */
+/* Anchor-link offset so jumps land below the fixed nav. */
+html {
+  scroll-padding-top: 96px;
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* Selection that matches the museum-warm accent. */
+::selection {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--fg-primary);
+}
+
+/* Magnetic CTA — used on landing primary buttons. */
+.cta-magnetic {
+  position: relative;
+  isolation: isolate;
+  transition: transform 220ms cubic-bezier(.2,.8,.2,1),
+              box-shadow 220ms ease-out,
+              background-color 200ms ease-out;
+}
+.cta-magnetic::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  background: radial-gradient(
+    120% 120% at var(--mx, 50%) var(--my, 50%),
+    color-mix(in srgb, var(--accent) 28%, transparent) 0%,
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity 220ms ease-out;
+  z-index: -1;
+}
+.cta-magnetic:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px -14px rgba(93,48,0,0.45);
+}
+.cta-magnetic:hover::after {
+  opacity: 1;
+}
+.cta-magnetic:active {
+  transform: translateY(0) scale(0.985);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cta-magnetic,
+  .cta-magnetic::after {
+    transition: none;
+  }
+  .cta-magnetic:hover {
+    transform: none;
+  }
+}
+
+/* ─── Multi-device responsive polish (Wave E) ───────────────────── */
+/* Landscape phones / short screens — don't force the hero to fill viewport. */
+@media (orientation: landscape) and (max-height: 600px) {
+  .hero-shell {
+    min-height: auto;
+    padding-top: 80px;
+    padding-bottom: 60px;
+  }
+}
+
+/* Tablet sweet spot — give the constellation more vertical room. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .hero-shell {
+    padding-top: 96px;
+    padding-bottom: 80px;
+  }
+}
+
+/* Ultra-wide displays — relax max-width so the constellation breathes. */
+@media (min-width: 1920px) {
+  .hero-shell {
+    max-width: 1600px;
+    column-gap: 6rem;
+  }
+}
+
+/* iOS safe-area inset (notched phones in landscape, esp. /zh and /faq). */
+.hero-shell {
+  padding-left: max(1.5rem, env(safe-area-inset-left));
+  padding-right: max(1.5rem, env(safe-area-inset-right));
+}
+
+/* Honor save-data / data-saver: drop the shader background gradient. */
+@media (prefers-reduced-data: reduce) {
+  .hero-shell ~ * canvas,
+  .hero-shell canvas {
+    display: none;
+  }
+}

@@ -1,5 +1,7 @@
 import Testing
 import CoreLocation
+import DayPageModels
+import DayPageServices
 @testable import DayPage
 
 // MARK: - WeatherServiceCacheTests

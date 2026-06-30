@@ -1,4 +1,5 @@
 import XCTest
+import DayPageModels
 @testable import DayPage
 
 final class CJKTextPolishTests: XCTestCase {

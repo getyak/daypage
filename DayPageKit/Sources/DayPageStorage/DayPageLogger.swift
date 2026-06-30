@@ -1,5 +1,4 @@
 import Foundation
-import Sentry
 
 @MainActor
 public final class DayPageLogger {

@@ -1,4 +1,5 @@
 import Foundation
+import Sentry
 import DayPageStorage
 import DayPageServices
 
@@ -18,17 +19,17 @@ import DayPageServices
 //
 // US-002: API keys are stored in Keychain (`com.daypage.apikeys` service)
 // rather than UserDefaults to prevent iCloud backup exposure.
-public extension Secrets {
-    public static var resolvedDeepSeekApiKey: String {
+extension Secrets {
+    static var resolvedDeepSeekApiKey: String {
         resolve(keychainName: "deepSeekApiKey", fallback: deepSeekApiKey)
     }
-    public static var resolvedOpenAIWhisperApiKey: String {
+    static var resolvedOpenAIWhisperApiKey: String {
         resolve(keychainName: "openAIWhisperApiKey", fallback: openAIWhisperApiKey)
     }
-    public static var resolvedOpenWeatherApiKey: String {
+    static var resolvedOpenWeatherApiKey: String {
         resolve(keychainName: "openWeatherApiKey", fallback: openWeatherApiKey)
     }
-    public static var resolvedGitHubToken: String {
+    static var resolvedGitHubToken: String {
         resolve(keychainName: "githubToken", fallback: kubotGitHubToken)
     }
 
@@ -84,4 +85,55 @@ struct AppKitSecretsProvider: KitSecretsProvider {
     var deepSeekApiKey: String { Secrets.resolvedDeepSeekApiKey }
     var openWeatherApiKey: String { Secrets.resolvedOpenWeatherApiKey }
     var githubBotToken: String { Secrets.resolvedGitHubToken }
+}
+
+// MARK: - AppSentryAdapter (M0 bridge)
+
+/// Concrete `DayPageStorage.SentryAdapter` for the iOS app target. Bridges Kit's
+/// SentryReporter facade to the real Sentry SDK. DayPageApp.init registers via
+/// `SentryReporter.adapter = AppSentryAdapter()`.
+struct AppSentryAdapter: DayPageStorage.SentryAdapter {
+
+    var isEnabled: Bool {
+        !Secrets.sentryDSN.isEmpty
+    }
+
+    func breadcrumb(category: String, level: DayPageStorage.SentryLevel, message: String) {
+        guard isEnabled else { return }
+        let crumb = Breadcrumb()
+        crumb.category = category
+        crumb.message = message
+        crumb.level = level.sentrySDKLevel
+        SentrySDK.addBreadcrumb(crumb)
+    }
+
+    func captureError(_ error: Error) {
+        guard isEnabled else { return }
+        SentrySDK.capture(error: error)
+    }
+
+    func startTransaction(name: String, operation: String) -> DayPageStorage.SentrySpan? {
+        guard isEnabled else { return nil }
+        let sdkSpan = SentrySDK.startTransaction(name: name, operation: operation)
+        return AppSentrySpan(span: sdkSpan)
+    }
+}
+
+private extension DayPageStorage.SentryLevel {
+    var sentrySDKLevel: Sentry.SentryLevel {
+        switch self {
+        case .debug:   return .debug
+        case .info:    return .info
+        case .warning: return .warning
+        case .error:   return .error
+        case .fatal:   return .fatal
+        }
+    }
+}
+
+private final class AppSentrySpan: DayPageStorage.SentrySpan, @unchecked Sendable {
+    private let span: any Span
+    init(span: any Span) { self.span = span }
+    func setTag(_ value: String, key: String) { span.setTag(value: value, key: key) }
+    func finish() { span.finish() }
 }

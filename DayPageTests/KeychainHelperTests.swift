@@ -1,5 +1,7 @@
 import Testing
 import Foundation
+import DayPageStorage
+import DayPageServices
 @testable import DayPage
 
 /// Unit tests for KeychainHelper API-key storage — write/read/delete cycle

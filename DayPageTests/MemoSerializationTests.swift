@@ -1,5 +1,7 @@
 import Testing
 import Foundation
+import DayPageModels
+import DayPageServices
 @testable import DayPage
 
 @Suite("MemoSerializationTests")

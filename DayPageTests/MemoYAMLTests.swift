@@ -1,5 +1,7 @@
 import Testing
 import Foundation
+import DayPageModels
+import DayPageServices
 @testable import DayPage
 
 /// Focused round-trip tests for `Memo.yamlQuote` / `Memo.unquote` —

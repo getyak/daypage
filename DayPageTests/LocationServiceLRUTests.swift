@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import DayPageServices
 @testable import DayPage
 
 /// R4-B4: Unit tests for the LRU geocode-cache rules used by `LocationService`.

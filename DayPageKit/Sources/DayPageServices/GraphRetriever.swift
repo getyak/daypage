@@ -12,19 +12,34 @@ public struct RetrievedContext: Equatable {
 
     /// 命中的原始 memo 片段。
     public struct MemoHit: Equatable {
-        let dateString: String       // "yyyy-MM-dd"
-        let snippet: String          // 修剪后的正文片段
-        let mood: String?
-        let entityMentions: [String] // 该 memo 引用的实体 slug
+        public let dateString: String       // "yyyy-MM-dd"
+        public let snippet: String          // 修剪后的正文片段
+        public let mood: String?
+        public let entityMentions: [String] // 该 memo 引用的实体 slug
+
+        public init(dateString: String, snippet: String, mood: String?, entityMentions: [String]) {
+            self.dateString = dateString
+            self.snippet = snippet
+            self.mood = mood
+            self.entityMentions = entityMentions
+        }
     }
 
     /// 沿 entityMentions 扩展出的一跳邻居实体页摘要。
     public struct EntityHit: Equatable {
-        let slug: String
-        let displayName: String
-        let type: String             // "places" | "people" | "themes"
-        let occurrenceCount: Int
-        let summary: String          // 实体页正文摘要（截断）
+        public let slug: String
+        public let displayName: String
+        public let type: String             // "places" | "people" | "themes"
+        public let occurrenceCount: Int
+        public let summary: String          // 实体页正文摘要（截断）
+
+        public init(slug: String, displayName: String, type: String, occurrenceCount: Int, summary: String) {
+            self.slug = slug
+            self.displayName = displayName
+            self.type = type
+            self.occurrenceCount = occurrenceCount
+            self.summary = summary
+        }
     }
 
     public let query: String

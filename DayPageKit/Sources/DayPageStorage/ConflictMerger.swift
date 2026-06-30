@@ -1,5 +1,4 @@
 import Foundation
-import Sentry
 import DayPageModels
 
 // MARK: - ConflictResolutionInfo
@@ -194,7 +193,7 @@ public enum ConflictMerger {
                 level: "ERROR",
                 message: "[ConflictMerger] Failed to resolve conflict at \(primaryURL.lastPathComponent): \(error)"
             )
-            if SentryReporter.isSentryEnabled { SentrySDK.capture(error: error) }
+            SentryReporter.captureError(error)
             NotificationCenter.default.post(name: .vaultConflictFailed, object: primaryURL)
         }
     }
