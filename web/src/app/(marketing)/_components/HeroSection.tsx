@@ -1,20 +1,54 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
-import { IPhoneFrame, TodayMockScreen } from "./IPhoneFrame";
+import { useRef } from "react";
+import {
+  motion,
+  useReducedMotion,
+  useScroll,
+  useTransform,
+} from "framer-motion";
+import { DeviceConstellation } from "./DeviceConstellation";
 import { ShaderBackground } from "./ShaderBackground";
 import { SplitText } from "./SplitText";
 
 export function HeroSection() {
   const reduced = useReducedMotion();
+  const sectionRef = useRef<HTMLElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start start", "end start"],
+  });
+  // Subtle scroll-linked parallax: iPhone drifts up + tilts slightly as user scrolls.
+  // Disabled implicitly when reduced-motion is set (we feed 0 below).
+  const parallaxY = useTransform(scrollYProgress, [0, 1], [0, -60]);
+  const heroFade = useTransform(scrollYProgress, [0, 0.8], [1, 0.45]);
 
   return (
-    <section className="relative isolate overflow-hidden">
+    <section ref={sectionRef} className="relative isolate overflow-hidden">
       <div className="absolute inset-0 -z-10">
         <ShaderBackground className="h-full w-full" />
+        {/* Two ambient glow orbs — drift the eye, never compete with content */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-[15%] top-[10%] h-[520px] w-[520px] rounded-full opacity-[0.42] mix-blend-multiply"
+          style={{
+            background:
+              "radial-gradient(circle at center, rgba(124,45,18,0.32) 0%, transparent 65%)",
+            filter: "blur(60px)",
+          }}
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -left-[10%] bottom-[5%] h-[440px] w-[440px] rounded-full opacity-[0.28] mix-blend-multiply"
+          style={{
+            background:
+              "radial-gradient(circle at center, rgba(228,164,82,0.42) 0%, transparent 65%)",
+            filter: "blur(80px)",
+          }}
+        />
       </div>
 
-      <div className="mx-auto grid min-h-[100svh] max-w-[1280px] grid-cols-1 items-center gap-12 px-6 pb-24 pt-32 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16 lg:px-10">
+      <div className="hero-shell mx-auto grid min-h-[92svh] max-w-[1440px] grid-cols-1 items-center gap-10 px-6 pb-20 pt-28 md:min-h-[100svh] md:gap-12 md:pb-24 md:pt-32 lg:grid-cols-[1fr_1.05fr] lg:gap-14 lg:px-10 xl:gap-20">
         <div className="relative">
           <motion.p
             initial={{ opacity: 0, y: 8 }}
@@ -26,7 +60,7 @@ export function HeroSection() {
             Now in private beta · iOS
           </motion.p>
 
-          <h1 className="font-serif text-[clamp(44px,7vw,84px)] leading-[1.02] tracking-[-0.025em] text-[color:var(--fg-primary)]">
+          <h1 className="font-serif text-[clamp(36px,6.4vw,78px)] leading-[1.04] tracking-[-0.025em] text-[color:var(--fg-primary)]">
             <SplitText
               text="Your day,"
               as="span"
@@ -69,7 +103,7 @@ export function HeroSection() {
           >
             <a
               href="/download"
-              className="inline-flex h-12 items-center justify-center rounded-full bg-[color:var(--accent)] px-7 text-[15px] font-medium text-[color:var(--bg-warm)] shadow-[0_8px_24px_-12px_rgba(93,48,0,0.6)] transition-[transform,background-color] duration-200 hover:bg-[color:var(--accent-hover)] active:scale-[0.98]"
+              className="cta-magnetic inline-flex h-12 items-center justify-center rounded-full bg-[color:var(--accent)] px-7 text-[15px] font-medium text-[color:var(--bg-warm)] shadow-[0_8px_24px_-12px_rgba(93,48,0,0.6)] hover:bg-[color:var(--accent-hover)]"
             >
               Start your first day →
             </a>
@@ -91,20 +125,20 @@ export function HeroSection() {
           </motion.p>
         </div>
 
-        <div className="relative flex justify-center lg:justify-end">
+        <div className="relative flex w-full justify-center lg:justify-end">
           <motion.div
-            initial={reduced ? { opacity: 0 } : { opacity: 0, x: 40, y: 10, rotate: 2 }}
-            animate={reduced ? { opacity: 1 } : { opacity: 1, x: 0, y: 0, rotate: -1.5 }}
-            transition={
+            className="w-full max-w-[640px]"
+            style={
               reduced
-                ? { duration: 0.3 }
-                : { type: "spring", stiffness: 90, damping: 18, delay: 1.0 }
+                ? { willChange: "opacity" }
+                : {
+                    y: parallaxY,
+                    opacity: heroFade,
+                    willChange: "transform, opacity",
+                  }
             }
-            style={{ willChange: "transform, opacity" }}
           >
-            <IPhoneFrame width={320}>
-              <TodayMockScreen />
-            </IPhoneFrame>
+            <DeviceConstellation />
           </motion.div>
         </div>
       </div>

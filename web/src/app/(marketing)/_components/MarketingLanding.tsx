@@ -1,21 +1,30 @@
 "use client";
 
+import type { SessionUser } from "@/lib/auth/session";
 import { LenisProvider } from "./LenisProvider";
-import { Nav } from "./Nav";
+import { NavClient } from "./NavClient";
 import { Footer } from "./Footer";
 import { HeroSection } from "./HeroSection";
+import { SocialProof } from "./SocialProof";
+import { PlatformStrip } from "./PlatformStrip";
 import { ProblemSection } from "./ProblemSection";
 import { CaptureSection } from "./CaptureSection";
 import { CompileSection } from "./CompileSection";
 import { WikiSection } from "./WikiSection";
 import { PlaceholderSection } from "./PlaceholderSections";
 
-export function MarketingLanding() {
+type Props = { user: SessionUser | null };
+
+export function MarketingLanding({ user }: Props) {
   return (
     <LenisProvider>
-      <main className="relative bg-[color:var(--bg-warm)]">
-        <Nav />
+      <main id="main" className="relative bg-[color:var(--bg-warm)]">
+        <NavClient user={user} lang="en" />
         <HeroSection />
+
+        <SocialProof />
+
+        <PlatformStrip />
 
         <ProblemSection />
 
