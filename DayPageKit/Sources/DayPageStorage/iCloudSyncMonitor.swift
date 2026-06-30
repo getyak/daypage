@@ -3,7 +3,7 @@ import Combine
 
 // MARK: - SyncStatus
 
-enum SyncStatus {
+public enum SyncStatus {
     case notConfigured
     case connected(lastSync: Date?)
     case syncing(pendingFiles: Int)
@@ -13,9 +13,9 @@ enum SyncStatus {
 // MARK: - iCloudSyncMonitor
 
 @MainActor
-final class iCloudSyncMonitor: ObservableObject {
+public final class iCloudSyncMonitor: ObservableObject {
 
-    static let shared = iCloudSyncMonitor()
+    public static let shared = iCloudSyncMonitor()
     private init() {}
 
     @Published var status: SyncStatus = .notConfigured
@@ -26,7 +26,7 @@ final class iCloudSyncMonitor: ObservableObject {
 
     // MARK: - Monitoring
 
-    func startMonitoring(vaultURL: URL) {
+    public func startMonitoring(vaultURL: URL) {
         guard VaultInitializer.shared.isUsingiCloud else {
             status = .notConfigured
             return
@@ -59,7 +59,7 @@ final class iCloudSyncMonitor: ObservableObject {
         q.start()
     }
 
-    func stopMonitoring() {
+    public func stopMonitoring() {
         query?.stop()
         NotificationCenter.default.removeObserver(self)
         query = nil

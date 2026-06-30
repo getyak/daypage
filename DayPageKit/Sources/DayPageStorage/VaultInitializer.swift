@@ -1,15 +1,16 @@
 import Foundation
+import DayPageModels
 
 // Manages first-launch initialization of the Vault directory structure
 // under the App Sandbox Documents directory.
-enum VaultInitializer {
+public enum VaultInitializer {
 
     // MARK: - Vault root
 
     /// Swappable storage backend. Lazily resolved: uses iCloudVaultLocator when
     /// the ubiquity container is available; falls back to LocalVaultLocator otherwise.
     /// Can be overridden at runtime (e.g., after the user enables iCloud in Settings).
-    static var shared: VaultLocator = {
+    public static var shared: VaultLocator = {
         let icloud = iCloudVaultLocator()
         return icloud.isUsingiCloud ? icloud : LocalVaultLocator()
     }()
@@ -17,9 +18,9 @@ enum VaultInitializer {
     /// Test-only override. When non-nil, `vaultURL` returns this instead of the
     /// locator-derived URL. Keep `internal` so `@testable import DayPage` tests
     /// can set/clear it; production code never touches it.
-    static var testOverrideURL: URL?
+    public static var testOverrideURL: URL?
 
-    static var vaultURL: URL {
+    public static var vaultURL: URL {
         if let override = testOverrideURL { return override }
         return shared.vaultURL
     }
@@ -31,7 +32,7 @@ enum VaultInitializer {
     /// When attachmentPolicy == .alwaysLocal, also triggers download of any
     /// evicted iCloud attachment files under vault/raw/assets/.
     /// When iCloud is available and vaultLocation == .local, triggers migration.
-    static func initializeIfNeeded() {
+    public static func initializeIfNeeded() {
         createDirectories()
         createSeedFiles()
         prefetchAttachmentsIfNeeded()
@@ -44,10 +45,8 @@ enum VaultInitializer {
         // Reuse the already-resolved shared locator instead of constructing a new
         // iCloudVaultLocator — avoids a redundant ubiquity-container lookup.
         guard shared.isUsingiCloud else { return }
-        guard AppSettings.currentVaultLocation() == .local else { return }
-        Task { @MainActor in
-            VaultMigrationService.shared.migrateIfNeeded()
-        }
+        guard StorageSettings.currentVaultLocation() == .local else { return }
+        VaultMigrationHook.fire()
     }
 
     // MARK: - Attachment prefetch (alwaysLocal policy)
@@ -55,7 +54,7 @@ enum VaultInitializer {
     private static func prefetchAttachmentsIfNeeded() {
         // Only relevant when vault is iCloud-backed and user wants all attachments local.
         guard shared.isUsingiCloud else { return }
-        guard AppSettings.currentAttachmentPolicy() == .alwaysLocal else { return }
+        guard StorageSettings.currentAttachmentPolicy() == .alwaysLocal else { return }
         let assetsURL = vaultURL.appendingPathComponent("raw/assets", isDirectory: true)
         guard let enumerator = FileManager.default.enumerator(
             at: assetsURL,
@@ -90,7 +89,7 @@ enum VaultInitializer {
             do {
                 try fm.createDirectory(at: url, withIntermediateDirectories: true)
             } catch {
-                DayPageLogger.log(level: "ERROR", message: "Failed to create directory \(relativePath): \(error)")
+                SentryReporter.breadcrumb(category: "vault-init", level: .error, message: "Failed to create directory \(relativePath): \(error)")
             }
         }
     }
@@ -111,7 +110,7 @@ enum VaultInitializer {
             let data = Data(content.utf8)
             try data.write(to: url, options: .atomic)
         } catch {
-            DayPageLogger.log(level: "ERROR", message: "Failed to write \(relativePath): \(error)")
+            SentryReporter.breadcrumb(category: "vault-init", level: .error, message: "Failed to write \(relativePath): \(error)")
         }
     }
 

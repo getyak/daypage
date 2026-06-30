@@ -16,13 +16,13 @@ import Foundation
 /// Process-wide accessor for the iOS→web sync configuration. Pure value reads
 /// so it can be used from any actor; writes go through UserDefaults / Keychain
 /// which are themselves thread-safe.
-enum SyncSettings {
+public enum SyncSettings {
 
     // MARK: - Keys
 
     /// Keychain identifier for the sync API key. Distinct from the AI-provider
     /// keys managed elsewhere so revoking one never touches the other.
-    static let apiKeyIdentifier = "memoSyncApiKey"
+    public static let apiKeyIdentifier = "memoSyncApiKey"
 
     /// UserDefaults key for the web base URL.
     private static let baseURLKey = "sync.web.baseURL"
@@ -31,7 +31,7 @@ enum SyncSettings {
 
     /// The configured web base URL string, or nil/empty when unset. Trailing
     /// slashes are trimmed so callers can always append `/api/...` cleanly.
-    static var baseURLString: String? {
+    public static var baseURLString: String? {
         get {
             let raw = UserDefaults.standard.string(forKey: baseURLKey) ?? ""
             let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -50,7 +50,7 @@ enum SyncSettings {
     /// The resolved bulk-sync endpoint URL, or nil when no/invalid base URL is
     /// configured. Centralised here so the uploader and any future puller agree
     /// on the path.
-    static var bulkEndpoint: URL? {
+    public static var bulkEndpoint: URL? {
         guard let base = baseURLString, let url = URL(string: base + "/api/memos/bulk") else {
             return nil
         }
@@ -60,7 +60,7 @@ enum SyncSettings {
     // MARK: - API Key
 
     /// The configured API key, or nil when unset/empty.
-    static var apiKey: String? {
+    public static var apiKey: String? {
         get { KeychainHelper.getAPIKey(for: apiKeyIdentifier) }
         set {
             let trimmed = (newValue ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -77,7 +77,7 @@ enum SyncSettings {
     /// True only when both an endpoint and a key are present. The sync layer
     /// uses this to decide whether to install a real uploader or stay on the
     /// noop double.
-    static var isConfigured: Bool {
+    public static var isConfigured: Bool {
         bulkEndpoint != nil && (apiKey?.isEmpty == false)
     }
 
@@ -87,7 +87,7 @@ enum SyncSettings {
     /// Dogfood users on a LAN can paste `192.168.x.x:3000` and get a usable
     /// `https://…`; to use plain http they must type the scheme explicitly,
     /// which the uploader gates behind a DEBUG check.
-    static func normalizeBaseURL(_ input: String) -> String {
+    public static func normalizeBaseURL(_ input: String) -> String {
         var s = input
         while s.hasSuffix("/") { s.removeLast() }
         if !s.contains("://") {

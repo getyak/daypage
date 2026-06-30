@@ -16,9 +16,9 @@ import Foundation
 import Network
 
 @MainActor
-final class NetworkMonitor: ObservableObject {
+public final class NetworkMonitor: ObservableObject {
 
-    static let shared = NetworkMonitor()
+    public static let shared = NetworkMonitor()
 
     private let monitor = NWPathMonitor()
     private let queue = DispatchQueue(label: "com.daypage.network", qos: .utility)
@@ -73,7 +73,7 @@ final class NetworkMonitor: ObservableObject {
     /// property is a no-op for observers thanks to `removeDuplicates()`
     /// downstream.
     private func recomputeIsOnline() {
-        let simulate = UserDefaults.standard.bool(forKey: AppSettings.Keys.debugSimulateOffline)
+        let simulate = UserDefaults.standard.bool(forKey: StorageSettings.debugSimulateOfflineKey)
         let next = realIsOnline && !simulate
         if isOnline != next {
             isOnline = next
@@ -83,7 +83,7 @@ final class NetworkMonitor: ObservableObject {
     /// Test seam — lets `NetworkMonitorTests` drive the override path
     /// without spinning up a real NWPathMonitor. Production code never
     /// calls this; the real NWPath callback owns `realIsOnline`.
-    func _testOnly_setRealIsOnline(_ value: Bool) {
+    public func _testOnly_setRealIsOnline(_ value: Bool) {
         realIsOnline = value
         recomputeIsOnline()
     }
@@ -92,18 +92,18 @@ final class NetworkMonitor: ObservableObject {
     /// it has mutated the simulate-offline key in a private UserDefaults
     /// suite. The production path goes through
     /// `.simulateOfflineChanged` notifications.
-    func _testOnly_recomputeIsOnline() {
+    public func _testOnly_recomputeIsOnline() {
         recomputeIsOnline()
     }
 }
 
 // MARK: - Notification name
 
-extension Notification.Name {
+public extension Notification.Name {
     /// Posted by: SettingsView.debugSimulateOffline toggle (R8) — when the user flips
     /// the "Simulate Offline" debug switch.
     /// Observed by: NetworkMonitor.init (.addObserver — recomputes `isOnline` regardless
     /// of real NWPathMonitor state). Kept in this file because the coupling is tight
     /// between the toggle UI and the monitor; no other component should need to post it.
-    static let simulateOfflineChanged = Notification.Name("com.daypage.simulateOfflineChanged")
+    public static let simulateOfflineChanged = Notification.Name("com.daypage.simulateOfflineChanged")
 }

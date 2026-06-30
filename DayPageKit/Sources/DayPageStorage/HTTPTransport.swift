@@ -11,7 +11,7 @@ import Foundation
 /// app makes today (DeepSeek, OpenAI Whisper, OpenWeather). If a future
 /// caller needs upload tasks or streaming, add a separate method rather
 /// than widening this one — keeping the surface narrow keeps fakes cheap.
-protocol HTTPTransport: Sendable {
+public protocol HTTPTransport: Sendable {
     func data(for request: URLRequest) async throws -> (Data, URLResponse)
 }
 
@@ -27,6 +27,6 @@ extension URLSession: HTTPTransport {}
 /// override via dependency injection at the call site; production code
 /// just reads this property so any future swap (e.g. enabling a logging
 /// transport in DEBUG) is a one-line change.
-enum HTTPTransports {
+public enum HTTPTransports {
     nonisolated(unsafe) static var shared: HTTPTransport = URLSession.shared
 }

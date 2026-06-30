@@ -2,9 +2,9 @@ import Foundation
 import Sentry
 
 @MainActor
-final class DayPageLogger {
+public final class DayPageLogger {
 
-    static let shared = DayPageLogger()
+    public static let shared = DayPageLogger()
 
     private nonisolated static let queue = DispatchQueue(label: "com.daypage.logger", qos: .utility)
     private let maxFileSize: Int = 1_048_576 // 1 MB
@@ -25,19 +25,19 @@ final class DayPageLogger {
 
     private init() {}
 
-    func error(_ message: String, file: String = #file, line: Int = #line) {
+    public func error(_ message: String, file: String = #file, line: Int = #line) {
         write(level: "ERROR", message: message, file: file, line: line)
         SentryReporter.breadcrumb(category: "app", level: .error, message: message)
         // Breadcrumb only — no per-call SentrySDK.capture(). Call sites that need a
         // full Sentry event (unhandled exceptions) should invoke SentrySDK directly.
     }
 
-    func warn(_ message: String, file: String = #file, line: Int = #line) {
+    public func warn(_ message: String, file: String = #file, line: Int = #line) {
         write(level: "WARN", message: message, file: file, line: line)
         SentryReporter.breadcrumb(category: "app", level: .warning, message: message)
     }
 
-    func info(_ message: String, file: String = #file, line: Int = #line) {
+    public func info(_ message: String, file: String = #file, line: Int = #line) {
         write(level: "INFO", message: message, file: file, line: line)
         SentryReporter.breadcrumb(category: "app", level: .info, message: message)
     }

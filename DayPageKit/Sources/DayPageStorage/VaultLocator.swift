@@ -4,7 +4,7 @@ import Foundation
 
 /// Abstracts the storage backend so the vault path can be swapped at runtime
 /// without touching individual call sites.
-protocol VaultLocator {
+public protocol VaultLocator {
     var vaultURL: URL { get }
     var isUsingiCloud: Bool { get }
 }
@@ -13,7 +13,7 @@ protocol VaultLocator {
 
 /// Default implementation: stores vault under the app's local Documents directory.
 /// Behavior is identical to the previous hard-coded VaultInitializer.vaultURL.
-struct LocalVaultLocator: VaultLocator {
+public struct LocalVaultLocator: VaultLocator {
     // FileManager.urls(for:) is safe to call repeatedly but allocates on every
     // call. Cache the result once at the static level — the Documents path never
     // changes within a process lifetime.
@@ -21,17 +21,17 @@ struct LocalVaultLocator: VaultLocator {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("vault", isDirectory: true)
 
-    var vaultURL: URL { Self._localDocuments }
+    public var vaultURL: URL { Self._localDocuments }
 
-    var isUsingiCloud: Bool { false }
+    public var isUsingiCloud: Bool { false }
 }
 
 // MARK: - iCloudVaultLocator
 
 /// iCloud Drive implementation: stores vault under the app's ubiquity container.
 /// Falls back gracefully when iCloud is unavailable (e.g., Simulator without account).
-struct iCloudVaultLocator: VaultLocator {
-    let containerID = "iCloud.com.daypage.app"
+public struct iCloudVaultLocator: VaultLocator {
+    public let containerID = "iCloud.com.daypage.app"
 
     // Resolve the ubiquity container fresh on every access. On cold launch
     // url(forUbiquityContainerIdentifier:) often returns nil while the daemon
@@ -41,13 +41,13 @@ struct iCloudVaultLocator: VaultLocator {
         FileManager.default.url(forUbiquityContainerIdentifier: containerID)
     }
 
-    var vaultURL: URL {
+    public var vaultURL: URL {
         ubiquityContainer?
             .appendingPathComponent("Documents/vault", isDirectory: true)
             ?? LocalVaultLocator().vaultURL
     }
 
-    var isUsingiCloud: Bool {
+    public var isUsingiCloud: Bool {
         ubiquityContainer != nil
     }
 }
@@ -60,7 +60,7 @@ struct iCloudVaultLocator: VaultLocator {
 ///
 /// Upgrade path: local → iCloud → remote backend (one-way, no data loss on upgrade).
 /// v4 target: SupabaseSyncBackend (requires AuthService.session).
-protocol SyncBackend {
+public protocol SyncBackend {
     /// Human-readable identifier shown in Settings (e.g. "iCloud", "Supabase").
     var displayName: String { get }
 

@@ -10,9 +10,9 @@ import Combine
 /// attribute, then delegates to `ConflictMerger.resolveConflictsIfNeeded(in:)`.
 /// Posts `.vaultConflictResolved` notifications so the UI layer can show a banner.
 @MainActor
-final class iCloudConflictMonitor: ObservableObject {
+public final class iCloudConflictMonitor: ObservableObject {
 
-    static let shared = iCloudConflictMonitor()
+    public static let shared = iCloudConflictMonitor()
     private init() {}
 
     // MARK: - Published State
@@ -37,7 +37,7 @@ final class iCloudConflictMonitor: ObservableObject {
     /// Start monitoring conflict status for the given vault URL.
     /// Call this once after VaultInitializer is configured and iCloud is available.
     /// When iCloud is not in use, this is a no-op.
-    func startMonitoring(vaultURL: URL) {
+    public func startMonitoring(vaultURL: URL) {
         let locator = iCloudVaultLocator()
         guard locator.isUsingiCloud else { return }
 
@@ -78,7 +78,7 @@ final class iCloudConflictMonitor: ObservableObject {
         q.start()
     }
 
-    func stopMonitoring() {
+    public func stopMonitoring() {
         query?.stop()
         NotificationCenter.default.removeObserver(self)
         cancellables.removeAll()

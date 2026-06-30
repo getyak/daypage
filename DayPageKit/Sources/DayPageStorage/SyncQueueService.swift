@@ -21,13 +21,14 @@
 
 import Foundation
 import Combine
+import DayPageModels
 
 /// Process-wide, @MainActor singleton tracking memo IDs awaiting Supabase
 /// sync. All published state drives SwiftUI, so it must mutate on the main
 /// actor.
 @MainActor
-final class SyncQueueService: ObservableObject {
-    static let shared = SyncQueueService()
+public final class SyncQueueService: ObservableObject {
+    public static let shared = SyncQueueService()
 
     /// Memo IDs awaiting upload. Stored as a Set so duplicate enqueues
     /// (e.g. retry-after-failure) collapse to a single entry.
@@ -51,8 +52,8 @@ final class SyncQueueService: ObservableObject {
     /// Convenience accessors — these aren't `@Published` themselves but
     /// will recompute whenever `pendingMemoIDs` does because callers
     /// observe the underlying Set.
-    var pendingCount: Int { pendingMemoIDs.count }
-    var isEmpty: Bool { pendingMemoIDs.isEmpty }
+    public var pendingCount: Int { pendingMemoIDs.count }
+    public var isEmpty: Bool { pendingMemoIDs.isEmpty }
 
     // R8 fix: remember the size each memo was enqueued with so markSynced
     // doesn't have to trust an out-of-band caller (e.g. NoopRemoteUploader
@@ -89,7 +90,7 @@ final class SyncQueueService: ObservableObject {
     /// Test-only constructor — lets `SyncQueueServiceTests` create a
     /// fresh instance bound to a throwaway `UserDefaults(suiteName:)` so
     /// state can't bleed across test cases. Not for production use.
-    static func makeForTesting(defaults: UserDefaults) -> SyncQueueService {
+    public static func makeForTesting(defaults: UserDefaults) -> SyncQueueService {
         SyncQueueService(defaults: defaults)
     }
 
@@ -98,7 +99,7 @@ final class SyncQueueService: ObservableObject {
     /// Add a memo to the queue. Idempotent: re-enqueuing the same ID is
     /// a no-op for the count + byte tally (Set semantics dedupe the ID;
     /// we early-return so the byte counter doesn't double-count).
-    func enqueue(memoID: String, sizeBytes: Int) {
+    public func enqueue(memoID: String, sizeBytes: Int) {
         guard !pendingMemoIDs.contains(memoID) else { return }
         pendingMemoIDs.insert(memoID)
         let clamped = max(0, sizeBytes)
@@ -120,7 +121,7 @@ final class SyncQueueService: ObservableObject {
     /// decrement instead of leaving a phantom byte count behind. When
     /// the queue empties, the oldest-pending clock is cleared so a
     /// future enqueue starts fresh.
-    func markSynced(memoID: String) {
+    public func markSynced(memoID: String) {
         guard pendingMemoIDs.contains(memoID) else { return }
         pendingMemoIDs.remove(memoID)
         // R9 fix: if a memo arrived via legacy restoreFromDisk (older
@@ -185,7 +186,7 @@ final class SyncQueueService: ObservableObject {
     /// upload here — instead we post `.syncQueueFlushRequested` so the
     /// Supabase sync service (or a test double) handles it. Keeps this
     /// file free of any networking imports beyond NetworkMonitor.
-    func flushIfOnline() async {
+    public func flushIfOnline() async {
         guard NetworkMonitor.shared.isOnline,
               !isFlushingNow,
               !isEmpty else { return }
@@ -247,10 +248,10 @@ final class SyncQueueService: ObservableObject {
 
 // MARK: - Notification name
 
-extension Notification.Name {
+public extension Notification.Name {
     /// Posted by: SyncQueueService.flushIfOnline (R8) — when an upload pass should run.
     /// Observed by: SyncQueueObserver.start (.addObserver) — drives Supabase upload +
     /// markSynced callbacks via SyncQueueService.shared.pendingMemoIDs. Decouples this
     /// file from the concrete sync implementation.
-    static let syncQueueFlushRequested = Notification.Name("DayPage.syncQueue.flushRequested")
+    public static let syncQueueFlushRequested = Notification.Name("DayPage.syncQueue.flushRequested")
 }

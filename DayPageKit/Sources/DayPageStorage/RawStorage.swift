@@ -1,6 +1,7 @@
 import Foundation
 import WidgetKit
 import CryptoKit
+import DayPageModels
 
 // MARK: - RawStorageError
 
@@ -8,7 +9,7 @@ import CryptoKit
 /// `writeFailed` is raised when `replaceItemAt` returns nil (silent failure
 /// path) or `moveItem` fails — historically these paths were swallowed and
 /// the UI thought the write had succeeded.
-enum RawStorageError: Error {
+public enum RawStorageError: Error {
     case writeFailed(URL)
     case readFailed(URL)
 }
@@ -18,7 +19,7 @@ enum RawStorageError: Error {
 /// 读取和写入 Memo 记录到 vault/raw/YYYY-MM-DD.md 文件。
 /// 同一天文件中的多条 memo 由 memoSeparator 分隔。
 /// 所有写入都是原子的：先写入临时文件，再重命名。
-enum RawStorage {
+public enum RawStorage {
 
     // MARK: - Serial write queue
 
@@ -34,15 +35,15 @@ enum RawStorage {
     /// 同一天文件内 memo 之间使用的精确分隔符。
     /// 使用 HTML 注释而非裸 "---"，避免与 YAML frontmatter 闭合符及
     /// 用户正文中可能出现的 "---" 冲突（issue #227）。
-    static let memoSeparator = "\n\n<!-- daypage-memo-separator -->\n\n"
+    public static let memoSeparator = "\n\n<!-- daypage-memo-separator -->\n\n"
 
     /// 历史分隔符（v1）。仍然保留以便向后兼容已有 vault 文件的解析。
-    static let legacyMemoSeparator = "\n\n---\n\n"
+    public static let legacyMemoSeparator = "\n\n---\n\n"
 
     // MARK: - URL helpers
 
     /// 返回给定日期的原始 memo 文件的 URL。
-    static func fileURL(for date: Date) -> URL {
+    public static func fileURL(for date: Date) -> URL {
         let dateString = dateFormatter.string(from: date)
         return VaultInitializer.vaultURL
             .appendingPathComponent("raw")
@@ -55,7 +56,7 @@ enum RawStorage {
     /// 如果文件不存在则创建。
     /// 使用原子写入（临时文件 + 重命名）以防止损坏。
     /// 写入操作由 writeQueue 序列化以防止并发追加时数据丢失。
-    static func append(_ memo: Memo) throws {
+    public static func append(_ memo: Memo) throws {
         try writeQueue.sync {
             let url = fileURL(for: memo.created)
             let newBlock = memo.toMarkdown()
@@ -104,7 +105,7 @@ enum RawStorage {
     /// via NotificationCenter so the storage layer never depends on the index
     /// layer, and every write path (TodayViewModel rewrite/delete,
     /// PassiveLocationService, SampleDataSeeder) is covered automatically.
-    static func notifyDidWrite(for date: Date) {
+    public static func notifyDidWrite(for date: Date) {
         NotificationCenter.default.post(name: .rawStorageDidWrite, object: date)
     }
 
@@ -115,7 +116,7 @@ enum RawStorage {
     /// newest-last so the file is chronological (parser sorts later anyway).
     ///
     /// Pure function — no I/O, safe to call from any thread/actor.
-    static func serialize(_ memos: [Memo]) -> String {
+    public static func serialize(_ memos: [Memo]) -> String {
         let ordered = memos.sorted { $0.created < $1.created }
         return ordered.map { $0.toMarkdown() }.joined(separator: memoSeparator)
     }
@@ -134,7 +135,7 @@ enum RawStorage {
     /// Safe to call from any thread/actor. Performs disk I/O inline, so callers
     /// on `@MainActor` should dispatch via `Task.detached` to avoid blocking
     /// the UI thread (see TodayViewModel for the canonical pattern).
-    static func rewrite(_ memos: [Memo], for date: Date) throws {
+    public static func rewrite(_ memos: [Memo], for date: Date) throws {
         try writeQueue.sync {
             let url = fileURL(for: date)
             if memos.isEmpty {
@@ -200,7 +201,7 @@ enum RawStorage {
     /// mutation without writing.
     ///
     /// Throws on read/write failure. `transform` cannot throw.
-    static func mutate(
+    public static func mutate(
         for date: Date,
         transform: ([Memo]) -> [Memo]?
     ) throws {
@@ -254,7 +255,7 @@ enum RawStorage {
 
     /// 读取给定日期日文件中的所有 Memo。
     /// 如果文件不存在或不包含有效的 memo，返回空数组。
-    static func read(for date: Date) throws -> [Memo] {
+    public static func read(for date: Date) throws -> [Memo] {
         let url = fileURL(for: date)
         guard FileManager.default.fileExists(atPath: url.path) else {
             SentryReporter.breadcrumb(
@@ -291,7 +292,7 @@ enum RawStorage {
     ///    两者磁盘表示相同）。
     /// 该策略既保证旧 vault 文件（含多条 memo）可读，又避免新格式 memo
     /// 正文中偶尔出现的 "---" 被错误切分导致数据丢失。
-    static func parse(fileContent: String) -> [Memo] {
+    public static func parse(fileContent: String) -> [Memo] {
         parse(fileContent: fileContent, sourceFile: nil)
     }
 
@@ -299,7 +300,7 @@ enum RawStorage {
     /// quarantining unparseable blocks. Callers in production (`read`,
     /// `mutate`) supply the day file URL so the quarantine path can derive
     /// `YYYY-MM-DD-{sha8}.md`. Tests can still call the public 1-arg overload.
-    static func parse(fileContent: String, sourceFile: URL?) -> [Memo] {
+    public static func parse(fileContent: String, sourceFile: URL?) -> [Memo] {
         if fileContent.contains(memoSeparator) {
             return splitAndParse(fileContent, separator: memoSeparator, sourceFile: sourceFile)
         }
@@ -367,7 +368,7 @@ enum RawStorage {
     /// Failures are intentionally swallowed (breadcrumbed) — the day-file
     /// caller already lost the block in memory; we never want quarantine I/O
     /// errors to propagate up and break the user's read path.
-    static func quarantineBrokenBlock(_ block: String, sourceFile: URL, reason: String) {
+    public static func quarantineBrokenBlock(_ block: String, sourceFile: URL, reason: String) {
         let bytes = Data(block.utf8)
         let digest = SHA256.hash(data: bytes)
         let hex = digest.map { String(format: "%02x", $0) }.joined()
@@ -418,7 +419,7 @@ enum RawStorage {
     /// Writes `string` to `url` atomically, coordinated via NSFileCoordinator so
     /// iCloud Drive sees the write as a single coherent operation.
     /// The temp-file + replaceItemAt pattern runs inside the coordinator block.
-    static func atomicWrite(string: String, to url: URL) throws {
+    public static func atomicWrite(string: String, to url: URL) throws {
         try atomicWrite(data: Data(string.utf8), to: url)
     }
 
@@ -430,7 +431,7 @@ enum RawStorage {
     /// Any error (permission, disk full, iCloud conflict) is propagated. The
     /// implementation owns the temp file and cleans it up before throwing,
     /// so callers don't need a `try? removeItem` cleanup path on failure.
-    static func atomicWrite(data: Data, to url: URL) throws {
+    public static func atomicWrite(data: Data, to url: URL) throws {
         let fm = FileManager.default
         let dir = url.deletingLastPathComponent()
         if !fm.fileExists(atPath: dir.path) {
@@ -481,7 +482,7 @@ enum RawStorage {
     /// Removes backup files older than `days` days from every `.trash` directory
     /// under vault/wiki/daily/ and vault/wiki/ (hot cache backups).
     /// Safe to call on a background thread.
-    static func pruneTrashOlderThan(days: Int = 7) {
+    public static func pruneTrashOlderThan(days: Int = 7) {
         let fm = FileManager.default
         let cutoff = Date().addingTimeInterval(-Double(days) * 24 * 3600)
 
@@ -510,7 +511,7 @@ enum RawStorage {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
         f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = AppSettings.currentTimeZone()
+        f.timeZone = StorageSettings.currentTimeZone()
         return f
     }
 }

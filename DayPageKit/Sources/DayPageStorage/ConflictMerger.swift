@@ -4,29 +4,29 @@ import DayPageModels
 
 // MARK: - ConflictResolutionInfo
 
-struct ConflictResolutionInfo {
-    let date: Date
-    let mergedMemoCount: Int
-    let sourceDevice: String
+public struct ConflictResolutionInfo {
+    public let date: Date
+    public let mergedMemoCount: Int
+    public let sourceDevice: String
 }
 
-extension Notification.Name {
+public extension Notification.Name {
     /// Posted by: ConflictMerger.resolveIfNeeded — after a successful 3-way merge
     /// of an iCloud `.conflicted` sibling file. `object` is `ConflictResolutionInfo`.
     /// Observed by: TodayViewModel (.publisher), TodayView.body (.onReceive — surfaces
     /// the "Merged from <device>" banner), TimelineIndex (.addObserver — forces full
     /// rebuild), iCloudConflictMonitor (.publisher — telemetry).
-    static let vaultConflictResolved = Notification.Name("vaultConflictResolved")
+    public static let vaultConflictResolved = Notification.Name("vaultConflictResolved")
     /// Posted by: ConflictMerger.resolveIfNeeded — when the merge itself errors out.
     /// `object` is the primary `URL`. Observed by: (unverified — currently no live
     /// listener; declared here so future error-banner UI can subscribe).
-    static let vaultConflictFailed = Notification.Name("vaultConflictFailed")
+    public static let vaultConflictFailed = Notification.Name("vaultConflictFailed")
 
     /// Posted by: RawStorage.write / rewrite / delete — after a raw day-file
     /// write/delete completes. `object` is the affected day's `Date`.
     /// Observed by: TimelineIndex (.addObserver — incremental section refresh
     /// without disk re-scan).
-    static let rawStorageDidWrite = Notification.Name("rawStorageDidWrite")
+    public static let rawStorageDidWrite = Notification.Name("rawStorageDidWrite")
 }
 
 // MARK: - Conflict Merge Strategy (R4-MEDIUM #38)
@@ -72,13 +72,13 @@ extension Notification.Name {
 
 /// 合并原始备忘录文件、wiki 日志行及 JSON 条目的 iCloud 冲突副本。
 /// 冲突检测由 NSMetadataQuery 监听 NSMetadataUbiquitousItemHasUnresolvedConflictsKey 驱动。
-enum ConflictMerger {
+public enum ConflictMerger {
 
     // MARK: - Memo Merge
 
     /// 合并两个 Memo 对象数组。
     /// 算法：拼接，按 created 升序排列，按 UUID 去重（保留首个）。
-    static func mergeRawMemos(original: [Memo], conflict: [Memo]) -> [Memo] {
+    public static func mergeRawMemos(original: [Memo], conflict: [Memo]) -> [Memo] {
         let combined = (original + conflict).sorted { $0.created < $1.created }
         var seen = Set<UUID>()
         return combined.filter { memo in
@@ -91,7 +91,7 @@ enum ConflictMerger {
     // MARK: - Log Line Merge
 
     /// 合并两个 wiki/log.md 字符串，按时间戳前缀（首个 token）去重。
-    static func mergeLogLines(original: String, conflict: String) -> String {
+    public static func mergeLogLines(original: String, conflict: String) -> String {
         let originalLines = original.components(separatedBy: "\n")
         let conflictLines = conflict.components(separatedBy: "\n")
         var seen = Set<String>()
@@ -114,7 +114,7 @@ enum ConflictMerger {
 
     /// 合并两个 JSON 数组，按给定 idKey 字段值去重。
     /// 若任一输入无法解析为 JSON 数组，则返回原始数据。
-    static func mergeJSONEntries(original: Data, conflict: Data, idKey: String) -> Data {
+    public static func mergeJSONEntries(original: Data, conflict: Data, idKey: String) -> Data {
         guard
             let originalArray = try? JSONSerialization.jsonObject(with: original) as? [[String: Any]],
             let conflictArray = try? JSONSerialization.jsonObject(with: conflict) as? [[String: Any]]
@@ -143,7 +143,7 @@ enum ConflictMerger {
     /// 扫描 vault URL 中的 iCloud 冲突副本并解决。
     /// 使用 NSMetadataQuery 查找有未解决冲突的文件，合并内容，
     /// 并在每次成功解决后发送 .vaultConflictResolved 通知。
-    static func resolveConflictsIfNeeded(in vaultURL: URL) {
+    public static func resolveConflictsIfNeeded(in vaultURL: URL) {
         let fm = FileManager.default
         guard fm.fileExists(atPath: vaultURL.path) else { return }
 
@@ -194,7 +194,7 @@ enum ConflictMerger {
                 level: "ERROR",
                 message: "[ConflictMerger] Failed to resolve conflict at \(primaryURL.lastPathComponent): \(error)"
             )
-            if !Secrets.sentryDSN.isEmpty { SentrySDK.capture(error: error) }
+            if SentryReporter.isSentryEnabled { SentrySDK.capture(error: error) }
             NotificationCenter.default.post(name: .vaultConflictFailed, object: primaryURL)
         }
     }

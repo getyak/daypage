@@ -6,7 +6,7 @@ import Security
 /// （例如 Apple 登录邮箱，Apple 仅首次登录时返回）。
 /// 访问类为 `AfterFirstUnlockThisDeviceOnly`，
 /// 以便后台刷新任务仍能读取值而无需 iCloud 同步。
-enum KeychainHelper {
+public enum KeychainHelper {
 
     private static let service = "com.daypage.auth"
     private static let apiKeyService = "com.daypage.apikeys"
@@ -14,7 +14,7 @@ enum KeychainHelper {
     // MARK: - API Key Storage (US-002)
 
     /// Stores an API key securely in Keychain under the `com.daypage.apikeys` service.
-    static func setAPIKey(_ value: String, for identifier: String) {
+    public static func setAPIKey(_ value: String, for identifier: String) {
         let data = Data(value.utf8)
         let base: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -29,7 +29,7 @@ enum KeychainHelper {
     }
 
     /// Retrieves an API key from Keychain. Returns `nil` if not found or empty.
-    static func getAPIKey(for identifier: String) -> String? {
+    public static func getAPIKey(for identifier: String) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: apiKeyService,
@@ -50,7 +50,7 @@ enum KeychainHelper {
     }
 
     /// Deletes an API key from Keychain.
-    static func deleteAPIKey(for identifier: String) {
+    public static func deleteAPIKey(for identifier: String) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: apiKeyService,
@@ -61,7 +61,7 @@ enum KeychainHelper {
 
     /// Migrates any API keys stored in UserDefaults to Keychain, then removes them from UserDefaults.
     /// Safe to call multiple times — no-ops if the key is already in Keychain or absent from UserDefaults.
-    static func migrateAPIKeysFromUserDefaultsIfNeeded() {
+    public static func migrateAPIKeysFromUserDefaultsIfNeeded() {
         let migrations: [(udKey: String, keychainId: String)] = [
             ("runtimeDeepSeekKey",    "deepSeekApiKey"),
             ("runtimeOpenAIKey",      "openAIWhisperApiKey"),
@@ -82,7 +82,7 @@ enum KeychainHelper {
 
     // MARK: - Auth Token Storage
 
-    static func set(_ value: String, forKey key: String) {
+    public static func set(_ value: String, forKey key: String) {
         let data = Data(value.utf8)
         let base: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -99,7 +99,7 @@ enum KeychainHelper {
         SecItemAdd(attrs as CFDictionary, nil)
     }
 
-    static func get(forKey key: String) -> String? {
+    public static func get(forKey key: String) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -117,7 +117,7 @@ enum KeychainHelper {
         return String(data: data, encoding: .utf8)
     }
 
-    static func delete(forKey key: String) {
+    public static func delete(forKey key: String) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,

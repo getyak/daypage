@@ -17,10 +17,11 @@
 // 网络或文件系统。
 
 import Foundation
+import DayPageModels
 
 // MARK: - Errors
 
-enum MemoSyncError: LocalizedError {
+public enum MemoSyncError: LocalizedError {
     case notConfigured
     case insecureScheme
     case memoNotFound(String)
@@ -31,7 +32,7 @@ enum MemoSyncError: LocalizedError {
     case serverError(status: Int)
     case rejected(reason: String)   // server skipped this memo
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .notConfigured: return "同步未配置"
         case .insecureScheme: return "同步地址必须使用 https"
@@ -50,11 +51,11 @@ enum MemoSyncError: LocalizedError {
 
 /// Pure transformations from the iOS `Memo` model to the web bulk-sync JSON
 /// shape. No I/O — every input is passed in, so this is trivially unit-testable.
-enum MemoSyncMapper {
+public enum MemoSyncMapper {
 
     /// Map an iOS `MemoType` to the web schema's enum. The web schema only
     /// knows text/url/voice/photo/file, so iOS-only cases collapse to `text`.
-    static func webType(for type: Memo.MemoType) -> String {
+    public static func webType(for type: Memo.MemoType) -> String {
         switch type {
         case .text: return "text"
         case .voice: return "voice"
@@ -67,7 +68,7 @@ enum MemoSyncMapper {
     /// Build the `attachments` array for the bulk payload. Metadata only —
     /// `storage_key` carries the iOS relative path as a reference; the bytes
     /// are not uploaded in this phase.
-    static func attachments(from memo: Memo) -> [[String: Any]] {
+    public static func attachments(from memo: Memo) -> [[String: Any]] {
         memo.attachments.map { att in
             var dict: [String: Any] = [
                 // web schema enum: audio|photo|file. iOS uses audio|photo.
@@ -91,7 +92,7 @@ enum MemoSyncMapper {
     /// `body` is forced non-empty because the web schema requires `min(1)`:
     /// a pure voice/photo memo with no text falls back to its first transcript,
     /// then to a localized placeholder.
-    static func bulkItem(from memo: Memo, vaultPath: String?) -> [String: Any] {
+    public static func bulkItem(from memo: Memo, vaultPath: String?) -> [String: Any] {
         let iso = ISO8601DateFormatter.memo
         let createdISO = iso.string(from: memo.created)
         // updated_at drives the server's last-write-wins; a pinned memo's pin
@@ -137,7 +138,7 @@ enum MemoSyncMapper {
 
     /// Web requires a non-empty body. Prefer the memo's own text; for media-only
     /// memos fall back to the first non-empty transcript, then a placeholder.
-    static func nonEmptyBody(for memo: Memo) -> String {
+    public static func nonEmptyBody(for memo: Memo) -> String {
         let trimmed = memo.body.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty { return memo.body }
         if let transcript = memo.attachments
@@ -155,16 +156,16 @@ enum MemoSyncMapper {
 /// time (so the user can configure sync without an app restart), looks the memo
 /// up in the vault, maps it, and POSTs it. Returns the uploaded byte size for
 /// the queue's telemetry.
-struct MemoSyncUploader: RemoteUploader {
+public struct MemoSyncUploader: RemoteUploader {
 
     /// Injectable transport so tests can supply canned responses.
-    let transport: HTTPTransport
+    public let transport: HTTPTransport
 
     init(transport: HTTPTransport = HTTPTransports.shared) {
         self.transport = transport
     }
 
-    func upload(memoID: String) async throws -> Int {
+    public func upload(memoID: String) async throws -> Int {
         guard let endpoint = SyncSettings.bulkEndpoint,
               let apiKey = SyncSettings.apiKey, !apiKey.isEmpty else {
             throw MemoSyncError.notConfigured
@@ -223,7 +224,7 @@ struct MemoSyncUploader: RemoteUploader {
     /// The bulk endpoint returns `{ accepted: [...], skipped: [{id, reason}] }`.
     /// Treat a memo that landed in `skipped` (or in neither list) as a failure
     /// so the queue retries rather than silently dropping it.
-    static func assertAccepted(memoID: String, responseData: Data) throws {
+    public static func assertAccepted(memoID: String, responseData: Data) throws {
         let lowerID = memoID.lowercased()
         guard let json = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] else {
             throw MemoSyncError.invalidResponse
@@ -246,7 +247,7 @@ struct MemoSyncUploader: RemoteUploader {
     /// vault/raw/*.md. Returns the memo plus its vault-relative path. O(N files)
     /// but only runs once per memo upload (and the queue is small); mirrors the
     /// existing `SyncQueueService.estimateMemoSize` scan.
-    static func findMemo(byID memoID: String) -> (Memo, String)? {
+    public static func findMemo(byID memoID: String) -> (Memo, String)? {
         let rawDir = VaultInitializer.vaultURL.appendingPathComponent("raw", isDirectory: true)
         let fm = FileManager.default
         guard let files = try? fm.contentsOfDirectory(

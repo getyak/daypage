@@ -23,7 +23,7 @@ import Foundation
 /// running totalBytes accurately. Real implementations will translate
 /// memoID → Supabase row + handle conflict resolution; the placeholder
 /// just sleeps briefly to mimic latency.
-protocol RemoteUploader: Sendable {
+public protocol RemoteUploader: Sendable {
     func upload(memoID: String) async throws -> Int
 }
 
@@ -34,16 +34,16 @@ protocol RemoteUploader: Sendable {
 /// the spinner + "正在同步…" banner stay visible long enough to be
 /// perceived — the previous 200ms sometimes drained the queue inside a
 /// single frame, leaving the user wondering whether anything happened.
-struct NoopRemoteUploader: RemoteUploader {
-    func upload(memoID: String) async throws -> Int {
+public struct NoopRemoteUploader: RemoteUploader {
+    public func upload(memoID: String) async throws -> Int {
         try await Task.sleep(nanoseconds: 300_000_000)
         return 0
     }
 }
 
 @MainActor
-final class SyncQueueObserver {
-    static let shared = SyncQueueObserver()
+public final class SyncQueueObserver {
+    public static let shared = SyncQueueObserver()
 
     private var observer: NSObjectProtocol?
     private var isFlushing = false
@@ -68,7 +68,7 @@ final class SyncQueueObserver {
     /// Swap in the production uploader. Tests call this with a stub that
     /// asserts ordering / failure behaviour. The real sync service
     /// will call it at app launch, post-AuthService.
-    func setUploader(_ uploader: RemoteUploader) {
+    public func setUploader(_ uploader: RemoteUploader) {
         self.uploader = uploader
     }
 
@@ -77,7 +77,7 @@ final class SyncQueueObserver {
     /// `MemoSyncUploader`; otherwise fall back to the Noop double so the
     /// pending banner still drains locally without pretending data reached the
     /// server. Call this at launch and whenever Settings changes the config.
-    func installConfiguredUploader() {
+    public func installConfiguredUploader() {
         if SyncSettings.isConfigured {
             self.uploader = MemoSyncUploader()
         } else {
@@ -89,7 +89,7 @@ final class SyncQueueObserver {
     /// concurrent enqueue (e.g. user types a new memo mid-flush) doesn't
     /// mutate the set under our feet; the new memo will be picked up by
     /// the next flush trigger anyway.
-    func flush() async {
+    public func flush() async {
         guard !isFlushing else { return }
         isFlushing = true
         defer { isFlushing = false }

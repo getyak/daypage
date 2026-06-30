@@ -13,7 +13,7 @@ import Foundation
 /// Keep this helper transport-only: no retry, no body construction beyond
 /// JSON encoding, no response handling. Those belong to the caller or
 /// ``RetryHelper``.
-enum HTTPClientHelper {
+public enum HTTPClientHelper {
 
     /// Build a `URLRequest` for an OpenAI-compatible JSON POST endpoint.
     /// - Parameters:
@@ -21,7 +21,7 @@ enum HTTPClientHelper {
     ///   - apiKey: Bearer token; caller is responsible for non-emptiness.
     ///   - timeout: Per-request timeout in seconds. Default mirrors prior callers.
     /// - Returns: A `POST` request with Authorization + Content-Type set; body unset.
-    static func bearerJSON(url: URL, apiKey: String, timeout: TimeInterval = 120) -> URLRequest {
+    public static func bearerJSON(url: URL, apiKey: String, timeout: TimeInterval = 120) -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
@@ -32,7 +32,7 @@ enum HTTPClientHelper {
 
     /// Same as ``bearerJSON(url:apiKey:timeout:)`` but encodes `body` into JSON.
     /// Throws when `body` is not a valid JSON object.
-    static func bearerJSON(
+    public static func bearerJSON(
         url: URL,
         apiKey: String,
         timeout: TimeInterval = 120,
