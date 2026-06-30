@@ -1,4 +1,5 @@
 import Foundation
+import DayPageStorage
 
 // MARK: - TimelineIndex
 
@@ -27,9 +28,9 @@ import Foundation
 /// The index is the cache; `vault/raw/*.md` remains the source of truth. The
 /// cache is always reconstructible from disk, so losing it is harmless.
 @MainActor
-final class TimelineIndex {
+public final class TimelineIndex {
 
-    static let shared = TimelineIndex()
+    public static let shared = TimelineIndex()
 
     // MARK: - State
 
@@ -86,7 +87,7 @@ final class TimelineIndex {
     /// built; on the cold path (index not yet built) it returns a one-shot
     /// synchronous scan so the first load shows correct data immediately, and
     /// retains it so subsequent calls are O(1).
-    func entries() -> [TimelineDayEntry] {
+    public func entries() -> [TimelineDayEntry] {
         guard isBuilt else {
             // Cold path: build the dictionary synchronously this once so the
             // caller gets correct data, then keep it.
@@ -107,14 +108,14 @@ final class TimelineIndex {
     /// Triggers the initial full rebuild on a background task. Call once after
     /// `VaultInitializer.initializeIfNeeded()` at app launch. Idempotent —
     /// overlapping calls coalesce onto a single in-flight rebuild.
-    func warmUp() {
+    public func warmUp() {
         scheduleRebuild()
     }
 
     /// Compares the current `raw/` mtime against the snapshot and rebuilds if it
     /// changed. Call when the app enters the foreground. Cheap when nothing
     /// changed (a single stat()).
-    func refreshIfExternallyModified() {
+    public func refreshIfExternallyModified() {
         let current = Self.rawDirMtime()
         if current != rawDirMtimeSnapshot {
             scheduleRebuild()
@@ -209,7 +210,7 @@ final class TimelineIndex {
 
     /// Test-only: synchronously rebuild and wait, bypassing the background task.
     /// Lets unit tests assert post-rebuild state deterministically.
-    func rebuildSynchronouslyForTesting() {
+    public func rebuildSynchronouslyForTesting() {
         let scanned = TimelineService.scanAllEntries()
         entriesByDate = Dictionary(
             scanned.map { ($0.dateString, $0) },
@@ -220,7 +221,7 @@ final class TimelineIndex {
     }
 
     /// Test-only: clear all state so a test starts from a known-empty index.
-    func resetForTesting() {
+    public func resetForTesting() {
         rebuildTask?.cancel()
         rebuildTask = nil
         entriesByDate = [:]
@@ -231,10 +232,10 @@ final class TimelineIndex {
 
 // MARK: - Notification
 
-extension Notification.Name {
+public extension Notification.Name {
     /// Posted by: TimelineIndex.applyIncrementalUpdate / rebuildAll — whenever the
     /// in-memory timeline index changes (raw-storage write merged in or full rebuild).
     /// Observed by: TodayViewModel (.publisher — drives sectioned timeline refresh
     /// without re-scanning disk).
-    static let timelineIndexDidUpdate = Notification.Name("timelineIndexDidUpdate")
+    public static let timelineIndexDidUpdate = Notification.Name("timelineIndexDidUpdate")
 }

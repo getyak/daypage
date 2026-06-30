@@ -1,30 +1,31 @@
 import Foundation
+import DayPageStorage
 
 // MARK: - OnThisDayEntry
 
-struct OnThisDayEntry: Codable {
-    let originalDate: Date
-    let yearsAgo: Int?
-    let daysAgo: Int?
-    let preview: String
-    let filePath: String
+public struct OnThisDayEntry: Codable {
+    public let originalDate: Date
+    public let yearsAgo: Int?
+    public let daysAgo: Int?
+    public let preview: String
+    public let filePath: String
 }
 
 // MARK: - Index storage types
 
 private struct DayRecord: Codable {
-    let year: Int
-    let filePath: String
-    let memoCount: Int
-    let longestMemoPreview: String
+    public let year: Int
+    public let filePath: String
+    public let memoCount: Int
+    public let longestMemoPreview: String
 }
 
 // MARK: - OnThisDayIndex
 
 @MainActor
-final class OnThisDayIndex: ObservableObject {
+public final class OnThisDayIndex: ObservableObject {
 
-    static let shared = OnThisDayIndex()
+    public static let shared = OnThisDayIndex()
 
     /// R8 — signal that the on-disk / built index is loaded and `candidate(for:)`
     /// is safe to call against real data. TodayView observes this so the top
@@ -45,7 +46,7 @@ final class OnThisDayIndex: ObservableObject {
 
     // MARK: - Public API
 
-    func candidate(for date: Date) -> OnThisDayEntry? {
+    public func candidate(for date: Date) -> OnThisDayEntry? {
         let cal = Calendar.current
         let mmdd = mmddKey(from: date)
         guard let records = index[mmdd] else { return nil }
@@ -72,7 +73,7 @@ final class OnThisDayIndex: ObservableObject {
 
     // MARK: - Index Building
 
-    func rebuildIndex() async {
+    public func rebuildIndex() async {
         let built = await Task.detached(priority: .utility) {
             OnThisDayIndex.buildIndexOff()
         }.value
@@ -84,7 +85,7 @@ final class OnThisDayIndex: ObservableObject {
         isReady = true
     }
 
-    func loadIndex() async {
+    public func loadIndex() async {
         // 尝试先从磁盘加载，若缺失则重建
         if let loaded = loadIndexFromDisk() {
             index = loaded
@@ -102,7 +103,7 @@ final class OnThisDayIndex: ObservableObject {
     /// process-wide state pollution between cases (OnThisDayIndex.shared is
     /// a singleton; without this, a vault seeded by one test can leak into
     /// the next test's candidate(for:) lookup).
-    func resetForTesting() {
+    public func resetForTesting() {
         index = [:]
         isReady = false
     }

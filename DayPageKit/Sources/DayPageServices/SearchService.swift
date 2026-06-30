@@ -1,17 +1,19 @@
 import Foundation
+import DayPageModels
+import DayPageStorage
 
 // MARK: - SearchResult
 
 /// ``SearchService`` 返回的单个命中结果。
-struct SearchResult: Identifiable, Equatable {
-    let id = UUID()
-    let dateString: String              // "yyyy-MM-dd"
-    let snippet: String                 // 匹配的 memo 正文（修剪后 <=120 字符）
-    let matchKind: MatchKind
-    let isDailyPageCompiled: Bool
-    let memoType: Memo.MemoType?        // matchKind == .date 时为 nil
+public struct SearchResult: Identifiable, Equatable {
+    public let id = UUID()
+    public let dateString: String              // "yyyy-MM-dd"
+    public let snippet: String                 // 匹配的 memo 正文（修剪后 <=120 字符）
+    public let matchKind: MatchKind
+    public let isDailyPageCompiled: Bool
+    public let memoType: Memo.MemoType?        // matchKind == .date 时为 nil
 
-    enum MatchKind: Equatable, Hashable {
+    public enum MatchKind: Equatable, Hashable {
         case memoBody
         case location
         case date
@@ -20,15 +22,15 @@ struct SearchResult: Identifiable, Equatable {
 
 // MARK: - SearchFilters
 
-struct SearchFilters: Equatable {
-    var startDate: Date?
-    var endDate: Date?
-    var types: Set<Memo.MemoType>       // 空集 = 所有类型
-    var locationQuery: String           // 空字符串 = 无位置过滤
+public struct SearchFilters: Equatable {
+    public var startDate: Date?
+    public var endDate: Date?
+    public var types: Set<Memo.MemoType>       // 空集 = 所有类型
+    public var locationQuery: String           // 空字符串 = 无位置过滤
 
-    static let empty = SearchFilters(startDate: Date?.none, endDate: Date?.none, types: Set<Memo.MemoType>(), locationQuery: "")
+    public static let empty = SearchFilters(startDate: Date?.none, endDate: Date?.none, types: Set<Memo.MemoType>(), locationQuery: "")
 
-    var isActive: Bool {
+    public var isActive: Bool {
         startDate != nil || endDate != nil || !types.isEmpty || !locationQuery.isEmpty
     }
 }
@@ -38,14 +40,14 @@ struct SearchFilters: Equatable {
 /// 本地 vault 的内存搜索。
 /// MVP：扫描所有 ``vault/raw/*.md`` 文件和编译的日记页面，大小写不敏感的 ``contains``。
 /// 结果按日期分组，上限 100 以保持 UI 响应。
-enum SearchService {
+public enum SearchService {
 
     // MARK: - Public API
 
     /// 搜索原始 memo + 编译的日记页面，匹配 ``keyword`` 并应用可选的 ``filters``。
     /// 返回按日期降序排列的结果（最新优先）。
     /// 空关键字 + 无活跃过滤器时返回空数组。
-    nonisolated static func search(keyword rawKeyword: String,
+    public nonisolated static func search(keyword rawKeyword: String,
                                    filters: SearchFilters = .empty) -> [SearchResult] {
         let keyword = rawKeyword.trimmingCharacters(in: .whitespacesAndNewlines)
         let folded = foldedForSearch(keyword)

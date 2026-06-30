@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import DayPageStorage
 
 // MARK: - TimelinePinService
 //
@@ -18,9 +19,9 @@ import Combine
 // re-render its sections.
 
 @MainActor
-final class TimelinePinService: ObservableObject {
+public final class TimelinePinService: ObservableObject {
 
-    static let shared = TimelinePinService()
+    public static let shared = TimelinePinService()
 
     /// The set of pinned date strings (`yyyy-MM-dd`). `@Published` so SwiftUI
     /// views observing the service get a fresh render whenever it mutates.
@@ -38,14 +39,14 @@ final class TimelinePinService: ObservableObject {
 
     // MARK: - Public API
 
-    func isPinned(_ dateString: String) -> Bool {
+    public func isPinned(_ dateString: String) -> Bool {
         pinned.contains(dateString)
     }
 
     /// Toggles pinned state for one date. Returns the new state for callers
     /// that want to surface a confirmation ("Pinned" / "Unpinned").
     @discardableResult
-    func togglePin(_ dateString: String) -> Bool {
+    public func togglePin(_ dateString: String) -> Bool {
         if pinned.contains(dateString) {
             pinned.remove(dateString)
         } else {
@@ -58,7 +59,7 @@ final class TimelinePinService: ObservableObject {
 
     /// Drops a pin without toggling (used when a pinned day is deleted, so we
     /// don't leave a dangling entry in the pin set).
-    func unpin(_ dateString: String) {
+    public func unpin(_ dateString: String) {
         guard pinned.contains(dateString) else { return }
         pinned.remove(dateString)
         persist()
@@ -87,10 +88,10 @@ final class TimelinePinService: ObservableObject {
 
 // MARK: - Notification
 
-extension Notification.Name {
+public extension Notification.Name {
     /// Posted by: TimelinePinService.togglePin / clear — whenever the pin set
     /// changes (always on the main queue).
     /// Observed by: TimelineService listeners (unverified — no active .addObserver
     /// found in grep; channel kept for future timeline rebuild on pin change).
-    static let timelinePinsDidChange = Notification.Name("timelinePinsDidChange")
+    public static let timelinePinsDidChange = Notification.Name("timelinePinsDidChange")
 }

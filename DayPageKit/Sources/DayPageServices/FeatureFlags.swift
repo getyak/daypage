@@ -15,10 +15,11 @@
 
 import Foundation
 import SwiftUI
+import DayPageStorage
 
 /// All known runtime flags. Add new cases here — `CaseIterable` drives the
 /// Settings → Experiments list automatically.
-enum FeatureFlag: String, CaseIterable {
+public enum FeatureFlag: String, CaseIterable {
     /// **Used in**: `EntityPageView.backlinksSection` (Features/Entity/EntityPageView.swift)
     /// **When off**: Entity 页隐藏 "被 N 个 memo 引用" 区块；索引仍由 EntityPageService 维护。
     /// **Default**: on
@@ -71,7 +72,7 @@ enum FeatureFlag: String, CaseIterable {
     /// Default state when the user has never touched the toggle. All Round 4
     /// flags default-on so the app behaves the way the user already expects
     /// after upgrading — Experiments only lets them *opt out*.
-    var defaultEnabled: Bool {
+    public var defaultEnabled: Bool {
         switch self {
         case .backlinks,
              .compileNotification,
@@ -89,7 +90,7 @@ enum FeatureFlag: String, CaseIterable {
     /// Display name in Settings → Experiments. Not localized yet — flags are
     /// power-user surface; if any flag survives to GA it should graduate out
     /// of Experiments and grow proper i18n.
-    var title: String {
+    public var title: String {
         switch self {
         case .backlinks:              return "实体反向链接"
         case .compileNotification:    return "编译完成通知"
@@ -108,8 +109,8 @@ enum FeatureFlag: String, CaseIterable {
 /// must happen on the main actor. The store reads UserDefaults eagerly at
 /// init() so we don't pay a defaults lookup on every `isEnabled` call.
 @MainActor
-final class FeatureFlagStore: ObservableObject {
-    static let shared = FeatureFlagStore()
+public final class FeatureFlagStore: ObservableObject {
+    public static let shared = FeatureFlagStore()
 
     /// Per-flag override map. `nil` = use `defaultEnabled`. Storing in a
     /// dict lets us serve `isEnabled` without hitting UserDefaults each time.
@@ -127,11 +128,11 @@ final class FeatureFlagStore: ObservableObject {
         }
     }
 
-    func isEnabled(_ flag: FeatureFlag) -> Bool {
+    public func isEnabled(_ flag: FeatureFlag) -> Bool {
         overrides[flag.rawValue] ?? flag.defaultEnabled
     }
 
-    func set(_ flag: FeatureFlag, enabled: Bool) {
+    public func set(_ flag: FeatureFlag, enabled: Bool) {
         overrides[flag.rawValue] = enabled
         UserDefaults.standard.set(enabled, forKey: Self.defaultsKey(for: flag))
     }

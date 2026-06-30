@@ -1,28 +1,29 @@
 import Foundation
 import Sentry
+import DayPageStorage
 
 // MARK: - LLMMessage
 
 /// A single chat message in an OpenAI-compatible conversation.
-struct LLMMessage: Equatable {
-    enum Role: String {
+public struct LLMMessage: Equatable {
+    public enum Role: String {
         case system
         case user
         case assistant
     }
-    let role: Role
-    let content: String
+    public let role: Role
+    public let content: String
 
-    static func system(_ content: String) -> LLMMessage { LLMMessage(role: .system, content: content) }
-    static func user(_ content: String) -> LLMMessage { LLMMessage(role: .user, content: content) }
-    static func assistant(_ content: String) -> LLMMessage { LLMMessage(role: .assistant, content: content) }
+    public static func system(_ content: String) -> LLMMessage { LLMMessage(role: .system, content: content) }
+    public static func user(_ content: String) -> LLMMessage { LLMMessage(role: .user, content: content) }
+    public static func assistant(_ content: String) -> LLMMessage { LLMMessage(role: .assistant, content: content) }
 }
 
 // MARK: - LLMError
 
 /// Errors surfaced by ``LLMClient``. Kept distinct from ``CompilationError`` so
 /// callers (compilation vs. chat) can map them to their own UX copy.
-enum LLMError: LocalizedError {
+public enum LLMError: LocalizedError {
     case missingApiKey
     case invalidURL
     case offline
@@ -32,7 +33,7 @@ enum LLMError: LocalizedError {
     case emptyResponse
     case unknown(Error)
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .missingApiKey: return "DeepSeek API Key 未配置"
         case .invalidURL: return "API URL 无效"
@@ -61,11 +62,11 @@ enum LLMError: LocalizedError {
 ///
 /// 隐私/架构约束（研究文档 §5 红线）：云端调用走前台/后台均可，但
 /// **端侧模型不可用于后台**。本类是云端通道；端侧分流是未来的独立实现点。
-struct LLMClient {
+public struct LLMClient {
 
     // MARK: - Configuration
 
-    struct Config {
+    public struct Config {
         var baseURL: String
         var apiKey: String
         var model: String
@@ -95,12 +96,12 @@ struct LLMClient {
         }
     }
 
-    let config: Config
+    public let config: Config
     /// Sentry transaction 名称，用于区分 compilation / chat 调用。
-    let spanName: String
+    public let spanName: String
     /// HTTP transport. Defaults to the production URLSession via
     /// `HTTPTransports.shared`; tests inject a fake. Issue #31.
-    let transport: HTTPTransport
+    public let transport: HTTPTransport
 
     init(
         config: Config,
@@ -120,7 +121,7 @@ struct LLMClient {
     ///   - messages: 完整的对话消息列表（含 system / user / assistant）。
     ///   - policy: 重试策略，便于编译管线与对话各自调优。
     ///   - onRetry: 每次重试前回调 `(当前次数, 最大次数)`，用于 UI 反馈。
-    func complete(
+    public func complete(
         messages: [LLMMessage],
         policy: RetryPolicy = .standard,
         onRetry: ((Int, Int) -> Void)? = nil
@@ -140,7 +141,7 @@ struct LLMClient {
     /// Error classifier for retry: terminal errors short-circuit; transient
     /// errors (timeout, 429, generic network drop) retry. URLError values get
     /// normalized to ``LLMError`` cases inside ``sendOnce``.
-    static func shouldRetry(_ error: Error) -> RetryDecision {
+    public static func shouldRetry(_ error: Error) -> RetryDecision {
         if let llm = error as? LLMError {
             switch llm {
             case .missingApiKey, .invalidURL, .emptyResponse:
@@ -219,7 +220,7 @@ struct LLMClient {
 
     /// 从 OpenAI 兼容响应中提取 `choices[0].message.content`。
     /// Exposed for unit tests.
-    static func parseContent(from data: Data) throws -> String {
+    public static func parseContent(from data: Data) throws -> String {
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let choices = json["choices"] as? [[String: Any]],
               let first = choices.first,

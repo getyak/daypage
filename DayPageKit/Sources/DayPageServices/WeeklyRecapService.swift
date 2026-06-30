@@ -1,4 +1,6 @@
 import Foundation
+import DayPageModels
+import DayPageStorage
 
 // MARK: - WeeklyRecapRange
 
@@ -6,12 +8,12 @@ import Foundation
 ///
 /// Extracts the date-math from `WeeklyRecapService` so it can be unit-tested
 /// independently with an injected calendar.
-enum WeeklyRecapRange {
+public enum WeeklyRecapRange {
 
     /// Returns local-midnight dates in [min(weekStart, yesterday), today),
     /// oldest-first. The `min` rule prevents the range from being empty on
     /// Mondays — without it, Monday's weekStart == today and the section vanishes.
-    static func dates(referenceDate: Date, calendar: Calendar) -> [Date] {
+    public static func dates(referenceDate: Date, calendar: Calendar) -> [Date] {
         let today = calendar.startOfDay(for: referenceDate)
         guard let monday = calendar.dateInterval(of: .weekOfYear, for: today)?.start,
               let yesterday = calendar.date(byAdding: .day, value: -1, to: today)
@@ -37,18 +39,18 @@ enum WeeklyRecapRange {
 /// Phase 1 only carries day-level compiled entries; Phase 2/3 will extend this
 /// into an enum (`case day | week | month | year`). Keeping it flat for now
 /// avoids speculative abstraction.
-struct WeeklyRecapEntry: Identifiable, Equatable {
+public struct WeeklyRecapEntry: Identifiable, Equatable {
 
     /// `yyyy-MM-dd`, also stable id (at most one compiled entry per date).
-    let dateString: String
+    public let dateString: String
 
     /// Local-timezone midnight of the compiled day.
-    let date: Date
+    public let date: Date
 
     /// Frontmatter `summary:` value; nil/empty if unset or unreadable.
-    let summary: String?
+    public let summary: String?
 
-    var id: String { dateString }
+    public var id: String { dateString }
 }
 
 // MARK: - WeeklyRecapService
@@ -69,9 +71,9 @@ struct WeeklyRecapEntry: Identifiable, Equatable {
 /// Returns newest-first. Days without a `vault/wiki/daily/{date}.md` file are
 /// silently skipped (a missing file means "not compiled yet", not an error).
 @MainActor
-final class WeeklyRecapService {
+public final class WeeklyRecapService {
 
-    static let shared = WeeklyRecapService()
+    public static let shared = WeeklyRecapService()
 
     private let calendar: Calendar
     private let dateFormatter: DateFormatter
@@ -92,7 +94,7 @@ final class WeeklyRecapService {
     /// Compiled day entries from this week's Monday up to (but not including)
     /// `referenceDate`'s local-midnight, newest first.
     /// On Monday, returns exactly yesterday (Sunday) — see `WeeklyRecapRange`.
-    func entries(referenceDate: Date = Date()) -> [WeeklyRecapEntry] {
+    public func entries(referenceDate: Date = Date()) -> [WeeklyRecapEntry] {
         let dailyDir = VaultInitializer.vaultURL.appendingPathComponent("wiki/daily")
         let fm = FileManager.default
         let dates = WeeklyRecapRange.dates(referenceDate: referenceDate, calendar: calendar)

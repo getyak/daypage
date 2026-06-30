@@ -1,4 +1,5 @@
 import Foundation
+import DayPageStorage
 
 // MARK: - OrphanedVoiceScanner
 
@@ -28,11 +29,11 @@ import Foundation
 /// Pure functions over `FileManager` + `RawStorage`; safe to call from any
 /// thread/actor. No I/O happens at module load — runStartupScan() must be
 /// called explicitly from app launch.
-enum OrphanedVoiceScanner {
+public enum OrphanedVoiceScanner {
 
     // MARK: - Public surface
 
-    struct Orphan: Equatable {
+    public struct Orphan: Equatable {
         let url: URL
         let modifiedAt: Date
         let sizeBytes: Int64
@@ -41,7 +42,7 @@ enum OrphanedVoiceScanner {
     /// Default age threshold above which orphans are eligible for silent GC.
     /// 24 hours strikes a balance between "user might still remember and want
     /// to recover" and "long-tail iCloud bloat".
-    static let garbageCollectThreshold: TimeInterval = 24 * 3600
+    public static let garbageCollectThreshold: TimeInterval = 24 * 3600
 
     /// Scan + GC entry point for app launch.
     ///
@@ -49,7 +50,7 @@ enum OrphanedVoiceScanner {
     /// Errors during individual file delete are swallowed and breadcrumbed;
     /// errors during the directory walk propagate.
     @discardableResult
-    static func runStartupScan(
+    public static func runStartupScan(
         now: Date = Date(),
         threshold: TimeInterval = garbageCollectThreshold
     ) -> (deletedStale: Int, retainedRecent: Int) {
@@ -101,7 +102,7 @@ enum OrphanedVoiceScanner {
     ///
     /// Pure read: never mutates the vault. Suitable for both the startup
     /// sweep and a future UI surface.
-    static func findOrphans(fileManager: FileManager = .default) throws -> [Orphan] {
+    public static func findOrphans(fileManager: FileManager = .default) throws -> [Orphan] {
         let assetsURL = VaultInitializer.vaultURL
             .appendingPathComponent("raw")
             .appendingPathComponent("assets")

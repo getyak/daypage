@@ -72,12 +72,26 @@ publicize_file() {
   tmp=$(mktemp)
 
   awk '
-    BEGIN { depth = 0; proto_depths_count = 0 }
+    BEGIN {
+      depth = 0
+      proto_depths_count = 0
+      type_depths_count = 0
+    }
 
     # Helper: are we currently inside a protocol body?
     function in_protocol() {
       for (i = 0; i < proto_depths_count; i++) {
         if (proto_depths[i] == depth) return 1
+      }
+      return 0
+    }
+
+    # Helper: are we directly inside a type body (struct/class/enum/actor/extension)
+    # at the next depth level? Member-level publicize only applies here — not
+    # inside free function bodies or nested closures.
+    function in_type_body() {
+      for (i = 0; i < type_depths_count; i++) {
+        if (type_depths[i] == depth) return 1
       }
       return 0
     }
@@ -92,7 +106,7 @@ publicize_file() {
       #
       # Special-case: skip `extension X: Protocol {}` — Swift forbids `public`
       # on extensions that declare protocol conformance (the conformance gets
-      # the protocol's own access level automatically).
+      # the protocol own access level automatically).
       if (depth == 0 && match(line, /^(public|private|internal|fileprivate|open)[[:space:]]/) == 0) {
         if (match(line, /^(final[[:space:]]+)?(struct|class|enum|protocol|extension|actor)[[:space:]]/) > 0) {
           is_protocol_conf_ext = (match(line, /^extension[[:space:]]+[A-Za-z0-9_.]+[[:space:]]*:/) > 0)
@@ -102,18 +116,22 @@ publicize_file() {
         }
       }
 
-      # 4-space indented member — only when not inside a protocol body.
-      else if (depth > 0 && !in_protocol() && match(line, /^    (public|private|internal|fileprivate|open)[[:space:]]/) == 0) {
-        if (match(line, /^    ((final|static|class|override)[[:space:]]+)*(func|init|var|let|subscript|typealias|struct|class|enum|actor)[[:space:]]/) > 0) {
+      # 4-space indented member — only directly inside a type body (not in
+      # a free function body, not inside a protocol body).
+      else if (depth > 0 && in_type_body() && !in_protocol() && match(line, /^    (public|private|internal|fileprivate|open)[[:space:]]/) == 0) {
+        if (match(line, /^    ((final|static|class|override|nonisolated|nonisolated\(unsafe\))[[:space:]]+)*(func|init|var|let|subscript|typealias|struct|class|enum|actor)[[:space:]]/) > 0) {
           out = "    public " substr(line, 5)
         }
       }
 
-      # Detect protocol-body entry on the CURRENT line BEFORE updating depth.
-      # We want to remember "the next depth increase is from a protocol".
+      # Detect protocol/type body entry on the CURRENT line BEFORE updating depth.
       pending_protocol_open = 0
+      pending_type_open = 0
       if (match(line, /^[[:space:]]*(public[[:space:]]+|private[[:space:]]+|internal[[:space:]]+|fileprivate[[:space:]]+|open[[:space:]]+)?protocol[[:space:]]/) > 0) {
         pending_protocol_open = 1
+        pending_type_open = 1
+      } else if (match(line, /^[[:space:]]*(public[[:space:]]+|private[[:space:]]+|internal[[:space:]]+|fileprivate[[:space:]]+|open[[:space:]]+)?(final[[:space:]]+)?(struct|class|enum|extension|actor)[[:space:]]/) > 0) {
+        pending_type_open = 1
       }
 
       # Print first (so out reflects this lines transformation).
@@ -124,14 +142,17 @@ publicize_file() {
       n_close = gsub(/\}/, "}", line)
       depth_after = depth + n_open - n_close
 
-      # If this line opened a protocol body (saw `{` after `protocol X ... {`),
-      # mark all the new depths in (depth, depth_after] as protocol depths.
+      # If this line opened a protocol body, mark the new depth as a protocol depth.
       if (pending_protocol_open && n_open > 0) {
         proto_depths[proto_depths_count++] = depth + 1
       }
+      # If this line opened a type body (struct/class/enum/actor/extension/protocol),
+      # mark the new depth as a type-body depth.
+      if (pending_type_open && n_open > 0) {
+        type_depths[type_depths_count++] = depth + 1
+      }
 
-      # If we are leaving a protocol depth (depth dropped past a recorded
-      # protocol depth), pop it.
+      # If we are leaving a protocol depth, pop it.
       if (proto_depths_count > 0) {
         new_count = 0
         for (i = 0; i < proto_depths_count; i++) {
@@ -140,6 +161,16 @@ publicize_file() {
           }
         }
         proto_depths_count = new_count
+      }
+      # If we are leaving a type-body depth, pop it.
+      if (type_depths_count > 0) {
+        new_count = 0
+        for (i = 0; i < type_depths_count; i++) {
+          if (type_depths[i] <= depth_after) {
+            type_depths[new_count++] = type_depths[i]
+          }
+        }
+        type_depths_count = new_count
       }
 
       depth = depth_after

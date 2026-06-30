@@ -1,6 +1,7 @@
 import Foundation
 import CoreLocation
 import Sentry
+import DayPageModels
 
 // MARK: - WeatherService
 
@@ -11,11 +12,11 @@ import Sentry
 ///   let weather = await WeatherService.shared.currentWeather(at: location)
 ///
 @MainActor
-final class WeatherService {
+public final class WeatherService {
 
     // MARK: Singleton
 
-    static let shared = WeatherService()
+    public static let shared = WeatherService()
 
     // MARK: - Cache entry
 
@@ -49,7 +50,7 @@ final class WeatherService {
     convenience init(testing: Bool) { self.init() }
 
     /// Seeds a cache entry directly, bypassing network, for unit-test use only.
-    func seedCacheEntry(weather: String, lat: Double, lng: Double, age: TimeInterval) {
+    public func seedCacheEntry(weather: String, lat: Double, lng: Double, age: TimeInterval) {
         let fetchedAt = Date(timeIntervalSinceNow: -age)
         insertEntry(CacheEntry(weather: weather, fetchedAt: fetchedAt, lat: lat, lng: lng))
     }
@@ -58,16 +59,16 @@ final class WeatherService {
     // MARK: - Public API
 
     /// 最近一次成功获取的天气字符串（同步，供 UI 快速读取）。
-    var cachedWeatherString: String? { cache.last?.weather }
+    public var cachedWeatherString: String? { cache.last?.weather }
 
     /// Number of entries currently held in the LRU cache (test hook).
-    var cacheCount: Int { cache.count }
+    public var cacheCount: Int { cache.count }
 
     /// 返回给定位置的格式化天气字符串，如 "32°C, Overcast Clouds"。
     ///
     /// - Returns: 本地化的天气字符串；如果 API 密钥缺失、网络不可用或调用因任何原因失败，则返回 `nil`。
     ///            调用方不得阻塞此方法 —— 从提交流程中调用时采用即发即忘模式。
-    func currentWeather(at location: Memo.Location?) async -> String? {
+    public func currentWeather(at location: Memo.Location?) async -> String? {
         guard let location,
               let lat = location.lat,
               let lng = location.lng else {
@@ -181,7 +182,7 @@ final class WeatherService {
     }
 
     /// Maps an OpenWeatherMap condition code (and optional icon string for day/night) to an emoji glyph.
-    static func glyph(forConditionCode code: Int, icon: String?) -> String {
+    public static func glyph(forConditionCode code: Int, icon: String?) -> String {
         switch code {
         case 200...299: return "⛈"
         case 300...399: return "🌦"

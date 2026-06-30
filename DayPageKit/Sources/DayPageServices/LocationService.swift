@@ -1,5 +1,7 @@
 import Foundation
 import CoreLocation
+import DayPageModels
+import DayPageStorage
 
 // MARK: - LocationService
 
@@ -12,11 +14,11 @@ import CoreLocation
 ///   let loc = try await LocationService.shared.currentLocation(timeout: 3)
 ///
 @MainActor
-final class LocationService: NSObject, ObservableObject {
+public final class LocationService: NSObject, ObservableObject {
 
     // MARK: Singleton
 
-    static let shared = LocationService()
+    public static let shared = LocationService()
 
     // MARK: Published
 
@@ -53,7 +55,7 @@ final class LocationService: NSObject, ObservableObject {
 
     /// 如果尚未确定，请求"使用期间"授权。
     /// 在调用 `currentLocation()` 之前从主线程调用。
-    func requestPermissionIfNeeded() {
+    public func requestPermissionIfNeeded() {
         switch manager.authorizationStatus {
         case .notDetermined:
             manager.requestWhenInUseAuthorization()
@@ -64,7 +66,7 @@ final class LocationService: NSObject, ObservableObject {
 
     /// 请求"始终"授权以进行后台被动位置监控。
     /// 需要 Info.plist 中的 NSLocationAlwaysAndWhenInUseUsageDescription。
-    func requestAlwaysAuthorization() {
+    public func requestAlwaysAuthorization() {
         switch manager.authorizationStatus {
         case .notDetermined:
             manager.requestAlwaysAuthorization()
@@ -76,7 +78,7 @@ final class LocationService: NSObject, ObservableObject {
     }
 
     /// 应用是否具有"始终"位置授权。
-    var hasAlwaysAuthorization: Bool {
+    public var hasAlwaysAuthorization: Bool {
         manager.authorizationStatus == .authorizedAlways
     }
 
@@ -85,7 +87,7 @@ final class LocationService: NSObject, ObservableObject {
     /// - Parameter timeout: 在退回到仅坐标之前等待的秒数（默认 3 秒）。
     /// - Throws: 如果权限被拒绝/受限，抛出 `LocationError.denied`。
     /// - Returns: 一个 `Memo.Location`，其中 `lat`/`lng` 总是设置的；当地理编码成功时设置 `name`。
-    func currentLocation(timeout: TimeInterval = 3) async throws -> Memo.Location {
+    public func currentLocation(timeout: TimeInterval = 3) async throws -> Memo.Location {
         switch manager.authorizationStatus {
         case .denied, .restricted:
             throw LocationError.denied
@@ -189,7 +191,7 @@ final class LocationService: NSObject, ObservableObject {
     /// 的前提下验证 "~1km 桶 + 边界稳定" 不变式。`nonisolated` 因为它是纯
     /// 函数 — 不访问 LocationService 的任何可变状态。实例方法仍然保留并
     /// 转发，保证既有调用路径不变。
-    nonisolated static func bucketKey(lat: Double, lng: Double) -> String {
+    public nonisolated static func bucketKey(lat: Double, lng: Double) -> String {
         let qLat = (lat * 100).rounded() / 100
         let qLng = (lng * 100).rounded() / 100
         return String(format: "%.2f,%.2f", qLat, qLng)
@@ -229,13 +231,13 @@ final class LocationService: NSObject, ObservableObject {
 
 extension LocationService: CLLocationManagerDelegate {
 
-    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+    public nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         Task { @MainActor in
             self.authorizationStatus = manager.authorizationStatus
         }
     }
 
-    nonisolated func locationManager(
+    public nonisolated func locationManager(
         _ manager: CLLocationManager,
         didUpdateLocations locations: [CLLocation]
     ) {
@@ -246,7 +248,7 @@ extension LocationService: CLLocationManagerDelegate {
         }
     }
 
-    nonisolated func locationManager(
+    public nonisolated func locationManager(
         _ manager: CLLocationManager,
         didFailWithError error: Error
     ) {
@@ -259,13 +261,13 @@ extension LocationService: CLLocationManagerDelegate {
 
 // MARK: - LocationError
 
-enum LocationError: LocalizedError {
+public enum LocationError: LocalizedError {
     case denied
     case timeout
     case geocodingFailed
     case busy
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .denied:
             return "请在「设置 → 隐私 → 定位服务」中授权 DayPage 使用位置"

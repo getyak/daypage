@@ -1,4 +1,6 @@
 import Foundation
+import DayPageModels
+import DayPageStorage
 
 // MARK: - RetrievedContext
 
@@ -6,10 +8,10 @@ import Foundation
 ///
 /// 这是 D2「图谱增强检索」的输出契约——既能直接喂给 LLM（`MemoryChatService`），
 /// 也能在 UI 上把"引用了哪些 memo / 实体页"显式呈现给用户。
-struct RetrievedContext: Equatable {
+public struct RetrievedContext: Equatable {
 
     /// 命中的原始 memo 片段。
-    struct MemoHit: Equatable {
+    public struct MemoHit: Equatable {
         let dateString: String       // "yyyy-MM-dd"
         let snippet: String          // 修剪后的正文片段
         let mood: String?
@@ -17,7 +19,7 @@ struct RetrievedContext: Equatable {
     }
 
     /// 沿 entityMentions 扩展出的一跳邻居实体页摘要。
-    struct EntityHit: Equatable {
+    public struct EntityHit: Equatable {
         let slug: String
         let displayName: String
         let type: String             // "places" | "people" | "themes"
@@ -25,14 +27,14 @@ struct RetrievedContext: Equatable {
         let summary: String          // 实体页正文摘要（截断）
     }
 
-    let query: String
-    let memoHits: [MemoHit]
-    let entityHits: [EntityHit]
+    public let query: String
+    public let memoHits: [MemoHit]
+    public let entityHits: [EntityHit]
 
-    var isEmpty: Bool { memoHits.isEmpty && entityHits.isEmpty }
+    public var isEmpty: Bool { memoHits.isEmpty && entityHits.isEmpty }
 
     /// 把检索上下文渲染为给 LLM 的 prompt 片段（带来源标注，便于模型引用）。
-    func toPromptContext() -> String {
+    public func toPromptContext() -> String {
         var blocks: [String] = []
 
         if !memoHits.isEmpty {
@@ -78,7 +80,7 @@ struct RetrievedContext: Equatable {
 ///   - 邻居扩展：`vault/wiki/{places,people,themes}/{slug}.md` 实体页
 ///
 /// 纯本地、零 token 成本、零网络——这是 D1 对话 Agent 的检索层。
-enum GraphRetriever {
+public enum GraphRetriever {
 
     // MARK: - Public API
 
@@ -87,7 +89,7 @@ enum GraphRetriever {
     ///   - query: 用户的自然语言查询或关键词。
     ///   - maxMemoHits: 保留的种子 memo 命中上限（按日期降序，最新优先）。
     ///   - maxEntityHits: 扩展的邻居实体上限（按出现次数降序，最相关优先）。
-    nonisolated static func retrieve(
+    public nonisolated static func retrieve(
         query rawQuery: String,
         maxMemoHits: Int = 8,
         maxEntityHits: Int = 6
@@ -226,7 +228,7 @@ enum GraphRetriever {
     /// 解析实体页：从 frontmatter 取 name / occurrence_count，从正文取摘要。
     /// frontmatter 字段提取走共用的 `FrontmatterParser.extractFieldInBlock`，
     /// 保证与未来新增的实体字段（如 occurrence_count_zh）解析一致。
-    static func parseEntityPage(_ content: String, slug: String, type: String) -> RetrievedContext.EntityHit? {
+    public static func parseEntityPage(_ content: String, slug: String, type: String) -> RetrievedContext.EntityHit? {
         let displayName = FrontmatterParser.extractFieldInBlock("name", from: content) ?? slug
         let occurrence = Int(FrontmatterParser.extractFieldInBlock("occurrence_count", from: content) ?? "") ?? 1
         let summary = bodySummary(from: content)
@@ -240,7 +242,7 @@ enum GraphRetriever {
     }
 
     /// 取实体页正文（frontmatter 之后）的前若干行非空内容作为摘要。
-    static func bodySummary(from content: String, maxChars: Int = 280) -> String {
+    public static func bodySummary(from content: String, maxChars: Int = 280) -> String {
         let lines = content.components(separatedBy: "\n")
         var bodyLines: [String] = []
         var dashCount = 0

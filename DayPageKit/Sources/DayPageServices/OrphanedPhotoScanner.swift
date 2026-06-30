@@ -1,4 +1,5 @@
 import Foundation
+import DayPageStorage
 
 // MARK: - OrphanedPhotoScanner
 
@@ -25,11 +26,11 @@ import Foundation
 /// Pure functions over `FileManager` + `RawStorage`; safe to call from any
 /// thread/actor. No I/O happens at module load — `runStartupScan()` must be
 /// called explicitly from app launch.
-enum OrphanedPhotoScanner {
+public enum OrphanedPhotoScanner {
 
     // MARK: - Public surface
 
-    struct Orphan: Equatable {
+    public struct Orphan: Equatable {
         let url: URL
         let modifiedAt: Date
         let sizeBytes: Int64
@@ -37,7 +38,7 @@ enum OrphanedPhotoScanner {
 
     /// Default age threshold above which orphans are eligible for silent GC.
     /// Matches the voice scanner so first-launch sweeps behave consistently.
-    static let garbageCollectThreshold: TimeInterval = 24 * 3600
+    public static let garbageCollectThreshold: TimeInterval = 24 * 3600
 
     /// Scan + GC entry point for app launch.
     ///
@@ -45,7 +46,7 @@ enum OrphanedPhotoScanner {
     /// Errors during individual file delete are swallowed and breadcrumbed;
     /// errors during the directory walk propagate.
     @discardableResult
-    static func runStartupScan(
+    public static func runStartupScan(
         now: Date = Date(),
         threshold: TimeInterval = garbageCollectThreshold
     ) -> (deletedStale: Int, retainedRecent: Int) {
@@ -94,7 +95,7 @@ enum OrphanedPhotoScanner {
     /// Returns all photo files under `vault/raw/assets/` that are not
     /// referenced by any memo's `attachments[].file` field, sorted by
     /// modification time descending (newest first). Pure read.
-    static func findOrphans(fileManager: FileManager = .default) throws -> [Orphan] {
+    public static func findOrphans(fileManager: FileManager = .default) throws -> [Orphan] {
         let assetsURL = VaultInitializer.vaultURL
             .appendingPathComponent("raw")
             .appendingPathComponent("assets")

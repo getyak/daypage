@@ -3,13 +3,13 @@ import Foundation
 // MARK: - ChatTurn
 
 /// 对话中的一轮消息（用于 UI 展示与历史回放）。
-struct ChatTurn: Identifiable, Equatable {
-    enum Role: Equatable { case user, assistant }
-    let id = UUID()
-    let role: Role
-    var text: String
+public struct ChatTurn: Identifiable, Equatable {
+    public enum Role: Equatable { case user, assistant }
+    public let id = UUID()
+    public let role: Role
+    public var text: String
     /// 仅 assistant 轮：本次回答检索到的上下文（用于在 UI 上展示引用来源）。
-    var context: RetrievedContext?
+    public var context: RetrievedContext?
 }
 
 // MARK: - MemoryChatService
@@ -27,7 +27,7 @@ struct ChatTurn: Identifiable, Equatable {
 /// 验证依据：emotion-aware journaling agent (arXiv 2508.20585) `3-0`、
 /// OmniQuery (arXiv 2409.08250) `3-0`。
 @MainActor
-final class MemoryChatService: ObservableObject {
+public final class MemoryChatService: ObservableObject {
 
     // MARK: Published state
 
@@ -66,7 +66,7 @@ final class MemoryChatService: ObservableObject {
     // MARK: - System prompt
 
     /// 系统提示：约束 Agent 只基于检索到的真实记录回答，避免编造。
-    static let systemPrompt = """
+    public static let systemPrompt = """
     你是 DayPage 用户的「记忆助手」。用户会问关于他们过去记录的问题。
 
     规则：
@@ -80,7 +80,7 @@ final class MemoryChatService: ObservableObject {
     // MARK: - Ask
 
     /// 处理一条用户提问：检索 → 组装 prompt → 调 LLM → 追加 assistant 回合。
-    func ask(_ rawQuestion: String) async {
+    public func ask(_ rawQuestion: String) async {
         let question = rawQuestion.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !question.isEmpty, !isResponding else { return }
 
@@ -115,7 +115,7 @@ final class MemoryChatService: ObservableObject {
     }
 
     /// 清空对话（开始新会话）。
-    func reset() {
+    public func reset() {
         turns.removeAll()
         errorMessage = nil
     }
@@ -124,7 +124,7 @@ final class MemoryChatService: ObservableObject {
 
     /// 构造发给 LLM 的 messages。
     /// 历史只带最近若干轮，避免上下文无限膨胀（token 成本控制，研究文档 §5）。
-    func buildMessages(question: String, context: RetrievedContext, historyLimit: Int = 4) -> [LLMMessage] {
+    public func buildMessages(question: String, context: RetrievedContext, historyLimit: Int = 4) -> [LLMMessage] {
         var messages: [LLMMessage] = [.system(Self.systemPrompt)]
 
         // 最近 historyLimit 轮历史（不含当前这条尚未入队的 user 问题）。

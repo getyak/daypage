@@ -1,4 +1,6 @@
 import Foundation
+import DayPageModels
+import DayPageStorage
 
 // MARK: - TimelineDayEntry
 
@@ -7,24 +9,24 @@ import Foundation
 /// the raw memos themselves are loaded lazily on demand when the card is
 /// expanded, so an opening cold scroll doesn't pay the parse cost for every
 /// historical day.
-struct TimelineDayEntry: Identifiable, Equatable {
+public struct TimelineDayEntry: Identifiable, Equatable {
 
     /// `yyyy-MM-dd`. Stable id (at most one entry per date).
-    let dateString: String
+    public let dateString: String
 
     /// Local-timezone midnight of the day.
-    let date: Date
+    public let date: Date
 
     /// Number of raw memos parsed from the day file.
-    let memoCount: Int
+    public let memoCount: Int
 
     /// Frontmatter `summary:` from `vault/wiki/daily/{date}.md`, if compiled.
     /// nil/empty when the day has not been AI-compiled yet.
-    let summary: String?
+    public let summary: String?
 
-    var id: String { dateString }
+    public var id: String { dateString }
 
-    static func == (lhs: TimelineDayEntry, rhs: TimelineDayEntry) -> Bool {
+    public static func == (lhs: TimelineDayEntry, rhs: TimelineDayEntry) -> Bool {
         lhs.dateString == rhs.dateString &&
         lhs.memoCount == rhs.memoCount &&
         lhs.summary == rhs.summary
@@ -35,7 +37,7 @@ struct TimelineDayEntry: Identifiable, Equatable {
 
 /// Identifies which time band a section represents. The view layer maps this
 /// to a localized title; the service stays locale-agnostic.
-enum TimelineSectionKind: Hashable {
+public enum TimelineSectionKind: Hashable {
     /// User-pinned days, surfaced at the very top of the timeline. Days in
     /// this section are *removed* from their natural time-band section so the
     /// pin acts as a single source of truth — no duplicate rows.
@@ -50,14 +52,14 @@ enum TimelineSectionKind: Hashable {
 
 // MARK: - TimelineSection
 
-struct TimelineSection: Identifiable, Equatable {
+public struct TimelineSection: Identifiable, Equatable {
 
-    let kind: TimelineSectionKind
+    public let kind: TimelineSectionKind
 
     /// Newest-first within a section.
-    let days: [TimelineDayEntry]
+    public let days: [TimelineDayEntry]
 
-    var id: String {
+    public var id: String {
         switch kind {
         case .pinned: return "pinned"
         case .thisWeekOthers: return "thisWeekOthers"
@@ -72,7 +74,7 @@ struct TimelineSection: Identifiable, Equatable {
         }
     }
 
-    static func == (lhs: TimelineSection, rhs: TimelineSection) -> Bool {
+    public static func == (lhs: TimelineSection, rhs: TimelineSection) -> Bool {
         lhs.kind == rhs.kind && lhs.days == rhs.days
     }
 }
@@ -86,7 +88,7 @@ struct TimelineSection: Identifiable, Equatable {
 /// The service is intentionally nonisolated and stateless — all heavy I/O
 /// happens off the main actor. The week boundary respects the user's system
 /// `Calendar.current.firstWeekday` (per CLAUDE.md guidance).
-enum TimelineService {
+public enum TimelineService {
 
     // MARK: - Public entry points
 
@@ -99,7 +101,7 @@ enum TimelineService {
     /// call. `referenceDate` is retained for source-compatibility with existing
     /// call sites; ordering is date-based inside the index.
     @MainActor
-    static func entries(referenceDate: Date = Date()) -> [TimelineDayEntry] {
+    public static func entries(referenceDate: Date = Date()) -> [TimelineDayEntry] {
         TimelineIndex.shared.entries()
     }
 
@@ -110,7 +112,7 @@ enum TimelineService {
     ///
     /// `nonisolated` so `TimelineIndex` can run it inside `Task.detached` off
     /// the main actor.
-    nonisolated static func scanAllEntries() -> [TimelineDayEntry] {
+    public nonisolated static func scanAllEntries() -> [TimelineDayEntry] {
         let rawDir = VaultInitializer.vaultURL.appendingPathComponent("raw")
         let fm = FileManager.default
         guard let enumerator = fm.enumerator(at: rawDir, includingPropertiesForKeys: nil) else {
@@ -144,7 +146,7 @@ enum TimelineService {
     /// Scans a single day file by `yyyy-MM-dd` stem. Returns nil when the file
     /// is missing or has no parseable memos (the day should be absent from the
     /// timeline). Used by `TimelineIndex` for O(today) incremental updates.
-    nonisolated static func scanEntry(forDateString stem: String) -> TimelineDayEntry? {
+    public nonisolated static func scanEntry(forDateString stem: String) -> TimelineDayEntry? {
         let fmt = scanDateFormatter()
         guard let date = fmt.date(from: stem) else { return nil }
 
@@ -188,7 +190,7 @@ enum TimelineService {
     /// removed from their natural time band, so a pin acts as a single source
     /// of truth without producing a duplicate row.
     @MainActor
-    static func sections(referenceDate: Date = Date()) -> [TimelineSection] {
+    public static func sections(referenceDate: Date = Date()) -> [TimelineSection] {
         let all = entries(referenceDate: referenceDate)
         let pinned = TimelinePinService.shared.pinned
         return group(entries: all, referenceDate: referenceDate, pinnedDateStrings: pinned)
@@ -197,7 +199,7 @@ enum TimelineService {
     /// Loads the raw memos for one timeline day on demand. Returns memos in
     /// the same newest-first + pinned-on-top order as TodayViewModel uses for
     /// today, so an expanded card reads consistently with the active day.
-    static func memos(for entry: TimelineDayEntry) -> [Memo] {
+    public static func memos(for entry: TimelineDayEntry) -> [Memo] {
         let url = VaultInitializer.vaultURL
             .appendingPathComponent("raw")
             .appendingPathComponent("\(entry.dateString).md")
@@ -219,7 +221,7 @@ enum TimelineService {
     /// `pinnedDateStrings` are pulled out into a leading `.pinned` section and
     /// excluded from their natural time band; passing an empty set yields the
     /// original four-band layout for backward-compatible call sites and tests.
-    static func group(
+    public static func group(
         entries: [TimelineDayEntry],
         referenceDate: Date,
         pinnedDateStrings: Set<String> = []

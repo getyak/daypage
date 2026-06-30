@@ -1,5 +1,6 @@
 import Foundation
 import CryptoKit
+import DayPageStorage
 
 // MARK: - AuthRateLimiter
 
@@ -9,17 +10,17 @@ import CryptoKit
 ///
 /// Keys are keyed on SHA-256(normalised-email) so the Keychain never stores PII directly.
 @MainActor
-final class AuthRateLimiter {
+public final class AuthRateLimiter {
 
     // MARK: Singleton
 
-    static let shared = AuthRateLimiter()
+    public static let shared = AuthRateLimiter()
 
     // MARK: Constants
 
-    let resendCooldown: TimeInterval = 60
-    let otpFailureLimit: Int = 5
-    let otpLockDuration: TimeInterval = 30 * 60  // 30 min
+    public let resendCooldown: TimeInterval = 60
+    public let otpFailureLimit: Int = 5
+    public let otpLockDuration: TimeInterval = 30 * 60  // 30 min
 
     // MARK: Init
 
@@ -29,7 +30,7 @@ final class AuthRateLimiter {
 
     /// Seconds remaining before the caller may request a new OTP for `email`.
     /// Returns 0 when the cooldown has expired or was never set.
-    func resendCooldownRemaining(email: String) -> Int {
+    public func resendCooldownRemaining(email: String) -> Int {
         let key = resendKey(for: email)
         guard let raw = KeychainHelper.get(forKey: key),
               let last = Double(raw), last > 0 else { return 0 }
@@ -39,7 +40,7 @@ final class AuthRateLimiter {
     }
 
     /// Records that an OTP was just sent for `email`, starting the cooldown window.
-    func recordOTPSent(email: String) {
+    public func recordOTPSent(email: String) {
         let key = resendKey(for: email)
         KeychainHelper.set(String(Date().timeIntervalSince1970), forKey: key)
     }
@@ -47,7 +48,7 @@ final class AuthRateLimiter {
     /// Clears the resend cooldown for `email`.
     /// Call when the server confirms the current code has expired so the user
     /// can immediately request a new one without waiting.
-    func resetResendCooldown(email: String) {
+    public func resetResendCooldown(email: String) {
         KeychainHelper.delete(forKey: resendKey(for: email))
     }
 
@@ -55,7 +56,7 @@ final class AuthRateLimiter {
 
     /// If the email is currently locked out, returns the remaining lock seconds.
     /// Lazily clears expired locks so stale entries don't accumulate.
-    func otpLockRemaining(email: String) -> Int? {
+    public func otpLockRemaining(email: String) -> Int? {
         let key = lockUntilKey(for: email)
         guard let raw = KeychainHelper.get(forKey: key),
               let lockUntil = Double(raw), lockUntil > 0 else { return nil }
@@ -69,7 +70,7 @@ final class AuthRateLimiter {
     }
 
     /// Increments the failure count and applies a lockout if the limit is reached.
-    func incrementOTPFailures(email: String) {
+    public func incrementOTPFailures(email: String) {
         let key = failureCountKey(for: email)
         let current = Int(KeychainHelper.get(forKey: key) ?? "0") ?? 0
         let next = current + 1
@@ -81,7 +82,7 @@ final class AuthRateLimiter {
     }
 
     /// Clears both the failure counter and any active lock for `email`.
-    func resetOTPFailures(email: String) {
+    public func resetOTPFailures(email: String) {
         KeychainHelper.delete(forKey: failureCountKey(for: email))
         KeychainHelper.delete(forKey: lockUntilKey(for: email))
     }

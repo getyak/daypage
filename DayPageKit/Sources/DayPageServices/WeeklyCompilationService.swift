@@ -1,11 +1,13 @@
 import Foundation
+import DayPageModels
+import DayPageStorage
 
 // MARK: - WeeklyCompilationError
 
 /// Errors surfaced by ``WeeklyCompilationService``. Kept distinct from
 /// ``CompilationError`` so the weekly recap UX can map them to its own copy
 /// without inheriting the daily-pipeline's vocabulary.
-enum WeeklyCompilationError: LocalizedError {
+public enum WeeklyCompilationError: LocalizedError {
     case aiDisabled
     case offline
     case noData
@@ -17,7 +19,7 @@ enum WeeklyCompilationError: LocalizedError {
     case fileSystemError(String)
     case unknown(Error)
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .aiDisabled:       return "AI 功能已关闭"
         case .offline:          return "当前离线"
@@ -41,34 +43,34 @@ enum WeeklyCompilationError: LocalizedError {
 
 /// Aggregated frontmatter metadata for the 7-day ISO week containing the
 /// reference date. Serialised into the LLM prompt as JSON.
-struct WeeklyMetadata: Codable, Equatable {
-    let isoWeek: String           // "2026-W26"
-    let weekStart: String         // "2026-06-22"
-    let weekEnd: String           // "2026-06-28"
-    let days: [DayMetadata]
+public struct WeeklyMetadata: Codable, Equatable {
+    public let isoWeek: String           // "2026-W26"
+    public let weekStart: String         // "2026-06-22"
+    public let weekEnd: String           // "2026-06-28"
+    public let days: [DayMetadata]
 }
 
 /// Per-day metadata harvested from `vault/wiki/daily/{date}.md` frontmatter.
-struct DayMetadata: Codable, Equatable {
-    let date: String              // "2026-06-22"
-    let mood: String?
-    let summary: String?
-    let entities: [String]
-    let locations: [String]
+public struct DayMetadata: Codable, Equatable {
+    public let date: String              // "2026-06-22"
+    public let mood: String?
+    public let summary: String?
+    public let entities: [String]
+    public let locations: [String]
 }
 
 // MARK: - WeeklyRecapOutput
 
 /// The structured weekly recap returned by the LLM and persisted in
 /// `vault/wiki/weekly/{isoWeek}.md`.
-struct WeeklyRecapOutput: Codable, Equatable {
-    let isoWeek: String
-    let dateRange: String         // "2026-06-22 to 2026-06-28"
-    let compiledAt: Date
-    let keywords: [String]
-    let moodNotes: String
-    let placeNotes: String
-    let highlights: [String]
+public struct WeeklyRecapOutput: Codable, Equatable {
+    public let isoWeek: String
+    public let dateRange: String         // "2026-06-22 to 2026-06-28"
+    public let compiledAt: Date
+    public let keywords: [String]
+    public let moodNotes: String
+    public let placeNotes: String
+    public let highlights: [String]
 }
 
 // MARK: - WeeklyCompilationService
@@ -85,11 +87,11 @@ struct WeeklyRecapOutput: Codable, Equatable {
 ///   * No background scheduling — Phase 1 is user-initiated via the Archive
 ///     entry card. A future BG task can call ``compileWeekly`` directly.
 @MainActor
-final class WeeklyCompilationService {
+public final class WeeklyCompilationService {
 
     // MARK: Singleton
 
-    static let shared = WeeklyCompilationService()
+    public static let shared = WeeklyCompilationService()
     private init() {}
 
     // MARK: - Public API
@@ -99,7 +101,7 @@ final class WeeklyCompilationService {
     /// skipped; the result is non-empty iff at least one day has a daily
     /// page. Throws ``WeeklyCompilationError/noData`` when zero days are
     /// available — the UI can then prompt the user to compile first.
-    func collectWeekMetadata(for referenceDate: Date) throws -> WeeklyMetadata {
+    public func collectWeekMetadata(for referenceDate: Date) throws -> WeeklyMetadata {
         let calendar = Self.weekCalendar
         guard let interval = calendar.dateInterval(of: .weekOfYear, for: referenceDate) else {
             throw WeeklyCompilationError.noData
@@ -150,7 +152,7 @@ final class WeeklyCompilationService {
     /// exists for the target ISO week, returns the cache without an LLM
     /// round-trip. Otherwise builds the prompt, calls the LLM, parses the
     /// response, and persists the result.
-    func compileWeekly(
+    public func compileWeekly(
         for referenceDate: Date,
         forceRefresh: Bool = false
     ) async throws -> WeeklyRecapOutput {
@@ -225,7 +227,7 @@ final class WeeklyCompilationService {
     /// Read the cached recap for the ISO week containing `referenceDate` from
     /// `vault/wiki/weekly/{isoWeek}.md`. Returns nil when the file does not
     /// exist or cannot be parsed.
-    func loadCached(for referenceDate: Date) -> WeeklyRecapOutput? {
+    public func loadCached(for referenceDate: Date) -> WeeklyRecapOutput? {
         let calendar = Self.weekCalendar
         guard let interval = calendar.dateInterval(of: .weekOfYear, for: referenceDate) else {
             return nil
@@ -244,9 +246,9 @@ final class WeeklyCompilationService {
 
     /// System prompt for the weekly recap engine. Kept narrow so the model
     /// doesn't reach for follow-up text outside the JSON envelope.
-    static let systemPrompt = "你是 DayPage 的周回顾助手。仅输出符合用户 prompt 中 JSON schema 的单个 JSON 对象，使用 ```json``` 包裹，不要任何额外说明。"
+    public static let systemPrompt = "你是 DayPage 的周回顾助手。仅输出符合用户 prompt 中 JSON schema 的单个 JSON 对象，使用 ```json``` 包裹，不要任何额外说明。"
 
-    static func buildPrompt(metadataJSON: String) -> String {
+    public static func buildPrompt(metadataJSON: String) -> String {
         return """
         基于以下 7 天日记元数据，为本周生成一份温和、简洁的回顾。
 
@@ -271,7 +273,7 @@ final class WeeklyCompilationService {
     // MARK: - Parse
 
     /// Parse the LLM response. Static so tests can call without the singleton.
-    static func parse(
+    public static func parse(
         llmResponse: String,
         isoWeek: String,
         weekStart: String,
@@ -317,7 +319,7 @@ final class WeeklyCompilationService {
     /// Parse a previously-written `vault/wiki/weekly/{isoWeek}.md` cache file.
     /// Returns nil when the file is malformed; callers fall through to
     /// recompile in that case.
-    static func parseCachedFile(_ content: String) -> WeeklyRecapOutput? {
+    public static func parseCachedFile(_ content: String) -> WeeklyRecapOutput? {
         guard let isoWeek = FrontmatterParser.extractFieldInBlock("isoWeek", from: content),
               let dateRange = FrontmatterParser.extractFieldInBlock("dateRange", from: content) else {
             return nil
@@ -366,7 +368,7 @@ final class WeeklyCompilationService {
         try RawStorage.atomicWrite(string: body, to: url)
     }
 
-    static func renderMarkdown(output: WeeklyRecapOutput) -> String {
+    public static func renderMarkdown(output: WeeklyRecapOutput) -> String {
         let isoString = ISO8601DateFormatter.memo.string(from: output.compiledAt)
         var lines: [String] = []
         lines.append("---")
@@ -397,7 +399,7 @@ final class WeeklyCompilationService {
 
     /// Canonical ISO-8601 week key, e.g. "2026-W26". Static so tests can pin
     /// boundaries without instantiating the singleton.
-    static func isoWeekKey(for date: Date) -> String {
+    public static func isoWeekKey(for date: Date) -> String {
         let cal = weekCalendar
         let comps = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)
         guard let year = comps.yearForWeekOfYear, let week = comps.weekOfYear else {
@@ -406,7 +408,7 @@ final class WeeklyCompilationService {
         return String(format: "%04d-W%02d", year, week)
     }
 
-    static func weeklyURL(isoWeek: String) -> URL {
+    public static func weeklyURL(isoWeek: String) -> URL {
         VaultInitializer.vaultURL
             .appendingPathComponent("wiki")
             .appendingPathComponent("weekly")
@@ -416,7 +418,7 @@ final class WeeklyCompilationService {
     /// Calendar used for ISO-8601 week math. firstWeekday=2 (Monday),
     /// minimumDaysInFirstWeek=4 — mirrors `WeeklyRecapService` and ISO
     /// 8601 to keep the boundary identical across the two surfaces.
-    static var weekCalendar: Calendar {
+    public static var weekCalendar: Calendar {
         var cal = Calendar(identifier: .iso8601)
         cal.timeZone = TimeZone.current
         cal.firstWeekday = 2
@@ -424,7 +426,7 @@ final class WeeklyCompilationService {
         return cal
     }
 
-    static let dateFormatter: DateFormatter = {
+    public static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
         f.locale = Locale(identifier: "en_US_POSIX")
@@ -432,7 +434,7 @@ final class WeeklyCompilationService {
         return f
     }()
 
-    static let backupTimestampFormatter: DateFormatter = {
+    public static let backupTimestampFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyyMMddHHmmss"
         f.locale = Locale(identifier: "en_US_POSIX")
@@ -445,7 +447,7 @@ final class WeeklyCompilationService {
     /// Best-effort list extraction for `entities:` / `locations:` style
     /// frontmatter fields. Supports both inline `entities: [a, b]` and the
     /// block YAML `entities:\n  - a\n  - b` forms.
-    static func extractList(_ key: String, from content: String) -> [String] {
+    public static func extractList(_ key: String, from content: String) -> [String] {
         let lines = content.components(separatedBy: "\n")
         let prefix = "\(key):"
         var inBlock = false
@@ -536,7 +538,7 @@ final class WeeklyCompilationService {
     /// Lifted from ``CompilationService.extractJSONBlockStatic`` so weekly
     /// keeps an identical fence-then-brace strategy without forcing the
     /// daily helper to become public.
-    static func extractJSONBlock(from text: String) -> String? {
+    public static func extractJSONBlock(from text: String) -> String? {
         let fencePatterns = ["```json\n", "```json \n", "```JSON\n", "```\n"]
         for pattern in fencePatterns {
             if let fenceStart = text.range(of: pattern, options: .caseInsensitive),

@@ -1,16 +1,18 @@
 import Foundation
+import DayPageModels
+import DayPageStorage
 
 // MARK: - SampleDataSeeder
 
 /// Seeds 3 sample memos on first launch after onboarding.
 /// Memos are written to vault/raw/{yesterday}.md.
-enum SampleDataSeeder {
+public enum SampleDataSeeder {
 
     private static let seededKey = "hasSeededSamples"
 
     // MARK: - Public API
 
-    static func seedIfNeeded() {
+    public static func seedIfNeeded() {
         guard !UserDefaults.standard.bool(forKey: seededKey) else { return }
         guard let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) else { return }
 
@@ -33,7 +35,7 @@ enum SampleDataSeeder {
 
     // MARK: - Clear sample data
 
-    static func clearSampleData() {
+    public static func clearSampleData() {
         guard let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date()) else { return }
 
         do {
@@ -54,7 +56,7 @@ enum SampleDataSeeder {
         }
     }
 
-    static var hasSeededSamples: Bool {
+    public static var hasSeededSamples: Bool {
         UserDefaults.standard.bool(forKey: seededKey)
     }
 

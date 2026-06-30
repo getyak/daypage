@@ -1,19 +1,21 @@
 import Foundation
 import CoreLocation
+import DayPageModels
+import DayPageStorage
 
 // MARK: - VisitDraft
 
 /// A passively-detected location visit, pending user confirmation.
-struct VisitDraft: Codable, Identifiable, Equatable {
-    var id: UUID
-    var arrivalDate: Date
-    var departureDate: Date?
-    var latitude: Double
-    var longitude: Double
-    var placeName: String?
-    var status: Status
+public struct VisitDraft: Codable, Identifiable, Equatable {
+    public var id: UUID
+    public var arrivalDate: Date
+    public var departureDate: Date?
+    public var latitude: Double
+    public var longitude: Double
+    public var placeName: String?
+    public var status: Status
 
-    enum Status: String, Codable {
+    public enum Status: String, Codable {
         case pending
         case confirmed
         case ignored
@@ -30,11 +32,11 @@ struct VisitDraft: Codable, Identifiable, Equatable {
 ///
 /// Requires "Always" location authorization and UIBackgroundModes: location in Info.plist.
 @MainActor
-final class PassiveLocationService: NSObject, ObservableObject {
+public final class PassiveLocationService: NSObject, ObservableObject {
 
     // MARK: - Singleton
 
-    static let shared = PassiveLocationService()
+    public static let shared = PassiveLocationService()
 
     // MARK: - Published
 
@@ -56,7 +58,7 @@ final class PassiveLocationService: NSObject, ObservableObject {
     // MARK: - Public API
 
     /// Start monitoring visits if Always authorization is granted.
-    func startMonitoringIfAuthorized() {
+    public func startMonitoringIfAuthorized() {
         guard manager.authorizationStatus == .authorizedAlways else { return }
         guard !isMonitoring else { return }
         manager.startMonitoringVisits()
@@ -64,13 +66,13 @@ final class PassiveLocationService: NSObject, ObservableObject {
     }
 
     /// Stop monitoring visits.
-    func stopMonitoring() {
+    public func stopMonitoring() {
         manager.stopMonitoringVisits()
         isMonitoring = false
     }
 
     /// Confirm a pending draft, converting it to a location Memo in today's file.
-    func confirmDraft(_ draft: VisitDraft) throws {
+    public func confirmDraft(_ draft: VisitDraft) throws {
         let memo = Memo(
             type: .location,
             created: draft.arrivalDate,
@@ -85,12 +87,12 @@ final class PassiveLocationService: NSObject, ObservableObject {
     }
 
     /// Ignore a pending draft.
-    func ignoreDraft(_ draft: VisitDraft) {
+    public func ignoreDraft(_ draft: VisitDraft) {
         updateDraftStatus(id: draft.id, status: .ignored)
     }
 
     /// Return today's pending (unactioned) drafts.
-    func todayPendingDrafts() -> [VisitDraft] {
+    public func todayPendingDrafts() -> [VisitDraft] {
         let calendar = Calendar.current
         return pendingDrafts.filter { draft in
             draft.status == .pending &&
@@ -176,7 +178,7 @@ final class PassiveLocationService: NSObject, ObservableObject {
 
 extension PassiveLocationService: CLLocationManagerDelegate {
 
-    nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+    public nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         Task { @MainActor [weak self] in
             guard let self else { return }
             switch manager.authorizationStatus {
@@ -188,7 +190,7 @@ extension PassiveLocationService: CLLocationManagerDelegate {
         }
     }
 
-    nonisolated func locationManager(
+    public nonisolated func locationManager(
         _ manager: CLLocationManager,
         didVisit visit: CLVisit
     ) {

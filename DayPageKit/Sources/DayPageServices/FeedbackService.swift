@@ -1,14 +1,15 @@
 import Foundation
+import DayPageStorage
 
 // MARK: - FeedbackError
 
-enum FeedbackError: LocalizedError {
+public enum FeedbackError: LocalizedError {
     case networkError(String)
     case authError
     case rateLimitError
     case unknownError(Int, String)
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .networkError(let msg): return "Network error: \(msg)"
         case .authError: return "GitHub authentication failed. Please try again later."
@@ -20,11 +21,11 @@ enum FeedbackError: LocalizedError {
 
 // MARK: - GitHubIssue
 
-struct GitHubIssue: Decodable {
-    let number: Int
-    let htmlURL: String
+public struct GitHubIssue: Decodable {
+    public let number: Int
+    public let htmlURL: String
 
-    enum CodingKeys: String, CodingKey {
+    public enum CodingKeys: String, CodingKey {
         case number
         case htmlURL = "html_url"
     }
@@ -32,17 +33,17 @@ struct GitHubIssue: Decodable {
 
 // MARK: - GitHubLabel
 
-struct GitHubLabel: Decodable {
-    let name: String
-    let color: String
+public struct GitHubLabel: Decodable {
+    public let name: String
+    public let color: String
 }
 
 // MARK: - FeedbackService
 
 @MainActor
-final class FeedbackService {
+public final class FeedbackService {
 
-    static let shared = FeedbackService()
+    public static let shared = FeedbackService()
     private init() {}
 
     private let apiBase = "https://api.github.com"
@@ -66,7 +67,7 @@ final class FeedbackService {
 
     /// Posts a new issue using the embedded bot token to the hardcoded repo.
     /// No user-supplied credentials required.
-    func createIssueViaBot(title: String, body: String, labels: [String]) async throws -> GitHubIssue {
+    public func createIssueViaBot(title: String, body: String, labels: [String]) async throws -> GitHubIssue {
         return try await createIssue(
             title: title,
             body: body,
@@ -81,7 +82,7 @@ final class FeedbackService {
 
     /// Posts a new issue to the given GitHub repo.
     /// - Returns: The created `GitHubIssue` with number and HTML URL.
-    func createIssue(
+    public func createIssue(
         title: String,
         body: String,
         labels: [String],
@@ -121,7 +122,7 @@ final class FeedbackService {
     /// Uploads a JPEG (or any binary) to the bot repo via the GitHub Contents
     /// API and returns the public `download_url`. Path: `feedback-assets/<filename>`.
     /// On 422 (path collision) we retry once with a `_<6char>` suffix before giving up.
-    func uploadFeedbackImage(data: Data, filename: String) async throws -> String {
+    public func uploadFeedbackImage(data: Data, filename: String) async throws -> String {
         return try await uploadFeedbackImageOnce(
             data: data,
             filename: filename,
@@ -196,7 +197,7 @@ final class FeedbackService {
     // MARK: - List Labels
 
     /// Returns all labels defined on the given repo.
-    func listRepoLabels(token: String, owner: String, repo: String) async throws -> [GitHubLabel] {
+    public func listRepoLabels(token: String, owner: String, repo: String) async throws -> [GitHubLabel] {
         guard NetworkMonitor.shared.isOnline else {
             throw FeedbackError.networkError("offline")
         }

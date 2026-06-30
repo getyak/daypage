@@ -26,7 +26,7 @@ import Foundation
 ///
 /// Pure functions. Safe to call from any actor. Idempotent: feeding an
 /// already-redacted string through the function again is a no-op.
-enum SentryRedactor {
+public enum SentryRedactor {
 
     // MARK: - Patterns
 
@@ -61,7 +61,7 @@ enum SentryRedactor {
 
     /// Returns `input` with every matched secret/PII run replaced by a
     /// human-readable marker. `nil` in → `nil` out.
-    static func redact(_ input: String?) -> String? {
+    public static func redact(_ input: String?) -> String? {
         guard let input = input, !input.isEmpty else { return input }
         var current = input
         for (re, replacement) in patterns {

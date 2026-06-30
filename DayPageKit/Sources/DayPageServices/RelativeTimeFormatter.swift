@@ -1,9 +1,9 @@
 import Foundation
 
 /// Human-friendly relative date strings: TODAY · 14:23 / YESTERDAY · 14:23 / 3 DAYS AGO · APR 14 / APR 14, 2026
-enum RelativeTimeFormatter {
+public enum RelativeTimeFormatter {
 
-    static func relative(_ date: Date, now: Date = .now) -> String {
+    public static func relative(_ date: Date, now: Date = .now) -> String {
         let cal = Calendar.current
         let hhmm = timeString(date)
 

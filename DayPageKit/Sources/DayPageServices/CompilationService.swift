@@ -1,9 +1,11 @@
 import Foundation
+import DayPageModels
+import DayPageStorage
 
 // MARK: - CompilationStage
 
 /// Progress stages published during a compile run.
-enum CompilationStage: String, CaseIterable, Equatable {
+public enum CompilationStage: String, CaseIterable, Equatable {
     case extracting
     case compiling
     case formatting
@@ -26,11 +28,11 @@ enum CompilationStage: String, CaseIterable, Equatable {
 ///   try await service.compile(for: Date())
 ///
 @MainActor
-final class CompilationService: ObservableObject {
+public final class CompilationService: ObservableObject {
 
     // MARK: Singleton
 
-    static let shared = CompilationService()
+    public static let shared = CompilationService()
     private init() {}
 
     // MARK: - Published Stage
@@ -51,7 +53,7 @@ final class CompilationService: ObservableObject {
     /// - Parameter trigger: 编译触发方式（"manual" | "auto"）。
     /// - Parameter onRetry: 每次重试前调用，参数为 (当前次数, 最大次数)。
     /// - Throws: 当 API、解析或文件系统失败时抛出 `CompilationError`。
-    func compile(
+    public func compile(
         for date: Date = Date(),
         trigger: String = "manual",
         onRetry: ((Int, Int) -> Void)? = nil
@@ -179,7 +181,7 @@ final class CompilationService: ObservableObject {
     // MARK: - Step 4: Parse Response
 
     /// Per-memo annotation extracted from the LLM response.
-    struct MemoUpdateInstruction {
+    public struct MemoUpdateInstruction {
         let memoID: UUID
         let mood: String?
         let entityMentions: [String]
@@ -187,7 +189,7 @@ final class CompilationService: ObservableObject {
     }
 
     /// Parsed output from the LLM response.
-    struct ParsedCompilationOutput {
+    public struct ParsedCompilationOutput {
         let dailyPageText: String
         let entityInstructions: [EntityUpdateInstruction]
         let memoUpdates: [MemoUpdateInstruction]
@@ -810,7 +812,7 @@ final class CompilationService: ObservableObject {
 
 // MARK: - CompilationError
 
-enum CompilationError: LocalizedError {
+public enum CompilationError: LocalizedError {
     case missingApiKey
     case invalidURL
     case networkError(String)
@@ -827,7 +829,7 @@ enum CompilationError: LocalizedError {
     // C4 fix: user has disabled AI features in Settings — local-only mode.
     case aiDisabled
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .missingApiKey:
             return "DeepSeek API Key 未配置，请检查 .env 文件"

@@ -1,4 +1,5 @@
 import Foundation
+import DayPageStorage
 
 // MARK: - DateFormatters
 
@@ -14,32 +15,32 @@ import Foundation
 /// and never mutated). Use these when the output is a stable machine string
 /// (filenames, frontmatter, sorting keys). For user-facing localized text,
 /// prefer `RelativeTimeFormatter` or `Date.formatted(_:)`.
-enum DateFormatters {
+public enum DateFormatters {
 
     // MARK: ISO date — "yyyy-MM-dd"
 
     /// "2026-06-19" — the canonical vault filename / frontmatter date format.
     /// Used by RawStorage, GraphRetriever, Sidebar heatmap, Archive, search.
-    static let isoDate: DateFormatter = posix("yyyy-MM-dd")
+    public static let isoDate: DateFormatter = posix("yyyy-MM-dd")
 
     // MARK: Clock time — "HH:mm"
 
     /// "14:23" — 24h clock used inside daily pages and memo timestamps.
-    static let timeHHmm: DateFormatter = posix("HH:mm")
+    public static let timeHHmm: DateFormatter = posix("HH:mm")
 
     // MARK: Weekday / month-day variants
 
     /// "Mon" / "Fri" — short English weekday for heat-map labels.
-    static let weekdayShort: DateFormatter = posix("EEE")
+    public static let weekdayShort: DateFormatter = posix("EEE")
 
     /// "Monday" — long English weekday for daily-page header.
-    static let weekdayLong: DateFormatter = posix("EEEE")
+    public static let weekdayLong: DateFormatter = posix("EEEE")
 
     /// "Jun 19" — short month-day for relative time fallbacks.
-    static let monthDay: DateFormatter = posix("MMM d")
+    public static let monthDay: DateFormatter = posix("MMM d")
 
     /// "2026-06" — year-month key for monthly archive grouping.
-    static let yearMonth: DateFormatter = posix("yyyy-MM")
+    public static let yearMonth: DateFormatter = posix("yyyy-MM")
 
     // MARK: - Helpers
 
@@ -55,14 +56,14 @@ enum DateFormatters {
 
 // MARK: - Convenience on Date
 
-extension Date {
+public extension Date {
     /// "2026-06-19" — POSIX ISO short date used as vault filename.
-    var isoDateString: String { DateFormatters.isoDate.string(from: self) }
+    public var isoDateString: String { DateFormatters.isoDate.string(from: self) }
 }
 
 // MARK: - Convenience on String
 
-extension String {
+public extension String {
     /// Parse a "yyyy-MM-dd" string into Date using the shared POSIX formatter.
-    var asISODate: Date? { DateFormatters.isoDate.date(from: self) }
+    public var asISODate: Date? { DateFormatters.isoDate.date(from: self) }
 }

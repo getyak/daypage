@@ -1,19 +1,21 @@
 import Foundation
+import DayPageModels
+import DayPageStorage
 
 // MARK: - EntityUpdateInstruction
 
 /// LLM 返回的单条实体创建或更新指令，作为结构化编译输出的一部分。
-struct EntityUpdateInstruction {
+public struct EntityUpdateInstruction {
     /// 实体类型："places"、"people" 或 "themes"
-    let entityType: String
+    public let entityType: String
     /// URL 安全的 slug（小写，连字符分隔，无空格），例如 "joma-coffee"
-    let entitySlug: String
+    public let entitySlug: String
     /// 要追加内容到的段落标题，例如 "## Visits"
-    let section: String
+    public let section: String
     /// 追加到该段落下的 Markdown 内容块。
-    let content: String
+    public let content: String
     /// 人类可读的显示名称，例如 "Joma Coffee"
-    let displayName: String
+    public let displayName: String
 }
 
 // MARK: - EntityPageService
@@ -32,11 +34,11 @@ struct EntityUpdateInstruction {
 ///   vault/wiki/themes/{slug}.md
 ///
 @MainActor
-final class EntityPageService {
+public final class EntityPageService {
 
     // MARK: Singleton
 
-    static let shared = EntityPageService()
+    public static let shared = EntityPageService()
     private init() {}
 
     // MARK: - Apply Instructions
@@ -47,7 +49,7 @@ final class EntityPageService {
     ///
     /// - Parameter instructions: LLM 返回的更新指令数组。
     /// - Parameter date: 源编译的日期字符串（例如 "2026-01-15"）。
-    func apply(instructions: [EntityUpdateInstruction], date: String) throws {
+    public func apply(instructions: [EntityUpdateInstruction], date: String) throws {
         var newlyCreated: [(type: String, slug: String, name: String)] = []
 
         for instruction in instructions {
@@ -138,7 +140,7 @@ final class EntityPageService {
     /// slugs. Before this change, the write path collapsed "coffee" into
     /// "coffee-shop" but the read path's slugCandidates only looked for
     /// "coffee" verbatim, so the entity was effectively invisible.
-    nonisolated static func isFuzzyMatch(_ a: String, _ b: String) -> Bool {
+    public nonisolated static func isFuzzyMatch(_ a: String, _ b: String) -> Bool {
         // Hyphen-stripped comparison catches "coffee-shop" ≈ "coffeeshop" / "CoffeeShop" (after sanitize).
         let aStripped = a.replacingOccurrences(of: "-", with: "")
         let bStripped = b.replacingOccurrences(of: "-", with: "")
@@ -173,7 +175,7 @@ final class EntityPageService {
 
     /// Returns a slug with an appended numeric suffix that doesn't collide with
     /// any existing file in the entity type directory (e.g. "coffee-2", "coffee-3").
-    func deduplicatedSlug(base: String, type: String) -> String {
+    public func deduplicatedSlug(base: String, type: String) -> String {
         let dir = VaultInitializer.vaultURL
             .appendingPathComponent("wiki")
             .appendingPathComponent(type)
@@ -273,7 +275,7 @@ final class EntityPageService {
     /// 在 Markdown 内容中查找 `sectionHeading`，并在该段落
     /// 最后一段已有内容之后追加 `newContent`。
     /// 若段落不存在，则在文档末尾添加。
-    func appendUnderSection(
+    public func appendUnderSection(
         content: String,
         section sectionHeading: String,
         newContent: String
@@ -352,7 +354,7 @@ final class EntityPageService {
     // MARK: - Frontmatter Helpers
 
     /// 替换 frontmatter 中某个键的值（位于首行 --- 与首个 --- 之间）。
-    func updateFrontmatterField(in content: String, key: String, value: String) -> String {
+    public func updateFrontmatterField(in content: String, key: String, value: String) -> String {
         let lines = content.components(separatedBy: "\n")
         var result: [String] = []
         var inFrontmatter = false
@@ -383,7 +385,7 @@ final class EntityPageService {
     }
 
     /// 将 frontmatter 中的整数字段值加 1。
-    func incrementFrontmatterCount(in content: String, key: String) -> String {
+    public func incrementFrontmatterCount(in content: String, key: String) -> String {
         let lines = content.components(separatedBy: "\n")
         var result: [String] = []
         var inFrontmatter = false
@@ -434,7 +436,7 @@ final class EntityPageService {
     ///   ]
     /// }
     /// ```
-    static func parseStructuredOutput(_ rawLLMResponse: String) -> (dailyPage: String, instructions: [EntityUpdateInstruction]) {
+    public static func parseStructuredOutput(_ rawLLMResponse: String) -> (dailyPage: String, instructions: [EntityUpdateInstruction]) {
         // Try to extract and parse a JSON block from the response
         guard let jsonBlock = extractJSONBlock(from: rawLLMResponse),
               let data = jsonBlock.data(using: .utf8),
@@ -507,7 +509,7 @@ final class EntityPageService {
         return nil
     }
 
-    nonisolated static func sanitizeSlug(_ raw: String) -> String {
+    public nonisolated static func sanitizeSlug(_ raw: String) -> String {
         raw
             .lowercased()
             .components(separatedBy: CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-")).inverted)

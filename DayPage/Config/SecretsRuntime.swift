@@ -1,4 +1,5 @@
 import Foundation
+import DayPageStorage
 
 // MARK: - Runtime Key Resolution
 //
@@ -16,17 +17,17 @@ import Foundation
 //
 // US-002: API keys are stored in Keychain (`com.daypage.apikeys` service)
 // rather than UserDefaults to prevent iCloud backup exposure.
-extension Secrets {
-    static var resolvedDeepSeekApiKey: String {
+public extension Secrets {
+    public static var resolvedDeepSeekApiKey: String {
         resolve(keychainName: "deepSeekApiKey", fallback: deepSeekApiKey)
     }
-    static var resolvedOpenAIWhisperApiKey: String {
+    public static var resolvedOpenAIWhisperApiKey: String {
         resolve(keychainName: "openAIWhisperApiKey", fallback: openAIWhisperApiKey)
     }
-    static var resolvedOpenWeatherApiKey: String {
+    public static var resolvedOpenWeatherApiKey: String {
         resolve(keychainName: "openWeatherApiKey", fallback: openWeatherApiKey)
     }
-    static var resolvedGitHubToken: String {
+    public static var resolvedGitHubToken: String {
         resolve(keychainName: "githubToken", fallback: kubotGitHubToken)
     }
 

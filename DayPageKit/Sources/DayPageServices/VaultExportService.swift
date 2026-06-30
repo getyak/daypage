@@ -36,11 +36,13 @@
 //   coordinator cleans up its temp dir.
 
 import Foundation
+import DayPageModels
+import DayPageStorage
 
 /// Errors surfaced by `VaultExportService`. Equatable so SwiftUI views can
 /// pattern-match the `.noData` case to render an empty-state, and tests can
 /// assert with `#expect(error == .vaultNotFound)`.
-enum VaultExportError: Error, Equatable {
+public enum VaultExportError: Error, Equatable {
     /// Vault root directory itself is missing — usually means
     /// `VaultInitializer.initializeIfNeeded()` was never called (first launch
     /// crash window) or iCloud container vanished mid-session.
@@ -62,19 +64,19 @@ enum VaultExportError: Error, Equatable {
 /// `estimatedTotalBytes` is the sum of every file's `.fileSizeKey` — does NOT
 /// include the zip overhead that a future implementation will add, hence the
 /// "estimated" qualifier.
-struct ExportManifest: Equatable {
+public struct ExportManifest: Equatable {
     /// Number of `vault/raw/*.md` files (one per day, or one per Memo group).
-    let rawMemoCount: Int
+    public let rawMemoCount: Int
     /// Number of `vault/wiki/daily/*.md` compiled diary pages.
-    let dailyPageCount: Int
+    public let dailyPageCount: Int
     /// Combined count of places + people + themes — the union "entity wiki".
-    let entityCount: Int
+    public let entityCount: Int
     /// Number of files anywhere under `vault/raw/assets/` (recursive — photos
     /// live in `assets/photos/`, voice in `assets/audio/`, etc.).
-    let assetCount: Int
+    public let assetCount: Int
     /// Sum of every file's byte size across all of the above. Int64 because
     /// a year of 4K photos easily passes the Int32 ceiling on 32-bit slices.
-    let estimatedTotalBytes: Int64
+    public let estimatedTotalBytes: Int64
 }
 
 /// Bitmask selecting which vault subdirectories `exportVaultZip(...)` should
@@ -82,22 +84,22 @@ struct ExportManifest: Equatable {
 /// everything" path is a single call. Tests rely on `[]` (empty set) being
 /// explicitly rejected with `.exportFailed` so users don't get an empty zip
 /// they paid CPU for.
-struct VaultExportIncludes: OptionSet, Equatable {
-    let rawValue: Int
+public struct VaultExportIncludes: OptionSet, Equatable {
+    public let rawValue: Int
     /// `vault/raw/*.md` — the source-of-truth memo dump.
-    static let rawMemos    = VaultExportIncludes(rawValue: 1 << 0)
+    public static let rawMemos    = VaultExportIncludes(rawValue: 1 << 0)
     /// `vault/wiki/daily/*.md` — AI-compiled diary pages.
-    static let dailyPages  = VaultExportIncludes(rawValue: 1 << 1)
+    public static let dailyPages  = VaultExportIncludes(rawValue: 1 << 1)
     /// `vault/wiki/{places,people,themes}/*.md` — combined entity wiki.
     /// One flag rather than three because the UI surfaces "Entities" as a
     /// single toggle, and splitting would tempt callers into invalid combos
     /// (e.g. places without themes when a daily page links both).
-    static let entities    = VaultExportIncludes(rawValue: 1 << 2)
+    public static let entities    = VaultExportIncludes(rawValue: 1 << 2)
     /// `vault/raw/assets/**` — photos, audio, attachments (recursive).
-    static let assets      = VaultExportIncludes(rawValue: 1 << 3)
+    public static let assets      = VaultExportIncludes(rawValue: 1 << 3)
     /// Convenience: every known subdirectory. Add new bits to this set when
     /// the vault grows new top-level subdirectories.
-    static let all: VaultExportIncludes = [.rawMemos, .dailyPages, .entities, .assets]
+    public static let all: VaultExportIncludes = [.rawMemos, .dailyPages, .entities, .assets]
 }
 
 /// Read-only service that walks the vault and produces an `ExportManifest`.
@@ -105,8 +107,8 @@ struct VaultExportIncludes: OptionSet, Equatable {
 /// the heavy lifting is a pure static helper (`computeManifest(vaultURL:)`)
 /// so tests can inject a fixture vault without touching `VaultInitializer`.
 @MainActor
-final class VaultExportService {
-    static let shared = VaultExportService()
+public final class VaultExportService {
+    public static let shared = VaultExportService()
     private init() {}
 
     /// Scan the live vault and produce summary counts. Used by
@@ -117,7 +119,7 @@ final class VaultExportService {
     ///
     /// The file walk runs on a detached background task so a multi-thousand-
     /// file scan doesn't hitch the main actor.
-    func collectExportManifest() async throws -> ExportManifest {
+    public func collectExportManifest() async throws -> ExportManifest {
         let vaultURL = VaultInitializer.vaultURL
         return try await Task.detached(priority: .userInitiated) {
             guard let manifest = try VaultExportService.computeManifest(vaultURL: vaultURL) else {
@@ -170,7 +172,7 @@ final class VaultExportService {
     ///           `.exportFailed(reason)` for any other failure (no
     ///           subdirectories selected, copy denied, coordinator error).
     /// - Returns: URL of the final `.zip` file under `NSTemporaryDirectory`.
-    func exportVaultZip(
+    public func exportVaultZip(
         includes: VaultExportIncludes = .all,
         progress: (@MainActor @Sendable (Double) -> Void)? = nil
     ) async throws -> URL {

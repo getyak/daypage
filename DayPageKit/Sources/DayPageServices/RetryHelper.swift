@@ -8,19 +8,19 @@ import Foundation
 /// hard-coded as `[0, 2, 6]` seconds × 3 attempts. By making it explicit and
 /// passable, individual call sites (chat vs. compilation) can later pick
 /// different policies without forking the loop body.
-struct RetryPolicy: Equatable {
+public struct RetryPolicy: Equatable {
     /// Total attempts including the first try (must be ≥ 1).
-    let maxAttempts: Int
+    public let maxAttempts: Int
     /// Sleep before attempt N (1-indexed). Index 0 is always 0s — the first
     /// attempt never waits. Indices past the end repeat the last value.
-    let backoffSeconds: [Double]
+    public let backoffSeconds: [Double]
 
     /// Original DayPage default: 3 attempts at 0 / 2 / 6 seconds.
-    static let standard = RetryPolicy(maxAttempts: 3, backoffSeconds: [0, 2, 6])
+    public static let standard = RetryPolicy(maxAttempts: 3, backoffSeconds: [0, 2, 6])
 
     /// Sleep duration before the given attempt number (1-indexed). Attempt 1
     /// always returns 0; attempts past the schedule reuse the tail value.
-    func delayBeforeAttempt(_ attempt: Int) -> Double {
+    public func delayBeforeAttempt(_ attempt: Int) -> Double {
         guard attempt > 1 else { return 0 }
         let idx = min(attempt - 1, backoffSeconds.count - 1)
         return backoffSeconds[idx]
@@ -30,7 +30,7 @@ struct RetryPolicy: Equatable {
 // MARK: - RetryDecision
 
 /// What `retryAsync` should do when a thrown error is observed.
-enum RetryDecision {
+public enum RetryDecision {
     /// Retry the next attempt (subject to the attempt budget).
     case retry
     /// Surface the error immediately and stop the loop.
