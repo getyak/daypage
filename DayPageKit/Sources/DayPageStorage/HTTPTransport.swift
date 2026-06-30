@@ -28,5 +28,5 @@ extension URLSession: HTTPTransport {}
 /// just reads this property so any future swap (e.g. enabling a logging
 /// transport in DEBUG) is a one-line change.
 public enum HTTPTransports {
-    nonisolated(unsafe) static var shared: HTTPTransport = URLSession.shared
+    public nonisolated(unsafe) static var shared: HTTPTransport = URLSession.shared
 }

@@ -81,13 +81,13 @@ public struct LLMClient {
             temperature: Double = 0.7,
             timeout: TimeInterval = 120
         ) -> Config {
-            let base = Secrets.deepSeekBaseURL.isEmpty
+            let base = KitSecrets.shared.deepSeekBaseURL.isEmpty
                 ? "https://api.deepseek.com/v1"
-                : Secrets.deepSeekBaseURL
-            let model = Secrets.deepSeekModel.isEmpty ? "deepseek-v4-pro" : Secrets.deepSeekModel
+                : KitSecrets.shared.deepSeekBaseURL
+            let model = KitSecrets.shared.deepSeekModel.isEmpty ? "deepseek-v4-pro" : KitSecrets.shared.deepSeekModel
             return Config(
                 baseURL: base,
-                apiKey: Secrets.resolvedDeepSeekApiKey,
+                apiKey: KitSecrets.shared.deepSeekApiKey,
                 model: model,
                 maxTokens: maxTokens,
                 temperature: temperature,
@@ -183,7 +183,7 @@ public struct LLMClient {
             body: body
         )
 
-        let dsnEmpty = await MainActor.run { Secrets.sentryDSN.isEmpty }
+        let dsnEmpty = await MainActor.run { !SentryReporter.isSentryEnabled }
         let span = dsnEmpty ? nil : SentrySDK.startTransaction(name: spanName, operation: "http.client")
         defer { span?.finish() }
 

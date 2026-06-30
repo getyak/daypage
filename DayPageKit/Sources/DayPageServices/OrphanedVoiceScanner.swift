@@ -175,11 +175,7 @@ public enum OrphanedVoiceScanner {
         // startup GC could delete the recording right before the user
         // retries the submit. Treat every inflight attachment path as
         // referenced so the voice file survives long enough for recovery.
-        for draft in InflightDraftStore.pending() {
-            for path in draft.attachmentPaths {
-                refs.insert(path)
-            }
-        }
+        refs.formUnion(InflightDraftRefsHook.referencedPaths())
         return refs
     }
 }

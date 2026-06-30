@@ -56,7 +56,7 @@ public final class DayPageLogger {
     // Callable from any actor context (nonisolated, background threads, WCSessionDelegate).
     // Routes through the shared serial queue for thread-safe writes; Sentry breadcrumbs
     // are skipped for off-actor calls.
-    nonisolated static func log(level: String, message: String,
+    public nonisolated static func log(level: String, message: String,
                                 file: String = #file, line: Int = #line) {
         let timestamp = formatter.string(from: Date())
         let shortFile = (file as NSString).lastPathComponent

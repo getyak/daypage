@@ -165,11 +165,7 @@ public enum OrphanedPhotoScanner {
         // Inflight drafts may contain staged photos whose memo never reached
         // the day file; keep their attachment paths referenced so the photo
         // survives until the user retries the submit or cancels.
-        for draft in InflightDraftStore.pending() {
-            for path in draft.attachmentPaths {
-                refs.insert(path)
-            }
-        }
+        refs.formUnion(InflightDraftRefsHook.referencedPaths())
         return refs
     }
 }

@@ -47,7 +47,7 @@ public final class FeedbackService {
     private init() {}
 
     private let apiBase = "https://api.github.com"
-    private static let botToken: String = Secrets.kubotGitHubToken
+    private static let botToken: String = KitSecrets.shared.githubBotToken
     private static let botOwner = "getyak"
     private static let botRepo  = "daypage"
 

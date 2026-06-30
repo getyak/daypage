@@ -32,22 +32,22 @@ public final class SyncQueueService: ObservableObject {
 
     /// Memo IDs awaiting upload. Stored as a Set so duplicate enqueues
     /// (e.g. retry-after-failure) collapse to a single entry.
-    @Published private(set) var pendingMemoIDs: Set<String> = []
+    @Published public private(set) var pendingMemoIDs: Set<String> = []
 
     /// Cumulative byte size of pending memos (rough estimate, used only
     /// for telemetry / future "X MB queued" UI). Caller passes
     /// `sizeBytes` on enqueue/markSynced — we trust the caller to provide
     /// matching values for the same memo ID.
-    @Published private(set) var totalBytes: Int = 0
+    @Published public private(set) var totalBytes: Int = 0
 
     /// When the oldest currently-pending memo was enqueued. Drives the
     /// "已等待 N 小时" red-text variant in the Today banner. Reset to
     /// nil when the queue empties.
-    @Published private(set) var oldestPendingDate: Date?
+    @Published public private(set) var oldestPendingDate: Date?
 
     /// True while a flush attempt is in-flight. Set/cleared inside
     /// `flushIfOnline` and inspected by the banner to disable retries.
-    @Published private(set) var isFlushingNow: Bool = false
+    @Published public private(set) var isFlushingNow: Bool = false
 
     /// Convenience accessors — these aren't `@Published` themselves but
     /// will recompute whenever `pendingMemoIDs` does because callers

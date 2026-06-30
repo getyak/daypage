@@ -24,7 +24,7 @@ public final class NetworkMonitor: ObservableObject {
     private let queue = DispatchQueue(label: "com.daypage.network", qos: .utility)
 
     /// What the SwiftUI layer observes. Equals `realIsOnline && !simulateOffline`.
-    @Published private(set) var isOnline: Bool = true
+    @Published public private(set) var isOnline: Bool = true
 
     /// The raw NWPath verdict, before the debug override is applied.
     /// The NWPath callback writes here; `recomputeIsOnline()` then folds

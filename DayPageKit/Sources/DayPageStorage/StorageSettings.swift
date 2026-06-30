@@ -73,6 +73,39 @@ public enum StorageSettings {
     }
 }
 
+// MARK: - InflightDraftRefsHook
+
+/// Injection point for the iOS Today feature's `InflightDraftStore.pending()`.
+/// The orphaned-attachment scanners in DayPageServices need to honor inflight
+/// draft references (so the GC does not delete an attachment while the user
+/// is mid-submit), but `InflightDraftStore` lives in the app target's
+/// Features/Today layer which Kit cannot reach.
+///
+/// iOS registers a closure during app launch that returns the set of attachment
+/// path strings currently referenced by inflight drafts. Scanners call
+/// `InflightDraftRefsHook.referencedPaths()` and union the result into their
+/// reference set. Returns empty when no provider is registered (test contexts,
+/// pre-launch, etc.) — safe degradation, just means a stale draft attachment
+/// could be GC'd; the user retry path already handles that case.
+public enum InflightDraftRefsHook {
+    public typealias Provider = @Sendable () -> Set<String>
+
+    private static let lock = NSLock()
+    private static var _provider: Provider?
+
+    public static func register(_ provider: @escaping Provider) {
+        lock.lock(); defer { lock.unlock() }
+        _provider = provider
+    }
+
+    public static func referencedPaths() -> Set<String> {
+        lock.lock()
+        let p = _provider
+        lock.unlock()
+        return p?() ?? []
+    }
+}
+
 // MARK: - VaultMigrationHook
 
 /// Injection point for the iOS-only `VaultMigrationService`. The Storage layer

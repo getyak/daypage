@@ -2,6 +2,7 @@ import Foundation
 import CoreLocation
 import Sentry
 import DayPageModels
+import DayPageStorage
 
 // MARK: - WeatherService
 
@@ -81,7 +82,7 @@ public final class WeatherService {
         }
 
         // 从 OpenWeatherMap 获取
-        let apiKey = Secrets.resolvedOpenWeatherApiKey
+        let apiKey = KitSecrets.shared.openWeatherApiKey
         guard !apiKey.isEmpty else { return nil }
 
         // URLComponents avoids string-interpolating the API key and handles percent-encoding.
@@ -97,7 +98,7 @@ public final class WeatherService {
         var request = URLRequest(url: url)
         request.timeoutInterval = 10  // weather is non-critical; don't stall memo saves
 
-        let span = Secrets.sentryDSN.isEmpty ? nil
+        let span = !SentryReporter.isSentryEnabled ? nil
             : SentrySDK.startTransaction(name: "weather.fetch", operation: "http.client")
         defer { span?.finish() }
 

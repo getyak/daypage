@@ -86,6 +86,7 @@ public struct ExportManifest: Equatable {
 /// they paid CPU for.
 public struct VaultExportIncludes: OptionSet, Equatable {
     public let rawValue: Int
+    public init(rawValue: Int) { self.rawValue = rawValue }
     /// `vault/raw/*.md` — the source-of-truth memo dump.
     public static let rawMemos    = VaultExportIncludes(rawValue: 1 << 0)
     /// `vault/wiki/daily/*.md` — AI-compiled diary pages.

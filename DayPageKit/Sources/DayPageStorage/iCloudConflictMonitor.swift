@@ -18,13 +18,13 @@ public final class iCloudConflictMonitor: ObservableObject {
     // MARK: - Published State
 
     /// Number of currently unresolved conflicts observed.
-    @Published var unresolvedConflictCount: Int = 0
+    @Published public var unresolvedConflictCount: Int = 0
 
     /// Whether a conflict resolution pass is in progress.
-    @Published var isResolving: Bool = false
+    @Published public var isResolving: Bool = false
 
     /// The most recent conflict resolution info (for UI banners).
-    @Published var lastResolution: ConflictResolutionInfo?
+    @Published public var lastResolution: ConflictResolutionInfo?
 
     // MARK: - Private
 

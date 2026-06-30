@@ -18,7 +18,7 @@ public final class iCloudSyncMonitor: ObservableObject {
     public static let shared = iCloudSyncMonitor()
     private init() {}
 
-    @Published var status: SyncStatus = .notConfigured
+    @Published public var status: SyncStatus = .notConfigured
 
     private var query: NSMetadataQuery?
     private var vaultPathPrefix: String?
