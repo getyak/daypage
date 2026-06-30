@@ -7,8 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		09A089C3B8F01817CF9E35CB /* LLMClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF559C11C922ACB683565E7C /* LLMClient.swift */; };
 		09C6E4728050D69F54949DD1 /* HapticFeedbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84FFEA3DDB8DCB528A4189BF /* HapticFeedbackTests.swift */; };
+		0AA94A9D087DA366336C8480 /* DayPageServices in Frameworks */ = {isa = PBXBuildFile; productRef = 160D427C0AE7DAC5724A134F /* DayPageServices */; };
 		14188AFE740A834ADF7A41F4 /* DayPageWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1530E7C28C23499CFC14C498 /* HapticFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB12D96218034D3E4555B8AA /* HapticFeedback.swift */; };
 		17B5829B738952DA183B1B90 /* DailyPageMetadataEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CF7E0148C3A6933A903247D /* DailyPageMetadataEditView.swift */; };
@@ -21,127 +21,72 @@
 		457A17AB7F3B4BE7C2E77026 /* StartRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF24DE1810B0DA979103772 /* StartRecordingIntent.swift */; };
 		485EFA11789212D87CB1B74B /* StartRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF24DE1810B0DA979103772 /* StartRecordingIntent.swift */; };
 		4A862A4AB3CC3961B771EBC5 /* InputBarTutorialOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 912420086719F3FFFB45FE7A /* InputBarTutorialOverlay.swift */; };
+		5F29DB56EC93D3F64130C2CA /* DayPageStorage in Frameworks */ = {isa = PBXBuildFile; productRef = D8FC81CC697F65128F6F34CD /* DayPageStorage */; };
 		60D39385300C46D08D8BF03C /* DraftStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC21412D29A6FB268CE43C58 /* DraftStorage.swift */; };
 		6587243C5DB109B930AB5D92 /* MemoryChatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04B9410B749C82B6E34779E4 /* MemoryChatTests.swift */; };
-		MYT0000001 /* MemoYAMLTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MYT1000001 /* MemoYAMLTests.swift */; };
-		R4B0000001 /* RawStorageWriteFailedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R4B1000001 /* RawStorageWriteFailedTests.swift */; };
-		R4B0000002 /* LocationServiceLRUTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R4B1000002 /* LocationServiceLRUTests.swift */; };
-		R4B0000003 /* ArchiveViewModelGroupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R4B1000003 /* ArchiveViewModelGroupTests.swift */; };
-		VTW0000001 /* VoiceTranscriptWritebackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = VTW1000001 /* VoiceTranscriptWritebackTests.swift */; };
-		OVS0000002 /* OrphanedVoiceScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = OVS1000002 /* OrphanedVoiceScannerTests.swift */; };
-		OPS0000002 /* OrphanedPhotoScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = OPS1000002 /* OrphanedPhotoScannerTests.swift */; };
-		INF0000001 /* InflightDraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = INF1000001 /* InflightDraftStore.swift */; };
-		INF0000002 /* InflightDraftStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = INF1000002 /* InflightDraftStoreTests.swift */; };
-		SRD0000001 /* SentryRedactor.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRD1000001 /* SentryRedactor.swift */; };
-		HTP0000001 /* HTTPTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = HTP1000001 /* HTTPTransport.swift */; };
-		SRD0000002 /* SentryRedactorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRD1000002 /* SentryRedactorTests.swift */; };
-		GSM0000002 /* GraphSimulationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = GSM1000002 /* GraphSimulationTests.swift */; };
-		LLM0000002 /* LLMClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = LLM1000002 /* LLMClientTests.swift */; };
-		BGC0000002 /* BackgroundCompilationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BGC1000002 /* BackgroundCompilationServiceTests.swift */; };
 		73BECCAED0BDBEFB612B15E4 /* DailyPageParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 371058C9DAB9A11AE7EAC835 /* DailyPageParser.swift */; };
 		787E4480A2797607F2DCDE5E /* PillSegmentedControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61EFC77A2EB872EA2279BA2A /* PillSegmentedControl.swift */; };
 		7BB7402C51CCBACF56E7F83A /* DailyPageModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08FF205E680406EC7E4B83DB /* DailyPageModel.swift */; };
 		8C3DEB068D610AAB589EA680 /* TimeZonePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73FCD3E2EC4D7257BA7A22BD /* TimeZonePickerView.swift */; };
 		9034B2964DD6432BD7FA7250 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C98B5757B488F583231EC8F6 /* RootView.swift */; };
-		931858DC28C9134E70E3971F /* MemoryChatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A19989C44C3E9887FC01F382 /* MemoryChatService.swift */; };
 		97FA675FF46459D5CE5E8CF3 /* QuickCaptureControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 519B9B12CB68C0E6E2A06292 /* QuickCaptureControl.swift */; };
 		9B0FAA7690FA2EEED5AB7A96 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BAC7527E8128E6A865349FB9 /* Foundation.framework */; };
 		9B65087D6C50A363072E40A7 /* LiquidGlassEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DB2FBA71981BA7516DA9A3F /* LiquidGlassEngine.swift */; };
 		9D559EA9D4B9F2C77D942935 /* DayPageShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FD3383348F15CB7B4E82E53 /* DayPageShortcuts.swift */; };
 		A10000001 /* DayPageApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000001 /* DayPageApp.swift */; };
 		A10000002 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000002 /* RootView.swift */; };
-		A10000003 /* VaultInitializer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000003 /* VaultInitializer.swift */; };
 		A10000004 /* GeneratedSecrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000004 /* GeneratedSecrets.swift */; };
 		A10000005 /* Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000005 /* Colors.swift */; };
 		A10000006 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000006 /* Typography.swift */; };
 		A10000007 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000007 /* Components.swift */; };
-		A10000008 /* Memo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000008 /* Memo.swift */; };
-		A10000009 /* RawStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000009 /* RawStorage.swift */; };
 		A10000010 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010 /* TodayView.swift */; };
 		A10000011 /* ArchiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000011 /* ArchiveView.swift */; };
 		A10000012 /* GraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000012 /* GraphView.swift */; };
 		A10000013 /* TodayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000013 /* TodayViewModel.swift */; };
 		A10000014 /* MemoCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000014 /* MemoCardView.swift */; };
-		A10000016 /* LocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000016 /* LocationService.swift */; };
-		A10000017 /* WeatherService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000017 /* WeatherService.swift */; };
 		A10000018 /* PhotoService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000018 /* PhotoService.swift */; };
 		A10000019 /* VoiceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000019 /* VoiceService.swift */; };
 		A10000020 /* VoiceRecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000020 /* VoiceRecordingView.swift */; };
-		A10000021 /* CompilationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000021 /* CompilationService.swift */; };
-		A10000022 /* EntityPageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000022 /* EntityPageService.swift */; };
 		A10000023 /* BackgroundCompilationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000023 /* BackgroundCompilationService.swift */; };
 		A10000025 /* DailyPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000025 /* DailyPageView.swift */; };
 		A10000026 /* EntityPageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000026 /* EntityPageView.swift */; };
-		A10000027 /* SearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000027 /* SearchService.swift */; };
 		A10000028 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000028 /* SearchView.swift */; };
 		A10000029 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A20000029 /* Assets.xcassets */; };
 		A10000030 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000030 /* SettingsView.swift */; };
 		A10000031 /* RawMemoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000031 /* RawMemoView.swift */; };
-		A10000032 /* PassiveLocationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000032 /* PassiveLocationService.swift */; };
 		A10000033 /* CameraPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000033 /* CameraPickerView.swift */; };
 		A10000034 /* DocumentPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000034 /* DocumentPickerView.swift */; };
 		A10000035 /* GraphViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000035 /* GraphViewModel.swift */; };
-		A10000F50 /* GraphDisplayLinkController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000F50 /* GraphDisplayLinkController.swift */; };
-		A10000036 /* DayPageLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000036 /* DayPageLogger.swift */; };
 		A10000037 /* AppBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000037 /* AppBanner.swift */; };
-		A10000038 /* NetworkMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000038 /* NetworkMonitor.swift */; };
 		A10000039 /* VoiceAttachmentQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000039 /* VoiceAttachmentQueue.swift */; };
-		OVS0000001 /* OrphanedVoiceScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = OVS1000001 /* OrphanedVoiceScanner.swift */; };
-		OPS0000001 /* OrphanedPhotoScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = OPS1000001 /* OrphanedPhotoScanner.swift */; };
 		A10000040 /* DayDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000040 /* DayDetailView.swift */; };
 		A10000041 /* Spacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000041 /* Spacing.swift */; };
-		A10000042 /* RelativeTimeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000042 /* RelativeTimeFormatter.swift */; };
-		A10000801 /* DateFormatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000801 /* DateFormatters.swift */; };
-		A10000802 /* HTTPClientHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000802 /* HTTPClientHelper.swift */; };
-		A10000803 /* RetryHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000803 /* RetryHelper.swift */; };
-		SQS0000001 /* SyncQueueService.swift in Sources */ = {isa = PBXBuildFile; fileRef = SQS1000001 /* SyncQueueService.swift */; };
-		SQS0000002 /* SyncQueueServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SQS1000002 /* SyncQueueServiceTests.swift */; };
-		VES0000001 /* VaultExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = VES1000001 /* VaultExportService.swift */; };
-		VES0000002 /* VaultExportServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = VES1000002 /* VaultExportServiceTests.swift */; };
-		SQS0000003 /* SyncQueueObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = SQS1000003 /* SyncQueueObserver.swift */; };
-		MSU0000001 /* MemoSyncUploader.swift in Sources */ = {isa = PBXBuildFile; fileRef = MSU1000001 /* MemoSyncUploader.swift */; };
-		SSU0000001 /* SyncSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = SSU1000001 /* SyncSettings.swift */; };
-		NMT0000001 /* NetworkMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = NMT1000001 /* NetworkMonitorTests.swift */; };
-		MSE0000001 /* MemoSyncE2EIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MSE1000001 /* MemoSyncE2EIntegrationTests.swift */; };
-		MST0000001 /* MemoSyncUploaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MST1000001 /* MemoSyncUploaderTests.swift */; };
-		WRA0000001 /* WeeklyRecapAutoTriggerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = WRA1000001 /* WeeklyRecapAutoTriggerTests.swift */; };
 		A10000043 /* Interactions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000043 /* Interactions.swift */; };
-		A10000045 /* OnThisDayIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000045 /* OnThisDayIndex.swift */; };
 		A10000046 /* OnThisDayCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000046 /* OnThisDayCard.swift */; };
 		A10000047 /* OnThisDayScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000047 /* OnThisDayScheduler.swift */; };
 		A10000048 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000048 /* OnboardingView.swift */; };
-		A10000049 /* SampleDataSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000049 /* SampleDataSeeder.swift */; };
 		A10000050 /* CompileFooterButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000050 /* CompileFooterButton.swift */; };
 		A10000052 /* AttachmentMenuPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000052 /* AttachmentMenuPopover.swift */; };
 		A10000053 /* InputTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000053 /* InputTokens.swift */; };
 		A10000054 /* RecordingOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000054 /* RecordingOverlayView.swift */; };
 		A10000055 /* PressToTalkButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000055 /* PressToTalkButton.swift */; };
-		A10000056 /* VaultLocator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000056 /* VaultLocator.swift */; };
 		A10000063 /* SwipeableMemoCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000063 /* SwipeableMemoCard.swift */; };
 		A10000070 /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000070 /* AuthService.swift */; };
 		A10000072 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000072 /* AuthView.swift */; };
 		A10000073 /* EmailAuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000073 /* EmailAuthView.swift */; };
 		A10000074 /* AccountSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000074 /* AccountSheet.swift */; };
 		A10000075 /* OTPVerificationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000075 /* OTPVerificationView.swift */; };
-		A10000076 /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000076 /* KeychainHelper.swift */; };
-		A10000077 /* ConflictMerger.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000077 /* ConflictMerger.swift */; };
 		A10000078 /* VaultMigrationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000078 /* VaultMigrationService.swift */; };
-		A10000079 /* iCloudSyncMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000079 /* iCloudSyncMonitor.swift */; };
 		A10000080 /* AppNavigationModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000080 /* AppNavigationModel.swift */; };
 		A10000081 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000081 /* SidebarView.swift */; };
 		A10000082 /* InputBarV4.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000082 /* InputBarV4.swift */; };
-		A10000083 /* WeeklyRecapService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000083 /* WeeklyRecapService.swift */; };
 		A10000084 /* WeeklyRecapSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000084 /* WeeklyRecapSection.swift */; };
-		A10000085 /* iCloudConflictMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000085 /* iCloudConflictMonitor.swift */; };
 		A10000086 /* OTPVerificationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000086 /* OTPVerificationViewModel.swift */; };
-		A10000087 /* AuthRateLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000087 /* AuthRateLimiter.swift */; };
 		A10000091 /* GrainOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000091 /* GrainOverlay.swift */; };
 		A10000093 /* AuthViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000093 /* AuthViewModel.swift */; };
 		A10000094 /* SidebarViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000094 /* SidebarViewModel.swift */; };
 		A10000095 /* ComposerContextProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000095 /* ComposerContextProvider.swift */; };
 		A100000B4 /* SecretsRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000B4 /* SecretsRuntime.swift */; };
-		A10000FF1 /* FeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000FF1 /* FeatureFlags.swift */; };
-		FFW0000001 /* FeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000FF1 /* FeatureFlags.swift */; };
 		A100000F1 /* GlassSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000F1 /* GlassSurface.swift */; };
 		A100000F2 /* Surfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = A200000F2 /* Surfaces.swift */; };
 		A10000200 /* ComposerStateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000200 /* ComposerStateMachine.swift */; };
@@ -149,20 +94,16 @@
 		A10000202 /* SmartTemplateRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000202 /* SmartTemplateRow.swift */; };
 		A10000203 /* InlineLensStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000203 /* InlineLensStrip.swift */; };
 		A10000300 /* DSTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000300 /* DSTokens.swift */; };
-		A10000301 /* TimelineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000301 /* TimelineService.swift */; };
 		A10000302 /* TimelineSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000302 /* TimelineSectionView.swift */; };
 		A10000303 /* DSSectionLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000303 /* DSSectionLabel.swift */; };
 		A10000304 /* DSDot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000304 /* DSDot.swift */; };
-		A10000350 /* TimelineIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000350 /* TimelineIndex.swift */; };
-		A10000360 /* SentryReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000360 /* SentryReporter.swift */; };
-		A10000370 /* TimelinePinService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000370 /* TimelinePinService.swift */; };
 		A10000400 /* HorizontalPanGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000400 /* HorizontalPanGesture.swift */; };
 		A10000510 /* RecordingSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000510 /* RecordingSheetView.swift */; };
 		A10000511 /* DynamicIslandView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000511 /* DynamicIslandView.swift */; };
 		A10000512 /* MetadataGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000512 /* MetadataGridView.swift */; };
 		A10000513 /* WriteSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000513 /* WriteSheetView.swift */; };
 		A10000514 /* TimelineRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000514 /* TimelineRow.swift */; };
-		A10000F00 /* FrontmatterParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000F00 /* FrontmatterParser.swift */; };
+		A10000F50 /* GraphDisplayLinkController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000F50 /* GraphDisplayLinkController.swift */; };
 		A1000ABC1 /* YearMonthPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000ABC1 /* YearMonthPicker.swift */; };
 		A11Y0001 /* AccessibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11Y1001 /* AccessibilityTests.swift */; };
 		A46C6A46A2D76FF5DBFBD6C6 /* StartRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE91252BA9167A50BFF79FF0 /* StartRecordingIntent.swift */; };
@@ -181,9 +122,9 @@
 		AF0000013 /* Fraunces-VariableFont.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000013 /* Fraunces-VariableFont.ttf */; };
 		AF0000014 /* Caveat-VariableFont.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000014 /* Caveat-VariableFont.ttf */; };
 		B197ECDEBDA86D4351A96898 /* RecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B93ED807E07C2171E9F4234B /* RecordingView.swift */; };
-		BDCB5B17E4D0258E5F82F6D2 /* GraphRetriever.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD333392AE2B7F775D6E8D99 /* GraphRetriever.swift */; };
+		BC84C8164964F3DFC934C2E1 /* DayPageModels in Frameworks */ = {isa = PBXBuildFile; productRef = B0D49FB89D8AE64AD546E42D /* DayPageModels */; };
+		BGC0000002 /* BackgroundCompilationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BGC1000002 /* BackgroundCompilationServiceTests.swift */; };
 		C80B52CC8945CDC4EE87DCBB /* PosterTemplates.swift in Sources */ = {isa = PBXBuildFile; fileRef = A381FA327A37AE0DD740D61D /* PosterTemplates.swift */; };
-		CJ0000001 /* CJKTextPolish.swift in Sources */ = {isa = PBXBuildFile; fileRef = CJ1000001 /* CJKTextPolish.swift */; };
 		DBB277156934B2FA96E16077 /* WatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5BB61FECBCF7AB756E7A6CE /* WatchApp.swift */; };
 		DS0000001 /* Motion.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000001 /* Motion.swift */; };
 		DS0000002 /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000002 /* Haptics.swift */; };
@@ -201,25 +142,38 @@
 		ES0000001 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000001 /* EmptyStateView.swift */; };
 		ES0000002 /* GlassErrorBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000002 /* GlassErrorBanner.swift */; };
 		ES0000004 /* GraphSkeleton.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000004 /* GraphSkeleton.swift */; };
-		F617270BFC704FF5BBB99FD3 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 068FB068A000B6E61B1D8032 /* AppSettings.swift */; };
 		F66780AF157611A4283937FE /* MemoListSkeleton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0995108F7E2E8994F114A240 /* MemoListSkeleton.swift */; };
 		F69AA7BDCB1C041959C26EB4 /* ShareCardSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 986C8E3E042E690BA4CCC12D /* ShareCardSystem.swift */; };
 		F9DD1FD8D9003975FAD95E17 /* DailyPageSummarySection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4EBD94EB4FD71CC10D478F3 /* DailyPageSummarySection.swift */; };
-		FB0000001 /* FeedbackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000001 /* FeedbackService.swift */; };
 		FB0000002 /* FeedbackViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000002 /* FeedbackViewModel.swift */; };
 		FB0000003 /* FeedbackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000003 /* FeedbackView.swift */; };
 		FB0000004 /* FeedbackContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000004 /* FeedbackContext.swift */; };
 		FT0000001 /* DayOrbView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FT1000001 /* DayOrbView.swift */; };
+		GSM0000002 /* GraphSimulationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = GSM1000002 /* GraphSimulationTests.swift */; };
 		IN1000001 /* QuickCaptureTextIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = IN2000001 /* QuickCaptureTextIntent.swift */; };
 		IN1000002 /* OpenDailyPageIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = IN2000002 /* OpenDailyPageIntent.swift */; };
 		IN1000003 /* AskTodayIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = IN2000003 /* AskTodayIntent.swift */; };
+		INF0000001 /* InflightDraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = INF1000001 /* InflightDraftStore.swift */; };
+		INF0000002 /* InflightDraftStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = INF1000002 /* InflightDraftStoreTests.swift */; };
 		KC0000001 /* KeychainHelperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = KC1000001 /* KeychainHelperTests.swift */; };
+		LLM0000002 /* LLMClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = LLM1000002 /* LLMClientTests.swift */; };
 		LS0000001 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = LS1000001 /* Localizable.strings */; };
 		LS0000002 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = LS1000004 /* L10n.swift */; };
 		MD0000001 /* MemoDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = MD1000001 /* MemoDetailView.swift */; };
 		MD0000002 /* MemoDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = MD1000002 /* MemoDetailViewModel.swift */; };
+		MSE0000001 /* MemoSyncE2EIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MSE1000001 /* MemoSyncE2EIntegrationTests.swift */; };
+		MST0000001 /* MemoSyncUploaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MST1000001 /* MemoSyncUploaderTests.swift */; };
+		MYT0000001 /* MemoYAMLTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MYT1000001 /* MemoYAMLTests.swift */; };
+		NMT0000001 /* NetworkMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = NMT1000001 /* NetworkMonitorTests.swift */; };
+		OPS0000002 /* OrphanedPhotoScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = OPS1000002 /* OrphanedPhotoScannerTests.swift */; };
+		OVS0000002 /* OrphanedVoiceScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = OVS1000002 /* OrphanedVoiceScannerTests.swift */; };
+		R4B0000001 /* RawStorageWriteFailedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R4B1000001 /* RawStorageWriteFailedTests.swift */; };
+		R4B0000002 /* LocationServiceLRUTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R4B1000002 /* LocationServiceLRUTests.swift */; };
+		R4B0000003 /* ArchiveViewModelGroupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R4B1000003 /* ArchiveViewModelGroupTests.swift */; };
 		SPM00001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = SPM00002 /* Supabase */; };
 		SPM00004 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = SPM00005 /* Sentry */; };
+		SQS0000002 /* SyncQueueServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SQS1000002 /* SyncQueueServiceTests.swift */; };
+		SRD0000002 /* SentryRedactorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRD1000002 /* SentryRedactorTests.swift */; };
 		T10000001 /* DayDetailViewStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000001 /* DayDetailViewStateTests.swift */; };
 		T10000002 /* ConflictMergerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000002 /* ConflictMergerTests.swift */; };
 		T10000003 /* VaultMigrationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000003 /* VaultMigrationServiceTests.swift */; };
@@ -229,15 +183,17 @@
 		T10000050 /* TimelineIndexTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000050 /* TimelineIndexTests.swift */; };
 		T10000060 /* OnThisDayHeaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000060 /* OnThisDayHeaderTests.swift */; };
 		T10000061 /* OnThisDayIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000061 /* OnThisDayIntegrationTests.swift */; };
-		WR0000001 /* WeeklyCompilationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = WR1000001 /* WeeklyCompilationService.swift */; };
-		WR0000002 /* WeeklyRecapDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = WR1000002 /* WeeklyRecapDetailView.swift */; };
-		WR0000003 /* WeeklyCompilationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = WR1000003 /* WeeklyCompilationServiceTests.swift */; };
 		TD0000001 /* DayProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = TD1000001 /* DayProgress.swift */; };
 		TD0000002 /* TimeOfDay.swift in Sources */ = {isa = PBXBuildFile; fileRef = TD1000002 /* TimeOfDay.swift */; };
 		TH0000001 /* ThreadConversationViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = TH1000001 /* ThreadConversationViewModel.swift */; };
 		TH0000002 /* ThreadConversationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TH1000002 /* ThreadConversationView.swift */; };
 		TH0000003 /* InlineMicButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = TH1000003 /* InlineMicButton.swift */; };
 		TI1000001 /* AppIntentsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TI2000001 /* AppIntentsTests.swift */; };
+		VES0000002 /* VaultExportServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = VES1000002 /* VaultExportServiceTests.swift */; };
+		VTW0000001 /* VoiceTranscriptWritebackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = VTW1000001 /* VoiceTranscriptWritebackTests.swift */; };
+		WR0000002 /* WeeklyRecapDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = WR1000002 /* WeeklyRecapDetailView.swift */; };
+		WR0000003 /* WeeklyCompilationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = WR1000003 /* WeeklyCompilationServiceTests.swift */; };
+		WRA0000001 /* WeeklyRecapAutoTriggerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = WRA1000001 /* WeeklyRecapAutoTriggerTests.swift */; };
 		WS0000001 /* WelcomeScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = WS1000001 /* WelcomeScreen.swift */; };
 /* End PBXBuildFile section */
 
@@ -281,19 +237,6 @@
 
 /* Begin PBXFileReference section */
 		04B9410B749C82B6E34779E4 /* MemoryChatTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoryChatTests.swift; sourceTree = "<group>"; };
-		MYT1000001 /* MemoYAMLTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoYAMLTests.swift; sourceTree = "<group>"; };
-		R4B1000001 /* RawStorageWriteFailedTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RawStorageWriteFailedTests.swift; sourceTree = "<group>"; };
-		R4B1000002 /* LocationServiceLRUTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LocationServiceLRUTests.swift; sourceTree = "<group>"; };
-		R4B1000003 /* ArchiveViewModelGroupTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArchiveViewModelGroupTests.swift; sourceTree = "<group>"; };
-		VTW1000001 /* VoiceTranscriptWritebackTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceTranscriptWritebackTests.swift; sourceTree = "<group>"; };
-		OVS1000002 /* OrphanedVoiceScannerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OrphanedVoiceScannerTests.swift; sourceTree = "<group>"; };
-		OPS1000002 /* OrphanedPhotoScannerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OrphanedPhotoScannerTests.swift; sourceTree = "<group>"; };
-		INF1000002 /* InflightDraftStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InflightDraftStoreTests.swift; sourceTree = "<group>"; };
-		SRD1000002 /* SentryRedactorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SentryRedactorTests.swift; sourceTree = "<group>"; };
-		GSM1000002 /* GraphSimulationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GraphSimulationTests.swift; sourceTree = "<group>"; };
-		LLM1000002 /* LLMClientTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LLMClientTests.swift; sourceTree = "<group>"; };
-		BGC1000002 /* BackgroundCompilationServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BackgroundCompilationServiceTests.swift; sourceTree = "<group>"; };
-		068FB068A000B6E61B1D8032 /* AppSettings.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		0881AB423FF6F12FCDE27C5B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		08FF205E680406EC7E4B83DB /* DailyPageModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DailyPageModel.swift; sourceTree = "<group>"; };
 		0995108F7E2E8994F114A240 /* MemoListSkeleton.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoListSkeleton.swift; sourceTree = "<group>"; };
@@ -318,80 +261,44 @@
 		912420086719F3FFFB45FE7A /* InputBarTutorialOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InputBarTutorialOverlay.swift; sourceTree = "<group>"; };
 		986C8E3E042E690BA4CCC12D /* ShareCardSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShareCardSystem.swift; path = ShareCard/ShareCardSystem.swift; sourceTree = "<group>"; };
 		A11Y1001 /* AccessibilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityTests.swift; sourceTree = "<group>"; };
-		A19989C44C3E9887FC01F382 /* MemoryChatService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MemoryChatService.swift; path = MemoryChatService.swift; sourceTree = "<group>"; };
 		A20000001 /* DayPageApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPageApp.swift; sourceTree = "<group>"; };
 		A20000002 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
-		A20000003 /* VaultInitializer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultInitializer.swift; sourceTree = "<group>"; };
 		A20000004 /* GeneratedSecrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedSecrets.swift; sourceTree = "<group>"; };
 		A20000005 /* Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Colors.swift; sourceTree = "<group>"; };
 		A20000006 /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
 		A20000007 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
-		A20000008 /* Memo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Memo.swift; sourceTree = "<group>"; };
-		A20000009 /* RawStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawStorage.swift; sourceTree = "<group>"; };
 		A20000010 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
 		A20000011 /* ArchiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveView.swift; sourceTree = "<group>"; };
 		A20000012 /* GraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphView.swift; sourceTree = "<group>"; };
 		A20000013 /* TodayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayViewModel.swift; sourceTree = "<group>"; };
 		A20000014 /* MemoCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoCardView.swift; sourceTree = "<group>"; };
-		A20000016 /* LocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationService.swift; sourceTree = "<group>"; };
-		A20000017 /* WeatherService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherService.swift; sourceTree = "<group>"; };
 		A20000018 /* PhotoService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoService.swift; sourceTree = "<group>"; };
 		A20000019 /* VoiceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceService.swift; sourceTree = "<group>"; };
 		A20000020 /* VoiceRecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceRecordingView.swift; sourceTree = "<group>"; };
-		A20000021 /* CompilationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompilationService.swift; sourceTree = "<group>"; };
-		A20000022 /* EntityPageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntityPageService.swift; sourceTree = "<group>"; };
 		A20000023 /* BackgroundCompilationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundCompilationService.swift; sourceTree = "<group>"; };
 		A20000024 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A20000025 /* DailyPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyPageView.swift; sourceTree = "<group>"; };
 		A20000026 /* EntityPageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntityPageView.swift; sourceTree = "<group>"; };
-		A20000027 /* SearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchService.swift; sourceTree = "<group>"; };
 		A20000028 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
 		A20000029 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A20000030 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A20000031 /* RawMemoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawMemoView.swift; sourceTree = "<group>"; };
-		A20000032 /* PassiveLocationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassiveLocationService.swift; sourceTree = "<group>"; };
 		A20000033 /* CameraPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPickerView.swift; sourceTree = "<group>"; };
 		A20000034 /* DocumentPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPickerView.swift; sourceTree = "<group>"; };
 		A20000035 /* GraphViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphViewModel.swift; sourceTree = "<group>"; };
-		A20000F50 /* GraphDisplayLinkController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphDisplayLinkController.swift; sourceTree = "<group>"; };
-		A20000036 /* DayPageLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPageLogger.swift; sourceTree = "<group>"; };
 		A20000037 /* AppBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppBanner.swift; sourceTree = "<group>"; };
-		A20000038 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
 		A20000039 /* VoiceAttachmentQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceAttachmentQueue.swift; sourceTree = "<group>"; };
-		OVS1000001 /* OrphanedVoiceScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrphanedVoiceScanner.swift; sourceTree = "<group>"; };
-		OPS1000001 /* OrphanedPhotoScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrphanedPhotoScanner.swift; sourceTree = "<group>"; };
-		INF1000001 /* InflightDraftStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InflightDraftStore.swift; sourceTree = "<group>"; };
-		SRD1000001 /* SentryRedactor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryRedactor.swift; sourceTree = "<group>"; };
-		HTP1000001 /* HTTPTransport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPTransport.swift; sourceTree = "<group>"; };
 		A20000040 /* DayDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayDetailView.swift; sourceTree = "<group>"; };
 		A20000041 /* Spacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Spacing.swift; sourceTree = "<group>"; };
-		A20000042 /* RelativeTimeFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeTimeFormatter.swift; sourceTree = "<group>"; };
-		A20000801 /* DateFormatters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateFormatters.swift; sourceTree = "<group>"; };
-		A20000802 /* HTTPClientHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPClientHelper.swift; sourceTree = "<group>"; };
-		A20000803 /* RetryHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetryHelper.swift; sourceTree = "<group>"; };
-		SQS1000001 /* SyncQueueService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueService.swift; sourceTree = "<group>"; };
-		SQS1000002 /* SyncQueueServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueServiceTests.swift; sourceTree = "<group>"; };
-		VES1000001 /* VaultExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultExportService.swift; sourceTree = "<group>"; };
-		VES1000002 /* VaultExportServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultExportServiceTests.swift; sourceTree = "<group>"; };
-		SQS1000003 /* SyncQueueObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueObserver.swift; sourceTree = "<group>"; };
-		MSU1000001 /* MemoSyncUploader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoSyncUploader.swift; sourceTree = "<group>"; };
-		SSU1000001 /* SyncSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncSettings.swift; sourceTree = "<group>"; };
-		NMT1000001 /* NetworkMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitorTests.swift; sourceTree = "<group>"; };
-		MSE1000001 /* MemoSyncE2EIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoSyncE2EIntegrationTests.swift; sourceTree = "<group>"; };
-		MST1000001 /* MemoSyncUploaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoSyncUploaderTests.swift; sourceTree = "<group>"; };
-		WRA1000001 /* WeeklyRecapAutoTriggerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapAutoTriggerTests.swift; sourceTree = "<group>"; };
 		A20000043 /* Interactions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Interactions.swift; sourceTree = "<group>"; };
-		A20000045 /* OnThisDayIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayIndex.swift; sourceTree = "<group>"; };
 		A20000046 /* OnThisDayCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayCard.swift; sourceTree = "<group>"; };
 		A20000047 /* OnThisDayScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayScheduler.swift; sourceTree = "<group>"; };
 		A20000048 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
-		A20000049 /* SampleDataSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleDataSeeder.swift; sourceTree = "<group>"; };
 		A20000050 /* CompileFooterButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompileFooterButton.swift; sourceTree = "<group>"; };
 		A20000052 /* AttachmentMenuPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentMenuPopover.swift; sourceTree = "<group>"; };
 		A20000053 /* InputTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputTokens.swift; sourceTree = "<group>"; };
 		A20000054 /* RecordingOverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingOverlayView.swift; sourceTree = "<group>"; };
 		A20000055 /* PressToTalkButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PressToTalkButton.swift; sourceTree = "<group>"; };
-		A20000056 /* VaultLocator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultLocator.swift; sourceTree = "<group>"; };
 		A20000063 /* SwipeableMemoCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipeableMemoCard.swift; sourceTree = "<group>"; };
 		A20000070 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		A20000071 /* DayPage.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DayPage.entitlements; sourceTree = "<group>"; };
@@ -399,24 +306,17 @@
 		A20000073 /* EmailAuthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailAuthView.swift; sourceTree = "<group>"; };
 		A20000074 /* AccountSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSheet.swift; sourceTree = "<group>"; };
 		A20000075 /* OTPVerificationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OTPVerificationView.swift; sourceTree = "<group>"; };
-		A20000076 /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelper.swift; sourceTree = "<group>"; };
-		A20000077 /* ConflictMerger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictMerger.swift; sourceTree = "<group>"; };
 		A20000078 /* VaultMigrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultMigrationService.swift; sourceTree = "<group>"; };
-		A20000079 /* iCloudSyncMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iCloudSyncMonitor.swift; sourceTree = "<group>"; };
 		A20000080 /* AppNavigationModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNavigationModel.swift; sourceTree = "<group>"; };
 		A20000081 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		A20000082 /* InputBarV4.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputBarV4.swift; sourceTree = "<group>"; };
-		A20000083 /* WeeklyRecapService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapService.swift; sourceTree = "<group>"; };
 		A20000084 /* WeeklyRecapSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapSection.swift; sourceTree = "<group>"; };
-		A20000085 /* iCloudConflictMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = iCloudConflictMonitor.swift; sourceTree = "<group>"; };
 		A20000086 /* OTPVerificationViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OTPVerificationViewModel.swift; sourceTree = "<group>"; };
-		A20000087 /* AuthRateLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthRateLimiter.swift; sourceTree = "<group>"; };
 		A20000091 /* GrainOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GrainOverlay.swift; sourceTree = "<group>"; };
 		A20000093 /* AuthViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViewModel.swift; sourceTree = "<group>"; };
 		A20000094 /* SidebarViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarViewModel.swift; sourceTree = "<group>"; };
 		A20000095 /* ComposerContextProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerContextProvider.swift; sourceTree = "<group>"; };
 		A200000B4 /* SecretsRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecretsRuntime.swift; sourceTree = "<group>"; };
-		A20000FF1 /* FeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureFlags.swift; sourceTree = "<group>"; };
 		A200000F1 /* GlassSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassSurface.swift; sourceTree = "<group>"; };
 		A200000F2 /* Surfaces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Surfaces.swift; sourceTree = "<group>"; };
 		A20000200 /* ComposerStateMachine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerStateMachine.swift; sourceTree = "<group>"; };
@@ -424,20 +324,16 @@
 		A20000202 /* SmartTemplateRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SmartTemplateRow.swift; sourceTree = "<group>"; };
 		A20000203 /* InlineLensStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineLensStrip.swift; sourceTree = "<group>"; };
 		A20000300 /* DSTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSTokens.swift; sourceTree = "<group>"; };
-		A20000301 /* TimelineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineService.swift; sourceTree = "<group>"; };
 		A20000302 /* TimelineSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineSectionView.swift; sourceTree = "<group>"; };
 		A20000303 /* DSSectionLabel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSSectionLabel.swift; sourceTree = "<group>"; };
 		A20000304 /* DSDot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DSDot.swift; sourceTree = "<group>"; };
-		A20000350 /* TimelineIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineIndex.swift; sourceTree = "<group>"; };
-		A20000360 /* SentryReporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SentryReporter.swift; sourceTree = "<group>"; };
-		A20000370 /* TimelinePinService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelinePinService.swift; sourceTree = "<group>"; };
 		A20000400 /* HorizontalPanGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HorizontalPanGesture.swift; sourceTree = "<group>"; };
 		A20000510 /* RecordingSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingSheetView.swift; sourceTree = "<group>"; };
 		A20000511 /* DynamicIslandView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DynamicIslandView.swift; sourceTree = "<group>"; };
 		A20000512 /* MetadataGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataGridView.swift; sourceTree = "<group>"; };
 		A20000513 /* WriteSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WriteSheetView.swift; sourceTree = "<group>"; };
 		A20000514 /* TimelineRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineRow.swift; sourceTree = "<group>"; };
-		A20000F00 /* FrontmatterParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrontmatterParser.swift; sourceTree = "<group>"; };
+		A20000F50 /* GraphDisplayLinkController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphDisplayLinkController.swift; sourceTree = "<group>"; };
 		A2000ABC1 /* YearMonthPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YearMonthPicker.swift; sourceTree = "<group>"; };
 		A30000001 /* DayPage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPage.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A381FA327A37AE0DD740D61D /* PosterTemplates.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PosterTemplates.swift; path = ShareCard/PosterTemplates.swift; sourceTree = "<group>"; };
@@ -461,12 +357,10 @@
 		B93ED807E07C2171E9F4234B /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
 		BAC7527E8128E6A865349FB9 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		BB12D96218034D3E4555B8AA /* HapticFeedback.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticFeedback.swift; sourceTree = "<group>"; };
+		BGC1000002 /* BackgroundCompilationServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BackgroundCompilationServiceTests.swift; sourceTree = "<group>"; };
 		C551D36362FF97C44EB4D5DE /* SidebarHeatmapView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SidebarHeatmapView.swift; sourceTree = "<group>"; };
 		C98B5757B488F583231EC8F6 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
-		CF559C11C922ACB683565E7C /* LLMClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LLMClient.swift; path = LLMClient.swift; sourceTree = "<group>"; };
-		CJ1000001 /* CJKTextPolish.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CJKTextPolish.swift; sourceTree = "<group>"; };
 		DC21412D29A6FB268CE43C58 /* DraftStorage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DraftStorage.swift; sourceTree = "<group>"; };
-		DD333392AE2B7F775D6E8D99 /* GraphRetriever.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = GraphRetriever.swift; path = GraphRetriever.swift; sourceTree = "<group>"; };
 		DS1000001 /* Motion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Motion.swift; sourceTree = "<group>"; };
 		DS1000002 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		DS1000010 /* Radius.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Radius.swift; sourceTree = "<group>"; };
@@ -482,21 +376,35 @@
 		F11E0748715A251EE4A0168A /* WatchReceiveService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchReceiveService.swift; sourceTree = "<group>"; };
 		F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchTransferService.swift; sourceTree = "<group>"; };
 		F5BB61FECBCF7AB756E7A6CE /* WatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchApp.swift; sourceTree = "<group>"; };
-		FB1000001 /* FeedbackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackService.swift; sourceTree = "<group>"; };
 		FB1000002 /* FeedbackViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackViewModel.swift; sourceTree = "<group>"; };
 		FB1000003 /* FeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackView.swift; sourceTree = "<group>"; };
 		FB1000004 /* FeedbackContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackContext.swift; sourceTree = "<group>"; };
 		FE91252BA9167A50BFF79FF0 /* StartRecordingIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartRecordingIntent.swift; sourceTree = "<group>"; };
 		FT1000001 /* DayOrbView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayOrbView.swift; sourceTree = "<group>"; };
+		GSM1000002 /* GraphSimulationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GraphSimulationTests.swift; sourceTree = "<group>"; };
 		IN2000001 /* QuickCaptureTextIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuickCaptureTextIntent.swift; sourceTree = "<group>"; };
 		IN2000002 /* OpenDailyPageIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OpenDailyPageIntent.swift; sourceTree = "<group>"; };
 		IN2000003 /* AskTodayIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AskTodayIntent.swift; sourceTree = "<group>"; };
+		INF1000001 /* InflightDraftStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InflightDraftStore.swift; sourceTree = "<group>"; };
+		INF1000002 /* InflightDraftStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InflightDraftStoreTests.swift; sourceTree = "<group>"; };
 		KC1000001 /* KeychainHelperTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelperTests.swift; sourceTree = "<group>"; };
+		LLM1000002 /* LLMClientTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LLMClientTests.swift; sourceTree = "<group>"; };
 		LS1000002 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		LS1000003 /* zh-Hans */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "zh-Hans"; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		LS1000004 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
 		MD1000001 /* MemoDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoDetailView.swift; sourceTree = "<group>"; };
 		MD1000002 /* MemoDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoDetailViewModel.swift; sourceTree = "<group>"; };
+		MSE1000001 /* MemoSyncE2EIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoSyncE2EIntegrationTests.swift; sourceTree = "<group>"; };
+		MST1000001 /* MemoSyncUploaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoSyncUploaderTests.swift; sourceTree = "<group>"; };
+		MYT1000001 /* MemoYAMLTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoYAMLTests.swift; sourceTree = "<group>"; };
+		NMT1000001 /* NetworkMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitorTests.swift; sourceTree = "<group>"; };
+		OPS1000002 /* OrphanedPhotoScannerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OrphanedPhotoScannerTests.swift; sourceTree = "<group>"; };
+		OVS1000002 /* OrphanedVoiceScannerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OrphanedVoiceScannerTests.swift; sourceTree = "<group>"; };
+		R4B1000001 /* RawStorageWriteFailedTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RawStorageWriteFailedTests.swift; sourceTree = "<group>"; };
+		R4B1000002 /* LocationServiceLRUTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LocationServiceLRUTests.swift; sourceTree = "<group>"; };
+		R4B1000003 /* ArchiveViewModelGroupTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArchiveViewModelGroupTests.swift; sourceTree = "<group>"; };
+		SQS1000002 /* SyncQueueServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueServiceTests.swift; sourceTree = "<group>"; };
+		SRD1000002 /* SentryRedactorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SentryRedactorTests.swift; sourceTree = "<group>"; };
 		T20000001 /* DayDetailViewStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayDetailViewStateTests.swift; sourceTree = "<group>"; };
 		T20000002 /* ConflictMergerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictMergerTests.swift; sourceTree = "<group>"; };
 		T20000003 /* VaultMigrationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultMigrationServiceTests.swift; sourceTree = "<group>"; };
@@ -506,9 +414,6 @@
 		T20000050 /* TimelineIndexTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineIndexTests.swift; sourceTree = "<group>"; };
 		T20000060 /* OnThisDayHeaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayHeaderTests.swift; sourceTree = "<group>"; };
 		T20000061 /* OnThisDayIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayIntegrationTests.swift; sourceTree = "<group>"; };
-		WR1000001 /* WeeklyCompilationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyCompilationService.swift; sourceTree = "<group>"; };
-		WR1000002 /* WeeklyRecapDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapDetailView.swift; sourceTree = "<group>"; };
-		WR1000003 /* WeeklyCompilationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyCompilationServiceTests.swift; sourceTree = "<group>"; };
 		T30000001 /* DayPageTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DayPageTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		TD1000001 /* DayProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayProgress.swift; sourceTree = "<group>"; };
 		TD1000002 /* TimeOfDay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimeOfDay.swift; sourceTree = "<group>"; };
@@ -516,6 +421,11 @@
 		TH1000002 /* ThreadConversationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreadConversationView.swift; sourceTree = "<group>"; };
 		TH1000003 /* InlineMicButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineMicButton.swift; sourceTree = "<group>"; };
 		TI2000001 /* AppIntentsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppIntentsTests.swift; sourceTree = "<group>"; };
+		VES1000002 /* VaultExportServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultExportServiceTests.swift; sourceTree = "<group>"; };
+		VTW1000001 /* VoiceTranscriptWritebackTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceTranscriptWritebackTests.swift; sourceTree = "<group>"; };
+		WR1000002 /* WeeklyRecapDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapDetailView.swift; sourceTree = "<group>"; };
+		WR1000003 /* WeeklyCompilationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyCompilationServiceTests.swift; sourceTree = "<group>"; };
+		WRA1000001 /* WeeklyRecapAutoTriggerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapAutoTriggerTests.swift; sourceTree = "<group>"; };
 		WS1000001 /* WelcomeScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeScreen.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -541,6 +451,9 @@
 			files = (
 				SPM00001 /* Supabase in Frameworks */,
 				SPM00004 /* Sentry in Frameworks */,
+				BC84C8164964F3DFC934C2E1 /* DayPageModels in Frameworks */,
+				5F29DB56EC93D3F64130C2CA /* DayPageStorage in Frameworks */,
+				0AA94A9D087DA366336C8480 /* DayPageServices in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -658,7 +571,6 @@
 				A20000081 /* SidebarView.swift */,
 				A20000094 /* SidebarViewModel.swift */,
 				A20000300 /* DSTokens.swift */,
-				A20000301 /* TimelineService.swift */,
 				A20000302 /* TimelineSectionView.swift */,
 				A20000303 /* DSSectionLabel.swift */,
 				A20000304 /* DSDot.swift */,
@@ -718,9 +630,6 @@
 		A50000005 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				A20000008 /* Memo.swift */,
-				A20000F00 /* FrontmatterParser.swift */,
-				CJ1000001 /* CJKTextPolish.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -729,52 +638,16 @@
 			isa = PBXGroup;
 			children = (
 				F11E0748715A251EE4A0168A /* WatchReceiveService.swift */,
-				A20000016 /* LocationService.swift */,
-				A20000017 /* WeatherService.swift */,
 				A20000018 /* PhotoService.swift */,
 				A20000019 /* VoiceService.swift */,
-				A20000021 /* CompilationService.swift */,
-				A20000022 /* EntityPageService.swift */,
 				A20000023 /* BackgroundCompilationService.swift */,
-				A20000027 /* SearchService.swift */,
-				A20000032 /* PassiveLocationService.swift */,
-				A20000036 /* DayPageLogger.swift */,
-				A20000038 /* NetworkMonitor.swift */,
 				A20000039 /* VoiceAttachmentQueue.swift */,
-				OVS1000001 /* OrphanedVoiceScanner.swift */,
-				OPS1000001 /* OrphanedPhotoScanner.swift */,
-				A20000045 /* OnThisDayIndex.swift */,
 				A20000047 /* OnThisDayScheduler.swift */,
-				A20000049 /* SampleDataSeeder.swift */,
-				A20000079 /* iCloudSyncMonitor.swift */,
-				A20000085 /* iCloudConflictMonitor.swift */,
-				A20000077 /* ConflictMerger.swift */,
 				A20000078 /* VaultMigrationService.swift */,
 				A20000070 /* AuthService.swift */,
-				A20000076 /* KeychainHelper.swift */,
-				A20000087 /* AuthRateLimiter.swift */,
-				FB1000001 /* FeedbackService.swift */,
-				A20000083 /* WeeklyRecapService.swift */,
-				WR1000001 /* WeeklyCompilationService.swift */,
-				A20000301 /* TimelineService.swift */,
-				A20000350 /* TimelineIndex.swift */,
-				A20000370 /* TimelinePinService.swift */,
-				A20000360 /* SentryReporter.swift */,
-				SRD1000001 /* SentryRedactor.swift */,
-				HTP1000001 /* HTTPTransport.swift */,
 				A20000095 /* ComposerContextProvider.swift */,
 				BB12D96218034D3E4555B8AA /* HapticFeedback.swift */,
 				AC8043A3D3371852ACB3D6F3 /* MarkdownExportService.swift */,
-				CF559C11C922ACB683565E7C /* LLMClient.swift */,
-				DD333392AE2B7F775D6E8D99 /* GraphRetriever.swift */,
-				A19989C44C3E9887FC01F382 /* MemoryChatService.swift */,
-				A20000802 /* HTTPClientHelper.swift */,
-				A20000803 /* RetryHelper.swift */,
-				SQS1000001 /* SyncQueueService.swift */,
-				SQS1000003 /* SyncQueueObserver.swift */,
-				MSU1000001 /* MemoSyncUploader.swift */,
-				SSU1000001 /* SyncSettings.swift */,
-				VES1000001 /* VaultExportService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -782,9 +655,6 @@
 		A50000007 /* Storage */ = {
 			isa = PBXGroup;
 			children = (
-				A20000003 /* VaultInitializer.swift */,
-				A20000009 /* RawStorage.swift */,
-				A20000056 /* VaultLocator.swift */,
 			);
 			path = Storage;
 			sourceTree = "<group>";
@@ -794,8 +664,6 @@
 			children = (
 				A20000004 /* GeneratedSecrets.swift */,
 				A200000B4 /* SecretsRuntime.swift */,
-				068FB068A000B6E61B1D8032 /* AppSettings.swift */,
-				A20000FF1 /* FeatureFlags.swift */,
 			);
 			path = Config;
 			sourceTree = "<group>";
@@ -928,8 +796,6 @@
 		A50000020 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
-				A20000042 /* RelativeTimeFormatter.swift */,
-				A20000801 /* DateFormatters.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -1137,6 +1003,9 @@
 			packageProductDependencies = (
 				SPM00002 /* Supabase */,
 				SPM00005 /* Sentry */,
+				B0D49FB89D8AE64AD546E42D /* DayPageModels */,
+				D8FC81CC697F65128F6F34CD /* DayPageStorage */,
+				160D427C0AE7DAC5724A134F /* DayPageServices */,
 			);
 			productName = DayPage;
 			productReference = A30000001 /* DayPage.app */;
@@ -1208,6 +1077,7 @@
 			packageReferences = (
 				SPM00003 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 				SPM00006 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
+				7A5581BC56B1211CD379DB9F /* XCLocalSwiftPackageReference "DayPageKit" */,
 			);
 			productRefGroup = A50000009 /* Products */;
 			projectDirPath = "";
@@ -1291,7 +1161,6 @@
 				EA575F353C6AFD5EA7FF9A6F /* QuickCaptureWidget.swift in Sources */,
 				97FA675FF46459D5CE5E8CF3 /* QuickCaptureControl.swift in Sources */,
 				485EFA11789212D87CB1B74B /* StartRecordingIntent.swift in Sources */,
-				FFW0000001 /* FeatureFlags.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1314,10 +1183,8 @@
 				E20A68158C940060066B2B73 /* WatchReceiveService.swift in Sources */,
 				A10000001 /* DayPageApp.swift in Sources */,
 				A10000002 /* RootView.swift in Sources */,
-				A10000003 /* VaultInitializer.swift in Sources */,
 				A10000004 /* GeneratedSecrets.swift in Sources */,
 				A100000B4 /* SecretsRuntime.swift in Sources */,
-				A10000FF1 /* FeatureFlags.swift in Sources */,
 				A10000005 /* Colors.swift in Sources */,
 				A10000006 /* Typography.swift in Sources */,
 				A10000007 /* Components.swift in Sources */,
@@ -1326,9 +1193,6 @@
 				A10000091 /* GrainOverlay.swift in Sources */,
 				A10000041 /* Spacing.swift in Sources */,
 				A10000043 /* Interactions.swift in Sources */,
-				A10000008 /* Memo.swift in Sources */,
-				A10000F00 /* FrontmatterParser.swift in Sources */,
-				A10000009 /* RawStorage.swift in Sources */,
 				A10000010 /* TodayView.swift in Sources */,
 				TD0000001 /* DayProgress.swift in Sources */,
 				TD0000002 /* TimeOfDay.swift in Sources */,
@@ -1339,8 +1203,6 @@
 				A10000F50 /* GraphDisplayLinkController.swift in Sources */,
 				A10000013 /* TodayViewModel.swift in Sources */,
 				A10000014 /* MemoCardView.swift in Sources */,
-				A10000016 /* LocationService.swift in Sources */,
-				A10000017 /* WeatherService.swift in Sources */,
 				A10000018 /* PhotoService.swift in Sources */,
 				A10000019 /* VoiceService.swift in Sources */,
 				A10000020 /* VoiceRecordingView.swift in Sources */,
@@ -1348,41 +1210,23 @@
 				A10000046 /* OnThisDayCard.swift in Sources */,
 				A10000048 /* OnboardingView.swift in Sources */,
 				A10000034 /* DocumentPickerView.swift in Sources */,
-				A10000021 /* CompilationService.swift in Sources */,
-				A10000022 /* EntityPageService.swift in Sources */,
 				A10000023 /* BackgroundCompilationService.swift in Sources */,
 				A10000025 /* DailyPageView.swift in Sources */,
 				TH0000001 /* ThreadConversationViewModel.swift in Sources */,
 				TH0000002 /* ThreadConversationView.swift in Sources */,
 				TH0000003 /* InlineMicButton.swift in Sources */,
 				A10000026 /* EntityPageView.swift in Sources */,
-				A10000027 /* SearchService.swift in Sources */,
 				A10000028 /* SearchView.swift in Sources */,
 				A10000031 /* RawMemoView.swift in Sources */,
 				A10000040 /* DayDetailView.swift in Sources */,
 				A10000030 /* SettingsView.swift in Sources */,
-				A10000032 /* PassiveLocationService.swift in Sources */,
-				A10000036 /* DayPageLogger.swift in Sources */,
 				A10000037 /* AppBanner.swift in Sources */,
-				A10000038 /* NetworkMonitor.swift in Sources */,
 				A10000039 /* VoiceAttachmentQueue.swift in Sources */,
-				OVS0000001 /* OrphanedVoiceScanner.swift in Sources */,
-				OPS0000001 /* OrphanedPhotoScanner.swift in Sources */,
 				INF0000001 /* InflightDraftStore.swift in Sources */,
-				A10000045 /* OnThisDayIndex.swift in Sources */,
 				A10000047 /* OnThisDayScheduler.swift in Sources */,
-				A10000049 /* SampleDataSeeder.swift in Sources */,
 				A10000050 /* CompileFooterButton.swift in Sources */,
 				A10000082 /* InputBarV4.swift in Sources */,
-				A10000083 /* WeeklyRecapService.swift in Sources */,
-				WR0000001 /* WeeklyCompilationService.swift in Sources */,
 				WR0000002 /* WeeklyRecapDetailView.swift in Sources */,
-				A10000301 /* TimelineService.swift in Sources */,
-				A10000350 /* TimelineIndex.swift in Sources */,
-				A10000370 /* TimelinePinService.swift in Sources */,
-				A10000360 /* SentryReporter.swift in Sources */,
-				SRD0000001 /* SentryRedactor.swift in Sources */,
-				HTP0000001 /* HTTPTransport.swift in Sources */,
 				A10000084 /* WeeklyRecapSection.swift in Sources */,
 				A10000302 /* TimelineSectionView.swift in Sources */,
 				A10000200 /* ComposerStateMachine.swift in Sources */,
@@ -1398,29 +1242,14 @@
 				A10000511 /* DynamicIslandView.swift in Sources */,
 				A10000512 /* MetadataGridView.swift in Sources */,
 				A10000055 /* PressToTalkButton.swift in Sources */,
-				A10000056 /* VaultLocator.swift in Sources */,
 				A10000063 /* SwipeableMemoCard.swift in Sources */,
 				A10000400 /* HorizontalPanGesture.swift in Sources */,
-				A10000042 /* RelativeTimeFormatter.swift in Sources */,
-				A10000801 /* DateFormatters.swift in Sources */,
-				A10000802 /* HTTPClientHelper.swift in Sources */,
-				A10000803 /* RetryHelper.swift in Sources */,
-				SQS0000001 /* SyncQueueService.swift in Sources */,
-				SQS0000003 /* SyncQueueObserver.swift in Sources */,
-				MSU0000001 /* MemoSyncUploader.swift in Sources */,
-				SSU0000001 /* SyncSettings.swift in Sources */,
-				VES0000001 /* VaultExportService.swift in Sources */,
-				A10000079 /* iCloudSyncMonitor.swift in Sources */,
-				A10000085 /* iCloudConflictMonitor.swift in Sources */,
 				A10000080 /* AppNavigationModel.swift in Sources */,
 				A10000300 /* DSTokens.swift in Sources */,
-				A10000301 /* TimelineService.swift in Sources */,
-				A10000370 /* TimelinePinService.swift in Sources */,
 				A10000302 /* TimelineSectionView.swift in Sources */,
 				A10000303 /* DSSectionLabel.swift in Sources */,
 				A10000304 /* DSDot.swift in Sources */,
 				A10000081 /* SidebarView.swift in Sources */,
-				A10000077 /* ConflictMerger.swift in Sources */,
 				A10000078 /* VaultMigrationService.swift in Sources */,
 				A10000070 /* AuthService.swift in Sources */,
 				A10000072 /* AuthView.swift in Sources */,
@@ -1429,12 +1258,8 @@
 				A10000086 /* OTPVerificationViewModel.swift in Sources */,
 				A10000093 /* AuthViewModel.swift in Sources */,
 				A10000094 /* SidebarViewModel.swift in Sources */,
-				A10000076 /* KeychainHelper.swift in Sources */,
-				A10000087 /* AuthRateLimiter.swift in Sources */,
 				A10000074 /* AccountSheet.swift in Sources */,
-				F617270BFC704FF5BBB99FD3 /* AppSettings.swift in Sources */,
 				8C3DEB068D610AAB589EA680 /* TimeZonePickerView.swift in Sources */,
-				FB0000001 /* FeedbackService.swift in Sources */,
 				FB0000002 /* FeedbackViewModel.swift in Sources */,
 				FB0000003 /* FeedbackView.swift in Sources */,
 				FB0000004 /* FeedbackContext.swift in Sources */,
@@ -1453,7 +1278,6 @@
 				FT0000001 /* DayOrbView.swift in Sources */,
 				MD0000001 /* MemoDetailView.swift in Sources */,
 				MD0000002 /* MemoDetailViewModel.swift in Sources */,
-				CJ0000001 /* CJKTextPolish.swift in Sources */,
 				WS0000001 /* WelcomeScreen.swift in Sources */,
 				A10000095 /* ComposerContextProvider.swift in Sources */,
 				457A17AB7F3B4BE7C2E77026 /* StartRecordingIntent.swift in Sources */,
@@ -1478,9 +1302,6 @@
 				2B194E870578303558D461CD /* CompileUnlockCard.swift in Sources */,
 				E536EEB8C13B2BA42DF4980F /* SidebarHeatmapView.swift in Sources */,
 				9B65087D6C50A363072E40A7 /* LiquidGlassEngine.swift in Sources */,
-				09A089C3B8F01817CF9E35CB /* LLMClient.swift in Sources */,
-				BDCB5B17E4D0258E5F82F6D2 /* GraphRetriever.swift in Sources */,
-				931858DC28C9134E70E3971F /* MemoryChatService.swift in Sources */,
 				1BA5F2B78351EFB69F085A65 /* AskPastView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1948,6 +1769,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		7A5581BC56B1211CD379DB9F /* XCLocalSwiftPackageReference "DayPageKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = DayPageKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		SPM00003 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -1968,6 +1796,21 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		160D427C0AE7DAC5724A134F /* DayPageServices */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7A5581BC56B1211CD379DB9F /* XCLocalSwiftPackageReference "DayPageKit" */;
+			productName = DayPageServices;
+		};
+		B0D49FB89D8AE64AD546E42D /* DayPageModels */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7A5581BC56B1211CD379DB9F /* XCLocalSwiftPackageReference "DayPageKit" */;
+			productName = DayPageModels;
+		};
+		D8FC81CC697F65128F6F34CD /* DayPageStorage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7A5581BC56B1211CD379DB9F /* XCLocalSwiftPackageReference "DayPageKit" */;
+			productName = DayPageStorage;
+		};
 		SPM00002 /* Supabase */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = SPM00003 /* XCRemoteSwiftPackageReference "supabase-swift" */;
