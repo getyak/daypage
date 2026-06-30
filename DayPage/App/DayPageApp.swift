@@ -123,6 +123,7 @@ struct DayPageApp: App {
         // === DayPageKit hook registration (M0) ===
         // Must run BEFORE any Kit code that depends on these hooks. KeychainHelper
         // / RawStorage / SentryReporter / OrphanedScanners all sit downstream.
+        SentryReporter.adapter = AppSentryAdapter()
         SentryReporter.configure(dsn: Secrets.sentryDSN)
         KitSecrets.register(AppKitSecretsProvider())
         VaultMigrationHook.register {

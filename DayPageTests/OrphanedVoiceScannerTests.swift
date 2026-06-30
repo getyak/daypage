@@ -1,4 +1,7 @@
 import XCTest
+import DayPageModels
+import DayPageStorage
+import DayPageServices
 @testable import DayPage
 
 /// Tests for OrphanedVoiceScanner — issue #21.

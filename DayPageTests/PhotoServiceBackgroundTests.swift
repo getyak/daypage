@@ -1,6 +1,7 @@
 import Testing
 import Foundation
 import UIKit
+import DayPageStorage
 @testable import DayPage
 
 /// US-018: HEIC batch photo conversion must not block the main thread.

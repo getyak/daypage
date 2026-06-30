@@ -1,4 +1,7 @@
 import XCTest
+import DayPageModels
+import DayPageStorage
+import DayPageServices
 @testable import DayPage
 
 /// Unit tests for TimelineIndex — the in-memory timeline metadata cache from

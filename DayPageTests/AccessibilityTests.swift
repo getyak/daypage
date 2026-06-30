@@ -1,6 +1,8 @@
 import Testing
 import Foundation
 import SwiftUI
+import DayPageModels
+import DayPageServices
 @testable import DayPage
 
 /// Accessibility regression tests for Goal C (Motion + Dynamic Type).

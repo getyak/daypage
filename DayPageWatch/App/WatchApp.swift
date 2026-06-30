@@ -2,6 +2,7 @@ import SwiftUI
 import WatchConnectivity
 import WatchKit
 import os
+import DayPageServices
 
 @main
 struct DayPageWatchApp: App {

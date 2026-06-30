@@ -1,5 +1,7 @@
 import Testing
 import Foundation
+import DayPageStorage
+import DayPageServices
 @testable import DayPage
 
 /// US-025: Entity slug dedup + fuzzy matching.

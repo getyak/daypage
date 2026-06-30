@@ -1,4 +1,6 @@
 import Testing
+import DayPageModels
+import DayPageServices
 @testable import DayPage
 
 @Suite("MarkdownExportService")

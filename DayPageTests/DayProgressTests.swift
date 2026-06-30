@@ -1,5 +1,6 @@
 import Testing
 import Foundation
+import DayPageServices
 @testable import DayPage
 
 @Suite("DayProgressTests")

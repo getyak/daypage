@@ -1,5 +1,6 @@
 import Testing
 import SwiftUI
+import DayPageServices
 @testable import DayPage
 
 @Suite("TimeOfDay")

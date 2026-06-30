@@ -1,4 +1,5 @@
 import XCTest
+import DayPageServices
 @testable import DayPage
 
 /// Tests for SentryRedactor — issue #26.

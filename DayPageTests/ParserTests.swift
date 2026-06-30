@@ -1,5 +1,8 @@
 import Testing
 import Foundation
+import DayPageModels
+import DayPageStorage
+import DayPageServices
 @testable import DayPage
 
 /// Tests for RawStorage.parse(fileContent:) — multi-memo splitting, YAML body isolation,

@@ -1,5 +1,7 @@
 import Testing
 import Foundation
+import DayPageStorage
+import DayPageServices
 @testable import DayPage
 
 /// US-023: Trash TTL — files older than 7 days are deleted; recent files survive.

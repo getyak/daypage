@@ -1,6 +1,7 @@
 import Foundation
 import WatchConnectivity
 import os
+import DayPageServices
 
 // MARK: - WatchTransferService
 

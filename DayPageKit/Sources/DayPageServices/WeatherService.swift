@@ -1,6 +1,5 @@
 import Foundation
 import CoreLocation
-import Sentry
 import DayPageModels
 import DayPageStorage
 
@@ -98,8 +97,7 @@ public final class WeatherService {
         var request = URLRequest(url: url)
         request.timeoutInterval = 10  // weather is non-critical; don't stall memo saves
 
-        let span = !SentryReporter.isSentryEnabled ? nil
-            : SentrySDK.startTransaction(name: "weather.fetch", operation: "http.client")
+        let span = SentryReporter.startTransaction(name: "weather.fetch", operation: "http.client")
         defer { span?.finish() }
 
         do {

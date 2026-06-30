@@ -1,4 +1,7 @@
 import XCTest
+import DayPageModels
+import DayPageStorage
+import DayPageServices
 @testable import DayPage
 
 /// Unit tests for VoiceAttachmentQueue.applyTranscript — covers issue #19's

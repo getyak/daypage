@@ -1,6 +1,7 @@
 import Testing
 import SwiftUI
 import CoreGraphics
+import DayPageServices
 @testable import DayPage
 
 // MARK: - Helpers

@@ -1,4 +1,7 @@
 import XCTest
+import DayPageModels
+import DayPageStorage
+import DayPageServices
 @testable import DayPage
 
 /// Unit tests for RawStorage — covering the acceptance criteria from issue #108:
