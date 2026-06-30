@@ -23,8 +23,14 @@ appId: com.daypage.app
 - tapOn:
     id: "expand-text-composer"
 
-# Wait for the bottom-sheet present animation to finish
-- waitForAnimationToEnd
+# Wait for the bottom-sheet present animation. The sheet is presented
+# via SwiftUI .sheet(), which can take 300-500ms to fully render on
+# the CI runner before the TextField is hittable — extendedWaitUntil
+# gives us a hard ceiling instead of guessing with sleeps.
+- extendedWaitUntil:
+    visible:
+      id: "write-sheet-input"
+    timeout: 5000
 
 # Tap the WriteSheet TextField (accessibilityIdentifier="write-sheet-input")
 - tapOn:

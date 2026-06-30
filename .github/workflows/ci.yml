@@ -445,6 +445,16 @@ jobs:
             defaults write com.daypage.app hasSeenWelcome -bool YES
           xcrun simctl spawn "$SIMULATOR_UDID" \
             defaults write com.daypage.app authSkipped -bool YES
+          # Pin app + system language to English so Maestro flow selectors
+          # like "Archive" / "Today" / "Graph" match the rendered sidebar.
+          # Without this the runner defaults to zh-Hans (the dev locale)
+          # and the sidebar reads "归档/今日/图谱", which the flows can't see.
+          # AppleLanguages is read at app launch from NSGlobalDomain, so
+          # writing it here before the cold launch is enough.
+          xcrun simctl spawn "$SIMULATOR_UDID" \
+            defaults write com.daypage.app AppleLanguages -array en
+          xcrun simctl spawn "$SIMULATOR_UDID" \
+            defaults write com.daypage.app AppleLocale en_US
           # Sanity print so the CI log shows the values that took effect.
           xcrun simctl spawn "$SIMULATOR_UDID" \
             defaults read com.daypage.app hasOnboarded || true
@@ -452,6 +462,8 @@ jobs:
             defaults read com.daypage.app hasSeenWelcome || true
           xcrun simctl spawn "$SIMULATOR_UDID" \
             defaults read com.daypage.app authSkipped || true
+          xcrun simctl spawn "$SIMULATOR_UDID" \
+            defaults read com.daypage.app AppleLanguages || true
 
       # Diagnostic: cold-launch the app once and screenshot what the user
       # actually sees. Maestro's debug-output only captures snapshots on
