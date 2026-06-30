@@ -50,6 +50,29 @@ struct MacRootView: View {
                 MacArchiveView()
             }
         }
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                // Center-of-titlebar mini logo + dropdown affordance (visual
+                // only for now — mirrors the flomo `≡ flomo ⌄` look).
+                HStack(spacing: 6) {
+                    Image(systemName: "sun.haze.fill")
+                        .foregroundStyle(.secondary)
+                    Text("DayPage").fontWeight(.semibold)
+                }
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Text("⌘K")
+                    .font(.system(.callout, design: .monospaced))
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
+                    )
+                    .help("搜索（暂未启用）")
+            }
+        }
     }
 }
 
@@ -66,7 +89,7 @@ struct MacArchiveView: View {
             if let err = loadError {
                 Text(err).foregroundStyle(.secondary)
             } else if dayFiles.isEmpty {
-                Text("vault/raw/ 还是空的。先去 Today 写一条 memo。")
+                Text("vault/raw/ 还是空的。先去今天写一条 memo。")
                     .foregroundStyle(.secondary)
                     .padding()
             } else {

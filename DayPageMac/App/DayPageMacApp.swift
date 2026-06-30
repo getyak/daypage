@@ -41,5 +41,13 @@ struct DayPageMacApp: App {
         }
         .windowStyle(.titleBar)
         .windowToolbarStyle(.unified)
+        .commands {
+            CommandGroup(replacing: .newItem) {
+                Button("新建 Memo") {
+                    NotificationCenter.default.post(name: .flomoFocusComposer, object: nil)
+                }
+                .keyboardShortcut("n", modifiers: .command)
+            }
+        }
     }
 }
