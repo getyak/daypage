@@ -1,5 +1,7 @@
 import SwiftUI
 import UIKit
+import DayPageModels
+import DayPageServices
 
 // MARK: - SpotlightStripView (US-014)
 //

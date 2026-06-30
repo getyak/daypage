@@ -2,6 +2,8 @@ import AppIntents
 import Foundation
 #if canImport(UIKit) && !EXTENSION
 import UIKit
+import DayPageStorage
+import DayPageServices
 #endif
 
 // MARK: - OpenDailyPageIntent

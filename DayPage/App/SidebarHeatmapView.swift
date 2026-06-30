@@ -1,4 +1,6 @@
 import SwiftUI
+import DayPageModels
+import DayPageServices
 
 // MARK: - SidebarHeatmapView
 //

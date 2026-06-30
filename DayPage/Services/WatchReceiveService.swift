@@ -1,5 +1,7 @@
 import Foundation
 import WatchConnectivity
+import DayPageStorage
+import DayPageServices
 
 // MARK: - WatchReceiveService
 

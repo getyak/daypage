@@ -1,4 +1,5 @@
 import SwiftUI
+import DayPageServices
 
 // MARK: - US-015: Smart Templates (12 hardcoded time-slot templates)
 

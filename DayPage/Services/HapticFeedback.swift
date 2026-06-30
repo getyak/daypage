@@ -1,4 +1,5 @@
 import UIKit
+import DayPageStorage
 
 @MainActor
 enum HapticFeedback {

@@ -1,6 +1,8 @@
 import SwiftUI
 import UserNotifications
 import Sentry
+import DayPageStorage
+import DayPageServices
 
 // MARK: - App Notification Names
 
@@ -118,6 +120,20 @@ struct DayPageApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        // === DayPageKit hook registration (M0) ===
+        // Must run BEFORE any Kit code that depends on these hooks. KeychainHelper
+        // / RawStorage / SentryReporter / OrphanedScanners all sit downstream.
+        SentryReporter.configure(dsn: Secrets.sentryDSN)
+        KitSecrets.register(AppKitSecretsProvider())
+        VaultMigrationHook.register {
+            Task { @MainActor in
+                VaultMigrationService.shared.migrateIfNeeded()
+            }
+        }
+        InflightDraftRefsHook.register {
+            Set(InflightDraftStore.pending().flatMap { $0.attachmentPaths })
+        }
+
         // UI-testing launch arguments → UserDefaults bridge.
         // Maestro flows (and any XCUITest) pass flags like `hasOnboarded=true`
         // via `xcrun simctl launch ... -hasOnboarded YES`. iOS auto-merges

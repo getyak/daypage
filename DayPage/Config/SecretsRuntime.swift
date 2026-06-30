@@ -1,4 +1,6 @@
 import Foundation
+import DayPageStorage
+import DayPageServices
 
 // MARK: - Runtime Key Resolution
 //
@@ -16,17 +18,17 @@ import Foundation
 //
 // US-002: API keys are stored in Keychain (`com.daypage.apikeys` service)
 // rather than UserDefaults to prevent iCloud backup exposure.
-extension Secrets {
-    static var resolvedDeepSeekApiKey: String {
+public extension Secrets {
+    public static var resolvedDeepSeekApiKey: String {
         resolve(keychainName: "deepSeekApiKey", fallback: deepSeekApiKey)
     }
-    static var resolvedOpenAIWhisperApiKey: String {
+    public static var resolvedOpenAIWhisperApiKey: String {
         resolve(keychainName: "openAIWhisperApiKey", fallback: openAIWhisperApiKey)
     }
-    static var resolvedOpenWeatherApiKey: String {
+    public static var resolvedOpenWeatherApiKey: String {
         resolve(keychainName: "openWeatherApiKey", fallback: openWeatherApiKey)
     }
-    static var resolvedGitHubToken: String {
+    public static var resolvedGitHubToken: String {
         resolve(keychainName: "githubToken", fallback: kubotGitHubToken)
     }
 
@@ -67,3 +69,19 @@ extension Secrets {
 private let secretsWarnLock = NSLock()
 private nonisolated(unsafe) var secretsWarnedKeys: Set<String> = []
 #endif
+
+// MARK: - AppKitSecretsProvider (M0 bridge)
+
+/// Concrete `KitSecretsProvider` for the iOS app target. DayPageApp.init
+/// instantiates this and registers it via `KitSecrets.register(_:)` so the
+/// Kit-side `LLMClient` / `WeatherService` / `FeedbackService` etc. can read
+/// the gitignored `Secrets` enum + Keychain-resolved keys without reaching
+/// into the app target directly.
+struct AppKitSecretsProvider: KitSecretsProvider {
+    var sentryDSN: String { Secrets.sentryDSN }
+    var deepSeekBaseURL: String { Secrets.deepSeekBaseURL }
+    var deepSeekModel: String { Secrets.deepSeekModel }
+    var deepSeekApiKey: String { Secrets.resolvedDeepSeekApiKey }
+    var openWeatherApiKey: String { Secrets.resolvedOpenWeatherApiKey }
+    var githubBotToken: String { Secrets.resolvedGitHubToken }
+}
