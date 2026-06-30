@@ -1,5 +1,6 @@
 import Foundation
 import DayPageStorage
+import DayPageServices
 
 // MARK: - Runtime Key Resolution
 //
@@ -68,3 +69,19 @@ public extension Secrets {
 private let secretsWarnLock = NSLock()
 private nonisolated(unsafe) var secretsWarnedKeys: Set<String> = []
 #endif
+
+// MARK: - AppKitSecretsProvider (M0 bridge)
+
+/// Concrete `KitSecretsProvider` for the iOS app target. DayPageApp.init
+/// instantiates this and registers it via `KitSecrets.register(_:)` so the
+/// Kit-side `LLMClient` / `WeatherService` / `FeedbackService` etc. can read
+/// the gitignored `Secrets` enum + Keychain-resolved keys without reaching
+/// into the app target directly.
+struct AppKitSecretsProvider: KitSecretsProvider {
+    var sentryDSN: String { Secrets.sentryDSN }
+    var deepSeekBaseURL: String { Secrets.deepSeekBaseURL }
+    var deepSeekModel: String { Secrets.deepSeekModel }
+    var deepSeekApiKey: String { Secrets.resolvedDeepSeekApiKey }
+    var openWeatherApiKey: String { Secrets.resolvedOpenWeatherApiKey }
+    var githubBotToken: String { Secrets.resolvedGitHubToken }
+}

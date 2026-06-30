@@ -2,6 +2,8 @@ import SwiftUI
 import CoreLocation
 import AVFoundation
 import UserNotifications
+import DayPageStorage
+import DayPageServices
 
 // MARK: - OnboardingView
 

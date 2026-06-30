@@ -3,6 +3,8 @@ import SwiftUI
 import PhotosUI
 import ImageIO
 import UniformTypeIdentifiers
+import DayPageStorage
+import DayPageServices
 
 // MARK: - PhotoPickerResult
 

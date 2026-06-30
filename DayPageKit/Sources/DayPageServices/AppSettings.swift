@@ -108,19 +108,9 @@ public enum CardDensity: String, CaseIterable {
     }
 }
 
-// MARK: - VaultLocation
-
-public enum VaultLocation: String {
-    case local = "local"
-    case iCloud = "iCloud"
-}
-
-// MARK: - AttachmentPolicy
-
-public enum AttachmentPolicy: String {
-    case onDemand = "onDemand"
-    case alwaysLocal = "alwaysLocal"
-}
+// VaultLocation + AttachmentPolicy are defined in DayPageStorage/StorageSettings.swift.
+// AppSettings sits in DayPageServices and re-exports nothing — call sites use
+// the Storage definitions directly via `import DayPageStorage`.
 
 // MARK: - AppSettings
 

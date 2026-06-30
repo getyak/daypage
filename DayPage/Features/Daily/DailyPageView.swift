@@ -1,6 +1,9 @@
 import SwiftUI
 import UIKit
 import PhotosUI
+import DayPageModels
+import DayPageStorage
+import DayPageServices
 
 // MARK: - DailyPageView
 

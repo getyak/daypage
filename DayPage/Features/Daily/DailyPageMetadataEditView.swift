@@ -1,5 +1,8 @@
 import SwiftUI
 import PhotosUI
+import DayPageModels
+import DayPageStorage
+import DayPageServices
 
 // MARK: - DailyPageMetadataEditView
 

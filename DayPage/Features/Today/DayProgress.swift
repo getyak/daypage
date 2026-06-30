@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import DayPageServices
 
 enum DayProgress {
     /// Fraction of the current local day elapsed: 0.0 at midnight, 1.0 at next midnight.
