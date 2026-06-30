@@ -4,17 +4,23 @@ import Foundation
 
 /// 存储在 vault/raw/YYYY-MM-DD.md 中的单条用户生成条目。
 /// 序列化为 YAML 前置元数据 + Markdown 正文，以 \n\n---\n\n 分隔。
-struct Memo: Identifiable, Equatable {
+public struct Memo: Identifiable, Equatable {
 
     // MARK: Attachment types
 
-    struct Location: Equatable {
-        var name: String?
-        var lat: Double?
-        var lng: Double?
+    public struct Location: Equatable {
+        public var name: String?
+        public var lat: Double?
+        public var lng: Double?
+
+        public init(name: String? = nil, lat: Double? = nil, lng: Double? = nil) {
+            self.name = name
+            self.lat = lat
+            self.lng = lng
+        }
     }
 
-    enum MemoType: String, Equatable, Hashable {
+    public enum MemoType: String, Equatable, Hashable {
         case text
         case voice
         case photo
@@ -23,37 +29,51 @@ struct Memo: Identifiable, Equatable {
     }
 
     // US-016: transcription lifecycle for audio attachments
-    enum TranscriptionStatus: String, Equatable {
+    public enum TranscriptionStatus: String, Equatable {
         case pending    // in-progress or queued
         case done       // transcript available
         case failed     // all retries exhausted or no network
     }
 
-    struct Attachment: Equatable {
-        var file: String
-        var kind: String                          // "photo" | "audio"
-        var duration: Double?                     // seconds, audio only
-        var transcript: String?                   // audio only
-        var transcriptionStatus: TranscriptionStatus? // audio only; nil = not applicable
+    public struct Attachment: Equatable {
+        public var file: String
+        public var kind: String                          // "photo" | "audio"
+        public var duration: Double?                     // seconds, audio only
+        public var transcript: String?                   // audio only
+        public var transcriptionStatus: TranscriptionStatus? // audio only; nil = not applicable
+
+        public init(
+            file: String,
+            kind: String,
+            duration: Double? = nil,
+            transcript: String? = nil,
+            transcriptionStatus: TranscriptionStatus? = nil
+        ) {
+            self.file = file
+            self.kind = kind
+            self.duration = duration
+            self.transcript = transcript
+            self.transcriptionStatus = transcriptionStatus
+        }
     }
 
     // MARK: Fields
 
-    var id: UUID
-    var type: MemoType
-    var created: Date
-    var pinnedAt: Date? = nil
-    var location: Location?
-    var weather: String?
-    var device: String?
-    var attachments: [Attachment]
-    var mood: String?
-    var entityMentions: [String]
-    var body: String
+    public var id: UUID
+    public var type: MemoType
+    public var created: Date
+    public var pinnedAt: Date? = nil
+    public var location: Location?
+    public var weather: String?
+    public var device: String?
+    public var attachments: [Attachment]
+    public var mood: String?
+    public var entityMentions: [String]
+    public var body: String
 
     // MARK: Init
 
-    init(
+    public init(
         id: UUID = UUID(),
         type: MemoType = .text,
         created: Date = Date(),
@@ -88,7 +108,7 @@ extension Memo {
 
     /// 将 Memo 转换为其磁盘上的 Markdown 表示：
     ///   YAML 前置元数据（位于 --- 分隔符之间），后跟一个空行和正文。
-    func toMarkdown() -> String {
+    public func toMarkdown() -> String {
         var lines: [String] = ["---"]
 
         lines.append("id: \(id.uuidString)")
@@ -163,7 +183,7 @@ extension Memo {
 
     /// 解析单个 Memo 块（前置元数据 + 正文）。
     /// 如果无法解析，则返回 nil。
-    static func fromMarkdown(_ block: String) -> Memo? {
+    public static func fromMarkdown(_ block: String) -> Memo? {
         // 从前置元数据中分离正文：期望格式为 "---\n...\n---\n\nbody"
         let text = block.trimmingCharacters(in: .whitespacesAndNewlines)
         guard text.hasPrefix("---") else { return nil }
@@ -269,7 +289,7 @@ extension Memo {
     /// 将字符串用双引号包裹，转义内部引号、反斜杠及换行符，确保标量值始终占一行。
     /// 字符级扫描避免链式 `replacingOccurrences` 的级联与顺序陷阱（例如
     /// 用户输入字面 `\n` 时被先转义成 `\\n` 后再被换行规则误碰）。
-    static func yamlQuote(_ s: String) -> String {
+    public static func yamlQuote(_ s: String) -> String {
         var out = ""
         out.reserveCapacity(s.count + 2)
         for ch in s {
@@ -291,15 +311,15 @@ extension Memo {
 
     /// Inverse of `yamlQuote`: takes a fully-quoted YAML scalar like `"foo\\nbar"`
     /// and returns the original string. Exposed for round-trip testing.
-    static func yamlUnquote(_ s: String) -> String {
+    public static func yamlUnquote(_ s: String) -> String {
         YAMLParser.unquote(s)
     }
 }
 
 // MARK: - CJK-aware word count
 
-enum TextCount {
-    static func words(_ text: String) -> Int {
+public enum TextCount {
+    public static func words(_ text: String) -> Int {
         var cjkCount = 0
         var latinWords = 0
         var inLatinRun = false
@@ -323,14 +343,14 @@ enum TextCount {
 // MARK: - ISO8601DateFormatter extension
 
 extension ISO8601DateFormatter {
-    static let memo: ISO8601DateFormatter = {
+    public static let memo: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return f
     }()
 
     /// Parses a plain date string (yyyy-MM-dd) by treating it as midnight UTC.
-    static let dayOnly: ISO8601DateFormatter = {
+    public static let dayOnly: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withFullDate, .withDashSeparatorInDate]
         f.timeZone = TimeZone(secondsFromGMT: 0)
@@ -342,17 +362,17 @@ extension ISO8601DateFormatter {
 
 /// 一个轻量级逐行 YAML 解析器，足以处理 Memo 前置元数据。
 /// 支持：标量键、嵌套映射（2 空格缩进）、扁平的映射序列。
-struct YAMLParser {
+public struct YAMLParser {
     private let lines: [String]
 
-    init(lines: [String]) {
+    public init(lines: [String]) {
         self.lines = lines
     }
 
     // MARK: Scalar
 
     /// 返回顶级键的非引号值，如果不存在则返回 nil。
-    func scalar(_ key: String) -> String? {
+    public func scalar(_ key: String) -> String? {
         for line in lines {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             guard !trimmed.hasPrefix(" "), !trimmed.hasPrefix("-") else { continue }
@@ -366,7 +386,7 @@ struct YAMLParser {
     // MARK: Nested mapping (2-space indented block)
 
     /// 返回顶级映射键的 [String: String] 字典，如果不存在则返回 nil。
-    func mapping(_ key: String) -> [String: String]? {
+    public func mapping(_ key: String) -> [String: String]? {
         var inBlock = false
         var result: [String: String] = [:]
 
@@ -398,7 +418,7 @@ struct YAMLParser {
 
     /// 返回顶级序列键的 [[String: String]] 数组，如果不存在则返回 nil。
     /// 每个序列项以 "  - key: value" 开头。
-    func sequenceOfMappings(_ key: String) -> [[String: String]]? {
+    public func sequenceOfMappings(_ key: String) -> [[String: String]]? {
         var inBlock = false
         var items: [[String: String]] = []
         var current: [String: String] = [:]
@@ -440,7 +460,7 @@ struct YAMLParser {
     ///   key:
     ///     - value1
     ///     - value2
-    func sequence(_ key: String) -> [String]? {
+    public func sequence(_ key: String) -> [String]? {
         var inBlock = false
         var items: [String] = []
 
@@ -481,7 +501,7 @@ struct YAMLParser {
 
     /// Static, test-visible variant of `yamlUnquote`. Pure function — safe to
     /// call without instantiating a parser.
-    static func unquote(_ s: String) -> String {
+    public static func unquote(_ s: String) -> String {
         guard s.hasPrefix("\"") && s.hasSuffix("\"") && s.count >= 2 else { return s }
         let inner = s.dropFirst().dropLast()
         var result = ""

@@ -4,7 +4,7 @@ import Foundation
 
 /// Pure render-layer string polish for CJK/Latin mixed text.
 /// Does NOT modify persisted vault content — apply only at display time.
-enum CJKTextPolish {
+public enum CJKTextPolish {
 
     // MARK: - Public API
 
@@ -12,7 +12,7 @@ enum CJKTextPolish {
     /// Rules applied (in order):
     /// 1. Collapse doubled punctuation: Chinese-then-ASCII → Chinese form
     /// 2. Insert U+200A (hair space) between adjacent CJK and Latin characters
-    static func polish(_ raw: String) -> String {
+    public static func polish(_ raw: String) -> String {
         var s = collapsePunctuation(raw)
         s = insertHairSpaces(s)
         return s

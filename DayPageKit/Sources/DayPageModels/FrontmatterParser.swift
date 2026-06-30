@@ -6,7 +6,7 @@ import Foundation
 /// Centralises the `summary:` (and future scalar fields like `summary_zh:`)
 /// extraction that was previously duplicated across `TodayViewModel`,
 /// `ArchiveView`, `TimelineService`, and `WeeklyRecapService`.
-enum FrontmatterParser {
+public enum FrontmatterParser {
 
     /// Extracts a top-level scalar field's string value from frontmatter.
     ///
@@ -20,7 +20,7 @@ enum FrontmatterParser {
     ///   write the field once inside the frontmatter, so the behaviour is
     ///   equivalent in practice while remaining tolerant of files without a
     ///   closing `---` delimiter.
-    static func extractField(_ key: String, from content: String) -> String? {
+    public static func extractField(_ key: String, from content: String) -> String? {
         let prefix = "\(key):"
         for line in content.components(separatedBy: "\n") {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
@@ -45,7 +45,7 @@ enum FrontmatterParser {
     /// - Returns: the field's value, or `nil` when the file has no opening
     ///   `---` on line 0, when the key isn't found inside the block, or
     ///   when the trimmed value is empty.
-    static func extractFieldInBlock(_ key: String, from content: String) -> String? {
+    public static func extractFieldInBlock(_ key: String, from content: String) -> String? {
         let prefix = "\(key):"
         let lines = content.components(separatedBy: "\n")
         var inBlock = false
