@@ -19,13 +19,18 @@ appId: com.daypage.app
 - waitForAnimationToEnd
 - takeScreenshot: sidebar_open
 
-# 在侧边栏点击 Archive
-- tapOn: "Archive"
+# 在侧边栏点击 Archive (en) / 归档 (zh-Hans). The CI runner's default
+# locale may be zh-Hans, so an exact "Archive" match would miss. Regex
+# `Archive|归档` covers both. `forceLocale` is not bridged into the app
+# yet (only `hasOnboarded`/`authSkipped` are), so we can't pin to en.
+- tapOn:
+    text: "Archive|归档"
 - waitForAnimationToEnd
 - takeScreenshot: archive_view
 
-# 验证 Archive View 已显示
-- assertVisible: "ARCHIVE"
+# 验证 Archive View 已显示 — match the header pill in either locale.
+- assertVisible:
+    text: "ARCHIVE|归档"
 
 # 重新打开侧边栏
 - tapOn:
@@ -34,7 +39,8 @@ appId: com.daypage.app
 - takeScreenshot: sidebar_open_again
 
 # 返回 Today View
-- tapOn: "Today"
+- tapOn:
+    text: "Today|今日"
 - waitForAnimationToEnd
 - takeScreenshot: back_to_today
 
