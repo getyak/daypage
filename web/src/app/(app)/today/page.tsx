@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, Suspense } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Menu, Search, Settings } from "lucide-react";
 import { GlassPillBtn } from "@/components/ui/GlassPillBtn";
 import { Drawer } from "@/components/ui/Drawer";
@@ -71,13 +72,52 @@ function MemoFeed({
   );
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 8 }}>
+    <MemoFeedList
+      memos={memos}
+      serviceConnected={serviceConnected}
+      onRetry={handleRetry}
+      onShare={onShare}
+      composerMicRef={composerMicRef}
+    />
+  );
+}
+
+function MemoFeedList({
+  memos,
+  serviceConnected,
+  onRetry,
+  onShare,
+  composerMicRef,
+}: {
+  memos: MemoCardData[];
+  serviceConnected: boolean;
+  onRetry: (id: string) => void;
+  onShare: (memo: ShareCardMemo) => void;
+  composerMicRef: React.RefObject<HTMLButtonElement | null>;
+}) {
+  const reduced = useReducedMotion();
+  return (
+    <motion.div
+      initial="hidden"
+      animate="show"
+      variants={
+        reduced
+          ? undefined
+          : {
+              hidden: {},
+              show: {
+                transition: { staggerChildren: 0.045, delayChildren: 0.04 },
+              },
+            }
+      }
+      style={{ display: "flex", flexDirection: "column", gap: 10, paddingTop: 8 }}
+    >
       {memos.map((memo) => (
         <MemoCard
           key={memo.id}
           memo={memo}
           serviceConnected={serviceConnected}
-          onRetry={handleRetry}
+          onRetry={onRetry}
           onShare={() =>
             onShare({
               id: memo.id,
@@ -91,7 +131,7 @@ function MemoFeed({
       ))}
       {/* US-010: Placeholder card — shown when below unlock_threshold */}
       <UnlockPlaceholderCard composerMicRef={composerMicRef} />
-    </div>
+    </motion.div>
   );
 }
 

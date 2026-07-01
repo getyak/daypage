@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 
 interface HeatmapCell {
   date: string;
@@ -279,46 +280,28 @@ export function DrawerHeatmap() {
           }}
         >
           {grid.flatMap((col, colIdx) =>
-            col.map((cell, rowIdx) => (
-              <div
-                key={`${colIdx}-${rowIdx}`}
-                style={{
-                  width: CELL,
-                  height: CELL,
-                  borderRadius: 2.5,
-                  background: cellColor(cell.count, cell.isFuture),
-                  border: cell.isFuture
-                    ? "0.5px dashed var(--border-subtle)"
-                    : "none",
-                  cursor: cell.isFuture ? "default" : "pointer",
-                  transition: "opacity 120ms ease-out",
-                }}
-                title={cell.isFuture ? undefined : `${cell.date} · ${cell.count} memos`}
-                onMouseEnter={(e) => {
-                  if (cell.isFuture) return;
-                  const rect = (e.target as HTMLElement).getBoundingClientRect();
-                  setTooltip({
-                    text: `${cell.date} · ${cell.count} memos`,
-                    x: rect.left,
-                    y: rect.top - 28,
-                  });
-                }}
-                onMouseLeave={() => setTooltip(null)}
-                onClick={() => {
-                  if (!cell.isFuture) {
+            col.map((cell, rowIdx) => {
+              const t = `${cell.date} · ${cell.count} memos`;
+              return (
+                <DayCell
+                  key={`${colIdx}-${rowIdx}`}
+                  colIdx={colIdx}
+                  size={CELL}
+                  cell={cell}
+                  onEnter={(rect) => {
+                    if (cell.isFuture) return;
+                    setTooltip({ text: t, x: rect.left, y: rect.top - 28 });
+                  }}
+                  onLeave={() => setTooltip(null)}
+                  onClick={() => {
+                    if (cell.isFuture) return;
                     setTooltip(
-                      tooltip?.text === `${cell.date} · ${cell.count} memos`
-                        ? null
-                        : {
-                            text: `${cell.date} · ${cell.count} memos`,
-                            x: 0,
-                            y: 0,
-                          }
+                      tooltip?.text === t ? null : { text: t, x: 0, y: 0 }
                     );
-                  }
-                }}
-              />
-            ))
+                  }}
+                />
+              );
+            })
           )}
         </div>
       </div>
@@ -406,5 +389,61 @@ export function DrawerHeatmap() {
         </div>
       )}
     </div>
+  );
+}
+
+// ── DayCell: single heatmap cell with stagger entrance + hover lift ─────────
+// Decomposed from inline cell render so we can attach motion props per cell
+// without bloating parent state. ~371 cells max (53 cols × 7 rows). Stagger
+// delay clamped to 0.45s so the wave finishes within one user breath.
+function DayCell({
+  colIdx,
+  size,
+  cell,
+  onEnter,
+  onLeave,
+  onClick,
+}: {
+  colIdx: number;
+  size: number;
+  cell: { date: string; count: number; isFuture: boolean };
+  onEnter: (rect: DOMRect) => void;
+  onLeave: () => void;
+  onClick: () => void;
+}) {
+  const reduced = useReducedMotion();
+  const delay = Math.min(colIdx * 0.006, 0.45);
+  return (
+    <motion.div
+      initial={reduced ? false : { opacity: 0, scale: 0.6 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{
+        duration: 0.26,
+        ease: [0.22, 1, 0.36, 1],
+        delay: reduced ? 0 : delay,
+      }}
+      whileHover={
+        reduced || cell.isFuture
+          ? undefined
+          : { scale: 1.32, transition: { duration: 0.12 } }
+      }
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 2.5,
+        background: cellColor(cell.count, cell.isFuture),
+        border: cell.isFuture
+          ? "0.5px dashed var(--border-subtle)"
+          : "none",
+        cursor: cell.isFuture ? "default" : "pointer",
+        transformOrigin: "center",
+      }}
+      title={cell.isFuture ? undefined : `${cell.date} · ${cell.count} memos`}
+      onMouseEnter={(e) => {
+        onEnter((e.currentTarget as HTMLElement).getBoundingClientRect());
+      }}
+      onMouseLeave={onLeave}
+      onClick={onClick}
+    />
   );
 }

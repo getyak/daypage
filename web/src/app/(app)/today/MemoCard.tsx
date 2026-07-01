@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useCallback, useEffect, useId } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   Camera,
   Share2,
@@ -78,6 +79,7 @@ export function MemoCard({
   serviceConnected = true,
   onRetry,
 }: Props) {
+  const reduced = useReducedMotion();
   const [tx, setTx] = useState(0);
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef({ startX: 0, startTx: 0, moved: 0, active: false });
@@ -157,7 +159,13 @@ export function MemoCard({
   const drawerOpacity = Math.min(1, Math.max(0, (-tx - 8) / (REVEAL_WIDTH - 8)));
 
   return (
-    <div style={{ position: "relative", overflow: "hidden", borderRadius: 18 }}>
+    <motion.div
+      layout
+      initial={reduced ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+      style={{ position: "relative", overflow: "hidden", borderRadius: 18 }}
+    >
       {/* Action drawer — always in DOM, revealed by translateX.
           Design geometry (app.jsx:486-502): 132px drawer, gap:8 between the
           two inset action chips, padding 8px on top/right/bottom (0 left so the
@@ -396,7 +404,7 @@ export function MemoCard({
           </button>
         </li>
       </menu>
-    </div>
+    </motion.div>
   );
 }
 
