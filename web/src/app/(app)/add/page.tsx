@@ -1,4 +1,4 @@
-import { UnifiedInput } from "./UnifiedInput";
+import { Composer } from "./Composer";
 import { CompileQueue, type Memo } from "./CompileQueue";
 import { RecentlyCompiled } from "./RecentlyCompiled";
 import { auth } from "@/lib/auth/session";
@@ -87,36 +87,10 @@ export default async function AddPage() {
         gap: "2rem",
       }}
     >
-      {/* Hero block */}
-      <div
-        style={{ display: "flex", flexDirection: "column", gap: "0.375rem" }}
-      >
-        <div className="ds-section-label" style={{ color: "var(--accent)" }}>
-          Add to the wiki
-        </div>
-        <h1
-          className="hero-headline"
-          style={{ fontSize: 32, marginTop: 8, margin: 0 }}
-        >
-          Drop something in.{" "}
-          <span className="accent">I&apos;ll figure out the rest.</span>
-        </h1>
-        <p
-          className="hero-sub"
-          style={{
-            marginTop: 4,
-            color: "var(--fg-muted)",
-            marginBottom: 0,
-          }}
-        >
-          Paste a link, type a thought, drop a file. I read the content first
-          and decide whether it&apos;s worth a full compile or a lightweight
-          summary — you can override either way.
-        </p>
-      </div>
-
-      {/* Unified input */}
-      <UnifiedInput />
+      {/* Composer 直接作为首屏主视觉 (Round 5)：删掉 hero headline 和长 sub
+          文案。只留一个极轻的 section label 作为页面身份指示，呼吸感留给 Composer
+          自己。Hero 文案的产品宣言转移到 Composer 自带的 placeholder 与 / 命令。 */}
+      <Composer />
 
       {/* Compile Queue */}
       <section
