@@ -15,6 +15,14 @@ public struct RetryPolicy: Equatable {
     /// attempt never waits. Indices past the end repeat the last value.
     public let backoffSeconds: [Double]
 
+    /// Explicit public memberwise init — Swift only synthesizes an internal
+    /// one, which blocks tests (and any other module) from constructing
+    /// custom policies for retry classifier coverage.
+    public init(maxAttempts: Int, backoffSeconds: [Double]) {
+        self.maxAttempts = maxAttempts
+        self.backoffSeconds = backoffSeconds
+    }
+
     /// Original DayPage default: 3 attempts at 0 / 2 / 6 seconds.
     public static let standard = RetryPolicy(maxAttempts: 3, backoffSeconds: [0, 2, 6])
 

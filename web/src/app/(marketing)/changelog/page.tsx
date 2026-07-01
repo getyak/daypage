@@ -1,13 +1,30 @@
 import type { Metadata } from "next";
 import { MarketingPageShell } from "../_components/MarketingPageShell";
-import { SITE_NAME } from "@/lib/seo";
+import { SITE_NAME, SITE_URL, hreflangAlternates } from "@/lib/seo";
+import { BreadcrumbJsonLd, ItemListJsonLd } from "@/components/PageJsonLd";
+
+const DESC =
+  "What shipped in DayPage — small, human releases. iOS + macOS + web.";
 
 export const metadata: Metadata = {
   title: "Changelog",
-  description:
-    "What shipped in DayPage — small, human releases. iOS + macOS + web.",
-  alternates: { canonical: "/changelog" },
-  openGraph: { title: `Changelog · ${SITE_NAME}` },
+  description: DESC,
+  alternates: hreflangAlternates("/changelog"),
+  openGraph: {
+    title: `Changelog · ${SITE_NAME}`,
+    description: DESC,
+    url: `${SITE_URL}/changelog`,
+    type: "website",
+    locale: "en_US",
+    alternateLocale: ["zh_CN"],
+    images: [{ url: "/opengraph-image.png", width: 1200, height: 630, alt: `Changelog · ${SITE_NAME}` }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `Changelog · ${SITE_NAME}`,
+    description: DESC,
+    images: ["/opengraph-image.png"],
+  },
 };
 
 const RELEASES = [
@@ -63,13 +80,28 @@ const RELEASES = [
 
 export default function ChangelogPage() {
   return (
+    <>
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Changelog", path: "/changelog" },
+        ]}
+      />
+      <ItemListJsonLd
+        name={`${SITE_NAME} releases`}
+        items={RELEASES.map((r) => ({
+          name: `v${r.version} — ${r.title}`,
+          url: `${SITE_URL}/changelog#v${r.version}`,
+          description: r.notes.join(" "),
+        }))}
+      />
     <MarketingPageShell
       eyebrow="Changelog"
       title="Small releases. Honest notes."
       lede="DayPage ships weekly-ish. Notes are written by the people who wrote the code."
     >
       {RELEASES.map((r) => (
-        <section key={r.version} className="mt-16">
+        <section key={r.version} id={`v${r.version}`} className="mt-16">
           <div className="flex items-baseline gap-4">
             <h2 className="!mt-0 !text-[22px]">v{r.version}</h2>
             <time
@@ -90,5 +122,6 @@ export default function ChangelogPage() {
         </section>
       ))}
     </MarketingPageShell>
+    </>
   );
 }

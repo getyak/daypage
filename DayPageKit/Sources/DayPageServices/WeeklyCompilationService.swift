@@ -71,6 +71,26 @@ public struct WeeklyRecapOutput: Codable, Equatable {
     public let moodNotes: String
     public let placeNotes: String
     public let highlights: [String]
+
+    /// Explicit public memberwise init — Swift's synthesized init is
+    /// internal, which prevents tests from constructing fixtures.
+    public init(
+        isoWeek: String,
+        dateRange: String,
+        compiledAt: Date,
+        keywords: [String],
+        moodNotes: String,
+        placeNotes: String,
+        highlights: [String]
+    ) {
+        self.isoWeek = isoWeek
+        self.dateRange = dateRange
+        self.compiledAt = compiledAt
+        self.keywords = keywords
+        self.moodNotes = moodNotes
+        self.placeNotes = placeNotes
+        self.highlights = highlights
+    }
 }
 
 // MARK: - WeeklyCompilationService

@@ -1,15 +1,29 @@
 import type { Metadata } from "next";
 import { MarketingPageShell } from "../../_components/MarketingPageShell";
+import { SITE_NAME, SITE_URL, hreflangAlternatesZh } from "@/lib/seo";
+
+const DESC =
+  "DayPage 存在的理由 —— 一个本地优先、AI 辅助的日记,献给宁愿先记下也不愿表演的人。";
 
 export const metadata: Metadata = {
   title: "宣言",
-  description:
-    "DayPage 存在的理由 —— 一个本地优先、AI 辅助的日记,献给宁愿先记下也不愿表演的人。",
-  alternates: {
-    canonical: "/zh/manifesto",
-    languages: { en: "/manifesto", "zh-CN": "/zh/manifesto" },
+  description: DESC,
+  alternates: hreflangAlternatesZh("/manifesto"),
+  openGraph: {
+    title: `宣言 · ${SITE_NAME}`,
+    description: DESC,
+    url: `${SITE_URL}/zh/manifesto`,
+    type: "article",
+    locale: "zh_CN",
+    alternateLocale: ["en_US"],
+    images: [{ url: "/opengraph-image.png", width: 1200, height: 630, alt: `宣言 · ${SITE_NAME}` }],
   },
-  openGraph: { locale: "zh_CN" },
+  twitter: {
+    card: "summary_large_image",
+    title: `宣言 · ${SITE_NAME}`,
+    description: DESC,
+    images: ["/opengraph-image.png"],
+  },
 };
 
 export default function Page() {

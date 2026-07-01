@@ -79,6 +79,9 @@ public enum VaultInitializer {
         "wiki/themes",
         // R7 — weekly recap output lands here as `{ISOWeek}.md`.
         "wiki/weekly",
+        // D1 — MemoryChatService persists past AI conversations here as
+        // `{YYYY-MM-DD}.jsonl` so history survives across app launches.
+        "wiki/chats",
     ]
 
     private static func createDirectories() {

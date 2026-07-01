@@ -1,13 +1,29 @@
 import type { Metadata } from "next";
 import { MarketingPageShell } from "../_components/MarketingPageShell";
-import { SITE_NAME } from "@/lib/seo";
+import { SITE_NAME, SITE_URL, hreflangAlternates } from "@/lib/seo";
+
+const DESC =
+  "DayPage is local-first by design. Your raw memos live on your device as Markdown. We do not sell or share your journal data — ever.";
 
 export const metadata: Metadata = {
   title: "Privacy",
-  description:
-    "DayPage is local-first by design. Your raw memos live on your device as Markdown. We do not sell or share your journal data — ever.",
-  alternates: { canonical: "/privacy" },
-  openGraph: { title: `Privacy · ${SITE_NAME}` },
+  description: DESC,
+  alternates: hreflangAlternates("/privacy"),
+  openGraph: {
+    title: `Privacy · ${SITE_NAME}`,
+    description: DESC,
+    url: `${SITE_URL}/privacy`,
+    type: "website",
+    locale: "en_US",
+    alternateLocale: ["zh_CN"],
+    images: [{ url: "/opengraph-image.png", width: 1200, height: 630, alt: `Privacy · ${SITE_NAME}` }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `Privacy · ${SITE_NAME}`,
+    description: DESC,
+    images: ["/opengraph-image.png"],
+  },
 };
 
 export default function PrivacyPage() {

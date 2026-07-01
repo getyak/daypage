@@ -1,15 +1,28 @@
 import type { Metadata } from "next";
 import { MarketingPageShell } from "../_components/MarketingPageShell";
-import { SITE_NAME } from "@/lib/seo";
+import { SITE_NAME, SITE_URL, hreflangAlternates } from "@/lib/seo";
+
+const DESC =
+  "Get DayPage for iOS. Free, local-first, no account required. macOS in private beta.";
 
 export const metadata: Metadata = {
   title: "Download",
-  description:
-    "Get DayPage for iOS. Free, local-first, no account required. macOS in private beta.",
-  alternates: { canonical: "/download" },
+  description: DESC,
+  alternates: hreflangAlternates("/download"),
   openGraph: {
     title: `Download · ${SITE_NAME}`,
-    description: "Free, local-first journaling app for iOS 16+.",
+    description: DESC,
+    url: `${SITE_URL}/download`,
+    type: "website",
+    locale: "en_US",
+    alternateLocale: ["zh_CN"],
+    images: [{ url: "/opengraph-image.png", width: 1200, height: 630, alt: `Download · ${SITE_NAME}` }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `Download · ${SITE_NAME}`,
+    description: DESC,
+    images: ["/opengraph-image.png"],
   },
 };
 

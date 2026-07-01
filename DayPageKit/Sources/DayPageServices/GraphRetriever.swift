@@ -46,6 +46,14 @@ public struct RetrievedContext: Equatable {
     public let memoHits: [MemoHit]
     public let entityHits: [EntityHit]
 
+    /// Explicit public memberwise init — Swift's synthesized init is
+    /// internal, blocking test fixtures.
+    public init(query: String, memoHits: [MemoHit], entityHits: [EntityHit]) {
+        self.query = query
+        self.memoHits = memoHits
+        self.entityHits = entityHits
+    }
+
     public var isEmpty: Bool { memoHits.isEmpty && entityHits.isEmpty }
 
     /// 把检索上下文渲染为给 LLM 的 prompt 片段（带来源标注，便于模型引用）。

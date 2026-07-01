@@ -1,13 +1,29 @@
 import type { Metadata } from "next";
 import { MarketingPageShell } from "../_components/MarketingPageShell";
-import { SITE_NAME, SITE_URL } from "@/lib/seo";
+import { SITE_NAME, SITE_URL, hreflangAlternates } from "@/lib/seo";
+
+const DESC =
+  "Common questions about DayPage — pricing, privacy, models, sync, and platforms.";
 
 export const metadata: Metadata = {
   title: "FAQ",
-  description:
-    "Common questions about DayPage — pricing, privacy, models, sync, and platforms.",
-  alternates: { canonical: "/faq" },
-  openGraph: { title: `FAQ · ${SITE_NAME}` },
+  description: DESC,
+  alternates: hreflangAlternates("/faq"),
+  openGraph: {
+    title: `FAQ · ${SITE_NAME}`,
+    description: DESC,
+    url: `${SITE_URL}/faq`,
+    type: "website",
+    locale: "en_US",
+    alternateLocale: ["zh_CN"],
+    images: [{ url: "/opengraph-image.png", width: 1200, height: 630, alt: `FAQ · ${SITE_NAME}` }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `FAQ · ${SITE_NAME}`,
+    description: DESC,
+    images: ["/opengraph-image.png"],
+  },
 };
 
 const FAQS = [

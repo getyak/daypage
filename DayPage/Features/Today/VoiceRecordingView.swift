@@ -297,14 +297,14 @@ struct VoiceRecordingView: View {
                 .frame(width: 1, height: 56)
 
             // SAVE (black bg, white text)
+            // Send path: audio saves instantly, transcription runs in the
+            // background via VoiceAttachmentQueue and patches the memo later.
             Button(action: {
                 guard canSave else { return }
-                Task {
-                    if let result = await voiceService.stopAndTranscribe() {
-                        onComplete(result)
-                    } else {
-                        onCancel()
-                    }
+                if let result = voiceService.stopAndSaveAudio() {
+                    onComplete(result)
+                } else {
+                    onCancel()
                 }
             }) {
                 Text("SAVE")

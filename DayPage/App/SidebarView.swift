@@ -78,11 +78,21 @@ struct SidebarView: View {
         .onChange(of: nav.isSidebarOpen) { isOpen in
             // Refresh the recent-day list every time the drawer opens so the
             // user sees the latest activity without having to relaunch.
+            //
+            // Defer the vault scan until AFTER the 0.28s slide animation
+            // completes. Firing it on the opening frame used to publish four
+            // @Published updates (recentDays / streakDays / heatmapCounts /
+            // stats) into the middle of the slide, which re-invalidated the
+            // drawer subtree and produced the "一闪一闪" that the user reported.
+            // Waiting a beat lets the panel finish sliding first, then the
+            // stats fade in without fighting the transform.
             if isOpen {
-                sidebarVM.refreshRecentDays()
-                // Pre-warm the impact generator while the drawer is animating
-                // open so the first nav tap fires with minimum latency.
                 UIImpactFeedbackGenerator(style: .light).prepare()
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 320_000_000)
+                    guard nav.isSidebarOpen else { return }
+                    sidebarVM.refreshRecentDays()
+                }
             }
         }
         .sheet(isPresented: $showSettings) {

@@ -1,22 +1,49 @@
 import type { Metadata } from "next";
 import { MarketingPageShell } from "../_components/MarketingPageShell";
-import { SITE_NAME } from "@/lib/seo";
+import { SITE_NAME, SITE_URL, hreflangAlternates } from "@/lib/seo";
+import { ArticleJsonLd, BreadcrumbJsonLd } from "@/components/PageJsonLd";
+
+const DESC =
+  "Why DayPage exists — a local-first, AI-assisted journal for people who would rather dump than perform.";
 
 export const metadata: Metadata = {
   title: "Manifesto",
-  description:
-    "Why DayPage exists — a local-first, AI-assisted journal for people who would rather dump than perform.",
-  alternates: { canonical: "/manifesto" },
+  description: DESC,
+  alternates: hreflangAlternates("/manifesto"),
   openGraph: {
     title: `Manifesto · ${SITE_NAME}`,
-    description:
-      "A journal you actually use is more honest than one you carefully curate. DayPage is built around that idea.",
+    description: DESC,
+    url: `${SITE_URL}/manifesto`,
     type: "article",
+    locale: "en_US",
+    alternateLocale: ["zh_CN"],
+    images: [{ url: "/opengraph-image.png", width: 1200, height: 630, alt: `Manifesto · ${SITE_NAME}` }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `Manifesto · ${SITE_NAME}`,
+    description: DESC,
+    images: ["/opengraph-image.png"],
   },
 };
 
 export default function ManifestoPage() {
   return (
+    <>
+      <ArticleJsonLd
+        headline={`Manifesto · ${SITE_NAME}`}
+        description={DESC}
+        path="/manifesto"
+        datePublished="2026-05-11"
+        dateModified="2026-07-02"
+        inLanguage="en"
+      />
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Manifesto", path: "/manifesto" },
+        ]}
+      />
     <MarketingPageShell
       eyebrow="Manifesto"
       title="A journal you actually use beats a perfect one you don't."
@@ -61,5 +88,6 @@ export default function ManifestoPage() {
         times and given up, this is the fourth try that sticks.
       </p>
     </MarketingPageShell>
+    </>
   );
 }

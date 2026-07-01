@@ -24,6 +24,9 @@ struct MemoDetailView: View {
     // Delete confirmation
     @State private var showDeleteConfirm: Bool = false
 
+    // Share sheet (mono text → UIActivityViewController)
+    @State private var showShareSheet: Bool = false
+
     private var kickerText: String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
@@ -48,28 +51,73 @@ struct MemoDetailView: View {
                             HStack(spacing: 6) {
                                 Image(systemName: "chevron.left")
                                     .font(.system(size: 13, weight: .medium))
-                                Text("Today")
+                                Text(NSLocalizedString(
+                                    "memo.detail.nav.back",
+                                    value: "Today",
+                                    comment: "Detail view — back-to-today button label"
+                                ))
                                     .font(DSType.bodySM)
                             }
                             .foregroundColor(DSColor.inkMuted)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(NSLocalizedString(
+                            "memo.detail.a11y.back",
+                            value: "返回今天",
+                            comment: "Detail view — back button VoiceOver label"
+                        ))
 
                         Spacer()
 
                         Menu {
                             Button {
+                                Haptics.soft()
                                 editedBody = memo.body
                                 isEditingBody = true
                             } label: {
-                                Label("Edit Body", systemImage: "pencil")
+                                Label(NSLocalizedString(
+                                    "memo.detail.action.edit",
+                                    value: "Edit Body",
+                                    comment: "Detail view — menu: edit body"
+                                ), systemImage: "pencil")
                             }
 
-                            Button(role: .destructive) {
+                            Button {
+                                UIPasteboard.general.string = memo.body
                                 Haptics.tapConfirm()
+                            } label: {
+                                Label(NSLocalizedString(
+                                    "memo.detail.action.copy",
+                                    value: "Copy Text",
+                                    comment: "Detail view — menu: copy body"
+                                ), systemImage: "doc.on.doc")
+                            }
+
+                            Button {
+                                Haptics.soft()
+                                showShareSheet = true
+                            } label: {
+                                Label(NSLocalizedString(
+                                    "memo.detail.action.share",
+                                    value: "Share",
+                                    comment: "Detail view — menu: share"
+                                ), systemImage: "square.and.arrow.up")
+                            }
+
+                            Divider()
+
+                            Button(role: .destructive) {
+                                // Destructive: use the warning notification
+                                // pulse rather than the lighter confirm tick
+                                // so the haptic itself signals irreversibility.
+                                Haptics.warningNotification()
                                 showDeleteConfirm = true
                             } label: {
-                                Label("Delete Memo", systemImage: "trash")
+                                Label(NSLocalizedString(
+                                    "memo.detail.action.delete",
+                                    value: "Delete Memo",
+                                    comment: "Detail view — menu: delete"
+                                ), systemImage: "trash")
                             }
                         } label: {
                             Image(systemName: "ellipsis.circle")
@@ -79,6 +127,11 @@ struct MemoDetailView: View {
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(NSLocalizedString(
+                            "memo.detail.a11y.menu",
+                            value: "更多操作",
+                            comment: "Detail view — ellipsis menu a11y"
+                        ))
                     }
                     .padding(.top, 16)
                     .padding(.bottom, 20)
@@ -111,7 +164,12 @@ struct MemoDetailView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
                             HStack(spacing: 12) {
-                                Button("Cancel") {
+                                Button(NSLocalizedString(
+                                    "memo.detail.edit.cancel",
+                                    value: "Cancel",
+                                    comment: "Detail view — cancel body edit"
+                                )) {
+                                    Haptics.soft()
                                     isEditingBody = false
                                 }
                                 .font(DSType.bodySM)
@@ -120,7 +178,12 @@ struct MemoDetailView: View {
 
                                 Spacer()
 
-                                Button("Save") {
+                                Button(NSLocalizedString(
+                                    "memo.detail.edit.save",
+                                    value: "Save",
+                                    comment: "Detail view — save body edit"
+                                )) {
+                                    Haptics.tapConfirm()
                                     vm.update(memo: memo, body: editedBody)
                                     isEditingBody = false
                                 }
@@ -134,7 +197,11 @@ struct MemoDetailView: View {
                         Text(CJKTextPolish.polish(bodyTrimmed))
                             .font(DSType.serifBody16)
                             .foregroundColor(DSColor.inkPrimary)
-                            .lineSpacing(6)
+                            // Line-spacing raised from 6→8 (≈1.5× serifBody16) so
+                            // long-form journal entries breathe like a printed
+                            // page. Below 8pt the CJK stroke density read as a
+                            // tight paragraph rather than reflective prose.
+                            .lineSpacing(8)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .textSelection(.enabled)
                     }
@@ -185,24 +252,59 @@ struct MemoDetailView: View {
 
                     DetailMetadataSection(memo: memo)
 
-                    Spacer(minLength: 40)
+                    // Tightened from 40→24 so the metadata section anchors the
+                    // page instead of floating in a dead-zone at the bottom.
+                    Spacer(minLength: 24)
                 }
                 .padding(.horizontal, 24)
-                .padding(.bottom, 40)
+                .padding(.bottom, 32)
             }
         }
         .navigationBarHidden(true)
         .fullScreenCover(isPresented: $showPhotoFullscreen) {
             PhotoFullscreenView(image: fullResImage)
         }
-        .confirmationDialog("Delete this memo?", isPresented: $showDeleteConfirm, titleVisibility: .visible) {
-            Button("Delete", role: .destructive) {
+        .sheet(isPresented: $showShareSheet) {
+            // Reuse the app-wide ShareSheet wrapper (Settings/ObsidianExport
+            // already ships it). Sends the memo body as plain text — future
+            // work can attach photo/audio URLs alongside.
+            ShareSheet(activityItems: [memo.body])
+        }
+        .confirmationDialog(
+            NSLocalizedString(
+                "memo.detail.delete.title",
+                value: "Delete this memo?",
+                comment: "Detail view — delete confirmation title"
+            ),
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button(
+                NSLocalizedString(
+                    "memo.detail.delete.confirm",
+                    value: "Delete",
+                    comment: "Detail view — delete confirmation destructive action"
+                ),
+                role: .destructive
+            ) {
+                Haptics.warningNotification()
                 vm.deleteMemo(memo)
                 dismiss()
             }
-            Button("Cancel", role: .cancel) {}
+            Button(
+                NSLocalizedString(
+                    "memo.detail.delete.cancel",
+                    value: "Cancel",
+                    comment: "Detail view — delete confirmation cancel"
+                ),
+                role: .cancel
+            ) {}
         } message: {
-            Text("This cannot be undone.")
+            Text(NSLocalizedString(
+                "memo.detail.delete.warning",
+                value: "This cannot be undone.",
+                comment: "Detail view — delete confirmation warning body"
+            ))
         }
     }
 }

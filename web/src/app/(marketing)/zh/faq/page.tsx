@@ -1,15 +1,28 @@
 import type { Metadata } from "next";
 import { MarketingPageShell } from "../../_components/MarketingPageShell";
-import { SITE_URL } from "@/lib/seo";
+import { SITE_NAME, SITE_URL, hreflangAlternatesZh } from "@/lib/seo";
+
+const DESC = "DayPage 的常见问题 —— 价格、隐私、模型、同步、平台。";
 
 export const metadata: Metadata = {
   title: "常见问题",
-  description: "DayPage 的常见问题 —— 价格、隐私、模型、同步、平台。",
-  alternates: {
-    canonical: "/zh/faq",
-    languages: { en: "/faq", "zh-CN": "/zh/faq" },
+  description: DESC,
+  alternates: hreflangAlternatesZh("/faq"),
+  openGraph: {
+    title: `常见问题 · ${SITE_NAME}`,
+    description: DESC,
+    url: `${SITE_URL}/zh/faq`,
+    type: "website",
+    locale: "zh_CN",
+    alternateLocale: ["en_US"],
+    images: [{ url: "/opengraph-image.png", width: 1200, height: 630, alt: `常见问题 · ${SITE_NAME}` }],
   },
-  openGraph: { locale: "zh_CN" },
+  twitter: {
+    card: "summary_large_image",
+    title: `常见问题 · ${SITE_NAME}`,
+    description: DESC,
+    images: ["/opengraph-image.png"],
+  },
 };
 
 const FAQS = [

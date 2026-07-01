@@ -432,7 +432,11 @@ struct TimelineDayRow: View {
                 run: {
                     Haptics.tapConfirm()
                     snapClose()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    // Sync with SwipeableMemoCard: wait for the snap animation
+                    // to fully settle before firing the parent callback so any
+                    // presented sheet / dialog can't animate over a still-open
+                    // drawer. Same delay constant as SwipePhysics.actionCommitDelay.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + Self.actionCommitDelay) {
                         _ = pinService.togglePin(entry.dateString)
                     }
                 }
@@ -450,13 +454,18 @@ struct TimelineDayRow: View {
                 run: {
                     Haptics.tapConfirm()
                     snapClose()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + Self.actionCommitDelay) {
                         onShareDate?(entry)
                     }
                 }
             )
         ]
     }
+
+    /// Delay between `snapClose()` and firing the parent's action callback.
+    /// Kept equal to SwipePhysics.actionCommitDelay so timeline rows and
+    /// memo cards commit actions in lock-step.
+    fileprivate static let actionCommitDelay: TimeInterval = 0.36
 
     // MARK: Pan callbacks (slimmed copy of SwipeableMemoCard's gesture loop)
 

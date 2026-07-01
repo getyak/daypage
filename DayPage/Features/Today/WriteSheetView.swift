@@ -238,16 +238,14 @@ struct WriteSheetView: View {
             appeared = true
             confirmingDiscard = false
             recomputeCounts()
-            // B2: Focus shortly after appear so the keyboard rises in lockstep
-            // with the sheet-up animation. A bare DispatchQueue.main.async
-            // sometimes fired BEFORE the sheet's UITextField was attached
-            // (intermittent "first tap does nothing"). 80ms is long enough
-            // for the SwiftUI commit + keyboard handoff, short enough to
-            // feel instantaneous.
-            Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 80_000_000)
-                isFocused = true
-            }
+            // Focus IMMEDIATELY so the system keyboard rises in-frame with
+            // the sheet-up animation instead of trailing it by 80ms. The old
+            // 80ms delay was there because a bare `isFocused = true` in the
+            // same tick as `.onAppear` sometimes fired BEFORE the UITextField
+            // was attached; scheduling it via `DispatchQueue.main.async` gives
+            // SwiftUI one runloop cycle to attach the field, which is enough
+            // in practice and removes the visible lag the user reported.
+            DispatchQueue.main.async { isFocused = true }
             // Auto-embed location on first open when CoreLocation is already
             // authorized — silent UX, never raises the system permission
             // alert. Users who haven't granted access still see the grey
@@ -579,10 +577,10 @@ struct WriteSheetView: View {
     }
 
     private func handleMicReleaseSend() {
-        Task {
-            if let result = await voiceService.stopAndTranscribe() {
-                onPressToTalkSend(result)
-            }
+        // Send path: audio is saved instantly, transcription runs in the
+        // background via VoiceAttachmentQueue and patches the memo later.
+        if let result = voiceService.stopAndSaveAudio() {
+            onPressToTalkSend(result)
         }
     }
 

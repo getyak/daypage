@@ -263,7 +263,23 @@ struct TodayView: View {
 
     // US-005: Tracks timeline scroll offset to activate the glass header bar.
     // Becomes negative as the user scrolls down; < -8 triggers the frosted glass.
+    //
+    // Perf: NEVER read this value from the view body — every scroll frame would
+    // then invalidate the 3.8k-line TodayView and drop frames. Consumers read
+    // the derived, threshold-bucketed booleans below (`isTimelineScrolled`,
+    // `showScrollToTopButton`, `scrollProgressBucket`), which change O(1)
+    // times per scroll instead of O(60Hz).
     @State private var timelineScrollOffset: CGFloat = 0
+    /// True once the timeline has scrolled past 8pt — activates the glass
+    /// header bar. Flips at most twice per scroll gesture.
+    @State private var isTimelineScrolled: Bool = false
+    /// True once the timeline has scrolled past 240pt — surfaces the
+    /// scroll-to-top button and the "back to top" affordance.
+    @State private var showScrollToTopButton: Bool = false
+    /// Quantized progress (0…20) of the scroll-to-top ring so the ring
+    /// re-renders at most 21 times across the 1200pt travel instead of once
+    /// per scroll frame. Divide by 20.0 at the read site to recover 0.0–1.0.
+    @State private var scrollProgressBucket: Int = 0
 
     private var isInSelectionMode: Bool { selectedMemoIds != nil }
 
@@ -272,9 +288,11 @@ struct TodayView: View {
         wordMilestones.filter { $0 <= viewModel.todayWordCount }.count
     }
 
-    /// Progress of the scroll-to-top ring: 0 at 240pt (button appears), 1 after 1200pt more.
+    /// Progress of the scroll-to-top ring: 0 at 240pt (button appears), 1 after
+    /// 1200pt more. Reads the quantized bucket (0…20) so the ring's stroke
+    /// re-renders at most 21 times across the travel rather than each frame.
     private var scrollProgress: CGFloat {
-        min(1, max(0, (-timelineScrollOffset - 240) / 1200))
+        CGFloat(scrollProgressBucket) / 20.0
     }
 
     /// Fraction of the current local day elapsed (0.0 at midnight, 1.0 at next midnight).
@@ -507,7 +525,7 @@ struct TodayView: View {
                 .animation(Motion.rise, value: viewModel.lastDeletedMemo != nil)
                 // Scroll-to-top chevron — fades in at bottom-trailing when scrolled past 240pt
                 .overlay(alignment: .bottomTrailing) {
-                    if timelineScrollOffset < -240 && !viewModel.memos.isEmpty && !isInSelectionMode {
+                    if showScrollToTopButton && !viewModel.memos.isEmpty && !isInSelectionMode {
                         Button {
                             hasNewContentAboveFold = false
                             Haptics.soft()
@@ -558,7 +576,7 @@ struct TodayView: View {
                         .accessibilityIdentifier("scroll-to-top-button")
                     }
                 }
-                .animation(reduceMotion ? nil : Motion.rise, value: timelineScrollOffset < -240)
+                .animation(reduceMotion ? nil : Motion.rise, value: showScrollToTopButton)
                 .onChange(of: scrollProgress) { progress in
                     // Intermediate milestone ticks at 33% and 66% fill.
                     let milestone = Int(progress * 3) // 0/1/2/3
@@ -2317,7 +2335,7 @@ struct TodayView: View {
     /// US-005: background fades to frosted glass once the timeline has scrolled > 8pt.
     @ViewBuilder
     private var sidebarSection: some View {
-        let isScrolled = timelineScrollOffset < -8
+        let isScrolled = isTimelineScrolled
         // The header HStack now participates in normal layout (it owns its
         // height), with the glass/separator drawn as a `.background` behind it.
         // Previously the HStack lived inside `.overlay()` on a zero-height
@@ -2799,7 +2817,19 @@ struct TodayView: View {
         )
         .coordinateSpace(name: "todayScroll")
         .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+            // Store the raw value only — DO NOT read this from any body path;
+            // see the property-doc for the perf rationale.
             timelineScrollOffset = value
+            // Derive threshold-bucketed state so the surrounding view body
+            // invalidates O(1) times per scroll instead of O(60Hz).
+            let scrolled = value < -8
+            if scrolled != isTimelineScrolled { isTimelineScrolled = scrolled }
+            let showTop = value < -240
+            if showTop != showScrollToTopButton { showScrollToTopButton = showTop }
+            // Quantize the ring progress (0…20) — floor(clamp(-value - 240, 0, 1200) / 60).
+            let clamped = max(0, min(1200, -value - 240))
+            let bucket = Int(clamped / 60)
+            if bucket != scrollProgressBucket { scrollProgressBucket = bucket }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { timelineScrollProxy = proxy }
@@ -2899,7 +2929,7 @@ struct TodayView: View {
             // When the user is scrolled far into history (past the button threshold),
             // badge the scroll-to-top button instead of jumping them away from context.
             if count > lastMemoCount {
-                if timelineScrollOffset < -240 {
+                if showScrollToTopButton {
                     hasNewContentAboveFold = true
                     Haptics.soft()
                 } else if let proxy = timelineScrollProxy {
@@ -2957,9 +2987,13 @@ struct TodayView: View {
 
         inputBarV4
             // While WriteSheet is presented (overlay layer, not a true UISheet),
-            // disable hit-testing on the dock beneath. Otherwise taps at the
-            // edge of the scrim can fall through to the dock's `+` / mic and
-            // present a second sheet on top of the open WriteSheet.
+            // hide the dock beneath. Not just disable hit-testing — leaving the
+            // dock visible looks like "two input bars overlapping" (one in the
+            // sheet, one behind the scrim) which users reported as jarring.
+            // Fading + shifting it off-screen is cheaper than mounting/dismounting.
+            .opacity(showWriteSheet ? 0 : 1)
+            .offset(y: showWriteSheet ? 40 : 0)
+            .animation(reduceMotion ? nil : Motion.rise, value: showWriteSheet)
             .allowsHitTesting(!showWriteSheet)
     }
 

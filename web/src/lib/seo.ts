@@ -71,3 +71,45 @@ export function absoluteUrl(path: string): string {
   if (path.startsWith("http")) return path;
   return `${SITE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 }
+
+/**
+ * Build a full hreflang set for a page. Google recommends every localized page
+ * expose the same alternate set including a self-reference and x-default.
+ *
+ * @param slug canonical segment starting with "/" (e.g. "/manifesto" or "/").
+ *             The en URL is "$slug", the zh URL is "/zh$slug" ("/zh" for root).
+ */
+export function hreflangAlternates(slug: string): {
+  canonical: string;
+  languages: Record<string, string>;
+} {
+  const clean = slug === "/" ? "" : slug;
+  const en = clean === "" ? "/" : clean;
+  const zh = clean === "" ? "/zh" : `/zh${clean}`;
+  return {
+    canonical: en,
+    languages: {
+      en,
+      "zh-CN": zh,
+      "x-default": en,
+    },
+  };
+}
+
+/** Same helper for pages under /zh — canonical is the zh URL. */
+export function hreflangAlternatesZh(slug: string): {
+  canonical: string;
+  languages: Record<string, string>;
+} {
+  const clean = slug === "/" ? "" : slug;
+  const en = clean === "" ? "/" : clean;
+  const zh = clean === "" ? "/zh" : `/zh${clean}`;
+  return {
+    canonical: zh,
+    languages: {
+      en,
+      "zh-CN": zh,
+      "x-default": en,
+    },
+  };
+}

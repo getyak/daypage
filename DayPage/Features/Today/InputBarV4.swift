@@ -439,7 +439,11 @@ struct InputBarV4: View {
             .buttonStyle(.plain)
             .accessibilityLabel(NSLocalizedString("input.a11y.more_attachments", comment: ""))
 
-            // CENTER — italic text stub, taps to open WriteSheet
+            // CENTER — silent breathing caret only, taps to open WriteSheet.
+            // Previously an italic "记下此刻" hint sat next to the caret; users
+            // complained it felt like prefilled text they had to delete, so the
+            // affordance reduces to the caret alone. It still telegraphs
+            // "tap to write" without polluting the composer with copy.
             Button {
                 Haptics.soft()
                 if let openSheet = onOpenWriteSheet {
@@ -449,18 +453,16 @@ struct InputBarV4: View {
                     isFocused = true
                 }
             } label: {
-                HStack(spacing: 8) {
-                    Text(NSLocalizedString("input.hint.placeholder", comment: "记下此刻"))
-                        .font(DSFonts.serif(size: 15.5, italic: true))
-                        .foregroundStyle(DSColor.inkSubtle)
-                        .lineLimit(1)
+                HStack(spacing: 0) {
                     Rectangle()
                         .fill(DSColor.amberDeep.opacity(0.35))
                         .frame(width: 2, height: 14)
                         .modifier(BreathingCaretModifier())
+                    Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.leading, 4)
+                .padding(.leading, 6)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityLabel(NSLocalizedString("input.a11y.write_text", comment: ""))
@@ -1038,10 +1040,11 @@ struct InputBarV4: View {
             return
         }
         Haptics.medium()
-        Task {
-            if let result = await voiceService.stopAndTranscribe() {
-                onPressToTalkSend(result)
-            }
+        // Send path: audio is saved instantly, transcription runs in the
+        // background via VoiceAttachmentQueue and patches the memo later.
+        // No await needed here — the memo lands within one frame.
+        if let result = voiceService.stopAndSaveAudio() {
+            onPressToTalkSend(result)
         }
     }
 

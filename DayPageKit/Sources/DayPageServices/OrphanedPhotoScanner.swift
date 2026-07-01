@@ -31,9 +31,15 @@ public enum OrphanedPhotoScanner {
     // MARK: - Public surface
 
     public struct Orphan: Equatable {
-        let url: URL
-        let modifiedAt: Date
-        let sizeBytes: Int64
+        public let url: URL
+        public let modifiedAt: Date
+        public let sizeBytes: Int64
+
+        public init(url: URL, modifiedAt: Date, sizeBytes: Int64) {
+            self.url = url
+            self.modifiedAt = modifiedAt
+            self.sizeBytes = sizeBytes
+        }
     }
 
     /// Default age threshold above which orphans are eligible for silent GC.

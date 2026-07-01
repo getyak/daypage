@@ -1,13 +1,29 @@
 import type { Metadata } from "next";
 import { MarketingPageShell } from "../_components/MarketingPageShell";
-import { SITE_NAME } from "@/lib/seo";
+import { SITE_NAME, SITE_URL, hreflangAlternates } from "@/lib/seo";
+
+const DESC =
+  "DayPage is built by a small team that wanted a journal that survives nomad life. Here is who, and why.";
 
 export const metadata: Metadata = {
   title: "About",
-  description:
-    "DayPage is built by a small team that wanted a journal that survives nomad life. Here is who, and why.",
-  alternates: { canonical: "/about" },
-  openGraph: { title: `About · ${SITE_NAME}` },
+  description: DESC,
+  alternates: hreflangAlternates("/about"),
+  openGraph: {
+    title: `About · ${SITE_NAME}`,
+    description: DESC,
+    url: `${SITE_URL}/about`,
+    type: "website",
+    locale: "en_US",
+    alternateLocale: ["zh_CN"],
+    images: [{ url: "/opengraph-image.png", width: 1200, height: 630, alt: `About · ${SITE_NAME}` }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `About · ${SITE_NAME}`,
+    description: DESC,
+    images: ["/opengraph-image.png"],
+  },
 };
 
 export default function AboutPage() {

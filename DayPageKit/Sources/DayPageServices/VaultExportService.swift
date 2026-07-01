@@ -77,6 +77,21 @@ public struct ExportManifest: Equatable {
     /// Sum of every file's byte size across all of the above. Int64 because
     /// a year of 4K photos easily passes the Int32 ceiling on 32-bit slices.
     public let estimatedTotalBytes: Int64
+
+    /// Explicit public memberwise init for cross-module fixture construction.
+    public init(
+        rawMemoCount: Int,
+        dailyPageCount: Int,
+        entityCount: Int,
+        assetCount: Int,
+        estimatedTotalBytes: Int64
+    ) {
+        self.rawMemoCount = rawMemoCount
+        self.dailyPageCount = dailyPageCount
+        self.entityCount = entityCount
+        self.assetCount = assetCount
+        self.estimatedTotalBytes = estimatedTotalBytes
+    }
 }
 
 /// Bitmask selecting which vault subdirectories `exportVaultZip(...)` should
@@ -394,7 +409,7 @@ public final class VaultExportService {
     /// - Throws: Re-throws FileManager errors that aren't "missing directory"
     ///           (e.g. permission denied). Routine "subdirectory missing"
     ///           cases are swallowed and treated as 0 contribution.
-    nonisolated internal static func computeManifest(vaultURL: URL) throws -> ExportManifest? {
+    nonisolated public static func computeManifest(vaultURL: URL) throws -> ExportManifest? {
         let fm = FileManager.default
         var isDir: ObjCBool = false
         guard fm.fileExists(atPath: vaultURL.path, isDirectory: &isDir), isDir.boolValue else {
@@ -439,7 +454,7 @@ public final class VaultExportService {
 
     /// `true` iff every count in the manifest is zero. Extracted so both
     /// `collectExportManifest()` and tests share one definition of "empty".
-    nonisolated internal static func isEmpty(_ manifest: ExportManifest) -> Bool {
+    nonisolated public static func isEmpty(_ manifest: ExportManifest) -> Bool {
         return manifest.rawMemoCount == 0
             && manifest.dailyPageCount == 0
             && manifest.entityCount == 0

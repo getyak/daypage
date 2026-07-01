@@ -161,7 +161,7 @@ public struct MemoSyncUploader: RemoteUploader {
     /// Injectable transport so tests can supply canned responses.
     public let transport: HTTPTransport
 
-    init(transport: HTTPTransport = HTTPTransports.shared) {
+    public init(transport: HTTPTransport = HTTPTransports.shared) {
         self.transport = transport
     }
 

@@ -299,9 +299,52 @@ final class VoiceService: NSObject, ObservableObject {
 
     // MARK: - Stop & Transcribe
 
+    /// 停止录制、保存 .m4a 文件，并**立即**返回一个 transcript=nil 的结果。
+    ///
+    /// 转录任务被推入 VoiceAttachmentQueue，由它在后台跑 Whisper 并事后
+    /// patch memo.attachment.transcript。这样"点击发送"的体感 = 停止
+    /// 录音的那一帧，不会再被 Whisper HTTPS 往返阻塞。
+    ///
+    /// 用于用户显式选择"发送"的路径（长按松手→send、录音条→送出）。
+    /// 需要 transcript **在返回前**已经就绪的场景（例如松开手指后立即
+    /// 把文字填进输入框），请继续使用 `stopAndTranscribe()`。
+    func stopAndSaveAudio() -> VoiceRecordingResult? {
+        guard let rec = recorder, let fileURL = currentFileURL else {
+            state = .failed("没有活跃的录音")
+            return nil
+        }
+
+        stopTimer()
+        stopMeteringTimer()
+        let finalDuration = Double(elapsedSeconds)
+        rec.stop()
+        recorder = nil
+
+        do {
+            try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        } catch {
+            DayPageLogger.shared.warn("VoiceService: setActive(false) failed: \(error)")
+        }
+
+        let filePath = "raw/assets/\(fileURL.lastPathComponent)"
+        lastTranscriptFailed = false
+        VoiceAttachmentQueue.shared.enqueue(audioPath: filePath, memoDate: Date())
+
+        state = .done
+        return VoiceRecordingResult(
+            filePath: filePath,
+            fileURL: fileURL,
+            duration: finalDuration,
+            transcript: nil
+        )
+    }
+
     /// 停止录制、保存 .m4a 文件、调用 Whisper API 并返回结果。
     /// 网络失败时音频仍会保存；transcript 将为 nil。
     /// 仅在没有有效可保存的录音时返回 nil。
+    ///
+    /// **阻塞**在 Whisper 上 —— 仅用于"松开手指立即把 transcript 填进
+    /// 输入框"这类需要转录文本在返回前就绪的场景。
     func stopAndTranscribe() async -> VoiceRecordingResult? {
         guard let rec = recorder, let fileURL = currentFileURL else {
             state = .failed("没有活跃的录音")

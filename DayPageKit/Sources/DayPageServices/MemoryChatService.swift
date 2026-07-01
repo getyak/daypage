@@ -1,15 +1,37 @@
 import Foundation
+import DayPageStorage
+import DayPageModels
 
 // MARK: - ChatTurn
 
 /// 对话中的一轮消息（用于 UI 展示与历史回放）。
-public struct ChatTurn: Identifiable, Equatable {
-    public enum Role: Equatable { case user, assistant }
-    public let id = UUID()
+public struct ChatTurn: Identifiable, Equatable, Codable {
+    public enum Role: String, Equatable, Codable { case user, assistant }
+    public let id: UUID
     public let role: Role
     public var text: String
+    /// UTC timestamp — persisted so history reads back in chronological order.
+    public let createdAt: Date
     /// 仅 assistant 轮：本次回答检索到的上下文（用于在 UI 上展示引用来源）。
+    /// Not persisted — chips are recomputable and add JSON weight for no
+    /// user-visible benefit after the session ends.
     public var context: RetrievedContext?
+
+    public init(
+        id: UUID = UUID(),
+        role: Role,
+        text: String,
+        createdAt: Date = Date(),
+        context: RetrievedContext? = nil
+    ) {
+        self.id = id
+        self.role = role
+        self.text = text
+        self.createdAt = createdAt
+        self.context = context
+    }
+
+    enum CodingKeys: String, CodingKey { case id, role, text, createdAt }
 }
 
 // MARK: - MemoryChatService
@@ -85,7 +107,9 @@ public final class MemoryChatService: ObservableObject {
         guard !question.isEmpty, !isResponding else { return }
 
         errorMessage = nil
-        turns.append(ChatTurn(role: .user, text: question))
+        let userTurn = ChatTurn(role: .user, text: question)
+        turns.append(userTurn)
+        Self.appendTurn(userTurn)
         isResponding = true
         defer { isResponding = false }
 
@@ -106,7 +130,9 @@ public final class MemoryChatService: ObservableObject {
         // Step 3: 调 LLM。
         do {
             let answer = try await send(messages)
-            turns.append(ChatTurn(role: .assistant, text: answer, context: context))
+            let assistantTurn = ChatTurn(role: .assistant, text: answer, context: context)
+            turns.append(assistantTurn)
+            Self.appendTurn(assistantTurn)
         } catch {
             let msg = (error as? LLMError)?.errorDescription ?? error.localizedDescription
             errorMessage = msg
@@ -114,10 +140,89 @@ public final class MemoryChatService: ObservableObject {
         }
     }
 
-    /// 清空对话（开始新会话）。
+    /// 清空对话（开始新会话）。历史记录仍保留在磁盘上；`reset` 只切换
+    /// UI session。若想连磁盘一起清，另用未来 API。
     public func reset() {
         turns.removeAll()
         errorMessage = nil
+    }
+
+    // MARK: - Persistence (D1 — history across launches)
+
+    /// 从 `vault/wiki/chats/YYYY-MM-DD.jsonl` 追加式加载今天的历史。
+    /// 首次进入 AskPastView 时调用；无历史时静默返回。
+    public func loadTodayHistory() {
+        let url = Self.chatLogURL(for: Date())
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        guard let data = try? Data(contentsOf: url),
+              let text = String(data: data, encoding: .utf8) else { return }
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        var loaded: [ChatTurn] = []
+        for line in text.split(whereSeparator: \.isNewline) {
+            let bytes = Data(line.utf8)
+            if let turn = try? decoder.decode(ChatTurn.self, from: bytes) {
+                loaded.append(turn)
+            }
+        }
+        // Reserve `turns` for freshly-created turns from this session by
+        // appending on top of what we loaded — the ScrollViewReader in
+        // AskPastView will land the user at the bottom either way.
+        turns = loaded + turns
+    }
+
+    /// Append one turn's JSON to the day's log file. Best-effort; failures
+    /// are non-fatal (a lost line is preferable to blocking the UI).
+    fileprivate static func appendTurn(_ turn: ChatTurn) {
+        let url = chatLogURL(for: turn.createdAt)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        guard let data = try? encoder.encode(turn) else { return }
+        var line = data
+        line.append(0x0A) // '\n'
+
+        let fm = FileManager.default
+        if fm.fileExists(atPath: url.path) {
+            if let handle = try? FileHandle(forWritingTo: url) {
+                defer { try? handle.close() }
+                _ = try? handle.seekToEnd()
+                try? handle.write(contentsOf: line)
+            }
+        } else {
+            try? line.write(to: url, options: .atomic)
+        }
+    }
+
+    private static func chatLogURL(for date: Date) -> URL {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        f.timeZone = TimeZone.current
+        let day = f.string(from: date)
+        return VaultInitializer.vaultURL
+            .appendingPathComponent("wiki/chats", isDirectory: true)
+            .appendingPathComponent("\(day).jsonl")
+    }
+
+    // MARK: - Pin to Diary
+
+    /// 把一条 assistant 回答封装成 memo 追加到今天的日记文件。用于
+    /// AskPastView 里"存入今日日记"按钮。返回是否成功。
+    @discardableResult
+    public func pinTurnToDiary(_ turn: ChatTurn) -> Bool {
+        guard turn.role == .assistant, !turn.text.isEmpty else { return false }
+        // The AI answer becomes the body verbatim; a small prefix marker
+        // makes it discoverable when browsing raw memos later.
+        let body = "✨ AI · \(turn.text)"
+        let memo = Memo(type: .text, created: Date(), body: body)
+        do {
+            try RawStorage.append(memo)
+            return true
+        } catch {
+            errorMessage = "存入日记失败：\(error.localizedDescription)"
+            return false
+        }
     }
 
     // MARK: - Message assembly
