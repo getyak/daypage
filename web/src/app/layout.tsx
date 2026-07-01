@@ -85,7 +85,7 @@ export const metadata: Metadata = {
     alternateLocale: ["zh_CN"],
     images: [
       {
-        url: "/opengraph-image",
+        url: "/opengraph-image.png",
         width: OG_IMAGE.width,
         height: OG_IMAGE.height,
         alt: OG_IMAGE.alt,
@@ -98,7 +98,7 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
     site: SOCIAL.twitter,
     creator: SOCIAL.twitter,
-    images: ["/opengraph-image"],
+    images: ["/opengraph-image.png"],
   },
   robots: {
     index: true,

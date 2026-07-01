@@ -7,6 +7,9 @@ const securityHeaders = [
   { key: "X-XSS-Protection", value: "1; mode=block" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  // Vary lets Google's crawler + caches know the response depends on these
+  // signals — critical for the /zh language redirect served by middleware.
+  { key: "Vary", value: "Accept-Language, Cookie" },
   {
     key: "Strict-Transport-Security",
     value: "max-age=63072000; includeSubDomains; preload",

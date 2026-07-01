@@ -88,7 +88,14 @@ export async function middleware(request: NextRequest) {
   const acceptLang = request.headers.get("accept-language") ?? "";
   const wantsZh = /\bzh\b/i.test(acceptLang.split(",")[0] ?? "");
   if (pathname === "/" && !langCookie && wantsZh) {
-    const redirect = NextResponse.redirect(new URL("/zh", request.url));
+    // 307 preserves method + is a "temporary" hint that Googlebot treats as
+    // *not* the canonical URL for the source — good for language redirects.
+    // Vary tells caches/crawlers the response depends on these inputs, so a
+    // proxy won't serve /zh HTML to a subsequent en visitor.
+    const redirect = NextResponse.redirect(new URL("/zh", request.url), {
+      status: 307,
+    });
+    redirect.headers.append("Vary", "Accept-Language, Cookie");
     redirect.cookies.set("daypage-lang", "zh", {
       maxAge: 60 * 60 * 24 * 365,
       sameSite: "lax",
@@ -102,6 +109,9 @@ export async function middleware(request: NextRequest) {
   response.headers.set("x-pathname", pathname);
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("X-Frame-Options", "SAMEORIGIN");
+  // Merge with Next's auto-Vary (rsc, next-router-*, Accept-Encoding) so the
+  // language + auth-cookie signals reach Google's crawler + upstream caches.
+  response.headers.append("Vary", "Accept-Language, Cookie");
 
   if (pathname.startsWith("/api/")) {
     console.log(
@@ -119,6 +129,10 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Root path is intentionally its own entry — the negative-lookahead below
+    // requires at least one character after "/", so it silently excludes "/".
+    // The i18n redirect + auth cookie refresh must run on the landing page.
+    "/",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).+)",
   ],
 };

@@ -19,19 +19,21 @@ const organization = {
   description: SITE_DESCRIPTION,
 };
 
+// SearchAction removed: DayPage has no site-wide search endpoint. Declaring one
+// that returns 404 is worse than declaring none — Google flags it as invalid.
 const website = {
   "@context": "https://schema.org",
   "@type": "WebSite",
   name: SITE_NAME,
   url: SITE_URL,
   description: SITE_TAGLINE,
-  potentialAction: {
-    "@type": "SearchAction",
-    target: `${SITE_URL}/search?q={query}`,
-    "query-input": "required name=query",
-  },
+  inLanguage: ["en", "zh-CN"],
+  publisher: { "@type": "Organization", name: SITE_NAME, url: SITE_URL },
 };
 
+// aggregateRating removed: the previous values (4.8/128) were placeholders.
+// Google Search treats fabricated review data as spammy structured data and
+// can apply a manual action. Re-add only with a verifiable review source.
 const softwareApplication = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
@@ -42,16 +44,12 @@ const softwareApplication = {
     "@type": "Offer",
     price: "0",
     priceCurrency: "USD",
-  },
-  aggregateRating: {
-    "@type": "AggregateRating",
-    ratingValue: "4.8",
-    ratingCount: "128",
-    bestRating: "5",
+    availability: "https://schema.org/InStock",
   },
   description: SITE_DESCRIPTION,
   url: SITE_URL,
-  screenshot: absoluteUrl("/opengraph-image"),
+  screenshot: absoluteUrl("/opengraph-image.png"),
+  softwareVersion: "0.5",
   author: { "@type": "Organization", name: SITE_NAME, url: SITE_URL },
 };
 

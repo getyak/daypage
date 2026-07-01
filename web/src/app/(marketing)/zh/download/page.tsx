@@ -1,15 +1,29 @@
 import type { Metadata } from "next";
 import { MarketingPageShell } from "../../_components/MarketingPageShell";
+import { SITE_NAME, SITE_URL, hreflangAlternatesZh } from "@/lib/seo";
+
+const DESC =
+  "DayPage 现已上线 iOS。免费、本地优先、无需账号。macOS 内测中。";
 
 export const metadata: Metadata = {
   title: "下载",
-  description:
-    "DayPage 现已上线 iOS。免费、本地优先、无需账号。macOS 内测中。",
-  alternates: {
-    canonical: "/zh/download",
-    languages: { en: "/download", "zh-CN": "/zh/download" },
+  description: DESC,
+  alternates: hreflangAlternatesZh("/download"),
+  openGraph: {
+    title: `下载 · ${SITE_NAME}`,
+    description: DESC,
+    url: `${SITE_URL}/zh/download`,
+    type: "website",
+    locale: "zh_CN",
+    alternateLocale: ["en_US"],
+    images: [{ url: "/opengraph-image.png", width: 1200, height: 630, alt: `下载 · ${SITE_NAME}` }],
   },
-  openGraph: { locale: "zh_CN" },
+  twitter: {
+    card: "summary_large_image",
+    title: `下载 · ${SITE_NAME}`,
+    description: DESC,
+    images: ["/opengraph-image.png"],
+  },
 };
 
 export default function Page() {

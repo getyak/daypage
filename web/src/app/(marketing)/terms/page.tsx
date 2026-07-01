@@ -1,12 +1,28 @@
 import type { Metadata } from "next";
 import { MarketingPageShell } from "../_components/MarketingPageShell";
-import { SITE_NAME } from "@/lib/seo";
+import { SITE_NAME, SITE_URL, hreflangAlternates } from "@/lib/seo";
+
+const DESC = `Terms of use for ${SITE_NAME} — short, plain English.`;
 
 export const metadata: Metadata = {
   title: "Terms",
-  description: `Terms of use for ${SITE_NAME} — short, plain English.`,
-  alternates: { canonical: "/terms" },
-  openGraph: { title: `Terms · ${SITE_NAME}` },
+  description: DESC,
+  alternates: hreflangAlternates("/terms"),
+  openGraph: {
+    title: `Terms · ${SITE_NAME}`,
+    description: DESC,
+    url: `${SITE_URL}/terms`,
+    type: "website",
+    locale: "en_US",
+    alternateLocale: ["zh_CN"],
+    images: [{ url: "/opengraph-image.png", width: 1200, height: 630, alt: `Terms · ${SITE_NAME}` }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `Terms · ${SITE_NAME}`,
+    description: DESC,
+    images: ["/opengraph-image.png"],
+  },
 };
 
 export default function TermsPage() {

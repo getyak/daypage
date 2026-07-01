@@ -152,7 +152,7 @@ export function Footer({ lang = "en" }: Props) {
                     <Link
                       href={link.href}
                       {...(link.external
-                        ? { rel: "noopener", target: link.href.startsWith("http") ? "_blank" : undefined }
+                        ? { rel: "noopener noreferrer", target: link.href.startsWith("http") ? "_blank" : undefined }
                         : {})}
                       className="text-[14px] text-[color:var(--fg-muted)] transition-colors hover:text-[color:var(--fg-primary)]"
                     >
@@ -168,7 +168,12 @@ export function Footer({ lang = "en" }: Props) {
         <div className="mt-16 flex flex-col items-start justify-between gap-4 border-t border-[color:var(--border-subtle)] pt-8 md:flex-row md:items-center">
           <p className="text-[12px] text-[color:var(--fg-subtle-aa)]">{c.made}</p>
           <div className="flex items-center gap-4 text-[12px] text-[color:var(--fg-subtle-aa)]">
-            <Link href="https://github.com/getyak/daypage" aria-label="GitHub">
+            <Link
+              href="https://github.com/getyak/daypage"
+              aria-label="GitHub"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               GitHub
             </Link>
             <span>·</span>

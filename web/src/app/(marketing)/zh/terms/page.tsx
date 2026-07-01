@@ -1,14 +1,28 @@
 import type { Metadata } from "next";
 import { MarketingPageShell } from "../../_components/MarketingPageShell";
+import { SITE_NAME, SITE_URL, hreflangAlternatesZh } from "@/lib/seo";
+
+const DESC = "DayPage 服务条款,短句直白。";
 
 export const metadata: Metadata = {
   title: "服务条款",
-  description: "DayPage 服务条款,短句直白。",
-  alternates: {
-    canonical: "/zh/terms",
-    languages: { en: "/terms", "zh-CN": "/zh/terms" },
+  description: DESC,
+  alternates: hreflangAlternatesZh("/terms"),
+  openGraph: {
+    title: `服务条款 · ${SITE_NAME}`,
+    description: DESC,
+    url: `${SITE_URL}/zh/terms`,
+    type: "website",
+    locale: "zh_CN",
+    alternateLocale: ["en_US"],
+    images: [{ url: "/opengraph-image.png", width: 1200, height: 630, alt: `服务条款 · ${SITE_NAME}` }],
   },
-  openGraph: { locale: "zh_CN" },
+  twitter: {
+    card: "summary_large_image",
+    title: `服务条款 · ${SITE_NAME}`,
+    description: DESC,
+    images: ["/opengraph-image.png"],
+  },
 };
 
 export default function Page() {
