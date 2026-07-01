@@ -136,23 +136,31 @@ struct RootView: View {
 
     private var mainContent: some View {
         ZStack(alignment: .leading) {
-            // 标签页内容 — 三个页面全部保持存活以保留 ViewModel 状态
+            // Persistent tab hosts — three pages stay alive to preserve
+            // ViewModel state. The scrim on top intercepts taps while the
+            // sidebar is open, so `.allowsHitTesting` only depends on the
+            // active tab. Dropping `nav.isSidebarOpen` from this expression
+            // removes a false animatable dependency that made the whole
+            // ZStack invalidate (and briefly flicker) every time the sidebar
+            // slide animation started or ended.
             ZStack {
                 TodayView()
                     .opacity(nav.selectedTab == .today ? 1 : 0)
-                    .animation(Motion.fade, value: nav.selectedTab)
-                    .allowsHitTesting(nav.selectedTab == .today && !nav.isSidebarOpen)
+                    .allowsHitTesting(nav.selectedTab == .today)
 
                 ArchiveView()
                     .opacity(nav.selectedTab == .archive ? 1 : 0)
-                    .animation(Motion.fade, value: nav.selectedTab)
-                    .allowsHitTesting(nav.selectedTab == .archive && !nav.isSidebarOpen)
+                    .allowsHitTesting(nav.selectedTab == .archive)
 
                 GraphView()
                     .opacity(nav.selectedTab == .graph ? 1 : 0)
-                    .animation(Motion.fade, value: nav.selectedTab)
-                    .allowsHitTesting(nav.selectedTab == .graph && !nav.isSidebarOpen)
+                    .allowsHitTesting(nav.selectedTab == .graph)
             }
+            // Scope the crossfade to tab swaps ONLY. Attaching on the outer
+            // ZStack (instead of per-child .animation) keeps SwiftUI from
+            // reinterpreting the fade every time a sibling modifier (e.g.
+            // sidebar offset) animates on the same render pass.
+            .animation(Motion.fade, value: nav.selectedTab)
 
             // 背景遮罩 — 点击或左滑关闭
             if nav.isSidebarOpen {

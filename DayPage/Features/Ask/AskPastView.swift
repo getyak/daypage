@@ -16,8 +16,17 @@ struct AskPastView: View {
     let onClose: () -> Void
 
     @StateObject private var chat = MemoryChatService()
+    @StateObject private var voiceService = VoiceService.shared
     @State private var draft: String = ""
     @State private var didSeed = false
+    @State private var isRecordingVoice: Bool = false
+    /// Assistant turns the user has already pinned into today's diary this
+    /// session. Purely UI state — used to switch the pin button to a
+    /// "已存入" checkmark and disable further taps.
+    @State private var pinnedTurnIDs: Set<UUID> = []
+    /// Turn ID that just got pinned — drives a 1.5s success toast without
+    /// having to plumb a Banner through the chat view.
+    @State private var justPinnedTurnID: UUID? = nil
     @FocusState private var inputFocused: Bool
 
     var body: some View {
@@ -47,9 +56,13 @@ struct AskPastView: View {
         .task {
             guard !didSeed else { return }
             didSeed = true
+            // D1: bring back today's persisted conversation before the
+            // first render finishes, so returning users see prior turns
+            // instead of an empty state.
+            chat.loadTodayHistory()
             if let seed = seedQuestion?.trimmingCharacters(in: .whitespacesAndNewlines), !seed.isEmpty {
                 await chat.ask(seed)
-            } else {
+            } else if chat.turns.isEmpty {
                 inputFocused = true
             }
         }
@@ -108,8 +121,49 @@ struct AskPastView: View {
                 if let context = turn.context, !context.isEmpty {
                     sourceChips(context)
                 }
+                assistantActions(for: turn)
             }
         }
+    }
+
+    /// Row of actions under an assistant turn — currently just "存入今日日记",
+    /// but scoped as a HStack so future additions (copy, share) land cleanly.
+    @ViewBuilder
+    private func assistantActions(for turn: ChatTurn) -> some View {
+        let pinned = pinnedTurnIDs.contains(turn.id)
+        HStack(spacing: 12) {
+            Button {
+                Haptics.tapConfirm()
+                let ok = chat.pinTurnToDiary(turn)
+                if ok {
+                    pinnedTurnIDs.insert(turn.id)
+                    justPinnedTurnID = turn.id
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 1_500_000_000)
+                        if justPinnedTurnID == turn.id { justPinnedTurnID = nil }
+                    }
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: pinned ? "checkmark.circle.fill" : "text.badge.plus")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(pinned ? "已存入今日" : "存入今日日记")
+                        .font(DSType.labelSM)
+                }
+                .foregroundColor(pinned ? DSColor.successGreen : DSColor.amberAccent)
+            }
+            .buttonStyle(.plain)
+            .disabled(pinned)
+            .accessibilityLabel(pinned ? "已存入今日日记" : "把这条回答存入今日日记")
+
+            if justPinnedTurnID == turn.id {
+                Text("✓ 已加入今日 timeline")
+                    .font(DSType.labelSM)
+                    .foregroundColor(DSColor.inkMuted)
+                    .transition(.opacity)
+            }
+        }
+        .padding(.top, 4)
     }
 
     /// 引用来源 chips：把检索到的 memo 日期与实体显式呈现。
@@ -201,6 +255,27 @@ struct AskPastView: View {
                 .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard, style: .continuous))
                 .onSubmit(submit)
 
+            // Voice input — mirrors Today composer semantics: tap to start
+            // recording, tap again to stop + transcribe. The transcript is
+            // dropped into `draft` so the user can review before sending.
+            Button {
+                Haptics.soft()
+                Task { await toggleVoiceRecording() }
+            } label: {
+                Image(systemName: isRecordingVoice ? "waveform.circle.fill" : "mic.circle")
+                    .font(.system(size: 26))
+                    .foregroundColor(isRecordingVoice ? DSColor.error : DSColor.inkMuted)
+                    // Simple recording pulse — matches the composer's mic
+                    // affordance without depending on iOS 17's symbolEffect.
+                    .scaleEffect(isRecordingVoice ? 1.08 : 1.0)
+                    .animation(
+                        isRecordingVoice ? .easeInOut(duration: 0.8).repeatForever(autoreverses: true) : .default,
+                        value: isRecordingVoice
+                    )
+            }
+            .disabled(chat.isResponding)
+            .accessibilityLabel(isRecordingVoice ? "停止录音并转录" : "语音提问")
+
             Button(action: submit) {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 28))
@@ -212,6 +287,28 @@ struct AskPastView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(DSColor.bgWarm)
+    }
+
+    /// Toggle voice recording. On second tap, blocks briefly on Whisper so
+    /// the transcript can land in the composer for a review-then-send flow
+    /// (matches the composer semantics — voice-to-text, not voice-as-attachment).
+    private func toggleVoiceRecording() async {
+        if !isRecordingVoice {
+            isRecordingVoice = true
+            await voiceService.startRecording()
+        } else {
+            isRecordingVoice = false
+            if let result = await voiceService.stopAndTranscribe(),
+               let transcript = result.transcript,
+               !transcript.isEmpty {
+                if draft.isEmpty {
+                    draft = transcript
+                } else {
+                    draft += " " + transcript
+                }
+                inputFocused = true
+            }
+        }
     }
 
     private var canSend: Bool {

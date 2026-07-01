@@ -48,13 +48,23 @@ private enum SwipePhysics {
     /// still allowing a tactile overdrag.
     static let rubberBand: CGFloat = 0.25
 
-    /// Spring used for snap-open / snap-close. Same response as iOS Mail
-    /// (~0.28s) with damping that lets the panel settle in one cycle.
-    static let snapSpring: Animation = .spring(response: 0.28, dampingFraction: 0.86)
+    /// Spring used for snap-open / snap-close. Delegated to the shared
+    /// `Motion.panel` token (0.32s response, 0.85 damping) so drawer motion
+    /// stays consistent with the recording panel, popovers, and other card
+    /// surfaces. Previously duplicated inline as spring(0.28, 0.86) — the
+    /// 40ms delta was audible against the rest of the app.
+    static let snapSpring: Animation = Motion.panel
 
     /// Eased curve used in place of `snapSpring` when Reduce Motion is on.
-    /// No bounce, slightly shorter so the user can still feel the commit.
-    static let reducedSnap: Animation = .easeOut(duration: 0.22)
+    /// Reuses `Motion.dismiss` (0.22s easeOut) so all fallbacks share one curve.
+    static let reducedSnap: Animation = Motion.dismiss
+
+    /// Delay before the parent's action callback fires after `snapClose()`.
+    /// Matches the resolved response of `snapSpring` (+ a small settle
+    /// margin) so any presented sheet / dialog animates in only after the
+    /// drawer is visually flush. Previously hardcoded 0.25s which was 30ms
+    /// short of the panel response.
+    static let actionCommitDelay: TimeInterval = 0.36
 }
 
 // MARK: - SwipeableMemoCard
@@ -371,7 +381,7 @@ struct SwipeableMemoCard: View {
         case .warn:    Haptics.warningNotification()
         }
         snapClose()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: action)
+        DispatchQueue.main.asyncAfter(deadline: .now() + SwipePhysics.actionCommitDelay, execute: action)
     }
 
     // MARK: - Pan callbacks

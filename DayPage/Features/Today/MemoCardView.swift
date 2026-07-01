@@ -67,9 +67,14 @@ struct MemoCardView: View {
     private func pollDownloadStatus(for url: URL) {
         guard downloadStates[url] == .downloading else { return }
         downloadTask = Task {
-            for _ in 0..<30 {
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-                if Task.isCancelled { return }
+            for i in 0..<30 {
+                // Fast pre-check on iteration 0 (download can be near-instant
+                // for small files already staged by iOS) so we don't burn a
+                // full 2s poll cycle when nothing needs waiting on.
+                if i > 0 {
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    if Task.isCancelled { return }
+                }
                 if isAttachmentDownloaded(url) {
                     await MainActor.run { downloadStates[url] = .current }
                     return
@@ -522,22 +527,35 @@ struct PhotoFullScreenViewer: View {
                     }
             }
 
-            // Close button
+            // Close button — pinned inside safe area so it never overlaps
+            // the Dynamic Island / notch on iPhone 14 Pro and later.
             VStack {
                 HStack {
                     Spacer()
-                    Button(action: { dismiss() }) {
+                    Button {
+                        Haptics.soft()
+                        dismiss()
+                    } label: {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 28))
                             .foregroundColor(DSColor.amberSoft)
-                            .padding(16)
+                            .padding(12)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(NSLocalizedString(
+                        "photo.viewer.close",
+                        value: "关闭图片",
+                        comment: "Full-screen photo viewer — close button a11y"
+                    ))
                 }
                 Spacer()
             }
+            .safeAreaInset(edge: .top) { EmptyView() }
+            .padding(.top, 4)
 
-            // EXIF caption
+            // EXIF caption. Gradient scrim strengthened from 0.7 → 0.85 so
+            // mono10 uppercase reads cleanly against bright / low-contrast
+            // photos too, without hiding image detail above the caption.
             if let exifText {
                 VStack {
                     Spacer()
@@ -545,7 +563,7 @@ struct PhotoFullScreenViewer: View {
                         .font(DSFonts.jetBrainsMono(size: 10))
                         .tracking(0.5)
                         .textCase(.uppercase)
-                        .foregroundColor(DSColor.inkSubtle)
+                        .foregroundColor(.white.opacity(0.92))
                         .lineLimit(1)
                         .truncationMode(.tail)
                         .padding(.horizontal, 16)
@@ -553,7 +571,7 @@ struct PhotoFullScreenViewer: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(
                             LinearGradient(
-                                colors: [Color.clear, Color.black.opacity(0.7)],
+                                colors: [Color.clear, Color.black.opacity(0.85)],
                                 startPoint: .top, endPoint: .bottom
                             )
                         )
@@ -1247,8 +1265,16 @@ struct PhotoDownloadPlaceholder: View {
 // MARK: - Thumbnail Cache
 
 // Process-level cache for decoded photo thumbnails.
-// NSCache automatically evicts entries under memory pressure.
-private let thumbnailCache = NSCache<NSURL, UIImage>()
+// NSCache automatically evicts entries under memory pressure — but leaving
+// the cache unbounded meant a scroll through 100 photos could pin ~500MB of
+// UIImages until iOS forced a purge, at which point every visible thumbnail
+// would reload mid-scroll. Pinning the limits keeps working-set steady.
+private let thumbnailCache: NSCache<NSURL, UIImage> = {
+    let cache = NSCache<NSURL, UIImage>()
+    cache.countLimit = 100                     // ~two full timeline pages of photos
+    cache.totalCostLimit = 50 * 1024 * 1024    // 50MB decoded — well below MemoryWarn threshold
+    return cache
+}()
 
 struct PhotoThumbnailView: View {
     let fileURL: URL
@@ -1276,6 +1302,15 @@ struct PhotoThumbnailView: View {
             }
         }
         .task(id: fileURL) {
+            // Fast path: if the process cache already has this thumb, use it
+            // directly and skip the nil-then-set flicker. Only clear when the
+            // decode has to hit disk, so returning to a previously-viewed
+            // photo shows it instantly.
+            let cacheKey = fileURL as NSURL
+            if let cached = thumbnailCache.object(forKey: cacheKey) {
+                if thumbnail !== cached { thumbnail = cached }
+                return
+            }
             thumbnail = nil
             thumbnail = await loadThumbnailAsync(from: fileURL)
         }
@@ -1297,6 +1332,22 @@ struct PhotoThumbnailView: View {
                             startPoint: .top, endPoint: .bottom
                         )
                     )
+            }
+        }
+        // Small "tap to zoom" affordance in the top-right corner. Portrait
+        // photos are cropped to 4:5 in the card; the badge tells users the
+        // original composition is one tap away without adding chrome text.
+        .overlay(alignment: .topTrailing) {
+            if thumbnail != nil {
+                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.85))
+                    .padding(6)
+                    .background(
+                        Circle().fill(Color.black.opacity(0.35))
+                    )
+                    .padding(8)
+                    .accessibilityHidden(true)
             }
         }
     }

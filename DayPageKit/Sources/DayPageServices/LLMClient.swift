@@ -66,16 +66,36 @@ public struct LLMClient {
     // MARK: - Configuration
 
     public struct Config {
-        var baseURL: String
-        var apiKey: String
-        var model: String
-        var maxTokens: Int
-        var temperature: Double
-        var timeout: TimeInterval
+        public var baseURL: String
+        public var apiKey: String
+        public var model: String
+        public var maxTokens: Int
+        public var temperature: Double
+        public var timeout: TimeInterval
+
+        /// Explicit public memberwise init so tests (and any downstream
+        /// module) can construct a `Config` with a fake baseURL / apiKey —
+        /// Swift's synthesized init is internal and would keep the tests
+        /// broken.
+        public init(
+            baseURL: String,
+            apiKey: String,
+            model: String,
+            maxTokens: Int,
+            temperature: Double,
+            timeout: TimeInterval
+        ) {
+            self.baseURL = baseURL
+            self.apiKey = apiKey
+            self.model = model
+            self.maxTokens = maxTokens
+            self.temperature = temperature
+            self.timeout = timeout
+        }
 
         /// 默认从 `Secrets` 解析 DeepSeek 配置（与原编译管线一致）。
         @MainActor
-        static func deepSeek(
+        public static func deepSeek(
             maxTokens: Int = 4096,
             temperature: Double = 0.7,
             timeout: TimeInterval = 120
@@ -102,7 +122,7 @@ public struct LLMClient {
     /// `HTTPTransports.shared`; tests inject a fake. Issue #31.
     public let transport: HTTPTransport
 
-    init(
+    public init(
         config: Config,
         spanName: String = "llm.chat",
         transport: HTTPTransport = HTTPTransports.shared

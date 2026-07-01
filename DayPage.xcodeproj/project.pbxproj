@@ -118,6 +118,7 @@
 		A10000F50 /* GraphDisplayLinkController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000F50 /* GraphDisplayLinkController.swift */; };
 		A1000ABC1 /* YearMonthPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000ABC1 /* YearMonthPicker.swift */; };
 		A11Y0001 /* AccessibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11Y1001 /* AccessibilityTests.swift */; };
+		SP0001 /* SwipePolishContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SP1001 /* SwipePolishContractTests.swift */; };
 		A46C6A46A2D76FF5DBFBD6C6 /* StartRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE91252BA9167A50BFF79FF0 /* StartRecordingIntent.swift */; };
 		AEA556F95D05E9DC9E275688 /* MacKitSecretsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFC2FE3353FDB07872B77D65 /* MacKitSecretsProvider.swift */; };
 		AF0000001 /* SpaceGrotesk-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000001 /* SpaceGrotesk-Light.ttf */; };
@@ -281,6 +282,7 @@
 		912420086719F3FFFB45FE7A /* InputBarTutorialOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InputBarTutorialOverlay.swift; sourceTree = "<group>"; };
 		986C8E3E042E690BA4CCC12D /* ShareCardSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShareCardSystem.swift; path = ShareCard/ShareCardSystem.swift; sourceTree = "<group>"; };
 		A11Y1001 /* AccessibilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityTests.swift; sourceTree = "<group>"; };
+		SP1001 /* SwipePolishContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipePolishContractTests.swift; sourceTree = "<group>"; };
 		A20000001 /* DayPageApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPageApp.swift; sourceTree = "<group>"; };
 		A20000002 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		A20000004 /* GeneratedSecrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedSecrets.swift; sourceTree = "<group>"; };
@@ -1042,6 +1044,7 @@
 				KC1000001 /* KeychainHelperTests.swift */,
 				TI2000001 /* AppIntentsTests.swift */,
 				A11Y1001 /* AccessibilityTests.swift */,
+				SP1001 /* SwipePolishContractTests.swift */,
 				04B9410B749C82B6E34779E4 /* MemoryChatTests.swift */,
 				MYT1000001 /* MemoYAMLTests.swift */,
 				VTW1000001 /* VoiceTranscriptWritebackTests.swift */,
@@ -1482,6 +1485,7 @@
 				KC0000001 /* KeychainHelperTests.swift in Sources */,
 				TI1000001 /* AppIntentsTests.swift in Sources */,
 				A11Y0001 /* AccessibilityTests.swift in Sources */,
+				SP0001 /* SwipePolishContractTests.swift in Sources */,
 				6587243C5DB109B930AB5D92 /* MemoryChatTests.swift in Sources */,
 				MYT0000001 /* MemoYAMLTests.swift in Sources */,
 				VTW0000001 /* VoiceTranscriptWritebackTests.swift in Sources */,
