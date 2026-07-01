@@ -32,7 +32,7 @@ export default defineConfig({
     {
       name: "mobile-chrome",
       use: {
-        ...devices["iPhone 12"],
+        ...devices["Pixel 5"],
         viewport: { width: 375, height: 812 },
       },
     },

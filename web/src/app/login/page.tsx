@@ -187,9 +187,11 @@ export default async function LoginPage({
           {/* Email magic link */}
           <EmailSignInForm />
 
-          {/* Dev-only shortcut — Supabase password sign-in against the seeded
-              dev@daypage.local user. */}
-          {process.env.NODE_ENV === "development" && (
+          {/* Dev/E2E-only shortcut — Supabase password sign-in against the seeded
+              dev@daypage.local user. Enabled in dev by default and in prod builds
+              only when ENABLE_E2E_DEV_LOGIN=1 (used by scoring E2E runs). */}
+          {(process.env.NODE_ENV === "development" ||
+            process.env.ENABLE_E2E_DEV_LOGIN === "1") && (
             <form
               action={async (formData) => {
                 "use server";
