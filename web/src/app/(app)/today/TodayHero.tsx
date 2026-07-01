@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Dot } from "@/components/ui/Dot";
 
 type HeaderData = {
@@ -143,8 +144,57 @@ export function TodayHero() {
   const weatherTemp = weather.temp !== null ? `${weather.temp}°` : null;
 
   return (
-    <div style={{ paddingTop: 4, paddingBottom: 18 }}>
-      <h1
+    <HeroBody
+      weekdayZh={weekday_zh}
+      dateDisplay={date_display}
+      memoCount={memo_count}
+      weatherTemp={weatherTemp}
+      location={data.location}
+    />
+  );
+}
+
+function HeroBody({
+  weekdayZh,
+  dateDisplay,
+  memoCount,
+  weatherTemp,
+  location,
+}: {
+  weekdayZh: string;
+  dateDisplay: string;
+  memoCount: number;
+  weatherTemp: string | null;
+  location: string | null;
+}) {
+  const reduced = useReducedMotion();
+  return (
+    <motion.div
+      initial="hidden"
+      animate="show"
+      variants={
+        reduced
+          ? undefined
+          : {
+              hidden: {},
+              show: { transition: { staggerChildren: 0.06 } },
+            }
+      }
+      style={{ paddingTop: 4, paddingBottom: 18 }}
+    >
+      <motion.h1
+        variants={
+          reduced
+            ? undefined
+            : {
+                hidden: { opacity: 0, y: 8 },
+                show: {
+                  opacity: 1,
+                  y: 0,
+                  transition: { duration: 0.42, ease: [0.22, 1, 0.36, 1] },
+                },
+              }
+        }
         style={{
           fontFamily: "var(--font-serif)",
           fontSize: 56,
@@ -155,14 +205,28 @@ export function TodayHero() {
           margin: 0,
         }}
       >
-        {weekday_zh}
-      </h1>
+        {weekdayZh}
+      </motion.h1>
 
-      <div style={metaStyle}>
-        {date_display}
+      <motion.div
+        variants={
+          reduced
+            ? undefined
+            : {
+                hidden: { opacity: 0, y: 4 },
+                show: {
+                  opacity: 1,
+                  y: 0,
+                  transition: { duration: 0.32, ease: [0.22, 1, 0.36, 1] },
+                },
+              }
+        }
+        style={metaStyle}
+      >
+        {dateDisplay}
         <Dot />
         <span style={{ color: "var(--accent)" }}>
-          {memo_count} {memo_count === 1 ? "NOTE" : "NOTES"}
+          {memoCount} {memoCount === 1 ? "NOTE" : "NOTES"}
         </span>
         {weatherTemp && (
           <>
@@ -173,13 +237,13 @@ export function TodayHero() {
             </span>
           </>
         )}
-        {data.location && (
+        {location && (
           <>
             <Dot />
-            {data.location}
+            {location}
           </>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

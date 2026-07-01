@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 
 type AISummaryData = {
   summary: string | null;
@@ -117,7 +118,10 @@ export function AISummaryCard() {
 
   if (loading) {
     return (
-      <div
+      <motion.div
+        initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
         style={{
           position: "relative",
           borderRadius: 18,
@@ -126,10 +130,30 @@ export function AISummaryCard() {
           border: "0.5px solid var(--border-subtle)",
           boxShadow: "var(--shadow-card)",
           minHeight: 92,
+          overflow: "hidden",
         }}
         aria-busy="true"
         aria-label="AI 摘要加载中"
       >
+        {/* shimmer sweep */}
+        {!prefersReduced && (
+          <motion.div
+            aria-hidden="true"
+            initial={{ x: "-100%" }}
+            animate={{ x: "200%" }}
+            transition={{ duration: 1.6, repeat: Infinity, ease: "linear" }}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "40%",
+              height: "100%",
+              background:
+                "linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.55) 50%, transparent 70%)",
+              pointerEvents: "none",
+            }}
+          />
+        )}
         <div
           style={{
             position: "absolute",
@@ -168,12 +192,15 @@ export function AISummaryCard() {
             background: "var(--surface-sunken)",
           }}
         />
-      </div>
+      </motion.div>
     );
   }
 
   return (
-    <div
+    <motion.div
+      initial={prefersReduced ? false : { opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
       style={{
         position: "relative",
         borderRadius: 18,
@@ -320,6 +347,6 @@ export function AISummaryCard() {
           50% { opacity: 0; }
         }
       `}</style>
-    </div>
+    </motion.div>
   );
 }

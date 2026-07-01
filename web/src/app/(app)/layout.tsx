@@ -13,6 +13,7 @@ import { NewDomainButton } from "./_components/NewDomainButton";
 import { MobileSidebarDrawer, HamburgerButton } from "./_components/MobileSidebarDrawer";
 import { DesktopSidebarShell } from "./_components/DesktopSidebarShell";
 import { BreadcrumbLabel } from "./_components/BreadcrumbLabel";
+import { PageTransition } from "./_components/PageTransition";
 
 type NavSpec = { href: string; label: string; iconName: NavIconName; meta?: string };
 
@@ -248,7 +249,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             flexDirection: "column",
           }}
         >
-          {children}
+          <PageTransition>{children}</PageTransition>
         </main>
       </div>
       </MobileSidebarDrawer>
