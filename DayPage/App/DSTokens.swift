@@ -1,4 +1,4 @@
-// DSTokens.swift — DayPage v8.0.0 design tokens.
+// DSTokens.swift — DayPage v9.0.0 design tokens.
 // DO NOT EDIT by hand. Edit design-tokens/tokens.json and run `make tokens-build`.
 //
 // Source of truth: design-tokens/tokens.json
@@ -6,7 +6,7 @@
 import SwiftUI
 
 enum DSTokens {
-    static let version = "8.0.0"
+    static let version = "9.0.0"
 
     enum Colors {
         /// #FAF8F6
@@ -21,6 +21,8 @@ enum DSTokens {
         static let fgMuted = Color(red: 0.4196078431372549, green: 0.396078431372549, blue: 0.3764705882352941)
         /// #A39F99
         static let fgSubtle = Color(red: 0.6392156862745098, green: 0.6235294117647059, blue: 0.6)
+        /// #7A7269
+        static let fgSubtleAa = Color(red: 0.47843137254901963, green: 0.4470588235294118, blue: 0.4117647058823529)
         /// #5D3000
         static let accent = Color(red: 0.36470588235294116, green: 0.18823529411764706, blue: 0.0)
         /// #7A3F00
@@ -33,6 +35,18 @@ enum DSTokens {
         static let borderSubtle = Color(red: 0.9294117647058824, green: 0.9098039215686274, blue: 0.8745098039215686)
         /// #D6CEC0
         static let borderDefault = Color(red: 0.8392156862745098, green: 0.807843137254902, blue: 0.7529411764705882)
+        /// #4C7A3F
+        static let success = Color(red: 0.2980392156862745, green: 0.47843137254901963, blue: 0.24705882352941178)
+        /// #EBF3E5
+        static let successSoft = Color(red: 0.9215686274509803, green: 0.9529411764705882, blue: 0.8980392156862745)
+        /// #A66A00
+        static let warning = Color(red: 0.6509803921568628, green: 0.41568627450980394, blue: 0.0)
+        /// #F8ECD6
+        static let warningSoft = Color(red: 0.9725490196078431, green: 0.9254901960784314, blue: 0.8392156862745098)
+        /// #A23A2E
+        static let error = Color(red: 0.6352941176470588, green: 0.22745098039215686, blue: 0.1803921568627451)
+        /// #F5E1DC
+        static let errorSoft = Color(red: 0.9607843137254902, green: 0.8823529411764706, blue: 0.8627450980392157)
         /// #F0EBE3
         static let heatmapEmpty = Color(red: 0.9411764705882353, green: 0.9215686274509803, blue: 0.8901960784313725)
         /// #E6D9C3
@@ -101,11 +115,20 @@ enum DSTokens {
         static let drawer = "10px 0 40px -12px rgba(60,40,15,0.22)"
     }
 
+    enum Elevation {
+        /// CSS reference: 0 1px 2px rgba(60,40,15,0.04)
+        static let flat = "0 1px 2px rgba(60,40,15,0.04)"
+        /// CSS reference: 0 2px 6px rgba(60,40,15,0.08), 0 12px 24px -12px rgba(60,40,15,0.14)
+        static let raise = "0 2px 6px rgba(60,40,15,0.08), 0 12px 24px -12px rgba(60,40,15,0.14)"
+        /// CSS reference: 0 2px 6px rgba(60,40,15,0.10), 0 24px 48px -16px rgba(60,40,15,0.28)
+        static let float = "0 2px 6px rgba(60,40,15,0.10), 0 24px 48px -16px rgba(60,40,15,0.28)"
+    }
+
     enum Spacing {
         static let cardInner: CGFloat = 20.0
         static let cardGap: CGFloat = 16.0
         static let sectionGap: CGFloat = 24.0
-        static let maWeekFeed: CGFloat = 30.0
+        static let maWeekFeed: CGFloat = 40.0
     }
 
     enum Motion {
