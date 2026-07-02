@@ -13,9 +13,14 @@ type Tokens = {
   fontSize: Record<string, number>;
   radii: Record<string, number>;
   shadows: Record<string, string>;
+  elevation: Record<string, string>;
   spacing: Record<string, number>;
   motion: Record<string, string | number>;
   gestures: Record<string, number>;
+  dark: {
+    colors: Record<string, string>;
+    elevation: Record<string, string>;
+  };
 };
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -56,9 +61,15 @@ function buildBlock(t: Tokens): string {
   }
 
   lines.push("");
-  lines.push("  /* Shadows */");
+  lines.push("  /* Shadows (legacy — prefer --elev-* for new code) */");
   for (const [k, v] of Object.entries(t.shadows)) {
     lines.push(`  --shadow-${k}: ${v};`);
+  }
+
+  lines.push("");
+  lines.push("  /* Elevation (v9 — three-tier: flat, raise, float) */");
+  for (const [k, v] of Object.entries(t.elevation)) {
+    lines.push(`  --elev-${k}: ${v};`);
   }
 
   lines.push("");
@@ -84,6 +95,38 @@ function buildBlock(t: Tokens): string {
   }
 
   lines.push("}");
+
+  // Dark mode — overrides colors + elevation only; everything else
+  // (radii, fonts, motion, gestures) stays identical to :root.
+  //
+  // Selector convention: `[data-theme="dark"]` (explicit user opt-in) plus
+  // `[data-theme="system"]` inside `prefers-color-scheme: dark` (follow OS).
+  // This matches DayPage's existing three-state ThemeProvider (light / dark /
+  // system) — a plain `.dark` class can't express the "follow OS" state.
+  //
+  // Emitted twice with identical variable bodies via a shared helper.
+  const darkBody: string[] = [];
+  for (const [k, v] of Object.entries(t.dark.colors)) {
+    darkBody.push(`    --${k}: ${v};`);
+  }
+  for (const [k, v] of Object.entries(t.dark.elevation)) {
+    darkBody.push(`    --elev-${k}: ${v};`);
+  }
+
+  lines.push("");
+  lines.push("/* Dark mode — explicit user opt-in via <html data-theme=\"dark\"> */");
+  lines.push('[data-theme="dark"] {');
+  lines.push(...darkBody);
+  lines.push("}");
+
+  lines.push("");
+  lines.push("/* Dark mode — follow OS when <html data-theme=\"system\"> */");
+  lines.push("@media (prefers-color-scheme: dark) {");
+  lines.push('  [data-theme="system"] {');
+  lines.push(...darkBody);
+  lines.push("  }");
+  lines.push("}");
+
   lines.push(END_MARK);
   return lines.join("\n");
 }

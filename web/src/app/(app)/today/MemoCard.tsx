@@ -260,7 +260,7 @@ export function MemoCard({
           borderRadius: 18,
           background: "var(--surface-white)",
           border: "0.5px solid var(--border-subtle)",
-          boxShadow: "var(--shadow-card)",
+          boxShadow: "var(--elev-flat)",
           overflow: "hidden",
           cursor: "pointer",
           userSelect: "none",

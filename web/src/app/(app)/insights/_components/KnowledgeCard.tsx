@@ -125,6 +125,7 @@ function BarChart({ data, maxCount }: { data: { date: string; count: number }[];
             fontSize: 10,
             color: "var(--fg-subtle-aa)",
             letterSpacing: "0.04em",
+            fontVariantNumeric: "tabular-nums",
             height: BAR_H,
             paddingBottom: 2,
           }}

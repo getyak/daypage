@@ -72,45 +72,21 @@ export function Drawer({ isOpen, onClose, children }: DrawerProps) {
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop — styling lives in globals.css .ds-drawer-backdrop */}
       <div
+        className="ds-drawer-backdrop"
         onClick={onClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(20,16,12,0.32)",
-          backdropFilter: "blur(2px)",
-          WebkitBackdropFilter: "blur(2px)",
-          zIndex: 80,
-          animation: "fade-in 220ms ease-out both",
-        }}
         aria-hidden="true"
       />
 
-      {/* Panel */}
+      {/* Panel — v9 glass; visual specs in globals.css .ds-drawer-panel
+          (backdrop-filter + @supports fallback + dark mode override) */}
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="drawer-title"
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          bottom: 0,
-          width: "86%",
-          maxWidth: 360,
-          zIndex: 85,
-          background: "rgba(252,250,247,0.96)",
-          backdropFilter: "blur(28px) saturate(160%)",
-          WebkitBackdropFilter: "blur(28px) saturate(160%)",
-          borderRight: "0.5px solid var(--border-subtle)",
-          boxShadow: "10px 0 40px -12px rgba(60,40,15,0.22)",
-          display: "flex",
-          flexDirection: "column",
-          overflowY: "auto",
-          animation: "slide-in-left 280ms cubic-bezier(.2,.8,.2,1) both",
-        }}
+        className="ds-drawer-panel"
       >
         {children}
       </div>

@@ -443,7 +443,9 @@ function TimelineSection({
   children: React.ReactNode;
 }) {
   return (
-    <section style={{ marginBottom: last ? 12 : 22 }}>
+    // v9 ma-week-feed: 22 → 40 to strengthen the Japanese "ma" between
+    // day sections. Last section keeps a shorter tail so it doesn't hang.
+    <section style={{ marginBottom: last ? 12 : 40 }}>
       <SectionHeader label={label} sub={sub} />
       <div style={{ position: "relative", padding: "8px 22px 4px" }}>
         {/* spine hairline — fixed left coord, continuous through this section */}

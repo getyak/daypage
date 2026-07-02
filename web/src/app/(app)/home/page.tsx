@@ -9,6 +9,7 @@ import Link from "next/link";
 import { ArrowUpRight, ChevronRight, Sparkles, Inbox, Activity, Clock } from "lucide-react";
 import { Btn, Card, Chip, Icon, SectionLabel } from "@/components/ui";
 import { HomeStream, type DailyPageCard } from "./HomeStream";
+import { HomeHero } from "./HomeHero";
 import type { MemoCardData } from "../today/MemoCard";
 import { auth } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
@@ -20,7 +21,7 @@ import {
   pages,
   activities,
 } from "@/lib/db/schema";
-import { eq, and, gte, lt, desc, inArray } from "drizzle-orm";
+import { eq, and, gte, lt, desc, inArray, sql } from "drizzle-orm";
 
 // ── Data helpers ──────────────────────────────────────────────────────────────
 
@@ -231,6 +232,45 @@ async function getOpenInboxItems(
   }
 }
 
+type HeroStats = { sources: number; pages: number; thisWeek: number };
+
+// Three numbers the HomeHero mono caps line renders — total memos (as
+// "sources"), total pages, and memos created since the start of the current
+// ISO week (Monday 00:00 local, matching the iOS WeeklyCompilationService
+// convention documented in CLAUDE.md).
+async function getHeroStats(userId: string): Promise<HeroStats> {
+  try {
+    const now = new Date();
+    const dayOfWeek = now.getDay();                            // Sun=0 .. Sat=6
+    const daysFromMonday = (dayOfWeek + 6) % 7;                 // Mon=0
+    const weekStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - daysFromMonday
+    );
+
+    const [sourcesRow, pagesRow, weekRow] = await Promise.all([
+      db.select({ n: sql<number>`count(*)::int` })
+        .from(memos)
+        .where(eq(memos.user_id, userId)),
+      db.select({ n: sql<number>`count(*)::int` })
+        .from(pages)
+        .where(eq(pages.user_id, userId)),
+      db.select({ n: sql<number>`count(*)::int` })
+        .from(memos)
+        .where(and(eq(memos.user_id, userId), gte(memos.created_at, weekStart))),
+    ]);
+
+    return {
+      sources: sourcesRow[0]?.n ?? 0,
+      pages: pagesRow[0]?.n ?? 0,
+      thisWeek: weekRow[0]?.n ?? 0,
+    };
+  } catch {
+    return { sources: 0, pages: 0, thisWeek: 0 };
+  }
+}
+
 // ── Formatting helpers ────────────────────────────────────────────────────────
 
 function formatRelative(date: Date): string {
@@ -266,24 +306,43 @@ export default async function HomePage() {
   const session = await auth();
   const userId = session?.user?.email ? await resolveUserId(session.user.email) : null;
 
-  const [todayMemos, dailyPages, recentActivities, inboxData] = userId
+  const [todayMemos, dailyPages, recentActivities, inboxData, heroStats] = userId
     ? await Promise.all([
         getTodayMemos(userId),
         getDailyPages(userId),
         getActivities(userId),
         getOpenInboxItems(userId),
+        getHeroStats(userId),
       ])
     : [
         [] as MemoCardData[],
         [] as DailyPageCard[],
         [] as ActivityRow[],
         { items: [] as InboxItemRow[], total: 0 },
+        { sources: 0, pages: 0, thisWeek: 0 } as HeroStats,
       ];
 
   const openInboxCount = inboxData.total;
 
+  // Hero label — the Fraunces line reads "2026 · Jul 02" and the mono caps
+  // subline leads with a 3-letter weekday. Compute here on the server so the
+  // first paint matches the visitor's actual date and doesn't need a client
+  // re-render to correct itself.
+  const heroNow = new Date();
+  const heroDate = `${heroNow.getFullYear()} · ${heroNow.toLocaleString("en-US", { month: "short" })} ${String(heroNow.getDate()).padStart(2, "0")}`;
+  const heroWeekday = heroNow.toLocaleString("en-US", { weekday: "short" }).toUpperCase();
+
   return (
     <>
+      {/* ── v9 signature: serif date hero (see docs/web-design-v9.md §4) ─ */}
+      <HomeHero
+        date={heroDate}
+        weekday={heroWeekday}
+        sourceCount={heroStats.sources}
+        pageCount={heroStats.pages}
+        thisWeekCount={heroStats.thisWeek}
+      />
+
       {/* ── The capture→compile→wiki stream (main act) ─────────────────── */}
       <HomeStream initialToday={todayMemos} dailyPages={dailyPages} />
 

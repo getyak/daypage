@@ -13,9 +13,14 @@ type Tokens = {
   fontSize: Record<string, number>;
   radii: Record<string, number>;
   shadows: Record<string, string>;
+  elevation: Record<string, string>;
   spacing: Record<string, number>;
   motion: Record<string, string | number>;
   gestures: Record<string, number>;
+  // `dark` intentionally not consumed on iOS — SwiftUI adapts via Color
+  // literals against the environment's colorScheme rather than swapping
+  // CSS variables. If iOS ever needs an explicit dark-token entry, add
+  // a `DarkColors` enum here.
 };
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -92,6 +97,17 @@ function buildSwift(t: Tokens): string {
   // should map to (color, radius, x, y) at the use site.
   out.push(`    enum Shadows {`);
   for (const [k, v] of Object.entries(t.shadows)) {
+    out.push(`        /// CSS reference: ${v}`);
+    out.push(`        static let ${camel(k)} = ${JSON.stringify(v)}`);
+  }
+  out.push(`    }`);
+  out.push(``);
+
+  // Elevation — v9 three-tier semantic shadow scale (flat / raise / float).
+  // Same string-reference convention as Shadows; SwiftUI callers translate
+  // at the use site.
+  out.push(`    enum Elevation {`);
+  for (const [k, v] of Object.entries(t.elevation)) {
     out.push(`        /// CSS reference: ${v}`);
     out.push(`        static let ${camel(k)} = ${JSON.stringify(v)}`);
   }

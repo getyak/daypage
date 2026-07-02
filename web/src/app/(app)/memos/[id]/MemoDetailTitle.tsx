@@ -27,7 +27,7 @@ export function MemoDetailTitle({ place, kind, location }: Props) {
             fontSize: isLong ? 26 : 34,
             lineHeight: isLong ? 1.2 : 1.05,
             letterSpacing: "-0.7px",
-            fontWeight: 600,
+            fontWeight: 400,
             margin: "0 0 8px",
             color: "var(--fg-primary)",
             ...(isLong
@@ -44,7 +44,7 @@ export function MemoDetailTitle({ place, kind, location }: Props) {
             fontSize: 30,
             lineHeight: 1.15,
             letterSpacing: "-0.7px",
-            fontWeight: 600,
+            fontWeight: 400,
             fontStyle: "italic",
             margin: "0 0 8px",
             color: "var(--fg-muted)",
