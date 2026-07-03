@@ -1186,6 +1186,31 @@ mark.user-mark { background: var(--accent-soft); color: var(--fg-primary); borde
     padding: 28px 20px 24px;
   }
 }
+/* CaptureHero inherits the whole .ds-home-hero base and just tightens the
+   vertical padding — /add's card stack sits close, we don't want the ritual
+   date to open a huge gap above the composer. */
+.ds-capture-hero {
+  padding: 28px 8px 8px;
+}
+
+/* ---------- v9 Add /compile pipeline banner ---------- */
+/* Single-source pipeline health strip on /add. Same visual language as
+   /home's .home-pipeline-warn (amber accent-soft + accent-border), but a
+   dedicated class so /home and /add can drift independently if product
+   copy diverges later. */
+.ds-add-pipeline-warn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 16px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  border: 0.5px solid var(--accent-border);
+  color: var(--accent);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+}
 
 /* ---------- v9 Glass Drawer (components/ui/Drawer.tsx) ---------- */
 /* Signature glass surface: 78% opacity + backdrop-blur 20px so the panel

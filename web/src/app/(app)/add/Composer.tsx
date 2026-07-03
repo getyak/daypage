@@ -446,13 +446,20 @@ export function Composer() {
           : { scale: focused ? 1.0035 : 1, y: focused ? -1 : 0 }
       }
       transition={{ type: "spring", stiffness: 360, damping: 32, mass: 0.6 }}
+      data-testid="add-composer"
+      data-focused={focused ? "true" : "false"}
+      className="ds-add-composer"
       style={{
-        background: "var(--surface, #fff)",
-        border: `1px solid rgba(43, 40, 34, ${focused ? 0.12 : 0.08})`,
+        // v9: baseline reads at --elev-flat (0 1px 2px warm-brown 4%). On focus
+        // the composer steps forward to --elev-raise + an accent-soft outer
+        // ring, matching /home's .home-composer:focus-within cue so both
+        // capture surfaces share one "step onto the museum bench" moment.
+        background: "var(--surface-white, #fff)",
+        border: `1px solid ${focused ? "var(--accent-hover, #7A3F00)" : "var(--border-subtle, #EDE8DF)"}`,
         borderRadius: 12,
         boxShadow: focused
-          ? "0 4px 16px -8px rgba(43, 40, 34, 0.12)"
-          : "0 0 0 transparent",
+          ? "0 0 0 3px var(--accent-soft, #F5EDE3), var(--elev-raise, 0 2px 6px rgba(60,40,15,0.08), 0 12px 24px -12px rgba(60,40,15,0.14))"
+          : "var(--elev-flat, 0 1px 2px rgba(60,40,15,0.04))",
         transition: "border-color 180ms ease-out, box-shadow 180ms ease-out",
         overflow: "hidden",
       }}
@@ -507,7 +514,8 @@ export function Composer() {
               handleSubmit();
             }
           }}
-          placeholder="What's on your mind?"
+          placeholder="此刻在想什么？"
+          aria-label="记下此刻的念头"
           rows={3}
           style={{
             // field-sizing: content 让 textarea 跟随内容自适应（Chrome 123+ / Safari 17+）
@@ -766,7 +774,12 @@ export function Composer() {
 
         <div style={{ flex: 1 }} />
 
-        {/* 状态栏：错误 / hint / 字数 */}
+        {/* v9 状态栏：三态语气对齐 /home HomeStream Composer —
+              - 错误：'发送失败 · 点击重试'（保持红字点击重试）
+              - focus+可发送：'{N} 字 · ⌘/Ctrl + ↵ 收下'
+              - 有字数但未 focus：'{N} 字'
+              - 空+focus：'记下此刻，余下交给夜里'（新增静态 hint）
+              - 完全空：无 hint（首屏留白） */}
         {mutation.isError ? (
           <button
             type="button"
@@ -785,6 +798,7 @@ export function Composer() {
           </button>
         ) : focused && canSubmit ? (
           <span
+            data-testid="composer-hint"
             style={{
               fontSize: 11,
               fontFamily: "var(--font-mono, monospace)",
@@ -794,10 +808,24 @@ export function Composer() {
             }}
             aria-live="polite"
           >
-            {counts.words} 字 · {isMac ? "⌘↩" : "Ctrl+↩"} 发送
+            {counts.words} 字 · {isMac ? "⌘/Ctrl + ↵" : "Ctrl + ↵"} 收下
+          </span>
+        ) : focused && empty ? (
+          <span
+            data-testid="composer-hint"
+            style={{
+              fontSize: 11,
+              fontFamily: "var(--font-mono, monospace)",
+              color: "var(--fg-subtle, #888)",
+              letterSpacing: 0.2,
+              padding: "0 8px",
+            }}
+          >
+            记下此刻，余下交给夜里
           </span>
         ) : counts.chars > 0 ? (
           <span
+            data-testid="composer-hint"
             style={{
               fontSize: 11,
               fontFamily: "var(--font-mono, monospace)",
@@ -915,36 +943,56 @@ function SendButton({
   pending: boolean;
 }) {
   const reduced = useReducedMotion();
+  // v9 primary CTA — warm-brown accent pill, 36px pill height, "✓ 收下"
+  // label. Matches /home HomeStream `.home-composer__save` (same accent /
+  // hover / disabled tokens). While pending → "收纳中…" with a mono-caps
+  // rest state, so the button never loses text (SC 1.4.11 non-text
+  // contrast is fine — it's the accent-on-cream that carries the state).
   return (
     <motion.button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-label={pending ? "发送中" : "发送 (Cmd+Enter)"}
-      whileHover={reduced || disabled ? undefined : { scale: 1.06 }}
-      whileTap={reduced || disabled ? undefined : { scale: 0.92 }}
-      animate={
-        reduced
-          ? undefined
-          : pending
-            ? { rotate: [0, 8, -6, 0] }
-            : { rotate: 0 }
-      }
-      transition={{ type: "spring", stiffness: 480, damping: 18, mass: 0.5 }}
+      data-testid="composer-send"
+      aria-busy={pending}
+      aria-label={pending ? "收纳中" : "收下 (Cmd+Enter)"}
+      whileHover={reduced || disabled ? undefined : { scale: 1.02 }}
+      whileTap={reduced || disabled ? undefined : { scale: 0.96 }}
+      transition={{ type: "spring", stiffness: 480, damping: 22, mass: 0.5 }}
       style={{
-        width: 28,
-        height: 28,
+        height: 36,
+        padding: "0 16px",
         border: "none",
-        borderRadius: 7,
-        background: disabled ? "rgba(43, 40, 34, 0.06)" : "var(--accent, #5D3000)",
-        color: disabled ? "rgba(43, 40, 34, 0.25)" : "#FAF8F6",
+        borderRadius: 999,
         cursor: disabled ? "not-allowed" : "pointer",
+        background: disabled
+          ? "var(--surface-sunken, #F3F0EB)"
+          : "var(--accent, #5D3000)",
+        color: disabled ? "var(--fg-subtle, #A08A6E)" : "#FAF8F6",
         display: "inline-flex",
         alignItems: "center",
-        justifyContent: "center",
+        gap: 6,
+        fontFamily: "var(--font-body, system-ui)",
+        fontSize: 13,
+        fontWeight: 600,
+        letterSpacing: 0.2,
+        transition: "background 160ms ease-out, color 160ms ease-out",
       }}
     >
-      <Send size={12} strokeWidth={2.2} aria-hidden="true" />
+      {pending ? (
+        <span
+          aria-hidden="true"
+          style={{
+            display: "inline-flex",
+            animation: reduced ? undefined : "spin 0.9s linear infinite",
+          }}
+        >
+          <Send size={13} strokeWidth={2.2} />
+        </span>
+      ) : (
+        <Check size={13} strokeWidth={2.2} aria-hidden="true" />
+      )}
+      {pending ? "收纳中…" : "收下"}
     </motion.button>
   );
 }

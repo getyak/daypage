@@ -360,11 +360,14 @@ function MemoRow({
             </span>
           )}
         </div>
+        {/* v9 refactor: no more per-row "编译服务未连接" — a single banner
+            at the top of /add carries that signal (see
+            CompileServiceBanner). Rows here keep only the concrete state:
+            failure message when failed, live step when running, or a
+            terse "等待编译" fallback while pipeline is down. */}
         <div className="queue-item__sub">
           {memo.type} · {date}
-          {showDisconnected
-            ? " · 编译服务未连接（运行 pnpm run dev:inngest）"
-            : ""}
+          {showDisconnected ? " · 等待编译" : ""}
           {isFailed && errorMsg ? ` · ${errorMsg}` : ""}
           {isDone ? " · Compilation complete" : ""}
           {!isDone && !isFailed && !showDisconnected && step ? ` · ${step}` : ""}
@@ -391,6 +394,9 @@ function MemoRow({
         style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* v9 semantic pill — same tokens as RecentlyCompiled (light=success,
+            full=accent) so the queue -> compiled transition doesn't jump
+            visual language. chip--interactive still carries the switch UX. */}
         <button
           type="button"
           title={`Switch to ${nextMode.toUpperCase()} mode`}
@@ -400,14 +406,17 @@ function MemoRow({
             e.preventDefault();
             onSwitchMode(nextMode);
           }}
+          data-mode={currentMode}
           className={
             currentMode === "full"
-              ? "chip chip--accent chip--interactive"
-              : "chip chip--ghost chip--interactive"
+              ? "chip chip--accent chip--interactive ds-add-mode-pill"
+              : "chip chip--success chip--interactive ds-add-mode-pill"
           }
           style={{
             textTransform: "uppercase",
-            letterSpacing: "0.06em",
+            letterSpacing: "0.08em",
+            fontFamily: "var(--font-mono, monospace)",
+            fontWeight: 600,
             cursor: isDone ? "default" : "pointer",
             opacity: isSwitching ? 0.5 : 1,
           }}

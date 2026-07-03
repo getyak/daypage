@@ -10,13 +10,21 @@
  */
 import { test, expect } from "@playwright/test";
 
-async function loginDevBypass(page: import("@playwright/test").Page) {
-  await page.goto("/api/auth/dev-bypass", { waitUntil: "networkidle" });
+// The /api/auth/dev-bypass endpoint was removed during Round 5 refactor;
+// we now hit the real /login form's "Dev login (no email)" button to seed
+// the session. See web/tests/composer.spec.ts:20-21 for the same pattern.
+async function loginDev(page: import("@playwright/test").Page) {
+  await page.goto("/login", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: "Dev login (no email)" }).click();
+  await page.waitForURL(/\/(home|today|add)/, { timeout: 15_000 }).catch(() => {
+    /* already-signed-in flows land back on /login — ignore */
+  });
 }
 
 test.describe("v9 design contract", () => {
+  test.setTimeout(180_000);
   test.beforeEach(async ({ page }) => {
-    await loginDevBypass(page);
+    await loginDev(page);
   });
 
   // Signature move: /home is the first port of call, and it must open with

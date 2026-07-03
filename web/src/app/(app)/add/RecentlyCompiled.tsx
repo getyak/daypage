@@ -114,26 +114,23 @@ export function RecentlyCompiled({ initialMemos }: { initialMemos: Memo[] }) {
                 {memo.type} · {wc} words · {time}
               </p>
             </div>
+            {/* v9 semantic pill — light=success (quick pass), full=accent
+                (deep dive). Uses shared .chip--success/.chip--accent tokens
+                so dark mode + accessibility stay in one place. */}
             <span
-              className="chip"
+              className={
+                memo.ingest_mode === "full"
+                  ? "chip chip--accent ds-add-mode-pill"
+                  : "chip chip--success ds-add-mode-pill"
+              }
+              data-mode={memo.ingest_mode}
               style={{
                 fontSize: "0.6875rem",
                 flexShrink: 0,
                 textTransform: "uppercase",
-                letterSpacing: "0.06em",
-                background:
-                  memo.ingest_mode === "full"
-                    ? "var(--accent-soft, #eff6ff)"
-                    : "var(--surface-sunken, #fafaf9)",
-                color:
-                  memo.ingest_mode === "full"
-                    ? "var(--accent, #2563eb)"
-                    : "var(--fg-muted)",
-                border: `1px solid ${
-                  memo.ingest_mode === "full"
-                    ? "var(--accent-border, #bfdbfe)"
-                    : "var(--surface-border, #e5e4e0)"
-                }`,
+                letterSpacing: "0.08em",
+                fontFamily: "var(--font-mono, monospace)",
+                fontWeight: 600,
               }}
             >
               {memo.ingest_mode}
