@@ -1,3 +1,5 @@
+import { CaptureHero } from "./CaptureHero";
+import { CompileServiceBanner } from "./CompileServiceBanner";
 import { Composer } from "./Composer";
 import { CompileQueue, type Memo } from "./CompileQueue";
 import { RecentlyCompiled } from "./RecentlyCompiled";
@@ -87,9 +89,20 @@ export default async function AddPage() {
         gap: "2rem",
       }}
     >
-      {/* Composer 直接作为首屏主视觉 (Round 5)：删掉 hero headline 和长 sub
-          文案。只留一个极轻的 section label 作为页面身份指示，呼吸感留给 Composer
-          自己。Hero 文案的产品宣言转移到 Composer 自带的 placeholder 与 / 命令。 */}
+      {/* v9 signature entrance: Fraunces date + mono-caps ritual line.
+          Aligns /add with /home so the app has one gallery-front-desk
+          entry pattern instead of two. */}
+      <CaptureHero
+        queueCount={initialMemos.length}
+        doneCount={recentlyCompiled.length}
+      />
+
+      {/* Single, authoritative pipeline status banner. Mirrors the /home
+          `home-pipeline-warn` copy so users get the same signal in one
+          place instead of six per-row "编译服务未连接" repetitions. */}
+      <CompileServiceBanner />
+
+      {/* Composer — v9 elevation + warm-brown accent border on focus. */}
       <Composer />
 
       {/* Compile Queue */}
