@@ -88,3 +88,5 @@ Before marking any task complete:
 2. Run any existing tests
 3. For storage-related changes, inspect the actual `.md` file written under `vault/raw/` (use `get_app_container` to locate the sandbox) and verify YAML front-matter + Markdown structure
 4. For UI changes, launch the app in Simulator and verify visually — SwiftUI preview alone is not sufficient
+
+## Imported Claude Cowork project instructions

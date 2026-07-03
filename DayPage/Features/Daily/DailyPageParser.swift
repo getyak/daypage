@@ -68,9 +68,10 @@ enum DailyPageParser {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.hasPrefix("## ") {
                 if let title = currentSectionTitle {
-                    let body = currentSectionLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
-                    if !body.isEmpty && !skipSections.contains(title) {
-                        sections.append(DailyPageModel.PageSection(title: title, body: body))
+                    let raw = currentSectionLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !raw.isEmpty && !skipSections.contains(title) {
+                        let (cleanBody, evidenceIDs) = extractEvidence(from: raw)
+                        sections.append(DailyPageModel.PageSection(title: title, body: cleanBody, evidenceMemoIDs: evidenceIDs))
                     }
                 }
                 currentSectionTitle = String(trimmed.dropFirst(3)).trimmingCharacters(in: .whitespaces)
@@ -81,9 +82,10 @@ enum DailyPageParser {
         }
         // 最后一个段落
         if let title = currentSectionTitle {
-            let body = currentSectionLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
-            if !body.isEmpty && !skipSections.contains(title) {
-                sections.append(DailyPageModel.PageSection(title: title, body: body))
+            let raw = currentSectionLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+            if !raw.isEmpty && !skipSections.contains(title) {
+                let (cleanBody, evidenceIDs) = extractEvidence(from: raw)
+                sections.append(DailyPageModel.PageSection(title: title, body: cleanBody, evidenceMemoIDs: evidenceIDs))
             }
         }
 
@@ -117,6 +119,39 @@ enum DailyPageParser {
     /// 扫描 vault/raw/YYYY-MM-DD.md，返回第一个照片附件的 vault 相对路径
     ///（优先使用文件名以 "cover-" 为前缀的附件）。
     /// 如果没有照片附件则返回 nil。
+    /// Issue #4: strip `[^m:<uuid>]` footnote markers out of a compiled
+    /// section body and return the cleaned prose + the deduped ordered list
+    /// of memo UUIDs the AI cited for that section. Malformed UUIDs are
+    /// silently dropped — the viewer treats the section as unevidenced
+    /// rather than showing a broken chip.
+    private static func extractEvidence(from raw: String) -> (String, [UUID]) {
+        guard let regex = try? NSRegularExpression(
+            pattern: #"\[\^m:([0-9a-fA-F\-]{8,})\]"#,
+            options: []
+        ) else { return (raw, []) }
+
+        let ns = raw as NSString
+        let range = NSRange(location: 0, length: ns.length)
+        let matches = regex.matches(in: raw, range: range)
+        guard !matches.isEmpty else { return (raw, []) }
+
+        var seen = Set<UUID>()
+        var ordered: [UUID] = []
+        for m in matches where m.numberOfRanges >= 2 {
+            let raw = ns.substring(with: m.range(at: 1))
+            if let uuid = UUID(uuidString: raw), !seen.contains(uuid) {
+                seen.insert(uuid)
+                ordered.append(uuid)
+            }
+        }
+        let cleaned = regex.stringByReplacingMatches(
+            in: raw,
+            range: range,
+            withTemplate: ""
+        ).trimmingCharacters(in: .whitespacesAndNewlines)
+        return (cleaned, ordered)
+    }
+
     private static func firstPhotoAttachmentPath(for dateString: String) -> String? {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"

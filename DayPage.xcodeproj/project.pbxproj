@@ -155,6 +155,9 @@
 		E20A68158C940060066B2B73 /* WatchReceiveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11E0748715A251EE4A0168A /* WatchReceiveService.swift */; };
 		E4AC46FA495D4BD178789A14 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0881AB423FF6F12FCDE27C5B /* Assets.xcassets */; };
 		E5077A7D97855770914BFB8D /* MarkdownExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC8043A3D3371852ACB3D6F3 /* MarkdownExportService.swift */; };
+		I180000001 /* ErrorPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000001 /* ErrorPresenter.swift */; };
+		I180000002 /* InsightActionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000002 /* InsightActionService.swift */; };
+		I180000003 /* WeeklyShareCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000003 /* WeeklyShareCard.swift */; };
 		E536EEB8C13B2BA42DF4980F /* SidebarHeatmapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C551D36362FF97C44EB4D5DE /* SidebarHeatmapView.swift */; };
 		EA575F353C6AFD5EA7FF9A6F /* QuickCaptureWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7909ED56F96754E4C4FA21CC /* QuickCaptureWidget.swift */; };
 		ES0000001 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000001 /* EmptyStateView.swift */; };
@@ -361,6 +364,9 @@
 		A381FA327A37AE0DD740D61D /* PosterTemplates.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PosterTemplates.swift; path = ShareCard/PosterTemplates.swift; sourceTree = "<group>"; };
 		A4EBD94EB4FD71CC10D478F3 /* DailyPageSummarySection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DailyPageSummarySection.swift; sourceTree = "<group>"; };
 		AC8043A3D3371852ACB3D6F3 /* MarkdownExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownExportService.swift; sourceTree = "<group>"; };
+		I280000001 /* ErrorPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorPresenter.swift; sourceTree = "<group>"; };
+		I280000002 /* InsightActionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightActionService.swift; sourceTree = "<group>"; };
+		I280000003 /* WeeklyShareCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WeeklyShareCard.swift; path = ShareCard/WeeklyShareCard.swift; sourceTree = "<group>"; };
 		AF1000001 /* SpaceGrotesk-Light.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Light.ttf"; sourceTree = "<group>"; };
 		AF1000002 /* SpaceGrotesk-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Regular.ttf"; sourceTree = "<group>"; };
 		AF1000003 /* SpaceGrotesk-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Medium.ttf"; sourceTree = "<group>"; };
@@ -731,6 +737,7 @@
 				A20000095 /* ComposerContextProvider.swift */,
 				BB12D96218034D3E4555B8AA /* HapticFeedback.swift */,
 				AC8043A3D3371852ACB3D6F3 /* MarkdownExportService.swift */,
+				I280000002 /* InsightActionService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -863,6 +870,8 @@
 			isa = PBXGroup;
 			children = (
 				A20000037 /* AppBanner.swift */,
+				I280000001 /* ErrorPresenter.swift */,
+				I280000003 /* WeeklyShareCard.swift */,
 				8664207AF5BA4660FF0E134F /* ShareCard */,
 			);
 			path = Shared;
@@ -1458,6 +1467,9 @@
 				C80B52CC8945CDC4EE87DCBB /* PosterTemplates.swift in Sources */,
 				F66780AF157611A4283937FE /* MemoListSkeleton.swift in Sources */,
 				E5077A7D97855770914BFB8D /* MarkdownExportService.swift in Sources */,
+				I180000001 /* ErrorPresenter.swift in Sources */,
+				I180000002 /* InsightActionService.swift in Sources */,
+				I180000003 /* WeeklyShareCard.swift in Sources */,
 				29C57DABF22715576844485C /* AISummaryCard.swift in Sources */,
 				787E4480A2797607F2DCDE5E /* PillSegmentedControl.swift in Sources */,
 				2B194E870578303558D461CD /* CompileUnlockCard.swift in Sources */,

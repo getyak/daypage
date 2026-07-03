@@ -281,6 +281,80 @@ enum MarkdownExportService {
 
     /// Presents a share sheet for the exported markdown file.
     @MainActor
+    // MARK: - Issue #10 · Weekly export (2026-07-03)
+
+    /// Compose a Markdown export from a `WeeklyRecapOutput`. Mirrors the
+    /// on-disk `vault/wiki/weekly/{isoWeek}.md` layout so the exported file
+    /// reads like a self-contained document rather than a scrape of the
+    /// vault. Reflection questions get their own section only when the AI
+    /// actually produced them (parity with Issue #9 buildMarkdown).
+    static func buildWeeklyExportContent(from output: WeeklyRecapOutput) -> String {
+        var lines: [String] = []
+        lines.append("# \(output.isoWeek) 周回顾")
+        lines.append("")
+        lines.append("_\(output.dateRange)_")
+        lines.append("")
+        if !output.keywords.isEmpty {
+            lines.append("## 本周关键词")
+            for kw in output.keywords { lines.append("- \(kw)") }
+            lines.append("")
+        }
+        if !output.moodNotes.isEmpty {
+            lines.append("## 本周心情")
+            lines.append(output.moodNotes)
+            lines.append("")
+        }
+        if !output.placeNotes.isEmpty {
+            lines.append("## 本周地点")
+            lines.append(output.placeNotes)
+            lines.append("")
+        }
+        if !output.highlights.isEmpty {
+            lines.append("## 本周高光")
+            for hl in output.highlights { lines.append("- \(hl)") }
+            lines.append("")
+        }
+        if !output.reflectionQuestions.isEmpty {
+            lines.append("## 本周 5 问")
+            for q in output.reflectionQuestions { lines.append("- \(q)") }
+            lines.append("")
+        }
+        lines.append("---")
+        lines.append("*Exported from DayPage · \(output.isoWeek)*")
+        return lines.joined(separator: "\n")
+    }
+
+    /// Write a weekly export to a temporary vault-adjacent path and hand it
+    /// to the standard iOS share sheet.
+    @MainActor
+    static func shareWeekly(output: WeeklyRecapOutput, from viewController: UIViewController) {
+        let content = buildWeeklyExportContent(from: output)
+        let fileName = "\(output.isoWeek).md"
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+        do {
+            try content.data(using: .utf8)?.write(to: tempURL, options: .atomic)
+        } catch {
+            DayPageLogger.shared.error("Weekly export write failed: \(error)")
+            return
+        }
+        // Issue #10 (2026-07-03): also render the warm-cream share card
+        // as a PNG and hand both to the share sheet. Users get to pick
+        // between "share as file" and "save image to camera roll" from a
+        // single flow.
+        var items: [Any] = [tempURL]
+        if let image = WeeklyShareCard.render(output: output) {
+            items.append(image)
+        }
+        // Issue #18: fire the shareCreated event so the debug board can
+        // reveal export volume by kind.
+        AnalyticsService.shared.record(
+            AnalyticsService.Name.shareCreated,
+            props: ["kind": "weekly", "iso_week": output.isoWeek]
+        )
+        let vc = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        viewController.present(vc, animated: true)
+    }
+
     static func share(memos: [Memo], date: Date, from viewController: UIViewController) {
         let dateString = exportDateString(for: date)
 

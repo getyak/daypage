@@ -149,12 +149,24 @@ public struct LLMClient {
         guard online else { throw LLMError.offline }
         guard !config.apiKey.isEmpty else { throw LLMError.missingApiKey }
 
-        return try await retryAsync(
+        let response = try await retryAsync(
             policy: policy,
             onRetry: onRetry,
             shouldRetry: Self.shouldRetry,
             operation: { try await self.sendOnce(messages: messages) }
         )
+        // Issue #20 (2026-07-03): estimate + record LLM usage after the
+        // response returns. Failures don't touch this path so a network
+        // hiccup doesn't inflate the count. `spanName` (e.g. "compile.daily",
+        // "compile.weekly", "askpast.stream") doubles as the per-purpose
+        // bucket key inside LLMUsageTracker.
+        let promptChars = messages.reduce(0) { $0 + $1.content.count }
+        let approxTokens = max(1, (promptChars + response.count) / 4)
+        let purpose = spanName
+        Task { @MainActor in
+            LLMUsageTracker.shared.recordTokens(approxTokens, purpose: purpose)
+        }
+        return response
     }
 
     /// Error classifier for retry: terminal errors short-circuit; transient

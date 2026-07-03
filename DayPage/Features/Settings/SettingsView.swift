@@ -91,6 +91,16 @@ struct SettingsView: View {
 
     // Obsidian export
     @State private var isExportingObsidian = false
+    /// Issue #12: whole-vault zip export (see `exportFullVault`).
+    @State private var isExportingFullVault = false
+    /// Issue #12: URL of the just-produced vault zip, shown via ShareSheet.
+    @State private var fullVaultExportURL: URL? = nil
+    /// Issue #6 (2026-07-03): unified error surface using AppError's
+    /// three-part contract. Bound below via `.appErrorAlert(...)`.
+    @State private var appError: AppError? = nil
+    /// Issue #20 (2026-07-03): LLM usage tracker + monthly budget.
+    @StateObject private var usageTracker = LLMUsageTracker.shared
+    @State private var monthlyBudget: Int = LLMUsageTracker.shared.monthlyBudget
     @State private var obsidianExportURL: URL? = nil
     @State private var showObsidianShareSheet = false
 
@@ -119,6 +129,7 @@ struct SettingsView: View {
                 accountSection
                 apiKeysSection
                 aiEngineSection
+                aiUsageSection
                 notificationsSection
                 permissionsSection
                 appearanceSection
@@ -127,8 +138,10 @@ struct SettingsView: View {
                 webSyncSection
                 dataSection
                 experimentsSection
+                analyticsDebugSection
                 aboutSection
             }
+            .appErrorAlert($appError)
             .accessibilityIdentifier("settings-list")
             .navigationTitle(NSLocalizedString("settings.nav.title", comment: ""))
             .navigationBarTitleDisplayMode(.inline)
@@ -955,6 +968,24 @@ struct SettingsView: View {
             }
             .disabled(isExportingObsidian)
 
+            // Issue #12 (2026-07-03): 导出全部 vault (zip). 与 Obsidian
+            // export 差异：包含 raw memo 原文、assets 目录、entities、
+            // hot cache——用户可以真正"带走全部数据"，符合 backlog #12
+            // "隐私说明 + 一键导出"。
+            Button(action: { Task { await exportFullVault() } }) {
+                if isExportingFullVault {
+                    HStack {
+                        Label("正在打包全部 vault …", systemImage: "shippingbox")
+                        Spacer()
+                        ProgressView().scaleEffect(0.8)
+                    }
+                } else {
+                    Label("导出全部 vault (zip)", systemImage: "shippingbox")
+                }
+            }
+            .disabled(isExportingFullVault)
+            .accessibilityIdentifier("settings-export-full-vault")
+
             if SampleDataSeeder.hasSeededSamples {
                 Button(role: .destructive, action: { showClearSampleConfirm = true }) {
                     Label(NSLocalizedString("settings.data.clear_sample.button", comment: ""), systemImage: "trash")
@@ -1144,6 +1175,111 @@ struct SettingsView: View {
             Text(NSLocalizedString("settings.ai.section_title", comment: ""))
         } footer: {
             Text(NSLocalizedString("settings.ai.footer", comment: ""))
+                .font(.caption)
+        }
+    }
+
+    // MARK: - Analytics Debug Section (Issue #18 · 2026-07-03)
+    //
+    // Local product-analytics debug board. Reads the same JSONL
+    // AnalyticsService.record writes to, so any redaction we do downstream
+    // is visible here first. Deliberately terse — this is a diagnostic
+    // surface, not a growth dashboard.
+
+    private var analyticsDebugSection: some View {
+        let counts = AnalyticsService.shared.todaysCounts()
+        let recent = AnalyticsService.shared.recentEvents(limit: 12).reversed()
+        return Section {
+            if counts.isEmpty {
+                Text("今天还没有事件")
+                    .font(DSType.labelSM)
+                    .foregroundColor(DSColor.inkSubtle)
+            } else {
+                ForEach(counts.sorted(by: { $0.key < $1.key }), id: \.key) { (name, count) in
+                    HStack {
+                        Text(name).font(DSType.labelSM)
+                        Spacer()
+                        Text("\(count)").font(DSType.labelSM).foregroundColor(DSColor.onSurfaceVariant)
+                    }
+                }
+            }
+            if !recent.isEmpty {
+                DisclosureGroup("最近 \(recent.count) 条事件") {
+                    ForEach(Array(recent.enumerated()), id: \.offset) { _, evt in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(evt.name).font(DSType.labelSM)
+                            Text(evt.at).font(DSType.mono9).foregroundColor(DSColor.inkSubtle)
+                        }
+                        .accessibilityElement(children: .combine)
+                    }
+                }
+            }
+            Button(role: .destructive) {
+                AnalyticsService.shared.reset()
+            } label: {
+                Label("清空调试事件", systemImage: "trash")
+            }
+        } header: {
+            Text("调试看板 · 事件流")
+        } footer: {
+            Text("显示 vault/.analytics/events.jsonl 里今天的事件计数与最近 12 条。仅本机可见。")
+                .font(.caption)
+        }
+    }
+
+    // MARK: - AI Usage Section (Issue #20 · 2026-07-03)
+    //
+    // Renders the current month's approximate LLM token spend (chars/4),
+    // a monthly budget stepper, and an inline banner when we've crossed
+    // 80% of it. The tracker lives in DayPageKit so both foreground and
+    // background compiles feed the same bucket; this view just presents.
+
+    private var aiUsageSection: some View {
+        Section {
+            let usage = usageTracker.currentMonthUsage()
+            HStack {
+                Label("本月累计 (估算)", systemImage: "gauge.with.needle")
+                Spacer()
+                Text("\(usage.totalTokens) tokens")
+                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .font(DSType.labelSM)
+            }
+            HStack {
+                Label("活跃天数", systemImage: "calendar")
+                Spacer()
+                Text("\(usage.daysWithActivity) / 30")
+                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .font(DSType.labelSM)
+            }
+            Stepper(value: $monthlyBudget, in: 0...5_000_000, step: 50_000) {
+                HStack {
+                    Label("月度上限", systemImage: "target")
+                    Spacer()
+                    Text(monthlyBudget == 0 ? "未设置" : "\(monthlyBudget)")
+                        .foregroundColor(DSColor.onSurfaceVariant)
+                        .font(DSType.labelSM)
+                }
+            }
+            .onChange(of: monthlyBudget) { newValue in
+                usageTracker.monthlyBudget = newValue
+            }
+            if usageTracker.hasCrossedBudgetWarning {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(DSColor.amberDeep)
+                    Text("已经用掉本月预算的 80% —— 可以考虑调低编译频率或提高上限。")
+                        .font(DSType.labelSM)
+                        .foregroundColor(DSColor.inkPrimary)
+                }
+                .padding(8)
+                .background(DSColor.amberSoft)
+                .cornerRadius(8)
+                .accessibilityIdentifier("settings.ai.usage.warning")
+            }
+        } header: {
+            Text("AI 用量")
+        } footer: {
+            Text("按 tokens ≈ 字符数 / 4 估算，涵盖 daily 编译、weekly 回顾、追问过去等所有 LLM 调用。数据仅保存在设备本地。")
                 .font(.caption)
         }
     }
@@ -1440,6 +1576,36 @@ struct SettingsView: View {
     }
 
     // MARK: - Obsidian Export
+
+    // MARK: - Issue #12 · 全 vault 一键导出 (2026-07-03)
+
+    /// Uses `VaultExportService.exportVaultZip(.all)` — this is the
+    /// canonical Kit-side helper, unlike `ObsidianExporter` which is
+    /// tailored for Obsidian's markdown-only workflow. On success we hand
+    /// the zip to the system share sheet through `fullVaultExportURL`.
+    private func exportFullVault() async {
+        isExportingFullVault = true
+        defer { isExportingFullVault = false }
+        do {
+            let zip = try await VaultExportService.shared.exportVaultZip(includes: .all)
+            fullVaultExportURL = zip
+            showObsidianShareSheet = true
+            obsidianExportURL = zip
+        } catch {
+            // Issue #6 (2026-07-03) — migrate from a naked banner to the
+            // AppError three-part contract (what happened / why / what to
+            // do). Retry actually retries the export instead of asking the
+            // user to hunt for the button again.
+            appError = AppError(
+                title: "全 vault 导出失败",
+                reason: "\(error.localizedDescription) — 磁盘空间不足或 iCloud 正在同步时最常见。",
+                primary: AppError.Action(label: "再试一次") {
+                    Task { await exportFullVault() }
+                },
+                secondary: AppError.Action(label: "先算了", perform: {})
+            )
+        }
+    }
 
     private func exportObsidianVault() async {
         isExportingObsidian = true

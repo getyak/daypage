@@ -35,6 +35,19 @@ struct DailyPageModel {
     struct PageSection {
         let title: String
         let body: String
+        /// Issue #4 · 证据链:
+        /// UUIDs of the raw memos whose content contributed to `body`, as
+        /// parsed from `[^m:<uuid>]` footnote markers emitted by
+        /// CompilationService. The view renders these as "引用 N 条" chips
+        /// that tap through to MemoDetailView. Empty for older daily.md
+        /// files compiled before Issue #4 rolled out (graceful degradation).
+        let evidenceMemoIDs: [UUID]
+
+        init(title: String, body: String, evidenceMemoIDs: [UUID] = []) {
+            self.title = title
+            self.body = body
+            self.evidenceMemoIDs = evidenceMemoIDs
+        }
     }
 
     struct LocationEntry {

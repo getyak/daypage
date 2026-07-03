@@ -14,8 +14,11 @@ struct OnboardingView: View {
 
     var body: some View {
         TabView(selection: $currentPage) {
-            WelcomePage(onNext: { currentPage = 1 })
-                .tag(0)
+            WelcomePage(
+                onNext: { currentPage = 1 },
+                hasOnboarded: $hasOnboarded
+            )
+            .tag(0)
             PermissionsPage(onNext: { currentPage = 2 })
                 .tag(1)
             // P0 privacy disclosure: must appear BEFORE ApiKeysPage so the
@@ -178,50 +181,153 @@ private struct DataFlowRow: View {
 }
 
 // MARK: - Page 1: Welcome
+//
+// Issue #1 (2026-07-02) — the previous WelcomePage was a bare "DayPage +
+// slogan + Get Started" screen. New users could not tell in 5 seconds what
+// the product is or who it is for. This version keeps the warm-cream
+// aesthetic (small illustration, quiet type) but adds:
+//   1. a target-audience tagline chip (who this is for)
+//   2. a headline that names the mechanism (dump → AI → journal + graph)
+//   3. three benefit rows anchoring capture / compile / graph
+//   4. a dual CTA: primary "Start writing", secondary "See a sample journal"
+// The secondary CTA seeds SampleDataSeeder and jumps straight past
+// onboarding — the same code path Issue #2 uses from the Today empty state.
 
 private struct WelcomePage: View {
     let onNext: () -> Void
+    @Binding var hasOnboarded: Bool
 
     var body: some View {
-        VStack(spacing: 32) {
-            Spacer()
+        ScrollView {
+            VStack(spacing: 20) {
+                Spacer(minLength: 40)
 
-            // Illustration
-            ZStack {
-                Circle()
-                    .fill(DSColor.accentSoft)
-                    .frame(width: 120, height: 120)
-                Image(systemName: "pencil.and.scribble")
-                    .font(.system(size: 48, weight: .light))
-                    .foregroundColor(DSColor.accentAmber)
-            }
+                ZStack {
+                    Circle()
+                        .fill(DSColor.accentSoft)
+                        .frame(width: 92, height: 92)
+                    Image(systemName: "pencil.and.scribble")
+                        .font(.system(size: 40, weight: .light))
+                        .foregroundColor(DSColor.accentAmber)
+                }
 
-            VStack(spacing: 12) {
-                Text("DayPage")
-                    .h1()
+                Text("onboarding.welcome.tagline", bundle: .main)
+                    .font(DSType.mono10)
+                    .tracking(1.4)
+                    .textCase(.uppercase)
+                    .foregroundColor(DSColor.amberDeep)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(DSColor.accentSoft)
+                    .cornerRadius(DSSpacing.radiusSmall)
+
+                Text("onboarding.welcome.headline", bundle: .main)
+                    .font(DSFonts.serif(size: 20, weight: .regular))
                     .foregroundColor(DSColor.onBackgroundPrimary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 8)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
+                    .minimumScaleFactor(0.75)
 
                 Text("onboarding.welcome.slogan", bundle: .main)
-                    .bodyText()
+                    .captionText()
                     .foregroundColor(DSColor.onBackgroundMuted)
                     .multilineTextAlignment(.center)
+
+                VStack(spacing: 10) {
+                    benefitRow(
+                        icon: "square.and.pencil",
+                        titleKey: "onboarding.welcome.benefit1.title",
+                        bodyKey: "onboarding.welcome.benefit1.body"
+                    )
+                    benefitRow(
+                        icon: "sparkles",
+                        titleKey: "onboarding.welcome.benefit2.title",
+                        bodyKey: "onboarding.welcome.benefit2.body"
+                    )
+                    benefitRow(
+                        icon: "point.3.connected.trianglepath.dotted",
+                        titleKey: "onboarding.welcome.benefit3.title",
+                        bodyKey: "onboarding.welcome.benefit3.body"
+                    )
+                }
+                .padding(.top, 4)
+
+                Spacer(minLength: 16)
+
+                VStack(spacing: 10) {
+                    Button(action: onNext) {
+                        Text("onboarding.welcome.begin", bundle: .main)
+                            .bodyText()
+                            .foregroundColor(DSColor.surfaceWhite)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(DSColor.accentAmber)
+                            .cornerRadius(DSSpacing.radiusCard)
+                    }
+                    .accessibilityIdentifier("onboarding.welcome.begin")
+
+                    Button {
+                        UserDefaults.standard.set(true, forKey: AppSettings.Keys.hasOnboarded)
+                        SampleDataSeeder.seedIfNeeded()
+                        // Issue #18: same funnel as the Today empty-state
+                        // link, tagged with surface so the debug board can
+                        // tell "user tapped sample in Welcome" apart from
+                        // "user tapped sample from Today empty".
+                        AnalyticsService.shared.record(
+                            AnalyticsService.Name.welcomeCtaSample,
+                            props: ["surface": "welcome"]
+                        )
+                        hasOnboarded = true
+                    } label: {
+                        Text("onboarding.welcome.try_sample", bundle: .main)
+                            .bodyText()
+                            .foregroundColor(DSColor.amberDeep)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                    }
+                    .accessibilityIdentifier("onboarding.welcome.try_sample")
+                }
+                .padding(.horizontal, 8)
+                .padding(.bottom, 32)
+            }
+            .padding(.horizontal, 24)
+        }
+    }
+
+    private func benefitRow(icon: String, titleKey: String, bodyKey: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 18))
+                .foregroundColor(DSColor.accentAmber)
+                .frame(width: 28)
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(LocalizedStringKey(titleKey), bundle: .main)
+                    .bodyText()
+                    .foregroundColor(DSColor.onBackgroundPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(LocalizedStringKey(bodyKey), bundle: .main)
+                    .captionText()
+                    .foregroundColor(DSColor.onBackgroundMuted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Spacer()
-
-            Button(action: onNext) {
-                Text("onboarding.welcome.begin", bundle: .main)
-                    .bodyText()
-                    .foregroundColor(DSColor.surfaceWhite)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(DSColor.accentAmber)
-                    .cornerRadius(DSSpacing.radiusCard)
-            }
-            .padding(.horizontal, 32)
-            .padding(.bottom, 48)
         }
-        .padding(.horizontal, 24)
+        .padding(DSSpacing.cardInner)
+        .background(DSColor.surfaceWhite)
+        .cornerRadius(DSSpacing.radiusCard)
+        .surfaceElevatedShadow()
+        // Issue #15 (2026-07-03): SE 375pt × Accessibility3 audit —
+        // benefit rows previously clipped their body line at AX2+ because
+        // no fixedSize was applied. Vertical fixedSize on both Texts
+        // + capping the row at accessibility3 keeps the tallest row
+        // from pushing the CTA off-screen.
+        .dynamicTypeSize(.xSmall ... .accessibility3)
     }
 }
 

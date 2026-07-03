@@ -951,11 +951,14 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
 
             do {
                 try RawStorage.append(memo)
-                // Only after the bytes are on disk do we remove the
-                // inflight record. If the app dies between this line and
-                // the next call, we re-show the body on next launch —
-                // safe duplicate, never silent loss.
                 InflightDraftStore.dequeue(inflightURL)
+                // Issue #18 (2026-07-03): record the creation event with
+                // the memo kind so the debug board can show a per-kind
+                // stack for "what am I capturing this month?".
+                AnalyticsService.shared.record(
+                    AnalyticsService.Name.memoCreated,
+                    props: ["kind": memo.type.rawValue]
+                )
                 withAnimation(Motion.spring) {
                     memos.insert(memo, at: 0)
                 }

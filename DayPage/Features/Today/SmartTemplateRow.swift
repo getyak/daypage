@@ -54,6 +54,30 @@ struct SmartTemplate {
         SmartTemplate(prefix: "还没完成的：", placeholder: ""),
         SmartTemplate(prefix: "梦见了", placeholder: "…"),
     ]
+
+    // MARK: - Issue #17 (2026-07-03) · 主题模板池
+    //
+    // 4 个 time-slot pool 之外，我们再加 3 个 "情境" pool（情绪 / 旅行 /
+    // 健康）让 backlog #17 提到的五主题成型：morning + evening 已是通用
+    // 起手模板，本次补齐 mood/travel/health.
+
+    static let mood: [SmartTemplate] = [
+        SmartTemplate(prefix: "现在的情绪是", placeholder: "…"),
+        SmartTemplate(prefix: "有点", placeholder: "，因为"),
+        SmartTemplate(prefix: "让我感觉最强烈的是", placeholder: "…"),
+    ]
+
+    static let travel: [SmartTemplate] = [
+        SmartTemplate(prefix: "抵达", placeholder: "，第一印象是"),
+        SmartTemplate(prefix: "路上", placeholder: "…"),
+        SmartTemplate(prefix: "这个地方让我", placeholder: "…"),
+    ]
+
+    static let health: [SmartTemplate] = [
+        SmartTemplate(prefix: "身体状态：", placeholder: ""),
+        SmartTemplate(prefix: "睡了", placeholder: "小时，感觉…"),
+        SmartTemplate(prefix: "今天运动/饮食：", placeholder: ""),
+    ]
 }
 
 // MARK: - SmartTemplateRow

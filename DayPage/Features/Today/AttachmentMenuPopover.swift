@@ -3,16 +3,19 @@ import DayPageServices
 
 // MARK: - AttachmentMenuPopover
 //
-// Capture v2 STREAM "more tray" — translated from VariationStream.jsx's
-// AttachItem grid. Four equal-weight tiles in a single row:
+// Capture v2 STREAM "more tray" — five equal-weight tiles in one row:
 //
-//   拍照 · 相册 · 位置 · 附件
+//   拍照 · 相册 · 位置 · 附件 · 链接
 //
 // Each tile is a 56×56 rounded square in surfaceSunken with a monochrome
 // SF Symbol; below it a 12pt muted label. The whole tray sits on a small
 // rounded card with a subtle warm border — no full-height list, no big
 // dividers, no drag handle clutter. Matches the design's "elegant,
 // uncluttered" brief from chat round 4 ("没有必要占满啊，优雅美观简洁就可以").
+//
+// Issue #3 (2026-07-03): 增加"链接"tile — 从剪贴板抓 URL 一键写入草稿。
+// 补齐 backlog "统一导入中心" 里六种输入之一，与文本（TextField）、语音
+// （mic hero）合起来达到 6 入口：文本 / 语音 / 拍照 / 相册 / 位置 / 附件 / 链接。
 
 struct AttachmentMenuPopover: View {
 
@@ -20,6 +23,9 @@ struct AttachmentMenuPopover: View {
     let onPickPhoto: () -> Void
     let onAddFile: () -> Void
     let onAddLocation: () -> Void
+    /// Issue #3: 触发链接采集 — 通常从 UIPasteboard.string 里抓 URL。
+    /// 如果剪贴板无 URL，callee 应给用户一个 alert 让手输。
+    let onAddURL: () -> Void
 
     let isLocating: Bool
     let hasPendingLocation: Bool
@@ -33,7 +39,9 @@ struct AttachmentMenuPopover: View {
                 .padding(.top, 8)
                 .padding(.bottom, 22)
 
-            // 4-up tile row, evenly distributed
+            // 5-up tile row, evenly distributed.
+            // Issue #3 (2026-07-03): 增加 "链接" 让统一导入中心
+            // 六入口齐全（文本 + 语音在主输入栏，这里补齐 5 个附件类）。
             HStack(spacing: 0) {
                 tile(icon: "camera",     label: "拍照",
                      action: onCapturePhoto)
@@ -45,6 +53,8 @@ struct AttachmentMenuPopover: View {
                      action: onAddLocation)
                 tile(icon: "paperclip",  label: "附件",
                      action: onAddFile)
+                tile(icon: "link",       label: "链接",
+                     action: onAddURL)
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 16)

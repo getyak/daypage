@@ -313,9 +313,47 @@ struct SidebarView: View {
                     label: NSLocalizedString("sidebar.nav.archive", comment: "Archive nav"))
             navItem(tab: .graph, icon: "point.3.connected.trianglepath.dotted",
                     label: NSLocalizedString("sidebar.nav.graph", comment: "Graph nav"))
+            // Issue #16 (2026-07-03): global-search row. Between the
+            // structured tabs (Today/Archive/Graph) and the memory-chat
+            // agent so the sidebar reads as a top-down "cite → filter →
+            // ask" ladder.
+            searchRow
             askRow
         }
         .padding(.horizontal, 12)
+    }
+
+    /// Issue #16 (2026-07-03): entry to the app-wide SearchView. Reuses
+    /// AppNavigationModel.pendingSearchQuery — the same rail the URL
+    /// scheme `daypage://search?q=` already flows through — so a single
+    /// downstream consumer keeps its authority.
+    private var searchRow: some View {
+        Button {
+            Haptics.light()
+            nav.closeSidebar()
+            nav.selectedTab = .archive
+            nav.pendingSearchQuery = ""
+        } label: {
+            HStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 1, style: .continuous)
+                    .fill(Color.clear)
+                    .frame(width: 2, height: 20)
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 16, weight: .regular))
+                    .frame(width: 20)
+                    .foregroundColor(DSColor.inkMuted)
+                Text("搜索")
+                    .font(DSType.bodyMD)
+                    .foregroundColor(DSColor.inkMuted)
+            }
+            .padding(.trailing, 16)
+            .padding(.vertical, 11)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("sidebar.search")
+        .accessibilityLabel("全局搜索")
     }
 
     /// In-app entry point for the D1 "和过去对话" memory-chat agent. Without

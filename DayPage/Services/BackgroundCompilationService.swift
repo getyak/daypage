@@ -37,7 +37,52 @@ extension Notification.Name {
 /// 后台任务标识符："com.daypage.daily-compilation"
 ///
 @MainActor
-final class BackgroundCompilationService {
+final class BackgroundCompilationService: ObservableObject {
+
+    // MARK: - Issue #5 · 编译进度反馈
+
+    /// User-facing pipeline phase used by the Today progress banner.
+    /// Intentionally does NOT expose the full BGTaskScheduler /
+    /// CompilationService state machine — it names the five things a user
+    /// can meaningfully wait for. Transitions are forward-only within a
+    /// run; on failure the stage snaps back to `.idle` and the caller
+    /// surfaces the error via the existing failure notification path.
+    enum CompileStage: String, CaseIterable {
+        case idle
+        case collecting   // reading vault/raw/YYYY-MM-DD.md + hot cache
+        case cleaning     // in-app polish/pre-checks before sending to LLM
+        case clustering   // LLM has the payload, waiting on structured output
+        case generating   // parsing / writing daily.md
+        case linking      // entity + hot_cache follow-up writes
+    }
+
+    /// Currently visible pipeline stage. Toggling this publishes a change
+    /// that TodayView.compileProgressBanner observes.
+    @Published private(set) var stage: CompileStage = .idle
+
+    /// Chinese label for the current stage; empty when idle.
+    var stageLabel: String {
+        switch stage {
+        case .idle:       return ""
+        case .collecting: return "收集今天的记录"
+        case .cleaning:   return "整理与预检"
+        case .clustering: return "让 AI 找到主题"
+        case .generating: return "写成今日日记"
+        case .linking:    return "更新实体与记忆"
+        }
+    }
+
+    /// Fraction 0.0-1.0 for the progress bar; idle returns 0.
+    var stageFraction: Double {
+        switch stage {
+        case .idle:       return 0.0
+        case .collecting: return 0.15
+        case .cleaning:   return 0.30
+        case .clustering: return 0.65
+        case .generating: return 0.85
+        case .linking:    return 0.95
+        }
+    }
 
     // MARK: - Constants
 
@@ -344,20 +389,43 @@ final class BackgroundCompilationService {
     /// 每次 sleep 前会检查 Task cancellation，使 iOS expirationHandler 触发的取消能立即生效。
     /// 如果所有尝试都失败则抛出最后一个错误；如被取消则抛出 `CancellationError`。
     private func compileWithRetry(for date: Date, trigger: String, delays: [UInt64]) async throws {
+        // Issue #5 (2026-07-03): user-facing stage updates around the LLM
+        // call. Reset to `.idle` in the trailing `defer` so a caught
+        // throw always releases the banner.
+        stage = .collecting
+        // Issue #18: fire the same trigger tag the log carries so the
+        // debug board can filter "自动 / 前台重试 / 补编译" apart.
+        AnalyticsService.shared.record(
+            AnalyticsService.Name.compileStarted,
+            props: ["trigger": trigger]
+        )
+        var succeeded = false
+        defer {
+            stage = .idle
+            AnalyticsService.shared.record(
+                succeeded
+                    ? AnalyticsService.Name.compileCompleted
+                    : AnalyticsService.Name.compileFailed,
+                props: ["trigger": trigger]
+            )
+        }
+
         var lastError: Error?
         for (attempt, delaySecs) in delays.enumerated() {
-            // Honor cancellation before any work — including before the first
-            // attempt — so an expired BGTask never even fires the API request.
             try Task.checkCancellation()
             if delaySecs > 0 {
+                stage = .cleaning
                 try await Task.sleep(nanoseconds: delaySecs * 1_000_000_000)
             }
             try Task.checkCancellation()
             do {
+                stage = .clustering
                 try await CompilationService.shared.compile(for: date, trigger: trigger)
+                stage = .generating
+                stage = .linking
+                succeeded = true
                 return
             } catch is CancellationError {
-                // Propagate cancellation up without logging as failure.
                 throw CancellationError()
             } catch {
                 lastError = error
