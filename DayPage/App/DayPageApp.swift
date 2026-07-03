@@ -77,7 +77,18 @@ struct DayPageApp: App {
     /// production code paths.
     private static let bridgeableBoolKeys: Set<String> = [
         AppSettings.Keys.hasOnboarded,
-        AppSettings.Keys.authSkipped
+        AppSettings.Keys.authSkipped,
+        // Issue #3 QA (2026-07-03): the 4-phase startup gate reads
+        // `hasSeenWelcome` after onboarding to decide between the second
+        // "开始 · Begin" hero and the app itself. Without bridging this,
+        // QA/dogfood launches with `-hasOnboarded YES` still land on the
+        // Welcome hero. Whitelisting keeps the standard `phase()` gate
+        // authoritative for real users while letting screenshot runs skip
+        // straight to `.ready`.
+        "hasSeenWelcome",
+        // Issue #3 QA: skip the local-notification permission prompt so
+        // Today can be screenshotted cleanly.
+        AppSettings.Keys.hasRequestedNotifications
     ]
 
     /// Parses `-key value` and `key=value` pairs from `ProcessInfo.arguments`
@@ -193,6 +204,20 @@ struct DayPageApp: App {
         DSFonts.registerAll()
         Task.detached(priority: .background) { RawStorage.pruneTrashOlderThan(days: 7) }
         VaultInitializer.initializeIfNeeded()
+        // Issue #18 (2026-07-03): fire an app-launch analytics event
+        // right after vault init. Two purposes:
+        //   1) Guarantees `_analytics/events.jsonl` is created on the
+        //      first run so the Settings debug board always has state
+        //      to render (instead of "今天还没有事件" that misleads
+        //      dogfooders into thinking analytics is broken).
+        //   2) Gives us an on-disk breadcrumb for launch cadence that
+        //      complements Sentry breadcrumbs.
+        // Direct main-actor call — DayPageApp.init is already isolated
+        // to @MainActor via App conformance, so no Task wrapper needed.
+        AnalyticsService.shared.record(
+            "app_launched",
+            props: ["version": (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "?"]
+        )
         // Voice + photo orphan reconciliation. Vault initialization must run
         // first so VaultInitializer.vaultURL resolves to a real directory.
         Task.detached(priority: .background) { OrphanedVoiceScanner.runStartupScan() }
@@ -275,6 +300,17 @@ struct DayPageApp: App {
                         return
                     }
 
+                    // Issue #7 QA (2026-07-03): `daypage://archive` — open
+                    // Archive at the current month without pushing a
+                    // specific day. Lets QA/dogfood land on the Vault
+                    // Overview strip (Issue #7) without going through the
+                    // sidebar tap flow. No-op for real user shortcuts
+                    // (there is no user-facing UI that generates this URL).
+                    if url.host?.lowercased() == "archive" {
+                        navModel.openArchiveOverview()
+                        return
+                    }
+
                     // daypage://ask?q=… — open the "和过去对话" memory-chat agent
                     // (D1). RootView observes pendingAskQuery and presents
                     // AskPastView seeded with the question. Driven by AskTodayIntent.
@@ -333,18 +369,23 @@ struct DayPageApp: App {
                     // 安排每晚自动编译并回填任何遗漏的日期
                     BackgroundCompilationService.shared.scheduleIfNeeded()
                     BackgroundCompilationService.shared.backfillIfNeeded()
-                    // Issue #20: 请求本地通知权限（用于 2am 编译完成回执）。
-                    // Onboarding 路径可能已请求过；用 hasRequestedNotifications
-                    // guard 避免冷启动重复弹系统授权框。注意：.onAppear 会在
-                    // RootView 首次出现 + 后续场景切换时重入，所以 guard 是必需的。
+                    // Issue #20 / Gate A fix (2026-07-03): 请求本地通知权限
+                    // (用于 2am 编译完成回执)。原实现在 RootView.onAppear 无条件
+                    // 触发，导致 onboarding 的 Welcome 页刚露头就弹系统授权框，
+                    // 遮挡首屏价值主张 (Gate A 报告的 Medium 缺陷)。修复：
+                    //   1) 只有 onboarding 完成 (hasOnboarded == true) 才触发，
+                    //      让 PermissionsPage 保持通知权限请求的唯一权威入口。
+                    //   2) 保留 hasRequestedNotifications guard，避免冷启动重复
+                    //      弹 (RootView.onAppear 会在场景切换时重入)。
                     let defaults = UserDefaults.standard
-                    if !defaults.bool(forKey: AppSettings.Keys.hasRequestedNotifications) {
+                    if defaults.bool(forKey: AppSettings.Keys.hasOnboarded),
+                       !defaults.bool(forKey: AppSettings.Keys.hasRequestedNotifications) {
                         defaults.set(true, forKey: AppSettings.Keys.hasRequestedNotifications)
                         UNUserNotificationCenter.current().requestAuthorization(
                             options: [.alert, .sound, .badge]
                         ) { _, _ in
                             // 用户拒绝时 BGCompile.sendSuccessNotification 的
-                            // center.add() 会静默失败（log 一行 error），不影响
+                            // center.add() 会静默失败 (log 一行 error), 不影响
                             // 主流程；不需要在此处理 granted 状态。
                         }
                     }

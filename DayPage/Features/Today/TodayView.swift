@@ -36,6 +36,13 @@ struct TodayView: View {
     // under the AI key banner. Observes pendingCount + oldestPendingDate to
     // switch between neutral and "已等待 N 小时" red variants.
     @StateObject private var syncQueue = SyncQueueService.shared
+    /// Issue #5 (2026-07-03): stage-aware source of truth for the top
+    /// compile progress banner. See `compileProgressBanner`.
+    @StateObject private var compileService = BackgroundCompilationService.shared
+    /// Issue #13 (2026-07-03): today's declared focus lenses. Drives the
+    /// small chip row above the input surface; CompilationService reads
+    /// the same store on the next compile.
+    @StateObject private var focusStore = TodayFocusStore.shared
     @AppStorage(AppSettings.Keys.aiFeaturesEnabled) private var aiFeaturesEnabled: Bool = true
     @EnvironmentObject private var sidebarVM: SidebarViewModel
 
@@ -187,6 +194,12 @@ struct TodayView: View {
     /// Controls the AskPastView sheet — the AI chat surface reachable from the
     /// dock sparkle button and the empty-state "让 AI 陪你聊聊今天" CTA.
     @State private var showAskAI: Bool = false
+
+    /// Issue #2: flips true after the empty-state "See a sample journal" link
+    /// runs `SampleDataSeeder.seedIfNeeded()`. Rebinds the link label so a
+    /// user who taps it twice does not get a silent no-op — they see
+    /// "已生成 · 打开昨天看看" and know where to look next.
+    @State private var sampleSeeded: Bool = SampleDataSeeder.hasSeededSamples
 
     /// Toggled each time the Day Orb is tapped to focus the composer input.
     @State private var orbFocusToggle: Bool = false
@@ -356,6 +369,35 @@ struct TodayView: View {
                         aiKeyMissingBanner
                             .transition(.opacity.combined(with: .move(edge: .top)))
                     }
+
+                    // MARK: Compile Progress Banner (Issue #5, 2026-07-03)
+                    //
+                    // Shows the current stage of an in-flight compilation
+                    // (collecting → cleaning → clustering → generating →
+                    // linking). Hidden when the service is `.idle` so the
+                    // surface stays quiet 99% of the time — the banner is
+                    // a reassurance signal for the ~15-60 second window an
+                    // AI compile actually runs. Observing
+                    // BackgroundCompilationService directly (it is now an
+                    // ObservableObject) keeps it as the single source of
+                    // truth for both foreground and background triggers.
+                    if compileService.stage != .idle {
+                        compileProgressBanner
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+
+                    // MARK: Today Focus Chips (Issue #13, 2026-07-03)
+                    //
+                    // A quiet horizontal ScrollView of five toggle chips
+                    // (工作 / 情绪 / 健康 / 关系 / 学习). Selecting one
+                    // updates TodayFocusStore, which
+                    // CompilationService.buildPrompt reads at compile time
+                    // — no code path lives in TodayView beyond the toggle.
+                    // Rendered before the timeline so the user sees "the
+                    // AI knows what I care about today" as soon as they
+                    // land on Today.
+                    todayFocusRow
+                        .padding(.bottom, DSSpacing.xs)
 
                     // MARK: Offline Sync Queue Banner (R5)
                     //
@@ -1392,6 +1434,107 @@ struct TodayView: View {
         )
     }
 
+    /// Issue #5 (2026-07-03): pipeline-stage banner. Rendered above the
+    /// timeline while the AI compile is running. The bar advances on
+    /// stage transitions inside `BackgroundCompilationService.compileWithRetry`
+    /// (Issue #5's other half). We deliberately avoid an indeterminate
+    /// spinner because "spinner in the corner + no other feedback" is the
+    /// exact behavior the backlog issue calls out as broken UX.
+    private var compileProgressBanner: some View {
+        HStack(spacing: 10) {
+            // Issue #5 (2026-07-03): iOS 16 target — `symbolEffect(.pulse)`
+            // requires iOS 17. Use a manual opacity breath so the icon
+            // still reads as "AI is working" without conditionally
+            // targeting SDK levels.
+            Image(systemName: "sparkles")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(DSColor.amberAccent)
+                .opacity(compileService.stage == .idle ? 1.0 : 0.6)
+                .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true),
+                           value: compileService.stage)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(compileService.stageLabel)
+                    .font(DSType.bodySM)
+                    .foregroundColor(DSColor.inkPrimary)
+                    .accessibilityIdentifier("today.compile.stage.label")
+
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(DSColor.surfaceSunken)
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(DSColor.amberAccent)
+                            .frame(width: max(6, geo.size.width * CGFloat(compileService.stageFraction)))
+                            .animation(.easeInOut(duration: 0.4), value: compileService.stageFraction)
+                    }
+                }
+                .frame(height: 4)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(DSColor.surfaceWhite)
+        .overlay(
+            RoundedRectangle(cornerRadius: DSSpacing.radiusCard)
+                .strokeBorder(DSColor.amberRim, lineWidth: 0.5)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard))
+        .padding(.horizontal, DSSpacing.pageMargin)
+        .padding(.bottom, DSSpacing.xs)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("AI 编译进行中：\(compileService.stageLabel)")
+    }
+
+    /// Issue #13 (2026-07-03): horizontal chip row for the day's declared
+    /// focus lenses. Uses the same amber/soft palette as the Daily page
+    /// entity chips so the surface reads as "the AI knows you're paying
+    /// attention here" rather than a filter widget.
+    /// Issue #15 (2026-07-03): dynamicTypeSize cap so chip row doesn't
+    /// blow up past `.accessibility2` on iPhone SE — SE + `.accessibility3`
+    /// is where SwiftUI chip rows historically clip content.
+    private var todayFocusRow: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                Text("今日焦点")
+                    .font(DSType.mono10)
+                    .tracking(1.2)
+                    .textCase(.uppercase)
+                    .foregroundColor(DSColor.inkMuted)
+                    .padding(.trailing, 4)
+                ForEach(TodayFocus.allCases, id: \.self) { focus in
+                    let isSelected = focusStore.focuses.contains(focus)
+                    Button {
+                        Haptics.soft()
+                        focusStore.toggle(focus)
+                    } label: {
+                        Text(focus.displayName)
+                            .font(DSType.bodySM)
+                            .foregroundColor(isSelected ? DSColor.surfaceWhite : DSColor.amberDeep)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(
+                                Capsule().fill(isSelected ? DSColor.amberDeep : DSColor.amberSoft)
+                            )
+                            .overlay(
+                                Capsule().strokeBorder(DSColor.amberRim, lineWidth: 0.5)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("today.focus.chip.\(focus.rawValue)")
+                    .accessibilityLabel("\(focus.displayName) 焦点")
+                    .accessibilityValue(isSelected ? "已选中" : "未选中")
+                }
+            }
+            .padding(.horizontal, DSSpacing.pageMargin)
+        }
+        .dynamicTypeSize(.xSmall ... .accessibility2)
+    }
+
     private var syncQueuePendingBanner: some View {
         Button {
             // R6: open the detail sheet so the user can actually see which
@@ -2017,6 +2160,39 @@ struct TodayView: View {
                 .accessibilityIdentifier("today-empty-ai-cta")
                 .padding(.top, 12)
             }
+
+            // Issue #2 (2026-07-02): "See a sample journal" fallback link.
+            // For users who skipped or dismissed the Welcome CTA, the empty
+            // Today gives no proof of what the AI will produce. Tapping this
+            // seeds 3 sample memos + a paired compiled daily.md (see
+            // SampleDataSeeder) and refreshes the timeline. Once seeded, the
+            // label flips so the user knows exactly what to open next.
+            Button {
+                Haptics.tapConfirm()
+                SampleDataSeeder.seedIfNeeded()
+                // Issue #18: single call site records both the sample seed
+                // and the surface it came from — the Welcome CTA emits the
+                // same event with `surface:"welcome"`, so the debug board
+                // shows a real "empty→sample" funnel.
+                AnalyticsService.shared.record(
+                    AnalyticsService.Name.sampleSeeded,
+                    props: ["surface": "today_empty"]
+                )
+                sampleSeeded = true
+                Task { await viewModel.refresh() }
+            } label: {
+                Text(NSLocalizedString(
+                    sampleSeeded ? "today.empty.sample_active" : "today.empty.try_sample",
+                    comment: "Empty-state sample-data affordance"))
+                    .font(DSType.mono10)
+                    .tracking(1.2)
+                    .textCase(.uppercase)
+                    .foregroundColor(DSColor.inkSubtle)
+                    .padding(.top, 6)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("today-empty-try-sample")
+            .disabled(sampleSeeded)
 
         }
         .frame(maxWidth: .infinity)

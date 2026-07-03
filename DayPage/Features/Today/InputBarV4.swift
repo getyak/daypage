@@ -338,6 +338,24 @@ struct InputBarV4: View {
                 },
                 onAddFile: { showAttachmentMenu = false; onAddFile() },
                 onAddLocation: { showAttachmentMenu = false; onFetchLocation() },
+                // Issue #3 (2026-07-03): 链接 tile — 从剪贴板抓 URL 一键
+                // 写入草稿。剪贴板无 URL 时降级为在文本前插入 `https://`
+                // 占位让用户手输，避免弹出额外 alert 打断 flow。
+                onAddURL: {
+                    showAttachmentMenu = false
+                    let paste = UIPasteboard.general.string?
+                        .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                    let insert: String
+                    if let url = URL(string: paste),
+                       let scheme = url.scheme?.lowercased(),
+                       scheme == "http" || scheme == "https" {
+                        insert = paste
+                    } else {
+                        insert = "https://"
+                    }
+                    text = text.isEmpty ? insert : "\(insert)\n\(text)"
+                    Haptics.tapConfirm()
+                },
                 isLocating: isLocating,
                 hasPendingLocation: pendingLocation != nil
             )

@@ -245,6 +245,50 @@ struct MemoDetailView: View {
                         }
                     }
 
+                    // MARK: Ask Past Self (Issue #11, 2026-07-03)
+                    //
+                    // Anchored just above the metadata footer. Opens the
+                    // shared AskPastView (D1 memory-chat agent) with the
+                    // current memo's body pre-seeded as the retrieval
+                    // context. The action fires the standard
+                    // `daypage://ask?q=` URL so navModel + RootView keep
+                    // authoritative — no new sheet plumbing here.
+                    Divider()
+                        .background(DSColor.inkFaint)
+                        .padding(.vertical, 20)
+
+                    Button {
+                        Haptics.tapConfirm()
+                        let question = "关于这条 memo（\(memo.body.prefix(60))），我当时为什么这么想？"
+                        if let encoded = question.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
+                           let url = URL(string: "daypage://ask?q=\(encoded)") {
+                            UIApplication.shared.open(url)
+                        }
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(DSColor.amberDeep)
+                            Text("追问过去的自己")
+                                .font(DSType.bodySM)
+                                .foregroundColor(DSColor.amberDeep)
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(DSColor.amberDeep.opacity(0.65))
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(DSColor.amberSoft)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DSSpacing.radiusCard)
+                                .strokeBorder(DSColor.amberRim, lineWidth: 0.5)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("memo.detail.ask.past")
+
                     // MARK: Metadata Section
                     Divider()
                         .background(DSColor.inkFaint)
@@ -261,6 +305,17 @@ struct MemoDetailView: View {
             }
         }
         .navigationBarHidden(true)
+        .onAppear {
+            // Issue #18 (2026-07-03): capture the detail-open funnel so
+            // the debug board can show how many memo cards actually got
+            // read vs. swiped past. Fires from the top-level body so
+            // `memo` is in scope (was misplaced inside DetailFileRow's
+            // onAppear last edit).
+            AnalyticsService.shared.record(
+                AnalyticsService.Name.detailOpened,
+                props: ["memo_id": memo.id.uuidString]
+            )
+        }
         .fullScreenCover(isPresented: $showPhotoFullscreen) {
             PhotoFullscreenView(image: fullResImage)
         }

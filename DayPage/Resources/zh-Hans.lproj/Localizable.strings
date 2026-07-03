@@ -158,6 +158,8 @@
 "today.empty.poem.subtitle"  = "我陪你整理。";
 "today.empty.poem.a11y"      = "把今天放下来。我陪你整理。";
 "today.empty.ai_cta"         = "让 AI 陪你聊聊今天";
+"today.empty.try_sample"     = "先看示例日记";
+"today.empty.sample_active"  = "已生成 · 打开昨天看看";
 
 /* Day Orb long-press capture prompts */
 "today.orb.prompt.morning"   = "今天第一件想记下的事是什么？";
@@ -292,9 +294,18 @@
 
 /* OnboardingView — US-019 */
 
-/* WelcomePage */
+/* WelcomePage — Issue #1 value-prop refresh (2026-07-02): teach product utility in <5s */
 "onboarding.welcome.slogan" = "今天的碎片，明天的故事";
-"onboarding.welcome.begin" = "开始";
+"onboarding.welcome.tagline" = "写给数字游民、创作者、独立开发者";
+"onboarding.welcome.headline" = "随手记 → 每晚 AI 编成日记 · 织进你的知识图";
+"onboarding.welcome.benefit1.title" = "只管乱记";
+"onboarding.welcome.benefit1.body" = "文字 · 照片 · 语音 · 位置，一秒钟落下";
+"onboarding.welcome.benefit2.title" = "AI 帮你成篇";
+"onboarding.welcome.benefit2.body" = "每天 02:00 自动汇成有主题、有引用的日记";
+"onboarding.welcome.benefit3.title" = "长成知识图";
+"onboarding.welcome.benefit3.body" = "人、地、物、心情、事件互相牵引，越写越清晰";
+"onboarding.welcome.begin" = "开始记录";
+"onboarding.welcome.try_sample" = "先看示例日记";
 
 /* PermissionsPage */
 "onboarding.permissions.title" = "开放权限";

@@ -158,6 +158,8 @@
 "today.empty.poem.subtitle"  = "I'll tidy it with you.";
 "today.empty.poem.a11y"      = "Set today down. I'll tidy it with you.";
 "today.empty.ai_cta"         = "Let AI talk through today with you";
+"today.empty.try_sample"     = "See a sample journal";
+"today.empty.sample_active"  = "Ready · open yesterday to peek";
 
 /* Day Orb long-press capture prompts */
 "today.orb.prompt.morning"   = "What's the first thing on your mind?";
@@ -292,9 +294,18 @@
 
 /* OnboardingView — US-019 */
 
-/* WelcomePage */
-"onboarding.welcome.slogan" = "Dump today, let AI compile tomorrow";
-"onboarding.welcome.begin" = "Get Started";
+/* WelcomePage — Issue #1 value-prop refresh (2026-07-02): teach product utility in <5s */
+"onboarding.welcome.slogan" = "Today's fragments, tomorrow's story";
+"onboarding.welcome.tagline" = "For nomads, builders, and independent creators";
+"onboarding.welcome.headline" = "Dump anything → AI weaves it into a journal and knowledge graph";
+"onboarding.welcome.benefit1.title" = "Capture in a second";
+"onboarding.welcome.benefit1.body" = "Text, photo, voice, location — one tap and it's in";
+"onboarding.welcome.benefit2.title" = "AI compiles nightly";
+"onboarding.welcome.benefit2.body" = "Every day at 02:00, threads and evidence stitched together";
+"onboarding.welcome.benefit3.title" = "Grows a knowledge graph";
+"onboarding.welcome.benefit3.body" = "People, places, moods, events — cross-linked, get clearer over time";
+"onboarding.welcome.begin" = "Start writing";
+"onboarding.welcome.try_sample" = "See a sample journal";
 
 /* PermissionsPage */
 "onboarding.permissions.title" = "Allow Access";

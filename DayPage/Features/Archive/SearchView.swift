@@ -300,9 +300,31 @@ struct SearchView: View {
                 // link (e.g. `daypage://search?q=…`). Only runs on first
                 // appear; setupDebounce → Combine pipeline will execute the
                 // search via the debounced subscription.
-                if let initial = initialQuery, !initial.isEmpty, vm.query.isEmpty {
-                    vm.query = initial
+                if let initial = initialQuery, !initial.isEmpty {
+                    if vm.query.isEmpty { vm.query = initial }
+                    // Issue #18 (2026-07-03): deep-link seeded queries
+                    // never hit onSubmit; mirror the analytics event
+                    // here so the debug board shows a search funnel that
+                    // includes shortcut/URL entries.
+                    AnalyticsService.shared.record(
+                        AnalyticsService.Name.searchUsed,
+                        props: ["query_len": String(initial.count), "source": "deeplink"]
+                    )
                 }
+            }
+            .onChange(of: initialQuery) { newValue in
+                // Issue #18 (2026-07-03) — cover the case where the
+                // sheet is already presented (SwiftUI won't re-fire
+                // onAppear then). A fresh deep-link push updates
+                // initialQuery in place; we re-record here so the
+                // analytics stream stays authoritative regardless of
+                // sheet lifecycle.
+                guard let q = newValue, !q.isEmpty else { return }
+                vm.query = q
+                AnalyticsService.shared.record(
+                    AnalyticsService.Name.searchUsed,
+                    props: ["query_len": String(q.count), "source": "deeplink"]
+                )
             }
             .onDisappear {
                 cancellable?.cancel()
@@ -396,6 +418,14 @@ struct SearchView: View {
                     .submitLabel(.search)
                     .onSubmit {
                         vm.recordSearch(vm.query)
+                        // Issue #18: feed only the query *length* (never
+                        // the query string itself — PII) into the local
+                        // analytics stream so the debug board can show
+                        // search-funnel volume.
+                        AnalyticsService.shared.record(
+                            AnalyticsService.Name.searchUsed,
+                            props: ["query_len": String(vm.query.count)]
+                        )
                     }
                     .accessibilityLabel(NSLocalizedString("search.a11y.searchField", comment: "Accessibility label for the search text field"))
 

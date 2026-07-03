@@ -1,0 +1,11 @@
+story-id	wave	is-smoke	title	script
+V3-001	w1	1	语音转写数据丢失根治	stories/V3-001.sh
+V3-002	w1	0	编译错误必有反馈	stories/V3-002.sh
+V3-003	w1	0	API Key 全局健康检查 Banner	stories/V3-003.sh
+V3-004	w1	0	语音/网络离线队列	stories/V3-004.sh
+V3-005	w1	0	修复 try? 吞异常	stories/V3-005.sh
+V3-101	w2	1	输入栏按钮合并到 / 浮窗	stories/V3-101.sh
+V3-102	w2	0	语音录制改按住说话	stories/V3-102.sh
+V3-201	w3	1	暖白配色系统升级	stories/V3-201.sh
+V3-301	w4	1	On This Day	stories/V3-301.sh
+V3-401	w5	1	首次启动引导	stories/V3-401.sh

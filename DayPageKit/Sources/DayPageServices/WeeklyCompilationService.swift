@@ -71,9 +71,23 @@ public struct WeeklyRecapOutput: Codable, Equatable {
     public let moodNotes: String
     public let placeNotes: String
     public let highlights: [String]
+    /// Issue #9 (2026-07-03): 3-5 personalised reflection questions the
+    /// AI derives from the week's material. Rendered by
+    /// `WeeklyRecapDetailView` as "本周 5 问"; tapping a question opens a
+    /// composer sheet pre-filled with the prompt, and the user's answer
+    /// becomes a new memo. Old cached recaps that predate this field
+    /// decode as `[]` because of the custom `init(from:)` below — see
+    /// tests/WeeklyCompilationServiceTests for the compatibility contract.
+    public let reflectionQuestions: [String]
+    /// Issue #14 (2026-07-03): 值得回看的孤峰 —— low-frequency, high-signal
+    /// moments the ordinary highlight extractor is likely to drop. Each
+    /// entry is a short human-readable line ("2026-06-27 凌晨 2:14 · 一段
+    /// 500 字的独白") ready for direct display; the ranking is deterministic
+    /// so a re-compile of the same week produces the same list.
+    public let outliers: [String]
 
-    /// Explicit public memberwise init — Swift's synthesized init is
-    /// internal, which prevents tests from constructing fixtures.
+    /// Explicit public memberwise init. `reflectionQuestions` + `outliers`
+    /// default to `[]` so existing callers compile unchanged.
     public init(
         isoWeek: String,
         dateRange: String,
@@ -81,7 +95,9 @@ public struct WeeklyRecapOutput: Codable, Equatable {
         keywords: [String],
         moodNotes: String,
         placeNotes: String,
-        highlights: [String]
+        highlights: [String],
+        reflectionQuestions: [String] = [],
+        outliers: [String] = []
     ) {
         self.isoWeek = isoWeek
         self.dateRange = dateRange
@@ -90,6 +106,23 @@ public struct WeeklyRecapOutput: Codable, Equatable {
         self.moodNotes = moodNotes
         self.placeNotes = placeNotes
         self.highlights = highlights
+        self.reflectionQuestions = reflectionQuestions
+        self.outliers = outliers
+    }
+
+    /// Custom decode that tolerates cached JSON written before Issues
+    /// #9 / #14 (missing `reflectionQuestions` / `outliers`).
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.isoWeek = try c.decode(String.self, forKey: .isoWeek)
+        self.dateRange = try c.decode(String.self, forKey: .dateRange)
+        self.compiledAt = try c.decode(Date.self, forKey: .compiledAt)
+        self.keywords = try c.decode([String].self, forKey: .keywords)
+        self.moodNotes = try c.decode(String.self, forKey: .moodNotes)
+        self.placeNotes = try c.decode(String.self, forKey: .placeNotes)
+        self.highlights = try c.decode([String].self, forKey: .highlights)
+        self.reflectionQuestions = (try? c.decode([String].self, forKey: .reflectionQuestions)) ?? []
+        self.outliers = (try? c.decode([String].self, forKey: .outliers)) ?? []
     }
 }
 
@@ -225,12 +258,31 @@ public final class WeeklyCompilationService {
             throw WeeklyCompilationError.unknown(error)
         }
 
-        let output = try Self.parse(
+        let llmOutput = try Self.parse(
             llmResponse: raw,
             isoWeek: metadata.isoWeek,
             weekStart: metadata.weekStart,
             weekEnd: metadata.weekEnd,
             compiledAt: Date()
+        )
+
+        // Issue #14 (2026-07-03): outlier ranking is deterministic and
+        // computed locally from raw memo metadata, not from the LLM
+        // output. The AI already selects highlights on frequency signal;
+        // we want a complementary "low-frequency, high-signal" list so
+        // the user doesn't lose the 500-word midnight monologue among the
+        // 30 grocery reminders.
+        let outliers = Self.computeWeeklyOutliers(referenceDate: referenceDate)
+        let output = WeeklyRecapOutput(
+            isoWeek: llmOutput.isoWeek,
+            dateRange: llmOutput.dateRange,
+            compiledAt: llmOutput.compiledAt,
+            keywords: llmOutput.keywords,
+            moodNotes: llmOutput.moodNotes,
+            placeNotes: llmOutput.placeNotes,
+            highlights: llmOutput.highlights,
+            reflectionQuestions: llmOutput.reflectionQuestions,
+            outliers: outliers
         )
 
         do {
@@ -280,12 +332,18 @@ public final class WeeklyCompilationService {
           "keywords": ["标签1", "标签2", "标签3"],
           "moodNotes": "1-2 句话，描述本周心情走势",
           "placeNotes": "1-2 句话，描述本周地点足迹",
-          "highlights": ["高光1", "高光2", "高光3"]
+          "highlights": ["高光1", "高光2", "高光3"],
+          "reflectionQuestions": ["问题1", "问题2", "问题3"]
         }
 
         约束：
         - keywords 3-5 个，提炼本周关键主题
         - highlights 2-4 条，本周值得记住的事
+        - reflectionQuestions 3-5 个复盘问句（Issue #9）。要求：
+            * 每个 15-30 个汉字
+            * 直接由本周材料触发，可以引用具体地点/人/事件
+            * 用第二人称，不给答案，只给方向
+            * 避免"你觉得如何"这种空问，要具体到"这周你为 X 犹豫了多次，下周想留意什么？"
         - 全部使用第二人称（你），不要客套话
         """
     }
@@ -320,6 +378,10 @@ public final class WeeklyCompilationService {
         let mood = (json["moodNotes"] as? String) ?? ""
         let place = (json["placeNotes"] as? String) ?? ""
         let highlights = (json["highlights"] as? [String])?.filter { !$0.isEmpty } ?? []
+        // Issue #9: reflection questions are optional so pre-Issue-9 LLM
+        // responses (or a model that decides the week doesn't warrant
+        // questions) don't hard-fail parsing.
+        let reflectionQuestions = (json["reflectionQuestions"] as? [String])?.filter { !$0.isEmpty } ?? []
 
         guard !keywords.isEmpty || !mood.isEmpty || !place.isEmpty || !highlights.isEmpty else {
             throw WeeklyCompilationError.parseFailed("响应字段全为空")
@@ -332,7 +394,8 @@ public final class WeeklyCompilationService {
             keywords: keywords,
             moodNotes: mood,
             placeNotes: place,
-            highlights: highlights
+            highlights: highlights,
+            reflectionQuestions: reflectionQuestions
         )
     }
 
@@ -351,6 +414,12 @@ public final class WeeklyCompilationService {
         let moodNotes = extractMarkdownParagraph(section: "本周心情", from: content)
         let placeNotes = extractMarkdownParagraph(section: "本周地点", from: content)
         let highlights = extractMarkdownList(section: "本周高光", from: content)
+        // Issue #9: reflection questions are appended as "## 本周 5 问"
+        // (see `buildMarkdown`). Files written before Issue #9 shipped
+        // simply return `[]` here.
+        let reflectionQuestions = extractMarkdownList(section: "本周 5 问", from: content)
+        // Issue #14: same pattern for outliers.
+        let outliers = extractMarkdownList(section: "值得回看的孤峰", from: content)
 
         return WeeklyRecapOutput(
             isoWeek: isoWeek,
@@ -359,7 +428,9 @@ public final class WeeklyCompilationService {
             keywords: keywords,
             moodNotes: moodNotes,
             placeNotes: placeNotes,
-            highlights: highlights
+            highlights: highlights,
+            reflectionQuestions: reflectionQuestions,
+            outliers: outliers
         )
     }
 
@@ -412,7 +483,87 @@ public final class WeeklyCompilationService {
         lines.append("## 本周高光")
         for hl in output.highlights { lines.append("- \(hl)") }
         lines.append("")
+        // Issue #9 (2026-07-03): only emit the reflection section when the
+        // LLM actually produced questions — an empty header would look
+        // like a load failure.
+        if !output.reflectionQuestions.isEmpty {
+            lines.append("## 本周 5 问")
+            for q in output.reflectionQuestions { lines.append("- \(q)") }
+            lines.append("")
+        }
+        // Issue #14 (2026-07-03): 孤峰 section. Only emit when the
+        // ranking actually surfaced something so the header doesn't hang
+        // over an empty list.
+        if !output.outliers.isEmpty {
+            lines.append("## 值得回看的孤峰")
+            for o in output.outliers { lines.append("- \(o)") }
+            lines.append("")
+        }
         return lines.joined(separator: "\n")
+    }
+
+    // MARK: - Issue #14 · Outlier computation
+
+    /// Ranks raw memos across the 7 days ending at `referenceDate` and
+    /// returns up to 3 "孤峰" — low-frequency, high-signal moments that
+    /// the LLM's highlight list is likely to skip. The ranking blends:
+    ///
+    ///   * length: longer than the week's median × 2
+    ///   * timing: created between 00:00 and 05:00 local
+    ///   * emotional keyword density (approximated by a small Chinese
+    ///     mood-word list; deliberately conservative to avoid false
+    ///     positives on task-list memos)
+    ///
+    /// The ranking is deterministic — same inputs, same output — so a
+    /// weekly re-compile does not shuffle chips around under the user.
+    static func computeWeeklyOutliers(referenceDate: Date) -> [String] {
+        let calendar = weekCalendar
+        guard let interval = calendar.dateInterval(of: .weekOfYear, for: referenceDate) else {
+            return []
+        }
+        let weekStart = calendar.startOfDay(for: interval.start)
+
+        var candidates: [(memo: Memo, score: Double, date: Date)] = []
+        for offset in 0..<7 {
+            guard let date = calendar.date(byAdding: .day, value: offset, to: weekStart) else { continue }
+            let memos = (try? RawStorage.read(for: date)) ?? []
+            candidates.append(contentsOf: memos.map { (memo: $0, score: 0.0, date: date) })
+        }
+        guard !candidates.isEmpty else { return [] }
+
+        let lengths = candidates.map { $0.memo.body.count }.sorted()
+        let median = lengths[lengths.count / 2]
+        let moodWords: Set<Character> = ["累", "焦", "喜", "怒", "悲", "怕", "苦", "乐", "烦", "静", "醒", "困"]
+
+        for i in candidates.indices {
+            var score: Double = 0
+            let m = candidates[i].memo
+            let body = m.body
+            let charCount = body.count
+            if charCount > max(140, median * 2) { score += 2.0 }
+            let hour = calendar.component(.hour, from: m.created)
+            if hour < 5 { score += 2.0 }
+            let moodHits = body.filter { moodWords.contains($0) }.count
+            if moodHits >= 3 { score += 1.5 }
+            candidates[i].score = score
+        }
+
+        let ranked = candidates.filter { $0.score >= 2.0 }
+            .sorted {
+                if $0.score != $1.score { return $0.score > $1.score }
+                return $0.memo.created > $1.memo.created
+            }
+            .prefix(3)
+
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd HH:mm"
+        df.locale = Locale(identifier: "en_US_POSIX")
+        return ranked.map { c in
+            let snippet = c.memo.body
+                .replacingOccurrences(of: "\n", with: " ")
+                .prefix(48)
+            return "\(df.string(from: c.memo.created)) · \(snippet)"
+        }
     }
 
     // MARK: - Helpers

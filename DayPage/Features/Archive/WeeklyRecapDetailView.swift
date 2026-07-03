@@ -285,6 +285,33 @@ struct WeeklyRecapDetailView: View {
                         .foregroundColor(DSColor.inkPrimary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                // Issue #8 (2026-07-03): long-press an insight to convert
+                // it into tomorrow's todo. Service writes the memo,
+                // haptic confirms, banner surfaces "已加入明日".
+                .contextMenu {
+                    Button {
+                        do {
+                            _ = try InsightActionService.convertToTomorrowTodo(
+                                insight: items[idx],
+                                source: "weekly-highlights"
+                            )
+                            Haptics.commit()
+                            BannerCenter.shared.show(.init(
+                                kind: .info,
+                                title: "已加入明日待办",
+                                autoDismiss: true
+                            ))
+                        } catch {
+                            BannerCenter.shared.show(.init(
+                                kind: .error,
+                                title: "加入待办失败：\(error.localizedDescription)",
+                                autoDismiss: true
+                            ))
+                        }
+                    } label: {
+                        Label("变成明日待办", systemImage: "checklist")
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

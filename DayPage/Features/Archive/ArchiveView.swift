@@ -583,6 +583,18 @@ struct ArchiveView: View {
                         .frame(height: 0)
 
                         VStack(spacing: 0) {
+                            // Issue #7 (2026-07-03): Vault overview strip
+                            // sits above the month navigation. Gives the
+                            // user a whole-vault sense-of-scale (total
+                            // memos + total days) without opening a
+                            // separate stats screen. Reads directly from
+                            // TimelineIndex so it always reflects on-disk
+                            // reality — no separate cache to invalidate.
+                            vaultOverviewStrip
+                                .padding(.horizontal, 20)
+                                .padding(.top, 16)
+                                .padding(.bottom, 6)
+
                             monthNavigationRow
                                 .padding(.horizontal, 20)
                                 .padding(.vertical, 16)
@@ -873,6 +885,49 @@ struct ArchiveView: View {
     }
 
     // MARK: - Month Navigation Row
+
+    /// Issue #7 (2026-07-03): whole-vault overview strip above the month
+    /// navigation. Two mono stat pillars ("N 条记录 · N 天" style) + a
+    /// hairline. Reads TimelineIndex synchronously — the index is already
+    /// warmed by DayPageApp at launch, so this is O(1) once ready. Before
+    /// warm-up we show em-dashes rather than "0" so the user can tell
+    /// "index is still loading" from "vault is really empty".
+    private var vaultOverviewStrip: some View {
+        let all = TimelineIndex.shared.entries()
+        let totalMemos = all.reduce(0) { $0 + $1.memoCount }
+        let totalDays = all.count
+        let hasData = totalDays > 0 || totalMemos > 0
+        return HStack(alignment: .center, spacing: 20) {
+            statPillar(
+                label: "MEMOS",
+                value: hasData ? "\(totalMemos)" : "—"
+            )
+            Rectangle()
+                .fill(DSColor.glassRimD)
+                .frame(width: 0.5, height: 26)
+            statPillar(
+                label: "DAYS WRITTEN",
+                value: hasData ? "\(totalDays)" : "—"
+            )
+            Spacer()
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Vault 总览：\(totalMemos) 条记录，\(totalDays) 天写作")
+        .accessibilityIdentifier("archive.vault.overview")
+    }
+
+    private func statPillar(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(DSType.mono10)
+                .tracking(1.2)
+                .textCase(.uppercase)
+                .foregroundColor(DSColor.inkSubtle)
+            Text(value)
+                .font(DSFonts.serif(size: 22, weight: .regular))
+                .foregroundColor(DSColor.inkPrimary)
+        }
+    }
 
     private var monthNavigationRow: some View {
         HStack {

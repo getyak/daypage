@@ -10,16 +10,24 @@ struct DailyPageSummarySection: View {
 
     let model: DailyPageModel
     var onMentionTap: ((String) -> Void)? = nil
+    /// Issue #4: chip navigation is driven by the host NavigationStack via
+    /// NavigationLink(value: UUID), so no closure needed here. Kept the
+    /// symbol as documentation for readers scanning for evidence-related
+    /// wiring.
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Narrative sections with hairline dividers
             if !model.sections.isEmpty {
                 narrativeParagraph(model.sections[0].body)
+                    .padding(.bottom, 4)
+                evidenceRow(model.sections[0].evidenceMemoIDs)
                     .padding(.bottom, 8)
                 ForEach(model.sections.dropFirst(), id: \.title) { section in
                     hairlineDivider.padding(.vertical, 22)
-                    narrativeParagraph(section.body).padding(.bottom, 8)
+                    narrativeParagraph(section.body).padding(.bottom, 4)
+                    evidenceRow(section.evidenceMemoIDs)
+                        .padding(.bottom, 8)
                 }
             } else if !model.summary.isEmpty {
                 narrativeParagraph(model.summary).padding(.bottom, 8)
@@ -45,6 +53,45 @@ struct DailyPageSummarySection: View {
             .foregroundColor(DSColor.inkPrimary)
             .lineSpacing(8)
             .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Issue #4: "引用 N 条" evidence chip row. Empty ID list renders
+    /// nothing so historical (pre-Issue-4) daily.md files degrade
+    /// gracefully. When cited, the chip uses NavigationLink(value:) so the
+    /// host NavigationStack (which already handles memo.id destinations)
+    /// pushes the detail without SummarySection needing its own navigation
+    /// state.
+    @ViewBuilder
+    private func evidenceRow(_ memoIDs: [UUID]) -> some View {
+        if let first = memoIDs.first {
+            NavigationLink(value: first) {
+                HStack(spacing: 6) {
+                    Image(systemName: "link")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(DSColor.inkMuted)
+                    Text("引用 \(memoIDs.count) 条")
+                        .font(DSFonts.spaceGrotesk(size: 11, weight: .medium))
+                        .tracking(0.6)
+                        .textCase(.uppercase)
+                        .foregroundColor(DSColor.inkMuted)
+                    Spacer()
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(DSColor.surfaceSunken)
+                .overlay(
+                    RoundedRectangle(cornerRadius: DSSpacing.radiusSmall)
+                        .strokeBorder(DSColor.glassRimD, lineWidth: 0.5)
+                )
+                .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusSmall))
+            }
+            .buttonStyle(.plain)
+            .simultaneousGesture(TapGesture().onEnded { HapticFeedback.soft() })
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("引用 \(memoIDs.count) 条原始 memo")
+            .accessibilityHint("双击打开第一条引用的原始 memo")
+            .accessibilityIdentifier("daily.evidence.chip")
+        }
     }
 
     private var hairlineDivider: some View {

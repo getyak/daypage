@@ -514,12 +514,20 @@ public final class CompilationService: ObservableObject {
         let truncatedRaw = rawContent.count > maxRawChars
             ? "...[earlier memos truncated]\n" + String(rawContent.suffix(maxRawChars))
             : rawContent
+
+        // Issue #13 (2026-07-03): 今日焦点. The user may have tagged the day
+        // via TodayView's chip row; those tags become an explicit steering
+        // clause so the LLM leans toward that lens without discarding
+        // off-lens material. Empty tag list == baseline behavior.
+        let focusClause = buildFocusClause(dateString: dateString)
+
         return """
         You are DayPage's AI compilation engine. Compile today's raw memos into a structured Daily Page and identify entities (places, people, themes) for the wiki.
 
         ## Date
         \(dateString)
         \(dateContextNote(for: dateString))
+        \(focusClause)
 
         ## Short-term memory context (hot.md)
         <hot_cache>
@@ -576,13 +584,13 @@ public final class CompilationService: ObservableObject {
         <one-sentence summary>
 
         ## MORNING
-        <narrative paragraph synthesizing morning memos>
+        <narrative paragraph synthesizing morning memos>[^m:<memo-uuid>][^m:<memo-uuid>]
 
         ## AFTERNOON
-        <narrative paragraph synthesizing afternoon memos>
+        <narrative paragraph synthesizing afternoon memos>[^m:<memo-uuid>]
 
         ## EVENING
-        <narrative paragraph synthesizing evening memos>
+        <narrative paragraph synthesizing evening memos>[^m:<memo-uuid>]
 
         ## LOCATIONS TODAY
         - [[location-slug]]: Brief note
@@ -594,6 +602,18 @@ public final class CompilationService: ObservableObject {
 
         ---
         *Compiled from \(memoCount) raw entries*
+
+        ### Evidence footnote rules (Issue #4 · 证据链):
+        - Every narrative paragraph (MORNING/AFTERNOON/EVENING) MUST end with one
+          or more `[^m:<memo-uuid>]` footnote markers, one per memo_id whose
+          content contributed to that paragraph.
+        - `<memo-uuid>` is the exact UUID from the memo's `id:` YAML field.
+        - Do NOT emit human-readable footnote body definitions at the end of the
+          document — the DayPage viewer resolves `[^m:<uuid>]` to a chip inline
+          that jumps to the original memo. Keep the marker cluster tight (no
+          spaces between markers).
+        - If a paragraph legitimately synthesizes from zero memos (rare),
+          omit the marker rather than inventing a UUID.
 
         ### entity_updates rules:
         - entity_type must be one of: "places", "people", "themes"
@@ -624,6 +644,14 @@ public final class CompilationService: ObservableObject {
         - Write daily_page and hot_cache entirely in Chinese
         - Output ONLY the JSON object, no additional commentary
         - Ensure the JSON is valid (escape quotes and newlines properly inside strings)
+
+        ### Chinese-quote rules (Issue #19 · 中文语境, 2026-07-03):
+        - 引用用户原话时**逐字**保留，包括标点与断句，不要改写为更通顺的说法。
+        - 中英混合的原文引用保留原语言，不要机翻。
+        - 引用格式使用 `>` 引用块，一段一行，行末标注时间：
+            > <原句> — <时段（如"上午 09:00"）>
+        - 转述/概括必须放在引用块之外，让读者一眼分得清"这是我说过的原话"
+          还是"这是 AI 的归纳"。
         """
     }
 
@@ -631,6 +659,32 @@ public final class CompilationService: ObservableObject {
 
     /// Returns a short natural-language note about the day type so the LLM can
     /// tone the narrative appropriately (weekend vs. weekday vs. public holiday).
+    /// Issue #13 (2026-07-03): assemble the "user-declared focus" prompt
+    /// section from `TodayFocusStore`. Runs on the main actor because
+    /// TodayFocusStore is `@MainActor`; `buildPrompt` is already invoked
+    /// from a main-actor context (BackgroundCompilationService), so the
+    /// hop is a no-op in the common path.
+    private func buildFocusClause(dateString: String) -> String {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        df.locale = Locale(identifier: "en_US_POSIX")
+        guard let date = df.date(from: dateString) else { return "" }
+
+        let focuses = MainActor.assumeIsolated {
+            TodayFocusStore.shared.focuses(on: date)
+        }
+        guard !focuses.isEmpty else { return "" }
+        let names = focuses.map { $0.displayName }.joined(separator: "、")
+        let hints = focuses.map { "  · \($0.displayName)：\($0.promptHint)" }.joined(separator: "\n")
+        return """
+
+        ## User-declared focus for today (Issue #13)
+        用户今天选择了以下焦点：\(names)
+        请让 daily_page 的叙事在保留全部素材的前提下偏向这些角度：
+        \(hints)
+        """
+    }
+
     private func dateContextNote(for dateString: String) -> String {
         guard let date = ISO8601DateFormatter.dayOnly.date(from: dateString) else { return "" }
         var cal = Calendar.current

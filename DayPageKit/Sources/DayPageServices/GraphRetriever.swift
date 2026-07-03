@@ -187,7 +187,34 @@ public enum GraphRetriever {
         for att in memo.attachments {
             if let t = att.transcript, foldedForSearch(t).contains(foldedQuery) { return true }
         }
-        return false
+        // Issue #19 (2026-07-03): CJK bigram fallback. When a query is
+        // pure Chinese and the exact substring misses, we split into
+        // overlapping 2-char windows and require **all** to appear in
+        // the body — cheap "not-quite-tokenisation" catches "咖啡店" vs.
+        // "咖啡馆" style near-matches without a full Jieba dictionary.
+        guard let bigrams = cjkBigrams(foldedQuery), !bigrams.isEmpty else { return false }
+        let haystack = foldedForSearch(memo.body)
+        return bigrams.allSatisfy { haystack.contains($0) }
+    }
+
+    /// Returns overlapping character bigrams of a *pure* CJK query, or
+    /// nil if the query contains any non-CJK character (so callers skip
+    /// the fallback for mixed-script inputs).
+    private static func cjkBigrams(_ query: String) -> [String]? {
+        for s in query.unicodeScalars {
+            let v = s.value
+            let cjkUnified = (0x4E00...0x9FFF).contains(v)
+            let cjkExtA    = (0x3400...0x4DBF).contains(v)
+            let cjkPunct   = (0x3000...0x303F).contains(v)
+            if !(cjkUnified || cjkExtA || cjkPunct) { return nil }
+        }
+        let chars = Array(query)
+        guard chars.count >= 2 else { return nil }
+        var out: [String] = []
+        for i in 0..<(chars.count - 1) {
+            out.append(String([chars[i], chars[i + 1]]))
+        }
+        return out
     }
 
     private static func snippet(from memo: Memo) -> String {

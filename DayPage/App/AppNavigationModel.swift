@@ -91,6 +91,14 @@ final class AppNavigationModel: ObservableObject {
         closeSidebar()
     }
 
+    /// Issue #7 QA (2026-07-03): switch to Archive without pushing a specific
+    /// day — lets `daypage://archive` land on the Vault Overview strip.
+    func openArchiveOverview() {
+        pendingArchiveDate = nil
+        selectedTab = .archive
+        closeSidebar()
+    }
+
     func openFeedbackPanel() {
         closeSidebar()
         withAnimation(Motion.slide) {
