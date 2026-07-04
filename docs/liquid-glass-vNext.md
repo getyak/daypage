@@ -154,6 +154,23 @@ private struct NativeGlassModifier<S: Shape & InsettableShape>: ViewModifier {
 - iOS 26 下:玻璃控件会**实时折射**这层光晕,产生「暖光在玻璃边缘流动」的高级感 — 这是免费赚到的效果
 - `AmberHalo` / `densityXXX` 热力图保留
 
+### 3.3.5 ✅ 卡片交互层(2026-07-05 落地,Issue #808)
+
+内容卡本体保持 SolidCard 白底(见 3.4),但卡片的**交互面**属于功能层,按以下分级用玻璃与原生过渡:
+
+| 交互 | 实现 | 降级 |
+|---|---|---|
+| 左右滑动作抽屉 | `SwipeActionButton` 底面切原生 `.glassEffect(.regular.tint(语义色).interactive())`,语义色(琥珀/红/中性)随 reveal 进度加深,暖色氛围层透过玻璃折射 | iOS 16–25:原 ultraThinMaterial + tone tint;Reduce Transparency:不透明语义色 |
+| 全滑提交 | 越过 commit 线时最外侧按钮扩展填满抽屉 + SF Symbol `.bounce`(iOS 17+)+ rigid 触觉 | iOS 16 / Reduce Motion:仅布局扩展,无 bounce |
+| 点击进详情 | iOS 18+ `matchedTransitionSource` + `navigationTransition(.zoom)` —— 卡片放大成详情页(App Store 式 hero) | iOS 16–17:标准 push |
+| 按压反馈 | UIKit 触摸按压(0.06s)→ 卡片 0.985× 微缩(`Motion.spring`),滚动/滑动/长按夺走触摸的瞬间回弹 | Reduce Motion:无缩放 |
+| 长按菜单 | TimelineRow 单一合并菜单(置顶/双分享/复制文本/多选/删除)+ 卡片实景 preview | 系统行为 |
+
+**手势仲裁勘误(重要,防回归)**:iOS 26 上 SwiftUI ScrollView 的滚动 pan 在**任意方向**都会 begin 并取消内容子树触摸;且 UIKit 对每次触摸只查询一次 `gestureRecognizerShouldBegin`(此时累计位移仅 ~1pt)。因此:
+1. 方向锁必须判 **velocity**(首查询即有效),不能判累计位移;
+2. 必须用 `shouldBeRequiredToFailBy` 让滚动 pan 等待卡片 pan 先决议。
+两者缺一,滑动抽屉在 iOS 26 上完全失效(2026-07-05 实测)。契约测试:`SwipePolishContractTests` "Direction lock (velocity gate)"。
+
 ### 3.4 ⚠️ 内容卡片 — 用户勾选了,但建议克制(附证据)
 
 **Apple 官方立场(HIG · Liquid Glass):**

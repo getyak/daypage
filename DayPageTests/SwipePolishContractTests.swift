@@ -96,6 +96,35 @@ struct SwipePolishContractTests {
         #expect(rawNeeded > 240 && rawNeeded < 270)
     }
 
+    // MARK: - Direction lock (velocity gate)
+    //
+    // Issue #808: UIKit consults gestureRecognizerShouldBegin exactly ONCE
+    // per touch, at the pan's own hysteresis where accumulated translation
+    // is still ~1pt. The old `dx >= 6pt` translation gate therefore failed
+    // the pan on its single query and swipe-to-reveal was dead. The gate
+    // now judges VELOCITY, which is fully formed at that first query —
+    // these tests lock in the velocity contract.
+
+    @Test("slow horizontal drags pass the direction gate")
+    func slowHorizontalDragPassesGate() {
+        // ~60pt/s is a very deliberate, slow swipe — must still open.
+        #expect(HorizontalPanGesture.isHorizontalDominant(vx: -60, vy: 0))
+        #expect(HorizontalPanGesture.isHorizontalDominant(vx: 60, vy: 10))
+    }
+
+    @Test("vertical and steep-diagonal drags fail the gate (scroll wins)")
+    func verticalDragFailsGate() {
+        #expect(!HorizontalPanGesture.isHorizontalDominant(vx: 0, vy: -300))
+        #expect(!HorizontalPanGesture.isHorizontalDominant(vx: 100, vy: 100))
+        // Exactly at the dominance boundary the scroll keeps ownership.
+        #expect(!HorizontalPanGesture.isHorizontalDominant(vx: 120, vy: 100))
+    }
+
+    @Test("shallow horizontal flick passes at the 1.2x dominance ratio")
+    func shallowFlickPassesGate() {
+        #expect(HorizontalPanGesture.isHorizontalDominant(vx: 121, vy: 100))
+    }
+
     // MARK: - LLMClient.Config public init is stable
 
     /// The 100-分 polish audit exposed that LLMClient.Config could not be

@@ -177,6 +177,7 @@
 /* Memo card long-press context menu / MORE dialog */
 "memo.menu.shareCard"   = "分享为卡片";
 "memo.menu.shareQuote"  = "分享为引用";
+"memo.menu.copyText"    = "复制文本";
 "memo.menu.multiselect" = "多选";
 "memo.menu.cancel"      = "取消";
 

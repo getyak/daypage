@@ -186,6 +186,12 @@ struct TodayView: View {
     /// fires `onOpen`, which sets this id and drives `navigationDestination`.
     @State private var openedMemoID: UUID? = nil
 
+    /// iOS 18+ zoom transition: the tapped card is the `matchedTransitionSource`
+    /// and MemoDetailView zooms out of it (App Store / Photos-style hero).
+    /// iOS 16–17 keeps the plain push — see `CardZoomSource` /
+    /// `CardZoomDestination` at the bottom of this file.
+    @Namespace private var detailZoomNamespace
+
     /// v8 WriteSheet — bottom-sheet text composer opened from the dock's text
     /// affordance (composer.jsx:183). Routes saves through `submitCombinedMemo`
     /// (the same path the inline composer uses) via `draftText`.
@@ -794,6 +800,9 @@ struct TodayView: View {
                 if let id = openedMemoID,
                    let memo = viewModel.memos.first(where: { $0.id == id }) {
                     MemoDetailView(memo: memo, vm: viewModel)
+                        .modifier(CardZoomDestination(
+                            id: id, namespace: detailZoomNamespace
+                        ))
                 }
             }
     }
@@ -2987,6 +2996,11 @@ struct TodayView: View {
                             }
                         )
                         .offset(x: idx == 0 ? memoCardHintOffset : 0)
+                        // iOS 18+ hero zoom: this card is the source frame the
+                        // detail page grows out of (and shrinks back into).
+                        .modifier(CardZoomSource(
+                            id: memo.id, namespace: detailZoomNamespace
+                        ))
                         .onAppear {
                             guard idx == 0,
                                   !UserDefaults.standard.bool(forKey: AppSettings.Keys.memoSwipeHintShown),
@@ -4121,6 +4135,19 @@ struct TimelineRow: View {
                       systemImage: "quote.opening")
             }
         }
+        // Copy lived on a contextMenu INSIDE MemoCardView, which the swipe
+        // gesture's overlay shadowed — it could never be summoned. The merged
+        // menu is the single reachable long-press surface, so Copy belongs
+        // here. Voice memos with an empty body copy their transcript instead.
+        if !copyableText.isEmpty {
+            Button {
+                UIPasteboard.general.string = copyableText
+                Haptics.tapConfirm()
+            } label: {
+                Label(NSLocalizedString("memo.menu.copyText", comment: "contextMenu: copy memo text"),
+                      systemImage: "doc.on.doc")
+            }
+        }
         if let onEnterSelectionMode {
             Button {
                 onEnterSelectionMode()
@@ -4158,6 +4185,17 @@ struct TimelineRow: View {
             Button(NSLocalizedString("memo.swipe.delete", comment: "more dialog: delete memo"), role: .destructive) { onDelete() }
         }
         Button(NSLocalizedString("memo.menu.cancel", comment: "more dialog: cancel"), role: .cancel) { }
+    }
+
+    /// Text the long-press Copy action puts on the pasteboard: the visible
+    /// body, or — for voice memos whose body is empty — the transcript.
+    private var copyableText: String {
+        let body = memo.body.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !body.isEmpty { return body }
+        return memo.attachments
+            .first(where: { $0.kind == "audio" })?
+            .transcript?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }
 
     private var selectionIndicator: some View {
@@ -4200,6 +4238,42 @@ private struct NumericTextContentTransition: ViewModifier {
         } else {
             content
                 .contentTransition(.identity)
+        }
+    }
+}
+
+// MARK: - Card → Detail zoom transition (iOS 18+)
+//
+// The App Store / Photos-style hero: tapping a memo card zooms the detail
+// page out of the card frame and the back-swipe shrinks it back in. Both
+// halves must share one `Namespace` (owned by TodayView) and matching ids.
+// On iOS 16–17 both modifiers are inert and navigation keeps the standard
+// push — no behavioral change below the availability floor.
+
+/// Marks a timeline card as the zoom source for `memo.id`.
+struct CardZoomSource: ViewModifier {
+    let id: UUID
+    let namespace: Namespace.ID
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content.matchedTransitionSource(id: id, in: namespace)
+        } else {
+            content
+        }
+    }
+}
+
+/// Applies the zoom navigation transition to the pushed detail page.
+struct CardZoomDestination: ViewModifier {
+    let id: UUID
+    let namespace: Namespace.ID
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content.navigationTransition(.zoom(sourceID: id, in: namespace))
+        } else {
+            content
         }
     }
 }
