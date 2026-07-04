@@ -157,7 +157,7 @@
 "today.empty.poem.title"     = "Set today down.";
 "today.empty.poem.subtitle"  = "I'll tidy it with you.";
 "today.empty.poem.a11y"      = "Set today down. I'll tidy it with you.";
-"today.empty.ai_cta"         = "Let AI talk through today with you";
+"today.empty.ai_cta"         = "Let AI help you write today";
 "today.empty.try_sample"     = "See a sample journal";
 "today.empty.sample_active"  = "Ready · open yesterday to peek";
 
