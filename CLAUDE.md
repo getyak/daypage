@@ -87,6 +87,7 @@ DayPage/
 - `.openMemo` / `.openEntityPage` — DayPageApp.swift（R8 跨页跳转规范）
 - `.vaultConflictResolved` — ConflictMerger.swift（R4 iCloud 冲突 banner）
 - `.rawStorageDidWrite` — RawStorage.swift
+- `.memoCardDidBeginSwipe` — SwipeableMemoCard.swift（同屏仅一张卡开抽屉，Mail 语义）
 
 ### 测试覆盖矩阵 (9 个 suite, 55 个 case)
 - MemoYAMLTests (R1) — yamlQuote 转义 round-trip 8 case

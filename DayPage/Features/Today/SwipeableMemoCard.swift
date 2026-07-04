@@ -11,11 +11,18 @@ import DayPageServices
 //   peek      — finger moves but the action is not yet committable.
 //   reveal    — the user has crossed the open threshold; icon + label sit on
 //                a settled panel; releasing snaps the panel open.
-//   rubber    — drag continues past the panel; resistance grows with distance.
+//   overdrag  — drag continues past the panel with light damping; the drawer
+//                keeps hugging the card edge on its way to the commit line.
+//   commit    — past commitThreshold the outermost action expands to fill
+//                the drawer; releasing executes it directly (Mail-style).
 //
 // Tuned against Apple Mail / Notes / Reminders for snappy attack and minimal
 // overshoot, while keeping the panel surface visually quiet at small offsets.
-private enum SwipePhysics {
+//
+// Internal (not fileprivate) so SwipeSnapLogic below and the
+// SwipePolishContractTests suite can assert against the real tokens
+// instead of re-hardcoding literals.
+enum SwipePhysics {
 
     /// Width of one action button inside a side panel.
     static let actionWidth: CGFloat = 76
@@ -43,10 +50,24 @@ private enum SwipePhysics {
     /// Velocity past which a flick alone closes the panel.
     static let velocityClose: CGFloat = 500
 
-    /// Resistance coefficient applied to drag past the panel edge. 0.25 is
-    /// firmer than the previous 0.35 so the limit reads as a real wall while
-    /// still allowing a tactile overdrag.
-    static let rubberBand: CGFloat = 0.25
+    /// Damping applied to drag travel past the panel edge. Unlike the old
+    /// 0.25 rubber wall, 0.85 keeps the card following the finger — the
+    /// overdrag is now a doorway to the full-swipe commit, not a dead end.
+    /// Mail tracks 1:1 here; a light 15% drag keeps some tactile weight.
+    static let overdragDamping: CGFloat = 0.85
+
+    /// Visual offset past which releasing the finger commits the OUTERMOST
+    /// action directly (trailing → share, leading → pin), Mail-style.
+    /// 236pt ≈ 65% of the 362pt card, requiring ~250pt of finger travel
+    /// through the damped zone — a deliberate, uncancellable-feeling pull
+    /// that is still comfortably reachable one-handed.
+    static let commitThreshold: CGFloat = 236
+
+    /// Corner radius of MemoCardView's `.solidCard(cornerRadius: 14)`
+    /// surface. The drawer container clips to the same continuous shape so
+    /// revealed action panels share the card's silhouette instead of
+    /// poking square corners out of a rounded card.
+    static let cardCornerRadius: CGFloat = 14
 
     /// Spring used for snap-open / snap-close. Delegated to the shared
     /// `Motion.panel` token (0.32s response, 0.85 damping) so drawer motion
@@ -67,6 +88,65 @@ private enum SwipePhysics {
     static let actionCommitDelay: TimeInterval = 0.36
 }
 
+// MARK: - CardSwipeSide / SwipeSnapLogic
+
+/// Which drawer a swipe reveals. Internal so the pure snap-resolution logic
+/// (and its tests) can speak the same vocabulary as the view.
+enum CardSwipeSide: Equatable {
+    case leading, trailing
+}
+
+/// Pure release-decision for the swipe gesture, extracted from the view so
+/// the whole state machine is unit-testable without touch synthesis.
+///
+/// Inputs are the values available at finger-lift; the output says where the
+/// card should settle — including the Mail-style full-swipe commit that
+/// executes the outermost action when the drag "冲高" past commitThreshold.
+enum SwipeSnapLogic {
+
+    enum Resolution: Equatable {
+        case open(CardSwipeSide)
+        case close
+        /// Execute the OUTERMOST action of the given side immediately
+        /// (trailing → share, leading → pin). Fired only from a full swipe.
+        case commitOuter(CardSwipeSide)
+    }
+
+    /// - Parameters:
+    ///   - revealed: the side that was settled open when the drag began.
+    ///   - visualOffset: damped on-screen offset at release (currentOffset).
+    ///   - dx: raw drag translation relative to the drag start.
+    ///   - velocity: horizontal velocity in pt/s at release.
+    static func resolve(
+        revealed: CardSwipeSide?,
+        visualOffset: CGFloat,
+        dx: CGFloat,
+        velocity: CGFloat
+    ) -> Resolution {
+        // Full-swipe commit wins over every other rule: once the card has
+        // been pulled past the commit line the release means "do it now".
+        // Deliberately translation-only — a flick's velocity alone must
+        // never commit an action the finger didn't travel for.
+        if visualOffset <= -SwipePhysics.commitThreshold { return .commitOuter(.trailing) }
+        if visualOffset >= SwipePhysics.commitThreshold { return .commitOuter(.leading) }
+
+        let openT = SwipePhysics.openThreshold
+        let closeT = SwipePhysics.closeThreshold
+        let vOpen = SwipePhysics.velocityOpen
+        let vClose = SwipePhysics.velocityClose
+        switch revealed {
+        case nil:
+            if      dx < -openT || velocity < -vOpen { return .open(.trailing) }
+            else if dx >  openT || velocity >  vOpen { return .open(.leading)  }
+            else                                     { return .close           }
+        case .trailing:
+            return (dx > closeT || velocity > vClose) ? .close : .open(.trailing)
+        case .leading:
+            return (dx < -closeT || velocity < -vClose) ? .close : .open(.leading)
+        }
+    }
+}
+
 // MARK: - SwipeableMemoCard
 //
 // iOS-native swipe-to-reveal wrapper around MemoCardView, built on a UIKit
@@ -84,10 +164,12 @@ private enum SwipePhysics {
 //
 // Gesture model:
 //  - settledOffset is the resting position; dragDelta rides on top 1:1.
-//  - Rubber-band resistance beyond ±panelW gives tactile limit feedback.
-//  - Velocity-aware snap: a flick opens/closes even with small translation.
-//  - Threshold-cross haptic tick fires during the drag (not just at button
-//    tap), matching the Apple Notes "you've armed an action" feel.
+//  - Past ±panelW the drag keeps following with light damping toward the
+//    full-swipe commit line (see SwipePhysics.commitThreshold).
+//  - Velocity-aware snap: a flick opens/closes even with small translation —
+//    but only real finger travel (never velocity) can trigger a commit.
+//  - Threshold-cross haptic ticks escalate during the drag: soft (armed) →
+//    light (fully revealed) → rigid (commit armed), Apple Notes-style.
 //
 // Why no SwiftUI DragGesture: SwiftUI's DragGesture + simultaneousGesture
 // activates on the very first touch event and cannot relinquish gesture
@@ -132,30 +214,40 @@ struct SwipeableMemoCard: View {
 
     // Tracks which threshold the live drag has already crossed so the
     // mid-drag haptic tick fires once per cross, not once per frame.
-    @State private var armedSide: Side? = nil
+    @State private var armedSide: CardSwipeSide? = nil
 
     // R3 — fires a stronger "fully revealed" light-impact tick the first
     // time the user pulls the panel all the way open (≥ panelWidth) within
     // a single drag. Distinct from the early `armedSide` tick (which fires
     // at openThreshold to signal "release-to-arm"). Resets when the drag
     // ends or the drag direction flips.
-    @State private var fullyRevealedSide: Side? = nil
+    @State private var fullyRevealedSide: CardSwipeSide? = nil
+
+    // Full-swipe commit arming: non-nil once the live drag has pulled the
+    // card past SwipePhysics.commitThreshold. Drives the outermost button's
+    // expand-to-fill choreography and the rigid "about to execute" haptic.
+    @State private var commitArmedSide: CardSwipeSide? = nil
+
+    // One drawer at a time: set after this card announces its own drag via
+    // .memoCardDidBeginSwipe so peers can close, reset on lift/cancel.
+    @State private var didNotifyPeers: Bool = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    fileprivate enum Side { case leading, trailing }
-
-    private var revealedSide: Side? {
+    private var revealedSide: CardSwipeSide? {
         if settledOffset < -1 { return .trailing }
         if settledOffset > 1  { return .leading }
         return nil
     }
 
+    // Sign contract (relied on by revealProgress AND the per-side
+    // revealWidth passed to each SwipeActionPanel): POSITIVE offset =
+    // leading (right-swipe) reveal, NEGATIVE = trailing (left-swipe).
     private var currentOffset: CGFloat {
         let raw = settledOffset + dragDelta
         let w = SwipePhysics.panelWidth
-        if raw > w  { return w  + (raw - w)  * SwipePhysics.rubberBand }
-        if raw < -w { return -w + (raw + w)  * SwipePhysics.rubberBand }
+        if raw > w  { return w  + (raw - w)  * SwipePhysics.overdragDamping }
+        if raw < -w { return -w + (raw + w)  * SwipePhysics.overdragDamping }
         return raw
     }
 
@@ -219,18 +311,25 @@ struct SwipeableMemoCard: View {
                 SwipeActionPanel(
                     actions: leadingActions,
                     edge: .leading,
-                    progress: max(0, revealProgress)
+                    progress: max(0, revealProgress),
+                    revealWidth: max(SwipePhysics.panelWidth, currentOffset),
+                    commitArmed: commitArmedSide == .leading
                 )
                 Spacer(minLength: 0)
                 SwipeActionPanel(
                     actions: trailingActions,
                     edge: .trailing,
-                    progress: max(0, -revealProgress)
+                    progress: max(0, -revealProgress),
+                    revealWidth: max(SwipePhysics.panelWidth, -currentOffset),
+                    commitArmed: commitArmedSide == .trailing
                 )
             }
             .allowsHitTesting(revealedSide != nil && !isSelectionMode)
         }
-        .clipped()
+        // Same continuous corner as MemoCardView's solidCard surface, so a
+        // revealed drawer inherits the card's silhouette (the old .clipped()
+        // let the panels poke square corners out of a 14pt-rounded card).
+        .clipShape(RoundedRectangle(cornerRadius: SwipePhysics.cardCornerRadius, style: .continuous))
         // R3→2026-07-04: the long-press contextMenu moved UP to TimelineRow.
         // Two nested contextMenus (this one + TimelineRow's share/select
         // menu) meant the inner one shadowed the outer — TimelineRow now
@@ -247,9 +346,21 @@ struct SwipeableMemoCard: View {
         // gestures don't reach the close overlay. Force-close on transition
         // so the card is visually flush when selection chrome appears.
         .onChange(of: isSelectionMode) { newValue in
-            if newValue, revealedSide != nil {
-                snapClose()
+            if newValue {
+                // Also disarm any in-flight commit layout: entering selection
+                // mode during the brief post-commit settle window must never
+                // leave the expanded single-button drawer frozen on screen.
+                commitArmedSide = nil
+                if revealedSide != nil {
+                    snapClose()
+                }
             }
+        }
+        // Mail semantics: starting a swipe on any card closes every other
+        // card's drawer, so at most one drawer is ever open on screen.
+        .onReceive(NotificationCenter.default.publisher(for: .memoCardDidBeginSwipe)) { note in
+            guard let other = note.object as? UUID, other != memo.id else { return }
+            if revealedSide != nil { snapClose() }
         }
     }
 
@@ -350,15 +461,53 @@ struct SwipeableMemoCard: View {
     // horizontal and we can apply translation 1:1.
 
     private func handlePanChanged(_ translation: CGFloat) {
+        if !didNotifyPeers {
+            didNotifyPeers = true
+            NotificationCenter.default.post(name: .memoCardDidBeginSwipe, object: memo.id)
+        }
         dragDelta = translation
         updateThresholdHaptics()
     }
 
     private func handlePanEnded(_ translation: CGFloat, _ velocity: CGFloat) {
-        dragDelta = 0
-        decideSnap(dx: translation, velocity: velocity)
+        // Resolve on the pre-release visual offset — dragDelta must still be
+        // live here so the full-swipe commit sees how far the card really was.
+        let visualOffset = currentOffset
+        let resolution = SwipeSnapLogic.resolve(
+            revealed: revealedSide,
+            visualOffset: visualOffset,
+            dx: translation,
+            velocity: velocity
+        )
         armedSide = nil
         fullyRevealedSide = nil
+        didNotifyPeers = false
+
+        switch resolution {
+        case .open(let side):
+            dragDelta = 0
+            commitArmedSide = nil
+            snapOpen(side)
+        case .close:
+            dragDelta = 0
+            commitArmedSide = nil
+            snapClose()
+        case .commitOuter(let side):
+            // Hand the live drag offset to settledOffset before zeroing the
+            // delta — same composed value, so no visual jump — then run the
+            // OUTERMOST action (trailing → share, leading → pin). run()
+            // already carries the haptic + animated close + settle delay.
+            settledOffset = visualOffset
+            dragDelta = 0
+            let outer = (side == .trailing ? trailingActions : leadingActions).first
+            outer?.run()
+            // Keep the expanded single-button layout through the close
+            // animation so the drawer doesn't pop back to two columns
+            // mid-flight; clear once the panel is visually flush.
+            DispatchQueue.main.asyncAfter(deadline: .now() + SwipePhysics.actionCommitDelay) {
+                commitArmedSide = nil
+            }
+        }
     }
 
     private func handlePanCancelled() {
@@ -366,6 +515,8 @@ struct SwipeableMemoCard: View {
         dragDelta = 0
         armedSide = nil
         fullyRevealedSide = nil
+        didNotifyPeers = false
+        commitArmedSide = nil
     }
 
     /// Fires a soft tick the first time a drag crosses the open threshold
@@ -374,7 +525,7 @@ struct SwipeableMemoCard: View {
     /// user "release now and the action will fire."
     private func updateThresholdHaptics() {
         let offset = currentOffset
-        let armingSide: Side?
+        let armingSide: CardSwipeSide?
         if offset > SwipePhysics.openThreshold {
             armingSide = .leading
         } else if offset < -SwipePhysics.openThreshold {
@@ -391,7 +542,7 @@ struct SwipeableMemoCard: View {
         // confirmable "drawer fully out" cue distinct from the early
         // armed-at-threshold tick. UIImpactFeedbackGenerator(.light) via
         // Haptics.light() keeps the impact crisp without being shouty.
-        let fullSide: Side?
+        let fullSide: CardSwipeSide?
         if offset >= SwipePhysics.panelWidth {
             fullSide = .leading
         } else if offset <= -SwipePhysics.panelWidth {
@@ -403,33 +554,36 @@ struct SwipeableMemoCard: View {
             fullyRevealedSide = fullSide
             if fullSide != nil { Haptics.light() }
         }
+
+        // Full-swipe commit arming — the third and strongest tick. Crossing
+        // commitThreshold expands the outermost button to fill the drawer
+        // (release now = execute); sliding back under it collapses the
+        // layout with a light disarm tick, exactly like Mail's arm/disarm.
+        let commitSide: CardSwipeSide?
+        if offset >= SwipePhysics.commitThreshold {
+            commitSide = .leading
+        } else if offset <= -SwipePhysics.commitThreshold {
+            commitSide = .trailing
+        } else {
+            commitSide = nil
+        }
+        if commitSide != commitArmedSide {
+            let animation: Animation? = reduceMotion ? nil : SwipePhysics.snapSpring
+            withAnimation(animation) { commitArmedSide = commitSide }
+            if commitSide != nil {
+                Haptics.rigid(intensity: 0.8)
+            } else {
+                Haptics.light()
+            }
+        }
     }
 
     // MARK: - Snap Logic
     //
-    // dx is always relative to the drag start position (not screen zero).
-    // When trailing panel is open (settledOffset = -panelW), a rightward drag
-    // produces dx > 0, which correctly triggers snapClose via the first branch.
-    // No coordinate transform needed — this is the fix for the "can't close" bug.
+    // Release resolution lives in SwipeSnapLogic (pure, unit-tested);
+    // these two just animate the card to the resolved resting position.
 
-    private func decideSnap(dx: CGFloat, velocity: CGFloat) {
-        let openT = SwipePhysics.openThreshold
-        let closeT = SwipePhysics.closeThreshold
-        let vOpen = SwipePhysics.velocityOpen
-        let vClose = SwipePhysics.velocityClose
-        switch revealedSide {
-        case nil:
-            if      dx < -openT || velocity < -vOpen  { snapOpen(.trailing) }
-            else if dx >  openT || velocity >  vOpen  { snapOpen(.leading)  }
-            else                                       { snapClose()         }
-        case .trailing:
-            (dx > closeT || velocity > vClose) ? snapClose() : snapOpen(.trailing)
-        case .leading:
-            (dx < -closeT || velocity < -vClose) ? snapClose() : snapOpen(.leading)
-        }
-    }
-
-    private func snapOpen(_ side: Side) {
+    private func snapOpen(_ side: CardSwipeSide) {
         let target: CGFloat = side == .trailing ? -SwipePhysics.panelWidth : SwipePhysics.panelWidth
         withAnimation(snapAnimation) { settledOffset = target }
         HapticFeedback.light()
@@ -482,6 +636,14 @@ private struct SwipeActionPanel: View {
     let actions: [SwipeAction]
     let edge: Edge
     let progress: CGFloat
+    /// Live drawer width. Tracks the (damped) finger past panelWidth so the
+    /// panel's inner edge always hugs the card edge during an overdrag —
+    /// with the old fixed width a full swipe opened a bare gap between them.
+    var revealWidth: CGFloat = SwipePhysics.panelWidth
+    /// Full-swipe commit armed: the outermost (primary) action expands to
+    /// fill the whole drawer and the secondary column folds away, signalling
+    /// "release to execute", mirroring Mail's full-swipe choreography.
+    var commitArmed: Bool = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -489,9 +651,10 @@ private struct SwipeActionPanel: View {
             // so the share/delete (or pin/more) boundary reads as two distinct
             // tap targets rather than a single colored slab. `inkFaint` is the
             // same low-opacity ink token used by other DS rules and keeps the
-            // divider readable in both schemes.
+            // divider readable in both schemes. Folded away while the commit
+            // layout has a single full-width button.
             ForEach(Array(orderedActions.enumerated()), id: \.element.id) { index, action in
-                if index > 0 {
+                if index > 0 && !commitArmed {
                     Rectangle()
                         .fill(DSColor.inkFaint)
                         .frame(width: 1)
@@ -499,10 +662,16 @@ private struct SwipeActionPanel: View {
                         .opacity(progress > 0.02 ? 1 : 0)
                         .allowsHitTesting(false)
                 }
-                SwipeActionButton(action: action, progress: progress)
+                if !commitArmed || action.id == outerActionID {
+                    SwipeActionButton(
+                        action: action,
+                        progress: progress,
+                        fillsWidth: commitArmed && action.id == outerActionID
+                    )
+                }
             }
         }
-        .frame(width: SwipePhysics.panelWidth)
+        .frame(width: max(SwipePhysics.panelWidth, revealWidth))
         .frame(maxHeight: .infinity)
         // Hide entirely when closed so VoiceOver doesn't announce hidden
         // targets and a stray tap on the laid-out panel can't fire.
@@ -510,6 +679,10 @@ private struct SwipeActionPanel: View {
         .allowsHitTesting(progress > 0.02)
         .accessibilityHidden(progress <= 0.02)
     }
+
+    /// The primary action — callers pass their arrays primary-first, and the
+    /// primary always sits at the drawer's outer (screen-edge) side.
+    private var outerActionID: SwipeAction.Kind? { actions.first?.id }
 
     /// Leading panel grows from the left edge, so its primary action should be
     /// outermost (left). Trailing panel grows from the right edge, primary
@@ -528,6 +701,9 @@ private struct SwipeActionButton: View {
 
     let action: SwipeAction
     let progress: CGFloat
+    /// True while this button is the commit-armed primary: it stretches to
+    /// fill the whole drawer instead of its fixed 76pt column.
+    var fillsWidth: Bool = false
 
     private let labelFadeStart: CGFloat = 0.30
     private let iconScaleMin: CGFloat = 0.6
@@ -539,7 +715,8 @@ private struct SwipeActionButton: View {
                 background
                 content
             }
-            .frame(width: SwipePhysics.actionWidth)
+            .frame(width: fillsWidth ? nil : SwipePhysics.actionWidth)
+            .frame(maxWidth: fillsWidth ? .infinity : nil)
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
         }
@@ -611,4 +788,13 @@ private struct SwipeActionButton: View {
         let clamped = max(0, min(1, (progress - labelFadeStart) / (1 - labelFadeStart)))
         return Double(clamped)
     }
+}
+
+// MARK: - Notification.Name
+
+extension Notification.Name {
+    /// Posted (object: Memo.id as UUID) the moment a card's horizontal pan
+    /// starts moving. Every other SwipeableMemoCard closes its drawer on
+    /// receipt, so at most one drawer is open at a time (Mail semantics).
+    static let memoCardDidBeginSwipe = Notification.Name("memoCardDidBeginSwipe")
 }

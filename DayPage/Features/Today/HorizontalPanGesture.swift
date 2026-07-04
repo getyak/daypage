@@ -118,8 +118,14 @@ struct HorizontalPanGesture: UIViewRepresentable {
         // Began. Returning false keeps it Possible — UIScrollView's pan,
         // which has no such gate, wins arbitration and the timeline scrolls.
         func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            // This delegate serves BOTH recognizers on the host. The
+            // direction-lock below must gate ONLY the pan — the guard's
+            // failed cast used to return false for the tap recognizer,
+            // which silently vetoed every card tap (detail navigation
+            // never fired). Non-pan recognizers may always begin; the
+            // tap still defers to the pan via require(toFail:).
             guard let pan = gestureRecognizer as? UIPanGestureRecognizer,
-                  let view = pan.view else { return false }
+                  let view = pan.view else { return true }
             let translation = pan.translation(in: view)
             let dx = abs(translation.x)
             let dy = abs(translation.y)
