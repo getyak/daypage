@@ -179,47 +179,6 @@ struct SwipeableMemoCard: View {
         reduceMotion ? SwipePhysics.reducedSnap : SwipePhysics.snapSpring
     }
 
-    /// Long-press fallback menu — SHARE / PIN(or UNPIN) / DELETE. Mirrors
-    /// the swipe-revealed actions so users who haven't found the gesture
-    /// (or are using VoiceOver) can still reach every option. Disabled in
-    /// selection mode by attaching only when not selecting.
-    @ViewBuilder private func contextMenuItems() -> some View {
-        if !isSelectionMode {
-            Button {
-                Haptics.tapConfirm()
-                onShare?()
-            } label: {
-                Label(
-                    NSLocalizedString("memo.swipe.share", comment: "Swipe/contextMenu: share memo"),
-                    systemImage: "square.and.arrow.up"
-                )
-            }
-
-            Button {
-                Haptics.tapConfirm()
-                onPin?()
-            } label: {
-                let label = memo.pinnedAt != nil
-                    ? NSLocalizedString("memo.swipe.unpin", comment: "Swipe/contextMenu: unpin memo")
-                    : NSLocalizedString("memo.swipe.pin",   comment: "Swipe/contextMenu: pin memo")
-                Label(label, systemImage: memo.pinnedAt != nil ? "pin.slash" : "pin")
-            }
-
-            // role:.destructive paints the menu row red in iOS 15+; the
-            // warning notification haptic before the delete callback
-            // mirrors the swipe-revealed DELETE behaviour.
-            Button(role: .destructive) {
-                Haptics.warningNotification()
-                onDelete?()
-            } label: {
-                Label(
-                    NSLocalizedString("memo.swipe.delete", comment: "Swipe/contextMenu: delete memo"),
-                    systemImage: "trash"
-                )
-            }
-        }
-    }
-
     var body: some View {
         ZStack(alignment: .center) {
             // LAYER 1 (bottom): the card body — pure presentation. Navigation
@@ -272,12 +231,12 @@ struct SwipeableMemoCard: View {
             .allowsHitTesting(revealedSide != nil && !isSelectionMode)
         }
         .clipped()
-        // R3 — long-press contextMenu fallback. The swipe drawer is the
-        // primary discovery path, but users who don't yet know the gesture
-        // (or who are using accessibility tools) can still reach every
-        // action via long-press. Disabled in selection mode so a long
-        // press there doesn't fight the toggle.
-        .contextMenu(menuItems: contextMenuItems)
+        // R3→2026-07-04: the long-press contextMenu moved UP to TimelineRow.
+        // Two nested contextMenus (this one + TimelineRow's share/select
+        // menu) meant the inner one shadowed the outer — TimelineRow now
+        // owns the single merged menu (share / pin / select / delete) with
+        // a card preview. VoiceOver users keep every action via the
+        // accessibilityActions below.
         .accessibilityLabel(accessibilityMemoLabel)
         .accessibilityAction(named: "Share") { onShare?() }
         .accessibilityAction(named: "More") { onMore?() }

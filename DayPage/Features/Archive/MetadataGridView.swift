@@ -47,7 +47,7 @@ struct MetadataGridView: View {
             ForEach(Array(tiles.enumerated()), id: \.offset) { index, tile in
                 if index > 0 {
                     Rectangle()
-                        .fill(DSTokens.Colors.borderSubtle)
+                        .fill(DSColor.inkFaint)
                         .frame(width: 0.5)
                         .frame(maxHeight: .infinity)
                 }
@@ -58,11 +58,11 @@ struct MetadataGridView: View {
         .fixedSize(horizontal: false, vertical: true)
         .background(
             RoundedRectangle(cornerRadius: DSTokens.Radii.card, style: .continuous)
-                .fill(DSTokens.Colors.surfaceWhite)
+                .fill(DSColor.surfaceWhite)
         )
         .overlay(
             RoundedRectangle(cornerRadius: DSTokens.Radii.card, style: .continuous)
-                .strokeBorder(DSTokens.Colors.borderSubtle, lineWidth: 0.5)
+                .strokeBorder(DSColor.inkFaint, lineWidth: 0.5)
         )
         .clipShape(RoundedRectangle(cornerRadius: DSTokens.Radii.card, style: .continuous))
         .shadow(color: Color.black.opacity(0.04), radius: 2, x: 0, y: 1)
@@ -74,19 +74,19 @@ struct MetadataGridView: View {
             Text(tile.label)
                 .font(DSFonts.jetBrainsMono(size: 8.5, weight: .bold))
                 .tracking(1.4)
-                .foregroundColor(DSTokens.Colors.fgSubtle)
+                .foregroundColor(DSColor.inkSubtle)
 
             Text(tile.value)
                 .font(DSFonts.spaceGrotesk(size: 18, weight: .semibold))
                 .tracking(-0.4)
-                .foregroundColor(DSTokens.Colors.fgPrimary)
+                .foregroundColor(DSColor.inkPrimary)
                 .padding(.top, 5)
 
             if let sub = tile.sub {
                 Text(sub)
                     .font(DSFonts.jetBrainsMono(size: 8, weight: .regular))
                     .tracking(1.2)
-                    .foregroundColor(DSTokens.Colors.fgSubtle)
+                    .foregroundColor(DSColor.inkSubtle)
                     .padding(.top, 4)
             }
         }
@@ -104,7 +104,7 @@ struct MetadataGridView: View {
 struct MetadataGridView_Previews: PreviewProvider {
     static var previews: some View {
         ZStack {
-            DSTokens.Colors.bgWarm.ignoresSafeArea()
+            DSColor.bgWarm.ignoresSafeArea()
             MetadataGridView()
                 .padding(.horizontal, 22)
         }

@@ -84,6 +84,38 @@ struct GraphView: View {
         VStack(spacing: 0) {
             // MARK: Header bar — Liquid Glass strip on the warm canvas
             VStack(spacing: 0) {
+                // Persistent top row — sidebar entry + serif page title. Kept
+                // OUTSIDE the node-count gate below: the empty state used to
+                // hide the entire header, leaving no visible way back to the
+                // sidebar (edge-swipe was the only exit).
+                HStack(spacing: 12) {
+                    Button {
+                        Haptics.soft()
+                        nav.openSidebar()
+                    } label: {
+                        Image(systemName: "line.3.horizontal")
+                            .font(DSType.bodySM)
+                            .foregroundColor(DSColor.inkMuted)
+                            .frame(width: 36, height: 36)
+                            .glassSurface(in: Circle())
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(NSLocalizedString("a11y.nav.open", comment: "Sidebar open button"))
+                    .accessibilityHint(NSLocalizedString("a11y.nav.open.hint", comment: "Opens the sidebar navigation drawer"))
+                    .accessibilityIdentifier("graph-sidebar-menu-button")
+
+                    Text(NSLocalizedString("sidebar.nav.graph", comment: "Graph page title"))
+                        .font(DSFonts.serif(size: 20, weight: .semibold))
+                        .tracking(-0.3)
+                        .foregroundColor(DSColor.inkPrimary)
+
+                    Spacer()
+                }
+                .padding(.horizontal, DSSpacing.lg)
+                .padding(.top, DSSpacing.sm)
+                .padding(.bottom, 2)
+
                 if !viewModel.nodes.isEmpty {
                 HStack(spacing: DSSpacing.sm) {
                     // Search field — glass-tinted capsule

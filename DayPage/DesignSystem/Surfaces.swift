@@ -96,8 +96,10 @@ struct SolidCard: ViewModifier {
                     .fill(DSColor.surfaceWhite)
             )
             .overlay(
+                // Adaptive hairline — the static borderSubtle beige reads as a
+                // glowing outline against the dark-scheme charcoal canvas.
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .strokeBorder(DSColor.borderSubtle, lineWidth: 0.5)
+                    .strokeBorder(DSColor.inkFaint, lineWidth: 0.5)
             )
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .shadow(color: Color(hex: "2D1E0A").opacity(0.04), radius: 1, x: 0, y: 1)

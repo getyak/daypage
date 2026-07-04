@@ -65,7 +65,7 @@ private struct SpineMarker: View {
 
     private func dot(diameter: CGFloat, top: CGFloat) -> some View {
         Circle()
-            .fill(DSTokens.Colors.accent)
+            .fill(DSColor.accentOnBg)
             .frame(width: diameter, height: diameter)
             .background(halo(Circle()))
             .offset(x: Spine.x - diameter / 2, y: top)
@@ -73,7 +73,7 @@ private struct SpineMarker: View {
 
     private func bar(width: CGFloat, height: CGFloat, top: CGFloat) -> some View {
         RoundedRectangle(cornerRadius: 2, style: .continuous)
-            .fill(DSTokens.Colors.accent)
+            .fill(DSColor.accentOnBg)
             .frame(width: width, height: height)
             .background(halo(RoundedRectangle(cornerRadius: 2, style: .continuous)))
             .offset(x: Spine.x - width / 2, y: top)
@@ -81,8 +81,8 @@ private struct SpineMarker: View {
 
     private func ring(diameter: CGFloat, top: CGFloat) -> some View {
         Circle()
-            .fill(DSTokens.Colors.bgWarm)
-            .overlay(Circle().strokeBorder(DSTokens.Colors.accent, lineWidth: 1.6))
+            .fill(DSColor.bgWarm)
+            .overlay(Circle().strokeBorder(DSColor.accentOnBg, lineWidth: 1.6))
             .frame(width: diameter, height: diameter)
             .background(halo(Circle(), inset: 3))
             .offset(x: Spine.x - diameter / 2, y: top)
@@ -90,9 +90,9 @@ private struct SpineMarker: View {
 
     private func concentric(diameter: CGFloat, inner: CGFloat, top: CGFloat) -> some View {
         Circle()
-            .fill(DSTokens.Colors.bgWarm)
-            .overlay(Circle().strokeBorder(DSTokens.Colors.accent, lineWidth: 1.6))
-            .overlay(Circle().fill(DSTokens.Colors.accent).frame(width: inner, height: inner))
+            .fill(DSColor.bgWarm)
+            .overlay(Circle().strokeBorder(DSColor.accentOnBg, lineWidth: 1.6))
+            .overlay(Circle().fill(DSColor.accentOnBg).frame(width: inner, height: inner))
             .frame(width: diameter, height: diameter)
             .background(halo(Circle(), inset: 3))
             .offset(x: Spine.x - diameter / 2, y: top)
@@ -102,7 +102,7 @@ private struct SpineMarker: View {
     /// past the marker edges and masks the hairline running behind it.
     private func halo<S: Shape>(_ shape: S, inset: CGFloat = Spine.halo) -> some View {
         shape
-            .fill(DSTokens.Colors.bgWarm)
+            .fill(DSColor.bgWarm)
             .padding(-inset)
     }
 }
@@ -121,7 +121,7 @@ struct TimelineRowTitle: View {
             .font(DSFonts.serif(size: size, weight: .semibold))
             .tracking(tracking)
             .lineSpacing(size >= 24 ? 4 : 3)
-            .foregroundColor(DSTokens.Colors.fgPrimary)
+            .foregroundColor(DSColor.inkPrimary)
             .fixedSize(horizontal: false, vertical: true)
     }
 }
@@ -135,7 +135,7 @@ struct TimelineRowLede: View {
             .font(DSFonts.inter(size: 14))
             .tracking(0.1)
             .lineSpacing(4)
-            .foregroundColor(DSTokens.Colors.fgPrimary.opacity(0.85))
+            .foregroundColor(DSColor.inkPrimary.opacity(0.85))
             .lineLimit(3)
             .multilineTextAlignment(.leading)
             .fixedSize(horizontal: false, vertical: true)
@@ -155,17 +155,17 @@ struct TimelineRowMeta<Trailing: View>: View {
                 if index > 0 {
                     Text("·")
                         .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
-                        .foregroundColor(DSTokens.Colors.fgSubtle.opacity(0.55))
+                        .foregroundColor(DSColor.inkSubtle.opacity(0.55))
                 }
                 Text(tag)
                     .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
                     .tracking(1.6)
-                    .foregroundColor(DSTokens.Colors.fgSubtle)
+                    .foregroundColor(DSColor.inkSubtle)
             }
             Spacer(minLength: 12)
             trailing()
                 .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
-                .foregroundColor(DSTokens.Colors.fgMuted)
+                .foregroundColor(DSColor.inkMuted)
         }
         .padding(.top, 14)
     }
@@ -213,14 +213,14 @@ struct TimelineRowScaffold<Content: View>: View {
             Text(leftTop)
                 .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
                 .tracking(1.8)
-                .foregroundColor(DSTokens.Colors.fgSubtle)
+                .foregroundColor(DSColor.inkSubtle)
             if let leftBot {
                 Text(leftBot)
                     .font(leftBotSerif
                         ? DSFonts.serif(size: 13, weight: .semibold)
                         : DSFonts.spaceGrotesk(size: 13, weight: .semibold))
                     .tracking(-0.1)
-                    .foregroundColor(DSTokens.Colors.fgPrimary)
+                    .foregroundColor(DSColor.inkPrimary)
             }
         }
         .padding(.top, 6)

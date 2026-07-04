@@ -167,6 +167,12 @@ enum DSColor {
 
     /// 强调色 — 深琥珀棕（替代 #000000 主色）
     static let accentAmber = Color(hex: "5D3000")
+    /// Adaptive accent for glyphs, strokes and text that sit directly on the
+    /// ambient background: deep amber in light, lifted amber in dark. Use
+    /// this instead of `accentAmber`/`DSTokens.Colors.accent` whenever the
+    /// amber is INK (text, icon, outline) rather than a filled surface —
+    /// #5D3000 vanishes against the dark-scheme charcoal background.
+    static let accentOnBg = Color(light: Color(hex: "5D3000"), dark: Color(hex: "D9975A"))
     static let accentAmberHover = Color(hex: "7A3F00")
     static let accentSoft = Color(hex: "F5EDE3")
     static let accentBorder = Color(hex: "E8DCCA")
@@ -183,11 +189,14 @@ enum DSColor {
     static let errorRed = Color(hex: "A23A2E")
     static let errorSoft = Color(hex: "F5E1DC")
 
-    /// 热力图密度刻度（归档日历）
-    static let heatmapEmpty = Color(hex: "F0EBE3")
-    static let heatmapLow = Color(hex: "E6D9C3")
-    static let heatmapMid = Color(hex: "C9A677")
-    static let heatmapHigh = Color(hex: "5D3000")
+    /// 热力图密度刻度（归档日历 / 侧边栏 16 周热力图）。
+    /// Adaptive: in dark scheme the scale inverts perceptually — empty cells
+    /// sink into the background and high density glows amber, instead of the
+    /// light-scheme palette burning as a wall of white squares.
+    static let heatmapEmpty = Color(light: Color(hex: "F0EBE3"), dark: Color(hex: "2E271E"))
+    static let heatmapLow = Color(light: Color(hex: "E6D9C3"), dark: Color(hex: "4F3D26"))
+    static let heatmapMid = Color(light: Color(hex: "C9A677"), dark: Color(hex: "96693A"))
+    static let heatmapHigh = Color(light: Color(hex: "5D3000"), dark: Color(hex: "E09A55"))
 
     /// 边框令牌
     static let borderSubtle = Color(hex: "EDE8DF")
