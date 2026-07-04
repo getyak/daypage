@@ -2978,7 +2978,13 @@ struct TodayView: View {
                                     }
                                 }
                             },
-                            onOpen: { openedMemoID = memo.id }
+                            onOpen: {
+                                // Same confirm tick the timeline rows play on
+                                // open, so tap-into-detail feels identical
+                                // across today's cards and historical rows.
+                                Haptics.tapConfirm()
+                                openedMemoID = memo.id
+                            }
                         )
                         .offset(x: idx == 0 ? memoCardHintOffset : 0)
                         .onAppear {
@@ -4071,7 +4077,11 @@ struct TimelineRow: View {
         }
         // Right-swipe MORE → fuller action set (pin / quote / delete) kept
         // out of the card's resting chrome per the content-first redesign.
-        .confirmationDialog("更多", isPresented: $showMoreActions, titleVisibility: .hidden) {
+        .confirmationDialog(
+            NSLocalizedString("memo.swipe.more", comment: "more dialog title"),
+            isPresented: $showMoreActions,
+            titleVisibility: .hidden
+        ) {
             moreActionsButtons
         }
     }
@@ -4099,21 +4109,24 @@ struct TimelineRow: View {
             Button {
                 onShare()
             } label: {
-                Label("分享为卡片", systemImage: "square.and.arrow.up.on.square")
+                Label(NSLocalizedString("memo.menu.shareCard", comment: "contextMenu: share memo as card"),
+                      systemImage: "square.and.arrow.up.on.square")
             }
         }
         if let onShareAsQuote {
             Button {
                 onShareAsQuote()
             } label: {
-                Label("分享为引用", systemImage: "quote.opening")
+                Label(NSLocalizedString("memo.menu.shareQuote", comment: "contextMenu: share memo as quote"),
+                      systemImage: "quote.opening")
             }
         }
         if let onEnterSelectionMode {
             Button {
                 onEnterSelectionMode()
             } label: {
-                Label("多选", systemImage: "checkmark.circle")
+                Label(NSLocalizedString("memo.menu.multiselect", comment: "contextMenu: enter multi-select mode"),
+                      systemImage: "checkmark.circle")
             }
         }
         if let onDelete {
@@ -4131,18 +4144,20 @@ struct TimelineRow: View {
     @ViewBuilder
     private var moreActionsButtons: some View {
         if let onPin {
-            Button(memo.pinnedAt != nil ? "取消置顶" : "置顶") { onPin() }
+            Button(memo.pinnedAt != nil
+                ? NSLocalizedString("memo.swipe.unpin", comment: "more dialog: unpin memo")
+                : NSLocalizedString("memo.swipe.pin", comment: "more dialog: pin memo")) { onPin() }
         }
         if let onShareAsQuote {
-            Button("分享为引用") { onShareAsQuote() }
+            Button(NSLocalizedString("memo.menu.shareQuote", comment: "more dialog: share as quote")) { onShareAsQuote() }
         }
         if let onEnterSelectionMode {
-            Button("多选") { onEnterSelectionMode() }
+            Button(NSLocalizedString("memo.menu.multiselect", comment: "more dialog: multi-select")) { onEnterSelectionMode() }
         }
         if let onDelete {
-            Button("删除", role: .destructive) { onDelete() }
+            Button(NSLocalizedString("memo.swipe.delete", comment: "more dialog: delete memo"), role: .destructive) { onDelete() }
         }
-        Button("取消", role: .cancel) { }
+        Button(NSLocalizedString("memo.menu.cancel", comment: "more dialog: cancel"), role: .cancel) { }
     }
 
     private var selectionIndicator: some View {

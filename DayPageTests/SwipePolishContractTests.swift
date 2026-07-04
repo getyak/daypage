@@ -22,13 +22,78 @@ struct SwipePolishContractTests {
     /// response so the parent's action (share sheet / delete dialog) never
     /// animates in over an open drawer. 0.36 gives a 40ms settle margin.
     ///
-    /// This test is a sentinel — SwipePhysics is fileprivate, so we lock
-    /// the contract via the literal that both call-sites (SwipeableMemoCard,
-    /// TimelineSectionView) now share.
+    /// SwipePhysics is internal since the full-swipe-commit work, so this
+    /// asserts the real token instead of a mirrored literal.
     @Test("actionCommitDelay matches Motion.panel response + settle")
     func actionCommitDelayIsSynced() {
-        let expected: TimeInterval = 0.36
-        #expect(expected == 0.36, "SwipePhysics.actionCommitDelay must stay ≥ Motion.panel.response(0.32) + 40ms")
+        #expect(SwipePhysics.actionCommitDelay == 0.36, "SwipePhysics.actionCommitDelay must stay ≥ Motion.panel.response(0.32) + 40ms")
+    }
+
+    // MARK: - SwipeSnapLogic release resolution (full-swipe commit)
+
+    /// 冲高过 commitThreshold 后松手 = 直接执行最外侧动作：左滑(trailing)
+    /// 提交分享，右滑(leading) 提交置顶。这是 Mail 式 full-swipe 的核心契约。
+    @Test("release past commitThreshold commits the outer action")
+    func fullSwipeCommitsOuterAction() {
+        let c = SwipePhysics.commitThreshold
+        #expect(SwipeSnapLogic.resolve(revealed: nil, visualOffset: -c - 1, dx: -300, velocity: 0)
+                == .commitOuter(.trailing))
+        #expect(SwipeSnapLogic.resolve(revealed: nil, visualOffset: c + 1, dx: 300, velocity: 0)
+                == .commitOuter(.leading))
+        // Commit also works when the drawer was already open before the drag.
+        #expect(SwipeSnapLogic.resolve(revealed: .trailing, visualOffset: -c - 10, dx: -120, velocity: 0)
+                == .commitOuter(.trailing))
+    }
+
+    /// 高速甩动绝不能触发 commit——commit 只认手指真实走过的位移，
+    /// 防止一次猛甩误执行分享/置顶。
+    @Test("velocity alone never commits")
+    func velocityAloneNeverCommits() {
+        let r = SwipeSnapLogic.resolve(revealed: nil, visualOffset: -80, dx: -80, velocity: -6000)
+        #expect(r == .open(.trailing))
+    }
+
+    /// 自信的半滑打开抽屉；犹豫的轻扫弹回关闭（openThreshold=40 的两侧）。
+    @Test("half-swipe opens, hesitant brush closes")
+    func halfSwipeOpensBrushCloses() {
+        let t = SwipePhysics.openThreshold
+        #expect(SwipeSnapLogic.resolve(revealed: nil, visualOffset: -(t + 1), dx: -(t + 1), velocity: 0)
+                == .open(.trailing))
+        #expect(SwipeSnapLogic.resolve(revealed: nil, visualOffset: t + 1, dx: t + 1, velocity: 0)
+                == .open(.leading))
+        #expect(SwipeSnapLogic.resolve(revealed: nil, visualOffset: -(t - 20), dx: -(t - 20), velocity: 0)
+                == .close)
+    }
+
+    /// 小位移大速度的 flick 也能开（velocityOpen=600 之外）。
+    @Test("flick velocity opens with tiny translation")
+    func flickOpens() {
+        #expect(SwipeSnapLogic.resolve(revealed: nil, visualOffset: -10, dx: -10, velocity: -(SwipePhysics.velocityOpen + 100))
+                == .open(.trailing))
+    }
+
+    /// 已打开的抽屉：反向拖 > closeThreshold 或反向 flick 关闭；
+    /// 原地小抖动保持打开。
+    @Test("open drawer closes on reverse drag or flick, stays on jitter")
+    func openDrawerCloseRules() {
+        let closeT = SwipePhysics.closeThreshold
+        #expect(SwipeSnapLogic.resolve(revealed: .trailing, visualOffset: -120, dx: closeT + 6, velocity: 0)
+                == .close)
+        #expect(SwipeSnapLogic.resolve(revealed: .trailing, visualOffset: -140, dx: 10, velocity: SwipePhysics.velocityClose + 100)
+                == .close)
+        #expect(SwipeSnapLogic.resolve(revealed: .trailing, visualOffset: -150, dx: -5, velocity: 0)
+                == .open(.trailing))
+        #expect(SwipeSnapLogic.resolve(revealed: .leading, visualOffset: 120, dx: -(closeT + 6), velocity: 0)
+                == .close)
+    }
+
+    /// commit 需要的真实手指行程（阻尼区按 overdragDamping 换算）落在
+    /// 单手可达且不会误触的窗口内（240–270pt @ 402pt 屏）。
+    @Test("commit requires deliberate finger travel")
+    func commitTravelIsDeliberate() {
+        let rawNeeded = SwipePhysics.panelWidth
+            + (SwipePhysics.commitThreshold - SwipePhysics.panelWidth) / SwipePhysics.overdragDamping
+        #expect(rawNeeded > 240 && rawNeeded < 270)
     }
 
     // MARK: - LLMClient.Config public init is stable
