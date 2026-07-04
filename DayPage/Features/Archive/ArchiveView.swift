@@ -1024,9 +1024,12 @@ struct ArchiveView: View {
     private let weekdaySymbols = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
 
     private var calendarGrid: some View {
-        VStack(spacing: 1) {
+        // 4pt gutters + 8pt inset: with the previous 1pt gaps the amber cell
+        // fills fused with the amber-tinted glass panel into one flat salmon
+        // slab — the density heatmap only reads when cells are discrete tiles.
+        VStack(spacing: 4) {
             // Weekday header row
-            HStack(spacing: 1) {
+            HStack(spacing: 4) {
                 ForEach(weekdaySymbols, id: \.self) { day in
                     Text(day)
                         .monoLabelStyle(size: 9)
@@ -1040,7 +1043,7 @@ struct ArchiveView: View {
             let cells = viewModel.daysInCurrentMonth()
             let rows = cells.chunked(into: 7)
             ForEach(rows.indices, id: \.self) { rowIdx in
-                HStack(spacing: 1) {
+                HStack(spacing: 4) {
                     ForEach(rows[rowIdx].indices, id: \.self) { colIdx in
                         let dayNum = rows[rowIdx][colIdx]
                         calendarCell(dayNum: dayNum)
@@ -1048,6 +1051,7 @@ struct ArchiveView: View {
                 }
             }
         }
+        .padding(8)
         // #771: month calendar grid → glass engine (.panel). Engine owns rim.
         .dpGlass(.panel, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))

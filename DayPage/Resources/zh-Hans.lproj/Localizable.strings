@@ -157,7 +157,7 @@
 "today.empty.poem.title"     = "把今天放下来。";
 "today.empty.poem.subtitle"  = "我陪你整理。";
 "today.empty.poem.a11y"      = "把今天放下来。我陪你整理。";
-"today.empty.ai_cta"         = "让 AI 陪你聊聊今天";
+"today.empty.ai_cta"         = "让 AI 陪你写今天";
 "today.empty.try_sample"     = "先看示例日记";
 "today.empty.sample_active"  = "已生成 · 打开昨天看看";
 

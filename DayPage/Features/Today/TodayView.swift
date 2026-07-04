@@ -191,9 +191,10 @@ struct TodayView: View {
     /// (the same path the inline composer uses) via `draftText`.
     @State private var showWriteSheet: Bool = false
 
-    /// Controls the AskPastView sheet — the AI chat surface reachable from the
-    /// dock sparkle button and the empty-state "让 AI 陪你聊聊今天" CTA.
-    @State private var showAskAI: Bool = false
+    /// Issue #804: Today sparkle 现在打开 `TodayCoachView`（陪写引导）。
+    /// AskPastView（RAG 「问过去」）保留在侧边栏 + Siri intent —— 两条路径
+    /// 语义不同，不再共用这个 state。
+    @State private var showTodayCoach: Bool = false
 
     /// Issue #2: flips true after the empty-state "See a sample journal" link
     /// runs `SampleDataSeeder.seedIfNeeded()`. Rebinds the link label so a
@@ -396,8 +397,16 @@ struct TodayView: View {
                     // Rendered before the timeline so the user sees "the
                     // AI knows what I care about today" as soon as they
                     // land on Today.
-                    todayFocusRow
-                        .padding(.bottom, DSSpacing.xs)
+                    //
+                    // 2026-07-04: shown only while the day is EMPTY. Once
+                    // memos exist the chips stop earning their row — the
+                    // declared focus already flowed into TodayFocusStore and
+                    // the compile prompt, and the timeline needs the space.
+                    if viewModel.memos.isEmpty {
+                        todayFocusRow
+                            .padding(.bottom, DSSpacing.xs)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
 
                     // MARK: Offline Sync Queue Banner (R5)
                     //
@@ -1002,15 +1011,17 @@ struct TodayView: View {
             .sheet(isPresented: $showSettings) {
                 SettingsView()
             }
-            // AI chat — AskPastView (D1 「和过去对话」). Reached from the
-            // dock sparkle button and the empty-state CTA "让 AI 陪你聊聊今天".
-            // .large detent (default) since the conversation surface needs
-            // full vertical space; the AskPastView's own NavigationStack
-            // owns its "关闭" toolbar item.
-            .sheet(isPresented: $showAskAI) {
-                AskPastView(
-                    seedQuestion: nil,
-                    onClose: { showAskAI = false }
+            // Issue #804: Today sparkle → 陪写引导（TodayCoachView），不再是
+            // AskPastView。前者引导写下一条今日 memo，后者是 RAG 历史检索——
+            // 用户 tap "让 AI 陪你聊聊今天" 应该进入陪写而非搜索。
+            // AskPastView 仍由侧边栏「问过去」和 Siri intent 触发。
+            .sheet(isPresented: $showTodayCoach) {
+                TodayCoachView(
+                    onClose: { showTodayCoach = false },
+                    onDidPinDraft: {
+                        // 存入后刷新 timeline，让新 memo 立刻可见
+                        viewModel.load()
+                    }
                 )
             }
             // US-019: Markdown export share sheet
@@ -2135,13 +2146,12 @@ struct TodayView: View {
             }
 
             // CTA: 让 AI 陪你聊聊今天 — quiet amber sparkle + serif text.
-            // Tapping opens AskPastView (the same surface the dock sparkle
-            // routes to). Hidden when AI features are off so the user can't
-            // hit a dead-end button.
+            // Issue #804: tap opens TodayCoachView（陪写引导），不是 AskPastView。
+            // 用户在空态点这个 CTA 是想被引导记录，不是查历史。
             if aiFeaturesEnabled {
                 Button {
                     Haptics.tapConfirm()
-                    showAskAI = true
+                    showTodayCoach = true
                 } label: {
                     HStack(spacing: 8) {
                         Image(systemName: "sparkles")
@@ -2406,8 +2416,9 @@ struct TodayView: View {
                 announceMemoSaved()
             },
             onAskAI: {
+                // Issue #804: dock sparkle → TodayCoachView（陪写），不是 AskPast。
                 Haptics.tapConfirm()
-                showAskAI = true
+                showTodayCoach = true
             },
             onAddPhotoAsset: nil,
             batchPhotoProgress: viewModel.batchPhotoProgress,
@@ -2512,6 +2523,7 @@ struct TodayView: View {
     @ViewBuilder
     private var sidebarSection: some View {
         let isScrolled = isTimelineScrolled
+        let hasMemos = !viewModel.memos.isEmpty
         // The header HStack now participates in normal layout (it owns its
         // height), with the glass/separator drawn as a `.background` behind it.
         // Previously the HStack lived inside `.overlay()` on a zero-height
@@ -2540,6 +2552,18 @@ struct TodayView: View {
                 .accessibilityLabel(NSLocalizedString("a11y.nav.open", comment: "Sidebar open button"))
                 .accessibilityHint(NSLocalizedString("a11y.nav.open.hint", comment: "Opens the sidebar navigation drawer"))
                 .accessibilityIdentifier("sidebar-menu-button")
+
+                Spacer()
+
+                // Compact hero (2026-07-04): once the day has memos the big
+                // weekday hero collapses into this single-line serif title in
+                // the toolbar center — content owns the fold, the date stays
+                // one glance away. Keeps the hero's affordances (tap →
+                // scroll-to-top, context menu → export / copy).
+                if hasMemos {
+                    compactHeroTitle
+                        .transition(.opacity.combined(with: .scale(scale: 0.92)))
+                }
 
                 Spacer()
 
@@ -2635,6 +2659,11 @@ struct TodayView: View {
             // centered so the eye lands on the date before the dock.
             // Chinese "星期X" at 28pt keeps the calm museum scale; the
             // subline (30 JUN · 深夜) is a small caps caption.
+            //
+            // 2026-07-04: the big hero now shows ONLY while the day is empty.
+            // Once the first memo lands it collapses into `compactHeroTitle`
+            // (toolbar center) so the timeline gains ~70pt above the fold.
+            if !hasMemos {
             Button {
                 hasNewContentAboveFold = false
                 Haptics.soft()
@@ -2665,55 +2694,20 @@ struct TodayView: View {
                     HapticFeedback.warning()
                 }
             }
-            // R4 (#793 comp 4.png): the export-as-markdown affordance moved
-            // off the visible toolbar into a hero context menu — long-press
-            // for share, repeat for copy. Disabled on empty days because
-            // there's nothing to share.
-            .contextMenu {
-                if !viewModel.memos.isEmpty {
-                    Button {
-                        let content = MarkdownExportService.buildExportContent(
-                            memos: viewModel.memos, date: Date(),
-                            summary: viewModel.dailyPageSummary
-                        )
-                        let dateString = MarkdownExportService.exportDateString(for: Date())
-                        do {
-                            let url = try MarkdownExportService.writeExportFile(
-                                content: content, dateString: dateString
-                            )
-                            exportFileURL = url
-                            showExportSheet = true
-                            Haptics.tapConfirm()
-                        } catch {
-                            Haptics.warn()
-                            DayPageLogger.shared.error("TodayView: export failed: \(error)")
-                        }
-                    } label: {
-                        Label(NSLocalizedString("export.action.title", comment: ""),
-                              systemImage: "square.and.arrow.up")
-                    }
-                    Button {
-                        let content = MarkdownExportService.buildExportContent(
-                            memos: viewModel.memos, date: Date(),
-                            summary: viewModel.dailyPageSummary
-                        )
-                        UIPasteboard.general.string = content
-                        Haptics.success()
-                        bannerCenter.show(AppBannerModel(
-                            kind: .info,
-                            title: NSLocalizedString("export.copied.title", comment: ""),
-                            autoDismiss: true
-                        ))
-                    } label: {
-                        Label(NSLocalizedString("export.copied.title", comment: ""),
-                              systemImage: "doc.on.doc")
-                    }
-                }
+            // 2026-07-04: the export context menu used to live here, gated on
+            // !memos.isEmpty — but the big hero itself now renders only on
+            // EMPTY days, so that menu could never appear. It moved to
+            // `compactHeroTitle` (the memo-day surface) as `exportMenuItems`.
+            .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .padding(.horizontal, 24)
         .padding(.top, 8)
         .padding(.bottom, 16)
+        // Collapse/expand between the big hero (empty day) and the compact
+        // toolbar title (memo day) with the shared panel spring so the first
+        // memo's arrival reads as one deliberate motion, not a layout pop.
+        .animation(reduceMotion ? nil : Motion.spring, value: hasMemos)
         .onReceive(headerTimer) { date in
             currentTime = date
         }
@@ -2758,6 +2752,77 @@ struct TodayView: View {
                 }
             }
             .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: isScrolled)
+        }
+    }
+
+    /// Single-line hero shown once the day has memos: "星期六 · 7月4日",
+    /// centered in the toolbar row between ☰ and ⚙. Replaces the 70pt big
+    /// hero so captured content owns the fold while the date stays one
+    /// glance away. Carries the hero's affordances forward: tap scrolls the
+    /// timeline to top; long-press context menu exposes export / copy.
+    private var compactHeroTitle: some View {
+        Button {
+            hasNewContentAboveFold = false
+            Haptics.soft()
+            withAnimation(reduceMotion ? nil : Motion.spring) {
+                timelineScrollProxy?.scrollTo("timelineTop", anchor: .top)
+            }
+        } label: {
+            Text("\(weekdayName(currentTime)) · \(Self.headerDateFmt.string(from: currentTime))")
+                .font(DSFonts.serif(size: 15, weight: .regular))
+                .foregroundColor(DSColor.inkPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(height: 36)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(NSLocalizedString("today.header.scroll_to_top", comment: "Scroll to top of timeline"))
+        .accessibilityIdentifier("today-hero-title-compact")
+        .contextMenu { exportMenuItems }
+    }
+
+    /// Export / copy actions for the day's memos — formerly the big hero's
+    /// context menu. Lives on `compactHeroTitle` because that surface only
+    /// renders when memos exist (the old `!memos.isEmpty` gate is structural
+    /// now, not conditional).
+    @ViewBuilder
+    private var exportMenuItems: some View {
+        Button {
+            let content = MarkdownExportService.buildExportContent(
+                memos: viewModel.memos, date: Date(),
+                summary: viewModel.dailyPageSummary
+            )
+            let dateString = MarkdownExportService.exportDateString(for: Date())
+            do {
+                let url = try MarkdownExportService.writeExportFile(
+                    content: content, dateString: dateString
+                )
+                exportFileURL = url
+                showExportSheet = true
+                Haptics.tapConfirm()
+            } catch {
+                Haptics.warn()
+                DayPageLogger.shared.error("TodayView: export failed: \(error)")
+            }
+        } label: {
+            Label(NSLocalizedString("export.action.title", comment: ""),
+                  systemImage: "square.and.arrow.up")
+        }
+        Button {
+            let content = MarkdownExportService.buildExportContent(
+                memos: viewModel.memos, date: Date(),
+                summary: viewModel.dailyPageSummary
+            )
+            UIPasteboard.general.string = content
+            Haptics.success()
+            bannerCenter.show(AppBannerModel(
+                kind: .info,
+                title: NSLocalizedString("export.copied.title", comment: ""),
+                autoDismiss: true
+            ))
+        } label: {
+            Label(NSLocalizedString("export.copied.title", comment: ""),
+                  systemImage: "doc.on.doc")
         }
     }
 
@@ -3938,6 +4003,32 @@ struct TimelineRow: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        // 2026-07-04: the long-press menu is applied conditionally — in
+        // selection mode a long press must do NOTHING (no menu, no preview
+        // lift), so we branch on the flag instead of emptying the items.
+        // This is also where the old double-contextMenu bug died: the card
+        // (SwipeableMemoCard) used to carry its own share/pin/delete menu
+        // that shadowed this one; both sets now merge here, over a real
+        // card preview.
+        if isSelectionMode {
+            cardStack
+        } else {
+            cardStack
+                .contextMenu {
+                    mergedMenuItems
+                } preview: {
+                    // Full-bleed card snapshot lifted out of the timeline —
+                    // reuses MemoCardView so the preview is the card, not a
+                    // cropped screenshot of the row.
+                    MemoCardView(memo: memo)
+                        .frame(width: UIScreen.main.bounds.width - 40)
+                }
+        }
+    }
+
+    /// The card + selection chrome + MORE dialog, shared by both branches
+    /// of `body`.
+    private var cardStack: some View {
         ZStack(alignment: .topTrailing) {
             // In selection mode the inner NavigationLink must be disabled
             // (otherwise a tap routes to detail). We pass isSelectionMode
@@ -3978,37 +4069,62 @@ struct TimelineRow: View {
                     .transition(.opacity)
             }
         }
-        .contextMenu {
-            // Hide the menu while in selection mode — long-pressing a card
-            // mid-selection should not open another menu over the toolbar.
-            if !isSelectionMode {
-                if let onShare {
-                    Button {
-                        onShare()
-                    } label: {
-                        Label("分享为卡片", systemImage: "square.and.arrow.up.on.square")
-                    }
-                }
-                if let onShareAsQuote {
-                    Button {
-                        onShareAsQuote()
-                    } label: {
-                        Label("分享为引用", systemImage: "quote.opening")
-                    }
-                }
-                if let onEnterSelectionMode {
-                    Button {
-                        onEnterSelectionMode()
-                    } label: {
-                        Label("多选", systemImage: "checkmark.circle")
-                    }
-                }
-            }
-        }
         // Right-swipe MORE → fuller action set (pin / quote / delete) kept
         // out of the card's resting chrome per the content-first redesign.
         .confirmationDialog("更多", isPresented: $showMoreActions, titleVisibility: .hidden) {
             moreActionsButtons
+        }
+    }
+
+    /// Single merged long-press menu: pin + both share forms + multi-select,
+    /// then delete isolated behind a divider. Mirrors every swipe-revealed
+    /// action so the menu alone is a complete control surface.
+    @ViewBuilder
+    private var mergedMenuItems: some View {
+        if let onPin {
+            Button {
+                Haptics.tapConfirm()
+                onPin()
+            } label: {
+                let pinned = memo.pinnedAt != nil
+                Label(
+                    pinned
+                        ? NSLocalizedString("memo.swipe.unpin", comment: "contextMenu: unpin memo")
+                        : NSLocalizedString("memo.swipe.pin",   comment: "contextMenu: pin memo"),
+                    systemImage: pinned ? "pin.slash" : "pin"
+                )
+            }
+        }
+        if let onShare {
+            Button {
+                onShare()
+            } label: {
+                Label("分享为卡片", systemImage: "square.and.arrow.up.on.square")
+            }
+        }
+        if let onShareAsQuote {
+            Button {
+                onShareAsQuote()
+            } label: {
+                Label("分享为引用", systemImage: "quote.opening")
+            }
+        }
+        if let onEnterSelectionMode {
+            Button {
+                onEnterSelectionMode()
+            } label: {
+                Label("多选", systemImage: "checkmark.circle")
+            }
+        }
+        if let onDelete {
+            Divider()
+            Button(role: .destructive) {
+                Haptics.warningNotification()
+                onDelete()
+            } label: {
+                Label(NSLocalizedString("memo.swipe.delete", comment: "contextMenu: delete memo"),
+                      systemImage: "trash")
+            }
         }
     }
 

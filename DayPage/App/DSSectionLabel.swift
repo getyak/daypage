@@ -14,7 +14,7 @@ struct DSSectionLabel: View {
         Text(text.uppercased())
             .font(DSFonts.spaceGrotesk(size: 11, weight: .bold))
             .tracking(1.6)
-            .foregroundColor(DSTokens.Colors.fgMuted)
+            .foregroundColor(DSColor.inkMuted)
             .accessibilityAddTraits(.isHeader)
             .accessibilityHeading(.h2)
     }

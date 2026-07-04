@@ -66,7 +66,7 @@ struct TimelineSectionView: View {
             // ONE continuous hairline, fixed left x, behind every row.
             // app.jsx:618 — width:0.5, var(--border-subtle), top:18 bottom:6.
             Rectangle()
-                .fill(DSTokens.Colors.borderSubtle)
+                .fill(DSColor.inkFaint)
                 .frame(width: 0.5)
                 .padding(.leading, TimelineSpine.spineX - 0.25)
                 .padding(.top, 18)
@@ -298,11 +298,11 @@ struct TimelineDayRow: View {
                 .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
                 .tracking(1.8)
                 .textCase(.uppercase)
-                .foregroundColor(DSTokens.Colors.fgSubtle)
+                .foregroundColor(DSColor.inkSubtle)
             Text(monthDayLabel)
                 .font(DSFonts.spaceGrotesk(size: 13, weight: .semibold))
                 .tracking(-0.1)
-                .foregroundColor(DSTokens.Colors.fgPrimary)
+                .foregroundColor(DSColor.inkPrimary)
         }
         .frame(width: TimelineSpine.nameplateWidth, alignment: .trailing)
         .padding(.top, 6)
@@ -331,10 +331,10 @@ struct TimelineDayRow: View {
         HStack(spacing: 4) {
             Text("\(approxWordCount)")
                 .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
-                .foregroundColor(DSTokens.Colors.fgMuted)
+                .foregroundColor(DSColor.inkMuted)
             Text(wordUnitLabel)
                 .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
-                .foregroundColor(DSTokens.Colors.fgMuted.opacity(0.6))
+                .foregroundColor(DSColor.inkMuted.opacity(0.6))
         }
         .tracking(1.3)
     }
@@ -678,7 +678,7 @@ enum TimelineSpine {
         static let size: CGFloat = 7
         var body: some View {
             Circle()
-                .fill(DSTokens.Colors.accent)
+                .fill(DSColor.accentOnBg)
                 .frame(width: Self.size, height: Self.size)
                 .background(halo(radius: 4))
         }
@@ -690,7 +690,7 @@ enum TimelineSpine {
         static let height: CGFloat = 3
         var body: some View {
             RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(DSTokens.Colors.accent)
+                .fill(DSColor.accentOnBg)
                 .frame(width: Self.width, height: Self.height)
                 .background(halo(radius: 4))
         }
@@ -701,10 +701,10 @@ enum TimelineSpine {
         static let size: CGFloat = 11
         var body: some View {
             Circle()
-                .fill(DSTokens.Colors.bgWarm)
+                .fill(DSColor.bgWarm)
                 .frame(width: Self.size, height: Self.size)
                 .overlay(
-                    Circle().strokeBorder(DSTokens.Colors.accent, lineWidth: 1.6)
+                    Circle().strokeBorder(DSColor.accentOnBg, lineWidth: 1.6)
                 )
                 .background(halo(radius: 3))
         }
@@ -715,14 +715,14 @@ enum TimelineSpine {
         static let size: CGFloat = 15
         var body: some View {
             Circle()
-                .fill(DSTokens.Colors.bgWarm)
+                .fill(DSColor.bgWarm)
                 .frame(width: Self.size, height: Self.size)
                 .overlay(
-                    Circle().strokeBorder(DSTokens.Colors.accent, lineWidth: 1.6)
+                    Circle().strokeBorder(DSColor.accentOnBg, lineWidth: 1.6)
                 )
                 .overlay(
                     Circle()
-                        .fill(DSTokens.Colors.accent)
+                        .fill(DSColor.accentOnBg)
                         .frame(width: 5, height: 5)
                 )
                 .background(halo(radius: 3))
@@ -733,7 +733,7 @@ enum TimelineSpine {
     /// CSS `boxShadow: 0 0 0 Npx var(--bg-warm)`.
     private static func halo(radius: CGFloat) -> some View {
         Circle()
-            .fill(DSTokens.Colors.bgWarm)
+            .fill(DSColor.bgWarm)
             .padding(-radius)
     }
 
@@ -749,7 +749,7 @@ enum TimelineSpine {
             return Text(text)
                 .font(DSFonts.serif(size: size, weight: .semibold))
                 .tracking(tracking)
-                .foregroundColor(DSTokens.Colors.fgPrimary)
+                .foregroundColor(DSColor.inkPrimary)
                 .fixedSize(horizontal: false, vertical: true)
                 .multilineTextAlignment(.leading)
         }
@@ -763,7 +763,7 @@ enum TimelineSpine {
                 .font(DSFonts.inter(size: 14))
                 .tracking(0.1)
                 .lineSpacing(14 * 0.7)        // line-height 1.7 ≈ +0.7em leading
-                .foregroundColor(DSTokens.Colors.fgPrimary.opacity(0.85))
+                .foregroundColor(DSColor.inkPrimary.opacity(0.85))
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -780,12 +780,12 @@ enum TimelineSpine {
                     if index > 0 {
                         Text("·")
                             .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
-                            .foregroundColor(DSTokens.Colors.fgSubtle.opacity(0.55))
+                            .foregroundColor(DSColor.inkSubtle.opacity(0.55))
                     }
                     Text(tag)
                         .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
                         .tracking(1.6)
-                        .foregroundColor(DSTokens.Colors.fgSubtle)
+                        .foregroundColor(DSColor.inkSubtle)
                 }
                 Spacer(minLength: 12)
                 right()
@@ -804,16 +804,16 @@ enum TimelineSpine {
                 Text(label)
                     .font(DSFonts.spaceGrotesk(size: 13, weight: .bold))
                     .tracking(1.5)
-                    .foregroundColor(DSTokens.Colors.fgPrimary)
+                    .foregroundColor(DSColor.inkPrimary)
                 Rectangle()
-                    .fill(DSTokens.Colors.borderSubtle)
+                    .fill(DSColor.inkFaint)
                     .frame(height: 0.5)
                     .frame(maxWidth: .infinity)
                     .padding(.bottom, 2)
                 Text(sub)
                     .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
                     .tracking(1.6)
-                    .foregroundColor(DSTokens.Colors.fgSubtle)
+                    .foregroundColor(DSColor.inkSubtle)
             }
             .padding(.horizontal, sectionPadH)
             .padding(.top, 20)

@@ -52,6 +52,7 @@
 		A10000006 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000006 /* Typography.swift */; };
 		A10000007 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000007 /* Components.swift */; };
 		A10000010 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010 /* TodayView.swift */; };
+		A10000804 /* TodayCoachView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000804 /* TodayCoachView.swift */; };
 		A10000011 /* ArchiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000011 /* ArchiveView.swift */; };
 		A10000012 /* GraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000012 /* GraphView.swift */; };
 		A10000013 /* TodayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000013 /* TodayViewModel.swift */; };
@@ -293,6 +294,7 @@
 		A20000006 /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
 		A20000007 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		A20000010 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
+		A20000804 /* TodayCoachView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayCoachView.swift; sourceTree = "<group>"; };
 		A20000011 /* ArchiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveView.swift; sourceTree = "<group>"; };
 		A20000012 /* GraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphView.swift; sourceTree = "<group>"; };
 		A20000013 /* TodayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayViewModel.swift; sourceTree = "<group>"; };
@@ -774,6 +776,7 @@
 			isa = PBXGroup;
 			children = (
 				A20000010 /* TodayView.swift */,
+				A20000804 /* TodayCoachView.swift */,
 				A20000013 /* TodayViewModel.swift */,
 				A20000014 /* MemoCardView.swift */,
 				A20000020 /* VoiceRecordingView.swift */,
@@ -1364,6 +1367,7 @@
 				A10000041 /* Spacing.swift in Sources */,
 				A10000043 /* Interactions.swift in Sources */,
 				A10000010 /* TodayView.swift in Sources */,
+				A10000804 /* TodayCoachView.swift in Sources */,
 				TD0000001 /* DayProgress.swift in Sources */,
 				TD0000002 /* TimeOfDay.swift in Sources */,
 				A10000011 /* ArchiveView.swift in Sources */,

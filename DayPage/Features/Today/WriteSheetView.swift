@@ -158,9 +158,9 @@ struct WriteSheetView: View {
     /// Counter color: interpolates from fgMuted → accentAmber as wordCount grows from 100…200.
     private var wordCountColor: Color {
         guard !reduceMotion, wordCount > 0 else {
-            return wordCount > 0 ? DSTokens.Colors.fgMuted : DSTokens.Colors.fgSubtle
+            return wordCount > 0 ? DSColor.inkMuted : DSColor.inkSubtle
         }
-        guard wordCount > 100 else { return DSTokens.Colors.fgMuted }
+        guard wordCount > 100 else { return DSColor.inkMuted }
         let t = CGFloat(min(wordCount - 100, 100)) / 100.0
         return Self.lerpColor(from: DSColor.inkMuted, to: DSColor.accentAmber, t: t)
     }
@@ -341,7 +341,7 @@ struct WriteSheetView: View {
         .overlay(alignment: .top) {
             // 0.5px top hairline (composer.jsx:217 borderTop var(--border-subtle)).
             Rectangle()
-                .fill(DSTokens.Colors.borderSubtle)
+                .fill(DSColor.inkFaint)
                 .frame(height: 0.5)
         }
         .shadow(color: DSTokens.Colors.recordingBg.opacity(0.32), radius: 30, x: 0, y: -16)
@@ -352,7 +352,7 @@ struct WriteSheetView: View {
     private var dragHandle: some View {
         let progress = min(max(dragOffset, 0) / 120, 1.0)
         return Capsule()
-            .fill(DSTokens.Colors.borderDefault.opacity(0.6 + 0.4 * progress))
+            .fill(DSColor.inkSubtle.opacity(0.6 + 0.4 * progress))
             .frame(width: 36 + 8 * progress, height: 4)
             .scaleEffect(1 + 0.08 * progress)
             .padding(.top, 8)
@@ -391,12 +391,12 @@ struct WriteSheetView: View {
                 Text(weekday)
                     .font(DSFonts.serif(size: 18, weight: .semibold))
                     .tracking(-0.2)
-                    .foregroundColor(DSTokens.Colors.fgPrimary)
+                    .foregroundColor(DSColor.inkPrimary)
 
                 Text(stamp)
                     .font(DSFonts.jetBrainsMono(size: 10, weight: .bold))
                     .tracking(1.6)
-                    .foregroundColor(DSTokens.Colors.fgSubtle)
+                    .foregroundColor(DSColor.inkSubtle)
             }
 
             Spacer()
@@ -405,9 +405,9 @@ struct WriteSheetView: View {
             Button(action: attemptClose) {
                 Image(systemName: "xmark")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(DSTokens.Colors.fgMuted)
+                    .foregroundColor(DSColor.inkMuted)
                     .frame(width: 30, height: 30)
-                    .background(Circle().fill(DSTokens.Colors.surfaceSunken))
+                    .background(Circle().fill(DSColor.surfaceSunken))
             }
             .buttonStyle(.plain)
             .accessibilityLabel(NSLocalizedString("write.sheet.close", comment: "Close write sheet"))
@@ -423,7 +423,7 @@ struct WriteSheetView: View {
 
     private var hairline: some View {
         Rectangle()
-            .fill(DSTokens.Colors.borderSubtle)
+            .fill(DSColor.inkFaint)
             .frame(height: 0.5)
             .padding(.horizontal, 22)
     }
@@ -437,7 +437,7 @@ struct WriteSheetView: View {
             if text.isEmpty {
                 Text(NSLocalizedString("write.sheet.placeholder", comment: "此刻在想什么？"))
                     .font(DSFonts.serif(size: 18, italic: true))
-                    .foregroundColor(DSTokens.Colors.fgSubtle.opacity(0.6))
+                    .foregroundColor(DSColor.inkSubtle.opacity(0.6))
                     .allowsHitTesting(false)
             }
 
@@ -445,8 +445,8 @@ struct WriteSheetView: View {
                 .font(DSFonts.serif(size: 18))
                 .tracking(0.2)
                 .lineSpacing(6) // ≈ lineHeight 1.7 on 18pt
-                .foregroundColor(DSTokens.Colors.fgPrimary)
-                .tint(DSTokens.Colors.accent)
+                .foregroundColor(DSColor.inkPrimary)
+                .tint(DSColor.accentOnBg)
                 .lineLimit(3...10)
                 .focused($isFocused)
                 .accessibilityIdentifier("write-sheet-input")
@@ -644,7 +644,7 @@ struct WriteSheetView: View {
     private func railIcon(_ systemName: String, label: String) -> some View {
         Image(systemName: systemName)
             .font(.system(size: 18, weight: .regular))
-            .foregroundColor(DSTokens.Colors.fgSubtle.opacity(0.4))
+            .foregroundColor(DSColor.inkSubtle.opacity(0.4))
             .frame(width: 40, height: 40)
             .allowsHitTesting(false)
             .accessibilityLabel(
@@ -664,7 +664,7 @@ struct WriteSheetView: View {
                     ProgressView()
                         .progressViewStyle(.circular)
                         .scaleEffect(0.7)
-                        .tint(DSTokens.Colors.fgMuted)
+                        .tint(DSColor.inkMuted)
                 } else {
                     Image(systemName: "mappin.and.ellipse")
                         .font(.system(size: 18, weight: .regular))
@@ -698,11 +698,11 @@ struct WriteSheetView: View {
                 Image(systemName: "checkmark")
                     .font(.system(size: 11, weight: .bold))
             }
-            .foregroundColor(canSave ? DSTokens.Colors.accentSoft : DSTokens.Colors.fgSubtle)
+            .foregroundColor(canSave ? DSTokens.Colors.accentSoft : DSColor.inkSubtle)
             .padding(.horizontal, 16)
             .frame(height: 38)
             .background(
-                Capsule().fill(canSave ? DSTokens.Colors.accent : DSTokens.Colors.surfaceSunken)
+                Capsule().fill(canSave ? DSTokens.Colors.accent : DSColor.surfaceSunken)
                     .shadow(
                         color: DSColor.accentAmber.opacity(saveReadyPulse ? 0.5 : 0),
                         radius: saveReadyPulse ? 16 : 0
@@ -732,9 +732,9 @@ struct WriteSheetView: View {
     private var savedCaption: some View {
         HStack(spacing: 8) {
             Text("SAVED TO")
-                .foregroundColor(DSTokens.Colors.fgSubtle)
+                .foregroundColor(DSColor.inkSubtle)
             Text("VAULT / \(isoDate).md")
-                .foregroundColor(DSTokens.Colors.fgMuted)
+                .foregroundColor(DSColor.inkMuted)
         }
         .font(DSFonts.jetBrainsMono(size: 9, weight: .semibold))
         .tracking(1.4)
@@ -748,11 +748,15 @@ struct WriteSheetView: View {
 
     private var discardConfirmBar: some View {
         HStack(spacing: 8) {
+            // Warm warning ink + slightly larger type: the previous 9pt muted
+            // caption was invisible next to the X the user just tapped, so the
+            // "tap again to discard" affordance went unnoticed within its 4s
+            // window.
             Text(NSLocalizedString("write.sheet.discard.prompt", comment: "Discard this draft?"))
-                .font(DSFonts.jetBrainsMono(size: 9, weight: .semibold))
+                .font(DSFonts.jetBrainsMono(size: 10, weight: .semibold))
                 .tracking(1.2)
                 .textCase(.uppercase)
-                .foregroundColor(DSTokens.Colors.fgMuted)
+                .foregroundColor(DSColor.statusWarning)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             // Keep pill
@@ -763,10 +767,10 @@ struct WriteSheetView: View {
                 Text(NSLocalizedString("write.sheet.discard.keep", comment: "Keep"))
                     .font(DSFonts.inter(size: 12, weight: .semibold))
                     .tracking(0.2)
-                    .foregroundColor(DSTokens.Colors.fgMuted)
+                    .foregroundColor(DSColor.inkMuted)
                     .padding(.horizontal, 12)
                     .frame(height: 28)
-                    .background(Capsule().fill(DSTokens.Colors.surfaceSunken))
+                    .background(Capsule().fill(DSColor.surfaceSunken))
             }
             .buttonStyle(.plain)
 
@@ -798,7 +802,7 @@ struct WriteSheetView: View {
             .font(DSFonts.jetBrainsMono(size: 9, weight: .semibold))
             .tracking(1.4)
             .textCase(.uppercase)
-            .foregroundColor(DSTokens.Colors.fgSubtle.opacity(0.7))
+            .foregroundColor(DSColor.inkSubtle.opacity(0.7))
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 22)
             .padding(.top, 4)
@@ -839,7 +843,7 @@ struct WriteSheetView_Previews: PreviewProvider {
         @State private var text = ""
         var body: some View {
             ZStack {
-                DSTokens.Colors.bgWarm.ignoresSafeArea()
+                DSColor.bgWarm.ignoresSafeArea()
                 WriteSheetView(text: $text, onSave: {}, onClose: {})
             }
         }
