@@ -2484,7 +2484,7 @@ struct TodayView: View {
                     nav.openSidebar()
                 } label: {
                     Image(systemName: "line.3.horizontal")
-                        .font(DSType.bodySM)
+                        .font(.system(size: 15, weight: .medium))
                         .foregroundColor(DSColor.inkMuted)
                         .frame(width: 36, height: 36)
                         .glassSurface(in: Circle())
@@ -2583,7 +2583,7 @@ struct TodayView: View {
                     nav.pendingSearchQuery = ""
                 } label: {
                     Image(systemName: "magnifyingglass")
-                        .font(DSType.bodySM)
+                        .font(.system(size: 15, weight: .medium))
                         .foregroundColor(DSColor.inkMuted)
                         .frame(width: 36, height: 36)
                         .glassSurface(in: Circle())
