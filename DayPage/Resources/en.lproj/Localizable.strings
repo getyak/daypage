@@ -177,6 +177,7 @@
 /* Memo card long-press context menu / MORE dialog */
 "memo.menu.shareCard"   = "Share as Card";
 "memo.menu.shareQuote"  = "Share as Quote";
+"memo.menu.copyText"    = "Copy Text";
 "memo.menu.multiselect" = "Select Multiple";
 "memo.menu.cancel"      = "Cancel";
 

@@ -12,12 +12,31 @@ import UIKit
 // arbitration never picks UIScrollView as the winner.
 //
 // UIKit's UIPanGestureRecognizer + UIGestureRecognizerDelegate solves this
-// natively. We override gestureRecognizerShouldBegin to return true ONLY
-// after the touch's translation passes a horizontal-dominance test. Until
-// then, UIScrollView's pan owns the touch and the timeline scrolls normally.
+// natively, via two cooperating rules (see Coordinator):
+//
+//  1. `shouldBeRequiredToFailBy` makes every other pan — the ScrollView's
+//     scroll pan in particular — WAIT until our pan resolves. Without it the
+//     scroller begins on any movement direction and cancels content touches,
+//     so our recognizer never even got its shouldBegin query.
+//  2. `gestureRecognizerShouldBegin` then judges direction ONCE, on velocity
+//     (fully formed at the first query, unlike accumulated translation):
+//     vertical-dominant → we fail instantly and the timeline scrolls;
+//     horizontal-dominant → we begin and own the touch.
+//
 // This mirrors iOS Mail / Reminders / Things 3 swipe-to-reveal behavior.
 
 struct HorizontalPanGesture: UIViewRepresentable {
+
+    /// Pure direction verdict behind the Coordinator's shouldBegin gate,
+    /// extracted so the contract is unit-testable without touch synthesis.
+    /// |vx| must dominate |vy| by `dominance` (1.2× — slightly more
+    /// permissive than Mail's 1.5× because our cards are wider and a
+    /// shallow horizontal flick should still register).
+    static func isHorizontalDominant(
+        vx: CGFloat, vy: CGFloat, dominance: CGFloat = 1.2
+    ) -> Bool {
+        abs(vx) > abs(vy) * dominance
+    }
 
     /// True while a confirmed horizontal pan is in progress. Use this to
     /// disable adjacent SwiftUI taps (NavigationLink) so finger-up after a
@@ -43,6 +62,14 @@ struct HorizontalPanGesture: UIViewRepresentable {
     /// route it back here, letting the parent drive programmatic navigation.
     /// nil means "no tap action" (e.g. the panel-close overlay).
     var onTap: (() -> Void)? = nil
+
+    /// Touch-down / touch-up press state, for the card's press-scale
+    /// feedback (UITableViewCell-highlight semantics). Driven by a zero-
+    /// distance long press that recognizes simultaneously with everything
+    /// and claims nothing: `true` shortly after the finger lands, `false`
+    /// on lift or the instant a scroll / swipe / context-menu interaction
+    /// takes the touch away. nil skips installing the extra recognizer.
+    var onPressChanged: ((Bool) -> Void)? = nil
 
     /// Hard-disable the recognizer (e.g. selection mode). When false the
     /// underlying recognizer reports isEnabled = false so it never even
@@ -79,6 +106,25 @@ struct HorizontalPanGesture: UIViewRepresentable {
         view.addGestureRecognizer(tap)
         context.coordinator.tapRecognizer = tap
 
+        // Press-state recognizer: a zero-ish-delay long press that merely
+        // REPORTS touch-down/up so SwiftUI can render the pressed scale.
+        // It recognizes simultaneously with everything (see the delegate's
+        // simultaneous rule), never cancels touches, and ends/cancels the
+        // moment the scroll, our pan, or the context-menu lift claims the
+        // touch — so the card un-presses exactly when it loses the finger.
+        if onPressChanged != nil {
+            let press = UILongPressGestureRecognizer(
+                target: context.coordinator,
+                action: #selector(Coordinator.handlePress(_:))
+            )
+            press.minimumPressDuration = 0.06
+            press.allowableMovement = .greatestFiniteMagnitude
+            press.cancelsTouchesInView = false
+            press.delegate = context.coordinator
+            view.addGestureRecognizer(press)
+            context.coordinator.pressRecognizer = press
+        }
+
         return view
     }
 
@@ -89,6 +135,7 @@ struct HorizontalPanGesture: UIViewRepresentable {
         // mode — selection-mode taps still need to toggle membership, which
         // the parent wires through onTap.
         context.coordinator.tapRecognizer?.isEnabled = (self.onTap != nil)
+        context.coordinator.pressRecognizer?.isEnabled = (self.onPressChanged != nil)
     }
 
     // MARK: Coordinator
@@ -97,26 +144,22 @@ struct HorizontalPanGesture: UIViewRepresentable {
         var parent: HorizontalPanGesture
         weak var recognizer: UIPanGestureRecognizer?
         weak var tapRecognizer: UITapGestureRecognizer?
-
-        // 6pt direction-lock: tightened from 10pt so UIKit's pan can enter
-        // Began before SwiftUI's ambient DragGestures (sidebar edge swipe,
-        // feedback-panel close) finish their own arbitration window. Still
-        // safely below UIScrollView's vertical pan threshold, so a slow
-        // vertical drag still hands ownership to the timeline scroll.
-        private let directionLockDistance: CGFloat = 6
-        // |dx| must dominate |dy| by 1.2× — slightly more permissive than
-        // Mail (1.5×) because our cards are wider and a shallow horizontal
-        // flick should still register.
-        private let horizontalDominance: CGFloat = 1.2
+        weak var pressRecognizer: UILongPressGestureRecognizer?
 
         init(parent: HorizontalPanGesture) {
             self.parent = parent
         }
 
-        // Critical: this gate gives UIScrollView its scroll back. UIKit
-        // calls this when the pan is about to transition from Possible to
-        // Began. Returning false keeps it Possible — UIScrollView's pan,
-        // which has no such gate, wins arbitration and the timeline scrolls.
+        // Direction lock. UIKit queries shouldBegin exactly ONCE per touch —
+        // at the pan's own internal hysteresis, where accumulated translation
+        // can still be tiny (observed 1.3pt live) — and a `false` verdict
+        // transitions the recognizer to .failed for the REST of the touch;
+        // it is never re-asked. The old translation gate (`dx >= 6pt`)
+        // therefore vetoed nearly every real swipe on its single query and
+        // the drawer never opened. Velocity is already fully formed at that
+        // first query (SwipeCellKit and UIKit's own table-cell swipe use the
+        // same velocity test), so one velocity comparison is enough to judge
+        // direction reliably at any drag speed.
         func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
             // This delegate serves BOTH recognizers on the host. The
             // direction-lock below must gate ONLY the pan — the guard's
@@ -126,10 +169,8 @@ struct HorizontalPanGesture: UIViewRepresentable {
             // tap still defers to the pan via require(toFail:).
             guard let pan = gestureRecognizer as? UIPanGestureRecognizer,
                   let view = pan.view else { return true }
-            let translation = pan.translation(in: view)
-            let dx = abs(translation.x)
-            let dy = abs(translation.y)
-            return dx >= directionLockDistance && dx > dy * horizontalDominance
+            let v = pan.velocity(in: view)
+            return HorizontalPanGesture.isHorizontalDominant(vx: v.x, vy: v.y)
         }
 
         // Coexist with UIScrollView's pan. Until our shouldBegin returns
@@ -138,6 +179,23 @@ struct HorizontalPanGesture: UIViewRepresentable {
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
                                shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
             true
+        }
+
+        // CRITICAL (iOS 26): make every OTHER pan — most importantly the
+        // ancestor ScrollView's scroll pan — wait for OUR pan to resolve
+        // first. Without this failure requirement the scroll pan begins on
+        // ANY direction of movement (SwiftUI's scroller is not direction-
+        // locked) and cancels content touches, so our recognizer's
+        // shouldBegin was never even queried — swipe-to-reveal was dead no
+        // matter what the direction-lock returned. With the requirement in
+        // place the arbitration becomes: vertical drag → our velocity gate
+        // fails the pan in one query → scroll proceeds (imperceptible
+        // delay); horizontal drag → our pan begins and the scroll pan stays
+        // blocked for the rest of the touch.
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldBeRequiredToFailBy other: UIGestureRecognizer) -> Bool {
+            guard gestureRecognizer is UIPanGestureRecognizer else { return false }
+            return other is UIPanGestureRecognizer && other !== gestureRecognizer
         }
 
         @objc func handlePan(_ recognizer: UIPanGestureRecognizer) {
@@ -168,6 +226,20 @@ struct HorizontalPanGesture: UIViewRepresentable {
         @objc func handleTap(_ recognizer: UITapGestureRecognizer) {
             guard recognizer.state == .ended else { return }
             parent.onTap?()
+        }
+
+        // Press-state reporter (see makeUIView). Pure observation — it
+        // triggers no action of its own, so every terminal state just
+        // clears the pressed flag.
+        @objc func handlePress(_ recognizer: UILongPressGestureRecognizer) {
+            switch recognizer.state {
+            case .began:
+                parent.onPressChanged?(true)
+            case .ended, .cancelled, .failed:
+                parent.onPressChanged?(false)
+            default:
+                break
+            }
         }
 
         // Let the tap coexist with the parent ScrollView's own recognizers so

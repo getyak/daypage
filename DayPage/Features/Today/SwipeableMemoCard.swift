@@ -212,6 +212,12 @@ struct SwipeableMemoCard: View {
     // never routes to the detail page.
     @State private var isPanActive: Bool = false
 
+    // Touch-down press feedback (UITableViewCell-highlight semantics): the
+    // card settles to 0.985× while the finger rests on it and springs back
+    // on lift — or the instant the scroll / swipe / context-menu takes the
+    // touch. Suppressed under Reduce Motion.
+    @State private var isPressed: Bool = false
+
     // Tracks which threshold the live drag has already crossed so the
     // mid-drag haptic tick fires once per cross, not once per frame.
     @State private var armedSide: CardSwipeSide? = nil
@@ -279,6 +285,8 @@ struct SwipeableMemoCard: View {
             // because the pan host view hit-tests to self.
             MemoCardView(memo: memo, onDelete: onDelete)
                 .contentShape(Rectangle())
+                .scaleEffect(isPressed && !reduceMotion ? 0.985 : 1.0)
+                .animation(reduceMotion ? nil : Motion.spring, value: isPressed)
                 .offset(x: isSelectionMode ? 0 : currentOffset)
                 // UIKit pan + tap as an OVERLAY (not background): the
                 // recognizers' host must sit in the hit-test walk for touches
@@ -294,6 +302,11 @@ struct SwipeableMemoCard: View {
                         onEnded: handlePanEnded,
                         onCancelled: handlePanCancelled,
                         onTap: handleCardTap,
+                        onPressChanged: { pressed in
+                            // A confirmed swipe owns the touch — never show
+                            // the pressed dip while the drawer is moving.
+                            isPressed = pressed && !isPanActive
+                        },
                         isEnabled: !isSelectionMode
                     )
                 )
@@ -465,6 +478,9 @@ struct SwipeableMemoCard: View {
             didNotifyPeers = true
             NotificationCenter.default.post(name: .memoCardDidBeginSwipe, object: memo.id)
         }
+        // The swipe owns the touch now — release the press dip so the card
+        // doesn't ride the drawer at 0.985×.
+        if isPressed { isPressed = false }
         dragDelta = translation
         updateThresholdHaptics()
     }
@@ -695,8 +711,11 @@ private struct SwipeActionPanel: View {
 
 // MARK: - SwipeActionButton
 
-/// A single action column inside a panel. Frosted glass base + tone tint that
-/// deepens with reveal progress; icon scales up and label fades in past 0.30.
+/// A single action column inside a panel. On iOS 26 the base is native
+/// Liquid Glass (tinted with the action's semantic tone, deepening as the
+/// reveal progresses — the warm ambient canvas refracts through it); on
+/// iOS 16–25 it keeps the ultraThinMaterial + tone-tint recipe. Icon scales
+/// up and label fades in past 0.30 of the reveal.
 private struct SwipeActionButton: View {
 
     let action: SwipeAction
@@ -704,6 +723,8 @@ private struct SwipeActionButton: View {
     /// True while this button is the commit-armed primary: it stretches to
     /// fill the whole drawer instead of its fixed 76pt column.
     var fillsWidth: Bool = false
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     private let labelFadeStart: CGFloat = 0.30
     private let iconScaleMin: CGFloat = 0.6
@@ -725,14 +746,27 @@ private struct SwipeActionButton: View {
         .accessibilityHint(action.a11yHint ?? "")
     }
 
+    @ViewBuilder
     private var background: some View {
         // Neutral tones keep a higher tint floor so their pale surface stays
         // legible; accent / destructive start lower and deepen as revealed.
         let floor: CGFloat = (action.tone == .neutral ? 0.78 : 0.42)
         let tint = Double(floor + (1 - floor) * min(1, progress))
-        return ZStack {
-            Rectangle().fill(.ultraThinMaterial)
-            baseColor.opacity(tint)
+        if reduceTransparency {
+            // Accessibility: opaque tone surface, no blur or refraction.
+            baseColor.opacity(max(tint, 0.96))
+        } else if #available(iOS 26.0, *) {
+            // Native Liquid Glass tinted with the deepening semantic tone.
+            // `.interactive()` adds the press-softening squish on touch.
+            Color.clear.glassEffect(
+                .regular.tint(baseColor.opacity(tint)).interactive(),
+                in: .rect
+            )
+        } else {
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                baseColor.opacity(tint)
+            }
         }
     }
 
@@ -742,6 +776,10 @@ private struct SwipeActionButton: View {
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundColor(foreground)
                 .scaleEffect(iconScale)
+                // Mail-style "release to execute" cue: the symbol bounces
+                // the moment the full-swipe commit arms (and re-bounces if
+                // the user slides back under the line and re-arms).
+                .modifier(CommitArmBounce(armed: fillsWidth))
 
             Text(action.label)
                 .font(.custom("Inter-Medium", size: 10.5))
@@ -787,6 +825,23 @@ private struct SwipeActionButton: View {
     private var labelOpacity: Double {
         let clamped = max(0, min(1, (progress - labelFadeStart) / (1 - labelFadeStart)))
         return Double(clamped)
+    }
+}
+
+// MARK: - CommitArmBounce
+
+/// One-shot symbol bounce when the full-swipe commit arms / re-arms.
+/// iOS 17+ only (`symbolEffect`); inert on iOS 16 and under Reduce Motion.
+private struct CommitArmBounce: ViewModifier {
+    let armed: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *), !reduceMotion {
+            content.symbolEffect(.bounce, options: .speed(1.3), value: armed)
+        } else {
+            content
+        }
     }
 }
 

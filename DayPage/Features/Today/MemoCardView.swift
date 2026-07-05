@@ -29,7 +29,6 @@ struct MemoCardView: View {
     @State private var thumbnail: UIImage?
     @State private var downloadStates: [URL: AttachmentDownloadState] = [:]
     @State private var downloadTask: Task<Void, Never>? = nil
-    @State private var sharePayload: SharePayload? = nil
     @State private var showPhotoViewer: Bool = false
 
     /// Precise 24h time for the content-first card meta line (rendered as "15·23").
@@ -281,13 +280,9 @@ struct MemoCardView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 14)
                     .padding(.top, 12)
-                    .contextMenu {
-                        Button {
-                            UIPasteboard.general.string = bodyTrimmed
-                        } label: {
-                            Label("复制", systemImage: "doc.on.doc")
-                        }
-                    }
+                // NOTE: no contextMenu here. The swipe overlay above this
+                // card owns the long press, so an inner menu could never be
+                // summoned — Copy lives in TimelineRow's merged menu instead.
             }
 
             // Bottom meta row — content-first: only a quiet mono timestamp.
@@ -327,57 +322,11 @@ struct MemoCardView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .solidCard(cornerRadius: 14)
-        .contextMenu {
-            // Tap the button above for the smart default; long-press here to
-            // override the template or send plain text.
-            let shareText = shareableText
-            if !shareText.isEmpty {
-                ShareLink(item: shareText) {
-                    Label("分享文本", systemImage: "doc.plaintext")
-                }
-            }
-            Button {
-                sharePayload = .memo(MemoSnapshot.from(memo))
-            } label: {
-                Label("强制文字卡", systemImage: "rectangle.on.rectangle")
-            }
-            if memo.attachments.contains(where: { $0.kind == "photo" }),
-               let snap = PhotoSnapshot.from(memo) {
-                Button {
-                    sharePayload = .photo(snap)
-                } label: {
-                    Label("强制照片卡", systemImage: "photo.on.rectangle")
-                }
-            }
-            if memo.attachments.contains(where: { $0.kind == "audio" }),
-               let snap = VoiceSnapshot.from(memo) {
-                Button {
-                    sharePayload = .voice(snap)
-                } label: {
-                    Label("强制语音卡", systemImage: "mic.badge.plus")
-                }
-            }
-        }
-        .sheet(item: $sharePayload) { payload in
-            ShareCardSheet(payload: payload)
-        }
-    }
-
-    // MARK: - Share text
-
-    /// Builds a plain-text representation of the memo suitable for sharing.
-    /// Prefers the voice transcript when present; falls back to body text.
-    private var shareableText: String {
-        // For voice/mixed memos, use the transcript if available.
-        if let att = memo.attachments.first(where: { $0.kind == "audio" }),
-           let transcript = att.transcript, !transcript.isEmpty {
-            let body = memo.body.trimmingCharacters(in: .whitespacesAndNewlines)
-            if body.isEmpty || body == transcript {
-                return transcript
-            }
-            return "\(transcript)\n\n\(body)"
-        }
-        return memo.body.trimmingCharacters(in: .whitespacesAndNewlines)
+        // 2026-07-05 (#808): the template-override contextMenu (分享文本 /
+        // 强制文字卡 / 强制照片卡 / 强制语音卡) and its sharePayload sheet were
+        // removed as dead code — the swipe overlay above this card owns the
+        // long press, so that menu was never reachable. Share flows live in
+        // the left-swipe action and TimelineRow's merged long-press menu.
     }
 
     // MARK: - Type chip
