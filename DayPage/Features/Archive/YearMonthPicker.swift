@@ -176,18 +176,18 @@ struct YearMonthPicker: View {
 
                 // Activity dot — present only when the month holds entries.
                 Circle()
-                    .fill(isSelected ? Color.white : DSColor.amberAccent)
+                    .fill(isSelected ? Color.white : DSColor.accentOnBg)
                     .frame(width: 4, height: 4)
                     .opacity(hasEntries ? 1 : 0)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 52)
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous)
                     .fill(isSelected ? DSColor.amberDeep : DSColor.glassLo)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous)
                     .strokeBorder(
                         isRealMonth ? DSColor.amberAccent : DSColor.glassRim,
                         lineWidth: isRealMonth ? 1.5 : 0.5

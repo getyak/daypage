@@ -147,8 +147,8 @@ struct UndoPillView: View {
     }
 
     private var ringColor: Color {
-        guard !reduceMotion else { return DSColor.accentAmber }
-        return isUrgent ? DSColor.error : DSColor.accentAmber
+        guard !reduceMotion else { return DSColor.accentOnBg }
+        return isUrgent ? DSColor.error : DSColor.accentOnBg
     }
 }
 

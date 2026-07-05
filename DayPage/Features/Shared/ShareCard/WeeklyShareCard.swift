@@ -34,7 +34,7 @@ struct WeeklyShareCard: View {
                     ForEach(output.keywords.prefix(4), id: \.self) { keyword in
                         Text(keyword)
                             .font(DSType.labelSM)
-                            .foregroundColor(DSColor.amberDeep)
+                            .foregroundColor(DSColor.accentOnBg)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 4)
                             .background(Capsule().fill(DSColor.amberSoft))
@@ -73,7 +73,7 @@ struct WeeklyShareCard: View {
                 Spacer()
                 Text("daypage")
                     .font(.system(.footnote, design: .monospaced))
-                    .foregroundColor(DSColor.amberDeep)
+                    .foregroundColor(DSColor.accentOnBg)
             }
         }
         .padding(28)

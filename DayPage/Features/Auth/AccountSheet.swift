@@ -203,10 +203,10 @@ struct AccountSheet: View {
             HStack(spacing: 14) {
                 Image(systemName: "rectangle.portrait.and.arrow.right")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(Color(hex: "E05A5A"))
+                    .foregroundColor(DSColor.statusError)
                 Text("退出登录")
                     .font(.custom("Inter-Regular", size: 14))
-                    .foregroundColor(Color(hex: "E05A5A"))
+                    .foregroundColor(DSColor.statusError)
                 Spacer()
             }
             .padding(.horizontal, 20)

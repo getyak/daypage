@@ -12,6 +12,9 @@ enum Haptics {
     static func warn()       { HapticFeedback.warning() }
     // Success chime for completed async operations (compilation, upload).
     static func success()    { HapticFeedback.success() }
+    // Selection tick for moving between discrete options (tabs, segmented
+    // controls, calendar cells) — the system scrubbing feel, not an impact.
+    static func selection()  { HapticFeedback.selection() }
 
     // MARK: - 5-Level Composer Haptic Ladder
 

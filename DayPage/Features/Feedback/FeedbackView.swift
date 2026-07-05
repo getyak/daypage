@@ -106,10 +106,10 @@ struct FeedbackView: View {
             sectionLabel("Your Feedback")
 
             ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: DSRadius.sm)
                     .fill(DSColor.surfaceWhite)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 10)
+                        RoundedRectangle(cornerRadius: DSRadius.sm)
                             .stroke(DSColor.borderDefault, lineWidth: 1)
                     )
 
@@ -298,10 +298,10 @@ struct FeedbackView: View {
             .padding(.vertical, 22)
             .background(DSColor.surfaceWhite)
             .overlay(
-                RoundedRectangle(cornerRadius: 14)
+                RoundedRectangle(cornerRadius: DSRadius.md)
                     .stroke(DSColor.borderDefault, lineWidth: 1)
             )
-            .cornerRadius(14)
+            .cornerRadius(DSRadius.md)
             .padding(.bottom, 120)
         }
         .frame(maxWidth: .infinity)
@@ -416,7 +416,7 @@ struct FeedbackView: View {
                     vm.reset()
                 }
                 .font(.custom("Inter-Medium", size: 13))
-                .foregroundColor(DSColor.accentAmber)
+                .foregroundColor(DSColor.accentOnBg)
             }
             .padding(.top, 4)
         }
@@ -445,7 +445,7 @@ struct FeedbackView: View {
         }
         .padding(12)
         .background(DSColor.errorSoft)
-        .cornerRadius(10)
+        .cornerRadius(DSRadius.sm)
         .padding(.vertical, 8)
     }
 

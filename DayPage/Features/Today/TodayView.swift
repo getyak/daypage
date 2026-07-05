@@ -49,21 +49,9 @@ struct TodayView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var showSyncBanner: Bool = false
-    // R8-HIGH B1: cached weekly recap preview shown above the timeline.
-    // Refreshed on appear, scene = .active, and on `.weeklyRecapAvailable`
-    // notification (posted by BackgroundCompilationService after the 2am
-    // auto-compile). The associated `referenceDate` is the date the cache
-    // belongs to (this week, or last week as a fallback). Reading both
-    // together avoids a second lookup when the preview is tapped.
-    @State private var weeklyRecapPreview: WeeklyRecapOutput? = nil
-    @State private var weeklyRecapRefDate: Date? = nil
-    @State private var showWeeklyRecapDetail: Bool = false
-    // R9-HIGH A1: debounce handle for refreshWeeklyRecapPreview. Cold launch
-    // used to fire onAppear + .weeklyRecapAvailable + scenePhase.active in
-    // quick succession → 3 reload paths × 2 probes = 6 loadCached races plus
-    // 3 withAnimation passes fighting each other. Coalescing through a 300ms
-    // cancellable Task collapses the burst into a single file read.
-    @State private var weeklyReloadTask: Task<Void, Never>? = nil
+    // Issue #814: the weekly-recap preview card was removed from Today —
+    // Archive's entry card is now the single surface for This Week. Today
+    // stays a pure raw-capture canvas with fewer stacked banners.
     // R6: drives the modal sheet that surfaces the first N pending memo
     // IDs when the user taps the sync-queue banner. Replaces the bare
     // BannerCenter alert with a sheet you can actually scan.
@@ -226,10 +214,6 @@ struct TodayView: View {
     @State private var orbBreathing: Bool = false
     @State private var orbTapBounce: Bool = false
 
-    /// Accumulated rotation for the settings gear — a gear should turn when
-    /// tapped. Bumped by a quarter turn on each tap so the spin feels mechanical.
-    @State private var settingsGearRotation: Double = 0
-
     /// Hint offset for the one-time swipe-left nudge on the Daily Page card.
     @State private var dailyPageHintOffset: CGFloat = 0
     @State private var memoCardHintOffset: CGFloat = 0
@@ -340,58 +324,31 @@ struct TodayView: View {
                     // MARK: Sidebar/Header (US-021: extracted subview)
                     sidebarSection
 
-                    // MARK: Weekly Recap preview (R8-HIGH B1)
-                    //
-                    // Compact entry card surfaced when (a) `.weeklyRecap` flag is on,
-                    // (b) there's a cached recap for the current ISO week or last
-                    // week. Sits right under the header so the user notices it
-                    // immediately on launch — Archive's entry card is still the
-                    // canonical surface, this is just a "your weekly is ready" nudge.
-                    //
-                    // R9-HIGH A3: `bannerCount < 3` keeps this nudge visible
-                    // when banner stacking is mild but hides it once the top
-                    // is fully occupied. Slightly more tolerant than the
-                    // OnThisDay top card (`< 2`) because the preview row is
-                    // ~52pt vs the card's ~90pt — composer breathing room
-                    // still survives a 3-banner stack.
-                    if FeatureFlagStore.shared.isEnabled(.weeklyRecap),
-                       let preview = weeklyRecapPreview,
-                       let refDate = weeklyRecapRefDate,
-                       bannerCount < 3 {
-                        weeklyRecapPreviewSection(preview: preview, referenceDate: refDate)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
+                    // Issue #814: weekly-recap preview card removed — Archive
+                    // owns the This Week entry point now.
 
-                    // MARK: AI key missing banner (R3 — A2)
+                    // MARK: Status Slot — single status banner (banner collapse)
                     //
-                    // Museum-aesthetic redesign (#793): the banner used to
-                    // dominate the first screen with an amber wash + CTA.
-                    // For a calm capture surface we now surface it ONLY
-                    // when the user genuinely needs to act — i.e. the day
-                    // is empty (nothing to compile = a teaching moment),
-                    // not every launch. With memos present the same
-                    // condition shows up as a small amber dot on the
-                    // settings gear (a quieter affordance, set elsewhere).
-                    if shouldShowAIKeyBanner && viewModel.memos.isEmpty {
-                        aiKeyMissingBanner
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
-
-                    // MARK: Compile Progress Banner (Issue #5, 2026-07-03)
-                    //
-                    // Shows the current stage of an in-flight compilation
-                    // (collecting → cleaning → clustering → generating →
-                    // linking). Hidden when the service is `.idle` so the
-                    // surface stays quiet 99% of the time — the banner is
-                    // a reassurance signal for the ~15-60 second window an
-                    // AI compile actually runs. Observing
-                    // BackgroundCompilationService directly (it is now an
-                    // ObservableObject) keeps it as the single source of
-                    // truth for both foreground and background triggers.
-                    if compileService.stage != .idle {
-                        compileProgressBanner
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
+                    // The top region used to stack up to ~7 independent
+                    // status banners (AI key, compile progress banner,
+                    // sync queue, compile progress bar, compile failed,
+                    // sync prompt, iCloud conflict), each with its own
+                    // show-condition scattered through this VStack. Against
+                    // the calm-capture minimalism that stack read as an
+                    // alert wall, and on iPhone 12 mini it pushed the
+                    // composer below the fold. Now `activeStatusSlot` picks
+                    // the single highest-priority status surface and ONLY
+                    // that banner renders here — the banner views and their
+                    // tap/dismiss behaviors are unchanged; only the layout
+                    // conditions moved into the slot computation (see
+                    // `TodayStatusSlot` / `activeStatusSlot`). The slot sits
+                    // above every content section (focus chips / OnThisDay /
+                    // orbHero / timeline) because status rows are sticky
+                    // "system status" surfaces that must always own the
+                    // very top. Non-status content (OnThisDayCard,
+                    // LocationDraftCard, todayFocusRow, orbHero,
+                    // selectionToolbar) is NOT part of the slot.
+                    statusSlotSection
 
                     // MARK: Today Focus Chips (Issue #13, 2026-07-03)
                     //
@@ -414,22 +371,6 @@ struct TodayView: View {
                             .transition(.opacity.combined(with: .move(edge: .top)))
                     }
 
-                    // MARK: Offline Sync Queue Banner (R5)
-                    //
-                    // Museum-aesthetic redesign (#793): "1 条待同步" used to
-                    // claim a full 44pt row on the first screen — too noisy
-                    // for a normal capture flow. Now we only surface the
-                    // banner when something is actually stuck (>= 5 memos
-                    // pending OR oldest entry waited > 1h). Small queues
-                    // are invisible — the round-trip still happens in the
-                    // background and the queue indicator on the settings
-                    // gear (set elsewhere) lets the curious user dig in.
-                    if FeatureFlagStore.shared.isEnabled(.offlineQueue)
-                        && (syncQueue.pendingCount >= 5 || syncQueueWaitedTooLong) {
-                        syncQueuePendingBanner
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
-
                     // MARK: On This Day Top Card (R8-CRITICAL)
                     //
                     // 顶部独立 OnThisDayCard section — 脱离 fallbackContentView
@@ -438,21 +379,23 @@ struct TodayView: View {
                     // viewModel.onThisDayEntry（由 OnThisDayIndex.candidate 或
                     // .onThisDayShouldShow 注入）就在头条位置出现。
                     //
-                    // Sits AFTER the AI key / sync queue banners (those are
-                    // sticky "system status" rows that must always own the
-                    // very top) but BEFORE every Today-content section
-                    // (orbHero / timeline / fallback). Dismiss persists for
-                    // the rest of the day via OnThisDayScheduler — same
-                    // behavior the fallback path uses, so users can't
-                    // double-dismiss.
+                    // Sits AFTER the status slot (the single sticky "system
+                    // status" row that must always own the very top) but
+                    // BEFORE every Today-content section (orbHero /
+                    // timeline / fallback). Dismiss persists for the rest
+                    // of the day via OnThisDayScheduler — same behavior the
+                    // fallback path uses, so users can't double-dismiss.
                     //
                     // R9-HIGH A2: gated by `shouldShowOnThisDayAtTop`, which
                     // the fallback path negates in the same render pass. No
                     // more lazy `.onAppear` flag flip — the two paths agree
                     // synchronously, eliminating the brief double-card race.
-                    // R9-HIGH A3: the same computed also yields to ≥ 2
-                    // sticky banners so the composer isn't pushed off the
-                    // visible viewport on small devices (iPhone 12 mini).
+                    // R9-HIGH A3 (updated for the single status slot): the
+                    // same computed yields to error/conflict slot occupants
+                    // so the composer isn't pushed off the visible viewport
+                    // on small devices (iPhone 12 mini); with at most one
+                    // banner plus this card the low-priority info slots can
+                    // coexist with it.
                     if shouldShowOnThisDayAtTop,
                        let entry = viewModel.onThisDayEntry {
                         OnThisDayCard(
@@ -466,33 +409,6 @@ struct TodayView: View {
                             }
                         )
                         .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
-
-                    // MARK: Compilation Progress Bar
-                    if viewModel.isCompiling {
-                        CompilationProgressBar(stage: compilationService.stage)
-                            .transition(.opacity)
-                            .animation(Motion.fade, value: viewModel.isCompiling)
-                    }
-
-                    // MARK: Compilation Failed Banner
-                    if let failureMsg = viewModel.compilationFailedError {
-                        CompilationFailedBanner(message: failureMsg) {
-                            viewModel.compilationFailedError = nil
-                            viewModel.compile()
-                        } onDismiss: {
-                            viewModel.compilationFailedError = nil
-                        }
-                    }
-
-                    // MARK: Sync Prompt Banner
-                    if showSyncBanner {
-                        syncBanner
-                    }
-
-                    // MARK: iCloud Conflict Resolved Banner (R4-MEDIUM #38)
-                    if iCloudConflictBannerVisible {
-                        iCloudConflictBanner
                     }
 
                     // MARK: Location Draft Card
@@ -841,12 +757,6 @@ struct TodayView: View {
                 // hidden) on the very first render rather than only after the
                 // next scenePhase flip.
                 refreshAIKeyMissing()
-                // R8-HIGH B1: seed weekly recap preview from cache. No LLM
-                // call — read-only loadCached probe.
-                // R9-HIGH A1: routed through the 300ms-debounced wrapper so
-                // it coalesces with the .weeklyRecapAvailable notification
-                // path that often fires within the same cold-launch tick.
-                refreshWeeklyRecapPreviewDebounced(hint: nil)
             }
             .onChange(of: draftText) { _ in
                 // B3: Debounce — only persist `draftDate` after typing pauses
@@ -939,25 +849,22 @@ struct TodayView: View {
                     await OnThisDayScheduler.shared.refreshTodayEntry()
                 }
             }
-            // R4-B3: 2am 后台编译失败后，前台 scenePhase active 自动重试
+            // R4-B3: 0 点后台编译失败后，前台 scenePhase active 自动重试
             // 成功时收到这条通知。仅显示 ds-style toast — 不再发系统通知，
-            // 避免与已经推过的 2am 失败通知互相打架。
-            // R8-HIGH B1: weekly recap auto-compile completed (posted by
-            // BackgroundCompilationService.tryAutoCompileWeekly). Refresh the
-            // preview state so the new card lights up immediately.
-            .onReceive(NotificationCenter.default.publisher(for: .weeklyRecapAvailable)) { note in
-                let hint = note.userInfo?["referenceDate"] as? Date
-                // R9-HIGH A1: debounced so this and the .onAppear seed
-                // collapse into one cache probe on cold launch.
-                refreshWeeklyRecapPreviewDebounced(hint: hint)
-            }
+            // 避免与已经推过的失败通知互相打架。#814 起前台重试补编的是
+            // 昨天（今天只在结束后编译一次），文案随之调整。
             .onReceive(NotificationCenter.default.publisher(for: .compileSucceededForeground)) { _ in
+                // Signature "ink settling" haptic for the compile moment —
+                // fired here (same as the manual-compile path in
+                // TodayViewModel) so the texture leads before the banner's
+                // stock generator appears.
+                SignatureHaptics.compileSuccess()
                 bannerCenter.show(AppBannerModel(
                     kind: .success,
                     title: NSLocalizedString(
                         "today.compile.foregroundRetry.success",
-                        value: "今日 Daily Page 已编译完成",
-                        comment: "Toast shown when 2am-failed compile is retried on foreground and succeeds"
+                        value: "昨日 Daily Page 已补齐编译",
+                        comment: "Toast shown when the missed midnight compile is retried on foreground and succeeds"
                     ),
                     autoDismiss: true
                 ))
@@ -1073,30 +980,23 @@ struct TodayView: View {
             }
             // Fallback "yesterday daily page" cover — opened from the zero-memo
             // fallback view when yesterday already has a compiled page.
+            // Issue #814: historical days now route to DayDetailView (the
+            // 4-state Archive surface with Daily/raw tabs + day swiping) so
+            // the app has ONE way to look at a past day instead of two.
             .fullScreenCover(item: Binding(
                 get: { fallbackDailyPageDateString.map { OnThisDayNavTarget(dateString: $0) } },
                 set: { fallbackDailyPageDateString = $0?.dateString }
             )) { target in
-                DailyPageView(
-                    dateString: target.dateString,
-                    onReturnToToday: { _ in
-                        fallbackDailyPageDateString = nil
-                    }
-                )
+                DayDetailView(dateString: target.dateString)
             }
-            // Timeline tap / contextMenu → open that historical day's Daily Page.
+            // Timeline tap / contextMenu → open that historical day.
             // Kept separate from showDailyPage / fallbackDailyPageDateString so the
             // three navigation entry points don't collide on a single binding.
             .fullScreenCover(item: Binding(
                 get: { timelineNavDateString.map { OnThisDayNavTarget(dateString: $0) } },
                 set: { timelineNavDateString = $0?.dateString }
             )) { target in
-                DailyPageView(
-                    dateString: target.dateString,
-                    onReturnToToday: { _ in
-                        timelineNavDateString = nil
-                    }
-                )
+                DayDetailView(dateString: target.dateString)
             }
             // Timeline share sheet — plain text payload, no poster pipeline.
             .sheet(item: $timelineShareText) { payload in
@@ -1122,17 +1022,6 @@ struct TodayView: View {
             .animation(Motion.dismiss, value: showTutorial)
             .sheet(isPresented: $showAuthSheet) {
                 AuthView()
-            }
-            // R8-HIGH B1: push WeeklyRecapDetailView when the preview is
-            // tapped. NavigationStack inside `.sheet` so we get a proper
-            // nav bar without polluting Today's primary NavigationStack
-            // destination set.
-            .sheet(isPresented: $showWeeklyRecapDetail) {
-                if let refDate = weeklyRecapRefDate {
-                    NavigationStack {
-                        WeeklyRecapDetailView(referenceDate: refDate)
-                    }
-                }
             }
             // iCloud migration progress sheet — shown during vault migration
             .sheet(isPresented: $migrationService.isMigrating) {
@@ -1281,38 +1170,142 @@ struct TodayView: View {
     // (which would take the user to the system Settings app where there's
     // nothing to configure).
 
-    // MARK: - R9-HIGH A2/A3 — Banner stack guards
+    // MARK: - Status Slot (banner collapse)
     //
-    // `bannerCount` counts the always-renders-at-top sections (AI key,
-    // sync queue, iCloud conflict). When too many fire at once the
-    // composer gets pushed below the fold on iPhone 12 mini, so the
-    // OnThisDay top card and WeeklyRecap preview defer to it. Read by
-    // both `shouldShowOnThisDayAtTop` and the top WeeklyRecap section
-    // guard in `body`.
-    private var bannerCount: Int {
-        var n = 0
-        // R10 (#793): AI key banner now only shows on empty days; align
-        // bannerCount so OnThisDay / WeeklyRecap cards don't yield
-        // pre-emptively to a banner that won't actually render.
-        if shouldShowAIKeyBanner && viewModel.memos.isEmpty { n += 1 }
+    // Enumerates every "system status" banner that used to render as an
+    // independent conditional row at the top of the VStack. At most ONE
+    // of these is visible at a time, chosen by strict priority (cases
+    // are declared highest → lowest). Every banner stays REACHABLE: its
+    // original show-condition still gates it inside `activeStatusSlot`;
+    // it just waits its turn instead of stacking.
+    private enum TodayStatusSlot: Equatable {
+        /// Background compile failed after all retries (DSBanner .error).
+        case compilationFailed
+        /// R4-MEDIUM #38 — iCloud conflict auto-merge acknowledgement
+        /// (DSBanner .warning). Self-dismisses after 3s (see the
+        /// `.vaultConflictResolved` onReceive), so it never starves the
+        /// slots below for long.
+        case iCloudConflict
+        /// R5 offline queue — only when something is actually stuck
+        /// (>= 5 pending OR oldest waited > 1h), per #793 museum redesign.
+        case offlineSyncQueue
+        /// In-flight AI compile. Merges the two old progress surfaces:
+        /// the rich stage banner (label + fraction bar, Issue #5) wins
+        /// when BackgroundCompilationService reports a stage; the thin
+        /// CompilationProgressBar covers foreground-only compiles where
+        /// only `viewModel.isCompiling` is set.
+        case compilationProgress
+        /// "Sync your journal across devices" sign-in prompt.
+        case syncPrompt
+        /// R3 — A2 info row: AI key missing. Museum-aesthetic (#793):
+        /// only on empty days; with memos present the same condition
+        /// shows as a small amber dot on the settings gear (set
+        /// elsewhere), so lowest priority is safe.
+        case aiKeyMissing
+
+        /// Error/conflict occupants push non-status cards (OnThisDay)
+        /// out of the top region; info/progress occupants coexist.
+        var isBlocking: Bool {
+            switch self {
+            case .compilationFailed, .iCloudConflict: return true
+            default: return false
+            }
+        }
+    }
+
+    /// Single source of truth for which status banner occupies the slot.
+    /// Each branch is the banner's ORIGINAL show-condition, moved here
+    /// verbatim from the layout; first match (highest priority) wins.
+    private var activeStatusSlot: TodayStatusSlot? {
+        if viewModel.compilationFailedError != nil { return .compilationFailed }
+        if iCloudConflictBannerVisible { return .iCloudConflict }
         if FeatureFlagStore.shared.isEnabled(.offlineQueue)
-            && (syncQueue.pendingCount >= 5 || syncQueueWaitedTooLong) { n += 1 }
-        if iCloudConflictBannerVisible { n += 1 }
-        return n
+            && (syncQueue.pendingCount >= 5 || syncQueueWaitedTooLong) {
+            return .offlineSyncQueue
+        }
+        if compileService.stage != .idle || viewModel.isCompiling { return .compilationProgress }
+        if showSyncBanner { return .syncPrompt }
+        if shouldShowAIKeyBanner && viewModel.memos.isEmpty { return .aiKeyMissing }
+        return nil
+    }
+
+    /// Renders the single active status banner. The banner views
+    /// themselves (and their tap/dismiss behaviors) are untouched — this
+    /// is purely the slot switch. `Motion.bannerSlide` on the slot value
+    /// makes an outgoing occupant slide away while the incoming one
+    /// slides in, never stacked (nil under reduce-motion, matching the
+    /// file's existing pattern).
+    @ViewBuilder
+    private var statusSlotSection: some View {
+        Group {
+            switch activeStatusSlot {
+            case .compilationFailed:
+                if let failureMsg = viewModel.compilationFailedError {
+                    CompilationFailedBanner(message: failureMsg) {
+                        viewModel.compilationFailedError = nil
+                        viewModel.compile()
+                    } onDismiss: {
+                        viewModel.compilationFailedError = nil
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            case .iCloudConflict:
+                iCloudConflictBanner
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            case .offlineSyncQueue:
+                syncQueuePendingBanner
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            case .compilationProgress:
+                // Prefer the richer Issue #5 stage banner whenever the
+                // background service exposes a stage; fall back to the
+                // thin bar for foreground-only compiles.
+                if compileService.stage != .idle {
+                    compileProgressBanner
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                } else {
+                    CompilationProgressBar(stage: compilationService.stage)
+                        .transition(.opacity)
+                }
+            case .syncPrompt:
+                syncBanner
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            case .aiKeyMissing:
+                aiKeyMissingBanner
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            case nil:
+                EmptyView()
+            }
+        }
+        .animation(reduceMotion ? nil : Motion.bannerSlide, value: activeStatusSlot)
+    }
+
+    // MARK: - R9-HIGH A2/A3 — Banner stack guards (post-slot)
+    //
+    // With the single status slot, `bannerCount` is now 0 or 1. Kept as
+    // a named property because the iPhone 12 mini composer-visibility
+    // rationale still applies: the slot row plus a top card is the most
+    // the region may occupy before the composer risks the fold.
+    private var bannerCount: Int {
+        activeStatusSlot == nil ? 0 : 1
     }
 
     /// R9-HIGH A2: single source of truth for whether the top-of-Today
     /// OnThisDay card renders. Used by both the `body` top section and
     /// the `onThisDayFallback(memos:)` inverse guard so the two paths
     /// agree inside the same SwiftUI render pass — no more lazy
-    /// `.onAppear` flip that briefly stacked two cards. The `bannerCount`
-    /// guard yields to the "system status" banners when ≥ 2 already
-    /// occupy the top: in that case the fallback (empty-day) path still
-    /// surfaces the card if the day has no memos to push it offscreen.
+    /// `.onAppear` flip that briefly stacked two cards.
+    ///
+    /// Slot-era guard: the card yields only when the status slot holds a
+    /// blocking (error/conflict) occupant — an urgent banner should own
+    /// the top alone, and on iPhone 12 mini banner + card + hero would
+    /// push the composer below the fold. A low-priority info occupant
+    /// (AI key, sync prompt, progress) coexists with the card; in the
+    /// yield case the fallback (empty-day) path still surfaces the card
+    /// if the day has no memos to push it offscreen.
     private var shouldShowOnThisDayAtTop: Bool {
         FeatureFlagStore.shared.isEnabled(.onThisDay)
             && viewModel.onThisDayEntry != nil
-            && bannerCount < 2
+            && !(activeStatusSlot?.isBlocking ?? false)
     }
 
     /// True when the banner should appear in this render. Combines:
@@ -1498,10 +1491,10 @@ struct TodayView: View {
         .padding(.vertical, 10)
         .background(DSColor.surfaceWhite)
         .overlay(
-            RoundedRectangle(cornerRadius: DSSpacing.radiusCard)
+            RoundedRectangle(cornerRadius: DSRadius.md)
                 .strokeBorder(DSColor.amberRim, lineWidth: 0.5)
         )
-        .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard))
+        .clipShape(RoundedRectangle(cornerRadius: DSRadius.md))
         .padding(.horizontal, DSSpacing.pageMargin)
         .padding(.bottom, DSSpacing.xs)
         .accessibilityElement(children: .combine)
@@ -2551,13 +2544,13 @@ struct TodayView: View {
                     nav.openSidebar()
                 } label: {
                     Image(systemName: "line.3.horizontal")
-                        .font(DSType.bodySM)
+                        .font(.system(size: 15, weight: .medium))
                         .foregroundColor(DSColor.inkMuted)
                         .frame(width: 36, height: 36)
                         .glassSurface(in: Circle())
                         .clipShape(Circle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.dsIconChip)
                 .accessibilityLabel(NSLocalizedString("a11y.nav.open", comment: "Sidebar open button"))
                 .accessibilityHint(NSLocalizedString("a11y.nav.open.hint", comment: "Opens the sidebar navigation drawer"))
                 .accessibilityIdentifier("sidebar-menu-button")
@@ -2576,89 +2569,32 @@ struct TodayView: View {
 
                 Spacer()
 
-                // R4 (#793 comp 4.png): the comp's top bar is exactly two
-                // chips — ☰ left, ⚙ right. The export-as-markdown button
-                // used to appear in the middle once the day had memos, but
-                // that made the toolbar drift between 2-chip and 3-chip
-                // layouts as the day filled in. The export action stays
-                // available via long-pressing the hero title (gesture wired
-                // below); the visible chip is removed so the toolbar
-                // rhythm is invariant.
-                if false {
-                    Button {
-                        let content = MarkdownExportService.buildExportContent(
-                            memos: viewModel.memos, date: Date(),
-                            summary: viewModel.dailyPageSummary
-                        )
-                        let dateString = MarkdownExportService.exportDateString(for: Date())
-                        do {
-                            let url = try MarkdownExportService.writeExportFile(
-                                content: content, dateString: dateString
-                            )
-                            exportFileURL = url
-                            showExportSheet = true
-                            Haptics.tapConfirm()
-                            bannerCenter.show(AppBannerModel(
-                                kind: .success,
-                                title: NSLocalizedString("export.success.title", comment: ""),
-                                autoDismiss: true
-                            ))
-                        } catch {
-                            Haptics.warn()
-                            bannerCenter.show(AppBannerModel(
-                                kind: .error,
-                                title: NSLocalizedString("export.error.title", comment: ""),
-                                autoDismiss: true
-                            ))
-                            DayPageLogger.shared.error("TodayView: export failed: \(error)")
-                        }
-                    } label: {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(DSType.bodySM)
-                            .foregroundColor(DSColor.inkMuted)
-                            .frame(width: 36, height: 36)
-                            .glassSurface(in: Circle())
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(NSLocalizedString("export.action.title", comment: ""))
-                    .accessibilityHint(NSLocalizedString("export.action.hint", comment: ""))
-                    .accessibilityIdentifier("export-markdown-button")
-                    .onLongPressGesture(minimumDuration: 0.5) {
-                        let content = MarkdownExportService.buildExportContent(
-                            memos: viewModel.memos, date: Date(),
-                            summary: viewModel.dailyPageSummary
-                        )
-                        UIPasteboard.general.string = content
-                        Haptics.medium()
-                        Haptics.success()
-                        bannerCenter.show(AppBannerModel(
-                            kind: .info,
-                            title: NSLocalizedString("export.copied.title", comment: ""),
-                            autoDismiss: true
-                        ))
-                    }
-                }
+                // R4 (#793 comp 4.png): the top bar is exactly two chips —
+                // ☰ left, 🔍 right. No middle export chip: it made the
+                // toolbar drift between 2- and 3-chip layouts as the day
+                // filled in. Export lives in the hero title's context menu
+                // (`exportMenuItems`), keeping the toolbar rhythm invariant.
 
+                // Settings moved into the sidebar bottom section — the
+                // toolbar's trailing slot now opens global search, riding
+                // the same `pendingSearchQuery` rail the sidebar row and
+                // the `daypage://search?q=` URL scheme already use.
                 Button {
                     Haptics.soft()
-                    if !reduceMotion {
-                        withAnimation(Motion.spring) { settingsGearRotation += 90 }
-                    }
-                    showSettings = true
+                    nav.selectedTab = .archive
+                    nav.pendingSearchQuery = ""
                 } label: {
-                    Image(systemName: "gearshape")
-                        .font(DSType.bodySM)
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 15, weight: .medium))
                         .foregroundColor(DSColor.inkMuted)
                         .frame(width: 36, height: 36)
                         .glassSurface(in: Circle())
                         .clipShape(Circle())
-                        .rotationEffect(.degrees(settingsGearRotation))
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(NSLocalizedString("a11y.settings", comment: "Settings button"))
-                .accessibilityHint(NSLocalizedString("a11y.settings.hint", comment: "Opens app settings"))
-                .accessibilityIdentifier("settings-gear-button")
+                .buttonStyle(.dsIconChip)
+                .accessibilityLabel(NSLocalizedString("today.toolbar.search", comment: "Global search button"))
+                .accessibilityHint(NSLocalizedString("today.toolbar.search.hint", comment: "Opens global search"))
+                .accessibilityIdentifier("today-search-button")
             }
 
             // MARK: Hero title — weekday + subline, CENTERED.
@@ -2714,9 +2650,12 @@ struct TodayView: View {
         .padding(.top, 8)
         .padding(.bottom, 16)
         // Collapse/expand between the big hero (empty day) and the compact
-        // toolbar title (memo day) with the shared panel spring so the first
-        // memo's arrival reads as one deliberate motion, not a layout pop.
-        .animation(reduceMotion ? nil : Motion.spring, value: hasMemos)
+        // toolbar title (memo day): both branches carry explicit transitions
+        // (big hero → .opacity + .move(.top), compact title → .opacity +
+        // .scale) and every memo mutation in TodayViewModel runs inside
+        // withAnimation, so the swap still reads as one deliberate motion
+        // WITHOUT a container-level `.animation(value: hasMemos)` that
+        // would re-animate this entire header subtree (Axiom perf rule).
         .onReceive(headerTimer) { date in
             currentTime = date
         }
@@ -3019,6 +2958,10 @@ struct TodayView: View {
                         }
                         .padding(.horizontal, 20)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
+                        // 美术馆入场 (iOS 17+): subtle scroll-in settle on the
+                        // row container OUTSIDE SwipeableMemoCard, so it never
+                        // fights the card's UIKit pan / offset gesture.
+                        .modifier(ScrollEntranceModifier())
                     }
                 }
 
@@ -3104,6 +3047,15 @@ struct TodayView: View {
     /// memo 且尚未编译，就直接显示编译按钮，无论几条。
     @ViewBuilder
     private var composeSection: some View {
+        let aiKeyMissing = Secrets.resolvedDeepSeekApiKey.isEmpty
+        // Axiom perf (motion overhaul): this footer used to animate on
+        // `viewModel.memos.count`, which re-sprang the whole subtree on
+        // EVERY capture. Animate on the exact Bool that actually toggles
+        // the recovery footer's visibility instead.
+        let showsRecoveryFooter = !viewModel.isDailyPageCompiled
+            && !viewModel.memos.isEmpty
+            && (viewModel.isCompiling || viewModel.submitError != nil)
+            && !aiKeyMissing
         Group {
             // Museum-aesthetic redesign (#793): the persistent "编译今日"
             // CTA used to live here on every day with memos and added a
@@ -3122,11 +3074,7 @@ struct TodayView: View {
             // recovery cases (mid-compile or a non-key error the user must
             // see). Keeps the bottom area clean so the dock keeps its
             // floating-island read against the warm canvas.
-            let aiKeyMissing = Secrets.resolvedDeepSeekApiKey.isEmpty
-            if !viewModel.isDailyPageCompiled
-                && !viewModel.memos.isEmpty
-                && (viewModel.isCompiling || viewModel.submitError != nil)
-                && !aiKeyMissing {
+            if showsRecoveryFooter {
                 HStack {
                     Spacer()
                     CompileFooterButton(
@@ -3161,11 +3109,11 @@ struct TodayView: View {
                 .padding(.bottom, 4)
             }
         }
-        .animation(Motion.spring, value: viewModel.memos.count)
+        .animation(reduceMotion ? nil : Motion.spring, value: showsRecoveryFooter)
         .onChange(of: viewModel.memos.count) { count in
             if count >= 3 && !viewModel.isDailyPageCompiled && !didCelebrateUnlock {
                 didCelebrateUnlock = true
-                Haptics.success()
+                SignatureHaptics.compileSuccess()
                 if !reduceMotion {
                     unlockGlow = true
                     Task {
@@ -3207,7 +3155,7 @@ struct TodayView: View {
         .onChange(of: viewModel.isDailyPageCompiled) { compiled in
             if compiled && !didCelebrateCompile {
                 didCelebrateCompile = true
-                Haptics.success()
+                SignatureHaptics.compileSuccess()
                 if !reduceMotion {
                     compileRevealGlow = true
                     Task {
@@ -3599,126 +3547,8 @@ struct TodayView: View {
         }
     }
 
-    // MARK: - Weekly Recap Preview (R8-HIGH B1)
-
-    /// Try to populate `weeklyRecapPreview` from the cached vault file.
-    /// Order:
-    ///   1. If `hint` is provided (.weeklyRecapAvailable userInfo), probe it
-    ///      first — that's the exact ISO week the daemon just compiled.
-    ///   2. Else probe current week. (After Monday's first compile the
-    ///      current-week cache won't exist, but a manual recap might.)
-    ///   3. Else fall back to last week (yesterday's reference). Covers the
-    ///      Monday-morning auto path where the daemon compiled "last week"
-    ///      before the user opens the app.
-    /// All probes are file-system reads, no LLM round-trip.
-    private func refreshWeeklyRecapPreview(hint: Date?) {
-        let probes: [Date]
-        if let hint = hint {
-            probes = [hint]
-        } else {
-            let now = Date()
-            let cal = WeeklyCompilationService.weekCalendar
-            let lastWeek = cal.date(byAdding: .day, value: -7, to: now) ?? now
-            probes = [now, lastWeek]
-        }
-        for ref in probes {
-            if let cached = WeeklyCompilationService.shared.loadCached(for: ref) {
-                withAnimation(reduceMotion ? nil : Motion.fade) {
-                    weeklyRecapPreview = cached
-                    weeklyRecapRefDate = ref
-                }
-                return
-            }
-        }
-        // No cache available — hide the section.
-        if weeklyRecapPreview != nil {
-            withAnimation(reduceMotion ? nil : Motion.dismiss) {
-                weeklyRecapPreview = nil
-                weeklyRecapRefDate = nil
-            }
-        }
-    }
-
-    /// R9-HIGH A1: debounced wrapper around `refreshWeeklyRecapPreview`.
-    /// Cold launch fires three near-simultaneous reloads (onAppear seed,
-    /// `.weeklyRecapAvailable` notification, scenePhase=.active), which
-    /// previously raced through the same `loadCached` probes and stacked
-    /// three competing `withAnimation` passes. Coalescing into a single
-    /// 300ms-debounced Task collapses the burst into one file read.
-    /// Cancellation on every call ensures only the latest hint wins.
-    private func refreshWeeklyRecapPreviewDebounced(hint: Date?) {
-        weeklyReloadTask?.cancel()
-        weeklyReloadTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 300_000_000)
-            guard !Task.isCancelled else { return }
-            refreshWeeklyRecapPreview(hint: hint)
-        }
-    }
-
-    /// Compact entry card: amber-tinted background, title with calendar
-    /// emoji, up to 3 keyword chips, "查看全部 →" affordance. Tap pushes
-    /// `WeeklyRecapDetailView` via `.sheet` (see body).
-    @ViewBuilder
-    private func weeklyRecapPreviewSection(preview: WeeklyRecapOutput, referenceDate: Date) -> some View {
-        let kw = Array(preview.keywords.prefix(3))
-        Button {
-            Haptics.tapConfirm()
-            showWeeklyRecapDetail = true
-        } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
-                    Text("📅 \(NSLocalizedString("weekly.recap.title", comment: ""))")
-                        .font(DSFonts.inter(size: 13, weight: .semibold))
-                        .foregroundColor(DSColor.inkPrimary)
-                    Spacer(minLength: 0)
-                    Text(NSLocalizedString(
-                        "today.weekly.preview.cta",
-                        value: "查看全部 →",
-                        comment: "CTA label on the Today weekly-recap preview card"
-                    ))
-                        .font(DSType.mono10)
-                        .foregroundColor(DSColor.amberAccent)
-                        .accessibilityHidden(true)
-                }
-                if !kw.isEmpty {
-                    HStack(spacing: 6) {
-                        ForEach(kw, id: \.self) { word in
-                            Text(word)
-                                .font(DSType.mono10)
-                                .foregroundColor(DSColor.amberAccent)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(
-                                    Capsule().fill(DSColor.amberAccent.opacity(0.20))
-                                )
-                                .lineLimit(1)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                }
-            }
-            .padding(.horizontal, DSSpacing.pageMargin)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(DSColor.amberAccent.opacity(0.14))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(Text(String(
-            format: NSLocalizedString(
-                "today.weekly.preview.a11y",
-                value: "周回顾就绪：%@",
-                comment: "VoiceOver label for the Today weekly-recap preview"
-            ),
-            preview.isoWeek
-        )))
-        .accessibilityHint(Text(NSLocalizedString(
-            "today.weekly.preview.a11y.hint",
-            value: "打开本周 AI 回顾",
-            comment: "VoiceOver hint for the Today weekly-recap preview"
-        )))
-    }
+    // Issue #814: Weekly Recap preview helpers removed — Archive's entry
+    // card (ArchiveView.weeklyRecapEntryCard) is the single This Week surface.
 }
 
 // MARK: - OnThisDayNavTarget
@@ -4234,6 +4064,31 @@ private struct ScrollOffsetPreferenceKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
+    }
+}
+
+// MARK: - Scroll entrance (iOS 17+)
+
+/// 美术馆入场: timeline memo cards settle in as they scroll into the
+/// viewport — rows just outside the visible region sit at 72% opacity /
+/// 98.5% scale and ease to identity. Deliberately subtle: the timeline is
+/// a quiet gallery wall, not a showcase. iOS 16 and Reduce Motion pass
+/// the content through unmodified. Applied to the row container that
+/// wraps SwipeableMemoCard (never inside it) so the phase scale cannot
+/// fight the card's UIKit pan + offset swipe-to-reveal.
+struct ScrollEntranceModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *), !reduceMotion {
+            content.scrollTransition(.interactive(timingCurve: .easeOut), axis: .vertical) { view, phase in
+                view
+                    .opacity(phase.isIdentity ? 1 : 0.72)
+                    .scaleEffect(phase.isIdentity ? 1 : 0.985, anchor: .center)
+            }
+        } else {
+            content
+        }
     }
 }
 

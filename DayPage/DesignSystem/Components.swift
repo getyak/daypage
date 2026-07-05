@@ -49,7 +49,7 @@ struct WikilinkText: View {
     var body: some View {
         Text(text)
             .bodySMStyle()
-            .foregroundColor(DSColor.amberAccent)
+            .foregroundColor(DSColor.accentOnBg)
             .onTapGesture { onTap?() }
     }
 }
@@ -102,7 +102,7 @@ struct WikilinkBodyText: View {
             var part = AttributedString(seg.content)
             if seg.isLink {
                 part.font = .custom("Inter-Medium", size: 15)
-                part.foregroundColor = DSColor.amberAccent
+                part.foregroundColor = DSColor.accentOnBg
                 // Percent-encode the slug into the URL host so tapping routes to this specific entity.
                 let encoded = seg.inner.addingPercentEncoding(withAllowedCharacters: .urlHostAllowed) ?? seg.inner
                 part.link = URL(string: "wikilink://\(encoded)")

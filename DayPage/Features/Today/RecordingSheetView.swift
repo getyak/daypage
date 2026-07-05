@@ -172,11 +172,11 @@ struct RecordingSheetView: View {
             .frame(height: 56)
             .frame(maxWidth: .infinity)
             .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                     .fill(DSColor.onRecording.opacity(0.05))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                     .strokeBorder(DSColor.onRecording.opacity(0.08), lineWidth: 0.5)
             )
 

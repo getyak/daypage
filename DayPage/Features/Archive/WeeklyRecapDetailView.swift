@@ -94,9 +94,14 @@ struct WeeklyRecapDetailView: View {
             ?? WeeklyCompilationService.isoWeekKey(for: referenceDate)
 
         return VStack(alignment: .leading, spacing: 6) {
-            Text("📅 \(NSLocalizedString("weekly.recap.title", comment: ""))")
-                .font(DSType.headlineMD)
-                .foregroundColor(DSColor.inkPrimary)
+            HStack(spacing: 8) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundColor(DSColor.accentOnBg)
+                Text(NSLocalizedString("weekly.recap.title", comment: ""))
+                    .font(DSType.headlineMD)
+                    .foregroundColor(DSColor.inkPrimary)
+            }
             Text("\(isoWeek) · \(rangeText)")
                 .font(DSType.mono11)
                 .foregroundColor(DSColor.inkSubtle)
@@ -141,7 +146,7 @@ struct WeeklyRecapDetailView: View {
             } label: {
                 Text(NSLocalizedString("weekly.recap.refresh", comment: ""))
                     .font(DSType.labelSM)
-                    .foregroundColor(DSColor.amberAccent)
+                    .foregroundColor(DSColor.accentOnBg)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .overlay(
@@ -196,7 +201,7 @@ struct WeeklyRecapDetailView: View {
                         } label: {
                             Text(kw)
                                 .font(DSType.bodyMD)
-                                .foregroundColor(DSColor.amberAccent)
+                                .foregroundColor(DSColor.accentOnBg)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 6)
                                 .background(
@@ -250,7 +255,7 @@ struct WeeklyRecapDetailView: View {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "mappin")
                         .font(.system(size: 16))
-                        .foregroundColor(DSColor.amberAccent)
+                        .foregroundColor(DSColor.accentOnBg)
                         .padding(.top, 2)
                     Text(text.isEmpty ? "—" : text)
                         .font(DSType.bodyMD)
@@ -279,7 +284,7 @@ struct WeeklyRecapDetailView: View {
                 HStack(alignment: .top, spacing: 8) {
                     Text("✦")
                         .font(DSType.bodyMD)
-                        .foregroundColor(DSColor.amberAccent)
+                        .foregroundColor(DSColor.accentOnBg)
                     Text(items[idx])
                         .font(DSType.bodyMD)
                         .foregroundColor(DSColor.inkPrimary)
@@ -334,11 +339,11 @@ struct WeeklyRecapDetailView: View {
             } label: {
                 Text(NSLocalizedString("weekly.recap.refresh", comment: ""))
                     .font(DSType.labelSM)
-                    .foregroundColor(DSColor.amberAccent)
+                    .foregroundColor(DSColor.accentOnBg)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous)
                             .stroke(DSColor.amberRim, lineWidth: 1)
                     )
             }
@@ -403,7 +408,7 @@ struct WeeklyRecapDetailView: View {
                 } label: {
                     Text(NSLocalizedString("weekly.recap.refresh", comment: ""))
                         .font(DSType.labelSM)
-                        .foregroundColor(DSColor.amberAccent)
+                        .foregroundColor(DSColor.accentOnBg)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
                         .overlay(

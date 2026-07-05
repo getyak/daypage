@@ -28,7 +28,7 @@ struct ThreadConversationView: View {
             }
         }
         .background(DSColor.surfaceContainerHigh)
-        .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
         // Expand/collapse shifts content position (`.move` transition above) —
         // route through the shared `expand` token so it honors Reduce Motion.
         .dsAnimation(Motion.expand, value: vm.isExpanded)
@@ -39,7 +39,7 @@ struct ThreadConversationView: View {
     private var questionHeader: some View {
         HStack(alignment: .top, spacing: 10) {
             RoundedRectangle(cornerRadius: 2)
-                .fill(DSColor.amberAccent)
+                .fill(DSColor.accentOnBg)
                 .frame(width: 3, height: 20)
 
             Text(vm.question ?? "自由追问")
@@ -154,7 +154,7 @@ struct ThreadConversationView: View {
             Button(action: sendFollowUp) {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 22))
-                    .foregroundColor(canSend ? DSColor.amberAccent : DSColor.inkSubtle)
+                    .foregroundColor(canSend ? DSColor.accentOnBg : DSColor.inkSubtle)
             }
             .buttonStyle(.plain)
             .disabled(!canSend)
@@ -170,7 +170,7 @@ struct ThreadConversationView: View {
     private var aiBadge: some View {
         Text("AI")
             .font(DSFonts.jetBrainsMono(size: 9, weight: .medium))
-            .foregroundColor(DSColor.amberDeep)
+            .foregroundColor(DSColor.accentOnBg)
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
             .background(DSColor.amberSoft)
@@ -205,7 +205,7 @@ private struct MessageBubble: View {
 
             Text(message.text)
                 .font(DSType.serifBody16)
-                .foregroundColor(isUser ? DSColor.amberDeep : DSColor.inkPrimary)
+                .foregroundColor(isUser ? DSColor.accentOnBg : DSColor.inkPrimary)
                 .lineSpacing(5)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
@@ -239,7 +239,7 @@ private struct TypingIndicator: View {
         HStack(spacing: 3) {
             ForEach(0..<3, id: \.self) { i in
                 Circle()
-                    .fill(DSColor.amberAccent.opacity(i == phase ? 1.0 : 0.3))
+                    .fill(DSColor.accentOnBg.opacity(i == phase ? 1.0 : 0.3))
                     .frame(width: 5, height: 5)
                     .scaleEffect(i == phase ? 1.3 : 1.0)
                     .animation(.easeInOut(duration: 0.22), value: phase)

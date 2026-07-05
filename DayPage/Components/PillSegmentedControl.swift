@@ -49,7 +49,7 @@ struct PillSegmentedControl<ID: Hashable>: View {
         return Button {
             guard !isSelected else { return }
             Haptics.soft()
-            withAnimation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86)) {
+            withAnimation(reduceMotion ? nil : Motion.panel) {
                 selection = segment.id
             }
             onSelect?(segment.id)
@@ -57,7 +57,7 @@ struct PillSegmentedControl<ID: Hashable>: View {
             Text(segment.label)
                 .font(.custom("Inter-Medium", size: 13))
                 .fontWeight(isSelected ? .semibold : .medium)
-                .foregroundColor(isSelected ? DSColor.accentAmber : DSColor.inkMuted)
+                .foregroundColor(isSelected ? DSColor.accentOnBg : DSColor.inkMuted)
                 .lineLimit(1)
                 .padding(.vertical, 7)
                 .frame(maxWidth: .infinity)

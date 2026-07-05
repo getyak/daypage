@@ -1,6 +1,17 @@
 import Foundation
+import CryptoKit
 import DayPageModels
 import DayPageStorage
+
+// MARK: - CompileOutcome
+
+/// Result of a compile request. `skippedUnchanged` means the source hash of
+/// the day's memos matches the `source_hash` recorded in the existing daily
+/// page frontmatter — no LLM call was made (issue #814 cost guard).
+public enum CompileOutcome: Equatable {
+    case compiled
+    case skippedUnchanged
+}
 
 // MARK: - CompilationStage
 
@@ -51,23 +62,18 @@ public final class CompilationService: ObservableObject {
     /// 将给定日期的原始备忘录编译为每日页面。
     /// - Parameter date: 要编译的日期，默认为今天。
     /// - Parameter trigger: 编译触发方式（"manual" | "auto"）。
+    /// - Parameter force: 为 true 时跳过 source_hash 去重守卫，强制重新编译
+    ///   （DailyPageView「重新编译」的显式意图）。
     /// - Parameter onRetry: 每次重试前调用，参数为 (当前次数, 最大次数)。
+    /// - Returns: `.compiled` 或 `.skippedUnchanged`（内容未变，未调 LLM）。
     /// - Throws: 当 API、解析或文件系统失败时抛出 `CompilationError`。
+    @discardableResult
     public func compile(
         for date: Date = Date(),
         trigger: String = "manual",
+        force: Bool = false,
         onRetry: ((Int, Int) -> Void)? = nil
-    ) async throws {
-        // C4 fix: respect the master AI toggle. When the user has opted into
-        // local-only mode, refuse the call rather than silently shipping memo
-        // text to a third-party LLM even though a key is configured.
-        guard AppSettings.aiFeaturesEnabled else {
-            throw CompilationError.aiDisabled
-        }
-        guard NetworkMonitor.shared.isOnline else {
-            throw CompilationError.offline
-        }
-
+    ) async throws -> CompileOutcome {
         let startTime = Date()
         let dateString = dateFormatter.string(from: date)
 
@@ -79,6 +85,38 @@ public final class CompilationService: ObservableObject {
         stage = .extracting
         compilationProgress = .extracting
         let (memos, rawContent) = try collectMemos(for: date)
+
+        // Issue #814 cost guard: when the substantive memo content is
+        // unchanged since the last compile, skip the LLM round-trip
+        // entirely. Checked BEFORE the network/AI guards so an offline
+        // no-op request resolves quietly instead of throwing.
+        let sourceHash = Self.sourceHash(of: memos)
+        if !force,
+           let existingDaily = try? String(contentsOf: dailyPageURL(for: dateString), encoding: .utf8),
+           let storedHash = Self.extractSourceHash(from: existingDaily),
+           storedHash == sourceHash {
+            appendLog(
+                timestamp: iso8601Now(),
+                trigger: trigger,
+                durationSeconds: Date().timeIntervalSince(startTime),
+                memoCount: memos.count,
+                status: "skipped"
+            )
+            stage = .done
+            compilationProgress = .done
+            return .skippedUnchanged
+        }
+
+        // C4 fix: respect the master AI toggle. When the user has opted into
+        // local-only mode, refuse the call rather than silently shipping memo
+        // text to a third-party LLM even though a key is configured.
+        guard AppSettings.aiFeaturesEnabled else {
+            throw CompilationError.aiDisabled
+        }
+        guard NetworkMonitor.shared.isOnline else {
+            throw CompilationError.offline
+        }
+
         let hotContent = loadHotContent()
 
         // Step 2: Build prompt
@@ -100,10 +138,79 @@ public final class CompilationService: ObservableObject {
         let parsed = try parseResponse(compiledText)
 
         // Step 5: Save results
-        try saveResults(parsed, dateString: dateString, trigger: trigger, startTime: startTime, memoCount: memos.count)
+        try saveResults(
+            parsed,
+            dateString: dateString,
+            trigger: trigger,
+            startTime: startTime,
+            memoCount: memos.count,
+            sourceHash: sourceHash
+        )
 
         stage = .done
         compilationProgress = .done
+        return .compiled
+    }
+
+    // MARK: - Source Hash (issue #814)
+
+    /// Deterministic SHA-256 over the *substantive* memo content: id + body
+    /// + attachment file names / transcripts. Deliberately EXCLUDES mood and
+    /// entityMentions — `applyMemoUpdates` writes those two fields back into
+    /// the raw file right after a successful compile, so hashing them would
+    /// mark every freshly compiled day as stale (infinite recompile loop).
+    /// Sorted by memo id so pin-reordering / file rewrites don't change it.
+    nonisolated public static func sourceHash(of memos: [Memo]) -> String {
+        let canonical = memos
+            .sorted { $0.id.uuidString < $1.id.uuidString }
+            .map { memo -> String in
+                let attachments = memo.attachments
+                    .map { "\($0.file)|\($0.transcript ?? "")" }
+                    .joined(separator: ",")
+                return "\(memo.id.uuidString)\n\(memo.body)\n\(attachments)"
+            }
+            .joined(separator: "\n--\n")
+        let digest = SHA256.hash(data: Data(canonical.utf8))
+        return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Reads `source_hash:` out of a daily page's YAML frontmatter.
+    /// Returns nil for legacy pages compiled before #814 (treated as fresh
+    /// by callers so backfill never mass-recompiles history).
+    nonisolated public static func extractSourceHash(from dailyContent: String) -> String? {
+        let lines = dailyContent.components(separatedBy: "\n")
+        guard lines.first?.trimmingCharacters(in: .whitespaces) == "---" else { return nil }
+        for line in lines.dropFirst() {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed == "---" { return nil } // frontmatter closed, key absent
+            if trimmed.hasPrefix("source_hash:") {
+                let value = trimmed.dropFirst("source_hash:".count)
+                    .trimmingCharacters(in: .whitespaces)
+                return value.isEmpty ? nil : value
+            }
+        }
+        return nil
+    }
+
+    /// Inserts `source_hash: <hash>` as the last frontmatter line of the
+    /// LLM-generated daily page. If the text has no leading frontmatter
+    /// block the input is returned unchanged (dedup simply stays inactive
+    /// for that day rather than corrupting the document).
+    nonisolated public static func injectSourceHash(_ hash: String, into dailyText: String) -> String {
+        var lines = dailyText.components(separatedBy: "\n")
+        guard lines.first?.trimmingCharacters(in: .whitespaces) == "---" else { return dailyText }
+        for index in 1 ..< lines.count {
+            let trimmed = lines[index].trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("source_hash:") {
+                lines[index] = "source_hash: \(hash)"
+                return lines.joined(separator: "\n")
+            }
+            if trimmed == "---" {
+                lines.insert("source_hash: \(hash)", at: index)
+                return lines.joined(separator: "\n")
+            }
+        }
+        return dailyText
     }
 
     // MARK: - Step 1: Collect Memos
@@ -283,12 +390,16 @@ public final class CompilationService: ObservableObject {
         dateString: String,
         trigger: String,
         startTime: Date,
-        memoCount: Int
+        memoCount: Int,
+        sourceHash: String
     ) throws {
         let dailyURL = dailyPageURL(for: dateString)
+        // Issue #814: stamp the source hash into the frontmatter so the next
+        // compile request can prove "nothing changed" without an LLM call.
+        let dailyText = Self.injectSourceHash(sourceHash, into: parsed.dailyPageText)
         do {
             try backupIfExists(at: dailyURL, dateString: dateString)
-            try writeFile(content: parsed.dailyPageText, to: dailyURL)
+            try writeFile(content: dailyText, to: dailyURL)
         } catch let err as CompilationError {
             throw err
         } catch {
@@ -310,6 +421,11 @@ public final class CompilationService: ObservableObject {
             memoCount: memoCount,
             status: "success"
         )
+
+        // Issue #814 (karpathy LLM-wiki pattern): keep vault/wiki/index.md —
+        // the wiki's table of contents — in sync after every compile. Pure
+        // local file scan, zero LLM cost; failures are logged, never thrown.
+        WikiIndexService.shared.rebuild()
     }
 
     /// Back-fills mood and entityMentions into the raw memo file for each

@@ -57,9 +57,10 @@ public enum FeatureFlag: String, CaseIterable {
     /// **Default**: on
     case onThisDay
 
-    /// **Used in**: `TodayView.weeklyRecapPreviewSection` + `ArchiveView.weeklyRecapEntryCard` (Features/Today/TodayView.swift, Features/Archive/ArchiveView.swift)
-    /// **When off**: Today preview + Archive 周入口卡都不显示；后台自动编译仍会跑（service 不下线，只屏蔽 UI 入口）。
+    /// **Used in**: `ArchiveView.weeklyRecapEntryCard` (Features/Archive/ArchiveView.swift)
+    /// **When off**: Archive 周入口卡不显示；后台自动编译仍会跑（service 不下线，只屏蔽 UI 入口）。
     /// **R7**: 周回顾 — 给 prompt/parse 异常一个无需 hot-fix 的兜底开关。
+    /// **#814**: Today 顶部 preview 卡已移除，Archive 是唯一入口。
     /// **Default**: on
     case weeklyRecap
 

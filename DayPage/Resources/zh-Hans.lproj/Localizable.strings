@@ -796,6 +796,8 @@
 "submit.error.retry"                         = "重试";
 "Tap or swipe to dismiss"                    = "点按或滑动以关闭";
 "today.header.scroll_to_top"                 = "回到顶部";
+"today.toolbar.search"                       = "搜索";
+"today.toolbar.search.hint"                  = "打开全局搜索";
 "today.wordmilestone.announcement"           = "已写满 %lld 字";
 
 /* Today — timeline (历史轨迹) */

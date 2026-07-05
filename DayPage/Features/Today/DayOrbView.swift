@@ -353,7 +353,7 @@ struct DayOrbView: View {
                 VStack(spacing: 4) {
                     Image(systemName: "sparkles")
                         .font(.system(size: size * 0.22, weight: .light))
-                        .foregroundColor(DSColor.amberDeep)
+                        .foregroundColor(DSColor.accentOnBg)
                         .scaleEffect(invitePulse ? 1.12 : 1.0)
                         .opacity(invitePulse ? 1.0 : 0.7)
                         .animation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true), value: invitePulse)
@@ -361,7 +361,7 @@ struct DayOrbView: View {
                     Text(readoutLabel)
                         .font(DSFonts.jetBrainsMono(size: 9, weight: .medium))
                         .tracking(1.4)
-                        .foregroundColor(DSColor.amberDeep)
+                        .foregroundColor(DSColor.accentOnBg)
                         .opacity(0.7)
                 }
             } else {
@@ -369,7 +369,7 @@ struct DayOrbView: View {
                     Text("\(signalCount)")
                         .font(DSFonts.spaceGrotesk(size: size * 0.36, weight: .semibold))
                         .tracking(-2)
-                        .foregroundColor(DSColor.amberDeep)
+                        .foregroundColor(DSColor.accentOnBg)
                         .modifier(OrbNumericTextTransition(value: Double(signalCount), reduceMotion: reduceMotion))
                         .animation(.snappy, value: signalCount)
                         .scaleEffect(countPop)
@@ -377,7 +377,7 @@ struct DayOrbView: View {
                     Text(readoutLabel)
                         .font(DSFonts.jetBrainsMono(size: 9, weight: .medium))
                         .tracking(1.4)
-                        .foregroundColor(DSColor.amberDeep)
+                        .foregroundColor(DSColor.accentOnBg)
                         .opacity(tierUpGlow ? 1.0 : 0.7)
                         .scaleEffect(tierUpGlow ? 1.12 : 1.0)
                         .shadow(color: DSColor.accentAmber.opacity(tierUpGlow ? 0.9 : 0), radius: tierUpGlow ? 6 : 0)

@@ -162,7 +162,7 @@ struct WriteSheetView: View {
         }
         guard wordCount > 100 else { return DSColor.inkMuted }
         let t = CGFloat(min(wordCount - 100, 100)) / 100.0
-        return Self.lerpColor(from: DSColor.inkMuted, to: DSColor.accentAmber, t: t)
+        return Self.lerpColor(from: DSColor.inkMuted, to: DSColor.accentOnBg, t: t)
     }
 
     private static func lerpColor(from a: Color, to b: Color, t: CGFloat) -> Color {
@@ -670,7 +670,7 @@ struct WriteSheetView: View {
                         .font(.system(size: 18, weight: .regular))
                         .foregroundColor(
                             pendingLocation != nil
-                                ? DSColor.accentAmber
+                                ? DSColor.accentOnBg
                                 : DSColor.inkMuted
                         )
                 }

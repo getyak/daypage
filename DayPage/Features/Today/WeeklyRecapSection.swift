@@ -89,7 +89,7 @@ private struct WeeklyRecapDayCard: View {
             .padding(.vertical, 14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(DSColor.surfaceContainer)
-            .cornerRadius(DSSpacing.radiusCard)
+            .cornerRadius(DSRadius.md)
         }
         .buttonStyle(RecapCardButtonStyle(reduceMotion: reduceMotion))
         .accessibilityLabel(accessibilityLabel)

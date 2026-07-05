@@ -600,17 +600,14 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 self.loadState = .ready
                 self.checkOnThisDay()
 
-                // Auto-compile on load when today has uncompiled memos. The compile
-                // button was removed in #213 — the user expects today's diary to be
-                // ready whenever they open the app, no manual trigger required.
-                // R4 (#793 comp 4.png): the auto path is silent so a missing /
-                // invalid key does NOT pop a red banner on top of the calm
-                // first screen. The amber "钥匙就绪后…" status row in the
-                // header already nudges the user; the loud banner only fires
-                // for the manual compile tap.
-                if !self.isDailyPageCompiled && !self.memos.isEmpty && !self.isCompiling {
-                    self.compile(silent: true)
-                }
+                // Issue #814: the auto-compile-on-load path was removed. It
+                // compiled a half-day snapshot on every first open (a full
+                // 8-10K-token LLM call) that went stale as soon as the next
+                // memo landed. Today is now a pure raw-capture surface; the
+                // day compiles ONCE after it ends — midnight BGTask compiles
+                // yesterday, with foreground-retry + backfill as fallbacks.
+                // Manual compile stays available for users who want today's
+                // draft diary early.
             }
         }
     }
@@ -710,7 +707,10 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
             var newMemos = memos
             newMemos[memoIdx] = updated
             let previous = memos
-            withAnimation { memos = newMemos }
+            // Re-transcription only swaps text inside an existing card —
+            // crossfade it. A bare `withAnimation` (default spring) would
+            // re-spring the whole timeline layout for a transcript update.
+            withAnimation(Motion.fade) { memos = newMemos }
             persistMemos(newMemos, capturedDate: date, previous: previous, failureMessagePrefix: NSLocalizedString("error.memo.retranscribe_failed", comment: ""))
         }
     }
@@ -1093,10 +1093,29 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                 // single in-flight indicator. The callback is intentionally a no-op here; if
                 // future telemetry needs retry counts, route them through a @Published field
                 // so CompilePromptCard can render the attempt inline.
-                try await compilationService.compile(for: date, trigger: "manual") { _, _ in }
+                let outcome = try await compilationService.compile(for: date, trigger: "manual") { _, _ in }
                 checkDailyPage()
+                // Issue #814: hash guard short-circuited the LLM call because
+                // nothing substantive changed since the last compile. Tell the
+                // user why the diary looks identical instead of pretending a
+                // fresh compile happened.
+                if outcome == .skippedUnchanged {
+                    HapticFeedback.light()
+                    if !silentMode {
+                        BannerCenter.shared.show(AppBannerModel(
+                            kind: .info,
+                            title: NSLocalizedString(
+                                "today.compile.skipped_unchanged",
+                                value: "内容没有变化，已跳过重新编译",
+                                comment: "Banner when compile is skipped because memos are unchanged"
+                            ),
+                            autoDismiss: true
+                        ))
+                    }
+                    return
+                }
                 await OnThisDayIndex.shared.rebuildIndex()
-                HapticFeedback.success()
+                SignatureHaptics.compileSuccess()
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .success,
                     title: NSLocalizedString("today.compile.success", comment: ""),

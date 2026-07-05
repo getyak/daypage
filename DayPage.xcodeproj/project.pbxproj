@@ -11,6 +11,7 @@
 		0AA94A9D087DA366336C8480 /* DayPageServices in Frameworks */ = {isa = PBXBuildFile; productRef = 160D427C0AE7DAC5724A134F /* DayPageServices */; };
 		14188AFE740A834ADF7A41F4 /* DayPageWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1530E7C28C23499CFC14C498 /* HapticFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB12D96218034D3E4555B8AA /* HapticFeedback.swift */; };
+		1530E7C28C23499CFC14C499 /* SignatureHaptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB12D96218034D3E4555B8AB /* SignatureHaptics.swift */; };
 		1700091E891D56C434E3221E /* MacRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15CC12840AD6E5CF8621F34C /* MacRootView.swift */; };
 		17B5829B738952DA183B1B90 /* DailyPageMetadataEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CF7E0148C3A6933A903247D /* DailyPageMetadataEditView.swift */; };
 		1BA5F2B78351EFB69F085A65 /* AskPastView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1681BDF1E5113769618DA9B0 /* AskPastView.swift */; };
@@ -387,6 +388,7 @@
 		B93ED807E07C2171E9F4234B /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
 		BAC7527E8128E6A865349FB9 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		BB12D96218034D3E4555B8AA /* HapticFeedback.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticFeedback.swift; sourceTree = "<group>"; };
+		BB12D96218034D3E4555B8AB /* SignatureHaptics.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SignatureHaptics.swift; sourceTree = "<group>"; };
 		BFC2FE3353FDB07872B77D65 /* MacKitSecretsProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MacKitSecretsProvider.swift; sourceTree = "<group>"; };
 		BGC1000002 /* BackgroundCompilationServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BackgroundCompilationServiceTests.swift; sourceTree = "<group>"; };
 		C551D36362FF97C44EB4D5DE /* SidebarHeatmapView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SidebarHeatmapView.swift; sourceTree = "<group>"; };
@@ -738,6 +740,7 @@
 				A20000070 /* AuthService.swift */,
 				A20000095 /* ComposerContextProvider.swift */,
 				BB12D96218034D3E4555B8AA /* HapticFeedback.swift */,
+				BB12D96218034D3E4555B8AB /* SignatureHaptics.swift */,
 				AC8043A3D3371852ACB3D6F3 /* MarkdownExportService.swift */,
 				I280000002 /* InsightActionService.swift */,
 			);
@@ -1467,6 +1470,7 @@
 				4A862A4AB3CC3961B771EBC5 /* InputBarTutorialOverlay.swift in Sources */,
 				3C0AE791CCB255E33198C9F9 /* UndoPillView.swift in Sources */,
 				1530E7C28C23499CFC14C498 /* HapticFeedback.swift in Sources */,
+				1530E7C28C23499CFC14C499 /* SignatureHaptics.swift in Sources */,
 				F69AA7BDCB1C041959C26EB4 /* ShareCardSystem.swift in Sources */,
 				C80B52CC8945CDC4EE87DCBB /* PosterTemplates.swift in Sources */,
 				F66780AF157611A4283937FE /* MemoListSkeleton.swift in Sources */,

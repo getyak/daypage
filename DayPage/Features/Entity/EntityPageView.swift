@@ -455,13 +455,17 @@ struct EntityPageView: View {
     }
 
     private func backlinksHeader(count: Int) -> some View {
-        // "📌 被 N 个 memo 引用" — count = total linkedMemos (not the visible
+        // "被 N 个 memo 引用" — count = total linkedMemos (not the visible
         // window) so the header always reflects the full backlink fan-in.
         HStack(spacing: 16) {
-            Text("📌 被 \(count) 个 memo 引用")
-                .font(.custom("SpaceGrotesk-Bold", size: 11))
-                .foregroundColor(DSColor.outline)
-                .kerning(2)
+            HStack(spacing: 5) {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: 9, weight: .semibold))
+                Text("被 \(count) 个 memo 引用")
+                    .font(.custom("SpaceGrotesk-Bold", size: 11))
+                    .kerning(2)
+            }
+            .foregroundColor(DSColor.outline)
             Rectangle()
                 .fill(DSColor.outlineVariant)
                 .frame(height: 1)

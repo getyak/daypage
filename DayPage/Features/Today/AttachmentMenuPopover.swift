@@ -61,7 +61,7 @@ struct AttachmentMenuPopover: View {
             .frame(maxWidth: .infinity)
             // #771: attachment menu → glass engine (.panel). Drops the cold
             // white rim (the "old-version" look) for the warm engine hairline.
-            .dpGlass(.panel, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .dpGlass(.panel, in: RoundedRectangle(cornerRadius: DSRadius.xl, style: .continuous))
             .shadow(color: DSColor.accentAmber.opacity(0.08), radius: 16, x: 0, y: 8)
             .padding(.horizontal, 16)
 
@@ -86,7 +86,7 @@ struct AttachmentMenuPopover: View {
         Button(action: action) {
             VStack(spacing: 8) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                         .fill(DSColor.surfaceSunken)
                         .frame(width: 56, height: 56)
                     if isLoading {

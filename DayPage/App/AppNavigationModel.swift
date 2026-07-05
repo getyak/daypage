@@ -66,21 +66,35 @@ final class AppNavigationModel: ObservableObject {
         }
     }
 
+    // Drawer settle uses Motion.panel (spring) instead of Motion.slide
+    // (timing curve): springs merge & retarget when interrupted, so a
+    // mid-flight reversal (finger catches the drawer) keeps its velocity
+    // instead of hard-cutting. Haptics fire only on actual state changes so
+    // programmatic re-closes (e.g. navigate while already closed) stay silent.
     func openSidebar() {
-        withAnimation(Motion.slide) {
+        guard !isSidebarOpen else { return }
+        Haptics.soft()
+        withAnimation(Motion.respectReduceMotion(Motion.panel)) {
             isSidebarOpen = true
         }
     }
 
-    func closeSidebar() {
-        withAnimation(Motion.slide) {
+    func closeSidebar(haptic: Bool = true) {
+        guard isSidebarOpen else { return }
+        if haptic { Haptics.soft() }
+        withAnimation(Motion.respectReduceMotion(Motion.panel)) {
             isSidebarOpen = false
         }
     }
 
     func navigate(to tab: AppTab) {
-        selectedTab = tab
-        closeSidebar()
+        if selectedTab != tab {
+            Haptics.selection()
+            selectedTab = tab
+        }
+        // Drawer close is implied by the tab selection tick — a second
+        // impact here would read as a double-buzz.
+        closeSidebar(haptic: false)
     }
 
     /// Switch to Archive and ask ArchiveView to open the DayDetailView for the
@@ -100,14 +114,18 @@ final class AppNavigationModel: ObservableObject {
     }
 
     func openFeedbackPanel() {
-        closeSidebar()
-        withAnimation(Motion.slide) {
+        closeSidebar(haptic: false)
+        guard !isFeedbackPanelOpen else { return }
+        Haptics.soft()
+        withAnimation(Motion.respectReduceMotion(Motion.panel)) {
             isFeedbackPanelOpen = true
         }
     }
 
     func closeFeedbackPanel() {
-        withAnimation(Motion.slide) {
+        guard isFeedbackPanelOpen else { return }
+        Haptics.soft()
+        withAnimation(Motion.respectReduceMotion(Motion.panel)) {
             isFeedbackPanelOpen = false
         }
     }

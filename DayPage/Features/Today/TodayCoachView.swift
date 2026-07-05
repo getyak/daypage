@@ -150,7 +150,7 @@ struct TodayCoachView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(DSColor.surfaceContainerHigh)
-                    .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
             }
         case .assistant:
             VStack(alignment: .leading, spacing: 10) {
@@ -304,10 +304,10 @@ struct TodayCoachView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 13)
-                    .contentShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard, style: .continuous))
+                    .contentShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
                 }
                 .buttonStyle(.plain)
-                .solidCard(cornerRadius: DSSpacing.radiusCard)
+                .solidCard(cornerRadius: DSRadius.md)
                 .accessibilityIdentifier("coach-seed")
             }
             Text("想查历史？打开左侧「问过去」。")
@@ -373,7 +373,7 @@ struct TodayCoachView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
             .background(DSColor.surfaceContainerHigh)
-            .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
     }
 
     // MARK: - Input bar

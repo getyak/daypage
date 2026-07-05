@@ -35,7 +35,7 @@ struct OnboardingView: View {
         }
         .tabViewStyle(.page(indexDisplayMode: .always))
         .background(DSColor.backgroundWarm.ignoresSafeArea())
-        .tint(DSColor.accentAmber)
+        .tint(DSColor.accentOnBg)
     }
 }
 
@@ -63,7 +63,7 @@ private struct DataFlowPage: View {
 
                 Image(systemName: "lock.shield")
                     .font(.system(size: 44, weight: .light))
-                    .foregroundColor(DSColor.accentAmber)
+                    .foregroundColor(DSColor.accentOnBg)
                     .padding(.bottom, 4)
 
                 Text("onboarding.dataflow.title", bundle: .main)
@@ -133,7 +133,7 @@ private struct DataFlowPage: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(DSColor.accentAmber)
-                        .cornerRadius(DSSpacing.radiusCard)
+                        .cornerRadius(DSRadius.md)
                 }
                 .padding(.top, 8)
                 .accessibilityIdentifier("onboarding.dataflow.continue")
@@ -155,7 +155,7 @@ private struct DataFlowRow: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 18))
-                .foregroundColor(DSColor.accentAmber)
+                .foregroundColor(DSColor.accentOnBg)
                 .frame(width: 28)
                 .padding(.top, 2)
 
@@ -168,14 +168,14 @@ private struct DataFlowRow: View {
                     .foregroundColor(DSColor.onBackgroundMuted)
                 Text(destination)
                     .captionText()
-                    .foregroundColor(DSColor.accentAmber)
+                    .foregroundColor(DSColor.accentOnBg)
             }
 
             Spacer()
         }
         .padding(DSSpacing.cardInner)
         .background(DSColor.surfaceWhite)
-        .cornerRadius(DSSpacing.radiusCard)
+        .cornerRadius(DSRadius.md)
         .surfaceElevatedShadow()
     }
 }
@@ -219,7 +219,7 @@ private struct WelcomePage: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(DSColor.accentSoft)
-                    .cornerRadius(DSSpacing.radiusSmall)
+                    .cornerRadius(8)
 
                 Text("onboarding.welcome.headline", bundle: .main)
                     .font(DSFonts.serif(size: 20, weight: .regular))
@@ -265,7 +265,7 @@ private struct WelcomePage: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                             .background(DSColor.accentAmber)
-                            .cornerRadius(DSSpacing.radiusCard)
+                            .cornerRadius(DSRadius.md)
                     }
                     .accessibilityIdentifier("onboarding.welcome.begin")
 
@@ -284,7 +284,7 @@ private struct WelcomePage: View {
                     } label: {
                         Text("onboarding.welcome.try_sample", bundle: .main)
                             .bodyText()
-                            .foregroundColor(DSColor.amberDeep)
+                            .foregroundColor(DSColor.accentOnBg)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
                     }
@@ -301,7 +301,7 @@ private struct WelcomePage: View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
                 .font(.system(size: 18))
-                .foregroundColor(DSColor.accentAmber)
+                .foregroundColor(DSColor.accentOnBg)
                 .frame(width: 28)
                 .padding(.top, 2)
 
@@ -320,7 +320,7 @@ private struct WelcomePage: View {
         }
         .padding(DSSpacing.cardInner)
         .background(DSColor.surfaceWhite)
-        .cornerRadius(DSSpacing.radiusCard)
+        .cornerRadius(DSRadius.md)
         .surfaceElevatedShadow()
         // Issue #15 (2026-07-03): SE 375pt × Accessibility3 audit —
         // benefit rows previously clipped their body line at AX2+ because
@@ -421,7 +421,7 @@ private struct PermissionsPage: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                     .background(DSColor.accentAmber)
-                    .cornerRadius(DSSpacing.radiusCard)
+                    .cornerRadius(DSRadius.md)
             }
             .padding(.horizontal, 32)
             .padding(.bottom, 48)
@@ -445,7 +445,7 @@ private struct PermissionsPage: View {
         HStack(spacing: 16) {
             Image(systemName: icon)
                 .font(.system(size: 20))
-                .foregroundColor(DSColor.accentAmber)
+                .foregroundColor(DSColor.accentOnBg)
                 .frame(width: 32)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -462,13 +462,13 @@ private struct PermissionsPage: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(status == .unknown ? DSColor.accentAmber : DSColor.surfaceSunken)
-                    .cornerRadius(DSSpacing.radiusSmall)
+                    .cornerRadius(8)
             }
             .disabled(status != .unknown)
         }
         .padding(DSSpacing.cardInner)
         .background(DSColor.surfaceWhite)
-        .cornerRadius(DSSpacing.radiusCard)
+        .cornerRadius(DSRadius.md)
         .surfaceElevatedShadow()
     }
 
@@ -576,7 +576,7 @@ private struct ApiKeysPage: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(DSColor.accentAmber)
-                        .cornerRadius(DSSpacing.radiusCard)
+                        .cornerRadius(DSRadius.md)
                 }
                 .padding(.top, 8)
 
@@ -619,11 +619,11 @@ private struct ApiKeysPage: View {
                     }
                 }
                 .captionText()
-                .foregroundColor(DSColor.accentAmber)
+                .foregroundColor(DSColor.accentOnBg)
             }
             .padding(12)
             .background(DSColor.surfaceSunken)
-            .cornerRadius(DSSpacing.radiusSmall)
+            .cornerRadius(8)
         }
     }
 
