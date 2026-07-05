@@ -707,7 +707,10 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
             var newMemos = memos
             newMemos[memoIdx] = updated
             let previous = memos
-            withAnimation { memos = newMemos }
+            // Re-transcription only swaps text inside an existing card —
+            // crossfade it. A bare `withAnimation` (default spring) would
+            // re-spring the whole timeline layout for a transcript update.
+            withAnimation(Motion.fade) { memos = newMemos }
             persistMemos(newMemos, capturedDate: date, previous: previous, failureMessagePrefix: NSLocalizedString("error.memo.retranscribe_failed", comment: ""))
         }
     }
@@ -1112,7 +1115,7 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
                     return
                 }
                 await OnThisDayIndex.shared.rebuildIndex()
-                HapticFeedback.success()
+                SignatureHaptics.compileSuccess()
                 BannerCenter.shared.show(AppBannerModel(
                     kind: .success,
                     title: NSLocalizedString("today.compile.success", comment: ""),

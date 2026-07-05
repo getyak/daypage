@@ -71,16 +71,29 @@ enum DSFonts {
 
     // MARK: - Resolved Font Helpers (with system fallbacks)
 
-    static func spaceGrotesk(size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        .custom(headline, size: size).weight(weight)
+    /// Pass `relativeTo:` to make the returned font track Dynamic Type — the
+    /// point size is treated as the value at the default (.large) content size
+    /// and scales with the given text style. `nil` keeps the fixed-size
+    /// behaviour for legacy call sites.
+    static func spaceGrotesk(size: CGFloat, weight: Font.Weight = .regular, relativeTo textStyle: Font.TextStyle? = nil) -> Font {
+        if let textStyle {
+            return Font.custom(headline, size: size, relativeTo: textStyle).weight(weight)
+        }
+        return .custom(headline, size: size).weight(weight)
     }
 
-    static func inter(size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        .custom(body, size: size).weight(weight)
+    static func inter(size: CGFloat, weight: Font.Weight = .regular, relativeTo textStyle: Font.TextStyle? = nil) -> Font {
+        if let textStyle {
+            return Font.custom(body, size: size, relativeTo: textStyle).weight(weight)
+        }
+        return .custom(body, size: size).weight(weight)
     }
 
-    static func jetBrainsMono(size: CGFloat, weight: Font.Weight = .regular) -> Font {
-        .custom(mono, size: size).weight(weight)
+    static func jetBrainsMono(size: CGFloat, weight: Font.Weight = .regular, relativeTo textStyle: Font.TextStyle? = nil) -> Font {
+        if let textStyle {
+            return Font.custom(mono, size: size, relativeTo: textStyle).weight(weight)
+        }
+        return .custom(mono, size: size).weight(weight)
     }
 
     // MARK: - Cascading Serif (Source Serif 4 + Source Han Serif SC)
@@ -91,7 +104,29 @@ enum DSFonts {
     ///     (Source Han Serif SC has no italic face; iOS renders CJK in upright style even
     ///      when italic is requested — this is the standard platform behaviour for CJK fonts.)
     /// Falls back to the system serif design if any required font face is absent from the bundle.
-    static func serif(size: CGFloat, weight: Font.Weight = .regular, italic: Bool = false) -> Font {
+    ///
+    /// Dynamic Type: fonts built from a concrete `UIFont` do not scale on their
+    /// own (unlike `Font.custom(_:size:relativeTo:)`), so when `relativeTo:` is
+    /// given we scale the point size through `UIFontMetrics` at resolution time.
+    /// The serif `DSType` levels are computed properties so they re-resolve
+    /// whenever a view body re-evaluates after a size-category change.
+    /// `maxSize` caps that scaling for display-size levels, mirroring the
+    /// `.accessibility1` clamp the sans-serif display modifiers apply.
+    static func serif(
+        size: CGFloat,
+        weight: Font.Weight = .regular,
+        italic: Bool = false,
+        relativeTo textStyle: Font.TextStyle? = nil,
+        maxSize: CGFloat? = nil
+    ) -> Font {
+        var size = size
+        if let textStyle {
+            size = UIFontMetrics(forTextStyle: textStyle.uiTextStyle).scaledValue(for: size)
+            if let maxSize {
+                size = min(size, maxSize)
+            }
+        }
+
         // PostScript name mapping for the primary Latin face.
         let latinPS: String
         if italic {
@@ -130,73 +165,107 @@ enum DSFonts {
     }
 }
 
+// MARK: - Font.TextStyle Bridging
+
+private extension Font.TextStyle {
+    /// UIKit counterpart, used to drive `UIFontMetrics` for UIFont-backed
+    /// (cascading serif) fonts that cannot use `Font.custom(relativeTo:)`.
+    var uiTextStyle: UIFont.TextStyle {
+        switch self {
+        case .largeTitle:  return .largeTitle
+        case .title:       return .title1
+        case .title2:      return .title2
+        case .title3:      return .title3
+        case .headline:    return .headline
+        case .subheadline: return .subheadline
+        case .body:        return .body
+        case .callout:     return .callout
+        case .footnote:    return .footnote
+        case .caption:     return .caption1
+        case .caption2:    return .caption2
+        @unknown default:  return .body
+        }
+    }
+}
+
 // MARK: - Typography Levels
 
+/// Every level anchors to the system text style closest to its semantic role
+/// (`relativeTo:`), so custom fonts scale with Dynamic Type: display/hero →
+/// `.largeTitle`, section headers → `.title`/`.title2`/`.title3`, emphasized
+/// 18pt copy → `.headline`, running text → `.body`/`.subheadline`, and
+/// captions/labels/mono chips → `.footnote`/`.caption`/`.caption2`. The point
+/// size is the design value at the default (.large) content size. Serif
+/// levels are computed properties because their UIFont cascade resolves the
+/// scaled size eagerly (see `DSFonts.serif`).
 enum DSType {
     // Display-LG: 56 / Space Grotesk 700 uppercase
-    static let displayLG: Font = DSFonts.spaceGrotesk(size: 56, weight: .bold)
+    static let displayLG: Font = DSFonts.spaceGrotesk(size: 56, weight: .bold, relativeTo: .largeTitle)
 
     // H1: 32 / Space Grotesk 700
-    static let h1: Font = DSFonts.spaceGrotesk(size: 32, weight: .bold)
+    static let h1: Font = DSFonts.spaceGrotesk(size: 32, weight: .bold, relativeTo: .largeTitle)
 
     // H2: 22 / Space Grotesk SemiBold
-    static let h2: Font = DSFonts.spaceGrotesk(size: 22, weight: .semibold)
+    static let h2: Font = DSFonts.spaceGrotesk(size: 22, weight: .semibold, relativeTo: .title2)
 
     // Headline-MD: 24 / Space Grotesk 700 uppercase
-    static let headlineMD: Font = DSFonts.spaceGrotesk(size: 24, weight: .bold)
+    static let headlineMD: Font = DSFonts.spaceGrotesk(size: 24, weight: .bold, relativeTo: .title)
 
     // Headline-Caps: 18 / Space Grotesk 700 uppercase (tracking widest)
-    static let headlineCaps: Font = DSFonts.spaceGrotesk(size: 18, weight: .bold)
+    static let headlineCaps: Font = DSFonts.spaceGrotesk(size: 18, weight: .bold, relativeTo: .headline)
 
     // Section-Label: 13 / Space Grotesk 700 uppercase
-    static let sectionLabel: Font = DSFonts.spaceGrotesk(size: 13, weight: .bold)
+    static let sectionLabel: Font = DSFonts.spaceGrotesk(size: 13, weight: .bold, relativeTo: .footnote)
 
     // Title-SM: 20 / Inter 600
-    static let titleSM: Font = DSFonts.inter(size: 20, weight: .semibold)
+    static let titleSM: Font = DSFonts.inter(size: 20, weight: .semibold, relativeTo: .title3)
 
     // Body-MD: 16 / Inter 400
-    static let bodyMD: Font = DSFonts.inter(size: 16, weight: .regular)
+    static let bodyMD: Font = DSFonts.inter(size: 16, weight: .regular, relativeTo: .body)
 
     // Body-SM: 14 / Inter 400
-    static let bodySM: Font = DSFonts.inter(size: 14, weight: .regular)
+    static let bodySM: Font = DSFonts.inter(size: 14, weight: .regular, relativeTo: .subheadline)
 
     // Caption: 13 / Inter Medium
-    static let caption: Font = DSFonts.inter(size: 13, weight: .medium)
+    static let caption: Font = DSFonts.inter(size: 13, weight: .medium, relativeTo: .footnote)
 
     // Label: 11 / Space Grotesk Bold uppercase
-    static let label: Font = DSFonts.spaceGrotesk(size: 11, weight: .bold)
+    static let label: Font = DSFonts.spaceGrotesk(size: 11, weight: .bold, relativeTo: .caption2)
 
     // Label-SM: 12 / Inter 500
-    static let labelSM: Font = DSFonts.inter(size: 12, weight: .medium)
+    static let labelSM: Font = DSFonts.inter(size: 12, weight: .medium, relativeTo: .caption)
 
     // Label-XS: 10 / Inter 500 or JetBrains Mono
-    static let labelXS: Font = DSFonts.inter(size: 10, weight: .medium)
+    static let labelXS: Font = DSFonts.inter(size: 10, weight: .medium, relativeTo: .caption2)
 
     // Mono-11: 11 / JetBrains Mono 500 uppercase (chips, timestamps)
-    static let mono11: Font = DSFonts.jetBrainsMono(size: 11, weight: .medium)
+    static let mono11: Font = DSFonts.jetBrainsMono(size: 11, weight: .medium, relativeTo: .caption2)
 
     // Mono-10: 10 / JetBrains Mono 400 uppercase
-    static let mono10: Font = DSFonts.jetBrainsMono(size: 10, weight: .regular)
+    static let mono10: Font = DSFonts.jetBrainsMono(size: 10, weight: .regular, relativeTo: .caption2)
 
     // Mono-9: 9 / JetBrains Mono 400 uppercase (badges)
-    static let mono9: Font = DSFonts.jetBrainsMono(size: 9, weight: .regular)
+    static let mono9: Font = DSFonts.jetBrainsMono(size: 9, weight: .regular, relativeTo: .caption2)
 
     // MARK: - V4 Liquid Glass Serif Levels
+    // Computed (not stored) so UIFontMetrics re-resolves on size-category
+    // changes. Display levels carry a `maxSize` cap ≈ the .accessibility1
+    // scale of their anchor style, matching the sans-serif display clamp.
 
     /// Serif body 16pt — memo card body copy.
-    static let serifBody16: Font = DSFonts.serif(size: 16, weight: .regular)
+    static var serifBody16: Font { DSFonts.serif(size: 16, weight: .regular, relativeTo: .body) }
     /// Serif body 18pt — Daily Page card lead summary.
-    static let serifBody18: Font = DSFonts.serif(size: 18, weight: .regular)
+    static var serifBody18: Font { DSFonts.serif(size: 18, weight: .regular, relativeTo: .headline) }
     /// Serif body 20pt — quoted voice transcript.
-    static let serifBody20: Font = DSFonts.serif(size: 20, weight: .regular)
+    static var serifBody20: Font { DSFonts.serif(size: 20, weight: .regular, relativeTo: .title3) }
     /// Serif italic 18pt — voice-memo "quote" style.
-    static let serifQuote: Font = DSFonts.serif(size: 18, italic: true)
+    static var serifQuote: Font { DSFonts.serif(size: 18, italic: true, relativeTo: .headline) }
     /// Serif display 28pt — Today header date.
-    static let serifDisplay28: Font = DSFonts.serif(size: 28, weight: .semibold)
+    static var serifDisplay28: Font { DSFonts.serif(size: 28, weight: .semibold, relativeTo: .title, maxSize: 34) }
     /// Serif display 32pt — sidebar date / large headers.
-    static let serifDisplay32: Font = DSFonts.serif(size: 32, weight: .semibold)
+    static var serifDisplay32: Font { DSFonts.serif(size: 32, weight: .semibold, relativeTo: .largeTitle, maxSize: 41) }
     /// Serif display 56pt — Today hero date title (museum-aesthetic, always-on).
-    static let serifDisplay56: Font = DSFonts.serif(size: 56, weight: .semibold)
+    static var serifDisplay56: Font { DSFonts.serif(size: 56, weight: .semibold, relativeTo: .largeTitle, maxSize: 72) }
 }
 
 // MARK: - View Modifiers
@@ -237,6 +306,10 @@ struct DisplayLGModifier: ViewModifier {
             .font(DSType.displayLG)
             .textCase(.uppercase)
             .tracking(1)
+            // Display sizes explode at accessibility categories — clamp one
+            // notch tighter than H1/H2 (.accessibility2).
+            .dynamicTypeSize(.xSmall ... .accessibility1)
+            .minimumScaleFactor(0.80)
     }
 }
 
@@ -278,11 +351,13 @@ struct BodyMDModifier: ViewModifier {
     @ObservedObject private var appSettings = AppSettings.shared
 
     func body(content: Content) -> some View {
+        // fontSizeAdjust.delta shifts the base size *before* Dynamic Type
+        // scaling — the two mechanisms compose (relativeTo scales `adjusted`).
         let baseSize: CGFloat = 16
         let adjusted = baseSize + appSettings.fontSizeAdjust.delta
         let spacing = max(0, 4 + appSettings.cardDensity.lineSpacingDelta)
         content
-            .font(DSFonts.inter(size: adjusted, weight: .regular))
+            .font(DSFonts.inter(size: adjusted, weight: .regular, relativeTo: .body))
             .lineSpacing(spacing)
             .dynamicTypeSize(.xSmall ... .xxxLarge)
             .minimumScaleFactor(0.85)
@@ -293,11 +368,12 @@ struct BodySMModifier: ViewModifier {
     @ObservedObject private var appSettings = AppSettings.shared
 
     func body(content: Content) -> some View {
+        // Same composition as BodyMDModifier: delta first, then Dynamic Type.
         let baseSize: CGFloat = 14
         let adjusted = baseSize + appSettings.fontSizeAdjust.delta
         let spacing = max(0, 3 + appSettings.cardDensity.lineSpacingDelta)
         content
-            .font(DSFonts.inter(size: adjusted, weight: .regular))
+            .font(DSFonts.inter(size: adjusted, weight: .regular, relativeTo: .subheadline))
             .lineSpacing(spacing)
             .dynamicTypeSize(.xSmall ... .xxxLarge)
             .minimumScaleFactor(0.85)
@@ -322,7 +398,7 @@ struct MonoLabelModifier: ViewModifier {
     let size: CGFloat
     func body(content: Content) -> some View {
         content
-            .font(DSFonts.jetBrainsMono(size: size, weight: .medium))
+            .font(DSFonts.jetBrainsMono(size: size, weight: .medium, relativeTo: .caption2))
             .textCase(.uppercase)
             .tracking(0.5)
     }

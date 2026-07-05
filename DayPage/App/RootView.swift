@@ -134,6 +134,42 @@ struct RootView: View {
     // SwipeableMemoCard and effectively froze left/right swipe-to-reveal.
     private let edgeSwipeWidth: CGFloat = 20
 
+    // MARK: - Interactive drawer drag
+
+    /// Non-nil while a finger is actively dragging the sidebar — from the
+    /// edge strip (opening) or the scrim (closing). Drives 1:1 tracking so
+    /// the drawer follows the finger instead of playing a canned animation
+    /// after the gesture ends.
+    @State private var sidebarDragTranslation: CGFloat? = nil
+
+    /// Current drawer x-offset: settled base plus live drag, clamped to the
+    /// drawer's travel range (it can never overshoot fully-open).
+    private var sidebarOffset: CGFloat {
+        let base: CGFloat = nav.isSidebarOpen ? 0 : -sidebarWidth
+        guard let drag = sidebarDragTranslation else { return base }
+        return min(0, max(-sidebarWidth, base + drag))
+    }
+
+    /// 0 = fully closed, 1 = fully open. Lets the scrim's opacity track the
+    /// finger during a drag instead of snapping on state change.
+    private var sidebarProgress: CGFloat {
+        1 + sidebarOffset / sidebarWidth
+    }
+
+    /// Resolves a finished drawer drag: commit toward whichever side the
+    /// *predicted* resting offset (translation + flick momentum) lands on.
+    /// The settle runs on Motion.panel so it inherits gesture velocity.
+    private func settleSidebar(predictedTranslation: CGFloat) {
+        guard sidebarDragTranslation != nil else { return }
+        let base: CGFloat = nav.isSidebarOpen ? 0 : -sidebarWidth
+        let projected = min(0, max(-sidebarWidth, base + predictedTranslation))
+        let shouldOpen = projected > -sidebarWidth / 2
+        withAnimation(Motion.respectReduceMotion(Motion.panel)) {
+            sidebarDragTranslation = nil
+        }
+        if shouldOpen { nav.openSidebar() } else { nav.closeSidebar() }
+    }
+
     private var mainContent: some View {
         ZStack(alignment: .leading) {
             // Persistent tab hosts — three pages stay alive to preserve
@@ -162,15 +198,27 @@ struct RootView: View {
             // sidebar offset) animates on the same render pass.
             .animation(Motion.fade, value: nav.selectedTab)
 
-            // 背景遮罩 — 点击或左滑关闭
-            if nav.isSidebarOpen {
-                Color.black.opacity(0.28)
+            // 背景遮罩 — 点击关闭；左滑时 1:1 跟手拖回抽屉。
+            // Mounted while dragging too, so the scrim fades in under the
+            // finger during an edge-swipe open instead of popping at the end.
+            if nav.isSidebarOpen || sidebarDragTranslation != nil {
+                Color.black.opacity(0.28 * sidebarProgress)
                     .ignoresSafeArea()
                     .onTapGesture { nav.closeSidebar() }
                     .gesture(
-                        DragGesture(minimumDistance: 20)
+                        DragGesture(minimumDistance: 10)
+                            .onChanged { value in
+                                // Only engage on a leftward pull (closing);
+                                // once engaged, keep tracking both directions.
+                                if sidebarDragTranslation == nil {
+                                    guard value.translation.width < 0 else { return }
+                                }
+                                sidebarDragTranslation = value.translation.width
+                            }
                             .onEnded { value in
-                                if value.translation.width < -30 { nav.closeSidebar() }
+                                settleSidebar(
+                                    predictedTranslation: value.predictedEndTranslation.width
+                                )
                             }
                     )
                     .transition(.opacity)
@@ -182,7 +230,7 @@ struct RootView: View {
                 .frame(maxHeight: .infinity)
                 .ignoresSafeArea()
                 .shadow(color: Color.black.opacity(0.10), radius: 20, x: 6, y: 0)
-                .offset(x: nav.isSidebarOpen ? 0 : -sidebarWidth)
+                .offset(x: sidebarOffset)
                 // Take the panel out of the accessibility tree when it's off-
                 // screen, otherwise VoiceOver users can still focus Settings /
                 // Recent rows that are visually at negative x coordinates.
@@ -248,11 +296,22 @@ struct RootView: View {
                     .contentShape(Rectangle())
                     .simultaneousGesture(
                         DragGesture(minimumDistance: 12, coordinateSpace: .local)
+                            .onChanged { value in
+                                // Engage only once horizontal dominance is
+                                // established on a rightward pull, so vertical
+                                // timeline scroll starting near the edge never
+                                // drags the drawer. After engaging, track 1:1.
+                                if sidebarDragTranslation == nil {
+                                    let dx = value.translation.width
+                                    let dy = value.translation.height
+                                    guard dx > 0, abs(dx) > abs(dy) * 1.2 else { return }
+                                }
+                                sidebarDragTranslation = value.translation.width
+                            }
                             .onEnded { value in
-                                let dx = value.translation.width
-                                let dy = value.translation.height
-                                guard abs(dx) > abs(dy) * 1.2 else { return }
-                                if dx > 30 { nav.openSidebar() }
+                                settleSidebar(
+                                    predictedTranslation: value.predictedEndTranslation.width
+                                )
                             }
                     )
                     .allowsHitTesting(true)

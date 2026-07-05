@@ -604,7 +604,7 @@ struct ArchiveView: View {
                                     Spacer()
                                     VStack(spacing: 8) {
                                         ProgressView()
-                                            .tint(DSColor.amberAccent)
+                                            .tint(DSColor.accentOnBg)
                                         Text(NSLocalizedString("archive.loading_month", comment: ""))
                                             .font(DSType.mono9)
                                             .foregroundColor(DSColor.inkSubtle)
@@ -1103,23 +1103,23 @@ struct ArchiveView: View {
 
             // Today dot sits on the amber today-cell fill — onAmber instead
             // of pure white so dark mode keeps the warm-cream language.
-            let dotColor: Color = isToday ? DSColor.onAmber : DSColor.amberAccent
+            let dotColor: Color = isToday ? DSColor.onAmber : DSColor.accentOnBg
 
             Button(action: {
                 Haptics.tapConfirm()
                 handleDateTap(dateStr: dateStr)
             }) {
                 ZStack(alignment: .topLeading) {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    RoundedRectangle(cornerRadius: DSRadius.xs, style: .continuous)
                         .fill(fillColor)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            RoundedRectangle(cornerRadius: DSRadius.xs, style: .continuous)
                                 .stroke(isToday ? DSColor.amberAccent : DSColor.glassRim,
                                         lineWidth: isToday ? 1.5 : 0.5)
                         )
 
                     if isToday && !reduceMotion {
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        RoundedRectangle(cornerRadius: DSRadius.xs, style: .continuous)
                             .stroke(DSColor.amberAccent, lineWidth: 1.5)
                             .opacity(todayPulse ? 1.0 : 0.4)
                             .shadow(color: DSColor.amberAccent.opacity(todayPulse ? 0.6 : 0.2), radius: todayPulse ? 6 : 2)
@@ -1147,7 +1147,7 @@ struct ArchiveView: View {
             .accessibilityValue(viewModel.dayStats[dateStr]?.densityLevel.label ?? "")
             .accessibilityHint("双击打开当天详情")
         } else {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.xs, style: .continuous)
                 .fill(Color.clear)
                 .aspectRatio(1, contentMode: .fit)
                 .frame(maxWidth: .infinity)
@@ -1269,7 +1269,7 @@ struct ArchiveView: View {
                                 }
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 10)
-                                .liquidGlassCard(cornerRadius: 10)
+                                .liquidGlassCard(cornerRadius: DSRadius.sm)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel(formatArchiveDate(stats.dateString))
@@ -1372,7 +1372,7 @@ struct ArchiveView: View {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(value)
                     .font(DSType.serifDisplay32)
-                    .foregroundColor(accentPrimary ? DSColor.amberDeep : DSColor.inkPrimary)
+                    .foregroundColor(accentPrimary ? DSColor.accentOnBg : DSColor.inkPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                 if let unit {
@@ -1562,7 +1562,7 @@ struct ArchiveView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .liquidGlassCard(cornerRadius: DSSpacing.radiusCard)
+        .liquidGlassCard(cornerRadius: DSRadius.md)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(String(
             format: NSLocalizedString("archive.list.digest.a11y", comment: "Month digest summary"),
@@ -1574,7 +1574,7 @@ struct ArchiveView: View {
         VStack(alignment: .center, spacing: 4) {
             Text(value)
                 .font(DSType.serifDisplay28)
-                .foregroundColor(accent ? DSColor.amberDeep : DSColor.inkPrimary)
+                .foregroundColor(accent ? DSColor.accentOnBg : DSColor.inkPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
             Text(label)
@@ -1620,8 +1620,9 @@ struct ArchiveView: View {
         let title = NSLocalizedString("weekly.recap.entrycard.title", comment: "")
 
         return HStack(alignment: .center, spacing: 14) {
-            Text("📅")
-                .font(.system(size: 28))
+            Image(systemName: "calendar")
+                .font(.system(size: 20, weight: .medium))
+                .foregroundColor(DSColor.accentOnBg)
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(DSType.titleSM)
@@ -1638,7 +1639,7 @@ struct ArchiveView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .liquidGlassCard(cornerRadius: DSSpacing.radiusCard)
+        .liquidGlassCard(cornerRadius: DSRadius.md)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(title), \(isoWeek)")
         .accessibilityHint(NSLocalizedString("weekly.recap.entrycard.hint", comment: ""))
@@ -1715,7 +1716,7 @@ struct ArchiveView: View {
             }
             .padding(DSSpacing.cardGap)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .liquidGlassCard(cornerRadius: DSSpacing.radiusCard)
+            .liquidGlassCard(cornerRadius: DSRadius.md)
             .pressableCard()
         }
         .buttonStyle(.plain)

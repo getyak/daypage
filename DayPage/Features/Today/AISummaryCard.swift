@@ -32,8 +32,8 @@ struct AISummaryCard: View {
     var body: some View {
         ZStack(alignment: .leading) {
             // Slim accent rail (left edge).
-            RoundedRectangle(cornerRadius: 999, style: .continuous)
-                .fill(DSColor.accentAmber)
+            RoundedRectangle(cornerRadius: DSRadius.pill, style: .continuous)
+                .fill(DSColor.accentOnBg)
                 .opacity(0.85)
                 .frame(width: 2)
                 .padding(.vertical, 14)
@@ -55,11 +55,11 @@ struct AISummaryCard: View {
             .padding(.init(top: 18, leading: 22, bottom: 20, trailing: 20))
         }
         .background(
-            RoundedRectangle(cornerRadius: DSSpacing.radiusCard, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                 .fill(DSColor.surfaceWhite)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: DSSpacing.radiusCard, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                 .strokeBorder(DSColor.borderSubtle, lineWidth: 0.5)
         )
         .shadow(color: Color.black.opacity(0.04), radius: 1, x: 0, y: 1)
@@ -93,12 +93,12 @@ struct AISummaryCard: View {
         HStack(spacing: 8) {
             Image(systemName: "sparkles")
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(DSColor.accentAmber)
+                .foregroundColor(DSColor.accentOnBg)
             Text("AI · 今日一句")
                 .font(DSType.mono9)
                 .textCase(.uppercase)
                 .tracking(1.6)
-                .foregroundColor(DSColor.accentAmber)
+                .foregroundColor(DSColor.accentOnBg)
             Spacer(minLength: 8)
             Text("TODAY")
                 .font(DSType.mono9)
@@ -164,7 +164,7 @@ struct TypewriterText: View {
             Text(shown)
             if isTyping {
                 Rectangle()
-                    .fill(DSColor.accentAmber)
+                    .fill(DSColor.accentOnBg)
                     .frame(width: 2, height: 16)
                     .opacity(caretVisible ? 1 : 0)
             }

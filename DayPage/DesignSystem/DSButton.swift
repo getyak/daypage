@@ -58,7 +58,7 @@ struct DSPrimaryButtonStyle: ButtonStyle {
                     .fill(isEnabled ? DSColor.amberDeep : DSColor.inkSubtle)
             )
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .animation(Motion.respectReduceMotion(.spring(response: 0.25, dampingFraction: 0.85)),
+            .animation(Motion.respectReduceMotion(Motion.press),
                        value: configuration.isPressed)
             .contentShape(Rectangle())
     }
@@ -83,7 +83,7 @@ struct DSSecondaryButtonStyle: ButtonStyle {
             .dpGlass(.control, in: RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
             .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .animation(Motion.respectReduceMotion(.spring(response: 0.25, dampingFraction: 0.85)),
+            .animation(Motion.respectReduceMotion(Motion.press),
                        value: configuration.isPressed)
             .contentShape(Rectangle())
     }
@@ -99,7 +99,7 @@ struct DSGhostButtonStyle: ButtonStyle {
         configuration.label
             .font(size.font)
             .foregroundColor(isEnabled
-                ? (configuration.isPressed ? DSColor.amberAccent : DSColor.inkMuted)
+                ? (configuration.isPressed ? DSColor.accentOnBg : DSColor.inkMuted)
                 : DSColor.inkSubtle)
             .frame(minHeight: 44)
             .padding(.horizontal, size.horizontalPadding)
@@ -125,9 +125,25 @@ struct DSDestructiveButtonStyle: ButtonStyle {
                     .fill(isEnabled ? DSColor.errorRed : DSColor.inkSubtle)
             )
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .animation(Motion.respectReduceMotion(.spring(response: 0.25, dampingFraction: 0.85)),
+            .animation(Motion.respectReduceMotion(Motion.press),
                        value: configuration.isPressed)
             .contentShape(Rectangle())
+    }
+}
+
+// MARK: - Icon chip (36pt circular glass toolbar buttons)
+
+/// Press feedback for the circular glass icon chips in toolbars (☰ / 🔍).
+/// The chip itself (glassSurface + Circle clip) is drawn by the label;
+/// this style only adds the touch response: a small scale dip plus an
+/// ink deepen so every tap reads as acknowledged.
+struct DSIconChipButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.92 : 1.0)
+            .opacity(configuration.isPressed ? 0.75 : 1.0)
+            .animation(Motion.respectReduceMotion(Motion.press),
+                       value: configuration.isPressed)
     }
 }
 
@@ -151,4 +167,8 @@ extension ButtonStyle where Self == DSGhostButtonStyle {
 extension ButtonStyle where Self == DSDestructiveButtonStyle {
     static var dsDestructive: DSDestructiveButtonStyle { .init() }
     static func dsDestructive(size: DSButtonSize) -> DSDestructiveButtonStyle { .init(size: size) }
+}
+
+extension ButtonStyle where Self == DSIconChipButtonStyle {
+    static var dsIconChip: DSIconChipButtonStyle { .init() }
 }

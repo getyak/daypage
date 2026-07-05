@@ -637,7 +637,7 @@ struct ShareCardSheet: View {
                     .foregroundColor(DSColor.inkPrimary)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
-                    .liquidGlassCard(cornerRadius: 10)
+                    .liquidGlassCard(cornerRadius: DSRadius.sm)
             }
             .buttonStyle(.plain)
             .disabled(renderedImage == nil)
@@ -653,7 +653,7 @@ struct ShareCardSheet: View {
                     .padding(.vertical, 12)
                     .background(
                         DSColor.amberDeep,
-                        in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        in: RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous)
                     )
             }
             .buttonStyle(.plain)

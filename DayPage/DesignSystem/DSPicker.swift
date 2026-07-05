@@ -54,7 +54,7 @@ struct DSPicker<Value: Hashable, Label: View>: View {
         VStack(spacing: 0) {
             // Header row — tappable, surfaces the selected value.
             Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                withAnimation(Motion.spring) {
                     isExpanded.toggle()
                 }
             } label: {
@@ -89,7 +89,7 @@ struct DSPicker<Value: Hashable, Label: View>: View {
                             Spacer()
                             if option.value == selection {
                                 Image(systemName: "checkmark")
-                                    .foregroundColor(DSColor.amberAccent)
+                                    .foregroundColor(DSColor.accentOnBg)
                             }
                         }
                         .padding(.horizontal, 16)
@@ -108,7 +108,7 @@ struct DSPicker<Value: Hashable, Label: View>: View {
         .background(.ultraThinMaterial)
         .overlay(
             RoundedRectangle(cornerRadius: 14)
-                .strokeBorder(DSColor.amberAccent.opacity(0.25), lineWidth: 0.75)
+                .strokeBorder(DSColor.accentOnBg.opacity(0.25), lineWidth: 0.75)
         )
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }

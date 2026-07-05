@@ -26,7 +26,7 @@ struct InlineMicButton: View {
                 ProgressView()
                     .progressViewStyle(.circular)
                     .scaleEffect(0.7)
-                    .tint(DSColor.amberAccent)
+                    .tint(DSColor.accentOnBg)
                     .frame(width: 32, height: 32)
             } else {
                 Circle()
@@ -35,7 +35,7 @@ struct InlineMicButton: View {
                     .overlay(
                         Image(systemName: isRecording ? "mic.fill" : "mic")
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(isRecording ? .white : DSColor.amberAccent)
+                            .foregroundColor(isRecording ? .white : DSColor.accentOnBg)
                     )
                     .scaleEffect(pulseScale)
             }

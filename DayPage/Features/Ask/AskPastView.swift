@@ -110,7 +110,7 @@ struct AskPastView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(DSColor.surfaceContainerHigh)
-                    .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
             }
         case .assistant:
             VStack(alignment: .leading, spacing: 10) {
@@ -150,7 +150,7 @@ struct AskPastView: View {
                     Text(pinned ? "已存入今日" : "存入今日日记")
                         .font(DSType.labelSM)
                 }
-                .foregroundColor(pinned ? DSColor.successGreen : DSColor.amberAccent)
+                .foregroundColor(pinned ? DSColor.successGreen : DSColor.accentOnBg)
             }
             .buttonStyle(.plain)
             .disabled(pinned)
@@ -202,7 +202,7 @@ struct AskPastView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "sparkle")
                             .font(.system(size: 12))
-                            .foregroundColor(DSColor.amberAccent)
+                            .foregroundColor(DSColor.accentOnBg)
                         Text(example)
                             .font(DSType.bodySM)
                             .foregroundColor(DSColor.inkPrimary)
@@ -212,7 +212,7 @@ struct AskPastView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
                     .background(DSColor.surfaceContainerHigh)
-                    .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
@@ -238,7 +238,7 @@ struct AskPastView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
             .background(DSColor.surfaceContainerHigh)
-            .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
     }
 
     // MARK: - Input bar
@@ -252,7 +252,7 @@ struct AskPastView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .background(DSColor.surfaceContainerHigh)
-                .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
                 .onSubmit(submit)
 
             // Voice input — mirrors Today composer semantics: tap to start
@@ -279,7 +279,7 @@ struct AskPastView: View {
             Button(action: submit) {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 28))
-                    .foregroundColor(canSend ? DSColor.amberAccent : DSColor.inkSubtle)
+                    .foregroundColor(canSend ? DSColor.accentOnBg : DSColor.inkSubtle)
             }
             .disabled(!canSend)
             .accessibilityLabel("发送")

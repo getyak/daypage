@@ -61,7 +61,7 @@ struct InputBarTutorialOverlay: View {
                     HStack(spacing: 6) {
                         ForEach(0..<steps.count, id: \.self) { i in
                             Circle()
-                                .fill(i == step ? DSColor.amberAccent : DSColor.inkFaint)
+                                .fill(i == step ? DSColor.accentOnBg : DSColor.inkFaint)
                                 .frame(width: 6, height: 6)
                                 .animation(Motion.respectReduceMotion(.easeInOut(duration: 0.2)), value: step)
                                 .contentShape(Rectangle().size(CGSize(width: 44, height: 44)).offset(x: -19, y: -19))
@@ -82,7 +82,7 @@ struct InputBarTutorialOverlay: View {
                     VStack(spacing: 20) {
                         Image(systemName: steps[step].icon)
                             .font(.system(size: 32, weight: .medium))
-                            .foregroundColor(DSColor.amberAccent)
+                            .foregroundColor(DSColor.accentOnBg)
                             .frame(height: 44)
                             .accessibilityHidden(true)
 
@@ -107,7 +107,7 @@ struct InputBarTutorialOverlay: View {
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(DSColor.amberAccent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .background(DSColor.amberAccent, in: RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
                     }
                     .buttonStyle(.plain)
                     .accessibilityHint(step < steps.count - 1

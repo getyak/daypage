@@ -64,7 +64,7 @@ struct CompileUnlockCard: View {
                 Text(isOneAway ? "再记 1 条，今日成稿就解锁" : "再记 \(remaining) 条解锁今日成稿")
                     .font(DSFonts.jetBrainsMono(size: 10))
                     .tracking(1.2)
-                    .foregroundColor(DSColor.accentAmber)
+                    .foregroundColor(DSColor.accentOnBg)
                 Text("AI 将把今天的碎片连缀成一篇日页。")
                     .font(.custom("Inter-Regular", size: 13))
                     .foregroundColor(DSColor.inkMuted)
@@ -78,12 +78,12 @@ struct CompileUnlockCard: View {
                         let isFilled = index < memoCount
                         let isNext = index == nextEmptyIndex
                         Circle()
-                            .fill(isFilled ? DSColor.accentAmber : DSColor.glassStd)
+                            .fill(isFilled ? DSColor.accentOnBg : DSColor.glassStd)
                             .frame(width: 5, height: 5)
                             .scaleEffect(dotScale(index: index, isNext: isNext))
                             .overlay(
                                 Circle()
-                                    .stroke(DSColor.accentAmber, lineWidth: 1)
+                                    .stroke(DSColor.accentOnBg, lineWidth: 1)
                                     .scaleEffect(isNext && isOneAway && nextDotPulse ? 2.4 : 1.0)
                                     .opacity(isNext && isOneAway && nextDotPulse ? 0 : (isNext && isOneAway ? 0.5 : 0))
                             )
@@ -99,7 +99,7 @@ struct CompileUnlockCard: View {
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                 .strokeBorder(
                     DSColor.accentBorder,
                     style: StrokeStyle(lineWidth: 1.5, dash: [6, 5])

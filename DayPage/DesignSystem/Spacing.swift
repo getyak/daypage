@@ -47,11 +47,4 @@ enum DSSpacing {
     static let iconLabel:  CGFloat = sm       // 8
     /// Bottom safe-area cushion above the home indicator.
     static let bottomDock: CGFloat = lg       // 16
-
-    // MARK: - Legacy aliases (kept for compile compatibility — DO NOT use in new code)
-
-    /// - Deprecated: Use `DSRadius.lg`.
-    static let radiusCard: CGFloat = 12
-    /// - Deprecated: Use `DSRadius.sm`.
-    static let radiusSmall: CGFloat = 8
 }

@@ -34,7 +34,7 @@ enum GlassTone {
 /// Layers: warm tint → ultraThinMaterial (blur 28, saturate 160 %)
 /// → top inner highlight → 0.5 pt hairline → soft drop-shadow stack.
 struct LiquidGlassCard: ViewModifier {
-    var cornerRadius: CGFloat = 18
+    var cornerRadius: CGFloat = DSRadius.lg
     var tone: GlassTone = .std
 
     private var shape: RoundedRectangle {
@@ -87,7 +87,7 @@ struct LiquidGlassCard: ViewModifier {
 /// cards so the content (text + photo) reads cleanly against the warm canvas.
 /// Matches the design token: surface-white #FFF, radius 14, hairline border.
 struct SolidCard: ViewModifier {
-    var cornerRadius: CGFloat = 14
+    var cornerRadius: CGFloat = DSRadius.md
 
     func body(content: Content) -> some View {
         content
@@ -113,7 +113,7 @@ struct SolidCard: ViewModifier {
 struct LiquidGlassPill: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .modifier(LiquidGlassCard(cornerRadius: 999, tone: .hi))
+            .modifier(LiquidGlassCard(cornerRadius: DSRadius.pill, tone: .hi))
     }
 }
 
@@ -133,7 +133,7 @@ struct LiquidGlassPanel: ViewModifier {
 
 extension View {
     /// iOS 26-style Liquid Glass card — the default card surface.
-    func liquidGlassCard(cornerRadius: CGFloat = 18, tone: GlassTone = .std) -> some View {
+    func liquidGlassCard(cornerRadius: CGFloat = DSRadius.lg, tone: GlassTone = .std) -> some View {
         modifier(LiquidGlassCard(cornerRadius: cornerRadius, tone: tone))
     }
 
@@ -148,7 +148,7 @@ extension View {
     }
 
     /// Museum-aesthetic content-first white card (surface-white + hairline).
-    func solidCard(cornerRadius: CGFloat = 14) -> some View {
+    func solidCard(cornerRadius: CGFloat = DSRadius.md) -> some View {
         modifier(SolidCard(cornerRadius: cornerRadius))
     }
 }

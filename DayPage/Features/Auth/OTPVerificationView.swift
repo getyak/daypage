@@ -26,13 +26,15 @@ struct OTPVerificationView: View {
     @FocusState private var codeFieldFocused: Bool
 
     private let codeLength = 6
-    private let successGreen = Color(hex: "6EBE71")
+    // Adaptive DS success token (was hardcoded #6EBE71, tuned for the old
+    // near-black palette and illegible on the light warm-cream background).
+    private let successGreen = DSColor.statusSuccess
 
     // MARK: Body
 
     var body: some View {
         ZStack {
-            Color(hex: "0A0A0A").ignoresSafeArea()
+            DSColor.bgWarm.ignoresSafeArea()
             GrainOverlay()
 
             VStack(alignment: .leading, spacing: 0) {
@@ -57,7 +59,7 @@ struct OTPVerificationView: View {
                 if let errorMessage = viewModel.displayedErrorMessage {
                     Text(errorMessage)
                         .font(.system(size: 14))
-                        .foregroundColor(Color(hex: "E05A5A"))
+                        .foregroundColor(DSColor.statusError)
                         .multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.bottom, 4)
@@ -75,7 +77,7 @@ struct OTPVerificationView: View {
 
             if viewModel.isVerifying {
                 ProgressView()
-                    .tint(.white)
+                    .tint(DSColor.inkPrimary)
             }
         }
         .task {
@@ -103,7 +105,7 @@ struct OTPVerificationView: View {
             onBack?()
         } label: {
             Image(systemName: "chevron.left")
-                .foregroundColor(Color(hex: "6B6B6B"))
+                .foregroundColor(DSColor.inkSecondary)
                 .font(.system(size: 18, weight: .medium))
                 .padding(.vertical, 6)
         }
@@ -113,15 +115,15 @@ struct OTPVerificationView: View {
     private var heading: some View {
         Text("Enter verification code")
             .font(.custom("SpaceGrotesk-Bold", size: 24))
-            .foregroundColor(Color(hex: "F5F0E8"))
+            .foregroundColor(DSColor.inkPrimary)
     }
 
     private var subheading: some View {
         (
             Text("We sent a 6-digit code to\n")
-                .foregroundColor(Color(hex: "6B6B6B"))
+                .foregroundColor(DSColor.inkSecondary)
             + Text(email)
-                .foregroundColor(Color(hex: "F5F0E8"))
+                .foregroundColor(DSColor.inkPrimary)
         )
         .font(.custom("Inter-Regular", size: 14))
         .lineSpacing(4)
@@ -148,20 +150,20 @@ struct OTPVerificationView: View {
         let isSuccess = index <= viewModel.successStagger
         let strokeColor: Color = {
             if isSuccess { return successGreen }
-            return isActive ? Color(hex: "F5F0E8") : Color(hex: "2A2A2A")
+            return isActive ? DSColor.inkPrimary : DSColor.inkFaint
         }()
         return ZStack {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color(hex: "1A1A1A"))
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: DSRadius.sm)
+                .fill(DSColor.surfaceWhite)
+            RoundedRectangle(cornerRadius: DSRadius.sm)
                 .stroke(strokeColor, lineWidth: isActive && !isSuccess ? 1.5 : 1)
             if let digit = digit {
                 Text(String(digit))
                     .font(.custom("JetBrainsMono-Regular", size: 24))
-                    .foregroundColor(isSuccess ? successGreen : Color(hex: "F5F0E8"))
+                    .foregroundColor(isSuccess ? successGreen : DSColor.inkPrimary)
             } else if isActive {
                 Rectangle()
-                    .fill(Color(hex: "F5F0E8"))
+                    .fill(DSColor.inkPrimary)
                     .frame(width: 1, height: 22)
                     .opacity(0.8)
             }
@@ -180,13 +182,13 @@ struct OTPVerificationView: View {
                 Text("Paste \(viewModel.clipboardCode ?? "")")
                     .font(.custom("SpaceGrotesk-Medium", size: 13))
             }
-            .foregroundColor(Color(hex: "F5F0E8"))
+            .foregroundColor(DSColor.inkPrimary)
             .padding(.horizontal, 14)
             .padding(.vertical, 8)
             .background(
                 Capsule()
-                    .fill(Color(hex: "1A1A1A"))
-                    .overlay(Capsule().stroke(Color(hex: "2A2A2A"), lineWidth: 1))
+                    .fill(DSColor.surfaceWhite)
+                    .overlay(Capsule().stroke(DSColor.inkFaint, lineWidth: 1))
             )
         }
         .frame(maxWidth: .infinity, alignment: .center)
@@ -218,7 +220,7 @@ struct OTPVerificationView: View {
         HStack(spacing: 6) {
             Text("Didn't get it?")
                 .font(.custom("Inter-Regular", size: 13))
-                .foregroundColor(Color(hex: "6B6B6B"))
+                .foregroundColor(DSColor.inkSecondary)
             Button {
                 Task { await viewModel.triggerResend() }
             } label: {
@@ -229,7 +231,9 @@ struct OTPVerificationView: View {
                         : "Resend code"
                 )
                 .font(.custom("SpaceGrotesk-Medium", size: 13))
-                .foregroundColor(blocked ? Color(hex: "4A4A4A") : Color(hex: "F5F0E8"))
+                // Enabled resend is a tappable text link — accentOnBg (amber
+                // ink) gives it the DS link affordance in both schemes.
+                .foregroundColor(blocked ? DSColor.inkMuted : DSColor.accentOnBg)
             }
             .disabled(
                 (!viewModel.canResendImmediately && viewModel.resendCountdown > 0)

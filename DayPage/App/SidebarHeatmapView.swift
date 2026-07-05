@@ -228,7 +228,7 @@ struct SidebarHeatmapView: View {
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 2.5, style: .continuous)
-                        .strokeBorder(isToday ? DSColor.accentAmber : .clear, lineWidth: 1)
+                        .strokeBorder(isToday ? DSColor.accentOnBg : .clear, lineWidth: 1)
                 )
                 .shadow(
                     color: isToday && firstEntryGlow ? DSColor.accentAmber.opacity(0.55) : .clear,

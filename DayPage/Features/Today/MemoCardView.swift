@@ -31,6 +31,12 @@ struct MemoCardView: View {
     @State private var downloadTask: Task<Void, Never>? = nil
     @State private var showPhotoViewer: Bool = false
 
+    /// Hero zoom (iOS 18+): shared between the in-card photo thumbnail
+    /// (`matchedTransitionSource`) and the full-screen viewer
+    /// (`navigationTransition(.zoom)`). The cover is presented from this
+    /// view, so the namespace lives here. Inert on iOS 16–17.
+    @Namespace private var photoZoomNamespace
+
     /// Precise 24h time for the content-first card meta line (rendered as "15·23").
     private static let cardTimeFmt: DateFormatter = {
         let f = DateFormatter()
@@ -115,7 +121,7 @@ struct MemoCardView: View {
                     .frame(width: 44, height: 44)
                 Image(systemName: "mappin.and.ellipse")
                     .font(.system(size: 18, weight: .regular))
-                    .foregroundColor(DSColor.amberAccent)
+                    .foregroundColor(DSColor.accentOnBg)
             }
 
             VStack(alignment: .leading, spacing: 3) {
@@ -201,6 +207,10 @@ struct MemoCardView: View {
                     case .current:
                         PhotoThumbnailView(fileURL: photoURL, thumbnail: $thumbnail, exifText: photoExifText)
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            // Hero zoom source (iOS 18+). Identity = attachment
+                            // relative path — stable per photo, so multi-photo
+                            // memos each zoom from their own thumbnail.
+                            .modifier(PhotoZoomSource(id: att.file, namespace: photoZoomNamespace))
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 Haptics.tapConfirm()
@@ -214,6 +224,7 @@ struct MemoCardView: View {
                                         fileURL: VaultInitializer.vaultURL.appendingPathComponent(att.file),
                                         exifText: photoExifText
                                     )
+                                    .modifier(PhotoZoomDestination(id: att.file, namespace: photoZoomNamespace))
                                 }
                             }
                     case .downloading, .notDownloaded, .failed:
@@ -347,7 +358,7 @@ struct MemoCardView: View {
         .font(DSFonts.jetBrainsMono(size: 9))
         .tracking(0.5)
         .textCase(.uppercase)
-        .foregroundColor(DSColor.amberAccent)
+        .foregroundColor(DSColor.accentOnBg)
     }
 
     // MARK: - Helpers
@@ -370,6 +381,44 @@ struct MemoCardView: View {
             return "\(filename) // FOCUS: \(Int(focal))mm"
         }
         return filename
+    }
+}
+
+// MARK: - Photo hero zoom (iOS 18+)
+//
+// Photos-style hero: tapping the in-card thumbnail zooms the full-screen
+// viewer out of the thumbnail frame; dismiss shrinks it back in. Mirrors the
+// CardZoomSource / CardZoomDestination pattern in TodayView.swift, but keyed
+// by the attachment's relative file path (String) so every photo has its own
+// stable transition identity. Both halves read Reduce Motion and pass content
+// through untouched when it is on — on iOS 16–17 (or with Reduce Motion) the
+// fullScreenCover keeps its default presentation.
+
+private struct PhotoZoomSource: ViewModifier {
+    let id: String
+    let namespace: Namespace.ID
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *), !reduceMotion {
+            content.matchedTransitionSource(id: id, in: namespace)
+        } else {
+            content
+        }
+    }
+}
+
+private struct PhotoZoomDestination: ViewModifier {
+    let id: String
+    let namespace: Namespace.ID
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *), !reduceMotion {
+            content.navigationTransition(.zoom(sourceID: id, in: namespace))
+        } else {
+            content
+        }
     }
 }
 
@@ -613,10 +662,10 @@ struct LocationPreviewSheet: View {
                     HStack(spacing: 10) {
                         Image(systemName: "map.fill")
                             .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(DSColor.amberDeep)
+                            .foregroundColor(DSColor.accentOnBg)
                         Text(NSLocalizedString("memo.detail.location.open_maps", comment: ""))
                             .font(DSType.titleSM)
-                            .foregroundColor(DSColor.amberDeep)
+                            .foregroundColor(DSColor.accentOnBg)
                         Spacer()
                         Image(systemName: "arrow.up.right")
                             .font(.system(size: 11, weight: .semibold))
@@ -721,7 +770,7 @@ struct VoiceMemoPlayerRow: View {
                             .frame(width: 36, height: 36)
                         Image(systemName: isPlaying ? "pause.fill" : "play.fill")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(fileError ? DSColor.inkSubtle : DSColor.amberDeep)
+                            .foregroundColor(fileError ? DSColor.inkSubtle : DSColor.accentOnBg)
                     }
                 }
                 .buttonStyle(.plain)
@@ -841,7 +890,7 @@ struct VoiceMemoPlayerRow: View {
                                  : String(format: NSLocalizedString("voice.retry.button_attempt", comment: ""), retryCount + 1, Self.maxRetries))
                                 .font(DSType.bodySM)
                         }
-                        .foregroundColor(DSColor.amberAccent)
+                        .foregroundColor(DSColor.accentOnBg)
                     }
                     .buttonStyle(.plain)
                     .padding(.horizontal, 14)
@@ -987,7 +1036,7 @@ private struct WaveformView: View, Equatable {
         ZStack(alignment: .leading) {
             WaveformBars(heights: heights, color: DSColor.inkFaint)
                 .equatable()
-            WaveformBars(heights: heights, color: DSColor.amberAccent)
+            WaveformBars(heights: heights, color: DSColor.accentOnBg)
                 .equatable()
                 .mask(alignment: .leading) {
                     GeometryReader { geo in
@@ -1036,14 +1085,14 @@ struct DailyPageEntryCard: View {
                     // Amber dot + label
                     HStack(spacing: 6) {
                         Circle()
-                            .fill(DSColor.amberAccent)
+                            .fill(DSColor.accentOnBg)
                             .frame(width: 6, height: 6)
                             .shadow(color: DSColor.amberGlow, radius: 4, x: 0, y: 0)
                         Text("Today's page compiled")
                             .font(DSFonts.jetBrainsMono(size: 10))
                             .tracking(1)
                             .textCase(.uppercase)
-                            .foregroundColor(DSColor.amberAccent)
+                            .foregroundColor(DSColor.accentOnBg)
                     }
 
                     if let summary = summary, !summary.isEmpty {
@@ -1062,7 +1111,7 @@ struct DailyPageEntryCard: View {
 
                 Image(systemName: "arrow.forward")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(DSColor.amberDeep)
+                    .foregroundColor(DSColor.accentOnBg)
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 18)
@@ -1073,7 +1122,7 @@ struct DailyPageEntryCard: View {
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: [DSColor.amberAccent, DSColor.amberAccent.opacity(0)],
+                            colors: [DSColor.accentOnBg, DSColor.accentOnBg.opacity(0)],
                             startPoint: .top, endPoint: .bottom
                         )
                     )
@@ -1110,7 +1159,7 @@ struct CompilePromptCard: View {
                     )
                     .frame(width: 44, height: 44)
                 if isCompiling {
-                    ProgressView().scaleEffect(0.7).tint(DSColor.amberDeep)
+                    ProgressView().scaleEffect(0.7).tint(DSColor.accentOnBg)
                 } else {
                     Image(systemName: "sparkles")
                         .font(.system(size: 18))
@@ -1124,7 +1173,7 @@ struct CompilePromptCard: View {
                         .font(DSFonts.spaceGrotesk(size: 13, weight: .semibold))
                         .textCase(.uppercase)
                         .tracking(1)
-                        .foregroundColor(DSColor.amberDeep)
+                        .foregroundColor(DSColor.accentOnBg)
                 } else if memoCount > 0 {
                     Text(NSLocalizedString("memocard.state.ready", comment: "Ready to compile"))
                         .font(DSFonts.spaceGrotesk(size: 13, weight: .semibold))
@@ -1198,7 +1247,7 @@ struct PhotoDownloadPlaceholder: View {
                 case .failed:
                     Image(systemName: "exclamationmark.icloud")
                         .font(.system(size: 28, weight: .regular))
-                        .foregroundColor(DSColor.amberAccent)
+                        .foregroundColor(DSColor.accentOnBg)
                     Text("Download failed — tap to retry")
                         .font(DSFonts.jetBrainsMono(size: 10))
                         .textCase(.uppercase)
@@ -1352,7 +1401,7 @@ struct AudioDownloadPlaceholder: View {
                 case .failed:
                     Image(systemName: "exclamationmark.icloud")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(DSColor.amberAccent)
+                        .foregroundColor(DSColor.accentOnBg)
                 case .current:
                     Image(systemName: "play.fill")
                         .font(.system(size: 14, weight: .semibold))
@@ -1382,7 +1431,7 @@ struct AudioDownloadPlaceholder: View {
             case .failed:
                 Text("retry")
                     .font(DSFonts.jetBrainsMono(size: 10))
-                    .foregroundColor(DSColor.amberAccent)
+                    .foregroundColor(DSColor.accentOnBg)
                     .frame(width: 36, alignment: .trailing)
             case .current:
                 Text("--:--")

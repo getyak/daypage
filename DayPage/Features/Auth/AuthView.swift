@@ -25,7 +25,7 @@ struct AuthView: View {
 
     var body: some View {
         ZStack {
-            Color(hex: "0A0A0A")
+            DSColor.bgWarm
                 .ignoresSafeArea()
 
             GrainOverlay()
@@ -37,11 +37,11 @@ struct AuthView: View {
                 VStack(spacing: 8) {
                     Text("DayPage")
                         .font(.custom("SpaceGrotesk-Bold", size: 32))
-                        .foregroundColor(Color(hex: "F5F0E8"))
+                        .foregroundColor(DSColor.inkPrimary)
 
                     Text(NSLocalizedString("auth.tagline", comment: "AuthView brand tagline under DayPage logo"))
                         .font(.custom("SpaceGrotesk-Regular", size: 15))
-                        .foregroundColor(Color(hex: "6B6B6B"))
+                        .foregroundColor(DSColor.inkSecondary)
                 }
                 .frame(maxWidth: .infinity)
 
@@ -50,7 +50,7 @@ struct AuthView: View {
                 if let errorText = viewModel.errorMessage {
                     Text(errorText)
                         .font(.system(size: 14))
-                        .foregroundColor(Color(hex: "E05A5A"))
+                        .foregroundColor(DSColor.statusError)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
                         .padding(.bottom, 12)
@@ -66,7 +66,7 @@ struct AuthView: View {
                     } label: {
                         Text(NSLocalizedString("auth.skip", comment: "AuthView Skip-login button"))
                             .font(.custom("Inter-Regular", size: 13))
-                            .foregroundColor(Color(hex: "4A4A4A"))
+                            .foregroundColor(DSColor.inkMuted)
                     }
                     .padding(.top, 16)
                     .padding(.bottom, 32)
@@ -79,7 +79,7 @@ struct AuthView: View {
 
             if viewModel.isLoading {
                 ProgressView()
-                    .tint(.white)
+                    .tint(DSColor.inkPrimary)
             }
         }
         .task {
@@ -101,10 +101,10 @@ struct AuthView: View {
                 authButtonLoadingLabel(
                     icon: "apple.logo",
                     label: "Continue with Apple",
-                    iconColor: .white,
-                    labelColor: .white,
-                    background: Color(hex: "1A1A1A"),
-                    border: Color(hex: "2A2A2A"),
+                    iconColor: DSColor.onAmber,
+                    labelColor: DSColor.onAmber,
+                    background: DSColor.amberDeep,
+                    border: DSColor.amberRim,
                     isLoading: viewModel.isLoading
                 )
             }
@@ -119,10 +119,10 @@ struct AuthView: View {
                 authButtonLabel(
                     icon: "envelope",
                     label: "Continue with Email",
-                    iconColor: Color(hex: "A0A0A0"),
-                    labelColor: Color(hex: "A0A0A0"),
-                    background: Color(hex: "0A0A0A"),
-                    border: Color(hex: "222222")
+                    iconColor: DSColor.inkSecondary,
+                    labelColor: DSColor.inkSecondary,
+                    background: DSColor.surfaceWhite,
+                    border: DSColor.inkFaint
                 )
             }
             .buttonStyle(AuthButtonStyle())
@@ -173,16 +173,18 @@ struct AuthView: View {
             .opacity(isLoading ? 0 : 1)
 
             if isLoading {
+                // Loading spinner sits on the amber-filled CTA — use onAmber
+                // (near-white in both schemes) so it stays legible on the fill.
                 ProgressView()
-                    .tint(.white)
+                    .tint(DSColor.onAmber)
             }
         }
         .frame(maxWidth: .infinity)
         .frame(height: 54)
         .background(background)
-        .cornerRadius(14)
+        .cornerRadius(DSRadius.md)
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: DSRadius.md)
                 .stroke(border, lineWidth: 1)
         )
     }

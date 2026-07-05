@@ -8,6 +8,7 @@ enum HapticFeedback {
 
     private static var impactGenerators: [UIImpactFeedbackGenerator.FeedbackStyle: UIImpactFeedbackGenerator] = [:]
     private static var notificationGenerator = UINotificationFeedbackGenerator()
+    private static var selectionGenerator = UISelectionFeedbackGenerator()
     private static var warmedUp = false
 
     // MARK: - Warm-up
@@ -20,6 +21,17 @@ enum HapticFeedback {
             generator(for: style).prepare()
         }
         notificationGenerator.prepare()
+        selectionGenerator.prepare()
+    }
+
+    // MARK: - Selection
+
+    /// System selection tick — for scrubbing across discrete options
+    /// (segmented controls, tab switches, calendar cells). Lighter and
+    /// semantically distinct from impact styles.
+    static func selection() {
+        selectionGenerator.selectionChanged()
+        selectionGenerator.prepare()
     }
 
     // MARK: - Impact

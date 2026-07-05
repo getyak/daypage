@@ -172,10 +172,10 @@ struct AppBanner: View {
         .padding(DSSpacing.cardGap)
         .background(backgroundColor)
         .overlay(
-            RoundedRectangle(cornerRadius: DSSpacing.radiusCard)
+            RoundedRectangle(cornerRadius: DSRadius.md)
                 .stroke(borderColor, lineWidth: 1)
         )
-        .cornerRadius(DSSpacing.radiusCard)
+        .cornerRadius(DSRadius.md)
         .padding(.horizontal, DSSpacing.cardGap)
         .onAppear {
             switch model.kind {

@@ -78,7 +78,7 @@ struct InlineLensStrip: View {
             onSelectAsset(asset)
         } label: {
             ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous)
                     .fill(DSColor.glassLo)
                     .frame(width: 56, height: 56)
 
@@ -87,7 +87,7 @@ struct InlineLensStrip: View {
                         .resizable()
                         .scaledToFill()
                         .frame(width: 56, height: 56)
-                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous))
                 } else {
                     ProgressView()
                         .frame(width: 56, height: 56)

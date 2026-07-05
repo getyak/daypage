@@ -110,6 +110,7 @@ struct GlassErrorBanner: View {
         HStack(alignment: .top, spacing: 12) {
             icon
                 .font(.system(size: 18, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
                 .foregroundColor(DSColor.errorRed)
                 .frame(width: 24, height: 24)
 
@@ -269,7 +270,7 @@ struct GlassErrorBannerOverlayModifier: ViewModifier {
                 .zIndex(200)
             }
         }
-        .animation(.spring(response: 0.55, dampingFraction: 0.88), value: stack.items.map(\.id))
+        .animation(Motion.bannerSlide, value: stack.items.map(\.id))
     }
 }
 

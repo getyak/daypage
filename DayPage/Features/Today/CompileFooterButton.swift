@@ -31,6 +31,9 @@ struct CompileFooterButton: View {
     @AppStorage(AppSettings.Keys.aiFeaturesEnabled) private var aiFeaturesEnabled: Bool = true
     /// Controls the one-shot scale pulse on first reveal (visual only).
     @State private var didAppearPulse = false
+    /// Toggles exactly once per *successful* compile run to drive the
+    /// one-shot sparkles bounce (iOS 17+, see `CompileSuccessBounce`).
+    @State private var compileSuccessBounce = false
     /// Cached hour component, refreshed every minute so the hint stays current across hour boundaries.
     @State private var currentHour: Int = Calendar.current.component(.hour, from: Date())
 
@@ -49,6 +52,15 @@ struct CompileFooterButton: View {
         .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85), value: isVisible)
         .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85), value: isCompiling)
         .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85), value: errorMessage)
+        .onChange(of: isCompiling) { compiling in
+            // Success detection: CompilationService parks `stage` at `.done`
+            // only when the pipeline finished (on failure it stays at the
+            // failing stage) and `errorMessage` stays nil. Toggle once so the
+            // sparkles glyph plays a single bounce — never on error paths.
+            if !compiling && stage == .done && errorMessage == nil {
+                compileSuccessBounce.toggle()
+            }
+        }
     }
 
     // MARK: 内容
@@ -106,6 +118,7 @@ struct CompileFooterButton: View {
                         Image(systemName: "sparkles")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(DSColor.onSurface)
+                            .modifier(CompileSuccessBounce(trigger: compileSuccessBounce))
                         Text("编译今日 · \(memoCount) 条")
                             .font(.custom("Inter-Medium", size: 13))
                             .foregroundColor(DSColor.onSurface)
@@ -189,6 +202,24 @@ struct CompileFooterButton: View {
     }
 }
 
+// MARK: - CompileSuccessBounce
+
+/// One-shot symbol bounce on the sparkles glyph when a compile run finishes
+/// successfully. iOS 17+ only (`symbolEffect`); inert on iOS 16 and under
+/// Reduce Motion — same pattern as `CommitArmBounce` in SwipeableMemoCard.swift.
+private struct CompileSuccessBounce: ViewModifier {
+    let trigger: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *), !reduceMotion {
+            content.symbolEffect(.bounce, value: trigger)
+        } else {
+            content
+        }
+    }
+}
+
 // MARK: - CompilePressStyle
 
 private struct CompilePressStyle: ButtonStyle {
@@ -239,7 +270,7 @@ struct CompileProgressDock: View {
                         Capsule(style: .continuous)
                             .fill(DSColor.glassStd)
                         Capsule(style: .continuous)
-                            .fill(DSColor.accentAmber)
+                            .fill(DSColor.accentOnBg)
                             .opacity(isBreathingSegment ? (nextSegmentBreathing ? 0.55 : 0.2) : 1)
                             .animation(
                                 isBreathingSegment && !reduceMotion
@@ -292,7 +323,7 @@ struct CompileProgressDock: View {
         .onChange(of: memoCount) { newCount in
             if previousMemoCount < 3 && newCount == 3 {
                 nextSegmentBreathing = false
-                Haptics.success()
+                SignatureHaptics.compileSuccess()
                 UIAccessibility.post(notification: .announcement, argument: L10n.Empty.compileDockUnlocked)
                 thirdSegmentPulsing = true
                 Task {

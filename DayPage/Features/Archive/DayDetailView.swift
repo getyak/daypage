@@ -35,9 +35,23 @@ struct DayDetailView: View {
     /// transition. `.forward` = moved to a later day, `.backward` = earlier.
     private enum PageDirection { case forward, backward }
 
+    /// Live state of an in-flight page drag. `isEngaged` latches once the drag
+    /// is dominantly horizontal so a finger that later wanders vertically keeps
+    /// tracking instead of dropping the page mid-gesture.
+    private struct PageDragState: Equatable {
+        var isEngaged = false
+        var offset: CGFloat = 0
+    }
+
     @State private var state: LoadState = .loading
     @State private var hasRawFile: Bool = false
     @State private var selectedTab: Tab = .daily
+
+    /// Finger-tracked horizontal offset for interactive paging. `@GestureState`
+    /// auto-resets when the gesture ends or is cancelled; the reset transaction
+    /// springs the page back to rest (near-instant under Reduce Motion).
+    @GestureState(resetTransaction: Transaction(animation: Motion.respectReduceMotion(Motion.spring)))
+    private var pageDrag = PageDragState()
 
     /// The day actually on screen. Initialised to `dateString`, then advanced /
     /// rewound by `go(_:)`. Re-running `load()` keyed on this value lets a
@@ -74,10 +88,15 @@ struct DayDetailView: View {
                 // distinct subtree and runs the directional slide transition.
                 .id(currentDate)
                 .transition(dayTransition)
+                // Finger-tracked paging: 1:1 while paging is possible in the
+                // drag direction, rubber-banded at the bounds (see gesture).
+                .offset(x: pageDrag.offset)
             }
-            // Horizontal swipe to page between days. High distance + low-ish
-            // height tolerance keeps it from stealing vertical scrolls inside
-            // the daily/raw content.
+            // Interactive horizontal paging between days: the page follows the
+            // finger once the drag is dominantly sideways, rubber-bands at the
+            // bounds, and commits on distance or flick. `simultaneousGesture`
+            // + the dominance gate keep vertical scrolls inside the daily/raw
+            // content untouched.
             .simultaneousGesture(pageSwipeGesture)
             .navigationTitle(formattedTitle)
             .navigationBarTitleDisplayMode(.inline)
@@ -126,6 +145,12 @@ struct DayDetailView: View {
     /// Forward paging is allowed only while we're strictly before today.
     private var canGoForward: Bool { currentDate < todayString }
 
+    /// Backward paging is allowed whenever a valid previous calendar day
+    /// exists — the same bounds check `go(.backward)` performs.
+    private var canGoBackward: Bool {
+        Self.steppedDate(from: currentDate, forward: false) != nil
+    }
+
     /// Slide the incoming day in from the side it came from; fade only when the
     /// user has Reduce Motion on.
     private var dayTransition: AnyTransition {
@@ -138,17 +163,39 @@ struct DayDetailView: View {
         )
     }
 
+    /// Rubber-band factor applied when dragging toward a bound that cannot page.
+    private static let boundsResistance: CGFloat = 0.3
+
     private var pageSwipeGesture: some Gesture {
         DragGesture(minimumDistance: 24)
-            .onEnded { value in
-                // Treat as horizontal only when the drag is dominantly sideways.
-                guard abs(value.translation.width) > abs(value.translation.height) * 1.5,
-                      abs(value.translation.width) > 60 else { return }
-                if value.translation.width < 0 {
-                    go(.forward)   // drag left → next (later) day
-                } else {
-                    go(.backward)  // drag right → previous (earlier) day
+            .updating($pageDrag) { value, drag, _ in
+                // Engage only once the drag is dominantly sideways, so we never
+                // fight vertical scrolling inside the daily/raw content; after
+                // that, latch and follow the finger for the rest of the gesture.
+                if !drag.isEngaged {
+                    guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
+                    drag.isEngaged = true
                 }
+                let translation = value.translation.width
+                // drag left → forward (later day); drag right → backward.
+                let canPage = translation < 0 ? canGoForward : canGoBackward
+                drag.offset = canPage ? translation : translation * Self.boundsResistance
+            }
+            .onEnded { value in
+                // Same horizontal-dominance guard as tracking: an end that never
+                // engaged (vertical scroll) must stay a no-op.
+                guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
+                let screenWidth = UIScreen.main.bounds.width
+                let translation = value.translation.width
+                // `value.velocity` is iOS 17+; the predicted overshoot is the
+                // deceleration-projected distance, so a projection past half the
+                // screen reads as a decisive flick even from a short drag.
+                let projected = value.predictedEndTranslation.width
+                let commit = abs(translation) > screenWidth / 3 || abs(projected) > screenWidth / 2
+                guard commit else { return }  // @GestureState springs offset back to 0
+                // `go(_:)` re-checks the bounds itself, so a committed drag at a
+                // bound stays the same silent no-op as before.
+                go(translation < 0 ? .forward : .backward)
             }
     }
 
@@ -165,7 +212,9 @@ struct DayDetailView: View {
 
         Haptics.soft()
         lastDirection = direction
-        withAnimation(reduceMotion ? nil : Motion.slide) {
+        // Spring (not a fixed timing curve) so a finger-tracked commit settles
+        // with continuous-feeling velocity instead of restarting from zero.
+        withAnimation(reduceMotion ? nil : Motion.spring) {
             state = .loading        // show the loader while the next day resolves
             currentDate = nextString
         }

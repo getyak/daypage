@@ -40,6 +40,11 @@ struct GraphView: View {
     // Auto-fit state — fires once when simulation settles; re-arms on node-set change
     @State private var didAutoFit: Bool = false
 
+    // Accessibility-layer position snapshot (model space, node.id → position).
+    // Captured when the simulation starts (initial layout) and settles/stops,
+    // so the VoiceOver element ForEach never re-lays-out per simulation frame.
+    @State private var a11yPositions: [String: CGPoint] = [:]
+
     // Zero-match haptic guard — fires warn() exactly once per zero-crossing
     @State private var lastZeroQuery: String? = nil
 
@@ -627,12 +632,37 @@ struct GraphView: View {
         }
     }
 
+    // MARK: - Hit Testing
+
+    /// Finds the nearest visible node whose screen-space hit radius contains
+    /// the tap location. Mirrors the deleted invisible tap-target circles:
+    /// screen position = model position * scale + offset + size/2, hit radius
+    /// = max(displayRadius * scale, 22) — same 44pt minimum touch target.
+    private func hitTestNode(at location: CGPoint, in size: CGSize) -> GraphNode? {
+        var best: GraphNode? = nil
+        var bestDistance = CGFloat.greatestFiniteMagnitude
+        for node in visibleNodes {
+            let x = node.position.x * scale + offset.width + size.width / 2
+            let y = node.position.y * scale + offset.height + size.height / 2
+            let r = max(node.displayRadius * scale, 22)
+            let dx = location.x - x
+            let dy = location.y - y
+            let distance = (dx * dx + dy * dy).squareRoot()
+            if distance <= r && distance < bestDistance {
+                bestDistance = distance
+                best = node
+            }
+        }
+        return best
+    }
+
     // MARK: - Graph Canvas
 
     private var graphCanvas: some View {
         GeometryReader { geo in
             let size = geo.size
-            let filteredIDs = Set(visibleNodes.map { $0.id })
+            let visible = visibleNodes
+            let filteredIDs = Set(visible.map { $0.id })
 
             ZStack {
                 Canvas { ctx, _ in
@@ -665,6 +695,28 @@ struct GraphView: View {
                         ctx.fill(Path(ellipseIn: rect), with: .color(node.color.opacity(alpha)))
                         ctx.stroke(Path(ellipseIn: rect), with: .color(node.color.opacity(0.6 * alpha)), lineWidth: 1.5 * scale)
                     }
+
+                    // Node labels (filtered only) — drawn in-Canvas so the label
+                    // layer no longer re-lays-out dozens of SwiftUI Text views on
+                    // every simulation frame (Axiom perf audit). Same font token,
+                    // color, weight, and below-node offset as the old label ForEach.
+                    // VoiceOver names come from the accessibility layer below.
+                    let query = viewModel.searchQuery
+                    for node in visible {
+                        let x = node.position.x * scale + offset.width + size.width / 2
+                        let y = node.position.y * scale + offset.height + size.height / 2
+                        let isSearchMatch = !query.isEmpty
+                            && node.name.localizedCaseInsensitiveContains(query)
+                        let label = Text(node.name)
+                            .font(.custom("JetBrainsMono-Regular", fixedSize: max(8, 10 * scale)))
+                            .fontWeight(isSearchMatch ? .bold : .regular)
+                            .foregroundColor(isSearchMatch ? DSColor.amberDeep : DSColor.inkPrimary)
+                        ctx.draw(
+                            label,
+                            at: CGPoint(x: x, y: y + node.displayRadius * scale + 10 * scale),
+                            anchor: .center
+                        )
+                    }
                 }
                 .frame(width: size.width, height: size.height)
                 .accessibilityHidden(true)
@@ -692,34 +744,26 @@ struct GraphView: View {
                     }
                 }
 
-                // Node labels (filtered only) — hidden from VoiceOver; the tap target below announces the name
-                ForEach(visibleNodes) { node in
-                    let x = node.position.x * scale + offset.width + size.width / 2
-                    let y = node.position.y * scale + offset.height + size.height / 2
-                    let isSearchMatch = !viewModel.searchQuery.isEmpty
-                        && node.name.localizedCaseInsensitiveContains(viewModel.searchQuery)
-                    Text(node.name)
-                        .font(.custom("JetBrainsMono-Regular", fixedSize: max(8, 10 * scale)))
-                        .foregroundColor(isSearchMatch ? DSColor.amberDeep : DSColor.inkPrimary)
-                        .fontWeight(isSearchMatch ? .bold : .regular)
-                        .lineLimit(1)
-                        .fixedSize()
-                        .position(x: x, y: y + node.displayRadius * scale + 10 * scale)
-                        .accessibilityHidden(true)
-                }
-
-                // Invisible tap targets for each filtered node
-                ForEach(visibleNodes) { node in
-                    let x = node.position.x * scale + offset.width + size.width / 2
-                    let y = node.position.y * scale + offset.height + size.height / 2
+                // Accessibility layer — VoiceOver-only elements for each filtered
+                // node. The visual labels are drawn inside the Canvas above and
+                // touch is handled by the SpatialTapGesture hit-test on the
+                // container, so these circles carry accessibility ONLY (hit
+                // testing disabled). Positions come from a snapshot frozen when
+                // the force simulation settles/stops — never from the live
+                // per-frame simulation positions — so this ForEach does not
+                // re-layout the SwiftUI view graph on every simulation tick.
+                // While the simulation is still running, VoiceOver targets may
+                // lag the drawn nodes by up to one settle cycle; by design.
+                ForEach(visible) { node in
+                    let pos = a11yPositions[node.id] ?? node.position
+                    let x = pos.x * scale + offset.width + size.width / 2
+                    let y = pos.y * scale + offset.height + size.height / 2
                     let r = max(node.displayRadius * scale, 22)
                     Circle()
                         .fill(Color.clear)
                         .frame(width: r * 2, height: r * 2)
-                        .contentShape(Circle())
                         .position(x: x, y: y)
-                        .onTapGesture(count: 2) { focusNode(node, in: size) }
-                        .onTapGesture { openNode(node) }
+                        .allowsHitTesting(false)
                         .accessibilityElement()
                         // R4 — VoiceOver gets entity name + recurrence count
                         // so users can scan the graph by frequency without
@@ -758,10 +802,29 @@ struct GraphView: View {
                 if isTransformed { zoomIndicator }
                 zoomControls
             }
-            .onTapGesture(count: 2) {
-                Haptics.soft()
-                fitToContent(in: size)
-            }
+            // Tap handling for the whole canvas — replaces the old per-node
+            // invisible tap-target circles. Double tap wins over single tap
+            // (.exclusively), matching the previous layered onTapGesture
+            // precedence: double-tap on a node focuses it, double-tap on empty
+            // space fits content, single tap on a node opens its entity page.
+            .gesture(
+                SpatialTapGesture(count: 2)
+                    .onEnded { value in
+                        if let node = hitTestNode(at: value.location, in: size) {
+                            focusNode(node, in: size)
+                        } else {
+                            Haptics.soft()
+                            fitToContent(in: size)
+                        }
+                    }
+                    .exclusively(
+                        before: SpatialTapGesture()
+                            .onEnded { value in
+                                guard let node = hitTestNode(at: value.location, in: size) else { return }
+                                openNode(node)
+                            }
+                    )
+            )
             .accessibilityAction(named: Text(NSLocalizedString("Reset view", comment: "VoiceOver: graph canvas reset-view action"))) {
                 Haptics.soft()
                 fitToContent(in: size)
@@ -1097,8 +1160,8 @@ struct GraphView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             // #771: zero-match toast → glass engine (.toast). Engine owns rim.
-            .dpGlass(.toast, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .dpGlass(.toast, in: RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
             .accessibilityLabel(msg)
     }
 
@@ -1226,8 +1289,21 @@ struct GraphView: View {
         fitToScreen(in: simulationSize)
     }
 
+    /// Freezes current node positions for the VoiceOver accessibility layer.
+    /// Called when the simulation starts (initial layout) and when it stops
+    /// (settled, view disappeared, or app backgrounded). While the simulation
+    /// runs, accessibility targets intentionally stay at the last snapshot.
+    private func snapshotAccessibilityPositions() {
+        a11yPositions = Dictionary(
+            uniqueKeysWithValues: viewModel.nodes.map { ($0.id, $0.position) }
+        )
+    }
+
     private func startSimulation(reset: Bool = true) {
-        if reset { simulationSteps = 0 }
+        if reset {
+            simulationSteps = 0
+            snapshotAccessibilityPositions()
+        }
         // CADisplayLink ticks on the main thread @ 30fps; controller is
         // idempotent (start() is a no-op when already running), so we just
         // reinstall the closure to capture the latest state and (re)start it.
@@ -1247,6 +1323,9 @@ struct GraphView: View {
 
     private func stopSimulation() {
         displayLink.stop()
+        // Simulation halted — re-sync the accessibility layer to the final
+        // (settled) node positions.
+        snapshotAccessibilityPositions()
     }
 }
 
