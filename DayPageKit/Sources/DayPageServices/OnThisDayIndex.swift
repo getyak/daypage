@@ -44,11 +44,15 @@ public final class OnThisDayIndex: ObservableObject {
     @Published public private(set) var isReady: Bool = false
 
     private var index: [String: [DayRecord]] = [:]  // 键："MMDD"
-    private let indexURL: URL = {
-        VaultInitializer.vaultURL
+
+    /// Resolved per call (not captured at singleton init) so the persisted
+    /// index always lands next to the vault actually scanned — the locator
+    /// can switch roots at runtime (iCloud migration, test override).
+    private static func indexURL(under vaultRoot: URL) -> URL {
+        vaultRoot
             .appendingPathComponent("wiki")
             .appendingPathComponent("index.json")
-    }()
+    }
 
     private init() {}
 
@@ -81,12 +85,21 @@ public final class OnThisDayIndex: ObservableObject {
 
     // MARK: - Index Building
 
-    public func rebuildIndex() async {
+    /// Rebuild the MMDD index by scanning `vaultRoot/raw`.
+    ///
+    /// The scan root is captured synchronously HERE, before the detached
+    /// task starts, and passed down by value. Reading the process-global
+    /// `VaultInitializer.vaultURL` from inside the detached closure was a
+    /// race: tests (and iCloud migration) can repoint the vault while the
+    /// scan is queued, making it enumerate a different — or already
+    /// deleted — directory (#810).
+    public func rebuildIndex(vaultRoot: URL? = nil) async {
+        let root = vaultRoot ?? VaultInitializer.vaultURL
         let built = await Task.detached(priority: .utility) {
-            OnThisDayIndex.buildIndexOff()
+            OnThisDayIndex.buildIndexOff(vaultRoot: root)
         }.value
         index = built
-        await persistIndex(built)
+        await persistIndex(built, vaultRoot: root)
         // R8 — flip isReady AFTER index assign + persist so any observer
         // (TodayView.onReceive) that reacts by calling candidate(for:) sees
         // the fresh index, not the empty initial dictionary.
@@ -151,8 +164,8 @@ public final class OnThisDayIndex: ObservableObject {
 
     // MARK: - Static scanning (nonisolated — runs off main actor)
 
-    private static nonisolated func buildIndexOff() -> [String: [DayRecord]] {
-        let rawDir = VaultInitializer.vaultURL.appendingPathComponent("raw")
+    private static nonisolated func buildIndexOff(vaultRoot: URL) -> [String: [DayRecord]] {
+        let rawDir = vaultRoot.appendingPathComponent("raw")
         let fm = FileManager.default
         guard let enumerator = fm.enumerator(at: rawDir, includingPropertiesForKeys: nil) else {
             return [:]
@@ -202,20 +215,22 @@ public final class OnThisDayIndex: ObservableObject {
 
     // MARK: - Persistence
 
-    private func persistIndex(_ built: [String: [DayRecord]]) async {
+    private func persistIndex(_ built: [String: [DayRecord]], vaultRoot: URL) async {
         do {
             let data = try JSONEncoder().encode(built)
-            let dir = indexURL.deletingLastPathComponent()
+            let target = Self.indexURL(under: vaultRoot)
+            let dir = target.deletingLastPathComponent()
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            try data.write(to: indexURL, options: .atomic)
+            try data.write(to: target, options: .atomic)
         } catch {
             DayPageLogger.shared.error("OnThisDayIndex: persist failed: \(error)")
         }
     }
 
     private func loadIndexFromDisk() -> [String: [DayRecord]]? {
-        guard FileManager.default.fileExists(atPath: indexURL.path),
-              let data = try? Data(contentsOf: indexURL),
+        let source = Self.indexURL(under: VaultInitializer.vaultURL)
+        guard FileManager.default.fileExists(atPath: source.path),
+              let data = try? Data(contentsOf: source),
               let decoded = try? JSONDecoder().decode([String: [DayRecord]].self, from: data)
         else { return nil }
         return decoded

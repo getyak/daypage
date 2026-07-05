@@ -3,7 +3,7 @@
 // Validates the OnThisDay candidate + dismiss contract end-to-end:
 //   - `OnThisDayIndex` picks the correct candidate (prefers 1-year-ago,
 //     falls back to ~6-months-ago, then 2-years-ago) from a synthetic
-//     vault seeded under VaultInitializer.testOverrideURL.
+//     temp vault passed explicitly via `rebuildIndex(vaultRoot:)`.
 //   - `OnThisDayScheduler.markDismissedForToday()` flips the persisted
 //     dismiss flag so `shouldShowToday()` returns nil for the rest of
 //     the local day.
@@ -26,9 +26,17 @@ struct OnThisDayIntegrationTests {
 
     // MARK: - Test fixture helpers
 
-    /// Stand up a private temp vault, seed `raw/YYYY-MM-DD.md` files, and
-    /// point `VaultInitializer.testOverrideURL` at it for the duration of
-    /// the test. Returns the root URL so caller can clean up.
+    /// Stand up a private temp vault and seed `raw/YYYY-MM-DD.md` files.
+    /// Returns the root URL, which the test passes to
+    /// `rebuildIndex(vaultRoot:)` explicitly.
+    ///
+    /// Deliberately does NOT touch `VaultInitializer.testOverrideURL`:
+    /// that global is shared by ~20 suites that Swift Testing runs in
+    /// parallel within one process, and mutating it here both breaks other
+    /// suites and lets their teardown repoint our scan mid-rebuild — the
+    /// actual root cause of the CI-only flake in #810 (not a timezone
+    /// mismatch; every date path here uses `TimeZone.current` on both the
+    /// seed and index side).
     private func seedVault(withSeeds seeds: [(date: Date, body: String)]) throws -> URL {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("daypage-tests-\(UUID().uuidString)", isDirectory: true)
@@ -58,12 +66,10 @@ struct OnThisDayIntegrationTests {
             try content.write(to: fileURL, atomically: true, encoding: .utf8)
         }
 
-        VaultInitializer.testOverrideURL = root
         return root
     }
 
     private func teardownVault(at root: URL) {
-        VaultInitializer.testOverrideURL = nil
         try? FileManager.default.removeItem(at: root)
     }
 
@@ -88,7 +94,7 @@ struct OnThisDayIntegrationTests {
         // Reset shared singleton state so prior tests' seeded entries
         // can't pollute this candidate lookup.
         OnThisDayIndex.shared.resetForTesting()
-        await OnThisDayIndex.shared.rebuildIndex()
+        await OnThisDayIndex.shared.rebuildIndex(vaultRoot: root)
         let entry = OnThisDayIndex.shared.candidate(for: today)
 
         try #require(entry != nil)
@@ -112,7 +118,7 @@ struct OnThisDayIntegrationTests {
         defer { teardownVault(at: root) }
 
         OnThisDayIndex.shared.resetForTesting()
-        await OnThisDayIndex.shared.rebuildIndex()
+        await OnThisDayIndex.shared.rebuildIndex(vaultRoot: root)
         let entry = OnThisDayIndex.shared.candidate(for: today)
 
         try #require(entry != nil)
@@ -136,7 +142,7 @@ struct OnThisDayIntegrationTests {
         defer { teardownVault(at: root) }
 
         OnThisDayIndex.shared.resetForTesting()
-        await OnThisDayIndex.shared.rebuildIndex()
+        await OnThisDayIndex.shared.rebuildIndex(vaultRoot: root)
         let entry = OnThisDayIndex.shared.candidate(for: today)
         #expect(entry == nil)
     }
