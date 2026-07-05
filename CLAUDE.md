@@ -69,8 +69,13 @@ DayPage/
 - `DayPage/Services/WeeklyCompilationService.swift` (~480 行) — 3 个公共方法 collectWeekMetadata / compileWeekly / loadCached；ISO-8601 周（firstWeekday=2, minDaysInFirstWeek=4）→ "YYYY-Www"；扫 vault/wiki/daily/ 解析 frontmatter；DeepSeek LLM 调用 + extractJSONBlock 解析；atomicWrite vault/wiki/weekly/{isoWeek}.md
 - `DayPage/Features/Archive/WeeklyRecapDetailView.swift` — keywords chip + mood 卡 + places 列表 + highlights bullet；chip/place 改 Button → push EntityPageView；10 个 error case 各自文案；offline 自动监听 NetworkMonitor 重试
 - BackgroundCompilationService.tryAutoCompileWeekly — 周一 + 上周 ≥3 daily 自动触发；post .weeklyRecapAvailable notification
-- TodayView weeklyRecapPreview section（amber 14% bg + 3 keyword chip + "查看全部"），条件 FeatureFlag.weeklyRecap && bannerCount<3；weeklyReloadTask debounce(300ms) 单路 reload
-- ArchiveView 顶部入口卡 entries.count >= 3 才显示
+- (#814) TodayView weeklyRecapPreview section 已移除 — ArchiveView 顶部入口卡（entries.count >= 3 才显示）是周回顾唯一 UI 入口
+
+### 编译成本治理 (#814, 2026-07-05)
+- **触发模型**：打开 App 不再自动编译当天（原 TodayViewModel.load() 的 compile(silent:true) 已删）；一天只在结束后编译一次 — 0 点 BGTask 编译昨天 + foregroundRetryIfNeeded（改为补编昨天）+ backfill 兜底；手动编译保留
+- **source_hash 去重**：CompilationService.sourceHash(of:[Memo]) 只对 id+body+attachments(file/transcript) 做 SHA256，**刻意排除 mood/entityMentions**（applyMemoUpdates 编译后回写这两字段进 raw，纳入会造成编译完即"变脏"的无限重编环）；hash 注入 daily frontmatter `source_hash:`；compile(force:) 命中即跳过 LLM 并在 log.md 记 `skipped`；shouldCompile 升级 stale 检测（无 hash 的历史 daily 视为最新，防 backfill 重编全史）
+- **WikiIndexService**（DayPageKit）— 每次编译后全量重建 vault/wiki/index.md（Daily/Weekly/Places/People/Themes 分区，每页一行 [[link]] + 摘要），纯本地零 LLM；与 EntityPageService.updateIndex 增量写入格式兼容且 rebuild 后覆盖其漂移（karpathy LLM-wiki 模式）
+- **日页入口收敛**：Today timeline/fallback 历史日跳转统一走 DayDetailView（不再裸开 DailyPageView）
 
 ### FeatureFlag 框架 (R4 起点，R6-R8 加 case)
 - `DayPage/Config/FeatureFlags.swift` — enum FeatureFlag: backlinks / compileNotification / widgetSystemMedium / aiKeyBanner / foregroundCompileRetry / offlineQueue / onThisDay / weeklyRecap（8 case，全部 default-on）

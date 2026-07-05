@@ -200,10 +200,14 @@ final class BackgroundCompilationService: ObservableObject {
 
     // MARK: - Foreground Retry (B3)
 
-    /// 0 点 后台编译失败后，应用回到前台时自动重试今日的编译。
+    /// 0 点 后台编译失败后，应用回到前台时自动补编**昨天**。
     ///
-    /// 触发条件：今日的 raw 文件已存在但 daily page 缺失（即 0 点 后台任务
-    /// 失败 / 被 iOS expirationHandler kill / 用户禁用了后台刷新）。
+    /// Issue #814：目标日期从「今天」改为「昨天」。今天是 raw 捕获面 ——
+    /// 半天数据编译出的 daily 既浪费 LLM 调用又立刻过时；一天只在结束后
+    /// （0 点 BGTask / 本方法兜底 / backfill）编译一次成型，与 karpathy
+    /// LLM-wiki 的「知识一次编译成持久工件」模型对齐。
+    ///
+    /// 触发条件：昨天需要编译（`shouldCompile` 缺页或 hash stale）。
     /// 60 秒防抖避免 scenePhase 快速切换重复触发。
     ///
     /// 成功路径：发布 `compileSucceededForeground` 通知（Today 在 banner 上
@@ -212,24 +216,11 @@ final class BackgroundCompilationService: ObservableObject {
     ///
     /// 失败路径：静默 + Sentry breadcrumb（用户不需要看到第二条失败通知）。
     func foregroundRetryIfNeeded() async {
-        let formatter = Self.dateFormatter
-        formatter.timeZone = AppSettings.currentTimeZone()
-        let today = formatter.string(from: Date())
+        guard let yesterday = Self.calendar.date(byAdding: .day, value: -1, to: Date()) else { return }
 
-        let vaultURL = VaultInitializer.vaultURL
-        let dailyPath = vaultURL
-            .appendingPathComponent("wiki")
-            .appendingPathComponent("daily")
-            .appendingPathComponent("\(today).md")
-        let rawPath = vaultURL
-            .appendingPathComponent("raw")
-            .appendingPathComponent("\(today).md")
-
-        // Only retry when there IS raw content but NO compiled daily page.
-        // Both conditions checked together — a missing raw means nothing to
-        // compile, a present daily means we're done.
-        guard !FileManager.default.fileExists(atPath: dailyPath.path),
-              FileManager.default.fileExists(atPath: rawPath.path) else { return }
+        // shouldCompile covers both "daily missing" and "raw edited after
+        // compile" (source_hash mismatch); nothing to do otherwise.
+        guard shouldCompile(for: yesterday) else { return }
 
         // 60s debounce — protects against rapid scenePhase flapping
         // (notification center pull, lock/unlock without backgrounding).
@@ -238,7 +229,7 @@ final class BackgroundCompilationService: ObservableObject {
         lastForegroundRetry = now
 
         do {
-            try await CompilationService.shared.compile(for: Date(), trigger: "foreground-retry")
+            try await CompilationService.shared.compile(for: yesterday, trigger: "foreground-retry")
             // 成功路径：广播给 Today，由 banner 体现，避免与 0 点 系统通知重复。
             NotificationCenter.default.post(name: .compileSucceededForeground, object: nil)
         } catch {
@@ -444,7 +435,12 @@ final class BackgroundCompilationService: ObservableObject {
         return f
     }()
 
-    /// 如果 `date` 存在 raw memo 文件且尚未编译 Daily Page，则返回 true。
+    /// 如果 `date` 需要编译则返回 true（issue #814 升级为 stale 检测）：
+    ///   1. raw 存在且 daily 缺失 → true（经典缺页路径）；
+    ///   2. daily 存在且 frontmatter 带 source_hash，但与当前 raw 内容的
+    ///      hash 不一致 → true（用户事后编辑/追加了 memo，daily 已过时）；
+    ///   3. daily 存在但没有 source_hash（#814 之前编译的历史页）→ false，
+    ///      视为最新 — 避免 backfill 把全部历史重新编译一遍。
     /// `internal` so unit tests (issue #32) can exercise the state-machine
     /// boundary directly without spinning up a real BGAppRefreshTask.
     func shouldCompile(for date: Date) -> Bool {
@@ -459,7 +455,16 @@ final class BackgroundCompilationService: ObservableObject {
             .appendingPathComponent("daily")
             .appendingPathComponent("\(dateString).md")
 
-        return !FileManager.default.fileExists(atPath: dailyURL.path)
+        guard let dailyContent = try? String(contentsOf: dailyURL, encoding: .utf8) else {
+            return true // daily missing — classic compile-needed path
+        }
+        guard let storedHash = CompilationService.extractSourceHash(from: dailyContent) else {
+            return false // legacy page without hash — treat as fresh
+        }
+        guard let memos = try? RawStorage.read(for: date), !memos.isEmpty else {
+            return false
+        }
+        return CompilationService.sourceHash(of: memos) != storedHash
     }
 
     // MARK: - Private: Local Notifications

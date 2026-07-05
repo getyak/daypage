@@ -49,21 +49,9 @@ struct TodayView: View {
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var showSyncBanner: Bool = false
-    // R8-HIGH B1: cached weekly recap preview shown above the timeline.
-    // Refreshed on appear, scene = .active, and on `.weeklyRecapAvailable`
-    // notification (posted by BackgroundCompilationService after the 2am
-    // auto-compile). The associated `referenceDate` is the date the cache
-    // belongs to (this week, or last week as a fallback). Reading both
-    // together avoids a second lookup when the preview is tapped.
-    @State private var weeklyRecapPreview: WeeklyRecapOutput? = nil
-    @State private var weeklyRecapRefDate: Date? = nil
-    @State private var showWeeklyRecapDetail: Bool = false
-    // R9-HIGH A1: debounce handle for refreshWeeklyRecapPreview. Cold launch
-    // used to fire onAppear + .weeklyRecapAvailable + scenePhase.active in
-    // quick succession → 3 reload paths × 2 probes = 6 loadCached races plus
-    // 3 withAnimation passes fighting each other. Coalescing through a 300ms
-    // cancellable Task collapses the burst into a single file read.
-    @State private var weeklyReloadTask: Task<Void, Never>? = nil
+    // Issue #814: the weekly-recap preview card was removed from Today —
+    // Archive's entry card is now the single surface for This Week. Today
+    // stays a pure raw-capture canvas with fewer stacked banners.
     // R6: drives the modal sheet that surfaces the first N pending memo
     // IDs when the user taps the sync-queue banner. Replaces the bare
     // BannerCenter alert with a sheet you can actually scan.
@@ -340,27 +328,8 @@ struct TodayView: View {
                     // MARK: Sidebar/Header (US-021: extracted subview)
                     sidebarSection
 
-                    // MARK: Weekly Recap preview (R8-HIGH B1)
-                    //
-                    // Compact entry card surfaced when (a) `.weeklyRecap` flag is on,
-                    // (b) there's a cached recap for the current ISO week or last
-                    // week. Sits right under the header so the user notices it
-                    // immediately on launch — Archive's entry card is still the
-                    // canonical surface, this is just a "your weekly is ready" nudge.
-                    //
-                    // R9-HIGH A3: `bannerCount < 3` keeps this nudge visible
-                    // when banner stacking is mild but hides it once the top
-                    // is fully occupied. Slightly more tolerant than the
-                    // OnThisDay top card (`< 2`) because the preview row is
-                    // ~52pt vs the card's ~90pt — composer breathing room
-                    // still survives a 3-banner stack.
-                    if FeatureFlagStore.shared.isEnabled(.weeklyRecap),
-                       let preview = weeklyRecapPreview,
-                       let refDate = weeklyRecapRefDate,
-                       bannerCount < 3 {
-                        weeklyRecapPreviewSection(preview: preview, referenceDate: refDate)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
+                    // Issue #814: weekly-recap preview card removed — Archive
+                    // owns the This Week entry point now.
 
                     // MARK: AI key missing banner (R3 — A2)
                     //
@@ -841,12 +810,6 @@ struct TodayView: View {
                 // hidden) on the very first render rather than only after the
                 // next scenePhase flip.
                 refreshAIKeyMissing()
-                // R8-HIGH B1: seed weekly recap preview from cache. No LLM
-                // call — read-only loadCached probe.
-                // R9-HIGH A1: routed through the 300ms-debounced wrapper so
-                // it coalesces with the .weeklyRecapAvailable notification
-                // path that often fires within the same cold-launch tick.
-                refreshWeeklyRecapPreviewDebounced(hint: nil)
             }
             .onChange(of: draftText) { _ in
                 // B3: Debounce — only persist `draftDate` after typing pauses
@@ -939,25 +902,17 @@ struct TodayView: View {
                     await OnThisDayScheduler.shared.refreshTodayEntry()
                 }
             }
-            // R4-B3: 2am 后台编译失败后，前台 scenePhase active 自动重试
+            // R4-B3: 0 点后台编译失败后，前台 scenePhase active 自动重试
             // 成功时收到这条通知。仅显示 ds-style toast — 不再发系统通知，
-            // 避免与已经推过的 2am 失败通知互相打架。
-            // R8-HIGH B1: weekly recap auto-compile completed (posted by
-            // BackgroundCompilationService.tryAutoCompileWeekly). Refresh the
-            // preview state so the new card lights up immediately.
-            .onReceive(NotificationCenter.default.publisher(for: .weeklyRecapAvailable)) { note in
-                let hint = note.userInfo?["referenceDate"] as? Date
-                // R9-HIGH A1: debounced so this and the .onAppear seed
-                // collapse into one cache probe on cold launch.
-                refreshWeeklyRecapPreviewDebounced(hint: hint)
-            }
+            // 避免与已经推过的失败通知互相打架。#814 起前台重试补编的是
+            // 昨天（今天只在结束后编译一次），文案随之调整。
             .onReceive(NotificationCenter.default.publisher(for: .compileSucceededForeground)) { _ in
                 bannerCenter.show(AppBannerModel(
                     kind: .success,
                     title: NSLocalizedString(
                         "today.compile.foregroundRetry.success",
-                        value: "今日 Daily Page 已编译完成",
-                        comment: "Toast shown when 2am-failed compile is retried on foreground and succeeds"
+                        value: "昨日 Daily Page 已补齐编译",
+                        comment: "Toast shown when the missed midnight compile is retried on foreground and succeeds"
                     ),
                     autoDismiss: true
                 ))
@@ -1073,30 +1028,23 @@ struct TodayView: View {
             }
             // Fallback "yesterday daily page" cover — opened from the zero-memo
             // fallback view when yesterday already has a compiled page.
+            // Issue #814: historical days now route to DayDetailView (the
+            // 4-state Archive surface with Daily/raw tabs + day swiping) so
+            // the app has ONE way to look at a past day instead of two.
             .fullScreenCover(item: Binding(
                 get: { fallbackDailyPageDateString.map { OnThisDayNavTarget(dateString: $0) } },
                 set: { fallbackDailyPageDateString = $0?.dateString }
             )) { target in
-                DailyPageView(
-                    dateString: target.dateString,
-                    onReturnToToday: { _ in
-                        fallbackDailyPageDateString = nil
-                    }
-                )
+                DayDetailView(dateString: target.dateString)
             }
-            // Timeline tap / contextMenu → open that historical day's Daily Page.
+            // Timeline tap / contextMenu → open that historical day.
             // Kept separate from showDailyPage / fallbackDailyPageDateString so the
             // three navigation entry points don't collide on a single binding.
             .fullScreenCover(item: Binding(
                 get: { timelineNavDateString.map { OnThisDayNavTarget(dateString: $0) } },
                 set: { timelineNavDateString = $0?.dateString }
             )) { target in
-                DailyPageView(
-                    dateString: target.dateString,
-                    onReturnToToday: { _ in
-                        timelineNavDateString = nil
-                    }
-                )
+                DayDetailView(dateString: target.dateString)
             }
             // Timeline share sheet — plain text payload, no poster pipeline.
             .sheet(item: $timelineShareText) { payload in
@@ -1122,17 +1070,6 @@ struct TodayView: View {
             .animation(Motion.dismiss, value: showTutorial)
             .sheet(isPresented: $showAuthSheet) {
                 AuthView()
-            }
-            // R8-HIGH B1: push WeeklyRecapDetailView when the preview is
-            // tapped. NavigationStack inside `.sheet` so we get a proper
-            // nav bar without polluting Today's primary NavigationStack
-            // destination set.
-            .sheet(isPresented: $showWeeklyRecapDetail) {
-                if let refDate = weeklyRecapRefDate {
-                    NavigationStack {
-                        WeeklyRecapDetailView(referenceDate: refDate)
-                    }
-                }
             }
             // iCloud migration progress sheet — shown during vault migration
             .sheet(isPresented: $migrationService.isMigrating) {
@@ -3599,126 +3536,8 @@ struct TodayView: View {
         }
     }
 
-    // MARK: - Weekly Recap Preview (R8-HIGH B1)
-
-    /// Try to populate `weeklyRecapPreview` from the cached vault file.
-    /// Order:
-    ///   1. If `hint` is provided (.weeklyRecapAvailable userInfo), probe it
-    ///      first — that's the exact ISO week the daemon just compiled.
-    ///   2. Else probe current week. (After Monday's first compile the
-    ///      current-week cache won't exist, but a manual recap might.)
-    ///   3. Else fall back to last week (yesterday's reference). Covers the
-    ///      Monday-morning auto path where the daemon compiled "last week"
-    ///      before the user opens the app.
-    /// All probes are file-system reads, no LLM round-trip.
-    private func refreshWeeklyRecapPreview(hint: Date?) {
-        let probes: [Date]
-        if let hint = hint {
-            probes = [hint]
-        } else {
-            let now = Date()
-            let cal = WeeklyCompilationService.weekCalendar
-            let lastWeek = cal.date(byAdding: .day, value: -7, to: now) ?? now
-            probes = [now, lastWeek]
-        }
-        for ref in probes {
-            if let cached = WeeklyCompilationService.shared.loadCached(for: ref) {
-                withAnimation(reduceMotion ? nil : Motion.fade) {
-                    weeklyRecapPreview = cached
-                    weeklyRecapRefDate = ref
-                }
-                return
-            }
-        }
-        // No cache available — hide the section.
-        if weeklyRecapPreview != nil {
-            withAnimation(reduceMotion ? nil : Motion.dismiss) {
-                weeklyRecapPreview = nil
-                weeklyRecapRefDate = nil
-            }
-        }
-    }
-
-    /// R9-HIGH A1: debounced wrapper around `refreshWeeklyRecapPreview`.
-    /// Cold launch fires three near-simultaneous reloads (onAppear seed,
-    /// `.weeklyRecapAvailable` notification, scenePhase=.active), which
-    /// previously raced through the same `loadCached` probes and stacked
-    /// three competing `withAnimation` passes. Coalescing into a single
-    /// 300ms-debounced Task collapses the burst into one file read.
-    /// Cancellation on every call ensures only the latest hint wins.
-    private func refreshWeeklyRecapPreviewDebounced(hint: Date?) {
-        weeklyReloadTask?.cancel()
-        weeklyReloadTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 300_000_000)
-            guard !Task.isCancelled else { return }
-            refreshWeeklyRecapPreview(hint: hint)
-        }
-    }
-
-    /// Compact entry card: amber-tinted background, title with calendar
-    /// emoji, up to 3 keyword chips, "查看全部 →" affordance. Tap pushes
-    /// `WeeklyRecapDetailView` via `.sheet` (see body).
-    @ViewBuilder
-    private func weeklyRecapPreviewSection(preview: WeeklyRecapOutput, referenceDate: Date) -> some View {
-        let kw = Array(preview.keywords.prefix(3))
-        Button {
-            Haptics.tapConfirm()
-            showWeeklyRecapDetail = true
-        } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 6) {
-                    Text("📅 \(NSLocalizedString("weekly.recap.title", comment: ""))")
-                        .font(DSFonts.inter(size: 13, weight: .semibold))
-                        .foregroundColor(DSColor.inkPrimary)
-                    Spacer(minLength: 0)
-                    Text(NSLocalizedString(
-                        "today.weekly.preview.cta",
-                        value: "查看全部 →",
-                        comment: "CTA label on the Today weekly-recap preview card"
-                    ))
-                        .font(DSType.mono10)
-                        .foregroundColor(DSColor.amberAccent)
-                        .accessibilityHidden(true)
-                }
-                if !kw.isEmpty {
-                    HStack(spacing: 6) {
-                        ForEach(kw, id: \.self) { word in
-                            Text(word)
-                                .font(DSType.mono10)
-                                .foregroundColor(DSColor.amberAccent)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(
-                                    Capsule().fill(DSColor.amberAccent.opacity(0.20))
-                                )
-                                .lineLimit(1)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                }
-            }
-            .padding(.horizontal, DSSpacing.pageMargin)
-            .padding(.vertical, 10)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(DSColor.amberAccent.opacity(0.14))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(Text(String(
-            format: NSLocalizedString(
-                "today.weekly.preview.a11y",
-                value: "周回顾就绪：%@",
-                comment: "VoiceOver label for the Today weekly-recap preview"
-            ),
-            preview.isoWeek
-        )))
-        .accessibilityHint(Text(NSLocalizedString(
-            "today.weekly.preview.a11y.hint",
-            value: "打开本周 AI 回顾",
-            comment: "VoiceOver hint for the Today weekly-recap preview"
-        )))
-    }
+    // Issue #814: Weekly Recap preview helpers removed — Archive's entry
+    // card (ArchiveView.weeklyRecapEntryCard) is the single This Week surface.
 }
 
 // MARK: - OnThisDayNavTarget

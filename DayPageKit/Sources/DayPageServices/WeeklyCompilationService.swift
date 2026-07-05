@@ -457,6 +457,10 @@ public final class WeeklyCompilationService {
 
         let body = Self.renderMarkdown(output: output)
         try RawStorage.atomicWrite(string: body, to: url)
+
+        // Issue #814: a new weekly page changes the wiki's table of contents;
+        // refresh index.md so the karpathy-style index never lags behind.
+        WikiIndexService.shared.rebuild()
     }
 
     public static func renderMarkdown(output: WeeklyRecapOutput) -> String {

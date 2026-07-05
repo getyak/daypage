@@ -238,7 +238,10 @@ struct DailyPageView: View {
 
         do {
             let memoCount = rawMemos.count
-            try await CompilationService.shared.compile(for: date, trigger: "manual")
+            // Explicit "recompile" intent — bypass the #814 source_hash guard
+            // so the user can regenerate a page they disliked even when the
+            // underlying memos are unchanged.
+            try await CompilationService.shared.compile(for: date, trigger: "manual", force: true)
             loadPage()
             // US-022: show success banner with memo count
             BannerCenter.shared.show(AppBannerModel(
