@@ -2509,69 +2509,11 @@ struct TodayView: View {
 
                 Spacer()
 
-                // R4 (#793 comp 4.png): the comp's top bar is exactly two
-                // chips — ☰ left, ⚙ right. The export-as-markdown button
-                // used to appear in the middle once the day had memos, but
-                // that made the toolbar drift between 2-chip and 3-chip
-                // layouts as the day filled in. The export action stays
-                // available via long-pressing the hero title (gesture wired
-                // below); the visible chip is removed so the toolbar
-                // rhythm is invariant.
-                if false {
-                    Button {
-                        let content = MarkdownExportService.buildExportContent(
-                            memos: viewModel.memos, date: Date(),
-                            summary: viewModel.dailyPageSummary
-                        )
-                        let dateString = MarkdownExportService.exportDateString(for: Date())
-                        do {
-                            let url = try MarkdownExportService.writeExportFile(
-                                content: content, dateString: dateString
-                            )
-                            exportFileURL = url
-                            showExportSheet = true
-                            Haptics.tapConfirm()
-                            bannerCenter.show(AppBannerModel(
-                                kind: .success,
-                                title: NSLocalizedString("export.success.title", comment: ""),
-                                autoDismiss: true
-                            ))
-                        } catch {
-                            Haptics.warn()
-                            bannerCenter.show(AppBannerModel(
-                                kind: .error,
-                                title: NSLocalizedString("export.error.title", comment: ""),
-                                autoDismiss: true
-                            ))
-                            DayPageLogger.shared.error("TodayView: export failed: \(error)")
-                        }
-                    } label: {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(DSType.bodySM)
-                            .foregroundColor(DSColor.inkMuted)
-                            .frame(width: 36, height: 36)
-                            .glassSurface(in: Circle())
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(NSLocalizedString("export.action.title", comment: ""))
-                    .accessibilityHint(NSLocalizedString("export.action.hint", comment: ""))
-                    .accessibilityIdentifier("export-markdown-button")
-                    .onLongPressGesture(minimumDuration: 0.5) {
-                        let content = MarkdownExportService.buildExportContent(
-                            memos: viewModel.memos, date: Date(),
-                            summary: viewModel.dailyPageSummary
-                        )
-                        UIPasteboard.general.string = content
-                        Haptics.medium()
-                        Haptics.success()
-                        bannerCenter.show(AppBannerModel(
-                            kind: .info,
-                            title: NSLocalizedString("export.copied.title", comment: ""),
-                            autoDismiss: true
-                        ))
-                    }
-                }
+                // R4 (#793 comp 4.png): the top bar is exactly two chips —
+                // ☰ left, 🔍 right. No middle export chip: it made the
+                // toolbar drift between 2- and 3-chip layouts as the day
+                // filled in. Export lives in the hero title's context menu
+                // (`exportMenuItems`), keeping the toolbar rhythm invariant.
 
                 // Settings moved into the sidebar bottom section — the
                 // toolbar's trailing slot now opens global search, riding
