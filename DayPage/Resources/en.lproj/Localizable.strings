@@ -792,6 +792,8 @@
 "submit.error.retry"                         = "Retry";
 "Tap or swipe to dismiss"                    = "Tap or swipe to dismiss";
 "today.header.scroll_to_top"                 = "Scroll to top";
+"today.toolbar.search"                       = "Search";
+"today.toolbar.search.hint"                  = "Opens global search";
 "today.wordmilestone.announcement"           = "%lld words written";
 
 /* Today — timeline */

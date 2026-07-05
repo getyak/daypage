@@ -214,10 +214,6 @@ struct TodayView: View {
     @State private var orbBreathing: Bool = false
     @State private var orbTapBounce: Bool = false
 
-    /// Accumulated rotation for the settings gear — a gear should turn when
-    /// tapped. Bumped by a quarter turn on each tap so the spin feels mechanical.
-    @State private var settingsGearRotation: Double = 0
-
     /// Hint offset for the one-time swipe-left nudge on the Daily Page card.
     @State private var dailyPageHintOffset: CGFloat = 0
     @State private var memoCardHintOffset: CGFloat = 0
@@ -2577,25 +2573,26 @@ struct TodayView: View {
                     }
                 }
 
+                // Settings moved into the sidebar bottom section — the
+                // toolbar's trailing slot now opens global search, riding
+                // the same `pendingSearchQuery` rail the sidebar row and
+                // the `daypage://search?q=` URL scheme already use.
                 Button {
                     Haptics.soft()
-                    if !reduceMotion {
-                        withAnimation(Motion.spring) { settingsGearRotation += 90 }
-                    }
-                    showSettings = true
+                    nav.selectedTab = .archive
+                    nav.pendingSearchQuery = ""
                 } label: {
-                    Image(systemName: "gearshape")
+                    Image(systemName: "magnifyingglass")
                         .font(DSType.bodySM)
                         .foregroundColor(DSColor.inkMuted)
                         .frame(width: 36, height: 36)
                         .glassSurface(in: Circle())
                         .clipShape(Circle())
-                        .rotationEffect(.degrees(settingsGearRotation))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(NSLocalizedString("a11y.settings", comment: "Settings button"))
-                .accessibilityHint(NSLocalizedString("a11y.settings.hint", comment: "Opens app settings"))
-                .accessibilityIdentifier("settings-gear-button")
+                .accessibilityLabel(NSLocalizedString("today.toolbar.search", comment: "Global search button"))
+                .accessibilityHint(NSLocalizedString("today.toolbar.search.hint", comment: "Opens global search"))
+                .accessibilityIdentifier("today-search-button")
             }
 
             // MARK: Hero title — weekday + subline, CENTERED.
