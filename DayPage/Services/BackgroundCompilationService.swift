@@ -99,6 +99,14 @@ final class BackgroundCompilationService: ObservableObject {
     /// 滑动）触发重复 API 调用。
     private var lastForegroundRetry: Date?
 
+    /// Issue #814: dates (yyyy-MM-dd) with a compile currently in flight.
+    /// Since foregroundRetryIfNeeded retargeted yesterday it can race the
+    /// launch-time backfill for the SAME day — both fire before either
+    /// writes the daily (and its source_hash), so the hash guard can't
+    /// help. Live demo evidence: two success rows 0.5s apart, i.e. one
+    /// duplicated LLM call. All mutations happen on the MainActor.
+    private var inFlightDates: Set<String> = []
+
     // MARK: - Singleton
 
     static let shared = BackgroundCompilationService()
@@ -227,6 +235,14 @@ final class BackgroundCompilationService: ObservableObject {
         let now = Date()
         if let last = lastForegroundRetry, now.timeIntervalSince(last) < 60 { return }
         lastForegroundRetry = now
+
+        // Issue #814: single-flight — the launch-time backfill may already
+        // be compiling yesterday; don't fire a duplicate LLM call.
+        Self.dateFormatter.timeZone = AppSettings.currentTimeZone()
+        let dateKey = Self.dateFormatter.string(from: yesterday)
+        guard !inFlightDates.contains(dateKey) else { return }
+        inFlightDates.insert(dateKey)
+        defer { inFlightDates.remove(dateKey) }
 
         do {
             try await CompilationService.shared.compile(for: yesterday, trigger: "foreground-retry")
@@ -380,6 +396,15 @@ final class BackgroundCompilationService: ObservableObject {
     /// 每次 sleep 前会检查 Task cancellation，使 iOS expirationHandler 触发的取消能立即生效。
     /// 如果所有尝试都失败则抛出最后一个错误；如被取消则抛出 `CancellationError`。
     private func compileWithRetry(for date: Date, trigger: String, delays: [UInt64]) async throws {
+        // Issue #814: single-flight per date. If another entry point
+        // (backfill vs foreground retry) is already compiling this day,
+        // silently yield — the winner writes the daily + source_hash.
+        Self.dateFormatter.timeZone = AppSettings.currentTimeZone()
+        let dateKey = Self.dateFormatter.string(from: date)
+        guard !inFlightDates.contains(dateKey) else { return }
+        inFlightDates.insert(dateKey)
+        defer { inFlightDates.remove(dateKey) }
+
         // Issue #5 (2026-07-03): user-facing stage updates around the LLM
         // call. Reset to `.idle` in the trailing `defer` so a caught
         // throw always releases the banner.
