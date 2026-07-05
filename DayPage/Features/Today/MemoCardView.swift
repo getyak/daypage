@@ -31,6 +31,12 @@ struct MemoCardView: View {
     @State private var downloadTask: Task<Void, Never>? = nil
     @State private var showPhotoViewer: Bool = false
 
+    /// Hero zoom (iOS 18+): shared between the in-card photo thumbnail
+    /// (`matchedTransitionSource`) and the full-screen viewer
+    /// (`navigationTransition(.zoom)`). The cover is presented from this
+    /// view, so the namespace lives here. Inert on iOS 16–17.
+    @Namespace private var photoZoomNamespace
+
     /// Precise 24h time for the content-first card meta line (rendered as "15·23").
     private static let cardTimeFmt: DateFormatter = {
         let f = DateFormatter()
@@ -201,6 +207,10 @@ struct MemoCardView: View {
                     case .current:
                         PhotoThumbnailView(fileURL: photoURL, thumbnail: $thumbnail, exifText: photoExifText)
                             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            // Hero zoom source (iOS 18+). Identity = attachment
+                            // relative path — stable per photo, so multi-photo
+                            // memos each zoom from their own thumbnail.
+                            .modifier(PhotoZoomSource(id: att.file, namespace: photoZoomNamespace))
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 Haptics.tapConfirm()
@@ -214,6 +224,7 @@ struct MemoCardView: View {
                                         fileURL: VaultInitializer.vaultURL.appendingPathComponent(att.file),
                                         exifText: photoExifText
                                     )
+                                    .modifier(PhotoZoomDestination(id: att.file, namespace: photoZoomNamespace))
                                 }
                             }
                     case .downloading, .notDownloaded, .failed:
@@ -370,6 +381,44 @@ struct MemoCardView: View {
             return "\(filename) // FOCUS: \(Int(focal))mm"
         }
         return filename
+    }
+}
+
+// MARK: - Photo hero zoom (iOS 18+)
+//
+// Photos-style hero: tapping the in-card thumbnail zooms the full-screen
+// viewer out of the thumbnail frame; dismiss shrinks it back in. Mirrors the
+// CardZoomSource / CardZoomDestination pattern in TodayView.swift, but keyed
+// by the attachment's relative file path (String) so every photo has its own
+// stable transition identity. Both halves read Reduce Motion and pass content
+// through untouched when it is on — on iOS 16–17 (or with Reduce Motion) the
+// fullScreenCover keeps its default presentation.
+
+private struct PhotoZoomSource: ViewModifier {
+    let id: String
+    let namespace: Namespace.ID
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *), !reduceMotion {
+            content.matchedTransitionSource(id: id, in: namespace)
+        } else {
+            content
+        }
+    }
+}
+
+private struct PhotoZoomDestination: ViewModifier {
+    let id: String
+    let namespace: Namespace.ID
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *), !reduceMotion {
+            content.navigationTransition(.zoom(sourceID: id, in: namespace))
+        } else {
+            content
+        }
     }
 }
 

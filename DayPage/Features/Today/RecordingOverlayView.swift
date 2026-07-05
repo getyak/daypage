@@ -192,7 +192,7 @@ struct RecordingOverlayView: View {
                             .foregroundColor(mode == .cancelArmed ? DSTokens.Colors.recordingRed : DSColor.onRecording.opacity(0.75))
                             .frame(width: 72, height: 56)
                             .background(DSColor.onRecording.opacity(mode == .cancelArmed ? 0.25 : 0.12))
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
                         }
                         .buttonStyle(.plain)
                         .accessibilityElement(children: .combine)
@@ -212,7 +212,7 @@ struct RecordingOverlayView: View {
                             .foregroundColor(mode == .transcribeArmed ? Color(red: 0.30, green: 0.55, blue: 1.0) : DSColor.onRecording.opacity(0.90))
                             .frame(width: 72, height: 56)
                             .background(DSColor.onRecording.opacity(mode == .transcribeArmed ? 0.25 : 0.15))
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
                         }
                         .buttonStyle(.plain)
                         .accessibilityElement(children: .combine)

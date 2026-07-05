@@ -80,10 +80,10 @@ struct OnThisDayCard: View {
         .padding(DSSpacing.cardInner)
         .background(DSColor.accentSoft)
         .overlay(
-            RoundedRectangle(cornerRadius: DSSpacing.radiusCard)
+            RoundedRectangle(cornerRadius: DSRadius.md)
                 .stroke(DSColor.accentBorder, lineWidth: 1)
         )
-        .cornerRadius(DSSpacing.radiusCard)
+        .cornerRadius(DSRadius.md)
     }
 
     private var dismissButton: some View {

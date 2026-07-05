@@ -67,7 +67,7 @@ enum SwipePhysics {
     /// surface. The drawer container clips to the same continuous shape so
     /// revealed action panels share the card's silhouette instead of
     /// poking square corners out of a rounded card.
-    static let cardCornerRadius: CGFloat = 14
+    static let cardCornerRadius: CGFloat = DSRadius.md
 
     /// Spring used for snap-open / snap-close. Delegated to the shared
     /// `Motion.panel` token (0.32s response, 0.85 damping) so drawer motion

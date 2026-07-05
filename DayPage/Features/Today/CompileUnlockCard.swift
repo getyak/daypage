@@ -99,7 +99,7 @@ struct CompileUnlockCard: View {
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                 .strokeBorder(
                     DSColor.accentBorder,
                     style: StrokeStyle(lineWidth: 1.5, dash: [6, 5])

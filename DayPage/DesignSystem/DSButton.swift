@@ -58,7 +58,7 @@ struct DSPrimaryButtonStyle: ButtonStyle {
                     .fill(isEnabled ? DSColor.amberDeep : DSColor.inkSubtle)
             )
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .animation(Motion.respectReduceMotion(.spring(response: 0.25, dampingFraction: 0.85)),
+            .animation(Motion.respectReduceMotion(Motion.press),
                        value: configuration.isPressed)
             .contentShape(Rectangle())
     }
@@ -83,7 +83,7 @@ struct DSSecondaryButtonStyle: ButtonStyle {
             .dpGlass(.control, in: RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
             .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .animation(Motion.respectReduceMotion(.spring(response: 0.25, dampingFraction: 0.85)),
+            .animation(Motion.respectReduceMotion(Motion.press),
                        value: configuration.isPressed)
             .contentShape(Rectangle())
     }
@@ -125,7 +125,7 @@ struct DSDestructiveButtonStyle: ButtonStyle {
                     .fill(isEnabled ? DSColor.errorRed : DSColor.inkSubtle)
             )
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .animation(Motion.respectReduceMotion(.spring(response: 0.25, dampingFraction: 0.85)),
+            .animation(Motion.respectReduceMotion(Motion.press),
                        value: configuration.isPressed)
             .contentShape(Rectangle())
     }
@@ -142,7 +142,7 @@ struct DSIconChipButtonStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.92 : 1.0)
             .opacity(configuration.isPressed ? 0.75 : 1.0)
-            .animation(Motion.respectReduceMotion(.spring(response: 0.25, dampingFraction: 0.85)),
+            .animation(Motion.respectReduceMotion(Motion.press),
                        value: configuration.isPressed)
     }
 }

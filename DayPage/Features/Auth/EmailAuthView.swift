@@ -130,7 +130,7 @@ struct EmailAuthView: View {
                     .frame(maxWidth: .infinity)
                     .frame(height: 54)
                     .background(viewModel.isValidEmail ? DSColor.amberDeep : DSColor.surfaceSunken)
-                    .cornerRadius(14)
+                    .cornerRadius(DSRadius.md)
                 }
                 .buttonStyle(EmailSubmitButtonStyle())
                 .disabled(!viewModel.isValidEmail || viewModel.isSending)

@@ -343,7 +343,7 @@ struct WeeklyRecapDetailView: View {
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous)
                             .stroke(DSColor.amberRim, lineWidth: 1)
                     )
             }

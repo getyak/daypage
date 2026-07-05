@@ -107,7 +107,7 @@ struct InputBarTutorialOverlay: View {
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
-                            .background(DSColor.amberAccent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .background(DSColor.amberAccent, in: RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
                     }
                     .buttonStyle(.plain)
                     .accessibilityHint(step < steps.count - 1

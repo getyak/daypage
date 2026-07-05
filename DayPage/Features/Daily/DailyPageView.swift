@@ -379,7 +379,7 @@ struct DailyPageView: View {
                     .buttonStyle(.plain)
                 }
             }
-            .liquidGlassCard(cornerRadius: 18, tone: .std)
+            .liquidGlassCard(cornerRadius: DSRadius.lg, tone: .std)
             .padding(4)
         }
     }
@@ -605,7 +605,7 @@ struct DailyPageView: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 9)
                     .background(DSColor.amberSoft.opacity(0.5))
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
 
                 InlineMicButton { transcript in freeformDraft = transcript }
 

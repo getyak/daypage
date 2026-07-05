@@ -1110,16 +1110,16 @@ struct ArchiveView: View {
                 handleDateTap(dateStr: dateStr)
             }) {
                 ZStack(alignment: .topLeading) {
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    RoundedRectangle(cornerRadius: DSRadius.xs, style: .continuous)
                         .fill(fillColor)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            RoundedRectangle(cornerRadius: DSRadius.xs, style: .continuous)
                                 .stroke(isToday ? DSColor.amberAccent : DSColor.glassRim,
                                         lineWidth: isToday ? 1.5 : 0.5)
                         )
 
                     if isToday && !reduceMotion {
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        RoundedRectangle(cornerRadius: DSRadius.xs, style: .continuous)
                             .stroke(DSColor.amberAccent, lineWidth: 1.5)
                             .opacity(todayPulse ? 1.0 : 0.4)
                             .shadow(color: DSColor.amberAccent.opacity(todayPulse ? 0.6 : 0.2), radius: todayPulse ? 6 : 2)
@@ -1147,7 +1147,7 @@ struct ArchiveView: View {
             .accessibilityValue(viewModel.dayStats[dateStr]?.densityLevel.label ?? "")
             .accessibilityHint("双击打开当天详情")
         } else {
-            RoundedRectangle(cornerRadius: 6, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.xs, style: .continuous)
                 .fill(Color.clear)
                 .aspectRatio(1, contentMode: .fit)
                 .frame(maxWidth: .infinity)
@@ -1269,7 +1269,7 @@ struct ArchiveView: View {
                                 }
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 10)
-                                .liquidGlassCard(cornerRadius: 10)
+                                .liquidGlassCard(cornerRadius: DSRadius.sm)
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel(formatArchiveDate(stats.dateString))
@@ -1562,7 +1562,7 @@ struct ArchiveView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .liquidGlassCard(cornerRadius: DSSpacing.radiusCard)
+        .liquidGlassCard(cornerRadius: DSRadius.md)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(String(
             format: NSLocalizedString("archive.list.digest.a11y", comment: "Month digest summary"),
@@ -1639,7 +1639,7 @@ struct ArchiveView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .liquidGlassCard(cornerRadius: DSSpacing.radiusCard)
+        .liquidGlassCard(cornerRadius: DSRadius.md)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(title), \(isoWeek)")
         .accessibilityHint(NSLocalizedString("weekly.recap.entrycard.hint", comment: ""))
@@ -1716,7 +1716,7 @@ struct ArchiveView: View {
             }
             .padding(DSSpacing.cardGap)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .liquidGlassCard(cornerRadius: DSSpacing.radiusCard)
+            .liquidGlassCard(cornerRadius: DSRadius.md)
             .pressableCard()
         }
         .buttonStyle(.plain)

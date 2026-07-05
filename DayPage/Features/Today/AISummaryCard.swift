@@ -32,7 +32,7 @@ struct AISummaryCard: View {
     var body: some View {
         ZStack(alignment: .leading) {
             // Slim accent rail (left edge).
-            RoundedRectangle(cornerRadius: 999, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.pill, style: .continuous)
                 .fill(DSColor.accentOnBg)
                 .opacity(0.85)
                 .frame(width: 2)
@@ -55,11 +55,11 @@ struct AISummaryCard: View {
             .padding(.init(top: 18, leading: 22, bottom: 20, trailing: 20))
         }
         .background(
-            RoundedRectangle(cornerRadius: DSSpacing.radiusCard, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                 .fill(DSColor.surfaceWhite)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: DSSpacing.radiusCard, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                 .strokeBorder(DSColor.borderSubtle, lineWidth: 0.5)
         )
         .shadow(color: Color.black.opacity(0.04), radius: 1, x: 0, y: 1)

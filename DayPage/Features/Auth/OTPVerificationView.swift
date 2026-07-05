@@ -153,9 +153,9 @@ struct OTPVerificationView: View {
             return isActive ? DSColor.inkPrimary : DSColor.inkFaint
         }()
         return ZStack {
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: DSRadius.sm)
                 .fill(DSColor.surfaceWhite)
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: DSRadius.sm)
                 .stroke(strokeColor, lineWidth: isActive && !isSuccess ? 1.5 : 1)
             if let digit = digit {
                 Text(String(digit))

@@ -161,7 +161,7 @@ struct MemoDetailView: View {
                                 .frame(minHeight: 120)
                                 .scrollContentBackground(.hidden)
                                 .background(DSColor.glassLo)
-                                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                .clipShape(RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous))
 
                             HStack(spacing: 12) {
                                 Button(NSLocalizedString(
@@ -281,10 +281,10 @@ struct MemoDetailView: View {
                         .padding(.vertical, 12)
                         .background(DSColor.amberSoft)
                         .overlay(
-                            RoundedRectangle(cornerRadius: DSSpacing.radiusCard)
+                            RoundedRectangle(cornerRadius: DSRadius.md)
                                 .strokeBorder(DSColor.amberRim, lineWidth: 0.5)
                         )
-                        .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard))
+                        .clipShape(RoundedRectangle(cornerRadius: DSRadius.md))
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("memo.detail.ask.past")
@@ -379,7 +379,7 @@ private struct DetailVoiceSection: View {
                 transcript: attachment.transcript
             )
             .frame(maxWidth: .infinity)
-            .liquidGlassCard(cornerRadius: 14, tone: .lo)
+            .liquidGlassCard(cornerRadius: DSRadius.md, tone: .lo)
         }
     }
 }
@@ -416,8 +416,8 @@ private struct DetailPhotoSection: View {
                             .overlay(ProgressView().tint(DSColor.inkSubtle))
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
                 .onTapGesture {
                     fullResImage = loadedImage
                     showFullscreen = true
@@ -441,7 +441,7 @@ private struct DetailPhotoSection: View {
                                 startPoint: .top,
                                 endPoint: .bottom
                             )
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
                         )
                 }
             }
@@ -511,10 +511,10 @@ private struct DetailLocationSection: View {
                     MapPreviewView(coordinate: coord)
                         .frame(maxWidth: .infinity)
                         .frame(height: 260)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
                 } else {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                             .fill(DSColor.glassLo)
                             .frame(maxWidth: .infinity, minHeight: 120)
                         VStack(spacing: 6) {
@@ -567,7 +567,7 @@ private struct DetailLocationSection: View {
                 .buttonStyle(.plain)
                 .disabled(coordinate == nil)
             }
-            .liquidGlassCard(cornerRadius: 14, tone: .lo)
+            .liquidGlassCard(cornerRadius: DSRadius.md, tone: .lo)
         }
     }
 
@@ -595,7 +595,7 @@ private struct DetailFilesSection: View {
                     DetailFileRow(attachment: att)
                 }
             }
-            .liquidGlassCard(cornerRadius: 14, tone: .lo)
+            .liquidGlassCard(cornerRadius: DSRadius.md, tone: .lo)
         }
     }
 }

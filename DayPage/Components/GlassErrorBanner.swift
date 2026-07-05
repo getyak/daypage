@@ -270,7 +270,7 @@ struct GlassErrorBannerOverlayModifier: ViewModifier {
                 .zIndex(200)
             }
         }
-        .animation(.spring(response: 0.55, dampingFraction: 0.88), value: stack.items.map(\.id))
+        .animation(Motion.bannerSlide, value: stack.items.map(\.id))
     }
 }
 

@@ -28,7 +28,7 @@ struct ThreadConversationView: View {
             }
         }
         .background(DSColor.surfaceContainerHigh)
-        .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
         // Expand/collapse shifts content position (`.move` transition above) —
         // route through the shared `expand` token so it honors Reduce Motion.
         .dsAnimation(Motion.expand, value: vm.isExpanded)

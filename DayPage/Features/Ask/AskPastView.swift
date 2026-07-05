@@ -110,7 +110,7 @@ struct AskPastView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(DSColor.surfaceContainerHigh)
-                    .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
             }
         case .assistant:
             VStack(alignment: .leading, spacing: 10) {
@@ -212,7 +212,7 @@ struct AskPastView: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 12)
                     .background(DSColor.surfaceContainerHigh)
-                    .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
                 }
                 .buttonStyle(.plain)
             }
@@ -238,7 +238,7 @@ struct AskPastView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)
             .background(DSColor.surfaceContainerHigh)
-            .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
     }
 
     // MARK: - Input bar
@@ -252,7 +252,7 @@ struct AskPastView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .background(DSColor.surfaceContainerHigh)
-                .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
                 .onSubmit(submit)
 
             // Voice input — mirrors Today composer semantics: tap to start

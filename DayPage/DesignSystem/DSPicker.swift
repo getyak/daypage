@@ -54,7 +54,7 @@ struct DSPicker<Value: Hashable, Label: View>: View {
         VStack(spacing: 0) {
             // Header row — tappable, surfaces the selected value.
             Button {
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                withAnimation(Motion.spring) {
                     isExpanded.toggle()
                 }
             } label: {

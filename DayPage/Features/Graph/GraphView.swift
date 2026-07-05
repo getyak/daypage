@@ -1160,8 +1160,8 @@ struct GraphView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             // #771: zero-match toast → glass engine (.toast). Engine owns rim.
-            .dpGlass(.toast, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .dpGlass(.toast, in: RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
             .accessibilityLabel(msg)
     }
 

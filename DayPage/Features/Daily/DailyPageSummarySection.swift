@@ -80,10 +80,10 @@ struct DailyPageSummarySection: View {
                 .padding(.vertical, 5)
                 .background(DSColor.surfaceSunken)
                 .overlay(
-                    RoundedRectangle(cornerRadius: DSSpacing.radiusSmall)
+                    RoundedRectangle(cornerRadius: 8)
                         .strokeBorder(DSColor.glassRimD, lineWidth: 0.5)
                 )
-                .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusSmall))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
             }
             .buttonStyle(.plain)
             .simultaneousGesture(TapGesture().onEnded { HapticFeedback.soft() })

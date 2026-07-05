@@ -183,11 +183,11 @@ struct YearMonthPicker: View {
             .frame(maxWidth: .infinity)
             .frame(height: 52)
             .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous)
                     .fill(isSelected ? DSColor.amberDeep : DSColor.glassLo)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous)
                     .strokeBorder(
                         isRealMonth ? DSColor.amberAccent : DSColor.glassRim,
                         lineWidth: isRealMonth ? 1.5 : 0.5

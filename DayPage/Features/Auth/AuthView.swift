@@ -182,9 +182,9 @@ struct AuthView: View {
         .frame(maxWidth: .infinity)
         .frame(height: 54)
         .background(background)
-        .cornerRadius(14)
+        .cornerRadius(DSRadius.md)
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: DSRadius.md)
                 .stroke(border, lineWidth: 1)
         )
     }

@@ -255,11 +255,11 @@ struct SidebarView: View {
                 .accessibilityLabel("\(sidebarVM.totalWordCount) words total")
         }
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                 .fill(DSColor.surfaceWhite)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
+            RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
                 .strokeBorder(DSColor.borderSubtle, lineWidth: 0.5)
         )
         .shadow(color: Color.black.opacity(0.04), radius: 1, x: 0, y: 1)

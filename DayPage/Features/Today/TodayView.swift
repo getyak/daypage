@@ -327,36 +327,28 @@ struct TodayView: View {
                     // Issue #814: weekly-recap preview card removed — Archive
                     // owns the This Week entry point now.
 
-                    // MARK: AI key missing banner (R3 — A2)
+                    // MARK: Status Slot — single status banner (banner collapse)
                     //
-                    // Museum-aesthetic redesign (#793): the banner used to
-                    // dominate the first screen with an amber wash + CTA.
-                    // For a calm capture surface we now surface it ONLY
-                    // when the user genuinely needs to act — i.e. the day
-                    // is empty (nothing to compile = a teaching moment),
-                    // not every launch. With memos present the same
-                    // condition shows up as a small amber dot on the
-                    // settings gear (a quieter affordance, set elsewhere).
-                    if shouldShowAIKeyBanner && viewModel.memos.isEmpty {
-                        aiKeyMissingBanner
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
-
-                    // MARK: Compile Progress Banner (Issue #5, 2026-07-03)
-                    //
-                    // Shows the current stage of an in-flight compilation
-                    // (collecting → cleaning → clustering → generating →
-                    // linking). Hidden when the service is `.idle` so the
-                    // surface stays quiet 99% of the time — the banner is
-                    // a reassurance signal for the ~15-60 second window an
-                    // AI compile actually runs. Observing
-                    // BackgroundCompilationService directly (it is now an
-                    // ObservableObject) keeps it as the single source of
-                    // truth for both foreground and background triggers.
-                    if compileService.stage != .idle {
-                        compileProgressBanner
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
+                    // The top region used to stack up to ~7 independent
+                    // status banners (AI key, compile progress banner,
+                    // sync queue, compile progress bar, compile failed,
+                    // sync prompt, iCloud conflict), each with its own
+                    // show-condition scattered through this VStack. Against
+                    // the calm-capture minimalism that stack read as an
+                    // alert wall, and on iPhone 12 mini it pushed the
+                    // composer below the fold. Now `activeStatusSlot` picks
+                    // the single highest-priority status surface and ONLY
+                    // that banner renders here — the banner views and their
+                    // tap/dismiss behaviors are unchanged; only the layout
+                    // conditions moved into the slot computation (see
+                    // `TodayStatusSlot` / `activeStatusSlot`). The slot sits
+                    // above every content section (focus chips / OnThisDay /
+                    // orbHero / timeline) because status rows are sticky
+                    // "system status" surfaces that must always own the
+                    // very top. Non-status content (OnThisDayCard,
+                    // LocationDraftCard, todayFocusRow, orbHero,
+                    // selectionToolbar) is NOT part of the slot.
+                    statusSlotSection
 
                     // MARK: Today Focus Chips (Issue #13, 2026-07-03)
                     //
@@ -379,22 +371,6 @@ struct TodayView: View {
                             .transition(.opacity.combined(with: .move(edge: .top)))
                     }
 
-                    // MARK: Offline Sync Queue Banner (R5)
-                    //
-                    // Museum-aesthetic redesign (#793): "1 条待同步" used to
-                    // claim a full 44pt row on the first screen — too noisy
-                    // for a normal capture flow. Now we only surface the
-                    // banner when something is actually stuck (>= 5 memos
-                    // pending OR oldest entry waited > 1h). Small queues
-                    // are invisible — the round-trip still happens in the
-                    // background and the queue indicator on the settings
-                    // gear (set elsewhere) lets the curious user dig in.
-                    if FeatureFlagStore.shared.isEnabled(.offlineQueue)
-                        && (syncQueue.pendingCount >= 5 || syncQueueWaitedTooLong) {
-                        syncQueuePendingBanner
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
-
                     // MARK: On This Day Top Card (R8-CRITICAL)
                     //
                     // 顶部独立 OnThisDayCard section — 脱离 fallbackContentView
@@ -403,21 +379,23 @@ struct TodayView: View {
                     // viewModel.onThisDayEntry（由 OnThisDayIndex.candidate 或
                     // .onThisDayShouldShow 注入）就在头条位置出现。
                     //
-                    // Sits AFTER the AI key / sync queue banners (those are
-                    // sticky "system status" rows that must always own the
-                    // very top) but BEFORE every Today-content section
-                    // (orbHero / timeline / fallback). Dismiss persists for
-                    // the rest of the day via OnThisDayScheduler — same
-                    // behavior the fallback path uses, so users can't
-                    // double-dismiss.
+                    // Sits AFTER the status slot (the single sticky "system
+                    // status" row that must always own the very top) but
+                    // BEFORE every Today-content section (orbHero /
+                    // timeline / fallback). Dismiss persists for the rest
+                    // of the day via OnThisDayScheduler — same behavior the
+                    // fallback path uses, so users can't double-dismiss.
                     //
                     // R9-HIGH A2: gated by `shouldShowOnThisDayAtTop`, which
                     // the fallback path negates in the same render pass. No
                     // more lazy `.onAppear` flag flip — the two paths agree
                     // synchronously, eliminating the brief double-card race.
-                    // R9-HIGH A3: the same computed also yields to ≥ 2
-                    // sticky banners so the composer isn't pushed off the
-                    // visible viewport on small devices (iPhone 12 mini).
+                    // R9-HIGH A3 (updated for the single status slot): the
+                    // same computed yields to error/conflict slot occupants
+                    // so the composer isn't pushed off the visible viewport
+                    // on small devices (iPhone 12 mini); with at most one
+                    // banner plus this card the low-priority info slots can
+                    // coexist with it.
                     if shouldShowOnThisDayAtTop,
                        let entry = viewModel.onThisDayEntry {
                         OnThisDayCard(
@@ -431,33 +409,6 @@ struct TodayView: View {
                             }
                         )
                         .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
-
-                    // MARK: Compilation Progress Bar
-                    if viewModel.isCompiling {
-                        CompilationProgressBar(stage: compilationService.stage)
-                            .transition(.opacity)
-                            .animation(Motion.fade, value: viewModel.isCompiling)
-                    }
-
-                    // MARK: Compilation Failed Banner
-                    if let failureMsg = viewModel.compilationFailedError {
-                        CompilationFailedBanner(message: failureMsg) {
-                            viewModel.compilationFailedError = nil
-                            viewModel.compile()
-                        } onDismiss: {
-                            viewModel.compilationFailedError = nil
-                        }
-                    }
-
-                    // MARK: Sync Prompt Banner
-                    if showSyncBanner {
-                        syncBanner
-                    }
-
-                    // MARK: iCloud Conflict Resolved Banner (R4-MEDIUM #38)
-                    if iCloudConflictBannerVisible {
-                        iCloudConflictBanner
                     }
 
                     // MARK: Location Draft Card
@@ -1219,38 +1170,142 @@ struct TodayView: View {
     // (which would take the user to the system Settings app where there's
     // nothing to configure).
 
-    // MARK: - R9-HIGH A2/A3 — Banner stack guards
+    // MARK: - Status Slot (banner collapse)
     //
-    // `bannerCount` counts the always-renders-at-top sections (AI key,
-    // sync queue, iCloud conflict). When too many fire at once the
-    // composer gets pushed below the fold on iPhone 12 mini, so the
-    // OnThisDay top card and WeeklyRecap preview defer to it. Read by
-    // both `shouldShowOnThisDayAtTop` and the top WeeklyRecap section
-    // guard in `body`.
-    private var bannerCount: Int {
-        var n = 0
-        // R10 (#793): AI key banner now only shows on empty days; align
-        // bannerCount so OnThisDay / WeeklyRecap cards don't yield
-        // pre-emptively to a banner that won't actually render.
-        if shouldShowAIKeyBanner && viewModel.memos.isEmpty { n += 1 }
+    // Enumerates every "system status" banner that used to render as an
+    // independent conditional row at the top of the VStack. At most ONE
+    // of these is visible at a time, chosen by strict priority (cases
+    // are declared highest → lowest). Every banner stays REACHABLE: its
+    // original show-condition still gates it inside `activeStatusSlot`;
+    // it just waits its turn instead of stacking.
+    private enum TodayStatusSlot: Equatable {
+        /// Background compile failed after all retries (DSBanner .error).
+        case compilationFailed
+        /// R4-MEDIUM #38 — iCloud conflict auto-merge acknowledgement
+        /// (DSBanner .warning). Self-dismisses after 3s (see the
+        /// `.vaultConflictResolved` onReceive), so it never starves the
+        /// slots below for long.
+        case iCloudConflict
+        /// R5 offline queue — only when something is actually stuck
+        /// (>= 5 pending OR oldest waited > 1h), per #793 museum redesign.
+        case offlineSyncQueue
+        /// In-flight AI compile. Merges the two old progress surfaces:
+        /// the rich stage banner (label + fraction bar, Issue #5) wins
+        /// when BackgroundCompilationService reports a stage; the thin
+        /// CompilationProgressBar covers foreground-only compiles where
+        /// only `viewModel.isCompiling` is set.
+        case compilationProgress
+        /// "Sync your journal across devices" sign-in prompt.
+        case syncPrompt
+        /// R3 — A2 info row: AI key missing. Museum-aesthetic (#793):
+        /// only on empty days; with memos present the same condition
+        /// shows as a small amber dot on the settings gear (set
+        /// elsewhere), so lowest priority is safe.
+        case aiKeyMissing
+
+        /// Error/conflict occupants push non-status cards (OnThisDay)
+        /// out of the top region; info/progress occupants coexist.
+        var isBlocking: Bool {
+            switch self {
+            case .compilationFailed, .iCloudConflict: return true
+            default: return false
+            }
+        }
+    }
+
+    /// Single source of truth for which status banner occupies the slot.
+    /// Each branch is the banner's ORIGINAL show-condition, moved here
+    /// verbatim from the layout; first match (highest priority) wins.
+    private var activeStatusSlot: TodayStatusSlot? {
+        if viewModel.compilationFailedError != nil { return .compilationFailed }
+        if iCloudConflictBannerVisible { return .iCloudConflict }
         if FeatureFlagStore.shared.isEnabled(.offlineQueue)
-            && (syncQueue.pendingCount >= 5 || syncQueueWaitedTooLong) { n += 1 }
-        if iCloudConflictBannerVisible { n += 1 }
-        return n
+            && (syncQueue.pendingCount >= 5 || syncQueueWaitedTooLong) {
+            return .offlineSyncQueue
+        }
+        if compileService.stage != .idle || viewModel.isCompiling { return .compilationProgress }
+        if showSyncBanner { return .syncPrompt }
+        if shouldShowAIKeyBanner && viewModel.memos.isEmpty { return .aiKeyMissing }
+        return nil
+    }
+
+    /// Renders the single active status banner. The banner views
+    /// themselves (and their tap/dismiss behaviors) are untouched — this
+    /// is purely the slot switch. `Motion.bannerSlide` on the slot value
+    /// makes an outgoing occupant slide away while the incoming one
+    /// slides in, never stacked (nil under reduce-motion, matching the
+    /// file's existing pattern).
+    @ViewBuilder
+    private var statusSlotSection: some View {
+        Group {
+            switch activeStatusSlot {
+            case .compilationFailed:
+                if let failureMsg = viewModel.compilationFailedError {
+                    CompilationFailedBanner(message: failureMsg) {
+                        viewModel.compilationFailedError = nil
+                        viewModel.compile()
+                    } onDismiss: {
+                        viewModel.compilationFailedError = nil
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            case .iCloudConflict:
+                iCloudConflictBanner
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            case .offlineSyncQueue:
+                syncQueuePendingBanner
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            case .compilationProgress:
+                // Prefer the richer Issue #5 stage banner whenever the
+                // background service exposes a stage; fall back to the
+                // thin bar for foreground-only compiles.
+                if compileService.stage != .idle {
+                    compileProgressBanner
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                } else {
+                    CompilationProgressBar(stage: compilationService.stage)
+                        .transition(.opacity)
+                }
+            case .syncPrompt:
+                syncBanner
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            case .aiKeyMissing:
+                aiKeyMissingBanner
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            case nil:
+                EmptyView()
+            }
+        }
+        .animation(reduceMotion ? nil : Motion.bannerSlide, value: activeStatusSlot)
+    }
+
+    // MARK: - R9-HIGH A2/A3 — Banner stack guards (post-slot)
+    //
+    // With the single status slot, `bannerCount` is now 0 or 1. Kept as
+    // a named property because the iPhone 12 mini composer-visibility
+    // rationale still applies: the slot row plus a top card is the most
+    // the region may occupy before the composer risks the fold.
+    private var bannerCount: Int {
+        activeStatusSlot == nil ? 0 : 1
     }
 
     /// R9-HIGH A2: single source of truth for whether the top-of-Today
     /// OnThisDay card renders. Used by both the `body` top section and
     /// the `onThisDayFallback(memos:)` inverse guard so the two paths
     /// agree inside the same SwiftUI render pass — no more lazy
-    /// `.onAppear` flip that briefly stacked two cards. The `bannerCount`
-    /// guard yields to the "system status" banners when ≥ 2 already
-    /// occupy the top: in that case the fallback (empty-day) path still
-    /// surfaces the card if the day has no memos to push it offscreen.
+    /// `.onAppear` flip that briefly stacked two cards.
+    ///
+    /// Slot-era guard: the card yields only when the status slot holds a
+    /// blocking (error/conflict) occupant — an urgent banner should own
+    /// the top alone, and on iPhone 12 mini banner + card + hero would
+    /// push the composer below the fold. A low-priority info occupant
+    /// (AI key, sync prompt, progress) coexists with the card; in the
+    /// yield case the fallback (empty-day) path still surfaces the card
+    /// if the day has no memos to push it offscreen.
     private var shouldShowOnThisDayAtTop: Bool {
         FeatureFlagStore.shared.isEnabled(.onThisDay)
             && viewModel.onThisDayEntry != nil
-            && bannerCount < 2
+            && !(activeStatusSlot?.isBlocking ?? false)
     }
 
     /// True when the banner should appear in this render. Combines:
@@ -1436,10 +1491,10 @@ struct TodayView: View {
         .padding(.vertical, 10)
         .background(DSColor.surfaceWhite)
         .overlay(
-            RoundedRectangle(cornerRadius: DSSpacing.radiusCard)
+            RoundedRectangle(cornerRadius: DSRadius.md)
                 .strokeBorder(DSColor.amberRim, lineWidth: 0.5)
         )
-        .clipShape(RoundedRectangle(cornerRadius: DSSpacing.radiusCard))
+        .clipShape(RoundedRectangle(cornerRadius: DSRadius.md))
         .padding(.horizontal, DSSpacing.pageMargin)
         .padding(.bottom, DSSpacing.xs)
         .accessibilityElement(children: .combine)

@@ -133,7 +133,7 @@ private struct DataFlowPage: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(DSColor.accentAmber)
-                        .cornerRadius(DSSpacing.radiusCard)
+                        .cornerRadius(DSRadius.md)
                 }
                 .padding(.top, 8)
                 .accessibilityIdentifier("onboarding.dataflow.continue")
@@ -175,7 +175,7 @@ private struct DataFlowRow: View {
         }
         .padding(DSSpacing.cardInner)
         .background(DSColor.surfaceWhite)
-        .cornerRadius(DSSpacing.radiusCard)
+        .cornerRadius(DSRadius.md)
         .surfaceElevatedShadow()
     }
 }
@@ -219,7 +219,7 @@ private struct WelcomePage: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(DSColor.accentSoft)
-                    .cornerRadius(DSSpacing.radiusSmall)
+                    .cornerRadius(8)
 
                 Text("onboarding.welcome.headline", bundle: .main)
                     .font(DSFonts.serif(size: 20, weight: .regular))
@@ -265,7 +265,7 @@ private struct WelcomePage: View {
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
                             .background(DSColor.accentAmber)
-                            .cornerRadius(DSSpacing.radiusCard)
+                            .cornerRadius(DSRadius.md)
                     }
                     .accessibilityIdentifier("onboarding.welcome.begin")
 
@@ -320,7 +320,7 @@ private struct WelcomePage: View {
         }
         .padding(DSSpacing.cardInner)
         .background(DSColor.surfaceWhite)
-        .cornerRadius(DSSpacing.radiusCard)
+        .cornerRadius(DSRadius.md)
         .surfaceElevatedShadow()
         // Issue #15 (2026-07-03): SE 375pt × Accessibility3 audit —
         // benefit rows previously clipped their body line at AX2+ because
@@ -421,7 +421,7 @@ private struct PermissionsPage: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                     .background(DSColor.accentAmber)
-                    .cornerRadius(DSSpacing.radiusCard)
+                    .cornerRadius(DSRadius.md)
             }
             .padding(.horizontal, 32)
             .padding(.bottom, 48)
@@ -462,13 +462,13 @@ private struct PermissionsPage: View {
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(status == .unknown ? DSColor.accentAmber : DSColor.surfaceSunken)
-                    .cornerRadius(DSSpacing.radiusSmall)
+                    .cornerRadius(8)
             }
             .disabled(status != .unknown)
         }
         .padding(DSSpacing.cardInner)
         .background(DSColor.surfaceWhite)
-        .cornerRadius(DSSpacing.radiusCard)
+        .cornerRadius(DSRadius.md)
         .surfaceElevatedShadow()
     }
 
@@ -576,7 +576,7 @@ private struct ApiKeysPage: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(DSColor.accentAmber)
-                        .cornerRadius(DSSpacing.radiusCard)
+                        .cornerRadius(DSRadius.md)
                 }
                 .padding(.top, 8)
 
@@ -623,7 +623,7 @@ private struct ApiKeysPage: View {
             }
             .padding(12)
             .background(DSColor.surfaceSunken)
-            .cornerRadius(DSSpacing.radiusSmall)
+            .cornerRadius(8)
         }
     }
 
