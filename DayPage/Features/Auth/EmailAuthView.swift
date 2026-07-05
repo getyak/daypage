@@ -31,7 +31,7 @@ struct EmailAuthView: View {
 
     var body: some View {
         ZStack {
-            Color(hex: "0A0A0A").ignoresSafeArea()
+            DSColor.bgWarm.ignoresSafeArea()
             GrainOverlay()
 
             Group {
@@ -69,19 +69,19 @@ struct EmailAuthView: View {
 
                 Text("Enter your email")
                     .font(.custom("SpaceGrotesk-Bold", size: 24))
-                    .foregroundColor(Color(hex: "F5F0E8"))
+                    .foregroundColor(DSColor.inkPrimary)
 
                 Spacer().frame(height: 8)
 
                 Text("We'll send you a 6-digit code.")
                     .font(.custom("Inter-Regular", size: 14))
-                    .foregroundColor(Color(hex: "6B6B6B"))
+                    .foregroundColor(DSColor.inkSecondary)
 
                 Spacer().frame(height: 24)
 
-                TextField("", text: $viewModel.email, prompt: Text("you@domain.com").foregroundColor(Color(hex: "4A4A4A")))
+                TextField("", text: $viewModel.email, prompt: Text("you@domain.com").foregroundColor(DSColor.inkMuted))
                     .font(.custom("Inter-Regular", size: 17))
-                    .foregroundColor(Color(hex: "F5F0E8"))
+                    .foregroundColor(DSColor.inkPrimary)
                     .textContentType(.emailAddress)
                     .keyboardType(.emailAddress)
                     .autocapitalization(.none)
@@ -93,11 +93,11 @@ struct EmailAuthView: View {
                     }
                     .padding(.horizontal, 16)
                     .frame(height: 52)
-                    .background(Color(hex: "1E1E1E"))
+                    .background(DSColor.surfaceWhite)
                     .cornerRadius(12)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color(hex: "2A2A2A"), lineWidth: 1)
+                            .stroke(DSColor.inkFaint, lineWidth: 1)
                     )
 
                 Spacer().frame(height: 16)
@@ -105,7 +105,7 @@ struct EmailAuthView: View {
                 if let errorMessage = viewModel.errorMessage {
                     Text(errorMessage)
                         .font(.system(size: 14))
-                        .foregroundColor(Color(hex: "E05A5A"))
+                        .foregroundColor(DSColor.statusError)
                         .padding(.bottom, 8)
                         .transition(.opacity)
                         .animation(.easeInOut(duration: 0.2), value: viewModel.errorMessage)
@@ -117,17 +117,19 @@ struct EmailAuthView: View {
                     ZStack {
                         Text("Send Code")
                             .font(.custom("SpaceGrotesk-Medium", size: 16))
-                            .foregroundColor(viewModel.isValidEmail ? Color(hex: "0A0A0A") : Color(hex: "4A4A4A"))
+                            .foregroundColor(viewModel.isValidEmail ? DSColor.onAmber : DSColor.inkMuted)
                             .opacity(viewModel.isSending ? 0 : 1)
 
                         if viewModel.isSending {
+                            // Spinner only shows while the button is enabled
+                            // (amberDeep fill), so onAmber keeps it legible.
                             ProgressView()
-                                .tint(Color(hex: "0A0A0A"))
+                                .tint(DSColor.onAmber)
                         }
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 54)
-                    .background(viewModel.isValidEmail ? Color(hex: "F5F0E8") : Color(hex: "1A1A1A"))
+                    .background(viewModel.isValidEmail ? DSColor.amberDeep : DSColor.surfaceSunken)
                     .cornerRadius(14)
                 }
                 .buttonStyle(EmailSubmitButtonStyle())
@@ -151,7 +153,7 @@ struct EmailAuthView: View {
             dismiss()
         } label: {
             Image(systemName: "chevron.left")
-                .foregroundColor(Color(hex: "6B6B6B"))
+                .foregroundColor(DSColor.inkSecondary)
                 .font(.system(size: 18, weight: .medium))
                 .padding(.vertical, 6)
         }
