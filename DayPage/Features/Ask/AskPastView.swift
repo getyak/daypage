@@ -150,7 +150,7 @@ struct AskPastView: View {
                     Text(pinned ? "已存入今日" : "存入今日日记")
                         .font(DSType.labelSM)
                 }
-                .foregroundColor(pinned ? DSColor.successGreen : DSColor.amberAccent)
+                .foregroundColor(pinned ? DSColor.successGreen : DSColor.accentOnBg)
             }
             .buttonStyle(.plain)
             .disabled(pinned)
@@ -202,7 +202,7 @@ struct AskPastView: View {
                     HStack(spacing: 8) {
                         Image(systemName: "sparkle")
                             .font(.system(size: 12))
-                            .foregroundColor(DSColor.amberAccent)
+                            .foregroundColor(DSColor.accentOnBg)
                         Text(example)
                             .font(DSType.bodySM)
                             .foregroundColor(DSColor.inkPrimary)
@@ -279,7 +279,7 @@ struct AskPastView: View {
             Button(action: submit) {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 28))
-                    .foregroundColor(canSend ? DSColor.amberAccent : DSColor.inkSubtle)
+                    .foregroundColor(canSend ? DSColor.accentOnBg : DSColor.inkSubtle)
             }
             .disabled(!canSend)
             .accessibilityLabel("发送")

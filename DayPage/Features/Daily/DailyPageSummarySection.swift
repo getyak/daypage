@@ -150,7 +150,7 @@ struct DailyPageSummarySection: View {
     private func mentionCapsule(_ mention: String) -> some View {
         Text(mention)
             .font(DSFonts.inter(size: 12, weight: .medium))
-            .foregroundColor(DSColor.amberDeep)
+            .foregroundColor(DSColor.accentOnBg)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(DSColor.amberSoft)

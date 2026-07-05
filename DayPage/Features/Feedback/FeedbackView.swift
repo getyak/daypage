@@ -416,7 +416,7 @@ struct FeedbackView: View {
                     vm.reset()
                 }
                 .font(.custom("Inter-Medium", size: 13))
-                .foregroundColor(DSColor.accentAmber)
+                .foregroundColor(DSColor.accentOnBg)
             }
             .padding(.top, 4)
         }

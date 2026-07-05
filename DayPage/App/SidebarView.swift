@@ -415,7 +415,7 @@ struct SidebarView: View {
             HStack(spacing: 12) {
                 // Left amber accent strip
                 RoundedRectangle(cornerRadius: 1, style: .continuous)
-                    .fill(isActive ? DSColor.amberAccent : Color.clear)
+                    .fill(isActive ? DSColor.accentOnBg : Color.clear)
                     .frame(width: 2, height: 20)
 
                 Image(systemName: icon)
@@ -423,7 +423,7 @@ struct SidebarView: View {
                     .frame(width: 20)
                     .foregroundColor(
                         disabled ? DSColor.inkSubtle
-                        : isActive ? DSColor.amberAccent
+                        : isActive ? DSColor.accentOnBg
                         : DSColor.inkMuted
                     )
 
@@ -491,7 +491,7 @@ struct SidebarView: View {
                 Image(systemName: "circle.fill")
                     .font(.system(size: 6))
                     .frame(width: 20)
-                    .foregroundColor(DSColor.amberAccent.opacity(0.75))
+                    .foregroundColor(DSColor.accentOnBg.opacity(0.75))
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(Self.formatRowTitle(day.dateString))
@@ -594,7 +594,7 @@ struct SidebarView: View {
                         .overlay(Circle().strokeBorder(DSColor.amberRim, lineWidth: 0.5))
                     Text(initial)
                         .font(DSType.labelSM)
-                        .foregroundColor(DSColor.amberDeep)
+                        .foregroundColor(DSColor.accentOnBg)
                 }
                 .frame(width: 20)
                 Text(email)

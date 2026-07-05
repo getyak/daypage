@@ -903,6 +903,11 @@ struct TodayView: View {
             // 避免与已经推过的失败通知互相打架。#814 起前台重试补编的是
             // 昨天（今天只在结束后编译一次），文案随之调整。
             .onReceive(NotificationCenter.default.publisher(for: .compileSucceededForeground)) { _ in
+                // Signature "ink settling" haptic for the compile moment —
+                // fired here (same as the manual-compile path in
+                // TodayViewModel) so the texture leads before the banner's
+                // stock generator appears.
+                SignatureHaptics.compileSuccess()
                 bannerCenter.show(AppBannerModel(
                     kind: .success,
                     title: NSLocalizedString(
@@ -2590,9 +2595,12 @@ struct TodayView: View {
         .padding(.top, 8)
         .padding(.bottom, 16)
         // Collapse/expand between the big hero (empty day) and the compact
-        // toolbar title (memo day) with the shared panel spring so the first
-        // memo's arrival reads as one deliberate motion, not a layout pop.
-        .animation(reduceMotion ? nil : Motion.spring, value: hasMemos)
+        // toolbar title (memo day): both branches carry explicit transitions
+        // (big hero → .opacity + .move(.top), compact title → .opacity +
+        // .scale) and every memo mutation in TodayViewModel runs inside
+        // withAnimation, so the swap still reads as one deliberate motion
+        // WITHOUT a container-level `.animation(value: hasMemos)` that
+        // would re-animate this entire header subtree (Axiom perf rule).
         .onReceive(headerTimer) { date in
             currentTime = date
         }
@@ -2895,6 +2903,10 @@ struct TodayView: View {
                         }
                         .padding(.horizontal, 20)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
+                        // 美术馆入场 (iOS 17+): subtle scroll-in settle on the
+                        // row container OUTSIDE SwipeableMemoCard, so it never
+                        // fights the card's UIKit pan / offset gesture.
+                        .modifier(ScrollEntranceModifier())
                     }
                 }
 
@@ -2980,6 +2992,15 @@ struct TodayView: View {
     /// memo 且尚未编译，就直接显示编译按钮，无论几条。
     @ViewBuilder
     private var composeSection: some View {
+        let aiKeyMissing = Secrets.resolvedDeepSeekApiKey.isEmpty
+        // Axiom perf (motion overhaul): this footer used to animate on
+        // `viewModel.memos.count`, which re-sprang the whole subtree on
+        // EVERY capture. Animate on the exact Bool that actually toggles
+        // the recovery footer's visibility instead.
+        let showsRecoveryFooter = !viewModel.isDailyPageCompiled
+            && !viewModel.memos.isEmpty
+            && (viewModel.isCompiling || viewModel.submitError != nil)
+            && !aiKeyMissing
         Group {
             // Museum-aesthetic redesign (#793): the persistent "编译今日"
             // CTA used to live here on every day with memos and added a
@@ -2998,11 +3019,7 @@ struct TodayView: View {
             // recovery cases (mid-compile or a non-key error the user must
             // see). Keeps the bottom area clean so the dock keeps its
             // floating-island read against the warm canvas.
-            let aiKeyMissing = Secrets.resolvedDeepSeekApiKey.isEmpty
-            if !viewModel.isDailyPageCompiled
-                && !viewModel.memos.isEmpty
-                && (viewModel.isCompiling || viewModel.submitError != nil)
-                && !aiKeyMissing {
+            if showsRecoveryFooter {
                 HStack {
                     Spacer()
                     CompileFooterButton(
@@ -3037,11 +3054,11 @@ struct TodayView: View {
                 .padding(.bottom, 4)
             }
         }
-        .animation(Motion.spring, value: viewModel.memos.count)
+        .animation(reduceMotion ? nil : Motion.spring, value: showsRecoveryFooter)
         .onChange(of: viewModel.memos.count) { count in
             if count >= 3 && !viewModel.isDailyPageCompiled && !didCelebrateUnlock {
                 didCelebrateUnlock = true
-                Haptics.success()
+                SignatureHaptics.compileSuccess()
                 if !reduceMotion {
                     unlockGlow = true
                     Task {
@@ -3083,7 +3100,7 @@ struct TodayView: View {
         .onChange(of: viewModel.isDailyPageCompiled) { compiled in
             if compiled && !didCelebrateCompile {
                 didCelebrateCompile = true
-                Haptics.success()
+                SignatureHaptics.compileSuccess()
                 if !reduceMotion {
                     compileRevealGlow = true
                     Task {
@@ -3992,6 +4009,31 @@ private struct ScrollOffsetPreferenceKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
+    }
+}
+
+// MARK: - Scroll entrance (iOS 17+)
+
+/// 美术馆入场: timeline memo cards settle in as they scroll into the
+/// viewport — rows just outside the visible region sit at 72% opacity /
+/// 98.5% scale and ease to identity. Deliberately subtle: the timeline is
+/// a quiet gallery wall, not a showcase. iOS 16 and Reduce Motion pass
+/// the content through unmodified. Applied to the row container that
+/// wraps SwipeableMemoCard (never inside it) so the phase scale cannot
+/// fight the card's UIKit pan + offset swipe-to-reveal.
+struct ScrollEntranceModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *), !reduceMotion {
+            content.scrollTransition(.interactive(timingCurve: .easeOut), axis: .vertical) { view, phase in
+                view
+                    .opacity(phase.isIdentity ? 1 : 0.72)
+                    .scaleEffect(phase.isIdentity ? 1 : 0.985, anchor: .center)
+            }
+        } else {
+            content
+        }
     }
 }
 

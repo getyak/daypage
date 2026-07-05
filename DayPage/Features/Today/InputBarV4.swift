@@ -1222,15 +1222,16 @@ private struct SendAffordanceIcon: View {
     var body: some View {
         Group {
             switch affordance {
-            case .empty:
-                Image(systemName: "mic.fill")
+            case .empty, .textOnly, .locationOnly:
+                // Single-glyph affordances share ONE Image (conditional
+                // systemName) instead of separate view branches, so SwiftUI
+                // identity stays stable across mic ⇄ send ⇄ pin swaps and
+                // `contentTransition(.symbolEffect(.replace))` can morph the
+                // glyph in place on iOS 17+ (plain crossfade on iOS 16).
+                Image(systemName: simpleGlyphName)
                     .font(DSType.bodyMD)
-                    .foregroundStyle(DSColor.amberAccent.opacity(breathingOpacity))
-
-            case .textOnly:
-                Image(systemName: "arrow.up")
-                    .font(DSType.bodyMD)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(simpleGlyphColor)
+                    .modifier(SymbolReplaceTransition())
 
             case .textAndPhoto:
                 // Composite: camera behind, small arrow.up overlaid top-right
@@ -1243,11 +1244,6 @@ private struct SendAffordanceIcon: View {
                         .foregroundStyle(.white)
                         .offset(x: 5, y: -5)
                 }
-
-            case .locationOnly:
-                Image(systemName: "mappin.and.ellipse")
-                    .font(DSType.bodyMD)
-                    .foregroundStyle(.white)
 
             case .multimodal:
                 // Amber ring with a small arrow.up in center
@@ -1266,6 +1262,24 @@ private struct SendAffordanceIcon: View {
         // `.animation(Motion.spring, value: affordance)` (which wraps this icon),
         // so an inner copy only made SwiftUI interpolate the same change twice.
         // Removed for a single, crisp morph. (P2 #7)
+    }
+
+    /// Glyph for the single-Image affordances (`.empty` / `.textOnly` /
+    /// `.locationOnly`). Composite affordances render their own branches;
+    /// their fallthrough here is unreachable.
+    private var simpleGlyphName: String {
+        switch affordance {
+        case .empty:        return "mic.fill"
+        case .locationOnly: return "mappin.and.ellipse"
+        default:            return "arrow.up"
+        }
+    }
+
+    private var simpleGlyphColor: Color {
+        switch affordance {
+        case .empty: return DSColor.amberAccent.opacity(breathingOpacity)
+        default:     return .white
+        }
     }
 }
 
@@ -1289,6 +1303,24 @@ private struct SendAffordanceBG: View {
             case .multimodal:
                 Circle().fill(DSColor.amberAccent)
             }
+        }
+    }
+}
+
+// MARK: - SymbolReplaceTransition
+
+/// Morphs an SF Symbol glyph swap in place (mic.fill ⇄ arrow.up ⇄ mappin)
+/// instead of crossfading. iOS 17+ only (`ContentTransition.symbolEffect`);
+/// inert on iOS 16 and under Reduce Motion — same pattern as
+/// `CommitArmBounce` in SwipeableMemoCard.swift.
+private struct SymbolReplaceTransition: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *), !reduceMotion {
+            content.contentTransition(.symbolEffect(.replace))
+        } else {
+            content
         }
     }
 }

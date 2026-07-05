@@ -604,7 +604,7 @@ struct ArchiveView: View {
                                     Spacer()
                                     VStack(spacing: 8) {
                                         ProgressView()
-                                            .tint(DSColor.amberAccent)
+                                            .tint(DSColor.accentOnBg)
                                         Text(NSLocalizedString("archive.loading_month", comment: ""))
                                             .font(DSType.mono9)
                                             .foregroundColor(DSColor.inkSubtle)
@@ -1103,7 +1103,7 @@ struct ArchiveView: View {
 
             // Today dot sits on the amber today-cell fill — onAmber instead
             // of pure white so dark mode keeps the warm-cream language.
-            let dotColor: Color = isToday ? DSColor.onAmber : DSColor.amberAccent
+            let dotColor: Color = isToday ? DSColor.onAmber : DSColor.accentOnBg
 
             Button(action: {
                 Haptics.tapConfirm()
@@ -1372,7 +1372,7 @@ struct ArchiveView: View {
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text(value)
                     .font(DSType.serifDisplay32)
-                    .foregroundColor(accentPrimary ? DSColor.amberDeep : DSColor.inkPrimary)
+                    .foregroundColor(accentPrimary ? DSColor.accentOnBg : DSColor.inkPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.5)
                 if let unit {
@@ -1574,7 +1574,7 @@ struct ArchiveView: View {
         VStack(alignment: .center, spacing: 4) {
             Text(value)
                 .font(DSType.serifDisplay28)
-                .foregroundColor(accent ? DSColor.amberDeep : DSColor.inkPrimary)
+                .foregroundColor(accent ? DSColor.accentOnBg : DSColor.inkPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
             Text(label)
@@ -1620,8 +1620,9 @@ struct ArchiveView: View {
         let title = NSLocalizedString("weekly.recap.entrycard.title", comment: "")
 
         return HStack(alignment: .center, spacing: 14) {
-            Text("📅")
-                .font(.system(size: 28))
+            Image(systemName: "calendar")
+                .font(.system(size: 20, weight: .medium))
+                .foregroundColor(DSColor.accentOnBg)
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(DSType.titleSM)

@@ -32,11 +32,11 @@ enum DSBannerKind {
 
     fileprivate var tint: Color {
         switch self {
-        case .info:    return DSColor.amberAccent
+        case .info:    return DSColor.accentOnBg
         case .success: return DSColor.successGreen
         case .warning: return DSColor.warningAmber
         case .error:   return DSColor.errorRed
-        case .loading: return DSColor.amberAccent
+        case .loading: return DSColor.accentOnBg
         }
     }
 
@@ -115,6 +115,7 @@ struct DSBanner: View {
             if let sym = kind.systemImage {
                 Image(systemName: sym)
                     .font(.system(size: 16))
+                    .symbolRenderingMode(.hierarchical)
                     .foregroundColor(kind.tint)
                     .frame(width: 18, height: 18)
             }

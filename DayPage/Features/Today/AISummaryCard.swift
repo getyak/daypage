@@ -33,7 +33,7 @@ struct AISummaryCard: View {
         ZStack(alignment: .leading) {
             // Slim accent rail (left edge).
             RoundedRectangle(cornerRadius: 999, style: .continuous)
-                .fill(DSColor.accentAmber)
+                .fill(DSColor.accentOnBg)
                 .opacity(0.85)
                 .frame(width: 2)
                 .padding(.vertical, 14)
@@ -93,12 +93,12 @@ struct AISummaryCard: View {
         HStack(spacing: 8) {
             Image(systemName: "sparkles")
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(DSColor.accentAmber)
+                .foregroundColor(DSColor.accentOnBg)
             Text("AI · 今日一句")
                 .font(DSType.mono9)
                 .textCase(.uppercase)
                 .tracking(1.6)
-                .foregroundColor(DSColor.accentAmber)
+                .foregroundColor(DSColor.accentOnBg)
             Spacer(minLength: 8)
             Text("TODAY")
                 .font(DSType.mono9)
@@ -164,7 +164,7 @@ struct TypewriterText: View {
             Text(shown)
             if isTyping {
                 Rectangle()
-                    .fill(DSColor.accentAmber)
+                    .fill(DSColor.accentOnBg)
                     .frame(width: 2, height: 16)
                     .opacity(caretVisible ? 1 : 0)
             }

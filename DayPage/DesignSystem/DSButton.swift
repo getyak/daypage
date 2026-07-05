@@ -99,7 +99,7 @@ struct DSGhostButtonStyle: ButtonStyle {
         configuration.label
             .font(size.font)
             .foregroundColor(isEnabled
-                ? (configuration.isPressed ? DSColor.amberAccent : DSColor.inkMuted)
+                ? (configuration.isPressed ? DSColor.accentOnBg : DSColor.inkMuted)
                 : DSColor.inkSubtle)
             .frame(minHeight: 44)
             .padding(.horizontal, size.horizontalPadding)

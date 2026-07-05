@@ -176,7 +176,7 @@ struct YearMonthPicker: View {
 
                 // Activity dot — present only when the month holds entries.
                 Circle()
-                    .fill(isSelected ? Color.white : DSColor.amberAccent)
+                    .fill(isSelected ? Color.white : DSColor.accentOnBg)
                     .frame(width: 4, height: 4)
                     .opacity(hasEntries ? 1 : 0)
             }

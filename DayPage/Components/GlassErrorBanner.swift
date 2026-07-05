@@ -110,6 +110,7 @@ struct GlassErrorBanner: View {
         HStack(alignment: .top, spacing: 12) {
             icon
                 .font(.system(size: 18, weight: .semibold))
+                .symbolRenderingMode(.hierarchical)
                 .foregroundColor(DSColor.errorRed)
                 .frame(width: 24, height: 24)
 

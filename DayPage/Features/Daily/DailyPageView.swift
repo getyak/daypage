@@ -451,7 +451,7 @@ struct DailyPageView: View {
                         .frame(width: 28, height: 28)
                     Text(kindIcon)
                         .font(DSFonts.jetBrainsMono(size: 11, weight: .medium))
-                        .foregroundColor(DSColor.amberDeep)
+                        .foregroundColor(DSColor.accentOnBg)
                 }
 
                 // Truncated body
@@ -478,7 +478,7 @@ struct DailyPageView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
                 Circle()
-                    .fill(DSColor.amberAccent)
+                    .fill(DSColor.accentOnBg)
                     .frame(width: 8, height: 8)
                     .shadow(color: DSColor.amberGlow, radius: 6, x: 0, y: 0)
                 Text("COMPILED \(model.entriesCount) SIGNALS")
@@ -612,7 +612,7 @@ struct DailyPageView: View {
                 Button(action: { sendFreeform(compiledText: compiledText) }) {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.system(size: 24))
-                        .foregroundColor(canSendFreeform ? DSColor.amberAccent : DSColor.inkSubtle)
+                        .foregroundColor(canSendFreeform ? DSColor.accentOnBg : DSColor.inkSubtle)
                 }
                 .buttonStyle(.plain)
                 .disabled(!canSendFreeform)

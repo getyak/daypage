@@ -728,8 +728,9 @@ struct SettingsView: View {
     private var iCloudNotConfiguredCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                Text("☁️")
-                    .font(.title2)
+                Image(systemName: "icloud")
+                    .font(.system(size: 20, weight: .medium))
+                    .foregroundColor(DSColor.accentOnBg)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(NSLocalizedString("settings.icloud.enable.title", comment: ""))
                         .font(.body)
@@ -1099,7 +1100,7 @@ struct SettingsView: View {
                     if didCopyVersion {
                         Label(NSLocalizedString("settings.about.copied", comment: ""), systemImage: "checkmark")
                             .labelStyle(.titleAndIcon)
-                            .foregroundColor(DSColor.accentAmber)
+                            .foregroundColor(DSColor.accentOnBg)
                             .font(.caption)
                             .transition(.opacity)
                     } else {
@@ -1266,7 +1267,7 @@ struct SettingsView: View {
             if usageTracker.hasCrossedBudgetWarning {
                 HStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(DSColor.amberDeep)
+                        .foregroundColor(DSColor.accentOnBg)
                     Text("已经用掉本月预算的 80% —— 可以考虑调低编译频率或提高上限。")
                         .font(DSType.labelSM)
                         .foregroundColor(DSColor.inkPrimary)

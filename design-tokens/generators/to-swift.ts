@@ -17,10 +17,14 @@ type Tokens = {
   spacing: Record<string, number>;
   motion: Record<string, string | number>;
   gestures: Record<string, number>;
-  // `dark` intentionally not consumed on iOS — SwiftUI adapts via Color
-  // literals against the environment's colorScheme rather than swapping
-  // CSS variables. If iOS ever needs an explicit dark-token entry, add
-  // a `DarkColors` enum here.
+  // Dark-mode variants. Colors with a `dark.colors` counterpart are emitted
+  // as adaptive UIColor dynamic providers so DSTokens.Colors no longer sinks
+  // in dark mode; colors without one stay static. `dark.elevation` is
+  // emitted alongside the light references for use-site mapping.
+  dark?: {
+    colors?: Record<string, string>;
+    elevation?: Record<string, string>;
+  };
 };
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -54,17 +58,31 @@ function buildSwift(t: Tokens): string {
   out.push(`// Source of truth: design-tokens/tokens.json`);
   out.push(``);
   out.push(`import SwiftUI`);
+  out.push(`import UIKit`);
   out.push(``);
   out.push(`enum DSTokens {`);
   out.push(`    static let version = "${t.version}"`);
   out.push(``);
 
-  // Colors
+  // Colors — tokens with a dark.colors counterpart become adaptive dynamic
+  // providers; the rest stay static (single value valid in both schemes).
+  const darkColors = t.dark?.colors ?? {};
   out.push(`    enum Colors {`);
   for (const [k, v] of Object.entries(t.colors)) {
     const [r, g, b] = hexToRGB(v);
-    out.push(`        /// ${v}`);
-    out.push(`        static let ${camel(k)} = Color(red: ${fmt(r)}, green: ${fmt(g)}, blue: ${fmt(b)})`);
+    const dark = darkColors[k];
+    if (dark) {
+      const [dr, dg, db] = hexToRGB(dark);
+      out.push(`        /// light ${v} / dark ${dark}`);
+      out.push(`        static let ${camel(k)} = Color(UIColor { traits in`);
+      out.push(`            traits.userInterfaceStyle == .dark`);
+      out.push(`                ? UIColor(red: ${fmt(dr)}, green: ${fmt(dg)}, blue: ${fmt(db)}, alpha: 1.0)`);
+      out.push(`                : UIColor(red: ${fmt(r)}, green: ${fmt(g)}, blue: ${fmt(b)}, alpha: 1.0)`);
+      out.push(`        })`);
+    } else {
+      out.push(`        /// ${v}`);
+      out.push(`        static let ${camel(k)} = Color(red: ${fmt(r)}, green: ${fmt(g)}, blue: ${fmt(b)})`);
+    }
   }
   out.push(`    }`);
   out.push(``);
@@ -110,6 +128,16 @@ function buildSwift(t: Tokens): string {
   for (const [k, v] of Object.entries(t.elevation)) {
     out.push(`        /// CSS reference: ${v}`);
     out.push(`        static let ${camel(k)} = ${JSON.stringify(v)}`);
+  }
+  const darkElevation = t.dark?.elevation ?? {};
+  if (Object.keys(darkElevation).length > 0) {
+    out.push(``);
+    out.push(`        // Dark-scheme shadow references — black-based, higher opacity`);
+    out.push(`        // (warm-ink shadows disappear on dark canvases).`);
+    for (const [k, v] of Object.entries(darkElevation)) {
+      out.push(`        /// CSS reference (dark): ${v}`);
+      out.push(`        static let ${camel(k)}Dark = ${JSON.stringify(v)}`);
+    }
   }
   out.push(`    }`);
   out.push(``);
