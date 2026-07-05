@@ -2490,7 +2490,7 @@ struct TodayView: View {
                         .glassSurface(in: Circle())
                         .clipShape(Circle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.dsIconChip)
                 .accessibilityLabel(NSLocalizedString("a11y.nav.open", comment: "Sidebar open button"))
                 .accessibilityHint(NSLocalizedString("a11y.nav.open.hint", comment: "Opens the sidebar navigation drawer"))
                 .accessibilityIdentifier("sidebar-menu-button")
@@ -2589,7 +2589,7 @@ struct TodayView: View {
                         .glassSurface(in: Circle())
                         .clipShape(Circle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.dsIconChip)
                 .accessibilityLabel(NSLocalizedString("today.toolbar.search", comment: "Global search button"))
                 .accessibilityHint(NSLocalizedString("today.toolbar.search.hint", comment: "Opens global search"))
                 .accessibilityIdentifier("today-search-button")
