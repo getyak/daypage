@@ -160,11 +160,14 @@ private struct NativeGlassModifier<S: Shape & InsettableShape>: ViewModifier {
 
 | 交互 | 实现 | 降级 |
 |---|---|---|
-| 左右滑动作抽屉 | `SwipeActionButton` 底面切原生 `.glassEffect(.regular.tint(语义色).interactive())`,语义色(琥珀/红/中性)随 reveal 进度加深,暖色氛围层透过玻璃折射 | iOS 16–25:原 ultraThinMaterial + tone tint;Reduce Transparency:不透明语义色 |
-| 全滑提交 | 越过 commit 线时最外侧按钮扩展填满抽屉 + SF Symbol `.bounce`(iOS 17+)+ rigid 触觉 | iOS 16 / Reduce Motion:仅布局扩展,无 bounce |
+| 左右滑动作抽屉 | `SwipeActionButton` 底面切原生 `.glassEffect(.regular.tint(语义色).interactive())`,语义色(琥珀/红/中性)随 reveal 进度加深,暖色氛围层透过玻璃折射;**R2(#812)**:两列按钮包进 `GlassEffectContainer` + `glassEffectID` 组成 morph 组,相邻玻璃液态融合 | iOS 16–25:原 ultraThinMaterial + tone tint;Reduce Transparency:不透明语义色 |
+| 全滑提交 | 越过 commit 线时最外侧按钮扩展填满抽屉 + SF Symbol `.bounce`(iOS 17+)+ rigid 触觉;**R2(#812)**:morph 组让次按钮玻璃被主按钮**液态吸收**而非布局跳变 | iOS 16 / Reduce Motion:仅布局扩展,无 bounce |
+| 拖拽景深 | **R2(#812)**:卡片滑开时随 `revealProgress` 渐入 contact shadow(≤0.16 · r12 · y3),卡片浮于玻璃抽屉之上,静止时零开销 | 各版本一致(纯 shadow) |
 | 点击进详情 | iOS 18+ `matchedTransitionSource` + `navigationTransition(.zoom)` —— 卡片放大成详情页(App Store 式 hero) | iOS 16–17:标准 push |
 | 按压反馈 | UIKit 触摸按压(0.06s)→ 卡片 0.985× 微缩(`Motion.spring`),滚动/滑动/长按夺走触摸的瞬间回弹 | Reduce Motion:无缩放 |
-| 长按菜单 | TimelineRow 单一合并菜单(置顶/双分享/复制文本/多选/删除)+ 卡片实景 preview | 系统行为 |
+| 长按菜单 | TimelineRow 单一合并菜单(置顶/双分享/复制文本/多选/删除)+ 卡片实景 preview;**R2(#812)**:`.contentShape(.contextMenuPreview, 14pt continuous)` 让 lift 高亮与卡片剪影一致,消除抬起帧的直角闪烁 | 系统行为 |
+
+**Liquid Glass 范式勘误(R2 实测,防回归)**:`glassEffect` 必须应用在**带内容的外层视图**上(frame 之后),不能作为 ZStack 里的 `Color.clear` 背景成员——一旦包进 `GlassEffectContainer`,背景成员的玻璃会被提取到容器共享层并压住 ZStack 兄弟内容(图标/文字整体消失,2026-07-05 模拟器实测)。正确写法见 `SwipeActionButton` 的 `GlassTone26` modifier。
 
 **手势仲裁勘误(重要,防回归)**:iOS 26 上 SwiftUI ScrollView 的滚动 pan 在**任意方向**都会 begin 并取消内容子树触摸;且 UIKit 对每次触摸只查询一次 `gestureRecognizerShouldBegin`(此时累计位移仅 ~1pt)。因此:
 1. 方向锁必须判 **velocity**(首查询即有效),不能判累计位移;

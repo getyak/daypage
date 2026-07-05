@@ -4034,6 +4034,17 @@ struct TimelineRow: View {
             cardStack
         } else {
             cardStack
+                // Long-press lift snapshot must share the card's 14pt
+                // continuous silhouette — without this the system clips the
+                // lift highlight to a square rect, flashing hard corners
+                // around a rounded card for the first frames of the pick-up.
+                .contentShape(
+                    .contextMenuPreview,
+                    RoundedRectangle(
+                        cornerRadius: SwipePhysics.cardCornerRadius,
+                        style: .continuous
+                    )
+                )
                 .contextMenu {
                     mergedMenuItems
                 } preview: {
