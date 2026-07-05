@@ -277,6 +277,13 @@ struct SwipeableMemoCard: View {
         reduceMotion ? SwipePhysics.reducedSnap : SwipePhysics.snapSpring
     }
 
+    /// Contact-shadow opacity for the sliding card, 0 at rest → 0.16 at a
+    /// full reveal. Derived from |revealProgress| so it tracks the finger
+    /// frame-by-frame and both directions shade identically.
+    private var dragElevation: Double {
+        Double(min(0.16, abs(revealProgress) * 0.16))
+    }
+
     var body: some View {
         ZStack(alignment: .center) {
             // LAYER 1 (bottom): the card body — pure presentation. Navigation
@@ -287,6 +294,17 @@ struct SwipeableMemoCard: View {
                 .contentShape(Rectangle())
                 .scaleEffect(isPressed && !reduceMotion ? 0.985 : 1.0)
                 .animation(reduceMotion ? nil : Motion.spring, value: isPressed)
+                // Elevation while the drawer is exposed: a soft contact
+                // shadow fades in with revealProgress so the card reads as
+                // a sheet floating ABOVE the glass drawer (Liquid Glass
+                // layering physics), instead of two flat surfaces abutting.
+                // The trailing edge's shadow bleeds through the translucent
+                // glass, grounding the depth. Zeroed at rest — no cost to
+                // the settled timeline.
+                .shadow(
+                    color: Color.black.opacity(dragElevation),
+                    radius: 12, x: 0, y: 3
+                )
                 .offset(x: isSelectionMode ? 0 : currentOffset)
                 // UIKit pan + tap as an OVERLAY (not background): the
                 // recognizers' host must sit in the hit-test walk for touches
@@ -661,7 +679,39 @@ private struct SwipeActionPanel: View {
     /// "release to execute", mirroring Mail's full-swipe choreography.
     var commitArmed: Bool = false
 
+    /// Namespace for `glassEffectID` so the two action buttons' Liquid
+    /// Glass surfaces live in one morph group: when the commit layout
+    /// removes the secondary column, its glass is absorbed into the
+    /// expanding primary instead of vanishing in a layout jump.
+    @Namespace private var glassNamespace
+
     var body: some View {
+        glassGrouped {
+            panelColumns
+        }
+        .frame(width: max(SwipePhysics.panelWidth, revealWidth))
+        .frame(maxHeight: .infinity)
+        // Hide entirely when closed so VoiceOver doesn't announce hidden
+        // targets and a stray tap on the laid-out panel can't fire.
+        .opacity(progress > 0.02 ? 1 : 0)
+        .allowsHitTesting(progress > 0.02)
+        .accessibilityHidden(progress <= 0.02)
+    }
+
+    /// Apple's stated anti-pattern is sibling `glassEffect` views WITHOUT a
+    /// shared container — the container both batches the render pass and
+    /// enables morphing between the members. iOS 16–25 falls through to the
+    /// plain column stack (the material recipe there has nothing to morph).
+    @ViewBuilder
+    private func glassGrouped<C: View>(@ViewBuilder content: () -> C) -> some View {
+        if #available(iOS 26.0, *) {
+            GlassEffectContainer(spacing: 12.0, content: content)
+        } else {
+            content()
+        }
+    }
+
+    private var panelColumns: some View {
         HStack(spacing: 0) {
             // R3 — interleave a 1pt hairline between adjacent action columns
             // so the share/delete (or pin/more) boundary reads as two distinct
@@ -682,18 +732,12 @@ private struct SwipeActionPanel: View {
                     SwipeActionButton(
                         action: action,
                         progress: progress,
-                        fillsWidth: commitArmed && action.id == outerActionID
+                        fillsWidth: commitArmed && action.id == outerActionID,
+                        glassNamespace: glassNamespace
                     )
                 }
             }
         }
-        .frame(width: max(SwipePhysics.panelWidth, revealWidth))
-        .frame(maxHeight: .infinity)
-        // Hide entirely when closed so VoiceOver doesn't announce hidden
-        // targets and a stray tap on the laid-out panel can't fire.
-        .opacity(progress > 0.02 ? 1 : 0)
-        .allowsHitTesting(progress > 0.02)
-        .accessibilityHidden(progress <= 0.02)
     }
 
     /// The primary action — callers pass their arrays primary-first, and the
@@ -724,6 +768,11 @@ private struct SwipeActionButton: View {
     /// fill the whole drawer instead of its fixed 76pt column.
     var fillsWidth: Bool = false
 
+    /// Morph-group namespace owned by the enclosing SwipeActionPanel's
+    /// GlassEffectContainer. nil (or pre-iOS 26) renders plain glass with
+    /// no morph identity.
+    var glassNamespace: Namespace.ID? = nil
+
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     private let labelFadeStart: CGFloat = 0.30
@@ -739,6 +788,19 @@ private struct SwipeActionButton: View {
             .frame(width: fillsWidth ? nil : SwipePhysics.actionWidth)
             .frame(maxWidth: fillsWidth ? .infinity : nil)
             .frame(maxHeight: .infinity)
+            // iOS 26 glass goes HERE — on the sized content view, after the
+            // frame modifiers, per the canonical Liquid Glass pattern. The
+            // first cut applied it to a Color.clear member INSIDE the ZStack;
+            // once a GlassEffectContainer extracted that surface into the
+            // shared glass layer it composited OVER its ZStack siblings and
+            // the icon + label vanished. On the outer view the glass is the
+            // background and the labeled content is guaranteed above it.
+            .modifier(GlassTone26(
+                tint: baseColor.opacity(tintDepth),
+                id: action.id,
+                namespace: glassNamespace,
+                enabled: !reduceTransparency
+            ))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -746,26 +808,27 @@ private struct SwipeActionButton: View {
         .accessibilityHint(action.a11yHint ?? "")
     }
 
+    /// Tone depth for the current reveal. Neutral tones keep a higher floor
+    /// so their pale surface stays legible; accent / destructive start lower
+    /// and deepen as the reveal progresses.
+    private var tintDepth: Double {
+        let floor: CGFloat = (action.tone == .neutral ? 0.78 : 0.42)
+        return Double(floor + (1 - floor) * min(1, progress))
+    }
+
     @ViewBuilder
     private var background: some View {
-        // Neutral tones keep a higher tint floor so their pale surface stays
-        // legible; accent / destructive start lower and deepen as revealed.
-        let floor: CGFloat = (action.tone == .neutral ? 0.78 : 0.42)
-        let tint = Double(floor + (1 - floor) * min(1, progress))
         if reduceTransparency {
             // Accessibility: opaque tone surface, no blur or refraction.
-            baseColor.opacity(max(tint, 0.96))
+            baseColor.opacity(max(tintDepth, 0.96))
         } else if #available(iOS 26.0, *) {
-            // Native Liquid Glass tinted with the deepening semantic tone.
-            // `.interactive()` adds the press-softening squish on touch.
-            Color.clear.glassEffect(
-                .regular.tint(baseColor.opacity(tint)).interactive(),
-                in: .rect
-            )
+            // Native Liquid Glass is applied by GlassTone26 on the outer
+            // view (see body) — no background member needed here.
+            Color.clear
         } else {
             ZStack {
                 Rectangle().fill(.ultraThinMaterial)
-                baseColor.opacity(tint)
+                baseColor.opacity(tintDepth)
             }
         }
     }
@@ -825,6 +888,35 @@ private struct SwipeActionButton: View {
     private var labelOpacity: Double {
         let clamped = max(0, min(1, (progress - labelFadeStart) / (1 - labelFadeStart)))
         return Double(clamped)
+    }
+}
+
+// MARK: - GlassTone26
+
+/// iOS 26 Liquid Glass base for a swipe action column: semantic-tone tinted,
+/// `.interactive()` for the press squish, enrolled in the enclosing
+/// GlassEffectContainer's morph group via `glassEffectID` so commit-arm
+/// absorbs the folding secondary column into the expanding primary.
+/// Inert pre-iOS 26 or when Reduce Transparency asks for the opaque path.
+private struct GlassTone26: ViewModifier {
+    let tint: Color
+    let id: SwipeAction.Kind
+    let namespace: Namespace.ID?
+    let enabled: Bool
+
+    func body(content: Content) -> some View {
+        if enabled, #available(iOS 26.0, *) {
+            if let ns = namespace {
+                content
+                    .glassEffect(.regular.tint(tint).interactive(), in: .rect)
+                    .glassEffectID(id, in: ns)
+            } else {
+                content
+                    .glassEffect(.regular.tint(tint).interactive(), in: .rect)
+            }
+        } else {
+            content
+        }
     }
 }
 
