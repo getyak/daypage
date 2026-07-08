@@ -65,7 +65,7 @@ struct DayDetailView: View {
     }
 
     // 严格匹配 YYYY-MM-DD，零填充。
-    private static let dateRegex = try! NSRegularExpression(pattern: #"^\d{4}-\d{2}-\d{2}$"#)
+    private static let dateRegex = try? NSRegularExpression(pattern: #"^\d{4}-\d{2}-\d{2}$"#)
 
     var body: some View {
         NavigationStack {
@@ -135,11 +135,7 @@ struct DayDetailView: View {
     /// Local "today" as a `yyyy-MM-dd` string — the forward cap. Future days
     /// can hold no content, so the `›` affordance stops here.
     private var todayString: String {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM-dd"
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        fmt.timeZone = TimeZone.current
-        return fmt.string(from: Date())
+        DateFormatters.isoDate.string(from: Date())
     }
 
     /// Forward paging is allowed only while we're strictly before today.
@@ -233,16 +229,11 @@ struct DayDetailView: View {
     static func steppedDate(from dateString: String,
                             forward: Bool,
                             notAfter: String? = nil) -> String? {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM-dd"
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        fmt.timeZone = TimeZone.current
-
-        guard let base = fmt.date(from: dateString) else { return nil }
+        guard let base = DateFormatters.isoDate.date(from: dateString) else { return nil }
         let delta = forward ? 1 : -1
         guard let next = Calendar.current.date(byAdding: .day, value: delta, to: base) else { return nil }
 
-        let nextString = fmt.string(from: next)
+        let nextString = DateFormatters.isoDate.string(from: next)
         guard nextString != dateString else { return nil }
         if let cap = notAfter, nextString > cap { return nil }
         return nextString
@@ -437,7 +428,8 @@ struct DayDetailView: View {
                                  fileManager: FileManager) -> (LoadState, Bool) {
         // 1. 严格校验 dateString 格式。
         let range = NSRange(dateString.startIndex..., in: dateString)
-        guard dateRegex.firstMatch(in: dateString, options: [], range: range) != nil else {
+        guard let dateRegex,
+              dateRegex.firstMatch(in: dateString, options: [], range: range) != nil else {
             return (.error("日期格式无效：\(dateString)"), false)
         }
 
@@ -483,10 +475,7 @@ struct DayDetailView: View {
     // MARK: - Helpers
 
     private var formattedTitle: String {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM-dd"
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        guard let date = fmt.date(from: currentDate) else { return currentDate }
+        guard let date = DateFormatters.isoDate.date(from: currentDate) else { return currentDate }
         let out = DateFormatter()
         out.dateFormat = "MM.dd"
         out.locale = Locale(identifier: "zh_CN")

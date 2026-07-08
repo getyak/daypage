@@ -236,30 +236,9 @@ struct RecordingOverlayView: View {
         }
     }
 
-    // MARK: - Helpers (kept for compatibility — waveform param still accepted)
-
-    // Legacy gesture hint pill — unused by v4 overlay but kept to avoid breaking callers
-    @ViewBuilder
-    private func gestureHintPill(icon: String, label: String, color: Color) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundColor(color)
-            Text(label)
-                .font(.custom("Inter-Regular", size: 11))
-                .foregroundColor(color)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 5)
-        .background(color.opacity(0.10))
-        .clipShape(Capsule())
-    }
-
     // MARK: - Helpers
 
     private func formattedTime(_ seconds: Int) -> String {
-        let m = seconds / 60
-        let s = seconds % 60
-        return String(format: "%02d:%02d", m, s)
+        seconds.mmss
     }
 }

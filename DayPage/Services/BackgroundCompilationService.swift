@@ -87,8 +87,6 @@ final class BackgroundCompilationService: ObservableObject {
     // MARK: - Constants
 
     nonisolated static let taskIdentifier = "com.daypage.daily-compilation"
-    nonisolated static let failureNotificationCategory = "com.daypage.compilation-failed"
-    nonisolated static let failureNotificationAction = "com.daypage.retry-compilation"
 
     /// Maximum number of missed days to compile per backfill session.
     /// Prevents API flooding when the app hasn't been opened in a long time.

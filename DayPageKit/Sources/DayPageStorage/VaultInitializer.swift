@@ -69,6 +69,30 @@ public enum VaultInitializer {
         }
     }
 
+    // MARK: - Asset directory
+
+    /// URL of the `vault/raw/assets/` directory where all binary attachments
+    /// (photos, voice recordings, watch audio) live. Pure path derivation — does
+    /// not touch the filesystem. Use `assetsDirectory()` when you also need the
+    /// directory to exist.
+    public static var assetsDirectoryURL: URL {
+        vaultURL
+            .appendingPathComponent("raw")
+            .appendingPathComponent("assets")
+    }
+
+    /// Ensures `vault/raw/assets/` exists and returns its URL so callers can
+    /// write into it immediately. Throws if directory creation fails.
+    ///
+    /// Callers that need a vault-relative path for frontmatter should use
+    /// `"raw/assets/\(filename)"`.
+    @discardableResult
+    public static func assetsDirectory() throws -> URL {
+        let url = assetsDirectoryURL
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
     // MARK: - Directories
 
     private static let requiredDirectories: [String] = [

@@ -108,18 +108,9 @@ struct AttachmentMenuPopover: View {
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
         }
-        .buttonStyle(AttachmentRowButtonStyle())
-    }
-}
-
-// MARK: - AttachmentRowButtonStyle
-
-private struct AttachmentRowButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .offset(y: configuration.isPressed ? 0.5 : 0)
-            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: configuration.isPressed)
+        .pressScale(scale: 0.97, offsetY: 0.5,
+                    animation: .spring(response: 0.2, dampingFraction: 0.7),
+                    respectsReduceMotion: false)
     }
 }
 

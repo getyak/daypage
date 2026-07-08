@@ -2,8 +2,8 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/session";
 import { db } from "@/lib/db/client";
-import { users, task_suggestions } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { users } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import { selectSuggestion } from "@/lib/gateway/select-suggestion";
 
 export const dynamic = "force-dynamic";
@@ -41,16 +41,10 @@ export async function POST(_req: Request, ctx: RouteContext) {
 
   const { id } = await ctx.params;
 
-  // Ownership guard: selectSuggestion does not scope by user (it serves the
-  // Telegram webhook), so confirm the row belongs to this user before acting.
-  const owned = await db
-    .select({ id: task_suggestions.id })
-    .from(task_suggestions)
-    .where(and(eq(task_suggestions.id, id), eq(task_suggestions.user_id, userId)))
-    .limit(1);
-  if (!owned[0]) return notFound();
-
-  const result = await selectSuggestion(id);
+  // selectSuggestion scopes to userId, so a suggestion owned by someone else
+  // (or a nonexistent id) comes back as not_found — no separate ownership
+  // pre-check needed.
+  const result = await selectSuggestion(id, userId);
   if (result.status === "not_found") return notFound();
 
   return NextResponse.json({ status: result.status, suggestion: result.suggestion });

@@ -79,7 +79,6 @@ struct GraphView: View {
     // breaks the build — see incident around PR #466).
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
-    private let nodeRadius: CGFloat = 16
     private let maxSimSteps = 200
 
     @State private var currentTime: Date = Date()
@@ -1273,12 +1272,6 @@ struct GraphView: View {
             offset = newOffset
             lastOffset = newOffset
         }
-    }
-
-    // MARK: - Helpers
-
-    private func typeLabel(_ entityType: String) -> String {
-        localizedEntityTypeName(entityType)
     }
 
     // MARK: - Simulation

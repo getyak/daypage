@@ -15,10 +15,6 @@
 "empty.today.subtitle.evening" = "今天有什么值得记住的瞬间？";
 "empty.today.subtitle.night" = "睡前，有什么想落下来的？";
 
-/* Compile Locked */
-"empty.compile_locked.title" = "备忘不够，还无法编译。";
-"empty.compile_locked.subtitle" = "当前 %d 条备忘，累计 3 条后可解锁每日编译。";
-
 /* Compile-locked dock hint (shown above the input bar) */
 "compile.dock.locked" = "%1$d / 3 条备忘 · 再写 %2$d 条解锁每日编译";
 
@@ -284,10 +280,6 @@
 "error.compile.title" = "编译失败。";
 "error.compile.subtitle" = "请检查网络连接后重试。";
 "error.compile.retry" = "重试";
-
-/* Whisper transcription failure */
-"error.whisper.title" = "转写暂时不可用。";
-"error.whisper.subtitle" = "音频已保存，网络恢复后将自动转写。";
 
 /* Mic permission denied */
 "error.mic_denied.title" = "麦克风权限被拒绝。";

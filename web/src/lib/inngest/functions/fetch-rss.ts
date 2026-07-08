@@ -4,6 +4,7 @@ import { ingest_sources, memos } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { sendEvent } from "@/lib/inngest/client";
 import { decryptConfig } from "@/lib/secret-crypto";
+import { assertUrlAllowed, UrlNotAllowedError } from "@/lib/sandbox/browser";
 
 // Lightweight RSS/Atom item parser — no external XML library required.
 // Extracts <item> or <entry> blocks, then pulls title, link, and description.
@@ -102,6 +103,19 @@ export const fetchRss = inngest.createFunction(
       const config = decryptConfig(source.config);
       const feedUrl = typeof config.url === "string" ? config.url : null;
       if (!feedUrl) continue;
+
+      // SSRF guard: feedUrl is user-supplied. Reject non-http(s) schemes and
+      // private / loopback / link-local hosts so a crafted feed URL cannot probe
+      // internal services (169.254.169.254 metadata, 10.x, localhost, …).
+      try {
+        assertUrlAllowed(feedUrl);
+      } catch (err) {
+        if (err instanceof UrlNotAllowedError) {
+          console.warn(`[fetch-rss] source ${source.id} URL rejected by SSRF policy: ${err.message}`);
+          continue;
+        }
+        throw err;
+      }
 
       const result = await step.run(`fetch-feed-${source.id}`, async () => {
         let xml: string;

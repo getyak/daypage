@@ -314,10 +314,7 @@ private func headerDate(from date: Date) -> String {
 }
 
 private func headerTime(from date: Date) -> String {
-    let f = DateFormatter()
-    f.locale = posixLocale
-    f.dateFormat = "HH:mm"
-    return f.string(from: date)
+    DateFormatters.timeHHmm.string(from: date)
 }
 
 private func handwrittenDate(from date: Date) -> String {
@@ -328,10 +325,7 @@ private func handwrittenDate(from date: Date) -> String {
 }
 
 private func parseDailyDate(_ s: String) -> Date {
-    let f = DateFormatter()
-    f.locale = posixLocale
-    f.dateFormat = "yyyy-MM-dd"
-    return f.date(from: s) ?? Date()
+    DateFormatters.isoDate.date(from: s) ?? Date()
 }
 
 // Film header date — "28 / MAY / 2026" (FilmTemplate.tsx:4-9).
@@ -2191,11 +2185,6 @@ enum FilmDailyTemplate: PosterTemplate {
 enum FilmPhotoTemplate: PosterTemplate {
     static func render(_ payload: SharePayload) -> UIImage {
         guard case .photo(let s) = payload else { return UIImage() }
-        let f = DateFormatter()
-        f.locale = posixLocale
-        f.dateFormat = "HH:mm"
-        // PhotoSnapshot has no Date; use today's date for the header day stamp
-        // and keep its captured time inside the EXIF/location footer.
         let footer: String = {
             var parts: [String] = []
             if let l = s.location, !l.isEmpty { parts.append(l.uppercased()) }

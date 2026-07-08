@@ -22,20 +22,15 @@ struct VoiceRecordingView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var didWarnLong = false
 
-    // MARK: - Duration Warning Thresholds
-
-    private static let amberThreshold = 300  // 5:00
-    private static let redThreshold   = 540  // 9:00
-
     // MARK: - Timer Color
 
+    /// Thresholds are shared via `RecordingLimits`; this legacy sheet's palette
+    /// reads against the light surface.
     private var timerColor: Color {
-        if voiceService.elapsedSeconds >= Self.redThreshold {
-            return DSColor.error
-        } else if voiceService.elapsedSeconds >= Self.amberThreshold {
-            return DSColor.accentAmber
-        } else {
-            return DSColor.onSurface
+        switch RecordingLimits.stage(for: voiceService.elapsedSeconds) {
+        case .critical: return DSColor.error
+        case .warning:  return DSColor.accentAmber
+        case .normal:   return DSColor.onSurface
         }
     }
 
@@ -99,7 +94,7 @@ struct VoiceRecordingView: View {
             }
         }
         .onChange(of: voiceService.elapsedSeconds) { seconds in
-            if !didWarnLong && voiceService.state == .recording && seconds >= Self.amberThreshold {
+            if !didWarnLong && voiceService.state == .recording && seconds >= RecordingLimits.amberThreshold {
                 didWarnLong = true
                 Haptics.soft()
             }
@@ -151,12 +146,12 @@ struct VoiceRecordingView: View {
                 .monospacedDigit()
                 .animation(reduceMotion ? nil : Motion.fade, value: timerColor)
 
-            if voiceService.elapsedSeconds >= Self.amberThreshold {
+            if voiceService.elapsedSeconds >= RecordingLimits.amberThreshold {
                 Text(NSLocalizedString("voice_recording_soft_cap_hint", comment: "建议 5 分钟内"))
                     .font(DSFonts.jetBrainsMono(size: 12))
                     .foregroundColor(DSColor.accentAmber)
                     .transition(.opacity)
-                    .animation(reduceMotion ? nil : Motion.fade, value: voiceService.elapsedSeconds >= Self.amberThreshold)
+                    .animation(reduceMotion ? nil : Motion.fade, value: voiceService.elapsedSeconds >= RecordingLimits.amberThreshold)
             }
         }
     }
@@ -330,8 +325,6 @@ struct VoiceRecordingView: View {
     // MARK: - Helpers
 
     private func formattedTime(_ seconds: Int) -> String {
-        let m = seconds / 60
-        let s = seconds % 60
-        return String(format: "%02d:%02d", m, s)
+        seconds.mmss
     }
 }

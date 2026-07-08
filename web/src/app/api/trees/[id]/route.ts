@@ -1,30 +1,11 @@
 import "server-only";
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/session";
-import { db } from "@/lib/db/client";
-import { users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { auth, resolveUserId } from "@/lib/auth/session";
+import { unauthorized, notFound } from "@/lib/http";
 import { getTreeWithDiff } from "@/lib/trees/repo";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-function unauthorized() {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-}
-
-function notFound() {
-  return NextResponse.json({ error: "Not found" }, { status: 404 });
-}
-
-async function resolveUserId(email: string): Promise<string | null> {
-  const rows = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-  return rows[0]?.id ?? null;
-}
 
 // GET /api/trees/:id — the tree, its nodes, and the past-7-day diff (newly
 // added / changed nodes). User-scoped: a tree owned by another user is 404.

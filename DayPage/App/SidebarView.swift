@@ -8,7 +8,6 @@ struct SidebarView: View {
 
     @EnvironmentObject private var nav: AppNavigationModel
     @EnvironmentObject private var authService: AuthService
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @EnvironmentObject private var sidebarVM: SidebarViewModel
     @State private var showSettings = false
@@ -87,7 +86,6 @@ struct SidebarView: View {
             // Waiting a beat lets the panel finish sliding first, then the
             // stats fade in without fighting the transform.
             if isOpen {
-                UIImpactFeedbackGenerator(style: .light).prepare()
                 Task { @MainActor in
                     try? await Task.sleep(nanoseconds: 320_000_000)
                     guard nav.isSidebarOpen else { return }
@@ -617,37 +615,7 @@ struct SidebarView: View {
 
     // MARK: - Date Formatting
 
-    /// Renders the row title as "Today" / "Yesterday" / weekday name to keep
-    /// the list scannable; falls back to month-day for older entries.
     private static func formatRowTitle(_ dateString: String) -> String {
-        guard let date = isoFormatter.date(from: dateString) else { return dateString }
-        let cal = Calendar.current
-        if cal.isDateInToday(date) { return "Today" }
-        if cal.isDateInYesterday(date) { return "Yesterday" }
-        let daysAgo = cal.dateComponents([.day], from: cal.startOfDay(for: date), to: cal.startOfDay(for: Date())).day ?? 0
-        if daysAgo < 7 { return weekdayFormatter.string(from: date) }
-        return monthDayFormatter.string(from: date)
+        RelativeDate.label(for: dateString, style: .natural)
     }
-
-    private static let isoFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.dateFormat = "yyyy-MM-dd"
-        f.timeZone = TimeZone.current
-        return f
-    }()
-
-    private static let weekdayFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US")
-        f.dateFormat = "EEEE"
-        return f
-    }()
-
-    private static let monthDayFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US")
-        f.dateFormat = "MMM d"
-        return f
-    }()
 }

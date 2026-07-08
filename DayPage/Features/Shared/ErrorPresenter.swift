@@ -104,38 +104,3 @@ extension View {
         )
     }
 }
-
-// MARK: - Factories
-
-extension AppError {
-    /// AI compile failed because the device is offline.
-    /// Primary CTA: retry now. Secondary: dismiss.
-    static func compileOfflineRetry(_ retry: @escaping () -> Void) -> AppError {
-        AppError(
-            title: "AI 服务不可达",
-            reason: "网络断开了。今天的记录已经安全存在本地，等回到网络时会自动重编译。",
-            primary: Action(label: "现在重试", perform: retry),
-            secondary: Action(label: "稍后再说", perform: {})
-        )
-    }
-
-    /// AI compile failed for reasons other than offline (usually LLM 4xx/5xx).
-    static func compileServerError(detail: String, retry: @escaping () -> Void) -> AppError {
-        AppError(
-            title: "AI 编译失败",
-            reason: "服务端返回了错误：\(detail.prefix(120))。已经记住原文，你可以现在再试一次。",
-            primary: Action(label: "重试", perform: retry),
-            secondary: Action(label: "先跳过", perform: {})
-        )
-    }
-
-    /// Voice transcript upload/API failure.
-    static func voiceTranscribeFailed(retry: @escaping () -> Void) -> AppError {
-        AppError(
-            title: "语音转写失败",
-            reason: "音频已完整保存，只是 Whisper 那一步没走通。可以立刻再试，或者晚点让 App 自动补。",
-            primary: Action(label: "再试一次", perform: retry),
-            secondary: Action(label: "稍后自动重试", perform: {})
-        )
-    }
-}

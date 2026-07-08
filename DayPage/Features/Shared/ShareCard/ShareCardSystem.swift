@@ -232,16 +232,13 @@ struct PhotoSnapshot: Equatable {
     static func from(_ memo: Memo) -> PhotoSnapshot? {
         guard memo.attachments.first(where: { $0.kind == "photo" }) != nil,
               let img = ShareCardImageLoader.firstPhoto(in: memo) else { return nil }
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.dateFormat = "HH:mm"
         let exif = buildExif(memo)
         return PhotoSnapshot(
             id: memo.id,
             image: img,
             caption: memo.body,
             location: memo.location?.name,
-            time: f.string(from: memo.created),
+            time: DateFormatters.timeHHmm.string(from: memo.created),
             exif: exif
         )
     }
@@ -277,15 +274,12 @@ struct VoiceSnapshot: Equatable {
               let dur = att.duration else { return nil }
         let mins = Int(dur) / 60
         let secs = Int(dur) % 60
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.dateFormat = "HH:mm"
         let transcript = att.transcript.map { String($0.prefix(200)) } ?? String(memo.body.prefix(200))
         return VoiceSnapshot(
             id: memo.id,
             duration: "\(mins):\(String(format: "%02d", secs))",
             transcript: transcript,
-            time: f.string(from: memo.created),
+            time: DateFormatters.timeHHmm.string(from: memo.created),
             location: memo.location?.name
         )
     }
@@ -340,12 +334,6 @@ struct CollageSnapshot: Equatable {
         let df = DateFormatter()
         df.locale = Locale(identifier: "en_US_POSIX")
         df.dateFormat = "yyyy·MM·dd"
-        let weekdayDF = DateFormatter()
-        weekdayDF.locale = Locale(identifier: "en_US_POSIX")
-        weekdayDF.dateFormat = "EEEE"
-        let timeDF = DateFormatter()
-        timeDF.locale = Locale(identifier: "en_US_POSIX")
-        timeDF.dateFormat = "HH:mm"
 
         let firstDate = sorted.first?.created ?? Date()
 
@@ -377,7 +365,7 @@ struct CollageSnapshot: Equatable {
                 id: memo.id,
                 preview: preview,
                 kind: kind,
-                time: timeDF.string(from: memo.created),
+                time: DateFormatters.timeHHmm.string(from: memo.created),
                 thumbnail: hasPhoto ? ShareCardImageLoader.firstPhoto(in: memo) : nil
             )
         }
@@ -385,7 +373,7 @@ struct CollageSnapshot: Equatable {
         return CollageSnapshot(
             id: UUID(),
             dateLabel: df.string(from: firstDate),
-            weekday: weekdayDF.string(from: firstDate).uppercased(),
+            weekday: DateFormatters.weekdayLong.string(from: firstDate).uppercased(),
             primaryLocation: primary,
             items: items
         )
@@ -592,7 +580,7 @@ struct ShareCardSheet: View {
         }
         .sheet(isPresented: $showSystemShare) {
             if let img = renderedImage {
-                ShareSheetView(activityItems: [img])
+                ShareSheet(activityItems: [img])
             }
         }
     }
@@ -705,14 +693,3 @@ struct ShareCardSheet: View {
     }
 }
 
-// MARK: - ShareSheetView (lifted from ArchiveView)
-
-struct ShareSheetView: UIViewControllerRepresentable {
-    let activityItems: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}

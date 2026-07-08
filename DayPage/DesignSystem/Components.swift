@@ -40,20 +40,6 @@ struct StatusBadge: View {
     }
 }
 
-// MARK: - Wikilink Text (single-link inline)
-
-struct WikilinkText: View {
-    let text: String
-    var onTap: (() -> Void)?
-
-    var body: some View {
-        Text(text)
-            .bodySMStyle()
-            .foregroundColor(DSColor.accentOnBg)
-            .onTapGesture { onTap?() }
-    }
-}
-
 // MARK: - Wikilink Body Text
 //
 // Renders a paragraph that may contain [[slug]] or [[slug|display]]

@@ -5,6 +5,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { z } from "zod";
 import { authenticateApiKey, hasScope } from "@/lib/api-auth";
 import { sendEvent } from "@/lib/inngest/client";
+import { checkRateLimit } from "@/lib/ratelimit";
 
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -44,6 +45,22 @@ export async function POST(req: NextRequest) {
   }
 
   const userId = apiAuth.userId;
+
+  // Rate limit per authenticated user — email ingest writes memos and fires a
+  // compile event per call; cap it so a compromised key can't flood the pipeline.
+  const rl = checkRateLimit(`ingest-email:${userId}`, 60, 60_000);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded" },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": Math.ceil((rl.reset - Date.now()) / 1000).toString(),
+          "X-RateLimit-Remaining": "0",
+        },
+      }
+    );
+  }
 
   const raw: unknown = await req.json().catch(() => null);
   if (!raw) return badRequest("Invalid JSON body");

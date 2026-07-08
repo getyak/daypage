@@ -1,31 +1,12 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth/session";
-import { db } from "@/lib/db/client";
-import { users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { auth, resolveUserId } from "@/lib/auth/session";
+import { unauthorized, badRequest } from "@/lib/http";
 import { z } from "zod";
 import { createTree, listTrees } from "@/lib/trees/repo";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-function unauthorized() {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-}
-
-function badRequest(message: string) {
-  return NextResponse.json({ error: message }, { status: 400 });
-}
-
-async function resolveUserId(email: string): Promise<string | null> {
-  const rows = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-  return rows[0]?.id ?? null;
-}
 
 const CreateTreeSchema = z.object({
   title: z.string().min(1).max(200),

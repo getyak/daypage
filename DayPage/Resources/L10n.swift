@@ -14,12 +14,6 @@ enum L10n {
         static let todayNoSignalsTitle    = LocalizedStringKey("empty.today.no_signals.title")
         static let todayNoSignalsSubtitle = NSLocalizedString("empty.today.no_signals.subtitle", comment: "")
 
-        // Compile Locked
-        static let compileLockedTitle = LocalizedStringKey("empty.compile_locked.title")
-        static func compileLockedSubtitle(count: Int) -> String {
-            String(format: NSLocalizedString("empty.compile_locked.subtitle", comment: ""), count)
-        }
-
         /// Compact dock hint shown above the input bar when memos < 3.
         static func compileDockLocked(current: Int, remaining: Int) -> String {
             String(format: NSLocalizedString("compile.dock.locked", comment: ""), current, remaining)
@@ -90,9 +84,6 @@ enum L10n {
         static let compileTitle    = LocalizedStringKey("error.compile.title")
         static let compileSubtitle = LocalizedStringKey("error.compile.subtitle")
         static let compileRetry    = NSLocalizedString("error.compile.retry", comment: "")
-
-        static let whisperTitle    = LocalizedStringKey("error.whisper.title")
-        static let whisperSubtitle = LocalizedStringKey("error.whisper.subtitle")
 
         static let micDeniedTitle    = LocalizedStringKey("error.mic_denied.title")
         static let micDeniedSubtitle = LocalizedStringKey("error.mic_denied.subtitle")

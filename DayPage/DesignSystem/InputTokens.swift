@@ -21,9 +21,6 @@ enum InputTokens {
 
     // MARK: - Haptic Actions
 
-    /// 按下时触发（录音开始）。
-    static let pressDownHaptic: () -> Void = HapticFeedback.light
-
     /// 原位释放时触发（立即发送）。
     static let sendReleaseHaptic: () -> Void = HapticFeedback.medium
 

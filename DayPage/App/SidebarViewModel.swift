@@ -66,7 +66,7 @@ final class SidebarViewModel: ObservableObject {
 
         // Parse and sort dates ascending.
         let sorted = activeDates
-            .compactMap { Self.isoFormatter.date(from: $0) }
+            .compactMap { DateFormatters.isoDate.date(from: $0) }
             .map { cal.startOfDay(for: $0) }
             .sorted()
 
@@ -93,9 +93,9 @@ final class SidebarViewModel: ObservableObject {
 
         // Anchor: use today if it has memos, else yesterday (so streak
         // doesn't reset before the user logs their first entry of the day).
-        let todayStr = Self.isoFormatter.string(from: today)
+        let todayStr = DateFormatters.isoDate.string(from: today)
         guard let yesterday = cal.date(byAdding: .day, value: -1, to: today) else { return 0 }
-        let yesterdayStr = Self.isoFormatter.string(from: yesterday)
+        let yesterdayStr = DateFormatters.isoDate.string(from: yesterday)
 
         let anchorDate: Date
         if activeDates.contains(todayStr) {
@@ -109,7 +109,7 @@ final class SidebarViewModel: ObservableObject {
         var streak = 0
         var cursor = anchorDate
         while true {
-            let dateStr = Self.isoFormatter.string(from: cursor)
+            let dateStr = DateFormatters.isoDate.string(from: cursor)
             guard activeDates.contains(dateStr) else { break }
             streak += 1
             guard let prev = cal.date(byAdding: .day, value: -1, to: cursor) else { break }
@@ -117,14 +117,6 @@ final class SidebarViewModel: ObservableObject {
         }
         return streak
     }
-
-    private static let isoFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.dateFormat = "yyyy-MM-dd"
-        f.timeZone = TimeZone.current
-        return f
-    }()
 
     /// Formats a `Date` to a 4-digit calendar year (e.g. "2026") for the
     /// "MEMBER · SINCE <year>" line, in the user's current time zone.
@@ -201,7 +193,7 @@ final class SidebarViewModel: ObservableObject {
             )
             self.totalEntries16Weeks = heatmapResult.reduce(0) { acc, day in
                 guard let windowStart,
-                      let date = Self.isoFormatter.date(from: day.dateString),
+                      let date = DateFormatters.isoDate.date(from: day.dateString),
                       date >= windowStart else { return acc }
                 return acc + day.memoCount
             }

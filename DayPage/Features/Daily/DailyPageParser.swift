@@ -153,11 +153,7 @@ enum DailyPageParser {
     }
 
     private static func firstPhotoAttachmentPath(for dateString: String) -> String? {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone.current
-        guard let date = formatter.date(from: dateString) else { return nil }
+        guard let date = DateFormatters.isoDate.date(from: dateString) else { return nil }
 
         let memos: [Memo] = (try? RawStorage.read(for: date)) ?? []
         let photoAttachments = memos.flatMap { $0.attachments }.filter { $0.kind == "photo" }
@@ -174,14 +170,8 @@ enum DailyPageParser {
     // MARK: - Helpers
 
     private static func weekdayString(from dateString: String) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        guard let date = formatter.date(from: dateString) else { return "" }
-        let weekdayFormatter = DateFormatter()
-        weekdayFormatter.dateFormat = "EEEE"
-        weekdayFormatter.locale = Locale(identifier: "en_US_POSIX")
-        return weekdayFormatter.string(from: date)
+        guard let date = DateFormatters.isoDate.date(from: dateString) else { return "" }
+        return DateFormatters.weekdayLong.string(from: date)
     }
 
     private static func parseLocations(from body: String) -> [DailyPageModel.LocationEntry] {

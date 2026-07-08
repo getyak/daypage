@@ -140,7 +140,8 @@ struct CompileFooterButton: View {
                 )
                 .surfaceElevatedShadow()
             }
-            .buttonStyle(CompilePressStyle(isDisabled: isCompiling || !aiFeaturesEnabled))
+            .pressScale(scale: 0.96, opacity: 0.92,
+                        animation: .spring(response: 0.3, dampingFraction: 0.7))
             .disabled(isCompiling || !aiFeaturesEnabled)
             .scaleEffect(didAppearPulse ? 1.06 : 1.0)
             .animation(
@@ -217,24 +218,6 @@ private struct CompileSuccessBounce: ViewModifier {
         } else {
             content
         }
-    }
-}
-
-// MARK: - CompilePressStyle
-
-private struct CompilePressStyle: ButtonStyle {
-    let isDisabled: Bool
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    func makeBody(configuration: Configuration) -> some View {
-        let pressed = configuration.isPressed && !isDisabled
-        configuration.label
-            .scaleEffect((!reduceMotion && pressed) ? 0.96 : 1)
-            .opacity(pressed ? 0.92 : 1)
-            .animation(
-                reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7),
-                value: configuration.isPressed
-            )
     }
 }
 
@@ -336,27 +319,3 @@ struct CompileProgressDock: View {
     }
 }
 
-// MARK: - ScrollOffsetPreferenceKey
-
-/// 承载底部锚点在 ScrollView 本地坐标空间中的 minY 值。
-struct CompileFooterAnchorPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = .infinity
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = min(value, nextValue())
-    }
-}
-
-// MARK: - 放置锚点的辅助视图
-
-/// 零高度锚点，插入 ScrollView 内容底部。
-struct CompileFooterAnchor: View {
-    var body: some View {
-        GeometryReader { geo in
-            Color.clear.preference(
-                key: CompileFooterAnchorPreferenceKey.self,
-                value: geo.frame(in: .named("todayScroll")).minY
-            )
-        }
-        .frame(height: 1)
-    }
-}

@@ -16,10 +16,7 @@ struct RawMemoView: View {
     @Environment(\.dismiss) private var dismiss
 
     private var formattedDate: String {
-        let parser = DateFormatter()
-        parser.dateFormat = "yyyy-MM-dd"
-        parser.locale = Locale(identifier: "en_US_POSIX")
-        guard let date = parser.date(from: dateString) else { return dateString }
+        guard let date = DateFormatters.isoDate.date(from: dateString) else { return dateString }
         let formatter = DateFormatter()
         formatter.dateFormat = "MMMM d, yyyy"
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -112,10 +109,7 @@ struct RawMemoView: View {
 
     private func loadMemos() {
         isLoading = true
-        let parser = DateFormatter()
-        parser.dateFormat = "yyyy-MM-dd"
-        parser.locale = Locale(identifier: "en_US_POSIX")
-        guard let date = parser.date(from: dateString) else {
+        guard let date = DateFormatters.isoDate.date(from: dateString) else {
             DayPageLogger.shared.error("RawMemoView: invalid dateString '\(dateString)'")
             memos = []
             isLoading = false

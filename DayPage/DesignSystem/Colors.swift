@@ -165,8 +165,8 @@ enum DSColor {
     /// 第三级细微文本
     static let onBackgroundSubtle = Color(light: Color(hex: "A39F99"), dark: Color(hex: "6A6460"))
 
-    /// 强调色 — 深琥珀棕（替代 #000000 主色）
-    static let accentAmber = Color(hex: "5D3000")
+    /// 强调色 — 深琥珀棕（替代 #000000 主色）。语义别名，值同 `amberDeep`（#5D3000）。
+    static let accentAmber = amberDeep
     /// Adaptive accent for glyphs, strokes and text that sit directly on the
     /// ambient background: deep amber in light, lifted amber in dark. Use
     /// this instead of `accentAmber`/`DSTokens.Colors.accent` whenever the
@@ -204,7 +204,8 @@ enum DSColor {
 
     // MARK: - Brand (unchanged)
 
-    static let amberArchival = Color(hex: "5D3000")
+    /// Brand archival amber. 语义别名，值同 `amberDeep`（#5D3000）。
+    static let amberArchival = amberDeep
 
     // MARK: - Legacy tokens (v1 Material black-and-white era)
     //
@@ -237,46 +238,21 @@ enum DSColor {
     static let primary = amberDeep
     static let onPrimary = Color.white
     static let primaryContainer = amberAccent
-    static let onPrimaryContainer = Color.white
-    static let primaryFixed = amberDeep
-    static let primaryFixedDim = amberAccent
-    static let onPrimaryFixed = Color.white
-    static let onPrimaryFixedVariant = Color.white.opacity(0.85)
 
     static let secondary = inkMuted
-    static let onSecondary = Color.white
-    static let secondaryContainer = glassLo
-    static let onSecondaryContainer = inkPrimary
-    static let secondaryFixed = glassStd
-    static let secondaryFixedDim = glassLo
-    static let onSecondaryFixed = inkPrimary
-    static let onSecondaryFixedVariant = inkMuted
 
     static let tertiary = amberAccent
-    static let onTertiary = Color.white
-    static let tertiaryContainer = amberSoft
-    static let onTertiaryContainer = amberDeep
-    static let tertiaryFixed = amberSoft
-    static let tertiaryFixedDim = amberRim
-    static let onTertiaryFixed = amberDeep
-    static let onTertiaryFixedVariant = amberDeep
 
     static let surface = bgWarm
-    static let surfaceDim = glassLo
-    static let surfaceBright = bgWarm
     static let surfaceContainerLowest = surfaceWhite
     static let surfaceContainerLow = glassLo
     static let surfaceContainer = glassStd
     static let surfaceContainerHigh = glassHi
-    static let surfaceContainerHighest = glassHi
 
     static let onSurface = inkPrimary
     static let onSurfaceVariant = inkMuted
-    static let inverseSurface = inkPrimary
-    static let inverseOnSurface = bgWarm
 
     static let background = bgWarm
-    static let onBackground = inkPrimary
 
     static let outline = glassRim
     static let outlineVariant = inkFaint
@@ -284,14 +260,6 @@ enum DSColor {
     static let error = errorRed
     static let onError = Color.white
     static let errorContainer = errorSoft
-    static let onErrorContainer = errorRed
-
-    static let warning = warningAmber
-    static let warningContainer = warningSoft
-    static let onWarningContainer = warningAmber
-
-    static let surfaceTint = amberAccent
-    static let inversePrimary = amberSoft
 }
 
 // MARK: - Surface Elevated Shadow ViewModifier

@@ -82,3 +82,22 @@ export async function checkMutationRateLimit(userId: string): Promise<{
   }
   return inMemoryCheck(`mutations:${userId}`, 30, 60_000);
 }
+
+// Generic keyed limiter for API routes that need custom limits/windows or that
+// key on something other than a per-user mutation quota (e.g. an unauthenticated
+// webhook keyed by client IP). Uses the shared in-memory sliding window; the
+// Upstash mutation limiter above is reserved for the /api/memos write quota.
+export function checkRateLimit(
+  key: string,
+  limit: number,
+  windowMs: number
+): { success: boolean; remaining: number; reset: number } {
+  return inMemoryCheck(key, limit, windowMs);
+}
+
+// Best-effort client IP for keying unauthenticated limiters.
+export function clientIp(req: Request): string {
+  const fwd = req.headers.get("x-forwarded-for");
+  if (fwd) return fwd.split(",")[0]!.trim();
+  return req.headers.get("x-real-ip") ?? "unknown";
+}

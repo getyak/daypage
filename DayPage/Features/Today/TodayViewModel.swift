@@ -178,9 +178,6 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     /// Set when background compilation fails after all retries (triggers error banner).
     @Published var compilationFailedError: String? = nil
 
-    /// Pending photo results (can accumulate before submission, cleared after).
-    @Published var pendingPhotos: [PhotoPickerResult] = []
-
     /// Staged attachments (photo + voice) accumulated before the next submit.
     @Published var pendingAttachments: [PendingAttachment] = []
 
@@ -625,12 +622,6 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
 
     // MARK: - On This Day
 
-    func dismissOnThisDay() {
-        let today = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
-        UserDefaults.standard.set(today, forKey: AppSettings.Keys.onThisDayDismissed)
-        onThisDayEntry = nil
-    }
-
     private func checkOnThisDay() {
         let today = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
         let dismissed = UserDefaults.standard.string(forKey: AppSettings.Keys.onThisDayDismissed)
@@ -661,11 +652,6 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     /// Removes a staged attachment by id.
     func removePendingAttachment(id: String) {
         pendingAttachments.removeAll { $0.id == id }
-    }
-
-    /// Clears all pending photos without submitting.
-    func clearPendingPhotos() {
-        pendingPhotos = []
     }
 
     // MARK: - Add Voice Attachment (staged)
@@ -712,25 +698,6 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
             // re-spring the whole timeline layout for a transcript update.
             withAnimation(Motion.fade) { memos = newMemos }
             persistMemos(newMemos, capturedDate: date, previous: previous, failureMessagePrefix: NSLocalizedString("error.memo.retranscribe_failed", comment: ""))
-        }
-    }
-
-    /// Re-runs transcription for a staged (pending, not-yet-submitted) voice attachment. US-016.
-    func retranscribeVoiceAttachment(id: String) {
-        guard let idx = pendingAttachments.firstIndex(where: { $0.id == id }),
-              case .voice(let result) = pendingAttachments[idx] else { return }
-        let audioURL = result.fileURL
-        Task { @MainActor in
-            let transcript = await voiceService.transcribeAudio(at: audioURL)
-            guard let idx2 = pendingAttachments.firstIndex(where: { $0.id == id }),
-                  case .voice(let r) = pendingAttachments[idx2] else { return }
-            let updated = VoiceRecordingResult(
-                filePath: r.filePath,
-                fileURL: r.fileURL,
-                duration: r.duration,
-                transcript: transcript
-            )
-            pendingAttachments[idx2] = .voice(updated)
         }
     }
 
@@ -783,20 +750,6 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         let relativePath = "raw/assets/files/\(finalURL.lastPathComponent)"
         let result = FilePickerResult(filePath: relativePath, fileName: finalURL.lastPathComponent)
         pendingAttachments.append(.file(result))
-    }
-
-    /// Processes a UIImage captured from the camera and stages it as a pending attachment.
-    func addCameraPhoto(_ image: UIImage) {
-        guard let data = image.jpegData(compressionQuality: 0.9) else { return }
-        isProcessingPhoto = true
-        cameraPhotoTask = Task { @MainActor in
-            defer { isProcessingPhoto = false }
-            guard let result = await photoService.processImageDataAsync(data) else {
-                submitError = NSLocalizedString("error.memo.photo_failed", comment: "")
-                return
-            }
-            pendingAttachments.append(.photo(result))
-        }
     }
 
     /// Processes a camera-captured UIImage and immediately submits it as a standalone memo.
@@ -1187,20 +1140,21 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
 
     private func checkDailyPage() {
         let dailyURL = dailyPageURL(for: date)
-        guard FileManager.default.fileExists(atPath: dailyURL.path) else {
-            isDailyPageCompiled = false
-            dailyPageSummary = nil
-            return
-        }
-
-        isDailyPageCompiled = true
-
-        // Extract summary from frontmatter if available
-        do {
-            let content = try String(contentsOf: dailyURL, encoding: .utf8)
-            dailyPageSummary = FrontmatterParser.extractField("summary", from: content)
-        } catch {
-            DayPageLogger.shared.error("TodayViewModel: read daily: \(error)")
+        Task.detached { [weak self] in
+            let exists = FileManager.default.fileExists(atPath: dailyURL.path)
+            var summary: String?
+            if exists {
+                do {
+                    let content = try String(contentsOf: dailyURL, encoding: .utf8)
+                    summary = FrontmatterParser.extractField("summary", from: content)
+                } catch {
+                    await DayPageLogger.shared.error("TodayViewModel: read daily: \(error)")
+                }
+            }
+            await MainActor.run {
+                self?.isDailyPageCompiled = exists
+                self?.dailyPageSummary = summary
+            }
         }
     }
 

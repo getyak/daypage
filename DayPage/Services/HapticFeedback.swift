@@ -9,7 +9,6 @@ enum HapticFeedback {
     private static var impactGenerators: [UIImpactFeedbackGenerator.FeedbackStyle: UIImpactFeedbackGenerator] = [:]
     private static var notificationGenerator = UINotificationFeedbackGenerator()
     private static var selectionGenerator = UISelectionFeedbackGenerator()
-    private static var warmedUp = false
 
     // MARK: - Warm-up
 

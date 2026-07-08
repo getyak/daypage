@@ -42,8 +42,4 @@ final class AuthViewModel: ObservableObject {
             #endif
         }
     }
-
-    func clearError() {
-        errorMessage = nil
-    }
 }

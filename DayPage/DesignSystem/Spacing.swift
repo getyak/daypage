@@ -24,12 +24,6 @@ enum DSSpacing {
     static let xl:  CGFloat = 20
     /// 24 pt — section vertical gap.
     static let xl2: CGFloat = 24
-    /// 32 pt — major section break.
-    static let xl3: CGFloat = 32
-    /// 48 pt — hero block padding.
-    static let xl4: CGFloat = 48
-    /// 64 pt — top-of-screen breathing room (e.g. Sidebar brand header).
-    static let xl5: CGFloat = 64
 
     // MARK: - Semantic aliases (preferred in new code)
 
@@ -43,8 +37,4 @@ enum DSSpacing {
     static let sectionGap: CGFloat = xl2      // 24
     /// Vertical gap between the timeline and the composer dock.
     static let dockGap:    CGFloat = md       // 12
-    /// Spacing between an icon and its label.
-    static let iconLabel:  CGFloat = sm       // 8
-    /// Bottom safe-area cushion above the home indicator.
-    static let bottomDock: CGFloat = lg       // 16
 }

@@ -684,51 +684,6 @@ enum TimelineSpine {
         }
     }
 
-    /// WEEK — short 18×3pt horizontal bar (a span, not a point). app.jsx:666.
-    struct WeekMarker: View {
-        static let width: CGFloat = 18
-        static let height: CGFloat = 3
-        var body: some View {
-            RoundedRectangle(cornerRadius: 2, style: .continuous)
-                .fill(DSColor.accentOnBg)
-                .frame(width: Self.width, height: Self.height)
-                .background(halo(radius: 4))
-        }
-    }
-
-    /// MONTH — hollow 11pt accent ring (1.6pt border). app.jsx:678.
-    struct MonthMarker: View {
-        static let size: CGFloat = 11
-        var body: some View {
-            Circle()
-                .fill(DSColor.bgWarm)
-                .frame(width: Self.size, height: Self.size)
-                .overlay(
-                    Circle().strokeBorder(DSColor.accentOnBg, lineWidth: 1.6)
-                )
-                .background(halo(radius: 3))
-        }
-    }
-
-    /// YEAR — concentric 15pt ring + 5pt inner accent dot. app.jsx:690-693.
-    struct YearMarker: View {
-        static let size: CGFloat = 15
-        var body: some View {
-            Circle()
-                .fill(DSColor.bgWarm)
-                .frame(width: Self.size, height: Self.size)
-                .overlay(
-                    Circle().strokeBorder(DSColor.accentOnBg, lineWidth: 1.6)
-                )
-                .overlay(
-                    Circle()
-                        .fill(DSColor.accentOnBg)
-                        .frame(width: 5, height: 5)
-                )
-                .background(halo(radius: 3))
-        }
-    }
-
     /// bg-warm halo behind a marker so it punches cleanly through the spine.
     /// CSS `boxShadow: 0 0 0 Npx var(--bg-warm)`.
     private static func halo(radius: CGFloat) -> some View {

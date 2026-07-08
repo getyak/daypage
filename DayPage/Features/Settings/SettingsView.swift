@@ -615,14 +615,6 @@ struct SettingsView: View {
         .accessibilityLabel(NSLocalizedString("settings.appearance.preview.a11y", comment: "Appearance preview card accessibility label"))
     }
 
-    private func themeIcon(for mode: ThemeMode) -> String {
-        switch mode {
-        case .system: return "gearshape"
-        case .light: return "sun.max"
-        case .dark: return "moon.stars"
-        }
-    }
-
     // MARK: - Time Zone Section
 
     private var timeZoneSection: some View {
@@ -1368,7 +1360,8 @@ struct SettingsView: View {
         let key = Secrets.resolvedOpenAIWhisperApiKey
         guard !key.isEmpty else { return }
 
-        var req = URLRequest(url: URL(string: "https://api.openai.com/v1/models")!)
+        guard let endpoint = URL(string: "https://api.openai.com/v1/models") else { return }
+        var req = URLRequest(url: endpoint)
         req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         req.timeoutInterval = 10
 
@@ -1694,18 +1687,6 @@ private enum APITestResult {
         case .success(let m), .failure(let m): return m
         }
     }
-}
-
-// MARK: - ShareSheet
-
-struct ShareSheet: UIViewControllerRepresentable {
-    let activityItems: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 // MARK: - ObsidianExporter

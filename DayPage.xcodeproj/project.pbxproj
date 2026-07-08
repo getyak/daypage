@@ -114,9 +114,9 @@
 		A10000400 /* HorizontalPanGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000400 /* HorizontalPanGesture.swift */; };
 		A10000510 /* RecordingSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000510 /* RecordingSheetView.swift */; };
 		A10000511 /* DynamicIslandView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000511 /* DynamicIslandView.swift */; };
+		A10000515 /* RecordingLimits.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000515 /* RecordingLimits.swift */; };
 		A10000512 /* MetadataGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000512 /* MetadataGridView.swift */; };
 		A10000513 /* WriteSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000513 /* WriteSheetView.swift */; };
-		A10000514 /* TimelineRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000514 /* TimelineRow.swift */; };
 		A10000F50 /* GraphDisplayLinkController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000F50 /* GraphDisplayLinkController.swift */; };
 		A1000ABC1 /* YearMonthPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000ABC1 /* YearMonthPicker.swift */; };
 		A11Y0001 /* AccessibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11Y1001 /* AccessibilityTests.swift */; };
@@ -158,8 +158,10 @@
 		E4AC46FA495D4BD178789A14 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0881AB423FF6F12FCDE27C5B /* Assets.xcassets */; };
 		E5077A7D97855770914BFB8D /* MarkdownExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC8043A3D3371852ACB3D6F3 /* MarkdownExportService.swift */; };
 		I180000001 /* ErrorPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000001 /* ErrorPresenter.swift */; };
+		I180000009 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000009 /* ShareSheet.swift */; };
+		I180000010 /* DurationFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000010 /* DurationFormatter.swift */; };
+		I180000011 /* RelativeDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000011 /* RelativeDate.swift */; };
 		I180000002 /* InsightActionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000002 /* InsightActionService.swift */; };
-		I180000003 /* WeeklyShareCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000003 /* WeeklyShareCard.swift */; };
 		E536EEB8C13B2BA42DF4980F /* SidebarHeatmapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C551D36362FF97C44EB4D5DE /* SidebarHeatmapView.swift */; };
 		EA575F353C6AFD5EA7FF9A6F /* QuickCaptureWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7909ED56F96754E4C4FA21CC /* QuickCaptureWidget.swift */; };
 		ES0000001 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000001 /* EmptyStateView.swift */; };
@@ -358,9 +360,9 @@
 		A20000400 /* HorizontalPanGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HorizontalPanGesture.swift; sourceTree = "<group>"; };
 		A20000510 /* RecordingSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingSheetView.swift; sourceTree = "<group>"; };
 		A20000511 /* DynamicIslandView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DynamicIslandView.swift; sourceTree = "<group>"; };
+		A20000515 /* RecordingLimits.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingLimits.swift; sourceTree = "<group>"; };
 		A20000512 /* MetadataGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataGridView.swift; sourceTree = "<group>"; };
 		A20000513 /* WriteSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WriteSheetView.swift; sourceTree = "<group>"; };
-		A20000514 /* TimelineRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineRow.swift; sourceTree = "<group>"; };
 		A20000F50 /* GraphDisplayLinkController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphDisplayLinkController.swift; sourceTree = "<group>"; };
 		A2000ABC1 /* YearMonthPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YearMonthPicker.swift; sourceTree = "<group>"; };
 		A30000001 /* DayPage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPage.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -368,8 +370,10 @@
 		A4EBD94EB4FD71CC10D478F3 /* DailyPageSummarySection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DailyPageSummarySection.swift; sourceTree = "<group>"; };
 		AC8043A3D3371852ACB3D6F3 /* MarkdownExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownExportService.swift; sourceTree = "<group>"; };
 		I280000001 /* ErrorPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorPresenter.swift; sourceTree = "<group>"; };
+		I280000009 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
+		I280000010 /* DurationFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurationFormatter.swift; sourceTree = "<group>"; };
+		I280000011 /* RelativeDate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeDate.swift; sourceTree = "<group>"; };
 		I280000002 /* InsightActionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightActionService.swift; sourceTree = "<group>"; };
-		I280000003 /* WeeklyShareCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WeeklyShareCard.swift; path = ShareCard/WeeklyShareCard.swift; sourceTree = "<group>"; };
 		AF1000001 /* SpaceGrotesk-Light.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Light.ttf"; sourceTree = "<group>"; };
 		AF1000002 /* SpaceGrotesk-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Regular.ttf"; sourceTree = "<group>"; };
 		AF1000003 /* SpaceGrotesk-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Medium.ttf"; sourceTree = "<group>"; };
@@ -792,8 +796,8 @@
 				A20000054 /* RecordingOverlayView.swift */,
 				A20000510 /* RecordingSheetView.swift */,
 				A20000511 /* DynamicIslandView.swift */,
+				A20000515 /* RecordingLimits.swift */,
 				A20000513 /* WriteSheetView.swift */,
-				A20000514 /* TimelineRow.swift */,
 				A20000055 /* PressToTalkButton.swift */,
 				A20000063 /* SwipeableMemoCard.swift */,
 				A20000400 /* HorizontalPanGesture.swift */,
@@ -877,7 +881,9 @@
 			children = (
 				A20000037 /* AppBanner.swift */,
 				I280000001 /* ErrorPresenter.swift */,
-				I280000003 /* WeeklyShareCard.swift */,
+				I280000009 /* ShareSheet.swift */,
+				I280000010 /* DurationFormatter.swift */,
+				I280000011 /* RelativeDate.swift */,
 				8664207AF5BA4660FF0E134F /* ShareCard */,
 			);
 			path = Shared;
@@ -1415,15 +1421,14 @@
 				A10000054 /* RecordingOverlayView.swift in Sources */,
 				A10000510 /* RecordingSheetView.swift in Sources */,
 				A10000513 /* WriteSheetView.swift in Sources */,
-				A10000514 /* TimelineRow.swift in Sources */,
 				A10000511 /* DynamicIslandView.swift in Sources */,
+				A10000515 /* RecordingLimits.swift in Sources */,
 				A10000512 /* MetadataGridView.swift in Sources */,
 				A10000055 /* PressToTalkButton.swift in Sources */,
 				A10000063 /* SwipeableMemoCard.swift in Sources */,
 				A10000400 /* HorizontalPanGesture.swift in Sources */,
 				A10000080 /* AppNavigationModel.swift in Sources */,
 				A10000300 /* DSTokens.swift in Sources */,
-				A10000302 /* TimelineSectionView.swift in Sources */,
 				A10000303 /* DSSectionLabel.swift in Sources */,
 				A10000304 /* DSDot.swift in Sources */,
 				A10000081 /* SidebarView.swift in Sources */,
@@ -1476,8 +1481,10 @@
 				F66780AF157611A4283937FE /* MemoListSkeleton.swift in Sources */,
 				E5077A7D97855770914BFB8D /* MarkdownExportService.swift in Sources */,
 				I180000001 /* ErrorPresenter.swift in Sources */,
+				I180000009 /* ShareSheet.swift in Sources */,
+				I180000010 /* DurationFormatter.swift in Sources */,
+				I180000011 /* RelativeDate.swift in Sources */,
 				I180000002 /* InsightActionService.swift in Sources */,
-				I180000003 /* WeeklyShareCard.swift in Sources */,
 				29C57DABF22715576844485C /* AISummaryCard.swift in Sources */,
 				787E4480A2797607F2DCDE5E /* PillSegmentedControl.swift in Sources */,
 				2B194E870578303558D461CD /* CompileUnlockCard.swift in Sources */,

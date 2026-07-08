@@ -6,6 +6,7 @@ import { eq, and, gte, lt, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { sendEvent } from "@/lib/inngest/client";
 import { authenticateApiKey, hasScope } from "@/lib/api-auth";
+import { checkRateLimit } from "@/lib/ratelimit";
 
 // NOTE: iOS BackgroundCompilationService.swift is deprecated in favour of this endpoint.
 // The iOS client should call POST /api/compile instead of running its own BGAppRefreshTask
@@ -60,6 +61,22 @@ export async function POST(req: NextRequest) {
   }
 
   if (!userId) return unauthorized();
+
+  // Rate limit per authenticated user — compile resets memo status and fans out
+  // an LLM compile event per memo; cap it so it can't be driven as a cost/DoS lever.
+  const rl = checkRateLimit(`compile:${userId}`, 60, 60_000);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded" },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": Math.ceil((rl.reset - Date.now()) / 1000).toString(),
+          "X-RateLimit-Remaining": "0",
+        },
+      }
+    );
+  }
 
   const raw: unknown = await req.json().catch(() => null);
   if (!raw) return badRequest("Invalid JSON body");

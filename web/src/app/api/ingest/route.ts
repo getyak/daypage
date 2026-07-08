@@ -13,6 +13,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { authenticateApiKey, hasScope } from "@/lib/api-auth";
 import { sendEvent } from "@/lib/inngest/client";
+import { checkRateLimit } from "@/lib/ratelimit";
 
 // CORS — the browser-clip bookmarklet (US-021) runs on arbitrary origins and
 // POSTs here with a Bearer header, which triggers a preflight. Reflect the
@@ -240,6 +241,25 @@ export async function POST(req: NextRequest) {
   }
 
   if (!userId) return unauthorized(req);
+
+  // Rate limit per authenticated user — ingest writes memos and fires compile
+  // events, so an abusive client must not be able to exhaust the pipeline.
+  const rl = checkRateLimit(`ingest:${userId}`, 60, 60_000);
+  if (!rl.success) {
+    return withCors(
+      req,
+      NextResponse.json(
+        { error: "Rate limit exceeded" },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": Math.ceil((rl.reset - Date.now()) / 1000).toString(),
+            "X-RateLimit-Remaining": "0",
+          },
+        }
+      )
+    );
+  }
 
   const body: unknown = await req.json().catch(() => null);
   if (!body) return badRequest(req, "Invalid JSON body");

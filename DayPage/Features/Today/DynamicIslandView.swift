@@ -36,20 +36,14 @@ struct DynamicIslandView: View {
     private let expandedWidth: CGFloat = 248
     private let height: CGFloat = 37
 
-    // Duration warning thresholds — kept in lockstep with RecordingSheetView so
-    // the capsule timer and the sheet timer warm together on long takes.
-    private static let amberThreshold = 300  // 5:00
-    private static let redThreshold   = 540  // 9:00
-    private static let warnAmber = Color(red: 1.0, green: 0.70, blue: 0.35)
-
     /// Timer tint: off-white by default, amber past 5:00, red past 9:00.
+    /// Thresholds are shared via `RecordingLimits`; the tints below are the
+    /// capsule's own palette (amber/red read against the black pill).
     private var timerColor: Color {
-        if elapsedSeconds >= Self.redThreshold {
-            return DSTokens.Colors.recordingRed
-        } else if elapsedSeconds >= Self.amberThreshold {
-            return Self.warnAmber
-        } else {
-            return DSTokens.Colors.accentSoft
+        switch RecordingLimits.stage(for: elapsedSeconds) {
+        case .critical: return DSTokens.Colors.recordingRed
+        case .warning:  return DSColor.warnAmber
+        case .normal:   return DSTokens.Colors.accentSoft
         }
     }
 
@@ -126,9 +120,7 @@ struct DynamicIslandView: View {
     // MARK: - Helpers
 
     private func formattedTime(_ seconds: Int) -> String {
-        let m = seconds / 60
-        let s = seconds % 60
-        return String(format: "%02d:%02d", m, s)
+        seconds.mmss
     }
 }
 

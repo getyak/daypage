@@ -57,27 +57,17 @@ final class PhotoService {
         return await processImageDataAsync(data)
     }
 
-    /// 处理原始图像 Data（来自 PHPicker 或相机拍摄）。
-    /// Runs CPU-heavy EXIF extraction and thumbnail generation off the main thread.
-    func processImageData(_ data: Data) -> PhotoPickerResult? {
-        processImageDataSync(data)
-    }
-
     /// Async variant — runs CPU-heavy HEIC→JPEG conversion + EXIF extraction
     /// off the main thread via Task.detached, then marshals the result back.
     func processImageDataAsync(_ data: Data) async -> PhotoPickerResult? {
-        let assetsURL = VaultInitializer.vaultURL
-            .appendingPathComponent("raw")
-            .appendingPathComponent("assets")
-        do { try FileManager.default.createDirectory(at: assetsURL, withIntermediateDirectories: true, attributes: nil) }
-        catch { DayPageLogger.shared.error("PhotoService: createDirectory: \(error)") }
+        let assetsURL: URL
+        do { assetsURL = try VaultInitializer.assetsDirectory() }
+        catch {
+            DayPageLogger.shared.error("PhotoService: createDirectory: \(error)")
+            assetsURL = VaultInitializer.assetsDirectoryURL
+        }
 
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd_HHmmss"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone.current
-        let timestamp = formatter.string(from: Date())
-        let filename = "IMG_\(timestamp).jpg"
+        let filename = RawStorage.assetFilename(prefix: "IMG", ext: "jpg")
         let fileURL = assetsURL.appendingPathComponent(filename)
 
         // Run HEIC decode + EXIF extraction + thumbnail generation on a background thread.
@@ -122,49 +112,6 @@ final class PhotoService {
             let relativePath = "raw/assets/\(filename)"
             return PhotoPickerResult(filePath: relativePath, fileURL: fileURL, exif: exif, thumbnail: thumbnail)
         }.value
-    }
-
-    private func processImageDataSync(_ data: Data) -> PhotoPickerResult? {
-        let assetsURL = VaultInitializer.vaultURL
-            .appendingPathComponent("raw")
-            .appendingPathComponent("assets")
-
-        // 确保 assets 目录存在
-        do { try FileManager.default.createDirectory(at: assetsURL, withIntermediateDirectories: true, attributes: nil) }
-        catch { DayPageLogger.shared.error("PhotoService: createDirectory: \(error)") }
-
-        // 生成文件名：IMG_YYYYMMDD_HHMMSS.jpg
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd_HHmmss"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone.current
-        let timestamp = formatter.string(from: Date())
-        let filename = "IMG_\(timestamp).jpg"
-        let fileURL = assetsURL.appendingPathComponent(filename)
-
-        // 原子写入原始数据 — see processImageDataAsync for rationale.
-        do {
-            try RawStorage.atomicWrite(data: data, to: fileURL)
-        } catch {
-            DayPageLogger.shared.error("PhotoService: atomicWrite failed: \(error)")
-            return nil
-        }
-
-        // 提取 EXIF 元数据
-        let exif = extractEXIF(from: data)
-
-        // 生成缩略图
-        let thumbnail = generateThumbnail(from: data)
-
-        // 用于 frontmatter 的相对路径（相对于 vault 根目录）
-        let relativePath = "raw/assets/\(filename)"
-
-        return PhotoPickerResult(
-            filePath: relativePath,
-            fileURL: fileURL,
-            exif: exif,
-            thumbnail: thumbnail
-        )
     }
 
     // Nonisolated versions safe to call from Task.detached

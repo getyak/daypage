@@ -340,27 +340,6 @@ struct MemoCardView: View {
         // the left-swipe action and TimelineRow's merged long-press menu.
     }
 
-    // MARK: - Type chip
-
-    private var typeChip: some View {
-        Group {
-            switch memo.type {
-            case .voice:
-                Label("Voice", systemImage: "mic.fill")
-            case .photo:
-                Label("Photo", systemImage: "photo")
-            case .mixed:
-                Label("Mixed", systemImage: "square.stack")
-            default:
-                EmptyView()
-            }
-        }
-        .font(DSFonts.jetBrainsMono(size: 9))
-        .tracking(0.5)
-        .textCase(.uppercase)
-        .foregroundColor(DSColor.accentOnBg)
-    }
-
     // MARK: - Helpers
 
     private func coordinateString(_ loc: Memo.Location?) -> String {
@@ -1006,8 +985,7 @@ struct VoiceMemoPlayerRow: View {
     }
 
     private func formatDur(_ secs: TimeInterval) -> String {
-        let t = Int(secs)
-        return String(format: "%02d:%02d", t / 60, t % 60)
+        secs.mmss
     }
 }
 

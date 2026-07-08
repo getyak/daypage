@@ -69,7 +69,8 @@ enum TimeOfDay: Int {
             let r, g, b: Double
         }
         // Anchor colors match the four discrete tints, centred on bucket midpoints.
-        // accentAmber resolves to (1.0, 0.75, 0.0) — the canonical midday amber.
+        // The afternoon anchor uses a bright golden amber (1.0, 0.75, 0.0) for a
+        // legible midday glow, distinct from the deep #5D3000 `accentAmber` fill.
         let anchors: [Anchor] = [
             Anchor(minuteOfDay:  90, r: 0.28, g: 0.22, b: 0.60), // 01:30 late-night
             Anchor(minuteOfDay: 480, r: 0.45, g: 0.55, b: 0.88), // 08:00 morning

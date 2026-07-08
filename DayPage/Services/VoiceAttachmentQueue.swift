@@ -16,15 +16,6 @@ private struct VoiceQueueEntry: Codable {
     var failed: Bool        // true after maxAttempts failed attempts
 }
 
-// MARK: - Public Failed Entry (for UI)
-
-struct FailedVoiceEntry: Identifiable {
-    let id: String
-    let audioPath: String
-    let memoDate: String
-    let lastError: String?
-}
-
 // MARK: - VoiceAttachmentQueue
 
 @MainActor
@@ -38,8 +29,6 @@ final class VoiceAttachmentQueue: ObservableObject {
 
     // Published state so TodayView / UI can observe
     @Published private(set) var pendingCount: Int = 0
-    /// Entries that exhausted all retry attempts — surface these for manual retry UI.
-    @Published private(set) var failedEntries: [FailedVoiceEntry] = []
 
     private var queueURL: URL {
         let drafts = VaultInitializer.vaultURL.appendingPathComponent("drafts", isDirectory: true)

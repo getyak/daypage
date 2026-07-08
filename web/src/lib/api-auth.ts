@@ -45,7 +45,10 @@ export async function authenticateApiKey(
   return { userId: key.user_id, scopes };
 }
 
-// A key with "admin" implicitly grants every scope.
+// A key with "admin" implicitly grants every scope. SECURITY: "admin" is not a
+// user-creatable scope — POST /api/keys rejects it (see USER_SCOPES), so this
+// all-scopes branch is reachable only by server-internal keys seeded directly
+// into the api_keys table, never by a key a user minted for themselves.
 export function hasScope(auth: ApiAuthResult, scope: string): boolean {
   return auth.scopes.includes("admin") || auth.scopes.includes(scope);
 }

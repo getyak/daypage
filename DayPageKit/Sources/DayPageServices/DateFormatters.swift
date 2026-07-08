@@ -42,6 +42,12 @@ public enum DateFormatters {
     /// "2026-06" — year-month key for monthly archive grouping.
     public static let yearMonth: DateFormatter = posix("yyyy-MM")
 
+    // MARK: Asset filenames — "yyyyMMdd_HHmmss"
+
+    /// "20260619_142312" — collision-resistant stamp for asset filenames
+    /// (voice_*.m4a, IMG_*.jpg, feedback bundles). Device-current time zone.
+    public static let assetTimestamp: DateFormatter = posix("yyyyMMdd_HHmmss")
+
     // MARK: - Helpers
 
     /// Build a POSIX-locale DateFormatter with the given format pattern.

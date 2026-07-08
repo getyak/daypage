@@ -52,11 +52,6 @@ final class OnThisDayScheduler: ObservableObject {
         return OnThisDayIndex.shared.candidate(for: now)
     }
 
-    func markShown() {
-        let nextFire = nextFireDate()
-        UserDefaults.standard.set(nextFire, forKey: nextFireKey)
-    }
-
     func forceRefresh() -> OnThisDayEntry? {
         guard isEnabled else { return nil }
         return OnThisDayIndex.shared.candidate(for: Date())
@@ -104,11 +99,7 @@ final class OnThisDayScheduler: ObservableObject {
     }
 
     private func dayString(from date: Date) -> String {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM-dd"
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        fmt.timeZone = TimeZone.current
-        return fmt.string(from: date)
+        DateFormatters.isoDate.string(from: date)
     }
 
     private func nextFireDate() -> Date {
