@@ -200,14 +200,10 @@ final class EmailAuthViewModel: ObservableObject {
             authService.error = nil
         } catch let err as DPAuthError {
             errorMessage = err.errorDescription
-            #if canImport(UIKit)
-            UINotificationFeedbackGenerator().notificationOccurred(.error)
-            #endif
+            HapticFeedback.error()
         } catch {
             errorMessage = "发送失败，请稍后再试"
-            #if canImport(UIKit)
-            UINotificationFeedbackGenerator().notificationOccurred(.error)
-            #endif
+            HapticFeedback.error()
         }
     }
 

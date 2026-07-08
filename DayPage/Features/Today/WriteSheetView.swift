@@ -28,15 +28,6 @@ import DayPageServices
 // presentation-only in this round (no wiring) to match the design's quiet rail;
 // the inline composer remains the full multimodal capture surface.
 
-private struct SavePillPressStyle: ButtonStyle {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect((!reduceMotion && configuration.isPressed) ? 0.96 : 1.0)
-            .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
-    }
-}
-
 struct WriteSheetView: View {
 
     /// Live draft text — bound to the same `draftText` the inline composer uses
@@ -194,13 +185,6 @@ struct WriteSheetView: View {
         return f
     }()
 
-    private static let isoFmt: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.dateFormat = "yyyy-MM-dd"
-        return f
-    }()
-
     /// Captured once so the stamp doesn't reshuffle while the sheet is open.
     private let now = Date()
 
@@ -211,7 +195,7 @@ struct WriteSheetView: View {
     private var stamp: String { Self.stampFmt.string(from: now).uppercased() }
 
     /// ISO date for the vault caption "YYYY-MM-DD" (design composer.jsx:340).
-    private var isoDate: String { Self.isoFmt.string(from: now) }
+    private var isoDate: String { DateFormatters.isoDate.string(from: now) }
 
     // MARK: - Body
 
@@ -712,7 +696,7 @@ struct WriteSheetView: View {
             .scaleEffect(saveReadyPulse ? 1.06 : 1.0)
             .animation(reduceMotion ? nil : Motion.spring, value: saveReadyPulse)
         }
-        .buttonStyle(SavePillPressStyle())
+        .pressScale(scale: 0.96, animation: .easeInOut(duration: 0.12))
         .disabled(!canSave)
         .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: canSave)
         .accessibilityIdentifier("write-sheet-save")

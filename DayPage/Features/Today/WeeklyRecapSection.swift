@@ -70,8 +70,6 @@ private struct WeeklyRecapDayCard: View {
     let entry: WeeklyRecapEntry
     let onTap: () -> Void
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     var body: some View {
         Button(action: {
             Haptics.tapConfirm()
@@ -91,7 +89,8 @@ private struct WeeklyRecapDayCard: View {
             .background(DSColor.surfaceContainer)
             .cornerRadius(DSRadius.md)
         }
-        .buttonStyle(RecapCardButtonStyle(reduceMotion: reduceMotion))
+        .pressScale(scale: 0.97, opacity: 0.94,
+                    animation: .spring(response: 0.3, dampingFraction: 0.7))
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(NSLocalizedString("recap.card.accessibility_hint", value: "Double tap to open this day's page", comment: "Accessibility hint for weekly recap day cards"))
         .accessibilityAddTraits(.isButton)
@@ -151,18 +150,3 @@ private struct WeeklyRecapDayCard: View {
     }
 }
 
-// MARK: - RecapCardButtonStyle
-
-private struct RecapCardButtonStyle: ButtonStyle {
-    let reduceMotion: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect((!reduceMotion && configuration.isPressed) ? 0.97 : 1)
-            .opacity(configuration.isPressed ? 0.94 : 1)
-            .animation(
-                reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7),
-                value: configuration.isPressed
-            )
-    }
-}

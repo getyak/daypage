@@ -68,14 +68,9 @@ final class FeedbackViewModel: ObservableObject {
 
     // MARK: - Computed
 
-    var isIdle: Bool { status == .idle }
     var isSending: Bool {
         if case .sending = status { return true }
         return false
-    }
-    var submittedIssueURL: String? {
-        if case .submitted(let url) = status { return url }
-        return nil
     }
     var errorMessage: String? {
         if case .error(let msg) = status { return msg }
@@ -101,7 +96,7 @@ final class FeedbackViewModel: ObservableObject {
             return
         }
 
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        HapticFeedback.medium()
 
         status = .sending
         let context = capturedContext ?? FeedbackContext.capture()
@@ -150,7 +145,7 @@ final class FeedbackViewModel: ObservableObject {
             )
             submittedIssues.insert(submitted, at: 0)
             persistSubmittedIssues()
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            HapticFeedback.success()
             status = .submitted(issueURL: issue.htmlURL)
         } catch {
             status = .error(error.localizedDescription)

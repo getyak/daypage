@@ -71,7 +71,7 @@ describe("selectSuggestion", () => {
     mockDb.update.mockReturnValue(updateChain([OPEN_ROW]));
     enqueueJob.mockResolvedValue({ id: "job-1" });
 
-    const result = await selectSuggestion("sugg-1");
+    const result = await selectSuggestion("sugg-1", "user-1");
 
     expect(result.status).toBe("selected");
     if (result.status === "selected") {

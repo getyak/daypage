@@ -19,8 +19,15 @@ export type SelectSuggestionResult =
 // Flip `open` → `selected` only. The WHERE clause guards on the current status,
 // so a row already `selected`/`dispatched` (or `dismissed`) is left untouched
 // and the UPDATE returns no rows — that is our idempotency signal.
+//
+// SECURITY (IDOR): `userId` scopes every query to the caller's own suggestions.
+// The suggestion id arrives from an untrusted client (a Telegram callback), so
+// without this scoping any authenticated user could dispatch another user's
+// suggestion by guessing its id. A suggestion owned by a different user reads
+// back as `not_found`, exactly as if it did not exist.
 export async function selectSuggestion(
-  suggestionId: string
+  suggestionId: string,
+  userId: string
 ): Promise<SelectSuggestionResult> {
   const updated = await db
     .update(task_suggestions)
@@ -28,6 +35,7 @@ export async function selectSuggestion(
     .where(
       and(
         eq(task_suggestions.id, suggestionId),
+        eq(task_suggestions.user_id, userId),
         eq(task_suggestions.status, "open")
       )
     )
@@ -47,13 +55,18 @@ export async function selectSuggestion(
     return { status: "selected", suggestion };
   }
 
-  // No row updated: either the suggestion does not exist, or it is no longer
-  // `open` (already selected/dispatched/dismissed). Read it back to tell those
-  // apart so the user gets an accurate "already queued" vs "gone" reply.
+  // No row updated: either the suggestion does not exist / is not owned by this
+  // user, or it is no longer `open`. Read it back (still user-scoped) to tell an
+  // "already queued" apart from a "gone" reply.
   const existing = await db
     .select()
     .from(task_suggestions)
-    .where(eq(task_suggestions.id, suggestionId))
+    .where(
+      and(
+        eq(task_suggestions.id, suggestionId),
+        eq(task_suggestions.user_id, userId)
+      )
+    )
     .limit(1);
 
   if (existing[0]) {

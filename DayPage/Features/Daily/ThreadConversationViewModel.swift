@@ -35,14 +35,6 @@ final class ThreadConversationViewModel: ObservableObject, Identifiable {
 
     // MARK: - Private formatters
 
-    private let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
-        return f
-    }()
-
     private let iso8601Formatter: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
         f.formatOptions = [.withInternetDateTime]
@@ -206,7 +198,7 @@ final class ThreadConversationViewModel: ObservableObject, Identifiable {
     // MARK: - File URL
 
     private func threadsFileURL() -> URL {
-        let dateString = dateFormatter.string(from: date)
+        let dateString = DateFormatters.isoDate.string(from: date)
         return VaultInitializer.vaultURL
             .appendingPathComponent("threads")
             .appendingPathComponent("\(dateString).md")
@@ -261,7 +253,7 @@ final class ThreadConversationViewModel: ObservableObject, Identifiable {
     }
 
     private func buildSystemPrompt() -> String {
-        let dateString = dateFormatter.string(from: date)
+        let dateString = DateFormatters.isoDate.string(from: date)
         let maxChars = 3_000
         let pageText = compiledPageText.count > maxChars
             ? String(compiledPageText.prefix(maxChars)) + "..."

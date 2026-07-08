@@ -228,10 +228,7 @@ struct DailyPageView: View {
         isRecompiling = true
         defer { isRecompiling = false }
 
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        guard let date = formatter.date(from: dateString) else {
+        guard let date = DateFormatters.isoDate.date(from: dateString) else {
             recompileError = "日期格式无效"
             return
         }
@@ -436,10 +433,7 @@ struct DailyPageView: View {
         }
 
         private var monoTime: String {
-            let f = DateFormatter()
-            f.dateFormat = "HH:mm"
-            f.locale = Locale(identifier: "en_US_POSIX")
-            return f.string(from: memo.created)
+            DateFormatters.timeHHmm.string(from: memo.created)
         }
 
         var body: some View {
@@ -576,10 +570,7 @@ struct DailyPageView: View {
 
     private func threadVM(for question: String, compiledText: String) -> ThreadConversationViewModel {
         if let existing = threadVMs[question] { return existing }
-        let dateParser = DateFormatter()
-        dateParser.dateFormat = "yyyy-MM-dd"
-        dateParser.locale = Locale(identifier: "en_US_POSIX")
-        let date = dateParser.date(from: dateString) ?? Date()
+        let date = DateFormatters.isoDate.date(from: dateString) ?? Date()
         let vm = ThreadConversationViewModel(question: question, compiledPageText: compiledText, date: date)
         Task { await vm.loadHistory() }
         threadVMs[question] = vm
@@ -635,10 +626,7 @@ struct DailyPageView: View {
         freeformDraft = ""
 
         if freeformVM == nil {
-            let dateParser = DateFormatter()
-            dateParser.dateFormat = "yyyy-MM-dd"
-            dateParser.locale = Locale(identifier: "en_US_POSIX")
-            let date = dateParser.date(from: dateString) ?? Date()
+            let date = DateFormatters.isoDate.date(from: dateString) ?? Date()
             let vm = ThreadConversationViewModel(question: nil, compiledPageText: compiledText, date: date)
             freeformVM = vm
             Task {
@@ -719,17 +707,6 @@ struct DailyPageView: View {
 
     // MARK: - Wikilink Text Rendering
 
-    /// 渲染字符串，将 [[slug]] 模式替换为可点击的琥珀色文本段。
-    /// 点击 wikilink 时通过 sheet 导航到对应的 EntityPageView。
-    @ViewBuilder
-    private func wikifiedText(_ text: String) -> some View {
-        WikilinkBodyText(text: text) { slug in
-            let (type, _) = resolveEntityTypeAndSlug(slug)
-            selectedEntityType = type
-            selectedEntitySlug = slug
-        }
-    }
-
     /// 通过扫描 wiki 目录从 slug 解析实体类型。
     /// 未找到时回退到 "themes"（首次点击会创建空的实体页）。
     private func resolveEntityTypeAndSlug(_ inner: String) -> (type: String, slug: String) {
@@ -749,25 +726,11 @@ struct DailyPageView: View {
     // MARK: - Date Helpers
 
     private func dailyPageMonthDay(_ dateString: String) -> String {
-        let parser = DateFormatter()
-        parser.dateFormat = "yyyy-MM-dd"
-        parser.locale = Locale(identifier: "en_US_POSIX")
-        guard let date = parser.date(from: dateString) else { return dateString }
+        guard let date = DateFormatters.isoDate.date(from: dateString) else { return dateString }
         let f = DateFormatter()
         f.dateFormat = "MMMM d"
         f.locale = Locale(identifier: "en_US_POSIX")
         return f.string(from: date).uppercased()
-    }
-
-    private func dailyPageWeekdayYear(_ dateString: String) -> String {
-        let parser = DateFormatter()
-        parser.dateFormat = "yyyy-MM-dd"
-        parser.locale = Locale(identifier: "en_US_POSIX")
-        guard let date = parser.date(from: dateString) else { return "" }
-        let f = DateFormatter()
-        f.dateFormat = "EEEE, yyyy"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f.string(from: date)
     }
 
     // MARK: - Load
@@ -786,10 +749,7 @@ struct DailyPageView: View {
                 // US-021: derive "Last compiled at HH:MM" from file modification date
                 if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
                    let modDate = attrs[.modificationDate] as? Date {
-                    let tf = DateFormatter()
-                    tf.dateFormat = "HH:mm"
-                    tf.locale = Locale(identifier: "en_US_POSIX")
-                    lastCompiledTimeLabel = tf.string(from: modDate)
+                    lastCompiledTimeLabel = DateFormatters.timeHHmm.string(from: modDate)
                 }
             } catch {
                 DayPageLogger.shared.error("DailyPageView: load daily \(url.path) errno=\(errno): \(error)")
@@ -801,10 +761,7 @@ struct DailyPageView: View {
         }
 
         // Load raw memos for Timeline Tab
-        let parser = DateFormatter()
-        parser.dateFormat = "yyyy-MM-dd"
-        parser.locale = Locale(identifier: "en_US_POSIX")
-        guard let date = parser.date(from: dateString) else {
+        guard let date = DateFormatters.isoDate.date(from: dateString) else {
             DayPageLogger.shared.error("DailyPageView: invalid dateString '\(dateString)'")
             rawMemos = []
             return

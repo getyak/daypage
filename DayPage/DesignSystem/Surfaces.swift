@@ -15,7 +15,7 @@ enum GlassTone {
         case .std:       return DSColor.glassStd
         case .hi:        return DSColor.glassHi
         case .lo:        return DSColor.glassLo
-        case .amberHero: return Color(hex: "5D3000").opacity(0.92)
+        case .amberHero: return DSColor.amberDeep.opacity(0.92)
         }
     }
 
@@ -75,8 +75,7 @@ struct LiquidGlassCard: ViewModifier {
             shape.strokeBorder(tone.rim, lineWidth: 0.5)
         )
         .clipShape(shape)
-        .shadow(color: Color(hex: "2D1E0A").opacity(0.04), radius: 1, x: 0, y: 1)
-        .shadow(color: Color(hex: "2D1E0A").opacity(0.08), radius: 24, x: 0, y: 8)
+        .elevation(.glass)
     }
 }
 

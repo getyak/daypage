@@ -1,6 +1,9 @@
 import "server-only";
 import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
 import { createClient } from "@/lib/supabase/server";
+import { db } from "@/lib/db/client";
+import { users } from "@/lib/db/schema";
 
 // Drop-in replacement for the legacy NextAuth `auth()` helper. Returns a shape
 // compatible with the `session.user.email` access pattern used throughout the
@@ -37,6 +40,18 @@ export async function auth(): Promise<Session | null> {
         null,
     },
   };
+}
+
+// Resolve the internal `users.id` for a given auth email. Callers typically
+// already hold `session.user.email` from `auth()`; this keeps the DB lookup in
+// one place instead of the copy it used to be in every route handler.
+export async function resolveUserId(email: string): Promise<string | null> {
+  const rows = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+  return rows[0]?.id ?? null;
 }
 
 // Convenience: sign out via Supabase. Mirrors NextAuth's `signOut({ redirectTo })`

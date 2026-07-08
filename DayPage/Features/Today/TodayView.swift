@@ -287,21 +287,11 @@ struct TodayView: View {
 
     private var isInSelectionMode: Bool { selectedMemoIds != nil }
 
-    /// Number of word milestones the user has currently crossed (0–3).
-    private var currentWordMilestoneIndex: Int {
-        wordMilestones.filter { $0 <= viewModel.todayWordCount }.count
-    }
-
     /// Progress of the scroll-to-top ring: 0 at 240pt (button appears), 1 after
     /// 1200pt more. Reads the quantized bucket (0…20) so the ring's stroke
     /// re-renders at most 21 times across the travel rather than each frame.
     private var scrollProgress: CGFloat {
         CGFloat(scrollProgressBucket) / 20.0
-    }
-
-    /// Fraction of the current local day elapsed (0.0 at midnight, 1.0 at next midnight).
-    private var dayProgress: CGFloat {
-        DayProgress.fraction(at: currentTime)
     }
 
     /// Live drag offset for the daily page card (negative = pulled left).
@@ -894,13 +884,7 @@ struct TodayView: View {
         content
             // Daily Page full-screen sheet
             .fullScreenCover(isPresented: $showDailyPage) {
-                let dateStr: String = {
-                    let f = DateFormatter()
-                    f.dateFormat = "yyyy-MM-dd"
-                    f.locale = Locale(identifier: "en_US_POSIX")
-                    f.timeZone = TimeZone.current
-                    return f.string(from: Date())
-                }()
+                let dateStr = DateFormatters.isoDate.string(from: Date())
                 DailyPageView(
                     dateString: dateStr,
                     onReturnToToday: { question in
@@ -1856,30 +1840,6 @@ struct TodayView: View {
         }
     }
 
-    // MARK: - Earlier Divider
-
-    /// Horizontal rule with "EARLIER" label that visually separates today's
-    /// memo list from the history supplement section.
-    private var earlierDivider: some View {
-        HStack(spacing: 0) {
-            Rectangle()
-                .fill(DSColor.inkFaint)
-                .frame(height: 0.5)
-            Text(NSLocalizedString("today.section.earlier", comment: ""))
-                .font(DSType.mono10)
-                .tracking(1.0)
-                .foregroundColor(DSColor.inkSubtle)
-                .dynamicTypeSize(.xSmall ... .accessibility5)
-                .padding(.horizontal, 8)
-            Rectangle()
-                .fill(DSColor.inkFaint)
-                .frame(height: 0.5)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 24)
-        .padding(.bottom, 4)
-    }
-
     @ViewBuilder
     private func yesterdayDailyPageFallback(_ page: DailyPageModel) -> some View {
         yesterdaySection(page)
@@ -1952,11 +1912,7 @@ struct TodayView: View {
     }
 
     private static func dateString(from date: Date) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
-        return f.string(from: date)
+        DateFormatters.isoDate.string(from: date)
     }
 
     // MARK: - Swipeable Daily Page Card
@@ -2290,10 +2246,6 @@ struct TodayView: View {
         .dpGlass(.control, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    private func orbGreeting(_ date: Date) -> String {
-        NSLocalizedString(TimeOfDay.from(date).greetingKey, comment: "")
-    }
-
     private func todayEmptySubtitle(_ date: Date) -> String {
         let key: String
         switch TimeOfDay.from(date) {
@@ -2316,47 +2268,9 @@ struct TodayView: View {
         return NSLocalizedString(key, comment: "")
     }
 
-    /// Returns an integer bucket index (0–3) for the current time-of-day bucket.
-    /// Used to key the tint animation so crossfades fire only at bucket boundaries.
-    private func orbTintBucket(_ date: Date) -> Int {
-        TimeOfDay.from(date).bucketIndex
-    }
-
     /// Derives a continuously-interpolated ambient hue for the orb breathing glow.
     private func orbTint(_ date: Date) -> Color {
         TimeOfDay.continuousTint(at: date)
-    }
-
-    private func orbKicker(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "d MMM"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
-        let count = viewModel.signalCount
-        let signalKey = count == 1 ? "today.kicker.signal.one" : "today.kicker.signal.other"
-        let signal = NSLocalizedString(signalKey, comment: "")
-        let dateStr = f.string(from: date).uppercased()
-        let timeStr = Self.headerTimeFmt.string(from: date)
-        return "\(dateStr) · \(timeStr) · \(count) \(signal)"
-    }
-
-    /// Date + time prefix for the split kicker: "29 MAY · 14:30 · "
-    private func orbKickerPrefix(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "d MMM"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
-        let dateStr = f.string(from: date).uppercased()
-        let timeStr = Self.headerTimeFmt.string(from: date)
-        return "\(dateStr) · \(timeStr) · "
-    }
-
-    /// Signal-word suffix for the split kicker: " SIGNALS"
-    private func orbKickerSuffix() -> String {
-        let count = viewModel.signalCount
-        let signalKey = count == 1 ? "today.kicker.signal.one" : "today.kicker.signal.other"
-        let signal = NSLocalizedString(signalKey, comment: "")
-        return " \(signal)"
     }
 
     // MARK: - InputBarV4 (variant D: Silent Press-to-Talk)
@@ -2497,25 +2411,6 @@ struct TodayView: View {
             .transition(.opacity)
             .zIndex(50)
         }
-    }
-
-    // MARK: - Compile Progress Dots
-
-    @ViewBuilder
-    private func compileProgressDots(filled: Int) -> some View {
-        HStack(spacing: 6) {
-            ForEach(0..<3, id: \.self) { index in
-                Circle()
-                    .fill(index < filled ? DSColor.accentAmber : DSColor.glassStd)
-                    .frame(width: 5, height: 5)
-                    .animation(Motion.spring, value: filled)
-            }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(L10n.Empty.compileDockLocked(
-            current: filled,
-            remaining: max(0, 3 - filled)
-        ))
     }
 
     // MARK: - US-021 Extracted Subviews
@@ -3335,48 +3230,8 @@ struct TodayView: View {
         return f
     }()
 
-    private static let headerTimeFmt: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
-        return f
-    }()
-
     private func weekdayName(_ date: Date) -> String {
         Self.weekdayFmt.string(from: date)
-    }
-
-    private func headerSubline(_ date: Date) -> String {
-        let count = viewModel.memos.count
-        let dateStr = Self.headerDateFmt.string(from: date)
-
-        // Notes segment (empty-state shows time instead of count).
-        var parts: [String]
-        if count == 0 {
-            parts = [dateStr, Self.headerTimeFmt.string(from: date)]
-        } else {
-            let notesKey = count == 1 ? "today.subline.notes.one" : "today.subline.notes.other"
-            let notesStr = String(format: NSLocalizedString(notesKey, comment: ""), count)
-            parts = [dateStr, notesStr]
-            let words = viewModel.todayWordCount
-            if words > 0 {
-                let wordsKey = words == 1 ? "today.subline.words.one" : "today.subline.words.other"
-                parts.append(String(format: NSLocalizedString(wordsKey, comment: ""), words))
-            }
-        }
-
-        // Museum-aesthetic subline: append today's weather + place when known.
-        // Sourced from existing memos — no extra network/location fetch (M1 is UI-only).
-        // e.g. "MAY 28 · 2 NOTES · 340 WORDS · 28° · VIENTIANE"
-        if let weather = todayWeatherShort() {
-            parts.append(weather)
-        }
-        if let place = todayPlaceShort() {
-            parts.append(place)
-        }
-        parts.append(todayTimeZoneShort())
-        return parts.joined(separator: "  ·  ")
     }
 
     /// Renders the header subline as a single concise mono row.
@@ -3425,7 +3280,7 @@ struct TodayView: View {
         let dateStr = Self.headerDateFmt.string(from: date)
         var parts: [String]
         if count == 0 {
-            parts = [dateStr, Self.headerTimeFmt.string(from: date)]
+            parts = [dateStr, DateFormatters.timeHHmm.string(from: date)]
         } else {
             let notesKey = count == 1 ? "today.subline.notes.one" : "today.subline.notes.other"
             let notesStr = String(format: NSLocalizedString(notesKey, comment: ""), count)
@@ -3529,11 +3384,7 @@ struct TodayView: View {
     /// `.rawStorageDidWrite` notification path so the timeline re-renders.
     private func deleteTimelineDay(_ entry: TimelineDayEntry) {
         let dateString = entry.dateString
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM-dd"
-        fmt.locale = Locale(identifier: "en_US_POSIX")
-        fmt.timeZone = TimeZone.current
-        guard let date = fmt.date(from: dateString) else { return }
+        guard let date = DateFormatters.isoDate.date(from: dateString) else { return }
 
         Task.detached(priority: .userInitiated) {
             try? RawStorage.rewrite([], for: date)        // posts rawStorageDidWrite
@@ -3748,11 +3599,7 @@ private struct LocationDraftRow: View {
     }
 
     private func formatTime(_ date: Date) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
-        return f.string(from: date)
+        DateFormatters.timeHHmm.string(from: date)
     }
 
     private var durationText: String? {

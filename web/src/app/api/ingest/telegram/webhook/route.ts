@@ -6,6 +6,7 @@ import { sendEvent } from "@/lib/inngest/client";
 import { decryptConfig } from "@/lib/secret-crypto";
 import { selectSuggestion } from "@/lib/gateway/select-suggestion";
 import { answerCallbackQuery } from "@/lib/connectors/outbound/telegram";
+import { checkRateLimit, clientIp } from "@/lib/ratelimit";
 
 // Telegram Update object (partial — only fields we use)
 interface TelegramMessage {
@@ -38,8 +39,36 @@ async function logActivity(userId: string, verb: string, subject: string, target
   await db.insert(activities).values({ user_id: userId, verb, subject, target_type: targetType, target_id: targetId });
 }
 
+// Resolve the DayPage user linked to a Telegram chat_id via ingest_sources
+// config. Returns null when no enabled telegram source matches — used to scope
+// callback actions to the tapping user (prevents IDOR on suggestion ids).
+async function resolveUserByChatId(chatId: string): Promise<string | null> {
+  const sources = await db
+    .select()
+    .from(ingest_sources)
+    .where(and(eq(ingest_sources.source_type, "telegram"), eq(ingest_sources.enabled, true)));
+  const match = sources.find((s) => String(decryptConfig(s.config).chat_id) === chatId);
+  return match?.user_id ?? null;
+}
+
 // POST /api/ingest/telegram/webhook
 export async function POST(req: NextRequest) {
+  // Rate limit per client IP before any work — a webhook secret leak or a
+  // flood of unauthenticated POSTs must not exhaust DB / compile resources.
+  const rl = checkRateLimit(`telegram-webhook:${clientIp(req)}`, 60, 60_000);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded" },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": Math.ceil((rl.reset - Date.now()) / 1000).toString(),
+          "X-RateLimit-Remaining": "0",
+        },
+      }
+    );
+  }
+
   // Verify secret token sent by Telegram. Fail closed: if the server is not
   // configured with a secret, reject all requests rather than accepting any
   // unauthenticated POST (which would let anyone who knows a chat_id inject memos).
@@ -146,7 +175,18 @@ async function handleCallbackQuery(cb: TelegramCallbackQuery) {
     return NextResponse.json({ ok: true });
   }
 
-  const result = await selectSuggestion(suggestionId);
+  // SECURITY (IDOR): scope the selection to the user who owns this Telegram
+  // chat. Without this, the raw `pick:<id>` payload would let any linked chat
+  // dispatch another user's suggestion by guessing its id. Resolve the chat →
+  // DayPage user; if the chat is not linked, refuse rather than act globally.
+  const chatId = cb.message ? String(cb.message.chat.id) : "";
+  const userId = chatId ? await resolveUserByChatId(chatId) : null;
+  if (!userId) {
+    await answerCallbackQuery({ callbackQueryId: cb.id });
+    return NextResponse.json({ ok: true });
+  }
+
+  const result = await selectSuggestion(suggestionId, userId);
 
   let toast: string;
   switch (result.status) {

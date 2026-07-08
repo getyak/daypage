@@ -1,7 +1,6 @@
 import SwiftUI
 import MapKit
 import ImageIO
-import AVFoundation
 import DayPageModels
 import DayPageStorage
 import DayPageServices
@@ -703,11 +702,7 @@ private struct DetailMetadataSection: View {
     }
 
     private var vaultFilePath: String {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
-        f.dateFormat = "yyyy-MM-dd"
-        return "vault/raw/\(f.string(from: memo.created)).md"
+        "vault/raw/\(DateFormatters.isoDate.string(from: memo.created)).md"
     }
 
     // MARK: - Body stats
@@ -789,9 +784,7 @@ private struct DetailMetadataSection: View {
         // Voice: duration + transcription provider
         if let audioAtt = memo.attachments.first(where: { $0.kind == "audio" }) {
             if let dur = audioAtt.duration {
-                let mins = Int(dur) / 60
-                let secs = Int(dur) % 60
-                metaRow(label: "Duration", value: String(format: "%02d:%02d", mins, secs))
+                metaRow(label: "Duration", value: dur.mmss)
             }
             if let transcript = audioAtt.transcript, !transcript.isEmpty {
                 metaRow(label: "Transcription", value: "OpenAI Whisper")

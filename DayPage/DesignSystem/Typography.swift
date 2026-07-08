@@ -199,9 +199,6 @@ private extension Font.TextStyle {
 /// levels are computed properties because their UIFont cascade resolves the
 /// scaled size eagerly (see `DSFonts.serif`).
 enum DSType {
-    // Display-LG: 56 / Space Grotesk 700 uppercase
-    static let displayLG: Font = DSFonts.spaceGrotesk(size: 56, weight: .bold, relativeTo: .largeTitle)
-
     // H1: 32 / Space Grotesk 700
     static let h1: Font = DSFonts.spaceGrotesk(size: 32, weight: .bold, relativeTo: .largeTitle)
 
@@ -264,8 +261,6 @@ enum DSType {
     static var serifDisplay28: Font { DSFonts.serif(size: 28, weight: .semibold, relativeTo: .title, maxSize: 34) }
     /// Serif display 32pt — sidebar date / large headers.
     static var serifDisplay32: Font { DSFonts.serif(size: 32, weight: .semibold, relativeTo: .largeTitle, maxSize: 41) }
-    /// Serif display 56pt — Today hero date title (museum-aesthetic, always-on).
-    static var serifDisplay56: Font { DSFonts.serif(size: 56, weight: .semibold, relativeTo: .largeTitle, maxSize: 72) }
 }
 
 // MARK: - View Modifiers
@@ -300,19 +295,6 @@ struct LabelStyleModifier: ViewModifier {
     }
 }
 
-struct DisplayLGModifier: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .font(DSType.displayLG)
-            .textCase(.uppercase)
-            .tracking(1)
-            // Display sizes explode at accessibility categories — clamp one
-            // notch tighter than H1/H2 (.accessibility2).
-            .dynamicTypeSize(.xSmall ... .accessibility1)
-            .minimumScaleFactor(0.80)
-    }
-}
-
 struct HeadlineMDModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
@@ -337,13 +319,6 @@ struct SectionLabelModifier: ViewModifier {
             .font(DSType.sectionLabel)
             .textCase(.uppercase)
             .tracking(1.5)
-    }
-}
-
-struct TitleSMModifier: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .font(DSType.titleSM)
     }
 }
 
@@ -387,13 +362,6 @@ struct LabelSMModifier: ViewModifier {
     }
 }
 
-struct LabelXSModifier: ViewModifier {
-    func body(content: Content) -> some View {
-        content
-            .font(DSType.labelXS)
-    }
-}
-
 struct MonoLabelModifier: ViewModifier {
     let size: CGFloat
     func body(content: Content) -> some View {
@@ -408,29 +376,22 @@ struct MonoLabelModifier: ViewModifier {
 
 extension View {
     // v3 shorthand (Style suffix)
-    func h1Style() -> some View { modifier(H1Modifier()) }
     func h2Style() -> some View { modifier(H2Modifier()) }
     func captionStyle() -> some View { modifier(CaptionStyleModifier()) }
     func labelStyle() -> some View { modifier(LabelStyleModifier()) }
 
     // v3 short names (no suffix) — use these in new code
-    func displayLG() -> some View { modifier(DisplayLGModifier()) }
     func h1() -> some View { modifier(H1Modifier()) }
-    func h2() -> some View { modifier(H2Modifier()) }
     func bodyText() -> some View { modifier(BodyMDModifier()) }
     func captionText() -> some View { modifier(CaptionStyleModifier()) }
     func labelText() -> some View { modifier(LabelStyleModifier()) }
-    func monoText(size: CGFloat = 11) -> some View { modifier(MonoLabelModifier(size: size)) }
 
     // Legacy / existing
-    func displayLGStyle() -> some View { modifier(DisplayLGModifier()) }
     func headlineMDStyle() -> some View { modifier(HeadlineMDModifier()) }
     func headlineCapsStyle() -> some View { modifier(HeadlineCapsModifier()) }
     func sectionLabelStyle() -> some View { modifier(SectionLabelModifier()) }
-    func titleSMStyle() -> some View { modifier(TitleSMModifier()) }
     func bodyMDStyle() -> some View { modifier(BodyMDModifier()) }
     func bodySMStyle() -> some View { modifier(BodySMModifier()) }
     func labelSMStyle() -> some View { modifier(LabelSMModifier()) }
-    func labelXSStyle() -> some View { modifier(LabelXSModifier()) }
     func monoLabelStyle(size: CGFloat = 11) -> some View { modifier(MonoLabelModifier(size: size)) }
 }

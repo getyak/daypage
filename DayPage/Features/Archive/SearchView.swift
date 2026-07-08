@@ -157,9 +157,7 @@ final class SearchViewModel: ObservableObject {
         let weekStart = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)) ?? todayStart
         let monthStart = cal.date(from: cal.dateComponents([.year, .month], from: now)) ?? todayStart
 
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM-dd"
-        fmt.locale = Locale(identifier: "en_US_POSIX")
+        let fmt = DateFormatters.isoDate
 
         var groups: [Section: [SearchResult]] = [:]
         for r in source {
@@ -1269,13 +1267,6 @@ struct SearchView: View {
 
     // MARK: - Formatting helpers
 
-    private static let dateParser: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
-
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = .current
@@ -1284,7 +1275,7 @@ struct SearchView: View {
     }()
 
     private func formatDate(_ dateString: String) -> String {
-        guard let date = SearchView.dateParser.date(from: dateString) else { return dateString }
+        guard let date = DateFormatters.isoDate.date(from: dateString) else { return dateString }
         let cal = Calendar.current
         let now = Date()
         let startOfDate = cal.startOfDay(for: date)

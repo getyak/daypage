@@ -9,8 +9,6 @@ struct OnThisDayCard: View {
     let onDismiss: () -> Void
     let onTap: (OnThisDayEntry) -> Void
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     var body: some View {
         Button {
             Haptics.tapConfirm()
@@ -18,7 +16,8 @@ struct OnThisDayCard: View {
         } label: {
             cardContent
         }
-        .buttonStyle(OnThisDayPressStyle(reduceMotion: reduceMotion))
+        .pressScale(scale: 0.97, opacity: 0.94,
+                    animation: .spring(response: 0.3, dampingFraction: 0.7))
         .padding(.horizontal, 20)
         // Single accessible element: card body + dismiss action. R6 — explicit
         // .ignore so VoiceOver reads only the composed label below; inner
@@ -150,18 +149,3 @@ struct OnThisDayCard: View {
     }
 }
 
-// MARK: - OnThisDayPressStyle
-
-private struct OnThisDayPressStyle: ButtonStyle {
-    let reduceMotion: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect((!reduceMotion && configuration.isPressed) ? 0.97 : 1)
-            .opacity(configuration.isPressed ? 0.94 : 1)
-            .animation(
-                reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.7),
-                value: configuration.isPressed
-            )
-    }
-}

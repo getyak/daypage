@@ -12,15 +12,6 @@ import SwiftUI
 //   ┆      ● ● ○                ┆
 //   └╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴╴┘
 
-private struct PressScaleStyle: ButtonStyle {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect((!reduceMotion && configuration.isPressed) ? 0.98 : 1.0)
-            .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
-    }
-}
-
 struct CompileUnlockCard: View {
     let memoCount: Int
     var onTap: (() -> Void)? = nil
@@ -117,7 +108,7 @@ struct CompileUnlockCard: View {
                 } label: {
                     cardContent
                 }
-                .buttonStyle(PressScaleStyle())
+                .pressScale(scale: 0.98, animation: .easeInOut(duration: 0.12))
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel("再记 \(remaining) 条解锁今日成稿，已记 \(memoCount) 条")
                 .accessibilityHint("轻点聚焦输入框记录新内容")

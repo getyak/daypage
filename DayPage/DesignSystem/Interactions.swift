@@ -43,3 +43,55 @@ extension View {
         modifier(PressableCardModifier())
     }
 }
+
+// MARK: - PressScaleButtonStyle
+
+/// Shared press-feedback `ButtonStyle` — a small scale dip (plus optional
+/// opacity fade and vertical nudge) on press, animated by a spring. Replaces
+/// the near-identical private styles that had accumulated across the Today
+/// surface. Parameters default to the most common values (0.97 scale,
+/// `Motion.press` spring); callers override `scale` / `opacity` / `offsetY` /
+/// `animation` where their original style diverged.
+///
+/// `respectsReduceMotion` gates the scale/opacity/offset on the user's
+/// Reduce Motion setting. It defaults to `true`; pass `false` to preserve
+/// styles that historically never consulted the accessibility environment.
+struct PressScaleButtonStyle: ButtonStyle {
+    var scale: CGFloat = 0.97
+    var opacity: CGFloat = 1.0
+    var offsetY: CGFloat = 0
+    var animation: Animation = Motion.press
+    var respectsReduceMotion: Bool = true
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var suppressed: Bool { respectsReduceMotion && reduceMotion }
+
+    func makeBody(configuration: Configuration) -> some View {
+        let pressed = configuration.isPressed
+        configuration.label
+            .scaleEffect((!suppressed && pressed) ? scale : 1.0)
+            .opacity(pressed ? opacity : 1.0)
+            .offset(y: (!suppressed && pressed) ? offsetY : 0)
+            .animation(suppressed ? nil : animation, value: configuration.isPressed)
+    }
+}
+
+extension View {
+    /// Apply the shared ``PressScaleButtonStyle`` press feedback.
+    func pressScale(
+        scale: CGFloat = 0.97,
+        opacity: CGFloat = 1.0,
+        offsetY: CGFloat = 0,
+        animation: Animation = Motion.press,
+        respectsReduceMotion: Bool = true
+    ) -> some View {
+        buttonStyle(PressScaleButtonStyle(
+            scale: scale,
+            opacity: opacity,
+            offsetY: offsetY,
+            animation: animation,
+            respectsReduceMotion: respectsReduceMotion
+        ))
+    }
+}

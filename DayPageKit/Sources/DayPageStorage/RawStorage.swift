@@ -50,6 +50,13 @@ public enum RawStorage {
             .appendingPathComponent("\(dateString).md")
     }
 
+    /// 生成 asset 文件名：`<prefix>_<yyyyMMdd_HHmmss>.<ext>`（本地时区）。
+    /// 用于照片（prefix "IMG"）、语音（prefix "voice"）等带时间戳的附件。
+    public static func assetFilename(prefix: String, ext: String) -> String {
+        let stamp = assetTimestampFormatter.string(from: Date())
+        return "\(prefix)_\(stamp).\(ext)"
+    }
+
     // MARK: - Write
 
     /// 将单条 Memo 追加到 memo.created 对应的日文件中。
@@ -512,6 +519,16 @@ public enum RawStorage {
         f.dateFormat = "yyyy-MM-dd"
         f.locale = Locale(identifier: "en_US_POSIX")
         f.timeZone = StorageSettings.currentTimeZone()
+        return f
+    }
+
+    // Second-precision stamp for asset filenames. Device-local time so the
+    // filename matches the wall-clock moment of capture.
+    private static var assetTimestampFormatter: DateFormatter {
+        let f = DateFormatter()
+        f.dateFormat = "yyyyMMdd_HHmmss"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone.current
         return f
     }
 }

@@ -60,13 +60,8 @@ extension WatchReceiveService: WCSessionDelegate {
         let filename = (rawFilename as NSString).lastPathComponent
 
         // Move to vault: raw/assets/watch_<filename>
-        let assetsURL = VaultInitializer.vaultURL
-            .appendingPathComponent("raw")
-            .appendingPathComponent("assets")
-
         do {
-            try FileManager.default.createDirectory(at: assetsURL,
-                                                    withIntermediateDirectories: true)
+            let assetsURL = try VaultInitializer.assetsDirectory()
             let destURL = assetsURL.appendingPathComponent("watch_\(filename)")
             if FileManager.default.fileExists(atPath: destURL.path) {
                 try FileManager.default.removeItem(at: destURL)

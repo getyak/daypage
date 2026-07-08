@@ -88,10 +88,6 @@ final class GlassErrorBannerStack: ObservableObject {
         }
     }
 
-    func cancelDismiss(id: UUID) {
-        dismissTasks[id]?.cancel()
-        dismissTasks[id] = nil
-    }
 }
 
 // MARK: - GlassErrorBanner

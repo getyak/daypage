@@ -40,14 +40,6 @@ struct SidebarHeatmapView: View {
     private let weeks = 16
     private let cellSpacing: CGFloat = 3
 
-    private static let isoFmt: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.dateFormat = "yyyy-MM-dd"
-        f.timeZone = TimeZone.current
-        return f
-    }()
-
     private static let monthFmt: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US")
@@ -374,7 +366,7 @@ struct SidebarHeatmapView: View {
     private func buildColumns() -> [[HeatCell]] {
         let cal = Calendar.current
         let today = cal.startOfDay(for: Date())
-        let todayStr = Self.isoFmt.string(from: today)
+        let todayStr = DateFormatters.isoDate.string(from: today)
 
         // Find the Monday on/just before today to anchor the current column.
         // Swift Calendar weekday: 1=Sun…7=Sat. Convert to days since Monday.
@@ -391,7 +383,7 @@ struct SidebarHeatmapView: View {
                 if date > today {
                     col.append(.future)
                 } else {
-                    let key = Self.isoFmt.string(from: date)
+                    let key = DateFormatters.isoDate.string(from: date)
                     let count = counts[key] ?? 0
                     let isToday = key == todayStr
                     let lvl = level(for: count)

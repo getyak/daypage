@@ -202,10 +202,6 @@ struct InputBarV4: View {
 
     private var charCount: Int { text.count }
 
-    private var isComposing: Bool {
-        composerState == .open || composerState == .expanding || !text.isEmpty || !pendingAttachments.isEmpty || pendingLocation != nil
-    }
-
     private var overlayMode: RecordingOverlayMode? {
         switch pressToTalkPhase {
         case .idle, .preRecording: return nil
@@ -535,48 +531,6 @@ struct InputBarV4: View {
         .dpGlass(.control, in: Capsule())
         .shadow(color: Color(hex: "3C280F").opacity(0.22), radius: 16, x: 0, y: 9)
         .shadow(color: Color(hex: "3C280F").opacity(0.08), radius: 3, x: 0, y: 1)
-    }
-
-    @ViewBuilder
-    private func dockSideButton(
-        systemImage: String,
-        accessibilityLabel: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button {
-            Haptics.soft()
-            action()
-        } label: {
-            Image(systemName: systemImage)
-                .font(DSType.headlineCaps)
-                .foregroundStyle(DSColor.inkPrimary)
-                .frame(width: 44, height: 44)
-                .background(Color.clear)
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(accessibilityLabel)
-    }
-
-    // "Aa" text-expand key — matches design spec's third dock slot
-    @ViewBuilder
-    private func dockTextButton(
-        accessibilityLabel: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button {
-            Haptics.soft()
-            action()
-        } label: {
-            Text("Aa")
-                .font(DSFonts.serif(size: 16, weight: .medium))
-                .foregroundStyle(DSColor.inkPrimary)
-                .frame(width: 44, height: 44)
-                .background(Color.clear)
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(accessibilityLabel)
     }
 
     // Hint label below the dock — JetBrains Mono uppercase, like the design.

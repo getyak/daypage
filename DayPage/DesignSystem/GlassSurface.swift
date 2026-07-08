@@ -65,43 +65,12 @@ struct GlassDisc: ViewModifier {
             // glassEdge/glassRim double-stroke is dropped to avoid doubling up.
             .dpGlass(.control, in: Circle())
             .clipShape(Circle())
-            .shadow(color: Color(hex: "2D1E0A").opacity(0.05), radius: 1, x: 0, y: 1)
-            .shadow(color: Color(hex: "2D1E0A").opacity(0.10), radius: 14, x: 0, y: 6)
+            .elevation(.glass)
     }
 }
 
 extension View {
     func glassDisc(size: CGFloat = 44) -> some View {
         modifier(GlassDisc(size: size))
-    }
-}
-
-// MARK: - Amber Glow Halo
-//
-// Decorative warm halo placed behind a hero element (e.g. Daily Page
-// card, Day Orb in the sidebar). Adds the characteristic Liquid Glass
-// internal-light look without darkening the underlying surface.
-
-struct AmberHalo: View {
-    var size: CGFloat = 200
-    var intensity: Double = 0.55
-
-    var body: some View {
-        Circle()
-            .fill(
-                RadialGradient(
-                    colors: [
-                        Color(hex: "E8974D").opacity(intensity),
-                        Color(hex: "A8541B").opacity(intensity * 0.6),
-                        Color.clear
-                    ],
-                    center: .center,
-                    startRadius: 0,
-                    endRadius: size / 2
-                )
-            )
-            .frame(width: size, height: size)
-            .blur(radius: 24)
-            .allowsHitTesting(false)
     }
 }

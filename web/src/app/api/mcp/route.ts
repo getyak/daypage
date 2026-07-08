@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authenticateApiKey, hasScope } from "@/lib/api-auth";
+import { checkRateLimit } from "@/lib/ratelimit";
 import {
   handleMcpMessage,
   MCP_ERROR_CODES,
@@ -50,6 +51,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: "Forbidden: API key lacks 'read' scope" },
       { status: 403 }
+    );
+  }
+
+  // Rate limit per authenticated key owner — each JSON-RPC call can trigger a
+  // RAG query; cap it so an external agent can't exhaust DB / embedding cost.
+  const rl = checkRateLimit(`mcp:${apiAuth.userId}`, 60, 60_000);
+  if (!rl.success) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded" },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": Math.ceil((rl.reset - Date.now()) / 1000).toString(),
+          "X-RateLimit-Remaining": "0",
+        },
+      }
     );
   }
 

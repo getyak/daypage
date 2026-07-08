@@ -114,20 +114,9 @@ struct SmartTemplateRow: View {
             .padding(.vertical, 10)
             .contentShape(Rectangle())
         }
-        .buttonStyle(SmartTemplateButtonStyle())
+        .pressScale(scale: 0.97, animation: Motion.spring)
         .accessibilityLabel("模板：\(template.display)")
         .accessibilityHint("点击将模板填入输入框")
     }
 }
 
-// MARK: - SmartTemplateButtonStyle
-
-private struct SmartTemplateButtonStyle: ButtonStyle {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(reduceMotion ? 1 : (configuration.isPressed ? 0.97 : 1))
-            .animation(reduceMotion ? nil : Motion.spring, value: configuration.isPressed)
-    }
-}

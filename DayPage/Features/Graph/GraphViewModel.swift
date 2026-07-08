@@ -95,7 +95,7 @@ final class GraphViewModel: ObservableObject {
                 || node.name.localizedCaseInsensitiveContains(searchQuery)
             let matchesDate: Bool = {
                 guard filterStartDate != nil || filterEndDate != nil else { return true }
-                let fmt = dateFormatter
+                let fmt = DateFormatters.isoDate
                 if let start = filterStartDate {
                     let startStr = fmt.string(from: start)
                     if !node.dates.contains(where: { $0 >= startStr }) { return false }
@@ -118,13 +118,6 @@ final class GraphViewModel: ObservableObject {
         let ids = Set(filteredNodes.map { $0.id })
         return edges.filter { ids.contains($0.sourceID) && ids.contains($0.targetID) }
     }
-
-    private let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
 
     // MARK: - Scan & Build Graph
 

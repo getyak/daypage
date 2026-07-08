@@ -14,7 +14,6 @@ private enum AppPhase: Equatable {
 struct RootView: View {
     @EnvironmentObject private var authService: AuthService
     @EnvironmentObject private var nav: AppNavigationModel
-    @StateObject private var bannerCenter = BannerCenter.shared
     @StateObject private var sidebarVM = SidebarViewModel()
     @ObservedObject private var appSettings = AppSettings.shared
 

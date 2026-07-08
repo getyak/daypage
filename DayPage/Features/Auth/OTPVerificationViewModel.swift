@@ -154,10 +154,6 @@ final class OTPVerificationViewModel: ObservableObject {
         Task { await triggerVerify() }
     }
 
-    func dismissPasteCapsule() {
-        clipboardCode = nil
-    }
-
     // MARK: - Clipboard Detection
 
     func detectClipboardCode() {

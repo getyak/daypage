@@ -585,7 +585,8 @@ final class VoiceService: NSObject, ObservableObject {
         // -- closing boundary
         body.append(Data("--\(boundary)--\r\n".utf8))
 
-        var request = URLRequest(url: URL(string: "https://api.openai.com/v1/audio/transcriptions")!)
+        guard let endpoint = URL(string: "https://api.openai.com/v1/audio/transcriptions") else { return nil }
+        var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
@@ -645,19 +646,15 @@ final class VoiceService: NSObject, ObservableObject {
     // MARK: - File URL Helper
 
     private func makeAudioFileURL() -> URL {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd_HHmmss"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        let stamp = formatter.string(from: Date())
-        let filename = "voice_\(stamp).m4a"
-
-        let assetsURL = VaultInitializer.vaultURL
-            .appendingPathComponent("raw")
-            .appendingPathComponent("assets")
+        let filename = RawStorage.assetFilename(prefix: "voice", ext: "m4a")
 
         // 确保目录存在
-        do { try FileManager.default.createDirectory(at: assetsURL, withIntermediateDirectories: true) }
-        catch { DayPageLogger.shared.error("VoiceService: createDirectory: \(error)") }
+        let assetsURL: URL
+        do { assetsURL = try VaultInitializer.assetsDirectory() }
+        catch {
+            DayPageLogger.shared.error("VoiceService: createDirectory: \(error)")
+            assetsURL = VaultInitializer.assetsDirectoryURL
+        }
 
         return assetsURL.appendingPathComponent(filename)
     }

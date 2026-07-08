@@ -250,7 +250,7 @@ struct FeedbackView: View {
 
     private var sendButton: some View {
         Button {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            HapticFeedback.medium()
             Task { await vm.send() }
         } label: {
             HStack(spacing: 6) {

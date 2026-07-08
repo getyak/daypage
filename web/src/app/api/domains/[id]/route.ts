@@ -1,30 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth/session";
+import { auth, resolveUserId } from "@/lib/auth/session";
+import { unauthorized, notFound, badRequest } from "@/lib/http";
 import { db } from "@/lib/db/client";
-import { users, domains } from "@/lib/db/schema";
+import { domains } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { z } from "zod";
-
-function unauthorized() {
-  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-}
-
-function notFound() {
-  return NextResponse.json({ error: "Not found" }, { status: 404 });
-}
-
-function badRequest(message: string) {
-  return NextResponse.json({ error: message }, { status: 400 });
-}
-
-async function resolveUserId(email: string): Promise<string | null> {
-  const rows = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-  return rows[0]?.id ?? null;
-}
 
 const PatchDomainSchema = z.object({
   label: z.string().min(1).max(200).optional(),

@@ -77,25 +77,15 @@ struct RecordingSheetView: View {
     @State private var didWarnLong: Bool = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    // MARK: - Duration Warning Thresholds
-    //
-    // Mirrors VoiceRecordingView (the legacy memo sheet): the timer warms to
-    // amber past 5:00 and red past 9:00 so the user knows a long take is
-    // approaching the practical transcription limit. Whole seconds.
-    private static let amberThreshold = 300  // 5:00
-    private static let redThreshold   = 540  // 9:00
-
     /// Timer tint: off-white by default, amber past 5:00, red past 9:00.
-    /// Colors are now sourced from `DSColor` semantic tokens instead of being
-    /// hardcoded — keeps the design-tokens drift check green while preserving
-    /// the same warn/red thresholds.
+    /// Thresholds are shared via `RecordingLimits`; colors are `DSColor`
+    /// semantic tokens (keeps the design-tokens drift check green). This sheet's
+    /// palette reads against the dark warm surface.
     private var timerColor: Color {
-        if elapsedSeconds >= Self.redThreshold {
-            return DSTokens.Colors.recordingRed
-        } else if elapsedSeconds >= Self.amberThreshold {
-            return DSColor.warnAmber
-        } else {
-            return DSColor.onRecording
+        switch RecordingLimits.stage(for: elapsedSeconds) {
+        case .critical: return DSTokens.Colors.recordingRed
+        case .warning:  return DSColor.warnAmber
+        case .normal:   return DSColor.onRecording
         }
     }
 
@@ -150,14 +140,14 @@ struct RecordingSheetView: View {
 
             // Soft-cap hint — surfaces once the take crosses 5:00 so the user
             // knows a long recording approaches the transcription limit.
-            if elapsedSeconds >= Self.amberThreshold {
+            if elapsedSeconds >= RecordingLimits.amberThreshold {
                 Text(NSLocalizedString("voice_recording_soft_cap_hint", comment: "建议 5 分钟内"))
                     .font(DSFonts.jetBrainsMono(size: 11))
                     .foregroundColor(timerColor)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.bottom, 10)
                     .transition(.opacity)
-                    .animation(reduceMotion ? nil : Motion.fade, value: elapsedSeconds >= Self.amberThreshold)
+                    .animation(reduceMotion ? nil : Motion.fade, value: elapsedSeconds >= RecordingLimits.amberThreshold)
             }
 
             // Waveform trough — faint inset panel hosting the 64-bar strip.
@@ -250,7 +240,7 @@ struct RecordingSheetView: View {
         }
         .onChange(of: elapsedSeconds) { seconds in
             // Fire a single soft haptic the moment the take crosses 5:00.
-            if !didWarnLong && seconds >= Self.amberThreshold {
+            if !didWarnLong && seconds >= RecordingLimits.amberThreshold {
                 didWarnLong = true
                 Haptics.soft()
             }
@@ -273,9 +263,7 @@ struct RecordingSheetView: View {
     }
 
     private func formattedTime(_ seconds: Int) -> String {
-        let m = seconds / 60
-        let s = seconds % 60
-        return String(format: "%02d:%02d", m, s)
+        seconds.mmss
     }
 }
 

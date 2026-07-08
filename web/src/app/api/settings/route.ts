@@ -1,32 +1,24 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/session";
+import { auth, resolveUserId } from "@/lib/auth/session";
+import { unauthorized, badRequest, notFound } from "@/lib/http";
 import { db } from "@/lib/db/client";
-import { users, user_settings } from "@/lib/db/schema";
+import { user_settings } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import {
   EVOLUTION_SETTINGS_KEY,
   evolutionConfigSchema,
 } from "@/lib/settings/evolution";
 
-async function resolveUserId(email: string): Promise<string | null> {
-  const rows = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-  return rows[0]?.id ?? null;
-}
-
 // GET /api/settings — return current user's cloud-synced settings
 export async function GET() {
   const session = await auth();
   if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const userId = await resolveUserId(session.user.email);
   if (!userId) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+    return notFound("User not found");
   }
 
   const rows = await db
@@ -46,23 +38,23 @@ export async function GET() {
 export async function PUT(req: Request) {
   const session = await auth();
   if (!session?.user?.email) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return unauthorized();
   }
 
   const userId = await resolveUserId(session.user.email);
   if (!userId) {
-    return NextResponse.json({ error: "User not found" }, { status: 404 });
+    return notFound("User not found");
   }
 
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
   } catch {
-    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    return badRequest("Invalid JSON");
   }
 
   if (typeof body !== "object" || body === null || Array.isArray(body)) {
-    return NextResponse.json({ error: "Body must be a JSON object" }, { status: 400 });
+    return badRequest("Body must be a JSON object");
   }
 
   // US-021: validate the `evolution` block (when present) and normalize it with

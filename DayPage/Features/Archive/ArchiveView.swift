@@ -121,14 +121,6 @@ final class ArchiveViewModel: ObservableObject {
     // Cleared only when the view model is deallocated or a forced refresh is requested.
     private var monthCache: [String: [String: DayStats]] = [:]
 
-    private let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
-        return f
-    }()
-
     init() {
         let now = Calendar.current.dateComponents([.year, .month], from: Date())
         currentYear = now.year ?? Calendar.current.component(.year, from: Date())
@@ -205,11 +197,7 @@ final class ArchiveViewModel: ObservableObject {
                 return range.count
             }
 
-            // DateFormatter is not Sendable; create a local instance for this task.
-            let fmt = DateFormatter()
-            fmt.dateFormat = "yyyy-MM-dd"
-            fmt.locale = Locale(identifier: "en_US_POSIX")
-            fmt.timeZone = TimeZone.current
+            let fmt = DateFormatters.isoDate
 
             // Issue #28: single contentsOfDirectory scan + on-disk filename
             // filter beats 31 fileExists() probes. Most months have <10
@@ -503,10 +491,6 @@ final class ArchiveViewModel: ObservableObject {
         comps.day = 1
         guard let date = Calendar.current.date(from: comps) else { return 1 }
         return Calendar.current.component(.weekday, from: date)
-    }
-
-    private func countMemoBlocks(in content: String) -> Int {
-        content.components(separatedBy: "\n\n---\n\n").count
     }
 }
 
@@ -1252,7 +1236,7 @@ struct ArchiveView: View {
                                 handleDateTap(dateStr: stats.dateString)
                             }) {
                                 HStack {
-                                    Text(formatArchiveDate(stats.dateString))
+                                    Text(RelativeDate.label(for: stats.dateString, style: .caps))
                                         .monoLabelStyle(size: 11)
                                         .foregroundColor(DSColor.inkPrimary)
                                     Spacer()
@@ -1272,7 +1256,7 @@ struct ArchiveView: View {
                                 .liquidGlassCard(cornerRadius: DSRadius.sm)
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel(formatArchiveDate(stats.dateString))
+                            .accessibilityLabel(RelativeDate.label(for: stats.dateString, style: .caps))
                             .accessibilityHint("Opens this day's entry")
                         }
                     }
@@ -1307,7 +1291,7 @@ struct ArchiveView: View {
             }
         }
         .sheet(isPresented: $showShareSheet) {
-            ShareSheetView(activityItems: shareItems)
+            ShareSheet(activityItems: shareItems)
         }
         // Issue #302: card-style monthly share.
         .sheet(item: $sharePayload) { payload in
@@ -1646,36 +1630,8 @@ struct ArchiveView: View {
         .accessibilityAddTraits(.isButton)
     }
 
-    private static let isoParser: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
-
-    private static let monthDayFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "MMMM d"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
-
-    /// 将 "yyyy-MM-dd" 转换为 "APRIL 14"（MMMM d, en_US, 全大写）。
-    private func formatArchiveDate(_ dateString: String) -> String {
-        guard let date = Self.isoParser.date(from: dateString) else { return dateString }
-        return Self.monthDayFormatter.string(from: date).uppercased()
-    }
-
-    /// 人性化日期标签：TODAY / YESTERDAY / N DAYS AGO / APRIL 14。
     private func relativeDateLabel(_ dateString: String) -> String {
-        guard let date = Self.isoParser.date(from: dateString) else { return dateString }
-        let cal = Calendar.current
-        let now = Date()
-        if cal.isDateInToday(date) { return "TODAY" }
-        if cal.isDateInYesterday(date) { return "YESTERDAY" }
-        let daysDiff = cal.dateComponents([.day], from: date, to: now).day ?? 0
-        if daysDiff > 0 && daysDiff < 7 { return "\(daysDiff) DAYS AGO" }
-        return formatArchiveDate(dateString)
+        RelativeDate.label(for: dateString, style: .caps)
     }
 
     private func archiveListRow(stats: DayStats) -> some View {

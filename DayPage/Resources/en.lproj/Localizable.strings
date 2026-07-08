@@ -15,10 +15,6 @@
 "empty.today.subtitle.evening" = "What made today worth remembering?";
 "empty.today.subtitle.night" = "Anything to set down before the day closes?";
 
-/* Compile Locked */
-"empty.compile_locked.title" = "Not enough to compile.";
-"empty.compile_locked.subtitle" = "%d of 3 memos captured. Keep going to unlock daily compilation.";
-
 /* Compile-locked dock hint (shown above the input bar) */
 "compile.dock.locked" = "%1$d / 3 memos · %2$d more to unlock";
 
@@ -284,10 +280,6 @@
 "error.compile.title" = "Compilation failed.";
 "error.compile.subtitle" = "Check your connection and try again.";
 "error.compile.retry" = "Retry";
-
-/* Whisper transcription failure */
-"error.whisper.title" = "Transcript unavailable.";
-"error.whisper.subtitle" = "Your audio was saved. Transcription will retry when connection improves.";
 
 /* Mic permission denied */
 "error.mic_denied.title" = "Microphone access denied.";

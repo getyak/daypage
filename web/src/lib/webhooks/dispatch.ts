@@ -16,6 +16,7 @@ import { db } from "@/lib/db/client";
 import { ingest_sources } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { decryptConfig } from "@/lib/secret-crypto";
+import { assertUrlAllowed, UrlNotAllowedError } from "@/lib/sandbox/browser";
 
 export const WEBHOOK_SIGNATURE_HEADER = "X-DayPage-Signature";
 export const WEBHOOK_EVENT_HEADER = "X-DayPage-Event";
@@ -69,6 +70,19 @@ async function loadWebhookTargets(userId: string): Promise<WebhookTarget[]> {
 
 /** POST a single signed payload to one target. Best-effort. */
 async function deliver(target: WebhookTarget, event: PageWebhookEvent): Promise<void> {
+  // SSRF guard: the target URL is user-supplied. Reject non-http(s) schemes and
+  // private / loopback / link-local hosts before fetching, so a webhook config
+  // cannot be used to probe internal services (169.254.x, 10.x, localhost, …).
+  try {
+    assertUrlAllowed(target.url);
+  } catch (err) {
+    if (err instanceof UrlNotAllowedError) {
+      console.warn(`[webhooks] target ${target.id} URL rejected by SSRF policy: ${err.message}`);
+      return;
+    }
+    throw err;
+  }
+
   const payload = {
     type: "page.changed",
     action: event.action_kind,
