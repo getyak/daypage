@@ -126,21 +126,32 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
-                accountSection
-                apiKeysSection
-                aiEngineSection
-                aiUsageSection
-                notificationsSection
-                permissionsSection
-                appearanceSection
-                timeZoneSection
-                iCloudSyncSection
-                webSyncSection
-                dataSection
-                experimentsSection
-                analyticsDebugSection
-                aboutSection
+                // listRowBackground on the Group re-themes every row: the
+                // system insetGrouped white/gray reads as a stock iOS page,
+                // a jarring break from the warm-cream brand everywhere else
+                // (FINDING-006). surfaceWhite adapts (#FFF light / warm
+                // charcoal dark) so both modes stay on-palette.
+                Group {
+                    accountSection
+                    apiKeysSection
+                    aiEngineSection
+                    aiUsageSection
+                    notificationsSection
+                    permissionsSection
+                    appearanceSection
+                    timeZoneSection
+                    iCloudSyncSection
+                    webSyncSection
+                    dataSection
+                    experimentsSection
+                    analyticsDebugSection
+                    aboutSection
+                }
+                .listRowBackground(DSColor.surfaceWhite)
             }
+            .scrollContentBackground(.hidden)
+            .background(DSColor.bgWarm.ignoresSafeArea())
+            .tint(DSColor.primary)
             .appErrorAlert($appError)
             .accessibilityIdentifier("settings-list")
             .navigationTitle(NSLocalizedString("settings.nav.title", comment: ""))
@@ -333,11 +344,11 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(name)
                         .font(.body)
-                    if key.isEmpty {
-                        Text(badgeLabel)
-                            .font(.caption)
-                            .foregroundColor(badgeColor)
-                    } else {
+                    // Unconfigured state is announced once, by the trailing
+                    // capsule — repeating the same red "未配置" as a subtitle
+                    // double-encoded one fact and read as two problems
+                    // (FINDING-011).
+                    if !key.isEmpty {
                         // B1: default render is fully masked + last 2 chars so the
                         // value is recognizable without leaking the secret. The
                         // user can opt in to reveal via the eye button below.
@@ -548,7 +559,7 @@ struct SettingsView: View {
 
             // On This Day configuration
             Toggle(isOn: $onThisDayEnabled) {
-                Label("On This Day", systemImage: "calendar.badge.clock")
+                Label(NSLocalizedString("settings.appearance.onthisday.title", comment: "On This Day toggle"), systemImage: "calendar.badge.clock")
             }
             .accessibilityIdentifier("onthisday-enabled-toggle")
             .onChange(of: onThisDayEnabled) { _ in Haptics.selection() }
