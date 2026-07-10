@@ -19,7 +19,9 @@ struct DayDetailView: View {
     @EnvironmentObject private var nav: AppNavigationModel
 
     enum Tab: String, CaseIterable {
-        case daily = "Daily Page"
+        // 同一控件内半英半中（"Daily Page" | "原始 Memo"）读起来像两个产品
+        // （FINDING-010）。英文 mono 保留给档案性标签，可交互控件统一中文。
+        case daily = "日记页"
         case raw = "原始 Memo"
     }
 
