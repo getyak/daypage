@@ -110,7 +110,36 @@ final class ArchiveViewModel: ObservableObject {
 
     @Published var currentYear: Int
     @Published var currentMonth: Int
-    @Published var dayStats: [String: DayStats] = [:]  // keyed by "yyyy-MM-dd"
+    @Published var dayStats: [String: DayStats] = [:] {  // keyed by "yyyy-MM-dd"
+        // Rebuild the derived list-mode collections once per dayStats change,
+        // instead of recomputing filter+sort+regroup on every SwiftUI body pass.
+        // `sortedDays`/`groupedByMonth` were computed vars read inside the
+        // LazyVStack AND re-read on every scroll frame (scroll-offset preference)
+        // AND re-run on every unrelated @Published mutation (e.g. isLoading) —
+        // the source of the acknowledged "1-2s first-scroll freeze".
+        didSet { rebuildDerivedDays() }
+    }
+
+    /// Cached, list-mode day collections derived from `dayStats`. Recomputed
+    /// only in `rebuildDerivedDays()` (via `dayStats.didSet`).
+    @Published private(set) var sortedDays: [DayStats] = []
+    @Published private(set) var groupedByMonth: [(monthKey: String, days: [DayStats])] = []
+
+    private func rebuildDerivedDays() {
+        let sorted = dayStats.values
+            .filter { $0.memoCount > 0 || $0.isDailyPageCompiled }
+            .sorted { $0.dateString > $1.dateString }
+        sortedDays = sorted
+
+        var groups: [String: [DayStats]] = [:]
+        for stats in sorted {
+            let monthKey = String(stats.dateString.prefix(7))
+            groups[monthKey, default: []].append(stats)
+        }
+        groupedByMonth = groups
+            .map { (monthKey: $0.key, days: $0.value) }
+            .sorted { $0.monthKey > $1.monthKey }
+    }
     @Published var isLoading: Bool = false
 
     // Task handle used to cancel a stale loadMonth request when the user
@@ -400,34 +429,14 @@ final class ArchiveViewModel: ObservableObject {
         Calendar.current.component(.day, from: Date())
     }
 
-    // MARK: Sorted Days for List Mode
-
-    var sortedDays: [DayStats] {
-        dayStats.values
-            .filter { $0.memoCount > 0 || $0.isDailyPageCompiled }
-            .sorted { $0.dateString > $1.dateString }
-    }
-
-    // MARK: Grouped By Month (list-mode sectioning, Issue #13 perf)
+    // MARK: Sorted Days / Grouped By Month
     //
-    // Buckets `sortedDays` by their "yyyy-MM" prefix so the LazyVStack can
-    // render proper Sections with month headers. SwiftUI's LazyVStack is
-    // smarter about offscreen-row layout when it sees an explicit Section
-    // boundary, which is what unsticks the 1-2s first-scroll freeze on
-    // months with many populated days.
-    //
-    // The underlying scan is O(n) and `n` is at most ~31 within the loaded
-    // month, so this is cheap to recompute on every dayStats change.
-    var groupedByMonth: [(monthKey: String, days: [DayStats])] {
-        var groups: [String: [DayStats]] = [:]
-        for stats in sortedDays {
-            let monthKey = String(stats.dateString.prefix(7))
-            groups[monthKey, default: []].append(stats)
-        }
-        return groups
-            .map { (monthKey: $0.key, days: $0.value) }
-            .sorted { $0.monthKey > $1.monthKey }
-    }
+    // These are now cached stored properties (see `sortedDays` /
+    // `groupedByMonth` @Published declarations above, rebuilt in
+    // `rebuildDerivedDays()` via `dayStats.didSet`). They were computed vars —
+    // filter+sort, then bucket-by-"yyyy-MM"+sort — read inside the LazyVStack
+    // and re-evaluated on every scroll frame and every unrelated @Published
+    // change, which is what caused the 1-2s first-scroll freeze (Issue #13).
 
     // MARK: Monthly Filter
 
@@ -501,8 +510,15 @@ struct ArchiveView: View {
     @EnvironmentObject private var nav: AppNavigationModel
     @StateObject private var viewModel = ArchiveViewModel()
     @State private var mode: ArchiveMode = .calendar
-    @State private var selectedDateString: String? = nil
-    @State private var showDayDetail: Bool = false
+    /// The historical day pushed onto Archive's NavigationStack as a
+    /// DayDetailView. Replaces the former `selectedDateString` + `showDayDetail`
+    /// bool that drove a `fullScreenCover`; pushing gives the day a system back
+    /// button + interactive edge-swipe-to-pop and a zoom hero (iOS 18+) out of
+    /// the tapped calendar cell / list row.
+    @State private var selectedDay: DayNavTarget? = nil
+    /// Shared zoom namespace so the tapped calendar cell / list row is the
+    /// `matchedTransitionSource` for the pushed DayDetailView.
+    @Namespace private var dayZoomNamespace
     @State private var showSearch: Bool = false
     /// Pre-filled query passed into SearchView when opened via deep link
     /// (`daypage://search?q=…` from `AskTodayIntent`). Cleared after consume
@@ -703,18 +719,32 @@ struct ArchiveView: View {
             .onChange(of: nav.pendingSearchQuery) { _ in
                 consumePendingSearchQuery()
             }
-            .fullScreenCover(isPresented: $showDayDetail) {
-                if let dateStr = selectedDateString {
-                    DayDetailView(dateString: dateStr)
+            // isPresented-based (iOS 16+) rather than item: (iOS 17+) so the
+            // push compiles against the 17.0 deployment target without an
+            // availability gate. The bound day is read inside the builder.
+            .navigationDestination(
+                isPresented: Binding(
+                    get: { selectedDay != nil },
+                    set: { if !$0 { selectedDay = nil } }
+                )
+            ) {
+                if let target = selectedDay {
+                    DayDetailView(dateString: target.dateString)
+                        .modifier(ArchiveDayZoomDestination(
+                            id: target.dateString, namespace: dayZoomNamespace
+                        ))
                 }
             }
             .sheet(isPresented: $showSearch) {
                 SearchView(
                     onSelect: { dateStr in
-                        selectedDateString = dateStr
+                        // Close the search sheet, then push the day once it has
+                        // dismissed. A push while the sheet is still animating
+                        // out gets swallowed, so defer by one runloop hop — much
+                        // shorter than the old 0.25s cover-vs-sheet workaround.
                         showSearch = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                            showDayDetail = true
+                        DispatchQueue.main.async {
+                            selectedDay = DayNavTarget(dateString: dateStr)
                         }
                     },
                     initialQuery: searchInitialQuery
@@ -754,8 +784,7 @@ struct ArchiveView: View {
     /// `.empty` / `.error` / `.rawOnly` / `.compiled` 等状态 — 参见 US-002。
     private func handleDateTap(dateStr: String) {
         Haptics.soft()
-        selectedDateString = dateStr
-        showDayDetail = true
+        selectedDay = DayNavTarget(dateString: dateStr)
     }
 
     /// Consume any pending deep-link from the sidebar's Recent row. Cleared
@@ -764,12 +793,10 @@ struct ArchiveView: View {
     private func consumePendingArchiveDate() {
         guard let dateStr = nav.pendingArchiveDate else { return }
         nav.pendingArchiveDate = nil
-        selectedDateString = dateStr
-        // Defer the cover so SwiftUI commits the tab switch first; presenting
-        // a fullScreenCover during the same runloop as the tab change can
-        // race and skip the animation on some iOS 16 builds.
+        // Defer the push so SwiftUI commits the tab switch first; pushing during
+        // the same runloop as the tab change can race and skip the animation.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            showDayDetail = true
+            selectedDay = DayNavTarget(dateString: dateStr)
         }
     }
 
@@ -992,10 +1019,15 @@ struct ArchiveView: View {
     }
 
     private func toggleButton(_ label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        Button {
+            // Selection tick only when actually switching mode — tapping the
+            // already-selected segment shouldn't fire feedback.
+            if !isSelected { Haptics.selection() }
+            action()
+        } label: {
             Text(label)
                 .monoLabelStyle(size: 10)
-                .foregroundColor(isSelected ? .white : DSColor.inkSubtle)
+                .foregroundColor(isSelected ? DSColor.onAmber : DSColor.inkSubtle)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
                 .background(isSelected ? DSColor.amberDeep : Color.clear, in: Capsule())
@@ -1126,6 +1158,7 @@ struct ArchiveView: View {
                 .aspectRatio(1, contentMode: .fit)
             }
             .buttonStyle(CalendarCellButtonStyle())
+            .modifier(ArchiveDayZoomSource(id: dateStr, namespace: dayZoomNamespace))
             .frame(maxWidth: .infinity)
             .accessibilityLabel(accessibilityLabel(dateStr: dateStr, state: data, stats: viewModel.dayStats[dateStr]))
             .accessibilityValue(viewModel.dayStats[dateStr]?.densityLevel.label ?? "")
@@ -1256,6 +1289,7 @@ struct ArchiveView: View {
                                 .liquidGlassCard(cornerRadius: DSRadius.sm)
                             }
                             .buttonStyle(.plain)
+                            .modifier(ArchiveDayZoomSource(id: stats.dateString, namespace: dayZoomNamespace))
                             .accessibilityLabel(RelativeDate.label(for: stats.dateString, style: .caps))
                             .accessibilityHint("Opens this day's entry")
                         }
@@ -1676,6 +1710,7 @@ struct ArchiveView: View {
             .pressableCard()
         }
         .buttonStyle(.plain)
+        .modifier(ArchiveDayZoomSource(id: stats.dateString, namespace: dayZoomNamespace))
     }
 
     private func metaIcon(_ systemName: String, count: Int, unit: String? = nil) -> some View {
@@ -1831,5 +1866,40 @@ private struct CalendarCellButtonStyle: ButtonStyle {
             .scaleEffect(configuration.isPressed ? 0.93 : 1.0)
             .opacity(configuration.isPressed ? 0.82 : 1.0)
             .dsAnimation(Motion.spring, value: configuration.isPressed)
+    }
+}
+
+// MARK: - Archive Day Zoom Transition
+//
+// Mirror of Today's CardZoomSource/CardZoomDestination: the tapped calendar
+// cell / list row is the source, the pushed DayDetailView is the destination,
+// keyed by the day's date string. iOS 18+ only, and skipped under Reduce
+// Motion — everywhere else the push falls back to the default slide.
+
+struct ArchiveDayZoomSource: ViewModifier {
+    let id: String
+    let namespace: Namespace.ID
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *), !reduceMotion {
+            content.matchedTransitionSource(id: id, in: namespace)
+        } else {
+            content
+        }
+    }
+}
+
+struct ArchiveDayZoomDestination: ViewModifier {
+    let id: String
+    let namespace: Namespace.ID
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *), !reduceMotion {
+            content.navigationTransition(.zoom(sourceID: id, in: namespace))
+        } else {
+            content
+        }
     }
 }

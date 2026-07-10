@@ -664,7 +664,7 @@ struct DailyPageView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(errMsg)
                         .font(DSType.bodySM)
-                        .foregroundColor(.red)
+                        .foregroundColor(DSColor.statusError)
                         .fixedSize(horizontal: false, vertical: true)
                     Button(action: { Task { await recompile() } }) {
                         Text("RETRY →")

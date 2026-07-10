@@ -85,7 +85,13 @@ struct WriteSheetView: View {
     /// long drafts. All downstream readers keep using `wordCount`/`charCount`.
     @State private var cachedWordCount: Int = 0
     @State private var cachedCharCount: Int = 0
-    @GestureState private var dragOffset: CGFloat = 0
+    /// Sheet drag offset. `resetTransaction` springs the offset back to rest
+    /// when the gesture ends below the dismiss threshold — `@GestureState`
+    /// auto-resets to 0 on release, and without a transaction that reset snaps
+    /// instantly (the old empty `withAnimation(Motion.spring){}` couldn't
+    /// animate the framework's own reset). Near-instant under Reduce Motion.
+    @GestureState(resetTransaction: Transaction(animation: Motion.respectReduceMotion(Motion.spring)))
+    private var dragOffset: CGFloat = 0
     @State private var committedClose: Bool = false
     @State private var saveReadyPulse: Bool = false
     @State private var confirmingDiscard: Bool = false
@@ -359,11 +365,11 @@ struct WriteSheetView: View {
                     || value.predictedEndTranslation.height > 260
                 if shouldDismiss {
                     attemptClose()
-                } else if !reduceMotion {
-                    withAnimation(Motion.spring) { }
-                } else {
-                    withAnimation(.easeOut(duration: 0.2)) { }
                 }
+                // Below the threshold we do nothing here: `dragOffset` is a
+                // @GestureState, so it auto-resets to 0 on release and springs
+                // back via its `resetTransaction`. (The old empty
+                // `withAnimation` blocks couldn't animate that reset anyway.)
             }
     }
 

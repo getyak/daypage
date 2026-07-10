@@ -141,6 +141,8 @@ struct VoiceRecordingView: View {
             }
 
             Text(formattedTime(voiceService.elapsedSeconds))
+                // TODO: no DSType match, kept raw — 56pt hero timer far exceeds the
+                // mono ramp (mono9…mono11); no semantic token for a display-size mono readout.
                 .font(.system(size: 56, weight: .bold, design: .monospaced))
                 .foregroundColor(timerColor)
                 .monospacedDigit()

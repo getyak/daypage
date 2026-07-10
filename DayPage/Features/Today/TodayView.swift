@@ -95,13 +95,13 @@ struct TodayView: View {
     /// Whether to show the Daily Page sheet.
     @State private var showDailyPage: Bool = false
 
-    /// Date string for the fallback yesterday daily page sheet.
-    @State private var fallbackDailyPageDateString: String? = nil
-
-    /// Date string for opening a historical day from the timeline via tap or
-    /// long-press → "Open Daily Page". Drives a dedicated `.fullScreenCover`
-    /// so it doesn't collide with the today/fallback covers.
-    @State private var timelineNavDateString: String? = nil
+    /// The historical day to push onto the NavigationStack as a `DayDetailView`.
+    /// All three former entry points — On This Day card, zero-memo fallback
+    /// "yesterday" page, and timeline tap/long-press — now set this single
+    /// item (previously three separate `String?` bindings driving three
+    /// `fullScreenCover`s). Pushing instead of covering gives the day a system
+    /// back button + interactive edge-swipe-to-pop and a zoom transition.
+    @State private var historicalDay: DayNavTarget? = nil
 
     /// Plain-text payload for the system share sheet when the user shares a
     /// timeline day. Identifiable wrapper because `.sheet(item:)` needs an id.
@@ -109,9 +109,6 @@ struct TodayView: View {
 
     /// Whether to show the Settings sheet.
     @State private var showSettings: Bool = false
-
-    /// Date string for On This Day navigation.
-    @State private var onThisDayDateString: String? = nil
 
     // R9-HIGH A2: `onThisDayShownAtTop` @State removed. The top vs fallback
     // OnThisDay card decision is now driven by the `shouldShowOnThisDayAtTop`
@@ -923,6 +920,11 @@ struct TodayView: View {
                         viewModel.load()
                     }
                 )
+                // Focused writing helper — medium detent + grab handle, so it
+                // sits as a light panel over Today instead of a full-screen
+                // modal, matching the self-drawn WriteSheet / recording sheets.
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
             }
             // US-019: Markdown export share sheet
             .sheet(isPresented: $showExportSheet) {
@@ -955,32 +957,29 @@ struct TodayView: View {
                 )
                 .ignoresSafeArea()
             }
-            // On This Day navigation to DayDetailView
-            .fullScreenCover(item: Binding(
-                get: { onThisDayDateString.map { OnThisDayNavTarget(dateString: $0) } },
-                set: { onThisDayDateString = $0?.dateString }
-            )) { target in
-                DayDetailView(dateString: target.dateString)
-            }
-            // Fallback "yesterday daily page" cover — opened from the zero-memo
-            // fallback view when yesterday already has a compiled page.
-            // Issue #814: historical days now route to DayDetailView (the
-            // 4-state Archive surface with Daily/raw tabs + day swiping) so
-            // the app has ONE way to look at a past day instead of two.
-            .fullScreenCover(item: Binding(
-                get: { fallbackDailyPageDateString.map { OnThisDayNavTarget(dateString: $0) } },
-                set: { fallbackDailyPageDateString = $0?.dateString }
-            )) { target in
-                DayDetailView(dateString: target.dateString)
-            }
-            // Timeline tap / contextMenu → open that historical day.
-            // Kept separate from showDailyPage / fallbackDailyPageDateString so the
-            // three navigation entry points don't collide on a single binding.
-            .fullScreenCover(item: Binding(
-                get: { timelineNavDateString.map { OnThisDayNavTarget(dateString: $0) } },
-                set: { timelineNavDateString = $0?.dateString }
-            )) { target in
-                DayDetailView(dateString: target.dateString)
+            // Historical-day navigation → DayDetailView, PUSHED onto this
+            // NavigationStack (not a fullScreenCover). Issue #814 already routed
+            // every "look at a past day" entry — On This Day card, zero-memo
+            // fallback, timeline tap — through DayDetailView; this unifies their
+            // *presentation* too: one `navigationDestination(item:)` instead of
+            // three covers. Push gives the day a system back button + interactive
+            // edge-swipe-to-pop, and (iOS 18+) a zoom transition out of the
+            // tapped source via `.matchedTransitionSource` at each call site.
+            // isPresented-based (iOS 16+) rather than item: (iOS 17+) so the
+            // push compiles against the 17.0 deployment target without an
+            // availability gate. The bound day is read inside the builder.
+            .navigationDestination(
+                isPresented: Binding(
+                    get: { historicalDay != nil },
+                    set: { if !$0 { historicalDay = nil } }
+                )
+            ) {
+                if let target = historicalDay {
+                    DayDetailView(dateString: target.dateString)
+                        .modifier(CardZoomDestination(
+                            id: target.dateString, namespace: detailZoomNamespace
+                        ))
+                }
             }
             // Timeline share sheet — plain text payload, no poster pipeline.
             .sheet(item: $timelineShareText) { payload in
@@ -1577,7 +1576,7 @@ struct TodayView: View {
                             comment: "Today banner sub-label: queue stuck > 24h"
                         ))
                             .font(DSFonts.inter(size: 11, weight: .semibold))
-                            .foregroundColor(.red)
+                            .foregroundColor(DSColor.statusError)
                             .lineLimit(1)
                     } else if syncQueueWaitedTooLong {
                         Text(String(
@@ -1589,7 +1588,7 @@ struct TodayView: View {
                             syncQueueWaitedHours
                         ))
                             .font(DSFonts.inter(size: 11, weight: .semibold))
-                            .foregroundColor(.red)
+                            .foregroundColor(DSColor.statusError)
                             .lineLimit(1)
                     }
                 }
@@ -1761,7 +1760,7 @@ struct TodayView: View {
             onThisDayFallback(memos: memos)
         case .weekRecap(let entries):
             WeeklyRecapSection(entries: entries) { dateString in
-                onThisDayDateString = dateString
+                historicalDay = DayNavTarget(dateString: dateString)
             }
         case .pureEmpty:
             // R3 (#793 comp 4.png): orbHero now carries the full empty-state
@@ -1808,9 +1807,10 @@ struct TodayView: View {
             DailyPageEntryCard(
                 summary: page.summary.isEmpty ? nil : page.summary,
                 onTap: {
-                    fallbackDailyPageDateString = page.dateString
+                    historicalDay = DayNavTarget(dateString: page.dateString)
                 }
             )
+            .modifier(CardZoomSource(id: page.dateString, namespace: detailZoomNamespace))
             .padding(.horizontal, 20)
         }
     }
@@ -1832,7 +1832,10 @@ struct TodayView: View {
             ForEach(viewModel.timelineSections) { section in
                 TimelineSectionView(
                     section: section,
-                    onOpenDate: { dateString in timelineNavDateString = dateString },
+                    zoomNamespace: detailZoomNamespace,
+                    onOpenDate: { dateString in
+                        historicalDay = DayNavTarget(dateString: dateString)
+                    },
                     onShareDate: { entry in shareTimelineDay(entry) },
                     onDeleteDate: { entry in deleteTimelineDay(entry) }
                 )
@@ -1890,17 +1893,17 @@ struct TodayView: View {
         }
     }
 
-    /// R6 — tap callback for the OnThisDayCard. Drives the in-Today
-    /// `fullScreenCover` (existing `onThisDayDateString` binding) AND posts
+    /// R6 — tap callback for the OnThisDayCard. Pushes the historical day onto
+    /// the Today NavigationStack (via the `historicalDay` item) AND posts
     /// `.openArchiveAt` so a deep-link consumer (Archive tab, navigation
     /// model) can pivot to the historical day. The Notification post is
     /// harmless when there's no listener — Archive may not be mounted yet
-    /// on a cold tap, in which case the fullScreenCover path handles UX.
+    /// on a cold tap, in which case the in-Today push path handles UX.
     private func handleOnThisDayTap(_ entry: OnThisDayEntry) {
         let dateStr = Self.dateString(from: entry.originalDate)
-        // Keep the in-Today fullScreenCover path so the existing UX (open the
-        // historical DayDetail without switching tabs) still works.
-        onThisDayDateString = dateStr
+        // Keep the in-Today push path so the existing UX (open the historical
+        // DayDetail without switching tabs) still works.
+        historicalDay = DayNavTarget(dateString: dateStr)
         // Forward to .openArchiveAt for consumers that want to pivot to
         // Archive instead — R5 backlinks + EntityPageView already use this
         // bus, so OnThisDay rides the same channel.
@@ -3402,9 +3405,14 @@ struct TodayView: View {
     // card (ArchiveView.weeklyRecapEntryCard) is the single This Week surface.
 }
 
-// MARK: - OnThisDayNavTarget
+// MARK: - DayNavTarget
 
-private struct OnThisDayNavTarget: Identifiable {
+/// Identifiable wrapper around a `yyyy-MM-dd` date string that drives a
+/// `navigationDestination(item:)` push to `DayDetailView`. Shared by Today
+/// (On This Day / fallback / timeline entries) and Archive (calendar / list /
+/// search) so both surfaces push the historical day the same way, keyed by the
+/// date. `id == dateString` also makes it the stable zoom-transition identity.
+struct DayNavTarget: Identifiable, Hashable {
     let dateString: String
     var id: String { dateString }
 }
@@ -3964,8 +3972,11 @@ private struct NumericTextContentTransition: ViewModifier {
 // push — no behavioral change below the availability floor.
 
 /// Marks a timeline card as the zoom source for `memo.id`.
-struct CardZoomSource: ViewModifier {
-    let id: UUID
+// `ID` is generic over `Hashable` so this works for both the memo cards
+// (keyed by `UUID`) and the historical-day entries (keyed by the `yyyy-MM-dd`
+// date string). `matchedTransitionSource(id:)` accepts any Hashable identity.
+struct CardZoomSource<ID: Hashable>: ViewModifier {
+    let id: ID
     let namespace: Namespace.ID
 
     func body(content: Content) -> some View {
@@ -3978,8 +3989,8 @@ struct CardZoomSource: ViewModifier {
 }
 
 /// Applies the zoom navigation transition to the pushed detail page.
-struct CardZoomDestination: ViewModifier {
-    let id: UUID
+struct CardZoomDestination<ID: Hashable>: ViewModifier {
+    let id: ID
     let namespace: Namespace.ID
 
     func body(content: Content) -> some View {

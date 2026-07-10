@@ -58,7 +58,7 @@ struct OTPVerificationView: View {
 
                 if let errorMessage = viewModel.displayedErrorMessage {
                     Text(errorMessage)
-                        .font(.system(size: 14))
+                        .font(DSType.bodySM)
                         .foregroundColor(DSColor.statusError)
                         .multilineTextAlignment(.leading)
                         .frame(maxWidth: .infinity, alignment: .leading)

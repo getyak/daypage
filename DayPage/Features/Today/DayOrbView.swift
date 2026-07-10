@@ -129,22 +129,28 @@ struct DayOrbView: View {
             previous = new
             previousTier = newTier
         }
-        // Drop shadow: two-layer stack matching the glass card recipe
-        .shadow(color: Color(hex: "2D1E0A").opacity(0.08), radius: 4, x: 0, y: 2)
-        .shadow(color: Color(hex: "2D1E0A").opacity(0.14), radius: 28, x: 0, y: 12)
+        // Drop shadow → DSElevation.floating (two-layer, dark-mode adaptive).
+        // The Day Orb is the hero element; floating keeps it clearly lifted on
+        // the charcoal canvas instead of sinking like hardcoded warm-ink did.
+        .elevation(.floating)
         .accessibilityElement(children: .ignore)
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel(accessibilityLabelText)
         .accessibilityHint("Activates to start writing today's note")
         .accessibilityAction { onTap?() }
         .onAppear {
+            // Gate the ambient breathe on Reduce Motion — a forever-repeating
+            // scale animation is exactly the kind of continuous movement that
+            // setting exists to suppress (and it needlessly drives the main
+            // thread while the orb is on screen).
+            guard !reduceMotion else { return }
             withAnimation(
                 .easeInOut(duration: 4).repeatForever(autoreverses: true)
             ) {
                 // Amplitude ×0.7 relative to the original ±0.05 range → ±0.035
                 breatheScale = 1.035
             }
-            guard signalCount == 0, !reduceMotion else { return }
+            guard signalCount == 0 else { return }
             withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) {
                 invitePulse = true
             }

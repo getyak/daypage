@@ -85,14 +85,25 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
     // MARK: Published State
 
     /// Today's memos in reverse-chronological order (newest first).
-    @Published var memos: [Memo] = []
+    /// `didSet` refreshes the cached `todayWordCount` so the O(total-characters)
+    /// CJK scan runs once per memo-list mutation instead of once per read.
+    /// `todayWordCount` used to be a computed var read from TodayView's body via
+    /// `.onChange`; because the main scroll re-evaluates the body every frame
+    /// (ScrollOffsetPreferenceKey), that full scan ran on every scroll frame AND
+    /// every keystroke — worst exactly when a heavy-writing user is most active.
+    @Published var memos: [Memo] = [] {
+        didSet { recomputeWordCount() }
+    }
 
     /// Number of signals (memos) captured today — drives the Day Orb readout.
     var signalCount: Int { memos.count }
 
-    /// Total word count across all of today's memo bodies.
-    var todayWordCount: Int {
-        memos.reduce(0) { $0 + TodayViewModel.wordCount(in: $1.body) }
+    /// Total word count across all of today's memo bodies. Cached; recomputed
+    /// only when `memos` changes (see `memos.didSet` / `recomputeWordCount`).
+    @Published private(set) var todayWordCount: Int = 0
+
+    private func recomputeWordCount() {
+        todayWordCount = memos.reduce(0) { $0 + TodayViewModel.wordCount(in: $1.body) }
     }
 
     /// CJK-aware word counter: each CJK ideograph = 1 word; runs of non-CJK

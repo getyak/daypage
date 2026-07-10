@@ -203,7 +203,7 @@ struct SettingsView: View {
                         editingKeyValue = ""
                     }
                     .buttonStyle(.bordered)
-                    .tint(.red)
+                    .tint(DSColor.statusError)
                     .accessibilityLabel(NSLocalizedString("settings.apikey.clear.label", comment: ""))
                     .accessibilityIdentifier("api-key-clear-button")
                 }
@@ -538,7 +538,10 @@ struct SettingsView: View {
             // "Use legacy voice recording" per the PRD's legacy-fallback copy.
             Toggle(isOn: Binding(
                 get: { !usePressToTalk },
-                set: { usePressToTalk = !$0 }
+                set: {
+                    Haptics.selection()
+                    usePressToTalk = !$0
+                }
             )) {
                 Label(NSLocalizedString("settings.appearance.legacy_voice", comment: ""), systemImage: "mic.circle")
             }
@@ -548,6 +551,7 @@ struct SettingsView: View {
                 Label("On This Day", systemImage: "calendar.badge.clock")
             }
             .accessibilityIdentifier("onthisday-enabled-toggle")
+            .onChange(of: onThisDayEnabled) { _ in Haptics.selection() }
             .onChange(of: onThisDayEnabled) { val in
                 OnThisDayScheduler.shared.isEnabled = val
             }
@@ -630,6 +634,7 @@ struct SettingsView: View {
             }
             if appSettings.preferredTimeZone.identifier != TimeZone.current.identifier {
                 Button(role: .destructive) {
+                    Haptics.warn()
                     appSettings.resetToDeviceTimeZone()
                     BackgroundCompilationService.shared.scheduleIfNeeded()
                 } label: {
@@ -705,12 +710,12 @@ struct SettingsView: View {
         case .error(let message):
             HStack(spacing: 10) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(.red)
+                    .foregroundColor(DSColor.statusError)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(NSLocalizedString("settings.icloud.error", comment: "")).font(.body).fontWeight(.medium).foregroundColor(.red)
+                    Text(NSLocalizedString("settings.icloud.error", comment: "")).font(.body).fontWeight(.medium).foregroundColor(DSColor.statusError)
                     Text(message)
                         .font(.caption)
-                        .foregroundColor(.red)
+                        .foregroundColor(DSColor.statusError)
                         .lineLimit(2)
                 }
             }
@@ -780,6 +785,7 @@ struct SettingsView: View {
     }
 
     private func rollbackToLocal() {
+        Haptics.warn()
         appSettings.vaultLocation = .local
         VaultInitializer.shared = LocalVaultLocator()
         bannerCenter.show(AppBannerModel(
@@ -816,6 +822,7 @@ struct SettingsView: View {
     }
 
     private func cleanupLocalBackup() {
+        Haptics.warn()
         do {
             try VaultMigrationService.shared.deleteLocalBackup()
             bannerCenter.show(AppBannerModel(
@@ -884,7 +891,7 @@ struct SettingsView: View {
                           systemImage: webSyncSaved ? "checkmark.circle.fill" : "arrow.up.circle")
                     Spacer()
                     if SyncSettings.isConfigured {
-                        Text("已配置").font(DSType.labelSM).foregroundColor(.green)
+                        Text("已配置").font(DSType.labelSM).foregroundColor(DSColor.statusSuccess)
                     }
                 }
             }
@@ -897,7 +904,7 @@ struct SettingsView: View {
                     Spacer()
                     Text("\(syncQueue.pendingCount) 条")
                         .font(DSType.labelSM)
-                        .foregroundColor(.orange)
+                        .foregroundColor(DSColor.statusWarning)
                 }
             } else if SyncSettings.isConfigured {
                 HStack {
@@ -992,6 +999,7 @@ struct SettingsView: View {
                     titleVisibility: .visible
                 ) {
                     Button(NSLocalizedString("settings.data.clear_sample.confirm.action", comment: ""), role: .destructive) {
+                        Haptics.warn()
                         SampleDataSeeder.clearSampleData()
                         bannerCenter.show(AppBannerModel(
                             kind: .success,
@@ -1020,6 +1028,7 @@ struct SettingsView: View {
                 titleVisibility: .visible
             ) {
                 Button(NSLocalizedString("settings.data.purge_all.confirm.action", comment: ""), role: .destructive) {
+                    Haptics.warn()  // irreversible on-device wipe — the strongest cue
                     purgeAllLocalData()
                 }
                 Button(NSLocalizedString("settings.common.cancel", comment: ""), role: .cancel) {}
@@ -1049,7 +1058,10 @@ struct SettingsView: View {
                     flag.title,
                     isOn: Binding(
                         get: { flagStore.isEnabled(flag) },
-                        set: { flagStore.set(flag, enabled: $0) }
+                        set: {
+                            Haptics.selection()
+                            flagStore.set(flag, enabled: $0)
+                        }
                     )
                 )
                 .accessibilityIdentifier("experiments-flag-\(flag.rawValue)")
@@ -1208,6 +1220,7 @@ struct SettingsView: View {
                 }
             }
             Button(role: .destructive) {
+                Haptics.warn()
                 AnalyticsService.shared.reset()
             } label: {
                 Label("清空调试事件", systemImage: "trash")

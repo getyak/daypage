@@ -68,63 +68,59 @@ struct DayDetailView: View {
     private static let dateRegex = try? NSRegularExpression(pattern: #"^\d{4}-\d{2}-\d{2}$"#)
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                DSColor.background.ignoresSafeArea()
+        // No inner NavigationStack — DayDetailView is now pushed onto the host's
+        // stack (Today / Archive both root a NavigationStack), so it inherits
+        // the system back button AND the interactive edge-swipe-to-pop that a
+        // self-contained modal `fullScreenCover` could never offer. The leading
+        // "返回" chevron is gone because the system back button replaces it; the
+        // ›/‹ day-stepper toolbar stays on the trailing side.
+        ZStack {
+            DSColor.background.ignoresSafeArea()
 
-                Group {
-                    switch state {
-                    case .loading:
-                        loadingView
-                    case .compiled, .rawOnly:
-                        loadedContent
-                    case .empty:
-                        emptyStateView
-                    case .error(let message):
-                        errorStateView(message: message)
-                    }
+            Group {
+                switch state {
+                case .loading:
+                    loadingView
+                case .compiled, .rawOnly:
+                    loadedContent
+                case .empty:
+                    emptyStateView
+                case .error(let message):
+                    errorStateView(message: message)
                 }
-                // Re-key on the displayed day so SwiftUI treats each day as a
-                // distinct subtree and runs the directional slide transition.
-                .id(currentDate)
-                .transition(dayTransition)
-                // Finger-tracked paging: 1:1 while paging is possible in the
-                // drag direction, rubber-banded at the bounds (see gesture).
-                .offset(x: pageDrag.offset)
             }
-            // Interactive horizontal paging between days: the page follows the
-            // finger once the drag is dominantly sideways, rubber-bands at the
-            // bounds, and commits on distance or flick. `simultaneousGesture`
-            // + the dominance gate keep vertical scrolls inside the daily/raw
-            // content untouched.
-            .simultaneousGesture(pageSwipeGesture)
-            .navigationTitle(formattedTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(DSColor.onSurface)
-                    }
-                    .accessibilityLabel("返回")
+            // Re-key on the displayed day so SwiftUI treats each day as a
+            // distinct subtree and runs the directional slide transition.
+            .id(currentDate)
+            .transition(dayTransition)
+            // Finger-tracked paging: 1:1 while paging is possible in the
+            // drag direction, rubber-banded at the bounds (see gesture).
+            .offset(x: pageDrag.offset)
+        }
+        // Interactive horizontal paging between days: the page follows the
+        // finger once the drag is dominantly sideways, rubber-bands at the
+        // bounds, and commits on distance or flick. `simultaneousGesture`
+        // + the dominance gate keep vertical scrolls inside the daily/raw
+        // content untouched.
+        .simultaneousGesture(pageSwipeGesture)
+        .navigationTitle(formattedTitle)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                Button(action: { go(.backward) }) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(DSColor.onSurface)
                 }
-                ToolbarItemGroup(placement: .navigationBarTrailing) {
-                    Button(action: { go(.backward) }) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(DSColor.onSurface)
-                    }
-                    .accessibilityLabel("前一天")
+                .accessibilityLabel("前一天")
 
-                    Button(action: { go(.forward) }) {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(canGoForward ? DSColor.onSurface : DSColor.onSurfaceVariant.opacity(0.35))
-                    }
-                    .disabled(!canGoForward)
-                    .accessibilityLabel("后一天")
+                Button(action: { go(.forward) }) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(canGoForward ? DSColor.onSurface : DSColor.onSurfaceVariant.opacity(0.35))
                 }
+                .disabled(!canGoForward)
+                .accessibilityLabel("后一天")
             }
         }
         .task(id: currentDate) { await load() }
@@ -250,6 +246,7 @@ struct DayDetailView: View {
                 }
             }
             .pickerStyle(.segmented)
+            .onChange(of: selectedTab) { _ in Haptics.selection() }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
             .background(DSColor.surfaceContainerLow)

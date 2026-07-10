@@ -419,13 +419,24 @@ struct PhotoFullScreenViewer: View {
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
 
+    /// Live downward drag while at fit-scale, driving the interactive
+    /// swipe-to-dismiss: the photo follows the finger and the black backdrop
+    /// fades proportionally, so releasing past the threshold reads as the photo
+    /// falling away (Apple Photos rubber-band dismiss) rather than a hard cut.
+    @State private var dismissDragY: CGFloat = 0
+
     private let minScale: CGFloat = 1.0
     private let maxScale: CGFloat = 4.0
     private let snapBackThreshold: CGFloat = 1.05
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            // Backdrop fades as the photo is dragged down toward dismissal, so
+            // the underlying content shows through — the photo reads as lifting
+            // off the page rather than a modal snapping shut.
+            Color.black
+                .opacity(Double(max(0, 1 - abs(dismissDragY) / 320)))
+                .ignoresSafeArea()
 
             if isLoading {
                 ProgressView()
@@ -435,7 +446,7 @@ struct PhotoFullScreenViewer: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .scaleEffect(scale)
-                    .offset(offset)
+                    .offset(x: offset.width, y: offset.height + dismissDragY)
                     .gesture(
                         SimultaneousGesture(
                             MagnificationGesture()
@@ -460,20 +471,31 @@ struct PhotoFullScreenViewer: View {
                             DragGesture()
                                 .onChanged { value in
                                     if scale > 1.0 {
+                                        // Zoomed in — pan around the photo.
                                         offset = CGSize(
                                             width: lastOffset.width + value.translation.width,
                                             height: lastOffset.height + value.translation.height
                                         )
+                                    } else if value.translation.height > 0 {
+                                        // At fit-scale, a downward drag is a
+                                        // dismissal-in-progress: track the finger
+                                        // 1:1 so the photo falls with it.
+                                        dismissDragY = value.translation.height
                                     }
                                 }
                                 .onEnded { value in
                                     if scale <= 1.0 {
-                                        let threshold: CGFloat = 100
-                                        if value.translation.height > threshold {
+                                        let threshold: CGFloat = 120
+                                        if value.translation.height > threshold
+                                            || value.predictedEndTranslation.height > 260 {
+                                            Haptics.light()
                                             dismiss()
                                         } else {
+                                            // Below threshold — rubber-band the
+                                            // photo and backdrop back to rest.
                                             withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.75)) {
                                                 offset = .zero
+                                                dismissDragY = 0
                                             }
                                             lastOffset = .zero
                                         }
@@ -662,10 +684,10 @@ struct LocationPreviewSheet: View {
                         HStack(spacing: 10) {
                             Image(systemName: "trash")
                                 .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(.red)
+                                .foregroundColor(DSColor.statusError)
                             Text("Delete")
                                 .font(DSType.titleSM)
-                                .foregroundColor(.red)
+                                .foregroundColor(DSColor.statusError)
                             Spacer()
                         }
                         .padding(.horizontal, 20)

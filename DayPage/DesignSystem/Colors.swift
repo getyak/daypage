@@ -50,7 +50,13 @@ enum DSColor {
     // migrates.
 
     /// Page background — warm cream in light, deep charcoal-brown in dark.
-    static let bgWarm        = Color(light: Color(hex: "FAF8F6"), dark: Color(hex: "1A1410"))
+    /// Points at the generated token (`DSTokens.Colors.bgWarm`, from
+    /// design-tokens/tokens.json) so this is the SINGLE source of truth for the
+    /// page background. Previously this hand-wrote `dark #1A1410` while the
+    /// generated source said `#1A1814` and the v3 `backgroundWarm` said
+    /// `#1A1612` — three different charcoals for "the page background" left a
+    /// visible seam where surfaces met. All three now resolve here.
+    static let bgWarm        = DSTokens.Colors.bgWarm
     /// Standard glass fill — adaptive opacity glass layer.
     static let glassStd      = Color(light: Color(red: 1, green: 252/255, blue: 250/255, opacity: 0.62),
                                      dark: Color(red: 30/255, green: 22/255, blue: 14/255, opacity: 0.62))
@@ -151,12 +157,16 @@ enum DSColor {
 
     // MARK: - V3 Warm-White Tokens
 
-    /// 页面 / 屏幕背景 — 暖色调米白 / 深暖棕
-    static let backgroundWarm = Color(light: Color(hex: "FAF8F6"), dark: Color(hex: "1A1612"))
-    /// 纯白表面（卡片、弹出面板）
-    static let surfaceWhite = Color(light: Color(hex: "FFFFFF"), dark: Color(hex: "242018"))
-    /// 下凹表面 — 微暖灰色 / 深凹表面
-    static let surfaceSunken = Color(light: Color(hex: "F3F0EB"), dark: Color(hex: "131210"))
+    /// 页面 / 屏幕背景 — 暖色调米白 / 深暖棕。
+    /// v3 别名，现指向单一真源 `bgWarm`（→ `DSTokens.Colors.bgWarm`）。
+    /// 曾经手写 `dark #1A1612`，与 v4/生成源不一致造成拼接接缝，已收敛。
+    static let backgroundWarm = bgWarm
+    /// 纯白表面（卡片、弹出面板）。指向生成真源，深色统一为 `#1F1C18`
+    ///（此前手写 `#242018`，与 tokens.json 生成值漂移）。
+    static let surfaceWhite = DSTokens.Colors.surfaceWhite
+    /// 下凹表面 — 微暖灰色 / 深凹表面。指向生成真源，深色统一为 `#252118`
+    ///（此前手写 `#131210`，比生成值更沉，造成同类下凹面深浅不一）。
+    static let surfaceSunken = DSTokens.Colors.surfaceSunken
 
     /// 暖色背景主文本
     static let onBackgroundPrimary = Color(light: Color(hex: "2B2822"), dark: Color(hex: "EDE6DC"))

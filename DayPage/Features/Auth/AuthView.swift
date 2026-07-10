@@ -49,7 +49,7 @@ struct AuthView: View {
 
                 if let errorText = viewModel.errorMessage {
                     Text(errorText)
-                        .font(.system(size: 14))
+                        .font(DSType.bodySM)
                         .foregroundColor(DSColor.statusError)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
