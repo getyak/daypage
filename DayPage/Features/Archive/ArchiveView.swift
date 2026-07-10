@@ -908,16 +908,19 @@ struct ArchiveView: View {
         let totalMemos = all.reduce(0) { $0 + $1.memoCount }
         let totalDays = all.count
         let hasData = totalDays > 0 || totalMemos > 0
+        // Scope words matter: this strip is whole-vault, but it sits directly
+        // under the month title, so bare "MEMOS 16" read as July's count and
+        // contradicted the month summary's "TOTAL ENTRIES 11" (FINDING-008).
         return HStack(alignment: .center, spacing: 20) {
             statPillar(
-                label: "MEMOS",
+                label: "ALL-TIME MEMOS",
                 value: hasData ? "\(totalMemos)" : "—"
             )
             Rectangle()
                 .fill(DSColor.glassRimD)
                 .frame(width: 0.5, height: 26)
             statPillar(
-                label: "DAYS WRITTEN",
+                label: "ALL-TIME DAYS",
                 value: hasData ? "\(totalDays)" : "—"
             )
             Spacer()
