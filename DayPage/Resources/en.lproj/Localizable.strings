@@ -995,6 +995,8 @@
 "voice.recording.title"      = "Voice memo";
 "voice.recording.discard"    = "Discard";
 "voice.recording.save"       = "Save";
+"relative.date.today"        = "Today";
+"relative.date.yesterday"    = "Yesterday";
 "voice.recording.pause"      = "Pause";
 "voice.recording.resume"     = "Resume";
 "memo.not_found"             = "Memo no longer exists";

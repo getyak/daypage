@@ -999,6 +999,8 @@
 "voice.recording.title"      = "语音备忘";
 "voice.recording.discard"    = "丢弃";
 "voice.recording.save"       = "保存";
+"relative.date.today"        = "今天";
+"relative.date.yesterday"    = "昨天";
 "voice.recording.pause"      = "暂停";
 "voice.recording.resume"     = "继续";
 "memo.not_found"             = "该 memo 已不存在";
