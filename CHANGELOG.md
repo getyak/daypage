@@ -27,6 +27,12 @@ Conventional changelog 格式：日期倒序，每个 release 标题 + 分类列
 - LocationService 反向地理编码 LRU 缓存（10/30min/~1km bucket）
 
 ### UX Polish
+- 设计审计 R5（2026-07-10，评分 6.7→9.3）：图谱标签/点击/自动适配错位修复（过滤缓存只存节点 ID）、缩放控件面板不再全宽盖住画布、编译日记页双返回键与偶发空白修复（isEmbedded 拆嵌套栈）、日详情元数据卡改用当天真实数据（删除 28°/86% 假默认值）、日记正文 wikilink 显示为可读名称
+- 设置页回归暖色品牌（浅/深色），API key 未配置改单一胶囊标注，「那年今日」中文化
+- 录音页操作栏中文化（暂停/丢弃/保存）并圆角化；输入栏定位 chip 显示「解析地名中…」而非裸经纬度
+- 归档总览统计加 ALL-TIME 范围词，与月度 TOTAL ENTRIES 口径区分；侧边栏 Recent 相对日期跟随界面语言
+- Today 横幅下移至头部行以下不再遮挡导航；CJK 草稿计数器单一化（字符数）
+- Wave 4 收尾：页面背景 token 三源合一（消除深色拼接接缝）、DSPicker 选项切换触感、侧边栏行 tapConfirm、Archive 派生集合缓存
 - Memo 滑动操作单次左滑同时露出 SHARE+DELETE + contextMenu 兜底
 - Graph 搜索 0 结果 glass toast 反馈
 - WriteSheet 自动聚焦（80ms 后 isFocused=true）

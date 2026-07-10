@@ -26,6 +26,10 @@ import DayPageServices
 struct TimelineSectionView: View {
 
     let section: TimelineSection
+    /// Shared zoom namespace from the Today root, so each row can act as the
+    /// `matchedTransitionSource` for the DayDetailView it pushes (iOS 18+ zoom
+    /// hero). Optional — previews / callers that don't wire it get a plain push.
+    var zoomNamespace: Namespace.ID? = nil
     /// Parent-driven actions invoked by each row. All are optional so the
     /// section view stays usable in previews and from call sites that haven't
     /// wired the new gesture vocabulary yet.
@@ -53,6 +57,7 @@ struct TimelineSectionView: View {
                     entry: day,
                     isFirst: index == 0,
                     isLast: index == section.days.count - 1,
+                    zoomNamespace: zoomNamespace,
                     onOpenDate: onOpenDate,
                     onShareDate: onShareDate,
                     onDeleteDate: onDeleteDate
@@ -125,6 +130,9 @@ struct TimelineDayRow: View {
     let isFirst: Bool
     let isLast: Bool
 
+    /// Shared zoom namespace from Today root — makes this row the
+    /// `matchedTransitionSource` for the DayDetailView it pushes (iOS 18+).
+    var zoomNamespace: Namespace.ID? = nil
     /// Parent-driven actions. All optional — when nil the corresponding
     /// gesture / menu item is hidden, so the row keeps working in previews.
     var onOpenDate: ((String) -> Void)? = nil
@@ -154,15 +162,30 @@ struct TimelineDayRow: View {
     fileprivate enum SwipeSide { case leading, trailing }
 
     var body: some View {
-        gestureSurface
-            .clipped()
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(accessibilityLabel)
-            .accessibilityHint(NSLocalizedString("today.timeline.openDailyPage", value: "Open Daily Page", comment: ""))
-            .accessibilityAction(named: shareActionTitle) { onShareDate?(entry) }
-            .accessibilityAction(named: pinActionTitle) { _ = pinService.togglePin(entry.dateString) }
-            .contextMenu { menuButtons } preview: { previewCard }
-            .alert(deleteAlertTitle, isPresented: $showDeleteConfirm, actions: deleteAlertActions, message: deleteAlertMessage)
+        rowZoomSource(
+            gestureSurface
+                .clipped()
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel(accessibilityLabel)
+                .accessibilityHint(NSLocalizedString("today.timeline.openDailyPage", value: "Open Daily Page", comment: ""))
+                .accessibilityAction(named: shareActionTitle) { onShareDate?(entry) }
+                .accessibilityAction(named: pinActionTitle) { _ = pinService.togglePin(entry.dateString) }
+                .contextMenu { menuButtons } preview: { previewCard }
+                .alert(deleteAlertTitle, isPresented: $showDeleteConfirm, actions: deleteAlertActions, message: deleteAlertMessage)
+        )
+    }
+
+    /// Tags the row as the zoom transition source keyed by its date, so the
+    /// pushed DayDetailView (which carries a matching `CardZoomDestination`)
+    /// grows out of this row on iOS 18+. No-op on iOS 17 / Reduce Motion / when
+    /// no namespace was wired — the push just uses the default slide.
+    @ViewBuilder
+    private func rowZoomSource(_ content: some View) -> some View {
+        if #available(iOS 18.0, *), let ns = zoomNamespace, !reduceMotion {
+            content.matchedTransitionSource(id: entry.dateString, in: ns)
+        } else {
+            content
+        }
     }
 
     // MARK: Body sub-views (kept small so SwiftUI's type-checker stays fast)
@@ -578,30 +601,34 @@ struct TimelineDayRow: View {
     }
 
     // MARK: Formatters
+    //
+    // These read from process-level cached formatters instead of allocating a
+    // fresh `DateFormatter` per computed-var read. The Today history timeline
+    // reads `weekdayLabel`/`monthDayLabel` per visible row, re-evaluated on
+    // every scroll frame (the main scroll fires a ScrollOffsetPreferenceKey) —
+    // a `DateFormatter()` alloc there is one of Foundation's most expensive
+    // per-frame costs and showed up as visible scroll hitching.
+
+    /// Localized "M月d日" — user-locale, so it can't live in the POSIX-only
+    /// shared `DateFormatters` cache. Cached statically here instead.
+    private static let localizedMonthDay: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "M月d日"
+        f.locale = Locale.current
+        return f
+    }()
 
     private var weekdayLabel: String {
-        let f = DateFormatter()
-        f.dateFormat = "EEE"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
-        return f.string(from: entry.date).uppercased()
+        DateFormatters.weekdayShort.string(from: entry.date).uppercased()
     }
 
     /// Display date for the nameplate — mirrors web's `item.date` (e.g. 05.30).
     private var monthDayLabel: String {
-        let f = DateFormatter()
-        f.dateFormat = "MM.dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone.current
-        return f.string(from: entry.date)
+        DateFormatters.monthDayDotted.string(from: entry.date)
     }
 
     private var longDateLabel: String {
-        let f = DateFormatter()
-        f.dateFormat = "M月d日"
-        f.locale = Locale.current
-        f.timeZone = TimeZone.current
-        return f.string(from: entry.date)
+        Self.localizedMonthDay.string(from: entry.date)
     }
 
     private var memoCountTag: String {

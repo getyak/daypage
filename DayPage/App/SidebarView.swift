@@ -151,6 +151,7 @@ struct SidebarView: View {
     /// 46pt amber-gradient avatar + serif name + mono membership + chevron.
     private var profileRow: some View {
         Button {
+            Haptics.tapConfirm()
             showAccountSheet = true
         } label: {
             HStack(spacing: 14) {
@@ -543,6 +544,7 @@ struct SidebarView: View {
         VStack(alignment: .leading, spacing: 2) {
             // Settings
             Button {
+                Haptics.tapConfirm()
                 showSettings = true
             } label: {
                 HStack(spacing: 12) {
@@ -581,6 +583,7 @@ struct SidebarView: View {
         let initial = sidebarVM.accountInitial
 
         return Button {
+            Haptics.tapConfirm()
             showAccountSheet = true
         } label: {
             HStack(spacing: 12) {

@@ -287,7 +287,7 @@ struct InputBarV4: View {
                 // #771: transient toast → glass engine (.toast role).
                 .dpGlass(.toast, in: Capsule())
                 .clipShape(Capsule())
-                .shadow(color: Color(hex: "2D1E0A").opacity(0.08), radius: 8, x: 0, y: 2)
+                .elevation(.glass)
                 .padding(.top, -34)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                 .accessibilityLabel(NSLocalizedString("input.a11y.too_short", comment: ""))
@@ -305,7 +305,7 @@ struct InputBarV4: View {
                 // #771: transient toast → glass engine (.toast role).
                 .dpGlass(.toast, in: Capsule())
                 .clipShape(Capsule())
-                .shadow(color: Color(hex: "2D1E0A").opacity(0.08), radius: 8, x: 0, y: 2)
+                .elevation(.glass)
                 .padding(.top, -34)
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                 .accessibilityLabel(NSLocalizedString("input.a11y.mic_hint", comment: ""))
@@ -495,8 +495,12 @@ struct InputBarV4: View {
                 idleIconColor: .white
             )
             .frame(width: 50, height: 44)
-            .shadow(color: Color(hex: "5D3000").opacity(0.45), radius: 10, x: 0, y: 4)
-            .shadow(color: Color(hex: "5D3000").opacity(0.18), radius: 1, x: 0, y: 1)
+            // Amber glow that makes the send/mic button read as "lit". Kept as a
+            // deliberate colored halo (not a neutral DSElevation), but sourced
+            // from the dark-adaptive `accentOnBg` so it doesn't sink into the
+            // charcoal canvas in dark mode the way hardcoded #5D3000 did.
+            .shadow(color: DSColor.accentOnBg.opacity(0.45), radius: 10, x: 0, y: 4)
+            .shadow(color: DSColor.accentOnBg.opacity(0.18), radius: 1, x: 0, y: 1)
             .accessibilityLabel(NSLocalizedString("input.a11y.mic", comment: ""))
             .accessibilityHint(NSLocalizedString("input.a11y.mic_hint_full", comment: ""))
 
@@ -529,8 +533,12 @@ struct InputBarV4: View {
         // iOS 26 → native .glassEffect (refraction + specular + interactive),
         // iOS 16–25 → warm faux-glass fallback. See docs/liquid-glass-vNext.md.
         .dpGlass(.control, in: Capsule())
-        .shadow(color: Color(hex: "3C280F").opacity(0.22), radius: 16, x: 0, y: 9)
-        .shadow(color: Color(hex: "3C280F").opacity(0.08), radius: 3, x: 0, y: 1)
+        // The dock is the app's highest-frequency surface — it must read as
+        // clearly lifted. DSElevation.floating carries a two-layer drop that
+        // switches to black-at-higher-opacity in dark mode, so the dock keeps
+        // its lift on the charcoal canvas instead of vanishing like the old
+        // hardcoded warm-ink (#3C280F) shadow did.
+        .elevation(.floating)
     }
 
     // Hint label below the dock — JetBrains Mono uppercase, like the design.
@@ -563,18 +571,25 @@ struct InputBarV4: View {
     // MARK: - Word/Char Count Footer
 
     private var countFooter: some View {
+        // Same single-counter rule as WriteSheetView (FINDING-013): CJK
+        // segmentation makes words ≈ characters, so showing both repeats one
+        // number. Characters for CJK-dominant drafts, words for latin.
         let wordsLabel = wordCount == 1
             ? NSLocalizedString("writesheet.count.words.one", comment: "1 word")
             : String(format: NSLocalizedString("writesheet.count.words.other", comment: "%d words"), wordCount)
+        let isCJKDominant = charCount > 0 && wordCount * 10 >= charCount * 8
+        let countLabel = isCJKDominant
+            ? "\(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))"
+            : wordsLabel
         return HStack {
             Spacer()
-            Text("\(wordsLabel) · \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
+            Text(countLabel)
                 .font(DSType.mono10)
                 .tracking(1.0)
                 .textCase(.uppercase)
                 .monospacedDigit()
                 .foregroundColor(DSColor.inkSubtle)
-                .accessibilityLabel("\(wordsLabel), \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
+                .accessibilityLabel(countLabel)
                 .accessibilityIdentifier("composer-word-count")
         }
         .padding(.horizontal, 20)
@@ -769,8 +784,10 @@ struct InputBarV4: View {
         .padding(.horizontal, 16)
         .padding(.top, 10)
         .padding(.bottom, 14)
-        .shadow(color: Color(hex: "2D1E0A").opacity(0.10), radius: 24, x: 0, y: 8)
-        .shadow(color: Color(hex: "2D1E0A").opacity(0.06), radius: 4, x: 0, y: 1)
+        // Expanded composer card lift → DSElevation.glass (two-layer, dark-mode
+        // adaptive), replacing the hardcoded warm-ink shadow that disappeared
+        // against the dark canvas.
+        .elevation(.glass)
     }
 
     // MARK: - Inline Action Row
@@ -980,6 +997,11 @@ struct InputBarV4: View {
             isFocused = false
             return
         }
+        // Fire the commit haptic on THIS frame (causality) — the memo's
+        // async append later fires `.successNotification()` on completion, but
+        // waiting for the disk write to feed back reads as "half a beat late".
+        // Mirrors WriteSheetView.handleSave(), which already commits on tap.
+        Haptics.commit()
         onSubmit()
         isFocused = false
         transition(to: .collapsing)
@@ -1129,10 +1151,13 @@ struct InputBarV4: View {
 
     private func locationLabel(_ loc: Memo.Location) -> String {
         if let name = loc.name, !name.isEmpty { return name }
-        if let lat = loc.lat, let lng = loc.lng {
-            return String(format: "%.4f, %.4f", lat, lng)
+        // Reverse geocoding hasn't resolved yet — "37.7858, -122.4064" reads
+        // as debug output, not a place (FINDING-007). Say what's happening
+        // instead; the coordinates still ride along in the memo metadata.
+        if loc.lat != nil, loc.lng != nil {
+            return NSLocalizedString("composer.location.resolving", value: "已定位 · 解析地名中…", comment: "Location chip while reverse geocoding")
         }
-        return "Unknown location"
+        return NSLocalizedString("composer.location.unknown", value: "未知位置", comment: "Location chip fallback")
     }
 
 }

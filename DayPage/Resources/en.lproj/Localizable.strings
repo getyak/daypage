@@ -637,6 +637,7 @@
 "settings.appearance.fontsize"               = "Body font size";
 "settings.appearance.density"                = "Card density";
 "settings.appearance.legacy_voice"           = "Use legacy voice recording";
+"settings.appearance.onthisday.title"        = "On This Day";
 "settings.appearance.onthisday.refresh_time" = "Refresh time";
 "settings.appearance.onthisday.midnight"     = "Midnight 00:00";
 "settings.appearance.onthisday.dawn"         = "Dawn 06:00";
@@ -993,6 +994,11 @@
 "weekly.recap.compiled"      = "Daily page compiled.";
 "voice.recording.title"      = "Voice memo";
 "voice.recording.discard"    = "Discard";
+"voice.recording.save"       = "Save";
+"relative.date.today"        = "Today";
+"relative.date.yesterday"    = "Yesterday";
+"voice.recording.pause"      = "Pause";
+"voice.recording.resume"     = "Resume";
 "memo.not_found"             = "Memo no longer exists";
 "sidebar.settings"           = "Settings";
 "sidebar.ask_past"           = "Ask the past";

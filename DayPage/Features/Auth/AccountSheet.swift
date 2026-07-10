@@ -116,7 +116,7 @@ struct AccountSheet: View {
 
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 16))
-                .foregroundColor(.green)
+                .foregroundColor(DSColor.statusSuccess)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 8)

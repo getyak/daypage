@@ -20,8 +20,16 @@ enum RelativeDate {
             return Self.fullDateFormatter.string(from: date).uppercased()
 
         case .natural:
-            if cal.isDateInToday(date) { return "Today" }
-            if cal.isDateInYesterday(date) { return "Yesterday" }
+            // Natural style feeds content rows (sidebar Recent list) — it must
+            // follow the UI locale. Hardcoded "Today" next to the 「今日」 nav
+            // item read as two different products (FINDING-012). `.caps` stays
+            // English by design: it's the archival mono-label register.
+            if cal.isDateInToday(date) {
+                return NSLocalizedString("relative.date.today", value: "今天", comment: "Relative date — today")
+            }
+            if cal.isDateInYesterday(date) {
+                return NSLocalizedString("relative.date.yesterday", value: "昨天", comment: "Relative date — yesterday")
+            }
             let daysDiff = cal.dateComponents([.day], from: cal.startOfDay(for: date), to: cal.startOfDay(for: now)).day ?? 0
             if daysDiff < 7 { return Self.weekdayFormatter.string(from: date) }
             return Self.shortMonthDayFormatter.string(from: date)

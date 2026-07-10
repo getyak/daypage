@@ -141,6 +141,8 @@ struct VoiceRecordingView: View {
             }
 
             Text(formattedTime(voiceService.elapsedSeconds))
+                // TODO: no DSType match, kept raw — 56pt hero timer far exceeds the
+                // mono ramp (mono9…mono11); no semantic token for a display-size mono readout.
                 .font(.system(size: 56, weight: .bold, design: .monospaced))
                 .foregroundColor(timerColor)
                 .monospacedDigit()
@@ -248,7 +250,9 @@ struct VoiceRecordingView: View {
                     HStack(spacing: 8) {
                         Image(systemName: voiceService.state == .recording ? "pause.fill" : "play.fill")
                             .font(.system(size: 14, weight: .semibold))
-                        Text(voiceService.state == .recording ? "PAUSE" : "RESUME")
+                        Text(voiceService.state == .recording
+                            ? NSLocalizedString("voice.recording.pause", value: "暂停", comment: "Voice recording — pause button")
+                            : NSLocalizedString("voice.recording.resume", value: "继续", comment: "Voice recording — resume button"))
                             .monoLabelStyle(size: 12)
                     }
                     .foregroundColor(DSColor.onSurface)
@@ -266,9 +270,11 @@ struct VoiceRecordingView: View {
             .padding(.horizontal, 0)
         }
 
-        // DISCARD | SAVE full-width bottom buttons
-        HStack(spacing: 0) {
-            // DISCARD (white bg, black text)
+        // 丢弃 | 保存 — inset rounded action bar. The old full-bleed square
+        // blocks (hard 90° brown slab, English "SAVE"/"PAUSE" in an otherwise
+        // Chinese flow) clashed with the app's continuous-radius card language
+        // (FINDING-009).
+        HStack(spacing: 12) {
             Button(action: {
                 voiceService.cancelRecording()
                 onCancel()
@@ -277,22 +283,16 @@ struct VoiceRecordingView: View {
                     .monoLabelStyle(size: 14)
                     .foregroundColor(isProcessing ? DSColor.onSurfaceVariant : DSColor.onSurface)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(DSColor.surface)
+                    .frame(height: 52)
+                    .background(DSColor.surfaceContainerHigh)
+                    .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
             }
             .disabled(isProcessing)
             .buttonStyle(.plain)
-            .cornerRadius(0)
             .accessibilityLabel(NSLocalizedString("voice.recording.a11y.discard", value: "丢弃录音", comment: "Voice recording — discard button a11y label"))
             .accessibilityHint(NSLocalizedString("voice.recording.a11y.discard.hint", value: "永久删除此次录音内容", comment: "Voice recording — discard hint"))
 
-            // Separator
-            Rectangle()
-                .fill(DSColor.outlineVariant)
-                .frame(width: 1, height: 56)
-
-            // SAVE (black bg, white text)
-            // Send path: audio saves instantly, transcription runs in the
+            // 保存 — send path: audio saves instantly, transcription runs in the
             // background via VoiceAttachmentQueue and patches the memo later.
             Button(action: {
                 guard canSave else { return }
@@ -302,24 +302,22 @@ struct VoiceRecordingView: View {
                     onCancel()
                 }
             }) {
-                Text("SAVE")
+                Text(NSLocalizedString("voice.recording.save", value: "保存", comment: "Save recording"))
                     .monoLabelStyle(size: 14)
                     .foregroundColor(canSave ? DSColor.onPrimary : DSColor.onSurfaceVariant)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 56)
+                    .frame(height: 52)
                     .background(canSave ? DSColor.primary : DSColor.surfaceContainerLow)
+                    .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
             }
             .disabled(!canSave)
             .buttonStyle(.plain)
-            .cornerRadius(0)
             .accessibilityLabel(NSLocalizedString("voice.recording.a11y.save", value: "保存录音", comment: "Voice recording — save button a11y label"))
             .accessibilityHint(NSLocalizedString("voice.recording.a11y.save.hint", value: "停止录音并发送给 AI 转写", comment: "Voice recording — save hint"))
         }
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(DSColor.outlineVariant)
-                .frame(height: 1)
-        }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
     }
 
     // MARK: - Helpers

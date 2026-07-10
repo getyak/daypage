@@ -85,7 +85,13 @@ struct WriteSheetView: View {
     /// long drafts. All downstream readers keep using `wordCount`/`charCount`.
     @State private var cachedWordCount: Int = 0
     @State private var cachedCharCount: Int = 0
-    @GestureState private var dragOffset: CGFloat = 0
+    /// Sheet drag offset. `resetTransaction` springs the offset back to rest
+    /// when the gesture ends below the dismiss threshold — `@GestureState`
+    /// auto-resets to 0 on release, and without a transaction that reset snaps
+    /// instantly (the old empty `withAnimation(Motion.spring){}` couldn't
+    /// animate the framework's own reset). Near-instant under Reduce Motion.
+    @GestureState(resetTransaction: Transaction(animation: Motion.respectReduceMotion(Motion.spring)))
+    private var dragOffset: CGFloat = 0
     @State private var committedClose: Bool = false
     @State private var saveReadyPulse: Bool = false
     @State private var confirmingDiscard: Bool = false
@@ -359,11 +365,11 @@ struct WriteSheetView: View {
                     || value.predictedEndTranslation.height > 260
                 if shouldDismiss {
                     attemptClose()
-                } else if !reduceMotion {
-                    withAnimation(Motion.spring) { }
-                } else {
-                    withAnimation(.easeOut(duration: 0.2)) { }
                 }
+                // Below the threshold we do nothing here: `dragOffset` is a
+                // @GestureState, so it auto-resets to 0 on release and springs
+                // back via its `resetTransaction`. (The old empty
+                // `withAnimation` blocks couldn't animate that reset anyway.)
             }
     }
 
@@ -452,17 +458,24 @@ struct WriteSheetView: View {
 
             Spacer()
 
-            // Word + char counter — mono10/inkSubtle, milestones every 100 words.
+            // Single counter — for CJK drafts the segmenter counts ~1 word per
+            // character, so "10 个词 · 10 字符" said the same number twice
+            // (FINDING-013). Show characters for CJK-dominant text, words for
+            // latin text; milestones every 100 words either way.
             let wordsLabel = wordCount == 1
                 ? NSLocalizedString("writesheet.count.words.one", comment: "1 word")
                 : String(format: NSLocalizedString("writesheet.count.words.other", comment: "%d words"), wordCount)
+            let isCJKDominant = charCount > 0 && wordCount * 10 >= charCount * 8
+            let countLabel = isCJKDominant
+                ? "\(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))"
+                : wordsLabel
             let readLabel = String(format: NSLocalizedString("writesheet.count.read", comment: "~%d min read"), readingMinutes)
             HStack(spacing: 0) {
                 // Counter text updates instantly per keystroke — no per-character
                 // numericText/spring (those stacked 0.35s animations under the
                 // typing cadence and starved the main thread). monospacedDigit
                 // keeps the digits from reflowing as they change.
-                Text("\(wordsLabel) · \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
+                Text(countLabel)
                 if showReadingTime {
                     Text(" · \(readLabel)")
                         .transition(.opacity)
@@ -478,9 +491,7 @@ struct WriteSheetView: View {
             // Only the reading-time chip's appear/disappear gets a soft tick.
             .animation(reduceMotion ? nil : Motion.countTick, value: showReadingTime)
             .padding(.trailing, 10)
-            .accessibilityLabel(showReadingTime
-                ? "\(wordsLabel), \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars")), \(readLabel)"
-                : "\(wordsLabel), \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
+            .accessibilityLabel(showReadingTime ? "\(countLabel), \(readLabel)" : countLabel)
             .onChange(of: wordCount) { newCount in
                 let milestone = newCount / 100
                 if milestone > lastMilestone {

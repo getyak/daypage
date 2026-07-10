@@ -130,23 +130,27 @@ struct AppBanner: View {
             leadingIcon
             VStack(alignment: .leading, spacing: 4) {
                 Text(model.title)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(DSType.bodySM)
+                    .fontWeight(.semibold)
                     .foregroundColor(foregroundColor)
                 if let subtitle = model.subtitle {
                     Text(subtitle)
-                        .font(.system(size: 13))
+                        .font(DSType.caption)
+                        .fontWeight(.regular)
                         .foregroundColor(foregroundColor.opacity(0.8))
                 }
                 if model.primaryAction != nil || model.secondaryAction != nil {
                     HStack(spacing: 16) {
                         if let action = model.primaryAction {
                             Button(action.label, action: action.handler)
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(DSType.caption)
+                                .fontWeight(.semibold)
                                 .foregroundColor(accentColor)
                         }
                         if let action = model.secondaryAction {
                             Button(action.label, action: action.handler)
-                                .font(.system(size: 13))
+                                .font(DSType.caption)
+                                .fontWeight(.regular)
                                 .foregroundColor(foregroundColor.opacity(0.7))
                         }
                     }
@@ -250,6 +254,10 @@ struct AppBanner: View {
 
 struct BannerOverlayModifier: ViewModifier {
     @ObservedObject private var bannerCenter = BannerCenter.shared
+    /// Distance from the safe-area top. Screens with a floating header row
+    /// (Today) pass a larger inset so the banner lands BELOW the row instead
+    /// of covering the menu / search buttons while visible (FINDING-014).
+    var topInset: CGFloat = 8
 
     func body(content: Content) -> some View {
         // ZStack keeps the banner floating above content without shifting layout.
@@ -257,7 +265,7 @@ struct BannerOverlayModifier: ViewModifier {
             content
             if let banner = bannerCenter.currentBanner {
                 AppBanner(model: banner)
-                    .padding(.top, 8)
+                    .padding(.top, topInset)
                     // Asymmetric: slide-down + fade-in on entry; pure fade-up
                     // on exit so dismissal feels gentle rather than yanked.
                     .transition(.asymmetric(
@@ -272,7 +280,7 @@ struct BannerOverlayModifier: ViewModifier {
 }
 
 extension View {
-    func bannerOverlay() -> some View {
-        modifier(BannerOverlayModifier())
+    func bannerOverlay(topInset: CGFloat = 8) -> some View {
+        modifier(BannerOverlayModifier(topInset: topInset))
     }
 }

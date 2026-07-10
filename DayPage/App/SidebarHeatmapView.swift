@@ -123,7 +123,7 @@ struct SidebarHeatmapView: View {
                 Spacer().frame(height: 11) // align under the month-label row
                 ForEach(Array(["M", "T", "W", "T", "F", "S", "S"].enumerated()), id: \.offset) { idx, d in
                     Text(d)
-                        .font(.system(size: 8, design: .monospaced))
+                        .font(.system(size: 8, design: .monospaced)) // TODO: no DSType match, kept raw (8pt heatmap grid label, smallest mono token is mono9=9pt)
                         .tracking(1)
                         .foregroundColor(DSColor.inkSubtle)
                         .opacity(idx % 2 == 1 ? 0.4 : 0.9)
@@ -281,7 +281,7 @@ struct SidebarHeatmapView: View {
             let cell = cellSize(in: geo.size.width)
             ForEach(labels, id: \.col) { item in
                 Text(item.text)
-                    .font(.system(size: 8, design: .monospaced))
+                    .font(.system(size: 8, design: .monospaced)) // TODO: no DSType match, kept raw (8pt heatmap month label, smallest mono token is mono9=9pt)
                     .tracking(1.2)
                     .foregroundColor(DSColor.inkSubtle)
                     .offset(x: CGFloat(item.col) * (cell + cellSpacing))

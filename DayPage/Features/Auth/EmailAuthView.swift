@@ -104,7 +104,7 @@ struct EmailAuthView: View {
 
                 if let errorMessage = viewModel.errorMessage {
                     Text(errorMessage)
-                        .font(.system(size: 14))
+                        .font(DSType.bodySM)
                         .foregroundColor(DSColor.statusError)
                         .padding(.bottom, 8)
                         .transition(.opacity)

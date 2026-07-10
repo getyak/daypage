@@ -93,6 +93,8 @@ private struct SpotlightChip: View {
             Image(systemName: "mappin")
         case .timeRitual(let emoji, _):
             Text(emoji)
+                // TODO: no DSType match, kept raw — emoji glyph sized to sit in the
+                // icon slot next to sibling Image(systemName:); this is icon sizing, not a text ramp.
                 .font(.system(size: 12))
         case .lastMemoTail:
             Image(systemName: "text.quote")

@@ -940,10 +940,12 @@ struct GraphView: View {
             .accessibilityLabel(NSLocalizedString("graph.a11y.fit", comment: "Graph fit-to-screen button"))
             .accessibilityAddTraits(.isButton)
 
+            // Fixed-width hairline: an unconstrained Rectangle is greedy and
+            // stretches the whole VStack (and its glass card) to full screen
+            // width, burying the graph under a giant panel (FINDING-002).
             Rectangle()
                 .fill(DSColor.glassRim)
-                .frame(height: 0.5)
-                .padding(.horizontal, 10)
+                .frame(width: 24, height: 0.5)
 
             Button {
                 zoom(by: 1.3)
@@ -961,8 +963,7 @@ struct GraphView: View {
 
             Rectangle()
                 .fill(DSColor.glassRim)
-                .frame(height: 0.5)
-                .padding(.horizontal, 10)
+                .frame(width: 24, height: 0.5)
 
             Button {
                 zoom(by: 1 / 1.3)

@@ -641,6 +641,7 @@
 "settings.appearance.fontsize"               = "正文字号";
 "settings.appearance.density"                = "卡片密度";
 "settings.appearance.legacy_voice"           = "使用旧版语音录制";
+"settings.appearance.onthisday.title"        = "那年今日";
 "settings.appearance.onthisday.refresh_time" = "刷新时间";
 "settings.appearance.onthisday.midnight"     = "午夜 00:00";
 "settings.appearance.onthisday.dawn"         = "清晨 06:00";
@@ -997,6 +998,11 @@
 "weekly.recap.compiled"      = "今日页已生成。";
 "voice.recording.title"      = "语音备忘";
 "voice.recording.discard"    = "丢弃";
+"voice.recording.save"       = "保存";
+"relative.date.today"        = "今天";
+"relative.date.yesterday"    = "昨天";
+"voice.recording.pause"      = "暂停";
+"voice.recording.resume"     = "继续";
 "memo.not_found"             = "该 memo 已不存在";
 "sidebar.settings"           = "设置";
 "sidebar.ask_past"           = "和过去对话";

@@ -30,17 +30,11 @@ struct MetadataGridView: View {
         }
     }
 
+    // No default tiles: the old design-reference fallback (28° / 86 PERCENT /
+    // 下午 15:30) rendered fabricated numbers as if they were the day's real
+    // metadata whenever a caller forgot to pass data (FINDING-004). Callers
+    // must now supply real tiles — or hide the strip.
     let tiles: [Tile]
-
-    /// Default 4-tile layout matching detail.jsx:267-270.
-    init(tiles: [Tile]? = nil) {
-        self.tiles = tiles ?? [
-            Tile(label: "WEATHER", value: "28°", sub: "多云"),
-            Tile(label: "HUMIDITY", value: "86", sub: "PERCENT"),
-            Tile(label: "LIGHT", value: "下午", sub: "15:30"),
-            Tile(label: "KIND", value: "文本", sub: "—")
-        ]
-    }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -105,8 +99,13 @@ struct MetadataGridView_Previews: PreviewProvider {
     static var previews: some View {
         ZStack {
             DSColor.bgWarm.ignoresSafeArea()
-            MetadataGridView()
-                .padding(.horizontal, 22)
+            MetadataGridView(tiles: [
+                MetadataGridView.Tile(label: "WEATHER", value: "24°", sub: "小雨"),
+                MetadataGridView.Tile(label: "ENTRIES", value: "6", sub: "MEMOS"),
+                MetadataGridView.Tile(label: "SPAN", value: "08:12", sub: "→ 21:40"),
+                MetadataGridView.Tile(label: "KIND", value: "文本", sub: "5 文 · 1 声")
+            ])
+            .padding(.horizontal, 22)
         }
     }
 }

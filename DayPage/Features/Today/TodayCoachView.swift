@@ -409,8 +409,9 @@ struct TodayCoachView: View {
             .accessibilityIdentifier("coach-send")
         }
         .dpGlass(.control, in: Capsule())
-        .shadow(color: Color(hex: "3C280F").opacity(0.16), radius: 14, x: 0, y: 7)
-        .shadow(color: Color(hex: "3C280F").opacity(0.07), radius: 2, x: 0, y: 1)
+        // Coach input capsule lift → DSElevation.glass (dark-mode adaptive),
+        // replacing the hardcoded warm-ink shadow that sank in dark mode.
+        .elevation(.glass)
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 12)

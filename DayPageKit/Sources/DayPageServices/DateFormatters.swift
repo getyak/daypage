@@ -39,6 +39,11 @@ public enum DateFormatters {
     /// "Jun 19" — short month-day for relative time fallbacks.
     public static let monthDay: DateFormatter = posix("MMM d")
 
+    /// "05.30" — dotted month-day for the timeline row nameplate (mirrors web's
+    /// `item.date`). Cached here so the Today history timeline stops allocating
+    /// a fresh DateFormatter per visible row per scroll frame.
+    public static let monthDayDotted: DateFormatter = posix("MM.dd")
+
     /// "2026-06" — year-month key for monthly archive grouping.
     public static let yearMonth: DateFormatter = posix("yyyy-MM")
 

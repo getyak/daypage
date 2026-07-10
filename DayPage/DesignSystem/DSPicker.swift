@@ -78,6 +78,12 @@ struct DSPicker<Value: Hashable, Label: View>: View {
             if isExpanded {
                 ForEach(options, id: \.value) { option in
                     Button {
+                        // Selection tick — the system scrubbing feel for moving
+                        // between discrete options. Centralized here so every
+                        // DSPicker across the app (Settings appearance / density
+                        // / attachment policy …) gets consistent haptic feedback
+                        // without each call site wiring it.
+                        if option.value != selection { Haptics.selection() }
                         selection = option.value
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
                             isExpanded = false
