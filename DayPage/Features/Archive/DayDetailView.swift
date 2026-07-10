@@ -46,6 +46,8 @@ struct DayDetailView: View {
     @State private var state: LoadState = .loading
     @State private var hasRawFile: Bool = false
     @State private var selectedTab: Tab = .daily
+    /// 当天真实元数据瓦片（天气/条数/跨度/类型），无 raw 数据时为 nil 并隐藏。
+    @State private var metaTiles: [MetadataGridView.Tile]? = nil
 
     /// Finger-tracked horizontal offset for interactive paging. `@GestureState`
     /// auto-resets when the gesture ends or is cancelled; the reset transaction
@@ -271,11 +273,13 @@ struct DayDetailView: View {
             // v8 detail.jsx:258-271 — 4-column metadata tile row pinned above
             // the compiled daily page (WEATHER / HUMIDITY / LIGHT / KIND).
             VStack(spacing: 0) {
-                MetadataGridView()
-                    .padding(.horizontal, 22)
-                    .padding(.top, 16)
-                    .padding(.bottom, 6)
-                DailyPageView(dateString: currentDate)
+                if let tiles = metaTiles {
+                    MetadataGridView(tiles: tiles)
+                        .padding(.horizontal, 22)
+                        .padding(.top, 16)
+                        .padding(.bottom, 6)
+                }
+                DailyPageView(dateString: currentDate, isEmbedded: true)
             }
         case .rawOnly:
             VStack(spacing: 20) {
@@ -415,6 +419,74 @@ struct DayDetailView: View {
         case .empty, .error, .loading:
             state = resolved.0
         }
+
+        // FINDING-004: the metadata strip previously rendered MetadataGridView's
+        // design-reference defaults (28° / 86 PERCENT / …) — fabricated numbers
+        // presented as this day's facts. Derive the tiles from the day's raw
+        // memos instead; fields with no source data show "—".
+        if resolved.1, let date = DateFormatters.isoDate.date(from: target) {
+            let memos = await Task.detached(priority: .userInitiated) {
+                (try? RawStorage.read(for: date)) ?? []
+            }.value
+            metaTiles = Self.buildMetaTiles(from: memos)
+        } else {
+            metaTiles = nil
+        }
+    }
+
+    /// 从当天 raw memos 推导 4 块元数据（天气 / 条数 / 时间跨度 / 类型）。
+    /// 纯函数，便于测试。
+    static func buildMetaTiles(from memos: [Memo]) -> [MetadataGridView.Tile]? {
+        guard !memos.isEmpty else { return nil }
+        let sorted = memos.sorted { $0.created < $1.created }
+
+        // WEATHER — first memo that captured one, e.g. "小雨 24°C"
+        var weatherValue = "—", weatherSub: String? = nil
+        if let w = sorted.compactMap(\.weather).first {
+            let parts = w.split(separator: " ")
+            if let temp = parts.first(where: { $0.contains("°") }) {
+                weatherValue = String(temp)
+                weatherSub = parts.first(where: { !$0.contains("°") }).map(String.init)
+            } else {
+                weatherValue = w
+            }
+        }
+
+        // ENTRIES — memo count
+        let entriesTile = MetadataGridView.Tile(
+            label: "ENTRIES", value: "\(sorted.count)", sub: "MEMOS"
+        )
+
+        // SPAN — first→last capture time
+        let fmt = DateFormatters.timeHHmm
+        let first = fmt.string(from: sorted.first!.created)
+        let last = fmt.string(from: sorted.last!.created)
+        let spanTile = MetadataGridView.Tile(
+            label: "SPAN",
+            value: sorted.count > 1 ? "\(first)" : first,
+            sub: sorted.count > 1 ? "→ \(last)" : nil
+        )
+
+        // KIND — dominant memo type
+        let voice = sorted.filter { $0.type == .voice }.count
+        let photo = sorted.filter { $0.attachments.contains { $0.kind == "photo" } }.count
+        let text = sorted.count - voice - photo
+        let dominant: String = {
+            if text >= voice && text >= photo { return "文本" }
+            if voice >= photo { return "语音" }
+            return "照片"
+        }()
+        var kindParts: [String] = []
+        if text > 0 { kindParts.append("\(text) 文") }
+        if voice > 0 { kindParts.append("\(voice) 声") }
+        if photo > 0 { kindParts.append("\(photo) 图") }
+
+        return [
+            MetadataGridView.Tile(label: "WEATHER", value: weatherValue, sub: weatherSub),
+            entriesTile,
+            spanTile,
+            MetadataGridView.Tile(label: "KIND", value: dominant, sub: kindParts.joined(separator: " · "))
+        ]
     }
 
     /// 纯解析器 — 不含 SwiftUI，不含异步。返回 `(state, hasRawFile)`。
