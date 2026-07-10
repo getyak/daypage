@@ -49,6 +49,9 @@ enum DailyPageParser {
             }
         }
 
+        // 摘要同样可能携带 wikilink（编译器把实体名写进一句话总结）。
+        summary = normalizeWikilinks(in: summary)
+
         // 回退：如果 frontmatter 中没有封面，从当日 raw memo 中推导。
         let resolvedCover = cover ?? firstPhotoAttachmentPath(for: dateString)
 
@@ -149,7 +152,35 @@ enum DailyPageParser {
             range: range,
             withTemplate: ""
         ).trimmingCharacters(in: .whitespacesAndNewlines)
-        return (cleaned, ordered)
+        return (normalizeWikilinks(in: cleaned), ordered)
+    }
+
+    // Cached — pattern is invariant, and sections re-parse on every page load.
+    private static let wikilinkDisplayRegex = try? NSRegularExpression(
+        pattern: #"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]"#
+    )
+
+    /// 将叙事正文中的 wikilink 展示为人类可读名称（FINDING-005）。
+    /// `[[wiki/people/a-ling|阿玲]]` → `阿玲`；`[[joma-coffee]]` → `joma coffee`。
+    /// 编译器输出与手写页都可能带任一形式；在做成可点 chip 之前，至少不能把
+    /// 原始链接语法裸露给读者。
+    static func normalizeWikilinks(in text: String) -> String {
+        guard text.contains("[["), let regex = wikilinkDisplayRegex else { return text }
+        let ns = NSMutableString(string: text)
+        let matches = regex.matches(in: text, range: NSRange(location: 0, length: ns.length))
+        // Replace back-to-front so earlier ranges stay valid.
+        for m in matches.reversed() {
+            let display: String
+            if m.range(at: 2).location != NSNotFound {
+                display = ns.substring(with: m.range(at: 2))
+            } else {
+                let target = ns.substring(with: m.range(at: 1))
+                let slug = target.split(separator: "/").last.map(String.init) ?? target
+                display = slug.replacingOccurrences(of: "-", with: " ")
+            }
+            ns.replaceCharacters(in: m.range(at: 0), with: display)
+        }
+        return ns as String
     }
 
     private static func firstPhotoAttachmentPath(for dateString: String) -> String? {
