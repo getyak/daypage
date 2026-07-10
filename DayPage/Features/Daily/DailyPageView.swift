@@ -12,6 +12,9 @@ struct DailyPageView: View {
 
     let dateString: String
     var onReturnToToday: ((String) -> Void)? = nil  // 点击跟进问题时调用，传入预填充文本
+    /// true = 由外层导航栈 push 呈现（DayDetailView 内嵌）；false = 独立模态
+    /// （Today fullScreenCover / EntityPage sheet）需要自带 NavigationStack。
+    var isEmbedded: Bool = false
 
     @Environment(\.dismiss) private var dismiss
     @StateObject private var memoVM = DailyPageMemoVM()
@@ -41,8 +44,21 @@ struct DailyPageView: View {
     @State private var freeformDraft: String = ""
     @State private var freeformVM: ThreadConversationViewModel? = nil
 
+    /// Hosts the page in its own NavigationStack ONLY when presented modally.
+    /// When pushed inside an existing stack (DayDetailView), nesting a second
+    /// NavigationStack produced a duplicate back affordance (system chevron +
+    /// arrow.left) and an intermittently blank first render (FINDING-003).
+    @ViewBuilder
+    private func navContainer<C: View>(@ViewBuilder content: () -> C) -> some View {
+        if isEmbedded {
+            content()
+        } else {
+            NavigationStack(root: content)
+        }
+    }
+
     var body: some View {
-        NavigationStack {
+        navContainer {
             ZStack {
                 DSColor.background.ignoresSafeArea()
 
@@ -99,17 +115,21 @@ struct DailyPageView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { dismiss() }) {
-                        Image(systemName: "arrow.left")
-                            .font(.system(size: 16, weight: .medium))
+                // Embedded (pushed) mode inherits the host stack's back button
+                // and title — adding our own here doubled both (FINDING-003).
+                if !isEmbedded {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button(action: { dismiss() }) {
+                            Image(systemName: "arrow.left")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(DSColor.onSurface)
+                        }
+                    }
+                    ToolbarItem(placement: .principal) {
+                        Text(dailyPageMonthDay(dateString))
+                            .headlineMDStyle()
                             .foregroundColor(DSColor.onSurface)
                     }
-                }
-                ToolbarItem(placement: .principal) {
-                    Text(dailyPageMonthDay(dateString))
-                        .headlineMDStyle()
-                        .foregroundColor(DSColor.onSurface)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     if isRecompiling {
