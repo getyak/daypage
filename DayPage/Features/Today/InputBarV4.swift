@@ -571,18 +571,25 @@ struct InputBarV4: View {
     // MARK: - Word/Char Count Footer
 
     private var countFooter: some View {
+        // Same single-counter rule as WriteSheetView (FINDING-013): CJK
+        // segmentation makes words ≈ characters, so showing both repeats one
+        // number. Characters for CJK-dominant drafts, words for latin.
         let wordsLabel = wordCount == 1
             ? NSLocalizedString("writesheet.count.words.one", comment: "1 word")
             : String(format: NSLocalizedString("writesheet.count.words.other", comment: "%d words"), wordCount)
+        let isCJKDominant = charCount > 0 && wordCount * 10 >= charCount * 8
+        let countLabel = isCJKDominant
+            ? "\(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))"
+            : wordsLabel
         return HStack {
             Spacer()
-            Text("\(wordsLabel) · \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
+            Text(countLabel)
                 .font(DSType.mono10)
                 .tracking(1.0)
                 .textCase(.uppercase)
                 .monospacedDigit()
                 .foregroundColor(DSColor.inkSubtle)
-                .accessibilityLabel("\(wordsLabel), \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
+                .accessibilityLabel(countLabel)
                 .accessibilityIdentifier("composer-word-count")
         }
         .padding(.horizontal, 20)
@@ -1144,10 +1151,13 @@ struct InputBarV4: View {
 
     private func locationLabel(_ loc: Memo.Location) -> String {
         if let name = loc.name, !name.isEmpty { return name }
-        if let lat = loc.lat, let lng = loc.lng {
-            return String(format: "%.4f, %.4f", lat, lng)
+        // Reverse geocoding hasn't resolved yet — "37.7858, -122.4064" reads
+        // as debug output, not a place (FINDING-007). Say what's happening
+        // instead; the coordinates still ride along in the memo metadata.
+        if loc.lat != nil, loc.lng != nil {
+            return NSLocalizedString("composer.location.resolving", value: "已定位 · 解析地名中…", comment: "Location chip while reverse geocoding")
         }
-        return "Unknown location"
+        return NSLocalizedString("composer.location.unknown", value: "未知位置", comment: "Location chip fallback")
     }
 
 }

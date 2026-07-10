@@ -458,17 +458,24 @@ struct WriteSheetView: View {
 
             Spacer()
 
-            // Word + char counter — mono10/inkSubtle, milestones every 100 words.
+            // Single counter — for CJK drafts the segmenter counts ~1 word per
+            // character, so "10 个词 · 10 字符" said the same number twice
+            // (FINDING-013). Show characters for CJK-dominant text, words for
+            // latin text; milestones every 100 words either way.
             let wordsLabel = wordCount == 1
                 ? NSLocalizedString("writesheet.count.words.one", comment: "1 word")
                 : String(format: NSLocalizedString("writesheet.count.words.other", comment: "%d words"), wordCount)
+            let isCJKDominant = charCount > 0 && wordCount * 10 >= charCount * 8
+            let countLabel = isCJKDominant
+                ? "\(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))"
+                : wordsLabel
             let readLabel = String(format: NSLocalizedString("writesheet.count.read", comment: "~%d min read"), readingMinutes)
             HStack(spacing: 0) {
                 // Counter text updates instantly per keystroke — no per-character
                 // numericText/spring (those stacked 0.35s animations under the
                 // typing cadence and starved the main thread). monospacedDigit
                 // keeps the digits from reflowing as they change.
-                Text("\(wordsLabel) · \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
+                Text(countLabel)
                 if showReadingTime {
                     Text(" · \(readLabel)")
                         .transition(.opacity)
@@ -484,9 +491,7 @@ struct WriteSheetView: View {
             // Only the reading-time chip's appear/disappear gets a soft tick.
             .animation(reduceMotion ? nil : Motion.countTick, value: showReadingTime)
             .padding(.trailing, 10)
-            .accessibilityLabel(showReadingTime
-                ? "\(wordsLabel), \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars")), \(readLabel)"
-                : "\(wordsLabel), \(charCount) \(NSLocalizedString("writesheet.count.chars", comment: "chars"))")
+            .accessibilityLabel(showReadingTime ? "\(countLabel), \(readLabel)" : countLabel)
             .onChange(of: wordCount) { newCount in
                 let milestone = newCount / 100
                 if milestone > lastMilestone {
