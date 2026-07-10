@@ -55,11 +55,16 @@ final class GraphViewModel: ObservableObject {
     // searchQuery: debounced output observed by filtering + canvas redraw.
     // 200ms debounce keeps O(n) filter + full canvas redraw off the keystroke path on big graphs.
     @Published var searchInput: String = "" { didSet { scheduleSearchDebounce() } }
-    @Published var searchQuery: String = "" { didSet { _filteredNodes = nil } }
-    @Published var filterStartDate: Date? = nil { didSet { _filteredNodes = nil } }
-    @Published var filterEndDate: Date? = nil { didSet { _filteredNodes = nil } }
+    @Published var searchQuery: String = "" { didSet { _filteredIDs = nil } }
+    @Published var filterStartDate: Date? = nil { didSet { _filteredIDs = nil } }
+    @Published var filterEndDate: Date? = nil { didSet { _filteredIDs = nil } }
 
-    private var _filteredNodes: [GraphNode]? = nil
+    // Membership cache ONLY (node IDs), never node copies. The force simulation
+    // mutates `nodes[i].position` every frame; caching full GraphNode structs
+    // froze positions at filter time, so labels / hit-testing / fit-to-content
+    // all worked against a stale layout while the canvas drew the live one
+    // (FINDING-001: labels detached from their nodes).
+    private var _filteredIDs: Set<String>? = nil
     private var searchDebounceTask: Task<Void, Never>? = nil
 
     private func scheduleSearchDebounce() {
@@ -80,12 +85,20 @@ final class GraphViewModel: ObservableObject {
         }
     }
 
-    /// Nodes after applying search and date filters. Result is cached and
-    /// invalidated only when nodes, searchQuery, or date filters change.
+    /// Nodes after applying search and date filters. Membership (which IDs
+    /// match) is cached; the returned elements are always taken from the live
+    /// `nodes` array so positions reflect the current simulation frame.
     var filteredNodes: [GraphNode] {
-        if let cached = _filteredNodes { return cached }
-        let result = computeFilteredNodes()
-        _filteredNodes = result
+        let ids = filteredIDs
+        // Fast path: nothing filtered out — return the live array as-is.
+        if ids.count == nodes.count { return nodes }
+        return nodes.filter { ids.contains($0.id) }
+    }
+
+    private var filteredIDs: Set<String> {
+        if let cached = _filteredIDs { return cached }
+        let result = Set(computeFilteredNodes().map { $0.id })
+        _filteredIDs = result
         return result
     }
 
@@ -128,7 +141,7 @@ final class GraphViewModel: ObservableObject {
             let result = Self.buildGraph()
             await MainActor.run { [weak self] in
                 self?.nodes = result.nodes
-                self?._filteredNodes = nil
+                self?._filteredIDs = nil
                 self?.edges = result.edges
                 self?.hasCompiledDailies = result.hasCompiledDailies
                 self?.isLoading = false
