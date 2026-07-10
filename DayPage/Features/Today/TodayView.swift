@@ -993,7 +993,9 @@ struct TodayView: View {
     @ViewBuilder
     private func applyAuxiliarySheets(_ content: some View) -> some View {
         content
-            .bannerOverlay()
+            // 60pt clears Today's floating header row (menu / date / search)
+            // so a live banner never blocks navigation (FINDING-014).
+            .bannerOverlay(topInset: 60)
             // US-010: First-run input bar tutorial
             .overlay {
                 if showTutorial {
