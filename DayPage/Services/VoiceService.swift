@@ -232,15 +232,46 @@ final class VoiceService: NSObject, ObservableObject {
 
     // MARK: - Start
 
+    /// Set when `cancelRecording()` arrives while `startRecording()` is
+    /// still awaiting the permission check or the detached audio-session
+    /// bring-up (hundreds of ms; seconds on a cold stack). At that moment
+    /// `recorder`/`currentFileURL` are still nil, so cancel's cleanup has
+    /// nothing to stop — and without this flag the recorder created moments
+    /// later would run unattended until process death, leaking a growing
+    /// orphan .m4a and pinning the mic indicator (#826). `startRecording`
+    /// consumes the flag after each await and aborts itself.
+    private var cancelRequestedDuringStart = false
+
+    /// True (and consumed) when a cancel arrived mid-start. MainActor
+    /// serialization guarantees no cancel can interleave between this
+    /// check and the synchronous recorder creation that follows it.
+    private func consumeStartCancellation(deactivateSession: Bool) -> Bool {
+        guard cancelRequestedDuringStart else { return false }
+        cancelRequestedDuringStart = false
+        state = .idle
+        if deactivateSession {
+            // The session HAS been activated by the time this call site
+            // runs; the cancel path's own setActive(false) fired too early
+            // to undo it. Same detached hop as activation — deactivation
+            // also blocks.
+            Task.detached(priority: .userInitiated) {
+                try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+            }
+        }
+        return true
+    }
+
     /// 请求权限、设置音频会话并开始录制。
     /// 成功时将 `state` 设为 `.recording`，失败时设为 `.failed`。
     func startRecording() async {
+        cancelRequestedDuringStart = false
         state = .requesting
         let granted = await requestMicrophonePermission()
         guard granted else {
             state = .failed("麦克风权限被拒绝，请在「设置 -> 隐私 -> 麦克风」中授权")
             return
         }
+        if consumeStartCancellation(deactivateSession: false) { return }
 
         do {
             // setCategory/setActive block for hundreds of ms (seconds on a
@@ -257,6 +288,7 @@ final class VoiceService: NSObject, ObservableObject {
             state = .failed("音频会话初始化失败：\(error.localizedDescription)")
             return
         }
+        if consumeStartCancellation(deactivateSession: true) { return }
 
         let fileURL = makeAudioFileURL()
         currentFileURL = fileURL
@@ -419,6 +451,12 @@ final class VoiceService: NSObject, ObservableObject {
     /// recovery UI), but the breadcrumb tells us when this path is
     /// firing so we can debug if orphans pile up.
     func cancelRecording() {
+        // A quick press-and-release can land here while startRecording()
+        // is still awaiting the audio-session bring-up — recorder and
+        // currentFileURL are nil and the cleanup below is a no-op. Flag
+        // the in-flight start so it aborts on arrival instead of spinning
+        // up a recorder nobody will ever stop (#826).
+        if state == .requesting { cancelRequestedDuringStart = true }
         stopTimer()
         stopMeteringTimer()
         recorder?.stop()

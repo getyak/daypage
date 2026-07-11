@@ -16,6 +16,17 @@ enum RecordingLimits {
     /// transcription limit).
     static let redThreshold = 540  // 9:00
 
+    /// Send floor (#826): a press-to-talk release under this many seconds is
+    /// treated as an accidental touch and discarded — never sent, never
+    /// transcribed. Duration alone decides; ambient noise used to defeat the
+    /// old "sub-second AND silent" gate, shipping stray 1–2s holds as memos.
+    static let minSendableSeconds = 3
+
+    /// True when a recording of `elapsedSeconds` is below the send floor.
+    static func isBelowSendFloor(_ elapsedSeconds: Int) -> Bool {
+        elapsedSeconds < minSendableSeconds
+    }
+
     /// The warning stage a given elapsed time falls into. Each view maps these
     /// stages onto its own tint tokens.
     enum Stage {

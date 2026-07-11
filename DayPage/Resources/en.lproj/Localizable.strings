@@ -31,7 +31,7 @@
 "input.hint.transcribing"    = "Transcribing…";
 
 /* InputBarV4 — capsule toasts */
-"input.toast.too_short"      = "Hold a little longer · at least 1 second";
+"input.toast.too_short"      = "Too short · hold at least 3 seconds";
 "input.toast.mic_hint"       = "Tap to open recorder · Hold to send voice";
 
 /* v8 RecordingSheet / DynamicIsland */

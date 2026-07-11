@@ -97,7 +97,13 @@ struct HorizontalPanGesture: UIViewRepresentable {
 
         // Tap recognizer: fires only when the pan did not. It waits for the
         // pan to fail (requireToFail) so a swipe never also triggers a tap.
-        let tap = UITapGestureRecognizer(
+        // TimedTap (not plain UITapGestureRecognizer): a stock tap has NO
+        // duration ceiling, so a long-press whose context-menu interaction
+        // failed to begin still fired onTap at lift — long-press navigated
+        // to detail exactly like a tap (#826). TimedTap fails itself once
+        // the finger dwells past maxTapDuration, so a long hold can never
+        // fall through to navigation.
+        let tap = TimedTapGestureRecognizer(
             target: context.coordinator,
             action: #selector(Coordinator.handleTap(_:))
         )
@@ -247,6 +253,65 @@ struct HorizontalPanGesture: UIViewRepresentable {
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
                                shouldRequireFailureOf other: UIGestureRecognizer) -> Bool {
             false
+        }
+    }
+
+    // MARK: TimedTapGestureRecognizer
+
+    /// A tap with a duration ceiling. UITapGestureRecognizer recognizes on
+    /// lift no matter how long the finger dwelled, so any long-press that
+    /// the system context-menu interaction misses degrades into a plain tap
+    /// (#826: "long-press behaved exactly like tap"). This subclass moves
+    /// itself to .failed once the touch outlives `maxTapDuration`, before
+    /// the lift can be interpreted.
+    ///
+    /// 0.4s sits between the double-tap window and the ~0.5s context-menu
+    /// long-press threshold: every intentional tap lands well under it,
+    /// and every intentional long-press is disqualified by it. The
+    /// remaining ~0.4–0.5s band where a release does nothing is the
+    /// DELIBERATE safety margin — collapsing it (ceiling ≥ menu threshold)
+    /// would re-open the original bug whenever the menu interaction fails
+    /// to begin.
+    final class TimedTapGestureRecognizer: UITapGestureRecognizer {
+        var maxTapDuration: TimeInterval = 0.4
+        private var failTimer: Timer?
+
+        override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
+            super.touchesBegan(touches, with: event)
+            scheduleFailTimer()
+        }
+
+        override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) {
+            cancelFailTimer()
+            super.touchesEnded(touches, with: event)
+        }
+
+        override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent) {
+            cancelFailTimer()
+            super.touchesCancelled(touches, with: event)
+        }
+
+        override func reset() {
+            cancelFailTimer()
+            super.reset()
+        }
+
+        private func scheduleFailTimer() {
+            failTimer?.invalidate()
+            let timer = Timer(timeInterval: maxTapDuration, repeats: false) { [weak self] _ in
+                guard let self, self.state == .possible else { return }
+                self.state = .failed
+            }
+            // .common, not .default: while a finger is down the main runloop
+            // sits in UITrackingRunLoopMode, where default-mode timers are
+            // deferred until lift — the ceiling would never fire mid-press.
+            RunLoop.main.add(timer, forMode: .common)
+            failTimer = timer
+        }
+
+        private func cancelFailTimer() {
+            failTimer?.invalidate()
+            failTimer = nil
         }
     }
 

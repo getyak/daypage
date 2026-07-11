@@ -237,3 +237,35 @@ final class VoiceTranscriptWritebackTests: XCTestCase {
         XCTAssertEqual(m.attachments.first?.transcript, "preserved")
     }
 }
+
+// MARK: - RecordingSendFloorTests (#826)
+
+/// Contract tests for the press-to-talk send floor: releases under
+/// `RecordingLimits.minSendableSeconds` are accidental touches and must be
+/// discarded (no memo, no transcription), regardless of audio content.
+final class RecordingSendFloorTests: XCTestCase {
+
+    /// The floor is a product decision (3s, issue #826) — a silent change
+    /// here should fail loudly, not slip through a refactor.
+    func testFloorIsThreeSeconds() {
+        XCTAssertEqual(RecordingLimits.minSendableSeconds, 3)
+    }
+
+    func testReleasesUnderFloorAreDiscarded() {
+        XCTAssertTrue(RecordingLimits.isBelowSendFloor(0))
+        XCTAssertTrue(RecordingLimits.isBelowSendFloor(1))
+        XCTAssertTrue(RecordingLimits.isBelowSendFloor(2))
+    }
+
+    func testReleasesAtOrOverFloorAreSent() {
+        XCTAssertFalse(RecordingLimits.isBelowSendFloor(3))
+        XCTAssertFalse(RecordingLimits.isBelowSendFloor(4))
+        XCTAssertFalse(RecordingLimits.isBelowSendFloor(600))
+    }
+
+    /// Duration alone decides — the floor must sit below the 5:00 amber
+    /// warning band so the two thresholds can never invert.
+    func testFloorSitsBelowWarningBands() {
+        XCTAssertLessThan(RecordingLimits.minSendableSeconds, RecordingLimits.amberThreshold)
+    }
+}

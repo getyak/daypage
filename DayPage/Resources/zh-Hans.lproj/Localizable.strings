@@ -31,7 +31,7 @@
 "input.hint.transcribing"    = "正在转文字…";
 
 /* InputBarV4 — capsule toasts */
-"input.toast.too_short"      = "再说久一点 · 至少 1 秒";
+"input.toast.too_short"      = "说话时间太短 · 至少 3 秒";
 "input.toast.mic_hint"       = "单击打开录音页 · 长按发送语音";
 
 /* v8 RecordingSheet / DynamicIsland */
