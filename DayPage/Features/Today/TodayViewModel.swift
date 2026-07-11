@@ -43,7 +43,12 @@ enum PendingAttachment: Identifiable {
             let exifSummary = exifParts.isEmpty ? nil : exifParts.joined(separator: " ")
             return Memo.Attachment(file: r.filePath, kind: "photo", duration: nil, transcript: exifSummary)
         case .voice(let r):
-            let txStatus: Memo.TranscriptionStatus? = r.transcript != nil ? .done : .failed
+            // #821: a voice result without a transcript is PENDING, not
+            // failed — stopAndSaveAudio() enqueues the transcription into
+            // VoiceAttachmentQueue at save time, and the queue writes back
+            // .done / .failed when it resolves. Marking it .failed here made
+            // the on-disk state lie about an in-flight transcription.
+            let txStatus: Memo.TranscriptionStatus? = r.transcript != nil ? .done : .pending
             return Memo.Attachment(file: r.filePath, kind: "audio", duration: r.duration, transcript: r.transcript, transcriptionStatus: txStatus)
         case .file(let r):
             return Memo.Attachment(file: r.filePath, kind: "file", duration: nil, transcript: r.fileName)

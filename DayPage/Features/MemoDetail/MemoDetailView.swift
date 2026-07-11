@@ -375,7 +375,8 @@ private struct DetailVoiceSection: View {
             VoiceMemoPlayerRow(
                 fileURL: audioURL,
                 duration: attachment.duration ?? 0,
-                transcript: attachment.transcript
+                transcript: attachment.transcript,
+                transcriptionStatus: attachment.transcriptionStatus
             )
             .frame(maxWidth: .infinity)
             .liquidGlassCard(cornerRadius: DSRadius.md, tone: .lo)

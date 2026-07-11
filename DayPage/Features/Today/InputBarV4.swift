@@ -94,6 +94,10 @@ struct InputBarV4: View {
     /// Toggle this bool (flip its value) from the parent to programmatically
     /// open the composer and focus the text field.
     var requestFocusToggle: Bool = false
+    /// #821: reports when a press-to-talk session owns the dock so the parent
+    /// can dim the page behind the in-place recording capsule (spotlight
+    /// scrim). Optional — previews and secondary hosts may omit it.
+    var onRecordingActiveChange: ((Bool) -> Void)? = nil
 
     // MARK: Private State
 
@@ -109,6 +113,14 @@ struct InputBarV4: View {
     /// popover flip this flag after dismissing itself.
     @State private var showPhotosPicker: Bool = false
     @State private var pressToTalkPhase: PressToTalkPhase = .idle
+    /// Live drag progress from the whole-dock voice gesture (#821). Written
+    /// directly from the gesture's onChanged — drives the recording capsule's
+    /// cancel/transcribe tint interpolation with zero animation lag.
+    @State private var dockDragProgress = DockDragProgress()
+    /// Timestamp of the last press-to-talk session end. Dock child buttons
+    /// gate their tap actions on this so the finger-up that ends a recording
+    /// can never double-fire the button it happens to land on.
+    @State private var lastVoiceGestureEndAt: Date = .distantPast
     @State private var composerState: ComposerState = .idle
     /// True while a "录音太短" hint is visible. Prevents committing a
     /// meaningless one-frame recording while gracefully nudging the user
@@ -257,10 +269,10 @@ struct InputBarV4: View {
             // helpers are intentionally left in the file as dead code; the
             // next pass will excise them once we've verified no other
             // surface depends on the templating / send-affordance internals.
-            VStack(spacing: 8) {
-                streamDockMorph
-                dockHintLabel
-            }
+            // #821: the mono hint line that used to sit under the dock is
+            // gone — recording guidance now lives inside the in-place
+            // capsule itself, next to where the finger actually is.
+            streamDockMorph
             // Museum-aesthetic redesign (#793 R2): widen breathing room
             // so the dock reads as a floating island, not a wall-to-wall
             // toolbar. 24pt horizontal + 24pt bottom lift gives the
@@ -378,49 +390,32 @@ struct InputBarV4: View {
             transition(to: .expanding)
             isFocused = true
         }
-        // v8 recording surface — dark bottom sheet + top Dynamic-Island capsule.
-        // Presented as a full-screen overlay so the sheet anchors to the screen
-        // bottom and the island to the top, independent of the dock's position.
-        // The press-to-talk drag gesture (PressToTalkButton) still drives the
-        // state machine; the sheet's buttons mirror cancel / stop-&-transcribe.
-        .overlay { recordingSurface }
-    }
-
-    // MARK: - Recording Surface (v8 sheet + island)
-
-    @ViewBuilder
-    private var recordingSurface: some View {
-        if overlayMode != nil {
-            ZStack {
-                // Warm dim scrim — same recordingBg as the sheet for cohesion.
-                DSTokens.Colors.recordingBg.opacity(0.34)
-                    .ignoresSafeArea()
-                    .transition(.opacity)
-
-                DynamicIslandView(
-                    elapsedSeconds: voiceService.elapsedSeconds,
-                    waveform: voiceService.waveformHistory,
-                    expanded: true
-                )
-
-                RecordingSheetView(
-                    elapsedSeconds: voiceService.elapsedSeconds,
-                    waveform: voiceService.waveformHistory,
-                    transcriptPreview: "",
-                    onCancel: {
-                        handlePressToTalkReleaseCancel()
-                        pressToTalkPhase = .idle
-                    },
-                    onAccept: {
-                        handlePressToTalkReleaseTranscribe()
-                    }
-                )
-            }
-            .ignoresSafeArea()
-            // Recording panel scales+rises into place — route through the
-            // `panel` token so it honors Reduce Motion (was an inline spring).
-            .dsAnimation(Motion.panel, value: overlayMode)
+        // #821 in-place recording: the capsule morph happens inside
+        // streamDockMorph itself. The full-screen spotlight scrim is owned
+        // by the parent (TodayView) via `onRecordingActiveChange`, because a
+        // background/overlay on this bottom bar can only tint its own frame.
+        .onChange(of: pressToTalkPhase) { newPhase in
+            onRecordingActiveChange?(newPhase != .idle && newPhase != .preRecording)
         }
+        #if DEBUG
+        // Simulator-only demo bridge: `-dockVoiceDemo` walks the whole-dock
+        // press-to-talk state machine without a physical finger (synthetic
+        // HID long-presses never reach SwiftUI DragGesture). Mirrors the
+        // launch-arg bridge used by the auth screen. Real recording starts,
+        // the in-place capsule morphs in, and after 5s the send path runs —
+        // the exact sequence a hold-and-release performs.
+        .onAppear {
+            guard ProcessInfo.processInfo.arguments.contains("-dockVoiceDemo") else { return }
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                handlePressToTalkStart()
+                pressToTalkPhase = .recording
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                handlePressToTalkReleaseSend()
+                pressToTalkPhase = .idle
+            }
+        }
+        #endif
     }
 
     // MARK: - STREAM Dock (idle state)
@@ -435,12 +430,69 @@ struct InputBarV4: View {
     // design canvas (inner highlight + soft drop shadow).
 
     // STREAM dock — full-width warm pill (design composer.jsx:82-166).
-    // Layout: [+36] [记下此刻 italic flex] [mic 50×44]
-    // Background: rgba(255,253,250,0.84) warm-white blur, 4-layer shadow stack.
+    //
+    // #821 whole-dock press-to-talk: this container is the PERMANENT gesture
+    // host. Press anywhere on it and hold ≥0.35s to record; the idle row
+    // cross-fades into the in-place recording capsule (DockRecordingCapsule-
+    // Content) while THIS view stays mounted, so the drag gesture survives
+    // the morph. Never replace this container conditionally — swapping the
+    // gesture host mid-press silently drops onEnded and strands a recording.
     private var streamDockMorph: some View {
+        ZStack {
+            if overlayMode == nil {
+                dockIdleRow
+                    .transition(.opacity)
+            } else {
+                DockRecordingCapsuleContent(
+                    phase: pressToTalkPhase,
+                    elapsedSeconds: voiceService.elapsedSeconds,
+                    waveform: voiceService.waveformHistory,
+                    dragProgress: dockDragProgress
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .bottom)))
+            }
+        }
+        // Morph between the 56pt idle capsule and the ~112pt recording
+        // chamber rides the shared panel spring; the tint interpolation
+        // inside the capsule is direct-driven and never animated.
+        .dsAnimation(Motion.panel, value: overlayMode == nil)
+        .dockVoiceGesture(
+            onPressStart: handlePressToTalkStart,
+            onReleaseSend: {
+                markVoiceGestureEnd()
+                handlePressToTalkReleaseSend()
+            },
+            onReleaseCancel: {
+                markVoiceGestureEnd()
+                handlePressToTalkReleaseCancel()
+            },
+            onReleaseTranscribe: {
+                markVoiceGestureEnd()
+                handlePressToTalkReleaseTranscribe()
+            },
+            onPhaseChange: { pressToTalkPhase = $0 },
+            onDragProgress: { dockDragProgress = $0 }
+        )
+    }
+
+    /// True while a press-to-talk session owns the dock. Child-button taps
+    /// are swallowed both during the session and for a short grace window
+    /// after it ends (the finger-up that finishes a recording may land on a
+    /// button and would otherwise fire it).
+    private var isDockTapBlocked: Bool {
+        pressToTalkPhase != .idle
+            || Date().timeIntervalSince(lastVoiceGestureEndAt) < 0.35
+    }
+
+    private func markVoiceGestureEnd() {
+        lastVoiceGestureEndAt = Date()
+    }
+
+    private var dockIdleRow: some View {
         HStack(spacing: 4) {
             // LEFT — attach (+), 36×44 transparent
             Button {
+                guard !isDockTapBlocked else { return }
                 Haptics.soft()
                 showAttachmentMenu = true
             } label: {
@@ -459,6 +511,7 @@ struct InputBarV4: View {
             // affordance reduces to the caret alone. It still telegraphs
             // "tap to write" without polluting the composer with copy.
             Button {
+                guard !isDockTapBlocked else { return }
                 Haptics.soft()
                 if let openSheet = onOpenWriteSheet {
                     openSheet()
@@ -482,18 +535,24 @@ struct InputBarV4: View {
             .accessibilityLabel(NSLocalizedString("input.a11y.write_text", comment: ""))
             .accessibilityIdentifier("expand-text-composer")
 
-            // RIGHT — mic orb, 50×44, deep amber gradient
-            PressToTalkButton(
-                onPressStart: handlePressToTalkStart,
-                onReleaseSend: handlePressToTalkReleaseSend,
-                onReleaseCancel: handlePressToTalkReleaseCancel,
-                onReleaseTranscribe: handlePressToTalkReleaseTranscribe,
-                onPhaseChange: { pressToTalkPhase = $0 },
-                onTapShortRelease: handleMicTap,
-                size: 44,
-                idleBackgroundColor: DSColor.amberDeep,
-                idleIconColor: .white
-            )
+            // RIGHT — mic orb, 50×44, deep amber gradient.
+            // #821: press-to-talk moved up to the whole-dock gesture; the
+            // orb itself is now a plain tap target (Flomo-style recording
+            // sheet) and the visual anchor that telegraphs "voice lives
+            // here". Long-pressing it records like anywhere else on the dock.
+            Button {
+                guard !isDockTapBlocked else { return }
+                handleMicTap()
+            } label: {
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 19.8, weight: .regular))
+                    .foregroundColor(.white)
+                    .frame(width: 44, height: 44)
+                    .background(DSColor.amberDeep)
+                    .clipShape(Circle())
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
             .frame(width: 50, height: 44)
             // Amber glow that makes the send/mic button read as "lit". Kept as a
             // deliberate colored halo (not a neutral DSElevation), but sourced
@@ -503,6 +562,7 @@ struct InputBarV4: View {
             .shadow(color: DSColor.accentOnBg.opacity(0.18), radius: 1, x: 0, y: 1)
             .accessibilityLabel(NSLocalizedString("input.a11y.mic", comment: ""))
             .accessibilityHint(NSLocalizedString("input.a11y.mic_hint_full", comment: ""))
+            .accessibilityIdentifier("dock-mic-button")
 
             // FAR-RIGHT — AI chat sparkle. The amber sparkle is the dock's
             // entry into AskPastView (D1 「和过去对话」). We only render the
@@ -512,6 +572,7 @@ struct InputBarV4: View {
             // primary recording action; the sparkle is the calm AI side-door.
             if onAskAI != nil {
                 Button {
+                    guard !isDockTapBlocked else { return }
                     Haptics.tapConfirm()
                     onAskAI?()
                 } label: {
@@ -539,33 +600,6 @@ struct InputBarV4: View {
         // its lift on the charcoal canvas instead of vanishing like the old
         // hardcoded warm-ink (#3C280F) shadow did.
         .elevation(.floating)
-    }
-
-    // Hint label below the dock — JetBrains Mono uppercase, like the design.
-    // Museum-aesthetic redesign (#793): the idle hint ("轻点书写 · 长按录音")
-    // is now hidden so the dock reads as a single quiet capsule on rest. The
-    // hint still appears during a press-to-talk session so the gesture stays
-    // legible (pre/recording/cancel/transcribe stages). Idle collapses to a
-    // 0-height spacer to keep the dock's vertical rhythm stable when a
-    // recording session ends.
-    private var dockHintLabel: some View {
-        let raw: String
-        switch pressToTalkPhase {
-        case .idle:            raw = ""
-        case .preRecording:    raw = NSLocalizedString("input.hint.pre_recording", comment: "")
-        case .recording:       raw = NSLocalizedString("input.hint.recording", comment: "")
-        case .cancelArmed:     raw = NSLocalizedString("input.hint.cancel_armed", comment: "")
-        case .transcribeArmed: raw = NSLocalizedString("input.hint.transcribe_armed", comment: "")
-        case .transcribing:    raw = NSLocalizedString("input.hint.transcribing", comment: "")
-        }
-        return Text(raw)
-            .font(DSType.mono9)
-            .tracking(1.4)
-            .textCase(.uppercase)
-            .foregroundStyle(DSColor.inkSubtle)
-            .frame(height: raw.isEmpty ? 0 : 12)
-            .opacity(raw.isEmpty ? 0 : 1)
-            .animation(.easeInOut(duration: 0.18), value: pressToTalkPhase)
     }
 
     // MARK: - Word/Char Count Footer

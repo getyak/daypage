@@ -184,6 +184,7 @@ struct MemoCardView: View {
                             fileURL: audioURL,
                             duration: att.duration ?? 0,
                             transcript: att.transcript,
+                            transcriptionStatus: att.transcriptionStatus,
                             onRetranscribe: { onRetranscribe?(memo, att) }
                         )
                         .padding(.top, 4)
@@ -733,6 +734,12 @@ struct VoiceMemoPlayerRow: View {
     let fileURL: URL
     let duration: TimeInterval
     let transcript: String?
+    /// #821: per-attachment transcription state from the vault frontmatter
+    /// (`transcription_status: pending|done|failed`). The transcribing /
+    /// failed branches below key off THIS, not the global queue count — a
+    /// stuck retry loop elsewhere in the queue must never freeze this card
+    /// in a spinner (the exact failure observed in the 2026-07-11 audit).
+    var transcriptionStatus: Memo.TranscriptionStatus? = nil
     // US-016: called when user taps retry on a failed transcript
     var onRetranscribe: (() -> Void)? = nil
 
@@ -844,16 +851,22 @@ struct VoiceMemoPlayerRow: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.bottom, 4)
+                // #821 ink-bloom reveal: the finished transcript settles in
+                // like ink spreading on paper — blur 6→0 + rise 4pt + fade.
+                // Replaces the hard pop when the shimmer skeleton swapped to
+                // text. Honors Reduce Motion via the transition's insertion
+                // being driven by Motion.rise below.
+                .transition(TranscriptBloom.transition)
             } else if transcript == nil {
-                if VoiceAttachmentQueue.shared.pendingCount > 0 || isRetranscribing {
-                    HStack(spacing: 6) {
-                        ProgressView().scaleEffect(0.7).tint(DSColor.inkSubtle)
-                        Text(NSLocalizedString("voice.retry.transcribing", comment: ""))
-                            .font(DSType.bodySM)
-                            .foregroundColor(DSColor.inkSubtle)
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 6)
+                if transcriptionStatus == .pending || isRetranscribing {
+                    // #821: breathing skeleton lines, not a spinner — this is
+                    // "becoming text", not "loading". Keyed to THIS
+                    // attachment's status so a stuck queue can never freeze
+                    // the card (was: global pendingCount > 0).
+                    TranscriptShimmerPlaceholder()
+                        .padding(.horizontal, 14)
+                        .padding(.bottom, 6)
+                        .accessibilityLabel(NSLocalizedString("voice.retry.transcribing", comment: ""))
                 } else if retryCount >= Self.maxRetries {
                     // US-016: permanent failure after max retries
                     HStack(spacing: 6) {
@@ -895,6 +908,11 @@ struct VoiceMemoPlayerRow: View {
         .onAppear {
             retryCount = UserDefaults.standard.integer(forKey: retryKey)
         }
+        // Drives the shimmer→transcript bloom (and shimmer→retry downgrade)
+        // through one calm curve; without this the .transition above never
+        // animates because the state change itself would be un-animated.
+        .animation(Motion.rise, value: transcript)
+        .animation(Motion.fade, value: transcriptionStatus)
         .onChange(of: transcript) { newValue in
             // When transcription succeeds, also clear the persisted retry counter
             // so future failures start over from attempt #1. Previously this
@@ -1406,6 +1424,64 @@ struct PhotoThumbnailView: View {
 }
 
 // MARK: - AudioDownloadPlaceholder
+
+// MARK: - Transcript Shimmer & Bloom (#821)
+
+/// Two breathing skeleton lines shown while an audio attachment is being
+/// transcribed. Deliberately NOT a spinner: the memo is already safe on
+/// disk, so the affordance reads as "text is forming", with the calm of the
+/// museum surface. Static under Reduce Motion.
+struct TranscriptShimmerPlaceholder: View {
+    @State private var bright = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            skeletonLine(widthFraction: 0.92)
+            skeletonLine(widthFraction: 0.58)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) {
+                bright = true
+            }
+        }
+        .accessibilityElement(children: .ignore)
+    }
+
+    private func skeletonLine(widthFraction: CGFloat) -> some View {
+        GeometryReader { geo in
+            Capsule(style: .continuous)
+                .fill(DSColor.inkFaint.opacity(bright ? 0.55 : 0.28))
+                .frame(width: geo.size.width * widthFraction)
+        }
+        .frame(height: 9)
+    }
+}
+
+/// Ink-bloom transition for a freshly arrived transcript: blur 6→0, rise
+/// 4pt, fade in — the text settles like ink spreading into paper.
+enum TranscriptBloom {
+    static var transition: AnyTransition {
+        .modifier(
+            active: BloomModifier(blur: 6, opacity: 0, offsetY: 4),
+            identity: BloomModifier(blur: 0, opacity: 1, offsetY: 0)
+        )
+    }
+
+    struct BloomModifier: ViewModifier {
+        let blur: CGFloat
+        let opacity: Double
+        let offsetY: CGFloat
+        func body(content: Content) -> some View {
+            content
+                .blur(radius: blur)
+                .opacity(opacity)
+                .offset(y: offsetY)
+        }
+    }
+}
 
 struct AudioDownloadPlaceholder: View {
     let state: AttachmentDownloadState
