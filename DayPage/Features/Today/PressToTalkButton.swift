@@ -95,6 +95,12 @@ struct PressToTalkButton: View {
     @State private var pressStartTime: Date? = nil
     @State private var ringScale: CGFloat = 1.0
     @State private var ringOpacity: Double = 0.0
+    /// Fires the pre-recording → recording transition after
+    /// `longPressThreshold` even when the finger holds perfectly still.
+    /// `DragGesture.onChanged` only re-fires on movement, so gating the
+    /// threshold check inside it deadlocked a motionless press in
+    /// `.preRecording` forever ("再按住一下" with no way past it).
+    @State private var thresholdTask: Task<Void, Never>? = nil
 
     // MARK: Body
 
@@ -135,17 +141,22 @@ struct PressToTalkButton: View {
                     currentPhase = .preRecording
                     onPhaseChange(.preRecording)
                     startRingPulse()
+                    // Schedule the threshold commit on a clock, not on the next
+                    // finger movement — a still press must start recording too.
+                    thresholdTask?.cancel()
+                    thresholdTask = Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: UInt64(longPressThreshold * 1_000_000_000))
+                        guard !Task.isCancelled else { return }
+                        commitToRecordingIfNeeded()
+                    }
                 }
 
-                // Once we've held past the threshold, commit to press-to-talk mode
+                // Movement past the threshold also commits (finger moved before
+                // the timer fired) — same transition, single entry point.
                 if currentPhase == .preRecording,
                    let start = pressStartTime,
                    Date().timeIntervalSince(start) >= longPressThreshold {
-                    emitHaptic(HapticFeedback.heavy)
-                    stopRingPulse()
-                    onPressStart()
-                    currentPhase = .recording
-                    onPhaseChange(.recording)
+                    commitToRecordingIfNeeded()
                 }
 
                 guard currentPhase != .idle && currentPhase != .preRecording else { return }
@@ -170,6 +181,8 @@ struct PressToTalkButton: View {
                 defer {
                     pressStartTime = nil
                 }
+                thresholdTask?.cancel()
+                thresholdTask = nil
 
                 // Short tap — never crossed threshold, still in preRecording phase.
                 // Haptic is intentionally not emitted here: the short-tap callback
@@ -239,6 +252,17 @@ struct PressToTalkButton: View {
     }
 
     // MARK: - Helpers
+
+    /// Single entry point for the preRecording → recording transition, shared
+    /// by the timer path (still press) and the movement path (early drag).
+    private func commitToRecordingIfNeeded() {
+        guard currentPhase == .preRecording else { return }
+        emitHaptic(HapticFeedback.heavy)
+        stopRingPulse()
+        onPressStart()
+        currentPhase = .recording
+        onPhaseChange(.recording)
+    }
 
     /// Map the drag translation onto an exclusive phase. Cancel wins over
     /// transcribe when both thresholds are crossed — "cancel" is the safer

@@ -1011,6 +1011,10 @@
 "sidebar.nav.archive"        = "归档";
 "sidebar.nav.graph"          = "图谱";
 "sidebar.nav.feedback"       = "反馈";
+"sidebar.recent"             = "最近记录";
+"sidebar.recent.hint"        = "展开或收起最近记录列表";
+"a11y.expanded"              = "已展开";
+"a11y.collapsed"             = "已收起";
 "heatmap.entries"            = "条";
 "archive.title"              = "归档";
 "archive.today"              = "今日";

@@ -50,11 +50,15 @@ public enum RawStorage {
             .appendingPathComponent("\(dateString).md")
     }
 
-    /// 生成 asset 文件名：`<prefix>_<yyyyMMdd_HHmmss>.<ext>`（本地时区）。
+    /// 生成 asset 文件名：`<prefix>_<yyyyMMdd_HHmmss>_<uniq>.<ext>`（本地时区）。
     /// 用于照片（prefix "IMG"）、语音（prefix "voice"）等带时间戳的附件。
+    /// 时间戳只有秒级精度——同一秒内保存多张照片（相册多选）会生成相同
+    /// 文件名并互相覆盖，后一张静默吞掉前一张。追加 4 位随机后缀保证
+    /// 同秒多附件各自落盘；`IMG_*.jpg` 通配消费方（OrphanedPhotoScanner）不受影响。
     public static func assetFilename(prefix: String, ext: String) -> String {
         let stamp = assetTimestampFormatter.string(from: Date())
-        return "\(prefix)_\(stamp).\(ext)"
+        let uniq = String(UUID().uuidString.prefix(4)).lowercased()
+        return "\(prefix)_\(stamp)_\(uniq).\(ext)"
     }
 
     // MARK: - Write

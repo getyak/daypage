@@ -26,18 +26,26 @@ public final class WikiIndexService {
     // MARK: - Rebuild
 
     /// Regenerates vault/wiki/index.md from the current wiki contents.
-    public func rebuild() {
-        let wikiURL = VaultInitializer.vaultURL.appendingPathComponent("wiki")
-        let content = Self.buildIndexMarkdown(
-            daily: Self.scanDaily(wikiURL: wikiURL),
-            weekly: Self.scanWeekly(wikiURL: wikiURL),
-            entities: Self.scanEntities(wikiURL: wikiURL),
-            updatedAt: ISO8601DateFormatter.memo.string(from: Date())
-        )
-        do {
-            try RawStorage.atomicWrite(string: content, to: wikiURL.appendingPathComponent("index.md"))
-        } catch {
-            DayPageLogger.shared.error("WikiIndexService: failed to write index.md: \(error)")
+    /// Fire-and-forget for production callers: the full-wiki directory walk
+    /// + per-file frontmatter parse used to run on the main actor at the
+    /// tail of every compile (50–300ms with a few hundred pages). The
+    /// rebuild is idempotent and atomicWrite serializes the final write, so
+    /// detaching is safe. The returned task lets tests await completion.
+    @discardableResult
+    public func rebuild() -> Task<Void, Never> {
+        Task.detached(priority: .utility) {
+            let wikiURL = VaultInitializer.vaultURL.appendingPathComponent("wiki")
+            let content = Self.buildIndexMarkdown(
+                daily: Self.scanDaily(wikiURL: wikiURL),
+                weekly: Self.scanWeekly(wikiURL: wikiURL),
+                entities: Self.scanEntities(wikiURL: wikiURL),
+                updatedAt: ISO8601DateFormatter.memo.string(from: Date())
+            )
+            do {
+                try RawStorage.atomicWrite(string: content, to: wikiURL.appendingPathComponent("index.md"))
+            } catch {
+                await DayPageLogger.shared.error("WikiIndexService: failed to write index.md: \(error)")
+            }
         }
     }
 
@@ -56,7 +64,7 @@ public final class WikiIndexService {
         }
     }
 
-    private static func scanDaily(wikiURL: URL) -> [DailyEntry] {
+    nonisolated private static func scanDaily(wikiURL: URL) -> [DailyEntry] {
         let dir = wikiURL.appendingPathComponent("daily")
         guard let files = try? FileManager.default.contentsOfDirectory(atPath: dir.path) else { return [] }
         return files
@@ -77,7 +85,7 @@ public final class WikiIndexService {
             .sorted { $0.dateString > $1.dateString } // newest first
     }
 
-    private static func scanWeekly(wikiURL: URL) -> [String] {
+    nonisolated private static func scanWeekly(wikiURL: URL) -> [String] {
         let dir = wikiURL.appendingPathComponent("weekly")
         guard let files = try? FileManager.default.contentsOfDirectory(atPath: dir.path) else { return [] }
         return files
@@ -87,7 +95,7 @@ public final class WikiIndexService {
     }
 
     /// (type, slug, displayName) tuples for places / people / themes.
-    private static func scanEntities(wikiURL: URL) -> [(type: String, slug: String, name: String)] {
+    nonisolated private static func scanEntities(wikiURL: URL) -> [(type: String, slug: String, name: String)] {
         var results: [(String, String, String)] = []
         for type in ["places", "people", "themes"] {
             let dir = wikiURL.appendingPathComponent(type)
@@ -159,7 +167,7 @@ public final class WikiIndexService {
 
     /// Minimal single-level `key: value` frontmatter parse. Quoted values
     /// are unwrapped so `summary: "..."` indexes cleanly.
-    private static func frontmatterFields(of content: String) -> [String: String] {
+    nonisolated private static func frontmatterFields(of content: String) -> [String: String] {
         var fields: [String: String] = [:]
         let lines = content.components(separatedBy: "\n")
         guard lines.first?.trimmingCharacters(in: .whitespaces) == "---" else { return fields }

@@ -675,17 +675,11 @@ struct TodayView: View {
     private func applyNavigationAndOverlays(_ content: some View) -> some View {
         content
             .navigationBarHidden(true)
-            // US-030: left-edge swipe (within first 20pt) opens sidebar
-            .gesture(
-                DragGesture(minimumDistance: 20, coordinateSpace: .local)
-                    .onEnded { value in
-                        guard value.startLocation.x < 20,
-                              value.translation.width > 40,
-                              abs(value.translation.width) > abs(value.translation.height) * 1.2
-                        else { return }
-                        nav.openSidebar()
-                    }
-            )
+            // US-030 note: the left-edge open-sidebar swipe lives ONLY in
+            // RootView's edge strip (1:1 finger tracking). A fire-on-release
+            // duplicate here competed in gesture arbitration with that
+            // interactive version and could win, making the drawer pop open
+            // with a canned animation instead of following the finger.
             .navigationDestination(for: UUID.self) { memoID in
                 if let memo = viewModel.memos.first(where: { $0.id == memoID }) {
                     MemoDetailView(memo: memo, vm: viewModel)
@@ -2072,9 +2066,11 @@ struct TodayView: View {
                 .contentShape(Ellipse())
                 .onTapGesture {
                     Haptics.tapConfirm()
-                    if draftText.isEmpty {
-                        draftText = orbCapturePrompt(currentTime)
-                    }
+                    // Focus only — never write the time-of-day prompt into
+                    // draftText: it saved verbatim into the memo body ("今天
+                    // 最终落在哪里了？morning at…"). Same rationale as the
+                    // dock's removed "记下此刻" hint (InputBarV4): guidance
+                    // belongs in placeholder chrome, not in user content.
                     orbFocusToggle.toggle()
                 }
 
@@ -2103,8 +2099,8 @@ struct TodayView: View {
             .accessibilityHint(NSLocalizedString("today.orb.hint", comment: ""))
             .onLongPressGesture(minimumDuration: 0.5) {
                 Haptics.medium()
-                guard draftText.isEmpty else { return }
-                draftText = orbCapturePrompt(currentTime)
+                // Focus only — see the tap handler above for why the prompt
+                // must not be written into draftText.
                 orbFocusToggle.toggle()
             }
 
@@ -2258,17 +2254,6 @@ struct TodayView: View {
         case .afternoon: key = "empty.today.subtitle.afternoon"
         case .evening:   key = "empty.today.subtitle.evening"
         case .lateNight: key = "empty.today.subtitle.night"
-        }
-        return NSLocalizedString(key, comment: "")
-    }
-
-    private func orbCapturePrompt(_ date: Date) -> String {
-        let key: String
-        switch TimeOfDay.from(date) {
-        case .morning:   key = "today.orb.prompt.morning"
-        case .afternoon: key = "today.orb.prompt.afternoon"
-        case .evening:   key = "today.orb.prompt.evening"
-        case .lateNight: key = "today.orb.prompt.night"
         }
         return NSLocalizedString(key, comment: "")
     }

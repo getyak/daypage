@@ -114,7 +114,7 @@ struct OTPVerificationView: View {
 
     private var heading: some View {
         Text("Enter verification code")
-            .font(.custom("SpaceGrotesk-Bold", size: 24))
+            .font(DSFonts.serif(size: 26, weight: .semibold))
             .foregroundColor(DSColor.inkPrimary)
     }
 
@@ -150,7 +150,9 @@ struct OTPVerificationView: View {
         let isSuccess = index <= viewModel.successStagger
         let strokeColor: Color = {
             if isSuccess { return successGreen }
-            return isActive ? DSColor.inkPrimary : DSColor.inkFaint
+            // Active cell carries the DS amber accent — same focus language
+            // as the email field one step earlier in the flow.
+            return isActive ? DSColor.accentOnBg : DSColor.inkFaint
         }()
         return ZStack {
             RoundedRectangle(cornerRadius: DSRadius.sm)
@@ -163,7 +165,7 @@ struct OTPVerificationView: View {
                     .foregroundColor(isSuccess ? successGreen : DSColor.inkPrimary)
             } else if isActive {
                 Rectangle()
-                    .fill(DSColor.inkPrimary)
+                    .fill(DSColor.accentOnBg)
                     .frame(width: 1, height: 22)
                     .opacity(0.8)
             }

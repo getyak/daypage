@@ -202,9 +202,11 @@ final class BackgroundCompilationServiceTests: XCTestCase {
     /// End-to-end against the temp vault: rebuild() scans daily pages and
     /// writes wiki/index.md.
     @MainActor
-    func testWikiIndex_rebuild_writesIndexFromVault() throws {
+    func testWikiIndex_rebuild_writesIndexFromVault() async throws {
         try writeDaily(sourceHash: "abc")
-        WikiIndexService.shared.rebuild()
+        // rebuild() is fire-and-forget in production; await the returned
+        // task so the assertion runs after the detached write lands.
+        await WikiIndexService.shared.rebuild().value
         let indexURL = tempDir.appendingPathComponent("wiki/index.md")
         let content = try String(contentsOf: indexURL, encoding: .utf8)
         XCTAssertTrue(content.contains("- [[wiki/daily/\(dayString)|\(dayString)]]"))

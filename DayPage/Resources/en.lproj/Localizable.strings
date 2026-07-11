@@ -1007,6 +1007,10 @@
 "sidebar.nav.archive"        = "Archive";
 "sidebar.nav.graph"          = "Graph";
 "sidebar.nav.feedback"       = "Feedback";
+"sidebar.recent"             = "Recent days";
+"sidebar.recent.hint"        = "Shows or hides the recent-day list";
+"a11y.expanded"              = "Expanded";
+"a11y.collapsed"             = "Collapsed";
 "heatmap.entries"            = "ENTRIES";
 "archive.title"              = "Archive";
 "archive.today"              = "TODAY";
