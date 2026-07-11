@@ -51,6 +51,8 @@ struct RawMemoView: View {
             .buttonStyle(.plain)
 
             VStack(alignment: .leading, spacing: 2) {
+                // intentionally-untranslated: archival tag (FINDING-010 —
+                // English mono caps are reserved for archival labels)
                 Text("RAW MEMOS")
                     .font(.custom("SpaceGrotesk-Bold", size: 16))
                     .foregroundColor(DSColor.onSurface)

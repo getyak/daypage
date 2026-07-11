@@ -461,7 +461,9 @@ struct DayDetailView: View {
             }
         }
 
-        // ENTRIES — memo count
+        // ENTRIES — memo count. Tile labels ("ENTRIES"/"SPAN"/"WEATHER"/"KIND")
+        // are intentionally-untranslated archival tags (FINDING-010); values
+        // and subs carry the localized content.
         let entriesTile = MetadataGridView.Tile(
             label: "ENTRIES", value: "\(sorted.count)", sub: "MEMOS"
         )
