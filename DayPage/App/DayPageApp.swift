@@ -234,6 +234,11 @@ struct DayPageApp: App {
             // first Today load reads it instead of scanning the whole vault
             // (issue #345). Cheap no-op until the background scan completes.
             TimelineIndex.shared.warmUp()
+            // Same treatment for full-text search (#827): pre-fold the vault
+            // into SearchIndex so the first keystroke in Search never pays a
+            // disk scan. Until this build lands, SearchView falls back to the
+            // legacy scanning path.
+            SearchIndex.shared.warmUp()
         }
         // url(forUbiquityContainerIdentifier:) may return nil on first call during
         // cold launch while the iCloud daemon finishes container setup. Re-probe
@@ -419,6 +424,7 @@ struct DayPageApp: App {
                     // actually changed (issue #345).
                     if phase == .active {
                         TimelineIndex.shared.refreshIfExternallyModified()
+                        SearchIndex.shared.refreshIfExternallyModified()
                         // Re-warm generators after backgrounding so they're ready immediately.
                         HapticFeedback.warmUp()
                         // B3: 2am 后台编译失败时，前台回流再试一次。
