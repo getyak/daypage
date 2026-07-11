@@ -213,6 +213,38 @@ final class GraphViewModel: ObservableObject {
         let hasCompiledDailies: Bool
     }
 
+    /// #828 — pure weighted-edge builder, extracted from buildGraph so the
+    /// day-based co-occurrence semantics are unit-testable without disk I/O.
+    /// Each element of `idsPerDay` is the entity-ID list one daily file
+    /// references (duplicates allowed). A pair earns AT MOST +1 weight per
+    /// day, even if wikilinked several times within that file — co-occurrence
+    /// is measured in days, not raw mentions. Output order is stable
+    /// (sorted pair keys) so the Canvas draw order is deterministic.
+    nonisolated static func buildWeightedEdges(idsPerDay: [[String]]) -> [GraphEdge] {
+        var edgeCounts: [String: Int] = [:]
+        var edgeEndpoints: [String: (String, String)] = [:]
+        for ids in idsPerDay {
+            var pairsSeenInFile: Set<String> = []
+            for i in 0..<ids.count {
+                for j in (i + 1)..<ids.count where ids[i] != ids[j] {
+                    let sorted = [ids[i], ids[j]].sorted()
+                    let key = sorted.joined(separator: "↔")
+                    guard pairsSeenInFile.insert(key).inserted else { continue }
+                    edgeCounts[key, default: 0] += 1
+                    if edgeEndpoints[key] == nil {
+                        edgeEndpoints[key] = (sorted[0], sorted[1])
+                    }
+                }
+            }
+        }
+        var edges: [GraphEdge] = []
+        for key in edgeCounts.keys.sorted() {
+            guard let (src, dst) = edgeEndpoints[key] else { continue }
+            edges.append(GraphEdge(id: key, sourceID: src, targetID: dst, weight: edgeCounts[key] ?? 1))
+        }
+        return edges
+    }
+
     nonisolated private static func buildGraph() -> BuildResult {
         let fm = FileManager.default
         let vaultURL = VaultInitializer.vaultURL
@@ -221,12 +253,10 @@ final class GraphViewModel: ObservableObject {
 
         var entityMap: [String: (name: String, type: String)] = [:]
         var entityDates: [String: Set<String>] = [:]
-        // Co-occurrence tally: pair-key → number of days both entities appear
-        // together. Replaces the old presence-only Set so edges can encode
-        // strength (#828). Endpoints are stored alongside the count so the
-        // GraphEdge list is rebuilt once at the end in a stable order.
-        var edgeCounts: [String: Int] = [:]
-        var edgeEndpoints: [String: (String, String)] = [:]
+        // Per-day entity-ID lists — fed to buildWeightedEdges(idsPerDay:)
+        // after the scan so the co-occurrence semantics live in one pure,
+        // unit-tested function (#828).
+        var idsPerDay: [[String]] = []
 
         // Scan all Daily Page files for [[wiki/type/slug|Name]] wikilinks
         let dailyFiles: [URL]
@@ -248,31 +278,10 @@ final class GraphViewModel: ObservableObject {
                     entityMap[ids[i]] = (name: refs[i].name, type: refs[i].type)
                 }
             }
-            // Each daily file contributes AT MOST +1 to a pair's weight, even
-            // if the same two entities are wikilinked several times within the
-            // file — "co-occurrence" is measured in days, not raw mentions. So
-            // dedupe the pair-keys for this file before tallying.
-            var pairsSeenInFile: Set<String> = []
-            for i in 0..<ids.count {
-                for j in (i+1)..<ids.count where ids[i] != ids[j] {
-                    let sorted = [ids[i], ids[j]].sorted()
-                    let key = sorted.joined(separator: "↔")
-                    guard pairsSeenInFile.insert(key).inserted else { continue }
-                    edgeCounts[key, default: 0] += 1
-                    if edgeEndpoints[key] == nil {
-                        edgeEndpoints[key] = (sorted[0], sorted[1])
-                    }
-                }
-            }
+            idsPerDay.append(ids)
         }
 
-        // Materialize edges with their accumulated co-occurrence weight, in a
-        // stable (sorted-key) order so the graph layout is deterministic.
-        var rawEdges: [GraphEdge] = []
-        for key in edgeCounts.keys.sorted() {
-            guard let (src, dst) = edgeEndpoints[key] else { continue }
-            rawEdges.append(GraphEdge(id: key, sourceID: src, targetID: dst, weight: edgeCounts[key] ?? 1))
-        }
+        let rawEdges = buildWeightedEdges(idsPerDay: idsPerDay)
 
         // Also scan entity page directories for any entities not yet in map
         for entityType in ["places", "people", "themes"] {

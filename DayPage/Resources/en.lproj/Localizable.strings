@@ -1018,6 +1018,7 @@
 
 /* Graph focus — #828 */
 "graph.focus.entered.a11y"   = "Focused on %@, %lld linked entities";
+"graph.focus.switched.a11y"  = "Switched focus to %@, %lld linked entities";
 "graph.focus.exited.a11y"    = "Exited focus";
 "graph.focus.preview.hint"   = "Double-tap to open entity page";
 "graph.focus.preview.occurrences" = "%lld mentions";

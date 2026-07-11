@@ -650,13 +650,15 @@ struct GraphView: View {
         pulseNode(node)
         if UIAccessibility.isVoiceOverRunning {
             let neighborCount = viewModel.focusedNeighborIDs.count
+            // Distinct phrasing for switching between focused nodes vs first
+            // entry, so sequential VO exploration hears the state change.
+            let key = switching ? "graph.focus.switched.a11y" : "graph.focus.entered.a11y"
             let msg = String(
-                format: NSLocalizedString("graph.focus.entered.a11y", comment: "VoiceOver: entered focus on a node, N neighbors"),
+                format: NSLocalizedString(key, comment: "VoiceOver: focus entered/switched to a node, N neighbors"),
                 node.name, Int64(neighborCount)
             )
             UIAccessibility.post(notification: .announcement, argument: msg)
         }
-        _ = switching   // reserved for future distinct switch feedback; keeps intent explicit
     }
 
     /// #828 — drops focus if a filter has hidden the focused node. `visibleNodes`
