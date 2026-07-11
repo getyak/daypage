@@ -681,6 +681,51 @@ struct SearchView: View {
         }
     }
 
+    // MARK: - Vault overview (moved from ArchiveView, #827)
+
+    /// Whole-vault sense of scale: total memos + total days. Reads the
+    /// launch-warmed TimelineIndex synchronously (O(1) once built); shows
+    /// em-dashes before warm-up so "loading" is distinguishable from a
+    /// genuinely empty vault.
+    private var vaultOverviewStrip: some View {
+        let all = TimelineIndex.shared.entries()
+        let totalMemos = all.reduce(0) { $0 + $1.memoCount }
+        let totalDays = all.count
+        let hasData = totalDays > 0 || totalMemos > 0
+        return HStack(alignment: .center, spacing: 20) {
+            statPillar(
+                label: NSLocalizedString("search.overview.memos", comment: "Vault overview: all-time memo count label"),
+                value: hasData ? "\(totalMemos)" : "—"
+            )
+            Rectangle()
+                .fill(DSColor.glassRimD)
+                .frame(width: 0.5, height: 26)
+            statPillar(
+                label: NSLocalizedString("search.overview.days", comment: "Vault overview: all-time day count label"),
+                value: hasData ? "\(totalDays)" : "—"
+            )
+            Spacer()
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(String(
+            format: NSLocalizedString("search.overview.a11y", comment: "Vault overview a11y: %d memos across %d days"),
+            totalMemos, totalDays
+        ))
+    }
+
+    private func statPillar(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(DSType.mono10)
+                .tracking(1.2)
+                .textCase(.uppercase)
+                .foregroundColor(DSColor.inkSubtle)
+            Text(value)
+                .font(DSFonts.serif(size: 22, weight: .regular))
+                .foregroundColor(DSColor.inkPrimary)
+        }
+    }
+
     // MARK: - Empty-query state (recent searches + frequent entities)
 
     private var emptyQueryState: some View {
@@ -688,6 +733,14 @@ struct SearchView: View {
             VStack(alignment: .leading, spacing: 0) {
                 let recent = vm.recentSearches
                 let entities = vm.topEntities
+
+                // #827: whole-vault scale moved here from ArchiveView — as a
+                // search-surface prologue it answers "how much is searchable",
+                // instead of shouting over Archive's month summary.
+                vaultOverviewStrip
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
+                    .padding(.bottom, 6)
 
                 if !recent.isEmpty || !entities.isEmpty {
                     sectionHeader(title: NSLocalizedString("search.section.quickSearch", comment: "Quick search section header"), trailing: AnyView(EmptyView()))

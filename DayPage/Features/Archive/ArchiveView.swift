@@ -26,22 +26,6 @@ enum MonthlySummaryFilter: String, CaseIterable {
     }
 }
 
-// MARK: - SystemStatus
-
-enum SystemStatus {
-    case synchronized
-    case pendingCompilation
-    case offline
-
-    var label: String {
-        switch self {
-        case .synchronized:       return L10n.Archive.statusSynchronized
-        case .pendingCompilation: return L10n.Archive.statusPendingCompilation
-        case .offline:            return L10n.Archive.statusOffline
-        }
-    }
-}
-
 // MARK: - DayStats
 
 /// 存档中单日统计信息。
@@ -353,25 +337,6 @@ final class ArchiveViewModel: ObservableObject {
 
     var totalEntries: Int { dayStats.values.reduce(0) { $0 + $1.memoCount } }
 
-    // MARK: System Status
-
-    /// 基于当月编译状态推算的系统状态。
-    var systemStatus: SystemStatus {
-        let days = dayStats.values
-        // Days that have raw memos but no compiled Daily Page
-        let hasPending = days.contains { $0.memoCount > 0 && !$0.isDailyPageCompiled }
-        let hasAny = days.contains { $0.memoCount > 0 || $0.isDailyPageCompiled }
-        guard hasAny else { return .synchronized }
-        return hasPending ? .pendingCompilation : .synchronized
-    }
-
-    var lastSyncTimestamp: String {
-        let compiled = dayStats.values
-            .filter { $0.isDailyPageCompiled }
-            .sorted { $0.dateString > $1.dateString }
-        guard let latest = compiled.first else { return "N/A" }
-        return latest.dateString.replacingOccurrences(of: "-", with: ".")
-    }
     var totalPhotos: Int { dayStats.values.reduce(0) { $0 + $1.photoCount } }
     var totalVoiceMinutes: Int { dayStats.values.reduce(0) { $0 + $1.voiceMinutes } }
     var totalLocations: Int { dayStats.values.reduce(0) { $0 + $1.uniqueLocations } }
@@ -583,18 +548,13 @@ struct ArchiveView: View {
                         .frame(height: 0)
 
                         VStack(spacing: 0) {
-                            // Issue #7 (2026-07-03): Vault overview strip
-                            // sits above the month navigation. Gives the
-                            // user a whole-vault sense-of-scale (total
-                            // memos + total days) without opening a
-                            // separate stats screen. Reads directly from
-                            // TimelineIndex so it always reflects on-disk
-                            // reality — no separate cache to invalidate.
-                            vaultOverviewStrip
-                                .padding(.horizontal, 20)
-                                .padding(.top, 16)
-                                .padding(.bottom, 6)
-
+                            // #827 IA convergence: the whole-vault overview
+                            // strip moved to SearchView's starter state —
+                            // in Archive it was a third stats voice
+                            // shouting over the month summary (FINDING-008
+                            // was exactly this scope collision). Calendar
+                            // mode now reads: month nav → calendar (legend
+                            // in its footer) → single month summary.
                             monthNavigationRow
                                 .padding(.horizontal, 20)
                                 .padding(.vertical, 16)
@@ -643,17 +603,21 @@ struct ArchiveView: View {
                                             }
                                     )
 
-                                legendRow
-                                    .padding(.horizontal, 12)
-                                    .padding(.top, 8)
-
-                                monthlySummary
-                                    .padding(.horizontal, 20)
-                                    .padding(.top, 32)
-
-                                systemStatusArtifact
-                                    .padding(.top, 32)
-                                    .padding(.bottom, 40)
+                                if viewModel.totalEntries == 0 {
+                                    // #827: an all-empty month used to render
+                                    // as a mute grid of gray cells with no
+                                    // explanation — the only screen in the
+                                    // app without an empty state.
+                                    emptyMonthHint
+                                        .padding(.horizontal, 20)
+                                        .padding(.top, 32)
+                                        .padding(.bottom, 40)
+                                } else {
+                                    monthlySummary
+                                        .padding(.horizontal, 20)
+                                        .padding(.top, 32)
+                                        .padding(.bottom, 40)
+                                }
                             } else {
                                 listContent
                                     .padding(.horizontal, 20)
@@ -895,44 +859,19 @@ struct ArchiveView: View {
     /// warmed by DayPageApp at launch, so this is O(1) once ready. Before
     /// warm-up we show em-dashes rather than "0" so the user can tell
     /// "index is still loading" from "vault is really empty".
-    private var vaultOverviewStrip: some View {
-        let all = TimelineIndex.shared.entries()
-        let totalMemos = all.reduce(0) { $0 + $1.memoCount }
-        let totalDays = all.count
-        let hasData = totalDays > 0 || totalMemos > 0
-        // Scope words matter: this strip is whole-vault, but it sits directly
-        // under the month title, so bare "MEMOS 16" read as July's count and
-        // contradicted the month summary's "TOTAL ENTRIES 11" (FINDING-008).
-        return HStack(alignment: .center, spacing: 20) {
-            statPillar(
-                label: "ALL-TIME MEMOS",
-                value: hasData ? "\(totalMemos)" : "—"
-            )
-            Rectangle()
-                .fill(DSColor.glassRimD)
-                .frame(width: 0.5, height: 26)
-            statPillar(
-                label: "ALL-TIME DAYS",
-                value: hasData ? "\(totalDays)" : "—"
-            )
-            Spacer()
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Vault 总览：\(totalMemos) 条记录，\(totalDays) 天写作")
-        .accessibilityIdentifier("archive.vault.overview")
-    }
-
-    private func statPillar(label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(DSType.mono10)
-                .tracking(1.2)
-                .textCase(.uppercase)
+    /// #827: quiet empty state for an all-empty month — replaces the month
+    /// summary (a grid of zeros would be noise, not information).
+    private var emptyMonthHint: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "moon.zzz")
+                .font(.system(size: 22, weight: .light))
+                .foregroundColor(DSColor.inkFaint)
+            Text(NSLocalizedString("archive.month.empty", comment: "Empty month hint"))
+                .font(DSType.bodySM)
                 .foregroundColor(DSColor.inkSubtle)
-            Text(value)
-                .font(DSFonts.serif(size: 22, weight: .regular))
-                .foregroundColor(DSColor.inkPrimary)
         }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
     }
 
     private var monthNavigationRow: some View {
@@ -1061,6 +1000,13 @@ struct ArchiveView: View {
                     }
                 }
             }
+
+            // #827: the density legend lives INSIDE the calendar panel as
+            // its footer — it annotates the grid above it, so floating it
+            // outside the glass surface made it read as a separate section.
+            legendRow
+                .padding(.horizontal, 4)
+                .padding(.top, 6)
         }
         .padding(8)
         // #771: month calendar grid → glass engine (.panel). Engine owns rim.
@@ -1404,63 +1350,6 @@ struct ArchiveView: View {
         .accessibilityValue(unit != nil ? "\(value) \(unit!)" : value)
     }
 
-    // MARK: - System Status Artifact
-
-    private var systemStatusArtifact: some View {
-        VStack(spacing: 0) {
-            // Top divider line
-            Rectangle()
-                .fill(DSColor.inkFaint)
-                .frame(height: 0.5)
-
-            ZStack {
-                DSColor.amberDeep.opacity(0.92)
-                    .ignoresSafeArea(edges: [])
-
-                VStack(spacing: 16) {
-                    // Decorative geometric graphic
-                    ArtifactGeometricView()
-                        .frame(width: 80, height: 80)
-
-                    // Status label
-                    VStack(spacing: 6) {
-                        HStack(spacing: 6) {
-                            // Artifact panel background is amberDeep@0.92 — use
-                            // onAmber so the label tracks dark mode instead of
-                            // sitting on a pure-white system color.
-                            Text("SYSTEM STATUS:")
-                                .font(DSFonts.jetBrainsMono(size: 11, weight: .medium))
-                                .foregroundColor(DSColor.onAmber.opacity(0.4))
-                                .tracking(0.5)
-
-                            Text(viewModel.systemStatus.label)
-                                .font(DSFonts.jetBrainsMono(size: 11, weight: .medium))
-                                .foregroundColor(statusTextColor)
-                                .tracking(0.5)
-                        }
-
-                        Text("LAST SYNC // \(viewModel.lastSyncTimestamp)")
-                            .font(DSFonts.jetBrainsMono(size: 10, weight: .regular))
-                            .foregroundColor(DSColor.onAmber.opacity(0.3))
-                            .tracking(0.5)
-                    }
-                }
-                .padding(.vertical, 32)
-            }
-            .frame(maxWidth: .infinity)
-        }
-    }
-
-    private var statusTextColor: Color {
-        switch viewModel.systemStatus {
-        // Synchronized label sits on the amberDeep artifact panel — onAmber
-        // so the warm-cream foreground tracks dark mode.
-        case .synchronized:       return DSColor.onAmber.opacity(0.6)
-        case .pendingCompilation: return DSColor.warningAmber
-        case .offline:            return DSColor.errorRed
-        }
-    }
-
     // MARK: - List Content
 
     private var listContent: some View {
@@ -1755,91 +1644,6 @@ fileprivate enum ArchiveVaultScan {
             out.insert(base)
         }
         return out
-    }
-}
-
-// MARK: - ArtifactGeometricView
-
-/// 黑白极简装饰图案，呼应"考古档案"设计语言。
-/// 渲染带径向刻度线的同心圆 — 令人联想到罗盘或档案封印。
-private struct ArtifactGeometricView: View {
-
-    var body: some View {
-        Canvas { context, size in
-            let center = CGPoint(x: size.width / 2, y: size.height / 2)
-            let outerR = min(size.width, size.height) / 2 - 1
-            let white   = Color.white
-            let dimmed  = Color.white.opacity(0.25)
-
-            // --- Outer ring ---
-            context.stroke(
-                Path { p in p.addArc(center: center, radius: outerR, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: false) },
-                with: .color(white.opacity(0.5)),
-                lineWidth: 1
-            )
-
-            // --- Middle ring ---
-            context.stroke(
-                Path { p in p.addArc(center: center, radius: outerR * 0.72, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: false) },
-                with: .color(white.opacity(0.35)),
-                lineWidth: 0.75
-            )
-
-            // --- Inner ring ---
-            context.stroke(
-                Path { p in p.addArc(center: center, radius: outerR * 0.44, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: false) },
-                with: .color(white.opacity(0.25)),
-                lineWidth: 0.75
-            )
-
-            // --- Center dot ---
-            let dotR: CGFloat = 3
-            context.fill(
-                Path { p in p.addArc(center: center, radius: dotR, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: false) },
-                with: .color(white.opacity(0.6))
-            )
-
-            // --- Radial tick marks (24 major + 24 minor) ---
-            let totalTicks = 48
-            for i in 0..<totalTicks {
-                let angle = Double(i) * (360.0 / Double(totalTicks))
-                let rad   = angle * .pi / 180
-                let isMajor = i % 2 == 0
-                let tickOuter = outerR
-                let tickInner = isMajor ? outerR * 0.86 : outerR * 0.92
-                let color = isMajor ? white.opacity(0.55) : dimmed
-
-                let outer = CGPoint(
-                    x: center.x + tickOuter * CGFloat(cos(rad)),
-                    y: center.y + tickOuter * CGFloat(sin(rad))
-                )
-                let inner = CGPoint(
-                    x: center.x + tickInner * CGFloat(cos(rad)),
-                    y: center.y + tickInner * CGFloat(sin(rad))
-                )
-
-                context.stroke(
-                    Path { p in p.move(to: outer); p.addLine(to: inner) },
-                    with: .color(color),
-                    lineWidth: isMajor ? 1 : 0.5
-                )
-            }
-
-            // --- Cross hair lines ---
-            let crossR = outerR * 0.38
-            let crossColor = white.opacity(0.2)
-            for angleDeg in [0.0, 90.0] {
-                let rad = angleDeg * .pi / 180
-                let p1 = CGPoint(x: center.x - crossR * CGFloat(cos(rad)), y: center.y - crossR * CGFloat(sin(rad)))
-                let p2 = CGPoint(x: center.x + crossR * CGFloat(cos(rad)), y: center.y + crossR * CGFloat(sin(rad)))
-                context.stroke(
-                    Path { p in p.move(to: p1); p.addLine(to: p2) },
-                    with: .color(crossColor),
-                    lineWidth: 0.5
-                )
-            }
-        }
-        .accessibilityHidden(true)
     }
 }
 

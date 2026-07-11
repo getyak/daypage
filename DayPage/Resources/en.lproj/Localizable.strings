@@ -732,9 +732,10 @@
 "archive.filter.has_photo"                   = "With photo";
 
 /* Archive — system status footer */
-"archive.status.synchronized"                = "SYNCHRONIZED";
-"archive.status.pending_compilation"         = "PENDING COMPILATION";
-"archive.status.offline"                     = "OFFLINE";
+"archive.month.empty"                        = "Nothing logged this month yet";
+"search.overview.memos"                      = "ALL-TIME MEMOS";
+"search.overview.days"                       = "ALL-TIME DAYS";
+"search.overview.a11y"                       = "Vault overview: %d memos across %d days";
 
 /* AI master toggle */
 "settings.ai.enabled"                        = "Enable AI features";

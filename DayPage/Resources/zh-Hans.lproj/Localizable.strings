@@ -736,9 +736,10 @@
 "archive.filter.has_photo"                   = "有照片";
 
 /* Archive — system status footer */
-"archive.status.synchronized"                = "已同步";
-"archive.status.pending_compilation"         = "待编译";
-"archive.status.offline"                     = "离线";
+"archive.month.empty"                        = "这个月还没有记录";
+"search.overview.memos"                      = "全部记录";
+"search.overview.days"                       = "记录天数";
+"search.overview.a11y"                       = "库总览：%d 条记录，跨 %d 天";
 
 /* AI 主开关 */
 "settings.ai.enabled"                        = "启用 AI 功能";
