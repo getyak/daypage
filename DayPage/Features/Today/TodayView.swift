@@ -181,6 +181,9 @@ struct TodayView: View {
     /// affordance (composer.jsx:183). Routes saves through `submitCombinedMemo`
     /// (the same path the inline composer uses) via `draftText`.
     @State private var showWriteSheet: Bool = false
+    /// #821: true while a whole-dock press-to-talk session is recording.
+    /// Drives the timeline spotlight scrim behind the in-place capsule.
+    @State private var isDockVoiceActive: Bool = false
 
     /// Issue #804: Today sparkle 现在打开 `TodayCoachView`（陪写引导）。
     /// AskPastView（RAG 「问过去」）保留在侧边栏 + Siri intent —— 两条路径
@@ -450,6 +453,19 @@ struct TodayView: View {
 
                     // MARK: Timeline (US-021: extracted subview)
                     timelineSection
+                        // #821 spotlight scrim: while a press-to-talk session
+                        // owns the dock, the timeline recedes behind a warm
+                        // dim so the in-place recording capsule is the single
+                        // lit object on the page. Never intercepts touches —
+                        // the recording finger is still down on the dock.
+                        .overlay {
+                            if isDockVoiceActive {
+                                DSTokens.Colors.recordingBg.opacity(0.22)
+                                    .allowsHitTesting(false)
+                                    .transition(.opacity)
+                            }
+                        }
+                        .animation(Motion.fade, value: isDockVoiceActive)
 
                     // MARK: Compose (US-021: extracted subview)
                     composeSection
@@ -2329,7 +2345,10 @@ struct TodayView: View {
             onAddPhotoAsset: nil,
             batchPhotoProgress: viewModel.batchPhotoProgress,
             batchPhotoTotal: viewModel.batchPhotoTotal,
-            requestFocusToggle: orbFocusToggle
+            requestFocusToggle: orbFocusToggle,
+            onRecordingActiveChange: { active in
+                isDockVoiceActive = active
+            }
         )
     }
 

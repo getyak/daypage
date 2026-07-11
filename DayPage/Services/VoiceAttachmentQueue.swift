@@ -85,6 +85,7 @@ final class VoiceAttachmentQueue: ObservableObject {
                 guard FileManager.default.fileExists(atPath: audioURL.path) else {
                     entries[i].failed = true
                     entries[i].lastError = "audio file not found"
+                    Self.applyStatus(.failed, audioPath: entry.audioPath, memoDate: entry.memoDate)
                     changedThisPass = true
                     continue
                 }
@@ -100,6 +101,11 @@ final class VoiceAttachmentQueue: ObservableObject {
                     entries[i].lastError = "transcription returned nil"
                     if entries[i].attempts >= maxAttempts {
                         entries[i].failed = true
+                        // #821: exhausting retries must also write .failed
+                        // into the day file — the card UI keys off the
+                        // attachment's transcription_status, and leaving it
+                        // `pending` froze the shimmer placeholder forever.
+                        Self.applyStatus(.failed, audioPath: entry.audioPath, memoDate: entry.memoDate)
                     }
                     changedThisPass = true
                 }
@@ -114,7 +120,36 @@ final class VoiceAttachmentQueue: ObservableObject {
             // success path; if the whole pass produced no transcripts and the
             // remaining entries are all failed or attempts-exhausted, stop.
             let remaining = entries.filter { !$0.failed }
-            if remaining.isEmpty || !consumedOne { return }
+            if remaining.isEmpty { return }
+            if !consumedOne {
+                // #821: entries remain but this pass made no progress
+                // (transient network / recognizer hiccup). Previously the
+                // queue went silent until the next app activation; now it
+                // self-schedules an exponential-backoff retry so a pending
+                // card never waits on the user backgrounding the app.
+                scheduleBackoffRetry(minAttempts: remaining.map(\.attempts).min() ?? 1)
+                return
+            }
+        }
+    }
+
+    /// Pending Task for the next backoff-driven processQueue run.
+    private var backoffTask: Task<Void, Never>?
+
+    /// Retry pending entries after 15s · 60s · 240s (by attempt count).
+    private func scheduleBackoffRetry(minAttempts: Int) {
+        guard backoffTask == nil else { return }
+        let delay: UInt64
+        switch minAttempts {
+        case ..<2:  delay = 15_000_000_000
+        case 2:     delay = 60_000_000_000
+        default:    delay = 240_000_000_000
+        }
+        backoffTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: delay)
+            guard !Task.isCancelled else { return }
+            self?.backoffTask = nil
+            await self?.processQueue()
         }
     }
 
@@ -226,6 +261,46 @@ final class VoiceAttachmentQueue: ObservableObject {
             return false
         }
         return true
+    }
+
+    /// #821: write a bare transcription status onto the matching attachment
+    /// (no transcript text). Used when retries are exhausted so the card UI
+    /// can downgrade from the shimmer placeholder to the retry affordance.
+    /// Same serialization guarantees as `applyTranscript` (RawStorage.mutate
+    /// runs inside the shared writeQueue).
+    @discardableResult
+    nonisolated static func applyStatus(
+        _ status: Memo.TranscriptionStatus,
+        audioPath: String,
+        memoDate: String
+    ) -> Bool {
+        guard let date = parseMemoDate(memoDate) else { return false }
+
+        var matched = false
+        do {
+            try RawStorage.mutate(for: date) { memos in
+                let updated = memos.map { memo -> Memo in
+                    var copy = memo
+                    copy.attachments = memo.attachments.map { att -> Memo.Attachment in
+                        guard att.file == audioPath, att.kind == "audio" else { return att }
+                        matched = true
+                        var a = att
+                        a.transcriptionStatus = status
+                        return a
+                    }
+                    return copy
+                }
+                return matched ? updated : nil
+            }
+        } catch {
+            SentryReporter.breadcrumb(
+                category: "voice-queue",
+                level: .error,
+                message: "applyStatus: mutate failed: \(error)"
+            )
+            return false
+        }
+        return matched
     }
 
     nonisolated private static func parseMemoDate(_ s: String) -> Date? {

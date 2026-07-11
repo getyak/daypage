@@ -5,6 +5,12 @@ Conventional changelog 格式：日期倒序，每个 release 标题 + 分类列
 ## [Unreleased] — v0.5.0 candidate
 
 ### Features
+- 语音输入 vNext（#821）：整个底部 dock 任意区域长按 0.35s 即按住说话（原先仅 50×44 mic 球）；按下瞬间 dock 微下沉（输入直驱），到阈值 heavy haptic + dock 原位 morph 成录音舱（红点脉动 + mono 计时 + 48 bar 实时波形 + 拖动指引），不再从屏幕顶/底弹出 island+sheet；上滑取消/左滑转文字过程中舱背景随手指位移 0→1 连续插值（非阈值突变）；录音期间时间线退后为暖色 scrim（聚光灯）；转录 pending 显示呼吸骨架线（非 spinner），完成后文字以墨水晕开式 blur+rise 渐显，失败降级为重试入口
+
+### Bug Fixes (#821 语音链路)
+- 语音转写永久 spinner（实测 16+ 分钟不消失）：三个根因叠加 —— ① MemoCardView 用全局 VoiceAttachmentQueue.pendingCount 决定单卡"正在转写…"（任何一条队列重试都冻结所有语音卡）→ 改为按本 attachment 的 transcription_status 判定；② press-to-talk 落卡把进行中的转录标成 `failed`（应为 `pending`）；③ 队列 3 次尝试耗尽只标记内部 failed 不回写 raw 文件 → 新增 applyStatus 回写 + 15s/60s/240s 指数退避自动重试（原先只靠切后台再回来触发）
+- Whisper key 为空时静默 return nil 白烧重试预算 → 降级到本地 SFSpeechRecognizer
+- 转录上传前 Data(contentsOf:) 在 @MainActor 同步读整个音频文件（5 分钟录音数 MB 级掉帧）→ Task.detached
 - Settings 视觉统一：themeMode / accentColor / cardDensity / attachmentPolicy 4 处原生 Picker → DSPicker amber-rim glass，与日式美术馆设计语言一致
 - 离线同步队列：网络受限时暂存 memo，恢复后自动 flush（SyncQueueService + Today banner + Settings "模拟离线" 调试）
 - 时光胶囊（On This Day）：每天打开自动显示"1 年前的今天"/"6 个月前"，点击跳归档

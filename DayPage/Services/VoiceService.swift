@@ -467,6 +467,12 @@ final class VoiceService: NSObject, ObservableObject {
         if !NetworkMonitor.shared.isOnline {
             return await transcribeAudioOffline(at: url)
         }
+        // #821: no Whisper key configured — fall back to on-device
+        // recognition instead of silently returning nil and burning the
+        // queue's retry budget on calls that can never succeed.
+        if Secrets.resolvedOpenAIWhisperApiKey.isEmpty {
+            return await transcribeAudioOffline(at: url)
+        }
         return await transcribeAudioWhisper(at: url)
     }
 
@@ -548,10 +554,13 @@ final class VoiceService: NSObject, ObservableObject {
         } onTimeout: {
             // Timeout fired: cancel the recognition task and resume the continuation
             // directly so `withCheckedContinuation` doesn't hang forever.
+            // Defense-in-depth: skip the resume when the recognition callback
+            // already resumed (didResume) — a second resume traps.
             box.lock.lock()
-            let task = box.task
-            let cont = box.continuation
+            let alreadyResumed = box.didResume
             box.didResume = true
+            let task = box.task
+            let cont = alreadyResumed ? nil : box.continuation
             box.lock.unlock()
             task?.cancel()
             cont?.resume(returning: nil)
@@ -563,7 +572,10 @@ final class VoiceService: NSObject, ObservableObject {
         guard !apiKey.isEmpty else { return nil }
 
         let audioData: Data
-        do { audioData = try Data(contentsOf: url) }
+        // #821 main-thread hygiene: this class is @MainActor, and a 5-minute
+        // take is several MB — reading it synchronously here froze a frame.
+        // Hop to a detached task for the disk read.
+        do { audioData = try await Task.detached(priority: .userInitiated) { try Data(contentsOf: url) }.value }
         catch {
             DayPageLogger.shared.error("transcribeAudio: read file: \(error)")
             SentryReporter.breadcrumb(
@@ -728,6 +740,13 @@ extension VoiceService {
             group.addTask {
                 let ns = UInt64(max(0, seconds) * 1_000_000_000)
                 try? await Task.sleep(nanoseconds: ns)
+                // The winning operation branch triggers group.cancelAll(),
+                // which wakes this sleep early with a CancellationError that
+                // `try?` swallows. Running onTimeout() in that case fired the
+                // timeout cleanup after a SUCCESSFUL completion — for the
+                // offline transcriber that meant resuming its continuation a
+                // second time (EXC_BREAKPOINT, observed 2026-07-11 20:30/33).
+                guard !Task.isCancelled else { return nil }
                 onTimeout()
                 return nil
             }
