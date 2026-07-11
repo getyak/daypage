@@ -112,9 +112,12 @@ enum DSColor {
     /// so people read as a separate class from places/themes. Lifts toward a
     /// brighter periwinkle in dark mode to survive the charcoal background.
     static let graphPeople = Color(light: Color(hex: "3A4E9E"), dark: Color(hex: "8C9EE8"))
-    /// Places-category node hue — deep archival amber (matches `amberDeep`,
-    /// adaptive for dark). Kept in the warm family: places are the "where".
-    static let graphPlaces = Color(light: Color(hex: "5D3000"), dark: Color(hex: "D9975A"))
+    /// Places-category node hue — deep archival amber (matches `amberDeep`).
+    /// Kept in the warm family: places are the "where". Dark variant stays a
+    /// clearly DEEPER, browner step than graphThemes — the original D9975A vs
+    /// E8974D were near-identical on charcoal and collapsed the three-way
+    /// classification back to two (#828 dark-mode audit).
+    static let graphPlaces = Color(light: Color(hex: "5D3000"), dark: Color(hex: "A96A35"))
     /// Themes-category node hue — burnt orange (matches `amberAccent`,
     /// adaptive for dark). Warmest of the three: themes are the "what".
     static let graphThemes = Color(light: Color(hex: "A8541B"), dark: Color(hex: "E8974D"))
