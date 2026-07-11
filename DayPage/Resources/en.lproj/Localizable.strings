@@ -1015,3 +1015,14 @@
 "archive.title"              = "Archive";
 "archive.today"              = "TODAY";
 "archive.heatmap.higher"     = "Higher Density";
+
+/* Graph focus — #828 */
+"graph.focus.entered.a11y"   = "Focused on %@, %lld linked entities";
+"graph.focus.exited.a11y"    = "Exited focus";
+"graph.focus.preview.hint"   = "Double-tap to open entity page";
+"graph.focus.preview.occurrences" = "%lld mentions";
+"graph.focus.preview.recent" = "Latest %@";
+"graph.focus.preview.a11y"   = "%@, %@, %lld mentions";
+"graph.focus.state.focused"  = "Focused";
+"graph.focus.state.neighbor" = "Neighbor";
+"graph.a11y.focus_entity"    = "Focus to see connections";

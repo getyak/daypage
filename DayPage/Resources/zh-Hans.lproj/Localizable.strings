@@ -1019,3 +1019,14 @@
 "archive.title"              = "归档";
 "archive.today"              = "今日";
 "archive.heatmap.higher"     = "密度更高";
+
+/* Graph focus — #828 */
+"graph.focus.entered.a11y"   = "已聚焦 %@，%lld 个关联实体";
+"graph.focus.exited.a11y"    = "已退出聚焦";
+"graph.focus.preview.hint"   = "双击打开实体页";
+"graph.focus.preview.occurrences" = "出现 %lld 次";
+"graph.focus.preview.recent" = "最近 %@";
+"graph.focus.preview.a11y"   = "%@，%@，出现 %lld 次";
+"graph.focus.state.focused"  = "已聚焦";
+"graph.focus.state.neighbor" = "邻居";
+"graph.a11y.focus_entity"    = "聚焦以查看关联";
