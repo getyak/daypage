@@ -420,7 +420,7 @@ struct SearchView: View {
                     .foregroundColor(DSColor.onSurfaceVariant)
 
                 TextField(NSLocalizedString("search.placeholder", comment: "Search text field placeholder"), text: $vm.query)
-                    .font(.custom("Inter-Regular", size: 14))
+                    .font(DSFonts.inter(size: 14, relativeTo: .subheadline))
                     .foregroundColor(DSColor.onSurface)
                     .textInputAutocapitalization(.never)
                     .disableAutocorrection(true)
@@ -526,7 +526,7 @@ struct SearchView: View {
                 ), displayedComponents: .date)
                 .labelsHidden()
                 .datePickerStyle(.compact)
-                .font(.custom("Inter-Regular", size: 12))
+                .font(DSFonts.inter(size: 12, relativeTo: .caption))
                 .frame(maxWidth: 120)
                 .overlay(
                     filters.startDate == nil
@@ -544,7 +544,7 @@ struct SearchView: View {
                 ), displayedComponents: .date)
                 .labelsHidden()
                 .datePickerStyle(.compact)
-                .font(.custom("Inter-Regular", size: 12))
+                .font(DSFonts.inter(size: 12, relativeTo: .caption))
                 .frame(maxWidth: 120)
 
                 if filters.startDate != nil || filters.endDate != nil {
@@ -594,7 +594,7 @@ struct SearchView: View {
 
                 HStack(spacing: 6) {
                     TextField(NSLocalizedString("search.filter.location.placeholder", comment: "Filter panel location text field placeholder"), text: $filters.locationQuery)
-                        .font(.custom("Inter-Regular", size: 13))
+                        .font(DSFonts.inter(size: 13, relativeTo: .footnote))
                         .foregroundColor(DSColor.onSurface)
                         .textInputAutocapitalization(.never)
                         .disableAutocorrection(true)
@@ -880,7 +880,7 @@ struct SearchView: View {
             selectSuggestion(entity)
         }) {
             Text(entity)
-                .font(.custom("Inter-Regular", size: 13))
+                .font(DSFonts.inter(size: 13, relativeTo: .footnote))
                 .foregroundColor(DSColor.onSurface)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
@@ -1180,7 +1180,13 @@ struct SearchView: View {
     }
 
     private func resultRow(_ result: SearchResult) -> some View {
-        let a11yLabel = "\(formatDate(result.dateString)), \(matchLabel(for: result.matchKind)) match, \(result.isDailyPageCompiled ? "VERIFIED" : "METADATA"), \(String(result.snippet.prefix(80)))"
+        let badgeLabel = result.isDailyPageCompiled
+            ? NSLocalizedString("search.badge.compiled", comment: "Result badge: day has a compiled daily page")
+            : NSLocalizedString("search.badge.raw", comment: "Result badge: day has raw memos only")
+        let a11yLabel = String(
+            format: NSLocalizedString("search.a11y.resultRow", comment: "Result row a11y: date, match kind, compile state, snippet"),
+            formatDate(result.dateString), matchLabel(for: result.matchKind), badgeLabel, String(result.snippet.prefix(80))
+        )
         return Button(action: {
             Haptics.tapConfirm()
             vm.recordSearch(vm.query)
@@ -1194,11 +1200,11 @@ struct SearchView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Text(formatDate(result.dateString))
-                            .font(.custom("SpaceGrotesk-Bold", size: 14))
+                            .font(DSFonts.spaceGrotesk(size: 14, weight: .bold, relativeTo: .footnote))
                             .foregroundColor(DSColor.onSurface)
                         Spacer()
                         StatusBadge(
-                            label: result.isDailyPageCompiled ? "VERIFIED" : "METADATA",
+                            label: badgeLabel,
                             style: result.isDailyPageCompiled ? .verified : .metadata
                         )
                     }
@@ -1238,10 +1244,10 @@ struct SearchView: View {
 
     // MARK: - Keyword highlight via AttributedString
 
-    /// Mirrors SearchService's folding so the highlighter matches exactly what the service matched.
+    /// Delegates to SearchService's canonical folding so the highlighter can
+    /// never drift from what the service actually matched (#827 dedup).
     private func foldedForSearch(_ s: String) -> String {
-        s.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
-                  locale: Locale(identifier: "en_US_POSIX"))
+        SearchService.foldForSearch(s)
     }
 
     @ViewBuilder
@@ -1368,9 +1374,9 @@ struct SearchView: View {
 
     private func matchLabel(for kind: SearchResult.MatchKind) -> String {
         switch kind {
-        case .memoBody: return "MEMO"
-        case .location: return "LOCATION"
-        case .date:     return "DATE"
+        case .memoBody: return NSLocalizedString("search.matchKind.memo", comment: "Match-kind label: keyword hit in memo body")
+        case .location: return NSLocalizedString("search.matchKind.location", comment: "Match-kind label: keyword hit in location name")
+        case .date:     return NSLocalizedString("search.matchKind.date", comment: "Match-kind label: keyword hit on the date string")
         }
     }
 }
@@ -1393,11 +1399,11 @@ private struct EntityFrequencyChip: View {
             VStack(spacing: 4) {
                 HStack(spacing: 6) {
                     Text(entity.name)
-                        .font(.custom("Inter-Regular", size: 13))
+                        .font(DSFonts.inter(size: 13, relativeTo: .footnote))
                         .foregroundColor(DSColor.onSurface)
 
                     Text("\(entity.count)")
-                        .font(.custom("JetBrainsMono-Regular", size: 10))
+                        .font(DSType.mono10)
                         .foregroundColor(DSColor.onSurfaceVariant)
                         .padding(.horizontal, 4)
                         .padding(.vertical, 2)
@@ -1558,7 +1564,7 @@ private struct SwipeableRecentRow: View {
                     }
                 }) {
                     Text(query)
-                        .font(.custom("Inter-Regular", size: 14))
+                        .font(DSFonts.inter(size: 14, relativeTo: .subheadline))
                         .foregroundColor(DSColor.onSurface)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -1627,10 +1633,9 @@ extension SearchViewModel.GroupedResults: Identifiable {
 // MARK: - Testable folding helper
 
 extension SearchView {
-    /// Exposed for unit testing only — mirrors SearchService's folding options.
+    /// Exposed for unit testing only — delegates to the canonical service fold.
     static func foldedForSearchTesting(_ s: String) -> String {
-        s.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
-                  locale: Locale(identifier: "en_US_POSIX"))
+        SearchService.foldForSearch(s)
     }
 }
 

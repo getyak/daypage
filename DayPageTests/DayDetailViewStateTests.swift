@@ -60,7 +60,8 @@ final class DayDetailViewStateTests: XCTestCase {
         guard case .error(let message) = state else {
             return XCTFail("Expected .error, got \(state)")
         }
-        XCTAssertTrue(message.contains("日期格式无效"), "Got message: \(message)")
+        let expected = String(format: NSLocalizedString("daydetail.error.badFormat", comment: ""), "abc")
+        XCTAssertEqual(message, expected, "Got message: \(message)")
     }
 
     func testErrorState_whenDateStringIsCalendarInvalid() {
@@ -74,7 +75,8 @@ final class DayDetailViewStateTests: XCTestCase {
         guard case .error(let message) = state else {
             return XCTFail("Expected .error, got \(state)")
         }
-        XCTAssertTrue(message.contains("日期不存在"), "Got message: \(message)")
+        let expected = String(format: NSLocalizedString("daydetail.error.notFound", comment: ""), "2020-02-30")
+        XCTAssertEqual(message, expected, "Got message: \(message)")
     }
 
     // MARK: - .rawOnly

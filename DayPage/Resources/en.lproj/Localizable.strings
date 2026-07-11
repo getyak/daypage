@@ -1016,3 +1016,67 @@
 "archive.title"              = "Archive";
 "archive.today"              = "TODAY";
 "archive.heatmap.higher"     = "Higher Density";
+
+/* Archive i18n sweep — #827 */
+"archive.a11y.search.label"       = "Search";
+"archive.a11y.search.hint"        = "Search all archived entries";
+"archive.a11y.prevMonth.label"    = "Previous month";
+"archive.a11y.prevMonth.hint"     = "Switch to the previous month";
+"archive.a11y.currentMonth.label" = "Back to this month";
+"archive.a11y.currentMonth.hint"  = "Jump to the current month";
+"archive.a11y.nextMonth.label"    = "Next month";
+"archive.a11y.nextMonth.hint"     = "Switch to the next month";
+"archive.a11y.day.hint"           = "Double tap to open the day";
+"archive.a11y.day.compiled"       = "Compiled daily page";
+"archive.a11y.day.rawOnly"        = "Raw memos only";
+"archive.a11y.day.none"           = "%@, no entries";
+"archive.a11y.density.empty"      = "Empty";
+"archive.a11y.density.low"        = "Low";
+"archive.a11y.density.medium"     = "Medium";
+"archive.a11y.density.high"       = "High";
+"archive.a11y.day.summary"        = "%1$@, %2$@, activity %3$@, %4$d memos";
+"archive.a11y.day.photos"         = "%d photos";
+"archive.a11y.day.locations"      = "%d locations";
+"archive.summary.noMatch"         = "No days match this filter";
+"archive.summary.title"           = "%@ Summary";
+"archive.export.markdown"         = "Export Markdown";
+"archive.export.screenshot"       = "Share Screenshot";
+"archive.section.dayCount"        = "%d days";
+"archive.export.md.title"         = "%@ Monthly Summary";
+"archive.export.md.entries"       = "- Total entries: %d";
+"archive.export.md.photos"        = "- Photos: %d";
+"archive.export.md.voice"         = "- Voice: %d min";
+"archive.export.md.locations"     = "- Locations: %d";
+"archive.export.md.filter"        = "> Filter: %@";
+"archive.export.md.dayline"       = "- Memos: %1$d · Photos: %2$d · Voice: %3$d min · Locations: %4$d";
+
+/* Search result semantics — #827 */
+"search.badge.compiled"    = "COMPILED";
+"search.badge.raw"         = "RAW";
+"search.matchKind.memo"    = "MEMO";
+"search.matchKind.location" = "LOCATION";
+"search.matchKind.date"    = "DATE";
+"search.a11y.resultRow"    = "%1$@, %2$@ match, %3$@, %4$@";
+
+/* DayDetail toolbar — #827 */
+"daydetail.a11y.prevDay" = "Previous day";
+"daydetail.a11y.nextDay" = "Next day";
+
+/* DayDetail content — #827 */
+"daydetail.tab.daily"        = "Daily Page";
+"daydetail.tab.raw"          = "Raw Memos";
+"daydetail.state.notCompiled" = "Not compiled yet";
+"daydetail.state.viewRaw"    = "View raw memos";
+"daydetail.raw.empty"        = "No memos this day";
+"daydetail.empty.title"      = "Nothing logged this day";
+"daydetail.close"            = "Close";
+"daydetail.error.title"      = "Couldn't load this day";
+"daydetail.error.badFormat"  = "Invalid date format: %@";
+"daydetail.error.notFound"   = "No such date: %@";
+"daydetail.kind.text"        = "Text";
+"daydetail.kind.voice"       = "Voice";
+"daydetail.kind.photo"       = "Photo";
+"daydetail.kind.part.text"   = "%d text";
+"daydetail.kind.part.voice"  = "%d voice";
+"daydetail.kind.part.photo"  = "%d photo";
+"rawmemo.empty"              = "No memos this day";

@@ -1020,3 +1020,67 @@
 "archive.title"              = "归档";
 "archive.today"              = "今日";
 "archive.heatmap.higher"     = "密度更高";
+
+/* Archive i18n sweep — #827 */
+"archive.a11y.search.label"       = "搜索";
+"archive.a11y.search.hint"        = "搜索历史记录";
+"archive.a11y.prevMonth.label"    = "上个月";
+"archive.a11y.prevMonth.hint"     = "切换到上一个月";
+"archive.a11y.currentMonth.label" = "回到本月";
+"archive.a11y.currentMonth.hint"  = "跳转到当前月份";
+"archive.a11y.nextMonth.label"    = "下个月";
+"archive.a11y.nextMonth.hint"     = "切换到下一个月";
+"archive.a11y.day.hint"           = "双击打开当天详情";
+"archive.a11y.day.compiled"       = "已编译 Daily Page";
+"archive.a11y.day.rawOnly"        = "有原始记录";
+"archive.a11y.day.none"           = "%@，无记录";
+"archive.a11y.density.empty"      = "空";
+"archive.a11y.density.low"        = "较低";
+"archive.a11y.density.medium"     = "中等";
+"archive.a11y.density.high"       = "较高";
+"archive.a11y.day.summary"        = "%1$@，%2$@，活跃度 %3$@，%4$d 条记录";
+"archive.a11y.day.photos"         = "%d 张照片";
+"archive.a11y.day.locations"      = "%d 处位置";
+"archive.summary.noMatch"         = "无符合条件的日期";
+"archive.summary.title"           = "%@ 月度摘要";
+"archive.export.markdown"         = "导出 Markdown";
+"archive.export.screenshot"       = "截图分享";
+"archive.section.dayCount"        = "%d 天";
+"archive.export.md.title"         = "%@ 月度摘要";
+"archive.export.md.entries"       = "- 总记录：%d 条";
+"archive.export.md.photos"        = "- 照片：%d 张";
+"archive.export.md.voice"         = "- 语音：%d 分钟";
+"archive.export.md.locations"     = "- 地点：%d 处";
+"archive.export.md.filter"        = "> 筛选：%@";
+"archive.export.md.dayline"       = "- 记录：%1$d 条，照片：%2$d 张，语音：%3$d 分钟，地点：%4$d 处";
+
+/* Search result semantics — #827 */
+"search.badge.compiled"    = "已编译";
+"search.badge.raw"         = "原始";
+"search.matchKind.memo"    = "正文";
+"search.matchKind.location" = "地点";
+"search.matchKind.date"    = "日期";
+"search.a11y.resultRow"    = "%1$@，%2$@命中，%3$@，%4$@";
+
+/* DayDetail toolbar — #827 */
+"daydetail.a11y.prevDay" = "前一天";
+"daydetail.a11y.nextDay" = "后一天";
+
+/* DayDetail content — #827 */
+"daydetail.tab.daily"        = "日记页";
+"daydetail.tab.raw"          = "原始 Memo";
+"daydetail.state.notCompiled" = "这一天还没编译";
+"daydetail.state.viewRaw"    = "查看原始 Memo";
+"daydetail.raw.empty"        = "这一天没有记录";
+"daydetail.empty.title"      = "这一天还没有记录";
+"daydetail.close"            = "关闭";
+"daydetail.error.title"      = "无法加载这一天";
+"daydetail.error.badFormat"  = "日期格式无效：%@";
+"daydetail.error.notFound"   = "日期不存在：%@";
+"daydetail.kind.text"        = "文本";
+"daydetail.kind.voice"       = "语音";
+"daydetail.kind.photo"       = "照片";
+"daydetail.kind.part.text"   = "%d 文";
+"daydetail.kind.part.voice"  = "%d 声";
+"daydetail.kind.part.photo"  = "%d 图";
+"rawmemo.empty"              = "该日无记录";

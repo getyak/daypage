@@ -83,8 +83,8 @@ struct RawMemoView: View {
                 Image(systemName: "tray")
                     .font(.system(size: 32))
                     .foregroundColor(DSColor.onSurfaceVariant.opacity(0.5))
-                Text("该日无记录")
-                    .font(.custom("SpaceGrotesk-Bold", size: 14))
+                Text(NSLocalizedString("rawmemo.empty", comment: "Empty state: no raw memos exist for this day"))
+                    .font(DSFonts.spaceGrotesk(size: 14, weight: .bold))
                     .foregroundColor(DSColor.onSurfaceVariant)
             }
             Spacer()
