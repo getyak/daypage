@@ -387,6 +387,7 @@ private struct DetailVoiceSection: View {
 
 private struct DetailPhotoSection: View {
     let attachment: Memo.Attachment
+    @State private var exifText: String?
     @Binding var fullResImage: UIImage?
     @Binding var showFullscreen: Bool
 
@@ -423,7 +424,7 @@ private struct DetailPhotoSection: View {
                 }
 
                 // EXIF overlay
-                if let exif = exifOverlayText {
+                if let exif = exifText {
                     Text(exif)
                         .font(DSFonts.jetBrainsMono(size: 10))
                         .tracking(0.5)
@@ -446,6 +447,13 @@ private struct DetailPhotoSection: View {
             }
             .task(id: photoURL) {
                 loadedImage = await loadFullResImage(from: photoURL)
+                // EXIF caption loads off-main with the image — as a computed
+                // property it re-read the file header on every body pass.
+                let url = photoURL
+                let file = attachment.file
+                exifText = await Task.detached(priority: .utility) {
+                    Self.exifOverlayText(file: file, photoURL: url)
+                }.value
             }
 
             // Tap hint
@@ -461,8 +469,8 @@ private struct DetailPhotoSection: View {
         }
     }
 
-    private var exifOverlayText: String? {
-        let filename = URL(fileURLWithPath: attachment.file).lastPathComponent.uppercased()
+    nonisolated private static func exifOverlayText(file: String, photoURL: URL) -> String? {
+        let filename = URL(fileURLWithPath: file).lastPathComponent.uppercased()
         if let source = CGImageSourceCreateWithURL(photoURL as CFURL, nil),
            let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any],
            let exif = props[kCGImagePropertyExifDictionary as String] as? [String: Any] {
@@ -693,6 +701,10 @@ private struct DetailFileRow: View {
 private struct DetailMetadataSection: View {
     let memo: Memo
 
+    /// Photo EXIF rows resolved off-main. Reading image properties inline in
+    /// `kindSpecificRows` was synchronous disk I/O on every body pass.
+    @State private var photoExifRows: [(label: String, value: String)] = []
+
     private var createdFull: String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
@@ -777,6 +789,44 @@ private struct DetailMetadataSection: View {
             // Kind-specific fields
             kindSpecificRows
         }
+        .task(id: memo.id) {
+            guard let photoAtt = memo.attachments.first(where: { $0.kind == "photo" }) else { return }
+            let url = VaultInitializer.vaultURL.appendingPathComponent(photoAtt.file)
+            photoExifRows = await Task.detached(priority: .utility) {
+                Self.loadPhotoExifRows(from: url)
+            }.value
+        }
+    }
+
+    /// Metadata-only image header read (no pixel decode) — still disk I/O,
+    /// so it runs off the main actor via the .task above.
+    nonisolated private static func loadPhotoExifRows(from photoURL: URL) -> [(label: String, value: String)] {
+        guard let source = CGImageSourceCreateWithURL(photoURL as CFURL, nil),
+              let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any] else {
+            return []
+        }
+        var rows: [(label: String, value: String)] = []
+        if let exif = props[kCGImagePropertyExifDictionary as String] as? [String: Any] {
+            if let aperture = exif[kCGImagePropertyExifFNumber as String] as? Double {
+                rows.append(("Aperture", String(format: "f/%.1f", aperture)))
+            }
+            if let shutter = exif[kCGImagePropertyExifExposureTime as String] as? Double {
+                let denom = Int(1.0 / shutter)
+                rows.append(("Shutter", "1/\(denom)s"))
+            }
+            if let iso = exif[kCGImagePropertyExifISOSpeedRatings as String] as? [Int],
+               let isoVal = iso.first {
+                rows.append(("ISO", "\(isoVal)"))
+            }
+            if let focal = exif[kCGImagePropertyExifFocalLength as String] as? Double {
+                rows.append(("Focal Length", "\(Int(focal))mm"))
+            }
+        }
+        if let w = props[kCGImagePropertyPixelWidth as String] as? Int,
+           let h = props[kCGImagePropertyPixelHeight as String] as? Int {
+            rows.append(("Dimensions", "\(w) × \(h)"))
+        }
+        return rows
     }
 
     @ViewBuilder
@@ -793,33 +843,9 @@ private struct DetailMetadataSection: View {
             }
         }
 
-        // Photo: EXIF fields
-        if let photoAtt = memo.attachments.first(where: { $0.kind == "photo" }) {
-            let photoURL = VaultInitializer.vaultURL.appendingPathComponent(photoAtt.file)
-            if let source = CGImageSourceCreateWithURL(photoURL as CFURL, nil),
-               let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any] {
-                if let exif = props[kCGImagePropertyExifDictionary as String] as? [String: Any] {
-                    if let aperture = exif[kCGImagePropertyExifFNumber as String] as? Double {
-                        metaRow(label: "Aperture", value: String(format: "f/%.1f", aperture))
-                    }
-                    if let shutter = exif[kCGImagePropertyExifExposureTime as String] as? Double {
-                        let denom = Int(1.0 / shutter)
-                        metaRow(label: "Shutter", value: "1/\(denom)s")
-                    }
-                    if let iso = exif[kCGImagePropertyExifISOSpeedRatings as String] as? [Int],
-                       let isoVal = iso.first {
-                        metaRow(label: "ISO", value: "\(isoVal)")
-                    }
-                    if let focal = exif[kCGImagePropertyExifFocalLength as String] as? Double {
-                        metaRow(label: "Focal Length", value: "\(Int(focal))mm")
-                    }
-                }
-                // Pixel dimensions
-                if let w = props[kCGImagePropertyPixelWidth as String] as? Int,
-                   let h = props[kCGImagePropertyPixelHeight as String] as? Int {
-                    metaRow(label: "Dimensions", value: "\(w) × \(h)")
-                }
-            }
+        // Photo: EXIF fields — rendered from state; resolved off-main in .task.
+        ForEach(photoExifRows, id: \.label) { row in
+            metaRow(label: row.label, value: row.value)
         }
 
         // Location: coordinates

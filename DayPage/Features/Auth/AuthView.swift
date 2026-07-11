@@ -13,6 +13,30 @@ private struct AuthButtonStyle: ButtonStyle {
     }
 }
 
+// MARK: - Entrance Choreography
+
+/// Staggered fade-up used by the auth screen's brand block / CTA stack /
+/// skip link. Falls back to a pure cross-fade (no translation) when the
+/// user has Reduce Motion enabled.
+private struct EntranceModifier: ViewModifier {
+    let isVisible: Bool
+    let reduceMotion: Bool
+    let delay: Double
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(isVisible ? 1 : 0)
+            .offset(y: isVisible || reduceMotion ? 0 : 14)
+            .animation(.easeOut(duration: 0.55).delay(delay), value: isVisible)
+    }
+}
+
+private extension View {
+    func entrance(_ isVisible: Bool, reduceMotion: Bool, delay: Double) -> some View {
+        modifier(EntranceModifier(isVisible: isVisible, reduceMotion: reduceMotion, delay: delay))
+    }
+}
+
 // MARK: - AuthView
 
 struct AuthView: View {
@@ -23,6 +47,12 @@ struct AuthView: View {
     @StateObject private var viewModel = AuthViewModel()
     @State private var showEmailAuth = false
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Drives the staggered entrance choreography: brand block rises first,
+    /// then the CTA stack, then the skip link. Pure opacity under Reduce Motion.
+    @State private var hasAppeared = false
+
     var body: some View {
         ZStack {
             DSColor.bgWarm
@@ -30,23 +60,36 @@ struct AuthView: View {
 
             GrainOverlay()
 
+            // Museum-aesthetic brand block: mono kicker → serif wordmark →
+            // tagline, matching the sidebar / Today header type ladder
+            // instead of the old grotesque-only lockup. Centered on the full
+            // canvas (deterministic), with the CTA stack pinned to the bottom
+            // edge — the two-Spacer sandwich this replaces distributed the
+            // slack unevenly and left the lockup stranded above the buttons.
+            VStack(spacing: 10) {
+                Text("DAYPAGE · 2026")
+                    .font(DSType.mono10)
+                    .tracking(2.4)
+                    .foregroundColor(DSColor.inkSubtle)
+                    .accessibilityHidden(true)
+
+                Text("DayPage")
+                    .font(DSFonts.serif(size: 40, weight: .semibold))
+                    .foregroundColor(DSColor.inkPrimary)
+
+                Text(NSLocalizedString("auth.tagline", comment: "AuthView brand tagline under DayPage logo"))
+                    .font(DSType.bodySM)
+                    .foregroundColor(DSColor.inkSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            .entrance(hasAppeared, reduceMotion: reduceMotion, delay: 0.05)
+            .padding(.horizontal, 24)
+            // Optically centered: nudged up so the bottom CTA stack doesn't
+            // make the lockup read low on tall screens.
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .offset(y: -40)
+
             VStack(spacing: 0) {
-                Spacer()
-                    .frame(minHeight: 0)
-
-                VStack(spacing: 8) {
-                    Text("DayPage")
-                        .font(.custom("SpaceGrotesk-Bold", size: 32))
-                        .foregroundColor(DSColor.inkPrimary)
-
-                    Text(NSLocalizedString("auth.tagline", comment: "AuthView brand tagline under DayPage logo"))
-                        .font(.custom("SpaceGrotesk-Regular", size: 15))
-                        .foregroundColor(DSColor.inkSecondary)
-                }
-                .frame(maxWidth: .infinity)
-
-                Spacer()
-
                 if let errorText = viewModel.errorMessage {
                     Text(errorText)
                         .font(DSType.bodySM)
@@ -58,24 +101,23 @@ struct AuthView: View {
                         .animation(.easeInOut(duration: 0.2), value: viewModel.errorMessage)
                 }
 
-                VStack(spacing: 0) {
-                    buttonStack
+                buttonStack
+                    .entrance(hasAppeared, reduceMotion: reduceMotion, delay: 0.18)
 
-                    Button {
-                        onSkip?()
-                    } label: {
-                        Text(NSLocalizedString("auth.skip", comment: "AuthView Skip-login button"))
-                            .font(.custom("Inter-Regular", size: 13))
-                            .foregroundColor(DSColor.inkMuted)
-                    }
-                    .padding(.top, 16)
-                    .padding(.bottom, 32)
-                    .accessibilityLabel(NSLocalizedString("auth.skip.a11y", comment: "VoiceOver label for Skip login"))
+                Button {
+                    onSkip?()
+                } label: {
+                    Text(NSLocalizedString("auth.skip", comment: "AuthView Skip-login button"))
+                        .font(.custom("Inter-Regular", size: 13))
+                        .foregroundColor(DSColor.inkMuted)
                 }
-                .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 0) }
+                .padding(.top, 16)
+                .padding(.bottom, 32)
+                .accessibilityLabel(NSLocalizedString("auth.skip.a11y", comment: "VoiceOver label for Skip login"))
+                .entrance(hasAppeared, reduceMotion: reduceMotion, delay: 0.30)
             }
             .padding(.horizontal, 24)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
 
             if viewModel.isLoading {
                 ProgressView()
@@ -85,6 +127,7 @@ struct AuthView: View {
         .task {
             viewModel.bind(authService: authService)
         }
+        .onAppear { hasAppeared = true }
         .transition(.opacity.animation(.easeOut(duration: 0.4)))
         .sheet(isPresented: $showEmailAuth) {
             EmailAuthView()

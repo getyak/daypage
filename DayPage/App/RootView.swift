@@ -228,8 +228,36 @@ struct RootView: View {
                 .frame(width: sidebarWidth)
                 .frame(maxHeight: .infinity)
                 .ignoresSafeArea()
+                // Flatten the drawer into one raster layer BEFORE the big
+                // blur shadow: without this, the 20pt-radius shadow is
+                // recomputed against the drawer's full view hierarchy on
+                // every frame of the slide/drag, which shows up as jank on
+                // the interactive open gesture.
+                .compositingGroup()
                 .shadow(color: Color.black.opacity(0.10), radius: 20, x: 6, y: 0)
                 .offset(x: sidebarOffset)
+                // Close-by-drag from the panel itself. The 1:1 tracking drag
+                // lived only on the scrim, but the scrim is covered by this
+                // 280pt panel — a leftward pull starting ON the drawer (the
+                // most natural close gesture) hit nothing and the drawer sat
+                // frozen until release. Same horizontal-dominance engage rule
+                // as the edge strip so the panel's vertical scroll stays free.
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 12)
+                        .onChanged { value in
+                            if sidebarDragTranslation == nil {
+                                let dx = value.translation.width
+                                let dy = value.translation.height
+                                guard dx < 0, abs(dx) > abs(dy) * 1.2 else { return }
+                            }
+                            sidebarDragTranslation = value.translation.width
+                        }
+                        .onEnded { value in
+                            settleSidebar(
+                                predictedTranslation: value.predictedEndTranslation.width
+                            )
+                        }
+                )
                 // Take the panel out of the accessibility tree when it's off-
                 // screen, otherwise VoiceOver users can still focus Settings /
                 // Recent rows that are visually at negative x coordinates.

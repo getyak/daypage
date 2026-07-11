@@ -169,8 +169,11 @@ struct VoiceRecordingView: View {
                 let level = i < bars.count ? bars[i] : 0.04
                 RoundedRectangle(cornerRadius: 1)
                     .fill(DSColor.amberArchival)
+                    // Bar height maps the live meter level directly — no
+                    // implicit animation. 40 per-bar easeOuts chasing a 30fps
+                    // metering feed made the waveform lag its own input; the
+                    // sliding history window already provides the motion.
                     .frame(width: 3, height: max(4, CGFloat(level) * 32))
-                    .animation(Motion.instant, value: level)
             }
         }
         .frame(height: 36)

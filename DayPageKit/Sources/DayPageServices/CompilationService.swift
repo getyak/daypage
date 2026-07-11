@@ -81,19 +81,37 @@ public final class CompilationService: ObservableObject {
         // BG service / UI can observe the latest result without stale data.
         lastMemoUpdateFailures = 0
 
-        // Step 1: Collect memos
+        // Step 1: Collect memos.
+        // Disk reads + YAML parse + SHA256 hop off the main actor: compile()
+        // itself is @MainActor, and on a 20-memo day this prep block held the
+        // main thread for tens of ms right as the user tapped 编译.
         stage = .extracting
         compilationProgress = .extracting
-        let (memos, rawContent) = try collectMemos(for: date)
+        let dailyURL = dailyPageURL(for: dateString)
+        let (memos, rawContent, sourceHash, storedHash) =
+            try await Task.detached(priority: .userInitiated) {
+                let memos: [Memo]
+                do {
+                    memos = try RawStorage.read(for: date)
+                } catch {
+                    throw CompilationError.parseFailure("读取原始备忘录失败：\(error.localizedDescription)")
+                }
+                guard !memos.isEmpty else {
+                    throw CompilationError.emptyInput
+                }
+                let rawContent = (try? String(contentsOf: RawStorage.fileURL(for: date), encoding: .utf8)) ?? ""
+                let hash = Self.sourceHash(of: memos)
+                let stored = (try? String(contentsOf: dailyURL, encoding: .utf8))
+                    .flatMap { Self.extractSourceHash(from: $0) }
+                return (memos, rawContent, hash, stored)
+            }.value
 
         // Issue #814 cost guard: when the substantive memo content is
         // unchanged since the last compile, skip the LLM round-trip
         // entirely. Checked BEFORE the network/AI guards so an offline
         // no-op request resolves quietly instead of throwing.
-        let sourceHash = Self.sourceHash(of: memos)
         if !force,
-           let existingDaily = try? String(contentsOf: dailyPageURL(for: dateString), encoding: .utf8),
-           let storedHash = Self.extractSourceHash(from: existingDaily),
+           let storedHash,
            storedHash == sourceHash {
             appendLog(
                 timestamp: iso8601Now(),
@@ -211,24 +229,6 @@ public final class CompilationService: ObservableObject {
             }
         }
         return dailyText
-    }
-
-    // MARK: - Step 1: Collect Memos
-
-    /// Reads today's raw memos and the raw file content string.
-    /// - Returns: `(memos, rawFileContent)`
-    private func collectMemos(for date: Date) throws -> ([Memo], String) {
-        let memos: [Memo]
-        do {
-            memos = try RawStorage.read(for: date)
-        } catch {
-            throw CompilationError.parseFailure("读取原始备忘录失败：\(error.localizedDescription)")
-        }
-        guard !memos.isEmpty else {
-            throw CompilationError.emptyInput
-        }
-        let rawContent = rawFileContent(for: date)
-        return (memos, rawContent)
     }
 
     // MARK: - Step 3: Call AI

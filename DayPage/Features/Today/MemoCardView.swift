@@ -26,10 +26,15 @@ struct MemoCardView: View {
     var onRetranscribe: ((Memo, Memo.Attachment) -> Void)? = nil
 
     @State private var showLocationSheet: Bool = false
-    @State private var thumbnail: UIImage?
+    /// Which photo attachment the full-screen viewer is showing (nil = closed).
+    /// item-based so each photo in a multi-photo memo opens its own viewer.
+    struct PhotoViewerTarget: Identifiable {
+        let file: String
+        var id: String { file }
+    }
+    @State private var viewerPhoto: PhotoViewerTarget?
     @State private var downloadStates: [URL: AttachmentDownloadState] = [:]
     @State private var downloadTask: Task<Void, Never>? = nil
-    @State private var showPhotoViewer: Bool = false
 
     /// Hero zoom (iOS 18+): shared between the in-card photo thumbnail
     /// (`matchedTransitionSource`) and the full-screen viewer
@@ -198,49 +203,48 @@ struct MemoCardView: View {
                 }
             }
 
-            // Photo
-            if memo.type == .photo || (memo.type == .mixed && memo.attachments.contains(where: { $0.kind == "photo" })) {
-                if let att = memo.attachments.first(where: { $0.kind == "photo" }) {
-                    let photoURL = VaultInitializer.vaultURL.appendingPathComponent(att.file)
-                    let photoState = attachmentDownloadState(for: photoURL)
-                    switch photoState {
-                    case .current:
-                        PhotoThumbnailView(fileURL: photoURL, thumbnail: $thumbnail, exifText: photoExifText)
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            // Hero zoom source (iOS 18+). Identity = attachment
-                            // relative path — stable per photo, so multi-photo
-                            // memos each zoom from their own thumbnail.
-                            .modifier(PhotoZoomSource(id: att.file, namespace: photoZoomNamespace))
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                Haptics.tapConfirm()
-                                showPhotoViewer = true
+            // Photo — every photo attachment renders, not just the first.
+            // A two-photo memo used to silently drop the second image from
+            // the card (and the viewer), which read as data loss.
+            let photoAtts = memo.attachments.filter { $0.kind == "photo" }
+            ForEach(photoAtts, id: \.file) { att in
+                let photoURL = VaultInitializer.vaultURL.appendingPathComponent(att.file)
+                let photoState = attachmentDownloadState(for: photoURL)
+                switch photoState {
+                case .current:
+                    PhotoThumbnailView(fileURL: photoURL)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        // Hero zoom source (iOS 18+). Identity = attachment
+                        // relative path — stable per photo, so multi-photo
+                        // memos each zoom from their own thumbnail.
+                        .modifier(PhotoZoomSource(id: att.file, namespace: photoZoomNamespace))
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            Haptics.tapConfirm()
+                            viewerPhoto = PhotoViewerTarget(file: att.file)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.top, 14)
+                case .downloading, .notDownloaded, .failed:
+                    PhotoDownloadPlaceholder(state: photoState)
+                        .padding(.top, 4)
+                        .onAppear {
+                            if photoState == .notDownloaded { startDownload(photoURL) }
+                            else if photoState == .failed { startDownload(photoURL) }
+                        }
+                        .onTapGesture {
+                            if photoState == .notDownloaded || photoState == .failed {
+                                startDownload(photoURL)
                             }
-                            .padding(.horizontal, 14)
-                            .padding(.top, 14)
-                            .fullScreenCover(isPresented: $showPhotoViewer) {
-                                if let att = memo.attachments.first(where: { $0.kind == "photo" }) {
-                                    PhotoFullScreenViewer(
-                                        fileURL: VaultInitializer.vaultURL.appendingPathComponent(att.file),
-                                        exifText: photoExifText
-                                    )
-                                    .modifier(PhotoZoomDestination(id: att.file, namespace: photoZoomNamespace))
-                                }
-                            }
-                    case .downloading, .notDownloaded, .failed:
-                        PhotoDownloadPlaceholder(state: photoState)
-                            .padding(.top, 4)
-                            .onAppear {
-                                if photoState == .notDownloaded { startDownload(photoURL) }
-                                else if photoState == .failed { startDownload(photoURL) }
-                            }
-                            .onTapGesture {
-                                if photoState == .notDownloaded || photoState == .failed {
-                                    startDownload(photoURL)
-                                }
-                            }
-                    }
+                        }
                 }
+            }
+            .fullScreenCover(item: $viewerPhoto) { target in
+                PhotoFullScreenViewer(
+                    fileURL: VaultInitializer.vaultURL.appendingPathComponent(target.file),
+                    exifText: PhotoThumbnailView.exifText(forRelativePath: target.file)
+                )
+                .modifier(PhotoZoomDestination(id: target.file, namespace: photoZoomNamespace))
             }
 
             // File attachments
@@ -349,18 +353,6 @@ struct MemoCardView: View {
         return "\(latStr) · \(lngStr)"
     }
 
-    private var photoExifText: String? {
-        guard let att = memo.attachments.first(where: { $0.kind == "photo" }) else { return nil }
-        let filename = URL(fileURLWithPath: att.file).lastPathComponent.uppercased()
-        let fileURL = VaultInitializer.vaultURL.appendingPathComponent(att.file)
-        if let source = CGImageSourceCreateWithURL(fileURL as CFURL, nil),
-           let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any],
-           let exif = props[kCGImagePropertyExifDictionary as String] as? [String: Any],
-           let focal = exif[kCGImagePropertyExifFocalLength as String] as? Double {
-            return "\(filename) // FOCUS: \(Int(focal))mm"
-        }
-        return filename
-    }
 }
 
 // MARK: - Photo hero zoom (iOS 18+)
@@ -1276,8 +1268,13 @@ private let thumbnailCache: NSCache<NSURL, UIImage> = {
 
 struct PhotoThumbnailView: View {
     let fileURL: URL
-    @Binding var thumbnail: UIImage?
-    let exifText: String?
+    /// Self-owned: each thumbnail in a multi-photo memo decodes and caches
+    /// independently (a shared parent binding made siblings overwrite each
+    /// other). EXIF caption loads with the decode, off the main actor —
+    /// reading image properties in the card's `body` was synchronous disk
+    /// I/O on every re-render.
+    @State private var thumbnail: UIImage?
+    @State private var exifText: String?
 
     var body: some View {
         Group {
@@ -1286,11 +1283,18 @@ struct PhotoThumbnailView: View {
                 // crop. Enforce the same aspect with a fill so the museum
                 // timeline keeps a consistent photo rhythm instead of letting
                 // each image dictate its own height.
-                Image(uiImage: thumb)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
+                // The 4:5 frame must be owned by a container with the image as
+                // an overlay: a bare `.fill` image reports its oversized width
+                // up the modifier chain, so `.clipped()` had nothing to clip
+                // and landscape photos blew the card out past the screen edge.
+                Color.clear
                     .frame(maxWidth: .infinity)
                     .aspectRatio(4.0 / 5.0, contentMode: .fit)
+                    .overlay {
+                        Image(uiImage: thumb)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    }
                     .clipped()
             } else {
                 Rectangle()
@@ -1307,10 +1311,15 @@ struct PhotoThumbnailView: View {
             let cacheKey = fileURL as NSURL
             if let cached = thumbnailCache.object(forKey: cacheKey) {
                 if thumbnail !== cached { thumbnail = cached }
-                return
+            } else {
+                thumbnail = nil
+                thumbnail = await loadThumbnailAsync(from: fileURL)
             }
-            thumbnail = nil
-            thumbnail = await loadThumbnailAsync(from: fileURL)
+            // EXIF caption rides the same off-main hop as the decode.
+            let url = fileURL
+            exifText = await Task.detached(priority: .utility) {
+                Self.exifText(for: url)
+            }.value
         }
         .overlay(alignment: .bottom) {
             if let exifText {
@@ -1348,6 +1357,24 @@ struct PhotoThumbnailView: View {
                     .accessibilityHidden(true)
             }
         }
+    }
+
+    /// "IMG_… // FOCUS: 26MM" caption. Metadata-only read (no pixel decode),
+    /// but still disk I/O — call off the main actor.
+    static func exifText(for fileURL: URL) -> String? {
+        let filename = fileURL.lastPathComponent.uppercased()
+        if let source = CGImageSourceCreateWithURL(fileURL as CFURL, nil),
+           let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any],
+           let exif = props[kCGImagePropertyExifDictionary as String] as? [String: Any],
+           let focal = exif[kCGImagePropertyExifFocalLength as String] as? Double {
+            return "\(filename) // FOCUS: \(Int(focal))mm"
+        }
+        return filename
+    }
+
+    /// Convenience for callers that hold a vault-relative path (viewer).
+    static func exifText(forRelativePath relative: String) -> String? {
+        exifText(for: VaultInitializer.vaultURL.appendingPathComponent(relative))
     }
 
     private func loadThumbnailAsync(from url: URL) async -> UIImage? {

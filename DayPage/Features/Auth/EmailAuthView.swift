@@ -68,7 +68,7 @@ struct EmailAuthView: View {
                 Spacer().frame(height: 32)
 
                 Text("Enter your email")
-                    .font(.custom("SpaceGrotesk-Bold", size: 24))
+                    .font(DSFonts.serif(size: 26, weight: .semibold))
                     .foregroundColor(DSColor.inkPrimary)
 
                 Spacer().frame(height: 8)
@@ -96,9 +96,16 @@ struct EmailAuthView: View {
                     .background(DSColor.surfaceWhite)
                     .cornerRadius(12)
                     .overlay(
+                        // Amber focus ring — the field is the only actionable
+                        // element on this stage, so it should visibly "own"
+                        // focus instead of relying on the caret alone.
                         RoundedRectangle(cornerRadius: 12)
-                            .stroke(DSColor.inkFaint, lineWidth: 1)
+                            .stroke(
+                                emailFocused ? DSColor.accentOnBg : DSColor.inkFaint,
+                                lineWidth: emailFocused ? 1.5 : 1
+                            )
                     )
+                    .animation(Motion.fade, value: emailFocused)
 
                 Spacer().frame(height: 16)
 

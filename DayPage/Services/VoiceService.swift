@@ -243,9 +243,16 @@ final class VoiceService: NSObject, ObservableObject {
         }
 
         do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
-            try session.setActive(true)
+            // setCategory/setActive block for hundreds of ms (seconds on a
+            // cold audio stack). Running them on the main actor both froze
+            // the UI and delayed the actual start of capture — a 4s press
+            // could end up with <1s of audio. Hop off the main actor; the
+            // AVAudioSession API is thread-safe.
+            try await Task.detached(priority: .userInitiated) {
+                let session = AVAudioSession.sharedInstance()
+                try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetooth])
+                try session.setActive(true)
+            }.value
         } catch {
             state = .failed("音频会话初始化失败：\(error.localizedDescription)")
             return

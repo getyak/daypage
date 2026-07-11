@@ -13,6 +13,10 @@ struct SidebarView: View {
     @State private var showSettings = false
     @State private var showAccountSheet = false
 
+    /// Disclosure state for the Recent jump list — collapsed by default so
+    /// the drawer opens to a single, calm screen (heatmap + stats + nav).
+    @AppStorage("sidebar.recentExpanded") private var recentExpanded = false
+
     var body: some View {
         ZStack(alignment: .topLeading) {
             // Liquid Glass drawer — dual-track (Phase 2 demo).
@@ -469,15 +473,67 @@ struct SidebarView: View {
     /// "Commit history" style list: the most recent days that actually have
     /// memos, tapping a row jumps straight to that day's detail view in
     /// Archive. Refreshed on every sidebar open via `refreshRecentDays()`.
+    ///
+    /// Collapsed by default — the heatmap above already tells the "recent
+    /// activity" story at a glance, so seven always-on list rows were
+    /// redundant weight that forced the drawer to scroll. The disclosure
+    /// state persists across launches for users who want the jump list open.
     private var recentSection: some View {
         VStack(alignment: .leading, spacing: 2) {
-            sectionLabel("Recent")
+            recentDisclosureRow
 
-            ForEach(sidebarVM.recentDays) { day in
-                recentRow(day: day)
+            if recentExpanded {
+                ForEach(sidebarVM.recentDays) { day in
+                    recentRow(day: day)
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .padding(.horizontal, 12)
+        .clipped()  // keep collapsing rows from sliding over the section below
+    }
+
+    /// Section header doubling as the expand/collapse control: mono label +
+    /// day count + rotating chevron, styled like `sectionLabel` so the
+    /// museum-aesthetic ladder stays intact.
+    private var recentDisclosureRow: some View {
+        Button {
+            Haptics.soft()
+            withAnimation(Motion.respectReduceMotion(Motion.expand)) {
+                recentExpanded.toggle()
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Text("Recent")
+                    .font(DSType.mono9)
+                    .foregroundColor(DSColor.inkSubtle)
+                    .tracking(1.2)
+                    .textCase(.uppercase)
+                Text("\(sidebarVM.recentDays.count)")
+                    .font(DSType.mono9)
+                    .foregroundColor(DSColor.inkMuted)
+                    .padding(.horizontal, 5)
+                    .padding(.vertical, 1)
+                    .background(DSColor.amberSoft, in: Capsule())
+                Spacer()
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundColor(DSColor.inkSubtle)
+                    .rotationEffect(.degrees(recentExpanded ? 0 : -90))
+            }
+            .padding(.leading, 34)  // align with row text column (2 + 12 + 20)
+            .padding(.trailing, 16)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(NSLocalizedString("sidebar.recent", comment: "Recent section toggle"))
+        .accessibilityValue(recentExpanded
+            ? NSLocalizedString("a11y.expanded", comment: "Disclosure expanded state")
+            : NSLocalizedString("a11y.collapsed", comment: "Disclosure collapsed state"))
+        .accessibilityHint(NSLocalizedString("sidebar.recent.hint", comment: "Recent toggle hint"))
+        .accessibilityAddTraits(.isButton)
     }
 
     private func recentRow(day: RecentDay) -> some View {
