@@ -24,12 +24,19 @@ public struct TimelineDayEntry: Identifiable, Equatable {
     /// nil/empty when the day has not been AI-compiled yet.
     public let summary: String?
 
+    /// First non-empty line of the day's earliest memo. Gives an
+    /// uncompiled day a content scent in the timeline row instead of a
+    /// serif date that would duplicate the nameplate. nil when the day's
+    /// memos carry no text (e.g. photo-only captures).
+    public let excerpt: String?
+
     public var id: String { dateString }
 
     public static func == (lhs: TimelineDayEntry, rhs: TimelineDayEntry) -> Bool {
         lhs.dateString == rhs.dateString &&
         lhs.memoCount == rhs.memoCount &&
-        lhs.summary == rhs.summary
+        lhs.summary == rhs.summary &&
+        lhs.excerpt == rhs.excerpt
     }
 }
 
@@ -136,7 +143,8 @@ public enum TimelineService {
                 dateString: stem,
                 date: date,
                 memoCount: memos.count,
-                summary: summary(forDateString: stem, dailyDir: dailyDir)
+                summary: summary(forDateString: stem, dailyDir: dailyDir),
+                excerpt: excerpt(from: memos)
             ))
         }
 
@@ -162,8 +170,22 @@ public enum TimelineService {
             dateString: stem,
             date: date,
             memoCount: memos.count,
-            summary: summary(forDateString: stem, dailyDir: dailyDir)
+            summary: summary(forDateString: stem, dailyDir: dailyDir),
+            excerpt: excerpt(from: memos)
         )
+    }
+
+    /// First non-empty line of the day's earliest memo, capped so the index
+    /// stays lightweight. Used by the timeline row as the lede for days that
+    /// have no compiled summary yet.
+    nonisolated private static func excerpt(from memos: [Memo]) -> String? {
+        guard let earliest = memos.min(by: { $0.created < $1.created }) else { return nil }
+        let line = earliest.body
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .first { !$0.isEmpty }
+        guard let line, !line.isEmpty else { return nil }
+        return String(line.prefix(120))
     }
 
     /// Reads the compiled daily-page `summary:` for a day, if compiled.
