@@ -69,6 +69,11 @@ public struct Memo: Identifiable, Equatable {
     public var attachments: [Attachment]
     public var mood: String?
     public var entityMentions: [String]
+    /// AI marginalia — one restrained observation written back by the daily
+    /// compilation (an old friend's note in the page margin, not a summary).
+    /// Compilation-writeback field: MUST stay excluded from
+    /// `CompilationService.sourceHash` or every compile dirties its own input.
+    public var marginNote: String?
     public var body: String
 
     // MARK: Init
@@ -84,6 +89,7 @@ public struct Memo: Identifiable, Equatable {
         attachments: [Attachment] = [],
         mood: String? = nil,
         entityMentions: [String] = [],
+        marginNote: String? = nil,
         body: String = ""
     ) {
         self.id = id
@@ -96,6 +102,7 @@ public struct Memo: Identifiable, Equatable {
         self.attachments = attachments
         self.mood = mood
         self.entityMentions = entityMentions
+        self.marginNote = marginNote
         self.body = body
     }
 }
@@ -142,6 +149,10 @@ extension Memo {
 
         if let m = mood {
             lines.append("mood: \(yamlQuote(m))")
+        }
+
+        if let mn = marginNote {
+            lines.append("margin_note: \(yamlQuote(mn))")
         }
 
         if entityMentions.isEmpty {
@@ -245,6 +256,7 @@ extension Memo {
         let weather = fm.scalar("weather")
         let device = fm.scalar("device")
         let mood = fm.scalar("mood")
+        let marginNote = fm.scalar("margin_note")
         // YAMLParser.sequence(_:) returns Optional<[String]>; the Memo init
         // takes a non-optional [String], so default to an empty array when the
         // key is missing or explicitly `entity_mentions: []`.
@@ -280,6 +292,7 @@ extension Memo {
             attachments: attachments,
             mood: mood,
             entityMentions: entityMentions,
+            marginNote: marginNote,
             body: body
         )
     }

@@ -389,6 +389,7 @@
 "memo.detail.section.photo" = "照片";
 "memo.detail.section.location" = "位置";
 "memo.detail.section.files" = "文件";
+"memo.detail.section.echoes" = "回声";
 "memo.detail.section.metadata" = "元数据";
 
 /* Metadata field labels */

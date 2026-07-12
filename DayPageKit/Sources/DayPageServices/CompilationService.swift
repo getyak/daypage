@@ -173,10 +173,11 @@ public final class CompilationService: ObservableObject {
     // MARK: - Source Hash (issue #814)
 
     /// Deterministic SHA-256 over the *substantive* memo content: id + body
-    /// + attachment file names / transcripts. Deliberately EXCLUDES mood and
-    /// entityMentions — `applyMemoUpdates` writes those two fields back into
-    /// the raw file right after a successful compile, so hashing them would
-    /// mark every freshly compiled day as stale (infinite recompile loop).
+    /// + attachment file names / transcripts. Deliberately EXCLUDES mood,
+    /// entityMentions and marginNote — `applyMemoUpdates` writes those fields
+    /// back into the raw file right after a successful compile, so hashing
+    /// them would mark every freshly compiled day as stale (infinite
+    /// recompile loop).
     /// Sorted by memo id so pin-reordering / file rewrites don't change it.
     nonisolated public static func sourceHash(of memos: [Memo]) -> String {
         let canonical = memos
@@ -293,6 +294,8 @@ public final class CompilationService: ObservableObject {
         let mood: String?
         let entityMentions: [String]
         let dateReferences: [String]
+        /// Issue #835 marginalia — one restrained observation, or nil.
+        let marginNote: String?
     }
 
     /// Parsed output from the LLM response.
@@ -356,12 +359,14 @@ public final class CompilationService: ObservableObject {
             let mood = (update["mood"] as? String).flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             let entityMentions = (update["entity_mentions"] as? [String]) ?? []
             let dateReferences = (update["date_references"] as? [String]) ?? []
-            guard mood != nil || !entityMentions.isEmpty || !dateReferences.isEmpty else { continue }
+            let marginNote = (update["margin_note"] as? String).flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            guard mood != nil || !entityMentions.isEmpty || !dateReferences.isEmpty || marginNote != nil else { continue }
             results.append(MemoUpdateInstruction(
                 memoID: uuid,
                 mood: mood,
                 entityMentions: entityMentions,
-                dateReferences: dateReferences
+                dateReferences: dateReferences,
+                marginNote: marginNote
             ))
         }
         return results
@@ -482,6 +487,10 @@ public final class CompilationService: ObservableObject {
                     memo.entityMentions = merged
                     thisMemoChanged = true
                 }
+            }
+            if let note = update.marginNote, !note.isEmpty, note != memo.marginNote {
+                memo.marginNote = note
+                thisMemoChanged = true
             }
             memos[idx] = memo
             if thisMemoChanged { changedCount += 1 }
@@ -676,7 +685,8 @@ public final class CompilationService: ObservableObject {
               "memo_id": "<UUID from the memo's id: field>",
               "mood": "<one-word mood in Chinese, e.g. 愉快>",
               "entity_mentions": ["slug-one", "slug-two"],
-              "date_references": ["2026-01-10", "last week"]
+              "date_references": ["2026-01-10", "last week"],
+              "margin_note": "<optional: one restrained observation in Chinese, see rules>"
             }
           ],
           "hot_cache": "<short-term memory summary in Chinese, ~500 chars>"
@@ -745,6 +755,13 @@ public final class CompilationService: ObservableObject {
         - mood: one Chinese word capturing this memo's emotional tone (e.g. 愉快、焦虑、平静、兴奋)
         - entity_mentions: list of entity slugs (lowercase-hyphenated) explicitly or implicitly referenced in this memo
         - date_references: any explicit date strings or relative date expressions found in the memo body (e.g. "2026-01-10", "上周", "明天")
+        - margin_note (OPTIONAL, use sparingly): one short Chinese sentence (≤40 chars)
+          written like an old friend's pencil note in the page margin. It must be an
+          OBSERVATION that connects this memo to a pattern you can actually see in the
+          short-term memory context or today's other memos (e.g. "这是你本月第三次在凌晨
+          谈'收敛'"). NEVER a summary or restatement of the memo, never advice, never
+          praise, no emoji. At most 1-2 memos per day deserve one — when in doubt, omit
+          the key entirely. A wrong or generic note is worse than none.
         - Only include entries for memos where at least one field is non-empty
         - Omit memo_updates entirely if no memos have extractable mood or date references
 

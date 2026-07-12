@@ -361,6 +361,7 @@
 "memo.detail.section.photo" = "Photo";
 "memo.detail.section.location" = "Location";
 "memo.detail.section.files" = "Files";
+"memo.detail.section.echoes" = "Echoes";
 "memo.detail.section.metadata" = "Metadata";
 
 /* Metadata field labels */
