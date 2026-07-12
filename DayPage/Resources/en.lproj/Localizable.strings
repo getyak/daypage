@@ -392,6 +392,12 @@
 "memo.detail.location.open_maps" = "Open in Apple Maps";
 "memo.detail.photo.tap_fullscreen" = "Tap to view full screen";
 
+"memo.detail.nav.back.daily" = "Daily";
+
+/* Ask past self (detail CTA) */
+"memo.detail.ask_past" = "Ask your past self";
+"memo.detail.ask_past.question" = "About this memo (%@) — why did I think this at the time?";
+
 /* Archive — async month loading (US-015) */
 "archive.loading_month" = "Loading…";
 

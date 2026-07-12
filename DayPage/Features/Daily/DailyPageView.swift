@@ -108,7 +108,15 @@ struct DailyPageView: View {
             }
             .navigationDestination(for: Memo.ID.self) { memoID in
                 if let memo = memoVM.memos.first(where: { $0.id == memoID }) {
-                    MemoDetailView(memo: memo, vm: memoVM)
+                    MemoDetailView(
+                        memo: memo,
+                        vm: memoVM,
+                        backLabel: NSLocalizedString(
+                            "memo.detail.nav.back.daily",
+                            value: "Daily",
+                            comment: "Detail view — back label when pushed from a daily page"
+                        )
+                    )
                 } else {
                     Text(NSLocalizedString("memo.not_found", comment: "Memo missing fallback")).foregroundColor(DSColor.inkMuted)
                 }

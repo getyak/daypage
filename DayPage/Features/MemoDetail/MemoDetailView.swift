@@ -11,6 +11,14 @@ struct MemoDetailView: View {
 
     let memo: Memo
     let vm: any MemoDetailViewModel
+    /// Back-button label — defaults to "Today" for the Today-feed entry;
+    /// other hosts (DailyPageView) pass their own so the button never lies
+    /// about where dismissal lands.
+    var backLabel: String = NSLocalizedString(
+        "memo.detail.nav.back",
+        value: "Today",
+        comment: "Detail view — back-to-today button label"
+    )
 
     @Environment(\.dismiss) private var dismiss
     @State private var fullResImage: UIImage?
@@ -50,11 +58,7 @@ struct MemoDetailView: View {
                             HStack(spacing: 6) {
                                 Image(systemName: "chevron.left")
                                     .font(.system(size: 13, weight: .medium))
-                                Text(NSLocalizedString(
-                                    "memo.detail.nav.back",
-                                    value: "Today",
-                                    comment: "Detail view — back-to-today button label"
-                                ))
+                                Text(backLabel)
                                     .font(DSType.bodySM)
                             }
                             .foregroundColor(DSColor.inkMuted)
@@ -252,13 +256,18 @@ struct MemoDetailView: View {
                     // context. The action fires the standard
                     // `daypage://ask?q=` URL so navModel + RootView keep
                     // authoritative — no new sheet plumbing here.
-                    Divider()
-                        .background(DSColor.inkFaint)
-                        .padding(.vertical, 20)
-
+                    // No divider above: the amber card is self-delimiting, and
+                    // a rule here boxed the CTA between two full-width lines.
                     Button {
                         Haptics.tapConfirm()
-                        let question = "关于这条 memo（\(memo.body.prefix(60))），我当时为什么这么想？"
+                        let question = String(
+                            format: NSLocalizedString(
+                                "memo.detail.ask_past.question",
+                                value: "About this memo (%@) — why did I think this at the time?",
+                                comment: "Detail view — seeded question sent to Ask Past chat; %@ is the memo body prefix"
+                            ),
+                            String(memo.body.prefix(60))
+                        )
                         if let encoded = question.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
                            let url = URL(string: "daypage://ask?q=\(encoded)") {
                             UIApplication.shared.open(url)
@@ -268,7 +277,11 @@ struct MemoDetailView: View {
                             Image(systemName: "sparkles")
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundColor(DSColor.accentOnBg)
-                            Text("追问过去的自己")
+                            Text(NSLocalizedString(
+                                "memo.detail.ask_past",
+                                value: "Ask your past self",
+                                comment: "Detail view — ask-past-self CTA label"
+                            ))
                                 .font(DSType.bodySM)
                                 .foregroundColor(DSColor.accentOnBg)
                             Spacer()
@@ -287,6 +300,7 @@ struct MemoDetailView: View {
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("memo.detail.ask.past")
+                    .padding(.top, 28)
 
                     // MARK: Metadata Section
                     Divider()
@@ -516,10 +530,20 @@ private struct DetailLocationSection: View {
             VStack(alignment: .leading, spacing: 0) {
                 // Map preview
                 if let coord = coordinate {
+                    // 180pt keeps the map a contextual footnote — at 260 it
+                    // dominated the page over the journal text itself. Top-only
+                    // corners: the map sits flush inside the card, so rounding
+                    // its bottom edge opened hairline gaps mid-card.
                     MapPreviewView(coordinate: coord)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 260)
-                        .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
+                        .frame(height: 180)
+                        .clipShape(UnevenRoundedRectangle(
+                            topLeadingRadius: DSRadius.md,
+                            bottomLeadingRadius: 0,
+                            bottomTrailingRadius: 0,
+                            topTrailingRadius: DSRadius.md,
+                            style: .continuous
+                        ))
                 } else {
                     ZStack {
                         RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
@@ -567,7 +591,7 @@ private struct DetailLocationSection: View {
                         Spacer()
                         Image(systemName: "arrow.up.right")
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(DSColor.inkSubtle)
+                            .foregroundColor(DSColor.accentOnBg.opacity(0.65))
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 14)
@@ -770,10 +794,15 @@ private struct DetailMetadataSection: View {
             // Body stats — only shown when there is actual body text
             if !bodyTrimmed.isEmpty {
                 let stats = bodyStats(for: bodyTrimmed)
-                metaRow(
-                    label: NSLocalizedString("memo.detail.meta.words", comment: ""),
-                    value: "\(stats.wordCount)"
-                )
+                // Pure-CJK text tokenizes one word per character, so the two
+                // rows would repeat the same number — show words only when
+                // the counts actually diverge.
+                if stats.wordCount != stats.charCount {
+                    metaRow(
+                        label: NSLocalizedString("memo.detail.meta.words", comment: ""),
+                        value: "\(stats.wordCount)"
+                    )
+                }
                 metaRow(
                     label: NSLocalizedString("memo.detail.meta.characters", comment: ""),
                     value: "\(stats.charCount)"

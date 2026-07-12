@@ -420,6 +420,13 @@
 "memo.detail.location.open_maps" = "在 Apple 地图中打开";
 "memo.detail.photo.tap_fullscreen" = "点击查看全屏";
 
+/* memo.detail.nav.back.daily intentionally untranslated — nav chrome stays
+   English-mono across locales (FINDING-010 convention, same as "Today"). */
+
+/* Ask past self (detail CTA) */
+"memo.detail.ask_past" = "追问过去的自己";
+"memo.detail.ask_past.question" = "关于这条 memo（%@），我当时为什么这么想？";
+
 /* Archive — async month loading (US-015) */
 "archive.loading_month" = "加载中…";
 
