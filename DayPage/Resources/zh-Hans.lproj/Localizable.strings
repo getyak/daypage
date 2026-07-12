@@ -750,6 +750,10 @@
 "today.badge.ai_off"                         = "AI 已关闭 · 仅本地";
 "today.badge.offline"                        = "离线 · 仅本地";
 
+/* Today — 单行同步/登录提示 */
+"today.sync.prompt"                          = "多设备同步与备份";
+"today.sync.action"                          = "登录";
+
 /* 图谱 — 搜索辅助 */
 "graph.search.clear.a11y"                    = "清除搜索";
 
@@ -988,7 +992,6 @@
 "tutorial.dismiss.hint"      = "关闭新手引导";
 
 /* Round-3 — MemoCard 状态文案（之前硬编码英文） */
-"memocard.digest.ready"      = "今日摘要已生成。";
 "memocard.state.ready"       = "可以编译了";
 "memocard.state.captured"    = "今日已捕获 %d 条信号";
 "memocard.state.empty"       = "开始记录";

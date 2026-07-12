@@ -102,10 +102,12 @@ struct TimelineSectionView: View {
         }
     }
 
-    /// Right mono caption — "BY DAY · N条". app.jsx:598-601, 614.
+    /// Right mono caption — "BY DAY · N". app.jsx:598-601, 614.
+    /// Pure mono-English, matching the untranslated MEMOS/WORDS row labels
+    /// (FINDING-010 convention) — no mixed-script "N 条" tail.
     private var headerSub: String {
         let n = section.days.count
-        return "BY DAY · \(n) 条"
+        return "BY DAY · \(n)"
     }
 }
 
@@ -339,11 +341,18 @@ struct TimelineDayRow: View {
             }
             if let lede = displayLede {
                 TimelineSpine.RowLede(text: lede)
-                    .padding(.top, 10)        // app.jsx:656 margin:'10px 0 0'
+                    // app.jsx:656 margin:'10px 0 0' — only under a title;
+                    // an uncompiled row's excerpt starts flush at the top.
+                    .padding(.top, displayTitle == nil ? 0 : 10)
                     .lineLimit(3)
             }
-            TimelineSpine.RowMeta(tags: metaTags, right: { wordsRight })
-                .padding(.top, 14)            // app.jsx:705 marginTop:14
+            TimelineSpine.RowMeta(tags: metaTags, right: {
+                // Word count only for compiled prose. Uncompiled days used
+                // to fall back to memoCount here, printing "3 MEMOS … 3
+                // WORDS" — fabricated data that always mirrored the left tag.
+                if hasSummary { wordsRight }
+            })
+            .padding(.top, 14)                // app.jsx:705 marginTop:14
         }
         .padding(.leading, 6)                 // app.jsx:645 paddingLeft:6
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -570,23 +579,29 @@ struct TimelineDayRow: View {
 
     // MARK: Derived content
 
-    /// Compiled summary acts as the serif title (the day's "成稿" headline).
-    /// Falls back to the formatted date when the day hasn't compiled yet so
-    /// the row still reads as a museum plate rather than an empty card.
-    private var displayTitle: String? {
-        if let summary = entry.summary, !summary.isEmpty {
-            // First sentence / line as the title; keeps the serif headline tight.
-            let firstLine = summary
-                .split(whereSeparator: { $0 == "\n" || $0 == "。" })
-                .first.map(String.init) ?? summary
-            return firstLine
-        }
-        return longDateLabel
+    private var hasSummary: Bool {
+        guard let summary = entry.summary else { return false }
+        return !summary.isEmpty
     }
 
-    /// Lede only when a compiled summary spills past its title line.
-    private var displayLede: String? {
+    /// Compiled summary acts as the serif title (the day's "成稿" headline).
+    /// Uncompiled days get NO serif title — the nameplate already states the
+    /// date, and repeating it at 20pt serif was pure duplication. The serif
+    /// voice is reserved for compiled prose; drafts speak through the lede.
+    private var displayTitle: String? {
         guard let summary = entry.summary, !summary.isEmpty else { return nil }
+        // First sentence / line as the title; keeps the serif headline tight.
+        return summary
+            .split(whereSeparator: { $0 == "\n" || $0 == "。" })
+            .first.map(String.init) ?? summary
+    }
+
+    /// Lede: the compiled summary's spill-over — or, for uncompiled days,
+    /// the first memo's opening line so the row smells of real content.
+    private var displayLede: String? {
+        guard let summary = entry.summary, !summary.isEmpty else {
+            return entry.excerpt
+        }
         guard let title = displayTitle, summary.count > title.count + 1 else { return nil }
         let remainder = summary.dropFirst(title.count)
             .drop(while: { $0 == "\n" || $0 == "。" || $0 == " " })
@@ -609,14 +624,6 @@ struct TimelineDayRow: View {
     // a `DateFormatter()` alloc there is one of Foundation's most expensive
     // per-frame costs and showed up as visible scroll hitching.
 
-    /// Localized "M月d日" — user-locale, so it can't live in the POSIX-only
-    /// shared `DateFormatters` cache. Cached statically here instead.
-    private static let localizedMonthDay: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "M月d日"
-        f.locale = Locale.current
-        return f
-    }()
 
     private var weekdayLabel: String {
         DateFormatters.weekdayShort.string(from: entry.date).uppercased()
@@ -625,10 +632,6 @@ struct TimelineDayRow: View {
     /// Display date for the nameplate — mirrors web's `item.date` (e.g. 05.30).
     private var monthDayLabel: String {
         DateFormatters.monthDayDotted.string(from: entry.date)
-    }
-
-    private var longDateLabel: String {
-        Self.localizedMonthDay.string(from: entry.date)
     }
 
     private var memoCountTag: String {
@@ -640,9 +643,10 @@ struct TimelineDayRow: View {
     }
 
     /// CJK-aware word count using the canonical counter from TodayViewModel.
-    /// Falls back to memo count when no compiled summary is available.
+    /// Only meaningful for compiled days — callers must gate on `hasSummary`
+    /// (never fabricate a count from memoCount; see the RowMeta note).
     private var approxWordCount: Int {
-        guard let summary = entry.summary, !summary.isEmpty else { return entry.memoCount }
+        guard let summary = entry.summary, !summary.isEmpty else { return 0 }
         return TodayViewModel.wordCount(in: summary)
     }
 
@@ -668,7 +672,9 @@ struct TimelineDayRow: View {
     }
 
     private var accessibilityLabel: String {
-        let summaryText = entry.summary.flatMap { $0.isEmpty ? nil : $0 } ?? memoCountTag
+        let summaryText = entry.summary.flatMap { $0.isEmpty ? nil : $0 }
+            ?? entry.excerpt
+            ?? memoCountTag
         return "\(entry.dateString), \(summaryText)"
     }
 }

@@ -120,6 +120,12 @@ struct TodayView: View {
 
     /// Whether the daily page card is swiped open to reveal the recompile action.
     @State private var dailyPageRevealed: Bool = false
+    /// Whether the recompile action chip behind the Daily Page card is
+    /// mounted visibly. The card surface is 85%-translucent glass, so the
+    /// amber chip must stay at opacity 0 while the card is at rest —
+    /// otherwise it bleeds through the blur as an orange smear and its
+    /// square corners peek past the card's rounded ones.
+    @State private var dailyPageActionVisible: Bool = false
 
     /// Session-only flag: true once the "restored unsent draft" banner has been shown this session.
     @State private var draftRestoredBannerShown: Bool = false
@@ -1130,28 +1136,62 @@ struct TodayView: View {
         }
     }
 
+    /// Museum-language sign-in prompt: one quiet mono line instead of the
+    /// old two-line DSBanner card. Backup is plumbing — it may whisper from
+    /// the status slot, but it must never outrank the day's own content
+    /// (same voice as `modeBadge`: dot + mono uppercase + glass capsule).
     private var syncBanner: some View {
-        DSBanner(
-            kind: .info,
-            title: "Sync your journal across devices",
-            subtitle: "Sign in to back up your notes",
-            primaryAction: (label: "Sync", action: { showAuthSheet = true }),
-            onDismiss: {
-                withAnimation { showSyncBanner = false }
-                UserDefaults.standard.set(Date(), forKey: AppSettings.Keys.lastSyncBannerDate)
+        HStack(spacing: 8) {
+            Circle()
+                .fill(DSColor.accentOnBg.opacity(0.55))
+                .frame(width: 5, height: 5)
+            Text(NSLocalizedString("today.sync.prompt", value: "SYNC ACROSS DEVICES", comment: "One-line sign-in prompt on Today"))
+                .font(DSType.mono10)
+                .tracking(1.2)
+                .foregroundColor(DSColor.inkSubtle)
+                .lineLimit(1)
+            Spacer(minLength: 12)
+            Button {
+                showAuthSheet = true
+            } label: {
+                Text(NSLocalizedString("today.sync.action", value: "SIGN IN", comment: "Sign-in action on the sync prompt"))
+                    .font(DSType.mono10)
+                    .tracking(1.2)
+                    .foregroundColor(DSColor.accentOnBg)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
             }
-        )
+            .buttonStyle(.plain)
+            Button {
+                dismissSyncBanner()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundColor(DSColor.inkMuted)
+                    .frame(width: 36, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(L10n.Banner.closeA11y)
+        }
+        .padding(.leading, 14)
+        .background(Capsule().fill(DSColor.glassLo))
+        .overlay(Capsule().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
         .padding(.horizontal, DSSpacing.pageMargin)
         .padding(.bottom, DSSpacing.xs)
         .gesture(
             DragGesture(minimumDistance: 20)
                 .onEnded { value in
                     if value.translation.height < -10 {
-                        withAnimation { showSyncBanner = false }
-                        UserDefaults.standard.set(Date(), forKey: AppSettings.Keys.lastSyncBannerDate)
+                        dismissSyncBanner()
                     }
                 }
         )
+    }
+
+    private func dismissSyncBanner() {
+        withAnimation { showSyncBanner = false }
+        UserDefaults.standard.set(Date(), forKey: AppSettings.Keys.lastSyncBannerDate)
     }
 
     // MARK: - AI key missing banner (R3 — A2)
@@ -1838,8 +1878,10 @@ struct TodayView: View {
         if !viewModel.memos.isEmpty && viewModel.loadState == .ready && !viewModel.timelineSections.isEmpty {
             // Quiet breathing room replaces the redundant "EARLIER" rule —
             // the timeline's own SectionHeader (本周/上周) already separates bands.
+            // 12 here + the SectionHeader's own 20 top padding lands the
+            // page's section rhythm on a single 32pt beat.
             Color.clear
-                .frame(height: 20)
+                .frame(height: 12)
                 .accessibilityLabel(Text(NSLocalizedString("today.section.earlier", comment: "")))
             ForEach(viewModel.timelineSections) { section in
                 TimelineSectionView(
@@ -1945,18 +1987,27 @@ struct TodayView: View {
                     withAnimation(Motion.spring) {
                         dailyPageRevealed = false
                     }
+                    hideDailyPageActionSoon()
                     viewModel.compile()
                 } label: {
                     Text(NSLocalizedString("today.action.recompile", comment: ""))
                         .font(DSType.caption)
                         .foregroundColor(.white)
-                        .frame(width: 80)
+                        .frame(width: 72)
                         .frame(maxHeight: .infinity)
-                        .background(DSColor.accentAmber)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(DSColor.accentAmber)
+                        )
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(NSLocalizedString("a11y.recompile", comment: "Recompile daily page"))
             }
+            // Invisible until a swipe (or the one-time hint) actually starts:
+            // the glass card above is translucent, so a permanently-mounted
+            // amber panel bleeds through at rest (#audit — orange smear +
+            // exposed square corners on the compiled card).
+            .opacity(dailyPageActionVisible ? 1 : 0)
 
             DailyPageEntryCard(
                 summary: viewModel.dailyPageSummary,
@@ -1966,6 +2017,7 @@ struct TodayView: View {
                         withAnimation(Motion.spring) {
                             dailyPageRevealed = false
                         }
+                        hideDailyPageActionSoon()
                     } else {
                         Haptics.tapConfirm()
                         showDailyPage = true
@@ -1979,6 +2031,7 @@ struct TodayView: View {
                 withAnimation(Motion.spring) {
                     dailyPageRevealed = false
                 }
+                hideDailyPageActionSoon()
             }
             .offset(x: (dailyPageRevealed ? -80 : 0) + dailyPageDrag + dailyPageHintOffset)
             .onAppear {
@@ -1987,10 +2040,12 @@ struct TodayView: View {
                 UserDefaults.standard.set(true, forKey: AppSettings.Keys.dailyPageSwipeHintShown)
                 Task { @MainActor in
                     try? await Task.sleep(for: .seconds(0.6))
+                    dailyPageActionVisible = true
                     withAnimation(Motion.spring) { dailyPageHintOffset = -24 }
                     Haptics.soft()
                     try? await Task.sleep(for: .seconds(0.45))
                     withAnimation(Motion.spring) { dailyPageHintOffset = 0 }
+                    hideDailyPageActionSoon()
                 }
             }
             .highPriorityGesture(
@@ -2004,8 +2059,14 @@ struct TodayView: View {
                         withAnimation(Motion.spring) {
                             dailyPageRevealed = value.translation.width < -44
                         }
+                        if !dailyPageRevealed {
+                            hideDailyPageActionSoon()
+                        }
                     }
             )
+            .onChange(of: dailyPageDrag) { drag in
+                if drag < 0 { dailyPageActionVisible = true }
+            }
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(NSLocalizedString("a11y.daily_page", comment: "Daily page card"))
@@ -2014,7 +2075,21 @@ struct TodayView: View {
         .accessibilityAction { showDailyPage = true }
         .accessibilityAction(named: Text(NSLocalizedString("today.action.recompile", comment: ""))) {
             dailyPageRevealed = false
+            hideDailyPageActionSoon()
             viewModel.compile()
+        }
+    }
+
+    /// Fades the recompile chip out shortly after the card snaps shut —
+    /// the delay lets the spring cover the chip's footprint first so the
+    /// dismissal never flashes a cream hole where amber used to be.
+    private func hideDailyPageActionSoon() {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(0.35))
+            guard !dailyPageRevealed, dailyPageDrag == 0 else { return }
+            withAnimation(.easeOut(duration: 0.2)) {
+                dailyPageActionVisible = false
+            }
         }
     }
 

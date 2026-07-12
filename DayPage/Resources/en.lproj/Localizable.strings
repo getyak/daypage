@@ -746,6 +746,10 @@
 "today.badge.ai_off"                         = "AI off · local only";
 "today.badge.offline"                        = "Offline · local only";
 
+/* Today — one-line sync/sign-in prompt */
+"today.sync.prompt"                          = "SYNC ACROSS DEVICES";
+"today.sync.action"                          = "SIGN IN";
+
 /* Graph — search a11y */
 "graph.search.clear.a11y"                    = "Clear search";
 
@@ -984,7 +988,6 @@
 "tutorial.dismiss.hint"      = "Dismisses the tutorial";
 
 /* Round-3 — MemoCard state copy (was hardcoded English) */
-"memocard.digest.ready"      = "Your daily digest is ready.";
 "memocard.state.ready"       = "Ready to compile";
 "memocard.state.captured"    = "%d signals captured today";
 "memocard.state.empty"       = "Start capturing";

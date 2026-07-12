@@ -332,6 +332,9 @@ struct MemoCardView: View {
 
                 Spacer(minLength: 4)
             }
+            // Meta whispers, prose speaks — sink the whole timestamp row a
+            // touch below inkSubtle so the memo body owns the card.
+            .opacity(0.85)
             .padding(.horizontal, 14)
             .padding(.top, 10)
             .padding(.bottom, 14)
@@ -1088,60 +1091,63 @@ struct DailyPageEntryCard: View {
     let summary: String?
     var onTap: (() -> Void)?
 
+    private var hasSummary: Bool {
+        guard let summary else { return false }
+        return !summary.isEmpty
+    }
+
     var body: some View {
         Button(action: { onTap?() }) {
-            HStack(alignment: .center, spacing: 16) {
-                VStack(alignment: .leading, spacing: 6) {
-                    // Amber dot + label
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(DSColor.accentOnBg)
-                            .frame(width: 6, height: 6)
-                            .shadow(color: DSColor.amberGlow, radius: 4, x: 0, y: 0)
-                        Text("Today's page compiled")
-                            .font(DSFonts.jetBrainsMono(size: 10))
-                            .tracking(1)
-                            .textCase(.uppercase)
-                            .foregroundColor(DSColor.accentOnBg)
-                    }
-
-                    if let summary = summary, !summary.isEmpty {
-                        Text(summary)
-                            .font(DSType.serifBody18)
-                            .foregroundColor(DSColor.inkPrimary)
-                            .lineLimit(2)
-                            .lineSpacing(2)
-                    } else {
-                        Text(NSLocalizedString("memocard.digest.ready", comment: "Daily digest fallback"))
-                            .font(DSType.serifBody18)
-                            .foregroundColor(DSColor.inkPrimary)
-                    }
+            // Content-first: the compiled page speaks through its own serif
+            // opening line. No trailing arrow (the whole card is the tap
+            // target) and no "digest is ready" meta copy — without a summary
+            // the card collapses to the quiet ribbon line.
+            VStack(alignment: .leading, spacing: 6) {
+                // Amber dot + label
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(DSColor.accentOnBg)
+                        .frame(width: 6, height: 6)
+                        .shadow(color: DSColor.amberGlow, radius: 4, x: 0, y: 0)
+                    Text("Today's page compiled")
+                        .font(DSFonts.jetBrainsMono(size: 10))
+                        .tracking(1)
+                        .textCase(.uppercase)
+                        .foregroundColor(DSColor.accentOnBg)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
 
-                Image(systemName: "arrow.forward")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(DSColor.accentOnBg)
+                if let summary, hasSummary {
+                    Text(summary)
+                        .font(DSType.serifBody18)
+                        .foregroundColor(DSColor.inkPrimary)
+                        .lineLimit(2)
+                        .lineSpacing(2)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 18)
-            .padding(.vertical, 18)
+            .padding(.vertical, hasSummary ? 18 : 14)
             .frame(maxWidth: .infinity)
             .liquidGlassCard(cornerRadius: 18, tone: .hi)
             .overlay(alignment: .leading) {
-                // Left amber accent strip
-                RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [DSColor.accentOnBg, DSColor.accentOnBg.opacity(0)],
-                            startPoint: .top, endPoint: .bottom
+                // Left amber accent strip — only alongside serif prose. On
+                // the compact ribbon-only form (~44pt tall) the 14pt vertical
+                // insets squeeze it to a stub that reads as a glitch.
+                if hasSummary {
+                    RoundedRectangle(cornerRadius: 2, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [DSColor.accentOnBg, DSColor.accentOnBg.opacity(0)],
+                                startPoint: .top, endPoint: .bottom
+                            )
                         )
-                    )
-                    // Unify accent-rail width across cards. Design app.jsx:420
-                    // renders the rail at 2px; AISummaryCard already uses 2.
-                    .frame(width: 2)
-                    .padding(.vertical, 14)
-                    .padding(.leading, 0)
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        // Unify accent-rail width across cards. Design app.jsx:420
+                        // renders the rail at 2px; AISummaryCard already uses 2.
+                        .frame(width: 2)
+                        .padding(.vertical, 14)
+                        .padding(.leading, 0)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                }
             }
         }
         .buttonStyle(.plain)
