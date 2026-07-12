@@ -97,6 +97,31 @@ enum DSColor {
     /// Amber glow — used in ambient light blobs.
     static let amberGlow     = Color(hex: "E8974D").opacity(0.45)
 
+    // MARK: - Graph category hues (#828)
+    //
+    // The knowledge graph splits entities into three categories that must be
+    // distinguishable at a glance in BOTH schemes. The old palette collapsed
+    // to two: places (`amberDeep` #5D3000) and themes (`amberAccent` #A8541B)
+    // were both amber-brown separated only by lightness, and people reused the
+    // grey `inkMuted`. Introducing a distinct indigo hue for people restores a
+    // true three-way split (indigo / amber / burnt-orange) while keeping the
+    // amber pair for places+themes. All three carry a dark variant so nodes
+    // stay legible against `bgWarm`'s deep charcoal in dark mode.
+
+    /// People-category node hue — indigo, deliberately off the warm-amber axis
+    /// so people read as a separate class from places/themes. Lifts toward a
+    /// brighter periwinkle in dark mode to survive the charcoal background.
+    static let graphPeople = Color(light: Color(hex: "3A4E9E"), dark: Color(hex: "8C9EE8"))
+    /// Places-category node hue — deep archival amber (matches `amberDeep`).
+    /// Kept in the warm family: places are the "where". Dark variant stays a
+    /// clearly DEEPER, browner step than graphThemes — the original D9975A vs
+    /// E8974D were near-identical on charcoal and collapsed the three-way
+    /// classification back to two (#828 dark-mode audit).
+    static let graphPlaces = Color(light: Color(hex: "5D3000"), dark: Color(hex: "A96A35"))
+    /// Themes-category node hue — burnt orange (matches `amberAccent`,
+    /// adaptive for dark). Warmest of the three: themes are the "what".
+    static let graphThemes = Color(light: Color(hex: "A8541B"), dark: Color(hex: "E8974D"))
+
     // V4 amber-density heatmap (4-step)
     static let densityNone   = Color(hex: "A8541B").opacity(0.06)
     static let densityLow    = Color(hex: "A8541B").opacity(0.20)

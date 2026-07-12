@@ -1,6 +1,7 @@
 import SwiftUI
 import UIKit
 import DayPageServices
+import DayPageStorage
 
 // MARK: - GraphView
 
@@ -387,6 +388,12 @@ struct GraphView: View {
                 } else {
                     graphCanvas
                     legend
+                        // The focus preview bar floats at the same bottom band;
+                        // fade the legend out while focused so the two glass
+                        // cards never stack (#828). Hit-testing off while
+                        // hidden so ghost taps can't toggle type filters.
+                        .opacity(viewModel.focusedNodeID != nil ? 0 : 1)
+                        .allowsHitTesting(viewModel.focusedNodeID == nil)
                 }
             }
         }
@@ -397,6 +404,7 @@ struct GraphView: View {
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
         }
+        .animation(reduceMotion ? nil : Motion.spring, value: viewModel.focusedNodeID)
         .navigationBarHidden(true)
         .onReceive(headerTimer) { date in
             currentTime = date
@@ -425,6 +433,14 @@ struct GraphView: View {
         .onDisappear {
             stopSimulation()
         }
+        // #828 — if a search/date/type filter removes the focused node from the
+        // visible set, drop focus so the preview bar can't dangle over a hidden
+        // node. Membership can change without a count change, so recompute the
+        // visible id set each time any filter input changes.
+        .onChange(of: viewModel.searchQuery) { _ in exitFocusIfNeeded() }
+        .onChange(of: viewModel.filterStartDate) { _ in exitFocusIfNeeded() }
+        .onChange(of: viewModel.filterEndDate) { _ in exitFocusIfNeeded() }
+        .onChange(of: hiddenTypesRaw) { _ in exitFocusIfNeeded() }
         .onChange(of: scenePhase) { phase in
             switch phase {
             case .active:
@@ -590,6 +606,20 @@ struct GraphView: View {
         }
     }
 
+    /// VoiceOver value for a node: its type name, plus a focus-state suffix
+    /// (已聚焦 / 邻居) when the graph is in focus mode (#828).
+    private func nodeA11yValue(_ node: GraphNode) -> String {
+        let type = localizedEntityTypeName(node.entityType)
+        guard let focus = viewModel.focusedNodeID else { return type }
+        if node.id == focus {
+            return type + "，" + NSLocalizedString("graph.focus.state.focused", comment: "VoiceOver value suffix: this node is focused")
+        }
+        if viewModel.focusedNeighborIDs.contains(node.id) {
+            return type + "，" + NSLocalizedString("graph.focus.state.neighbor", comment: "VoiceOver value suffix: this node is a neighbor of the focused node")
+        }
+        return type
+    }
+
     private func openNode(_ node: GraphNode) {
         Haptics.tapConfirm()
         selectedNode = node
@@ -605,6 +635,52 @@ struct GraphView: View {
             if tapPulseGeneration == gen { tapPulseNodeID = nil }
         }
         showEntityPage = true
+    }
+
+    /// #828 — enters or switches focus to `node`. Highlights its one-hop
+    /// neighborhood, dims the rest, and (via the body) floats the preview bar.
+    /// A soft haptic + pulse ring confirms the target. Does NOT open the entity
+    /// page — that happens when the user taps the preview bar.
+    private func enterFocus(_ node: GraphNode) {
+        let switching = viewModel.focusedNodeID != nil && viewModel.focusedNodeID != node.id
+        Haptics.soft()
+        withAnimation(reduceMotion ? nil : Motion.spring) {
+            viewModel.setFocus(node.id)
+        }
+        pulseNode(node)
+        if UIAccessibility.isVoiceOverRunning {
+            let neighborCount = viewModel.focusedNeighborIDs.count
+            // Distinct phrasing for switching between focused nodes vs first
+            // entry, so sequential VO exploration hears the state change.
+            let key = switching ? "graph.focus.switched.a11y" : "graph.focus.entered.a11y"
+            let msg = String(
+                format: NSLocalizedString(key, comment: "VoiceOver: focus entered/switched to a node, N neighbors"),
+                node.name, Int64(neighborCount)
+            )
+            UIAccessibility.post(notification: .announcement, argument: msg)
+        }
+    }
+
+    /// #828 — drops focus if a filter has hidden the focused node. `visibleNodes`
+    /// already folds in search, date, and legend-type filters.
+    private func exitFocusIfNeeded() {
+        guard viewModel.focusedNodeID != nil else { return }
+        let ids = Set(visibleNodes.map { $0.id })
+        viewModel.exitFocusIfFilteredOut(visibleIDs: ids)
+    }
+
+    /// #828 — exits focus, restoring full-graph visibility.
+    private func exitFocus() {
+        Haptics.soft()
+        withAnimation(reduceMotion ? nil : Motion.spring) {
+            viewModel.setFocus(nil)
+        }
+        if UIAccessibility.isVoiceOverRunning {
+            UIAccessibility.post(
+                notification: .announcement,
+                argument: NSLocalizedString("graph.focus.exited.a11y", comment: "VoiceOver: exited focus mode")
+            )
+        }
     }
 
     private func focusNode(_ node: GraphNode, in size: CGSize) {
@@ -628,6 +704,100 @@ struct GraphView: View {
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 400_000_000)
             if tapPulseGeneration == gen { tapPulseNodeID = nil }
+        }
+    }
+
+    // MARK: - Focus Helpers (#828)
+
+    /// The set of node IDs that stay fully lit in the current focus state:
+    /// the focused node plus its one-hop neighbors. Empty when not focused
+    /// (meaning "everything is lit" — callers treat empty as no dimming).
+    private var focusActiveIDs: Set<String> {
+        guard let focus = viewModel.focusedNodeID else { return [] }
+        var ids = viewModel.focusedNeighborIDs
+        ids.insert(focus)
+        return ids
+    }
+
+    /// Opacity multiplier for a node/label/edge under the current focus state.
+    /// 1.0 when nothing is focused or the element is in the active set; a deep
+    /// dim (0.15) otherwise so the focused neighborhood pops.
+    private func focusOpacity(active: Bool) -> CGFloat {
+        guard viewModel.focusedNodeID != nil else { return 1.0 }
+        return active ? 1.0 : 0.15
+    }
+
+    // MARK: - Label Rendering (#828 tiered + collision-avoided)
+
+    /// Draws node labels with priority ordering, zoom-gated tier limits, and a
+    /// greedy rectangle-overlap skip so dense clusters no longer smear into an
+    /// unreadable blur. Priority: focused node + neighbors first (always
+    /// drawn), then search matches, then by occurrence count descending. At
+    /// zoom < 0.6 only the top 8 draw, 0.6–1.2 the top 20, > 1.2 all — the
+    /// focused neighborhood is exempt from the cap so it stays labelled.
+    private func drawLabels(
+        ctx: GraphicsContext,
+        visible: [GraphNode],
+        size: CGSize,
+        activeIDs: Set<String>,
+        isFocused: Bool
+    ) {
+        let query = viewModel.searchQuery
+        let fontSize = max(8, 10 * scale)
+
+        // Priority sort. Lower sortKey = higher priority (drawn first, wins
+        // collisions). Focused neighborhood = 0, search match = 1, rest = 2;
+        // within a tier, higher occurrence count wins.
+        func priority(_ node: GraphNode) -> Int {
+            if isFocused && activeIDs.contains(node.id) { return 0 }
+            if !query.isEmpty && node.name.localizedCaseInsensitiveContains(query) { return 1 }
+            return 2
+        }
+        let ordered = visible.sorted { a, b in
+            let pa = priority(a), pb = priority(b)
+            if pa != pb { return pa < pb }
+            return a.occurrenceCount > b.occurrenceCount
+        }
+
+        // Zoom-gated cap on how many non-forced labels may draw.
+        let cap: Int
+        if scale < 0.6 { cap = 8 }
+        else if scale <= 1.2 { cap = 20 }
+        else { cap = Int.max }
+
+        var drawnRects: [CGRect] = []
+        var drawnCount = 0
+        for node in ordered {
+            let forced = isFocused && activeIDs.contains(node.id)
+            if !forced && drawnCount >= cap { continue }
+
+            let x = node.position.x * scale + offset.width + size.width / 2
+            let y = node.position.y * scale + offset.height + size.height / 2
+            let labelY = y + node.displayRadius * scale + 10 * scale
+
+            // Approximate label rect. JetBrains Mono ASCII advance ≈ 0.6 ×
+            // fontSize, but CJK glyphs (PingFang fallback) are full-width
+            // ≈ 1.0 × fontSize — a flat 0.6 factor under-measures Chinese
+            // names by ~40% and lets them overlap despite the greedy check.
+            let estWidth = node.name.reduce(CGFloat(0)) { acc, ch in
+                acc + fontSize * (ch.isASCII ? 0.6 : 1.0)
+            }
+            let estHeight = fontSize * 1.3
+            let rect = CGRect(x: x - estWidth / 2, y: labelY - estHeight / 2, width: estWidth, height: estHeight)
+
+            // Greedy collision skip — but never drop a forced (focused) label.
+            if !forced && drawnRects.contains(where: { $0.intersects(rect) }) { continue }
+            drawnRects.append(rect)
+            if !forced { drawnCount += 1 }
+
+            let isSearchMatch = !query.isEmpty && node.name.localizedCaseInsensitiveContains(query)
+            // Focus dim applies to labels too so out-of-focus names recede.
+            let focusAlpha = focusOpacity(active: !isFocused || activeIDs.contains(node.id))
+            let label = Text(node.name)
+                .font(.custom("JetBrainsMono-Regular", fixedSize: fontSize))
+                .fontWeight(isSearchMatch ? .bold : .regular)
+                .foregroundColor((isSearchMatch ? DSColor.amberDeep : DSColor.inkPrimary).opacity(focusAlpha))
+            ctx.draw(label, at: CGPoint(x: x, y: labelY), anchor: .center)
         }
     }
 
@@ -666,8 +836,14 @@ struct GraphView: View {
             ZStack {
                 Canvas { ctx, _ in
                     let nodePos = Dictionary(uniqueKeysWithValues: viewModel.nodes.map { ($0.id, $0.position) })
+                    let activeIDs = focusActiveIDs
+                    let isFocused = viewModel.focusedNodeID != nil
 
-                    // Draw edges (visible nodes only)
+                    // Draw edges (visible nodes only). Line width + opacity now
+                    // encode co-occurrence weight in three tiers (#828); base
+                    // colors come from the ink token so they adapt to scheme.
+                    // Edge color derives from the shared edge ink; alpha carries
+                    // both the weight tier and the focus dim.
                     let visibleEdges = viewModel.filteredEdges.filter {
                         filteredIDs.contains($0.sourceID) && filteredIDs.contains($0.targetID)
                     }
@@ -680,7 +856,25 @@ struct GraphView: View {
                         var path = Path()
                         path.move(to: CGPoint(x: sx, y: sy))
                         path.addLine(to: CGPoint(x: ex, y: ey))
-                        ctx.stroke(path, with: .color(DSColor.inkFaint.opacity(0.7)), lineWidth: 1)
+                        // 3-tier weight encoding: width + opacity + ink step.
+                        // inkFaint alone reads as nearly invisible on the warm
+                        // canvas (the pre-#828 flat-edge problem), so heavier
+                        // ties also climb the ink ladder for real contrast.
+                        let lineWidth: CGFloat
+                        let baseAlpha: CGFloat
+                        let edgeInk: Color
+                        switch edge.weight {
+                        case ...1:   lineWidth = 0.8; baseAlpha = 0.35; edgeInk = DSColor.inkFaint
+                        case 2...3:  lineWidth = 1.6; baseAlpha = 0.50; edgeInk = DSColor.inkSubtle
+                        default:     lineWidth = 2.6; baseAlpha = 0.65; edgeInk = DSColor.inkMuted
+                        }
+                        // In focus mode an edge stays lit only if BOTH its
+                        // endpoints are in the active neighborhood (i.e. it's an
+                        // edge of the focused node); otherwise it dims.
+                        let edgeActive = !isFocused
+                            || (activeIDs.contains(edge.sourceID) && activeIDs.contains(edge.targetID))
+                        let alpha = baseAlpha * focusOpacity(active: edgeActive)
+                        ctx.stroke(path, with: .color(edgeInk.opacity(alpha)), lineWidth: lineWidth)
                     }
 
                     // Draw all nodes (dim non-matching); radius scales with occurrence count
@@ -690,34 +884,84 @@ struct GraphView: View {
                         let y = node.position.y * scale + offset.height + size.height / 2
                         let r = node.displayRadius * scale
                         let rect = CGRect(x: x - r, y: y - r, width: r * 2, height: r * 2)
-                        let alpha: CGFloat = inFilter ? 1.0 : 0.2
+                        // Two independent dims stack: search/date filter (0.2)
+                        // and focus mode (0.15). Take the lower so a node that's
+                        // both out-of-filter and out-of-focus doesn't double-dim
+                        // below either floor.
+                        let filterAlpha: CGFloat = inFilter ? 1.0 : 0.2
+                        let focusAlpha = focusOpacity(active: !isFocused || activeIDs.contains(node.id))
+                        let alpha = min(filterAlpha, focusAlpha)
                         ctx.fill(Path(ellipseIn: rect), with: .color(node.color.opacity(alpha)))
                         ctx.stroke(Path(ellipseIn: rect), with: .color(node.color.opacity(0.6 * alpha)), lineWidth: 1.5 * scale)
                     }
 
-                    // Node labels (filtered only) — drawn in-Canvas so the label
-                    // layer no longer re-lays-out dozens of SwiftUI Text views on
-                    // every simulation frame (Axiom perf audit). Same font token,
-                    // color, weight, and below-node offset as the old label ForEach.
-                    // VoiceOver names come from the accessibility layer below.
-                    let query = viewModel.searchQuery
-                    for node in visible {
-                        let x = node.position.x * scale + offset.width + size.width / 2
-                        let y = node.position.y * scale + offset.height + size.height / 2
-                        let isSearchMatch = !query.isEmpty
-                            && node.name.localizedCaseInsensitiveContains(query)
-                        let label = Text(node.name)
-                            .font(.custom("JetBrainsMono-Regular", fixedSize: max(8, 10 * scale)))
-                            .fontWeight(isSearchMatch ? .bold : .regular)
-                            .foregroundColor(isSearchMatch ? DSColor.amberDeep : DSColor.inkPrimary)
-                        ctx.draw(
-                            label,
-                            at: CGPoint(x: x, y: y + node.displayRadius * scale + 10 * scale),
-                            anchor: .center
-                        )
-                    }
+                    // Node labels — tiered by priority + greedy collision skip
+                    // (#828). Drawn in-Canvas so the label layer no longer
+                    // re-lays-out dozens of SwiftUI Text views every simulation
+                    // frame (Axiom perf audit). VoiceOver names come from the
+                    // accessibility layer below. See drawLabels(...) for the
+                    // priority ordering and rectangle-overlap rejection.
+                    drawLabels(
+                        ctx: ctx,
+                        visible: visible,
+                        size: size,
+                        activeIDs: activeIDs,
+                        isFocused: isFocused
+                    )
                 }
                 .frame(width: size.width, height: size.height)
+                // Tap/zoom/pan gestures live on the Canvas DRAWING LAYER, not
+                // the containing ZStack. A container-level SpatialTapGesture
+                // (count:2).exclusively(single) steals taps from sibling child
+                // buttons — verified on-simulator: preview-bar and zoom-capsule
+                // taps were delivered to the canvas single-tap handler instead
+                // of the buttons (#828 FINDING). On the Canvas itself the
+                // buttons layered above win hit-testing as normal.
+                .gesture(
+                    SpatialTapGesture(count: 2)
+                        .onEnded { value in
+                            if let node = hitTestNode(at: value.location, in: size) {
+                                focusNode(node, in: size)
+                            } else {
+                                Haptics.soft()
+                                fitToContent(in: size)
+                            }
+                        }
+                        .exclusively(
+                            before: SpatialTapGesture()
+                                .onEnded { value in
+                                    // #828 two-stage exploration: single tap on a
+                                    // node enters/switches focus; empty space
+                                    // exits. Entity page opens from the preview bar.
+                                    if let node = hitTestNode(at: value.location, in: size) {
+                                        enterFocus(node)
+                                    } else if viewModel.focusedNodeID != nil {
+                                        exitFocus()
+                                    }
+                                }
+                        )
+                )
+                .gesture(
+                    SimultaneousGesture(
+                        MagnificationGesture()
+                            .onChanged { value in
+                                let newScale = max(0.3, min(5.0, lastScale * value))
+                                let ratio = newScale / scale
+                                offset.width *= ratio
+                                offset.height *= ratio
+                                scale = newScale
+                            }
+                            .onEnded { _ in lastScale = scale; lastOffset = offset },
+                        DragGesture()
+                            .onChanged { value in
+                                offset = CGSize(
+                                    width: lastOffset.width + value.translation.width,
+                                    height: lastOffset.height + value.translation.height
+                                )
+                            }
+                            .onEnded { _ in lastOffset = offset }
+                    )
+                )
                 .accessibilityHidden(true)
                 .onAppear { simulationSize = size }
                 .onChange(of: size) { simulationSize = $0 }
@@ -775,10 +1019,14 @@ struct GraphView: View {
                             ),
                             node.name, Int64(node.occurrenceCount)
                         ))
-                        .accessibilityValue(localizedEntityTypeName(node.entityType))
-                        .accessibilityHint(NSLocalizedString("graph.a11y.open_entity", comment: "Graph node accessibility hint"))
+                        .accessibilityValue(nodeA11yValue(node))
+                        // #828 — VoiceOver activation now mirrors touch: it
+                        // enters focus (highlighting the neighborhood) rather
+                        // than jumping to the entity page. The entity page is
+                        // reached from the focus preview bar's own element.
+                        .accessibilityHint(NSLocalizedString("graph.a11y.focus_entity", comment: "Graph node accessibility hint: activate to focus"))
                         .accessibilityAddTraits(.isButton)
-                        .accessibilityAction { openNode(node) }
+                        .accessibilityAction { enterFocus(node) }
                 }
 
                 // Tap pulse ring — reads live position from the model so it tracks
@@ -797,136 +1045,76 @@ struct GraphView: View {
                         .allowsHitTesting(false)
                 }
 
-                if isTransformed { recenterButton }
-                if isTransformed { zoomIndicator }
+                // #828 — single consolidated control capsule (fit / + / −).
+                // The former separate recenter button + zoom-% pill + zoom
+                // stepper (three glass cards padded into alignment by hand) are
+                // now one vertical capsule with hairline dividers.
                 zoomControls
+
+                // #828 focus preview bar. Two hard-won constraints (verified
+                // on-simulator via tap bisection, see PR #-for-828):
+                //  1. It must NOT be wrapped in `if … + .transition(.move…)` —
+                //     the transition wrapper left the button permanently
+                //     non-hit-testable (taps fell through to the canvas and
+                //     exited focus). It stays mounted and animates via
+                //     opacity + offset instead.
+                //  2. Its glass must be the interactive .control role — a
+                //     non-interactive .panel pane on the iOS 26 native
+                //     glassEffect path swallows child-button touches.
+                focusPreviewBar
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .padding(.bottom, 28)
+                    .opacity(viewModel.focusedNodeID != nil ? 1 : 0)
+                    .offset(y: viewModel.focusedNodeID != nil || reduceMotion ? 0 : 24)
+                    .allowsHitTesting(viewModel.focusedNodeID != nil)
             }
-            // Tap handling for the whole canvas — replaces the old per-node
-            // invisible tap-target circles. Double tap wins over single tap
-            // (.exclusively), matching the previous layered onTapGesture
-            // precedence: double-tap on a node focuses it, double-tap on empty
-            // space fits content, single tap on a node opens its entity page.
-            .gesture(
-                SpatialTapGesture(count: 2)
-                    .onEnded { value in
-                        if let node = hitTestNode(at: value.location, in: size) {
-                            focusNode(node, in: size)
-                        } else {
-                            Haptics.soft()
-                            fitToContent(in: size)
-                        }
-                    }
-                    .exclusively(
-                        before: SpatialTapGesture()
-                            .onEnded { value in
-                                guard let node = hitTestNode(at: value.location, in: size) else { return }
-                                openNode(node)
-                            }
-                    )
-            )
+            // Gestures are attached to the Canvas drawing layer above (see
+            // comment there) so the zoom capsule and focus preview bar keep
+            // normal button hit-testing. Only the VoiceOver container action
+            // stays at ZStack level — the Canvas itself is accessibilityHidden.
             .accessibilityAction(named: Text(NSLocalizedString("Reset view", comment: "VoiceOver: graph canvas reset-view action"))) {
                 Haptics.soft()
                 fitToContent(in: size)
             }
-            .gesture(
-                SimultaneousGesture(
-                    MagnificationGesture()
-                        .onChanged { value in
-                            let newScale = max(0.3, min(5.0, lastScale * value))
-                            let ratio = newScale / scale
-                            offset.width *= ratio
-                            offset.height *= ratio
-                            scale = newScale
-                        }
-                        .onEnded { _ in lastScale = scale; lastOffset = offset },
-                    DragGesture()
-                        .onChanged { value in
-                            offset = CGSize(
-                                width: lastOffset.width + value.translation.width,
-                                height: lastOffset.height + value.translation.height
-                            )
-                        }
-                        .onEnded { _ in lastOffset = offset }
-                )
-            )
         }
     }
 
     // MARK: - Legend
 
-    private static let legendTypes: [(type: String, color: Color)] = [
-        ("places", DSColor.amberDeep),
-        ("people", DSColor.inkMuted),
-        ("themes", DSColor.amberAccent),
-    ]
+    // Legend renders from GraphNode.color(for:) so node hues and legend swatches
+    // can never drift (#828 收敛为一处). Order: people / places / themes.
+    private static let legendTypeOrder: [String] = ["people", "places", "themes"]
 
     private var legend: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ForEach(Self.legendTypes, id: \.type) { entry in
-                let count = viewModel.filteredNodes.filter { $0.entityType == entry.type }.count
-                let isHidden = hiddenTypes.contains(entry.type)
-                let label = localizedEntityTypeName(entry.type)
-                legendRow(type: entry.type, color: entry.color, label: label, count: count, isHidden: isHidden)
+            ForEach(Self.legendTypeOrder, id: \.self) { type in
+                let count = viewModel.filteredNodes.filter { $0.entityType == type }.count
+                let isHidden = hiddenTypes.contains(type)
+                let label = localizedEntityTypeName(type)
+                legendRow(type: type, color: GraphNode.color(for: type), label: label, count: count, isHidden: isHidden)
             }
         }
         .padding(DSSpacing.md)
-        .liquidGlassCard(cornerRadius: DSRadius.md, tone: .hi)
+        // .control (interactive glass), NOT .panel: on the iOS 26 native
+        // glassEffect path a non-interactive pane composites its children
+        // into the glass layer and the type-toggle rows stop receiving
+        // touches entirely (#828 FINDING, same as zoom capsule/preview bar).
+        .dpGlass(.control, in: RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous), tint: GlassTone.hi.fill)
         .fixedSize()
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
         .padding(DSSpacing.lg)
     }
 
-    private func resetTransform() {
-        withAnimation(Motion.spring) {
-            scale = 1.0; lastScale = 1.0
-            offset = .zero; lastOffset = .zero
-        }
-    }
-
-    private var recenterButton: some View {
-        Button {
-            Haptics.tapConfirm()
-            resetTransform()
-        } label: {
-            Image(systemName: "scope")
-                .font(.system(size: 20, weight: .regular))
-                .foregroundColor(DSColor.inkPrimary)
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-        }
-        .liquidGlassCard(cornerRadius: DSRadius.md, tone: .hi)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-        .padding(DSSpacing.lg)
-        .accessibilityLabel(NSLocalizedString("a11y.recenter_graph", comment: "Recenter graph"))
-        .transition(.opacity.combined(with: .scale))
-        .animation(Motion.spring, value: isTransformed)
-    }
-
-    private var zoomIndicator: some View {
-        Button {
-            Haptics.tapConfirm()
-            resetTransform()
-        } label: {
-            Text("\(Int(scale * 100))%")
-                .font(DSFonts.jetBrainsMono(size: 10))
-                .foregroundColor(DSColor.inkPrimary)
-                .padding(.horizontal, DSSpacing.sm)
-                .padding(.vertical, 6)
-        }
-        .liquidGlassCard(cornerRadius: DSRadius.md, tone: .hi)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-        .padding(DSSpacing.lg)
-        .padding(.bottom, 56)
-        .accessibilityLabel(NSLocalizedString("a11y.zoom_reset", comment: "Zoom indicator"))
-        .accessibilityValue("\(Int(scale * 100)) percent")
-        .accessibilityAddTraits(.isButton)
-        .transition(.opacity.combined(with: .scale))
-        .animation(reduceMotion ? .default.speed(0) : Motion.spring, value: isTransformed)
-    }
-
+    // #828 — single vertical control capsule replacing the three separate
+    // glass cards (recenter / zoom-% pill / zoom stepper). One glass background,
+    // hairline dividers between the three actions: fit (center-to-content, the
+    // former recenter) / + (zoom in) / − (zoom out). Each action keeps its
+    // original accessibility label.
     private var zoomControls: some View {
         VStack(spacing: 0) {
+            // Fit — center-and-scale to show all content (former recenter).
             Button {
+                Haptics.tapConfirm()
                 fitToScreen(in: simulationSize)
             } label: {
                 Image(systemName: "arrow.up.left.and.arrow.down.right")
@@ -979,10 +1167,11 @@ struct GraphView: View {
             .accessibilityHint(scale <= 0.3 ? NSLocalizedString("graph.a11y.zoom_min", comment: "Graph zoom out limit hint") : "")
             .accessibilityAddTraits(.isButton)
         }
-        .liquidGlassCard(cornerRadius: DSRadius.md, tone: .hi)
+        // .control (interactive glass) — see legend comment: a .panel pane on
+        // iOS 26 swallows child-button touches (#828 FINDING).
+        .dpGlass(.control, in: RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous), tint: GlassTone.hi.fill)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         .padding(DSSpacing.lg)
-        .padding(.bottom, 110)
     }
 
     // Springs scale+offset to show all visible nodes — used by double-tap-to-reset
@@ -1145,6 +1334,93 @@ struct GraphView: View {
         .accessibilityLabel(String(format: NSLocalizedString("graph.legend.node_count", comment: "Graph legend row accessibility label"), label, count))
         .accessibilityValue(isHidden ? NSLocalizedString("graph.legend.value.hidden", comment: "Graph legend hidden state") : NSLocalizedString("graph.legend.value.shown", comment: "Graph legend shown state"))
         .accessibilityAddTraits(.isButton)
+    }
+
+    // MARK: - Focus Preview Bar (#828)
+
+    /// Bottom liquid-glass card shown while a node is focused. Surfaces the
+    /// entity name (serif), its type + occurrence count + most-recent date
+    /// (mono), and a chevron. Tapping it opens the existing EntityPage sheet —
+    /// the two-stage exploration path: tap node → focus, tap bar → entity page.
+    @ViewBuilder
+    private var focusPreviewBar: some View {
+        if let node = viewModel.focusedNode {
+            Button {
+                Haptics.tapConfirm()
+                openNode(node)
+            } label: {
+                HStack(spacing: DSSpacing.md) {
+                    // Category swatch — same hue as the node.
+                    Circle()
+                        .fill(node.color)
+                        .frame(width: 12, height: 12)
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(node.name)
+                            .font(DSFonts.serif(size: 17, weight: .semibold))
+                            .foregroundColor(DSColor.inkPrimary)
+                            .lineLimit(1)
+                        Text(focusPreviewSubtitle(for: node))
+                            .font(DSFonts.jetBrainsMono(size: 11))
+                            .foregroundColor(DSColor.inkMuted)
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: DSSpacing.sm)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(DSColor.inkSubtle)
+                }
+                .padding(.horizontal, DSSpacing.lg)
+                .padding(.vertical, DSSpacing.md)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                // .control (interactive glass) — see legend comment: a .panel
+                // pane on iOS 26 swallows the bar-button's touches (#828 FINDING).
+                .dpGlass(.control, in: RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous), tint: GlassTone.hi.fill)
+                // The glassEffect background is composited out of the label,
+                // collapsing the Button's tappable area to bare text glyphs —
+                // verified on-simulator (a plain background restored taps).
+                // contentShape re-establishes the full card as the hit area,
+                // the same guard every zoom-capsule button carries.
+                .contentShape(RoundedRectangle(cornerRadius: DSRadius.lg, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, DSSpacing.lg)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(focusPreviewA11yLabel(for: node))
+            .accessibilityHint(NSLocalizedString("graph.focus.preview.hint", comment: "VoiceOver hint: double-tap opens entity page"))
+            .accessibilityAddTraits(.isButton)
+        }
+    }
+
+    /// Mono subtitle line: "类型 · 出现 N 次 · 最近 YYYY-MM-DD" (date omitted if unknown).
+    private func focusPreviewSubtitle(for node: GraphNode) -> String {
+        let typeName = localizedEntityTypeName(node.entityType)
+        let occ = String(
+            format: NSLocalizedString("graph.focus.preview.occurrences", comment: "Focus preview: occurrence count fragment"),
+            Int64(node.occurrenceCount)
+        )
+        if let latest = node.dates.max() {
+            let recent = String(
+                format: NSLocalizedString("graph.focus.preview.recent", comment: "Focus preview: most-recent date fragment"),
+                latest
+            )
+            return "\(typeName) · \(occ) · \(recent)"
+        }
+        return "\(typeName) · \(occ)"
+    }
+
+    private func focusPreviewA11yLabel(for node: GraphNode) -> String {
+        let base = String(
+            format: NSLocalizedString("graph.focus.preview.a11y", comment: "VoiceOver: focus preview bar — name, type, count"),
+            node.name, localizedEntityTypeName(node.entityType), Int64(node.occurrenceCount)
+        )
+        if let latest = node.dates.max() {
+            return base + " · " + String(
+                format: NSLocalizedString("graph.focus.preview.recent", comment: "Focus preview: most-recent date fragment"),
+                latest
+            )
+        }
+        return base
     }
 
     // MARK: - Zero-Match Toast

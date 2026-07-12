@@ -14,11 +14,20 @@ struct GraphNode: Identifiable {
     var dates: Set<String> = []   // YYYY-MM-DD dates this entity appears in
     var occurrenceCount: Int = 0  // parsed from entity page frontmatter
 
-    var color: Color {
+    /// Category hue — single source of truth shared with the legend (#828).
+    /// people → indigo, places → amber, themes → burnt-orange, each with a
+    /// dark-scheme variant. Previously people reused grey `secondary` and
+    /// places/themes were two amber-browns separated only by lightness, so the
+    /// "three categories" claim did not hold up visually.
+    var color: Color { Self.color(for: entityType) }
+
+    /// Static category→hue map so `GraphView.legend` renders from the same
+    /// definition instead of hand-maintaining a parallel color list.
+    static func color(for entityType: String) -> Color {
         switch entityType {
-        case "people":  return DSColor.secondary
-        case "places":  return DSColor.amberArchival
-        default:        return DSColor.tertiary
+        case "people":  return DSColor.graphPeople
+        case "places":  return DSColor.graphPlaces
+        default:        return DSColor.graphThemes
         }
     }
 
@@ -38,6 +47,10 @@ struct GraphEdge: Identifiable {
     let id: String
     let sourceID: String
     let targetID: String
+    /// Number of days on which both endpoints co-occur. Drives the 3-tier
+    /// edge weight encoding (#828): thin/faint at 1, medium at 2–3, thick/bold
+    /// at ≥4. Defaults to 1 so existing constructors (and tests) stay valid.
+    var weight: Int = 1
 }
 
 // MARK: - GraphViewModel
@@ -66,6 +79,50 @@ final class GraphViewModel: ObservableObject {
     // (FINDING-001: labels detached from their nodes).
     private var _filteredIDs: Set<String>? = nil
     private var searchDebounceTask: Task<Void, Never>? = nil
+
+    // MARK: - Focus State (#828 two-stage exploration)
+    // The focused node id, its one-hop neighbors, and the connecting edges are
+    // highlighted; everything else dims out. Tapping a node enters/switches
+    // focus; tapping empty space exits. Only IDs are stored here — never node
+    // copies — for the same live-position reason as `_filteredIDs`.
+    @Published var focusedNodeID: String? = nil
+
+    /// IDs of the focused node's one-hop neighbors (via any edge). Recomputed
+    /// on read from the live `edges`; cheap for ≤200 nodes. Empty when nothing
+    /// is focused.
+    var focusedNeighborIDs: Set<String> {
+        guard let focus = focusedNodeID else { return [] }
+        var result: Set<String> = []
+        for edge in edges {
+            if edge.sourceID == focus { result.insert(edge.targetID) }
+            else if edge.targetID == focus { result.insert(edge.sourceID) }
+        }
+        return result
+    }
+
+    /// The focused node itself, resolved from the live array so its position
+    /// tracks the simulation. Nil when nothing is focused or the id no longer
+    /// exists (e.g. a reload swapped the graph).
+    var focusedNode: GraphNode? {
+        guard let id = focusedNodeID else { return nil }
+        return nodes.first(where: { $0.id == id })
+    }
+
+    /// Enters or switches focus to `id`. Passing the already-focused id is a
+    /// no-op; pass nil to exit focus.
+    func setFocus(_ id: String?) {
+        guard focusedNodeID != id else { return }
+        focusedNodeID = id
+    }
+
+    /// Drops focus if the focused node is no longer in the visible/filtered set
+    /// (e.g. search or date filter excluded it). Called by the view whenever
+    /// the filtered membership changes. Takes the currently-visible id set so
+    /// the view's own legend-type hiding is honored too.
+    func exitFocusIfFilteredOut(visibleIDs: Set<String>) {
+        guard let id = focusedNodeID else { return }
+        if !visibleIDs.contains(id) { focusedNodeID = nil }
+    }
 
     private func scheduleSearchDebounce() {
         searchDebounceTask?.cancel()
@@ -142,6 +199,7 @@ final class GraphViewModel: ObservableObject {
             await MainActor.run { [weak self] in
                 self?.nodes = result.nodes
                 self?._filteredIDs = nil
+                self?.focusedNodeID = nil   // a reload may swap the graph — drop stale focus
                 self?.edges = result.edges
                 self?.hasCompiledDailies = result.hasCompiledDailies
                 self?.isLoading = false
@@ -155,6 +213,38 @@ final class GraphViewModel: ObservableObject {
         let hasCompiledDailies: Bool
     }
 
+    /// #828 — pure weighted-edge builder, extracted from buildGraph so the
+    /// day-based co-occurrence semantics are unit-testable without disk I/O.
+    /// Each element of `idsPerDay` is the entity-ID list one daily file
+    /// references (duplicates allowed). A pair earns AT MOST +1 weight per
+    /// day, even if wikilinked several times within that file — co-occurrence
+    /// is measured in days, not raw mentions. Output order is stable
+    /// (sorted pair keys) so the Canvas draw order is deterministic.
+    nonisolated static func buildWeightedEdges(idsPerDay: [[String]]) -> [GraphEdge] {
+        var edgeCounts: [String: Int] = [:]
+        var edgeEndpoints: [String: (String, String)] = [:]
+        for ids in idsPerDay {
+            var pairsSeenInFile: Set<String> = []
+            for i in 0..<ids.count {
+                for j in (i + 1)..<ids.count where ids[i] != ids[j] {
+                    let sorted = [ids[i], ids[j]].sorted()
+                    let key = sorted.joined(separator: "↔")
+                    guard pairsSeenInFile.insert(key).inserted else { continue }
+                    edgeCounts[key, default: 0] += 1
+                    if edgeEndpoints[key] == nil {
+                        edgeEndpoints[key] = (sorted[0], sorted[1])
+                    }
+                }
+            }
+        }
+        var edges: [GraphEdge] = []
+        for key in edgeCounts.keys.sorted() {
+            guard let (src, dst) = edgeEndpoints[key] else { continue }
+            edges.append(GraphEdge(id: key, sourceID: src, targetID: dst, weight: edgeCounts[key] ?? 1))
+        }
+        return edges
+    }
+
     nonisolated private static func buildGraph() -> BuildResult {
         let fm = FileManager.default
         let vaultURL = VaultInitializer.vaultURL
@@ -163,8 +253,10 @@ final class GraphViewModel: ObservableObject {
 
         var entityMap: [String: (name: String, type: String)] = [:]
         var entityDates: [String: Set<String>] = [:]
-        var edgeSet: Set<String> = []
-        var rawEdges: [GraphEdge] = []
+        // Per-day entity-ID lists — fed to buildWeightedEdges(idsPerDay:)
+        // after the scan so the co-occurrence semantics live in one pure,
+        // unit-tested function (#828).
+        var idsPerDay: [[String]] = []
 
         // Scan all Daily Page files for [[wiki/type/slug|Name]] wikilinks
         let dailyFiles: [URL]
@@ -182,18 +274,14 @@ final class GraphViewModel: ObservableObject {
             let ids = refs.map { "\($0.type)/\($0.slug)" }
             for i in 0..<ids.count {
                 entityDates[ids[i], default: []].insert(dateStr)
-                for j in (i+1)..<ids.count {
-                    let key = [ids[i], ids[j]].sorted().joined(separator: "↔")
-                    if !edgeSet.contains(key) {
-                        edgeSet.insert(key)
-                        rawEdges.append(GraphEdge(id: key, sourceID: ids[i], targetID: ids[j]))
-                    }
-                }
                 if entityMap[ids[i]] == nil {
                     entityMap[ids[i]] = (name: refs[i].name, type: refs[i].type)
                 }
             }
+            idsPerDay.append(ids)
         }
+
+        let rawEdges = buildWeightedEdges(idsPerDay: idsPerDay)
 
         // Also scan entity page directories for any entities not yet in map
         for entityType in ["places", "people", "themes"] {

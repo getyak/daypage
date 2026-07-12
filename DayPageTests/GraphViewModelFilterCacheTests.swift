@@ -78,3 +78,95 @@ struct GraphViewModelFilterCacheTests {
         #expect(first == second)
     }
 }
+
+// MARK: - #828 focus state machine + weighted edges
+
+@Suite("GraphViewModel focus & edge weight (#828)")
+@MainActor
+struct GraphFocusAndWeightTests {
+
+    private func makeNode(id: String, name: String, type: String = "themes") -> GraphNode {
+        GraphNode(id: id, name: name, entityType: type, position: .zero)
+    }
+
+    private func makeVM(nodes: [GraphNode], edges: [GraphEdge] = []) -> GraphViewModel {
+        let vm = GraphViewModel()
+        vm.nodes = nodes
+        vm.edges = edges
+        return vm
+    }
+
+    // MARK: buildWeightedEdges — day-based co-occurrence semantics
+
+    @Test("a pair earns at most +1 weight per day, even when wikilinked twice in one file")
+    func weightDedupesWithinOneDay() {
+        let edges = GraphViewModel.buildWeightedEdges(idsPerDay: [
+            ["themes/a", "places/b", "themes/a", "places/b"],   // day 1 — a↔b mentioned twice
+            ["themes/a", "places/b"],                           // day 2
+            ["places/b", "people/c"],                           // day 3
+        ])
+        let byID = Dictionary(uniqueKeysWithValues: edges.map { ($0.id, $0.weight) })
+        #expect(byID["places/b↔themes/a"] == 2)
+        #expect(byID["people/c↔places/b"] == 1)
+        #expect(edges.count == 2)
+    }
+
+    @Test("duplicate wikilinks to the same entity never create a self-loop")
+    func noSelfLoops() {
+        let edges = GraphViewModel.buildWeightedEdges(idsPerDay: [
+            ["themes/a", "themes/a"],
+        ])
+        #expect(edges.isEmpty)
+    }
+
+    @Test("edge output order is stable (sorted pair keys) across rebuilds")
+    func stableEdgeOrder() {
+        let days = [["themes/z", "themes/a"], ["themes/m", "themes/a"]]
+        let first = GraphViewModel.buildWeightedEdges(idsPerDay: days).map { $0.id }
+        let second = GraphViewModel.buildWeightedEdges(idsPerDay: days).map { $0.id }
+        #expect(first == second)
+        #expect(first == first.sorted())
+    }
+
+    // MARK: focus state machine
+
+    @Test("setFocus exposes the focused node and its one-hop neighborhood")
+    func focusNeighborhood() {
+        let vm = makeVM(
+            nodes: [makeNode(id: "themes/a", name: "A"),
+                    makeNode(id: "places/b", name: "B"),
+                    makeNode(id: "people/c", name: "C")],
+            edges: [GraphEdge(id: "e1", sourceID: "themes/a", targetID: "places/b", weight: 1)]
+        )
+        vm.setFocus("themes/a")
+        #expect(vm.focusedNode?.id == "themes/a")
+        #expect(vm.focusedNeighborIDs == ["places/b"])
+        vm.setFocus(nil)
+        #expect(vm.focusedNode == nil)
+        #expect(vm.focusedNeighborIDs.isEmpty)
+    }
+
+    @Test("exitFocusIfFilteredOut drops focus only when the node leaves the visible set")
+    func focusFollowsFiltering() {
+        let vm = makeVM(nodes: [makeNode(id: "themes/a", name: "A"),
+                                makeNode(id: "places/b", name: "B")])
+        vm.setFocus("themes/a")
+        vm.exitFocusIfFilteredOut(visibleIDs: ["themes/a", "places/b"])
+        #expect(vm.focusedNodeID == "themes/a")
+        vm.exitFocusIfFilteredOut(visibleIDs: ["places/b"])
+        #expect(vm.focusedNodeID == nil)
+    }
+
+    // MARK: three-way classification color source
+
+    @Test("color(for:) yields three distinct hues plus a themes fallback")
+    func colorTriad() {
+        let people = GraphNode.color(for: "people")
+        let places = GraphNode.color(for: "places")
+        let themes = GraphNode.color(for: "themes")
+        #expect(people != places)
+        #expect(places != themes)
+        #expect(people != themes)
+        #expect(GraphNode.color(for: "unknown") == themes)
+    }
+}
