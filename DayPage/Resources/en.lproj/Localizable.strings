@@ -1102,3 +1102,24 @@
 "daydetail.kind.part.voice"  = "%d voice";
 "daydetail.kind.part.photo"  = "%d photo";
 "rawmemo.empty"              = "No memos this day";
+
+/* MARK: - Drop-to-Ask + memo-anchored chat (issue #837) */
+"memo.detail.drop_dock"              = "Drop here to ask";
+"memo.chat.title"                    = "Ask this memory";
+"memo.chat.a11y.close"               = "Close chat";
+"memo.chat.status.reading"           = "Rereading this memory…";
+"memo.chat.status.retrieving"        = "Searching related records…";
+"memo.chat.status.retrieving.along"  = "Tracing “%@” through your records…";
+"memo.chat.status.retrieving.sep"    = "”, “";
+"memo.chat.status.found"             = "Found %d related records, thinking…";
+"memo.chat.status.thinking"          = "Thinking…";
+"memo.chat.input.placeholder"        = "Ask about this memory…";
+"memo.chat.pin"                      = "Save to today";
+"memo.chat.pin.done"                 = "Saved to today";
+"memo.chat.retry"                    = "Retry";
+"memo.chat.suggest.why"              = "Why did I think this at the time?";
+"memo.chat.suggest.entity"           = "What else have I said about “%@”?";
+"memo.chat.suggest.changed"          = "Has this thought changed since?";
+"memo.chat.a11y.detach"              = "Detach memory";
+"memo.chat.a11y.source"              = "Open records of %@";
+"memo.chat.a11y.send"                = "Send";

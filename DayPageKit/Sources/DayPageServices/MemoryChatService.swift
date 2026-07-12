@@ -51,29 +51,61 @@ public struct ChatTurn: Identifiable, Equatable, Codable {
 @MainActor
 public final class MemoryChatService: ObservableObject {
 
+    // MARK: AgentPhase
+
+    /// Agent 检索循环的可视阶段（issue #837）。UI 把每个阶段渲染成一行
+    /// 状态文案，让「翻找 → 思考 → 逐字作答」的过程被用户感知——
+    /// 这是把图谱检索的价值显性化的延伸（研究文档 §5 风险 4）。
+    public enum AgentPhase: Equatable {
+        case idle
+        /// 正在重读附着的那条记录（memo 锚定对话首拍）。
+        case reading
+        /// 沿这些线索（实体显示名）翻找相关记录。
+        case retrieving([String])
+        /// 检索完成，找到 N 条相关记录，正在组织回答。
+        case thinking(found: Int)
+        /// LLM token 流式输出中（增量文本见 `streamingText`）。
+        case streaming
+    }
+
     // MARK: Published state
 
     @Published public var turns: [ChatTurn] = []
     @Published public var isResponding = false
     @Published public var errorMessage: String?
+    /// Agent 循环当前阶段；仅在 `isResponding` 期间离开 `.idle`。
+    @Published public private(set) var phase: AgentPhase = .idle
+    /// 流式回答的增量缓冲；回答完成后清空并整体落入 assistant turn。
+    @Published public private(set) var streamingText: String = ""
+    /// memo 锚定对话（issue #837）：附着的那条记录会作为一等上下文
+    /// 注入每一轮 prompt，其 entityMentions 作为图谱检索种子。
+    @Published public private(set) var attachedMemo: Memo?
+    /// 附着 memo 的实体显示名（由调用方解析 wiki `name:` 后传入），
+    /// 用于 `.retrieving` 阶段的文案——slug 直出对 CJK 用户不可读。
+    public private(set) var attachedClues: [String] = []
 
     // MARK: Dependencies
 
     /// 注入式 LLM 调用闭包，便于测试替身。默认走云端 DeepSeek。
     private let send: ([LLMMessage]) async throws -> String
-    /// 注入式检索闭包，默认走图谱增强检索。
+    /// 注入式流式 LLM 闭包（messages, onDelta）→ 完整回答。为 nil 时
+    /// `ask` 走非流式 `send`（测试注入 `send:` 即保持旧行为与节奏）。
+    private let streamSend: (([LLMMessage], @escaping @MainActor @Sendable (String) -> Void) async throws -> String)?
+    /// 注入式检索闭包 `(query, seedEntitySlugs)`，默认走图谱增强检索。
     /// `@Sendable` 标注让它可以安全地跨 actor 边界传给 detached task —— 真实
     /// 默认值 `GraphRetriever.retrieve` 是 `nonisolated static`，本身无主线程
     /// 依赖；测试桩通常是值语义闭包，也可跨线程调度。
-    private let retrieve: @Sendable (String) -> RetrievedContext
+    private let retrieve: @Sendable (String, [String]) -> RetrievedContext
 
     public init(
         send: (([LLMMessage]) async throws -> String)? = nil,
-        retrieve: @escaping @Sendable (String) -> RetrievedContext = { GraphRetriever.retrieve(query: $0) }
+        streamSend: (([LLMMessage], @escaping @MainActor @Sendable (String) -> Void) async throws -> String)? = nil,
+        retrieve: @escaping @Sendable (String, [String]) -> RetrievedContext = { GraphRetriever.retrieve(query: $0, seedEntitySlugs: $1) }
     ) {
         self.retrieve = retrieve
         if let send {
             self.send = send
+            self.streamSend = streamSend
         } else {
             self.send = { messages in
                 let client = LLMClient(
@@ -82,7 +114,36 @@ public final class MemoryChatService: ObservableObject {
                 )
                 return try await client.complete(messages: messages)
             }
+            // 生产默认：优先流式。spanName 与非流式分桶，便于用量对比。
+            self.streamSend = streamSend ?? { messages, onDelta in
+                let client = LLMClient(
+                    config: .deepSeek(maxTokens: 1500, temperature: 0.5),
+                    spanName: "askpast.stream"
+                )
+                return try await client.stream(messages: messages, onDelta: onDelta)
+            }
         }
+    }
+
+    // MARK: - Attached memo (issue #837)
+
+    /// 把一条 memo 附着为对话锚点。`clues` 是其实体的显示名（UI 已解析），
+    /// 缺省时回退为去连字符的 slug。
+    public func attach(memo: Memo, clues: [String] = []) {
+        attachedMemo = memo
+        if clues.isEmpty {
+            attachedClues = memo.entityMentions.map {
+                $0.replacingOccurrences(of: "-", with: " ")
+            }
+        } else {
+            attachedClues = clues
+        }
+    }
+
+    /// 摘除锚点——对话退化为通用「问过去」。已生成的回合保留。
+    public func detachMemo() {
+        attachedMemo = nil
+        attachedClues = []
     }
 
     // MARK: - System prompt
@@ -112,34 +173,81 @@ public final class MemoryChatService: ObservableObject {
     // MARK: - Ask
 
     /// 处理一条用户提问：检索 → 组装 prompt → 调 LLM → 追加 assistant 回合。
+    ///
+    /// Agent loop（issue #837）：每一步驱动 `phase`，让 UI 把「重读 → 翻找 →
+    /// 思考 → 逐字作答」的过程可视化。节奏拍（短 sleep）只在流式路径生效——
+    /// 注入 `send:` 的测试路径保持原有零延迟行为。
     public func ask(_ rawQuestion: String) async {
+        await run(rawQuestion, appendUserTurn: true)
+    }
+
+    /// 重试最近一条 user 提问——不重复追加 user 气泡（流式失败后的
+    /// 「重试」按钮语义：同一个问题，再答一次）。
+    public func retryLast() async {
+        guard let lastUser = turns.last(where: { $0.role == .user }) else { return }
+        await run(lastUser.text, appendUserTurn: false)
+    }
+
+    private func run(_ rawQuestion: String, appendUserTurn: Bool) async {
         let question = rawQuestion.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !question.isEmpty, !isResponding else { return }
 
         errorMessage = nil
-        let userTurn = ChatTurn(role: .user, text: question)
-        turns.append(userTurn)
-        Self.appendTurn(userTurn)
+        if appendUserTurn {
+            let userTurn = ChatTurn(role: .user, text: question)
+            turns.append(userTurn)
+            Self.appendTurn(userTurn)
+        }
         isResponding = true
-        defer { isResponding = false }
+        defer {
+            isResponding = false
+            phase = .idle
+            streamingText = ""
+        }
 
-        // Step 1: 图谱增强检索——磁盘 I/O 走 detached task 避免阻塞主线程。
-        // GraphRetriever.retrieve 是 nonisolated 静态函数，捕获 question 不可
-        // 变副本进入后台，再回到主 actor 装配 messages。
+        let paced = streamSend != nil
+
+        // Phase 0: 重读锚定记录（仅 memo 锚定对话；本地即时，仅是节奏拍）。
+        if attachedMemo != nil {
+            phase = .reading
+            if paced { try? await Task.sleep(nanoseconds: 400_000_000) }
+        }
+
+        // Phase 1 / Step 1: 图谱增强检索——磁盘 I/O 走 detached task 避免阻塞
+        // 主线程。GraphRetriever.retrieve 是 nonisolated 静态函数，捕获不可变
+        // 副本进入后台，再回到主 actor 装配 messages。
+        phase = .retrieving(attachedClues)
         let retrieveClosure = self.retrieve
+        let seedSlugs = attachedMemo?.entityMentions ?? []
         let context = await Task.detached(priority: .userInitiated) { @Sendable in
-            retrieveClosure(question)
+            retrieveClosure(question, seedSlugs)
         }.value
 
         // Allow caller (e.g. sheet dismissal) to cancel mid-flight.
         if Task.isCancelled { return }
 
-        // Step 2: 组装 messages（system + 检索上下文 + 近几轮历史 + 当前问题）。
+        // Phase 2: 「找到 N 条」短拍——检索通常快到不可见，这一拍把
+        // 结果数量讲给用户听，然后才进入等待 LLM 的阶段。
+        phase = .thinking(found: context.memoHits.count)
+        if paced { try? await Task.sleep(nanoseconds: 450_000_000) }
+
+        // Step 2: 组装 messages（system + 锚定 memo + 检索上下文 + 历史 + 问题）。
         let messages = buildMessages(question: question, context: context)
 
-        // Step 3: 调 LLM。
+        // Step 3: 调 LLM——优先流式（token 逐段落入 streamingText），
+        // 无流式闭包时回退一次性 complete。
         do {
-            let answer = try await send(messages)
+            let answer: String
+            if let streamSend {
+                phase = .streaming
+                streamingText = ""
+                answer = try await streamSend(messages) { [weak self] chunk in
+                    self?.streamingText += chunk
+                }
+            } else {
+                answer = try await send(messages)
+            }
+            if Task.isCancelled { return }
             let assistantTurn = ChatTurn(role: .assistant, text: answer, context: context)
             turns.append(assistantTurn)
             Self.appendTurn(assistantTurn)
@@ -237,10 +345,22 @@ public final class MemoryChatService: ObservableObject {
 
     // MARK: - Message assembly
 
+    /// memo 锚定对话的追加 system 规则（issue #837）。
+    public static let anchoredMemoRule = """
+    补充情境：用户此刻正打开自己过去的一条具体记录，并针对它追问。
+    - 优先围绕这条记录回答；它的全文在「用户正在追问的这条记录」块中。
+    - 当检索上下文里出现其他日期的相关记录时，指出它们与这条记录之间的
+      联系或变化（想法的延续、反转、重现），并带上日期。
+    - 不要复述这条记录本身——用户正看着它；直接给出观察与回答。
+    """
+
     /// 构造发给 LLM 的 messages。
     /// 历史只带最近若干轮，避免上下文无限膨胀（token 成本控制，研究文档 §5）。
     public func buildMessages(question: String, context: RetrievedContext, historyLimit: Int = 4) -> [LLMMessage] {
         var messages: [LLMMessage] = [.system(Self.systemPrompt)]
+        if attachedMemo != nil {
+            messages.append(.system(Self.anchoredMemoRule))
+        }
 
         // 最近 historyLimit 轮历史（不含当前这条尚未入队的 user 问题）。
         let priorTurns = turns.dropLast().suffix(historyLimit)
@@ -251,15 +371,28 @@ public final class MemoryChatService: ObservableObject {
             }
         }
 
-        // 当前问题 + 检索上下文一起作为 user 消息，让模型看到依据。
-        let userContent = """
+        // 当前问题 + 锚定记录 + 检索上下文一起作为 user 消息，让模型看到依据。
+        var blocks: [String] = []
+        if let memo = attachedMemo {
+            let f = DateFormatter()
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.timeZone = TimeZone.current
+            f.dateFormat = "yyyy-MM-dd HH:mm"
+            let moodPart = memo.mood.map { "（情绪：\($0)）" } ?? ""
+            blocks.append("""
+            ## 用户正在追问的这条记录（\(f.string(from: memo.created))\(moodPart)）
+            \(memo.body)
+            """)
+        }
+        blocks.append("""
         ## 检索到的上下文
         \(context.toPromptContext())
-
+        """)
+        blocks.append("""
         ## 我的问题
         \(question)
-        """
-        messages.append(.user(userContent))
+        """)
+        messages.append(.user(blocks.joined(separator: "\n\n")))
         return messages
     }
 }

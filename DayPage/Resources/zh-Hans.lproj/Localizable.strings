@@ -1107,3 +1107,24 @@
 "daydetail.kind.part.voice"  = "%d 声";
 "daydetail.kind.part.photo"  = "%d 图";
 "rawmemo.empty"              = "该日无记录";
+
+/* MARK: - Drop-to-Ask + memo 锚定对话 (issue #837) */
+"memo.detail.drop_dock"              = "拖到这里，问 AI";
+"memo.chat.title"                    = "与这条记忆对话";
+"memo.chat.a11y.close"               = "关闭对话";
+"memo.chat.status.reading"           = "正在重读这条记忆…";
+"memo.chat.status.retrieving"        = "翻找相关记录…";
+"memo.chat.status.retrieving.along"  = "沿「%@」翻找相关记录…";
+"memo.chat.status.retrieving.sep"    = "」「";
+"memo.chat.status.found"             = "找到 %d 条相关记录，正在思考…";
+"memo.chat.status.thinking"          = "正在思考…";
+"memo.chat.input.placeholder"        = "问问这条记忆…";
+"memo.chat.pin"                      = "存入今日日记";
+"memo.chat.pin.done"                 = "已存入今日";
+"memo.chat.retry"                    = "重试";
+"memo.chat.suggest.why"              = "当时的我为什么这么想？";
+"memo.chat.suggest.entity"           = "关于「%@」我还说过什么？";
+"memo.chat.suggest.changed"          = "这个想法后来有变化吗？";
+"memo.chat.a11y.detach"              = "摘除这条记忆";
+"memo.chat.a11y.source"              = "查看 %@ 的记录";
+"memo.chat.a11y.send"                = "发送";

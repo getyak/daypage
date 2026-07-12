@@ -19,7 +19,7 @@ final class MemoryChatEmptyContextTests: XCTestCase {
 
     @MainActor
     func test_buildMessages_empty_context_still_includes_promptContext_header() async {
-        let svc = MemoryChatService(send: { _ in "unused" }, retrieve: { _ in
+        let svc = MemoryChatService(send: { _ in "unused" }, retrieve: { _, _ in
             RetrievedContext(query: "", memoHits: [], entityHits: [])
         })
         let empty = RetrievedContext(query: "", memoHits: [], entityHits: [])
@@ -34,7 +34,7 @@ final class MemoryChatEmptyContextTests: XCTestCase {
 
     @MainActor
     func test_pinTurnToDiary_rejects_empty_and_user_role() {
-        let svc = MemoryChatService(send: { _ in "" }, retrieve: { _ in
+        let svc = MemoryChatService(send: { _ in "" }, retrieve: { _, _ in
             RetrievedContext(query: "", memoHits: [], entityHits: [])
         })
         let empty = ChatTurn(role: .assistant, text: "")
