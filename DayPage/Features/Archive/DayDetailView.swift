@@ -20,9 +20,16 @@ struct DayDetailView: View {
 
     enum Tab: String, CaseIterable {
         // 同一控件内半英半中（"Daily Page" | "原始 Memo"）读起来像两个产品
-        // （FINDING-010）。英文 mono 保留给档案性标签，可交互控件统一中文。
-        case daily = "日记页"
-        case raw = "原始 Memo"
+        // （FINDING-010）。可交互控件在每个语言内保持整体一致 — 经 L10n 解析。
+        case daily
+        case raw
+
+        var title: String {
+            switch self {
+            case .daily: return NSLocalizedString("daydetail.tab.daily", comment: "Segment title: compiled daily page")
+            case .raw:   return NSLocalizedString("daydetail.tab.raw", comment: "Segment title: raw memos")
+            }
+        }
     }
 
     enum LoadState: Equatable {
@@ -116,7 +123,7 @@ struct DayDetailView: View {
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(DSColor.onSurface)
                 }
-                .accessibilityLabel("前一天")
+                .accessibilityLabel(NSLocalizedString("daydetail.a11y.prevDay", comment: "A11y label: go to previous day"))
 
                 Button(action: { go(.forward) }) {
                     Image(systemName: "chevron.right")
@@ -124,7 +131,7 @@ struct DayDetailView: View {
                         .foregroundColor(canGoForward ? DSColor.onSurface : DSColor.onSurfaceVariant.opacity(0.35))
                 }
                 .disabled(!canGoForward)
-                .accessibilityLabel("后一天")
+                .accessibilityLabel(NSLocalizedString("daydetail.a11y.nextDay", comment: "A11y label: go to next day"))
             }
         }
         .task(id: currentDate) { await load() }
@@ -163,13 +170,13 @@ struct DayDetailView: View {
     private static let boundsResistance: CGFloat = 0.3
 
     private var pageSwipeGesture: some Gesture {
-        DragGesture(minimumDistance: 24)
+        DragGesture(minimumDistance: DSGesture.pagerMinimumDistance)
             .updating($pageDrag) { value, drag, _ in
                 // Engage only once the drag is dominantly sideways, so we never
                 // fight vertical scrolling inside the daily/raw content; after
                 // that, latch and follow the finger for the rest of the gesture.
                 if !drag.isEngaged {
-                    guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
+                    guard abs(value.translation.width) > abs(value.translation.height) * DSGesture.horizontalDominance else { return }
                     drag.isEngaged = true
                 }
                 let translation = value.translation.width
@@ -180,7 +187,7 @@ struct DayDetailView: View {
             .onEnded { value in
                 // Same horizontal-dominance guard as tracking: an end that never
                 // engaged (vertical scroll) must stay a no-op.
-                guard abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
+                guard abs(value.translation.width) > abs(value.translation.height) * DSGesture.horizontalDominance else { return }
                 let screenWidth = UIScreen.main.bounds.width
                 let translation = value.translation.width
                 // `value.velocity` is iOS 17+; the predicted overshoot is the
@@ -246,7 +253,7 @@ struct DayDetailView: View {
         VStack(spacing: 0) {
             Picker("Tab", selection: $selectedTab) {
                 ForEach(Tab.allCases, id: \.self) { tab in
-                    Text(tab.rawValue).tag(tab)
+                    Text(tab.title).tag(tab)
                 }
             }
             .pickerStyle(.segmented)
@@ -289,12 +296,12 @@ struct DayDetailView: View {
                 Image(systemName: "doc.text")
                     .font(.system(size: 40))
                     .foregroundColor(DSColor.onSurfaceVariant.opacity(0.5))
-                Text("这一天还没编译")
+                Text(NSLocalizedString("daydetail.state.notCompiled", comment: "Empty state: day has raw memos but no compiled daily page"))
                     .headlineCapsStyle()
                     .foregroundColor(DSColor.onSurfaceVariant)
                 Button(action: { selectedTab = .raw }) {
-                    Text("查看原始 Memo")
-                        .font(.custom("JetBrainsMono-Regular", fixedSize: 13))
+                    Text(NSLocalizedString("daydetail.state.viewRaw", comment: "Button: switch to the raw memo tab"))
+                        .font(DSFonts.jetBrainsMono(size: 13))
                         .foregroundColor(DSColor.primary)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
@@ -319,7 +326,7 @@ struct DayDetailView: View {
                 Image(systemName: "tray")
                     .font(.system(size: 40))
                     .foregroundColor(DSColor.onSurfaceVariant.opacity(0.5))
-                Text("这一天没有记录")
+                Text(NSLocalizedString("daydetail.raw.empty", comment: "Empty state: no raw memos on this day"))
                     .headlineCapsStyle()
                     .foregroundColor(DSColor.onSurfaceVariant)
                 Spacer()
@@ -346,12 +353,12 @@ struct DayDetailView: View {
             Image(systemName: "calendar.badge.exclamationmark")
                 .font(.system(size: 44))
                 .foregroundColor(DSColor.onSurfaceVariant.opacity(0.6))
-            Text("这一天还没有记录")
+            Text(NSLocalizedString("daydetail.empty.title", comment: "Empty state: nothing logged on this day at all"))
                 .headlineCapsStyle()
                 .foregroundColor(DSColor.onSurfaceVariant)
             Button(action: { dismiss() }) {
-                Text("关闭")
-                    .font(.custom("JetBrainsMono-Regular", fixedSize: 13))
+                Text(NSLocalizedString("daydetail.close", comment: "Button: dismiss the day detail view"))
+                    .font(DSFonts.jetBrainsMono(size: 13))
                     .foregroundColor(DSColor.primary)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
@@ -369,17 +376,17 @@ struct DayDetailView: View {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 44))
                 .foregroundColor(DSColor.error)
-            Text("无法加载这一天")
+            Text(NSLocalizedString("daydetail.error.title", comment: "Error state title: the day failed to load"))
                 .headlineCapsStyle()
                 .foregroundColor(DSColor.onSurface)
             Text(message)
-                .font(.custom("JetBrainsMono-Regular", fixedSize: 11))
+                .font(DSFonts.jetBrainsMono(size: 11))
                 .foregroundColor(DSColor.onSurfaceVariant)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Button(action: { dismiss() }) {
-                Text("关闭")
-                    .font(.custom("JetBrainsMono-Regular", fixedSize: 13))
+                Text(NSLocalizedString("daydetail.close", comment: "Button: dismiss the day detail view"))
+                    .font(DSFonts.jetBrainsMono(size: 13))
                     .foregroundColor(DSColor.primary)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
@@ -454,7 +461,9 @@ struct DayDetailView: View {
             }
         }
 
-        // ENTRIES — memo count
+        // ENTRIES — memo count. Tile labels ("ENTRIES"/"SPAN"/"WEATHER"/"KIND")
+        // are intentionally-untranslated archival tags (FINDING-010); values
+        // and subs carry the localized content.
         let entriesTile = MetadataGridView.Tile(
             label: "ENTRIES", value: "\(sorted.count)", sub: "MEMOS"
         )
@@ -474,14 +483,14 @@ struct DayDetailView: View {
         let photo = sorted.filter { $0.attachments.contains { $0.kind == "photo" } }.count
         let text = sorted.count - voice - photo
         let dominant: String = {
-            if text >= voice && text >= photo { return "文本" }
-            if voice >= photo { return "语音" }
-            return "照片"
+            if text >= voice && text >= photo { return NSLocalizedString("daydetail.kind.text", comment: "Dominant memo kind: text") }
+            if voice >= photo { return NSLocalizedString("daydetail.kind.voice", comment: "Dominant memo kind: voice") }
+            return NSLocalizedString("daydetail.kind.photo", comment: "Dominant memo kind: photo")
         }()
         var kindParts: [String] = []
-        if text > 0 { kindParts.append("\(text) 文") }
-        if voice > 0 { kindParts.append("\(voice) 声") }
-        if photo > 0 { kindParts.append("\(photo) 图") }
+        if text > 0 { kindParts.append(String(format: NSLocalizedString("daydetail.kind.part.text", comment: "Kind tile sub: %d text memos"), text)) }
+        if voice > 0 { kindParts.append(String(format: NSLocalizedString("daydetail.kind.part.voice", comment: "Kind tile sub: %d voice memos"), voice)) }
+        if photo > 0 { kindParts.append(String(format: NSLocalizedString("daydetail.kind.part.photo", comment: "Kind tile sub: %d photo memos"), photo)) }
 
         return [
             MetadataGridView.Tile(label: "WEATHER", value: weatherValue, sub: weatherSub),
@@ -501,7 +510,7 @@ struct DayDetailView: View {
         let range = NSRange(dateString.startIndex..., in: dateString)
         guard let dateRegex,
               dateRegex.firstMatch(in: dateString, options: [], range: range) != nil else {
-            return (.error("日期格式无效：\(dateString)"), false)
+            return (.error(String(format: NSLocalizedString("daydetail.error.badFormat", comment: "Error: date string is not yyyy-MM-dd; %@ = raw input"), dateString)), false)
         }
 
         // 2. 使用 DateFormatter 交叉校验（捕获 '2020-02-30' 等）。
@@ -512,7 +521,7 @@ struct DayDetailView: View {
         parser.timeZone = TimeZone.current
         parser.isLenient = false
         guard parser.date(from: dateString) != nil else {
-            return (.error("日期不存在：\(dateString)"), false)
+            return (.error(String(format: NSLocalizedString("daydetail.error.notFound", comment: "Error: date does not exist on the calendar; %@ = raw input"), dateString)), false)
         }
 
         // 3. 检查 vault 目录完整性。

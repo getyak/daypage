@@ -112,10 +112,6 @@ enum L10n {
         static let filterHasLocation = NSLocalizedString("archive.filter.has_location", comment: "Monthly summary filter: days with a location")
         static let filterHasPhoto    = NSLocalizedString("archive.filter.has_photo", comment: "Monthly summary filter: days with a photo")
 
-        // System status banner labels rendered in the archive footer.
-        static let statusSynchronized        = NSLocalizedString("archive.status.synchronized", comment: "Archive footer status: vault is synchronized")
-        static let statusPendingCompilation  = NSLocalizedString("archive.status.pending_compilation", comment: "Archive footer status: daily compilation pending")
-        static let statusOffline             = NSLocalizedString("archive.status.offline", comment: "Archive footer status: device offline")
     }
 
     enum Banner {

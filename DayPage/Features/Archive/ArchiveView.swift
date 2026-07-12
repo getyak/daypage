@@ -26,22 +26,6 @@ enum MonthlySummaryFilter: String, CaseIterable {
     }
 }
 
-// MARK: - SystemStatus
-
-enum SystemStatus {
-    case synchronized
-    case pendingCompilation
-    case offline
-
-    var label: String {
-        switch self {
-        case .synchronized:       return L10n.Archive.statusSynchronized
-        case .pendingCompilation: return L10n.Archive.statusPendingCompilation
-        case .offline:            return L10n.Archive.statusOffline
-        }
-    }
-}
-
 // MARK: - DayStats
 
 /// 存档中单日统计信息。
@@ -353,25 +337,6 @@ final class ArchiveViewModel: ObservableObject {
 
     var totalEntries: Int { dayStats.values.reduce(0) { $0 + $1.memoCount } }
 
-    // MARK: System Status
-
-    /// 基于当月编译状态推算的系统状态。
-    var systemStatus: SystemStatus {
-        let days = dayStats.values
-        // Days that have raw memos but no compiled Daily Page
-        let hasPending = days.contains { $0.memoCount > 0 && !$0.isDailyPageCompiled }
-        let hasAny = days.contains { $0.memoCount > 0 || $0.isDailyPageCompiled }
-        guard hasAny else { return .synchronized }
-        return hasPending ? .pendingCompilation : .synchronized
-    }
-
-    var lastSyncTimestamp: String {
-        let compiled = dayStats.values
-            .filter { $0.isDailyPageCompiled }
-            .sorted { $0.dateString > $1.dateString }
-        guard let latest = compiled.first else { return "N/A" }
-        return latest.dateString.replacingOccurrences(of: "-", with: ".")
-    }
     var totalPhotos: Int { dayStats.values.reduce(0) { $0 + $1.photoCount } }
     var totalVoiceMinutes: Int { dayStats.values.reduce(0) { $0 + $1.voiceMinutes } }
     var totalLocations: Int { dayStats.values.reduce(0) { $0 + $1.uniqueLocations } }
@@ -456,15 +421,15 @@ final class ArchiveViewModel: ObservableObject {
     func generateMarkdownExport(filter: MonthlySummaryFilter) -> String {
         let days = filteredDays(filter: filter)
         var lines: [String] = []
-        lines.append("# \(currentMonthTitle) 月度摘要")
+        lines.append("# " + String(format: NSLocalizedString("archive.export.md.title", comment: "Markdown export H1: %@ = month title"), currentMonthTitle))
         lines.append("")
-        lines.append("- 总记录：\(totalEntries) 条")
-        lines.append("- 照片：\(totalPhotos) 张")
-        lines.append("- 语音：\(totalVoiceMinutes) 分钟")
-        lines.append("- 地点：\(totalLocations) 处")
+        lines.append(String(format: NSLocalizedString("archive.export.md.entries", comment: "Markdown export bullet: total entry count"), totalEntries))
+        lines.append(String(format: NSLocalizedString("archive.export.md.photos", comment: "Markdown export bullet: photo count"), totalPhotos))
+        lines.append(String(format: NSLocalizedString("archive.export.md.voice", comment: "Markdown export bullet: voice minutes"), totalVoiceMinutes))
+        lines.append(String(format: NSLocalizedString("archive.export.md.locations", comment: "Markdown export bullet: location count"), totalLocations))
         lines.append("")
         if filter != .all {
-            lines.append("> 筛选：\(filter.localizedLabel)")
+            lines.append(String(format: NSLocalizedString("archive.export.md.filter", comment: "Markdown export blockquote: active filter name"), filter.localizedLabel))
             lines.append("")
         }
         lines.append("---")
@@ -476,7 +441,10 @@ final class ArchiveViewModel: ObservableObject {
                 lines.append(summary)
             }
             lines.append("")
-            lines.append("- 记录：\(stats.memoCount) 条，照片：\(stats.photoCount) 张，语音：\(stats.voiceMinutes) 分钟，地点：\(stats.uniqueLocations) 处")
+            lines.append(String(
+                format: NSLocalizedString("archive.export.md.dayline", comment: "Markdown export per-day stats: memos, photos, voice minutes, locations"),
+                stats.memoCount, stats.photoCount, stats.voiceMinutes, stats.uniqueLocations
+            ))
             lines.append("")
         }
         return lines.joined(separator: "\n")
@@ -583,18 +551,13 @@ struct ArchiveView: View {
                         .frame(height: 0)
 
                         VStack(spacing: 0) {
-                            // Issue #7 (2026-07-03): Vault overview strip
-                            // sits above the month navigation. Gives the
-                            // user a whole-vault sense-of-scale (total
-                            // memos + total days) without opening a
-                            // separate stats screen. Reads directly from
-                            // TimelineIndex so it always reflects on-disk
-                            // reality — no separate cache to invalidate.
-                            vaultOverviewStrip
-                                .padding(.horizontal, 20)
-                                .padding(.top, 16)
-                                .padding(.bottom, 6)
-
+                            // #827 IA convergence: the whole-vault overview
+                            // strip moved to SearchView's starter state —
+                            // in Archive it was a third stats voice
+                            // shouting over the month summary (FINDING-008
+                            // was exactly this scope collision). Calendar
+                            // mode now reads: month nav → calendar (legend
+                            // in its footer) → single month summary.
                             monthNavigationRow
                                 .padding(.horizontal, 20)
                                 .padding(.vertical, 16)
@@ -626,11 +589,12 @@ struct ArchiveView: View {
                                         )
                                     )
                                     .gesture(
-                                        DragGesture(minimumDistance: 30)
+                                        DragGesture(minimumDistance: DSGesture.pagerMinimumDistance)
                                             .onEnded { value in
                                                 let w = value.translation.width
                                                 let h = value.translation.height
-                                                guard abs(w) > abs(h) * 1.2, abs(w) > 50 else { return }
+                                                guard abs(w) > abs(h) * DSGesture.horizontalDominance,
+                                                      abs(w) > DSGesture.monthSwipeCommitDistance else { return }
                                                 if w < 0 {
                                                     monthNavDirection = .trailing
                                                     withAnimation(Motion.spring) { viewModel.goToNextMonth() }
@@ -643,17 +607,21 @@ struct ArchiveView: View {
                                             }
                                     )
 
-                                legendRow
-                                    .padding(.horizontal, 12)
-                                    .padding(.top, 8)
-
-                                monthlySummary
-                                    .padding(.horizontal, 20)
-                                    .padding(.top, 32)
-
-                                systemStatusArtifact
-                                    .padding(.top, 32)
-                                    .padding(.bottom, 40)
+                                if viewModel.totalEntries == 0 {
+                                    // #827: an all-empty month used to render
+                                    // as a mute grid of gray cells with no
+                                    // explanation — the only screen in the
+                                    // app without an empty state.
+                                    emptyMonthHint
+                                        .padding(.horizontal, 20)
+                                        .padding(.top, 32)
+                                        .padding(.bottom, 40)
+                                } else {
+                                    monthlySummary
+                                        .padding(.horizontal, 20)
+                                        .padding(.top, 32)
+                                        .padding(.bottom, 40)
+                                }
                             } else {
                                 listContent
                                     .padding(.horizontal, 20)
@@ -877,8 +845,8 @@ struct ArchiveView: View {
                     .clipShape(Circle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("搜索")
-            .accessibilityHint("搜索历史记录")
+            .accessibilityLabel(NSLocalizedString("archive.a11y.search.label", comment: "A11y label: search button in archive header"))
+            .accessibilityHint(NSLocalizedString("archive.a11y.search.hint", comment: "A11y hint: search button in archive header"))
             .frame(width: 44, height: 44)
             .contentShape(Rectangle())
         }
@@ -895,44 +863,19 @@ struct ArchiveView: View {
     /// warmed by DayPageApp at launch, so this is O(1) once ready. Before
     /// warm-up we show em-dashes rather than "0" so the user can tell
     /// "index is still loading" from "vault is really empty".
-    private var vaultOverviewStrip: some View {
-        let all = TimelineIndex.shared.entries()
-        let totalMemos = all.reduce(0) { $0 + $1.memoCount }
-        let totalDays = all.count
-        let hasData = totalDays > 0 || totalMemos > 0
-        // Scope words matter: this strip is whole-vault, but it sits directly
-        // under the month title, so bare "MEMOS 16" read as July's count and
-        // contradicted the month summary's "TOTAL ENTRIES 11" (FINDING-008).
-        return HStack(alignment: .center, spacing: 20) {
-            statPillar(
-                label: "ALL-TIME MEMOS",
-                value: hasData ? "\(totalMemos)" : "—"
-            )
-            Rectangle()
-                .fill(DSColor.glassRimD)
-                .frame(width: 0.5, height: 26)
-            statPillar(
-                label: "ALL-TIME DAYS",
-                value: hasData ? "\(totalDays)" : "—"
-            )
-            Spacer()
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Vault 总览：\(totalMemos) 条记录，\(totalDays) 天写作")
-        .accessibilityIdentifier("archive.vault.overview")
-    }
-
-    private func statPillar(label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(label)
-                .font(DSType.mono10)
-                .tracking(1.2)
-                .textCase(.uppercase)
+    /// #827: quiet empty state for an all-empty month — replaces the month
+    /// summary (a grid of zeros would be noise, not information).
+    private var emptyMonthHint: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "moon.zzz")
+                .font(.system(size: 22, weight: .light))
+                .foregroundColor(DSColor.inkFaint)
+            Text(NSLocalizedString("archive.month.empty", comment: "Empty month hint"))
+                .font(DSType.bodySM)
                 .foregroundColor(DSColor.inkSubtle)
-            Text(value)
-                .font(DSFonts.serif(size: 22, weight: .regular))
-                .foregroundColor(DSColor.inkPrimary)
         }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
     }
 
     private var monthNavigationRow: some View {
@@ -950,8 +893,8 @@ struct ArchiveView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("上个月")
-            .accessibilityHint("切换到上一个月")
+            .accessibilityLabel(NSLocalizedString("archive.a11y.prevMonth.label", comment: "A11y label: previous month button"))
+            .accessibilityHint(NSLocalizedString("archive.a11y.prevMonth.hint", comment: "A11y hint: previous month button"))
 
             Spacer()
 
@@ -987,8 +930,8 @@ struct ArchiveView: View {
                         .overlay(Capsule().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("回到本月")
-                .accessibilityHint("跳转到当前月份")
+                .accessibilityLabel(NSLocalizedString("archive.a11y.currentMonth.label", comment: "A11y label: back-to-current-month button"))
+                .accessibilityHint(NSLocalizedString("archive.a11y.currentMonth.hint", comment: "A11y hint: back-to-current-month button"))
                 .transition(.scale.combined(with: .opacity))
             }
 
@@ -1007,8 +950,8 @@ struct ArchiveView: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("下个月")
-            .accessibilityHint("切换到下一个月")
+            .accessibilityLabel(NSLocalizedString("archive.a11y.nextMonth.label", comment: "A11y label: next month button"))
+            .accessibilityHint(NSLocalizedString("archive.a11y.nextMonth.hint", comment: "A11y hint: next month button"))
         }
         .animation(reduceMotion ? nil : Motion.spring, value: viewModel.isViewingCurrentMonth)
     }
@@ -1061,6 +1004,13 @@ struct ArchiveView: View {
                     }
                 }
             }
+
+            // #827: the density legend lives INSIDE the calendar panel as
+            // its footer — it annotates the grid above it, so floating it
+            // outside the glass surface made it read as a separate section.
+            legendRow
+                .padding(.horizontal, 4)
+                .padding(.top, 6)
         }
         .padding(8)
         // #771: month calendar grid → glass engine (.panel). Engine owns rim.
@@ -1157,7 +1107,7 @@ struct ArchiveView: View {
             .frame(maxWidth: .infinity)
             .accessibilityLabel(accessibilityLabel(dateStr: dateStr, state: data, stats: viewModel.dayStats[dateStr]))
             .accessibilityValue(viewModel.dayStats[dateStr]?.densityLevel.label ?? "")
-            .accessibilityHint("双击打开当天详情")
+            .accessibilityHint(NSLocalizedString("archive.a11y.day.hint", comment: "A11y hint: calendar day cell opens the day detail"))
         } else {
             RoundedRectangle(cornerRadius: DSRadius.xs, style: .continuous)
                 .fill(Color.clear)
@@ -1169,23 +1119,26 @@ struct ArchiveView: View {
     private func accessibilityLabel(dateStr: String, state: CellDataState, stats: DayStats?) -> String {
         let statePrefix: String
         switch state {
-        case .compiled: statePrefix = "已编译 Daily Page"
-        case .rawOnly:  statePrefix = "有原始记录"
-        case .none:     return "\(dateStr)，无记录"
+        case .compiled: statePrefix = NSLocalizedString("archive.a11y.day.compiled", comment: "A11y: day has a compiled daily page")
+        case .rawOnly:  statePrefix = NSLocalizedString("archive.a11y.day.rawOnly", comment: "A11y: day has raw memos only")
+        case .none:     return String(format: NSLocalizedString("archive.a11y.day.none", comment: "A11y: day with no entries; %@ = date"), dateStr)
         }
         guard let s = stats, s.memoCount > 0 else {
             return "\(dateStr)，\(statePrefix)"
         }
         let densityLabel: String
         switch s.densityLevel {
-        case .empty:  densityLabel = "空"
-        case .low:    densityLabel = "较低"
-        case .medium: densityLabel = "中等"
-        case .high:   densityLabel = "较高"
+        case .empty:  densityLabel = NSLocalizedString("archive.a11y.density.empty", comment: "A11y density level: empty")
+        case .low:    densityLabel = NSLocalizedString("archive.a11y.density.low", comment: "A11y density level: low")
+        case .medium: densityLabel = NSLocalizedString("archive.a11y.density.medium", comment: "A11y density level: medium")
+        case .high:   densityLabel = NSLocalizedString("archive.a11y.density.high", comment: "A11y density level: high")
         }
-        var parts: [String] = ["\(dateStr)，\(statePrefix)，活跃度 \(densityLabel)，\(s.memoCount) 条记录"]
-        if s.photoCount > 0 { parts.append("\(s.photoCount) 张照片") }
-        if s.uniqueLocations > 0 { parts.append("\(s.uniqueLocations) 处位置") }
+        var parts: [String] = [String(
+            format: NSLocalizedString("archive.a11y.day.summary", comment: "A11y day summary: date, compile state, density, memo count"),
+            dateStr, statePrefix, densityLabel, s.memoCount
+        )]
+        if s.photoCount > 0 { parts.append(String(format: NSLocalizedString("archive.a11y.day.photos", comment: "A11y: %d photos"), s.photoCount)) }
+        if s.uniqueLocations > 0 { parts.append(String(format: NSLocalizedString("archive.a11y.day.locations", comment: "A11y: %d locations"), s.uniqueLocations)) }
         return parts.joined(separator: "，")
     }
 
@@ -1219,7 +1172,7 @@ struct ArchiveView: View {
     private var monthlySummary: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 16) {
-                Text("\(viewModel.currentMonthTitle) Summary")
+                Text(String(format: NSLocalizedString("archive.summary.title", comment: "Monthly summary section title; %@ = month title"), viewModel.currentMonthTitle))
                     .font(DSType.sectionLabel)
                     .foregroundColor(DSColor.inkSubtle)
                 Rectangle()
@@ -1252,7 +1205,7 @@ struct ArchiveView: View {
             if summaryFilter != .all {
                 let filtered = viewModel.filteredDays(filter: summaryFilter)
                 if filtered.isEmpty {
-                    Text("无符合条件的日期")
+                    Text(NSLocalizedString("archive.summary.noMatch", comment: "Monthly summary: no days match the active filter"))
                         .monoLabelStyle(size: 11)
                         .foregroundColor(DSColor.onSurfaceVariant)
                         .padding(.vertical, 8)
@@ -1295,7 +1248,7 @@ struct ArchiveView: View {
             // Export / Share actions
             HStack(spacing: 10) {
                 Button(action: exportMarkdown) {
-                    Label("导出 Markdown", systemImage: "square.and.arrow.up")
+                    Label(NSLocalizedString("archive.export.markdown", comment: "Button: export monthly summary as Markdown"), systemImage: "square.and.arrow.up")
                         .monoLabelStyle(size: 11)
                         .foregroundColor(DSColor.inkPrimary)
                         .padding(.horizontal, 12)
@@ -1307,7 +1260,7 @@ struct ArchiveView: View {
                 Button {
                     Task { await shareScreenshot() }
                 } label: {
-                    Label("截图分享", systemImage: "camera")
+                    Label(NSLocalizedString("archive.export.screenshot", comment: "Button: share monthly summary as screenshot"), systemImage: "camera")
                         .monoLabelStyle(size: 11)
                         .foregroundColor(DSColor.inkPrimary)
                         .padding(.horizontal, 12)
@@ -1404,63 +1357,6 @@ struct ArchiveView: View {
         .accessibilityValue(unit != nil ? "\(value) \(unit!)" : value)
     }
 
-    // MARK: - System Status Artifact
-
-    private var systemStatusArtifact: some View {
-        VStack(spacing: 0) {
-            // Top divider line
-            Rectangle()
-                .fill(DSColor.inkFaint)
-                .frame(height: 0.5)
-
-            ZStack {
-                DSColor.amberDeep.opacity(0.92)
-                    .ignoresSafeArea(edges: [])
-
-                VStack(spacing: 16) {
-                    // Decorative geometric graphic
-                    ArtifactGeometricView()
-                        .frame(width: 80, height: 80)
-
-                    // Status label
-                    VStack(spacing: 6) {
-                        HStack(spacing: 6) {
-                            // Artifact panel background is amberDeep@0.92 — use
-                            // onAmber so the label tracks dark mode instead of
-                            // sitting on a pure-white system color.
-                            Text("SYSTEM STATUS:")
-                                .font(DSFonts.jetBrainsMono(size: 11, weight: .medium))
-                                .foregroundColor(DSColor.onAmber.opacity(0.4))
-                                .tracking(0.5)
-
-                            Text(viewModel.systemStatus.label)
-                                .font(DSFonts.jetBrainsMono(size: 11, weight: .medium))
-                                .foregroundColor(statusTextColor)
-                                .tracking(0.5)
-                        }
-
-                        Text("LAST SYNC // \(viewModel.lastSyncTimestamp)")
-                            .font(DSFonts.jetBrainsMono(size: 10, weight: .regular))
-                            .foregroundColor(DSColor.onAmber.opacity(0.3))
-                            .tracking(0.5)
-                    }
-                }
-                .padding(.vertical, 32)
-            }
-            .frame(maxWidth: .infinity)
-        }
-    }
-
-    private var statusTextColor: Color {
-        switch viewModel.systemStatus {
-        // Synchronized label sits on the amberDeep artifact panel — onAmber
-        // so the warm-cream foreground tracks dark mode.
-        case .synchronized:       return DSColor.onAmber.opacity(0.6)
-        case .pendingCompilation: return DSColor.warningAmber
-        case .offline:            return DSColor.errorRed
-        }
-    }
-
     // MARK: - List Content
 
     private var listContent: some View {
@@ -1510,20 +1406,34 @@ struct ArchiveView: View {
     // Renders "YYYY 年 M 月" on the left and "<count> 天" on the right. Uses
     // `.ultraThinMaterial` as the background since `DSColor.bgCard` is not
     // defined in this design system.
+    /// Locale-aware "yyyy-MM" → month header ("2026年7月" / "July 2026").
+    /// Formatters are cached statically so section renders stay cheap.
+    private static let monthKeyParser: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+    private static let monthHeaderFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.setLocalizedDateFormatFromTemplate("yMMMM")
+        return f
+    }()
+
     private func monthSectionHeader(monthKey: String, dayCount: Int) -> some View {
-        // Parse "yyyy-MM" → "YYYY 年 M 月" without spinning up a DateFormatter
-        // every section render. monthKey is a fixed-width 7-char "yyyy-MM".
-        let yearPart = String(monthKey.prefix(4))
-        let monthRaw = String(monthKey.suffix(2))
-        let monthInt = Int(monthRaw) ?? 0
-        let headerTitle = "\(yearPart) 年 \(monthInt) 月"
+        let headerTitle = Self.monthKeyParser.date(from: monthKey)
+            .map { Self.monthHeaderFormatter.string(from: $0) } ?? monthKey
+        let dayCountText = String(
+            format: NSLocalizedString("archive.section.dayCount", comment: "Month section header trailing label: %d days with entries"),
+            dayCount
+        )
 
         return HStack(alignment: .firstTextBaseline) {
             Text(headerTitle)
                 .font(DSType.titleSM)
                 .foregroundColor(DSColor.inkPrimary)
             Spacer(minLength: 8)
-            Text("\(dayCount) 天")
+            Text(dayCountText)
                 .font(DSType.labelSM)
                 .foregroundColor(DSColor.inkMuted)
         }
@@ -1532,7 +1442,7 @@ struct ArchiveView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.ultraThinMaterial)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(headerTitle), \(dayCount) 天")
+        .accessibilityLabel("\(headerTitle), \(dayCountText)")
     }
 
     // MARK: - Month Digest Strip (list mode)
@@ -1755,91 +1665,6 @@ fileprivate enum ArchiveVaultScan {
             out.insert(base)
         }
         return out
-    }
-}
-
-// MARK: - ArtifactGeometricView
-
-/// 黑白极简装饰图案，呼应"考古档案"设计语言。
-/// 渲染带径向刻度线的同心圆 — 令人联想到罗盘或档案封印。
-private struct ArtifactGeometricView: View {
-
-    var body: some View {
-        Canvas { context, size in
-            let center = CGPoint(x: size.width / 2, y: size.height / 2)
-            let outerR = min(size.width, size.height) / 2 - 1
-            let white   = Color.white
-            let dimmed  = Color.white.opacity(0.25)
-
-            // --- Outer ring ---
-            context.stroke(
-                Path { p in p.addArc(center: center, radius: outerR, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: false) },
-                with: .color(white.opacity(0.5)),
-                lineWidth: 1
-            )
-
-            // --- Middle ring ---
-            context.stroke(
-                Path { p in p.addArc(center: center, radius: outerR * 0.72, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: false) },
-                with: .color(white.opacity(0.35)),
-                lineWidth: 0.75
-            )
-
-            // --- Inner ring ---
-            context.stroke(
-                Path { p in p.addArc(center: center, radius: outerR * 0.44, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: false) },
-                with: .color(white.opacity(0.25)),
-                lineWidth: 0.75
-            )
-
-            // --- Center dot ---
-            let dotR: CGFloat = 3
-            context.fill(
-                Path { p in p.addArc(center: center, radius: dotR, startAngle: .degrees(0), endAngle: .degrees(360), clockwise: false) },
-                with: .color(white.opacity(0.6))
-            )
-
-            // --- Radial tick marks (24 major + 24 minor) ---
-            let totalTicks = 48
-            for i in 0..<totalTicks {
-                let angle = Double(i) * (360.0 / Double(totalTicks))
-                let rad   = angle * .pi / 180
-                let isMajor = i % 2 == 0
-                let tickOuter = outerR
-                let tickInner = isMajor ? outerR * 0.86 : outerR * 0.92
-                let color = isMajor ? white.opacity(0.55) : dimmed
-
-                let outer = CGPoint(
-                    x: center.x + tickOuter * CGFloat(cos(rad)),
-                    y: center.y + tickOuter * CGFloat(sin(rad))
-                )
-                let inner = CGPoint(
-                    x: center.x + tickInner * CGFloat(cos(rad)),
-                    y: center.y + tickInner * CGFloat(sin(rad))
-                )
-
-                context.stroke(
-                    Path { p in p.move(to: outer); p.addLine(to: inner) },
-                    with: .color(color),
-                    lineWidth: isMajor ? 1 : 0.5
-                )
-            }
-
-            // --- Cross hair lines ---
-            let crossR = outerR * 0.38
-            let crossColor = white.opacity(0.2)
-            for angleDeg in [0.0, 90.0] {
-                let rad = angleDeg * .pi / 180
-                let p1 = CGPoint(x: center.x - crossR * CGFloat(cos(rad)), y: center.y - crossR * CGFloat(sin(rad)))
-                let p2 = CGPoint(x: center.x + crossR * CGFloat(cos(rad)), y: center.y + crossR * CGFloat(sin(rad)))
-                context.stroke(
-                    Path { p in p.move(to: p1); p.addLine(to: p2) },
-                    with: .color(crossColor),
-                    lineWidth: 0.5
-                )
-            }
-        }
-        .accessibilityHidden(true)
     }
 }
 

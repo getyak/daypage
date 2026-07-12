@@ -5,12 +5,18 @@ import DayPageStorage
 import DayPageServices
 @testable import DayPage
 
-@Suite("SearchService")
+// `.serialized`: every test in this file mutates the process-global
+// `VaultInitializer.testOverrideURL`. Swift Testing runs suites and cases in
+// parallel by default, so two tests pointing the vault override at different
+// temp directories race and read each other's vaults (#827 — surfaced the
+// moment this orphaned file was first wired into the target). The parity
+// suite below is NESTED so the serialization covers it too.
+@Suite("SearchService", .serialized)
 struct SearchServiceTests {
 
     // MARK: - Setup helpers
 
-    private static func makeTempVault() throws -> URL {
+    fileprivate static func makeTempVault() throws -> URL {
         let tmp = FileManager.default.temporaryDirectory
             .appendingPathComponent("SearchServiceTests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
@@ -23,7 +29,7 @@ struct SearchServiceTests {
         return tmp
     }
 
-    private static func writeMemo(_ memo: Memo, dateString: String, to vaultURL: URL) throws {
+    fileprivate static func writeMemo(_ memo: Memo, dateString: String, to vaultURL: URL) throws {
         let fileURL = vaultURL.appendingPathComponent("raw/\(dateString).md")
         let existing: String
         if FileManager.default.fileExists(atPath: fileURL.path) {
@@ -38,7 +44,7 @@ struct SearchServiceTests {
         try combined.write(to: fileURL, atomically: true, encoding: .utf8)
     }
 
-    private static func makeDate(year: Int, month: Int, day: Int) -> Date {
+    fileprivate static func makeDate(year: Int, month: Int, day: Int) -> Date {
         var c = DateComponents()
         c.year = year; c.month = month; c.day = day; c.hour = 12
         return Calendar(identifier: .gregorian).date(from: c)!
@@ -278,4 +284,136 @@ struct SearchServiceTests {
         let dates = results.compactMap { $0.matchKind == .memoBody ? $0.dateString : nil }
         #expect(dates == dates.sorted(by: >), "Results must be ordered newest-first")
     }
+}
+
+// MARK: - SearchIndex parity (#827)
+
+/// The indexed fast path must return byte-identical results to the legacy
+/// disk-scanning path — the index is a cache, never a semantic fork. Every
+/// test here runs BOTH paths over the same seeded vault and diffs them.
+extension SearchServiceTests {
+@Suite("SearchIndex parity")
+@MainActor
+struct SearchIndexParityTests {
+
+    /// Comparable projection of a SearchResult (id is a fresh UUID per hit,
+    /// so equality must be field-wise).
+    private struct Hit: Equatable {
+        let dateString: String
+        let snippet: String
+        let matchKind: SearchResult.MatchKind
+        let memoType: Memo.MemoType?
+        init(_ r: SearchResult) {
+            dateString = r.dateString; snippet = r.snippet
+            matchKind = r.matchKind; memoType = r.memoType
+        }
+    }
+
+    private func seedMixedVault() throws -> URL {
+        let tmp = try SearchServiceTests.makeTempVault()
+        // Body match + diacritics
+        try SearchServiceTests.writeMemo(
+            Memo(type: .text, created: SearchServiceTests.makeDate(year: 2026, month: 4, day: 14),
+                 body: "coffee at São Paulo, long afternoon"),
+            dateString: "2026-04-14", to: tmp)
+        // Voice memo whose match lives ONLY in the transcript
+        try SearchServiceTests.writeMemo(
+            Memo(type: .voice, created: SearchServiceTests.makeDate(year: 2026, month: 3, day: 2),
+                 attachments: [Memo.Attachment(
+                    file: "raw/assets/v.m4a", kind: "audio", duration: 4,
+                    transcript: "meeting about the coffee roaster",
+                    transcriptionStatus: .done)],
+                 body: ""),
+            dateString: "2026-03-02", to: tmp)
+        // Location-only match
+        try SearchServiceTests.writeMemo(
+            Memo(type: .text, created: SearchServiceTests.makeDate(year: 2026, month: 2, day: 1),
+                 location: Memo.Location(name: "Coffee Lab Chiang Mai", lat: 18.78, lng: 98.99),
+                 body: "unrelated body text"),
+            dateString: "2026-02-01", to: tmp)
+        // Date-string match target
+        try SearchServiceTests.writeMemo(
+            Memo(type: .text, created: SearchServiceTests.makeDate(year: 2026, month: 1, day: 20),
+                 body: "plain january note"),
+            dateString: "2026-01-20", to: tmp)
+        return tmp
+    }
+
+    @Test func indexedResultsMatchLegacyAcrossMatchKinds() throws {
+        let tmp = try seedMixedVault()
+        defer {
+            VaultInitializer.testOverrideURL = nil
+            SearchIndex.shared.resetForTesting()
+            try? FileManager.default.removeItem(at: tmp)
+        }
+        VaultInitializer.testOverrideURL = tmp
+        SearchIndex.shared.rebuildSynchronouslyForTesting()
+        let docs = try #require(SearchIndex.shared.documentsIfBuilt())
+
+        // Keywords covering: body, transcript, location, date, diacritic
+        // folding, and a zero-hit query.
+        for keyword in ["coffee", "roaster", "chiang mai", "2026-01", "sao paulo", "nothing-matches"] {
+            let legacy = SearchService.search(keyword: keyword).map(Hit.init)
+            let indexed = SearchService.search(keyword: keyword, in: docs).map(Hit.init)
+            #expect(indexed == legacy, "fast path diverged from legacy for '\(keyword)'")
+        }
+    }
+
+    @Test func indexedResultsMatchLegacyUnderFilters() throws {
+        let tmp = try seedMixedVault()
+        defer {
+            VaultInitializer.testOverrideURL = nil
+            SearchIndex.shared.resetForTesting()
+            try? FileManager.default.removeItem(at: tmp)
+        }
+        VaultInitializer.testOverrideURL = tmp
+        SearchIndex.shared.rebuildSynchronouslyForTesting()
+        let docs = try #require(SearchIndex.shared.documentsIfBuilt())
+
+        var typeFilter = SearchFilters.empty
+        typeFilter.types = [.voice]
+        var rangeFilter = SearchFilters.empty
+        rangeFilter.startDate = SearchServiceTests.makeDate(year: 2026, month: 3, day: 1)
+        var locFilter = SearchFilters.empty
+        locFilter.locationQuery = "chiang"
+
+        for (keyword, filters) in [("coffee", typeFilter), ("coffee", rangeFilter),
+                                   ("", typeFilter), ("", locFilter)] {
+            let legacy = SearchService.search(keyword: keyword, filters: filters).map(Hit.init)
+            let indexed = SearchService.search(keyword: keyword, filters: filters, in: docs).map(Hit.init)
+            #expect(indexed == legacy, "fast path diverged for '\(keyword)' + filters")
+        }
+    }
+
+    @Test func documentsAreNilBeforeFirstBuild() throws {
+        SearchIndex.shared.resetForTesting()
+        #expect(SearchIndex.shared.documentsIfBuilt() == nil,
+                "cold index must report nil so callers fall back to the disk scan")
+    }
+
+    @Test func rebuildPicksUpNewDay() throws {
+        let tmp = try seedMixedVault()
+        defer {
+            VaultInitializer.testOverrideURL = nil
+            SearchIndex.shared.resetForTesting()
+            try? FileManager.default.removeItem(at: tmp)
+        }
+        VaultInitializer.testOverrideURL = tmp
+        SearchIndex.shared.rebuildSynchronouslyForTesting()
+        let before = SearchService.search(
+            keyword: "freshly-added", in: SearchIndex.shared.documentsIfBuilt() ?? [])
+        #expect(before.isEmpty)
+
+        try SearchServiceTests.writeMemo(
+            Memo(type: .text, created: SearchServiceTests.makeDate(year: 2026, month: 5, day: 5),
+                 body: "freshly-added memo body"),
+            dateString: "2026-05-05", to: tmp)
+        SearchIndex.shared.rebuildSynchronouslyForTesting()
+
+        let after = SearchService.search(
+            keyword: "freshly-added", in: SearchIndex.shared.documentsIfBuilt() ?? [])
+        #expect(after.count == 1)
+        #expect(after.first?.dateString == "2026-05-05")
+    }
+}
 }
