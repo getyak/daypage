@@ -217,6 +217,7 @@
 		TI1000001 /* AppIntentsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TI2000001 /* AppIntentsTests.swift */; };
 		VES0000002 /* VaultExportServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = VES1000002 /* VaultExportServiceTests.swift */; };
 		VTW0000001 /* VoiceTranscriptWritebackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = VTW1000001 /* VoiceTranscriptWritebackTests.swift */; };
+		SST0000001 /* SearchServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SST1000001 /* SearchServiceTests.swift */; };
 		WR0000002 /* WeeklyRecapDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = WR1000002 /* WeeklyRecapDetailView.swift */; };
 		WR0000003 /* WeeklyCompilationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = WR1000003 /* WeeklyCompilationServiceTests.swift */; };
 		WRA0000001 /* WeeklyRecapAutoTriggerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = WRA1000001 /* WeeklyRecapAutoTriggerTests.swift */; };
@@ -464,6 +465,7 @@
 		TI2000001 /* AppIntentsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppIntentsTests.swift; sourceTree = "<group>"; };
 		VES1000002 /* VaultExportServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultExportServiceTests.swift; sourceTree = "<group>"; };
 		VTW1000001 /* VoiceTranscriptWritebackTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceTranscriptWritebackTests.swift; sourceTree = "<group>"; };
+		SST1000001 /* SearchServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SearchServiceTests.swift; sourceTree = "<group>"; };
 		WR1000002 /* WeeklyRecapDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapDetailView.swift; sourceTree = "<group>"; };
 		WR1000003 /* WeeklyCompilationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyCompilationServiceTests.swift; sourceTree = "<group>"; };
 		WRA1000001 /* WeeklyRecapAutoTriggerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapAutoTriggerTests.swift; sourceTree = "<group>"; };
@@ -1072,6 +1074,7 @@
 				04B9410B749C82B6E34779E4 /* MemoryChatTests.swift */,
 				MYT1000001 /* MemoYAMLTests.swift */,
 				VTW1000001 /* VoiceTranscriptWritebackTests.swift */,
+				SST1000001 /* SearchServiceTests.swift */,
 				OVS1000002 /* OrphanedVoiceScannerTests.swift */,
 				OPS1000002 /* OrphanedPhotoScannerTests.swift */,
 				INF1000002 /* InflightDraftStoreTests.swift */,
@@ -1520,6 +1523,7 @@
 				6587243C5DB109B930AB5D92 /* MemoryChatTests.swift in Sources */,
 				MYT0000001 /* MemoYAMLTests.swift in Sources */,
 				VTW0000001 /* VoiceTranscriptWritebackTests.swift in Sources */,
+				SST0000001 /* SearchServiceTests.swift in Sources */,
 				OVS0000002 /* OrphanedVoiceScannerTests.swift in Sources */,
 				OPS0000002 /* OrphanedPhotoScannerTests.swift in Sources */,
 				INF0000002 /* InflightDraftStoreTests.swift in Sources */,

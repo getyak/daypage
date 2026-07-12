@@ -1,5 +1,21 @@
 import SwiftUI
 
+// MARK: - DSGesture
+
+/// Shared horizontal-swipe tuning so every horizontal pager in the app
+/// (Archive month grid, DayDetail day paging) engages with the same feel.
+/// Values were tuned on-device for DayDetail during the premium-polish waves;
+/// #827 unifies Archive's month swipe onto them.
+enum DSGesture {
+    /// Minimum travel before a horizontal pager drag is recognized at all.
+    static let pagerMinimumDistance: CGFloat = 24
+    /// Horizontal dominance gate: |width| > |height| × ratio keeps vertical
+    /// scrolls owned by the enclosing scroll view.
+    static let horizontalDominance: CGFloat = 1.5
+    /// Fixed travel that commits a month-page change in the Archive grid.
+    static let monthSwipeCommitDistance: CGFloat = 50
+}
+
 // MARK: - PressableCardModifier
 
 /// 对任何卡片视图应用按压缩放 + 暗色叠加及触觉反馈。

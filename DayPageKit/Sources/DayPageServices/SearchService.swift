@@ -50,7 +50,7 @@ public enum SearchService {
     public nonisolated static func search(keyword rawKeyword: String,
                                    filters: SearchFilters = .empty) -> [SearchResult] {
         let keyword = rawKeyword.trimmingCharacters(in: .whitespacesAndNewlines)
-        let folded = foldedForSearch(keyword)
+        let folded = foldForSearch(keyword)
         let hasKeyword = !keyword.isEmpty
         guard hasKeyword || filters.isActive else { return [] }
 
@@ -89,7 +89,7 @@ public enum SearchService {
             let isDailyCompiled = fm.fileExists(atPath: dailyURL.path)
 
             // 日期字符串匹配（如 "2026-04" 或 "04-14"）—— 仅当有关键字且无类型过滤时
-            if hasKeyword && filters.types.isEmpty && foldedForSearch(dateString).contains(folded) {
+            if hasKeyword && filters.types.isEmpty && foldForSearch(dateString).contains(folded) {
                 results.append(SearchResult(
                     dateString: dateString,
                     snippet: dateString,
@@ -110,13 +110,13 @@ public enum SearchService {
 
                 // 位置查询过滤
                 if !filters.locationQuery.isEmpty {
-                    let foldedLoc = foldedForSearch(filters.locationQuery)
+                    let foldedLoc = foldForSearch(filters.locationQuery)
                     guard let name = memo.location?.name,
-                          foldedForSearch(name).contains(foldedLoc) else { continue }
+                          foldForSearch(name).contains(foldedLoc) else { continue }
                 }
 
                 if hasKeyword {
-                    if foldedForSearch(memo.body).contains(folded) {
+                    if foldForSearch(memo.body).contains(folded) {
                         results.append(SearchResult(
                             dateString: dateString,
                             snippet: makeSnippet(memo.body, around: folded),
@@ -137,7 +137,7 @@ public enum SearchService {
                         continue
                     }
                     if let name = memo.location?.name,
-                       foldedForSearch(name).contains(folded) {
+                       foldForSearch(name).contains(folded) {
                         results.append(SearchResult(
                             dateString: dateString,
                             snippet: name,
@@ -168,11 +168,131 @@ public enum SearchService {
         return results
     }
 
+    // MARK: - Indexed fast path (#827)
+
+    /// Index-backed variant of ``search(keyword:filters:)`` — identical match
+    /// semantics (date → body → transcript → location priority, filters-only
+    /// mode, 100-result cap, newest-first) over pre-folded in-memory
+    /// documents instead of a full-vault disk scan. Pure function over the
+    /// value-type snapshot, so callers may run it off the main actor.
+    ///
+    /// `isDailyPageCompiled` is resolved with a per-matched-day `stat()`
+    /// (≤100 by the cap) because compilation writes `wiki/daily/` and can't
+    /// invalidate the raw-file index — see `SearchIndex`'s doc comment.
+    public nonisolated static func search(
+        keyword rawKeyword: String,
+        filters: SearchFilters = .empty,
+        in docs: [SearchIndex.DayDocument]
+    ) -> [SearchResult] {
+        let keyword = rawKeyword.trimmingCharacters(in: .whitespacesAndNewlines)
+        let folded = foldForSearch(keyword)
+        let hasKeyword = !keyword.isEmpty
+        guard hasKeyword || filters.isActive else { return [] }
+
+        let fm = FileManager.default
+        let dailyDir = VaultInitializer.vaultURL.appendingPathComponent("wiki/daily")
+        // Per-day compiled flags are memoized so multiple matches inside one
+        // day cost a single stat().
+        var compiledByDate: [String: Bool] = [:]
+        func isDailyCompiled(_ dateString: String) -> Bool {
+            if let cached = compiledByDate[dateString] { return cached }
+            let exists = fm.fileExists(
+                atPath: dailyDir.appendingPathComponent("\(dateString).md").path
+            )
+            compiledByDate[dateString] = exists
+            return exists
+        }
+
+        var results: [SearchResult] = []
+
+        for day in docs {
+            // 日期范围过滤 — same start-of-day / end-of-day rules as legacy.
+            if let start = filters.startDate, let date = dateValidator.date(from: day.dateString) {
+                if date < Calendar.current.startOfDay(for: start) { continue }
+            }
+            if let end = filters.endDate, let date = dateValidator.date(from: day.dateString) {
+                let endOfDay = Calendar.current.date(
+                    byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: end)
+                )!
+                if date >= endOfDay { continue }
+            }
+
+            // 日期字符串匹配 —— 仅当有关键字且无类型过滤时。
+            if hasKeyword && filters.types.isEmpty && day.foldedDateString.contains(folded) {
+                results.append(SearchResult(
+                    dateString: day.dateString,
+                    snippet: day.dateString,
+                    matchKind: SearchResult.MatchKind.date,
+                    isDailyPageCompiled: isDailyCompiled(day.dateString),
+                    memoType: Memo.MemoType?.none
+                ))
+            }
+
+            for memo in day.memos {
+                if !filters.types.isEmpty && !filters.types.contains(memo.type) { continue }
+
+                if !filters.locationQuery.isEmpty {
+                    let foldedLoc = foldForSearch(filters.locationQuery)
+                    guard let name = memo.foldedLocationName,
+                          name.contains(foldedLoc) else { continue }
+                }
+
+                if hasKeyword {
+                    if memo.foldedBody.contains(folded) {
+                        results.append(SearchResult(
+                            dateString: day.dateString,
+                            snippet: makeSnippet(memo.body, around: folded),
+                            matchKind: SearchResult.MatchKind.memoBody,
+                            isDailyPageCompiled: isDailyCompiled(day.dateString),
+                            memoType: memo.type
+                        ))
+                        continue
+                    }
+                    if let hit = memo.transcripts.first(where: { $0.folded.contains(folded) }) {
+                        results.append(SearchResult(
+                            dateString: day.dateString,
+                            snippet: makeSnippet(hit.raw, around: folded),
+                            matchKind: SearchResult.MatchKind.memoBody,
+                            isDailyPageCompiled: isDailyCompiled(day.dateString),
+                            memoType: memo.type
+                        ))
+                        continue
+                    }
+                    if let name = memo.foldedLocationName, name.contains(folded) {
+                        results.append(SearchResult(
+                            dateString: day.dateString,
+                            snippet: memo.locationName ?? "",
+                            matchKind: SearchResult.MatchKind.location,
+                            isDailyPageCompiled: isDailyCompiled(day.dateString),
+                            memoType: memo.type
+                        ))
+                        continue
+                    }
+                } else {
+                    let snippet = memo.body.isEmpty
+                        ? (memo.locationName ?? day.dateString)
+                        : String(memo.body.prefix(120))
+                    results.append(SearchResult(
+                        dateString: day.dateString,
+                        snippet: snippet,
+                        matchKind: SearchResult.MatchKind.memoBody,
+                        isDailyPageCompiled: isDailyCompiled(day.dateString),
+                        memoType: memo.type
+                    ))
+                }
+            }
+
+            if results.count >= 100 { break }
+        }
+
+        return results
+    }
+
     // MARK: - Private helpers
 
     private static func firstMatchingTranscript(in memo: Memo, keyword: String) -> String? {
         for att in memo.attachments {
-            if let t = att.transcript, foldedForSearch(t).contains(keyword) {
+            if let t = att.transcript, foldForSearch(t).contains(keyword) {
                 return t
             }
         }
@@ -184,7 +304,7 @@ public enum SearchService {
     /// 以保留显示时的重音符号。
     private static func makeSnippet(_ text: String, around foldedKeyword: String) -> String {
         let normalized = text.replacingOccurrences(of: "\n", with: " ")
-        let foldedNormalized = foldedForSearch(normalized)
+        let foldedNormalized = foldForSearch(normalized)
         guard let range = foldedNormalized.range(of: foldedKeyword) else {
             return String(normalized.prefix(120))
         }
@@ -212,7 +332,10 @@ public enum SearchService {
         return snippet
     }
 
-    private static func foldedForSearch(_ s: String) -> String {
+    /// The single folding rule shared by live queries and `SearchIndex`'s
+    /// precomputed documents — the two MUST stay identical or index hits and
+    /// legacy hits diverge. Public for the index; treat as sealed.
+    public nonisolated static func foldForSearch(_ s: String) -> String {
         s.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
                   locale: Locale(identifier: "en_US_POSIX"))
     }

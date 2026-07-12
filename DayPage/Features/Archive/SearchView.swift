@@ -294,6 +294,10 @@ struct SearchView: View {
                 }
                 setupDebounce()
                 vm.loadTopEntities()
+                // Belt-and-braces (#827): the app-launch warmUp normally has
+                // the index ready long before Search opens; this covers cold
+                // deep-link entries. No-op once built.
+                SearchIndex.shared.warmUp()
                 // Pre-populate query when SearchView was opened from a deep
                 // link (e.g. `daypage://search?q=…`). Only runs on first
                 // appear; setupDebounce → Combine pipeline will execute the
@@ -354,8 +358,16 @@ struct SearchView: View {
             vm.isSearching = true
         }
         searchTask = Task {
+            // #827: prefer the pre-folded in-memory SearchIndex (a keystroke
+            // costs an in-memory scan, zero disk I/O). Falls back to the
+            // legacy full-vault disk scan only while the index's first
+            // background build is still in flight.
+            let docs = await MainActor.run { SearchIndex.shared.documentsIfBuilt() }
             let hits = await Task.detached(priority: .userInitiated) {
-                SearchService.search(keyword: trimmed, filters: capturedFilters)
+                if let docs {
+                    return SearchService.search(keyword: trimmed, filters: capturedFilters, in: docs)
+                }
+                return SearchService.search(keyword: trimmed, filters: capturedFilters)
             }.value
             guard !Task.isCancelled else {
                 await MainActor.run { vm.isSearching = false }
@@ -408,7 +420,7 @@ struct SearchView: View {
                     .foregroundColor(DSColor.onSurfaceVariant)
 
                 TextField(NSLocalizedString("search.placeholder", comment: "Search text field placeholder"), text: $vm.query)
-                    .font(.custom("Inter-Regular", size: 14))
+                    .font(DSFonts.inter(size: 14, relativeTo: .subheadline))
                     .foregroundColor(DSColor.onSurface)
                     .textInputAutocapitalization(.never)
                     .disableAutocorrection(true)
@@ -514,7 +526,7 @@ struct SearchView: View {
                 ), displayedComponents: .date)
                 .labelsHidden()
                 .datePickerStyle(.compact)
-                .font(.custom("Inter-Regular", size: 12))
+                .font(DSFonts.inter(size: 12, relativeTo: .caption))
                 .frame(maxWidth: 120)
                 .overlay(
                     filters.startDate == nil
@@ -532,7 +544,7 @@ struct SearchView: View {
                 ), displayedComponents: .date)
                 .labelsHidden()
                 .datePickerStyle(.compact)
-                .font(.custom("Inter-Regular", size: 12))
+                .font(DSFonts.inter(size: 12, relativeTo: .caption))
                 .frame(maxWidth: 120)
 
                 if filters.startDate != nil || filters.endDate != nil {
@@ -582,7 +594,7 @@ struct SearchView: View {
 
                 HStack(spacing: 6) {
                     TextField(NSLocalizedString("search.filter.location.placeholder", comment: "Filter panel location text field placeholder"), text: $filters.locationQuery)
-                        .font(.custom("Inter-Regular", size: 13))
+                        .font(DSFonts.inter(size: 13, relativeTo: .footnote))
                         .foregroundColor(DSColor.onSurface)
                         .textInputAutocapitalization(.never)
                         .disableAutocorrection(true)
@@ -669,6 +681,51 @@ struct SearchView: View {
         }
     }
 
+    // MARK: - Vault overview (moved from ArchiveView, #827)
+
+    /// Whole-vault sense of scale: total memos + total days. Reads the
+    /// launch-warmed TimelineIndex synchronously (O(1) once built); shows
+    /// em-dashes before warm-up so "loading" is distinguishable from a
+    /// genuinely empty vault.
+    private var vaultOverviewStrip: some View {
+        let all = TimelineIndex.shared.entries()
+        let totalMemos = all.reduce(0) { $0 + $1.memoCount }
+        let totalDays = all.count
+        let hasData = totalDays > 0 || totalMemos > 0
+        return HStack(alignment: .center, spacing: 20) {
+            statPillar(
+                label: NSLocalizedString("search.overview.memos", comment: "Vault overview: all-time memo count label"),
+                value: hasData ? "\(totalMemos)" : "—"
+            )
+            Rectangle()
+                .fill(DSColor.glassRimD)
+                .frame(width: 0.5, height: 26)
+            statPillar(
+                label: NSLocalizedString("search.overview.days", comment: "Vault overview: all-time day count label"),
+                value: hasData ? "\(totalDays)" : "—"
+            )
+            Spacer()
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(String(
+            format: NSLocalizedString("search.overview.a11y", comment: "Vault overview a11y: %d memos across %d days"),
+            totalMemos, totalDays
+        ))
+    }
+
+    private func statPillar(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(DSType.mono10)
+                .tracking(1.2)
+                .textCase(.uppercase)
+                .foregroundColor(DSColor.inkSubtle)
+            Text(value)
+                .font(DSFonts.serif(size: 22, weight: .regular))
+                .foregroundColor(DSColor.inkPrimary)
+        }
+    }
+
     // MARK: - Empty-query state (recent searches + frequent entities)
 
     private var emptyQueryState: some View {
@@ -676,6 +733,14 @@ struct SearchView: View {
             VStack(alignment: .leading, spacing: 0) {
                 let recent = vm.recentSearches
                 let entities = vm.topEntities
+
+                // #827: whole-vault scale moved here from ArchiveView — as a
+                // search-surface prologue it answers "how much is searchable",
+                // instead of shouting over Archive's month summary.
+                vaultOverviewStrip
+                    .padding(.horizontal, 20)
+                    .padding(.top, 10)
+                    .padding(.bottom, 6)
 
                 if !recent.isEmpty || !entities.isEmpty {
                     sectionHeader(title: NSLocalizedString("search.section.quickSearch", comment: "Quick search section header"), trailing: AnyView(EmptyView()))
@@ -815,7 +880,7 @@ struct SearchView: View {
             selectSuggestion(entity)
         }) {
             Text(entity)
-                .font(.custom("Inter-Regular", size: 13))
+                .font(DSFonts.inter(size: 13, relativeTo: .footnote))
                 .foregroundColor(DSColor.onSurface)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
@@ -1115,7 +1180,13 @@ struct SearchView: View {
     }
 
     private func resultRow(_ result: SearchResult) -> some View {
-        let a11yLabel = "\(formatDate(result.dateString)), \(matchLabel(for: result.matchKind)) match, \(result.isDailyPageCompiled ? "VERIFIED" : "METADATA"), \(String(result.snippet.prefix(80)))"
+        let badgeLabel = result.isDailyPageCompiled
+            ? NSLocalizedString("search.badge.compiled", comment: "Result badge: day has a compiled daily page")
+            : NSLocalizedString("search.badge.raw", comment: "Result badge: day has raw memos only")
+        let a11yLabel = String(
+            format: NSLocalizedString("search.a11y.resultRow", comment: "Result row a11y: date, match kind, compile state, snippet"),
+            formatDate(result.dateString), matchLabel(for: result.matchKind), badgeLabel, String(result.snippet.prefix(80))
+        )
         return Button(action: {
             Haptics.tapConfirm()
             vm.recordSearch(vm.query)
@@ -1129,11 +1200,11 @@ struct SearchView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
                         Text(formatDate(result.dateString))
-                            .font(.custom("SpaceGrotesk-Bold", size: 14))
+                            .font(DSFonts.spaceGrotesk(size: 14, weight: .bold, relativeTo: .footnote))
                             .foregroundColor(DSColor.onSurface)
                         Spacer()
                         StatusBadge(
-                            label: result.isDailyPageCompiled ? "VERIFIED" : "METADATA",
+                            label: badgeLabel,
                             style: result.isDailyPageCompiled ? .verified : .metadata
                         )
                     }
@@ -1173,10 +1244,10 @@ struct SearchView: View {
 
     // MARK: - Keyword highlight via AttributedString
 
-    /// Mirrors SearchService's folding so the highlighter matches exactly what the service matched.
+    /// Delegates to SearchService's canonical folding so the highlighter can
+    /// never drift from what the service actually matched (#827 dedup).
     private func foldedForSearch(_ s: String) -> String {
-        s.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
-                  locale: Locale(identifier: "en_US_POSIX"))
+        SearchService.foldForSearch(s)
     }
 
     @ViewBuilder
@@ -1303,9 +1374,9 @@ struct SearchView: View {
 
     private func matchLabel(for kind: SearchResult.MatchKind) -> String {
         switch kind {
-        case .memoBody: return "MEMO"
-        case .location: return "LOCATION"
-        case .date:     return "DATE"
+        case .memoBody: return NSLocalizedString("search.matchKind.memo", comment: "Match-kind label: keyword hit in memo body")
+        case .location: return NSLocalizedString("search.matchKind.location", comment: "Match-kind label: keyword hit in location name")
+        case .date:     return NSLocalizedString("search.matchKind.date", comment: "Match-kind label: keyword hit on the date string")
         }
     }
 }
@@ -1328,11 +1399,11 @@ private struct EntityFrequencyChip: View {
             VStack(spacing: 4) {
                 HStack(spacing: 6) {
                     Text(entity.name)
-                        .font(.custom("Inter-Regular", size: 13))
+                        .font(DSFonts.inter(size: 13, relativeTo: .footnote))
                         .foregroundColor(DSColor.onSurface)
 
                     Text("\(entity.count)")
-                        .font(.custom("JetBrainsMono-Regular", size: 10))
+                        .font(DSType.mono10)
                         .foregroundColor(DSColor.onSurfaceVariant)
                         .padding(.horizontal, 4)
                         .padding(.vertical, 2)
@@ -1493,7 +1564,7 @@ private struct SwipeableRecentRow: View {
                     }
                 }) {
                     Text(query)
-                        .font(.custom("Inter-Regular", size: 14))
+                        .font(DSFonts.inter(size: 14, relativeTo: .subheadline))
                         .foregroundColor(DSColor.onSurface)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -1562,10 +1633,9 @@ extension SearchViewModel.GroupedResults: Identifiable {
 // MARK: - Testable folding helper
 
 extension SearchView {
-    /// Exposed for unit testing only — mirrors SearchService's folding options.
+    /// Exposed for unit testing only — delegates to the canonical service fold.
     static func foldedForSearchTesting(_ s: String) -> String {
-        s.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
-                  locale: Locale(identifier: "en_US_POSIX"))
+        SearchService.foldForSearch(s)
     }
 }
 

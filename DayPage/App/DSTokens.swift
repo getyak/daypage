@@ -170,6 +170,24 @@ enum DSTokens {
         static let handwrite = "Caveat"
     }
 
+    enum FontSize {
+        static let hero: CGFloat = 56.0
+        static let titleXl: CGFloat = 34.0
+        static let titleLg: CGFloat = 30.0
+        static let titleMd: CGFloat = 22.0
+        static let titleSm: CGFloat = 21.0
+        static let subhead: CGFloat = 19.0
+        static let bodyLg: CGFloat = 16.5
+        static let body: CGFloat = 16.0
+        static let bodySm: CGFloat = 14.5
+        static let bodyXs: CGFloat = 13.5
+        static let monoMd: CGFloat = 13.0
+        static let monoSm: CGFloat = 11.5
+        static let monoXs: CGFloat = 11.0
+        static let mono2xs: CGFloat = 10.0
+        static let mono3xs: CGFloat = 9.0
+    }
+
     enum Radii {
         static let small: CGFloat = 8.0
         static let card: CGFloat = 14.0
@@ -179,6 +197,23 @@ enum DSTokens {
         static let recording: CGFloat = 34.0
         static let island: CGFloat = 24.0
         static let pill: CGFloat = 999.0
+    }
+
+    enum Shadows {
+        /// CSS reference: 0 1px 2px rgba(0,0,0,0.04)
+        static let card = "0 1px 2px rgba(0,0,0,0.04)"
+        /// CSS reference: inset 0 0.5px 0 rgba(255,255,255,0.6)
+        static let pillInset = "inset 0 0.5px 0 rgba(255,255,255,0.6)"
+        /// CSS reference: 0 1px 2px rgba(0,0,0,0.05)
+        static let pillDrop = "0 1px 2px rgba(0,0,0,0.05)"
+        /// CSS reference: 0 2px 6px rgba(60,40,15,0.08), 0 18px 32px -12px rgba(60,40,15,0.22)
+        static let composer = "0 2px 6px rgba(60,40,15,0.08), 0 18px 32px -12px rgba(60,40,15,0.22)"
+        /// CSS reference: 0 24px 60px -20px rgba(60,40,15,0.35)
+        static let attach = "0 24px 60px -20px rgba(60,40,15,0.35)"
+        /// CSS reference: 0 24px 60px -16px rgba(40,25,5,0.55)
+        static let recording = "0 24px 60px -16px rgba(40,25,5,0.55)"
+        /// CSS reference: 10px 0 40px -12px rgba(60,40,15,0.22)
+        static let drawer = "10px 0 40px -12px rgba(60,40,15,0.22)"
     }
 
     enum Elevation {
@@ -217,5 +252,14 @@ enum DSTokens {
         static let slow: TimeInterval = 0.320
         /// 360ms
         static let island: TimeInterval = 0.360
+    }
+
+    enum Gestures {
+        static let swipeRevealWidth: CGFloat = 132.0
+        static let swipeOvershoot: CGFloat = 32.0
+        static let swipeDamp: CGFloat = 0.18
+        static let longPressMs: CGFloat = 220.0
+        static let dragVsTapThreshold: CGFloat = 6.0
+        static let sheetCloseThreshold: CGFloat = 80.0
     }
 }

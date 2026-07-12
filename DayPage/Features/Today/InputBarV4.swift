@@ -169,18 +169,19 @@ struct InputBarV4: View {
         case micOrb    // amber orb persists across both states
     }
 
-    /// Recording floor below which a press-and-release is treated as
-    /// accidental noise. Capture v2 boundary: respect the user's time —
-    /// a sub-second silent clip carries no meaning, drop it with a hint.
-    private static let minRecordingSeconds: Int = 1
+    #if DEBUG
+    /// One-shot latch for the `-dockVoiceDemo*` launch-arg bridges (see the
+    /// onAppear in `body`). Static because the demo must run once per
+    /// PROCESS, not once per view identity.
+    @MainActor static var dockVoiceDemoDidRun = false
+    #endif
 
-    /// True when the active recording is below the meaning threshold AND
-    /// the captured waveform is silent. Both gates so a brief but audible
-    /// "嗯" / "对" / "好" still goes through.
+    /// True when the active recording is below the send floor
+    /// (`RecordingLimits.minSendableSeconds`, #826) — the release is treated
+    /// as an accidental touch: discarded with the too-short toast, never
+    /// sent or transcribed.
     private var isRecordingTooShort: Bool {
-        let belowFloor = voiceService.elapsedSeconds < Self.minRecordingSeconds
-        let isSilent = voiceService.waveformHistory.allSatisfy { $0 < 0.05 }
-        return belowFloor && isSilent
+        RecordingLimits.isBelowSendFloor(voiceService.elapsedSeconds)
     }
 
     // MARK: - State machine
@@ -405,12 +406,26 @@ struct InputBarV4: View {
         // the in-place capsule morphs in, and after 5s the send path runs —
         // the exact sequence a hold-and-release performs.
         .onAppear {
-            guard ProcessInfo.processInfo.arguments.contains("-dockVoiceDemo") else { return }
+            // `-dockVoiceDemo` holds 5s (≥ the 3s floor → memo lands);
+            // `-dockVoiceDemoShort` holds 1.5s (< floor → recording is
+            // discarded with the too-short toast, #826). Both walk the real
+            // release-send handler, so the floor decision under test is the
+            // shipping one, not a test double.
+            let args = ProcessInfo.processInfo.arguments
+            let holdNanos: UInt64
+            if args.contains("-dockVoiceDemo") { holdNanos = 5_000_000_000 }
+            else if args.contains("-dockVoiceDemoShort") { holdNanos = 1_500_000_000 }
+            else { return }
+            // onAppear re-fires every time navigation returns to Today;
+            // without this latch the demo started a SECOND unattended
+            // recording minutes into the session (observed live, #826).
+            guard !Self.dockVoiceDemoDidRun else { return }
+            Self.dockVoiceDemoDidRun = true
             Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 2_000_000_000)
                 handlePressToTalkStart()
                 pressToTalkPhase = .recording
-                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                try? await Task.sleep(nanoseconds: holdNanos)
                 handlePressToTalkReleaseSend()
                 pressToTalkPhase = .idle
             }

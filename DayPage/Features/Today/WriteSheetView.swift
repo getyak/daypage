@@ -572,6 +572,15 @@ struct WriteSheetView: View {
     }
 
     private func handleMicReleaseSend() {
+        // Same send floor as the dock (#826): a sub-3s hold is an accidental
+        // touch — discard it instead of shipping a meaningless clip. The two
+        // press-to-talk surfaces must stay behaviorally identical or users
+        // get a memo from one mic and silence from the other.
+        if RecordingLimits.isBelowSendFloor(voiceService.elapsedSeconds) {
+            Haptics.warningNotification()
+            voiceService.cancelRecording()
+            return
+        }
         // Send path: audio is saved instantly, transcription runs in the
         // background via VoiceAttachmentQueue and patches the memo later.
         if let result = voiceService.stopAndSaveAudio() {
@@ -580,6 +589,17 @@ struct WriteSheetView: View {
     }
 
     private func handleMicReleaseTranscribe() {
+        // Same floor as the send path — a sub-3s clip would burn a Whisper
+        // call and return nothing useful (#826).
+        if RecordingLimits.isBelowSendFloor(voiceService.elapsedSeconds) {
+            Haptics.warningNotification()
+            voiceService.cancelRecording()
+            // The transcribe branch in PressToTalkButton.onEnded early-returns
+            // past the unconditional `.idle` reset — without this the button
+            // stays mounted in `.transcribing` until the next gesture.
+            pressToTalkPhase = .idle
+            return
+        }
         Task {
             if let result = await voiceService.stopAndTranscribe(),
                let transcript = result.transcript,
