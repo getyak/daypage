@@ -37,6 +37,9 @@ struct MemoDetailView: View {
     // Entity Ink — tapped entity opens its wiki page (issue #835)
     @State private var selectedEntityType: String = "themes"
     @State private var selectedEntitySlug: String?
+
+    // Drop-to-Ask — memo 锚定 AI 对话（issue #837）：拖拽入坞或 CTA 触发。
+    @State private var showMemoChat: Bool = false
     /// slug → wiki display name; resolved async so CJK prose (which never
     /// contains the latin slug) can still be inked by its display name.
     @State private var entityDisplayNames: [String: String] = [:]
@@ -312,18 +315,12 @@ struct MemoDetailView: View {
                     // a rule here boxed the CTA between two full-width lines.
                     Button {
                         Haptics.tapConfirm()
-                        let question = String(
-                            format: NSLocalizedString(
-                                "memo.detail.ask_past.question",
-                                value: "About this memo (%@) — why did I think this at the time?",
-                                comment: "Detail view — seeded question sent to Ask Past chat; %@ is the memo body prefix"
-                            ),
-                            String(memo.body.prefix(60))
-                        )
-                        if let encoded = question.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-                           let url = URL(string: "daypage://ask?q=\(encoded)") {
-                            UIApplication.shared.open(url)
-                        }
+                        // Issue #837: 直接呈现 memo 锚定对话（不再走
+                        // daypage://ask URL round-trip）——memo 全文 + 实体
+                        // 作为一等上下文进入 Agent 检索循环。此 CTA 与
+                        // Drop-to-Ask 拖拽手势通向同一个 sheet：拖拽是
+                        // 彩蛋，CTA 是明路（也是无障碍路径）。
+                        showMemoChat = true
                     } label: {
                         HStack(spacing: 10) {
                             Image(systemName: "sparkles")
@@ -368,6 +365,14 @@ struct MemoDetailView: View {
                 .padding(.horizontal, 24)
                 .padding(.bottom, 32)
             }
+            // Issue #837: 小红书式拖拽——横向起手把整页凝缩成卡片，
+            // 投入底部对话坞 → memo 锚定 AI 对话；坞外右移超阈值 → 返回。
+            // 只包 ScrollView：AmbientBackground 留在原位当拖拽的舞台底。
+            .dropToAsk(
+                isEnabled: !isEditingBody,
+                onAsk: { showMemoChat = true },
+                onCommitBack: { dismiss() }
+            )
         }
         .navigationBarHidden(true)
         .onAppear {
@@ -402,6 +407,18 @@ struct MemoDetailView: View {
                     sourceDateString: DateFormatters.isoDate.string(from: memo.created)
                 )
             }
+        }
+        // Issue #837: memo 锚定 AI 对话——Drop-to-Ask 拖拽与 ask-past CTA
+        // 汇入同一个 sheet。entityDisplayNames 复用实体墨迹的异步解析结果，
+        // 喂给对话的 retrieving 阶段文案与建议问题。
+        .sheet(isPresented: $showMemoChat) {
+            MemoChatView(
+                memo: memo,
+                entityDisplayNames: entityDisplayNames,
+                onClose: { showMemoChat = false }
+            )
+            .presentationDetents([.fraction(0.85), .large])
+            .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showShareSheet) {
             // Reuse the app-wide ShareSheet wrapper (Settings/ObsidianExport

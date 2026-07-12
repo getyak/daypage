@@ -110,16 +110,26 @@ public enum GraphRetriever {
     /// 为 `query` 组装图谱增强检索上下文。
     /// - Parameters:
     ///   - query: 用户的自然语言查询或关键词。
+    ///   - seedEntitySlugs: 额外的实体种子（issue #837 memo 锚定对话）——
+    ///     调用方已知的强相关实体（如当前 memo 的 `entityMentions`），
+    ///     无论关键词是否命中都直接参与图谱扩展。空查询 + 非空种子时
+    ///     退化为纯实体扩展（memo 锚定对话的首轮就是这种形态）。
     ///   - maxMemoHits: 保留的种子 memo 命中上限（按日期降序，最新优先）。
     ///   - maxEntityHits: 扩展的邻居实体上限（按出现次数降序，最相关优先）。
     public nonisolated static func retrieve(
         query rawQuery: String,
+        seedEntitySlugs: [String] = [],
         maxMemoHits: Int = 8,
         maxEntityHits: Int = 6
     ) -> RetrievedContext {
         let query = rawQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        let seeds = seedEntitySlugs.filter { !$0.isEmpty }
         guard !query.isEmpty else {
-            return RetrievedContext(query: query, memoHits: [], entityHits: [])
+            guard !seeds.isEmpty else {
+                return RetrievedContext(query: query, memoHits: [], entityHits: [])
+            }
+            let entityHits = expandEntities(slugs: Set(seeds), limit: maxEntityHits)
+            return RetrievedContext(query: query, memoHits: [], entityHits: entityHits)
         }
 
         // Step 1: 种子命中——复用现有关键词检索。
@@ -161,8 +171,10 @@ public enum GraphRetriever {
         }
 
         // Step 3: 图谱扩展——沿 entityMentions 读邻居实体页。
-        // 同时把 query 本身当作可能的实体 slug 直接命中（用户可能在问某地/某人）。
+        // 同时把 query 本身当作可能的实体 slug 直接命中（用户可能在问某地/某人），
+        // 以及调用方注入的实体种子（memo 锚定对话）。
         entitySlugs.formUnion(slugCandidates(from: query))
+        entitySlugs.formUnion(seeds)
         let entityHits = expandEntities(slugs: entitySlugs, limit: maxEntityHits)
 
         return RetrievedContext(query: query, memoHits: memoHits, entityHits: entityHits)
