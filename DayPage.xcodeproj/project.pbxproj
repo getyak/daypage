@@ -138,7 +138,6 @@
 		AF0000011 /* JetBrainsMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000011 /* JetBrainsMono-Regular.ttf */; };
 		AF0000012 /* JetBrainsMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000012 /* JetBrainsMono-Medium.ttf */; };
 		AF0000013 /* Fraunces-VariableFont.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000013 /* Fraunces-VariableFont.ttf */; };
-		AF0000014 /* Caveat-VariableFont.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000014 /* Caveat-VariableFont.ttf */; };
 		B197ECDEBDA86D4351A96898 /* RecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B93ED807E07C2171E9F4234B /* RecordingView.swift */; };
 		BC84C8164964F3DFC934C2E1 /* DayPageModels in Frameworks */ = {isa = PBXBuildFile; productRef = B0D49FB89D8AE64AD546E42D /* DayPageModels */; };
 		BGC0000002 /* BackgroundCompilationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BGC1000002 /* BackgroundCompilationServiceTests.swift */; };
@@ -387,7 +386,6 @@
 		AF1000011 /* JetBrainsMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "JetBrainsMono-Regular.ttf"; sourceTree = "<group>"; };
 		AF1000012 /* JetBrainsMono-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "JetBrainsMono-Medium.ttf"; sourceTree = "<group>"; };
 		AF1000013 /* Fraunces-VariableFont.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces-VariableFont.ttf"; sourceTree = "<group>"; };
-		AF1000014 /* Caveat-VariableFont.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Caveat-VariableFont.ttf"; sourceTree = "<group>"; };
 		B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DayPageWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B93ED807E07C2171E9F4234B /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
 		BAC7527E8128E6A865349FB9 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
@@ -967,7 +965,6 @@
 				AF1000011 /* JetBrainsMono-Regular.ttf */,
 				AF1000012 /* JetBrainsMono-Medium.ttf */,
 				AF1000013 /* Fraunces-VariableFont.ttf */,
-				AF1000014 /* Caveat-VariableFont.ttf */,
 			);
 			path = Fonts;
 			sourceTree = "<group>";
@@ -1204,6 +1201,7 @@
 			buildPhases = (
 				T90000001 /* Sources */,
 				T40000001 /* Frameworks */,
+				E63BD8D70DC66050D2361966 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -1307,9 +1305,15 @@
 				AF0000011 /* JetBrainsMono-Regular.ttf in Resources */,
 				AF0000012 /* JetBrainsMono-Medium.ttf in Resources */,
 				AF0000013 /* Fraunces-VariableFont.ttf in Resources */,
-				AF0000014 /* Caveat-VariableFont.ttf in Resources */,
 				A10000029 /* Assets.xcassets in Resources */,
 				LS0000001 /* Localizable.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E63BD8D70DC66050D2361966 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

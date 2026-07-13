@@ -16,7 +16,10 @@ type Tokens = {
   elevation: Record<string, string>;
   spacing: Record<string, number>;
   motion: Record<string, string | number>;
-  gestures: Record<string, number>;
+  // Optional: the `gestures` group was removed once its tokens went unused
+  // (the real swipe constants live in SwipePhysics). Kept optional so an
+  // absent group emits no `enum Gestures` rather than crashing the generator.
+  gestures?: Record<string, number>;
   // Dark-mode variants. Colors with a `dark.colors` counterpart are emitted
   // as adaptive UIColor dynamic providers so DSTokens.Colors no longer sinks
   // in dark mode; colors without one stay static. `dark.elevation` is
@@ -163,12 +166,14 @@ function buildSwift(t: Tokens): string {
   out.push(`    }`);
   out.push(``);
 
-  // Gestures
-  out.push(`    enum Gestures {`);
-  for (const [k, v] of Object.entries(t.gestures)) {
-    out.push(`        static let ${camel(k)}: CGFloat = ${fmt(v)}`);
+  // Gestures (optional — omitted entirely when the group is absent)
+  if (t.gestures && Object.keys(t.gestures).length > 0) {
+    out.push(`    enum Gestures {`);
+    for (const [k, v] of Object.entries(t.gestures)) {
+      out.push(`        static let ${camel(k)}: CGFloat = ${fmt(v)}`);
+    }
+    out.push(`    }`);
   }
-  out.push(`    }`);
   out.push(`}`);
   out.push(``);
 
