@@ -21,7 +21,7 @@ struct FeedbackView: View {
                     headerSection
                     Divider()
                         .background(DSColor.borderSubtle)
-                        .padding(.bottom, 20)
+                        .padding(.bottom, DSSpacing.xl)
 
                     if case .submitted(let url) = vm.status {
                         successView(url: url)
@@ -41,7 +41,7 @@ struct FeedbackView: View {
 
                     Spacer(minLength: 40)
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, DSSpacing.xl)
             }
 
             if vm.pressToTalkPhase == .recording
@@ -87,7 +87,7 @@ struct FeedbackView: View {
     // MARK: - Header
 
     private var headerSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: DSSpacing.xs) {
             Text("Feedback")
                 .font(.custom("SpaceGrotesk-Bold", size: 22))
                 .foregroundColor(DSColor.onBackgroundPrimary)
@@ -96,7 +96,7 @@ struct FeedbackView: View {
                 .foregroundColor(DSColor.onBackgroundSubtle)
         }
         .padding(.top, 64)
-        .padding(.bottom, 16)
+        .padding(.bottom, DSSpacing.lg)
     }
 
     // MARK: - Feedback Input
@@ -131,13 +131,13 @@ struct FeedbackView: View {
             }
             .frame(minHeight: 140)
         }
-        .padding(.bottom, 16)
+        .padding(.bottom, DSSpacing.lg)
     }
 
     // MARK: - Attachments
 
     private var attachmentsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DSSpacing.sm) {
             HStack(spacing: 10) {
                 PhotosPicker(
                     selection: $photosPickerItems,
@@ -160,7 +160,7 @@ struct FeedbackView: View {
 
             if !vm.pendingImages.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
+                    HStack(spacing: DSSpacing.sm) {
                         ForEach(vm.pendingImages) { image in
                             imageThumb(image)
                         }
@@ -177,7 +177,7 @@ struct FeedbackView: View {
                 }
             }
         }
-        .padding(.bottom, 16)
+        .padding(.bottom, DSSpacing.lg)
     }
 
     private func attachmentChip(icon: String, label: String) -> some View {
@@ -188,8 +188,8 @@ struct FeedbackView: View {
                 .font(.custom("Inter-Medium", size: 13))
         }
         .foregroundColor(DSColor.onBackgroundMuted)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.horizontal, DSSpacing.md)
+        .padding(.vertical, DSSpacing.sm)
         .background(DSColor.surfaceWhite)
         .overlay(
             RoundedRectangle(cornerRadius: 8)
@@ -226,7 +226,7 @@ struct FeedbackView: View {
     // MARK: - Send bar (mic + send)
 
     private var sendBar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: DSSpacing.md) {
             PressToTalkButton(
                 onPressStart: { vm.voicePressStart() },
                 onReleaseSend: { vm.voiceReleaseSendAsTranscript() },
@@ -245,7 +245,7 @@ struct FeedbackView: View {
 
             sendButton
         }
-        .padding(.bottom, 24)
+        .padding(.bottom, DSSpacing.xl2)
     }
 
     private var sendButton: some View {
@@ -268,7 +268,7 @@ struct FeedbackView: View {
             }
             .foregroundColor(.white)
             .frame(maxWidth: .infinity)
-            .padding(.horizontal, 20)
+            .padding(.horizontal, DSSpacing.xl)
             .padding(.vertical, 14)
             .background(vm.isSending ? DSColor.accentAmber.opacity(0.7) : DSColor.accentAmber)
             .cornerRadius(12)
@@ -281,7 +281,7 @@ struct FeedbackView: View {
     private var voiceOverlay: some View {
         VStack {
             Spacer()
-            VStack(spacing: 12) {
+            VStack(spacing: DSSpacing.md) {
                 Image(systemName: overlayIcon)
                     .font(.system(size: 28))
                     .foregroundColor(overlayColor)
@@ -355,11 +355,11 @@ struct FeedbackView: View {
                     .stroke(DSColor.borderDefault, lineWidth: 1)
             )
         }
-        .padding(.bottom, 24)
+        .padding(.bottom, DSSpacing.xl2)
     }
 
     private func submittedIssueRow(_ issue: SubmittedIssue) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: DSSpacing.md) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(issue.title)
                     .font(.custom("Inter-Medium", size: 13))
@@ -379,7 +379,7 @@ struct FeedbackView: View {
             }
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.vertical, DSSpacing.md)
     }
 
     // MARK: - Success View
@@ -402,7 +402,7 @@ struct FeedbackView: View {
             HStack(spacing: 14) {
                 if let link = URL(string: url) {
                     Link(destination: link) {
-                        HStack(spacing: 4) {
+                        HStack(spacing: DSSpacing.xs) {
                             Image(systemName: "arrow.up.right.square")
                                 .font(.system(size: 12))
                             Text("Review on GitHub")
@@ -418,7 +418,7 @@ struct FeedbackView: View {
                 .font(.custom("Inter-Medium", size: 13))
                 .foregroundColor(DSColor.accentOnBg)
             }
-            .padding(.top, 4)
+            .padding(.top, DSSpacing.xs)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 48)
@@ -443,10 +443,10 @@ struct FeedbackView: View {
             }
             Spacer()
         }
-        .padding(12)
+        .padding(DSSpacing.md)
         .background(DSColor.errorSoft)
         .cornerRadius(DSRadius.sm)
-        .padding(.vertical, 8)
+        .padding(.vertical, DSSpacing.sm)
     }
 
     // MARK: - Helpers

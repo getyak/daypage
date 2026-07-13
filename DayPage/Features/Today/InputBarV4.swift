@@ -243,15 +243,15 @@ struct InputBarV4: View {
 
             // US-012: batch progress bar when processing >3 photos
             if isProcessingPhoto && batchPhotoTotal > 3 {
-                VStack(spacing: 4) {
+                VStack(spacing: DSSpacing.xs) {
                     ProgressView(value: batchPhotoProgress)
                         .tint(DSColor.amberAccent)
-                        .padding(.horizontal, 16)
+                        .padding(.horizontal, DSSpacing.lg)
                     Text("Processing \(Int(batchPhotoProgress * Double(batchPhotoTotal))) / \(batchPhotoTotal) photos")
                         .font(DSFonts.inter(size: 11))
                         .foregroundColor(DSColor.inkMuted)
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, DSSpacing.xs)
             }
 
             if let loc = pendingLocation {
@@ -278,9 +278,9 @@ struct InputBarV4: View {
             // so the dock reads as a floating island, not a wall-to-wall
             // toolbar. 24pt horizontal + 24pt bottom lift gives the
             // capsule visible margins on all four sides.
-            .padding(.horizontal, 24)
+            .padding(.horizontal, DSSpacing.xl2)
             .padding(.top, 10)
-            .padding(.bottom, 24)
+            .padding(.bottom, DSSpacing.xl2)
         }
         // No background veil here — the dock surface itself supplies the
         // contrast against the warm canvas. A gradient behind the whole
@@ -504,7 +504,7 @@ struct InputBarV4: View {
     }
 
     private var dockIdleRow: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: DSSpacing.xs) {
             // LEFT — attach (+), 36×44 transparent
             Button {
                 guard !isDockTapBlocked else { return }
@@ -653,8 +653,8 @@ struct InputBarV4: View {
                 .accessibilityLabel(countLabel)
                 .accessibilityIdentifier("composer-word-count")
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 4)
+        .padding(.horizontal, DSSpacing.xl)
+        .padding(.top, DSSpacing.xs)
     }
 
     // MARK: - Composing Card Morph (US-008 / US-010)
@@ -684,8 +684,8 @@ struct InputBarV4: View {
         Capsule()
             .fill(Color(UIColor.tertiaryLabel))
             .frame(width: 36, height: 4)
-            .padding(.top, 8)
-            .padding(.bottom, 4)
+            .padding(.top, DSSpacing.sm)
+            .padding(.bottom, DSSpacing.xs)
             .frame(width: 60)
             .contentShape(Rectangle())
             // Single tap — accessibility equivalent of swipe-up
@@ -742,7 +742,7 @@ struct InputBarV4: View {
                 .padding(.top, 2)
                 Divider()
                     .background(DSColor.inkFaint)
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, DSSpacing.lg)
             }
 
             // US-016: Inline Lens Strip — recent 24 h thumbnails for one-tap attach.
@@ -780,7 +780,7 @@ struct InputBarV4: View {
                 .tint(DSColor.amberAccent)
                 .focused($isFocused)
                 .lineLimit(1...8)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, DSSpacing.xl)
                 .padding(.top, 14)
                 .padding(.bottom, 14)
                 .onTapGesture { isFocused = true }
@@ -820,8 +820,8 @@ struct InputBarV4: View {
                         .allowsHitTesting(false)
                     Spacer()
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 8)
+                .padding(.horizontal, DSSpacing.xl)
+                .padding(.bottom, DSSpacing.sm)
                 .transition(.opacity)
                 // Template-suffix fade → `fade` token (was inline easeInOut(0.15)).
                 .animation(Motion.fade, value: templateSuffix.isEmpty)
@@ -842,7 +842,7 @@ struct InputBarV4: View {
         // (matching the collapsed capsule), Reduce Transparency → opaque warm
         // fill. The cold white rim is gone; the rim now comes from the engine.
         .dpGlass(.panel, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .padding(.horizontal, 16)
+        .padding(.horizontal, DSSpacing.lg)
         .padding(.top, 10)
         .padding(.bottom, 14)
         // Expanded composer card lift → DSElevation.glass (two-layer, dark-mode
@@ -863,7 +863,7 @@ struct InputBarV4: View {
         HStack(spacing: 6) {
             composerActionButtons
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, DSSpacing.md)
         .padding(.top, 2)
         .padding(.bottom, 10)
         .tint(DSColor.inkMuted)
@@ -1164,17 +1164,17 @@ struct InputBarV4: View {
 
     private var attachmentPreviewRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: DSSpacing.sm) {
                 ForEach(pendingAttachments) { att in attachmentChip(att) }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, DSSpacing.lg)
             .padding(.vertical, 6)
         }
     }
 
     private func attachmentChip(_ att: PendingAttachment) -> some View {
         let (icon, label) = chipContent(att)
-        return HStack(spacing: 4) {
+        return HStack(spacing: DSSpacing.xs) {
             Image(systemName: icon).font(DSType.mono11).foregroundStyle(DSColor.inkMuted)
             Text(label).font(DSType.labelSM).foregroundStyle(DSColor.inkMuted).lineLimit(1)
             Button {
@@ -1198,7 +1198,7 @@ struct InputBarV4: View {
     }
 
     private func locationChipRow(loc: Memo.Location) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: DSSpacing.xs) {
             Image(systemName: "mappin").font(DSType.labelXS).foregroundStyle(DSColor.amberAccent)
             Text(locationLabel(loc)).font(DSType.labelSM).foregroundStyle(DSColor.amberAccent).lineLimit(1)
             Spacer()
@@ -1206,7 +1206,7 @@ struct InputBarV4: View {
                 Image(systemName: "xmark.circle.fill").font(DSType.bodySM).foregroundStyle(DSColor.inkSubtle)
             }.buttonStyle(.plain)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, DSSpacing.lg)
         .padding(.vertical, 6)
     }
 

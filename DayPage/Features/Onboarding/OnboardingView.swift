@@ -58,13 +58,13 @@ private struct DataFlowPage: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
+            VStack(spacing: DSSpacing.xl) {
                 Spacer(minLength: 48)
 
                 Image(systemName: "lock.shield")
                     .font(.system(size: 44, weight: .light))
                     .foregroundColor(DSColor.accentOnBg)
-                    .padding(.bottom, 4)
+                    .padding(.bottom, DSSpacing.xs)
 
                 Text("onboarding.dataflow.title", bundle: .main)
                     .h1()
@@ -75,9 +75,9 @@ private struct DataFlowPage: View {
                     .captionText()
                     .foregroundColor(DSColor.onBackgroundMuted)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, DSSpacing.md)
 
-                VStack(spacing: 12) {
+                VStack(spacing: DSSpacing.md) {
                     DataFlowRow(
                         icon: "mic.fill",
                         feature: NSLocalizedString("onboarding.dataflow.voice.feature", comment: ""),
@@ -114,8 +114,8 @@ private struct DataFlowPage: View {
                     .captionText()
                     .foregroundColor(DSColor.onBackgroundMuted)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 12)
-                    .padding(.top, 4)
+                    .padding(.horizontal, DSSpacing.md)
+                    .padding(.top, DSSpacing.xs)
 
                 Button(action: {
                     // Persist consent so future builds (and the API-keys
@@ -131,16 +131,16 @@ private struct DataFlowPage: View {
                         .bodyText()
                         .foregroundColor(DSColor.surfaceWhite)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
+                        .padding(.vertical, DSSpacing.lg)
                         .background(DSColor.accentAmber)
                         .cornerRadius(DSRadius.md)
                 }
-                .padding(.top, 8)
+                .padding(.top, DSSpacing.sm)
                 .accessibilityIdentifier("onboarding.dataflow.continue")
 
                 Spacer(minLength: 48)
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, DSSpacing.xl2)
         }
     }
 }
@@ -152,14 +152,14 @@ private struct DataFlowRow: View {
     let destination: String
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: DSSpacing.md) {
             Image(systemName: icon)
                 .font(.system(size: 18))
                 .foregroundColor(DSColor.accentOnBg)
                 .frame(width: 28)
                 .padding(.top, 2)
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: DSSpacing.xs) {
                 Text(feature)
                     .bodyText()
                     .foregroundColor(DSColor.onBackgroundPrimary)
@@ -199,7 +199,7 @@ private struct WelcomePage: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 20) {
+            VStack(spacing: DSSpacing.xl) {
                 Spacer(minLength: 40)
 
                 ZStack {
@@ -216,7 +216,7 @@ private struct WelcomePage: View {
                     .tracking(1.4)
                     .textCase(.uppercase)
                     .foregroundColor(DSColor.amberDeep)
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, DSSpacing.md)
                     .padding(.vertical, 6)
                     .background(DSColor.accentSoft)
                     .cornerRadius(8)
@@ -225,7 +225,7 @@ private struct WelcomePage: View {
                     .font(DSFonts.serif(size: 20, weight: .regular))
                     .foregroundColor(DSColor.onBackgroundPrimary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 8)
+                    .padding(.horizontal, DSSpacing.sm)
                     .lineLimit(nil)
                     .fixedSize(horizontal: false, vertical: true)
                     .dynamicTypeSize(.xSmall ... .accessibility2)
@@ -253,7 +253,7 @@ private struct WelcomePage: View {
                         bodyKey: "onboarding.welcome.benefit3.body"
                     )
                 }
-                .padding(.top, 4)
+                .padding(.top, DSSpacing.xs)
 
                 Spacer(minLength: 16)
 
@@ -263,7 +263,7 @@ private struct WelcomePage: View {
                             .bodyText()
                             .foregroundColor(DSColor.surfaceWhite)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
+                            .padding(.vertical, DSSpacing.lg)
                             .background(DSColor.accentAmber)
                             .cornerRadius(DSRadius.md)
                     }
@@ -290,15 +290,15 @@ private struct WelcomePage: View {
                     }
                     .accessibilityIdentifier("onboarding.welcome.try_sample")
                 }
-                .padding(.horizontal, 8)
+                .padding(.horizontal, DSSpacing.sm)
                 .padding(.bottom, 32)
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, DSSpacing.xl2)
         }
     }
 
     private func benefitRow(icon: String, titleKey: String, bodyKey: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: DSSpacing.md) {
             Image(systemName: icon)
                 .font(.system(size: 18))
                 .foregroundColor(DSColor.accentOnBg)
@@ -366,7 +366,7 @@ private struct PermissionsPage: View {
     }
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: DSSpacing.xl2) {
             Spacer()
 
             Text("onboarding.permissions.title", bundle: .main)
@@ -377,9 +377,9 @@ private struct PermissionsPage: View {
                 .captionText()
                 .foregroundColor(DSColor.onBackgroundMuted)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, 8)
+                .padding(.horizontal, DSSpacing.sm)
 
-            VStack(spacing: 12) {
+            VStack(spacing: DSSpacing.md) {
                 permissionCard(
                     icon: "mic.fill",
                     title: NSLocalizedString("onboarding.permissions.mic.title", comment: ""),
@@ -419,14 +419,14 @@ private struct PermissionsPage: View {
                     .bodyText()
                     .foregroundColor(DSColor.surfaceWhite)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
+                    .padding(.vertical, DSSpacing.lg)
                     .background(DSColor.accentAmber)
                     .cornerRadius(DSRadius.md)
             }
             .padding(.horizontal, 32)
             .padding(.bottom, 48)
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, DSSpacing.xl2)
         .onAppear { pollAllPermissions() }
         // B3: re-poll on every foreground transition so a trip through
         // Settings.app instantly updates the row labels here.
@@ -442,7 +442,7 @@ private struct PermissionsPage: View {
         status: PermissionStatus,
         onGrant: @escaping () -> Void
     ) -> some View {
-        HStack(spacing: 16) {
+        HStack(spacing: DSSpacing.lg) {
             Image(systemName: icon)
                 .font(.system(size: 20))
                 .foregroundColor(DSColor.accentOnBg)
@@ -459,7 +459,7 @@ private struct PermissionsPage: View {
                 Text(status.label)
                     .captionText()
                     .foregroundColor(status == .unknown ? DSColor.surfaceWhite : status.color)
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, DSSpacing.md)
                     .padding(.vertical, 6)
                     .background(status == .unknown ? DSColor.accentAmber : DSColor.surfaceSunken)
                     .cornerRadius(8)
@@ -539,7 +539,7 @@ private struct ApiKeysPage: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 24) {
+            VStack(spacing: DSSpacing.xl2) {
                 Spacer(minLength: 48)
 
                 Text("onboarding.apikeys.title", bundle: .main)
@@ -551,7 +551,7 @@ private struct ApiKeysPage: View {
                     .foregroundColor(DSColor.onBackgroundMuted)
                     .multilineTextAlignment(.center)
 
-                VStack(spacing: 12) {
+                VStack(spacing: DSSpacing.md) {
                     apiKeyField(
                         label: NSLocalizedString("onboarding.apikeys.deepseek.label", comment: ""),
                         placeholder: "sk-...",
@@ -574,11 +574,11 @@ private struct ApiKeysPage: View {
                         .bodyText()
                         .foregroundColor(DSColor.surfaceWhite)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
+                        .padding(.vertical, DSSpacing.lg)
                         .background(DSColor.accentAmber)
                         .cornerRadius(DSRadius.md)
                 }
-                .padding(.top, 8)
+                .padding(.top, DSSpacing.sm)
 
                 // B5: dedicated skip path. Pasting keys here is optional; the
                 // user can always wire them up later in Settings → API Keys.
@@ -592,12 +592,12 @@ private struct ApiKeysPage: View {
                         .foregroundColor(DSColor.inkMuted)
                         .underline()
                 }
-                .padding(.top, 4)
+                .padding(.top, DSSpacing.xs)
                 .accessibilityIdentifier("onboarding-apikeys-skip")
 
                 Spacer(minLength: 48)
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, DSSpacing.xl2)
         }
     }
 
@@ -621,7 +621,7 @@ private struct ApiKeysPage: View {
                 .captionText()
                 .foregroundColor(DSColor.accentOnBg)
             }
-            .padding(12)
+            .padding(DSSpacing.md)
             .background(DSColor.surfaceSunken)
             .cornerRadius(8)
         }
