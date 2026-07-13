@@ -472,6 +472,35 @@ struct GraphView: View {
 
     private var isTransformed: Bool { scale != 1.0 || offset != .zero }
 
+    // MARK: - Gesture Physics
+
+    /// Zoom clamp bounds. Motion is allowed slightly past these while pinching
+    /// (rubber-band), then springs back inside on release.
+    private static let minScale: CGFloat = 0.3
+    private static let maxScale: CGFloat = 5.0
+
+    /// Interactive spring the canvas rides after a pan fling — carries the
+    /// gesture's release velocity into a natural deceleration.
+    private static let panMomentum: Animation = .interactiveSpring(response: 0.5,
+                                                                    dampingFraction: 0.82,
+                                                                    blendDuration: 0.25)
+    /// Elastic settle used to snap zoom overshoot back inside the clamp.
+    private static let zoomSettle: Animation = .spring(response: 0.35, dampingFraction: 0.72)
+
+    /// Applies rising resistance once `raw` passes the zoom clamp so the pinch
+    /// keeps responding at the limits instead of dead-stopping. Within bounds it
+    /// returns `raw` unchanged; beyond, overshoot is compressed logarithmically.
+    private static func rubberBandedScale(_ raw: CGFloat) -> CGFloat {
+        if raw < minScale {
+            let over = minScale - raw
+            return minScale - over / (1 + over * 3.0)
+        } else if raw > maxScale {
+            let over = raw - maxScale
+            return maxScale + over / (1 + over * 0.6)
+        }
+        return raw
+    }
+
     // MARK: - Empty State
 
     @ViewBuilder
@@ -945,13 +974,34 @@ struct GraphView: View {
                     SimultaneousGesture(
                         MagnificationGesture()
                             .onChanged { value in
-                                let newScale = max(0.3, min(5.0, lastScale * value))
+                                // Rubber-band past the [0.3, 5.0] clamp: motion
+                                // continues beyond the bound with rising resistance
+                                // instead of dead-stopping, then springs back on
+                                // release. Feels alive at the zoom limits.
+                                let raw = lastScale * value
+                                let newScale = Self.rubberBandedScale(raw)
                                 let ratio = newScale / scale
                                 offset.width *= ratio
                                 offset.height *= ratio
                                 scale = newScale
                             }
-                            .onEnded { _ in lastScale = scale; lastOffset = offset },
+                            .onEnded { _ in
+                                // Snap any overshoot back inside the clamp with an
+                                // elastic settle (honors Reduce Motion). Offset is
+                                // scaled by the same ratio so the pivot stays put.
+                                let clamped = max(0.3, min(5.0, scale))
+                                let ratio = clamped / max(scale, 0.0001)
+                                let target = CGSize(width: offset.width * ratio,
+                                                    height: offset.height * ratio)
+                                if clamped != scale {
+                                    withAnimation(Motion.respectReduceMotion(Self.zoomSettle)) {
+                                        scale = clamped
+                                        offset = target
+                                    }
+                                }
+                                lastScale = clamped
+                                lastOffset = target
+                            },
                         DragGesture()
                             .onChanged { value in
                                 offset = CGSize(
@@ -959,7 +1009,26 @@ struct GraphView: View {
                                     height: lastOffset.height + value.translation.height
                                 )
                             }
-                            .onEnded { _ in lastOffset = offset }
+                            .onEnded { value in
+                                // Momentum: project the fling using the gesture's
+                                // velocity-derived predicted end translation, then
+                                // ride an interactive spring to that target so the
+                                // canvas decelerates naturally instead of freezing
+                                // on the release frame. Reduce Motion → hard freeze.
+                                let projected = CGSize(
+                                    width: lastOffset.width + value.predictedEndTranslation.width,
+                                    height: lastOffset.height + value.predictedEndTranslation.height
+                                )
+                                if reduceMotion {
+                                    offset = CGSize(
+                                        width: lastOffset.width + value.translation.width,
+                                        height: lastOffset.height + value.translation.height
+                                    )
+                                } else {
+                                    withAnimation(Self.panMomentum) { offset = projected }
+                                }
+                                lastOffset = projected
+                            }
                     )
                 )
                 .accessibilityHidden(true)
