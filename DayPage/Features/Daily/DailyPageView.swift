@@ -296,7 +296,11 @@ struct DailyPageView: View {
     // MARK: - Segmented Control
 
     private var segmentedControl: some View {
-        HStack(spacing: 0) {
+        // #12: unify with the warm-glass pill language used by Archive's CAL/LIST
+        // toggle — was the app's only Bauhaus square control (Rectangle stroke 2
+        // + cornerRadius 0). Keeps the matchedGeometryEffect sliding pill (nicer
+        // than Archive's per-button fill) but reskins to a glass Capsule.
+        HStack(spacing: 2) {
             ForEach(DailyPageTab.allCases, id: \.self) { tab in
                 Button(action: {
                     guard selectedTab != tab else { return }
@@ -307,13 +311,13 @@ struct DailyPageView: View {
                 }) {
                     Text(tab.rawValue)
                         .monoLabelStyle(size: 11)
-                        .foregroundColor(selectedTab == tab ? DSColor.onPrimary : DSColor.primary)
+                        .foregroundColor(selectedTab == tab ? DSColor.onAmber : DSColor.inkSubtle)
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, DSSpacing.sm)
                         .background {
                             if selectedTab == tab {
-                                Rectangle()
-                                    .fill(DSColor.primary)
+                                Capsule()
+                                    .fill(DSColor.amberDeep)
                                     .matchedGeometryEffect(id: "tabPill", in: tabPillNS)
                             }
                         }
@@ -321,12 +325,10 @@ struct DailyPageView: View {
                 .buttonStyle(.plain)
             }
         }
-        .overlay(
-            Rectangle()
-                .stroke(DSColor.primary, lineWidth: 2)
-        )
-        .cornerRadius(0)
-        .padding(.bottom, 32)
+        .padding(3)
+        .dpGlass(.pill, in: Capsule())
+        .clipShape(Capsule())
+        .padding(.bottom, DSSpacing.xl)
     }
 
     // MARK: - Digest Content (v4 hero layout)
