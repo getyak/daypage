@@ -170,13 +170,13 @@ struct SidebarView: View {
                         )
                         .frame(width: 46, height: 46)
                     Text(sidebarVM.isLoggedIn ? sidebarVM.accountInitial : "·")
-                        .font(DSFonts.serif(size: 20, weight: .semibold))
+                        .font(DSFonts.serif(size: 20, weight: .semibold, relativeTo: .title3))
                         .foregroundColor(Color(hex: "FAF8F6"))
                 }
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(profileName)
-                        .font(DSFonts.serif(size: 19, weight: .semibold))
+                        .font(DSFonts.serif(size: 19, weight: .semibold, relativeTo: .title3))
                         .foregroundColor(DSColor.inkPrimary)
                         .lineLimit(1)
                     Text(membershipLine)
@@ -276,7 +276,7 @@ struct SidebarView: View {
                 .font(DSType.mono9).tracking(1.4)
                 .foregroundColor(DSColor.inkMuted)
             Text(value)
-                .font(DSFonts.serif(size: 22, weight: .semibold))
+                .font(DSFonts.serif(size: 22, weight: .semibold, relativeTo: .title2))
                 .foregroundColor(DSColor.inkPrimary)
             Text(unit)
                 .font(DSType.mono9).tracking(1.2)

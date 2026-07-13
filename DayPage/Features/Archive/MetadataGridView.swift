@@ -66,19 +66,19 @@ struct MetadataGridView: View {
     private func tileView(_ tile: Tile) -> some View {
         VStack(spacing: 0) {
             Text(tile.label)
-                .font(DSFonts.jetBrainsMono(size: 8.5, weight: .bold))
+                .font(DSFonts.jetBrainsMono(size: 8.5, weight: .bold, relativeTo: .caption2))
                 .tracking(1.4)
                 .foregroundColor(DSColor.inkMuted)
 
             Text(tile.value)
-                .font(DSFonts.spaceGrotesk(size: 18, weight: .semibold))
+                .font(DSFonts.spaceGrotesk(size: 18, weight: .semibold, relativeTo: .headline))
                 .tracking(-0.4)
                 .foregroundColor(DSColor.inkPrimary)
                 .padding(.top, 5)
 
             if let sub = tile.sub {
                 Text(sub)
-                    .font(DSFonts.jetBrainsMono(size: 8, weight: .regular))
+                    .font(DSFonts.jetBrainsMono(size: 8, weight: .regular, relativeTo: .caption2))
                     .tracking(1.2)
                     .foregroundColor(DSColor.inkMuted)
                     .padding(.top, 4)

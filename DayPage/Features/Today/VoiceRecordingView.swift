@@ -150,7 +150,7 @@ struct VoiceRecordingView: View {
 
             if voiceService.elapsedSeconds >= RecordingLimits.amberThreshold {
                 Text(NSLocalizedString("voice_recording_soft_cap_hint", comment: "建议 5 分钟内"))
-                    .font(DSFonts.jetBrainsMono(size: 12))
+                    .font(DSFonts.jetBrainsMono(size: 12, relativeTo: .caption))
                     .foregroundColor(DSColor.accentAmber)
                     .transition(.opacity)
                     .animation(reduceMotion ? nil : Motion.fade, value: voiceService.elapsedSeconds >= RecordingLimits.amberThreshold)

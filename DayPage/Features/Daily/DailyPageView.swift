@@ -385,7 +385,7 @@ struct DailyPageView: View {
     private var sourceSignalsSection: some View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
             Text("SOURCE SIGNALS")
-                .font(DSFonts.spaceGrotesk(size: 11, weight: .semibold))
+                .font(DSFonts.spaceGrotesk(size: 11, weight: .semibold, relativeTo: .caption))
                 .foregroundColor(DSColor.inkMuted)
                 .tracking(1.6)
                 .padding(.bottom, DSSpacing.xs)
@@ -466,7 +466,7 @@ struct DailyPageView: View {
                         .fill(DSColor.amberSoft)
                         .frame(width: 28, height: 28)
                     Text(kindIcon)
-                        .font(DSFonts.jetBrainsMono(size: 11, weight: .medium))
+                        .font(DSFonts.jetBrainsMono(size: 11, weight: .medium, relativeTo: .caption))
                         .foregroundColor(DSColor.accentOnBg)
                 }
 

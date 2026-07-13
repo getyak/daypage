@@ -45,7 +45,7 @@ struct InputBarTutorialOverlay: View {
                     if step < steps.count - 1 {
                         Button(action: { Haptics.soft(); complete() }) {
                             Text(NSLocalizedString("tutorial.skip", comment: "Skip tutorial"))
-                                .font(DSFonts.inter(size: 15, weight: .medium))
+                                .font(DSFonts.inter(size: 15, weight: .medium, relativeTo: .subheadline))
                                 .foregroundColor(DSColor.inkMuted)
                         }
                         .buttonStyle(.plain)
@@ -88,10 +88,10 @@ struct InputBarTutorialOverlay: View {
 
                         VStack(spacing: 6) {
                             Text(steps[step].title)
-                                .font(DSFonts.inter(size: 17, weight: .semibold))
+                                .font(DSFonts.inter(size: 17, weight: .semibold, relativeTo: .headline))
                                 .foregroundColor(DSColor.inkPrimary)
                             Text(steps[step].body)
-                                .font(DSFonts.inter(size: 14))
+                                .font(DSFonts.inter(size: 14, relativeTo: .subheadline))
                                 .foregroundColor(DSColor.inkMuted)
                                 .multilineTextAlignment(.center)
                         }
@@ -103,7 +103,7 @@ struct InputBarTutorialOverlay: View {
                         Text(step < steps.count - 1
                              ? NSLocalizedString("tutorial.next", comment: "Next step")
                              : NSLocalizedString("tutorial.gotIt", comment: "Done"))
-                            .font(DSFonts.inter(size: 15, weight: .semibold))
+                            .font(DSFonts.inter(size: 15, weight: .semibold, relativeTo: .subheadline))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)

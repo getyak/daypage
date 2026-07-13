@@ -74,7 +74,7 @@ struct AuthView: View {
                     .accessibilityHidden(true)
 
                 Text("DayPage")
-                    .font(DSFonts.serif(size: 40, weight: .semibold))
+                    .font(DSFonts.serif(size: 40, weight: .semibold, relativeTo: .largeTitle))
                     .foregroundColor(DSColor.inkPrimary)
 
                 Text(NSLocalizedString("auth.tagline", comment: "AuthView brand tagline under DayPage logo"))

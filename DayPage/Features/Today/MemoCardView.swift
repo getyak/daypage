@@ -139,13 +139,13 @@ struct MemoCardView: View {
                 let coord = coordinateString(memo.location)
                 if !coord.isEmpty {
                     Text(coord)
-                        .font(DSFonts.jetBrainsMono(size: 10))
+                        .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                         .tracking(0.6)
                         .textCase(.uppercase)
                         .foregroundColor(DSColor.inkMuted)
                 }
                 Text(RelativeTimeFormatter.relative(memo.created))
-                    .font(DSFonts.jetBrainsMono(size: 10))
+                    .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                     .tracking(0.6)
                     .textCase(.uppercase)
                     .foregroundColor(DSColor.inkMuted)
@@ -258,7 +258,7 @@ struct MemoCardView: View {
                                 .font(.system(size: 12))
                                 .foregroundColor(DSColor.inkMuted)
                             Text(att.transcript ?? URL(fileURLWithPath: att.file).lastPathComponent)
-                                .font(DSFonts.jetBrainsMono(size: 11))
+                                .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
                                 .foregroundColor(DSColor.inkMuted)
                                 .lineLimit(1)
                                 .truncationMode(.middle)
@@ -311,7 +311,7 @@ struct MemoCardView: View {
                 let photoFlag = memo.attachments.contains { $0.kind == "photo" }
                 let voiceFlag = memo.attachments.contains { $0.kind == "audio" }
                 Text(Self.cardTimeFmt.string(from: memo.created).replacingOccurrences(of: ":", with: "·"))
-                    .font(DSFonts.jetBrainsMono(size: 10))
+                    .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                     .tracking(1.6)
                     .foregroundColor(DSColor.inkMuted)
 
@@ -555,7 +555,7 @@ struct PhotoFullScreenViewer: View {
                 VStack {
                     Spacer()
                     Text(exifText)
-                        .font(DSFonts.jetBrainsMono(size: 10))
+                        .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                         .tracking(0.5)
                         .textCase(.uppercase)
                         .foregroundColor(.white.opacity(0.92))
@@ -613,7 +613,7 @@ struct LocationPreviewSheet: View {
                     }
                     if let coord = coordinate {
                         Text(String(format: "%.5f°, %.5f°", coord.latitude, coord.longitude))
-                            .font(DSFonts.jetBrainsMono(size: 11))
+                            .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
                             .foregroundColor(DSColor.inkMuted)
                     }
                 }
@@ -809,7 +809,7 @@ struct VoiceMemoPlayerRow: View {
                 .frame(height: 36)
 
                 Text(formatDur(isPlaying ? duration * playbackProgress : duration))
-                    .font(DSFonts.jetBrainsMono(size: 11))
+                    .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
                     .foregroundColor(DSColor.inkMuted)
                     .frame(width: 36, alignment: .trailing)
                     .allowsHitTesting(false)
@@ -824,7 +824,7 @@ struct VoiceMemoPlayerRow: View {
             if let t = transcript, !t.isEmpty {
                 HStack(alignment: .top, spacing: 6) {
                     Text("\u{201C}")
-                        .font(DSFonts.serif(size: 20, weight: .medium))
+                        .font(DSFonts.serif(size: 20, weight: .medium, relativeTo: .title3))
                         // Quote glyphs are decorative punctuation, not an accent.
                         // Mute to 50% ink so the transcript reads as a quiet
                         // pull-quote rather than two loud amber marks.
@@ -848,7 +848,7 @@ struct VoiceMemoPlayerRow: View {
                             }
                         }
                     Text("\u{201D}")
-                        .font(DSFonts.serif(size: 20, weight: .medium))
+                        .font(DSFonts.serif(size: 20, weight: .medium, relativeTo: .title3))
                         .foregroundColor(DSColor.inkMuted.opacity(0.5))
                         .offset(y: -2)
                 }
@@ -1110,7 +1110,7 @@ struct DailyPageEntryCard: View {
                         .frame(width: 6, height: 6)
                         .shadow(color: DSColor.amberGlow, radius: 4, x: 0, y: 0)
                     Text("Today's page compiled")
-                        .font(DSFonts.jetBrainsMono(size: 10))
+                        .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                         .tracking(1)
                         .textCase(.uppercase)
                         .foregroundColor(DSColor.accentOnBg)
@@ -1186,13 +1186,13 @@ struct CompilePromptCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 if isCompiling {
                     Text("Compiling \(memoCount) memos…")
-                        .font(DSFonts.spaceGrotesk(size: 13, weight: .semibold))
+                        .font(DSFonts.spaceGrotesk(size: 13, weight: .semibold, relativeTo: .footnote))
                         .textCase(.uppercase)
                         .tracking(1)
                         .foregroundColor(DSColor.accentOnBg)
                 } else if memoCount > 0 {
                     Text(NSLocalizedString("memocard.state.ready", comment: "Ready to compile"))
-                        .font(DSFonts.spaceGrotesk(size: 13, weight: .semibold))
+                        .font(DSFonts.spaceGrotesk(size: 13, weight: .semibold, relativeTo: .footnote))
                         .textCase(.uppercase)
                         .tracking(1)
                         .foregroundColor(DSColor.inkMuted)
@@ -1201,7 +1201,7 @@ struct CompilePromptCard: View {
                         .foregroundColor(DSColor.inkMuted)
                 } else {
                     Text(NSLocalizedString("memocard.state.empty", comment: "Start capturing"))
-                        .font(DSFonts.spaceGrotesk(size: 13, weight: .semibold))
+                        .font(DSFonts.spaceGrotesk(size: 13, weight: .semibold, relativeTo: .footnote))
                         .textCase(.uppercase)
                         .tracking(1)
                         .foregroundColor(DSColor.inkMuted)
@@ -1215,7 +1215,7 @@ struct CompilePromptCard: View {
             if !isCompiling && memoCount > 0 {
                 Button(action: { onCompile?() }) {
                     Text(NSLocalizedString("memocard.cta.compile", comment: "Compile CTA"))
-                        .font(DSFonts.jetBrainsMono(size: 10))
+                        .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                         .tracking(0.8)
                         .textCase(.uppercase)
                         .foregroundColor(DSColor.bgWarm)
@@ -1251,13 +1251,13 @@ struct PhotoDownloadPlaceholder: View {
                         .font(.system(size: 28, weight: .regular))
                         .foregroundColor(DSColor.inkMuted)
                     Text(NSLocalizedString("memocard.attachment.tapToDownload", comment: "Attachment download CTA"))
-                        .font(DSFonts.jetBrainsMono(size: 10))
+                        .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                         .textCase(.uppercase)
                         .foregroundColor(DSColor.inkMuted)
                 case .downloading:
                     ProgressView().tint(DSColor.inkSubtle)
                     Text("Downloading from iCloud…")
-                        .font(DSFonts.jetBrainsMono(size: 10))
+                        .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                         .textCase(.uppercase)
                         .foregroundColor(DSColor.inkMuted)
                 case .failed:
@@ -1265,7 +1265,7 @@ struct PhotoDownloadPlaceholder: View {
                         .font(.system(size: 28, weight: .regular))
                         .foregroundColor(DSColor.accentOnBg)
                     Text("Download failed — tap to retry")
-                        .font(DSFonts.jetBrainsMono(size: 10))
+                        .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                         .textCase(.uppercase)
                         .foregroundColor(DSColor.inkMuted)
                 case .current:
@@ -1348,7 +1348,7 @@ struct PhotoThumbnailView: View {
         .overlay(alignment: .bottom) {
             if let exifText {
                 Text(exifText)
-                    .font(DSFonts.jetBrainsMono(size: 10))
+                    .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                     .tracking(0.5)
                     .textCase(.uppercase)
                     .foregroundColor(DSColor.inkMuted)
@@ -1529,7 +1529,7 @@ struct AudioDownloadPlaceholder: View {
             switch state {
             case .notDownloaded:
                 Text("icloud")
-                    .font(DSFonts.jetBrainsMono(size: 10))
+                    .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                     .foregroundColor(DSColor.inkMuted)
                     .frame(width: 36, alignment: .trailing)
             case .downloading:
@@ -1539,12 +1539,12 @@ struct AudioDownloadPlaceholder: View {
                     .frame(width: 36, alignment: .trailing)
             case .failed:
                 Text("retry")
-                    .font(DSFonts.jetBrainsMono(size: 10))
+                    .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                     .foregroundColor(DSColor.accentOnBg)
                     .frame(width: 36, alignment: .trailing)
             case .current:
                 Text("--:--")
-                    .font(DSFonts.jetBrainsMono(size: 10))
+                    .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                     .foregroundColor(DSColor.inkMuted)
                     .frame(width: 36, alignment: .trailing)
             }

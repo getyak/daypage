@@ -138,7 +138,7 @@ struct SidebarHeatmapView: View {
             Spacer()
             HStack(alignment: .firstTextBaseline, spacing: 5) {
                 Text("\(totalEntries)")
-                    .font(DSFonts.serif(size: 18, weight: .semibold))
+                    .font(DSFonts.serif(size: 18, weight: .semibold, relativeTo: .headline))
                     .foregroundColor(DSColor.inkPrimary)
                 Text(NSLocalizedString("heatmap.entries", comment: "Entries unit"))
                     .font(DSType.mono9)

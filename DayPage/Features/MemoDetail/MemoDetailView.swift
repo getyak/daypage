@@ -434,7 +434,7 @@ private struct DetailPhotoSection: View {
                 // EXIF overlay
                 if let exif = exifText {
                     Text(exif)
-                        .font(DSFonts.jetBrainsMono(size: 10))
+                        .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                         .tracking(0.5)
                         .textCase(.uppercase)
                         .foregroundColor(DSColor.bgWarm.opacity(0.85))
@@ -469,7 +469,7 @@ private struct DetailPhotoSection: View {
                 Image(systemName: "arrow.up.left.and.arrow.down.right")
                     .font(.system(size: 10, weight: .medium))
                 Text(NSLocalizedString("memo.detail.photo.tap_fullscreen", comment: ""))
-                    .font(DSFonts.jetBrainsMono(size: 10))
+                    .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                     .tracking(0.4)
             }
             .foregroundColor(DSColor.inkMuted)
@@ -552,7 +552,7 @@ private struct DetailLocationSection: View {
                     }
                     if let coord = coordinate {
                         Text(String(format: "%.5f°, %.5f°", coord.latitude, coord.longitude))
-                            .font(DSFonts.jetBrainsMono(size: 11))
+                            .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
                             .foregroundColor(DSColor.inkMuted)
                             .tracking(0.4)
                     }
@@ -664,13 +664,13 @@ private struct DetailFileRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(fileName)
-                    .font(DSFonts.jetBrainsMono(size: 11))
+                    .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
                     .foregroundColor(DSColor.inkPrimary)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 if !fileSize.isEmpty {
                     Text(fileSize)
-                        .font(DSFonts.jetBrainsMono(size: 10))
+                        .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                         .foregroundColor(DSColor.inkMuted)
                 }
             }
@@ -678,7 +678,7 @@ private struct DetailFileRow: View {
 
             Button(action: openFile) {
                 Text("Open")
-                    .font(DSFonts.jetBrainsMono(size: 10))
+                    .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                     .tracking(0.6)
                     .textCase(.uppercase)
                     .foregroundColor(DSColor.accentOnBg)
@@ -879,12 +879,12 @@ private struct DetailMetadataSection: View {
     private func metaRow(label: String, value: String) -> some View {
         HStack(alignment: .top, spacing: DSSpacing.sm) {
             Text(label.uppercased())
-                .font(DSFonts.jetBrainsMono(size: 10))
+                .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                 .tracking(0.6)
                 .foregroundColor(DSColor.inkMuted)
                 .frame(width: 100, alignment: .leading)
             Text(value)
-                .font(DSFonts.jetBrainsMono(size: 10))
+                .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                 .tracking(0.4)
                 .foregroundColor(DSColor.inkMuted)
                 .textSelection(.enabled)

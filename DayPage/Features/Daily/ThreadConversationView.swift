@@ -169,7 +169,7 @@ struct ThreadConversationView: View {
 
     private var aiBadge: some View {
         Text("AI")
-            .font(DSFonts.jetBrainsMono(size: 9, weight: .medium))
+            .font(DSFonts.jetBrainsMono(size: 9, weight: .medium, relativeTo: .caption2))
             .foregroundColor(DSColor.accentOnBg)
             .padding(.horizontal, 5)
             .padding(.vertical, 2)

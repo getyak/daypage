@@ -248,7 +248,7 @@ struct InputBarV4: View {
                         .tint(DSColor.amberAccent)
                         .padding(.horizontal, DSSpacing.lg)
                     Text("Processing \(Int(batchPhotoProgress * Double(batchPhotoTotal))) / \(batchPhotoTotal) photos")
-                        .font(DSFonts.inter(size: 11))
+                        .font(DSFonts.inter(size: 11, relativeTo: .caption))
                         .foregroundColor(DSColor.inkMuted)
                 }
                 .padding(.vertical, DSSpacing.xs)

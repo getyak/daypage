@@ -70,7 +70,7 @@ struct DailyPageSummarySection: View {
                         .font(.system(size: 10, weight: .medium))
                         .foregroundColor(DSColor.inkMuted)
                     Text("引用 \(memoIDs.count) 条")
-                        .font(DSFonts.spaceGrotesk(size: 11, weight: .medium))
+                        .font(DSFonts.spaceGrotesk(size: 11, weight: .medium, relativeTo: .caption))
                         .tracking(0.6)
                         .textCase(.uppercase)
                         .foregroundColor(DSColor.inkMuted)
@@ -104,7 +104,7 @@ struct DailyPageSummarySection: View {
     private func threadsView(threads: [DailyPageModel.ThreadEntry]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("THREADS")
-                .font(DSFonts.spaceGrotesk(size: 11, weight: .semibold))
+                .font(DSFonts.spaceGrotesk(size: 11, weight: .semibold, relativeTo: .caption))
                 .foregroundColor(DSColor.inkMuted)
                 .tracking(1.6)
             ForEach(threads.indices, id: \.self) { i in
@@ -124,7 +124,7 @@ struct DailyPageSummarySection: View {
     private func mentionsView(mentions: [String]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("MENTIONS")
-                .font(DSFonts.spaceGrotesk(size: 11, weight: .semibold))
+                .font(DSFonts.spaceGrotesk(size: 11, weight: .semibold, relativeTo: .caption))
                 .foregroundColor(DSColor.inkMuted)
                 .tracking(1.6)
             FlowLayout(spacing: 8) {
@@ -149,7 +149,7 @@ struct DailyPageSummarySection: View {
 
     private func mentionCapsule(_ mention: String) -> some View {
         Text(mention)
-            .font(DSFonts.inter(size: 12, weight: .medium))
+            .font(DSFonts.inter(size: 12, weight: .medium, relativeTo: .caption))
             .foregroundColor(DSColor.accentOnBg)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)

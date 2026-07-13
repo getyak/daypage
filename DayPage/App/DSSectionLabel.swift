@@ -12,7 +12,7 @@ struct DSSectionLabel: View {
 
     var body: some View {
         Text(text.uppercased())
-            .font(DSFonts.spaceGrotesk(size: 11, weight: .bold))
+            .font(DSFonts.spaceGrotesk(size: 11, weight: .bold, relativeTo: .caption))
             .tracking(1.6)
             .foregroundColor(DSColor.inkMuted)
             .accessibilityAddTraits(.isHeader)

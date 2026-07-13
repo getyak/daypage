@@ -626,7 +626,7 @@ struct TodayView: View {
                                         viewModel.submitCombinedMemo(body: retryBody)
                                     } label: {
                                         Text(NSLocalizedString("submit.error.retry", comment: "Retry submit"))
-                                            .font(DSFonts.inter(size: 12, weight: .semibold))
+                                            .font(DSFonts.inter(size: 12, weight: .semibold, relativeTo: .caption))
                                             .foregroundColor(DSColor.onError)
                                             .padding(.horizontal, 10)
                                             .padding(.vertical, 4)
@@ -1405,7 +1405,7 @@ struct TodayView: View {
                     value: "钥匙就绪后，夜间编译会自动开启",
                     comment: "Today status line shown when DeepSeek/Whisper key is missing"
                 ))
-                    .font(DSFonts.serif(size: 13, weight: .regular))
+                    .font(DSFonts.serif(size: 13, weight: .regular, relativeTo: .footnote))
                     .foregroundColor(DSColor.inkMuted)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 10, weight: .semibold))
@@ -1611,7 +1611,7 @@ struct TodayView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(syncQueuePrimaryLabel)
-                        .font(DSFonts.inter(size: 13, weight: .medium))
+                        .font(DSFonts.inter(size: 13, weight: .medium, relativeTo: .footnote))
                         .foregroundColor(DSColor.inkPrimary)
                         .lineLimit(1)
 
@@ -1627,7 +1627,7 @@ struct TodayView: View {
                             value: "网络受限，已等待超过 24 小时",
                             comment: "Today banner sub-label: queue stuck > 24h"
                         ))
-                            .font(DSFonts.inter(size: 11, weight: .semibold))
+                            .font(DSFonts.inter(size: 11, weight: .semibold, relativeTo: .caption))
                             .foregroundColor(DSColor.statusError)
                             .lineLimit(1)
                     } else if syncQueueWaitedTooLong {
@@ -1639,7 +1639,7 @@ struct TodayView: View {
                             ),
                             syncQueueWaitedHours
                         ))
-                            .font(DSFonts.inter(size: 11, weight: .semibold))
+                            .font(DSFonts.inter(size: 11, weight: .semibold, relativeTo: .caption))
                             .foregroundColor(DSColor.statusError)
                             .lineLimit(1)
                     }
@@ -1682,7 +1682,7 @@ struct TodayView: View {
                         ),
                         syncQueue.pendingCount
                     ))
-                        .font(DSFonts.inter(size: 14, weight: .medium))
+                        .font(DSFonts.inter(size: 14, weight: .medium, relativeTo: .subheadline))
                     if let oldest = oldest {
                         Text(String(
                             format: NSLocalizedString(
@@ -1696,7 +1696,7 @@ struct TodayView: View {
                                 timeStyle: .short
                             )
                         ))
-                            .font(DSFonts.inter(size: 12, weight: .regular))
+                            .font(DSFonts.inter(size: 12, weight: .regular, relativeTo: .caption))
                             .foregroundColor(DSColor.inkSecondary)
                     }
                 }
@@ -1715,7 +1715,7 @@ struct TodayView: View {
                             value: "无待同步条目",
                             comment: "Sync queue sheet: empty-state body"
                         ))
-                            .font(DSFonts.inter(size: 13, weight: .regular))
+                            .font(DSFonts.inter(size: 13, weight: .regular, relativeTo: .footnote))
                             .foregroundColor(DSColor.inkSecondary)
                     } else {
                         ForEach(pending, id: \.self) { id in
@@ -1752,7 +1752,7 @@ struct TodayView: View {
                                         value: "memo",
                                         comment: "Sync queue sheet: per-row label"
                                     ))
-                                        .font(DSFonts.inter(size: 13, weight: .regular))
+                                        .font(DSFonts.inter(size: 13, weight: .regular, relativeTo: .footnote))
                                         .foregroundColor(DSColor.inkPrimary)
                                         .lineLimit(1)
                                     Spacer()
@@ -1774,7 +1774,7 @@ struct TodayView: View {
                         value: "等待网络恢复后自动同步。",
                         comment: "Sync queue sheet: footnote explaining auto-retry"
                     ))
-                        .font(DSFonts.inter(size: 12, weight: .regular))
+                        .font(DSFonts.inter(size: 12, weight: .regular, relativeTo: .caption))
                         .foregroundColor(DSColor.inkSecondary)
                 }
             }
@@ -2168,14 +2168,14 @@ struct TodayView: View {
                 VStack(spacing: 8) {
                     Text(NSLocalizedString("today.empty.poem.title",
                                            comment: "Empty-state poem main line (e.g. 把今天放下来。)"))
-                        .font(DSFonts.serif(size: 28, weight: .regular))
+                        .font(DSFonts.serif(size: 28, weight: .regular, relativeTo: .title))
                         .foregroundColor(DSColor.inkPrimary)
                         .multilineTextAlignment(.center)
                         .dynamicTypeSize(.xSmall ... .accessibility2)
                         .minimumScaleFactor(0.7)
                     Text(NSLocalizedString("today.empty.poem.subtitle",
                                            comment: "Empty-state poem secondary line (e.g. 我陪你整理。)"))
-                        .font(DSFonts.serif(size: 17, weight: .regular))
+                        .font(DSFonts.serif(size: 17, weight: .regular, relativeTo: .headline))
                         .foregroundColor(DSColor.inkMuted)
                         .multilineTextAlignment(.center)
                         .dynamicTypeSize(.xSmall ... .accessibility2)
@@ -2209,7 +2209,7 @@ struct TodayView: View {
                             .foregroundStyle(DSColor.amberDeep)
                         Text(NSLocalizedString("today.empty.ai_cta",
                                                comment: "Empty-state AI chat CTA (e.g. 让 AI 陪你聊聊今天)"))
-                            .font(DSFonts.serif(size: 15, weight: .medium))
+                            .font(DSFonts.serif(size: 15, weight: .medium, relativeTo: .subheadline))
                             .foregroundStyle(DSColor.amberDeep)
                     }
                     .padding(.horizontal, 14)
@@ -2597,7 +2597,7 @@ struct TodayView: View {
             } label: {
                 VStack(alignment: .center, spacing: 6) {
                     Text(weekdayName(currentTime))
-                        .font(DSFonts.serif(size: 26, weight: .regular))
+                        .font(DSFonts.serif(size: 26, weight: .regular, relativeTo: .title))
                         .foregroundColor(DSColor.inkPrimary)
                         .lineLimit(1)
                         .dynamicTypeSize(.xSmall ... .accessibility2)
@@ -2696,7 +2696,7 @@ struct TodayView: View {
             }
         } label: {
             Text("\(weekdayName(currentTime)) · \(Self.headerDateFmt.string(from: currentTime))")
-                .font(DSFonts.serif(size: 15, weight: .regular))
+                .font(DSFonts.serif(size: 15, weight: .regular, relativeTo: .subheadline))
                 .foregroundColor(DSColor.inkPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)

@@ -111,7 +111,7 @@ struct GraphView: View {
                     .accessibilityIdentifier("graph-sidebar-menu-button")
 
                     Text(NSLocalizedString("sidebar.nav.graph", comment: "Graph page title"))
-                        .font(DSFonts.serif(size: 20, weight: .semibold))
+                        .font(DSFonts.serif(size: 20, weight: .semibold, relativeTo: .title3))
                         .tracking(-0.3)
                         .foregroundColor(DSColor.inkPrimary)
 
@@ -129,7 +129,7 @@ struct GraphView: View {
                             .font(.system(size: 13))
                             .foregroundColor(DSColor.inkMuted)
                         TextField(NSLocalizedString("graph.search.placeholder", comment: "Graph search field placeholder"), text: $viewModel.searchInput)
-                            .font(DSFonts.jetBrainsMono(size: 12))
+                            .font(DSFonts.jetBrainsMono(size: 12, relativeTo: .caption))
                             .foregroundColor(DSColor.inkPrimary)
                             .submitLabel(.search)
                             .onSubmit {
@@ -209,7 +209,7 @@ struct GraphView: View {
                                     .font(.system(size: 11))
                                     .foregroundColor(DSColor.inkMuted)
                                 Text(NSLocalizedString("graph.search.zero_match", comment: "Graph search zero-match pill"))
-                                    .font(DSFonts.jetBrainsMono(size: 11))
+                                    .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
                                     .foregroundColor(DSColor.inkMuted)
                             }
                             .padding(.horizontal, DSSpacing.md)
@@ -224,7 +224,7 @@ struct GraphView: View {
                                 ? String(format: NSLocalizedString("graph.search.match_count.other", comment: "Graph search match count pill, multiple"), searchMatchIndex + 1, count)
                                 : String(format: NSLocalizedString("graph.search.match_count.one", comment: "Graph search match count pill, single"), count)
                             Text(pillText)
-                                .font(DSFonts.jetBrainsMono(size: 11))
+                                .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
                                 .foregroundColor(DSColor.inkMuted)
                                 .padding(.horizontal, DSSpacing.md)
                                 .padding(.vertical, 5)
@@ -313,7 +313,7 @@ struct GraphView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: DSSpacing.sm) {
                             Text(NSLocalizedString("graph.filter.start", comment: "Graph date filter start label"))
-                                .font(DSFonts.jetBrainsMono(size: 11))
+                                .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
                                 .foregroundColor(DSColor.inkMuted)
                                 .frame(width: 30)
                             DatePicker(
@@ -330,14 +330,14 @@ struct GraphView: View {
 
                             if viewModel.filterStartDate != nil {
                                 Button(NSLocalizedString("graph.filter.clear", comment: "Graph date filter clear button")) { viewModel.filterStartDate = nil }
-                                    .font(DSFonts.inter(size: 11))
+                                    .font(DSFonts.inter(size: 11, relativeTo: .caption))
                                     .foregroundColor(DSColor.amberAccent)
                                     .frame(minHeight: 44)
                             }
                         }
                         HStack(spacing: DSSpacing.sm) {
                             Text(NSLocalizedString("graph.filter.end", comment: "Graph date filter end label"))
-                                .font(DSFonts.jetBrainsMono(size: 11))
+                                .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
                                 .foregroundColor(DSColor.inkMuted)
                                 .frame(width: 30)
                             DatePicker(
@@ -354,7 +354,7 @@ struct GraphView: View {
 
                             if viewModel.filterEndDate != nil {
                                 Button(NSLocalizedString("graph.filter.clear", comment: "Graph date filter clear button")) { viewModel.filterEndDate = nil }
-                                    .font(DSFonts.inter(size: 11))
+                                    .font(DSFonts.inter(size: 11, relativeTo: .caption))
                                     .foregroundColor(DSColor.amberAccent)
                                     .frame(minHeight: 44)
                             }
@@ -1392,7 +1392,7 @@ struct GraphView: View {
                         .frame(width: 10, height: 10)
                 }
                 Text("\(label) \(count)")
-                    .font(DSFonts.jetBrainsMono(size: 10))
+                    .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                     .foregroundColor(DSColor.inkPrimary)
                     .strikethrough(isHidden, color: DSColor.inkMuted)
             }
@@ -1426,11 +1426,11 @@ struct GraphView: View {
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text(node.name)
-                            .font(DSFonts.serif(size: 17, weight: .semibold))
+                            .font(DSFonts.serif(size: 17, weight: .semibold, relativeTo: .headline))
                             .foregroundColor(DSColor.inkPrimary)
                             .lineLimit(1)
                         Text(focusPreviewSubtitle(for: node))
-                            .font(DSFonts.jetBrainsMono(size: 11))
+                            .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
                             .foregroundColor(DSColor.inkMuted)
                             .lineLimit(1)
                     }
@@ -1500,7 +1500,7 @@ struct GraphView: View {
         // input so they see exactly what didn't match.
         let msg = "没有匹配 '\(zeroMatchToastQuery)'"
         return Text(msg)
-            .font(DSFonts.jetBrainsMono(size: 12))
+            .font(DSFonts.jetBrainsMono(size: 12, relativeTo: .caption))
             .foregroundColor(DSColor.inkPrimary)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)

@@ -222,7 +222,7 @@ private struct WelcomePage: View {
                     .cornerRadius(8)
 
                 Text("onboarding.welcome.headline", bundle: .main)
-                    .font(DSFonts.serif(size: 20, weight: .regular))
+                    .font(DSFonts.serif(size: 20, weight: .regular, relativeTo: .title3))
                     .foregroundColor(DSColor.onBackgroundPrimary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, DSSpacing.sm)
