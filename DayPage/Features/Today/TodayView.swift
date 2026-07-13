@@ -441,7 +441,7 @@ struct TodayView: View {
                     if viewModel.memos.isEmpty {
                         orbHero
                             .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
-                            .animation(Motion.dismiss, value: viewModel.memos.isEmpty)
+                            .dsAnimation(Motion.dismiss, value: viewModel.memos.isEmpty)
                     }
 
                     // MARK: Selection toolbar (issue #309 W2)
@@ -491,7 +491,7 @@ struct TodayView: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
-                .animation(Motion.rise, value: undoText != nil)
+                .dsAnimation(Motion.rise, value: undoText != nil)
                 // Undo pill shown for 5s after memo delete
                 .overlay(alignment: .bottom) {
                     if viewModel.lastDeletedMemo != nil {
@@ -504,7 +504,7 @@ struct TodayView: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
-                .animation(Motion.rise, value: viewModel.lastDeletedMemo != nil)
+                .dsAnimation(Motion.rise, value: viewModel.lastDeletedMemo != nil)
                 // Scroll-to-top chevron — fades in at bottom-trailing when scrolled past 240pt
                 .overlay(alignment: .bottomTrailing) {
                     if showScrollToTopButton && !viewModel.memos.isEmpty && !isInSelectionMode {
@@ -648,14 +648,14 @@ struct TodayView: View {
                                 .accessibilityElement(children: .contain)
                                 .accessibilityHint(NSLocalizedString("Tap or swipe to dismiss", comment: "submit error toast dismiss hint"))
                                 .onTapGesture {
-                                    withAnimation(Motion.rise) { viewModel.submitError = nil }
+                                    withAnimation(Motion.respectReduceMotion(Motion.rise)) { viewModel.submitError = nil }
                                 }
                                 .gesture(
                                     DragGesture(minimumDistance: 20)
                                         .onEnded { value in
                                             if value.translation.height < -10 || abs(value.translation.width) > 40 {
                                                 Haptics.soft()
-                                                withAnimation(Motion.rise) { viewModel.submitError = nil }
+                                                withAnimation(Motion.respectReduceMotion(Motion.rise)) { viewModel.submitError = nil }
                                             }
                                         }
                                 )
@@ -672,7 +672,7 @@ struct TodayView: View {
                                 }
                         }
                     }
-                    .animation(Motion.rise, value: viewModel.submitError)
+                    .dsAnimation(Motion.rise, value: viewModel.submitError)
                 }
             }
             // CRASH-FIX (真机 arm64e Release 启动栈溢出): TodayView.body 原本在
@@ -1498,8 +1498,8 @@ struct TodayView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(DSColor.amberAccent)
                 .opacity(compileService.stage == .idle ? 1.0 : 0.6)
-                .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true),
-                           value: compileService.stage)
+                .dsAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true),
+                             value: compileService.stage)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(compileService.stageLabel)
@@ -1514,7 +1514,7 @@ struct TodayView: View {
                         RoundedRectangle(cornerRadius: 3)
                             .fill(DSColor.amberAccent)
                             .frame(width: max(6, geo.size.width * CGFloat(compileService.stageFraction)))
-                            .animation(.easeInOut(duration: 0.4), value: compileService.stageFraction)
+                            .dsAnimation(.easeInOut(duration: 0.4), value: compileService.stageFraction)
                     }
                 }
                 .frame(height: 4)
@@ -1601,7 +1601,7 @@ struct TodayView: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(DSColor.amberAccent)
                     .rotationEffect(.degrees(syncQueue.isFlushingNow ? 360 : 0))
-                    .animation(
+                    .dsAnimation(
                         syncQueue.isFlushingNow
                             ? .linear(duration: 0.6).repeatForever(autoreverses: false)
                             : .default,
@@ -1984,7 +1984,7 @@ struct TodayView: View {
             HStack(spacing: 0) {
                 Spacer()
                 Button {
-                    withAnimation(Motion.spring) {
+                    withAnimation(Motion.respectReduceMotion(Motion.spring)) {
                         dailyPageRevealed = false
                     }
                     hideDailyPageActionSoon()
@@ -2014,7 +2014,7 @@ struct TodayView: View {
                 onTap: {
                     if dailyPageRevealed {
                         Haptics.soft()
-                        withAnimation(Motion.spring) {
+                        withAnimation(Motion.respectReduceMotion(Motion.spring)) {
                             dailyPageRevealed = false
                         }
                         hideDailyPageActionSoon()
@@ -2028,7 +2028,7 @@ struct TodayView: View {
             .accessibilityHint(NSLocalizedString("today.accessibility.dailypage.hint", comment: ""))
             .accessibilityAction(named: Text(NSLocalizedString("today.action.recompile", comment: ""))) {
                 viewModel.compile()
-                withAnimation(Motion.spring) {
+                withAnimation(Motion.respectReduceMotion(Motion.spring)) {
                     dailyPageRevealed = false
                 }
                 hideDailyPageActionSoon()
@@ -2056,7 +2056,7 @@ struct TodayView: View {
                         }
                     }
                     .onEnded { value in
-                        withAnimation(Motion.spring) {
+                        withAnimation(Motion.respectReduceMotion(Motion.spring)) {
                             dailyPageRevealed = value.translation.width < -44
                         }
                         if !dailyPageRevealed {
