@@ -10,6 +10,7 @@
 		09C6E4728050D69F54949DD1 /* HapticFeedbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84FFEA3DDB8DCB528A4189BF /* HapticFeedbackTests.swift */; };
 		0AA94A9D087DA366336C8480 /* DayPageServices in Frameworks */ = {isa = PBXBuildFile; productRef = 160D427C0AE7DAC5724A134F /* DayPageServices */; };
 		14188AFE740A834ADF7A41F4 /* DayPageWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		0B7722A154C2145670104616 /* DayPageWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 23EA9C83B41565EDB263FB35 /* DayPageWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1530E7C28C23499CFC14C498 /* HapticFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB12D96218034D3E4555B8AA /* HapticFeedback.swift */; };
 		1530E7C28C23499CFC14C499 /* SignatureHaptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB12D96218034D3E4555B8AB /* SignatureHaptics.swift */; };
 		1700091E891D56C434E3221E /* MacRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15CC12840AD6E5CF8621F34C /* MacRootView.swift */; };
@@ -235,7 +236,7 @@
 			remoteGlobalIDString = F41799EE1E17028D50445A2A;
 			remoteInfo = DayPageWidget;
 		};
-		D13961FCE75D846CB11E2A04 /* PBXContainerItemProxy */ = {
+		726DB2C010138FC996D81E2B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = AB0000001 /* Project object */;
 			proxyType = 1;
@@ -261,6 +262,17 @@
 				14188AFE740A834ADF7A41F4 /* DayPageWidget.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C13EF0B3BDDC86CC30C16037 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				0B7722A154C2145670104616 /* DayPageWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -600,7 +612,7 @@
 			children = (
 				FE91252BA9167A50BFF79FF0 /* StartRecordingIntent.swift */,
 			);
-			path = Complication;
+			path = Complications;
 			sourceTree = "<group>";
 		};
 		6E1BF02CE381B436F22B52D5 /* DayPageWatch */ = {
@@ -1140,7 +1152,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				AF08A5AA36824D34EF184641 /* PBXTargetDependency */,
 			);
 			name = DayPageWatch;
 			packageProductDependencies = (
@@ -1150,7 +1161,7 @@
 			);
 			productName = DayPageWatch;
 			productReference = 23EA9C83B41565EDB263FB35 /* DayPageWatch.app */;
-			productType = "com.apple.product-type.application.watchapp2";
+			productType = "com.apple.product-type.application";
 		};
 		A70000001 /* DayPage */ = {
 			isa = PBXNativeTarget;
@@ -1161,11 +1172,13 @@
 				A40000001 /* Frameworks */,
 				AA0000001 /* Resources */,
 				7C2E6E11E8E832D610477AF4 /* Embed Foundation Extensions */,
+				C13EF0B3BDDC86CC30C16037 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				FFEEA26F4357519F4BB9DD72 /* PBXTargetDependency */,
+				9FE730886283D9BA51EBA8D3 /* PBXTargetDependency */,
 			);
 			name = DayPage;
 			packageProductDependencies = (
@@ -1566,16 +1579,17 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		AF08A5AA36824D34EF184641 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 69BEA0675AFA233657A8AD39 /* DayPageWatch */;
-			targetProxy = D13961FCE75D846CB11E2A04 /* PBXContainerItemProxy */;
-		};
 		FFEEA26F4357519F4BB9DD72 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			name = DayPageWidget;
 			target = F41799EE1E17028D50445A2A /* DayPageWidget */;
 			targetProxy = CBEB8ECF74B1AB7DC2D95CE9 /* PBXContainerItemProxy */;
+		};
+		9FE730886283D9BA51EBA8D3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = DayPageWatch;
+			target = 69BEA0675AFA233657A8AD39 /* DayPageWatch */;
+			targetProxy = 726DB2C010138FC996D81E2B /* PBXContainerItemProxy */;
 		};
 		T75000001 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1678,14 +1692,15 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.watchkitapp;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.app.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 			};
 			name = Debug;
 		};
@@ -1933,14 +1948,15 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 0.0.1;
-				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.watchkitapp;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.daypage.app.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 9.0;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 			};
 			name = Release;
 		};

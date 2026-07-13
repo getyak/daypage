@@ -7,8 +7,8 @@ import DayPageServices
 
 /// App Intent triggered by the Watch Action Button to start a recording.
 /// Uses a minimal AVAudioRecorder for quick-start recording without UI.
-/// Wraps recording in WKExtendedRuntimeSession(.audioRecording) so watchOS
-/// does not suspend the process mid-recording.
+/// The watch target declares the audio background mode, so the active audio
+/// session keeps recording when the display turns off.
 @available(watchOS 9.0, *)
 struct StartRecordingIntent: AppIntent {
 
@@ -17,15 +17,11 @@ struct StartRecordingIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        let extSession = WKExtendedRuntimeSession()
-        extSession.start()
-
         let session = AVAudioSession.sharedInstance()
         do {
             try session.setCategory(.playAndRecord, mode: .default)
             try session.setActive(true)
         } catch {
-            extSession.invalidate()
             return .result(dialog: "Audio session error")
         }
 
@@ -49,7 +45,6 @@ struct StartRecordingIntent: AppIntent {
         // Record for 30 seconds then auto-stop
         try await Task.sleep(nanoseconds: 30_000_000_000)
         recorder.stop()
-        extSession.invalidate()
         try? AVAudioSession.sharedInstance().setActive(false)
 
         // Transfer via WCSession

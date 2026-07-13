@@ -39,6 +39,14 @@ Build and upload to TestFlight
 
 Build and submit to App Store for review
 
+### ios make_watch_certs
+
+```sh
+[bundle exec] fastlane ios make_watch_certs
+```
+
+
+
 ----
 
 This README.md is auto-generated and will be re-generated every time [_fastlane_](https://fastlane.tools) is run.
