@@ -517,7 +517,11 @@ struct InputBarV4: View {
                     .frame(width: 36, height: 44)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            // #150 shared press feedback — replaces .buttonStyle(.plain) so the
+            // dock's chrome buttons dip on touch instead of feeling dead. Icon
+            // buttons align to the AttachmentMenuPopover sample (0.97 / +0.5pt).
+            .pressScale(scale: 0.97, offsetY: 0.5,
+                        animation: .spring(response: 0.2, dampingFraction: 0.7))
             .accessibilityLabel(NSLocalizedString("input.a11y.more_attachments", comment: ""))
 
             // CENTER — silent breathing caret only, taps to open WriteSheet.
@@ -546,7 +550,9 @@ struct InputBarV4: View {
                 .padding(.leading, 6)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            // #150 shared press feedback for the "tap to write" caret slot.
+            .pressScale(scale: 0.98,
+                        animation: .spring(response: 0.2, dampingFraction: 0.7))
             .accessibilityLabel(NSLocalizedString("input.a11y.write_text", comment: ""))
             .accessibilityIdentifier("expand-text-composer")
 
@@ -567,7 +573,11 @@ struct InputBarV4: View {
                     .clipShape(Circle())
                     .contentShape(Circle())
             }
-            .buttonStyle(.plain)
+            // #150 press feedback on the mic orb. The amber glow scales with the
+            // orb (it sits on the Button frame), reading as "the lit orb presses
+            // in". respectsReduceMotion keeps it calm when Reduce Motion is on.
+            .pressScale(scale: 0.94,
+                        animation: .spring(response: 0.22, dampingFraction: 0.72))
             .frame(width: 50, height: 44)
             // Amber glow that makes the send/mic button read as "lit". Kept as a
             // deliberate colored halo (not a neutral DSElevation), but sourced
@@ -597,7 +607,9 @@ struct InputBarV4: View {
                         .frame(width: 40, height: 44)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                // #150 press feedback for the calm AI side-door sparkle.
+                .pressScale(scale: 0.97, offsetY: 0.5,
+                            animation: .spring(response: 0.2, dampingFraction: 0.7))
                 .accessibilityLabel(NSLocalizedString("input.a11y.ask_ai", comment: "Open AI chat"))
                 .accessibilityIdentifier("dock-ask-ai-button")
             }

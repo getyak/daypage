@@ -59,7 +59,11 @@ struct MemoDetailView: View {
                             }
                             .foregroundColor(DSColor.inkMuted)
                         }
-                        .buttonStyle(.plain)
+                        // #150 shared press feedback — chrome buttons dip on
+                        // touch instead of feeling dead. Aligns to the icon-
+                        // button sample (0.97 / +0.5pt).
+                        .pressScale(scale: 0.97, offsetY: 0.5,
+                                    animation: .spring(response: 0.2, dampingFraction: 0.7))
                         .accessibilityLabel(NSLocalizedString(
                             "memo.detail.a11y.back",
                             value: "返回今天",
@@ -285,7 +289,10 @@ struct MemoDetailView: View {
                         )
                         .clipShape(RoundedRectangle(cornerRadius: DSRadius.md))
                     }
-                    .buttonStyle(.plain)
+                    // #150 press feedback — this is a card-style CTA, so a
+                    // slightly deeper dip with a fade reads as "the panel presses".
+                    .pressScale(scale: 0.98, opacity: 0.92,
+                                animation: .spring(response: 0.25, dampingFraction: 0.72))
                     .accessibilityIdentifier("memo.detail.ask.past")
 
                     // MARK: Metadata Section
@@ -572,7 +579,9 @@ private struct DetailLocationSection: View {
                     .padding(.horizontal, 14)
                     .padding(.vertical, 14)
                 }
-                .buttonStyle(.plain)
+                // #150 press feedback for the "open in Maps" row.
+                .pressScale(scale: 0.98,
+                            animation: .spring(response: 0.22, dampingFraction: 0.72))
                 .disabled(coordinate == nil)
             }
             .liquidGlassCard(cornerRadius: DSRadius.md, tone: .lo)
@@ -679,7 +688,9 @@ private struct DetailFileRow: View {
                     .clipShape(Capsule())
                     .overlay(Capsule().strokeBorder(DSColor.amberRim, lineWidth: 0.5))
             }
-            .buttonStyle(.plain)
+            // #150 press feedback for the "Open" attachment pill.
+            .pressScale(scale: 0.96, opacity: 0.9,
+                        animation: .spring(response: 0.2, dampingFraction: 0.7))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
@@ -912,7 +923,11 @@ struct PhotoFullscreenView: View {
                             .background(Color.white.opacity(0.2))
                             .clipShape(Circle())
                     }
-                    .buttonStyle(.plain)
+                    // #150 press feedback for the fullscreen photo close button.
+                    // respectsReduceMotion: false — this overlay never consulted
+                    // the accessibility env before; keep the dip subtle but present.
+                    .pressScale(scale: 0.92,
+                                animation: .spring(response: 0.2, dampingFraction: 0.7))
                     .padding(.trailing, 20)
                     .padding(.top, 20)
                 }
