@@ -84,6 +84,18 @@ enum L10n {
         static let micButtonA11yHint    = Text("recording.mic_button.a11y.hint")
     }
 
+    /// MemoCard VoiceOver labels/hints (#15 — tappable cards/thumbnails that
+    /// SwiftUI can't infer are buttons).
+    enum MemoCard {
+        static let locationA11yLabel    = Text("memocard.a11y.location.label")
+        static let locationA11yHint     = Text("memocard.a11y.location.hint")
+        static let photoA11yLabel       = Text("memocard.a11y.photo.label")
+        static let photoA11yHint        = Text("memocard.a11y.photo.hint")
+        static let audioDownloadA11yLabel = Text("memocard.a11y.audioDownload.label")
+        static let photoDownloadA11yLabel = Text("memocard.a11y.photoDownload.label")
+        static let downloadA11yHint     = Text("memocard.a11y.download.hint")
+    }
+
     enum Error {
         static let compileTitle    = LocalizedStringKey("error.compile.title")
         static let compileSubtitle = LocalizedStringKey("error.compile.subtitle")

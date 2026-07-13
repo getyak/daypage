@@ -161,6 +161,7 @@ struct MemoCardView: View {
         .onTapGesture {
             if memo.location?.lat != nil { showLocationSheet = true }
         }
+        .a11yButton(label: L10n.MemoCard.locationA11yLabel, hint: L10n.MemoCard.locationA11yHint)
         .sheet(isPresented: $showLocationSheet) {
             LocationPreviewSheet(location: memo.location, onDelete: onDelete)
                 .presentationDetents([.medium, .large])
@@ -200,6 +201,9 @@ struct MemoCardView: View {
                                     startDownload(audioURL)
                                 }
                             }
+                            .minTapTarget()
+                            .a11yButton(label: L10n.MemoCard.audioDownloadA11yLabel,
+                                        hint: L10n.MemoCard.downloadA11yHint)
                     }
                 }
             }
@@ -224,6 +228,7 @@ struct MemoCardView: View {
                             Haptics.tapConfirm()
                             viewerPhoto = PhotoViewerTarget(file: att.file)
                         }
+                        .a11yButton(label: L10n.MemoCard.photoA11yLabel, hint: L10n.MemoCard.photoA11yHint)
                         .padding(.horizontal, 14)
                         .padding(.top, 14)
                 case .downloading, .notDownloaded, .failed:
@@ -238,6 +243,9 @@ struct MemoCardView: View {
                                 startDownload(photoURL)
                             }
                         }
+                        .minTapTarget()
+                        .a11yButton(label: L10n.MemoCard.photoDownloadA11yLabel,
+                                    hint: L10n.MemoCard.downloadA11yHint)
                 }
             }
             .fullScreenCover(item: $viewerPhoto) { target in

@@ -254,7 +254,8 @@ struct GraphView: View {
                                         .frame(width: 28, height: 28)
                                         // #771: match nav button → glass engine (.control).
                                         .dpGlass(.control, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                                        .contentShape(Rectangle())
+                                        // #15: keep the 28pt glass visual, expand hit target to 44pt.
+                                        .minTapTarget()
                                 }
                                 .accessibilityLabel(NSLocalizedString("graph.a11y.prev_match", comment: "Graph previous match button"))
                                 Button {
@@ -266,7 +267,8 @@ struct GraphView: View {
                                         .frame(width: 28, height: 28)
                                         // #771: match nav button → glass engine (.control).
                                         .dpGlass(.control, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                                        .contentShape(Rectangle())
+                                        // #15: keep the 28pt glass visual, expand hit target to 44pt.
+                                        .minTapTarget()
                                 }
                                 .accessibilityLabel(NSLocalizedString("graph.a11y.next_match", comment: "Graph next match button"))
                             }
