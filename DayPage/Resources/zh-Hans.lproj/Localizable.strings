@@ -421,8 +421,10 @@
 "memo.detail.location.open_maps" = "在 Apple 地图中打开";
 "memo.detail.photo.tap_fullscreen" = "点击查看全屏";
 
-/* memo.detail.nav.back.daily intentionally untranslated — nav chrome stays
-   English-mono across locales (FINDING-010 convention, same as "Today"). */
+/* Nav chrome stays English-mono across locales (FINDING-010 convention, same
+   as "Today"). Declared here — not merely commented — so the value is an
+   explicit, parity-checkable "intentionally English" rather than a silent gap. */
+"memo.detail.nav.back.daily" = "Daily";
 
 /* Ask past self (detail CTA) */
 "memo.detail.ask_past" = "追问过去的自己";
