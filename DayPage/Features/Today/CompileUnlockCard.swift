@@ -53,7 +53,7 @@ struct CompileUnlockCard: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(isOneAway ? "再记 1 条，今日成稿就解锁" : "再记 \(remaining) 条解锁今日成稿")
-                    .font(DSFonts.jetBrainsMono(size: 10))
+                    .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                     .tracking(1.2)
                     .foregroundColor(DSColor.accentOnBg)
                 Text("AI 将把今天的碎片连缀成一篇日页。")

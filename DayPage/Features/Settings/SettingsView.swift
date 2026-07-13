@@ -186,10 +186,10 @@ struct SettingsView: View {
 
     private var apiKeyEditorSheet: some View {
         NavigationStack {
-            VStack(spacing: 20) {
+            VStack(spacing: DSSpacing.xl) {
                 Text(String(format: NSLocalizedString("settings.apikey.editor.title", comment: ""), editingKeyName))
                     .font(.headline)
-                    .padding(.top, 8)
+                    .padding(.top, DSSpacing.sm)
 
                 SecureField(NSLocalizedString("settings.apikey.editor.placeholder", comment: ""), text: $editingKeyValue)
                     .textInputAutocapitalization(.never)
@@ -265,7 +265,7 @@ struct SettingsView: View {
             Button {
                 showAccountSheet = true
             } label: {
-                HStack(spacing: 12) {
+                HStack(spacing: DSSpacing.md) {
                     Image(systemName: "person.crop.circle")
                         .font(DSType.h2)
                         .foregroundColor(DSColor.onSurfaceVariant)
@@ -340,7 +340,7 @@ struct SettingsView: View {
             ? NSLocalizedString("settings.apikey.unconfigured", comment: "")
             : NSLocalizedString("settings.apikey.optional", comment: "")
         VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 12) {
+            HStack(spacing: DSSpacing.md) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(name)
                         .font(.body)
@@ -399,7 +399,7 @@ struct SettingsView: View {
                     Text(badgeLabel)
                         .font(.caption)
                         .fontWeight(.medium)
-                        .padding(.horizontal, 8)
+                        .padding(.horizontal, DSSpacing.sm)
                         .padding(.vertical, 2)
                         .background(badgeColor.opacity(0.12))
                         .foregroundColor(badgeColor)
@@ -592,7 +592,7 @@ struct SettingsView: View {
     /// updates this card immediately; the accent picker tints the kicker + dot.
     private var appearancePreviewCard: some View {
         let accent = appSettings.accentColor.color
-        return VStack(alignment: .leading, spacing: 8) {
+        return VStack(alignment: .leading, spacing: DSSpacing.sm) {
             HStack(spacing: 6) {
                 Circle()
                     .fill(accent)
@@ -734,8 +734,8 @@ struct SettingsView: View {
     }
 
     private var iCloudNotConfiguredCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: DSSpacing.sm) {
+            HStack(spacing: DSSpacing.sm) {
                 Image(systemName: "icloud")
                     .font(.system(size: 20, weight: .medium))
                     .foregroundColor(DSColor.accentOnBg)
@@ -756,7 +756,7 @@ struct SettingsView: View {
             .buttonStyle(.bordered)
             .controlSize(.small)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, DSSpacing.xs)
     }
 
     @ViewBuilder
@@ -1209,7 +1209,7 @@ struct SettingsView: View {
             if counts.isEmpty {
                 Text("今天还没有事件")
                     .font(DSType.labelSM)
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
             } else {
                 ForEach(counts.sorted(by: { $0.key < $1.key }), id: \.key) { (name, count) in
                     HStack {
@@ -1281,14 +1281,14 @@ struct SettingsView: View {
                 usageTracker.monthlyBudget = newValue
             }
             if usageTracker.hasCrossedBudgetWarning {
-                HStack(spacing: 8) {
+                HStack(spacing: DSSpacing.sm) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundColor(DSColor.accentOnBg)
                     Text("已经用掉本月预算的 80% —— 可以考虑调低编译频率或提高上限。")
                         .font(DSType.labelSM)
                         .foregroundColor(DSColor.inkPrimary)
                 }
-                .padding(8)
+                .padding(DSSpacing.sm)
                 .background(DSColor.amberSoft)
                 .cornerRadius(8)
                 .accessibilityIdentifier("settings.ai.usage.warning")

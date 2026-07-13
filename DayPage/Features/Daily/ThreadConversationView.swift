@@ -18,9 +18,9 @@ struct ThreadConversationView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             questionHeader
-                .padding(.horizontal, 16)
+                .padding(.horizontal, DSSpacing.lg)
                 .padding(.top, 14)
-                .padding(.bottom, 12)
+                .padding(.bottom, DSSpacing.md)
 
             if vm.isExpanded {
                 expandedContent
@@ -66,18 +66,18 @@ struct ThreadConversationView: View {
             Rectangle()
                 .fill(DSColor.glassRimD)
                 .frame(height: 0.5)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
+                .padding(.horizontal, DSSpacing.lg)
+                .padding(.bottom, DSSpacing.sm)
 
             if !vm.messages.isEmpty {
                 messagesScrollView
-                    .padding(.bottom, 4)
+                    .padding(.bottom, DSSpacing.xs)
             }
 
             if vm.isStreaming {
                 streamingRow
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 8)
+                    .padding(.horizontal, DSSpacing.lg)
+                    .padding(.bottom, DSSpacing.sm)
                     .transition(.opacity)
             }
 
@@ -85,15 +85,15 @@ struct ThreadConversationView: View {
                 Text(err)
                     .font(DSType.bodySM)
                     .foregroundColor(DSColor.error)
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 8)
+                    .padding(.horizontal, DSSpacing.lg)
+                    .padding(.bottom, DSSpacing.sm)
             }
 
             let hasReply = vm.messages.contains { $0.role == "assistant" }
             if hasReply && !vm.isStreaming {
                 followUpInputRow
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 12)
+                    .padding(.horizontal, DSSpacing.md)
+                    .padding(.bottom, DSSpacing.md)
                     .transition(.opacity)
                     .animation(.easeIn(duration: 0.2), value: hasReply)
             }
@@ -104,13 +104,13 @@ struct ThreadConversationView: View {
 
     private var messagesScrollView: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            LazyVStack(alignment: .leading, spacing: 8) {
+            LazyVStack(alignment: .leading, spacing: DSSpacing.sm) {
                 ForEach(vm.messages) { msg in
                     MessageBubble(message: msg)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.horizontal, DSSpacing.lg)
+            .padding(.vertical, DSSpacing.sm)
         }
         .frame(maxHeight: 280)
     }
@@ -118,10 +118,10 @@ struct ThreadConversationView: View {
     // MARK: - Streaming row
 
     private var streamingRow: some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: DSSpacing.sm) {
             aiBadge
 
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: DSSpacing.xs) {
                 if !vm.streamingText.isEmpty {
                     Text(vm.streamingText)
                         .font(DSType.serifBody16)
@@ -144,8 +144,8 @@ struct ThreadConversationView: View {
                 .focused($inputFocused)
                 .submitLabel(.send)
                 .onSubmit { sendFollowUp() }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.horizontal, DSSpacing.md)
+                .padding(.vertical, DSSpacing.sm)
                 .background(DSColor.amberSoft.opacity(0.6))
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
@@ -169,7 +169,7 @@ struct ThreadConversationView: View {
 
     private var aiBadge: some View {
         Text("AI")
-            .font(DSFonts.jetBrainsMono(size: 9, weight: .medium))
+            .font(DSFonts.jetBrainsMono(size: 9, weight: .medium, relativeTo: .caption2))
             .foregroundColor(DSColor.accentOnBg)
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
@@ -207,8 +207,8 @@ private struct MessageBubble: View {
                 .font(DSType.serifBody16)
                 .foregroundColor(isUser ? DSColor.accentOnBg : DSColor.inkPrimary)
                 .lineSpacing(5)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.horizontal, DSSpacing.md)
+                .padding(.vertical, DSSpacing.sm)
                 .background(
                     isUser ? DSColor.amberSoft : DSColor.surfaceContainerLowest,
                     in: RoundedRectangle(cornerRadius: 12, style: .continuous)

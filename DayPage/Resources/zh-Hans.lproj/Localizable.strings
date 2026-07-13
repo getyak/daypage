@@ -797,6 +797,8 @@
 "recording.transcribe.a11y.hint"             = "停止录音并发送给 Whisper 转写";
 "recording.cancel_hint.a11y.label"           = "向上滑动取消";
 "recording.transcribe_hint.a11y.label"       = "向左滑动转写";
+"recording.mic_button.a11y.label"            = "语音记录";
+"recording.mic_button.a11y.hint"             = "轻点打开录音器；按住录音，松手发送。";
 
 /* Today — submit error / banner / actions */
 "submit.error.retry"                         = "重试";
@@ -1006,6 +1008,14 @@
 "memocard.state.tonight"     = "今晚自动编译你的信号。";
 "memocard.cta.compile"       = "编译";
 "memocard.attachment.tapToDownload" = "轻点下载";
+/* #15 — MemoCard VoiceOver labels/hints */
+"memocard.a11y.location.label"   = "地点";
+"memocard.a11y.location.hint"    = "打开地图预览";
+"memocard.a11y.photo.label"      = "照片";
+"memocard.a11y.photo.hint"       = "打开全屏查看器";
+"memocard.a11y.audioDownload.label" = "下载语音记录";
+"memocard.a11y.photoDownload.label" = "下载照片";
+"memocard.a11y.download.hint"    = "轻点重新下载";
 "section.this_week"          = "本周";
 "weekly.recap.compiled"      = "今日页已生成。";
 "voice.recording.title"      = "语音备忘";

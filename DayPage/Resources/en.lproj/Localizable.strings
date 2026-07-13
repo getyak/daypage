@@ -792,6 +792,8 @@
 "recording.transcribe.a11y.hint"             = "Stops recording and sends to Whisper for transcription";
 "recording.cancel_hint.a11y.label"           = "Drag up to cancel";
 "recording.transcribe_hint.a11y.label"       = "Drag left to transcribe";
+"recording.mic_button.a11y.label"            = "Voice memo";
+"recording.mic_button.a11y.hint"             = "Tap to open the recorder. Touch and hold to record, then release to send.";
 
 /* Today — submit error / banner / actions */
 "submit.error.retry"                         = "Retry";
@@ -1001,6 +1003,14 @@
 "memocard.state.tonight"     = "Your signals will compile tonight.";
 "memocard.cta.compile"       = "Compile";
 "memocard.attachment.tapToDownload" = "Tap to download";
+/* #15 — MemoCard VoiceOver labels/hints */
+"memocard.a11y.location.label"   = "Location";
+"memocard.a11y.location.hint"    = "Opens a map preview";
+"memocard.a11y.photo.label"      = "Photo";
+"memocard.a11y.photo.hint"       = "Opens the full-screen viewer";
+"memocard.a11y.audioDownload.label" = "Download voice memo";
+"memocard.a11y.photoDownload.label" = "Download photo";
+"memocard.a11y.download.hint"    = "Tap to download again";
 "section.this_week"          = "This week";
 "weekly.recap.compiled"      = "Daily page compiled.";
 "voice.recording.title"      = "Voice memo";

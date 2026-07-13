@@ -30,6 +30,21 @@ enum GlassRole {
         case .control, .toast, .panel, .pill: return .hi
         }
     }
+
+    /// Perceived thickness of the faux-glass material (iOS 16–25 track).
+    ///
+    /// Native Liquid Glass (iOS 26) modulates blur radius by surface size for
+    /// free; the legacy path can't animate a numeric blur, but SwiftUI's system
+    /// materials form a discrete thickness scale we can map roles onto so a chip
+    /// no longer reads exactly as thick as a full-screen sheet. Larger surfaces
+    /// (panels/sheets) get a denser material; transient chips/toasts stay light.
+    var fallbackMaterial: Material {
+        switch self {
+        case .panel:            return .thinMaterial      // sheets, drawers, body cards — denser
+        case .control:          return .thinMaterial      // dock/floating controls — mid
+        case .pill, .toast:     return .ultraThinMaterial // chips, tags, hints — lightest (unchanged)
+        }
+    }
 }
 
 extension View {
@@ -115,7 +130,7 @@ private struct LegacyGlassModifier<S: Shape & InsettableShape>: ViewModifier {
         } else {
             content
                 .background(baseFill)
-                .background(.ultraThinMaterial, in: shape)
+                .background(role.fallbackMaterial, in: shape)
                 .overlay(shape.strokeBorder(role.fallbackTone.rim, lineWidth: 0.5))
         }
     }

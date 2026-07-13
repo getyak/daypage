@@ -111,7 +111,7 @@ struct GraphView: View {
                     .accessibilityIdentifier("graph-sidebar-menu-button")
 
                     Text(NSLocalizedString("sidebar.nav.graph", comment: "Graph page title"))
-                        .font(DSFonts.serif(size: 20, weight: .semibold))
+                        .font(DSFonts.serif(size: 20, weight: .semibold, relativeTo: .title3))
                         .tracking(-0.3)
                         .foregroundColor(DSColor.inkPrimary)
 
@@ -129,7 +129,7 @@ struct GraphView: View {
                             .font(.system(size: 13))
                             .foregroundColor(DSColor.inkMuted)
                         TextField(NSLocalizedString("graph.search.placeholder", comment: "Graph search field placeholder"), text: $viewModel.searchInput)
-                            .font(DSFonts.jetBrainsMono(size: 12))
+                            .font(DSFonts.jetBrainsMono(size: 12, relativeTo: .caption))
                             .foregroundColor(DSColor.inkPrimary)
                             .submitLabel(.search)
                             .onSubmit {
@@ -160,7 +160,7 @@ struct GraphView: View {
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
                                     .font(.system(size: 14))
-                                    .foregroundColor(DSColor.inkSubtle)
+                                    .foregroundColor(DSColor.inkMuted)
                                     .frame(width: 28, height: 28)
                                     .contentShape(Rectangle())
                             }
@@ -209,7 +209,7 @@ struct GraphView: View {
                                     .font(.system(size: 11))
                                     .foregroundColor(DSColor.inkMuted)
                                 Text(NSLocalizedString("graph.search.zero_match", comment: "Graph search zero-match pill"))
-                                    .font(DSFonts.jetBrainsMono(size: 11))
+                                    .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
                                     .foregroundColor(DSColor.inkMuted)
                             }
                             .padding(.horizontal, DSSpacing.md)
@@ -224,7 +224,7 @@ struct GraphView: View {
                                 ? String(format: NSLocalizedString("graph.search.match_count.other", comment: "Graph search match count pill, multiple"), searchMatchIndex + 1, count)
                                 : String(format: NSLocalizedString("graph.search.match_count.one", comment: "Graph search match count pill, single"), count)
                             Text(pillText)
-                                .font(DSFonts.jetBrainsMono(size: 11))
+                                .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
                                 .foregroundColor(DSColor.inkMuted)
                                 .padding(.horizontal, DSSpacing.md)
                                 .padding(.vertical, 5)
@@ -254,7 +254,8 @@ struct GraphView: View {
                                         .frame(width: 28, height: 28)
                                         // #771: match nav button → glass engine (.control).
                                         .dpGlass(.control, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                                        .contentShape(Rectangle())
+                                        // #15: keep the 28pt glass visual, expand hit target to 44pt.
+                                        .minTapTarget()
                                 }
                                 .accessibilityLabel(NSLocalizedString("graph.a11y.prev_match", comment: "Graph previous match button"))
                                 Button {
@@ -266,7 +267,8 @@ struct GraphView: View {
                                         .frame(width: 28, height: 28)
                                         // #771: match nav button → glass engine (.control).
                                         .dpGlass(.control, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                                        .contentShape(Rectangle())
+                                        // #15: keep the 28pt glass visual, expand hit target to 44pt.
+                                        .minTapTarget()
                                 }
                                 .accessibilityLabel(NSLocalizedString("graph.a11y.next_match", comment: "Graph next match button"))
                             }
@@ -313,7 +315,7 @@ struct GraphView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: DSSpacing.sm) {
                             Text(NSLocalizedString("graph.filter.start", comment: "Graph date filter start label"))
-                                .font(DSFonts.jetBrainsMono(size: 11))
+                                .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
                                 .foregroundColor(DSColor.inkMuted)
                                 .frame(width: 30)
                             DatePicker(
@@ -330,14 +332,14 @@ struct GraphView: View {
 
                             if viewModel.filterStartDate != nil {
                                 Button(NSLocalizedString("graph.filter.clear", comment: "Graph date filter clear button")) { viewModel.filterStartDate = nil }
-                                    .font(DSFonts.inter(size: 11))
+                                    .font(DSFonts.inter(size: 11, relativeTo: .caption))
                                     .foregroundColor(DSColor.amberAccent)
                                     .frame(minHeight: 44)
                             }
                         }
                         HStack(spacing: DSSpacing.sm) {
                             Text(NSLocalizedString("graph.filter.end", comment: "Graph date filter end label"))
-                                .font(DSFonts.jetBrainsMono(size: 11))
+                                .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
                                 .foregroundColor(DSColor.inkMuted)
                                 .frame(width: 30)
                             DatePicker(
@@ -354,7 +356,7 @@ struct GraphView: View {
 
                             if viewModel.filterEndDate != nil {
                                 Button(NSLocalizedString("graph.filter.clear", comment: "Graph date filter clear button")) { viewModel.filterEndDate = nil }
-                                    .font(DSFonts.inter(size: 11))
+                                    .font(DSFonts.inter(size: 11, relativeTo: .caption))
                                     .foregroundColor(DSColor.amberAccent)
                                     .frame(minHeight: 44)
                             }
@@ -471,6 +473,35 @@ struct GraphView: View {
     }
 
     private var isTransformed: Bool { scale != 1.0 || offset != .zero }
+
+    // MARK: - Gesture Physics
+
+    /// Zoom clamp bounds. Motion is allowed slightly past these while pinching
+    /// (rubber-band), then springs back inside on release.
+    private static let minScale: CGFloat = 0.3
+    private static let maxScale: CGFloat = 5.0
+
+    /// Interactive spring the canvas rides after a pan fling — carries the
+    /// gesture's release velocity into a natural deceleration.
+    private static let panMomentum: Animation = .interactiveSpring(response: 0.5,
+                                                                    dampingFraction: 0.82,
+                                                                    blendDuration: 0.25)
+    /// Elastic settle used to snap zoom overshoot back inside the clamp.
+    private static let zoomSettle: Animation = .spring(response: 0.35, dampingFraction: 0.72)
+
+    /// Applies rising resistance once `raw` passes the zoom clamp so the pinch
+    /// keeps responding at the limits instead of dead-stopping. Within bounds it
+    /// returns `raw` unchanged; beyond, overshoot is compressed logarithmically.
+    private static func rubberBandedScale(_ raw: CGFloat) -> CGFloat {
+        if raw < minScale {
+            let over = minScale - raw
+            return minScale - over / (1 + over * 3.0)
+        } else if raw > maxScale {
+            let over = raw - maxScale
+            return maxScale + over / (1 + over * 0.6)
+        }
+        return raw
+    }
 
     // MARK: - Empty State
 
@@ -945,13 +976,34 @@ struct GraphView: View {
                     SimultaneousGesture(
                         MagnificationGesture()
                             .onChanged { value in
-                                let newScale = max(0.3, min(5.0, lastScale * value))
+                                // Rubber-band past the [0.3, 5.0] clamp: motion
+                                // continues beyond the bound with rising resistance
+                                // instead of dead-stopping, then springs back on
+                                // release. Feels alive at the zoom limits.
+                                let raw = lastScale * value
+                                let newScale = Self.rubberBandedScale(raw)
                                 let ratio = newScale / scale
                                 offset.width *= ratio
                                 offset.height *= ratio
                                 scale = newScale
                             }
-                            .onEnded { _ in lastScale = scale; lastOffset = offset },
+                            .onEnded { _ in
+                                // Snap any overshoot back inside the clamp with an
+                                // elastic settle (honors Reduce Motion). Offset is
+                                // scaled by the same ratio so the pivot stays put.
+                                let clamped = max(0.3, min(5.0, scale))
+                                let ratio = clamped / max(scale, 0.0001)
+                                let target = CGSize(width: offset.width * ratio,
+                                                    height: offset.height * ratio)
+                                if clamped != scale {
+                                    withAnimation(Motion.respectReduceMotion(Self.zoomSettle)) {
+                                        scale = clamped
+                                        offset = target
+                                    }
+                                }
+                                lastScale = clamped
+                                lastOffset = target
+                            },
                         DragGesture()
                             .onChanged { value in
                                 offset = CGSize(
@@ -959,7 +1011,26 @@ struct GraphView: View {
                                     height: lastOffset.height + value.translation.height
                                 )
                             }
-                            .onEnded { _ in lastOffset = offset }
+                            .onEnded { value in
+                                // Momentum: project the fling using the gesture's
+                                // velocity-derived predicted end translation, then
+                                // ride an interactive spring to that target so the
+                                // canvas decelerates naturally instead of freezing
+                                // on the release frame. Reduce Motion → hard freeze.
+                                let projected = CGSize(
+                                    width: lastOffset.width + value.predictedEndTranslation.width,
+                                    height: lastOffset.height + value.predictedEndTranslation.height
+                                )
+                                if reduceMotion {
+                                    offset = CGSize(
+                                        width: lastOffset.width + value.translation.width,
+                                        height: lastOffset.height + value.translation.height
+                                    )
+                                } else {
+                                    withAnimation(Self.panMomentum) { offset = projected }
+                                }
+                                lastOffset = projected
+                            }
                     )
                 )
                 .accessibilityHidden(true)
@@ -1323,7 +1394,7 @@ struct GraphView: View {
                         .frame(width: 10, height: 10)
                 }
                 Text("\(label) \(count)")
-                    .font(DSFonts.jetBrainsMono(size: 10))
+                    .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                     .foregroundColor(DSColor.inkPrimary)
                     .strikethrough(isHidden, color: DSColor.inkMuted)
             }
@@ -1357,18 +1428,18 @@ struct GraphView: View {
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text(node.name)
-                            .font(DSFonts.serif(size: 17, weight: .semibold))
+                            .font(DSFonts.serif(size: 17, weight: .semibold, relativeTo: .headline))
                             .foregroundColor(DSColor.inkPrimary)
                             .lineLimit(1)
                         Text(focusPreviewSubtitle(for: node))
-                            .font(DSFonts.jetBrainsMono(size: 11))
+                            .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
                             .foregroundColor(DSColor.inkMuted)
                             .lineLimit(1)
                     }
                     Spacer(minLength: DSSpacing.sm)
                     Image(systemName: "chevron.right")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(DSColor.inkSubtle)
+                        .foregroundColor(DSColor.inkMuted)
                 }
                 .padding(.horizontal, DSSpacing.lg)
                 .padding(.vertical, DSSpacing.md)
@@ -1431,7 +1502,7 @@ struct GraphView: View {
         // input so they see exactly what didn't match.
         let msg = "没有匹配 '\(zeroMatchToastQuery)'"
         return Text(msg)
-            .font(DSFonts.jetBrainsMono(size: 12))
+            .font(DSFonts.jetBrainsMono(size: 12, relativeTo: .caption))
             .foregroundColor(DSColor.inkPrimary)
             .padding(.horizontal, 16)
             .padding(.vertical, 10)

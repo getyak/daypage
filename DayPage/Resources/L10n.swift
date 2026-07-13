@@ -78,6 +78,22 @@ enum L10n {
         static let transcribeA11yHint   = NSLocalizedString("recording.transcribe.a11y.hint", comment: "VoiceOver hint for transcribe-recording button")
         static let cancelHintA11yLabel  = NSLocalizedString("recording.cancel_hint.a11y.label", comment: "VoiceOver label for cancel directional hint")
         static let transcribeHintA11yLabel = NSLocalizedString("recording.transcribe_hint.a11y.label", comment: "VoiceOver label for transcribe directional hint")
+
+        // Press-to-talk mic button (PressToTalkButton) VoiceOver
+        static let micButtonA11yLabel   = Text("recording.mic_button.a11y.label")
+        static let micButtonA11yHint    = Text("recording.mic_button.a11y.hint")
+    }
+
+    /// MemoCard VoiceOver labels/hints (#15 — tappable cards/thumbnails that
+    /// SwiftUI can't infer are buttons).
+    enum MemoCard {
+        static let locationA11yLabel    = Text("memocard.a11y.location.label")
+        static let locationA11yHint     = Text("memocard.a11y.location.hint")
+        static let photoA11yLabel       = Text("memocard.a11y.photo.label")
+        static let photoA11yHint        = Text("memocard.a11y.photo.hint")
+        static let audioDownloadA11yLabel = Text("memocard.a11y.audioDownload.label")
+        static let photoDownloadA11yLabel = Text("memocard.a11y.photoDownload.label")
+        static let downloadA11yHint     = Text("memocard.a11y.download.hint")
     }
 
     enum Error {

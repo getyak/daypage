@@ -23,32 +23,32 @@ struct AccountSheet: View {
             Capsule()
                 .fill(DSColor.outline)
                 .frame(width: 36, height: 4)
-                .padding(.top, 12)
-                .padding(.bottom, 8)
+                .padding(.top, DSSpacing.md)
+                .padding(.bottom, DSSpacing.sm)
 
             // Title
             Text("账户")
                 .font(.custom("Inter-SemiBold", size: 16))
                 .foregroundColor(DSColor.onSurface)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 20)
-                .padding(.bottom, 16)
+                .padding(.horizontal, DSSpacing.xl)
+                .padding(.bottom, DSSpacing.lg)
 
             // Current account
             currentAccountRow
 
             if !mockHistoricalAccounts.isEmpty {
                 Divider()
-                    .padding(.leading, 20)
-                    .padding(.vertical, 4)
+                    .padding(.leading, DSSpacing.xl)
+                    .padding(.vertical, DSSpacing.xs)
 
                 // Historical accounts header
                 Text("其他账户")
                     .font(.custom("Inter-Medium", size: 13))
                     .foregroundColor(DSColor.onSurfaceVariant)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 4)
+                    .padding(.horizontal, DSSpacing.xl)
+                    .padding(.top, DSSpacing.xs)
                     .padding(.bottom, 2)
 
                 ForEach(mockHistoricalAccounts, id: \.self) { email in
@@ -57,8 +57,8 @@ struct AccountSheet: View {
             }
 
             Divider()
-                .padding(.leading, 20)
-                .padding(.vertical, 4)
+                .padding(.leading, DSSpacing.xl)
+                .padding(.vertical, DSSpacing.xs)
 
             // Add another account
             addAccountRow
@@ -67,7 +67,7 @@ struct AccountSheet: View {
 
             // Sign Out — secondary position
             signOutRow
-                .padding(.bottom, 16)
+                .padding(.bottom, DSSpacing.lg)
         }
         .presentationDetents([.fraction(0.55)])
         .presentationDragIndicator(.hidden)
@@ -102,7 +102,7 @@ struct AccountSheet: View {
                     .foregroundColor(DSColor.onSurface)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                HStack(spacing: 4) {
+                HStack(spacing: DSSpacing.xs) {
                     Image(systemName: provider == .apple ? "applelogo" : "envelope")
                         .font(.system(size: 11))
                         .foregroundColor(DSColor.onSurfaceVariant)
@@ -118,8 +118,8 @@ struct AccountSheet: View {
                 .font(.system(size: 16))
                 .foregroundColor(DSColor.statusSuccess)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 8)
+        .padding(.horizontal, DSSpacing.xl)
+        .padding(.vertical, DSSpacing.sm)
         .background(DSColor.surfaceContainerLowest)
     }
 
@@ -155,8 +155,8 @@ struct AccountSheet: View {
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(DSColor.onBackgroundSubtle)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 8)
+            .padding(.horizontal, DSSpacing.xl)
+            .padding(.vertical, DSSpacing.sm)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -183,8 +183,8 @@ struct AccountSheet: View {
                     .font(.custom("Inter-Regular", size: 14))
                     .foregroundColor(DSColor.onBackgroundMuted)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 8)
+            .padding(.horizontal, DSSpacing.xl)
+            .padding(.vertical, DSSpacing.sm)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -209,8 +209,8 @@ struct AccountSheet: View {
                     .foregroundColor(DSColor.statusError)
                 Spacer()
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
+            .padding(.horizontal, DSSpacing.xl)
+            .padding(.vertical, DSSpacing.md)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

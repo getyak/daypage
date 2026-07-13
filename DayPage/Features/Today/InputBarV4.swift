@@ -243,15 +243,15 @@ struct InputBarV4: View {
 
             // US-012: batch progress bar when processing >3 photos
             if isProcessingPhoto && batchPhotoTotal > 3 {
-                VStack(spacing: 4) {
+                VStack(spacing: DSSpacing.xs) {
                     ProgressView(value: batchPhotoProgress)
                         .tint(DSColor.amberAccent)
-                        .padding(.horizontal, 16)
+                        .padding(.horizontal, DSSpacing.lg)
                     Text("Processing \(Int(batchPhotoProgress * Double(batchPhotoTotal))) / \(batchPhotoTotal) photos")
-                        .font(DSFonts.inter(size: 11))
+                        .font(DSFonts.inter(size: 11, relativeTo: .caption))
                         .foregroundColor(DSColor.inkMuted)
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, DSSpacing.xs)
             }
 
             if let loc = pendingLocation {
@@ -278,9 +278,9 @@ struct InputBarV4: View {
             // so the dock reads as a floating island, not a wall-to-wall
             // toolbar. 24pt horizontal + 24pt bottom lift gives the
             // capsule visible margins on all four sides.
-            .padding(.horizontal, 24)
+            .padding(.horizontal, DSSpacing.xl2)
             .padding(.top, 10)
-            .padding(.bottom, 24)
+            .padding(.bottom, DSSpacing.xl2)
         }
         // No background veil here — the dock surface itself supplies the
         // contrast against the warm canvas. A gradient behind the whole
@@ -504,7 +504,7 @@ struct InputBarV4: View {
     }
 
     private var dockIdleRow: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: DSSpacing.xs) {
             // LEFT — attach (+), 36×44 transparent
             Button {
                 guard !isDockTapBlocked else { return }
@@ -517,7 +517,11 @@ struct InputBarV4: View {
                     .frame(width: 36, height: 44)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            // #150 shared press feedback — replaces .buttonStyle(.plain) so the
+            // dock's chrome buttons dip on touch instead of feeling dead. Icon
+            // buttons align to the AttachmentMenuPopover sample (0.97 / +0.5pt).
+            .pressScale(scale: 0.97, offsetY: 0.5,
+                        animation: .spring(response: 0.2, dampingFraction: 0.7))
             .accessibilityLabel(NSLocalizedString("input.a11y.more_attachments", comment: ""))
 
             // CENTER — silent breathing caret only, taps to open WriteSheet.
@@ -546,7 +550,9 @@ struct InputBarV4: View {
                 .padding(.leading, 6)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
+            // #150 shared press feedback for the "tap to write" caret slot.
+            .pressScale(scale: 0.98,
+                        animation: .spring(response: 0.2, dampingFraction: 0.7))
             .accessibilityLabel(NSLocalizedString("input.a11y.write_text", comment: ""))
             .accessibilityIdentifier("expand-text-composer")
 
@@ -567,7 +573,11 @@ struct InputBarV4: View {
                     .clipShape(Circle())
                     .contentShape(Circle())
             }
-            .buttonStyle(.plain)
+            // #150 press feedback on the mic orb. The amber glow scales with the
+            // orb (it sits on the Button frame), reading as "the lit orb presses
+            // in". respectsReduceMotion keeps it calm when Reduce Motion is on.
+            .pressScale(scale: 0.94,
+                        animation: .spring(response: 0.22, dampingFraction: 0.72))
             .frame(width: 50, height: 44)
             // Amber glow that makes the send/mic button read as "lit". Kept as a
             // deliberate colored halo (not a neutral DSElevation), but sourced
@@ -597,7 +607,9 @@ struct InputBarV4: View {
                         .frame(width: 40, height: 44)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                // #150 press feedback for the calm AI side-door sparkle.
+                .pressScale(scale: 0.97, offsetY: 0.5,
+                            animation: .spring(response: 0.2, dampingFraction: 0.7))
                 .accessibilityLabel(NSLocalizedString("input.a11y.ask_ai", comment: "Open AI chat"))
                 .accessibilityIdentifier("dock-ask-ai-button")
             }
@@ -637,12 +649,12 @@ struct InputBarV4: View {
                 .tracking(1.0)
                 .textCase(.uppercase)
                 .monospacedDigit()
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
                 .accessibilityLabel(countLabel)
                 .accessibilityIdentifier("composer-word-count")
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 4)
+        .padding(.horizontal, DSSpacing.xl)
+        .padding(.top, DSSpacing.xs)
     }
 
     // MARK: - Composing Card Morph (US-008 / US-010)
@@ -672,8 +684,8 @@ struct InputBarV4: View {
         Capsule()
             .fill(Color(UIColor.tertiaryLabel))
             .frame(width: 36, height: 4)
-            .padding(.top, 8)
-            .padding(.bottom, 4)
+            .padding(.top, DSSpacing.sm)
+            .padding(.bottom, DSSpacing.xs)
             .frame(width: 60)
             .contentShape(Rectangle())
             // Single tap — accessibility equivalent of swipe-up
@@ -730,7 +742,7 @@ struct InputBarV4: View {
                 .padding(.top, 2)
                 Divider()
                     .background(DSColor.inkFaint)
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, DSSpacing.lg)
             }
 
             // US-016: Inline Lens Strip — recent 24 h thumbnails for one-tap attach.
@@ -768,7 +780,7 @@ struct InputBarV4: View {
                 .tint(DSColor.amberAccent)
                 .focused($isFocused)
                 .lineLimit(1...8)
-                .padding(.horizontal, 20)
+                .padding(.horizontal, DSSpacing.xl)
                 .padding(.top, 14)
                 .padding(.bottom, 14)
                 .onTapGesture { isFocused = true }
@@ -808,8 +820,8 @@ struct InputBarV4: View {
                         .allowsHitTesting(false)
                     Spacer()
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 8)
+                .padding(.horizontal, DSSpacing.xl)
+                .padding(.bottom, DSSpacing.sm)
                 .transition(.opacity)
                 // Template-suffix fade → `fade` token (was inline easeInOut(0.15)).
                 .animation(Motion.fade, value: templateSuffix.isEmpty)
@@ -830,7 +842,7 @@ struct InputBarV4: View {
         // (matching the collapsed capsule), Reduce Transparency → opaque warm
         // fill. The cold white rim is gone; the rim now comes from the engine.
         .dpGlass(.panel, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .padding(.horizontal, 16)
+        .padding(.horizontal, DSSpacing.lg)
         .padding(.top, 10)
         .padding(.bottom, 14)
         // Expanded composer card lift → DSElevation.glass (two-layer, dark-mode
@@ -851,7 +863,7 @@ struct InputBarV4: View {
         HStack(spacing: 6) {
             composerActionButtons
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, DSSpacing.md)
         .padding(.top, 2)
         .padding(.bottom, 10)
         .tint(DSColor.inkMuted)
@@ -1152,17 +1164,17 @@ struct InputBarV4: View {
 
     private var attachmentPreviewRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: DSSpacing.sm) {
                 ForEach(pendingAttachments) { att in attachmentChip(att) }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, DSSpacing.lg)
             .padding(.vertical, 6)
         }
     }
 
     private func attachmentChip(_ att: PendingAttachment) -> some View {
         let (icon, label) = chipContent(att)
-        return HStack(spacing: 4) {
+        return HStack(spacing: DSSpacing.xs) {
             Image(systemName: icon).font(DSType.mono11).foregroundStyle(DSColor.inkMuted)
             Text(label).font(DSType.labelSM).foregroundStyle(DSColor.inkMuted).lineLimit(1)
             Button {
@@ -1186,7 +1198,7 @@ struct InputBarV4: View {
     }
 
     private func locationChipRow(loc: Memo.Location) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: DSSpacing.xs) {
             Image(systemName: "mappin").font(DSType.labelXS).foregroundStyle(DSColor.amberAccent)
             Text(locationLabel(loc)).font(DSType.labelSM).foregroundStyle(DSColor.amberAccent).lineLimit(1)
             Spacer()
@@ -1194,7 +1206,7 @@ struct InputBarV4: View {
                 Image(systemName: "xmark.circle.fill").font(DSType.bodySM).foregroundStyle(DSColor.inkSubtle)
             }.buttonStyle(.plain)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, DSSpacing.lg)
         .padding(.vertical, 6)
     }
 

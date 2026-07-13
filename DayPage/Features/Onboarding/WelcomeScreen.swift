@@ -80,7 +80,7 @@ struct WelcomeScreen: View {
                     }
                 } label: {
                     Text("开始 · Begin")
-                        .font(DSFonts.inter(size: 16, weight: .semibold))
+                        .font(DSFonts.inter(size: 16, weight: .semibold, relativeTo: .body))
                         .foregroundColor(.white)
                         .padding(.horizontal, 40)
                         .padding(.vertical, 14)

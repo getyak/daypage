@@ -320,12 +320,12 @@ struct TimelineDayRow: View {
     private var nameplate: some View {
         VStack(alignment: .trailing, spacing: 4) {
             Text(weekdayLabel)
-                .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
+                .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold, relativeTo: .caption2))
                 .tracking(1.8)
                 .textCase(.uppercase)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
             Text(monthDayLabel)
-                .font(DSFonts.spaceGrotesk(size: 13, weight: .semibold))
+                .font(DSFonts.spaceGrotesk(size: 13, weight: .semibold, relativeTo: .footnote))
                 .tracking(-0.1)
                 .foregroundColor(DSColor.inkPrimary)
         }
@@ -362,10 +362,10 @@ struct TimelineDayRow: View {
     private var wordsRight: some View {
         HStack(spacing: 4) {
             Text("\(approxWordCount)")
-                .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
+                .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold, relativeTo: .caption2))
                 .foregroundColor(DSColor.inkMuted)
             Text(wordUnitLabel)
-                .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
+                .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold, relativeTo: .caption2))
                 .foregroundColor(DSColor.inkMuted.opacity(0.6))
         }
         .tracking(1.3)
@@ -735,7 +735,7 @@ enum TimelineSpine {
         var body: some View {
             let tracking: CGFloat = size >= 24 ? -0.6 : (size >= 22 ? -0.5 : -0.4)
             return Text(text)
-                .font(DSFonts.serif(size: size, weight: .semibold))
+                .font(DSFonts.serif(size: size, weight: .semibold, relativeTo: .title2))
                 .tracking(tracking)
                 .foregroundColor(DSColor.inkPrimary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -748,7 +748,7 @@ enum TimelineSpine {
         let text: String
         var body: some View {
             Text(text)
-                .font(DSFonts.inter(size: 14))
+                .font(DSFonts.inter(size: 14, relativeTo: .subheadline))
                 .tracking(0.1)
                 .lineSpacing(14 * 0.7)        // line-height 1.7 ≈ +0.7em leading
                 .foregroundColor(DSColor.inkPrimary.opacity(0.85))
@@ -767,13 +767,13 @@ enum TimelineSpine {
                 ForEach(Array(tags.enumerated()), id: \.offset) { index, tag in
                     if index > 0 {
                         Text("·")
-                            .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
+                            .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold, relativeTo: .caption2))
                             .foregroundColor(DSColor.inkSubtle.opacity(0.55))
                     }
                     Text(tag)
-                        .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
+                        .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold, relativeTo: .caption2))
                         .tracking(1.6)
-                        .foregroundColor(DSColor.inkSubtle)
+                        .foregroundColor(DSColor.inkMuted)
                 }
                 Spacer(minLength: 12)
                 right()
@@ -790,7 +790,7 @@ enum TimelineSpine {
         var body: some View {
             HStack(alignment: .lastTextBaseline, spacing: 14) {
                 Text(label)
-                    .font(DSFonts.spaceGrotesk(size: 13, weight: .bold))
+                    .font(DSFonts.spaceGrotesk(size: 13, weight: .bold, relativeTo: .footnote))
                     .tracking(1.5)
                     .foregroundColor(DSColor.inkPrimary)
                 Rectangle()
@@ -799,9 +799,9 @@ enum TimelineSpine {
                     .frame(maxWidth: .infinity)
                     .padding(.bottom, 2)
                 Text(sub)
-                    .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
+                    .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold, relativeTo: .caption2))
                     .tracking(1.6)
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
             }
             .padding(.horizontal, sectionPadH)
             .padding(.top, 20)
@@ -914,7 +914,7 @@ struct TimelineDayPreviewCard: View {
             header
             if let summary = entry.summary, !summary.isEmpty {
                 Text(summary)
-                    .font(DSFonts.serif(size: 18, weight: .semibold))
+                    .font(DSFonts.serif(size: 18, weight: .semibold, relativeTo: .headline))
                     .foregroundColor(DSColor.inkPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                     .lineLimit(4)
@@ -922,15 +922,15 @@ struct TimelineDayPreviewCard: View {
                 Text(NSLocalizedString("today.timeline.preview.noSummary",
                                        value: "No compiled summary yet.",
                                        comment: ""))
-                    .font(DSFonts.serif(size: 16))
+                    .font(DSFonts.serif(size: 16, relativeTo: .body))
                     .italic()
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
             }
             Divider().padding(.vertical, 2)
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(memos.prefix(3), id: \.id) { memo in
                     Text(memo.body)
-                        .font(DSFonts.inter(size: 13))
+                        .font(DSFonts.inter(size: 13, relativeTo: .footnote))
                         .foregroundColor(DSColor.inkPrimary.opacity(0.85))
                         .lineLimit(2)
                         .multilineTextAlignment(.leading)
@@ -941,9 +941,9 @@ struct TimelineDayPreviewCard: View {
                         value: "+ %d more",
                         comment: "Count of additional memos hidden in preview"
                     ), memos.count - 3))
-                        .font(DSFonts.jetBrainsMono(size: 10, weight: .bold))
+                        .font(DSFonts.jetBrainsMono(size: 10, weight: .bold, relativeTo: .caption2))
                         .tracking(1.4)
-                        .foregroundColor(DSColor.inkSubtle)
+                        .foregroundColor(DSColor.inkMuted)
                 }
             }
             Spacer(minLength: 0)
@@ -955,14 +955,14 @@ struct TimelineDayPreviewCard: View {
     private var header: some View {
         HStack(spacing: 8) {
             Text(entry.dateString)
-                .font(DSFonts.jetBrainsMono(size: 10, weight: .bold))
+                .font(DSFonts.jetBrainsMono(size: 10, weight: .bold, relativeTo: .caption2))
                 .tracking(1.6)
                 .foregroundColor(DSColor.accentAmber)
             Spacer(minLength: 8)
             Text("\(entry.memoCount) MEMOS")
-                .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
+                .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold, relativeTo: .caption2))
                 .tracking(1.4)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
         }
     }
 }

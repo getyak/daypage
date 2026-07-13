@@ -365,7 +365,7 @@ struct DayOrbView: View {
                         .animation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true), value: invitePulse)
 
                     Text(readoutLabel)
-                        .font(DSFonts.jetBrainsMono(size: 9, weight: .medium))
+                        .font(DSFonts.jetBrainsMono(size: 9, weight: .medium, relativeTo: .caption2))
                         .tracking(1.4)
                         .foregroundColor(DSColor.accentOnBg)
                         .opacity(0.7)
@@ -381,7 +381,7 @@ struct DayOrbView: View {
                         .scaleEffect(countPop)
 
                     Text(readoutLabel)
-                        .font(DSFonts.jetBrainsMono(size: 9, weight: .medium))
+                        .font(DSFonts.jetBrainsMono(size: 9, weight: .medium, relativeTo: .caption2))
                         .tracking(1.4)
                         .foregroundColor(DSColor.accentOnBg)
                         .opacity(tierUpGlow ? 1.0 : 0.7)

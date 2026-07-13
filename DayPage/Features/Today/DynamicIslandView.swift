@@ -73,7 +73,7 @@ struct DynamicIslandView: View {
                         )
 
                     Text(formattedTime(elapsedSeconds))
-                        .font(DSFonts.jetBrainsMono(size: 11, weight: .medium))
+                        .font(DSFonts.jetBrainsMono(size: 11, weight: .medium, relativeTo: .caption))
                         .tracking(1.0)
                         .monospacedDigit()
                         .foregroundColor(timerColor)
@@ -94,7 +94,7 @@ struct DynamicIslandView: View {
             } else {
                 // Collapsed — time only, centered
                 Text(formattedTime(elapsedSeconds))
-                    .font(DSFonts.jetBrainsMono(size: 11, weight: .medium))
+                    .font(DSFonts.jetBrainsMono(size: 11, weight: .medium, relativeTo: .caption))
                     .tracking(1.0)
                     .monospacedDigit()
                     .foregroundColor(timerColor)

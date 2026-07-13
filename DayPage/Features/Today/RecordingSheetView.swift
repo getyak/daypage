@@ -121,7 +121,7 @@ struct RecordingSheetView: View {
                         )
 
                     Text(NSLocalizedString("recording.sheet.status", comment: "Recording status label"))
-                        .font(DSFonts.jetBrainsMono(size: 12, weight: .medium))
+                        .font(DSFonts.jetBrainsMono(size: 12, weight: .medium, relativeTo: .caption))
                         .tracking(1.4)
                         .textCase(.uppercase)
                         .foregroundColor(DSTokens.Colors.accentSoft)
@@ -130,7 +130,7 @@ struct RecordingSheetView: View {
                 Spacer()
 
                 Text(formattedTime(elapsedSeconds))
-                    .font(DSFonts.jetBrainsMono(size: 28, weight: .medium))
+                    .font(DSFonts.jetBrainsMono(size: 28, weight: .medium, relativeTo: .title))
                     .tracking(1.5)
                     .monospacedDigit()
                     .foregroundColor(timerColor)
@@ -142,7 +142,7 @@ struct RecordingSheetView: View {
             // knows a long recording approaches the transcription limit.
             if elapsedSeconds >= RecordingLimits.amberThreshold {
                 Text(NSLocalizedString("voice_recording_soft_cap_hint", comment: "建议 5 分钟内"))
-                    .font(DSFonts.jetBrainsMono(size: 11))
+                    .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
                     .foregroundColor(timerColor)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.bottom, 10)
@@ -175,7 +175,7 @@ struct RecordingSheetView: View {
                 Text(transcriptPreview.isEmpty
                      ? NSLocalizedString("recording.sheet.listening", comment: "Recording transcript placeholder")
                      : transcriptPreview)
-                    .font(DSFonts.inter(size: 13))
+                    .font(DSFonts.inter(size: 13, relativeTo: .footnote))
                     .foregroundColor(DSTokens.Colors.accentSoft.opacity(0.65))
                     .lineSpacing(2)
                     .lineLimit(2)
@@ -194,7 +194,7 @@ struct RecordingSheetView: View {
             HStack(spacing: 10) {
                 Button(action: onCancel) {
                     Text(NSLocalizedString("recording.sheet.cancel", comment: "Cancel recording"))
-                        .font(DSFonts.inter(size: 14, weight: .medium))
+                        .font(DSFonts.inter(size: 14, weight: .medium, relativeTo: .subheadline))
                         .foregroundColor(DSTokens.Colors.accentSoft)
                         .frame(maxWidth: .infinity)
                         .frame(height: 46)
@@ -209,7 +209,7 @@ struct RecordingSheetView: View {
                         Image(systemName: "checkmark")
                             .font(.system(size: 14, weight: .semibold))
                         Text(NSLocalizedString("recording.sheet.accept", comment: "Stop and transcribe"))
-                            .font(DSFonts.inter(size: 14, weight: .semibold))
+                            .font(DSFonts.inter(size: 14, weight: .semibold, relativeTo: .subheadline))
                     }
                     .foregroundColor(DSTokens.Colors.recordingBg)
                     .frame(maxWidth: .infinity)

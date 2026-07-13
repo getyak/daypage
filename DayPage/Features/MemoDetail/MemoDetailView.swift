@@ -73,7 +73,11 @@ struct MemoDetailView: View {
                             }
                             .foregroundColor(DSColor.inkMuted)
                         }
-                        .buttonStyle(.plain)
+                        // #150 shared press feedback — chrome buttons dip on
+                        // touch instead of feeling dead. Aligns to the icon-
+                        // button sample (0.97 / +0.5pt).
+                        .pressScale(scale: 0.97, offsetY: 0.5,
+                                    animation: .spring(response: 0.2, dampingFraction: 0.7))
                         .accessibilityLabel(NSLocalizedString(
                             "memo.detail.a11y.back",
                             value: "返回今天",
@@ -146,13 +150,13 @@ struct MemoDetailView: View {
                             comment: "Detail view — ellipsis menu a11y"
                         ))
                     }
-                    .padding(.top, 16)
-                    .padding(.bottom, 20)
+                    .padding(.top, DSSpacing.lg)
+                    .padding(.bottom, DSSpacing.xl)
 
                     // MARK: Kicker — mono date + time
                     Text(kickerText)
                         .font(DSType.mono10)
-                        .foregroundColor(DSColor.inkSubtle)
+                        .foregroundColor(DSColor.inkMuted)
                         .tracking(1.2)
                         .padding(.bottom, 14)
 
@@ -176,7 +180,7 @@ struct MemoDetailView: View {
                                 .background(DSColor.glassLo)
                                 .clipShape(RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous))
 
-                            HStack(spacing: 12) {
+                            HStack(spacing: DSSpacing.md) {
                                 Button(NSLocalizedString(
                                     "memo.detail.edit.cancel",
                                     value: "Cancel",
@@ -261,9 +265,9 @@ struct MemoDetailView: View {
                     if !audioAtts.isEmpty || !photoAtts.isEmpty || !fileAtts.isEmpty || hasLocation {
                         Divider()
                             .background(DSColor.inkFaint)
-                            .padding(.vertical, 20)
+                            .padding(.vertical, DSSpacing.xl)
 
-                        VStack(alignment: .leading, spacing: 20) {
+                        VStack(alignment: .leading, spacing: DSSpacing.xl) {
 
                             // Voice
                             ForEach(audioAtts, id: \.file) { att in
@@ -339,7 +343,7 @@ struct MemoDetailView: View {
                                 .foregroundColor(DSColor.accentOnBg.opacity(0.65))
                         }
                         .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
+                        .padding(.vertical, DSSpacing.md)
                         .background(DSColor.amberSoft)
                         .overlay(
                             RoundedRectangle(cornerRadius: DSRadius.md)
@@ -347,14 +351,17 @@ struct MemoDetailView: View {
                         )
                         .clipShape(RoundedRectangle(cornerRadius: DSRadius.md))
                     }
-                    .buttonStyle(.plain)
+                    // #150 press feedback — this is a card-style CTA, so a
+                    // slightly deeper dip with a fade reads as "the panel presses".
+                    .pressScale(scale: 0.98, opacity: 0.92,
+                                animation: .spring(response: 0.25, dampingFraction: 0.72))
                     .accessibilityIdentifier("memo.detail.ask.past")
                     .padding(.top, 28)
 
                     // MARK: Metadata Section
                     Divider()
                         .background(DSColor.inkFaint)
-                        .padding(.vertical, 20)
+                        .padding(.vertical, DSSpacing.xl)
 
                     DetailMetadataSection(memo: memo)
 
@@ -362,7 +369,7 @@ struct MemoDetailView: View {
                     // page instead of floating in a dead-zone at the bottom.
                     Spacer(minLength: 24)
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, DSSpacing.xl2)
                 .padding(.bottom, 32)
             }
             // Issue #837: 小红书式拖拽——横向起手把整页凝缩成卡片，
@@ -574,7 +581,7 @@ private struct DetailVoiceSection: View {
     let attachment: Memo.Attachment
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DSSpacing.sm) {
             sectionLabel(NSLocalizedString("memo.detail.section.voice", comment: ""))
             let audioURL = VaultInitializer.vaultURL.appendingPathComponent(attachment.file)
             VoiceMemoPlayerRow(
@@ -604,7 +611,7 @@ private struct DetailPhotoSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DSSpacing.sm) {
             sectionLabel(NSLocalizedString("memo.detail.section.photo", comment: ""))
 
             ZStack(alignment: .bottom) {
@@ -632,14 +639,14 @@ private struct DetailPhotoSection: View {
                 // EXIF overlay
                 if let exif = exifText {
                     Text(exif)
-                        .font(DSFonts.jetBrainsMono(size: 10))
+                        .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                         .tracking(0.5)
                         .textCase(.uppercase)
                         .foregroundColor(DSColor.bgWarm.opacity(0.85))
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
+                        .padding(.horizontal, DSSpacing.md)
+                        .padding(.vertical, DSSpacing.sm)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .background(
                             LinearGradient(
@@ -663,14 +670,14 @@ private struct DetailPhotoSection: View {
             }
 
             // Tap hint
-            HStack(spacing: 4) {
+            HStack(spacing: DSSpacing.xs) {
                 Image(systemName: "arrow.up.left.and.arrow.down.right")
                     .font(.system(size: 10, weight: .medium))
                 Text(NSLocalizedString("memo.detail.photo.tap_fullscreen", comment: ""))
-                    .font(DSFonts.jetBrainsMono(size: 10))
+                    .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                     .tracking(0.4)
             }
-            .foregroundColor(DSColor.inkSubtle)
+            .foregroundColor(DSColor.inkMuted)
             .textCase(.uppercase)
         }
     }
@@ -725,7 +732,7 @@ private struct DetailLocationSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DSSpacing.sm) {
             sectionLabel(NSLocalizedString("memo.detail.section.location", comment: ""))
 
             VStack(alignment: .leading, spacing: 0) {
@@ -753,16 +760,16 @@ private struct DetailLocationSection: View {
                         VStack(spacing: 6) {
                             Image(systemName: "map")
                                 .font(.system(size: 28))
-                                .foregroundColor(DSColor.inkSubtle)
+                                .foregroundColor(DSColor.inkMuted)
                             Text(NSLocalizedString("memo.detail.location.no_coordinates", comment: ""))
                                 .font(DSType.bodySM)
-                                .foregroundColor(DSColor.inkSubtle)
+                                .foregroundColor(DSColor.inkMuted)
                         }
                     }
                 }
 
                 // Location name + coords + place story
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: DSSpacing.xs) {
                     if let name = location?.name, !name.isEmpty {
                         Button {
                             guard let slug = placeSlug else { return }
@@ -785,8 +792,8 @@ private struct DetailLocationSection: View {
                     }
                     if let coord = coordinate {
                         Text(String(format: "%.5f°, %.5f°", coord.latitude, coord.longitude))
-                            .font(DSFonts.jetBrainsMono(size: 11))
-                            .foregroundColor(DSColor.inkSubtle)
+                            .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
+                            .foregroundColor(DSColor.inkMuted)
                             .tracking(0.4)
                     }
                     if let visitLine {
@@ -799,7 +806,7 @@ private struct DetailLocationSection: View {
                     }
                 }
                 .padding(.horizontal, 14)
-                .padding(.vertical, 12)
+                .padding(.vertical, DSSpacing.md)
 
                 Divider().background(DSColor.glassRim).padding(.horizontal, 14)
 
@@ -815,12 +822,14 @@ private struct DetailLocationSection: View {
                         Spacer()
                         Image(systemName: "arrow.up.right")
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(DSColor.accentOnBg.opacity(0.65))
+                            .foregroundColor(DSColor.inkMuted)
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 14)
                 }
-                .buttonStyle(.plain)
+                // #150 press feedback for the "open in Maps" row.
+                .pressScale(scale: 0.98,
+                            animation: .spring(response: 0.22, dampingFraction: 0.72))
                 .disabled(coordinate == nil)
             }
             .liquidGlassCard(cornerRadius: DSRadius.md, tone: .lo)
@@ -885,7 +894,7 @@ private struct DetailFilesSection: View {
     let attachments: [Memo.Attachment]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DSSpacing.sm) {
             sectionLabel("Files")
 
             VStack(alignment: .leading, spacing: 0) {
@@ -932,7 +941,7 @@ private struct DetailFileRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: DSSpacing.md) {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(DSColor.amberSoft)
@@ -948,21 +957,21 @@ private struct DetailFileRow: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(fileName)
-                    .font(DSFonts.jetBrainsMono(size: 11))
+                    .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
                     .foregroundColor(DSColor.inkPrimary)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 if !fileSize.isEmpty {
                     Text(fileSize)
-                        .font(DSFonts.jetBrainsMono(size: 10))
-                        .foregroundColor(DSColor.inkSubtle)
+                        .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
+                        .foregroundColor(DSColor.inkMuted)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
             Button(action: openFile) {
                 Text("Open")
-                    .font(DSFonts.jetBrainsMono(size: 10))
+                    .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                     .tracking(0.6)
                     .textCase(.uppercase)
                     .foregroundColor(DSColor.accentOnBg)
@@ -972,10 +981,12 @@ private struct DetailFileRow: View {
                     .clipShape(Capsule())
                     .overlay(Capsule().strokeBorder(DSColor.amberRim, lineWidth: 0.5))
             }
-            .buttonStyle(.plain)
+            // #150 press feedback for the "Open" attachment pill.
+            .pressScale(scale: 0.96, opacity: 0.9,
+                        animation: .spring(response: 0.2, dampingFraction: 0.7))
         }
         .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.vertical, DSSpacing.md)
         .onAppear { loadFileSize() }
     }
 
@@ -1048,13 +1059,13 @@ private struct DetailMetadataSection: View {
     var body: some View {
         let bodyTrimmed = memo.body.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DSSpacing.md) {
             Text("Metadata")
                 .font(DSType.mono10)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
                 .tracking(1.2)
                 .textCase(.uppercase)
-                .padding(.bottom, 4)
+                .padding(.bottom, DSSpacing.xs)
 
             metaRow(label: "Created", value: createdFull)
             metaRow(label: "File", value: vaultFilePath)
@@ -1164,14 +1175,14 @@ private struct DetailMetadataSection: View {
     }
 
     private func metaRow(label: String, value: String) -> some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: DSSpacing.sm) {
             Text(label.uppercased())
-                .font(DSFonts.jetBrainsMono(size: 10))
+                .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                 .tracking(0.6)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
                 .frame(width: 100, alignment: .leading)
             Text(value)
-                .font(DSFonts.jetBrainsMono(size: 10))
+                .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                 .tracking(0.4)
                 .foregroundColor(DSColor.inkMuted)
                 .textSelection(.enabled)
@@ -1210,9 +1221,13 @@ struct PhotoFullscreenView: View {
                             .background(Color.white.opacity(0.2))
                             .clipShape(Circle())
                     }
-                    .buttonStyle(.plain)
-                    .padding(.trailing, 20)
-                    .padding(.top, 20)
+                    // #150 press feedback for the fullscreen photo close button.
+                    // respectsReduceMotion: false — this overlay never consulted
+                    // the accessibility env before; keep the dip subtle but present.
+                    .pressScale(scale: 0.92,
+                                animation: .spring(response: 0.2, dampingFraction: 0.7))
+                    .padding(.trailing, DSSpacing.xl)
+                    .padding(.top, DSSpacing.xl)
                 }
                 Spacer()
             }
@@ -1364,6 +1379,6 @@ private struct EchoesSection: View {
 private func sectionLabel(_ title: String) -> some View {
     Text(title.uppercased())
         .font(DSType.mono10)
-        .foregroundColor(DSColor.inkSubtle)
+        .foregroundColor(DSColor.inkMuted)
         .tracking(1.2)
 }

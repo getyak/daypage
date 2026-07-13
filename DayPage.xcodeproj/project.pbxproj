@@ -32,6 +32,7 @@
 		5F29DB56EC93D3F64130C2CA /* DayPageStorage in Frameworks */ = {isa = PBXBuildFile; productRef = D8FC81CC697F65128F6F34CD /* DayPageStorage */; };
 		60D39385300C46D08D8BF03C /* DraftStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC21412D29A6FB268CE43C58 /* DraftStorage.swift */; };
 		6587243C5DB109B930AB5D92 /* MemoryChatTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04B9410B749C82B6E34779E4 /* MemoryChatTests.swift */; };
+		70E7D20C0140322FFC8487D0 /* TodayViewModifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10F8F56C7F102AF61FA22529 /* TodayViewModifiers.swift */; };
 		73BECCAED0BDBEFB612B15E4 /* DailyPageParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 371058C9DAB9A11AE7EAC835 /* DailyPageParser.swift */; };
 		787E4480A2797607F2DCDE5E /* PillSegmentedControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61EFC77A2EB872EA2279BA2A /* PillSegmentedControl.swift */; };
 		7AA98CEA2BEAF32A8785F456 /* DayPageServices in Frameworks */ = {isa = PBXBuildFile; productRef = FCE152119CF58191BE2FAAAA /* DayPageServices */; };
@@ -44,6 +45,7 @@
 		97FA675FF46459D5CE5E8CF3 /* QuickCaptureControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 519B9B12CB68C0E6E2A06292 /* QuickCaptureControl.swift */; };
 		9B0FAA7690FA2EEED5AB7A96 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BAC7527E8128E6A865349FB9 /* Foundation.framework */; };
 		9B65087D6C50A363072E40A7 /* LiquidGlassEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DB2FBA71981BA7516DA9A3F /* LiquidGlassEngine.swift */; };
+		9BDB4C3E0410203CCA77F758 /* TodayViewComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = D05F4E01BDF7201F880EE5EF /* TodayViewComponents.swift */; };
 		9D559EA9D4B9F2C77D942935 /* DayPageShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FD3383348F15CB7B4E82E53 /* DayPageShortcuts.swift */; };
 		9F7FA1DADD34D652818D96EF /* DayPageModels in Frameworks */ = {isa = PBXBuildFile; productRef = 2C2DC779660CD48585D05C3D /* DayPageModels */; };
 		A10000001 /* DayPageApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000001 /* DayPageApp.swift */; };
@@ -53,8 +55,6 @@
 		A10000006 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000006 /* Typography.swift */; };
 		A10000007 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000007 /* Components.swift */; };
 		A10000010 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010 /* TodayView.swift */; };
-		A10000804 /* TodayCoachView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000804 /* TodayCoachView.swift */; };
-		A10000821 /* DockVoiceCapsule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000821 /* DockVoiceCapsule.swift */; };
 		A10000011 /* ArchiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000011 /* ArchiveView.swift */; };
 		A10000012 /* GraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000012 /* GraphView.swift */; };
 		A10000013 /* TodayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000013 /* TodayViewModel.swift */; };
@@ -115,13 +115,14 @@
 		A10000400 /* HorizontalPanGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000400 /* HorizontalPanGesture.swift */; };
 		A10000510 /* RecordingSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000510 /* RecordingSheetView.swift */; };
 		A10000511 /* DynamicIslandView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000511 /* DynamicIslandView.swift */; };
-		A10000515 /* RecordingLimits.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000515 /* RecordingLimits.swift */; };
 		A10000512 /* MetadataGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000512 /* MetadataGridView.swift */; };
 		A10000513 /* WriteSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000513 /* WriteSheetView.swift */; };
+		A10000515 /* RecordingLimits.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000515 /* RecordingLimits.swift */; };
+		A10000804 /* TodayCoachView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000804 /* TodayCoachView.swift */; };
+		A10000821 /* DockVoiceCapsule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000821 /* DockVoiceCapsule.swift */; };
 		A10000F50 /* GraphDisplayLinkController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000F50 /* GraphDisplayLinkController.swift */; };
 		A1000ABC1 /* YearMonthPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000ABC1 /* YearMonthPicker.swift */; };
 		A11Y0001 /* AccessibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11Y1001 /* AccessibilityTests.swift */; };
-		SP0001 /* SwipePolishContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SP1001 /* SwipePolishContractTests.swift */; };
 		A46C6A46A2D76FF5DBFBD6C6 /* StartRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE91252BA9167A50BFF79FF0 /* StartRecordingIntent.swift */; };
 		AEA556F95D05E9DC9E275688 /* MacKitSecretsProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFC2FE3353FDB07872B77D65 /* MacKitSecretsProvider.swift */; };
 		AF0000001 /* SpaceGrotesk-Light.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000001 /* SpaceGrotesk-Light.ttf */; };
@@ -137,7 +138,6 @@
 		AF0000011 /* JetBrainsMono-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000011 /* JetBrainsMono-Regular.ttf */; };
 		AF0000012 /* JetBrainsMono-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000012 /* JetBrainsMono-Medium.ttf */; };
 		AF0000013 /* Fraunces-VariableFont.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000013 /* Fraunces-VariableFont.ttf */; };
-		AF0000014 /* Caveat-VariableFont.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AF1000014 /* Caveat-VariableFont.ttf */; };
 		B197ECDEBDA86D4351A96898 /* RecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B93ED807E07C2171E9F4234B /* RecordingView.swift */; };
 		BC84C8164964F3DFC934C2E1 /* DayPageModels in Frameworks */ = {isa = PBXBuildFile; productRef = B0D49FB89D8AE64AD546E42D /* DayPageModels */; };
 		BGC0000002 /* BackgroundCompilationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BGC1000002 /* BackgroundCompilationServiceTests.swift */; };
@@ -158,11 +158,6 @@
 		E20A68158C940060066B2B73 /* WatchReceiveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11E0748715A251EE4A0168A /* WatchReceiveService.swift */; };
 		E4AC46FA495D4BD178789A14 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0881AB423FF6F12FCDE27C5B /* Assets.xcassets */; };
 		E5077A7D97855770914BFB8D /* MarkdownExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC8043A3D3371852ACB3D6F3 /* MarkdownExportService.swift */; };
-		I180000001 /* ErrorPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000001 /* ErrorPresenter.swift */; };
-		I180000009 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000009 /* ShareSheet.swift */; };
-		I180000010 /* DurationFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000010 /* DurationFormatter.swift */; };
-		I180000011 /* RelativeDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000011 /* RelativeDate.swift */; };
-		I180000002 /* InsightActionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000002 /* InsightActionService.swift */; };
 		E536EEB8C13B2BA42DF4980F /* SidebarHeatmapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C551D36362FF97C44EB4D5DE /* SidebarHeatmapView.swift */; };
 		EA575F353C6AFD5EA7FF9A6F /* QuickCaptureWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7909ED56F96754E4C4FA21CC /* QuickCaptureWidget.swift */; };
 		ES0000001 /* EmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ES1000001 /* EmptyStateView.swift */; };
@@ -176,6 +171,11 @@
 		FB0000004 /* FeedbackContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1000004 /* FeedbackContext.swift */; };
 		FT0000001 /* DayOrbView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FT1000001 /* DayOrbView.swift */; };
 		GSM0000002 /* GraphSimulationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = GSM1000002 /* GraphSimulationTests.swift */; };
+		I180000001 /* ErrorPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000001 /* ErrorPresenter.swift */; };
+		I180000002 /* InsightActionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000002 /* InsightActionService.swift */; };
+		I180000009 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000009 /* ShareSheet.swift */; };
+		I180000010 /* DurationFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000010 /* DurationFormatter.swift */; };
+		I180000011 /* RelativeDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000011 /* RelativeDate.swift */; };
 		IN1000001 /* QuickCaptureTextIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = IN2000001 /* QuickCaptureTextIntent.swift */; };
 		IN1000002 /* OpenDailyPageIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = IN2000002 /* OpenDailyPageIntent.swift */; };
 		IN1000003 /* AskTodayIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = IN2000003 /* AskTodayIntent.swift */; };
@@ -198,10 +198,12 @@
 		R4B0000001 /* RawStorageWriteFailedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R4B1000001 /* RawStorageWriteFailedTests.swift */; };
 		R4B0000002 /* LocationServiceLRUTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R4B1000002 /* LocationServiceLRUTests.swift */; };
 		R4B0000003 /* ArchiveViewModelGroupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R4B1000003 /* ArchiveViewModelGroupTests.swift */; };
+		SP0001 /* SwipePolishContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SP1001 /* SwipePolishContractTests.swift */; };
 		SPM00001 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = SPM00002 /* Supabase */; };
 		SPM00004 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = SPM00005 /* Sentry */; };
 		SQS0000002 /* SyncQueueServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SQS1000002 /* SyncQueueServiceTests.swift */; };
 		SRD0000002 /* SentryRedactorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SRD1000002 /* SentryRedactorTests.swift */; };
+		SST0000001 /* SearchServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SST1000001 /* SearchServiceTests.swift */; };
 		T10000001 /* DayDetailViewStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000001 /* DayDetailViewStateTests.swift */; };
 		T10000002 /* ConflictMergerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000002 /* ConflictMergerTests.swift */; };
 		T10000003 /* VaultMigrationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000003 /* VaultMigrationServiceTests.swift */; };
@@ -219,7 +221,6 @@
 		TI1000001 /* AppIntentsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = TI2000001 /* AppIntentsTests.swift */; };
 		VES0000002 /* VaultExportServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = VES1000002 /* VaultExportServiceTests.swift */; };
 		VTW0000001 /* VoiceTranscriptWritebackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = VTW1000001 /* VoiceTranscriptWritebackTests.swift */; };
-		SST0000001 /* SearchServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SST1000001 /* SearchServiceTests.swift */; };
 		WR0000002 /* WeeklyRecapDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = WR1000002 /* WeeklyRecapDetailView.swift */; };
 		WR0000003 /* WeeklyCompilationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = WR1000003 /* WeeklyCompilationServiceTests.swift */; };
 		WRA0000001 /* WeeklyRecapAutoTriggerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = WRA1000001 /* WeeklyRecapAutoTriggerTests.swift */; };
@@ -270,6 +271,7 @@
 		08FF205E680406EC7E4B83DB /* DailyPageModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DailyPageModel.swift; sourceTree = "<group>"; };
 		0995108F7E2E8994F114A240 /* MemoListSkeleton.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoListSkeleton.swift; sourceTree = "<group>"; };
 		0CF7E0148C3A6933A903247D /* DailyPageMetadataEditView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DailyPageMetadataEditView.swift; sourceTree = "<group>"; };
+		10F8F56C7F102AF61FA22529 /* TodayViewModifiers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TodayViewModifiers.swift; sourceTree = "<group>"; };
 		12641793A8F375B34321E87A /* UndoPillView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UndoPillView.swift; sourceTree = "<group>"; };
 		15CC12840AD6E5CF8621F34C /* MacRootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MacRootView.swift; sourceTree = "<group>"; };
 		1681BDF1E5113769618DA9B0 /* AskPastView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AskPastView.swift; sourceTree = "<group>"; };
@@ -293,7 +295,6 @@
 		912420086719F3FFFB45FE7A /* InputBarTutorialOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InputBarTutorialOverlay.swift; sourceTree = "<group>"; };
 		986C8E3E042E690BA4CCC12D /* ShareCardSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShareCardSystem.swift; path = ShareCard/ShareCardSystem.swift; sourceTree = "<group>"; };
 		A11Y1001 /* AccessibilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityTests.swift; sourceTree = "<group>"; };
-		SP1001 /* SwipePolishContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipePolishContractTests.swift; sourceTree = "<group>"; };
 		A20000001 /* DayPageApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayPageApp.swift; sourceTree = "<group>"; };
 		A20000002 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		A20000004 /* GeneratedSecrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedSecrets.swift; sourceTree = "<group>"; };
@@ -301,8 +302,6 @@
 		A20000006 /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
 		A20000007 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		A20000010 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
-		A20000804 /* TodayCoachView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayCoachView.swift; sourceTree = "<group>"; };
-		A20000821 /* DockVoiceCapsule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockVoiceCapsule.swift; sourceTree = "<group>"; };
 		A20000011 /* ArchiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveView.swift; sourceTree = "<group>"; };
 		A20000012 /* GraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphView.swift; sourceTree = "<group>"; };
 		A20000013 /* TodayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayViewModel.swift; sourceTree = "<group>"; };
@@ -365,20 +364,17 @@
 		A20000400 /* HorizontalPanGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HorizontalPanGesture.swift; sourceTree = "<group>"; };
 		A20000510 /* RecordingSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingSheetView.swift; sourceTree = "<group>"; };
 		A20000511 /* DynamicIslandView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DynamicIslandView.swift; sourceTree = "<group>"; };
-		A20000515 /* RecordingLimits.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingLimits.swift; sourceTree = "<group>"; };
 		A20000512 /* MetadataGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetadataGridView.swift; sourceTree = "<group>"; };
 		A20000513 /* WriteSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WriteSheetView.swift; sourceTree = "<group>"; };
+		A20000515 /* RecordingLimits.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingLimits.swift; sourceTree = "<group>"; };
+		A20000804 /* TodayCoachView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayCoachView.swift; sourceTree = "<group>"; };
+		A20000821 /* DockVoiceCapsule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockVoiceCapsule.swift; sourceTree = "<group>"; };
 		A20000F50 /* GraphDisplayLinkController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphDisplayLinkController.swift; sourceTree = "<group>"; };
 		A2000ABC1 /* YearMonthPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YearMonthPicker.swift; sourceTree = "<group>"; };
 		A30000001 /* DayPage.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DayPage.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A381FA327A37AE0DD740D61D /* PosterTemplates.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PosterTemplates.swift; path = ShareCard/PosterTemplates.swift; sourceTree = "<group>"; };
 		A4EBD94EB4FD71CC10D478F3 /* DailyPageSummarySection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DailyPageSummarySection.swift; sourceTree = "<group>"; };
 		AC8043A3D3371852ACB3D6F3 /* MarkdownExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownExportService.swift; sourceTree = "<group>"; };
-		I280000001 /* ErrorPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorPresenter.swift; sourceTree = "<group>"; };
-		I280000009 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
-		I280000010 /* DurationFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurationFormatter.swift; sourceTree = "<group>"; };
-		I280000011 /* RelativeDate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeDate.swift; sourceTree = "<group>"; };
-		I280000002 /* InsightActionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightActionService.swift; sourceTree = "<group>"; };
 		AF1000001 /* SpaceGrotesk-Light.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Light.ttf"; sourceTree = "<group>"; };
 		AF1000002 /* SpaceGrotesk-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Regular.ttf"; sourceTree = "<group>"; };
 		AF1000003 /* SpaceGrotesk-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "SpaceGrotesk-Medium.ttf"; sourceTree = "<group>"; };
@@ -392,7 +388,6 @@
 		AF1000011 /* JetBrainsMono-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "JetBrainsMono-Regular.ttf"; sourceTree = "<group>"; };
 		AF1000012 /* JetBrainsMono-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "JetBrainsMono-Medium.ttf"; sourceTree = "<group>"; };
 		AF1000013 /* Fraunces-VariableFont.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces-VariableFont.ttf"; sourceTree = "<group>"; };
-		AF1000014 /* Caveat-VariableFont.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Caveat-VariableFont.ttf"; sourceTree = "<group>"; };
 		B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DayPageWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B93ED807E07C2171E9F4234B /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
 		BAC7527E8128E6A865349FB9 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
@@ -403,6 +398,7 @@
 		C551D36362FF97C44EB4D5DE /* SidebarHeatmapView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SidebarHeatmapView.swift; sourceTree = "<group>"; };
 		C7CA3B7B9E463E4D1773CB14 /* DayPageMacApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DayPageMacApp.swift; sourceTree = "<group>"; };
 		C98B5757B488F583231EC8F6 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		D05F4E01BDF7201F880EE5EF /* TodayViewComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TodayViewComponents.swift; sourceTree = "<group>"; };
 		DC21412D29A6FB268CE43C58 /* DraftStorage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DraftStorage.swift; sourceTree = "<group>"; };
 		DS1000001 /* Motion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Motion.swift; sourceTree = "<group>"; };
 		DS1000002 /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
@@ -426,6 +422,11 @@
 		FE91252BA9167A50BFF79FF0 /* StartRecordingIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartRecordingIntent.swift; sourceTree = "<group>"; };
 		FT1000001 /* DayOrbView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayOrbView.swift; sourceTree = "<group>"; };
 		GSM1000002 /* GraphSimulationTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GraphSimulationTests.swift; sourceTree = "<group>"; };
+		I280000001 /* ErrorPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorPresenter.swift; sourceTree = "<group>"; };
+		I280000002 /* InsightActionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightActionService.swift; sourceTree = "<group>"; };
+		I280000009 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
+		I280000010 /* DurationFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurationFormatter.swift; sourceTree = "<group>"; };
+		I280000011 /* RelativeDate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeDate.swift; sourceTree = "<group>"; };
 		IN2000001 /* QuickCaptureTextIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuickCaptureTextIntent.swift; sourceTree = "<group>"; };
 		IN2000002 /* OpenDailyPageIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OpenDailyPageIntent.swift; sourceTree = "<group>"; };
 		IN2000003 /* AskTodayIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AskTodayIntent.swift; sourceTree = "<group>"; };
@@ -449,8 +450,10 @@
 		R4B1000001 /* RawStorageWriteFailedTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RawStorageWriteFailedTests.swift; sourceTree = "<group>"; };
 		R4B1000002 /* LocationServiceLRUTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LocationServiceLRUTests.swift; sourceTree = "<group>"; };
 		R4B1000003 /* ArchiveViewModelGroupTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ArchiveViewModelGroupTests.swift; sourceTree = "<group>"; };
+		SP1001 /* SwipePolishContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwipePolishContractTests.swift; sourceTree = "<group>"; };
 		SQS1000002 /* SyncQueueServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueServiceTests.swift; sourceTree = "<group>"; };
 		SRD1000002 /* SentryRedactorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SentryRedactorTests.swift; sourceTree = "<group>"; };
+		SST1000001 /* SearchServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SearchServiceTests.swift; sourceTree = "<group>"; };
 		T20000001 /* DayDetailViewStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayDetailViewStateTests.swift; sourceTree = "<group>"; };
 		T20000002 /* ConflictMergerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictMergerTests.swift; sourceTree = "<group>"; };
 		T20000003 /* VaultMigrationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultMigrationServiceTests.swift; sourceTree = "<group>"; };
@@ -469,7 +472,6 @@
 		TI2000001 /* AppIntentsTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppIntentsTests.swift; sourceTree = "<group>"; };
 		VES1000002 /* VaultExportServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultExportServiceTests.swift; sourceTree = "<group>"; };
 		VTW1000001 /* VoiceTranscriptWritebackTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceTranscriptWritebackTests.swift; sourceTree = "<group>"; };
-		SST1000001 /* SearchServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SearchServiceTests.swift; sourceTree = "<group>"; };
 		WR1000002 /* WeeklyRecapDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapDetailView.swift; sourceTree = "<group>"; };
 		WR1000003 /* WeeklyCompilationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyCompilationServiceTests.swift; sourceTree = "<group>"; };
 		WRA1000001 /* WeeklyRecapAutoTriggerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyRecapAutoTriggerTests.swift; sourceTree = "<group>"; };
@@ -826,6 +828,8 @@
 				12641793A8F375B34321E87A /* UndoPillView.swift */,
 				82AF0D6D988BC74555DFB3ED /* AISummaryCard.swift */,
 				3DE151F5BCB87ACC047C18AD /* CompileUnlockCard.swift */,
+				D05F4E01BDF7201F880EE5EF /* TodayViewComponents.swift */,
+				10F8F56C7F102AF61FA22529 /* TodayViewModifiers.swift */,
 			);
 			path = Today;
 			sourceTree = "<group>";
@@ -966,7 +970,6 @@
 				AF1000011 /* JetBrainsMono-Regular.ttf */,
 				AF1000012 /* JetBrainsMono-Medium.ttf */,
 				AF1000013 /* Fraunces-VariableFont.ttf */,
-				AF1000014 /* Caveat-VariableFont.ttf */,
 			);
 			path = Fonts;
 			sourceTree = "<group>";
@@ -1204,6 +1207,7 @@
 			buildPhases = (
 				T90000001 /* Sources */,
 				T40000001 /* Frameworks */,
+				E63BD8D70DC66050D2361966 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -1307,9 +1311,15 @@
 				AF0000011 /* JetBrainsMono-Regular.ttf in Resources */,
 				AF0000012 /* JetBrainsMono-Medium.ttf in Resources */,
 				AF0000013 /* Fraunces-VariableFont.ttf in Resources */,
-				AF0000014 /* Caveat-VariableFont.ttf in Resources */,
 				A10000029 /* Assets.xcassets in Resources */,
 				LS0000001 /* Localizable.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E63BD8D70DC66050D2361966 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1506,6 +1516,8 @@
 				E536EEB8C13B2BA42DF4980F /* SidebarHeatmapView.swift in Sources */,
 				9B65087D6C50A363072E40A7 /* LiquidGlassEngine.swift in Sources */,
 				1BA5F2B78351EFB69F085A65 /* AskPastView.swift in Sources */,
+				9BDB4C3E0410203CCA77F758 /* TodayViewComponents.swift in Sources */,
+				70E7D20C0140322FFC8487D0 /* TodayViewModifiers.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

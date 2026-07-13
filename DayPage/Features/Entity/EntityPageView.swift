@@ -63,16 +63,16 @@ struct EntityPageView: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
                             entityHeader(model: model)
-                                .padding(.horizontal, 20)
-                                .padding(.top, 24)
+                                .padding(.horizontal, DSSpacing.xl)
+                                .padding(.top, DSSpacing.xl2)
                                 .padding(.bottom, 32)
 
                             entityBody(model: model)
-                                .padding(.horizontal, 20)
+                                .padding(.horizontal, DSSpacing.xl)
                                 .padding(.bottom, 40)
 
                             relatedMemos(model: model)
-                                .padding(.horizontal, 20)
+                                .padding(.horizontal, DSSpacing.xl)
                                 .padding(.bottom, 40)
 
                             // R4-MEDIUM #39 — backlinks gated behind a
@@ -80,7 +80,7 @@ struct EntityPageView: View {
                             // without a hot-fix build. Default-on.
                             if FeatureFlagStore.shared.isEnabled(.backlinks) {
                                 backlinksSection
-                                    .padding(.horizontal, 20)
+                                    .padding(.horizontal, DSSpacing.xl)
                                     .padding(.bottom, 40)
                             }
                         }
@@ -94,7 +94,7 @@ struct EntityPageView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     if let src = sourceDateString {
                         Button(action: { dismiss() }) {
-                            HStack(spacing: 4) {
+                            HStack(spacing: DSSpacing.xs) {
                                 Image(systemName: "arrow.left")
                                     .font(.system(size: 13, weight: .medium))
                                 Text(src)
@@ -149,7 +149,7 @@ struct EntityPageView: View {
     private var entitySkeleton: some View {
         let opacity = reduceMotion ? 1.0 : (skeletonBreathe ? 0.45 : 0.25)
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: DSSpacing.xl2) {
                 // Badge chip
                 Capsule()
                     .fill(DSColor.glassStd)
@@ -165,7 +165,7 @@ struct EntityPageView: View {
                 ForEach(0..<2, id: \.self) { _ in
                     VStack(alignment: .leading, spacing: 10) {
                         // Section label rule
-                        HStack(spacing: 12) {
+                        HStack(spacing: DSSpacing.md) {
                             RoundedRectangle(cornerRadius: 1)
                                 .fill(DSColor.glassStd)
                                 .frame(width: 80, height: 11)
@@ -190,8 +190,8 @@ struct EntityPageView: View {
                         .frame(height: 52)
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 24)
+            .padding(.horizontal, DSSpacing.xl)
+            .padding(.top, DSSpacing.xl2)
         }
         .opacity(opacity)
         .onAppear {
@@ -206,7 +206,7 @@ struct EntityPageView: View {
     // MARK: - Not Found
 
     private func notFoundView(reason: NotFoundReason) -> some View {
-        VStack(spacing: 16) {
+        VStack(spacing: DSSpacing.lg) {
             Text(notFoundMessage(reason: reason))
                 .bodyMDStyle()
                 .foregroundColor(DSColor.onSurfaceVariant)
@@ -232,13 +232,13 @@ struct EntityPageView: View {
     // MARK: - Entity Header
 
     private func entityHeader(model: EntityModel) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DSSpacing.md) {
             // Type badge
             Text(entityTypeBadge.uppercased())
                 .monoLabelStyle(size: 9)
                 .foregroundColor(DSColor.onPrimary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
+                .padding(.horizontal, DSSpacing.sm)
+                .padding(.vertical, DSSpacing.xs)
                 .background(DSColor.primary)
                 .cornerRadius(0)
 
@@ -250,7 +250,7 @@ struct EntityPageView: View {
                 .minimumScaleFactor(0.7)
 
             // Metadata chips
-            HStack(spacing: 8) {
+            HStack(spacing: DSSpacing.sm) {
                 if !model.firstSeen.isEmpty {
                     metaChip("First seen: \(model.firstSeen)")
                 }
@@ -274,8 +274,8 @@ struct EntityPageView: View {
         Text(text)
             .monoLabelStyle(size: 10)
             .foregroundColor(DSColor.onSurfaceVariant)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.horizontal, DSSpacing.sm)
+            .padding(.vertical, DSSpacing.xs)
             .background(DSColor.surfaceContainer)
             .cornerRadius(0)
     }
@@ -283,11 +283,11 @@ struct EntityPageView: View {
     // MARK: - Entity Body
 
     private func entityBody(model: EntityModel) -> some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: DSSpacing.xl2) {
             ForEach(model.sections, id: \.title) { section in
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: DSSpacing.md) {
                     // Section heading with right line
-                    HStack(spacing: 16) {
+                    HStack(spacing: DSSpacing.lg) {
                         Text(section.title.uppercased())
                             .font(.custom("SpaceGrotesk-Bold", size: 11))
                             .foregroundColor(DSColor.outline)
@@ -306,8 +306,8 @@ struct EntityPageView: View {
     // MARK: - Related Memos (entity → memos bidirectional link)
 
     private func relatedMemos(model: EntityModel) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: DSSpacing.md) {
+            HStack(spacing: DSSpacing.lg) {
                 Text("RELATED ENTRIES")
                     .font(.custom("SpaceGrotesk-Bold", size: 11))
                     .foregroundColor(DSColor.outline)
@@ -320,7 +320,7 @@ struct EntityPageView: View {
             if isScanningRelated && linkedMemos.isEmpty && model.relatedDates.isEmpty {
                 // Background scan of vault/raw is still running. Show a small
                 // inline spinner so users distinguish "scanning" from "empty".
-                HStack(spacing: 8) {
+                HStack(spacing: DSSpacing.sm) {
                     ProgressView()
                         .progressViewStyle(.circular)
                         .scaleEffect(0.8)
@@ -328,7 +328,7 @@ struct EntityPageView: View {
                         .bodySMStyle()
                         .foregroundColor(DSColor.onSurfaceVariant)
                 }
-                .padding(.vertical, 8)
+                .padding(.vertical, DSSpacing.sm)
             } else if linkedMemos.isEmpty && model.relatedDates.isEmpty {
                 Text("暂无关联记录")
                     .bodySMStyle()
@@ -338,7 +338,7 @@ struct EntityPageView: View {
                 ForEach(linkedMemos.indices, id: \.self) { idx in
                     let item = linkedMemos[idx]
                     Button(action: { Haptics.tapConfirm(); selectedDate = item.dateStr }) {
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: DSSpacing.xs) {
                             Text(relativeDateLabel(item.dateStr))
                                 .monoLabelStyle(size: 9)
                                 .foregroundColor(DSColor.onSurfaceVariant)
@@ -357,7 +357,7 @@ struct EntityPageView: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.vertical, 10)
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, DSSpacing.md)
                         .background(DSColor.surfaceContainer)
                         .cornerRadius(0)
                     }
@@ -378,7 +378,7 @@ struct EntityPageView: View {
                                 .foregroundColor(DSColor.onSurfaceVariant)
                         }
                         .padding(.vertical, 10)
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, DSSpacing.md)
                         .background(DSColor.surfaceContainer)
                         .cornerRadius(0)
                     }
@@ -400,9 +400,9 @@ struct EntityPageView: View {
             // Loading state: reuse the same "scanning" copy as RELATED ENTRIES so
             // the user doesn't see a flash-of-empty-section while the background
             // scan is still walking vault/raw.
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: DSSpacing.md) {
                 backlinksHeader(count: 0)
-                HStack(spacing: 8) {
+                HStack(spacing: DSSpacing.sm) {
                     ProgressView()
                         .progressViewStyle(.circular)
                         .scaleEffect(0.8)
@@ -410,14 +410,14 @@ struct EntityPageView: View {
                         .bodySMStyle()
                         .foregroundColor(DSColor.onSurfaceVariant)
                 }
-                .padding(.vertical, 8)
+                .padding(.vertical, DSSpacing.sm)
             }
         } else if !linkedMemos.isEmpty {
             let total = linkedMemos.count
             let visibleCount = backlinksExpanded ? total : min(10, total)
             VStack(alignment: .leading, spacing: 0) {
                 backlinksHeader(count: total)
-                    .padding(.bottom, 12)
+                    .padding(.bottom, DSSpacing.md)
 
                 ForEach(0..<visibleCount, id: \.self) { idx in
                     backlinkRow(linkedMemos[idx])
@@ -444,7 +444,7 @@ struct EntityPageView: View {
                                 .font(.system(size: 11))
                                 .foregroundColor(DSColor.amberArchival)
                         }
-                        .padding(.vertical, 12)
+                        .padding(.vertical, DSSpacing.md)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("查看更多 \(total - 10) 条引用")
@@ -457,7 +457,7 @@ struct EntityPageView: View {
     private func backlinksHeader(count: Int) -> some View {
         // "被 N 个 memo 引用" — count = total linkedMemos (not the visible
         // window) so the header always reflects the full backlink fan-in.
-        HStack(spacing: 16) {
+        HStack(spacing: DSSpacing.lg) {
             HStack(spacing: 5) {
                 Image(systemName: "pin.fill")
                     .font(.system(size: 9, weight: .semibold))
@@ -495,8 +495,8 @@ struct EntityPageView: View {
                 )
             }
         } label: {
-            HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .top, spacing: DSSpacing.md) {
+                VStack(alignment: .leading, spacing: DSSpacing.xs) {
                     Text(item.dateStr)
                         .monoLabelStyle(size: 10)
                         .foregroundColor(DSColor.onSurfaceVariant)
@@ -511,7 +511,7 @@ struct EntityPageView: View {
                     .font(.system(size: 11))
                     .foregroundColor(DSColor.onSurfaceVariant)
             }
-            .padding(.vertical, 12)
+            .padding(.vertical, DSSpacing.md)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
