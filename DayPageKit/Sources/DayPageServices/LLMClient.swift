@@ -246,6 +246,118 @@ public struct LLMClient {
         }
     }
 
+    // MARK: - Streaming completion (SSE)
+
+    /// One parsed server-sent-event line from an OpenAI-compatible
+    /// `stream: true` response.
+    public enum SSEEvent: Equatable {
+        case delta(String)
+        case done
+        case ignore
+    }
+
+    /// Parse a single SSE line into an event. Pure function — the whole
+    /// streaming loop's correctness hinges on this, so it is exposed for
+    /// unit tests while the network loop stays thin.
+    public static func parseSSELine(_ line: String) -> SSEEvent {
+        guard line.hasPrefix("data: ") else { return .ignore }
+        let payload = String(line.dropFirst(6))
+        if payload == "[DONE]" { return .done }
+        guard let data = payload.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let choices = json["choices"] as? [[String: Any]],
+              let delta = choices.first?["delta"] as? [String: Any],
+              let chunk = delta["content"] as? String,
+              !chunk.isEmpty else { return .ignore }
+        return .delta(chunk)
+    }
+
+    /// 流式聊天补全：逐 token 回调 `onDelta`，结束后返回完整文本（已 trim）。
+    ///
+    /// 与 `complete` 的边界：流式无法安全地中途重试（用户已看到前半段），
+    /// 因此单次尝试、失败即抛——重试语义交给 UI 层的「重试」按钮。
+    /// SSE 走 `URLSession.bytes` 而非 `HTTPTransport`（该协议刻意只覆盖
+    /// `data(for:)`；见 HTTPTransport.swift 的注释——流式另开路径而非拓宽协议）。
+    /// `onDelta` 标注 `@MainActor` 并被 `await` 调用——保证 token 以到达顺序
+    /// 落到主线程状态上，避免 `Task { @MainActor }` 逐段投递的乱序风险。
+    public func stream(
+        messages: [LLMMessage],
+        onDelta: @escaping @MainActor @Sendable (String) -> Void
+    ) async throws -> String {
+        let online = await MainActor.run { NetworkMonitor.shared.isOnline }
+        guard online else { throw LLMError.offline }
+        guard !config.apiKey.isEmpty else { throw LLMError.missingApiKey }
+        guard let url = URL(string: "\(config.baseURL)/chat/completions") else {
+            throw LLMError.invalidURL
+        }
+
+        let body: [String: Any] = [
+            "model": config.model,
+            "messages": messages.map { ["role": $0.role.rawValue, "content": $0.content] },
+            "max_tokens": config.maxTokens,
+            "temperature": config.temperature,
+            "stream": true
+        ]
+        let request = try HTTPClientHelper.bearerJSON(
+            url: url,
+            apiKey: config.apiKey,
+            timeout: config.timeout,
+            body: body
+        )
+
+        let span = SentryReporter.startTransaction(name: spanName, operation: "http.client")
+        defer { span?.finish() }
+
+        let (asyncBytes, response): (URLSession.AsyncBytes, URLResponse)
+        do {
+            (asyncBytes, response) = try await URLSession.shared.bytes(for: request)
+        } catch let urlError as URLError {
+            switch urlError.code {
+            case .timedOut: throw LLMError.networkTimeout
+            case .notConnectedToInternet, .networkConnectionLost: throw LLMError.offline
+            default: throw LLMError.unknown(urlError)
+            }
+        }
+
+        if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+            span?.setTag(String(http.statusCode), key: "http.status_code")
+            // Drain a bounded slice of the error body for the message.
+            var errBody = ""
+            for try await line in asyncBytes.lines {
+                errBody += line
+                if errBody.count > 500 { break }
+            }
+            DayPageLogger.log(level: "ERROR", message: "[LLMClient/\(spanName)] stream status=\(http.statusCode) body=\(errBody.prefix(500))")
+            if http.statusCode == 429 { throw LLMError.rateLimited }
+            throw LLMError.apiError(statusCode: http.statusCode, body: errBody)
+        }
+
+        var full = ""
+        for try await line in asyncBytes.lines {
+            switch Self.parseSSELine(line) {
+            case .delta(let chunk):
+                full += chunk
+                await onDelta(chunk)
+            case .done:
+                break
+            case .ignore:
+                continue
+            }
+        }
+
+        let trimmed = full.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw LLMError.emptyResponse }
+
+        // Same usage accounting as `complete` — spanName buckets per purpose.
+        let promptChars = messages.reduce(0) { $0 + $1.content.count }
+        let approxTokens = max(1, (promptChars + trimmed.count) / 4)
+        let purpose = spanName
+        Task { @MainActor in
+            LLMUsageTracker.shared.recordTokens(approxTokens, purpose: purpose)
+        }
+        return trimmed
+    }
+
     // MARK: - Response parsing
 
     /// 从 OpenAI 兼容响应中提取 `choices[0].message.content`。

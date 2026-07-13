@@ -361,6 +361,7 @@
 "memo.detail.section.photo" = "Photo";
 "memo.detail.section.location" = "Location";
 "memo.detail.section.files" = "Files";
+"memo.detail.section.echoes" = "Echoes";
 "memo.detail.section.metadata" = "Metadata";
 
 /* Metadata field labels */
@@ -391,6 +392,12 @@
 "memo.detail.location.no_coordinates" = "No coordinates";
 "memo.detail.location.open_maps" = "Open in Apple Maps";
 "memo.detail.photo.tap_fullscreen" = "Tap to view full screen";
+
+"memo.detail.nav.back.daily" = "Daily";
+
+/* Ask past self (detail CTA) */
+"memo.detail.ask_past" = "Ask your past self";
+"memo.detail.ask_past.question" = "About this memo (%@) — why did I think this at the time?";
 
 /* Archive — async month loading (US-015) */
 "archive.loading_month" = "Loading…";
@@ -1105,3 +1112,24 @@
 "daydetail.kind.part.voice"  = "%d voice";
 "daydetail.kind.part.photo"  = "%d photo";
 "rawmemo.empty"              = "No memos this day";
+
+/* MARK: - Drop-to-Ask + memo-anchored chat (issue #837) */
+"memo.detail.drop_dock"              = "Drop here to ask";
+"memo.chat.title"                    = "Ask this memory";
+"memo.chat.a11y.close"               = "Close chat";
+"memo.chat.status.reading"           = "Rereading this memory…";
+"memo.chat.status.retrieving"        = "Searching related records…";
+"memo.chat.status.retrieving.along"  = "Tracing “%@” through your records…";
+"memo.chat.status.retrieving.sep"    = "”, “";
+"memo.chat.status.found"             = "Found %d related records, thinking…";
+"memo.chat.status.thinking"          = "Thinking…";
+"memo.chat.input.placeholder"        = "Ask about this memory…";
+"memo.chat.pin"                      = "Save to today";
+"memo.chat.pin.done"                 = "Saved to today";
+"memo.chat.retry"                    = "Retry";
+"memo.chat.suggest.why"              = "Why did I think this at the time?";
+"memo.chat.suggest.entity"           = "What else have I said about “%@”?";
+"memo.chat.suggest.changed"          = "Has this thought changed since?";
+"memo.chat.a11y.detach"              = "Detach memory";
+"memo.chat.a11y.source"              = "Open records of %@";
+"memo.chat.a11y.send"                = "Send";

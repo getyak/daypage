@@ -11,6 +11,14 @@ struct MemoDetailView: View {
 
     let memo: Memo
     let vm: any MemoDetailViewModel
+    /// Back-button label — defaults to "Today" for the Today-feed entry;
+    /// other hosts (DailyPageView) pass their own so the button never lies
+    /// about where dismissal lands.
+    var backLabel: String = NSLocalizedString(
+        "memo.detail.nav.back",
+        value: "Today",
+        comment: "Detail view — back-to-today button label"
+    )
 
     @Environment(\.dismiss) private var dismiss
     @State private var fullResImage: UIImage?
@@ -25,6 +33,16 @@ struct MemoDetailView: View {
 
     // Share sheet (mono text → UIActivityViewController)
     @State private var showShareSheet: Bool = false
+
+    // Entity Ink — tapped entity opens its wiki page (issue #835)
+    @State private var selectedEntityType: String = "themes"
+    @State private var selectedEntitySlug: String?
+
+    // Drop-to-Ask — memo 锚定 AI 对话（issue #837）：拖拽入坞或 CTA 触发。
+    @State private var showMemoChat: Bool = false
+    /// slug → wiki display name; resolved async so CJK prose (which never
+    /// contains the latin slug) can still be inked by its display name.
+    @State private var entityDisplayNames: [String: String] = [:]
 
     private var kickerText: String {
         let f = DateFormatter()
@@ -50,11 +68,7 @@ struct MemoDetailView: View {
                             HStack(spacing: 6) {
                                 Image(systemName: "chevron.left")
                                     .font(.system(size: 13, weight: .medium))
-                                Text(NSLocalizedString(
-                                    "memo.detail.nav.back",
-                                    value: "Today",
-                                    comment: "Detail view — back-to-today button label"
-                                ))
+                                Text(backLabel)
                                     .font(DSType.bodySM)
                             }
                             .foregroundColor(DSColor.inkMuted)
@@ -197,7 +211,7 @@ struct MemoDetailView: View {
                         }
                         .padding(.bottom, 14)
                     } else if !bodyTrimmed.isEmpty && !isBodyDuplicate {
-                        Text(CJKTextPolish.polish(bodyTrimmed))
+                        Text(inkedBody(bodyTrimmed))
                             .font(DSType.serifBody16)
                             .foregroundColor(DSColor.inkPrimary)
                             // Line-spacing raised from 6→8 (≈1.5× serifBody16) so
@@ -207,6 +221,39 @@ struct MemoDetailView: View {
                             .lineSpacing(8)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .textSelection(.enabled)
+                            .environment(\.openURL, OpenURLAction { url in
+                                guard url.scheme == "daypage-entity" else { return .systemAction }
+                                if let slug = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                                    .queryItems?.first(where: { $0.name == "s" })?.value {
+                                    openEntity(slug: slug)
+                                }
+                                return .handled
+                            })
+                    }
+
+                    // MARK: AI Marginalia (issue #835)
+                    // A compilation-written observation, set like a pencil
+                    // note in the page margin — thin amber rule, serif
+                    // italic, quieter than the body it annotates.
+                    if !isEditingBody,
+                       let note = memo.marginNote?.trimmingCharacters(in: .whitespacesAndNewlines),
+                       !note.isEmpty {
+                        Text(note)
+                            .font(DSFonts.serif(size: 13, weight: .regular, relativeTo: .footnote).italic())
+                            .foregroundColor(DSColor.accentOnBg.opacity(0.8))
+                            .lineSpacing(4)
+                            .padding(.leading, 12)
+                            .overlay(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 1)
+                                    .fill(DSColor.amberRim)
+                                    .frame(width: 2)
+                            }
+                            .padding(.top, 16)
+                            .accessibilityLabel(NSLocalizedString(
+                                "memo.detail.a11y.margin_note",
+                                value: "AI 眉批",
+                                comment: "Detail view — marginalia VoiceOver label"
+                            ))
                     }
 
                     // MARK: Attachment Sections
@@ -238,7 +285,14 @@ struct MemoDetailView: View {
 
                             // Location
                             if hasLocation {
-                                DetailLocationSection(location: memo.location)
+                                DetailLocationSection(
+                                    location: memo.location,
+                                    memoDateString: DateFormatters.isoDate.string(from: memo.created),
+                                    onOpenPlace: { slug in
+                                        selectedEntityType = "places"
+                                        selectedEntitySlug = slug
+                                    }
+                                )
                             }
 
                             // Files
@@ -250,29 +304,37 @@ struct MemoDetailView: View {
 
                     // MARK: Ask Past Self (Issue #11, 2026-07-03)
                     //
+                    // MARK: Echoes — related memories via entity overlap
+                    // (issue #835). Pure-local scan, renders nothing when the
+                    // memo has no compiled entity mentions or no kin.
+                    EchoesSection(memo: memo, onOpen: openEcho)
+
                     // Anchored just above the metadata footer. Opens the
                     // shared AskPastView (D1 memory-chat agent) with the
                     // current memo's body pre-seeded as the retrieval
                     // context. The action fires the standard
                     // `daypage://ask?q=` URL so navModel + RootView keep
                     // authoritative — no new sheet plumbing here.
-                    Divider()
-                        .background(DSColor.inkFaint)
-                        .padding(.vertical, DSSpacing.xl)
-
+                    // No divider above: the amber card is self-delimiting, and
+                    // a rule here boxed the CTA between two full-width lines.
                     Button {
                         Haptics.tapConfirm()
-                        let question = "关于这条 memo（\(memo.body.prefix(60))），我当时为什么这么想？"
-                        if let encoded = question.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-                           let url = URL(string: "daypage://ask?q=\(encoded)") {
-                            UIApplication.shared.open(url)
-                        }
+                        // Issue #837: 直接呈现 memo 锚定对话（不再走
+                        // daypage://ask URL round-trip）——memo 全文 + 实体
+                        // 作为一等上下文进入 Agent 检索循环。此 CTA 与
+                        // Drop-to-Ask 拖拽手势通向同一个 sheet：拖拽是
+                        // 彩蛋，CTA 是明路（也是无障碍路径）。
+                        showMemoChat = true
                     } label: {
                         HStack(spacing: 10) {
                             Image(systemName: "sparkles")
                                 .font(.system(size: 15, weight: .semibold))
                                 .foregroundColor(DSColor.accentOnBg)
-                            Text("追问过去的自己")
+                            Text(NSLocalizedString(
+                                "memo.detail.ask_past",
+                                value: "Ask your past self",
+                                comment: "Detail view — ask-past-self CTA label"
+                            ))
                                 .font(DSType.bodySM)
                                 .foregroundColor(DSColor.accentOnBg)
                             Spacer()
@@ -294,6 +356,7 @@ struct MemoDetailView: View {
                     .pressScale(scale: 0.98, opacity: 0.92,
                                 animation: .spring(response: 0.25, dampingFraction: 0.72))
                     .accessibilityIdentifier("memo.detail.ask.past")
+                    .padding(.top, 28)
 
                     // MARK: Metadata Section
                     Divider()
@@ -309,6 +372,14 @@ struct MemoDetailView: View {
                 .padding(.horizontal, DSSpacing.xl2)
                 .padding(.bottom, 32)
             }
+            // Issue #837: 小红书式拖拽——横向起手把整页凝缩成卡片，
+            // 投入底部对话坞 → memo 锚定 AI 对话；坞外右移超阈值 → 返回。
+            // 只包 ScrollView：AmbientBackground 留在原位当拖拽的舞台底。
+            .dropToAsk(
+                isEnabled: !isEditingBody,
+                onAsk: { showMemoChat = true },
+                onCommitBack: { dismiss() }
+            )
         }
         .navigationBarHidden(true)
         .onAppear {
@@ -322,8 +393,39 @@ struct MemoDetailView: View {
                 props: ["memo_id": memo.id.uuidString]
             )
         }
+        .task(id: memo.id) {
+            let slugs = memo.entityMentions.filter { !$0.isEmpty }
+            guard !slugs.isEmpty else { return }
+            entityDisplayNames = await Task.detached(priority: .utility) {
+                Self.resolveDisplayNames(for: slugs)
+            }.value
+        }
         .fullScreenCover(isPresented: $showPhotoFullscreen) {
             PhotoFullscreenView(image: fullResImage)
+        }
+        .sheet(isPresented: Binding(
+            get: { selectedEntitySlug != nil },
+            set: { if !$0 { selectedEntitySlug = nil } }
+        )) {
+            if let slug = selectedEntitySlug {
+                EntityPageView(
+                    entityType: selectedEntityType,
+                    entitySlug: slug,
+                    sourceDateString: DateFormatters.isoDate.string(from: memo.created)
+                )
+            }
+        }
+        // Issue #837: memo 锚定 AI 对话——Drop-to-Ask 拖拽与 ask-past CTA
+        // 汇入同一个 sheet。entityDisplayNames 复用实体墨迹的异步解析结果，
+        // 喂给对话的 retrieving 阶段文案与建议问题。
+        .sheet(isPresented: $showMemoChat) {
+            MemoChatView(
+                memo: memo,
+                entityDisplayNames: entityDisplayNames,
+                onClose: { showMemoChat = false }
+            )
+            .presentationDetents([.fraction(0.85), .large])
+            .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showShareSheet) {
             // Reuse the app-wide ShareSheet wrapper (Settings/ObsidianExport
@@ -366,6 +468,109 @@ struct MemoDetailView: View {
                 value: "This cannot be undone.",
                 comment: "Detail view — delete confirmation warning body"
             ))
+        }
+    }
+
+    // MARK: - Entity Ink (issue #835)
+
+    /// Body text with compiled entity mentions rendered as quiet amber-underlined
+    /// links. Mentions that don't literally appear in the text are skipped —
+    /// the ink never guesses.
+    private func inkedBody(_ text: String) -> AttributedString {
+        let polished = CJKTextPolish.polish(text)
+        var attr = AttributedString(polished)
+        guard !memo.entityMentions.isEmpty else { return attr }
+
+        for slug in memo.entityMentions where !slug.isEmpty {
+            // Latin slugs may appear verbatim or space-separated; CJK prose
+            // is matched via the wiki page's display name (resolved async).
+            // First variant that matches wins.
+            var terms = [slug, slug.replacingOccurrences(of: "-", with: " ")]
+            if let display = entityDisplayNames[slug], !display.isEmpty {
+                terms.insert(display, at: 0)
+            }
+            for term in terms {
+                var matched = false
+                var searchRange = polished.startIndex..<polished.endIndex
+                while let r = polished.range(
+                    of: term,
+                    options: [.caseInsensitive, .diacriticInsensitive],
+                    range: searchRange
+                ) {
+                    matched = true
+                    if let ar = Range(r, in: attr) {
+                        let encoded = slug.addingPercentEncoding(
+                            withAllowedCharacters: .alphanumerics
+                        ) ?? slug
+                        attr[ar].link = URL(string: "daypage-entity://o?s=\(encoded)")
+                        attr[ar].underlineStyle = Text.LineStyle(
+                            pattern: .solid,
+                            color: DSColor.amberAccent.opacity(0.5)
+                        )
+                        // Links default to tint blue — keep journal ink.
+                        attr[ar].foregroundColor = DSColor.inkPrimary
+                    }
+                    searchRange = r.upperBound..<polished.endIndex
+                }
+                if matched { break }
+            }
+        }
+        return attr
+    }
+
+    /// Reads each mention's wiki page frontmatter `name:` so display names
+    /// can be matched in prose. Slugs with no wiki page simply stay unmapped.
+    nonisolated private static func resolveDisplayNames(for slugs: [String]) -> [String: String] {
+        var map: [String: String] = [:]
+        let wikiBase = VaultInitializer.vaultURL.appendingPathComponent("wiki")
+        for slug in slugs {
+            for type in ["places", "people", "themes"] {
+                let url = wikiBase.appendingPathComponent(type).appendingPathComponent("\(slug).md")
+                guard let content = try? String(contentsOf: url, encoding: .utf8) else { continue }
+                for line in content.components(separatedBy: "\n").prefix(12) {
+                    let trimmed = line.trimmingCharacters(in: .whitespaces)
+                    guard trimmed.hasPrefix("name:") else { continue }
+                    let value = trimmed.dropFirst("name:".count)
+                        .trimmingCharacters(in: .whitespaces)
+                        .trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+                    if !value.isEmpty { map[slug] = value }
+                    break
+                }
+                if map[slug] != nil { break }
+            }
+        }
+        return map
+    }
+
+    private func openEntity(slug: String) {
+        Haptics.soft()
+        let wikiBase = VaultInitializer.vaultURL.appendingPathComponent("wiki")
+        for type in ["places", "people", "themes"] {
+            let url = wikiBase.appendingPathComponent(type).appendingPathComponent("\(slug).md")
+            if FileManager.default.fileExists(atPath: url.path) {
+                selectedEntityType = type
+                selectedEntitySlug = slug
+                return
+            }
+        }
+        selectedEntityType = "themes"
+        selectedEntitySlug = slug
+    }
+
+    // MARK: - Echoes navigation
+
+    /// Same dismiss-then-post pattern as EntityPageView's backlink rows: the
+    /// 200ms defer lets the pop animation land before `.openArchiveAt`
+    /// re-routes the app to that day.
+    private func openEcho(_ dateString: String) {
+        Haptics.soft()
+        dismiss()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            NotificationCenter.default.post(
+                name: .openArchiveAt,
+                object: nil,
+                userInfo: ["date": dateString]
+            )
         }
     }
 }
@@ -510,6 +715,16 @@ private struct DetailPhotoSection: View {
 
 private struct DetailLocationSection: View {
     let location: Memo.Location?
+    var memoDateString: String = ""
+    var onOpenPlace: ((String) -> Void)? = nil
+
+    /// "4TH VISIT · LAST 2026-03-18" — the map stops being a coordinate proof
+    /// and becomes your relationship with the place (issue #835). Computed
+    /// from the in-memory SearchIndex; silently absent until it's warm.
+    @State private var visitLine: String?
+    /// Non-nil once the place resolves to an existing wiki page — gates the
+    /// tap-through affordance so the name is never a dead button.
+    @State private var placeSlug: String?
 
     private var coordinate: CLLocationCoordinate2D? {
         guard let lat = location?.lat, let lng = location?.lng else { return nil }
@@ -523,10 +738,20 @@ private struct DetailLocationSection: View {
             VStack(alignment: .leading, spacing: 0) {
                 // Map preview
                 if let coord = coordinate {
+                    // 180pt keeps the map a contextual footnote — at 260 it
+                    // dominated the page over the journal text itself. Top-only
+                    // corners: the map sits flush inside the card, so rounding
+                    // its bottom edge opened hairline gaps mid-card.
                     MapPreviewView(coordinate: coord)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 260)
-                        .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
+                        .frame(height: 180)
+                        .clipShape(UnevenRoundedRectangle(
+                            topLeadingRadius: DSRadius.md,
+                            bottomLeadingRadius: 0,
+                            bottomTrailingRadius: 0,
+                            topTrailingRadius: DSRadius.md,
+                            style: .continuous
+                        ))
                 } else {
                     ZStack {
                         RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
@@ -543,18 +768,41 @@ private struct DetailLocationSection: View {
                     }
                 }
 
-                // Location name + coords
+                // Location name + coords + place story
                 VStack(alignment: .leading, spacing: DSSpacing.xs) {
                     if let name = location?.name, !name.isEmpty {
-                        Text(name)
-                            .font(DSType.serifBody16)
-                            .foregroundColor(DSColor.inkPrimary)
+                        Button {
+                            guard let slug = placeSlug else { return }
+                            Haptics.soft()
+                            onOpenPlace?(slug)
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text(name)
+                                    .font(DSType.serifBody16)
+                                    .foregroundColor(DSColor.inkPrimary)
+                                if placeSlug != nil {
+                                    Image(systemName: "arrow.up.right")
+                                        .font(.system(size: 9, weight: .semibold))
+                                        .foregroundColor(DSColor.accentOnBg.opacity(0.65))
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(placeSlug == nil)
                     }
                     if let coord = coordinate {
                         Text(String(format: "%.5f°, %.5f°", coord.latitude, coord.longitude))
                             .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
                             .foregroundColor(DSColor.inkMuted)
                             .tracking(0.4)
+                    }
+                    if let visitLine {
+                        Text(visitLine)
+                            .font(DSFonts.jetBrainsMono(size: 10))
+                            .tracking(0.6)
+                            .foregroundColor(DSColor.accentOnBg.opacity(0.75))
+                            .padding(.top, 4)
+                            .transition(.opacity)
                     }
                 }
                 .padding(.horizontal, 14)
@@ -585,6 +833,51 @@ private struct DetailLocationSection: View {
                 .disabled(coordinate == nil)
             }
             .liquidGlassCard(cornerRadius: DSRadius.md, tone: .lo)
+        }
+        .task(id: memoDateString) { await loadPlaceStory() }
+    }
+
+    /// Visit count from SearchIndex (in-memory, zero disk); place tap-through
+    /// gated on the wiki page actually existing. Both absent = zero UI.
+    private func loadPlaceStory() async {
+        guard let name = location?.name, !name.isEmpty else { return }
+
+        if !memoDateString.isEmpty, let docs = SearchIndex.shared.documentsIfBuilt() {
+            let folded = SearchService.foldForSearch(name)
+            let visitDays = docs
+                .filter { day in day.memos.contains { $0.foldedLocationName == folded } }
+                .map(\.dateString)
+                .sorted()
+            // Count = prior visit days + this one, so the line stays right
+            // even if today's write hasn't reached the index yet.
+            let priorDays = visitDays.filter { $0 < memoDateString }
+            if priorDays.isEmpty {
+                withAnimation(.easeOut(duration: 0.25)) { visitLine = "FIRST VISIT HERE" }
+            } else if let previous = priorDays.last {
+                withAnimation(.easeOut(duration: 0.25)) {
+                    visitLine = "\(Self.ordinal(priorDays.count + 1)) VISIT · LAST \(previous)"
+                }
+            }
+        }
+
+        let slug = EntityPageService.sanitizeSlug(name)
+        let url = VaultInitializer.vaultURL
+            .appendingPathComponent("wiki/places/\(slug).md")
+        if FileManager.default.fileExists(atPath: url.path) {
+            placeSlug = slug
+        }
+    }
+
+    private static func ordinal(_ n: Int) -> String {
+        switch n % 100 {
+        case 11, 12, 13: return "\(n)TH"
+        default:
+            switch n % 10 {
+            case 1:  return "\(n)ST"
+            case 2:  return "\(n)ND"
+            case 3:  return "\(n)RD"
+            default: return "\(n)TH"
+            }
         }
     }
 
@@ -781,10 +1074,15 @@ private struct DetailMetadataSection: View {
             // Body stats — only shown when there is actual body text
             if !bodyTrimmed.isEmpty {
                 let stats = bodyStats(for: bodyTrimmed)
-                metaRow(
-                    label: NSLocalizedString("memo.detail.meta.words", comment: ""),
-                    value: "\(stats.wordCount)"
-                )
+                // Pure-CJK text tokenizes one word per character, so the two
+                // rows would repeat the same number — show words only when
+                // the counts actually diverge.
+                if stats.wordCount != stats.charCount {
+                    metaRow(
+                        label: NSLocalizedString("memo.detail.meta.words", comment: ""),
+                        value: "\(stats.wordCount)"
+                    )
+                }
                 metaRow(
                     label: NSLocalizedString("memo.detail.meta.characters", comment: ""),
                     value: "\(stats.charCount)"
@@ -934,6 +1232,145 @@ struct PhotoFullscreenView: View {
                 Spacer()
             }
         }
+    }
+}
+
+// MARK: - EchoesSection (issue #835)
+
+/// "8 个月前的深夜，你也在改档案页" — related memories surfaced by entity
+/// overlap. Pure-local raw-vault scan (same mechanism EntityPageView uses for
+/// backlinks), run detached; renders nothing when the memo has no compiled
+/// mentions or no kin, so the page never shows an empty shell.
+private struct EchoesSection: View {
+    let memo: Memo
+    let onOpen: (String) -> Void
+
+    struct Echo: Identifiable, Equatable {
+        let id: String
+        let dateString: String
+        let snippet: String
+    }
+
+    @State private var echoes: [Echo] = []
+
+    var body: some View {
+        // Always-present container: a `Group { if … }` whose condition starts
+        // false has NO child view, so a `.task` hung on it never fires and
+        // the section could never populate. The VStack exists (zero-size)
+        // either way, keeping the loader alive while the empty state stays
+        // invisible — top padding is also gated so absence costs 0pt.
+        VStack(alignment: .leading, spacing: 8) {
+            if !echoes.isEmpty {
+                    sectionLabel(NSLocalizedString(
+                        "memo.detail.section.echoes",
+                        value: "Echoes",
+                        comment: "Detail view — related-memories section label"
+                    ))
+
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(echoes.enumerated()), id: \.element.id) { index, echo in
+                            if index > 0 {
+                                Divider()
+                                    .background(DSColor.glassRim)
+                                    .padding(.leading, 14)
+                            }
+                            Button {
+                                onOpen(echo.dateString)
+                            } label: {
+                                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                                    Text(echo.dateString)
+                                        .font(DSFonts.jetBrainsMono(size: 10))
+                                        .tracking(0.4)
+                                        .foregroundColor(DSColor.inkSubtle)
+                                        .layoutPriority(1)
+                                    Text(echo.snippet)
+                                        .font(DSFonts.serif(size: 14, weight: .regular, relativeTo: .subheadline))
+                                        .foregroundColor(DSColor.inkMuted)
+                                        .lineLimit(2)
+                                        .multilineTextAlignment(.leading)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 10, weight: .medium))
+                                        .foregroundColor(DSColor.inkSubtle.opacity(0.6))
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 12)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .liquidGlassCard(cornerRadius: DSRadius.md, tone: .lo)
+            }
+        }
+        .padding(.top, echoes.isEmpty ? 0 : 28)
+        .task(id: memo.id) {
+            let target = memo
+            let found = await Task.detached(priority: .utility) {
+                Self.findEchoes(for: target)
+            }.value
+            withAnimation(.easeOut(duration: 0.25)) { echoes = found }
+        }
+    }
+
+    /// Entity-overlap retrieval. `entityMentions` (post-compilation) is the
+    /// authoritative match key; body-contains is the fallback for days not
+    /// yet compiled. Same-day memos are excluded — an echo is a different day.
+    nonisolated private static func findEchoes(for memo: Memo) -> [Echo] {
+        let slugs = memo.entityMentions.filter { !$0.isEmpty }
+        guard !slugs.isEmpty else { return [] }
+
+        let ownDate = DateFormatters.isoDate.string(from: memo.created)
+        let rawDir = VaultInitializer.vaultURL.appendingPathComponent("raw")
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: rawDir, includingPropertiesForKeys: nil
+        ) else { return [] }
+
+        struct Candidate {
+            let dateString: String
+            let snippet: String
+            let shared: Int
+        }
+        var candidates: [Candidate] = []
+
+        for file in files where file.pathExtension == "md" {
+            let stem = file.deletingPathExtension().lastPathComponent
+            guard stem != ownDate,
+                  stem.range(of: #"^\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) != nil,
+                  let content = try? String(contentsOf: file, encoding: .utf8),
+                  slugs.contains(where: { content.contains($0) })
+            else { continue }
+
+            for m in RawStorage.parse(fileContent: content) where m.id != memo.id {
+                let shared = slugs.filter { s in
+                    m.entityMentions.contains(s) || m.body.contains(s)
+                }.count
+                guard shared > 0 else { continue }
+                let snippet = m.body
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .replacingOccurrences(of: "\n", with: " ")
+                guard !snippet.isEmpty else { continue }
+                candidates.append(Candidate(
+                    dateString: stem,
+                    snippet: String(snippet.prefix(72)),
+                    shared: shared
+                ))
+            }
+        }
+
+        // One echo per day: several hits from the same day crowd out other
+        // eras, and an echo's value is the span of time it bridges.
+        var bestPerDay: [String: Candidate] = [:]
+        for c in candidates where (bestPerDay[c.dateString]?.shared ?? -1) < c.shared {
+            bestPerDay[c.dateString] = c
+        }
+        return bestPerDay.values
+            .sorted { ($0.shared, $0.dateString) > ($1.shared, $1.dateString) }
+            .prefix(3)
+            .enumerated()
+            .map { index, c in
+                Echo(id: "\(c.dateString)-\(index)", dateString: c.dateString, snippet: c.snippet)
+            }
     }
 }
 

@@ -187,6 +187,8 @@
 		LS0000002 /* L10n.swift in Sources */ = {isa = PBXBuildFile; fileRef = LS1000004 /* L10n.swift */; };
 		MD0000001 /* MemoDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = MD1000001 /* MemoDetailView.swift */; };
 		MD0000002 /* MemoDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = MD1000002 /* MemoDetailViewModel.swift */; };
+		MD0000003 /* DropToAskGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = MD1000003 /* DropToAskGesture.swift */; };
+		MC0000001 /* MemoChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = MC1000001 /* MemoChatView.swift */; };
 		MSE0000001 /* MemoSyncE2EIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MSE1000001 /* MemoSyncE2EIntegrationTests.swift */; };
 		MST0000001 /* MemoSyncUploaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MST1000001 /* MemoSyncUploaderTests.swift */; };
 		MYT0000001 /* MemoYAMLTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MYT1000001 /* MemoYAMLTests.swift */; };
@@ -437,6 +439,8 @@
 		LS1000004 /* L10n.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = L10n.swift; sourceTree = "<group>"; };
 		MD1000001 /* MemoDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoDetailView.swift; sourceTree = "<group>"; };
 		MD1000002 /* MemoDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoDetailViewModel.swift; sourceTree = "<group>"; };
+		MD1000003 /* DropToAskGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropToAskGesture.swift; sourceTree = "<group>"; };
+		MC1000001 /* MemoChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoChatView.swift; sourceTree = "<group>"; };
 		MSE1000001 /* MemoSyncE2EIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoSyncE2EIntegrationTests.swift; sourceTree = "<group>"; };
 		MST1000001 /* MemoSyncUploaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoSyncUploaderTests.swift; sourceTree = "<group>"; };
 		MYT1000001 /* MemoYAMLTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoYAMLTests.swift; sourceTree = "<group>"; };
@@ -536,6 +540,7 @@
 			isa = PBXGroup;
 			children = (
 				1681BDF1E5113769618DA9B0 /* AskPastView.swift */,
+				MC1000001 /* MemoChatView.swift */,
 			);
 			name = Ask;
 			path = Ask;
@@ -1052,6 +1057,7 @@
 			children = (
 				MD1000001 /* MemoDetailView.swift */,
 				MD1000002 /* MemoDetailViewModel.swift */,
+				MD1000003 /* DropToAskGesture.swift */,
 			);
 			path = MemoDetail;
 			sourceTree = "<group>";
@@ -1477,6 +1483,8 @@
 				FT0000001 /* DayOrbView.swift in Sources */,
 				MD0000001 /* MemoDetailView.swift in Sources */,
 				MD0000002 /* MemoDetailViewModel.swift in Sources */,
+				MD0000003 /* DropToAskGesture.swift in Sources */,
+				MC0000001 /* MemoChatView.swift in Sources */,
 				WS0000001 /* WelcomeScreen.swift in Sources */,
 				A10000095 /* ComposerContextProvider.swift in Sources */,
 				457A17AB7F3B4BE7C2E77026 /* StartRecordingIntent.swift in Sources */,

@@ -123,6 +123,7 @@ struct MemoYAMLTests {
             ],
             mood: "happy\\\"weird\"",
             entityMentions: ["Alice \"the\\nGreat\""],
+            marginNote: "note with \"quote\" and \\n literal",
             body: "ok"
         )
         guard let parsed = Memo.fromMarkdown(memo.toMarkdown()) else {
@@ -130,5 +131,30 @@ struct MemoYAMLTests {
             return
         }
         #expect(parsed == memo)
+    }
+
+    @Test func margin_note_roundTrips_and_absent_key_is_nil() {
+        // Issue #835 — marginalia is a compilation-writeback scalar like mood;
+        // it must survive the YAML round-trip including tricky characters.
+        let memo = Memo(
+            id: UUID(),
+            type: .text,
+            created: fixedDate,
+            marginNote: "本月第三次在凌晨谈\"收敛\" \\n 值得注意",
+            body: "凌晨还在改档案页。"
+        )
+        let markdown = memo.toMarkdown()
+        #expect(markdown.contains("margin_note:"))
+        guard let parsed = Memo.fromMarkdown(markdown) else {
+            Issue.record("fromMarkdown returned nil")
+            return
+        }
+        #expect(parsed == memo)
+        #expect(parsed.marginNote == memo.marginNote)
+
+        // Legacy files without the key must parse to nil, not empty string.
+        let legacy = Memo(id: UUID(), type: .text, created: fixedDate, body: "旧数据")
+        let reparsed = Memo.fromMarkdown(legacy.toMarkdown())
+        #expect(reparsed?.marginNote == nil)
     }
 }

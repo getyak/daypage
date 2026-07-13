@@ -720,10 +720,16 @@ struct LocationPreviewSheet: View {
 struct MapPreviewView: UIViewRepresentable {
     let coordinate: CLLocationCoordinate2D
 
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
     func makeUIView(context: Context) -> MKMapView {
         let map = MKMapView()
         map.isUserInteractionEnabled = false
         map.showsUserLocation = false
+        // Journal context, not a navigation surface — strip POI labels so the
+        // street grid reads as a quiet etching instead of a business directory.
+        map.pointOfInterestFilter = .excludingAll
+        map.delegate = context.coordinator
         return map
     }
 
@@ -735,6 +741,28 @@ struct MapPreviewView: UIViewRepresentable {
         let pin = MKPointAnnotation()
         pin.coordinate = coordinate
         mapView.addAnnotation(pin)
+    }
+
+    final class Coordinator: NSObject, MKMapViewDelegate {
+        func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            let id = "memo.pin"
+            let view = mapView.dequeueReusableAnnotationView(withIdentifier: id)
+                ?? MKAnnotationView(annotation: annotation, reuseIdentifier: id)
+            view.annotation = annotation
+            // Brand-amber dot with a white ring — the system red balloon is
+            // the only off-palette element on an otherwise warm surface.
+            let size: CGFloat = 16
+            view.frame = CGRect(x: 0, y: 0, width: size, height: size)
+            view.layer.cornerRadius = size / 2
+            view.backgroundColor = UIColor(red: 0xA8 / 255, green: 0x54 / 255, blue: 0x1B / 255, alpha: 1)
+            view.layer.borderColor = UIColor.white.cgColor
+            view.layer.borderWidth = 2.5
+            view.layer.shadowColor = UIColor.black.cgColor
+            view.layer.shadowOpacity = 0.25
+            view.layer.shadowRadius = 3
+            view.layer.shadowOffset = CGSize(width: 0, height: 1)
+            return view
+        }
     }
 }
 
