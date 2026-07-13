@@ -1209,7 +1209,7 @@ struct SettingsView: View {
             if counts.isEmpty {
                 Text("今天还没有事件")
                     .font(DSType.labelSM)
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
             } else {
                 ForEach(counts.sorted(by: { $0.key < $1.key }), id: \.key) { (name, count) in
                     HStack {

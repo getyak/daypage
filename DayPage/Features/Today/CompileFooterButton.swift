@@ -163,7 +163,7 @@ struct CompileFooterButton: View {
                 Text(NSLocalizedString("compile.dock.ai_disabled",
                                        comment: "Hint under compile button when AI features are off"))
                     .font(DSType.mono10)
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
                     .tracking(0.5)
                     .opacity(0.8)
             }
@@ -171,7 +171,7 @@ struct CompileFooterButton: View {
             else if !isCompiling && errorMessage == nil {
                 Text(timeHint)
                     .font(DSType.mono10)
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
                     .tracking(0.5)
                     .opacity(0.8)
                     .transition(.opacity)
@@ -290,7 +290,7 @@ struct CompileProgressDock: View {
                 remaining: max(0, 3 - memoCount)
             ))
             .font(DSType.mono10)
-            .foregroundColor(DSColor.inkSubtle)
+            .foregroundColor(DSColor.inkMuted)
             .textCase(.uppercase)
             .tracking(0.8)
         }

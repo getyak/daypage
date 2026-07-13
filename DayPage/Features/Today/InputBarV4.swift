@@ -637,7 +637,7 @@ struct InputBarV4: View {
                 .tracking(1.0)
                 .textCase(.uppercase)
                 .monospacedDigit()
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
                 .accessibilityLabel(countLabel)
                 .accessibilityIdentifier("composer-word-count")
         }

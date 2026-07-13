@@ -386,7 +386,7 @@ struct WriteSheetView: View {
                 Text(stamp)
                     .font(DSFonts.jetBrainsMono(size: 10, weight: .bold))
                     .tracking(1.6)
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
             }
 
             Spacer()
@@ -747,7 +747,7 @@ struct WriteSheetView: View {
     private var savedCaption: some View {
         HStack(spacing: 8) {
             Text("SAVED TO")
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
             Text("VAULT / \(isoDate).md")
                 .foregroundColor(DSColor.inkMuted)
         }

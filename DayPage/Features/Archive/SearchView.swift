@@ -719,7 +719,7 @@ struct SearchView: View {
                 .font(DSType.mono10)
                 .tracking(1.2)
                 .textCase(.uppercase)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
             Text(value)
                 .font(DSFonts.serif(size: 22, weight: .regular))
                 .foregroundColor(DSColor.inkPrimary)

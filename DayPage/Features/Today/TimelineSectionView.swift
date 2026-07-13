@@ -323,7 +323,7 @@ struct TimelineDayRow: View {
                 .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
                 .tracking(1.8)
                 .textCase(.uppercase)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
             Text(monthDayLabel)
                 .font(DSFonts.spaceGrotesk(size: 13, weight: .semibold))
                 .tracking(-0.1)
@@ -773,7 +773,7 @@ enum TimelineSpine {
                     Text(tag)
                         .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
                         .tracking(1.6)
-                        .foregroundColor(DSColor.inkSubtle)
+                        .foregroundColor(DSColor.inkMuted)
                 }
                 Spacer(minLength: 12)
                 right()
@@ -801,7 +801,7 @@ enum TimelineSpine {
                 Text(sub)
                     .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
                     .tracking(1.6)
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
             }
             .padding(.horizontal, sectionPadH)
             .padding(.top, 20)
@@ -924,7 +924,7 @@ struct TimelineDayPreviewCard: View {
                                        comment: ""))
                     .font(DSFonts.serif(size: 16))
                     .italic()
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
             }
             Divider().padding(.vertical, 2)
             VStack(alignment: .leading, spacing: 8) {
@@ -943,7 +943,7 @@ struct TimelineDayPreviewCard: View {
                     ), memos.count - 3))
                         .font(DSFonts.jetBrainsMono(size: 10, weight: .bold))
                         .tracking(1.4)
-                        .foregroundColor(DSColor.inkSubtle)
+                        .foregroundColor(DSColor.inkMuted)
                 }
             }
             Spacer(minLength: 0)
@@ -962,7 +962,7 @@ struct TimelineDayPreviewCard: View {
             Text("\(entry.memoCount) MEMOS")
                 .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold))
                 .tracking(1.4)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
         }
     }
 }

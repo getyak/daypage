@@ -1101,7 +1101,7 @@ struct TodayView: View {
                 .frame(width: 6, height: 6)
             Text(text)
                 .font(DSType.mono10)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
                 .textCase(.uppercase)
                 .tracking(0.8)
         }
@@ -1148,7 +1148,7 @@ struct TodayView: View {
             Text(NSLocalizedString("today.sync.prompt", value: "SYNC ACROSS DEVICES", comment: "One-line sign-in prompt on Today"))
                 .font(DSType.mono10)
                 .tracking(1.2)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
                 .lineLimit(1)
             Spacer(minLength: 12)
             Button {
@@ -1406,7 +1406,7 @@ struct TodayView: View {
                     comment: "Today status line shown when DeepSeek/Whisper key is missing"
                 ))
                     .font(DSFonts.serif(size: 13, weight: .regular))
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(DSColor.inkMuted.opacity(0.7))
@@ -1832,7 +1832,7 @@ struct TodayView: View {
                     Text(kickerText)
                         .font(DSType.mono10)
                         .tracking(1.0)
-                        .foregroundColor(DSColor.inkSubtle)
+                        .foregroundColor(DSColor.inkMuted)
                         .textCase(.uppercase)
                         .dynamicTypeSize(.xSmall ... .accessibility5)
                         .accessibilityLabel(kickerText)
@@ -1852,7 +1852,7 @@ struct TodayView: View {
             Text(NSLocalizedString("today.section.yesterday", comment: ""))
                 .font(DSType.mono10)
                 .tracking(1.0)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
                 .dynamicTypeSize(.xSmall ... .accessibility5)
                 .padding(.horizontal, 20)
 
@@ -2176,7 +2176,7 @@ struct TodayView: View {
                     Text(NSLocalizedString("today.empty.poem.subtitle",
                                            comment: "Empty-state poem secondary line (e.g. 我陪你整理。)"))
                         .font(DSFonts.serif(size: 17, weight: .regular))
-                        .foregroundColor(DSColor.inkSubtle)
+                        .foregroundColor(DSColor.inkMuted)
                         .multilineTextAlignment(.center)
                         .dynamicTypeSize(.xSmall ... .accessibility2)
                         .minimumScaleFactor(0.7)
@@ -2247,7 +2247,7 @@ struct TodayView: View {
                     .font(DSType.mono10)
                     .tracking(1.2)
                     .textCase(.uppercase)
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
                     .padding(.top, 6)
             }
             .buttonStyle(.plain)
@@ -2288,7 +2288,7 @@ struct TodayView: View {
             .font(DSType.mono10)
             .tracking(1.0)
             .textCase(.uppercase)
-            .foregroundColor(DSColor.inkSubtle)
+            .foregroundColor(DSColor.inkMuted)
 
             Spacer()
 
@@ -3337,7 +3337,7 @@ struct TodayView: View {
         let separator = "  ·  "
         Text((dateStr + separator + timeOfDay).uppercased())
             .font(DSType.mono10)
-            .foregroundColor(DSColor.inkSubtle)
+            .foregroundColor(DSColor.inkMuted)
             .tracking(1.0)
             .dynamicTypeSize(.xSmall ... .accessibility5)
             .minimumScaleFactor(0.75)
@@ -3637,15 +3637,15 @@ private struct LocationDraftRow: View {
                 HStack(spacing: 4) {
                     Text(formatTime(draft.arrivalDate))
                         .font(DSType.mono10)
-                        .foregroundColor(DSColor.inkSubtle)
+                        .foregroundColor(DSColor.inkMuted)
                         .textCase(.uppercase)
                     if let dur = durationText {
                         Text("·")
                             .font(DSType.mono10)
-                            .foregroundColor(DSColor.inkSubtle)
+                            .foregroundColor(DSColor.inkMuted)
                         Text(dur)
                             .font(DSType.mono10)
-                            .foregroundColor(DSColor.inkSubtle)
+                            .foregroundColor(DSColor.inkMuted)
                     }
                 }
             }
@@ -3745,7 +3745,7 @@ struct CompilationProgressBar: View {
 
             Text(label)
                 .font(DSType.mono10)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
                 .textCase(.uppercase)
                 .tracking(0.8)
                 .frame(maxWidth: .infinity, alignment: .leading)

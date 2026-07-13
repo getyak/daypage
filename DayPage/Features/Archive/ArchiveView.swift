@@ -570,7 +570,7 @@ struct ArchiveView: View {
                                             .tint(DSColor.accentOnBg)
                                         Text(NSLocalizedString("archive.loading_month", comment: ""))
                                             .font(DSType.mono9)
-                                            .foregroundColor(DSColor.inkSubtle)
+                                            .foregroundColor(DSColor.inkMuted)
                                             .tracking(1.0)
                                             .textCase(.uppercase)
                                     }
@@ -819,11 +819,11 @@ struct ArchiveView: View {
                     HStack(spacing: 4) {
                         Text(viewModel.currentMonthTitle.uppercased())
                             .font(DSType.mono10)
-                            .foregroundColor(DSColor.inkSubtle)
+                            .foregroundColor(DSColor.inkMuted)
                             .tracking(1.0)
                         Image(systemName: "chevron.down")
                             .font(.system(size: 8, weight: .semibold))
-                            .foregroundColor(DSColor.inkSubtle)
+                            .foregroundColor(DSColor.inkMuted)
                     }
                     .contentShape(Rectangle())
                 }
@@ -872,7 +872,7 @@ struct ArchiveView: View {
                 .foregroundColor(DSColor.inkFaint)
             Text(NSLocalizedString("archive.month.empty", comment: "Empty month hint"))
                 .font(DSType.bodySM)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
@@ -1148,7 +1148,7 @@ struct ArchiveView: View {
         HStack(spacing: 8) {
             Text("Activity:")
                 .monoLabelStyle(size: 9)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
 
             ForEach([DayStats.DensityLevel.empty, .low, .medium, .high], id: \.label) { level in
                 RoundedRectangle(cornerRadius: 3, style: .continuous)
@@ -1158,7 +1158,7 @@ struct ArchiveView: View {
 
             Text(NSLocalizedString("archive.heatmap.higher", comment: "Heatmap legend higher"))
                 .monoLabelStyle(size: 9)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
 
             Spacer()
         }
@@ -1174,7 +1174,7 @@ struct ArchiveView: View {
             HStack(spacing: 16) {
                 Text(String(format: NSLocalizedString("archive.summary.title", comment: "Monthly summary section title; %@ = month title"), viewModel.currentMonthTitle))
                     .font(DSType.sectionLabel)
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
                 Rectangle()
                     .fill(DSColor.inkFaint)
                     .frame(height: 0.5)
@@ -1344,7 +1344,7 @@ struct ArchiveView: View {
                 if let unit {
                     Text(unit.uppercased())
                         .monoLabelStyle(size: 10)
-                        .foregroundColor(DSColor.inkSubtle)
+                        .foregroundColor(DSColor.inkMuted)
                 }
             }
         }
@@ -1462,7 +1462,7 @@ struct ArchiveView: View {
         return VStack(alignment: .leading, spacing: 12) {
             Text("\(viewModel.currentMonthTitle) · DIGEST")
                 .monoLabelStyle(size: 10)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
 
             HStack(alignment: .top, spacing: 0) {
                 digestStat(value: "\(activeDays)", label: "DAYS", accent: true)
@@ -1502,7 +1502,7 @@ struct ArchiveView: View {
                 .minimumScaleFactor(0.5)
             Text(label)
                 .monoLabelStyle(size: 9)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -1552,7 +1552,7 @@ struct ArchiveView: View {
                     .foregroundColor(DSColor.inkPrimary)
                 Text(isoWeek)
                     .font(DSType.mono11)
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
             }
             Spacer(minLength: 0)
             Image(systemName: "chevron.right")
@@ -1622,10 +1622,10 @@ struct ArchiveView: View {
         HStack(spacing: 4) {
             Image(systemName: systemName)
                 .font(DSType.labelXS)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
             Text(unit != nil ? "\(count) \(unit!)" : "\(count)")
                 .monoLabelStyle(size: 11)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
         }
     }
 }

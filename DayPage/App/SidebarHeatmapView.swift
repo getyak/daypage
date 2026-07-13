@@ -143,7 +143,7 @@ struct SidebarHeatmapView: View {
                 Text(NSLocalizedString("heatmap.entries", comment: "Entries unit"))
                     .font(DSType.mono9)
                     .tracking(1.2)
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
             }
         }
     }
@@ -203,7 +203,7 @@ struct SidebarHeatmapView: View {
                 let rawX = railWidth + CGFloat(label.column) * (cellW + cellSpacing)
                 let text = Text(label.text)
                     .font(.system(size: 8, design: .monospaced))
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
                 let resolved = context.resolve(text)
                 let textWidth = resolved.measure(in: CGSize(width: 60, height: 12)).width
                 let x = min(rawX, size.width - textWidth)
@@ -329,7 +329,7 @@ struct SidebarHeatmapView: View {
             HStack(spacing: 5) {
                 Text("LESS")
                     .font(DSType.mono9).tracking(1.2)
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
                 ForEach(Self.palette.indices, id: \.self) { i in
                     RoundedRectangle(cornerRadius: 2, style: .continuous)
                         .fill(Self.palette[i])
@@ -337,7 +337,7 @@ struct SidebarHeatmapView: View {
                 }
                 Text("MORE")
                     .font(DSType.mono9).tracking(1.2)
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
             }
             Spacer()
             if streak > 0 {

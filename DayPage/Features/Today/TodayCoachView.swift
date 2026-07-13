@@ -62,7 +62,7 @@ struct TodayCoachView: View {
                 Text("DAYPAGE · COACH")
                     .font(DSFonts.jetBrainsMono(size: 8.5, weight: .semibold))
                     .tracking(1.8)
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
             }
             HStack {
                 Button(action: onClose) {

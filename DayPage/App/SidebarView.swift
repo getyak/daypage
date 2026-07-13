@@ -182,14 +182,14 @@ struct SidebarView: View {
                     Text(membershipLine)
                         .font(DSType.mono10)
                         .tracking(1.2)
-                        .foregroundColor(DSColor.inkSubtle)
+                        .foregroundColor(DSColor.inkMuted)
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
             }
             .contentShape(Rectangle())
         }
@@ -274,13 +274,13 @@ struct SidebarView: View {
         VStack(spacing: 4) {
             Text(label)
                 .font(DSType.mono9).tracking(1.4)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
             Text(value)
                 .font(DSFonts.serif(size: 22, weight: .semibold))
                 .foregroundColor(DSColor.inkPrimary)
             Text(unit)
                 .font(DSType.mono9).tracking(1.2)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
@@ -442,7 +442,7 @@ struct SidebarView: View {
                     Spacer()
                     Text("Post-MVP")
                         .font(DSType.mono9)
-                        .foregroundColor(DSColor.inkSubtle)
+                        .foregroundColor(DSColor.inkMuted)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
                         .background(DSColor.amberSoft, in: Capsule())
@@ -506,7 +506,7 @@ struct SidebarView: View {
             HStack(spacing: 6) {
                 Text("Recent")
                     .font(DSType.mono9)
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
                     .tracking(1.2)
                     .textCase(.uppercase)
                 Text("\(sidebarVM.recentDays.count)")
@@ -518,7 +518,7 @@ struct SidebarView: View {
                 Spacer()
                 Image(systemName: "chevron.down")
                     .font(.system(size: 9, weight: .semibold))
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
                     .rotationEffect(.degrees(recentExpanded ? 0 : -90))
             }
             .padding(.leading, 34)  // align with row text column (2 + 12 + 20)
@@ -554,7 +554,7 @@ struct SidebarView: View {
                         .foregroundColor(DSColor.inkPrimary)
                     Text(day.dateString)
                         .font(DSType.mono9)
-                        .foregroundColor(DSColor.inkSubtle)
+                        .foregroundColor(DSColor.inkMuted)
                         .tracking(0.5)
                         .textCase(.uppercase)
                 }
@@ -584,7 +584,7 @@ struct SidebarView: View {
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
             .font(DSType.mono9)
-            .foregroundColor(DSColor.inkSubtle)
+            .foregroundColor(DSColor.inkMuted)
             .tracking(1.2)
             .textCase(.uppercase)
             .padding(.leading, 34)  // align with row text column (2 + 12 + 20)

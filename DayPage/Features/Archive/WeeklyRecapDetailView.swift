@@ -104,7 +104,7 @@ struct WeeklyRecapDetailView: View {
             }
             Text("\(isoWeek) · \(rangeText)")
                 .font(DSType.mono11)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)

@@ -160,7 +160,7 @@ struct GraphView: View {
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
                                     .font(.system(size: 14))
-                                    .foregroundColor(DSColor.inkSubtle)
+                                    .foregroundColor(DSColor.inkMuted)
                                     .frame(width: 28, height: 28)
                                     .contentShape(Rectangle())
                             }
@@ -1368,7 +1368,7 @@ struct GraphView: View {
                     Spacer(minLength: DSSpacing.sm)
                     Image(systemName: "chevron.right")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(DSColor.inkSubtle)
+                        .foregroundColor(DSColor.inkMuted)
                 }
                 .padding(.horizontal, DSSpacing.lg)
                 .padding(.vertical, DSSpacing.md)

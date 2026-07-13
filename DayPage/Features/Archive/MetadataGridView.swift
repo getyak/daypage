@@ -68,7 +68,7 @@ struct MetadataGridView: View {
             Text(tile.label)
                 .font(DSFonts.jetBrainsMono(size: 8.5, weight: .bold))
                 .tracking(1.4)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
 
             Text(tile.value)
                 .font(DSFonts.spaceGrotesk(size: 18, weight: .semibold))
@@ -80,7 +80,7 @@ struct MetadataGridView: View {
                 Text(sub)
                     .font(DSFonts.jetBrainsMono(size: 8, weight: .regular))
                     .tracking(1.2)
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
                     .padding(.top, 4)
             }
         }

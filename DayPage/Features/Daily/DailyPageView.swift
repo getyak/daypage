@@ -419,7 +419,7 @@ struct DailyPageView: View {
                     if disabled {
                         Text("Coming soon")
                             .font(DSType.mono9)
-                            .foregroundColor(DSColor.inkSubtle)
+                            .foregroundColor(DSColor.inkMuted)
                             .padding(.horizontal, 4)
                             .padding(.vertical, 2)
                             .background(DSColor.amberSoft, in: Capsule())

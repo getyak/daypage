@@ -138,7 +138,7 @@ struct MemoDetailView: View {
                     // MARK: Kicker — mono date + time
                     Text(kickerText)
                         .font(DSType.mono10)
-                        .foregroundColor(DSColor.inkSubtle)
+                        .foregroundColor(DSColor.inkMuted)
                         .tracking(1.2)
                         .padding(.bottom, 14)
 
@@ -465,7 +465,7 @@ private struct DetailPhotoSection: View {
                     .font(DSFonts.jetBrainsMono(size: 10))
                     .tracking(0.4)
             }
-            .foregroundColor(DSColor.inkSubtle)
+            .foregroundColor(DSColor.inkMuted)
             .textCase(.uppercase)
         }
     }
@@ -528,10 +528,10 @@ private struct DetailLocationSection: View {
                         VStack(spacing: 6) {
                             Image(systemName: "map")
                                 .font(.system(size: 28))
-                                .foregroundColor(DSColor.inkSubtle)
+                                .foregroundColor(DSColor.inkMuted)
                             Text(NSLocalizedString("memo.detail.location.no_coordinates", comment: ""))
                                 .font(DSType.bodySM)
-                                .foregroundColor(DSColor.inkSubtle)
+                                .foregroundColor(DSColor.inkMuted)
                         }
                     }
                 }
@@ -546,7 +546,7 @@ private struct DetailLocationSection: View {
                     if let coord = coordinate {
                         Text(String(format: "%.5f°, %.5f°", coord.latitude, coord.longitude))
                             .font(DSFonts.jetBrainsMono(size: 11))
-                            .foregroundColor(DSColor.inkSubtle)
+                            .foregroundColor(DSColor.inkMuted)
                             .tracking(0.4)
                     }
                 }
@@ -567,7 +567,7 @@ private struct DetailLocationSection: View {
                         Spacer()
                         Image(systemName: "arrow.up.right")
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(DSColor.inkSubtle)
+                            .foregroundColor(DSColor.inkMuted)
                     }
                     .padding(.horizontal, 14)
                     .padding(.vertical, 14)
@@ -662,7 +662,7 @@ private struct DetailFileRow: View {
                 if !fileSize.isEmpty {
                     Text(fileSize)
                         .font(DSFonts.jetBrainsMono(size: 10))
-                        .foregroundColor(DSColor.inkSubtle)
+                        .foregroundColor(DSColor.inkMuted)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -758,7 +758,7 @@ private struct DetailMetadataSection: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Metadata")
                 .font(DSType.mono10)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
                 .tracking(1.2)
                 .textCase(.uppercase)
                 .padding(.bottom, 4)
@@ -870,7 +870,7 @@ private struct DetailMetadataSection: View {
             Text(label.uppercased())
                 .font(DSFonts.jetBrainsMono(size: 10))
                 .tracking(0.6)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
                 .frame(width: 100, alignment: .leading)
             Text(value)
                 .font(DSFonts.jetBrainsMono(size: 10))
@@ -927,6 +927,6 @@ struct PhotoFullscreenView: View {
 private func sectionLabel(_ title: String) -> some View {
     Text(title.uppercased())
         .font(DSType.mono10)
-        .foregroundColor(DSColor.inkSubtle)
+        .foregroundColor(DSColor.inkMuted)
         .tracking(1.2)
 }
