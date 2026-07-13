@@ -117,7 +117,7 @@ struct RecordingOverlayView: View {
                             Image(systemName: "arrow.left")
                                 .font(.system(size: 14, weight: .semibold))
                             Text(L10n.Recording.cancel)
-                                .font(DSFonts.inter(size: 11, weight: .medium))
+                                .font(DSFonts.inter(size: 11, weight: .medium, relativeTo: .caption))
                         }
                         .foregroundColor(DSColor.onRecording.opacity(0.55))
                         .accessibilityElement(children: .combine)
@@ -127,7 +127,7 @@ struct RecordingOverlayView: View {
                             Image(systemName: "arrow.right")
                                 .font(.system(size: 14, weight: .semibold))
                             Text(L10n.Recording.transcribe)
-                                .font(DSFonts.inter(size: 11, weight: .medium))
+                                .font(DSFonts.inter(size: 11, weight: .medium, relativeTo: .caption))
                         }
                         .foregroundColor(DSColor.onRecording.opacity(0.55))
                         .accessibilityElement(children: .combine)
@@ -139,7 +139,7 @@ struct RecordingOverlayView: View {
                         Image(systemName: "arrow.left")
                             .font(.system(size: 14, weight: .semibold))
                         Text(L10n.Recording.releaseToCancel)
-                            .font(DSFonts.inter(size: 12, weight: .medium))
+                            .font(DSFonts.inter(size: 12, weight: .medium, relativeTo: .caption))
                     }
                     .foregroundColor(DSTokens.Colors.recordingRed)
                     .padding(.top, DSSpacing.sm)
@@ -150,7 +150,7 @@ struct RecordingOverlayView: View {
                         Image(systemName: "arrow.right")
                             .font(.system(size: 14, weight: .semibold))
                         Text(L10n.Recording.releaseToTranscribe)
-                            .font(DSFonts.inter(size: 12, weight: .medium))
+                            .font(DSFonts.inter(size: 12, weight: .medium, relativeTo: .caption))
                     }
                     .foregroundColor(DSColor.transcribeBlue)
                     .padding(.top, DSSpacing.sm)
@@ -161,11 +161,11 @@ struct RecordingOverlayView: View {
                 // Status + timer
                 VStack(spacing: 6) {
                     Text(statusText)
-                        .font(DSFonts.inter(size: 15, weight: .medium))
+                        .font(DSFonts.inter(size: 15, weight: .medium, relativeTo: .subheadline))
                         .foregroundColor(DSColor.onRecording.opacity(0.90))
 
                     Text(formattedTime(elapsedSeconds))
-                        .font(DSFonts.jetBrainsMono(size: 24, weight: .medium))
+                        .font(DSFonts.jetBrainsMono(size: 24, weight: .medium, relativeTo: .title2))
                         .foregroundColor(DSColor.onRecording)
                         .monospacedDigit()
 
@@ -187,7 +187,7 @@ struct RecordingOverlayView: View {
                                 Image(systemName: "xmark")
                                     .font(.system(size: 16, weight: .semibold))
                                 Text(L10n.Recording.cancel)
-                                    .font(DSFonts.inter(size: 12, weight: .medium))
+                                    .font(DSFonts.inter(size: 12, weight: .medium, relativeTo: .caption))
                             }
                             .foregroundColor(mode == .cancelArmed ? DSTokens.Colors.recordingRed : DSColor.onRecording.opacity(0.75))
                             .frame(width: 72, height: 56)
@@ -207,7 +207,7 @@ struct RecordingOverlayView: View {
                                 Image(systemName: mode == .transcribeArmed ? "text.bubble" : "checkmark")
                                     .font(.system(size: 16, weight: .semibold))
                                 Text(mode == .transcribeArmed ? L10n.Recording.transcribe : L10n.Recording.save)
-                                    .font(DSFonts.inter(size: 12, weight: .medium))
+                                    .font(DSFonts.inter(size: 12, weight: .medium, relativeTo: .caption))
                             }
                             .foregroundColor(mode == .transcribeArmed ? Color(red: 0.30, green: 0.55, blue: 1.0) : DSColor.onRecording.opacity(0.90))
                             .frame(width: 72, height: 56)

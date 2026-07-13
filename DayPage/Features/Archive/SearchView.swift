@@ -721,7 +721,7 @@ struct SearchView: View {
                 .textCase(.uppercase)
                 .foregroundColor(DSColor.inkMuted)
             Text(value)
-                .font(DSFonts.serif(size: 22, weight: .regular))
+                .font(DSFonts.serif(size: 22, weight: .regular, relativeTo: .title2))
                 .foregroundColor(DSColor.inkPrimary)
         }
     }

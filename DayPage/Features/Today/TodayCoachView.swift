@@ -56,11 +56,11 @@ struct TodayCoachView: View {
         ZStack {
             VStack(spacing: 2) {
                 Text("陪你写今天")
-                    .font(DSFonts.serif(size: 17, weight: .semibold))
+                    .font(DSFonts.serif(size: 17, weight: .semibold, relativeTo: .headline))
                     .tracking(-0.2)
                     .foregroundColor(DSColor.inkPrimary)
                 Text("DAYPAGE · COACH")
-                    .font(DSFonts.jetBrainsMono(size: 8.5, weight: .semibold))
+                    .font(DSFonts.jetBrainsMono(size: 8.5, weight: .semibold, relativeTo: .caption2))
                     .tracking(1.8)
                     .foregroundColor(DSColor.inkMuted)
             }
