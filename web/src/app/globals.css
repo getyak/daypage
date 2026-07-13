@@ -35,7 +35,6 @@
   --font-family-serif: "Fraunces";
   --font-family-body: "Inter";
   --font-family-mono: "JetBrains Mono";
-  --font-family-handwrite: "Caveat";
 
   /* Font sizes (px) */
   --font-size-hero: 56px;
@@ -91,14 +90,6 @@
   --motion-medium: 280ms;
   --motion-slow: 320ms;
   --motion-island: 360ms;
-
-  /* Gestures */
-  --gesture-swipe-reveal-width: 132;
-  --gesture-swipe-overshoot: 32;
-  --gesture-swipe-damp: 0.18;
-  --gesture-long-press-ms: 220;
-  --gesture-drag-vs-tap-threshold: 6;
-  --gesture-sheet-close-threshold: 80;
 }
 
 /* Dark mode — explicit user opt-in via <html data-theme="dark"> */

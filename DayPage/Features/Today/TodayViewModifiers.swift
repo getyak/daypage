@@ -1,0 +1,103 @@
+import SwiftUI
+
+// MARK: - Today scroll / transition modifiers
+//
+// Extracted from TodayView.swift (#16 密度收敛): pure ViewModifiers and the
+// scroll-offset PreferenceKey used by TodayView. All are availability-gated
+// self-contained wrappers (iOS 17 scroll entrance / numericText, iOS 18 card
+// zoom hero) with no coupling to TodayView state — moved out verbatim.
+
+// US-005: PreferenceKey used to propagate the ScrollView offset up to TodayView.
+// (Was `private` when it lived inside TodayView.swift; now file-external so it
+// needs at least internal visibility for TodayView to reference it.)
+struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+// MARK: - Scroll entrance (iOS 17+)
+
+/// 美术馆入场: timeline memo cards settle in as they scroll into the
+/// viewport — rows just outside the visible region sit at 72% opacity /
+/// 98.5% scale and ease to identity. Deliberately subtle: the timeline is
+/// a quiet gallery wall, not a showcase. iOS 16 and Reduce Motion pass
+/// the content through unmodified. Applied to the row container that
+/// wraps SwipeableMemoCard (never inside it) so the phase scale cannot
+/// fight the card's UIKit pan + offset swipe-to-reveal.
+struct ScrollEntranceModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *), !reduceMotion {
+            content.scrollTransition(.interactive(timingCurve: .easeOut), axis: .vertical) { view, phase in
+                view
+                    .opacity(phase.isIdentity ? 1 : 0.72)
+                    .scaleEffect(phase.isIdentity ? 1 : 0.985, anchor: .center)
+            }
+        } else {
+            content
+        }
+    }
+}
+
+// ViewModifier to wrap .numericText(value:) which requires iOS 17+.
+// (Was a file-private copy inside TodayView.swift — one of three identical
+// copies across Today/Search/Graph. Extracted here it needs internal
+// visibility, so it's renamed `TodayNumericTextTransition` to stay distinct
+// from the still-private Search/Graph copies rather than forcing a repo-wide
+// dedup inside this file-split refactor.)
+struct TodayNumericTextTransition: ViewModifier {
+    let value: Double
+    let reduceMotion: Bool
+
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, *) {
+            content
+                .contentTransition(reduceMotion ? .identity : .numericText(value: value))
+        } else {
+            content
+                .contentTransition(.identity)
+        }
+    }
+}
+
+// MARK: - Card → Detail zoom transition (iOS 18+)
+//
+// The App Store / Photos-style hero: tapping a memo card zooms the detail
+// page out of the card frame and the back-swipe shrinks it back in. Both
+// halves must share one `Namespace` (owned by TodayView) and matching ids.
+// On iOS 16–17 both modifiers are inert and navigation keeps the standard
+// push — no behavioral change below the availability floor.
+
+/// Marks a timeline card as the zoom source for `memo.id`.
+// `ID` is generic over `Hashable` so this works for both the memo cards
+// (keyed by `UUID`) and the historical-day entries (keyed by the `yyyy-MM-dd`
+// date string). `matchedTransitionSource(id:)` accepts any Hashable identity.
+struct CardZoomSource<ID: Hashable>: ViewModifier {
+    let id: ID
+    let namespace: Namespace.ID
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content.matchedTransitionSource(id: id, in: namespace)
+        } else {
+            content
+        }
+    }
+}
+
+/// Applies the zoom navigation transition to the pushed detail page.
+struct CardZoomDestination<ID: Hashable>: ViewModifier {
+    let id: ID
+    let namespace: Namespace.ID
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content.navigationTransition(.zoom(sourceID: id, in: namespace))
+        } else {
+            content
+        }
+    }
+}

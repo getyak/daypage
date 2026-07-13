@@ -16,7 +16,7 @@ type Tokens = {
   elevation: Record<string, string>;
   spacing: Record<string, number>;
   motion: Record<string, string | number>;
-  gestures: Record<string, number>;
+  gestures?: Record<string, number>;
   dark: {
     colors: Record<string, string>;
     elevation: Record<string, string>;
@@ -88,10 +88,12 @@ function buildBlock(t: Tokens): string {
     }
   }
 
-  lines.push("");
-  lines.push("  /* Gestures */");
-  for (const [k, v] of Object.entries(t.gestures)) {
-    lines.push(`  --gesture-${k}: ${v};`);
+  if (t.gestures && Object.keys(t.gestures).length > 0) {
+    lines.push("");
+    lines.push("  /* Gestures */");
+    for (const [k, v] of Object.entries(t.gestures)) {
+      lines.push(`  --gesture-${k}: ${v};`);
+    }
   }
 
   lines.push("}");

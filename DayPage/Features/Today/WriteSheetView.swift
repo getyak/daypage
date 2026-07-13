@@ -379,14 +379,14 @@ struct WriteSheetView: View {
         HStack(alignment: .firstTextBaseline) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(weekday)
-                    .font(DSFonts.serif(size: 18, weight: .semibold))
+                    .font(DSFonts.serif(size: 18, weight: .semibold, relativeTo: .headline))
                     .tracking(-0.2)
                     .foregroundColor(DSColor.inkPrimary)
 
                 Text(stamp)
-                    .font(DSFonts.jetBrainsMono(size: 10, weight: .bold))
+                    .font(DSFonts.jetBrainsMono(size: 10, weight: .bold, relativeTo: .caption2))
                     .tracking(1.6)
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
             }
 
             Spacer()
@@ -426,13 +426,13 @@ struct WriteSheetView: View {
         ZStack(alignment: .topLeading) {
             if text.isEmpty {
                 Text(NSLocalizedString("write.sheet.placeholder", comment: "此刻在想什么？"))
-                    .font(DSFonts.serif(size: 18, italic: true))
+                    .font(DSFonts.serif(size: 18, italic: true, relativeTo: .headline))
                     .foregroundColor(DSColor.inkSubtle.opacity(0.6))
                     .allowsHitTesting(false)
             }
 
             TextField("", text: $text, axis: .vertical)
-                .font(DSFonts.serif(size: 18))
+                .font(DSFonts.serif(size: 18, relativeTo: .headline))
                 .tracking(0.2)
                 .lineSpacing(6) // ≈ lineHeight 1.7 on 18pt
                 .foregroundColor(DSColor.inkPrimary)
@@ -708,7 +708,7 @@ struct WriteSheetView: View {
         Button(action: handleSave) {
             HStack(spacing: 6) {
                 Text(NSLocalizedString("write.sheet.save", comment: "保存"))
-                    .font(DSFonts.inter(size: 13.5, weight: .semibold))
+                    .font(DSFonts.inter(size: 13.5, weight: .semibold, relativeTo: .subheadline))
                     .tracking(0.2)
                 Image(systemName: "checkmark")
                     .font(.system(size: 11, weight: .bold))
@@ -747,11 +747,11 @@ struct WriteSheetView: View {
     private var savedCaption: some View {
         HStack(spacing: 8) {
             Text("SAVED TO")
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
             Text("VAULT / \(isoDate).md")
                 .foregroundColor(DSColor.inkMuted)
         }
-        .font(DSFonts.jetBrainsMono(size: 9, weight: .semibold))
+        .font(DSFonts.jetBrainsMono(size: 9, weight: .semibold, relativeTo: .caption2))
         .tracking(1.4)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 22)
@@ -768,7 +768,7 @@ struct WriteSheetView: View {
             // "tap again to discard" affordance went unnoticed within its 4s
             // window.
             Text(NSLocalizedString("write.sheet.discard.prompt", comment: "Discard this draft?"))
-                .font(DSFonts.jetBrainsMono(size: 10, weight: .semibold))
+                .font(DSFonts.jetBrainsMono(size: 10, weight: .semibold, relativeTo: .caption2))
                 .tracking(1.2)
                 .textCase(.uppercase)
                 .foregroundColor(DSColor.statusWarning)
@@ -780,7 +780,7 @@ struct WriteSheetView: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { isFocused = true }
             } label: {
                 Text(NSLocalizedString("write.sheet.discard.keep", comment: "Keep"))
-                    .font(DSFonts.inter(size: 12, weight: .semibold))
+                    .font(DSFonts.inter(size: 12, weight: .semibold, relativeTo: .caption))
                     .tracking(0.2)
                     .foregroundColor(DSColor.inkMuted)
                     .padding(.horizontal, 12)
@@ -796,7 +796,7 @@ struct WriteSheetView: View {
                 onClose()
             } label: {
                 Text(NSLocalizedString("write.sheet.discard.confirm", comment: "Discard"))
-                    .font(DSFonts.inter(size: 12, weight: .semibold))
+                    .font(DSFonts.inter(size: 12, weight: .semibold, relativeTo: .caption))
                     .tracking(0.2)
                     .foregroundColor(DSTokens.Colors.accentSoft)
                     .padding(.horizontal, 12)
@@ -814,7 +814,7 @@ struct WriteSheetView: View {
 
     private var railHintCaption: some View {
         Text(NSLocalizedString("write.sheet.rail.hint", comment: "Tap the dock to attach media"))
-            .font(DSFonts.jetBrainsMono(size: 9, weight: .semibold))
+            .font(DSFonts.jetBrainsMono(size: 9, weight: .semibold, relativeTo: .caption2))
             .tracking(1.4)
             .textCase(.uppercase)
             .foregroundColor(DSColor.inkSubtle.opacity(0.7))

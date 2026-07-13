@@ -103,7 +103,7 @@ struct AISummaryCard: View {
             Text("TODAY")
                 .font(DSType.mono9)
                 .tracking(1.2)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
             if onTap != nil {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 9, weight: .medium))

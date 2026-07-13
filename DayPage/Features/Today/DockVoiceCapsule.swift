@@ -280,7 +280,7 @@ struct DockRecordingCapsuleContent: View {
                             value: pulse
                         )
                     Text(statusLabel)
-                        .font(DSFonts.jetBrainsMono(size: 11, weight: .medium))
+                        .font(DSFonts.jetBrainsMono(size: 11, weight: .medium, relativeTo: .caption))
                         .tracking(1.3)
                         .textCase(.uppercase)
                         .foregroundColor(DSTokens.Colors.accentSoft)
@@ -288,7 +288,7 @@ struct DockRecordingCapsuleContent: View {
                 }
                 Spacer()
                 Text(elapsedSeconds.mmss)
-                    .font(DSFonts.jetBrainsMono(size: 20, weight: .medium))
+                    .font(DSFonts.jetBrainsMono(size: 20, weight: .medium, relativeTo: .title3))
                     .tracking(1.2)
                     .monospacedDigit()
                     .foregroundColor(DSColor.onRecording)
@@ -312,7 +312,7 @@ struct DockRecordingCapsuleContent: View {
                 } icon: {
                     Image(systemName: "arrow.up")
                 }
-                .font(DSFonts.jetBrainsMono(size: 9))
+                .font(DSFonts.jetBrainsMono(size: 9, relativeTo: .caption2))
                 .tracking(1.0)
                 .foregroundColor(DSTokens.Colors.accentSoft.opacity(
                     phase == .cancelArmed ? 1.0 : 0.45 + 0.4 * dragProgress.cancel
@@ -323,7 +323,7 @@ struct DockRecordingCapsuleContent: View {
                 } icon: {
                     Image(systemName: "arrow.left")
                 }
-                .font(DSFonts.jetBrainsMono(size: 9))
+                .font(DSFonts.jetBrainsMono(size: 9, relativeTo: .caption2))
                 .tracking(1.0)
                 .foregroundColor(DSTokens.Colors.accentSoft.opacity(
                     phase == .transcribeArmed ? 1.0 : 0.45 + 0.4 * dragProgress.transcribe
@@ -332,7 +332,7 @@ struct DockRecordingCapsuleContent: View {
                 Spacer()
 
                 Text(NSLocalizedString("dockvoice.hint.send", value: "松手发送", comment: ""))
-                    .font(DSFonts.jetBrainsMono(size: 9))
+                    .font(DSFonts.jetBrainsMono(size: 9, relativeTo: .caption2))
                     .tracking(1.0)
                     .foregroundColor(DSTokens.Colors.accentSoft.opacity(armProgress > 0.15 ? 0.3 : 0.75))
             }

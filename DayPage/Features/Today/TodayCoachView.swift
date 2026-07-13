@@ -56,13 +56,13 @@ struct TodayCoachView: View {
         ZStack {
             VStack(spacing: 2) {
                 Text("陪你写今天")
-                    .font(DSFonts.serif(size: 17, weight: .semibold))
+                    .font(DSFonts.serif(size: 17, weight: .semibold, relativeTo: .headline))
                     .tracking(-0.2)
                     .foregroundColor(DSColor.inkPrimary)
                 Text("DAYPAGE · COACH")
-                    .font(DSFonts.jetBrainsMono(size: 8.5, weight: .semibold))
+                    .font(DSFonts.jetBrainsMono(size: 8.5, weight: .semibold, relativeTo: .caption2))
                     .tracking(1.8)
-                    .foregroundColor(DSColor.inkSubtle)
+                    .foregroundColor(DSColor.inkMuted)
             }
             HStack {
                 Button(action: onClose) {
@@ -98,8 +98,8 @@ struct TodayCoachView: View {
                 .accessibilityIdentifier("coach-new-chat")
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.top, 16)
+        .padding(.horizontal, DSSpacing.lg)
+        .padding(.top, DSSpacing.lg)
         .padding(.bottom, 10)
     }
 
@@ -108,7 +108,7 @@ struct TodayCoachView: View {
     private var conversation: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 16) {
+                LazyVStack(alignment: .leading, spacing: DSSpacing.lg) {
                     if coach.turns.isEmpty && !coach.isResponding {
                         emptyState
                     }
@@ -127,7 +127,7 @@ struct TodayCoachView: View {
                         }
                     }
                 }
-                .padding(16)
+                .padding(DSSpacing.lg)
             }
             .onChange(of: coach.turns.count) { _ in
                 withAnimation { proxy.scrollTo(coach.turns.last?.id, anchor: .bottom) }
@@ -168,7 +168,7 @@ struct TodayCoachView: View {
 
     /// draft 引用块——把「AI 想让你存进日记的这句话」显性化。
     private func memoDraftBlock(_ draft: String, turn: CoachTurn) -> some View {
-        HStack(alignment: .top, spacing: 8) {
+        HStack(alignment: .top, spacing: DSSpacing.sm) {
             Rectangle()
                 .fill(DSColor.accentOnBg)
                 .frame(width: 2)
@@ -275,13 +275,13 @@ struct TodayCoachView: View {
                     .transition(.opacity)
             }
         }
-        .padding(.top, 4)
+        .padding(.top, DSSpacing.xs)
     }
 
     // MARK: - Empty / loading / error
 
     private var emptyState: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DSSpacing.md) {
             Text("先落下一句就好")
                 .font(DSType.serifBody20)
                 .foregroundColor(DSColor.inkPrimary)
@@ -302,7 +302,7 @@ struct TodayCoachView: View {
                             .multilineTextAlignment(.leading)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, DSSpacing.lg)
                     .padding(.vertical, 13)
                     .contentShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
                 }
@@ -316,13 +316,13 @@ struct TodayCoachView: View {
                 .padding(.top, 6)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, 24)
+        .padding(.top, DSSpacing.xl2)
         .accessibilityIdentifier("coach-empty-state")
     }
 
     /// 加载态改造——不再是「翻看你的记录…」（那是 RAG 语义）。
     private var respondingIndicator: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: DSSpacing.sm) {
             ProgressView().controlSize(.small)
             Text("正在帮你找一个切入口…")
                 .font(DSType.bodySM)
@@ -335,7 +335,7 @@ struct TodayCoachView: View {
     /// 无 API Key 或离线时的兜底：让用户仍能把输入直接存成 raw memo，
     /// 保证「不知道写什么」的用户不会因 AI 不可用而卡死在 Coach。
     private var offlineFallbackRow: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DSSpacing.sm) {
             Text("AI 暂时不可用——但你写下的这句话可以直接存进今天。")
                 .font(DSType.bodySM)
                 .foregroundColor(DSColor.inkSecondary)
@@ -354,8 +354,8 @@ struct TodayCoachView: View {
                             .font(DSType.labelSM)
                     }
                     .foregroundColor(DSColor.accentOnBg)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, DSSpacing.md)
+                    .padding(.vertical, DSSpacing.sm)
                     .background(DSColor.surfaceContainerHigh)
                     .clipShape(Capsule())
                 }
@@ -363,7 +363,7 @@ struct TodayCoachView: View {
                 .accessibilityIdentifier("coach-offline-pin")
             }
         }
-        .padding(.top, 4)
+        .padding(.top, DSSpacing.xs)
     }
 
     private func errorRow(_ message: String) -> some View {
@@ -371,7 +371,7 @@ struct TodayCoachView: View {
             .font(DSType.bodySM)
             .foregroundColor(DSColor.inkSecondary)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(12)
+            .padding(DSSpacing.md)
             .background(DSColor.surfaceContainerHigh)
             .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
     }
@@ -387,7 +387,7 @@ struct TodayCoachView: View {
                 .font(DSType.bodySM)
                 .focused($inputFocused)
                 .lineLimit(1...4)
-                .padding(.leading, 16)
+                .padding(.leading, DSSpacing.lg)
                 .padding(.vertical, 11)
                 .onSubmit(submit)
                 .accessibilityIdentifier("coach-input")
@@ -412,9 +412,9 @@ struct TodayCoachView: View {
         // Coach input capsule lift → DSElevation.glass (dark-mode adaptive),
         // replacing the hardcoded warm-ink shadow that sank in dark mode.
         .elevation(.glass)
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 12)
+        .padding(.horizontal, DSSpacing.lg)
+        .padding(.top, DSSpacing.sm)
+        .padding(.bottom, DSSpacing.md)
     }
 
     private var canSend: Bool {

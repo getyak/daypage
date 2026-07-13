@@ -36,6 +36,10 @@ enum GlassTone {
 struct LiquidGlassCard: ViewModifier {
     var cornerRadius: CGFloat = DSRadius.lg
     var tone: GlassTone = .std
+    /// Glass-engine role driving faux-glass material thickness (#10). Body cards
+    /// stay `.panel`-dense; pills/panels override via their own wrappers so a
+    /// chip reads thinner than a full sheet on the iOS 16–25 track.
+    var role: GlassRole = .panel
 
     private var shape: RoundedRectangle {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -56,7 +60,7 @@ struct LiquidGlassCard: ViewModifier {
                 // iOS 16–25 → warm faux-glass. The wet-glass highlight and the
                 // per-tone hairline below are kept as the bespoke outer shell.
                 content
-                    .dpGlass(.panel, in: shape, tint: tone.fill)
+                    .dpGlass(role, in: shape, tint: tone.fill)
             }
         }
         .overlay(
@@ -112,7 +116,9 @@ struct SolidCard: ViewModifier {
 struct LiquidGlassPill: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .modifier(LiquidGlassCard(cornerRadius: DSRadius.pill, tone: .hi))
+            // .pill role → lightest faux-glass material (#10): a chip should not
+            // read as thick as a sheet on iOS 16–25.
+            .modifier(LiquidGlassCard(cornerRadius: DSRadius.pill, tone: .hi, role: .pill))
     }
 }
 

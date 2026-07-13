@@ -167,7 +167,6 @@ enum DSTokens {
         static let serif = "Fraunces"
         static let body = "Inter"
         static let mono = "JetBrains Mono"
-        static let handwrite = "Caveat"
     }
 
     enum FontSize {
@@ -254,12 +253,4 @@ enum DSTokens {
         static let island: TimeInterval = 0.360
     }
 
-    enum Gestures {
-        static let swipeRevealWidth: CGFloat = 132.0
-        static let swipeOvershoot: CGFloat = 32.0
-        static let swipeDamp: CGFloat = 0.18
-        static let longPressMs: CGFloat = 220.0
-        static let dragVsTapThreshold: CGFloat = 6.0
-        static let sheetCloseThreshold: CGFloat = 80.0
-    }
 }

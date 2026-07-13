@@ -114,7 +114,7 @@ struct OTPVerificationView: View {
 
     private var heading: some View {
         Text("Enter verification code")
-            .font(DSFonts.serif(size: 26, weight: .semibold))
+            .font(DSFonts.serif(size: 26, weight: .semibold, relativeTo: .title))
             .foregroundColor(DSColor.inkPrimary)
     }
 

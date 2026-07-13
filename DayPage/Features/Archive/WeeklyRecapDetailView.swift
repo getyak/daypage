@@ -40,7 +40,7 @@ struct WeeklyRecapDetailView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: DSSpacing.xl2) {
                 header
 
                 if isLoading {
@@ -54,8 +54,8 @@ struct WeeklyRecapDetailView: View {
                     refreshButton
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 24)
+            .padding(.horizontal, DSSpacing.xl)
+            .padding(.vertical, DSSpacing.xl2)
         }
         .background(DSColor.backgroundWarm.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
@@ -94,7 +94,7 @@ struct WeeklyRecapDetailView: View {
             ?? WeeklyCompilationService.isoWeekKey(for: referenceDate)
 
         return VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
+            HStack(spacing: DSSpacing.sm) {
                 Image(systemName: "calendar")
                     .font(.system(size: 18, weight: .medium))
                     .foregroundColor(DSColor.accentOnBg)
@@ -104,7 +104,7 @@ struct WeeklyRecapDetailView: View {
             }
             Text("\(isoWeek) · \(rangeText)")
                 .font(DSType.mono11)
-                .foregroundColor(DSColor.inkSubtle)
+                .foregroundColor(DSColor.inkMuted)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
@@ -114,7 +114,7 @@ struct WeeklyRecapDetailView: View {
     // MARK: - States
 
     private var loadingState: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: DSSpacing.md) {
             ProgressView()
                 .scaleEffect(1.2)
             Text(NSLocalizedString("weekly.recap.loading", comment: ""))
@@ -128,7 +128,7 @@ struct WeeklyRecapDetailView: View {
     }
 
     private func errorState(message: String) -> some View {
-        VStack(spacing: 12) {
+        VStack(spacing: DSSpacing.md) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 32))
                 .foregroundColor(DSColor.statusError)
@@ -147,8 +147,8 @@ struct WeeklyRecapDetailView: View {
                 Text(NSLocalizedString("weekly.recap.refresh", comment: ""))
                     .font(DSType.labelSM)
                     .foregroundColor(DSColor.accentOnBg)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, DSSpacing.lg)
+                    .padding(.vertical, DSSpacing.sm)
                     .overlay(
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .stroke(DSColor.amberRim, lineWidth: 1)
@@ -173,7 +173,7 @@ struct WeeklyRecapDetailView: View {
     // MARK: - Sections
 
     private func keywordsSection(_ keywords: [String]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DSSpacing.md) {
             sectionLabel(NSLocalizedString("weekly.recap.section.keywords", comment: ""))
             keywordChipFlow(keywords)
         }
@@ -192,9 +192,9 @@ struct WeeklyRecapDetailView: View {
         // `.buttonStyle(.plain)` so the chip visual stays identical to
         // the original `Text(kw)` rendering.
         let rows = Self.chunk(keywords, size: 3)
-        return VStack(alignment: .leading, spacing: 8) {
+        return VStack(alignment: .leading, spacing: DSSpacing.sm) {
             ForEach(0..<rows.count, id: \.self) { rowIdx in
-                HStack(spacing: 8) {
+                HStack(spacing: DSSpacing.sm) {
                     ForEach(rows[rowIdx], id: \.self) { kw in
                         Button {
                             handleKeywordTap(kw)
@@ -202,7 +202,7 @@ struct WeeklyRecapDetailView: View {
                             Text(kw)
                                 .font(DSType.bodyMD)
                                 .foregroundColor(DSColor.accentOnBg)
-                                .padding(.horizontal, 12)
+                                .padding(.horizontal, DSSpacing.md)
                                 .padding(.vertical, 6)
                                 .background(
                                     Capsule().fill(DSColor.amberAccent.opacity(0.14))
@@ -223,13 +223,13 @@ struct WeeklyRecapDetailView: View {
     }
 
     private func moodSection(_ text: String) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DSSpacing.md) {
             sectionLabel(NSLocalizedString("weekly.recap.section.mood", comment: ""))
             Text(text.isEmpty ? "—" : text)
                 .font(DSType.bodyMD)
                 .foregroundColor(DSColor.inkPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(16)
+                .padding(DSSpacing.lg)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                         .fill(DSColor.amberAccent.opacity(0.06))
@@ -241,7 +241,7 @@ struct WeeklyRecapDetailView: View {
     }
 
     private func placesSection(_ text: String) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DSSpacing.md) {
             sectionLabel(NSLocalizedString("weekly.recap.section.places", comment: ""))
             // R8-MEDIUM B2: the place row is interactive. We pick the first
             // non-empty noun-ish token from `placeNotes` as the slug —
@@ -281,7 +281,7 @@ struct WeeklyRecapDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             sectionLabel(NSLocalizedString("weekly.recap.section.highlights", comment: ""))
             ForEach(0..<items.count, id: \.self) { idx in
-                HStack(alignment: .top, spacing: 8) {
+                HStack(alignment: .top, spacing: DSSpacing.sm) {
                     Text("✦")
                         .font(DSType.bodyMD)
                         .foregroundColor(DSColor.accentOnBg)
@@ -340,7 +340,7 @@ struct WeeklyRecapDetailView: View {
                 Text(NSLocalizedString("weekly.recap.refresh", comment: ""))
                     .font(DSType.labelSM)
                     .foregroundColor(DSColor.accentOnBg)
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, DSSpacing.xl)
                     .padding(.vertical, 10)
                     .overlay(
                         RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous)
@@ -350,7 +350,7 @@ struct WeeklyRecapDetailView: View {
             .accessibilityHint(NSLocalizedString("weekly.recap.refresh.hint", comment: ""))
             Spacer()
         }
-        .padding(.top, 8)
+        .padding(.top, DSSpacing.sm)
     }
 
     // MARK: - Loading logic
@@ -387,7 +387,7 @@ struct WeeklyRecapDetailView: View {
     @ViewBuilder
     private func detailedErrorState(_ err: WeeklyCompilationError) -> some View {
         let copy = Self.copy(for: err)
-        VStack(spacing: 12) {
+        VStack(spacing: DSSpacing.md) {
             Image(systemName: copy.systemImage)
                 .font(.system(size: 32))
                 .foregroundColor(copy.iconColor)
@@ -409,8 +409,8 @@ struct WeeklyRecapDetailView: View {
                     Text(NSLocalizedString("weekly.recap.refresh", comment: ""))
                         .font(DSType.labelSM)
                         .foregroundColor(DSColor.accentOnBg)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
+                        .padding(.horizontal, DSSpacing.lg)
+                        .padding(.vertical, DSSpacing.sm)
                         .overlay(
                             RoundedRectangle(cornerRadius: 8, style: .continuous)
                                 .stroke(DSColor.amberRim, lineWidth: 1)
@@ -419,7 +419,7 @@ struct WeeklyRecapDetailView: View {
                 .accessibilityHint(NSLocalizedString("weekly.recap.refresh.hint", comment: ""))
             } else if case .offline = err {
                 // Spinner mirrors NetworkMonitor waiting state.
-                HStack(spacing: 8) {
+                HStack(spacing: DSSpacing.sm) {
                     ProgressView()
                     Text(NSLocalizedString(
                         "weekly.recap.error.offline.waiting",

@@ -301,7 +301,7 @@ struct DayDetailView: View {
                     .foregroundColor(DSColor.onSurfaceVariant)
                 Button(action: { selectedTab = .raw }) {
                     Text(NSLocalizedString("daydetail.state.viewRaw", comment: "Button: switch to the raw memo tab"))
-                        .font(DSFonts.jetBrainsMono(size: 13))
+                        .font(DSFonts.jetBrainsMono(size: 13, relativeTo: .footnote))
                         .foregroundColor(DSColor.primary)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
@@ -358,7 +358,7 @@ struct DayDetailView: View {
                 .foregroundColor(DSColor.onSurfaceVariant)
             Button(action: { dismiss() }) {
                 Text(NSLocalizedString("daydetail.close", comment: "Button: dismiss the day detail view"))
-                    .font(DSFonts.jetBrainsMono(size: 13))
+                    .font(DSFonts.jetBrainsMono(size: 13, relativeTo: .footnote))
                     .foregroundColor(DSColor.primary)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
@@ -380,13 +380,13 @@ struct DayDetailView: View {
                 .headlineCapsStyle()
                 .foregroundColor(DSColor.onSurface)
             Text(message)
-                .font(DSFonts.jetBrainsMono(size: 11))
+                .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
                 .foregroundColor(DSColor.onSurfaceVariant)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Button(action: { dismiss() }) {
                 Text(NSLocalizedString("daydetail.close", comment: "Button: dismiss the day detail view"))
-                    .font(DSFonts.jetBrainsMono(size: 13))
+                    .font(DSFonts.jetBrainsMono(size: 13, relativeTo: .footnote))
                     .foregroundColor(DSColor.primary)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)

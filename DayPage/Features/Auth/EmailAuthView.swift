@@ -68,7 +68,7 @@ struct EmailAuthView: View {
                 Spacer().frame(height: 32)
 
                 Text("Enter your email")
-                    .font(DSFonts.serif(size: 26, weight: .semibold))
+                    .font(DSFonts.serif(size: 26, weight: .semibold, relativeTo: .title))
                     .foregroundColor(DSColor.inkPrimary)
 
                 Spacer().frame(height: 8)
