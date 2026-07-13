@@ -93,6 +93,37 @@ struct PressScaleButtonStyle: ButtonStyle {
     }
 }
 
+// MARK: - Accessibility Helpers
+
+extension View {
+    /// Guarantees a minimum 44×44pt hit target (Apple HIG / WCAG 2.5.5) without
+    /// changing the view's visual size. Wraps the content in a transparent frame
+    /// with a minimum width/height and makes the whole frame tappable via
+    /// `contentShape`. Use on compact icon buttons whose glyph is < 44pt.
+    ///
+    /// - Parameter size: the minimum edge length (default 44).
+    func minTapTarget(_ size: CGFloat = 44) -> some View {
+        frame(minWidth: size, minHeight: size)
+            .contentShape(Rectangle())
+    }
+
+    /// Marks a tappable view as a button for VoiceOver: adds the `.isButton`
+    /// trait, a spoken label, and an optional hint. Use on custom
+    /// `.onTapGesture` / gesture-driven controls that SwiftUI can't infer are
+    /// buttons (native `Button` already carries the trait). Combines children so
+    /// the element is announced as one control.
+    ///
+    /// - Parameters:
+    ///   - label: the VoiceOver-spoken name of the control.
+    ///   - hint: optional usage hint spoken after a pause.
+    func a11yButton(label: Text, hint: Text? = nil) -> some View {
+        accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityLabel(label)
+            .accessibilityHint(hint ?? Text(""))
+    }
+}
+
 extension View {
     /// Apply the shared ``PressScaleButtonStyle`` press feedback.
     func pressScale(

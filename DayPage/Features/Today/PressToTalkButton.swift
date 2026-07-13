@@ -125,6 +125,14 @@ struct PressToTalkButton: View {
                 .contentShape(Circle())
                 .highPriorityGesture(dragGesture)
         }
+        // #15 a11y: the drag-driven press-to-talk gesture is invisible to
+        // VoiceOver, and the 40pt circle is under the 44pt minimum hit target.
+        // Guarantee ≥44pt, label the control, and expose the tap path (open
+        // recorder) as the VoiceOver activation action so it's operable.
+        .minTapTarget()
+        .a11yButton(label: L10n.Recording.micButtonA11yLabel,
+                    hint: L10n.Recording.micButtonA11yHint)
+        .accessibilityAction { onTapShortRelease() }
     }
 
     // MARK: - Gesture

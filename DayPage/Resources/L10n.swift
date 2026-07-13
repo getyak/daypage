@@ -78,6 +78,10 @@ enum L10n {
         static let transcribeA11yHint   = NSLocalizedString("recording.transcribe.a11y.hint", comment: "VoiceOver hint for transcribe-recording button")
         static let cancelHintA11yLabel  = NSLocalizedString("recording.cancel_hint.a11y.label", comment: "VoiceOver label for cancel directional hint")
         static let transcribeHintA11yLabel = NSLocalizedString("recording.transcribe_hint.a11y.label", comment: "VoiceOver label for transcribe directional hint")
+
+        // Press-to-talk mic button (PressToTalkButton) VoiceOver
+        static let micButtonA11yLabel   = Text("recording.mic_button.a11y.label")
+        static let micButtonA11yHint    = Text("recording.mic_button.a11y.hint")
     }
 
     enum Error {

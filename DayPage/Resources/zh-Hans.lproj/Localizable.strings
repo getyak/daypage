@@ -789,6 +789,8 @@
 "recording.transcribe.a11y.hint"             = "停止录音并发送给 Whisper 转写";
 "recording.cancel_hint.a11y.label"           = "向上滑动取消";
 "recording.transcribe_hint.a11y.label"       = "向左滑动转写";
+"recording.mic_button.a11y.label"            = "语音记录";
+"recording.mic_button.a11y.hint"             = "轻点打开录音器；按住录音，松手发送。";
 
 /* Today — submit error / banner / actions */
 "submit.error.retry"                         = "重试";
