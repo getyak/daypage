@@ -51,21 +51,30 @@ struct RecordingView: View {
 
     private var recordingContent: some View {
         VStack(spacing: 12) {
-            Spacer()
+            Spacer(minLength: 0)
 
-            // Waveform icon + elapsed time
-            recordingStatusHeader
-
-            // Progress bar (recording) + duration hint (idle)
-            recordingProgressSection
-
-            Spacer()
-
-            // Action button row
+            // Hero ring (tappable) — the visual + interactive center of gravity.
             recordingActionButton
 
-            Spacer()
+            // Two-line caption: a bold primary line + a quiet secondary line.
+            VStack(spacing: 3) {
+                Text(primaryLine)
+                    .font(.title3.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(isActive ? stateColor : .primary)
+                    .contentTransition(.numericText())
+                    .animation(isLuminanceReduced ? nil : .snappy(duration: 0.28), value: model.elapsed)
+                    .animation(.snappy(duration: 0.28), value: primaryLine)
+
+                Text(secondaryLine)
+                    .font(.caption2)
+                    .foregroundStyle(isActive ? stateColor.opacity(0.85) : .secondary)
+                    .animation(.snappy(duration: 0.25), value: secondaryLine)
+            }
+            .privacySensitive(false)
+
+            Spacer(minLength: 0)
         }
+        .animation(.spring(duration: 0.38, bounce: 0.18), value: model.state)
         .contentShape(Rectangle())
         .onTapGesture {
             if case .failed = model.state { model.reset() }
@@ -90,103 +99,87 @@ struct RecordingView: View {
 
     // MARK: Recording subviews
 
-    /// Waveform icon + elapsed / status text — static in AOD to reduce OLED burn-in.
-    private var recordingStatusHeader: some View {
-        Group {
-            Image(systemName: (model.state == .recording || model.state == .confirmStop) ? "waveform" : "waveform.circle")
-                .font(.system(size: 36))
-                .foregroundStyle(model.state == .confirmStop ? .orange : (model.state == .recording ? .red : .tint))
-                .accessibilityLabel(model.state == .recording ? "Recording in progress" : (model.state == .confirmStop ? "Confirming stop" : "Ready to record"))
-
-            Text(statusText)
-                .font(.title3.monospacedDigit())
-                .contentTransition(.numericText())
-                .animation(isLuminanceReduced ? nil : .default, value: model.elapsed)
-                .privacySensitive(false)
+    /// Accent color for the current state — drives ring, waveform, and text.
+    private var stateColor: Color {
+        switch model.state {
+        case .confirmStop:            return .orange
+        case .recording:              return model.elapsed >= model.maxDuration - 10 ? .red : Color(red: 1.0, green: 0.27, blue: 0.23)
+        case .processing, .uploading: return .cyan
+        case .done:                   return .green
+        case .failed:                 return .red
+        case .idle:                   return .accentColor
         }
     }
 
-    /// Countdown bar (recording/confirmStop) or duration hint (idle).
-    /// Hidden entirely when the watch is in AOD mode.
-    private var recordingProgressSection: some View {
-        Group {
-            if (model.state == .recording || model.state == .confirmStop) && !isLuminanceReduced {
-                ProgressView(value: Double(model.elapsed), total: Double(model.maxDuration))
-                    .progressViewStyle(.linear)
-                    .tint(model.state == .confirmStop ? .orange : (model.elapsed >= model.maxDuration - 10 ? .red : .green))
-                    .accessibilityLabel("Recording time: \(model.elapsed) of \(model.maxDuration) seconds")
-            }
-
-            if model.state == .idle && !isLuminanceReduced {
-                Text("Limit: \(model.maxDuration)s")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .accessibilityLabel("Recording limit: \(model.maxDuration) seconds. Rotate crown to adjust.")
-            }
-
-            if case .failed = model.state {
-                Text("Tap anywhere to retry")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-        }
+    private var isActive: Bool {
+        model.state == .recording || model.state == .confirmStop
     }
 
-    /// Main action button — start / stop / confirm-stop / cancel.
-    /// Button row is hidden in AOD (buttons are not tappable).
+    /// The hero control — a tappable ring that pulses while recording and fills
+    /// with elapsed progress. Waveform bars animate inside during capture.
     private var recordingActionButton: some View {
         Group {
             if !isLuminanceReduced {
-                if case .confirmStop = model.state {
-                    Button(action: { model.cancelStop() }) {
-                        Image(systemName: "arrow.uturn.backward.circle.fill")
-                            .font(.system(size: 48))
-                            .foregroundStyle(.orange)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Cancel stop — keep recording")
-                } else {
-                    Button(action: handleTap) {
-                        Image(systemName: model.state == .recording ? "stop.circle.fill" : "mic.circle.fill")
-                            .font(.system(size: 48))
-                            .foregroundStyle(model.state == .recording ? .red : .green)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(model.state == .recording ? "Stop recording" : "Start recording")
+                Button(action: primaryAction) {
+                    RecordingRing(
+                        state: model.state,
+                        progress: model.maxDuration > 0 ? Double(model.elapsed) / Double(model.maxDuration) : 0,
+                        color: stateColor
+                    )
                 }
-
-                if case .confirmStop = model.state {
-                    Text("Tap to cancel")
-                        .font(.caption2)
-                        .foregroundStyle(.orange)
-                } else {
-                    Text(model.state == .recording ? "Tap to stop" : "Tap to record")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+                .buttonStyle(RingButtonStyle())
+                .accessibilityLabel(ringAccessibilityLabel)
+            } else {
+                // AOD: static ring only, no controls (OLED burn-in + not tappable).
+                RecordingRing(state: model.state, progress: 0, color: stateColor.opacity(0.6))
+                    .allowsHitTesting(false)
             }
         }
     }
 
-    private var statusText: String {
+    /// Bold primary caption under the ring — the CTA when idle, the clock when recording.
+    private var primaryLine: String {
         switch model.state {
-        case .idle:
-            return "Ready"
+        case .idle:        return "轻点录音"
         case .recording:
             let remaining = model.maxDuration - model.elapsed
-            return remaining <= 10
-                ? ":\(remaining)s left"
-                : formattedTime(model.elapsed)
-        case .confirmStop:
-            return "Stopping..."
-        case .processing:
-            return "Saving..."
-        case .uploading:
-            return "Transferring..."
-        case .done:
-            return "Done ✓"
-        case .failed(let msg):
-            return msg
+            return remaining <= 10 ? "还剩 \(remaining) 秒" : formattedTime(model.elapsed)
+        case .confirmStop: return "松开即停"
+        case .processing:  return "保存中"
+        case .uploading:   return "同步中"
+        case .done:        return "已同步"
+        case .failed(let msg): return msg
+        }
+    }
+
+    /// Quiet secondary caption — context for the primary line.
+    private var secondaryLine: String {
+        switch model.state {
+        case .idle:        return "\(model.maxDuration) 秒 · 转表冠调节"
+        case .recording:   return "轻点停止"
+        case .confirmStop: return "轻点继续"
+        case .processing:  return "正在写入"
+        case .uploading:   return "发送到 iPhone"
+        case .done:        return "已存入今天"
+        case .failed:      return "轻点屏幕重试"
+        }
+    }
+
+    private var ringAccessibilityLabel: String {
+        switch model.state {
+        case .idle:        return "开始录音"
+        case .recording:   return "停止录音，已录 \(model.elapsed) 秒"
+        case .confirmStop: return "取消停止，继续录音"
+        case .failed:      return "重试"
+        default:           return primaryLine
+        }
+    }
+
+    private func primaryAction() {
+        if case .confirmStop = model.state {
+            model.cancelStop()
+        } else {
+            handleTap()
         }
     }
 
@@ -210,6 +203,150 @@ struct RecordingView: View {
     }
 }
 
+// MARK: - RecordingRing
+
+/// The hero control: a circular ring that fills with elapsed progress and, while
+/// recording, breathes (subtle scale pulse) and shows a live waveform inside.
+/// All motion is spring-driven and derives from the current state, so state
+/// changes are interruptible and never jump (apple-design §3, §4, §8).
+private struct RecordingRing: View {
+
+    let state: WatchRecordingModel.State
+    let progress: Double
+    let color: Color
+
+    @Environment(\.isLuminanceReduced) private var isLuminanceReduced
+
+    /// Drives the breathing pulse and the waveform phase while recording.
+    @State private var pulse = false
+
+    private var isRecording: Bool {
+        if case .recording = state { return true }
+        if case .confirmStop = state { return true }
+        return false
+    }
+
+    private var isBusy: Bool {
+        state == .processing || state == .uploading
+    }
+
+    var body: some View {
+        ZStack {
+            // Track ring — the empty channel.
+            Circle()
+                .stroke(Color.white.opacity(0.14), lineWidth: 6)
+
+            // Progress ring — fills clockwise from 12 o'clock while recording.
+            if isRecording {
+                Circle()
+                    .trim(from: 0, to: max(0.001, min(progress, 1)))
+                    .stroke(
+                        AngularGradient(
+                            colors: [color.opacity(0.7), color],
+                            center: .center
+                        ),
+                        style: StrokeStyle(lineWidth: 6, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+                    .animation(.linear(duration: 0.5), value: progress)
+            }
+
+            // Center content.
+            centerContent
+        }
+        .frame(width: 108, height: 108)
+        .scaleEffect(isRecording && pulse && !isLuminanceReduced ? 1.04 : 1.0)
+        .animation(
+            isRecording && !isLuminanceReduced
+                ? .easeInOut(duration: 0.85).repeatForever(autoreverses: true)
+                : .spring(duration: 0.35, bounce: 0.2),
+            value: pulse
+        )
+        .onChange(of: isRecording) { recording in
+            pulse = recording
+        }
+        .onAppear { pulse = isRecording }
+    }
+
+    @ViewBuilder
+    private var centerContent: some View {
+        switch state {
+        case .idle, .failed:
+            Image(systemName: state == .idle ? "mic.fill" : "arrow.clockwise")
+                .font(.system(size: 34, weight: .medium))
+                .foregroundStyle(color)
+                .transition(.scale.combined(with: .opacity))
+
+        case .recording, .confirmStop:
+            WaveformBars(color: color, animating: !isLuminanceReduced)
+                .frame(width: 46, height: 34)
+                .transition(.scale.combined(with: .opacity))
+
+        case .processing, .uploading:
+            Image(systemName: state == .processing ? "waveform" : "arrow.up.circle")
+                .font(.system(size: 30, weight: .medium))
+                .foregroundStyle(color)
+                .symbolEffect(.variableColor.iterative, options: .repeating, isActive: isBusy)
+                .transition(.scale.combined(with: .opacity))
+
+        case .done:
+            Image(systemName: "checkmark")
+                .font(.system(size: 34, weight: .bold))
+                .foregroundStyle(color)
+                .transition(.scale.combined(with: .opacity))
+        }
+    }
+}
+
+// MARK: - WaveformBars
+
+/// Five bars that rise and fall to convey "actively capturing" — a lightweight,
+/// deterministic stand-in for a real level meter (apple-design §8: hint activity).
+private struct WaveformBars: View {
+
+    let color: Color
+    let animating: Bool
+
+    @State private var phase = false
+
+    /// Per-bar min/max heights (0–1). Staggered so the group ripples.
+    private let bars: [(min: CGFloat, max: CGFloat)] = [
+        (0.35, 0.7), (0.55, 1.0), (0.4, 0.85), (0.6, 1.0), (0.3, 0.65),
+    ]
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(bars.indices, id: \.self) { i in
+                Capsule()
+                    .fill(color)
+                    .frame(width: 5, height: (phase ? bars[i].max : bars[i].min) * 34)
+                    .animation(
+                        animating
+                            ? .easeInOut(duration: 0.42)
+                                .repeatForever(autoreverses: true)
+                                .delay(Double(i) * 0.08)
+                            : .default,
+                        value: phase
+                    )
+            }
+        }
+        .frame(maxHeight: .infinity)
+        .onAppear { if animating { phase = true } }
+    }
+}
+
+// MARK: - RingButtonStyle
+
+/// Press feedback: instant scale-down on touch-down, spring back on release
+/// (apple-design §1: respond on press, §4: spring, not a fixed transition).
+private struct RingButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.93 : 1.0)
+            .animation(.spring(duration: 0.3, bounce: 0.35), value: configuration.isPressed)
+    }
+}
+
 // MARK: - WatchRecordingModel
 
 @MainActor
@@ -230,11 +367,17 @@ final class WatchRecordingModel: NSObject, ObservableObject {
     private var recorder: AVAudioRecorder?
     private var timer: Timer?
     private var currentFileURL: URL?
-    private var extSession: WKExtendedRuntimeSession?
     private var autoResetTask: Task<Void, Never>?
     private var confirmStopTask: Task<Void, Never>?
+    private var interruptionObserver: NSObjectProtocol?
 
     private let logger = Logger(subsystem: "com.daypage.watch", category: "RecordingModel")
+
+    deinit {
+        if let interruptionObserver {
+            NotificationCenter.default.removeObserver(interruptionObserver)
+        }
+    }
 
     // MARK: - Haptic Feedback
 
@@ -245,9 +388,9 @@ final class WatchRecordingModel: NSObject, ObservableObject {
     // MARK: - Permission
 
     func checkMicPermission() {
-        let permission = AVAudioApplication.shared.recordPermission
-        isMicPermissionDenied = (permission == .denied)
+        isMicPermissionDenied = (AVAudioApplication.shared.recordPermission == .denied)
     }
+
 
     // MARK: - Start
 
@@ -262,17 +405,10 @@ final class WatchRecordingModel: NSObject, ObservableObject {
             try session.setActive(true)
         } catch {
             logger.error("Audio session setup failed: \(error.localizedDescription)")
-            state = .failed("Audio session error")
+            state = .failed("音频初始化失败")
             haptic(.failure)
             return
         }
-
-        // Request a WKExtendedRuntimeSession so the recording is not forcibly
-        // suspended by the system after the display turns off.
-        let ext = WKExtendedRuntimeSession()
-        ext.delegate = self
-        ext.start()
-        extSession = ext
 
         let url = makeFileURL()
         currentFileURL = url
@@ -292,13 +428,70 @@ final class WatchRecordingModel: NSObject, ObservableObject {
             recorder = rec
             elapsed = 0
             startTimer()
+            registerInterruptionObserver()
             state = .recording
             haptic(.start)
         } catch {
             logger.error("AVAudioRecorder init failed: \(error.localizedDescription)")
-            state = .failed("Record start failed")
+            deactivateAudioSession()
+            state = .failed("录音启动失败")
             haptic(.failure)
-            invalidateExtSession()
+        }
+    }
+
+    // MARK: - Interruption Handling
+
+    /// Observe `AVAudioSession` interruptions (incoming call, alarm, Siri) so a
+    /// mid-recording interruption saves what was captured instead of silently
+    /// dropping it. Without this, the recorder is stopped by the system and the
+    /// user is left staring at a "recording" ring that never finishes — the
+    /// classic real-device failure the simulator never reproduces.
+    private func registerInterruptionObserver() {
+        guard interruptionObserver == nil else { return }
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { [weak self] note in
+            Task { @MainActor [weak self] in
+                self?.handleInterruption(note)
+            }
+        }
+    }
+
+    private func removeInterruptionObserver() {
+        if let interruptionObserver {
+            NotificationCenter.default.removeObserver(interruptionObserver)
+            self.interruptionObserver = nil
+        }
+    }
+
+    private func handleInterruption(_ note: Notification) {
+        guard state == .recording || state == .confirmStop,
+              let info = note.userInfo,
+              let raw = info[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: raw)
+        else { return }
+
+        // Only .began matters: the system has paused our recorder. We do not try
+        // to resume on .ended — a partial voice memo is more useful to the user
+        // than a lost one, so we finalize and transfer what we have.
+        if type == .began {
+            logger.info("Audio interruption began — finalizing partial recording")
+            confirmStopTask?.cancel()
+            confirmStopTask = nil
+            if elapsed >= 1 {
+                stopAndTransfer()
+            } else {
+                // Too short to be worth keeping — discard and surface the reason.
+                stopTimer()
+                recorder?.stop()
+                recorder = nil
+                removeInterruptionObserver()
+                deactivateAudioSession()
+                state = .failed("录音被打断")
+                haptic(.failure)
+            }
         }
     }
 
@@ -306,17 +499,16 @@ final class WatchRecordingModel: NSObject, ObservableObject {
 
     func stopAndTransfer() {
         guard let rec = recorder, let url = currentFileURL else {
-            state = .failed("No active recording")
+            state = .failed("没有正在进行的录音")
             haptic(.failure)
             return
         }
         stopTimer()
         rec.stop()
         recorder = nil
+        removeInterruptionObserver()
         state = .processing
         haptic(.stop)
-        invalidateExtSession()
-
         deactivateAudioSession()
 
         state = .uploading
@@ -329,7 +521,7 @@ final class WatchRecordingModel: NSObject, ObservableObject {
                     self?.state = .done
                     self?.scheduleAutoReset()
                 } else {
-                    self?.state = .failed("Transfer failed")
+                    self?.state = .failed("同步失败")
                     self?.haptic(.failure)
                 }
             }
@@ -367,7 +559,7 @@ final class WatchRecordingModel: NSObject, ObservableObject {
         stopTimer()
         recorder?.stop()
         recorder = nil
-        invalidateExtSession()
+        removeInterruptionObserver()
         state = .idle
         elapsed = 0
     }
@@ -403,11 +595,6 @@ final class WatchRecordingModel: NSObject, ObservableObject {
         timer = nil
     }
 
-    private func invalidateExtSession() {
-        extSession?.invalidate()
-        extSession = nil
-    }
-
     private func deactivateAudioSession() {
         do {
             try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
@@ -426,48 +613,6 @@ final class WatchRecordingModel: NSObject, ObservableObject {
                 self.state = .idle
                 self.elapsed = 0
             }
-        }
-    }
-}
-
-// MARK: - WKExtendedRuntimeSessionDelegate
-
-extension WatchRecordingModel: WKExtendedRuntimeSessionDelegate {
-
-    nonisolated func extendedRuntimeSession(
-        _ extendedRuntimeSession: WKExtendedRuntimeSession,
-        didInvalidateWith reason: WKExtendedRuntimeSessionInvalidationReason,
-        error: Error?
-    ) {
-        let msg = error.map { $0.localizedDescription } ?? "no error"
-        // Logger is nonisolated-safe (sendable)
-        Logger(subsystem: "com.daypage.watch", category: "RecordingModel")
-            .warning("WKExtendedRuntimeSession invalidated — reason: \(reason.rawValue), error: \(msg)")
-
-        // If invalidated while recording or awaiting confirmation, stop cleanly on the main actor.
-        Task { @MainActor [weak self] in
-            guard let self, self.state == .recording || self.state == .confirmStop else { return }
-            self.confirmStopTask?.cancel()
-            self.stopAndTransfer()
-        }
-    }
-
-    nonisolated func extendedRuntimeSessionDidStart(
-        _ extendedRuntimeSession: WKExtendedRuntimeSession
-    ) {
-        Logger(subsystem: "com.daypage.watch", category: "RecordingModel")
-            .info("WKExtendedRuntimeSession started")
-    }
-
-    nonisolated func extendedRuntimeSessionWillExpire(
-        _ extendedRuntimeSession: WKExtendedRuntimeSession
-    ) {
-        Logger(subsystem: "com.daypage.watch", category: "RecordingModel")
-            .warning("WKExtendedRuntimeSession will expire — stopping recording")
-        Task { @MainActor [weak self] in
-            guard let self, self.state == .recording || self.state == .confirmStop else { return }
-            self.confirmStopTask?.cancel()
-            self.stopAndTransfer()
         }
     }
 }

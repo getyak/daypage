@@ -61,13 +61,18 @@ public final class PassiveLocationService: NSObject, ObservableObject {
     public func startMonitoringIfAuthorized() {
         guard manager.authorizationStatus == .authorizedAlways else { return }
         guard !isMonitoring else { return }
+        // Visit monitoring (CLVisit) is unavailable on watchOS — it requires an iPhone.
+        #if !os(watchOS)
         manager.startMonitoringVisits()
         isMonitoring = true
+        #endif
     }
 
     /// Stop monitoring visits.
     public func stopMonitoring() {
+        #if !os(watchOS)
         manager.stopMonitoringVisits()
+        #endif
         isMonitoring = false
     }
 
@@ -190,6 +195,8 @@ extension PassiveLocationService: CLLocationManagerDelegate {
         }
     }
 
+    // Visit monitoring (CLVisit) is unavailable on watchOS — it requires an iPhone.
+    #if !os(watchOS)
     public nonisolated func locationManager(
         _ manager: CLLocationManager,
         didVisit visit: CLVisit
@@ -216,4 +223,5 @@ extension PassiveLocationService: CLLocationManagerDelegate {
             self.geocodeAndUpdate(draftID: draft.id, location: location)
         }
     }
+    #endif
 }

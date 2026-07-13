@@ -70,7 +70,7 @@ enum OrphanFileCleanup {
 
     static let shared = WatchSessionManager()
 
-    private let logger = Logger(subsystem: "com.daypage.watch", category: "WatchSessionManager")
+    private nonisolated let logger = Logger(subsystem: "com.daypage.watch", category: "WatchSessionManager")
 
     private override init() {}
 
@@ -89,9 +89,11 @@ enum OrphanFileCleanup {
 
 extension WatchSessionManager: WCSessionDelegate {
 
-    func session(_ session: WCSession,
-                 activationDidCompleteWith activationState: WCSessionActivationState,
-                 error: Error?) {
+    // WCSessionDelegate callbacks arrive on an arbitrary background thread, so each
+    // method is nonisolated; hop back to the MainActor for any isolated state.
+    nonisolated func session(_ session: WCSession,
+                             activationDidCompleteWith activationState: WCSessionActivationState,
+                             error: Error?) {
         if let error {
             logger.error("Activation error: \(error.localizedDescription)")
         } else {
@@ -101,10 +103,13 @@ extension WatchSessionManager: WCSessionDelegate {
 
     /// Forward file transfer completion to WatchTransferService so it can
     /// call the per-file completion handler and clean up the source file.
-    func session(_ session: WCSession, didFinish fileTransfer: WCSessionFileTransfer, error: Error?) {
-        WatchTransferService.shared.handleTransferFinished(
-            fileURL: fileTransfer.file.fileURL,
-            error: error
-        )
+    nonisolated func session(_ session: WCSession, didFinish fileTransfer: WCSessionFileTransfer, error: Error?) {
+        let fileURL = fileTransfer.file.fileURL
+        Task { @MainActor in
+            WatchTransferService.shared.handleTransferFinished(
+                fileURL: fileURL,
+                error: error
+            )
+        }
     }
 }

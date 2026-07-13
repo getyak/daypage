@@ -100,8 +100,19 @@ platform :ios do
       keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
     )
 
+    match(
+      type:              "appstore",
+      readonly:          false,
+      api_key:           api_key,
+      git_url:           ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
+      app_identifier:    "com.daypage.app.watchkitapp",
+      keychain_name:     "ci_keychain",
+      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
+    )
+
     profile_name        = ENV["sigh_com.daypage.app_appstore_profile-name"] || "match AppStore com.daypage.app"
     widget_profile_name = "match AppStore com.daypage.app.DayPageWidget"
+    watch_profile_name  = "match AppStore com.daypage.app.watchkitapp"
     # Do NOT pass a bare `PROVISIONING_PROFILE_SPECIFIER` via xcargs — it
     # applies globally and forces the widget target to use the main app's
     # profile (mismatched bundle id, fails). The project.pbxproj already has
@@ -126,8 +137,9 @@ platform :ios do
         signingStyle:         "manual",
         teamID:               ENV["DEVELOPMENT_TEAM"],
         provisioningProfiles: {
-          "com.daypage.app"              => profile_name,
-          "com.daypage.app.DayPageWidget" => widget_profile_name
+          "com.daypage.app"               => profile_name,
+          "com.daypage.app.DayPageWidget" => widget_profile_name,
+          "com.daypage.app.watchkitapp"   => watch_profile_name
         }
       }
     )
@@ -193,8 +205,19 @@ platform :ios do
       keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
     )
 
+    match(
+      type:              "appstore",
+      readonly:          false,
+      api_key:           api_key,
+      git_url:           ENV["MATCH_GIT_URL"] || "git@github.com:getyak/daypage-certs.git",
+      app_identifier:    "com.daypage.app.watchkitapp",
+      keychain_name:     "ci_keychain",
+      keychain_password: ENV["MATCH_KEYCHAIN_PASSWORD"] || "ci_temp_password"
+    )
+
     profile_name        = ENV["sigh_com.daypage.app_appstore_profile-name"] || "match AppStore com.daypage.app"
     widget_profile_name = "match AppStore com.daypage.app.DayPageWidget"
+    watch_profile_name  = "match AppStore com.daypage.app.watchkitapp"
     # Do NOT pass a bare `PROVISIONING_PROFILE_SPECIFIER` via xcargs — it
     # applies globally and forces the widget target to use the main app's
     # profile (mismatched bundle id, fails). The project.pbxproj already has
@@ -219,8 +242,9 @@ platform :ios do
         signingStyle:         "manual",
         teamID:               ENV["DEVELOPMENT_TEAM"],
         provisioningProfiles: {
-          "com.daypage.app"              => profile_name,
-          "com.daypage.app.DayPageWidget" => widget_profile_name
+          "com.daypage.app"               => profile_name,
+          "com.daypage.app.DayPageWidget" => widget_profile_name,
+          "com.daypage.app.watchkitapp"   => watch_profile_name
         }
       }
     )
@@ -337,4 +361,6 @@ platform :ios do
   error do |lane, exception|
     UI.error "Lane #{lane} failed: #{exception.message}"
   end
+
+
 end
