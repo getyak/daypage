@@ -258,15 +258,14 @@ private struct WelcomePage: View {
                 Spacer(minLength: 16)
 
                 VStack(spacing: 10) {
+                    // #13: migrated to DSPrimary (now supports layout/font
+                    // overrides). `font: DSType.bodyMD` preserves the original
+                    // 16pt bodyText size; the style adds press feedback +
+                    // Reduce Motion + 44pt that the hand-rolled version lacked.
                     Button(action: onNext) {
                         Text("onboarding.welcome.begin", bundle: .main)
-                            .bodyText()
-                            .foregroundColor(DSColor.surfaceWhite)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, DSSpacing.lg)
-                            .background(DSColor.accentAmber)
-                            .cornerRadius(DSRadius.md)
                     }
+                    .buttonStyle(.dsPrimary(size: .large, font: DSType.bodyMD))
                     .accessibilityIdentifier("onboarding.welcome.begin")
 
                     Button {
@@ -282,6 +281,10 @@ private struct WelcomePage: View {
                         )
                         hasOnboarded = true
                     } label: {
+                        // Kept hand-rolled: DSGhost's idle ink is inkMuted, but
+                        // this action wants amber (accentOnBg). Not a clean style
+                        // match — migrating would recolor it. #13 only migrates
+                        // buttons the styles express without visual change.
                         Text("onboarding.welcome.try_sample", bundle: .main)
                             .bodyText()
                             .foregroundColor(DSColor.accentOnBg)

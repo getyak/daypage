@@ -40,23 +40,76 @@ enum DSButtonSize {
     }
 }
 
+/// Container shape for a DS button. The app's real CTAs are a mix of
+/// full-width rounded rects (Onboarding) and content-hugging pills
+/// (Welcome "开始 · Begin") — the shape is a knob so a single style can
+/// express both without callers hand-rolling the surface.
+enum DSButtonShape {
+    /// Rounded rectangle at `DSRadius.md` (default, screen-level CTAs).
+    case roundedRect
+    /// Fully-rounded capsule pill (hero / inline pill CTAs).
+    case capsule
+}
+
+/// How the button sizes horizontally.
+enum DSButtonLayout {
+    /// Stretch to `maxWidth: .infinity` (default — full-width CTA).
+    case expand
+    /// Hug the label width (pill buttons, inline actions).
+    case hug
+}
+
+// Shared surface geometry so every concrete style resolves shape/layout the
+// same way (and callers can override the label font to avoid a size change
+// when migrating an existing button).
+private struct DSButtonSurface {
+    let size: DSButtonSize
+    let shape: DSButtonShape
+    let layout: DSButtonLayout
+    let font: Font?
+
+    @ViewBuilder
+    func clipShape<V: View>(_ view: V) -> some View {
+        switch shape {
+        case .roundedRect:
+            view.clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
+        case .capsule:
+            view.clipShape(Capsule())
+        }
+    }
+
+    @ViewBuilder
+    func background(_ fill: Color) -> some View {
+        switch shape {
+        case .roundedRect:
+            RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous).fill(fill)
+        case .capsule:
+            Capsule().fill(fill)
+        }
+    }
+
+    var resolvedFont: Font { font ?? size.font }
+    var maxWidth: CGFloat? { layout == .expand ? .infinity : nil }
+}
+
 // MARK: - Primary (solid amber)
 
 struct DSPrimaryButtonStyle: ButtonStyle {
     var size: DSButtonSize = .medium
+    var shape: DSButtonShape = .roundedRect
+    var layout: DSButtonLayout = .expand
+    var font: Font? = nil
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(size.font)
+        let surface = DSButtonSurface(size: size, shape: shape, layout: layout, font: font)
+        return configuration.label
+            .font(surface.resolvedFont)
             .foregroundColor(isEnabled ? Color.white : Color.white.opacity(0.55))
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: surface.maxWidth)
             .frame(height: size.height)
             .padding(.horizontal, size.horizontalPadding)
-            .background(
-                RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
-                    .fill(isEnabled ? DSColor.amberDeep : DSColor.inkSubtle)
-            )
+            .background(surface.background(isEnabled ? DSColor.amberDeep : DSColor.inkSubtle))
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
             .animation(Motion.respectReduceMotion(Motion.press),
                        value: configuration.isPressed)
@@ -68,24 +121,37 @@ struct DSPrimaryButtonStyle: ButtonStyle {
 
 struct DSSecondaryButtonStyle: ButtonStyle {
     var size: DSButtonSize = .medium
+    var shape: DSButtonShape = .roundedRect
+    var layout: DSButtonLayout = .expand
+    var font: Font? = nil
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(size.font)
+        let surface = DSButtonSurface(size: size, shape: shape, layout: layout, font: font)
+        // Secondary button surface routed through the dual-track engine
+        // (#771): iOS 26 → interactive native glass; iOS 16–25 → warm
+        // faux-glass. The engine supplies the hairline rim. `.pill` role when
+        // the shape is a capsule keeps the faux-glass material thickness right.
+        let base = configuration.label
+            .font(surface.resolvedFont)
             .foregroundColor(isEnabled ? DSColor.inkPrimary : DSColor.inkSubtle)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: surface.maxWidth)
             .frame(height: size.height)
             .padding(.horizontal, size.horizontalPadding)
-            // Secondary button surface routed through the dual-track engine
-            // (#771): iOS 26 → interactive native glass; iOS 16–25 → warm
-            // faux-glass. The engine supplies the hairline rim.
-            .dpGlass(.control, in: RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
-            .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
-            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
-            .animation(Motion.respectReduceMotion(Motion.press),
-                       value: configuration.isPressed)
-            .contentShape(Rectangle())
+        return Group {
+            switch shape {
+            case .roundedRect:
+                base.dpGlass(.control, in: RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
+            case .capsule:
+                base.dpGlass(.control, in: Capsule())
+                    .clipShape(Capsule())
+            }
+        }
+        .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+        .animation(Motion.respectReduceMotion(Motion.press),
+                   value: configuration.isPressed)
+        .contentShape(Rectangle())
     }
 }
 
@@ -93,14 +159,18 @@ struct DSSecondaryButtonStyle: ButtonStyle {
 
 struct DSGhostButtonStyle: ButtonStyle {
     var size: DSButtonSize = .medium
+    var layout: DSButtonLayout = .hug
+    var font: Font? = nil
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(size.font)
+        let surface = DSButtonSurface(size: size, shape: .roundedRect, layout: layout, font: font)
+        return configuration.label
+            .font(surface.resolvedFont)
             .foregroundColor(isEnabled
                 ? (configuration.isPressed ? DSColor.accentOnBg : DSColor.inkMuted)
                 : DSColor.inkSubtle)
+            .frame(maxWidth: surface.maxWidth)
             .frame(minHeight: 44)
             .padding(.horizontal, size.horizontalPadding)
             .contentShape(Rectangle())
@@ -111,19 +181,20 @@ struct DSGhostButtonStyle: ButtonStyle {
 
 struct DSDestructiveButtonStyle: ButtonStyle {
     var size: DSButtonSize = .medium
+    var shape: DSButtonShape = .roundedRect
+    var layout: DSButtonLayout = .expand
+    var font: Font? = nil
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(size.font)
+        let surface = DSButtonSurface(size: size, shape: shape, layout: layout, font: font)
+        return configuration.label
+            .font(surface.resolvedFont)
             .foregroundColor(isEnabled ? Color.white : Color.white.opacity(0.55))
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: surface.maxWidth)
             .frame(height: size.height)
             .padding(.horizontal, size.horizontalPadding)
-            .background(
-                RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
-                    .fill(isEnabled ? DSColor.errorRed : DSColor.inkSubtle)
-            )
+            .background(surface.background(isEnabled ? DSColor.errorRed : DSColor.inkSubtle))
             .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
             .animation(Motion.respectReduceMotion(Motion.press),
                        value: configuration.isPressed)
@@ -151,22 +222,41 @@ struct DSIconChipButtonStyle: ButtonStyle {
 
 extension ButtonStyle where Self == DSPrimaryButtonStyle {
     static var dsPrimary: DSPrimaryButtonStyle { .init() }
-    static func dsPrimary(size: DSButtonSize) -> DSPrimaryButtonStyle { .init(size: size) }
+    static func dsPrimary(
+        size: DSButtonSize = .medium,
+        shape: DSButtonShape = .roundedRect,
+        layout: DSButtonLayout = .expand,
+        font: Font? = nil
+    ) -> DSPrimaryButtonStyle { .init(size: size, shape: shape, layout: layout, font: font) }
 }
 
 extension ButtonStyle where Self == DSSecondaryButtonStyle {
     static var dsSecondary: DSSecondaryButtonStyle { .init() }
-    static func dsSecondary(size: DSButtonSize) -> DSSecondaryButtonStyle { .init(size: size) }
+    static func dsSecondary(
+        size: DSButtonSize = .medium,
+        shape: DSButtonShape = .roundedRect,
+        layout: DSButtonLayout = .expand,
+        font: Font? = nil
+    ) -> DSSecondaryButtonStyle { .init(size: size, shape: shape, layout: layout, font: font) }
 }
 
 extension ButtonStyle where Self == DSGhostButtonStyle {
     static var dsGhost: DSGhostButtonStyle { .init() }
-    static func dsGhost(size: DSButtonSize) -> DSGhostButtonStyle { .init(size: size) }
+    static func dsGhost(
+        size: DSButtonSize = .medium,
+        layout: DSButtonLayout = .hug,
+        font: Font? = nil
+    ) -> DSGhostButtonStyle { .init(size: size, layout: layout, font: font) }
 }
 
 extension ButtonStyle where Self == DSDestructiveButtonStyle {
     static var dsDestructive: DSDestructiveButtonStyle { .init() }
-    static func dsDestructive(size: DSButtonSize) -> DSDestructiveButtonStyle { .init(size: size) }
+    static func dsDestructive(
+        size: DSButtonSize = .medium,
+        shape: DSButtonShape = .roundedRect,
+        layout: DSButtonLayout = .expand,
+        font: Font? = nil
+    ) -> DSDestructiveButtonStyle { .init(size: size, shape: shape, layout: layout, font: font) }
 }
 
 extension ButtonStyle where Self == DSIconChipButtonStyle {
