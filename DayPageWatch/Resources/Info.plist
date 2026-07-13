@@ -22,10 +22,6 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<false/>
-	<key>WKBackgroundModes</key>
-	<array>
-		<string>audio</string>
-	</array>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>DayPage uses the microphone to record voice memos.</string>
 	<key>WKApplication</key>
