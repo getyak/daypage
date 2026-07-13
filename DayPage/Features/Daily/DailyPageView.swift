@@ -66,8 +66,8 @@ struct DailyPageView: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
                             segmentedControl
-                                .padding(.horizontal, 20)
-                                .padding(.top, 16)
+                                .padding(.horizontal, DSSpacing.xl)
+                                .padding(.top, DSSpacing.lg)
 
                             ZStack {
                                 if selectedTab == .digest {
@@ -87,12 +87,12 @@ struct DailyPageView: View {
                             .dsAnimation(Motion.spring, value: selectedTab)
 
                             footer(model: model)
-                                .padding(.horizontal, 20)
+                                .padding(.horizontal, DSSpacing.xl)
                                 .padding(.bottom, 40)
                         }
                     }
                 } else {
-                    VStack(spacing: 16) {
+                    VStack(spacing: DSSpacing.lg) {
                         Text("无法加载日记")
                             .bodyMDStyle()
                             .foregroundColor(DSColor.onSurfaceVariant)
@@ -102,7 +102,7 @@ struct DailyPageView: View {
                         Button("关闭") { dismiss() }
                             .monoLabelStyle(size: 12)
                             .foregroundColor(DSColor.primary)
-                            .padding(.top, 8)
+                            .padding(.top, DSSpacing.sm)
                     }
                 }
             }
@@ -336,26 +336,26 @@ struct DailyPageView: View {
         VStack(alignment: .leading, spacing: 0) {
             // v4 hero card — glass hi-tone surface
             v4HeroCard(model: model)
-                .padding(.horizontal, 16)
-                .padding(.top, 16)
-                .padding(.bottom, 24)
+                .padding(.horizontal, DSSpacing.lg)
+                .padding(.top, DSSpacing.lg)
+                .padding(.bottom, DSSpacing.xl2)
 
             // Action row: Regenerate / Add note / Reflect
             sourceActionsRow(model: model)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 16)
+                .padding(.horizontal, DSSpacing.lg)
+                .padding(.bottom, DSSpacing.lg)
 
             // Source Signals list
             if !rawMemos.isEmpty {
                 sourceSignalsSection
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, DSSpacing.lg)
                     .padding(.bottom, 32)
             }
 
             // AI Follow-up Threads (legacy section kept for compatibility)
             if !model.followUpQuestions.isEmpty {
                 threadsSection(model: model)
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, DSSpacing.xl)
                     .padding(.bottom, 40)
             }
         }
@@ -364,7 +364,7 @@ struct DailyPageView: View {
     // MARK: - Source Actions Row
 
     private func sourceActionsRow(model: DailyPageModel) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: DSSpacing.sm) {
             ActionBtn(icon: "arrow.clockwise", label: "Regenerate") {
                 Task { await recompile() }
             }
@@ -381,12 +381,12 @@ struct DailyPageView: View {
     // MARK: - Source Signals Section
 
     private var sourceSignalsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DSSpacing.sm) {
             Text("SOURCE SIGNALS")
                 .font(DSFonts.spaceGrotesk(size: 11, weight: .semibold))
                 .foregroundColor(DSColor.inkMuted)
                 .tracking(1.6)
-                .padding(.bottom, 4)
+                .padding(.bottom, DSSpacing.xs)
 
             VStack(spacing: 0) {
                 ForEach(memoVM.memos) { memo in
@@ -397,7 +397,7 @@ struct DailyPageView: View {
                 }
             }
             .liquidGlassCard(cornerRadius: DSRadius.lg, tone: .std)
-            .padding(4)
+            .padding(DSSpacing.xs)
         }
     }
 
@@ -420,13 +420,13 @@ struct DailyPageView: View {
                         Text("Coming soon")
                             .font(DSType.mono9)
                             .foregroundColor(DSColor.inkMuted)
-                            .padding(.horizontal, 4)
+                            .padding(.horizontal, DSSpacing.xs)
                             .padding(.vertical, 2)
                             .background(DSColor.amberSoft, in: Capsule())
                     }
                 }
                 .foregroundColor(disabled ? DSColor.inkSubtle : DSColor.inkPrimary)
-                .padding(.horizontal, 12)
+                .padding(.horizontal, DSSpacing.md)
                 .padding(.vertical, 7)
                 .liquidGlassPill()
             }
@@ -481,7 +481,7 @@ struct DailyPageView: View {
                     .font(DSType.mono9)
                     .foregroundColor(DSColor.inkMuted)
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, DSSpacing.md)
             .padding(.vertical, 10)
         }
     }
@@ -490,7 +490,7 @@ struct DailyPageView: View {
 
     private func v4HeroCard(model: DailyPageModel) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
+            HStack(spacing: DSSpacing.sm) {
                 Circle()
                     .fill(DSColor.accentOnBg)
                     .frame(width: 8, height: 8)
@@ -501,7 +501,7 @@ struct DailyPageView: View {
                     .tracking(0.8)
                 Spacer()
             }
-            .padding(.bottom, 16)
+            .padding(.bottom, DSSpacing.lg)
 
             Text(dailyPageMonthDay(model.dateString))
                 .font(DSType.serifDisplay32)
@@ -526,7 +526,7 @@ struct DailyPageView: View {
     @ViewBuilder
     private func timelineContent(model: DailyPageModel) -> some View {
         if rawMemos.isEmpty {
-            VStack(spacing: 12) {
+            VStack(spacing: DSSpacing.md) {
                 Image(systemName: "tray")
                     .font(.system(size: 32))
                     .foregroundColor(DSColor.onSurfaceVariant.opacity(0.5))
@@ -537,16 +537,16 @@ struct DailyPageView: View {
             .frame(maxWidth: .infinity)
             .padding(.top, 60)
         } else {
-            LazyVStack(spacing: 8) {
+            LazyVStack(spacing: DSSpacing.sm) {
                 ForEach(Array(rawMemos.enumerated()), id: \.element.id) { idx, memo in
                     TimelineRow(
                         memo: memo,
                         isLast: idx == rawMemos.count - 1
                     )
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, DSSpacing.xl)
                 }
             }
-            .padding(.top, 16)
+            .padding(.top, DSSpacing.lg)
             .padding(.bottom, 32)
         }
     }
@@ -554,7 +554,7 @@ struct DailyPageView: View {
     // MARK: - Threads (AI Follow-up) — expandable conversation cards
 
     private func threadsSection(model: DailyPageModel) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: DSSpacing.md) {
             Text("THREADS")
                 .sectionLabelStyle()
                 .foregroundColor(DSColor.outline)
@@ -600,20 +600,20 @@ struct DailyPageView: View {
     // MARK: - Freeform input area
 
     private func freeformInputArea(compiledText: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DSSpacing.sm) {
             // Freeform VM thread card (visible only after first send)
             if let fvm = freeformVM, !fvm.messages.isEmpty {
                 ThreadConversationView(vm: fvm)
             }
 
             // Input bar
-            HStack(spacing: 8) {
+            HStack(spacing: DSSpacing.sm) {
                 TextField("你想聊什么…", text: $freeformDraft)
                     .font(DSType.bodySM)
                     .foregroundColor(DSColor.inkPrimary)
                     .submitLabel(.send)
                     .onSubmit { sendFreeform(compiledText: compiledText) }
-                    .padding(.horizontal, 12)
+                    .padding(.horizontal, DSSpacing.md)
                     .padding(.vertical, 9)
                     .background(DSColor.amberSoft.opacity(0.5))
                     .clipShape(RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous))
@@ -628,7 +628,7 @@ struct DailyPageView: View {
                 .buttonStyle(.plain)
                 .disabled(!canSendFreeform)
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, DSSpacing.lg)
             .padding(.vertical, 10)
             .background(DSColor.surfaceContainerHigh.opacity(0.8))
             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
@@ -666,11 +666,11 @@ struct DailyPageView: View {
         VStack(spacing: 0) {
             Divider()
                 .background(DSColor.surfaceContainerHigh)
-                .padding(.bottom, 24)
+                .padding(.bottom, DSSpacing.xl2)
 
             // US-020: compilation progress / error feedback
             if isRecompiling {
-                HStack(spacing: 8) {
+                HStack(spacing: DSSpacing.sm) {
                     ProgressView()
                         .scaleEffect(0.7)
                         .tint(DSColor.primary)
@@ -679,9 +679,9 @@ struct DailyPageView: View {
                         .foregroundColor(DSColor.primary)
                     Spacer()
                 }
-                .padding(.bottom, 16)
+                .padding(.bottom, DSSpacing.lg)
             } else if let errMsg = recompileError {
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: DSSpacing.sm) {
                     Text(errMsg)
                         .font(DSType.bodySM)
                         .foregroundColor(DSColor.statusError)
@@ -694,7 +694,7 @@ struct DailyPageView: View {
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.bottom, 16)
+                .padding(.bottom, DSSpacing.lg)
             }
 
             HStack {
@@ -712,7 +712,7 @@ struct DailyPageView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.bottom, 24)
+            .padding(.bottom, DSSpacing.xl2)
         }
     }
 

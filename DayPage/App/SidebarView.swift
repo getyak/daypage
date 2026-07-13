@@ -41,7 +41,7 @@ struct SidebarView: View {
                 Rectangle()
                     .fill(DSColor.inkFaint)
                     .frame(height: 0.5)
-                    .padding(.bottom, 8)
+                    .padding(.bottom, DSSpacing.sm)
 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 0) {
@@ -64,7 +64,7 @@ struct SidebarView: View {
                         feedbackSection
                             .padding(.top, 18)
                     }
-                    .padding(.bottom, 24)
+                    .padding(.bottom, DSSpacing.xl2)
                 }
 
                 Rectangle()
@@ -145,9 +145,9 @@ struct SidebarView: View {
                 // close button and then go straight into the profile row.
                 .accessibilityHidden(true)
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, DSSpacing.xl)
         .padding(.top, 58)
-        .padding(.bottom, 12)
+        .padding(.bottom, DSSpacing.md)
     }
 
     // MARK: - Profile Row (museum-aesthetic)
@@ -194,7 +194,7 @@ struct SidebarView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 20)
+        .padding(.horizontal, DSSpacing.xl)
         .padding(.vertical, 10)
         // Merge avatar + name + membership line into a single VoiceOver focus
         // so the user hears "<name>, <membership>" once instead of three
@@ -235,8 +235,8 @@ struct SidebarView: View {
             streak: sidebarVM.currentStreak,
             longestStreak: sidebarVM.longestStreak
         )
-        .padding(.horizontal, 20)
-        .padding(.top, 4)
+        .padding(.horizontal, DSSpacing.xl)
+        .padding(.top, DSSpacing.xs)
     }
 
     /// STREAK / PAGES / WORDS triplet on a single hairline-divided white card.
@@ -266,12 +266,12 @@ struct SidebarView: View {
                 .strokeBorder(DSColor.borderSubtle, lineWidth: 0.5)
         )
         .shadow(color: Color.black.opacity(0.04), radius: 1, x: 0, y: 1)
-        .padding(.horizontal, 20)
-        .padding(.top, 12)
+        .padding(.horizontal, DSSpacing.xl)
+        .padding(.top, DSSpacing.md)
     }
 
     private func statCell(label: String, value: String, unit: String, first: Bool) -> some View {
-        VStack(spacing: 4) {
+        VStack(spacing: DSSpacing.xs) {
             Text(label)
                 .font(DSType.mono9).tracking(1.4)
                 .foregroundColor(DSColor.inkMuted)
@@ -294,7 +294,7 @@ struct SidebarView: View {
         Rectangle()
             .fill(DSColor.borderSubtle)
             .frame(width: 0.5)
-            .padding(.vertical, 12)
+            .padding(.vertical, DSSpacing.md)
             .accessibilityHidden(true)
     }
 
@@ -323,7 +323,7 @@ struct SidebarView: View {
             searchRow
             askRow
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, DSSpacing.md)
     }
 
     /// Issue #16 (2026-07-03): entry to the app-wide SearchView. Reuses
@@ -337,7 +337,7 @@ struct SidebarView: View {
             nav.selectedTab = .archive
             nav.pendingSearchQuery = ""
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: DSSpacing.md) {
                 RoundedRectangle(cornerRadius: 1, style: .continuous)
                     .fill(Color.clear)
                     .frame(width: 2, height: 20)
@@ -349,7 +349,7 @@ struct SidebarView: View {
                     .font(DSType.bodyMD)
                     .foregroundColor(DSColor.inkMuted)
             }
-            .padding(.trailing, 16)
+            .padding(.trailing, DSSpacing.lg)
             .padding(.vertical, 11)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
@@ -369,7 +369,7 @@ struct SidebarView: View {
             nav.closeSidebar()
             nav.pendingAskQuery = ""
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: DSSpacing.md) {
                 RoundedRectangle(cornerRadius: 1, style: .continuous)
                     .fill(Color.clear)
                     .frame(width: 2, height: 20)
@@ -381,7 +381,7 @@ struct SidebarView: View {
                     .font(DSType.bodyMD)
                     .foregroundColor(DSColor.inkMuted)
             }
-            .padding(.trailing, 16)
+            .padding(.trailing, DSSpacing.lg)
             .padding(.vertical, 11)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
@@ -397,7 +397,7 @@ struct SidebarView: View {
             navItem(tab: .feedback, icon: "bubble.left.and.exclamationmark.bubble.right",
                     label: NSLocalizedString("sidebar.nav.feedback", comment: "Feedback nav"))
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, DSSpacing.md)
     }
 
     @ViewBuilder
@@ -415,7 +415,7 @@ struct SidebarView: View {
                 nav.navigate(to: tab)
             }
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: DSSpacing.md) {
                 // Left amber accent strip
                 RoundedRectangle(cornerRadius: 1, style: .continuous)
                     .fill(isActive ? DSColor.accentOnBg : Color.clear)
@@ -449,7 +449,7 @@ struct SidebarView: View {
                 }
             }
             .padding(.leading, 0)
-            .padding(.trailing, 16)
+            .padding(.trailing, DSSpacing.lg)
             .padding(.vertical, 11)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(isActive ? DSColor.amberSoft : Color.clear)
@@ -489,7 +489,7 @@ struct SidebarView: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, DSSpacing.md)
         .clipped()  // keep collapsing rows from sliding over the section below
     }
 
@@ -522,8 +522,8 @@ struct SidebarView: View {
                     .rotationEffect(.degrees(recentExpanded ? 0 : -90))
             }
             .padding(.leading, 34)  // align with row text column (2 + 12 + 20)
-            .padding(.trailing, 16)
-            .padding(.vertical, 8)
+            .padding(.trailing, DSSpacing.lg)
+            .padding(.vertical, DSSpacing.sm)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -540,7 +540,7 @@ struct SidebarView: View {
         Button {
             nav.openArchive(at: day.dateString)
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: DSSpacing.md) {
                 Color.clear.frame(width: 2, height: 20)
 
                 Image(systemName: "circle.fill")
@@ -568,7 +568,7 @@ struct SidebarView: View {
                     .padding(.vertical, 2)
                     .background(DSColor.amberSoft, in: Capsule())
             }
-            .padding(.trailing, 16)
+            .padding(.trailing, DSSpacing.lg)
             .padding(.vertical, 7)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
@@ -588,7 +588,7 @@ struct SidebarView: View {
             .tracking(1.2)
             .textCase(.uppercase)
             .padding(.leading, 34)  // align with row text column (2 + 12 + 20)
-            .padding(.bottom, 4)
+            .padding(.bottom, DSSpacing.xs)
             // Use isHeader so VoiceOver rotor lists these as section titles
             // rather than skipping them; users can jump between sections.
             .accessibilityAddTraits(.isHeader)
@@ -603,7 +603,7 @@ struct SidebarView: View {
                 Haptics.tapConfirm()
                 showSettings = true
             } label: {
-                HStack(spacing: 12) {
+                HStack(spacing: DSSpacing.md) {
                     Color.clear.frame(width: 2, height: 20)
                     Image(systemName: "gearshape")
                         .font(.system(size: 16, weight: .regular))
@@ -613,7 +613,7 @@ struct SidebarView: View {
                         .font(DSType.bodyMD)
                         .foregroundColor(DSColor.inkMuted)
                 }
-                .padding(.trailing, 16)
+                .padding(.trailing, DSSpacing.lg)
                 .padding(.vertical, 11)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
@@ -629,9 +629,9 @@ struct SidebarView: View {
                 accountRow
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .padding(.bottom, 24)
+        .padding(.horizontal, DSSpacing.md)
+        .padding(.vertical, DSSpacing.sm)
+        .padding(.bottom, DSSpacing.xl2)
     }
 
     private var accountRow: some View {
@@ -642,7 +642,7 @@ struct SidebarView: View {
             Haptics.tapConfirm()
             showAccountSheet = true
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: DSSpacing.md) {
                 Color.clear.frame(width: 2, height: 20)
                 ZStack {
                     Circle()
@@ -660,7 +660,7 @@ struct SidebarView: View {
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
-            .padding(.trailing, 16)
+            .padding(.trailing, DSSpacing.lg)
             .padding(.vertical, 9)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())

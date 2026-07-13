@@ -254,8 +254,8 @@ struct SearchView: View {
 
                 VStack(spacing: 0) {
                     searchBar
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
+                        .padding(.horizontal, DSSpacing.lg)
+                        .padding(.vertical, DSSpacing.md)
 
                     Divider().background(DSColor.outlineVariant)
 
@@ -413,8 +413,8 @@ struct SearchView: View {
     // MARK: - Search Bar
 
     private var searchBar: some View {
-        HStack(spacing: 12) {
-            HStack(spacing: 8) {
+        HStack(spacing: DSSpacing.md) {
+            HStack(spacing: DSSpacing.sm) {
                 Image(systemName: "magnifyingglass")
                     .font(.system(size: 14, weight: .regular))
                     .foregroundColor(DSColor.onSurfaceVariant)
@@ -474,7 +474,7 @@ struct SearchView: View {
                     .accessibilityLabel(NSLocalizedString("search.a11y.clearSearch", comment: "Accessibility label for the clear search button"))
                 }
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, DSSpacing.md)
             .frame(height: 36)
             .background(DSColor.surfaceContainer)
             .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
@@ -506,8 +506,8 @@ struct SearchView: View {
     // MARK: - Filter Panel
 
     private var filterPanel: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: DSSpacing.md) {
+            HStack(spacing: DSSpacing.sm) {
                 Image(systemName: "calendar")
                     .font(.system(size: 12))
                     .foregroundColor(DSColor.onSurfaceVariant)
@@ -561,7 +561,7 @@ struct SearchView: View {
                 }
             }
 
-            HStack(spacing: 8) {
+            HStack(spacing: DSSpacing.sm) {
                 Image(systemName: "tag")
                     .font(.system(size: 12))
                     .foregroundColor(DSColor.onSurfaceVariant)
@@ -581,7 +581,7 @@ struct SearchView: View {
                 }
             }
 
-            HStack(spacing: 8) {
+            HStack(spacing: DSSpacing.sm) {
                 Image(systemName: "mappin")
                     .font(.system(size: 12))
                     .foregroundColor(DSColor.onSurfaceVariant)
@@ -634,8 +634,8 @@ struct SearchView: View {
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.horizontal, DSSpacing.lg)
+        .padding(.vertical, DSSpacing.md)
         .background(DSColor.surfaceContainer.opacity(0.5))
     }
 
@@ -650,15 +650,15 @@ struct SearchView: View {
             }
             runSearch(keyword: vm.query)
         }) {
-            HStack(spacing: 4) {
+            HStack(spacing: DSSpacing.xs) {
                 Image(systemName: type.iconName)
                     .font(.system(size: 10))
                 Text(type.displayName)
                     .monoLabelStyle(size: 10)
             }
             .foregroundColor(isSelected ? DSColor.onPrimary : DSColor.onSurfaceVariant)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.horizontal, DSSpacing.sm)
+            .padding(.vertical, DSSpacing.xs)
             .background(isSelected ? DSColor.primary : DSColor.surfaceContainer)
             .overlay(
                 Rectangle()
@@ -692,7 +692,7 @@ struct SearchView: View {
         let totalMemos = all.reduce(0) { $0 + $1.memoCount }
         let totalDays = all.count
         let hasData = totalDays > 0 || totalMemos > 0
-        return HStack(alignment: .center, spacing: 20) {
+        return HStack(alignment: .center, spacing: DSSpacing.xl) {
             statPillar(
                 label: NSLocalizedString("search.overview.memos", comment: "Vault overview: all-time memo count label"),
                 value: hasData ? "\(totalMemos)" : "—"
@@ -714,7 +714,7 @@ struct SearchView: View {
     }
 
     private func statPillar(label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: DSSpacing.xs) {
             Text(label)
                 .font(DSType.mono10)
                 .tracking(1.2)
@@ -738,7 +738,7 @@ struct SearchView: View {
                 // search-surface prologue it answers "how much is searchable",
                 // instead of shouting over Archive's month summary.
                 vaultOverviewStrip
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, DSSpacing.xl)
                     .padding(.top, 10)
                     .padding(.bottom, 6)
 
@@ -746,13 +746,13 @@ struct SearchView: View {
                     sectionHeader(title: NSLocalizedString("search.section.quickSearch", comment: "Quick search section header"), trailing: AnyView(EmptyView()))
 
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
+                        HStack(spacing: DSSpacing.sm) {
                             ForEach(SearchView.starterSuggestions, id: \.self) { suggestion in
                                 entityChip(suggestion)
                             }
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 4)
+                        .padding(.horizontal, DSSpacing.xl)
+                        .padding(.vertical, DSSpacing.xs)
                     }
                 }
 
@@ -784,12 +784,12 @@ struct SearchView: View {
                         } else {
                             let maxCount = entities.map(\.count).max() ?? 1
                             ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
+                                HStack(spacing: DSSpacing.sm) {
                                     ForEach(Array(entities.enumerated()), id: \.element) { idx, entity in
                                         entityChipWithCount(entity, maxCount: maxCount, index: idx)
                                     }
                                 }
-                                .padding(.horizontal, 20)
+                                .padding(.horizontal, DSSpacing.xl)
                                 .padding(.vertical, 10)
                             }
                             .transition(.opacity)
@@ -799,8 +799,8 @@ struct SearchView: View {
                 }
 
                 if recent.isEmpty && entities.isEmpty && !vm.isLoadingEntities {
-                    VStack(spacing: 20) {
-                        VStack(spacing: 12) {
+                    VStack(spacing: DSSpacing.xl) {
+                        VStack(spacing: DSSpacing.md) {
                             Image(systemName: "magnifyingglass")
                                 .font(.system(size: 32, weight: .regular))
                                 .foregroundColor(DSColor.outlineVariant)
@@ -817,16 +817,16 @@ struct SearchView: View {
                                 .monoLabelStyle(size: 10)
                                 .foregroundColor(DSColor.onSurfaceVariant)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .padding(.horizontal, 20)
+                                .padding(.horizontal, DSSpacing.xl)
 
                             ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 8) {
+                                HStack(spacing: DSSpacing.sm) {
                                     ForEach(SearchView.starterSuggestions, id: \.self) { suggestion in
                                         entityChip(suggestion)
                                     }
                                 }
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 4)
+                                .padding(.horizontal, DSSpacing.xl)
+                                .padding(.vertical, DSSpacing.xs)
                             }
                         }
                     }
@@ -834,7 +834,7 @@ struct SearchView: View {
                     .padding(.top, 80)
                 }
             }
-            .padding(.bottom, 24)
+            .padding(.bottom, DSSpacing.xl2)
         }
         .scrollDismissesKeyboard(.interactively)
     }
@@ -847,9 +847,9 @@ struct SearchView: View {
             Spacer()
             trailing
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 16)
-        .padding(.bottom, 4)
+        .padding(.horizontal, DSSpacing.xl)
+        .padding(.top, DSSpacing.lg)
+        .padding(.bottom, DSSpacing.xs)
     }
 
     @ViewBuilder
@@ -916,8 +916,8 @@ struct SearchView: View {
 
     private var emptyResultState: some View {
         ScrollView {
-            VStack(spacing: 20) {
-                VStack(spacing: 12) {
+            VStack(spacing: DSSpacing.xl) {
+                VStack(spacing: DSSpacing.md) {
                     Image(systemName: "tray")
                         .font(.system(size: 32, weight: .regular))
                         .foregroundColor(DSColor.outlineVariant)
@@ -985,16 +985,16 @@ struct SearchView: View {
                             .monoLabelStyle(size: 10)
                             .foregroundColor(DSColor.onSurfaceVariant)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 20)
+                            .padding(.horizontal, DSSpacing.xl)
 
                         ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
+                            HStack(spacing: DSSpacing.sm) {
                                 ForEach(recentSuggestions, id: \.self) { q in
                                     entityChip(q)
                                 }
                             }
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 4)
+                            .padding(.horizontal, DSSpacing.xl)
+                            .padding(.vertical, DSSpacing.xs)
                         }
                     }
                 }
@@ -1006,23 +1006,23 @@ struct SearchView: View {
                             .monoLabelStyle(size: 10)
                             .foregroundColor(DSColor.onSurfaceVariant)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 20)
+                            .padding(.horizontal, DSSpacing.xl)
 
                         ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
+                            HStack(spacing: DSSpacing.sm) {
                                 ForEach(entitySuggestions, id: \.self) { name in
                                     entityChip(name)
                                 }
                             }
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 4)
+                            .padding(.horizontal, DSSpacing.xl)
+                            .padding(.vertical, DSSpacing.xs)
                         }
                     }
                 }
             }
             .frame(maxWidth: .infinity)
             .padding(.top, 80)
-            .padding(.bottom, 24)
+            .padding(.bottom, DSSpacing.xl2)
         }
         .scrollDismissesKeyboard(.interactively)
         .scaleEffect(didBuzzEmpty ? 1.0 : (reduceMotion ? 1.0 : 0.88))
@@ -1074,8 +1074,8 @@ struct SearchView: View {
                             .foregroundColor(DSColor.primary)
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
+                .padding(.horizontal, DSSpacing.xl)
+                .padding(.top, DSSpacing.md)
                 .padding(.bottom, activeMatchKinds.isEmpty && presentKinds.count <= 1 ? 8 : 4)
                 }
                 .buttonStyle(.plain)
@@ -1085,7 +1085,7 @@ struct SearchView: View {
                 // Match-kind filter chips — only when 2+ kinds are present
                 if presentKinds.count > 1 {
                     matchKindChipRow(presentKinds: presentKinds)
-                        .padding(.bottom, 8)
+                        .padding(.bottom, DSSpacing.sm)
                 }
 
                 ForEach(groups, id: \.section) { group in
@@ -1093,8 +1093,8 @@ struct SearchView: View {
                         ForEach(group.results) { result in
                             let appeared = appearedIDs.contains(result.id)
                             resultRow(result)
-                                .padding(.horizontal, 20)
-                                .padding(.bottom, 8)
+                                .padding(.horizontal, DSSpacing.xl)
+                                .padding(.bottom, DSSpacing.sm)
                                 .opacity(appeared ? 1 : 0)
                                 .offset(y: appeared || reduceMotion ? 0 : 10)
                                 .onAppear {
@@ -1113,13 +1113,13 @@ struct SearchView: View {
                                 .fill(DSColor.outlineVariant)
                                 .frame(height: 1)
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
+                        .padding(.horizontal, DSSpacing.xl)
+                        .padding(.vertical, DSSpacing.sm)
                         .background(DSColor.background)
                     }
                 }
             }
-            .padding(.bottom, 24)
+            .padding(.bottom, DSSpacing.xl2)
         }
         .scrollDismissesKeyboard(.interactively)
         } // end ScrollViewReader
@@ -1134,7 +1134,7 @@ struct SearchView: View {
                     matchKindChip(kind)
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, DSSpacing.xl)
             .padding(.vertical, 2)
         }
     }
@@ -1158,15 +1158,15 @@ struct SearchView: View {
                 UIAccessibility.post(notification: .announcement, argument: String(format: NSLocalizedString("search.a11y.resultCount", comment: "VoiceOver: result count announcement"), newVisible))
             }
         }) {
-            HStack(spacing: 4) {
+            HStack(spacing: DSSpacing.xs) {
                 Image(systemName: matchIcon(for: kind))
                     .font(.system(size: 10))
                 Text(label)
                     .monoLabelStyle(size: 10)
             }
             .foregroundColor(isActive ? DSColor.onPrimary : DSColor.onSurfaceVariant)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.horizontal, DSSpacing.sm)
+            .padding(.vertical, DSSpacing.xs)
             .background(isActive ? DSColor.primary : DSColor.surfaceContainer)
             .overlay(
                 Rectangle()
@@ -1231,7 +1231,7 @@ struct SearchView: View {
                         }
                     }
                 }
-                .padding(16)
+                .padding(DSSpacing.lg)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(DSColor.surfaceContainer)
             }
@@ -1396,7 +1396,7 @@ private struct EntityFrequencyChip: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 4) {
+            VStack(spacing: DSSpacing.xs) {
                 HStack(spacing: 6) {
                     Text(entity.name)
                         .font(DSFonts.inter(size: 13, relativeTo: .footnote))
@@ -1405,7 +1405,7 @@ private struct EntityFrequencyChip: View {
                     Text("\(entity.count)")
                         .font(DSType.mono10)
                         .foregroundColor(DSColor.onSurfaceVariant)
-                        .padding(.horizontal, 4)
+                        .padding(.horizontal, DSSpacing.xs)
                         .padding(.vertical, 2)
                         .background(DSColor.outlineVariant.opacity(0.4))
                         .clipShape(Capsule())
@@ -1474,7 +1474,7 @@ private struct EntityChipSkeleton: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+            HStack(spacing: DSSpacing.sm) {
                 ForEach(0..<4, id: \.self) { _ in
                     Capsule()
                         .fill(DSColor.surfaceContainer)
@@ -1482,7 +1482,7 @@ private struct EntityChipSkeleton: View {
                         .opacity(pulsing ? 0.45 : 0.85)
                 }
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, DSSpacing.xl)
             .padding(.vertical, 10)
         }
         .allowsHitTesting(false)
@@ -1583,7 +1583,7 @@ private struct SwipeableRecentRow: View {
                 .buttonStyle(ChipButtonStyle(reduceMotion: reduceMotion))
                 .accessibilityLabel(NSLocalizedString("search.a11y.deleteRecent", comment: "Accessibility label for delete recent search button"))
             }
-            .padding(.horizontal, 20)
+            .padding(.horizontal, DSSpacing.xl)
             .padding(.vertical, 10)
             .background(DSColor.background)
             .offset(x: currentOffset)

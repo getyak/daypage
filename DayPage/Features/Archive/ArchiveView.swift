@@ -559,13 +559,13 @@ struct ArchiveView: View {
                             // mode now reads: month nav → calendar (legend
                             // in its footer) → single month summary.
                             monthNavigationRow
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 16)
+                                .padding(.horizontal, DSSpacing.xl)
+                                .padding(.vertical, DSSpacing.lg)
 
                             if viewModel.isLoading {
                                 HStack {
                                     Spacer()
-                                    VStack(spacing: 8) {
+                                    VStack(spacing: DSSpacing.sm) {
                                         ProgressView()
                                             .tint(DSColor.accentOnBg)
                                         Text(NSLocalizedString("archive.loading_month", comment: ""))
@@ -580,7 +580,7 @@ struct ArchiveView: View {
                                 .transition(.opacity)
                             } else if mode == .calendar {
                                 calendarGrid
-                                    .padding(.horizontal, 12)
+                                    .padding(.horizontal, DSSpacing.md)
                                     .id("\(viewModel.currentYear)-\(viewModel.currentMonth)")
                                     .transition(
                                         .asymmetric(
@@ -613,18 +613,18 @@ struct ArchiveView: View {
                                     // explanation — the only screen in the
                                     // app without an empty state.
                                     emptyMonthHint
-                                        .padding(.horizontal, 20)
+                                        .padding(.horizontal, DSSpacing.xl)
                                         .padding(.top, 32)
                                         .padding(.bottom, 40)
                                 } else {
                                     monthlySummary
-                                        .padding(.horizontal, 20)
+                                        .padding(.horizontal, DSSpacing.xl)
                                         .padding(.top, 32)
                                         .padding(.bottom, 40)
                                 }
                             } else {
                                 listContent
-                                    .padding(.horizontal, 20)
+                                    .padding(.horizontal, DSSpacing.xl)
                                     .padding(.bottom, 40)
                             }
                         }
@@ -650,8 +650,8 @@ struct ArchiveView: View {
                                     .dpGlass(.control, in: Circle())
                                     .clipShape(Circle())
                             }
-                            .padding(.trailing, 20)
-                            .padding(.bottom, 20)
+                            .padding(.trailing, DSSpacing.xl)
+                            .padding(.bottom, DSSpacing.xl)
                             .transition(.opacity.combined(with: .scale(scale: 0.8)))
                             .accessibilityLabel(NSLocalizedString("archive.scroll_to_top", comment: "Scroll to top of archive list"))
                             .accessibilityIdentifier("archive-scroll-to-top-button")
@@ -816,7 +816,7 @@ struct ArchiveView: View {
                     Haptics.soft()
                     withAnimation(reduceMotion ? nil : Motion.fade) { showMonthPicker = true }
                 } label: {
-                    HStack(spacing: 4) {
+                    HStack(spacing: DSSpacing.xs) {
                         Text(viewModel.currentMonthTitle.uppercased())
                             .font(DSType.mono10)
                             .foregroundColor(DSColor.inkMuted)
@@ -850,9 +850,9 @@ struct ArchiveView: View {
             .frame(width: 44, height: 44)
             .contentShape(Rectangle())
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 16)
-        .padding(.bottom, 12)
+        .padding(.horizontal, DSSpacing.xl)
+        .padding(.top, DSSpacing.lg)
+        .padding(.bottom, DSSpacing.md)
     }
 
     // MARK: - Month Navigation Row
@@ -866,7 +866,7 @@ struct ArchiveView: View {
     /// #827: quiet empty state for an all-empty month — replaces the month
     /// summary (a grid of zeros would be noise, not information).
     private var emptyMonthHint: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: DSSpacing.sm) {
             Image(systemName: "moon.zzz")
                 .font(.system(size: 22, weight: .light))
                 .foregroundColor(DSColor.inkFaint)
@@ -966,7 +966,7 @@ struct ArchiveView: View {
             Text(label)
                 .monoLabelStyle(size: 10)
                 .foregroundColor(isSelected ? DSColor.onAmber : DSColor.inkSubtle)
-                .padding(.horizontal, 12)
+                .padding(.horizontal, DSSpacing.md)
                 .padding(.vertical, 6)
                 .background(isSelected ? DSColor.amberDeep : Color.clear, in: Capsule())
         }
@@ -981,9 +981,9 @@ struct ArchiveView: View {
         // 4pt gutters + 8pt inset: with the previous 1pt gaps the amber cell
         // fills fused with the amber-tinted glass panel into one flat salmon
         // slab — the density heatmap only reads when cells are discrete tiles.
-        VStack(spacing: 4) {
+        VStack(spacing: DSSpacing.xs) {
             // Weekday header row
-            HStack(spacing: 4) {
+            HStack(spacing: DSSpacing.xs) {
                 ForEach(weekdaySymbols, id: \.self) { day in
                     Text(day)
                         .monoLabelStyle(size: 9)
@@ -997,7 +997,7 @@ struct ArchiveView: View {
             let cells = viewModel.daysInCurrentMonth()
             let rows = cells.chunked(into: 7)
             ForEach(rows.indices, id: \.self) { rowIdx in
-                HStack(spacing: 4) {
+                HStack(spacing: DSSpacing.xs) {
                     ForEach(rows[rowIdx].indices, id: \.self) { colIdx in
                         let dayNum = rows[rowIdx][colIdx]
                         calendarCell(dayNum: dayNum)
@@ -1009,10 +1009,10 @@ struct ArchiveView: View {
             // its footer — it annotates the grid above it, so floating it
             // outside the glass surface made it read as a separate section.
             legendRow
-                .padding(.horizontal, 4)
+                .padding(.horizontal, DSSpacing.xs)
                 .padding(.top, 6)
         }
-        .padding(8)
+        .padding(DSSpacing.sm)
         // #771: month calendar grid → glass engine (.panel). Engine owns rim.
         .dpGlass(.panel, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -1090,14 +1090,14 @@ struct ArchiveView: View {
                     Text(String(format: "%02d", day))
                         .monoLabelStyle(size: 9)
                         .foregroundColor(textColor)
-                        .padding(4)
+                        .padding(DSSpacing.xs)
 
                     if data == .rawOnly {
                         Circle()
                             .fill(dotColor)
                             .frame(width: 4, height: 4)
                             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                            .padding(4)
+                            .padding(DSSpacing.xs)
                     }
                 }
                 .aspectRatio(1, contentMode: .fit)
@@ -1145,7 +1145,7 @@ struct ArchiveView: View {
     // MARK: - Heatmap Legend
 
     private var legendRow: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: DSSpacing.sm) {
             Text("Activity:")
                 .monoLabelStyle(size: 9)
                 .foregroundColor(DSColor.inkMuted)
@@ -1170,8 +1170,8 @@ struct ArchiveView: View {
     // MARK: - Monthly Summary
 
     private var monthlySummary: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: DSSpacing.lg) {
+            HStack(spacing: DSSpacing.lg) {
                 Text(String(format: NSLocalizedString("archive.summary.title", comment: "Monthly summary section title; %@ = month title"), viewModel.currentMonthTitle))
                     .font(DSType.sectionLabel)
                     .foregroundColor(DSColor.inkMuted)
@@ -1180,7 +1180,7 @@ struct ArchiveView: View {
                     .frame(height: 0.5)
             }
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: DSSpacing.md) {
                 summaryCard("TOTAL ENTRIES", value: "\(viewModel.totalEntries)", accentPrimary: true)
                 if viewModel.totalVoiceMinutes > 0 {
                     summaryCard("VOICE DURATION", value: "\(viewModel.totalVoiceMinutes)", unit: "min", accentPrimary: false)
@@ -1194,7 +1194,7 @@ struct ArchiveView: View {
             }
 
             // Filter chips
-            HStack(spacing: 8) {
+            HStack(spacing: DSSpacing.sm) {
                 ForEach(MonthlySummaryFilter.allCases, id: \.rawValue) { filter in
                     filterChip(filter)
                 }
@@ -1208,7 +1208,7 @@ struct ArchiveView: View {
                     Text(NSLocalizedString("archive.summary.noMatch", comment: "Monthly summary: no days match the active filter"))
                         .monoLabelStyle(size: 11)
                         .foregroundColor(DSColor.onSurfaceVariant)
-                        .padding(.vertical, 8)
+                        .padding(.vertical, DSSpacing.sm)
                 } else {
                     VStack(spacing: 6) {
                         ForEach(filtered, id: \.dateString) { stats in
@@ -1251,8 +1251,8 @@ struct ArchiveView: View {
                     Label(NSLocalizedString("archive.export.markdown", comment: "Button: export monthly summary as Markdown"), systemImage: "square.and.arrow.up")
                         .monoLabelStyle(size: 11)
                         .foregroundColor(DSColor.inkPrimary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
+                        .padding(.horizontal, DSSpacing.md)
+                        .padding(.vertical, DSSpacing.sm)
                         .liquidGlassCard(cornerRadius: 8)
                 }
                 .buttonStyle(.plain)
@@ -1263,8 +1263,8 @@ struct ArchiveView: View {
                     Label(NSLocalizedString("archive.export.screenshot", comment: "Button: share monthly summary as screenshot"), systemImage: "camera")
                         .monoLabelStyle(size: 11)
                         .foregroundColor(DSColor.inkPrimary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
+                        .padding(.horizontal, DSSpacing.md)
+                        .padding(.vertical, DSSpacing.sm)
                         .liquidGlassCard(cornerRadius: 8)
                 }
                 .buttonStyle(.plain)
@@ -1330,12 +1330,12 @@ struct ArchiveView: View {
     }
 
     private func summaryCard(_ label: String, value: String, unit: String? = nil, accentPrimary: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: DSSpacing.sm) {
             Text(label)
                 .monoLabelStyle(size: 10)
                 .foregroundColor(DSColor.onSurfaceVariant)
 
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: DSSpacing.xs) {
                 Text(value)
                     .font(DSType.serifDisplay32)
                     .foregroundColor(accentPrimary ? DSColor.accentOnBg : DSColor.inkPrimary)
@@ -1348,7 +1348,7 @@ struct ArchiveView: View {
                 }
             }
         }
-        .padding(16)
+        .padding(DSSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: 110)
         .liquidGlassCard(cornerRadius: 12)
@@ -1365,7 +1365,7 @@ struct ArchiveView: View {
         // 1-2s freeze on the first scroll when a month has many populated
         // days. iOS 16 compatibility: do NOT use pinnedViews — sticky-header
         // behavior is inconsistent on 16.x; a plain header View is enough.
-        LazyVStack(spacing: 8, pinnedViews: []) {
+        LazyVStack(spacing: DSSpacing.sm, pinnedViews: []) {
             Color.clear.frame(height: 0).id("archiveListTop")
 
             if viewModel.sortedDays.isEmpty {
@@ -1378,13 +1378,13 @@ struct ArchiveView: View {
                 // Gated on `.weeklyRecap` flag + ≥3 compiled daily pages this
                 // week so the entry doesn't tease an empty AI experience.
                 weeklyRecapEntryCard
-                    .padding(.bottom, 4)
+                    .padding(.bottom, DSSpacing.xs)
 
                 // Compact monthly digest — list mode otherwise drops all the
                 // month-level context that calendar mode shows in its summary
                 // grid. (#archive-list-digest)
                 monthDigestStrip
-                    .padding(.bottom, 4)
+                    .padding(.bottom, DSSpacing.xs)
 
                 ForEach(viewModel.groupedByMonth, id: \.monthKey) { group in
                     Section {
@@ -1398,7 +1398,7 @@ struct ArchiveView: View {
                 }
             }
         }
-        .padding(.top, 8)
+        .padding(.top, DSSpacing.sm)
     }
 
     // MARK: - Month Section Header (list mode, Issue #13)
@@ -1437,8 +1437,8 @@ struct ArchiveView: View {
                 .font(DSType.labelSM)
                 .foregroundColor(DSColor.inkMuted)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.horizontal, DSSpacing.lg)
+        .padding(.vertical, DSSpacing.sm)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.ultraThinMaterial)
         .accessibilityElement(children: .combine)
@@ -1459,7 +1459,7 @@ struct ArchiveView: View {
         let voice = viewModel.totalVoiceMinutes
         let locations = viewModel.totalLocations
 
-        return VStack(alignment: .leading, spacing: 12) {
+        return VStack(alignment: .leading, spacing: DSSpacing.md) {
             Text("\(viewModel.currentMonthTitle) · DIGEST")
                 .monoLabelStyle(size: 10)
                 .foregroundColor(DSColor.inkMuted)
@@ -1482,8 +1482,8 @@ struct ArchiveView: View {
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 16)
+        .padding(.horizontal, DSSpacing.lg)
+        .padding(.vertical, DSSpacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .liquidGlassCard(cornerRadius: DSRadius.md)
         .accessibilityElement(children: .ignore)
@@ -1494,7 +1494,7 @@ struct ArchiveView: View {
     }
 
     private func digestStat(value: String, label: String, accent: Bool) -> some View {
-        VStack(alignment: .center, spacing: 4) {
+        VStack(alignment: .center, spacing: DSSpacing.xs) {
             Text(value)
                 .font(DSType.serifDisplay28)
                 .foregroundColor(accent ? DSColor.accentOnBg : DSColor.inkPrimary)
@@ -1546,7 +1546,7 @@ struct ArchiveView: View {
             Image(systemName: "calendar")
                 .font(.system(size: 20, weight: .medium))
                 .foregroundColor(DSColor.accentOnBg)
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: DSSpacing.xs) {
                 Text(title)
                     .font(DSType.titleSM)
                     .foregroundColor(DSColor.inkPrimary)
@@ -1559,7 +1559,7 @@ struct ArchiveView: View {
                 .font(.system(size: 14, weight: .medium))
                 .foregroundColor(DSColor.inkMuted)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, DSSpacing.lg)
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .liquidGlassCard(cornerRadius: DSRadius.md)
@@ -1602,7 +1602,7 @@ struct ArchiveView: View {
                         .opacity(isMetadataOnly ? 0.7 : 1.0)
                 }
 
-                HStack(spacing: 16) {
+                HStack(spacing: DSSpacing.lg) {
                     metaIcon("doc.text", count: stats.memoCount)
                     metaIcon("photo", count: stats.photoCount)
                     metaIcon("mic", count: stats.voiceMinutes, unit: "min")
@@ -1619,7 +1619,7 @@ struct ArchiveView: View {
     }
 
     private func metaIcon(_ systemName: String, count: Int, unit: String? = nil) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: DSSpacing.xs) {
             Image(systemName: systemName)
                 .font(DSType.labelXS)
                 .foregroundColor(DSColor.inkMuted)
