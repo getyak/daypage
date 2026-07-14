@@ -22,6 +22,10 @@
 		31D89981FFB0794C1682BEC9 /* DayPageStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 1849755B85C13ED4D81002E9 /* DayPageStorage */; };
 		326A14114B34412568007B4A /* DayPageWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FB6C74A43193A3DD725723 /* DayPageWidgetBundle.swift */; };
 		347B8BDADCBDDB2EDE830E66 /* WatchTransferService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */; };
+		T10000070 /* WatchSettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000070 /* WatchSettingsStore.swift */; };
+		T10000071 /* WatchHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000071 /* WatchHistoryStore.swift */; };
+		T10000072 /* WatchSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000072 /* WatchSettingsView.swift */; };
+		T10000073 /* WatchHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000073 /* WatchHistoryView.swift */; };
 		3C0AE791CCB255E33198C9F9 /* UndoPillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12641793A8F375B34321E87A /* UndoPillView.swift */; };
 		457A17AB7F3B4BE7C2E77026 /* StartRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF24DE1810B0DA979103772 /* StartRecordingIntent.swift */; };
 		485EFA11789212D87CB1B74B /* StartRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF24DE1810B0DA979103772 /* StartRecordingIntent.swift */; };
@@ -427,6 +431,10 @@
 		ES1000004 /* GraphSkeleton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphSkeleton.swift; sourceTree = "<group>"; };
 		F11E0748715A251EE4A0168A /* WatchReceiveService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchReceiveService.swift; sourceTree = "<group>"; };
 		F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchTransferService.swift; sourceTree = "<group>"; };
+		T20000070 /* WatchSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSettingsStore.swift; sourceTree = "<group>"; };
+		T20000071 /* WatchHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHistoryStore.swift; sourceTree = "<group>"; };
+		T20000072 /* WatchSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSettingsView.swift; sourceTree = "<group>"; };
+		T20000073 /* WatchHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHistoryView.swift; sourceTree = "<group>"; };
 		F5BB61FECBCF7AB756E7A6CE /* WatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchApp.swift; sourceTree = "<group>"; };
 		FB1000002 /* FeedbackViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackViewModel.swift; sourceTree = "<group>"; };
 		FB1000003 /* FeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackView.swift; sourceTree = "<group>"; };
@@ -573,6 +581,8 @@
 			isa = PBXGroup;
 			children = (
 				B93ED807E07C2171E9F4234B /* RecordingView.swift */,
+				T20000072 /* WatchSettingsView.swift */,
+				T20000073 /* WatchHistoryView.swift */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -1022,6 +1032,8 @@
 			isa = PBXGroup;
 			children = (
 				F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */,
+				T20000070 /* WatchSettingsStore.swift */,
+				T20000071 /* WatchHistoryStore.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -1382,6 +1394,10 @@
 				B197ECDEBDA86D4351A96898 /* RecordingView.swift in Sources */,
 				347B8BDADCBDDB2EDE830E66 /* WatchTransferService.swift in Sources */,
 				A46C6A46A2D76FF5DBFBD6C6 /* StartRecordingIntent.swift in Sources */,
+				T10000070 /* WatchSettingsStore.swift in Sources */,
+				T10000071 /* WatchHistoryStore.swift in Sources */,
+				T10000072 /* WatchSettingsView.swift in Sources */,
+				T10000073 /* WatchHistoryView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

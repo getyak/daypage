@@ -361,8 +361,24 @@ final class WatchRecordingModel: NSObject, ObservableObject {
     @Published var elapsed: Int = 0
     @Published var isMicPermissionDenied: Bool = false
 
-    /// Maximum recording duration in seconds — adjusted via Digital Crown when idle.
-    @Published var maxDuration: Int = 60
+    /// Maximum recording duration in seconds — adjusted via Digital Crown when
+    /// idle, seeded from and persisted back to `WatchSettingsStore` so the
+    /// crown and the Settings page stay one source of truth.
+    @Published var maxDuration: Int = 60 {
+        didSet {
+            guard maxDuration != oldValue else { return }
+            settings.maxDuration = maxDuration
+        }
+    }
+
+    /// The watch's capture configuration (quality, haptics, max duration).
+    let settings: WatchSettingsStore
+
+    init(settings: WatchSettingsStore = .shared) {
+        self.settings = settings
+        super.init()
+        self.maxDuration = settings.maxDuration
+    }
 
     private var recorder: AVAudioRecorder?
     private var timer: Timer?
@@ -382,6 +398,14 @@ final class WatchRecordingModel: NSObject, ObservableObject {
     // MARK: - Haptic Feedback
 
     private func haptic(_ hapticType: WKHapticType) {
+        // Gate the two user-facing "you did a thing" haptics on their toggles;
+        // failure/click/confirm feedback always plays (it's error/safety UX,
+        // not a preference).
+        switch hapticType {
+        case .start where !settings.hapticsOnStart: return
+        case .stop where !settings.hapticsOnStop:   return
+        default: break
+        }
         WKInterfaceDevice.current().play(hapticType)
     }
 
@@ -413,16 +437,18 @@ final class WatchRecordingModel: NSObject, ObservableObject {
         let url = makeFileURL()
         currentFileURL = url
 
-        // Settings: 16 kHz Mono AAC (M4A) — smaller file, good enough for voice
-        let settings: [String: Any] = [
+        // Mono AAC (M4A). Sample rate + encoder quality come from the user's
+        // audio-quality setting (low/medium/high).
+        let quality = settings.audioQuality
+        let recorderSettings: [String: Any] = [
             AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
-            AVSampleRateKey: 16_000,
+            AVSampleRateKey: quality.sampleRate,
             AVNumberOfChannelsKey: 1,
-            AVEncoderAudioQualityKey: AVAudioQuality.medium.rawValue,
+            AVEncoderAudioQualityKey: quality.encoderQuality.rawValue,
         ]
 
         do {
-            let rec = try AVAudioRecorder(url: url, settings: settings)
+            let rec = try AVAudioRecorder(url: url, settings: recorderSettings)
             rec.isMeteringEnabled = false
             rec.record()
             recorder = rec

@@ -23,21 +23,48 @@ struct DayPageWatchApp: App {
 
 // MARK: - OrphanFileCleanup
 
-/// Deletes audio files in the Watch tmp directory that are older than 24 hours.
-/// These accumulate when transfers fail and the app is terminated before cleanup.
+/// Removes leftover audio files in the Watch tmp directory.
+///
+/// Every file here is, by construction, **undelivered**: a successful transfer
+/// deletes its source file in `WatchTransferService.handleTransferFinished`, so
+/// anything that lingers is from a failed or interrupted transfer. How long to
+/// keep such a file before giving up on it is the user's `WatchRetentionPolicy`:
+///
+///   - `.oneDay` / `.sevenDays` — delete once older than the window
+///   - `.untilDelivered`        — never age-delete; keep until the transfer
+///                                confirms delivery (the paired-device model's
+///                                answer to "watch was away from phone too long")
+///
+/// This replaces the old hardcoded 24h window, which silently dropped a memo
+/// when the watch stayed away from its phone for more than a day.
 enum OrphanFileCleanup {
 
     private static let logger = Logger(subsystem: "com.daypage.watch", category: "OrphanFileCleanup")
     private static let watchTmpDir = "com.daypage.watch"
-    private static let maxAge: TimeInterval = 86_400  // 24 hours
 
-    static func run() {
+    /// Pure age decision — `internal static` for test access. Returns true when
+    /// an undelivered file created at `created` should be removed under `policy`
+    /// as of `now`. `.untilDelivered` (nil max age) never age-deletes.
+    static func shouldDelete(created: Date, now: Date, policy: WatchRetentionPolicy) -> Bool {
+        guard let maxAge = policy.maxUndeliveredAge else { return false }
+        return now.timeIntervalSince(created) > maxAge
+    }
+
+    /// `policy` defaults to the user's current setting (resolved inside the
+    /// main-actor body — a default argument can't read the MainActor store).
+    @MainActor
+    static func run(policy: WatchRetentionPolicy? = nil) {
+        let policy = policy ?? WatchSettingsStore.shared.retentionPolicy
+
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent(watchTmpDir, isDirectory: true)
 
         guard FileManager.default.fileExists(atPath: dir.path) else { return }
 
-        let cutoff = Date().addingTimeInterval(-maxAge)
+        // Nothing to age out — undelivered files are kept until delivered.
+        guard policy.maxUndeliveredAge != nil else { return }
+
+        let now = Date()
         var removed = 0
 
         do {
@@ -48,7 +75,7 @@ enum OrphanFileCleanup {
             )
             for file in files {
                 let created = (try? file.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? .distantPast
-                if created < cutoff {
+                if shouldDelete(created: created, now: now, policy: policy) {
                     try? FileManager.default.removeItem(at: file)
                     removed += 1
                 }

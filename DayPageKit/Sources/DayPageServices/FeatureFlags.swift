@@ -70,6 +70,12 @@ public enum FeatureFlag: String, CaseIterable {
     /// **Default**: on
     case vaultExport
 
+    /// **Used in**: `RootView`（DayPageWatch/App/RootView.swift）
+    /// **When off**: 手表回退到旧的单屏录音（只 `RecordingView`），不显示三页 TabView / 历史 / 设置。
+    /// **Watch**: 手表捕获可配置化（三页导航 + 设置 + 历史）—— 给新交互一个无需 hot-fix 的兜底开关。
+    /// **Default**: on
+    case watchCaptureConfig
+
     /// Default state when the user has never touched the toggle. All Round 4
     /// flags default-on so the app behaves the way the user already expects
     /// after upgrading — Experiments only lets them *opt out*.
@@ -83,7 +89,8 @@ public enum FeatureFlag: String, CaseIterable {
              .offlineQueue,
              .onThisDay,
              .weeklyRecap,
-             .vaultExport:
+             .vaultExport,
+             .watchCaptureConfig:
             return true
         }
     }
@@ -102,6 +109,7 @@ public enum FeatureFlag: String, CaseIterable {
         case .onThisDay:              return "时光胶囊"
         case .weeklyRecap:            return "周回顾"
         case .vaultExport:            return "Vault 导出"
+        case .watchCaptureConfig:     return "手表捕获配置"
         }
     }
 }
