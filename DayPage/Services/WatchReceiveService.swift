@@ -1,5 +1,6 @@
 import Foundation
 import WatchConnectivity
+import DayPageModels
 import DayPageStorage
 import DayPageServices
 
@@ -76,9 +77,25 @@ extension WatchReceiveService: WCSessionDelegate {
                 ? String(destURL.path.dropFirst(vaultRoot.path.count + 1))
                 : "raw/assets/\(destURL.lastPathComponent)"
 
+            // A single `now` shared by the memo's `created` date and the
+            // transcription enqueue: `VoiceAttachmentQueue.applyTranscript`
+            // resolves the day file from `memoDate`, and it must land on the
+            // same day as the memo we append below or the transcript can never
+            // match the attachment (att.file == audioPath) and would exhaust
+            // retries into `.failed`.
+            let now = Date()
+            let duration = metadata["duration"] as? Double
+
+            // Bug fix: the receiver previously only enqueued transcription,
+            // which bumped the "N pending" count but never created a memo — so
+            // the audio file arrived and the count showed, yet no card ever
+            // appeared in Today. Mirror the phone-side capture path by writing
+            // a voice memo into today's raw file.
+            Self.appendVoiceMemo(audioPath: audioPath, duration: duration, created: now)
+
             Task { @MainActor in
                 self.lastReceivedFile = destURL
-                VoiceAttachmentQueue.shared.enqueue(audioPath: audioPath, memoDate: Date())
+                VoiceAttachmentQueue.shared.enqueue(audioPath: audioPath, memoDate: now)
             }
         } catch {
             DayPageLogger.log(level: "ERROR", message: "WatchReceiveService failed to move file: \(error.localizedDescription)")
@@ -86,5 +103,39 @@ extension WatchReceiveService: WCSessionDelegate {
                 self.lastError = error.localizedDescription
             }
         }
+    }
+
+    /// Build and persist the voice memo for a received watch audio clip.
+    ///
+    /// Mirrors the phone-side capture path (`TodayViewModel.submit` →
+    /// `RawStorage.append`): a `.voice` memo carrying one `audio` attachment in
+    /// the `.pending` transcription state, so the Today timeline shows a card
+    /// immediately and `VoiceAttachmentQueue` can later patch the transcript
+    /// onto the exact attachment whose `file` matches `audioPath`.
+    ///
+    /// `internal static` and returns the memo purely for test access — the
+    /// production caller ignores the return value.
+    @discardableResult
+    nonisolated static func appendVoiceMemo(audioPath: String, duration: Double?, created: Date) -> Memo {
+        let attachment = Memo.Attachment(
+            file: audioPath,
+            kind: "audio",
+            duration: duration,
+            transcript: nil,
+            transcriptionStatus: .pending
+        )
+        let memo = Memo(
+            type: .voice,
+            created: created,
+            device: "Apple Watch",
+            attachments: [attachment]
+        )
+        do {
+            try RawStorage.append(memo)
+            DayPageLogger.log(level: "INFO", message: "WatchReceiveService appended voice memo \(memo.id) to \(created)")
+        } catch {
+            DayPageLogger.log(level: "ERROR", message: "WatchReceiveService failed to append memo: \(error.localizedDescription)")
+        }
+        return memo
     }
 }

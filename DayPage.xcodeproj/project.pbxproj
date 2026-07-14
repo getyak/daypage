@@ -22,6 +22,10 @@
 		31D89981FFB0794C1682BEC9 /* DayPageStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 1849755B85C13ED4D81002E9 /* DayPageStorage */; };
 		326A14114B34412568007B4A /* DayPageWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FB6C74A43193A3DD725723 /* DayPageWidgetBundle.swift */; };
 		347B8BDADCBDDB2EDE830E66 /* WatchTransferService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */; };
+		T10000070 /* WatchSettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000070 /* WatchSettingsStore.swift */; };
+		T10000071 /* WatchHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000071 /* WatchHistoryStore.swift */; };
+		T10000072 /* WatchSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000072 /* WatchSettingsView.swift */; };
+		T10000073 /* WatchHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000073 /* WatchHistoryView.swift */; };
 		3C0AE791CCB255E33198C9F9 /* UndoPillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12641793A8F375B34321E87A /* UndoPillView.swift */; };
 		457A17AB7F3B4BE7C2E77026 /* StartRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF24DE1810B0DA979103772 /* StartRecordingIntent.swift */; };
 		485EFA11789212D87CB1B74B /* StartRecordingIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EF24DE1810B0DA979103772 /* StartRecordingIntent.swift */; };
@@ -157,6 +161,7 @@
 		DS0000014 /* DSBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000014 /* DSBanner.swift */; };
 		DS0000015 /* DSPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000015 /* DSPicker.swift */; };
 		E20A68158C940060066B2B73 /* WatchReceiveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11E0748715A251EE4A0168A /* WatchReceiveService.swift */; };
+		T10000074 /* WatchTranscriptSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000074 /* WatchTranscriptSender.swift */; };
 		E4AC46FA495D4BD178789A14 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0881AB423FF6F12FCDE27C5B /* Assets.xcassets */; };
 		E5077A7D97855770914BFB8D /* MarkdownExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC8043A3D3371852ACB3D6F3 /* MarkdownExportService.swift */; };
 		E536EEB8C13B2BA42DF4980F /* SidebarHeatmapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C551D36362FF97C44EB4D5DE /* SidebarHeatmapView.swift */; };
@@ -210,6 +215,7 @@
 		T10000003 /* VaultMigrationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000003 /* VaultMigrationServiceTests.swift */; };
 		T10000004 /* VaultLocatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000004 /* VaultLocatorTests.swift */; };
 		T10000005 /* RawStorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000005 /* RawStorageTests.swift */; };
+		T10000062 /* WatchReceiveServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000062 /* WatchReceiveServiceTests.swift */; };
 		T10000006 /* ComposerContextProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000006 /* ComposerContextProviderTests.swift */; };
 		T10000050 /* TimelineIndexTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000050 /* TimelineIndexTests.swift */; };
 		T10000060 /* OnThisDayHeaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000060 /* OnThisDayHeaderTests.swift */; };
@@ -425,7 +431,12 @@
 		ES1000002 /* GlassErrorBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassErrorBanner.swift; sourceTree = "<group>"; };
 		ES1000004 /* GraphSkeleton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphSkeleton.swift; sourceTree = "<group>"; };
 		F11E0748715A251EE4A0168A /* WatchReceiveService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchReceiveService.swift; sourceTree = "<group>"; };
+		T20000074 /* WatchTranscriptSender.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchTranscriptSender.swift; sourceTree = "<group>"; };
 		F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchTransferService.swift; sourceTree = "<group>"; };
+		T20000070 /* WatchSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSettingsStore.swift; sourceTree = "<group>"; };
+		T20000071 /* WatchHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHistoryStore.swift; sourceTree = "<group>"; };
+		T20000072 /* WatchSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSettingsView.swift; sourceTree = "<group>"; };
+		T20000073 /* WatchHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHistoryView.swift; sourceTree = "<group>"; };
 		F5BB61FECBCF7AB756E7A6CE /* WatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchApp.swift; sourceTree = "<group>"; };
 		FB1000002 /* FeedbackViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackViewModel.swift; sourceTree = "<group>"; };
 		FB1000003 /* FeedbackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedbackView.swift; sourceTree = "<group>"; };
@@ -471,6 +482,7 @@
 		T20000003 /* VaultMigrationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultMigrationServiceTests.swift; sourceTree = "<group>"; };
 		T20000004 /* VaultLocatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultLocatorTests.swift; sourceTree = "<group>"; };
 		T20000005 /* RawStorageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawStorageTests.swift; sourceTree = "<group>"; };
+		T20000062 /* WatchReceiveServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchReceiveServiceTests.swift; sourceTree = "<group>"; };
 		T20000006 /* ComposerContextProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerContextProviderTests.swift; sourceTree = "<group>"; };
 		T20000050 /* TimelineIndexTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineIndexTests.swift; sourceTree = "<group>"; };
 		T20000060 /* OnThisDayHeaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayHeaderTests.swift; sourceTree = "<group>"; };
@@ -571,6 +583,8 @@
 			isa = PBXGroup;
 			children = (
 				B93ED807E07C2171E9F4234B /* RecordingView.swift */,
+				T20000072 /* WatchSettingsView.swift */,
+				T20000073 /* WatchHistoryView.swift */,
 			);
 			path = Features;
 			sourceTree = "<group>";
@@ -758,6 +772,7 @@
 			isa = PBXGroup;
 			children = (
 				F11E0748715A251EE4A0168A /* WatchReceiveService.swift */,
+				T20000074 /* WatchTranscriptSender.swift */,
 				A20000018 /* PhotoService.swift */,
 				A20000019 /* VoiceService.swift */,
 				A20000023 /* BackgroundCompilationService.swift */,
@@ -1020,6 +1035,8 @@
 			isa = PBXGroup;
 			children = (
 				F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */,
+				T20000070 /* WatchSettingsStore.swift */,
+				T20000071 /* WatchHistoryStore.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -1082,6 +1099,7 @@
 				T20000003 /* VaultMigrationServiceTests.swift */,
 				T20000004 /* VaultLocatorTests.swift */,
 				T20000005 /* RawStorageTests.swift */,
+				T20000062 /* WatchReceiveServiceTests.swift */,
 				T20000050 /* TimelineIndexTests.swift */,
 				T20000060 /* OnThisDayHeaderTests.swift */,
 				T20000061 /* OnThisDayIntegrationTests.swift */,
@@ -1379,6 +1397,10 @@
 				B197ECDEBDA86D4351A96898 /* RecordingView.swift in Sources */,
 				347B8BDADCBDDB2EDE830E66 /* WatchTransferService.swift in Sources */,
 				A46C6A46A2D76FF5DBFBD6C6 /* StartRecordingIntent.swift in Sources */,
+				T10000070 /* WatchSettingsStore.swift in Sources */,
+				T10000071 /* WatchHistoryStore.swift in Sources */,
+				T10000072 /* WatchSettingsView.swift in Sources */,
+				T10000073 /* WatchHistoryView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1398,6 +1420,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E20A68158C940060066B2B73 /* WatchReceiveService.swift in Sources */,
+				T10000074 /* WatchTranscriptSender.swift in Sources */,
 				A10000001 /* DayPageApp.swift in Sources */,
 				A10000002 /* RootView.swift in Sources */,
 				A10000004 /* GeneratedSecrets.swift in Sources */,
@@ -1543,6 +1566,7 @@
 				T10000003 /* VaultMigrationServiceTests.swift in Sources */,
 				T10000004 /* VaultLocatorTests.swift in Sources */,
 				T10000005 /* RawStorageTests.swift in Sources */,
+				T10000062 /* WatchReceiveServiceTests.swift in Sources */,
 				T10000050 /* TimelineIndexTests.swift in Sources */,
 				T10000060 /* OnThisDayHeaderTests.swift in Sources */,
 				T10000061 /* OnThisDayIntegrationTests.swift in Sources */,
