@@ -34,6 +34,14 @@ extension Notification.Name {
     /// Observed by: (unverified — declared centrally so multi-entry EntityPage routing
     /// can wire up later).
     static let openEntityPage = Notification.Name("com.daypage.openEntityPage")
+    /// Posted by: AppNotificationDelegate.didReceive — when the user taps a
+    /// 「记录提醒」local notification (default tap, or the 语音/文字 long-press action).
+    /// userInfo["mode"]: "voice" | "text".
+    /// Observed by: DayPageApp.body (.onReceive — forwards to navModel:
+    /// voice → pendingRecordingTrigger, text → navigate + focus composer).
+    /// Bridged via NotificationCenter because the delegate (an NSObject) can't
+    /// reach @EnvironmentObject navModel — same pattern as `.openArchiveAt`.
+    static let captureReminderTapped = Notification.Name("com.daypage.captureReminderTapped")
 }
 
 // MARK: - NotificationDelegate
@@ -59,6 +67,27 @@ final class AppNotificationDelegate: NSObject, UNUserNotificationCenterDelegate 
         let userInfo = response.notification.request.content.userInfo
         if userInfo["compilationFailed"] as? Bool == true {
             NotificationCenter.default.post(name: .compilationDidFail, object: nil)
+        }
+
+        // 「记录提醒」通知:默认点击 → 语音;长按选「文字」→ 文字输入。
+        // categoryIdentifier 认领这类通知,避免误吞其他类型。
+        if response.notification.request.content.categoryIdentifier == CaptureReminderService.categoryID {
+            let mode: String
+            switch response.actionIdentifier {
+            case CaptureReminderService.actionText:
+                mode = "text"
+            case CaptureReminderService.actionVoice, UNNotificationDefaultActionIdentifier:
+                mode = "voice"
+            default:
+                // 「清除」等系统 action(UNNotificationDismissActionIdentifier)不落地。
+                completionHandler()
+                return
+            }
+            NotificationCenter.default.post(
+                name: .captureReminderTapped,
+                object: nil,
+                userInfo: ["mode": mode]
+            )
         }
         completionHandler()
     }
@@ -362,6 +391,21 @@ struct DayPageApp: App {
                     else { return }
                     navModel.openArchive(at: dateStr)
                 }
+                .onReceive(NotificationCenter.default.publisher(for: .captureReminderTapped)) { note in
+                    // 「记录提醒」通知点击 → 落进对应记录入口。走通知桥是因为
+                    // AppNotificationDelegate 是 NSObject,够不到 @EnvironmentObject
+                    // navModel(与 .openArchiveAt 同一模式)。复用既有的
+                    // pendingRecordingTrigger / pendingDraftText 轨道,零改录音层。
+                    navModel.navigate(to: .today)
+                    let mode = note.userInfo?["mode"] as? String ?? "voice"
+                    if mode == "text" {
+                        // text 留空 = 只切到 Today 并聚焦草稿输入框(pendingDraftText
+                        // 消费方会聚焦);不预填任何文字。
+                        navModel.pendingDraftText = ""
+                    } else {
+                        navModel.pendingRecordingTrigger = UUID()
+                    }
+                }
                 .task {
                     // B1: use `.task` instead of `.onAppear` so the SwiftUI view
                     // tree (including TodayView) is guaranteed to be mounted
@@ -374,6 +418,10 @@ struct DayPageApp: App {
                     // 安排每晚自动编译并回填任何遗漏的日期
                     BackgroundCompilationService.shared.scheduleIfNeeded()
                     BackgroundCompilationService.shared.backfillIfNeeded()
+                    // 「记录提醒」:每次启动幂等重排,让配置与已注册通知保持一致
+                    // (处理 flag 切换 / 时区变化 / 系统清空 pending 等情况)。
+                    // 仅当用户已授权时才会真正落地通知(refreshSchedule 内部安全)。
+                    CaptureReminderService.shared.refreshSchedule()
                     // Issue #20 / Gate A fix (2026-07-03): 请求本地通知权限
                     // (用于 2am 编译完成回执)。原实现在 RootView.onAppear 无条件
                     // 触发，导致 onboarding 的 Welcome 页刚露头就弹系统授权框，

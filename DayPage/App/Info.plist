@@ -86,6 +86,10 @@
 	<string>DayPage 需要在后台持续感知您的位置，以自动记录您到访的地点。</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>DayPage 需要您的位置来为 memo 添加地点标记。</string>
+	<key>NSAlarmKitUsageDescription</key>
+	<string>DayPage 需要在您设定的时间点用灵动岛提醒您记录当下（仅 iOS 26 及以上）。</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>

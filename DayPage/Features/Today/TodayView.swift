@@ -816,6 +816,11 @@ struct TodayView: View {
                 guard let text else { return }
                 draftText = text
                 nav.pendingDraftText = nil
+                // 「记录提醒」的「文字」action 传空串 → 只聚焦输入框、光标就绪,
+                // 让用户到点点一下就能直接打字(复用既有 orbFocusToggle 聚焦轨道)。
+                if text.isEmpty {
+                    orbFocusToggle.toggle()
+                }
             }
             // Bridge the ViewModel settings flag to the View-local sheet binding.
             .onChange(of: viewModel.shouldShowSettings) { show in

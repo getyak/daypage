@@ -84,6 +84,10 @@
 		A10000043 /* Interactions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000043 /* Interactions.swift */; };
 		A10000046 /* OnThisDayCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000046 /* OnThisDayCard.swift */; };
 		A10000047 /* OnThisDayScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000047 /* OnThisDayScheduler.swift */; };
+		CRS0000001 /* CaptureReminderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CRS1000001 /* CaptureReminderService.swift */; };
+		CAM0000001 /* CaptureAlarmMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAM1000001 /* CaptureAlarmMetadata.swift */; };
+		CAMW000001 /* CaptureAlarmMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAM1000001 /* CaptureAlarmMetadata.swift */; };
+		CRL0000001 /* CaptureReminderLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = CRL1000001 /* CaptureReminderLiveActivity.swift */; };
 		A10000048 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000048 /* OnboardingView.swift */; };
 		A10000050 /* CompileFooterButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000050 /* CompileFooterButton.swift */; };
 		A10000052 /* AttachmentMenuPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000052 /* AttachmentMenuPopover.swift */; };
@@ -199,6 +203,7 @@
 		MST0000001 /* MemoSyncUploaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MST1000001 /* MemoSyncUploaderTests.swift */; };
 		MYT0000001 /* MemoYAMLTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MYT1000001 /* MemoYAMLTests.swift */; };
 		NMT0000001 /* NetworkMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = NMT1000001 /* NetworkMonitorTests.swift */; };
+		CRT0000001 /* CaptureReminderServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CRT1000001 /* CaptureReminderServiceTests.swift */; };
 		OPS0000002 /* OrphanedPhotoScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = OPS1000002 /* OrphanedPhotoScannerTests.swift */; };
 		OVS0000002 /* OrphanedVoiceScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = OVS1000002 /* OrphanedVoiceScannerTests.swift */; };
 		R4B0000001 /* RawStorageWriteFailedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R4B1000001 /* RawStorageWriteFailedTests.swift */; };
@@ -345,6 +350,9 @@
 		A20000043 /* Interactions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Interactions.swift; sourceTree = "<group>"; };
 		A20000046 /* OnThisDayCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayCard.swift; sourceTree = "<group>"; };
 		A20000047 /* OnThisDayScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayScheduler.swift; sourceTree = "<group>"; };
+		CRS1000001 /* CaptureReminderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureReminderService.swift; sourceTree = "<group>"; };
+		CAM1000001 /* CaptureAlarmMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureAlarmMetadata.swift; sourceTree = "<group>"; };
+		CRL1000001 /* CaptureReminderLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureReminderLiveActivity.swift; sourceTree = "<group>"; };
 		A20000048 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		A20000050 /* CompileFooterButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompileFooterButton.swift; sourceTree = "<group>"; };
 		A20000052 /* AttachmentMenuPopover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentMenuPopover.swift; sourceTree = "<group>"; };
@@ -468,6 +476,7 @@
 		MST1000001 /* MemoSyncUploaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoSyncUploaderTests.swift; sourceTree = "<group>"; };
 		MYT1000001 /* MemoYAMLTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoYAMLTests.swift; sourceTree = "<group>"; };
 		NMT1000001 /* NetworkMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitorTests.swift; sourceTree = "<group>"; };
+		CRT1000001 /* CaptureReminderServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureReminderServiceTests.swift; sourceTree = "<group>"; };
 		OPS1000002 /* OrphanedPhotoScannerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OrphanedPhotoScannerTests.swift; sourceTree = "<group>"; };
 		OVS1000002 /* OrphanedVoiceScannerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OrphanedVoiceScannerTests.swift; sourceTree = "<group>"; };
 		R4B1000001 /* RawStorageWriteFailedTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RawStorageWriteFailedTests.swift; sourceTree = "<group>"; };
@@ -594,6 +603,7 @@
 			children = (
 				71FB6C74A43193A3DD725723 /* DayPageWidgetBundle.swift */,
 				7909ED56F96754E4C4FA21CC /* QuickCaptureWidget.swift */,
+				CRL1000001 /* CaptureReminderLiveActivity.swift */,
 				519B9B12CB68C0E6E2A06292 /* QuickCaptureControl.swift */,
 				E54B333332A1175CD3B31883 /* Info.plist */,
 			);
@@ -778,6 +788,8 @@
 				A20000023 /* BackgroundCompilationService.swift */,
 				A20000039 /* VoiceAttachmentQueue.swift */,
 				A20000047 /* OnThisDayScheduler.swift */,
+				CRS1000001 /* CaptureReminderService.swift */,
+				CAM1000001 /* CaptureAlarmMetadata.swift */,
 				A20000078 /* VaultMigrationService.swift */,
 				A20000070 /* AuthService.swift */,
 				A20000095 /* ComposerContextProvider.swift */,
@@ -1127,6 +1139,7 @@
 				SQS1000002 /* SyncQueueServiceTests.swift */,
 				VES1000002 /* VaultExportServiceTests.swift */,
 				NMT1000001 /* NetworkMonitorTests.swift */,
+				CRT1000001 /* CaptureReminderServiceTests.swift */,
 				MSE1000001 /* MemoSyncE2EIntegrationTests.swift */,
 				MST1000001 /* MemoSyncUploaderTests.swift */,
 				WRA1000001 /* WeeklyRecapAutoTriggerTests.swift */,
@@ -1383,6 +1396,8 @@
 			files = (
 				326A14114B34412568007B4A /* DayPageWidgetBundle.swift in Sources */,
 				EA575F353C6AFD5EA7FF9A6F /* QuickCaptureWidget.swift in Sources */,
+				CAMW000001 /* CaptureAlarmMetadata.swift in Sources */,
+				CRL0000001 /* CaptureReminderLiveActivity.swift in Sources */,
 				97FA675FF46459D5CE5E8CF3 /* QuickCaptureControl.swift in Sources */,
 				485EFA11789212D87CB1B74B /* StartRecordingIntent.swift in Sources */,
 			);
@@ -1465,6 +1480,8 @@
 				A10000039 /* VoiceAttachmentQueue.swift in Sources */,
 				INF0000001 /* InflightDraftStore.swift in Sources */,
 				A10000047 /* OnThisDayScheduler.swift in Sources */,
+				CRS0000001 /* CaptureReminderService.swift in Sources */,
+				CAM0000001 /* CaptureAlarmMetadata.swift in Sources */,
 				A10000050 /* CompileFooterButton.swift in Sources */,
 				A10000082 /* InputBarV4.swift in Sources */,
 				WR0000002 /* WeeklyRecapDetailView.swift in Sources */,
@@ -1594,6 +1611,7 @@
 				SQS0000002 /* SyncQueueServiceTests.swift in Sources */,
 				VES0000002 /* VaultExportServiceTests.swift in Sources */,
 				NMT0000001 /* NetworkMonitorTests.swift in Sources */,
+				CRT0000001 /* CaptureReminderServiceTests.swift in Sources */,
 				MSE0000001 /* MemoSyncE2EIntegrationTests.swift in Sources */,
 				MST0000001 /* MemoSyncUploaderTests.swift in Sources */,
 				WRA0000001 /* WeeklyRecapAutoTriggerTests.swift in Sources */,
@@ -1840,7 +1858,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -1896,7 +1914,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
@@ -1917,7 +1935,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = DayPage/App/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1944,7 +1962,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = DayPage/App/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -1997,7 +2015,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6RG2F8YY59;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -2022,7 +2040,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 6RG2F8YY59;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",

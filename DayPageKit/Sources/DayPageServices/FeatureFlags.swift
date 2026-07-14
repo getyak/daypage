@@ -76,6 +76,12 @@ public enum FeatureFlag: String, CaseIterable {
     /// **Default**: on
     case watchCaptureConfig
 
+    /// **Used in**: `CaptureReminderService.refreshSchedule` (Services/CaptureReminderService.swift) + Settings「记录提醒」section
+    /// **When off**: 清空所有已注册的定时提醒,Settings 入口隐藏;service 仍存在但 inert(不再注册通知)。
+    /// **定时召唤记录**: 到点本地通知/灵动岛提醒记录 —— 给定时引擎一个无需 hot-fix 的兜底开关。
+    /// **Default**: on
+    case captureReminder
+
     /// Default state when the user has never touched the toggle. All Round 4
     /// flags default-on so the app behaves the way the user already expects
     /// after upgrading — Experiments only lets them *opt out*.
@@ -90,7 +96,8 @@ public enum FeatureFlag: String, CaseIterable {
              .onThisDay,
              .weeklyRecap,
              .vaultExport,
-             .watchCaptureConfig:
+             .watchCaptureConfig,
+             .captureReminder:
             return true
         }
     }
@@ -110,6 +117,7 @@ public enum FeatureFlag: String, CaseIterable {
         case .weeklyRecap:            return "周回顾"
         case .vaultExport:            return "Vault 导出"
         case .watchCaptureConfig:     return "手表捕获配置"
+        case .captureReminder:        return "记录提醒"
         }
     }
 }

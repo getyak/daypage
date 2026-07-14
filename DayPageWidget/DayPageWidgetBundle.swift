@@ -19,5 +19,12 @@ struct DayPageWidgetBundle: WidgetBundle {
         if #available(iOS 18.0, *) {
             QuickCaptureControl()
         }
+
+        // 「记录提醒」的 AlarmKit 灵动岛/锁屏呈现(iOS 26+ 真灵动岛)。
+        #if canImport(AlarmKit)
+        if #available(iOS 26.0, *) {
+            CaptureReminderLiveActivity()
+        }
+        #endif
     }
 }
