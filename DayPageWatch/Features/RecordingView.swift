@@ -12,11 +12,20 @@ struct RecordingView: View {
 
     @StateObject private var model = WatchRecordingModel()
 
+    /// Observed so switching capture mode in Settings re-renders the gestures.
+    @ObservedObject private var settings = WatchSettingsStore.shared
+
     /// Proxy value for the Digital Crown — mirrors model.maxDuration as a Double.
     @State private var crownValue: Double = 60
 
+    /// Press-mode: true while the finger has slid up far enough to arm cancel.
+    @State private var pressCancelArmed = false
+
     /// True when the watch is in Always-On Display (AOD) low-luminance mode.
     @Environment(\.isLuminanceReduced) private var isLuminanceReduced
+
+    /// Vertical drag distance (points) past which a press-mode hold arms cancel.
+    private let pressCancelThreshold: CGFloat = 40
 
     var body: some View {
         if model.isMicPermissionDenied {
@@ -115,33 +124,96 @@ struct RecordingView: View {
         model.state == .recording || model.state == .confirmStop
     }
 
-    /// The hero control — a tappable ring that pulses while recording and fills
-    /// with elapsed progress. Waveform bars animate inside during capture.
+    /// The hero control — a ring that pulses while recording and fills with
+    /// elapsed progress. Its gesture wiring depends on the capture mode:
+    ///   - `.tap`   a Button (tap start/stop) + a long-press-to-cancel gesture
+    ///   - `.press` a press-and-hold DragGesture (hold = record, release = send,
+    ///              slide up = cancel)
     private var recordingActionButton: some View {
         Group {
-            if !isLuminanceReduced {
-                Button(action: primaryAction) {
-                    RecordingRing(
-                        state: model.state,
-                        progress: model.maxDuration > 0 ? Double(model.elapsed) / Double(model.maxDuration) : 0,
-                        color: stateColor
-                    )
-                }
-                .buttonStyle(RingButtonStyle())
-                .accessibilityLabel(ringAccessibilityLabel)
-            } else {
+            if isLuminanceReduced {
                 // AOD: static ring only, no controls (OLED burn-in + not tappable).
                 RecordingRing(state: model.state, progress: 0, color: stateColor.opacity(0.6))
                     .allowsHitTesting(false)
+            } else {
+                switch settings.captureMode {
+                case .tap:   tapModeRing
+                case .press: pressModeRing
+                }
             }
         }
+    }
+
+    private var ring: some View {
+        RecordingRing(
+            state: model.state,
+            progress: model.maxDuration > 0 ? Double(model.elapsed) / Double(model.maxDuration) : 0,
+            color: pressCancelArmed ? .orange : stateColor
+        )
+    }
+
+    // MARK: Tap mode
+
+    private var tapModeRing: some View {
+        Button(action: tapPrimaryAction) {
+            ring
+        }
+        .buttonStyle(RingButtonStyle())
+        // Long-press while recording discards the clip (cancel affordance).
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.5).onEnded { _ in
+                if model.state == .recording || model.state == .confirmStop {
+                    model.cancelRecording()
+                }
+            }
+        )
+        .accessibilityLabel(ringAccessibilityLabel)
+        .accessibilityHint(model.state == .recording ? "长按取消录音" : "")
+    }
+
+    // MARK: Press mode
+
+    private var pressModeRing: some View {
+        ring
+            .contentShape(Circle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        // First touch of a hold starts recording.
+                        if model.state == .idle {
+                            model.start()
+                        }
+                        // Arm/disarm cancel based on how far up the finger slid.
+                        let slidUp = value.translation.height < -pressCancelThreshold
+                        if slidUp != pressCancelArmed {
+                            pressCancelArmed = slidUp
+                            WKInterfaceDevice.current().play(.click)
+                        }
+                    }
+                    .onEnded { _ in
+                        defer { pressCancelArmed = false }
+                        guard model.state == .recording || model.state == .confirmStop else {
+                            // Released on a non-recording state (e.g. failed) — reset.
+                            if case .failed = model.state { model.reset() }
+                            return
+                        }
+                        if pressCancelArmed {
+                            model.cancelRecording()   // slid up → discard
+                        } else {
+                            model.stopAndSendImmediately()  // released in place → send
+                        }
+                    }
+            )
+            .accessibilityLabel(ringAccessibilityLabel)
+            .accessibilityHint("按住录音，松手发送，上滑取消")
     }
 
     /// Bold primary caption under the ring — the CTA when idle, the clock when recording.
     private var primaryLine: String {
         switch model.state {
-        case .idle:        return "轻点录音"
+        case .idle:        return settings.captureMode == .press ? "按住录音" : "轻点录音"
         case .recording:
+            if pressCancelArmed { return "松手取消" }
             let remaining = model.maxDuration - model.elapsed
             return remaining <= 10 ? "还剩 \(remaining) 秒" : formattedTime(model.elapsed)
         case .confirmStop: return "松开即停"
@@ -156,7 +228,9 @@ struct RecordingView: View {
     private var secondaryLine: String {
         switch model.state {
         case .idle:        return "\(model.maxDuration) 秒 · 转表冠调节"
-        case .recording:   return "轻点停止"
+        case .recording:
+            if pressCancelArmed { return "松手丢弃这段" }
+            return settings.captureMode == .press ? "松手发送 · 上滑取消" : "轻点停止 · 长按取消"
         case .confirmStop: return "轻点继续"
         case .processing:  return "正在写入"
         case .uploading:   return "发送到 iPhone"
@@ -175,24 +249,23 @@ struct RecordingView: View {
         }
     }
 
-    private func primaryAction() {
+    /// Tap-mode primary action: toggles start / stop-with-confirm, cancels the
+    /// pending stop, or resets from failure. (Press mode routes through the
+    /// DragGesture instead and never calls this.)
+    private func tapPrimaryAction() {
         if case .confirmStop = model.state {
             model.cancelStop()
         } else {
-            handleTap()
-        }
-    }
-
-    private func handleTap() {
-        switch model.state {
-        case .idle:
-            model.start()
-        case .recording:
-            model.requestStop()
-        case .failed:
-            model.reset()
-        default:
-            break
+            switch model.state {
+            case .idle:
+                model.start()
+            case .recording:
+                model.requestStop()
+            case .failed:
+                model.reset()
+            default:
+                break
+            }
         }
     }
 
@@ -588,6 +661,44 @@ final class WatchRecordingModel: NSObject, ObservableObject {
         removeInterruptionObserver()
         state = .idle
         elapsed = 0
+    }
+
+    /// Discard an in-progress recording without sending it. Used by both
+    /// capture modes' cancel affordance (tap-mode long-press, press-mode
+    /// slide-up). Deletes the temp file so it never enters the transfer queue,
+    /// and returns straight to `.idle` — cancelling is not a failure.
+    func cancelRecording() {
+        guard state == .recording || state == .confirmStop else { return }
+        confirmStopTask?.cancel()
+        confirmStopTask = nil
+        stopTimer()
+        recorder?.stop()
+        recorder = nil
+        removeInterruptionObserver()
+        deactivateAudioSession()
+        if let url = currentFileURL {
+            try? FileManager.default.removeItem(at: url)
+            currentFileURL = nil
+        }
+        state = .idle
+        elapsed = 0
+        haptic(.click)
+    }
+
+    /// Press-mode stop: end the recording and send immediately, with no 2-second
+    /// confirmation window (the release *is* the deliberate action). Reuses the
+    /// same finalize+transfer path as the timed stop.
+    func stopAndSendImmediately() {
+        guard state == .recording || state == .confirmStop else { return }
+        confirmStopTask?.cancel()
+        confirmStopTask = nil
+        // A press shorter than ~1s is almost always an accidental tap in
+        // press-mode — discard rather than ship a 0-second clip.
+        if elapsed < 1 {
+            cancelRecording()
+            return
+        }
+        stopAndTransfer()
     }
 
     // MARK: - Helpers
