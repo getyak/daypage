@@ -291,6 +291,21 @@ struct TodayView: View {
     /// per scroll frame. Divide by 20.0 at the read site to recover 0.0–1.0.
     @State private var scrollProgressBucket: Int = 0
 
+    /// Canvas vNext: quantized hero-recede progress (0…8) across the first
+    /// 160pt of scroll. The empty-day orbHero reads this to fade/scale away
+    /// as the finger travels. Bucketed for the same reason as
+    /// `scrollProgressBucket` — the view body must never re-render per
+    /// scroll frame (input-smoothness lesson).
+    @State private var heroFadeBucket: Int = 0
+
+    /// 今日焦点 disclosure state — false = single ghost line, true = chips row.
+    @State private var focusExpanded: Bool = false
+
+    /// 0.0–1.0 hero recede progress recovered from the bucket.
+    private var heroFadeProgress: CGFloat {
+        CGFloat(heroFadeBucket) / 8.0
+    }
+
     private var isInSelectionMode: Bool { selectedMemoIds != nil }
 
     /// Progress of the scroll-to-top ring: 0 at 240pt (button appears), 1 after
@@ -346,66 +361,16 @@ struct TodayView: View {
                     // selectionToolbar) is NOT part of the slot.
                     statusSlotSection
 
-                    // MARK: Today Focus Chips (Issue #13, 2026-07-03)
-                    //
-                    // A quiet horizontal ScrollView of five toggle chips
-                    // (工作 / 情绪 / 健康 / 关系 / 学习). Selecting one
-                    // updates TodayFocusStore, which
-                    // CompilationService.buildPrompt reads at compile time
-                    // — no code path lives in TodayView beyond the toggle.
-                    // Rendered before the timeline so the user sees "the
-                    // AI knows what I care about today" as soon as they
-                    // land on Today.
-                    //
-                    // 2026-07-04: shown only while the day is EMPTY. Once
-                    // memos exist the chips stop earning their row — the
-                    // declared focus already flowed into TodayFocusStore and
-                    // the compile prompt, and the timeline needs the space.
-                    if viewModel.memos.isEmpty {
-                        todayFocusRow
-                            .padding(.bottom, DSSpacing.xs)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
-
-                    // MARK: On This Day Top Card (R8-CRITICAL)
-                    //
-                    // 顶部独立 OnThisDayCard section — 脱离 fallbackContentView
-                    // 那条只在 viewModel.memos.isEmpty 时才显示的死路。 普通用户
-                    // 每天都会写 memo， 之前永远看不到时光胶囊； 现在只要存在
-                    // viewModel.onThisDayEntry（由 OnThisDayIndex.candidate 或
-                    // .onThisDayShouldShow 注入）就在头条位置出现。
-                    //
-                    // Sits AFTER the status slot (the single sticky "system
-                    // status" row that must always own the very top) but
-                    // BEFORE every Today-content section (orbHero /
-                    // timeline / fallback). Dismiss persists for the rest
-                    // of the day via OnThisDayScheduler — same behavior the
-                    // fallback path uses, so users can't double-dismiss.
-                    //
-                    // R9-HIGH A2: gated by `shouldShowOnThisDayAtTop`, which
-                    // the fallback path negates in the same render pass. No
-                    // more lazy `.onAppear` flag flip — the two paths agree
-                    // synchronously, eliminating the brief double-card race.
-                    // R9-HIGH A3 (updated for the single status slot): the
-                    // same computed yields to error/conflict slot occupants
-                    // so the composer isn't pushed off the visible viewport
-                    // on small devices (iPhone 12 mini); with at most one
-                    // banner plus this card the low-priority info slots can
-                    // coexist with it.
-                    if shouldShowOnThisDayAtTop,
-                       let entry = viewModel.onThisDayEntry {
-                        OnThisDayCard(
-                            entry: entry,
-                            onDismiss: {
-                                OnThisDayScheduler.shared.markDismissedForToday()
-                                viewModel.onThisDayEntry = nil
-                            },
-                            onTap: { tapped in
-                                handleOnThisDayTap(tapped)
-                            }
-                        )
-                        .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
+                    // Canvas vNext (2026-07-14): the focus chips, OnThisDay
+                    // card and orbHero used to be pinned HERE — outside the
+                    // timeline ScrollView. On an empty day that froze ~65% of
+                    // the screen around the hero and squeezed the only
+                    // scrollable region (yesterday + history) into a ~180pt
+                    // strip at the bottom. All three moved INTO the timeline's
+                    // LazyVStack so the whole page reads as one continuous
+                    // canvas: swipe up anywhere and the poem slides away,
+                    // history fills the screen. Only the status slot stays
+                    // sticky — system status must always own the very top.
 
                     // MARK: Location Draft Card
                     if !todayPendingDrafts.isEmpty {
@@ -432,16 +397,6 @@ struct TodayView: View {
                                 }
                             }
                         )
-                    }
-
-                    // MARK: Day Orb Hero — serif date + mono kicker + orb
-                    // Hide when memos exist: the header already shows the date,
-                    // and the 140pt orb wastes prime content space once there
-                    // are signals in the timeline. (#US-016)
-                    if viewModel.memos.isEmpty {
-                        orbHero
-                            .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .top)))
-                            .dsAnimation(Motion.dismiss, value: viewModel.memos.isEmpty)
                     }
 
                     // MARK: Selection toolbar (issue #309 W2)
@@ -1237,11 +1192,11 @@ struct TodayView: View {
         case compilationProgress
         /// "Sync your journal across devices" sign-in prompt.
         case syncPrompt
-        /// R3 — A2 info row: AI key missing. Museum-aesthetic (#793):
-        /// only on empty days; with memos present the same condition
-        /// shows as a small amber dot on the settings gear (set
-        /// elsewhere), so lowest priority is safe.
-        case aiKeyMissing
+        // Canvas vNext (2026-07-14): the `.aiKeyMissing` info row left the
+        // slot — a missing key only blocks the NIGHTLY compile, so it
+        // doesn't earn a sticky page-top surface. It now renders as a quiet
+        // footnote inside `orbHero` (empty days) and keeps the amber dot on
+        // the settings gear for memo days.
 
         /// Error/conflict occupants push non-status cards (OnThisDay)
         /// out of the top region; info/progress occupants coexist.
@@ -1265,7 +1220,6 @@ struct TodayView: View {
         }
         if compileService.stage != .idle || viewModel.isCompiling { return .compilationProgress }
         if showSyncBanner { return .syncPrompt }
-        if shouldShowAIKeyBanner && viewModel.memos.isEmpty { return .aiKeyMissing }
         return nil
     }
 
@@ -1309,9 +1263,6 @@ struct TodayView: View {
             case .syncPrompt:
                 syncBanner
                     .transition(.opacity.combined(with: .move(edge: .top)))
-            case .aiKeyMissing:
-                aiKeyMissingBanner
-                    .transition(.opacity.combined(with: .move(edge: .top)))
             case nil:
                 EmptyView()
             }
@@ -1346,6 +1297,13 @@ struct TodayView: View {
         FeatureFlagStore.shared.isEnabled(.onThisDay)
             && viewModel.onThisDayEntry != nil
             && !(activeStatusSlot?.isBlocking ?? false)
+    }
+
+    /// Canvas vNext: true once the user has ANY compiled/recorded past —
+    /// yesterday's page or any timeline day. Gates the sample-journal link
+    /// (proof-of-value for brand-new users only).
+    private var hasAnyHistory: Bool {
+        viewModel.yesterdayDailyPageModel != nil || !viewModel.timelineSections.isEmpty
     }
 
     /// True when the banner should appear in this render. Combines:
@@ -1551,41 +1509,113 @@ struct TodayView: View {
     private var todayFocusRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                Text("今日焦点")
+                Text(NSLocalizedString("today.focus.label", comment: "Today focus chip-row label"))
                     .font(DSType.mono10)
                     .tracking(1.2)
                     .textCase(.uppercase)
                     .foregroundColor(DSColor.inkMuted)
                     .padding(.trailing, 4)
-                ForEach(TodayFocus.allCases, id: \.self) { focus in
-                    let isSelected = focusStore.focuses.contains(focus)
-                    Button {
-                        Haptics.soft()
-                        focusStore.toggle(focus)
-                    } label: {
-                        Text(focus.displayName)
-                            .font(DSType.bodySM)
-                            .foregroundColor(isSelected ? DSColor.surfaceWhite : DSColor.amberDeep)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(
-                                Capsule().fill(isSelected ? DSColor.amberDeep : DSColor.amberSoft)
-                            )
-                            .overlay(
-                                Capsule().strokeBorder(DSColor.amberRim, lineWidth: 0.5)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("today.focus.chip.\(focus.rawValue)")
-                    .accessibilityLabel("\(focus.displayName) 焦点")
-                    .accessibilityValue(isSelected ? "已选中" : "未选中")
-                }
+                focusChips
             }
             .padding(.horizontal, DSSpacing.pageMargin)
         }
         .dynamicTypeSize(.xSmall ... .accessibility2)
+    }
+
+    /// Bare chip buttons, shared by the legacy always-on row (flag off) and
+    /// the expanded state of `focusDisclosureRow`.
+    private var focusChips: some View {
+        ForEach(TodayFocus.allCases, id: \.self) { focus in
+            let isSelected = focusStore.focuses.contains(focus)
+            Button {
+                Haptics.soft()
+                focusStore.toggle(focus)
+            } label: {
+                Text(focus.displayName)
+                    .font(DSType.bodySM)
+                    .foregroundColor(isSelected ? DSColor.surfaceWhite : DSColor.amberDeep)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule().fill(isSelected ? DSColor.amberDeep : DSColor.amberSoft)
+                    )
+                    .overlay(
+                        Capsule().strokeBorder(DSColor.amberRim, lineWidth: 0.5)
+                    )
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("today.focus.chip.\(focus.rawValue)")
+            .accessibilityLabel("\(focus.displayName) 焦点")
+            .accessibilityValue(isSelected ? "已选中" : "未选中")
+        }
+    }
+
+    /// Canvas vNext progressive disclosure for 今日焦点. Three states:
+    ///   - collapsed, nothing chosen  → ghost line "今日焦点 ›"
+    ///   - collapsed, lenses chosen   → summary "今日焦点 · 工作 · 学习"
+    ///   - expanded                   → the chip row, sans redundant label
+    /// The data layer (TodayFocusStore → compile prompt) is untouched; this
+    /// only changes when the chips earn pixels. Flag-off restores the legacy
+    /// always-expanded row.
+    @ViewBuilder
+    private var focusDisclosureRow: some View {
+        if FeatureFlagStore.shared.isEnabled(.todayFocusCollapsed) {
+            VStack(spacing: 8) {
+                Button {
+                    Haptics.soft()
+                    withAnimation(reduceMotion ? nil : Motion.spring) {
+                        focusExpanded.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Text(focusSummaryLabel)
+                            .font(DSType.mono10)
+                            .tracking(1.2)
+                            .textCase(.uppercase)
+                            .foregroundColor(DSColor.inkMuted)
+                            .lineLimit(1)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 8, weight: .semibold))
+                            .foregroundColor(DSColor.inkMuted.opacity(0.7))
+                            .rotationEffect(.degrees(focusExpanded ? 90 : 0))
+                    }
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 16)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(NSLocalizedString("today.focus.label", comment: ""))
+                .accessibilityValue(focusExpanded
+                    ? NSLocalizedString("today.focus.a11y.expanded", comment: "Focus row expanded")
+                    : NSLocalizedString("today.focus.a11y.collapsed", comment: "Focus row collapsed"))
+                .accessibilityIdentifier("today.focus.disclosure")
+
+                if focusExpanded {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            focusChips
+                        }
+                        .padding(.horizontal, DSSpacing.pageMargin)
+                    }
+                    .dynamicTypeSize(.xSmall ... .accessibility2)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
+        } else {
+            todayFocusRow
+        }
+    }
+
+    /// Ghost-line text: bare label when nothing is chosen, "· 工作 · 学习"
+    /// coda once lenses are selected so the collapsed state still tells the
+    /// user what tonight's compile will lean into.
+    private var focusSummaryLabel: String {
+        let base = NSLocalizedString("today.focus.label", comment: "")
+        let chosen = TodayFocus.allCases.filter { focusStore.focuses.contains($0) }
+        guard !chosen.isEmpty else { return base }
+        return base + " · " + chosen.map(\.displayName).joined(separator: " · ")
     }
 
     private var syncQueuePendingBanner: some View {
@@ -1816,8 +1846,14 @@ struct TodayView: View {
         case .onThisDay(let memos):
             onThisDayFallback(memos: memos)
         case .weekRecap(let entries):
-            WeeklyRecapSection(entries: entries) { dateString in
-                historicalDay = DayNavTarget(dateString: dateString)
+            // Canvas vNext: with the history timeline now rendering on empty
+            // days too, the recap would duplicate 本周 — only keep it for the
+            // (unusual) case where compiled pages exist but the timeline is
+            // empty.
+            if viewModel.timelineSections.isEmpty {
+                WeeklyRecapSection(entries: entries) { dateString in
+                    historicalDay = DayNavTarget(dateString: dateString)
+                }
             }
         case .pureEmpty:
             // R3 (#793 comp 4.png): orbHero now carries the full empty-state
@@ -1854,7 +1890,12 @@ struct TodayView: View {
     @ViewBuilder
     private func yesterdaySection(_ page: DailyPageModel) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(NSLocalizedString("today.section.yesterday", comment: ""))
+            // Mono kicker stays English per the archive-label convention
+            // (FINDING-010); the date coda anchors WHICH yesterday this is.
+            let dateCoda = Self.yesterdayLabelDate(page.dateString)
+            Text(dateCoda.isEmpty
+                 ? NSLocalizedString("today.section.yesterday", comment: "")
+                 : "\(NSLocalizedString("today.section.yesterday", comment: "")) · \(dateCoda)")
                 .font(DSType.mono10)
                 .tracking(1.0)
                 .foregroundColor(DSColor.inkMuted)
@@ -1863,6 +1904,14 @@ struct TodayView: View {
 
             DailyPageEntryCard(
                 summary: page.summary.isEmpty ? nil : page.summary,
+                ribbonText: NSLocalizedString(
+                    "today.card.compiled.yesterday",
+                    comment: "Yesterday card ribbon: the page is compiled"),
+                metaText: page.memoCount > 0
+                    ? String(format: NSLocalizedString(
+                        "today.card.meta.memos",
+                        comment: "Yesterday card meta: N raw memos"), page.memoCount)
+                    : nil,
                 onTap: {
                     historicalDay = DayNavTarget(dateString: page.dateString)
                 }
@@ -1872,15 +1921,36 @@ struct TodayView: View {
         }
     }
 
+    /// "2026-07-13" → "JUL 13" for the yesterday kicker. en_US_POSIX keeps
+    /// the mono label inside the archive-label (English small-caps) system.
+    private static func yesterdayLabelDate(_ dateString: String) -> String {
+        let parse = DateFormatter()
+        parse.dateFormat = "yyyy-MM-dd"
+        parse.locale = Locale(identifier: "en_US_POSIX")
+        parse.timeZone = AppSettings.currentTimeZone()
+        guard let date = parse.date(from: dateString) else { return "" }
+        let out = DateFormatter()
+        out.dateFormat = "MMM d"
+        out.locale = Locale(identifier: "en_US_POSIX")
+        out.timeZone = AppSettings.currentTimeZone()
+        return out.string(from: date).uppercased()
+    }
+
     // MARK: - History Supplement (memos present — shown at timeline bottom)
 
     /// History supplement rendered below today's raw memos. Previously this
     /// only showed yesterday's compiled page or the weekly recap; now it owns
     /// the full historical timeline (#276) — this week's other days, last
     /// week, week-before-last, and older months as expandable cards.
+    ///
+    /// Canvas vNext: also renders on EMPTY days. An empty today used to give
+    /// the scroll region a single yesterday card and nothing else — "滑了也
+    /// 白滑". Now swiping up on an empty day reads the whole past. Yesterday
+    /// is de-duplicated via `supplementSections` when the fallback already
+    /// shows its hero card above.
     @ViewBuilder
     private var historySupplement: some View {
-        if !viewModel.memos.isEmpty && viewModel.loadState == .ready && !viewModel.timelineSections.isEmpty {
+        if viewModel.loadState == .ready && !supplementSections.isEmpty {
             // Quiet breathing room replaces the redundant "EARLIER" rule —
             // the timeline's own SectionHeader (本周/上周) already separates bands.
             // 12 here + the SectionHeader's own 20 top padding lands the
@@ -1888,7 +1958,7 @@ struct TodayView: View {
             Color.clear
                 .frame(height: 12)
                 .accessibilityLabel(Text(NSLocalizedString("today.section.earlier", comment: "")))
-            ForEach(viewModel.timelineSections) { section in
+            ForEach(supplementSections) { section in
                 TimelineSectionView(
                     section: section,
                     zoomNamespace: detailZoomNamespace,
@@ -1905,6 +1975,24 @@ struct TodayView: View {
     @ViewBuilder
     private func yesterdayDailyPageFallback(_ page: DailyPageModel) -> some View {
         yesterdaySection(page)
+    }
+
+    /// Timeline sections feeding `historySupplement`. On an empty day whose
+    /// fallback already shows yesterday's hero card, yesterday's entry is
+    /// filtered out of its time band so the day never appears twice.
+    private var supplementSections: [TimelineSection] {
+        let sections = viewModel.timelineSections
+        guard viewModel.memos.isEmpty,
+              case .yesterdayDailyPage(let page) = viewModel.fallbackContent else {
+            return sections
+        }
+        return sections.compactMap { section in
+            let days = section.days.filter { $0.dateString != page.dateString }
+            guard !days.isEmpty else { return nil }
+            return days.count == section.days.count
+                ? section
+                : TimelineSection(kind: section.kind, days: days)
+        }
     }
 
     @ViewBuilder
@@ -2226,38 +2314,52 @@ struct TodayView: View {
                 .padding(.top, 12)
             }
 
+            // Canvas vNext: AI-key footnote. Demoted from the sticky status
+            // slot — a missing key only affects the nightly compile, so it
+            // rides along with the hero and scrolls away with it.
+            if shouldShowAIKeyBanner {
+                aiKeyMissingBanner
+                    .padding(.top, 2)
+            }
+
             // Issue #2 (2026-07-02): "See a sample journal" fallback link.
             // For users who skipped or dismissed the Welcome CTA, the empty
             // Today gives no proof of what the AI will produce. Tapping this
             // seeds 3 sample memos + a paired compiled daily.md (see
             // SampleDataSeeder) and refreshes the timeline. Once seeded, the
             // label flips so the user knows exactly what to open next.
-            Button {
-                Haptics.tapConfirm()
-                SampleDataSeeder.seedIfNeeded()
-                // Issue #18: single call site records both the sample seed
-                // and the surface it came from — the Welcome CTA emits the
-                // same event with `surface:"welcome"`, so the debug board
-                // shows a real "empty→sample" funnel.
-                AnalyticsService.shared.record(
-                    AnalyticsService.Name.sampleSeeded,
-                    props: ["surface": "today_empty"]
-                )
-                sampleSeeded = true
-                Task { await viewModel.refresh() }
-            } label: {
-                Text(NSLocalizedString(
-                    sampleSeeded ? "today.empty.sample_active" : "today.empty.try_sample",
-                    comment: "Empty-state sample-data affordance"))
-                    .font(DSType.mono10)
-                    .tracking(1.2)
-                    .textCase(.uppercase)
-                    .foregroundColor(DSColor.inkMuted)
-                    .padding(.top, 6)
+            //
+            // Canvas vNext: zero-history users ONLY. Anyone with a compiled
+            // yesterday or any timeline history already has real proof —
+            // for them this link is pure noise.
+            if !hasAnyHistory {
+                Button {
+                    Haptics.tapConfirm()
+                    SampleDataSeeder.seedIfNeeded()
+                    // Issue #18: single call site records both the sample seed
+                    // and the surface it came from — the Welcome CTA emits the
+                    // same event with `surface:"welcome"`, so the debug board
+                    // shows a real "empty→sample" funnel.
+                    AnalyticsService.shared.record(
+                        AnalyticsService.Name.sampleSeeded,
+                        props: ["surface": "today_empty"]
+                    )
+                    sampleSeeded = true
+                    Task { await viewModel.refresh() }
+                } label: {
+                    Text(NSLocalizedString(
+                        sampleSeeded ? "today.empty.sample_active" : "today.empty.try_sample",
+                        comment: "Empty-state sample-data affordance"))
+                        .font(DSType.mono10)
+                        .tracking(1.2)
+                        .textCase(.uppercase)
+                        .foregroundColor(DSColor.inkMuted)
+                        .padding(.top, 6)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("today-empty-try-sample")
+                .disabled(sampleSeeded)
             }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("today-empty-try-sample")
-            .disabled(sampleSeeded)
 
         }
         .frame(maxWidth: .infinity)
@@ -2700,9 +2802,12 @@ struct TodayView: View {
                 timelineScrollProxy?.scrollTo("timelineTop", anchor: .top)
             }
         } label: {
-            Text("\(weekdayName(currentTime)) · \(Self.headerDateFmt.string(from: currentTime))")
-                .font(DSFonts.serif(size: 15, weight: .regular, relativeTo: .subheadline))
-                .foregroundColor(DSColor.inkPrimary)
+            // Canvas vNext: date only, muted. On a day with content the
+            // calendar is chrome, not content — the weekday dropped out and
+            // the ink stepped back so the timeline owns the reader's eye.
+            Text(Self.headerDateFmt.string(from: currentTime))
+                .font(DSFonts.serif(size: 14, weight: .regular, relativeTo: .subheadline))
+                .foregroundColor(DSColor.inkMuted)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .frame(height: 36)
@@ -2778,6 +2883,30 @@ struct TodayView: View {
                 // Invisible anchor: scrollTo("timelineTop") brings the list to the very top.
                 Color.clear.frame(height: 0).id("timelineTop")
 
+                // MARK: On This Day Card (R8-CRITICAL → Canvas vNext)
+                //
+                // 时光胶囊在所有日子都可出现（只要 OnThisDayScheduler 注入了
+                // entry）。Canvas vNext 把它从固定顶栏移进滚动画布：它是内容，
+                // 不是系统状态——读完即可划走，不再永久占用首屏。
+                //
+                // R9-HIGH A2/A3 语义保留：`shouldShowOnThisDayAtTop` 与
+                // fallback 路径在同一 render pass 内互斥；error/conflict slot
+                // 占用时让位（guard 在 computed 里）。
+                if shouldShowOnThisDayAtTop,
+                   let entry = viewModel.onThisDayEntry {
+                    OnThisDayCard(
+                        entry: entry,
+                        onDismiss: {
+                            OnThisDayScheduler.shared.markDismissedForToday()
+                            viewModel.onThisDayEntry = nil
+                        },
+                        onTap: { tapped in
+                            handleOnThisDayTap(tapped)
+                        }
+                    )
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+
                 // Museum-aesthetic "AI · 今日一句" — restrained one-liner pinned
                 // at the very top once the day has a compiled summary.
                 if let summary = viewModel.dailyPageSummary,
@@ -2847,8 +2976,22 @@ struct TodayView: View {
                             .padding(.top, 48)
                             .padding(.horizontal, 20)
                     } else {
+                        // Canvas vNext: the hero now scrolls WITH the page and
+                        // quietly recedes as the finger travels — opacity/scale
+                        // driven by the same bucketed offset the header glass
+                        // uses (never the raw 60Hz value; see the
+                        // `timelineScrollOffset` property doc).
+                        orbHero
+                            .opacity(reduceMotion ? 1 : 1 - 0.85 * heroFadeProgress)
+                            .scaleEffect(reduceMotion ? 1 : 1 - 0.05 * heroFadeProgress, anchor: .top)
+
+                        // 今日焦点 — collapsed to a single ghost line; expands
+                        // on tap, summarizes once lenses are chosen.
+                        focusDisclosureRow
+                            .padding(.top, 2)
+
                         fallbackContentView
-                            .padding(.top, 24)
+                            .padding(.top, 18)
                     }
                 } else {
                     ForEach(Array(viewModel.memos.enumerated()), id: \.element.id) { idx, memo in
@@ -3004,24 +3147,35 @@ struct TodayView: View {
             alignment: .bottom
         )
         .coordinateSpace(name: "todayScroll")
-        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
-            // Store the raw value only — DO NOT read this from any body path;
-            // see the property-doc for the perf rationale.
-            timelineScrollOffset = value
-            // Derive threshold-bucketed state so the surrounding view body
-            // invalidates O(1) times per scroll instead of O(60Hz).
-            let scrolled = value < -8
-            if scrolled != isTimelineScrolled { isTimelineScrolled = scrolled }
-            let showTop = value < -240
-            if showTop != showScrollToTopButton { showScrollToTopButton = showTop }
-            // Quantize the ring progress (0…20) — floor(clamp(-value - 240, 0, 1200) / 60).
-            let clamped = max(0, min(1200, -value - 240))
-            let bucket = Int(clamped / 60)
-            if bucket != scrollProgressBucket { scrollProgressBucket = bucket }
-        }
+        .modifier(TodayScrollOffsetWatcher(onChange: { value in
+            handleScrollOffset(value)
+        }))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { timelineScrollProxy = proxy }
         } // end ScrollViewReader
+    }
+
+    /// Single consumer for the timeline's scroll offset, regardless of which
+    /// mechanism delivered it (see `TodayScrollOffsetWatcher`). Convention:
+    /// 0 at rest, NEGATIVE as the user scrolls up — the historical
+    /// PreferenceKey minY convention every threshold below was written for.
+    ///
+    /// Only threshold-bucketed state is stored so the view body invalidates
+    /// O(1) times per scroll instead of O(60Hz) — the raw value goes into
+    /// `timelineScrollOffset`, which no body path may read (see property doc).
+    private func handleScrollOffset(_ value: CGFloat) {
+        timelineScrollOffset = value
+        let scrolled = value < -8
+        if scrolled != isTimelineScrolled { isTimelineScrolled = scrolled }
+        let showTop = value < -240
+        if showTop != showScrollToTopButton { showScrollToTopButton = showTop }
+        // Quantize the ring progress (0…20) — floor(clamp(-value - 240, 0, 1200) / 60).
+        let clamped = max(0, min(1200, -value - 240))
+        let bucket = Int(clamped / 60)
+        if bucket != scrollProgressBucket { scrollProgressBucket = bucket }
+        // Canvas vNext: hero recede over the first 160pt, 8 buckets.
+        let hero = Int(max(0, min(160, -value)) / 20)
+        if hero != heroFadeBucket { heroFadeBucket = hero }
     }
 
     /// Compose area: compile button + input bar.

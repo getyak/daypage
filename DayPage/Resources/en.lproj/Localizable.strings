@@ -592,6 +592,17 @@
 "today.section.earlier"   = "EARLIER";
 "today.section.yesterday" = "YESTERDAY";
 
+/* Canvas vNext — compiled-page card ribbons + meta (fixes the hardcoded
+   "Today's page compiled" appearing under the YESTERDAY header) */
+"today.card.compiled.today"     = "Today's page compiled";
+"today.card.compiled.yesterday" = "Yesterday compiled";
+"today.card.meta.memos"         = "%d memos";
+
+/* Canvas vNext — 今日焦点 progressive disclosure */
+"today.focus.label"          = "Today's focus";
+"today.focus.a11y.expanded"  = "Expanded";
+"today.focus.a11y.collapsed" = "Collapsed, double-tap to choose focus lenses";
+
 /* Banners */
 "today.banner.draft_restored" = "Restored your unsent draft";
 "today.banner.voice_queue"    = "You have %d voice notes pending transcription";

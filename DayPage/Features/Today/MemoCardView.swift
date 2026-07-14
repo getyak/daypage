@@ -1125,6 +1125,15 @@ private struct WaveformBars: View, Equatable {
 /// Compiled-day hero card — Liquid Glass amber style.
 struct DailyPageEntryCard: View {
     let summary: String?
+    /// Ribbon line above the serif excerpt. Defaults to the "today" wording;
+    /// the Yesterday section passes its own so the card never contradicts
+    /// its section header (the old hardcoded "Today's page compiled" did).
+    var ribbonText: String = NSLocalizedString(
+        "today.card.compiled.today",
+        comment: "Compiled-page card ribbon for today's own page")
+    /// Quiet meta coda ("6 条 memo") so the ribbon-only form still carries
+    /// information when the page has no summary. nil hides the line.
+    var metaText: String? = nil
     var onTap: (() -> Void)?
 
     private var hasSummary: Bool {
@@ -1145,7 +1154,7 @@ struct DailyPageEntryCard: View {
                         .fill(DSColor.accentOnBg)
                         .frame(width: 6, height: 6)
                         .shadow(color: DSColor.amberGlow, radius: 4, x: 0, y: 0)
-                    Text("Today's page compiled")
+                    Text(ribbonText)
                         .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                         .tracking(1)
                         .textCase(.uppercase)
@@ -1158,6 +1167,12 @@ struct DailyPageEntryCard: View {
                         .foregroundColor(DSColor.inkPrimary)
                         .lineLimit(2)
                         .lineSpacing(2)
+                }
+
+                if let metaText, !metaText.isEmpty {
+                    Text(metaText)
+                        .font(DSFonts.inter(size: 11, weight: .regular, relativeTo: .caption))
+                        .foregroundColor(DSColor.inkMuted)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

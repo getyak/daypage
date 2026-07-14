@@ -82,6 +82,12 @@ public enum FeatureFlag: String, CaseIterable {
     /// **Default**: on
     case captureReminder
 
+    /// **Used in**: `TodayView.focusDisclosureRow` (Features/Today/TodayView.swift)
+    /// **When off**: 今日焦点恢复为常驻整行 chips（旧形态）；折叠/展开交互不参与布局。
+    /// **Canvas vNext**: 空态渐进披露 —— 焦点默认收成一行幽灵文字，点击展开。
+    /// **Default**: on
+    case todayFocusCollapsed
+
     /// Default state when the user has never touched the toggle. All Round 4
     /// flags default-on so the app behaves the way the user already expects
     /// after upgrading — Experiments only lets them *opt out*.
@@ -97,7 +103,8 @@ public enum FeatureFlag: String, CaseIterable {
              .weeklyRecap,
              .vaultExport,
              .watchCaptureConfig,
-             .captureReminder:
+             .captureReminder,
+             .todayFocusCollapsed:
             return true
         }
     }
@@ -118,6 +125,7 @@ public enum FeatureFlag: String, CaseIterable {
         case .vaultExport:            return "Vault 导出"
         case .watchCaptureConfig:     return "手表捕获配置"
         case .captureReminder:        return "记录提醒"
+        case .todayFocusCollapsed:    return "今日焦点折叠"
         }
     }
 }

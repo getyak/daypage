@@ -85,6 +85,8 @@
 		A10000046 /* OnThisDayCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000046 /* OnThisDayCard.swift */; };
 		A10000047 /* OnThisDayScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000047 /* OnThisDayScheduler.swift */; };
 		CRS0000001 /* CaptureReminderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CRS1000001 /* CaptureReminderService.swift */; };
+		RMD0000001 /* Reminder.swift in Sources */ = {isa = PBXBuildFile; fileRef = RMD1000001 /* Reminder.swift */; };
+		RTR0000001 /* RelativeTimeResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = RTR1000001 /* RelativeTimeResolver.swift */; };
 		CAM0000001 /* CaptureAlarmMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAM1000001 /* CaptureAlarmMetadata.swift */; };
 		CAMW000001 /* CaptureAlarmMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAM1000001 /* CaptureAlarmMetadata.swift */; };
 		CRL0000001 /* CaptureReminderLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = CRL1000001 /* CaptureReminderLiveActivity.swift */; };
@@ -351,6 +353,8 @@
 		A20000046 /* OnThisDayCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayCard.swift; sourceTree = "<group>"; };
 		A20000047 /* OnThisDayScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayScheduler.swift; sourceTree = "<group>"; };
 		CRS1000001 /* CaptureReminderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureReminderService.swift; sourceTree = "<group>"; };
+		RMD1000001 /* Reminder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reminder.swift; sourceTree = "<group>"; };
+		RTR1000001 /* RelativeTimeResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeTimeResolver.swift; sourceTree = "<group>"; };
 		CAM1000001 /* CaptureAlarmMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureAlarmMetadata.swift; sourceTree = "<group>"; };
 		CRL1000001 /* CaptureReminderLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureReminderLiveActivity.swift; sourceTree = "<group>"; };
 		A20000048 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
@@ -789,6 +793,8 @@
 				A20000039 /* VoiceAttachmentQueue.swift */,
 				A20000047 /* OnThisDayScheduler.swift */,
 				CRS1000001 /* CaptureReminderService.swift */,
+				RMD1000001 /* Reminder.swift */,
+				RTR1000001 /* RelativeTimeResolver.swift */,
 				CAM1000001 /* CaptureAlarmMetadata.swift */,
 				A20000078 /* VaultMigrationService.swift */,
 				A20000070 /* AuthService.swift */,
@@ -1481,6 +1487,8 @@
 				INF0000001 /* InflightDraftStore.swift in Sources */,
 				A10000047 /* OnThisDayScheduler.swift in Sources */,
 				CRS0000001 /* CaptureReminderService.swift in Sources */,
+				RMD0000001 /* Reminder.swift in Sources */,
+				RTR0000001 /* RelativeTimeResolver.swift in Sources */,
 				CAM0000001 /* CaptureAlarmMetadata.swift in Sources */,
 				A10000050 /* CompileFooterButton.swift in Sources */,
 				A10000082 /* InputBarV4.swift in Sources */,

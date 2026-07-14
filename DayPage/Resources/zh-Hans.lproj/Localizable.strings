@@ -363,6 +363,17 @@
 "today.section.yesterday" = "YESTERDAY";
 "today.section.earlier" = "EARLIER";
 
+/* Canvas vNext — 编成卡 ribbon + meta（修复 YESTERDAY 下写死英文
+   "Today's page compiled" 的自相矛盾） */
+"today.card.compiled.today"     = "今日已编成";
+"today.card.compiled.yesterday" = "昨日已编成";
+"today.card.meta.memos"         = "%d 条 memo";
+
+/* Canvas vNext — 今日焦点渐进披露 */
+"today.focus.label"          = "今日焦点";
+"today.focus.a11y.expanded"  = "已展开";
+"today.focus.a11y.collapsed" = "已折叠，轻点两下选择焦点";
+
 /* LocationDraftCard */
 "today.location_draft.header" = "检测到位置到达";
 "today.location_draft.ignore_all" = "全部忽略";
