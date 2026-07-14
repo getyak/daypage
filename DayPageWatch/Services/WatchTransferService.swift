@@ -24,7 +24,9 @@ import DayPageServices
     }
 
     /// Transfer an audio file to the companion iPhone.
-    func transferAudioFile(_ fileURL: URL, completion: @escaping (Bool) -> Void) {
+    /// `duration` (seconds) is forwarded in the transfer metadata so the phone
+    /// can show the clip length on the voice memo card without re-probing the file.
+    func transferAudioFile(_ fileURL: URL, duration: Double? = nil, completion: @escaping (Bool) -> Void) {
         guard WCSession.default.activationState == .activated else {
             logger.error("WCSession not activated — cannot transfer \(fileURL.lastPathComponent)")
             completion(false)
@@ -33,12 +35,15 @@ import DayPageServices
 
         pendingCompletions[fileURL] = completion
 
-        let metadata: [String: Any] = [
+        var metadata: [String: Any] = [
             "type": "watchAudio",
             "source": "daypage-watch",
             "timestamp": Date().timeIntervalSince1970,
             "filename": fileURL.lastPathComponent,
         ]
+        if let duration {
+            metadata["duration"] = duration
+        }
 
         WCSession.default.transferFile(fileURL, metadata: metadata)
         logger.info("Queued transfer for \(fileURL.lastPathComponent)")

@@ -515,7 +515,7 @@ final class WatchRecordingModel: NSObject, ObservableObject {
 
         // Transfer via WCSession — file cleanup happens inside WatchTransferService
         // once session(_:didFinish:error:) confirms the transfer is complete.
-        WatchTransferService.shared.transferAudioFile(url) { [weak self] success in
+        WatchTransferService.shared.transferAudioFile(url, duration: Double(elapsed)) { [weak self] success in
             Task { @MainActor in
                 if success {
                     self?.state = .done

@@ -210,6 +210,7 @@
 		T10000003 /* VaultMigrationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000003 /* VaultMigrationServiceTests.swift */; };
 		T10000004 /* VaultLocatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000004 /* VaultLocatorTests.swift */; };
 		T10000005 /* RawStorageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000005 /* RawStorageTests.swift */; };
+		T10000062 /* WatchReceiveServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000062 /* WatchReceiveServiceTests.swift */; };
 		T10000006 /* ComposerContextProviderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000006 /* ComposerContextProviderTests.swift */; };
 		T10000050 /* TimelineIndexTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000050 /* TimelineIndexTests.swift */; };
 		T10000060 /* OnThisDayHeaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000060 /* OnThisDayHeaderTests.swift */; };
@@ -471,6 +472,7 @@
 		T20000003 /* VaultMigrationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultMigrationServiceTests.swift; sourceTree = "<group>"; };
 		T20000004 /* VaultLocatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultLocatorTests.swift; sourceTree = "<group>"; };
 		T20000005 /* RawStorageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawStorageTests.swift; sourceTree = "<group>"; };
+		T20000062 /* WatchReceiveServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchReceiveServiceTests.swift; sourceTree = "<group>"; };
 		T20000006 /* ComposerContextProviderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerContextProviderTests.swift; sourceTree = "<group>"; };
 		T20000050 /* TimelineIndexTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineIndexTests.swift; sourceTree = "<group>"; };
 		T20000060 /* OnThisDayHeaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayHeaderTests.swift; sourceTree = "<group>"; };
@@ -1082,6 +1084,7 @@
 				T20000003 /* VaultMigrationServiceTests.swift */,
 				T20000004 /* VaultLocatorTests.swift */,
 				T20000005 /* RawStorageTests.swift */,
+				T20000062 /* WatchReceiveServiceTests.swift */,
 				T20000050 /* TimelineIndexTests.swift */,
 				T20000060 /* OnThisDayHeaderTests.swift */,
 				T20000061 /* OnThisDayIntegrationTests.swift */,
@@ -1543,6 +1546,7 @@
 				T10000003 /* VaultMigrationServiceTests.swift in Sources */,
 				T10000004 /* VaultLocatorTests.swift in Sources */,
 				T10000005 /* RawStorageTests.swift in Sources */,
+				T10000062 /* WatchReceiveServiceTests.swift in Sources */,
 				T10000050 /* TimelineIndexTests.swift in Sources */,
 				T10000060 /* OnThisDayHeaderTests.swift in Sources */,
 				T10000061 /* OnThisDayIntegrationTests.swift in Sources */,
