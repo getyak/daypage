@@ -224,6 +224,10 @@ final class VoiceAttachmentQueue: ObservableObject {
         }
 
         var matched = false
+        // Capture watch-origin info so we can send the transcript summary back
+        // to the watch after a successful write (the "最近已同步" history feed).
+        var watchDuration: Double?
+        var isWatchSourced = false
         do {
             try RawStorage.mutate(for: date) { memos in
                 let updated = memos.map { memo -> Memo in
@@ -231,6 +235,10 @@ final class VoiceAttachmentQueue: ObservableObject {
                     copy.attachments = memo.attachments.map { att -> Memo.Attachment in
                         guard att.file == audioPath, att.kind == "audio" else { return att }
                         matched = true
+                        if memo.device == "Apple Watch" {
+                            isWatchSourced = true
+                            watchDuration = att.duration
+                        }
                         var a = att
                         a.transcript = transcript
                         a.transcriptionStatus = .done
@@ -259,6 +267,20 @@ final class VoiceAttachmentQueue: ObservableObject {
                 message: "applyTranscript: no matching attachment on \(memoDate)"
             )
             return false
+        }
+
+        // Reverse channel: tell the watch this clip is synced + transcribed so
+        // its history page can show it under "最近". Keyed by the source
+        // filename (the shared correlation key across the WCSession boundary).
+        if isWatchSourced {
+            let filename = (audioPath as NSString).lastPathComponent
+            Task { @MainActor in
+                WatchTranscriptSender.shared.send(
+                    filename: filename,
+                    summary: transcript,
+                    duration: watchDuration
+                )
+            }
         }
         return true
     }

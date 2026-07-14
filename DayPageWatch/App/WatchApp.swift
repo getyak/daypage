@@ -139,4 +139,22 @@ extension WatchSessionManager: WCSessionDelegate {
             )
         }
     }
+
+    /// Reverse channel (P3): the phone reports a transcribed + synced clip.
+    /// Route it into the history store's "recent" feed.
+    nonisolated func session(_ session: WCSession, didReceiveUserInfo userInfo: [String : Any] = [:]) {
+        guard let type = userInfo["type"] as? String, type == "watchTranscript",
+              let filename = userInfo["filename"] as? String else { return }
+        let summary = userInfo["summary"] as? String ?? ""
+        let duration = Int((userInfo["duration"] as? Double) ?? 0)
+        let syncedAt = (userInfo["syncedAt"] as? TimeInterval).map(Date.init(timeIntervalSince1970:)) ?? Date()
+        Task { @MainActor in
+            WatchHistoryStore.shared.markSynced(
+                filename: filename,
+                summary: summary,
+                duration: duration,
+                syncedAt: syncedAt
+            )
+        }
+    }
 }

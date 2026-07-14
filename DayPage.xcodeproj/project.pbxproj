@@ -161,6 +161,7 @@
 		DS0000014 /* DSBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000014 /* DSBanner.swift */; };
 		DS0000015 /* DSPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS1000015 /* DSPicker.swift */; };
 		E20A68158C940060066B2B73 /* WatchReceiveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11E0748715A251EE4A0168A /* WatchReceiveService.swift */; };
+		T10000074 /* WatchTranscriptSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = T20000074 /* WatchTranscriptSender.swift */; };
 		E4AC46FA495D4BD178789A14 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0881AB423FF6F12FCDE27C5B /* Assets.xcassets */; };
 		E5077A7D97855770914BFB8D /* MarkdownExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC8043A3D3371852ACB3D6F3 /* MarkdownExportService.swift */; };
 		E536EEB8C13B2BA42DF4980F /* SidebarHeatmapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C551D36362FF97C44EB4D5DE /* SidebarHeatmapView.swift */; };
@@ -430,6 +431,7 @@
 		ES1000002 /* GlassErrorBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassErrorBanner.swift; sourceTree = "<group>"; };
 		ES1000004 /* GraphSkeleton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphSkeleton.swift; sourceTree = "<group>"; };
 		F11E0748715A251EE4A0168A /* WatchReceiveService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchReceiveService.swift; sourceTree = "<group>"; };
+		T20000074 /* WatchTranscriptSender.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchTranscriptSender.swift; sourceTree = "<group>"; };
 		F4D76DD4BFDDBF33176F1331 /* WatchTransferService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchTransferService.swift; sourceTree = "<group>"; };
 		T20000070 /* WatchSettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchSettingsStore.swift; sourceTree = "<group>"; };
 		T20000071 /* WatchHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchHistoryStore.swift; sourceTree = "<group>"; };
@@ -770,6 +772,7 @@
 			isa = PBXGroup;
 			children = (
 				F11E0748715A251EE4A0168A /* WatchReceiveService.swift */,
+				T20000074 /* WatchTranscriptSender.swift */,
 				A20000018 /* PhotoService.swift */,
 				A20000019 /* VoiceService.swift */,
 				A20000023 /* BackgroundCompilationService.swift */,
@@ -1417,6 +1420,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E20A68158C940060066B2B73 /* WatchReceiveService.swift in Sources */,
+				T10000074 /* WatchTranscriptSender.swift in Sources */,
 				A10000001 /* DayPageApp.swift in Sources */,
 				A10000002 /* RootView.swift in Sources */,
 				A10000004 /* GeneratedSecrets.swift in Sources */,

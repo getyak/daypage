@@ -54,10 +54,33 @@ final class WatchHistoryStore: ObservableObject {
         }
     }
 
+    // MARK: Recent (synced) item
+
+    /// A clip the phone has confirmed synced + transcribed, fed back over
+    /// `transferUserInfo`. The watch stores only this lightweight metadata —
+    /// never the audio itself.
+    struct RecentItem: Identifiable, Equatable {
+        let id: String        // source filename — correlation key from the phone
+        let duration: Int     // seconds (0 if the phone didn't send one)
+        let summary: String
+        let syncedAt: Date
+
+        var durationText: String {
+            let m = duration / 60
+            let s = duration % 60
+            return String(format: "%d:%02d", m, s)
+        }
+    }
+
     // MARK: State
 
     /// Newest first.
     @Published private(set) var inFlight: [InFlightItem] = []
+
+    /// Newest first. Capped to the most recent `recentLimit` items.
+    @Published private(set) var recent: [RecentItem] = []
+
+    private let recentLimit = 20
 
     /// Injected by `WatchTransferService` so a retry tap can re-queue a failed
     /// transfer without the store importing WatchConnectivity itself.
@@ -87,6 +110,25 @@ final class WatchHistoryStore: ObservableObject {
     func markFailed(fileURL: URL) {
         guard let idx = inFlight.firstIndex(where: { $0.id == fileURL }) else { return }
         inFlight[idx].status = .failed
+    }
+
+    // MARK: - Synced (called from the phone's reverse channel, P3)
+
+    /// The phone confirmed this clip is synced + transcribed. Add it to the
+    /// "recent" feed and drop any lingering in-flight entry with the same
+    /// source filename. Keyed by filename because the phone only knows the
+    /// filename, not the watch's original file URL.
+    func markSynced(filename: String, summary: String, duration: Int, syncedAt: Date = Date()) {
+        // Remove any in-flight item whose file URL ends in this filename.
+        inFlight.removeAll { $0.id.lastPathComponent == filename }
+
+        let item = RecentItem(id: filename, duration: duration, summary: summary, syncedAt: syncedAt)
+        // De-dupe on filename (a resend could report twice).
+        recent.removeAll { $0.id == filename }
+        recent.insert(item, at: 0)
+        if recent.count > recentLimit {
+            recent.removeLast(recent.count - recentLimit)
+        }
     }
 
     // MARK: - Retry (called by the history UI)

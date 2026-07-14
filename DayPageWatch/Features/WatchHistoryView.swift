@@ -14,7 +14,7 @@ struct WatchHistoryView: View {
 
     var body: some View {
         Group {
-            if history.inFlight.isEmpty {
+            if history.inFlight.isEmpty && history.recent.isEmpty {
                 emptyState
             } else {
                 list
@@ -48,12 +48,47 @@ struct WatchHistoryView: View {
 
     private var list: some View {
         List {
-            Section("在途") {
-                ForEach(history.inFlight) { item in
-                    inFlightRow(item)
+            if !history.inFlight.isEmpty {
+                Section("在途") {
+                    ForEach(history.inFlight) { item in
+                        inFlightRow(item)
+                    }
+                }
+            }
+            if !history.recent.isEmpty {
+                Section("最近") {
+                    ForEach(history.recent) { item in
+                        recentRow(item)
+                    }
                 }
             }
         }
+    }
+
+    private func recentRow(_ item: WatchHistoryStore.RecentItem) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(item.durationText)
+                        .font(.footnote.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                    Text(item.syncedAt, style: .relative)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                if !item.summary.isEmpty {
+                    Text(item.summary)
+                        .font(.caption)
+                        .lineLimit(2)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("已同步，\(item.durationText)，\(item.summary)")
     }
 
     private func inFlightRow(_ item: WatchHistoryStore.InFlightItem) -> some View {
