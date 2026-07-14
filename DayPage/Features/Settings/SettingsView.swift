@@ -118,6 +118,10 @@ struct SettingsView: View {
     // R4-MEDIUM #39 — drives the Experiments section toggles.
     @StateObject private var flagStore = FeatureFlagStore.shared
 
+    // 「记录提醒」— 定时召唤记录的配置源。@Published slots/preset/quietHours
+    // 驱动本 section 的 UI;修改即时重排通知(service.refreshSchedule)。
+    @StateObject private var reminderService = CaptureReminderService.shared
+
     // R8 — debug toggle for the offline-mode simulation. Flipping this
     // posts `.simulateOfflineChanged` so NetworkMonitor recomputes its
     // published `isOnline` without waiting for a real NWPath update.
@@ -137,6 +141,9 @@ struct SettingsView: View {
                     aiEngineSection
                     aiUsageSection
                     notificationsSection
+                    if flagStore.isEnabled(.captureReminder) {
+                        captureReminderSection
+                    }
                     permissionsSection
                     appearanceSection
                     timeZoneSection
@@ -1326,6 +1333,95 @@ struct SettingsView: View {
                 "settings.notifications.footer",
                 value: "凌晨 2:00 后台自动编译完成时，会发本地通知到锁屏。",
                 comment: "Footer explaining when the compile-complete notification fires"
+            ))
+            .font(.caption)
+        }
+    }
+
+    // MARK: - Capture Reminder Section
+
+    /// 「记录提醒」配置:频率预设 + 每个时间点开关 + 静音时段。改动即时经
+    /// `CaptureReminderService` 重排本地通知。整段受 `.captureReminder` flag 门控。
+    private var captureReminderSection: some View {
+        Section {
+            // 频率预设选择器。
+            Picker(
+                NSLocalizedString("settings.reminder.frequency", value: "提醒频率", comment: "Capture reminder frequency preset"),
+                selection: Binding(
+                    get: { reminderService.preset },
+                    set: { newValue in
+                        Haptics.selection()
+                        reminderService.apply(preset: newValue)
+                    }
+                )
+            ) {
+                ForEach(ReminderPreset.allCases, id: \.rawValue) { preset in
+                    Text(preset.title).tag(preset)
+                }
+            }
+
+            // 每个时间点:标签 + 时间 + 开关。
+            ForEach(reminderService.slots) { slot in
+                Toggle(isOn: Binding(
+                    get: { slot.enabled },
+                    set: { reminderService.setSlot(slot.id, enabled: $0) }
+                )) {
+                    HStack {
+                        Text(slot.label)
+                            .foregroundColor(DSColor.onSurface)
+                        Spacer()
+                        Text(slot.timeString)
+                            .font(.subheadline.monospacedDigit())
+                            .foregroundColor(DSColor.onSurfaceVariant)
+                    }
+                }
+                .accessibilityIdentifier("reminder-slot-\(slot.timeString)")
+            }
+
+            // 静音时段。
+            Toggle(isOn: Binding(
+                get: { reminderService.quietHours.enabled },
+                set: { enabled in
+                    var hours = reminderService.quietHours
+                    hours.enabled = enabled
+                    reminderService.updateQuietHours(hours)
+                }
+            )) {
+                HStack {
+                    Label(
+                        NSLocalizedString("settings.reminder.quiet", value: "静音时段", comment: "Quiet hours toggle"),
+                        systemImage: "moon.zzz"
+                    )
+                    Spacer()
+                    if reminderService.quietHours.enabled {
+                        Text("\(reminderService.quietHours.startString)–\(reminderService.quietHours.endString)")
+                            .font(.caption.monospacedDigit())
+                            .foregroundColor(DSColor.onSurfaceVariant)
+                    }
+                }
+            }
+            .accessibilityIdentifier("reminder-quiet-hours")
+
+            // 仅 iOS 26+ 显示:是否用系统灵动岛(AlarmKit)。关掉回退普通通知。
+            if reminderService.isAlarmKitAvailable {
+                Toggle(isOn: Binding(
+                    get: { reminderService.preferAlarmKit },
+                    set: { reminderService.preferAlarmKit = $0 }
+                )) {
+                    Label(
+                        NSLocalizedString("settings.reminder.alarmkit", value: "系统灵动岛提醒", comment: "Use AlarmKit system Live Activity"),
+                        systemImage: "bell.badge.waveform"
+                    )
+                }
+                .accessibilityIdentifier("reminder-prefer-alarmkit")
+            }
+        } header: {
+            Text(NSLocalizedString("settings.reminder.section", value: "记录提醒", comment: "Capture reminder section title"))
+        } footer: {
+            Text(NSLocalizedString(
+                "settings.reminder.footer",
+                value: "到点时会发一条本地通知(灵动岛落点)召唤你记一句。长按通知可选「语音」或「文字」。静音时段内的提醒会自动跳过。",
+                comment: "Footer explaining capture reminders"
             ))
             .font(.caption)
         }

@@ -21,17 +21,21 @@ struct OnboardingView: View {
             .tag(0)
             PermissionsPage(onNext: { currentPage = 2 })
                 .tag(1)
+            // 「记录提醒」引导:紧跟权限页,默认开启,引导用户挑一天一次/三次的
+            // 记录节奏,并顺势注册定时提醒。可跳过。
+            ReminderPage(onNext: { currentPage = 3 })
+                .tag(2)
             // P0 privacy disclosure: must appear BEFORE ApiKeysPage so the
             // user understands which data leaves the device, and to which
             // provider, before they paste any secrets. Issue #25.
-            DataFlowPage(onNext: { currentPage = 3 })
-                .tag(2)
+            DataFlowPage(onNext: { currentPage = 4 })
+                .tag(3)
             ApiKeysPage(onComplete: {
                 UserDefaults.standard.set(true, forKey: AppSettings.Keys.hasOnboarded)
                 SampleDataSeeder.seedIfNeeded()
                 hasOnboarded = true
             })
-            .tag(3)
+            .tag(4)
         }
         .tabViewStyle(.page(indexDisplayMode: .always))
         .background(DSColor.backgroundWarm.ignoresSafeArea())
@@ -53,6 +57,126 @@ struct OnboardingView: View {
 /// has no server. The disclosed traffic is the user's own request to the
 /// third-party API. The user accepts the disclosure by tapping Continue;
 /// the consent flag is persisted so this page is shown exactly once.
+// MARK: - Page 1.5: Capture Reminder
+//
+// 「定时召唤记录」引导页。默认帮用户选好一个记录节奏(一天一次/三次),点
+// 「开启提醒」即请求通知权限并注册定时提醒;到点系统会用一条轻通知(灵动岛
+// 落点)召唤用户记一句。可「暂不」跳过 —— 之后仍能在设置里开。
+private struct ReminderPage: View {
+    let onNext: () -> Void
+
+    @State private var selected: ReminderPreset = .once
+    @State private var isRequesting = false
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: DSSpacing.xl) {
+                Spacer(minLength: 48)
+
+                Image(systemName: "bell.badge")
+                    .font(.system(size: 44, weight: .light))
+                    .foregroundColor(DSColor.accentOnBg)
+                    .padding(.bottom, DSSpacing.xs)
+
+                Text("到点,轻轻叫你记一句")
+                    .h1()
+                    .foregroundColor(DSColor.onBackgroundPrimary)
+                    .multilineTextAlignment(.center)
+
+                Text("选一个记录节奏。到点时灵动岛会悄悄浮出,点一下就落进录音 —— 不响铃、不打扰。")
+                    .captionText()
+                    .foregroundColor(DSColor.onBackgroundMuted)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, DSSpacing.md)
+
+                // 频率选择:一天一次(晚) / 早中晚三次。
+                VStack(spacing: DSSpacing.md) {
+                    ReminderPresetRow(
+                        title: "每天一次",
+                        detail: "睡前 21:00 · 把今天收进一句话",
+                        isSelected: selected == .once,
+                        onTap: { selected = .once }
+                    )
+                    ReminderPresetRow(
+                        title: "早中晚三次",
+                        detail: "09:00 · 13:00 · 21:00",
+                        isSelected: selected == .thrice,
+                        onTap: { selected = .thrice }
+                    )
+                }
+
+                Button(action: {
+                    guard !isRequesting else { return }
+                    isRequesting = true
+                    Task { @MainActor in
+                        await CaptureReminderService.shared.enableFromOnboarding(preset: selected)
+                        isRequesting = false
+                        onNext()
+                    }
+                }) {
+                    Text(isRequesting ? "开启中…" : "开启提醒")
+                        .bodyText()
+                        .foregroundColor(DSColor.surfaceWhite)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, DSSpacing.lg)
+                        .background(DSColor.accentAmber)
+                        .cornerRadius(DSRadius.md)
+                }
+                .padding(.top, DSSpacing.sm)
+                .accessibilityIdentifier("onboarding.reminder.enable")
+
+                Button(action: onNext) {
+                    Text("暂不,稍后在设置里开")
+                        .captionText()
+                        .foregroundColor(DSColor.onBackgroundMuted)
+                }
+                .accessibilityIdentifier("onboarding.reminder.skip")
+
+                Spacer(minLength: 48)
+            }
+            .padding(.horizontal, DSSpacing.xl2)
+        }
+    }
+}
+
+private struct ReminderPresetRow: View {
+    let title: String
+    let detail: String
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(alignment: .center, spacing: DSSpacing.md) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 20))
+                    .foregroundColor(isSelected ? DSColor.accentAmber : DSColor.onBackgroundMuted)
+
+                VStack(alignment: .leading, spacing: DSSpacing.xs) {
+                    Text(title)
+                        .bodyText()
+                        .foregroundColor(DSColor.onBackgroundPrimary)
+                    Text(detail)
+                        .captionText()
+                        .foregroundColor(DSColor.onBackgroundMuted)
+                }
+
+                Spacer()
+            }
+            .padding(DSSpacing.cardInner)
+            .background(DSColor.surfaceWhite)
+            .cornerRadius(DSRadius.md)
+            .overlay(
+                RoundedRectangle(cornerRadius: DSRadius.md)
+                    .strokeBorder(isSelected ? DSColor.accentAmber : Color.clear, lineWidth: 1.5)
+            )
+            .surfaceElevatedShadow()
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("onboarding.reminder.preset.\(title)")
+    }
+}
+
 private struct DataFlowPage: View {
     let onNext: () -> Void
 
