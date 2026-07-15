@@ -592,6 +592,37 @@
 "today.section.earlier"   = "EARLIER";
 "today.section.yesterday" = "YESTERDAY";
 
+/* Canvas vNext — compiled-page card ribbons + meta (fixes the hardcoded
+   "Today's page compiled" appearing under the YESTERDAY header) */
+"today.card.compiled.today"     = "Today's page compiled";
+"today.card.compiled.yesterday" = "Yesterday compiled";
+"today.card.meta.memos"         = "%d memos";
+
+/* Canvas vNext — 今日焦点 progressive disclosure */
+"today.focus.label"          = "Today's focus";
+"today.focus.a11y.expanded"  = "Expanded";
+"today.focus.a11y.collapsed" = "Collapsed, double-tap to choose focus lenses";
+
+/* Reminder vNext — Today capsule strip + edit sheet + AI scheduling */
+"today.reminder.add"          = "Remind me";
+"reminder.kind.once"          = "Once";
+"reminder.kind.daily"         = "Daily";
+"reminder.kind.weekdays"      = "Weekdays";
+"reminder.quick"              = "Quick";
+"reminder.time"               = "Time";
+"reminder.weekdays"           = "Repeat";
+"reminder.label.placeholder"  = "Label (optional)";
+"reminder.delete"             = "Delete reminder";
+"reminder.new.title"          = "New reminder";
+"reminder.edit.title"         = "Edit reminder";
+"reminder.default.once"       = "Later";
+"reminder.default.daily"      = "Daily journal";
+"reminder.default.weekdays"   = "Recurring journal";
+"common.cancel"               = "Cancel";
+"common.save"                 = "Save";
+"coach.reminder.confirmed"    = "Scheduled: %@ %@. I'll nudge you then — edit or remove it anytime from the reminder strip on Today.";
+"coach.reminder.clarify"      = "Sure — when should I remind you? Try \"tonight\", \"tomorrow morning\", \"in an hour\", or a concrete time like \"tomorrow 15:00\"; for repeats, say \"every day at 22:00\".";
+
 /* Banners */
 "today.banner.draft_restored" = "Restored your unsent draft";
 "today.banner.voice_queue"    = "You have %d voice notes pending transcription";
@@ -1133,3 +1164,23 @@
 "memo.chat.a11y.detach"              = "Detach memory";
 "memo.chat.a11y.source"              = "Open records of %@";
 "memo.chat.a11y.send"                = "Send";
+
+// MARK: - Chat River (session-ized AI chat history)
+
+"chat.river.earlier"                = "Earlier conversations";
+"chat.river.continue"               = "Continue this conversation";
+"chat.river.export"                 = "Export (.md)";
+"chat.river.select"                 = "Select…";
+"chat.river.delete"                 = "Delete";
+"chat.river.delete.confirm.title"   = "Delete this conversation?";
+"chat.river.delete.confirm.message" = "The conversation file will be removed from your vault. This cannot be undone.";
+"chat.river.selected"               = "%d selected";
+"chat.river.export_n"               = "Export %d";
+"chat.river.selection.done"         = "Done";
+"chat.river.current_marker"         = "Current conversation";
+"chat.river.turns"                  = "%d turns";
+"chat.river.today"                  = "Today";
+"chat.river.yesterday"              = "Yesterday";
+"chat.river.badge.ask"              = "ASK";
+"chat.river.badge.memo"             = "MEMO";
+"chat.river.badge.coach"            = "COACH";

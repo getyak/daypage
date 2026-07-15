@@ -85,6 +85,11 @@
 		A10000046 /* OnThisDayCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000046 /* OnThisDayCard.swift */; };
 		A10000047 /* OnThisDayScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000047 /* OnThisDayScheduler.swift */; };
 		CRS0000001 /* CaptureReminderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CRS1000001 /* CaptureReminderService.swift */; };
+		RMD0000001 /* Reminder.swift in Sources */ = {isa = PBXBuildFile; fileRef = RMD1000001 /* Reminder.swift */; };
+		RTR0000001 /* RelativeTimeResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = RTR1000001 /* RelativeTimeResolver.swift */; };
+		RCS0000001 /* ReminderCapsuleStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = RCS1000001 /* ReminderCapsuleStrip.swift */; };
+		RES0000001 /* ReminderEditSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = RES1000001 /* ReminderEditSheet.swift */; };
+		RIP0000001 /* ReminderIntentParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = RIP1000001 /* ReminderIntentParser.swift */; };
 		CAM0000001 /* CaptureAlarmMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAM1000001 /* CaptureAlarmMetadata.swift */; };
 		CAMW000001 /* CaptureAlarmMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAM1000001 /* CaptureAlarmMetadata.swift */; };
 		CRL0000001 /* CaptureReminderLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = CRL1000001 /* CaptureReminderLiveActivity.swift */; };
@@ -199,11 +204,13 @@
 		MD0000002 /* MemoDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = MD1000002 /* MemoDetailViewModel.swift */; };
 		MD0000003 /* DropToAskGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = MD1000003 /* DropToAskGesture.swift */; };
 		MC0000001 /* MemoChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = MC1000001 /* MemoChatView.swift */; };
+		CRV0000001 /* ChatRiverSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = CRV1000001 /* ChatRiverSection.swift */; };
 		MSE0000001 /* MemoSyncE2EIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MSE1000001 /* MemoSyncE2EIntegrationTests.swift */; };
 		MST0000001 /* MemoSyncUploaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MST1000001 /* MemoSyncUploaderTests.swift */; };
 		MYT0000001 /* MemoYAMLTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MYT1000001 /* MemoYAMLTests.swift */; };
 		NMT0000001 /* NetworkMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = NMT1000001 /* NetworkMonitorTests.swift */; };
 		CRT0000001 /* CaptureReminderServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CRT1000001 /* CaptureReminderServiceTests.swift */; };
+		RPT0000001 /* ReminderIntentParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = RPT1000001 /* ReminderIntentParserTests.swift */; };
 		OPS0000002 /* OrphanedPhotoScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = OPS1000002 /* OrphanedPhotoScannerTests.swift */; };
 		OVS0000002 /* OrphanedVoiceScannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = OVS1000002 /* OrphanedVoiceScannerTests.swift */; };
 		R4B0000001 /* RawStorageWriteFailedTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = R4B1000001 /* RawStorageWriteFailedTests.swift */; };
@@ -351,6 +358,11 @@
 		A20000046 /* OnThisDayCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayCard.swift; sourceTree = "<group>"; };
 		A20000047 /* OnThisDayScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayScheduler.swift; sourceTree = "<group>"; };
 		CRS1000001 /* CaptureReminderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureReminderService.swift; sourceTree = "<group>"; };
+		RMD1000001 /* Reminder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reminder.swift; sourceTree = "<group>"; };
+		RTR1000001 /* RelativeTimeResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeTimeResolver.swift; sourceTree = "<group>"; };
+		RCS1000001 /* ReminderCapsuleStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderCapsuleStrip.swift; sourceTree = "<group>"; };
+		RES1000001 /* ReminderEditSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderEditSheet.swift; sourceTree = "<group>"; };
+		RIP1000001 /* ReminderIntentParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderIntentParser.swift; sourceTree = "<group>"; };
 		CAM1000001 /* CaptureAlarmMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureAlarmMetadata.swift; sourceTree = "<group>"; };
 		CRL1000001 /* CaptureReminderLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureReminderLiveActivity.swift; sourceTree = "<group>"; };
 		A20000048 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
@@ -472,11 +484,13 @@
 		MD1000002 /* MemoDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoDetailViewModel.swift; sourceTree = "<group>"; };
 		MD1000003 /* DropToAskGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropToAskGesture.swift; sourceTree = "<group>"; };
 		MC1000001 /* MemoChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoChatView.swift; sourceTree = "<group>"; };
+		CRV1000001 /* ChatRiverSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatRiverSection.swift; sourceTree = "<group>"; };
 		MSE1000001 /* MemoSyncE2EIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoSyncE2EIntegrationTests.swift; sourceTree = "<group>"; };
 		MST1000001 /* MemoSyncUploaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoSyncUploaderTests.swift; sourceTree = "<group>"; };
 		MYT1000001 /* MemoYAMLTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoYAMLTests.swift; sourceTree = "<group>"; };
 		NMT1000001 /* NetworkMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitorTests.swift; sourceTree = "<group>"; };
 		CRT1000001 /* CaptureReminderServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureReminderServiceTests.swift; sourceTree = "<group>"; };
+		RPT1000001 /* ReminderIntentParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderIntentParserTests.swift; sourceTree = "<group>"; };
 		OPS1000002 /* OrphanedPhotoScannerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OrphanedPhotoScannerTests.swift; sourceTree = "<group>"; };
 		OVS1000002 /* OrphanedVoiceScannerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OrphanedVoiceScannerTests.swift; sourceTree = "<group>"; };
 		R4B1000001 /* RawStorageWriteFailedTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RawStorageWriteFailedTests.swift; sourceTree = "<group>"; };
@@ -574,6 +588,7 @@
 			children = (
 				1681BDF1E5113769618DA9B0 /* AskPastView.swift */,
 				MC1000001 /* MemoChatView.swift */,
+				CRV1000001 /* ChatRiverSection.swift */,
 			);
 			name = Ask;
 			path = Ask;
@@ -789,6 +804,9 @@
 				A20000039 /* VoiceAttachmentQueue.swift */,
 				A20000047 /* OnThisDayScheduler.swift */,
 				CRS1000001 /* CaptureReminderService.swift */,
+				RMD1000001 /* Reminder.swift */,
+				RTR1000001 /* RelativeTimeResolver.swift */,
+				RIP1000001 /* ReminderIntentParser.swift */,
 				CAM1000001 /* CaptureAlarmMetadata.swift */,
 				A20000078 /* VaultMigrationService.swift */,
 				A20000070 /* AuthService.swift */,
@@ -834,6 +852,8 @@
 			children = (
 				A20000010 /* TodayView.swift */,
 				A20000804 /* TodayCoachView.swift */,
+				RCS1000001 /* ReminderCapsuleStrip.swift */,
+				RES1000001 /* ReminderEditSheet.swift */,
 				A20000013 /* TodayViewModel.swift */,
 				A20000014 /* MemoCardView.swift */,
 				A20000020 /* VoiceRecordingView.swift */,
@@ -1140,6 +1160,7 @@
 				VES1000002 /* VaultExportServiceTests.swift */,
 				NMT1000001 /* NetworkMonitorTests.swift */,
 				CRT1000001 /* CaptureReminderServiceTests.swift */,
+				RPT1000001 /* ReminderIntentParserTests.swift */,
 				MSE1000001 /* MemoSyncE2EIntegrationTests.swift */,
 				MST1000001 /* MemoSyncUploaderTests.swift */,
 				WRA1000001 /* WeeklyRecapAutoTriggerTests.swift */,
@@ -1481,6 +1502,11 @@
 				INF0000001 /* InflightDraftStore.swift in Sources */,
 				A10000047 /* OnThisDayScheduler.swift in Sources */,
 				CRS0000001 /* CaptureReminderService.swift in Sources */,
+				RMD0000001 /* Reminder.swift in Sources */,
+				RTR0000001 /* RelativeTimeResolver.swift in Sources */,
+				RCS0000001 /* ReminderCapsuleStrip.swift in Sources */,
+				RES0000001 /* ReminderEditSheet.swift in Sources */,
+				RIP0000001 /* ReminderIntentParser.swift in Sources */,
 				CAM0000001 /* CaptureAlarmMetadata.swift in Sources */,
 				A10000050 /* CompileFooterButton.swift in Sources */,
 				A10000082 /* InputBarV4.swift in Sources */,
@@ -1538,6 +1564,7 @@
 				MD0000002 /* MemoDetailViewModel.swift in Sources */,
 				MD0000003 /* DropToAskGesture.swift in Sources */,
 				MC0000001 /* MemoChatView.swift in Sources */,
+				CRV0000001 /* ChatRiverSection.swift in Sources */,
 				WS0000001 /* WelcomeScreen.swift in Sources */,
 				A10000095 /* ComposerContextProvider.swift in Sources */,
 				457A17AB7F3B4BE7C2E77026 /* StartRecordingIntent.swift in Sources */,
@@ -1612,6 +1639,7 @@
 				VES0000002 /* VaultExportServiceTests.swift in Sources */,
 				NMT0000001 /* NetworkMonitorTests.swift in Sources */,
 				CRT0000001 /* CaptureReminderServiceTests.swift in Sources */,
+				RPT0000001 /* ReminderIntentParserTests.swift in Sources */,
 				MSE0000001 /* MemoSyncE2EIntegrationTests.swift in Sources */,
 				MST0000001 /* MemoSyncUploaderTests.swift in Sources */,
 				WRA0000001 /* WeeklyRecapAutoTriggerTests.swift in Sources */,

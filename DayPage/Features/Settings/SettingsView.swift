@@ -1360,23 +1360,20 @@ struct SettingsView: View {
                 }
             }
 
-            // 每个时间点:标签 + 时间 + 开关。
-            ForEach(reminderService.slots) { slot in
-                Toggle(isOn: Binding(
-                    get: { slot.enabled },
-                    set: { reminderService.setSlot(slot.id, enabled: $0) }
-                )) {
-                    HStack {
-                        Text(slot.label)
-                            .foregroundColor(DSColor.onSurface)
-                        Spacer()
-                        Text(slot.timeString)
-                            .font(.subheadline.monospacedDigit())
-                            .foregroundColor(DSColor.onSurfaceVariant)
-                    }
-                }
-                .accessibilityIdentifier("reminder-slot-\(slot.timeString)")
+            // 已配置提醒的只读摘要 —— 具体增删改移到 Today 页胶囊 & AI 对话。
+            // 设置页只保留「频率预设 + 静音 + 灵动岛」这类粗粒度开关。
+            HStack {
+                Label(
+                    NSLocalizedString("settings.reminder.active", value: "已启用提醒", comment: "Active reminders summary"),
+                    systemImage: "bell.badge"
+                )
+                Spacer()
+                let count = reminderService.reminders.filter { $0.enabled }.count
+                Text(String(format: NSLocalizedString("settings.reminder.count", value: "%d 条", comment: "N reminders count"), count))
+                    .font(.subheadline.monospacedDigit())
+                    .foregroundColor(DSColor.onSurfaceVariant)
             }
+            .accessibilityIdentifier("reminder-active-count")
 
             // 静音时段。
             Toggle(isOn: Binding(
@@ -1420,7 +1417,7 @@ struct SettingsView: View {
         } footer: {
             Text(NSLocalizedString(
                 "settings.reminder.footer",
-                value: "到点时会发一条本地通知(灵动岛落点)召唤你记一句。长按通知可选「语音」或「文字」。静音时段内的提醒会自动跳过。",
+                value: "到点时会发一条本地通知(灵动岛落点)召唤你记一句。长按通知可选「语音」或「文字」。\n在 Today 页可增删提醒;也可在「问过去」里直接说「每天晚上 10 点提醒我」或「一小时后叫我」,让 AI 帮你排。静音时段内的重复提醒会自动跳过。",
                 comment: "Footer explaining capture reminders"
             ))
             .font(.caption)

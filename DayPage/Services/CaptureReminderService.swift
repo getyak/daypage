@@ -9,21 +9,26 @@ import AlarmKit
 
 // MARK: - CaptureReminderService
 //
-// 「定时召唤记录」的定时引擎。到配置的时间点,系统发一条本地通知(横幅 + 灵动岛
-// Live Activity 的落点),用户点一下就落进录音舱 / 文字输入,把当下记进 vault。
+// 「定时召唤记录」的统一调度器。到配置的时间点,系统发一条本地通知(横幅 +
+// 灵动岛落点),用户点一下就落进录音舱 / 文字输入,把当下记进 vault。
+//
+// vNext(2026-07-15):统一到单一 `Reminder` 模型 —— 一个 `reminders: [Reminder]`
+// 集合,一个 `schedule()` 入口,按 `trigger` 分派:
+//   • .once(Date)          → UNTimeInterval / AlarmKit .fixed(一次性,触发后剔除)
+//   • .daily / .weekdays   → UNCalendar / AlarmKit .relative(重复)
+// AI(对话调度)和 UI(Today 胶囊)都只调这一套 API。复杂度收在调度里。
 //
 // 设计要点:
-//   • 每个启用的时间点(ReminderSlot)注册一条 UNCalendarNotificationTrigger
-//     (repeats: true),identifier 稳定 = "daypage.capture.<slotID>",
-//     重排时先按前缀全部移除再重装,避免残留。
-//   • 通知带一个 category(kCategoryID),两个 action:「语音」「文字」+ 默认点击。
-//     长按/下拉通知 → 展开 action;action 与默认点击都路由到既有 deeplink
-//     (daypage://record / daypage://memo/new),复用 DayPageApp.onOpenURL,
-//     不新增录音 / 输入落地逻辑。
-//   • 静音时段(quiet hours)在注册时过滤:落在静音区间内的时间点直接跳过,
-//     不打扰用户。
-//   • 全部配置存 UserDefaults(JSON slots + preset + quiet hours),
+//   • identifier 稳定 = "daypage.capture.<reminderID>",重排时按前缀全清再重装。
+//   • 通知带 category(actions:语音/文字)+ 默认点击,路由到既有 deeplink,
+//     不新增录音/输入落地逻辑。
+//   • 静音时段(quiet hours)在注册时过滤重复提醒;一次性提醒不受静音影响
+//     (用户/AI 明确指定的精确时间,不该被静音吞掉)。
+//   • 一次性提醒触发后自动清理(启动 + 每次重排时剔除已过期的 .once)。
+//   • 配置存 UserDefaults(JSON reminders + preset + quiet hours),
 //     @MainActor singleton 驱动 SwiftUI。
+//   • 兼容:旧 `captureReminder.slots`(ReminderSlot 数组)一次性迁移成
+//     新 `captureReminder.reminders`(Reminder 数组),用户已配置不丢。
 //
 // 与 FeatureFlag.captureReminder 联动:flag 关 → refreshSchedule 清空所有
 // 已注册的提醒(kill switch,无需 hot-fix)。
@@ -53,14 +58,18 @@ final class CaptureReminderService: ObservableObject {
     // MARK: Published config
 
     @Published private(set) var preset: ReminderPreset
-    @Published private(set) var slots: [ReminderSlot]
+    /// 统一提醒集合 —— 重复 + 一次性都在这里。UI/AI 通过下面的 API 增删改。
+    @Published private(set) var reminders: [Reminder]
     @Published private(set) var quietHours: QuietHours
 
     // MARK: UserDefaults keys
 
     private enum Keys {
         static let preset = "captureReminder.preset"
-        static let slots = "captureReminder.slots"
+        /// 旧 key(ReminderSlot 数组)—— 仅用于一次性迁移读取。
+        static let legacySlots = "captureReminder.slots"
+        /// 新 key(Reminder 数组)。
+        static let reminders = "captureReminder.reminders"
         static let quiet = "captureReminder.quietHours"
         static let preferAlarmKit = "captureReminder.preferAlarmKit"
     }
@@ -72,61 +81,83 @@ final class CaptureReminderService: ObservableObject {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         self.preset = Self.loadPreset(defaults)
-        self.slots = Self.loadSlots(defaults)
+        self.reminders = Self.loadReminders(defaults)
         self.quietHours = Self.loadQuietHours(defaults)
+        // 启动时清一次过期的一次性提醒(冷启动补账)。
+        pruneExpiredOneShots()
     }
 
-    // MARK: - Public API
+    // MARK: - Public API (presets)
 
-    /// 切换预设。`.custom` 保留用户手动编辑的 slots;`.once` / `.thrice` 覆盖
-    /// 成对应的默认时间点(晚 21:00 / 早中晚 09:00·13:00·21:00)。
+    /// 切换预设。`.custom` 保留用户手动编辑的提醒;`.once` / `.thrice` 覆盖
+    /// 成对应的默认时间点。仅影响重复提醒;一次性提醒不被预设切换清掉。
     func apply(preset newPreset: ReminderPreset) {
         preset = newPreset
+        let oneShots = reminders.filter { $0.isOneShot }
         switch newPreset {
         case .once:
-            slots = ReminderSlot.onceDefaults
+            reminders = Reminder.onceDefaults + oneShots
         case .thrice:
-            slots = ReminderSlot.thriceDefaults
+            reminders = Reminder.thriceDefaults + oneShots
         case .custom:
-            // 保留现有 slots;custom 只解锁「添加 / 删除时间点」的 UI。
-            if slots.isEmpty { slots = ReminderSlot.onceDefaults }
+            // 保留现有;custom 只解锁「增删提醒」的 UI。若空了给个默认。
+            if reminders.filter({ !$0.isOneShot }).isEmpty {
+                reminders = Reminder.onceDefaults + oneShots
+            }
         }
         persist()
         refreshSchedule()
     }
 
-    /// 开 / 关单个时间点。
-    func setSlot(_ id: UUID, enabled: Bool) {
-        guard let idx = slots.firstIndex(where: { $0.id == id }) else { return }
-        slots[idx].enabled = enabled
+    // MARK: - Public API (unified reminder mutations)
+
+    /// 开 / 关单条提醒。
+    func setReminder(_ id: UUID, enabled: Bool) {
+        guard let idx = reminders.firstIndex(where: { $0.id == id }) else { return }
+        reminders[idx].enabled = enabled
         persist()
         refreshSchedule()
     }
 
-    /// 编辑某个时间点的时分。
-    func updateSlot(_ id: UUID, hour: Int, minute: Int) {
-        guard let idx = slots.firstIndex(where: { $0.id == id }) else { return }
-        slots[idx].hour = max(0, min(23, hour))
-        slots[idx].minute = max(0, min(59, minute))
+    /// 整体替换某条提醒的 trigger(编辑 sheet 保存时用)。
+    func updateReminder(_ id: UUID, trigger: Reminder.Trigger, label: String? = nil) {
+        guard let idx = reminders.firstIndex(where: { $0.id == id }) else { return }
+        reminders[idx].trigger = trigger
+        if let label { reminders[idx].label = label }
+        sortReminders()
         persist()
         refreshSchedule()
     }
 
-    /// 添加一个自定义时间点(仅 `.custom` 预设下 UI 可达)。
-    func addSlot(hour: Int, minute: Int, label: String) {
-        let slot = ReminderSlot(hour: max(0, min(23, hour)),
-                                minute: max(0, min(59, minute)),
-                                label: label,
-                                enabled: true)
-        slots.append(slot)
-        slots.sort { ($0.hour, $0.minute) < ($1.hour, $1.minute) }
+    /// 添加一条提醒 —— UI 和 AI 的统一落地入口。返回新建的 Reminder。
+    @discardableResult
+    func addReminder(_ reminder: Reminder) -> Reminder {
+        reminders.append(reminder)
+        sortReminders()
         persist()
         refreshSchedule()
+        return reminder
     }
 
-    /// 删除一个时间点。
-    func removeSlot(_ id: UUID) {
-        slots.removeAll { $0.id == id }
+    /// 便捷:排一条一次性提醒到精确时间点(AI/Today「稍后」用)。
+    /// 传入的 fireDate 已过则不排,返回 nil。
+    @discardableResult
+    func scheduleOnce(at fireDate: Date, label: String, source: Reminder.Source = .user) -> Reminder? {
+        guard fireDate > Date() else { return nil }
+        let reminder = Reminder(trigger: .once(fireDate), label: label, source: source)
+        return addReminder(reminder)
+    }
+
+    /// 便捷:排一条重复提醒(AI/Today 新建重复用)。
+    @discardableResult
+    func scheduleRepeating(trigger: Reminder.Trigger, label: String, source: Reminder.Source = .user) -> Reminder {
+        let reminder = Reminder(trigger: trigger, label: label, source: source)
+        return addReminder(reminder)
+    }
+
+    /// 删除一条提醒。
+    func removeReminder(_ id: UUID) {
+        reminders.removeAll { $0.id == id }
         persist()
         refreshSchedule()
     }
@@ -138,12 +169,27 @@ final class CaptureReminderService: ObservableObject {
         refreshSchedule()
     }
 
+    // MARK: - Derived queries (Today 胶囊)
+
+    /// 即将触发的提醒,按 nextFireDate 升序。用于 Today 页轻量胶囊行。
+    /// 只返回启用且有下次触发的;limit 控制条数。
+    func upcoming(limit: Int = 3, now: Date = Date()) -> [Reminder] {
+        reminders
+            .compactMap { r -> (Reminder, Date)? in
+                guard let next = r.nextFireDate(after: now) else { return nil }
+                return (r, next)
+            }
+            .sorted { $0.1 < $1.1 }
+            .prefix(limit)
+            .map(\.0)
+    }
+
+    // MARK: - Onboarding
+
     /// onboarding 引导「一键开启」用:落地一个预设并请求权限、注册通知。
-    /// 返回是否拿到通知授权(供 UI 反馈)。
+    /// 返回是否拿到通知授权(供 UI 反馈)。签名保持不变(Onboarding 依赖)。
     @discardableResult
     func enableFromOnboarding(preset onboardPreset: ReminderPreset) async -> Bool {
-        // iOS 26+ 优先请求 AlarmKit 授权(真灵动岛);拿不到再退普通通知权限。
-        // 两个都请求:AlarmKit 走灵动岛,普通通知是 16.1–25 / AlarmKit 被拒时的回退。
         if #available(iOS 26.0, *) {
             #if canImport(AlarmKit)
             await requestAlarmKitAuthorization()
@@ -151,29 +197,52 @@ final class CaptureReminderService: ObservableObject {
         }
         let granted = await requestAuthorizationIfNeeded()
         preset = onboardPreset
-        slots = onboardPreset == .thrice ? ReminderSlot.thriceDefaults : ReminderSlot.onceDefaults
+        let base = onboardPreset == .thrice ? Reminder.thriceDefaults : Reminder.onceDefaults
+        // 保留可能已有的一次性提醒。
+        reminders = base + reminders.filter { $0.isOneShot }
         persist()
         registerCategoryIfNeeded()
         refreshSchedule()
         return granted
     }
 
+    /// 请求通知授权(AI/Today 首次排提醒前调,确保能真的响)。
+    @discardableResult
+    func ensureAuthorized() async -> Bool {
+        if #available(iOS 26.0, *) {
+            #if canImport(AlarmKit)
+            await requestAlarmKitAuthorization()
+            #endif
+        }
+        return await requestAuthorizationIfNeeded()
+    }
+
     // MARK: - Scheduling
 
-    /// 幂等重排。两条路径:
-    ///   • iOS 26+ 且 AlarmKit 已授权 → 用 AlarmKit 排系统级灵动岛/锁屏定时提醒
-    ///     (真·灵动岛),同时清掉 UNCalendar 侧的旧通知避免重复提醒。
-    ///   • iOS 16.1–25(或 AlarmKit 未授权)→ 回退 UNCalendarNotificationTrigger
-    ///     本地通知(通知到达时在灵动岛机型上也会短暂进灵动岛区域)。
+    /// 幂等重排。先剔除过期一次性,再按两条路径装载:
+    ///   • iOS 26+ 且 AlarmKit 已授权 → AlarmKit(真灵动岛),同时清 UNCalendar 侧。
+    ///   • 否则 → UN 通知(一次性用 TimeInterval,重复用 Calendar)。
     /// FeatureFlag 关时只清不装(两条路径都清)。
     func refreshSchedule() {
         registerCategoryIfNeeded()
+        pruneExpiredOneShots()
 
         if #available(iOS 26.0, *), useAlarmKit {
             refreshViaAlarmKit()
             return
         }
         refreshViaNotifications()
+    }
+
+    /// 剔除已过期的一次性提醒(fireDate < now)。重复提醒不受影响。
+    private func pruneExpiredOneShots() {
+        let now = Date()
+        let before = reminders.count
+        reminders.removeAll { r in
+            if case .once(let date) = r.trigger { return date <= now }
+            return false
+        }
+        if reminders.count != before { persist() }
     }
 
     private func refreshViaNotifications() {
@@ -191,38 +260,69 @@ final class CaptureReminderService: ObservableObject {
                     DayPageLogger.shared.info("[CaptureReminder] flag off — cleared \(stale.count) reminders")
                     return
                 }
-                self.installActiveSlots(into: center)
+                self.installActiveReminders(into: center)
             }
         }
     }
 
-    private func installActiveSlots(into center: UNUserNotificationCenter) {
-        let active = slots.filter { $0.enabled && !quietHours.contains(hour: $0.hour, minute: $0.minute) }
-        for slot in active {
-            var comps = DateComponents()
-            comps.hour = slot.hour
-            comps.minute = slot.minute
-            let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
+    private func installActiveReminders(into center: UNUserNotificationCenter) {
+        var scheduled = 0
+        for reminder in reminders where reminder.enabled {
+            // 一条 Reminder 可能展开成多条 UN request(weekdays:每个周几一条)。
+            // sub-identifier 用 "<prefix><id>" 或 "<prefix><id>.w<weekday>",
+            // 都以 requestPrefix 打头,重排时被前缀清理统一带走。
+            for spec in notificationSpecs(for: reminder) {
+                let content = UNMutableNotificationContent()
+                content.title = "记录此刻"
+                content.body = reminder.promptBody
+                content.sound = .default
+                content.categoryIdentifier = Self.categoryID
+                content.userInfo = ["captureReminderID": reminder.id.uuidString]
 
-            let content = UNMutableNotificationContent()
-            content.title = "记录此刻"
-            content.body = slot.promptBody
-            content.sound = .default
-            content.categoryIdentifier = Self.categoryID
-            content.userInfo = ["captureReminderSlot": slot.id.uuidString]
-
-            let request = UNNotificationRequest(
-                identifier: Self.requestPrefix + slot.id.uuidString,
-                content: content,
-                trigger: trigger
-            )
-            center.add(request) { error in
-                if let error {
-                    DayPageLogger.shared.error("[CaptureReminder] add failed: \(error.localizedDescription)")
+                let request = UNNotificationRequest(
+                    identifier: spec.identifier,
+                    content: content,
+                    trigger: spec.trigger
+                )
+                center.add(request) { error in
+                    if let error {
+                        DayPageLogger.shared.error("[CaptureReminder] add failed: \(error.localizedDescription)")
+                    }
                 }
+                scheduled += 1
             }
         }
-        DayPageLogger.shared.info("[CaptureReminder] scheduled \(active.count) reminders")
+        DayPageLogger.shared.info("[CaptureReminder] scheduled \(scheduled) requests")
+    }
+
+    /// 把一条 Reminder 展开成 (identifier, trigger) 列表。
+    /// 静音时段只过滤重复提醒;一次性(明确指定)不被静音吞掉。
+    /// weekdays 展开成 N 条(UNCalendar 一条只能匹配一个 weekday)。
+    private func notificationSpecs(for reminder: Reminder) -> [(identifier: String, trigger: UNNotificationTrigger)] {
+        let base = Self.requestPrefix + reminder.id.uuidString
+        switch reminder.trigger {
+        case .once(let date):
+            let interval = date.timeIntervalSinceNow
+            guard interval > 0 else { return [] }
+            return [(base, UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false))]
+
+        case .daily(let h, let m):
+            if quietHours.contains(hour: h, minute: m) { return [] }
+            var comps = DateComponents()
+            comps.hour = h
+            comps.minute = m
+            return [(base, UNCalendarNotificationTrigger(dateMatching: comps, repeats: true))]
+
+        case .weekdays(let days, let h, let m):
+            if quietHours.contains(hour: h, minute: m) { return [] }
+            return days.sorted().map { weekday in
+                var comps = DateComponents()
+                comps.weekday = weekday
+                comps.hour = h
+                comps.minute = m
+                return ("\(base).w\(weekday)", UNCalendarNotificationTrigger(dateMatching: comps, repeats: true))
+            }
+        }
     }
 
     // MARK: - Category (long-press actions)
@@ -251,7 +351,6 @@ final class CaptureReminderService: ObservableObject {
             intentIdentifiers: [],
             options: []
         )
-        // 合并已有 category,避免覆盖别处注册的(如未来其他通知类型)。
         UNUserNotificationCenter.current().getNotificationCategories { existing in
             var merged = existing
             merged.insert(category)
@@ -261,8 +360,6 @@ final class CaptureReminderService: ObservableObject {
 
     // MARK: - AlarmKit (iOS 26+ 真灵动岛路径)
 
-    /// 是否走 AlarmKit。仅当运行在 iOS 26+、flag 开、且 AlarmKit 已授权时为真。
-    /// 用户可通过设置里的「系统灵动岛」开关关掉,回退到普通通知。
     private var useAlarmKit: Bool {
         guard FeatureFlagStore.shared.isEnabled(.captureReminder) else { return false }
         guard preferAlarmKit else { return false }
@@ -284,10 +381,9 @@ final class CaptureReminderService: ObservableObject {
         }
     }
 
-    /// AlarmKit 是否已授权 —— 由 requestAlarmKitAuthorization 更新。
     @Published private(set) var alarmKitAuthorized = false
 
-    /// AlarmKit 在当前系统上是否可用(iOS 26+)。UI 用它决定是否显示「系统灵动岛」开关。
+    /// AlarmKit 在当前系统上是否可用(iOS 26+)。UI 用它决定是否显示开关。
     var isAlarmKitAvailable: Bool {
         if #available(iOS 26.0, *) { return true }
         return false
@@ -297,7 +393,6 @@ final class CaptureReminderService: ObservableObject {
     @available(iOS 26.0, *)
     private var alarmManager: AlarmManager { .shared }
 
-    /// 请求 AlarmKit 授权(onboarding「开启提醒」时,若在 iOS 26+ 上顺带请求)。
     @available(iOS 26.0, *)
     @discardableResult
     func requestAlarmKitAuthorization() async -> Bool {
@@ -319,11 +414,10 @@ final class CaptureReminderService: ObservableObject {
         }
     }
 
-    /// AlarmKit 重排:取消所有本 app 排的 alarm,清掉 UNCalendar 侧旧通知(避免
-    /// 双重提醒),再为每个「启用且不在静音时段」的 slot 排一条 weekly-repeat alarm。
+    /// AlarmKit 重排:清 UNCalendar 侧旧通知 → 取消旧 alarm → 为每条启用的
+    /// 提醒排 alarm(一次性 = .fixed;重复 = .relative)。
     @available(iOS 26.0, *)
     private func refreshViaAlarmKit() {
-        // 先清 UNCalendar 侧,避免与 AlarmKit 重复提醒。
         let center = UNUserNotificationCenter.current()
         center.getPendingNotificationRequests { requests in
             let stale = requests.map(\.identifier).filter { $0.hasPrefix(Self.requestPrefix) }
@@ -333,30 +427,47 @@ final class CaptureReminderService: ObservableObject {
         }
 
         Task { @MainActor in
-            // 取消旧 alarm。cancelAll 不存在,逐个 cancel 已知 slot id。
-            for slot in slots {
-                try? await alarmManager.cancel(id: slot.id)
+            for reminder in reminders {
+                try? await alarmManager.cancel(id: reminder.id)
             }
             guard FeatureFlagStore.shared.isEnabled(.captureReminder) else {
                 DayPageLogger.shared.info("[CaptureReminder] flag off — cancelled AlarmKit alarms")
                 return
             }
-            let active = slots.filter { $0.enabled && !quietHours.contains(hour: $0.hour, minute: $0.minute) }
-            for slot in active {
-                await scheduleAlarm(for: slot)
+            var scheduled = 0
+            for reminder in reminders where reminder.enabled {
+                if await scheduleAlarm(for: reminder) { scheduled += 1 }
             }
-            DayPageLogger.shared.info("[CaptureReminder] AlarmKit scheduled \(active.count) alarms")
+            DayPageLogger.shared.info("[CaptureReminder] AlarmKit scheduled \(scheduled) alarms")
         }
     }
 
+    /// 为一条 Reminder 排 AlarmKit alarm。返回是否真的排了(静音/过期跳过 = false)。
     @available(iOS 26.0, *)
-    private func scheduleAlarm(for slot: ReminderSlot) async {
-        let time = Alarm.Schedule.Relative.Time(hour: slot.hour, minute: slot.minute)
-        // 每天重复。weekly 全 7 天 = 每天。
-        let allWeekdays: [Locale.Weekday] = [.sunday, .monday, .tuesday, .wednesday, .thursday, .friday, .saturday]
-        let schedule = Alarm.Schedule.relative(.init(time: time, repeats: .weekly(allWeekdays)))
+    @discardableResult
+    private func scheduleAlarm(for reminder: Reminder) async -> Bool {
+        let schedule: Alarm.Schedule
+        switch reminder.trigger {
+        case .once(let date):
+            guard date > Date() else { return false }
+            let comps = Calendar.current.dateComponents(
+                [.year, .month, .day, .hour, .minute], from: date)
+            schedule = .fixed(Calendar.current.date(from: comps) ?? date)
 
-        // 「记录此刻」的 alert:主按钮「知道了」停止,次按钮「记一句」打开 app 录音。
+        case .daily(let h, let m):
+            if quietHours.contains(hour: h, minute: m) { return false }
+            let time = Alarm.Schedule.Relative.Time(hour: h, minute: m)
+            let all: [Locale.Weekday] = [.sunday, .monday, .tuesday, .wednesday, .thursday, .friday, .saturday]
+            schedule = .relative(.init(time: time, repeats: .weekly(all)))
+
+        case .weekdays(let days, let h, let m):
+            if quietHours.contains(hour: h, minute: m) { return false }
+            let time = Alarm.Schedule.Relative.Time(hour: h, minute: m)
+            let weekdays = days.compactMap(Self.localeWeekday(from:))
+            guard !weekdays.isEmpty else { return false }
+            schedule = .relative(.init(time: time, repeats: .weekly(weekdays)))
+        }
+
         let alert = AlarmPresentation.Alert(
             title: LocalizedStringResource(stringLiteral: "记录此刻"),
             stopButton: AlarmButton(
@@ -372,14 +483,12 @@ final class CaptureReminderService: ObservableObject {
             secondaryButtonBehavior: .custom
         )
         let presentation = AlarmPresentation(alert: alert)
-        let metadata = CaptureAlarmMetadata(prompt: slot.promptBody, slotID: slot.id.uuidString)
+        let metadata = CaptureAlarmMetadata(prompt: reminder.promptBody, slotID: reminder.id.uuidString)
         let attributes = AlarmAttributes(
             presentation: presentation,
             metadata: metadata,
-            tintColor: Color(red: 0.74, green: 0.49, blue: 0.14) // 琥珀 amber,呼应品牌
+            tintColor: Color(red: 0.74, green: 0.49, blue: 0.14)
         )
-
-        // 次按钮打开 app → 走既有 daypage://record 录音路径。
         let config = AlarmManager.AlarmConfiguration(
             countdownDuration: nil,
             schedule: schedule,
@@ -388,11 +497,27 @@ final class CaptureReminderService: ObservableObject {
             secondaryIntent: nil,
             sound: .default
         )
-
         do {
-            _ = try await alarmManager.schedule(id: slot.id, configuration: config)
+            _ = try await alarmManager.schedule(id: reminder.id, configuration: config)
+            return true
         } catch {
             DayPageLogger.shared.error("[CaptureReminder] AlarmKit schedule failed: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    /// Calendar weekday(1=日…7=六) → AlarmKit Locale.Weekday。
+    @available(iOS 26.0, *)
+    private static func localeWeekday(from calendarWeekday: Int) -> Locale.Weekday? {
+        switch calendarWeekday {
+        case 1: return .sunday
+        case 2: return .monday
+        case 3: return .tuesday
+        case 4: return .wednesday
+        case 5: return .thursday
+        case 6: return .friday
+        case 7: return .saturday
+        default: return nil
         }
     }
 #endif
@@ -415,10 +540,24 @@ final class CaptureReminderService: ObservableObject {
 
     // MARK: - Persistence
 
+    private func sortReminders() {
+        // 一次性按 fireDate,重复按时分;整体一次性在前(临近感)。
+        reminders.sort { a, b in
+            switch (a.isOneShot, b.isOneShot) {
+            case (true, false): return true
+            case (false, true): return false
+            default:
+                let (ah, am) = a.timeComponents
+                let (bh, bm) = b.timeComponents
+                return (ah, am) < (bh, bm)
+            }
+        }
+    }
+
     private func persist() {
         defaults.set(preset.rawValue, forKey: Keys.preset)
-        if let data = try? JSONEncoder().encode(slots) {
-            defaults.set(data, forKey: Keys.slots)
+        if let data = try? JSONEncoder().encode(reminders) {
+            defaults.set(data, forKey: Keys.reminders)
         }
         if let data = try? JSONEncoder().encode(quietHours) {
             defaults.set(data, forKey: Keys.quiet)
@@ -433,13 +572,39 @@ final class CaptureReminderService: ObservableObject {
         return preset
     }
 
-    private static func loadSlots(_ defaults: UserDefaults) -> [ReminderSlot] {
-        guard let data = defaults.data(forKey: Keys.slots),
-              let slots = try? JSONDecoder().decode([ReminderSlot].self, from: data),
-              !slots.isEmpty else {
-            return ReminderSlot.onceDefaults
+    /// 加载提醒。优先读新 key;若无但有旧 slots → 迁移;都无 → 默认。
+    private static func loadReminders(_ defaults: UserDefaults) -> [Reminder] {
+        if let data = defaults.data(forKey: Keys.reminders),
+           let list = try? JSONDecoder().decode([Reminder].self, from: data),
+           !list.isEmpty {
+            return list
         }
-        return slots
+        // 迁移:旧 ReminderSlot 数组 → Reminder。
+        if let migrated = migrateLegacySlots(defaults) {
+            if let data = try? JSONEncoder().encode(migrated) {
+                defaults.set(data, forKey: Keys.reminders)
+            }
+            defaults.removeObject(forKey: Keys.legacySlots)
+            return migrated
+        }
+        return Reminder.onceDefaults
+    }
+
+    /// 旧 ReminderSlot(每日重复)→ Reminder(.daily)。仅在首次升级时跑一次。
+    private static func migrateLegacySlots(_ defaults: UserDefaults) -> [Reminder]? {
+        guard let data = defaults.data(forKey: Keys.legacySlots),
+              let slots = try? JSONDecoder().decode([LegacySlot].self, from: data),
+              !slots.isEmpty else {
+            return nil
+        }
+        return slots.map { slot in
+            Reminder(
+                trigger: .daily(hour: slot.hour, minute: slot.minute),
+                label: slot.label,
+                enabled: slot.enabled,
+                source: .user
+            )
+        }
     }
 
     private static func loadQuietHours(_ defaults: UserDefaults) -> QuietHours {
@@ -451,12 +616,24 @@ final class CaptureReminderService: ObservableObject {
     }
 }
 
-// MARK: - Models
+// MARK: - Legacy migration shape
+
+/// 旧 `ReminderSlot` 的解码用形状 —— 仅供一次性迁移读取旧 UserDefaults。
+/// 原类型已删,此处保留最小字段镜像避免破坏已升级用户的数据。
+private struct LegacySlot: Codable {
+    let id: UUID
+    var hour: Int
+    var minute: Int
+    var label: String
+    var enabled: Bool
+}
+
+// MARK: - Preset
 
 enum ReminderPreset: String, CaseIterable {
     case once    // 每天一次(晚)
     case thrice  // 早中晚三次
-    case custom  // 自定义时间点
+    case custom  // 自定义
 
     var title: String {
         switch self {
@@ -467,55 +644,13 @@ enum ReminderPreset: String, CaseIterable {
     }
 }
 
-struct ReminderSlot: Codable, Identifiable, Equatable {
-    let id: UUID
-    var hour: Int
-    var minute: Int
-    var label: String
-    var enabled: Bool
-
-    init(id: UUID = UUID(), hour: Int, minute: Int, label: String, enabled: Bool) {
-        self.id = id
-        self.hour = hour
-        self.minute = minute
-        self.label = label
-        self.enabled = enabled
-    }
-
-    /// "HH:mm" 展示用。
-    var timeString: String {
-        String(format: "%02d:%02d", hour, minute)
-    }
-
-    /// 通知正文 —— 随时段给一句轻的提示,不用命令式。
-    var promptBody: String {
-        switch hour {
-        case 5..<11:  return "早上好 · 记一句此刻在想什么"
-        case 11..<15: return "间隙里 · 留一条给今天"
-        case 15..<19: return "下午了 · 有什么值得记下的"
-        default:      return "睡前 · 把今天收进一句话"
-        }
-    }
-
-    // 预设默认时间点。id 固定生成,但预设切换时整组替换,不复用旧 id。
-    static var onceDefaults: [ReminderSlot] {
-        [ReminderSlot(hour: 21, minute: 0, label: "睡前", enabled: true)]
-    }
-
-    static var thriceDefaults: [ReminderSlot] {
-        [
-            ReminderSlot(hour: 9,  minute: 0, label: "早", enabled: true),
-            ReminderSlot(hour: 13, minute: 0, label: "午", enabled: true),
-            ReminderSlot(hour: 21, minute: 0, label: "晚", enabled: true)
-        ]
-    }
-}
+// MARK: - QuietHours
 
 /// 静音时段。start/end 用「一天中的分钟数」(0…1439),支持跨午夜(start > end)。
 struct QuietHours: Codable, Equatable {
     var enabled: Bool
-    var startMinutes: Int  // 例:23:30 → 1410
-    var endMinutes: Int    // 例:08:00 → 480
+    var startMinutes: Int
+    var endMinutes: Int
 
     static let defaultQuiet = QuietHours(enabled: true, startMinutes: 23 * 60 + 30, endMinutes: 8 * 60)
 
@@ -527,10 +662,8 @@ struct QuietHours: Codable, Equatable {
         guard enabled else { return false }
         let m = hour * 60 + minute
         if startMinutes <= endMinutes {
-            // 同日区间,如 01:00–06:00
             return m >= startMinutes && m < endMinutes
         } else {
-            // 跨午夜,如 23:30–08:00
             return m >= startMinutes || m < endMinutes
         }
     }

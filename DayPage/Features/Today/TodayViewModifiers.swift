@@ -17,6 +17,38 @@ struct ScrollOffsetPreferenceKey: PreferenceKey {
     }
 }
 
+/// Delivers the Today timeline's scroll offset to `handleScrollOffset`.
+///
+/// Canvas vNext (2026-07-14): on iOS 18+ the classic GeometryReader →
+/// PreferenceKey pattern stopped firing during scrolls (verified on the
+/// iOS 26.1 simulator via app.log instrumentation: the callback ran exactly
+/// once at initial layout, then never again — scrolling no longer re-runs
+/// content layout, so the preference never republishes). That silently
+/// killed every offset-driven surface: glass header, scroll-to-top ring,
+/// and the new hero recede. On iOS 18+ we read `onScrollGeometryChange`
+/// instead; iOS 16–17 keep the preference path, which still works there.
+///
+/// Value convention (both paths): 0 at rest, NEGATIVE as the user scrolls
+/// up — the historical minY convention TodayView's thresholds are written
+/// against.
+struct TodayScrollOffsetWatcher: ViewModifier {
+    let onChange: (CGFloat) -> Void
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content.onScrollGeometryChange(for: CGFloat.self) { geometry in
+                -(geometry.contentOffset.y + geometry.contentInsets.top)
+            } action: { _, newValue in
+                onChange(newValue)
+            }
+        } else {
+            content.onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                onChange(value)
+            }
+        }
+    }
+}
+
 // MARK: - Scroll entrance (iOS 17+)
 
 /// 美术馆入场: timeline memo cards settle in as they scroll into the

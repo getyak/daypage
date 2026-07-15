@@ -22,6 +22,9 @@ struct MemoChatView: View {
     let onClose: () -> Void
 
     @StateObject private var chat = MemoryChatService()
+    /// 这条 memo 的过往对话（长河的锚定支流）：只显示锚定到同一条
+    /// memo 的封存会话——全量历史在 AskPastView 的主河里。
+    @StateObject private var river = ChatRiverModel()
     @State private var draft: String = ""
     @State private var didAttach = false
     @State private var pinnedTurnIDs: Set<UUID> = []
@@ -40,6 +43,7 @@ struct MemoChatView: View {
         VStack(spacing: 0) {
             header
             conversation
+            ChatRiverSelectionBar(river: river)
             Divider().background(DSColor.borderSubtle)
             if chat.attachedMemo != nil {
                 memoryChip
@@ -53,7 +57,22 @@ struct MemoChatView: View {
             guard !didAttach else { return }
             didAttach = true
             chat.attach(memo: memo, clues: clues)
+            // --continue：同一天再次打开同一条 memo 的对话，接上原会话
+            // 而不是碎片化成多段。
+            chat.resumeTodaySession()
+            river.filter = { [memoID = memo.id] summary in
+                summary.entry == .memo && summary.anchorMemoID == memoID
+            }
+            river.refresh(excluding: chat.sessionRef?.id)
             inputFocused = true
+        }
+        .sheet(isPresented: Binding(
+            get: { river.shareURLs != nil },
+            set: { if !$0 { river.shareURLs = nil } }
+        )) {
+            if let urls = river.shareURLs {
+                ShareSheet(activityItems: urls)
+            }
         }
     }
 
@@ -106,6 +125,14 @@ struct MemoChatView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
+                    // 这条 memo 的过往对话——沉在当前对话上游。
+                    ChatRiverSection(river: river) { loaded in
+                        withAnimation(Motion.spring) {
+                            chat.resume(loaded)
+                            river.exitSelection()
+                            river.refresh(excluding: loaded.summary.id)
+                        }
+                    }
                     if chat.turns.isEmpty && !chat.isResponding {
                         suggestions
                     }

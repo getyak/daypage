@@ -363,6 +363,37 @@
 "today.section.yesterday" = "YESTERDAY";
 "today.section.earlier" = "EARLIER";
 
+/* Canvas vNext — 编成卡 ribbon + meta（修复 YESTERDAY 下写死英文
+   "Today's page compiled" 的自相矛盾） */
+"today.card.compiled.today"     = "今日已编成";
+"today.card.compiled.yesterday" = "昨日已编成";
+"today.card.meta.memos"         = "%d 条 memo";
+
+/* Canvas vNext — 今日焦点渐进披露 */
+"today.focus.label"          = "今日焦点";
+"today.focus.a11y.expanded"  = "已展开";
+"today.focus.a11y.collapsed" = "已折叠，轻点两下选择焦点";
+
+/* Reminder vNext — Today 胶囊条 + 编辑 sheet + AI 调度 */
+"today.reminder.add"          = "提醒我";
+"reminder.kind.once"          = "一次";
+"reminder.kind.daily"         = "每天";
+"reminder.kind.weekdays"      = "周几";
+"reminder.quick"              = "快捷";
+"reminder.time"               = "时间";
+"reminder.weekdays"           = "重复";
+"reminder.label.placeholder"  = "标签（可空）";
+"reminder.delete"             = "删除提醒";
+"reminder.new.title"          = "新提醒";
+"reminder.edit.title"         = "编辑提醒";
+"reminder.default.once"       = "稍后";
+"reminder.default.daily"      = "每日记录";
+"reminder.default.weekdays"   = "定期记录";
+"common.cancel"               = "取消";
+"common.save"                 = "保存";
+"coach.reminder.confirmed"    = "已排好：%@ %@。到点我会来敲你——在 Today 顶部的提醒条里随时可改可删。";
+"coach.reminder.clarify"      = "好——几点提醒你？可以说「今晚」「明早」「一小时后」，或者给个具体时间，比如「明天 15:00」；重复的话说「每天 22:00」「周一三五 9 点」。";
+
 /* LocationDraftCard */
 "today.location_draft.header" = "检测到位置到达";
 "today.location_draft.ignore_all" = "全部忽略";
@@ -1140,3 +1171,23 @@
 "memo.chat.a11y.detach"              = "摘除这条记忆";
 "memo.chat.a11y.source"              = "查看 %@ 的记录";
 "memo.chat.a11y.send"                = "发送";
+
+// MARK: - Chat River (对话长河 — AI 聊天历史 session 化)
+
+"chat.river.earlier"                = "更早的对话";
+"chat.river.continue"               = "继续这段对话";
+"chat.river.export"                 = "导出 (.md)";
+"chat.river.select"                 = "选择多段…";
+"chat.river.delete"                 = "删除";
+"chat.river.delete.confirm.title"   = "删除这段对话？";
+"chat.river.delete.confirm.message" = "对话文件将从 vault 中移除，不可恢复。";
+"chat.river.selected"               = "已选 %d 段";
+"chat.river.export_n"               = "导出 %d 段";
+"chat.river.selection.done"         = "完成";
+"chat.river.current_marker"         = "当前对话";
+"chat.river.turns"                  = "%d 轮";
+"chat.river.today"                  = "今天";
+"chat.river.yesterday"              = "昨天";
+"chat.river.badge.ask"              = "问";
+"chat.river.badge.memo"             = "锚";
+"chat.river.badge.coach"            = "陪写";

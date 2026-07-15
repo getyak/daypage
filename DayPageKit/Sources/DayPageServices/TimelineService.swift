@@ -66,6 +66,11 @@ public struct TimelineSection: Identifiable, Equatable {
     /// Newest-first within a section.
     public let days: [TimelineDayEntry]
 
+    public init(kind: TimelineSectionKind, days: [TimelineDayEntry]) {
+        self.kind = kind
+        self.days = days
+    }
+
     public var id: String {
         switch kind {
         case .pinned: return "pinned"
