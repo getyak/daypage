@@ -1,6 +1,7 @@
 import Testing
 import Foundation
 import DayPageServices
+import DayPageStorage
 import DayPageModels
 @testable import DayPage
 
@@ -120,9 +121,29 @@ struct RetrievedContextTests {
 
 // MARK: - MemoryChatService
 
-@Suite("MemoryChatService")
+/// Serialized because tests mutate global `VaultInitializer.testOverrideURL`
+/// (session 化后 `ask` 会真实落盘 —— 不隔离会把测试会话泄漏进真机/模拟器
+/// 的 vault/wiki/chats，正是 2026-07-15 验收时撞见的污染源)。
+@Suite("MemoryChatService", .serialized)
 @MainActor
 struct MemoryChatServiceTests {
+
+    private let tempVault: URL
+
+    init() throws {
+        tempVault = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MemoryChatTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: tempVault.appendingPathComponent("wiki/chats", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        VaultInitializer.testOverrideURL = tempVault
+    }
+
+    private func cleanup() {
+        VaultInitializer.testOverrideURL = nil
+        try? FileManager.default.removeItem(at: tempVault)
+    }
 
     // static + nonisolated so we can pass it into the @Sendable `retrieve`
     // closure that MemoryChatService now requires. The suite as a whole is
@@ -137,6 +158,7 @@ struct MemoryChatServiceTests {
     }
 
     @Test func askAppendsUserThenAssistantTurns() async {
+        defer { cleanup() }
         let service = MemoryChatService(
             send: { _ in "这是回答" },
             retrieve: { q, _ in Self.fixedContext(q) }
@@ -153,6 +175,7 @@ struct MemoryChatServiceTests {
     }
 
     @Test func askSurfacesErrorWithoutAssistantTurn() async {
+        defer { cleanup() }
         let service = MemoryChatService(
             send: { _ in throw LLMError.rateLimited },
             retrieve: { q, _ in Self.fixedContext(q) }
@@ -165,12 +188,14 @@ struct MemoryChatServiceTests {
     }
 
     @Test func emptyQuestionIsIgnored() async {
+        defer { cleanup() }
         let service = MemoryChatService(send: { _ in "x" }, retrieve: { q, _ in Self.fixedContext(q) })
         await service.ask("   ")
         #expect(service.turns.isEmpty)
     }
 
     @Test func buildMessagesIncludesSystemAndRetrievedContext() {
+        defer { cleanup() }
         let service = MemoryChatService(send: { _ in "" }, retrieve: { q, _ in Self.fixedContext(q) })
         let ctx = Self.fixedContext("问题")
         let messages = service.buildMessages(question: "我去过哪里？", context: ctx)
@@ -181,6 +206,7 @@ struct MemoryChatServiceTests {
     }
 
     @Test func resetClearsConversation() async {
+        defer { cleanup() }
         let service = MemoryChatService(send: { _ in "答" }, retrieve: { q, _ in Self.fixedContext(q) })
         await service.ask("Q")
         service.reset()
@@ -216,9 +242,27 @@ struct LLMClientSSETests {
 
 // MARK: - Memo-anchored chat (issue #837)
 
-@Suite("MemoryChatService memo anchoring")
+/// Serialized —— 同 MemoryChatServiceTests：ask() 落盘，须用临时 vault 隔离。
+@Suite("MemoryChatService memo anchoring", .serialized)
 @MainActor
 struct MemoAnchoredChatTests {
+
+    private let tempVault: URL
+
+    init() throws {
+        tempVault = FileManager.default.temporaryDirectory
+            .appendingPathComponent("MemoAnchoredChatTests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: tempVault.appendingPathComponent("wiki/chats", isDirectory: true),
+            withIntermediateDirectories: true
+        )
+        VaultInitializer.testOverrideURL = tempVault
+    }
+
+    private func cleanup() {
+        VaultInitializer.testOverrideURL = nil
+        try? FileManager.default.removeItem(at: tempVault)
+    }
 
     nonisolated static func fixedContext(_ q: String) -> RetrievedContext {
         RetrievedContext(
@@ -239,6 +283,7 @@ struct MemoAnchoredChatTests {
     }
 
     @Test func buildMessagesIncludesAnchoredMemoBlockAndRule() {
+        defer { cleanup() }
         let service = MemoryChatService(send: { _ in "" }, retrieve: { q, _ in Self.fixedContext(q) })
         service.attach(memo: makeMemo(), clues: ["信息架构"])
         let messages = service.buildMessages(question: "当时我为什么这么想？", context: Self.fixedContext("x"))
@@ -256,6 +301,7 @@ struct MemoAnchoredChatTests {
     }
 
     @Test func detachRemovesMemoBlock() {
+        defer { cleanup() }
         let service = MemoryChatService(send: { _ in "" }, retrieve: { q, _ in Self.fixedContext(q) })
         service.attach(memo: makeMemo())
         service.detachMemo()
@@ -265,6 +311,7 @@ struct MemoAnchoredChatTests {
     }
 
     @Test func askSeedsRetrievalWithAttachedMemoEntities() async {
+        defer { cleanup() }
         // Capture the seed slugs the service hands to the retriever.
         let captured = CapturedSeeds()
         let service = MemoryChatService(
@@ -284,12 +331,14 @@ struct MemoAnchoredChatTests {
     }
 
     @Test func attachFallsBackToDehyphenatedSlugsAsClues() {
+        defer { cleanup() }
         let service = MemoryChatService(send: { _ in "" }, retrieve: { q, _ in Self.fixedContext(q) })
         service.attach(memo: makeMemo())
         #expect(service.attachedClues == ["xinxi jiagou", "daypage dev"])
     }
 
     @Test func streamSendPathAccumulatesStreamingTextInOrder() async {
+        defer { cleanup() }
         let service = MemoryChatService(
             send: { _ in "unused" },
             streamSend: { _, onDelta in
@@ -308,6 +357,7 @@ struct MemoAnchoredChatTests {
     }
 
     @Test func retryLastDoesNotDuplicateUserTurn() async {
+        defer { cleanup() }
         let flaky = FlipFlop()
         let service = MemoryChatService(
             send: { _ in

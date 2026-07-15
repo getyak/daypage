@@ -84,6 +84,10 @@ public final class MemoryChatService: ObservableObject {
     /// 用于 `.retrieving` 阶段的文案——slug 直出对 CJK 用户不可读。
     public private(set) var attachedClues: [String] = []
 
+    /// 当前活跃会话句柄。首轮真正发出时才建文件（空会话不落盘）；
+    /// `reset()` 封口置 nil；从历史胶囊续聊时由 `resume(_:)` 注入。
+    public private(set) var sessionRef: ChatSessionRef?
+
     // MARK: Dependencies
 
     /// 注入式 LLM 调用闭包，便于测试替身。默认走云端 DeepSeek。
@@ -196,7 +200,8 @@ public final class MemoryChatService: ObservableObject {
         if appendUserTurn {
             let userTurn = ChatTurn(role: .user, text: question)
             turns.append(userTurn)
-            Self.appendTurn(userTurn)
+            ensureSession(firstQuestion: question)
+            if let ref = sessionRef { ChatSessionStore.appendTurn(userTurn, to: ref) }
         }
         isResponding = true
         defer {
@@ -226,6 +231,16 @@ public final class MemoryChatService: ObservableObject {
         // Allow caller (e.g. sheet dismissal) to cancel mid-flight.
         if Task.isCancelled { return }
 
+        // 检索是 agent 的工具调用——独立事件留痕（回放合成来源 chips，
+        // 导出渲染「依据」行）。实体存显示名，导出件可读。
+        if let ref = sessionRef {
+            ChatSessionStore.appendRetrieval(
+                memoDates: Array(Set(context.memoHits.map { $0.dateString })).sorted(by: >),
+                entities: context.entityHits.map { $0.displayName },
+                to: ref
+            )
+        }
+
         // Phase 2: 「找到 N 条」短拍——检索通常快到不可见，这一拍把
         // 结果数量讲给用户听，然后才进入等待 LLM 的阶段。
         phase = .thinking(found: context.memoHits.count)
@@ -250,7 +265,7 @@ public final class MemoryChatService: ObservableObject {
             if Task.isCancelled { return }
             let assistantTurn = ChatTurn(role: .assistant, text: answer, context: context)
             turns.append(assistantTurn)
-            Self.appendTurn(assistantTurn)
+            if let ref = sessionRef { ChatSessionStore.appendTurn(assistantTurn, to: ref) }
         } catch {
             let msg = (error as? LLMError)?.errorDescription ?? error.localizedDescription
             errorMessage = msg
@@ -258,69 +273,73 @@ public final class MemoryChatService: ObservableObject {
         }
     }
 
-    /// 清空对话（开始新会话）。历史记录仍保留在磁盘上；`reset` 只切换
-    /// UI session。若想连磁盘一起清，另用未来 API。
+    /// 「新对话」（/clear 语义）：封口当前会话、清空 UI。磁盘上会话原样
+    /// 保留，以胶囊形态沉入长河；下一次发问才建新文件。
     public func reset() {
+        if let ref = sessionRef { ChatSessionStore.close(ref) }
+        sessionRef = nil
         turns.removeAll()
         errorMessage = nil
     }
 
-    // MARK: - Persistence (D1 — history across launches)
+    // MARK: - Sessions (D1 — history across launches)
 
-    /// 从 `vault/wiki/chats/YYYY-MM-DD.jsonl` 追加式加载今天的历史。
-    /// 首次进入 AskPastView 时调用；无历史时静默返回。
-    public func loadTodayHistory() {
-        let url = Self.chatLogURL(for: Date())
-        guard FileManager.default.fileExists(atPath: url.path) else { return }
-        guard let data = try? Data(contentsOf: url),
-              let text = String(data: data, encoding: .utf8) else { return }
+    /// 当前对话的进入方式：有锚定 memo 即 memo 会话，否则通用问过去。
+    private var entryKind: ChatEntryKind { attachedMemo != nil ? .memo : .ask }
 
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        var loaded: [ChatTurn] = []
-        for line in text.split(whereSeparator: \.isNewline) {
-            let bytes = Data(line.utf8)
-            if let turn = try? decoder.decode(ChatTurn.self, from: bytes) {
-                loaded.append(turn)
-            }
-        }
-        // Reserve `turns` for freshly-created turns from this session by
-        // appending on top of what we loaded — the ScrollViewReader in
-        // AskPastView will land the user at the bottom either way.
-        turns = loaded + turns
+    /// --continue 语义：接上今天最近一段未封口、entry（+ 锚定 memo）匹配
+    /// 的会话。打开 AskPastView / MemoChatView 时调用；`chatHistory` flag
+    /// 关闭时不接（每次都是新对话，落盘照旧）。
+    public func resumeTodaySession() {
+        guard FeatureFlagStore.shared.isEnabled(.chatHistory) else { return }
+        guard turns.isEmpty, sessionRef == nil else { return }
+        guard let loaded = ChatSessionStore.resumeTodaySession(
+            entry: entryKind,
+            anchorMemoID: attachedMemo?.id
+        ) else { return }
+        sessionRef = loaded.summary.ref
+        turns = loaded.turns
     }
 
-    /// Append one turn's JSON to the day's log file. Best-effort; failures
-    /// are non-fatal (a lost line is preferable to blocking the UI).
-    fileprivate static func appendTurn(_ turn: ChatTurn) {
-        let url = chatLogURL(for: turn.createdAt)
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        guard let data = try? encoder.encode(turn) else { return }
-        var line = data
-        line.append(0x0A) // '\n'
+    /// /resume 语义：从历史胶囊续聊。整段回放进 UI，新轮次 append 回
+    /// 原文件（文件归属跟随会话开始日，不搬家）。
+    public func resume(_ loaded: LoadedChatSession) {
+        sessionRef = loaded.summary.ref
+        turns = loaded.turns
+        errorMessage = nil
+    }
 
-        let fm = FileManager.default
-        if fm.fileExists(atPath: url.path) {
-            if let handle = try? FileHandle(forWritingTo: url) {
-                defer { try? handle.close() }
-                _ = try? handle.seekToEnd()
-                try? handle.write(contentsOf: line)
-            }
-        } else {
-            try? line.write(to: url, options: .atomic)
+    /// 首轮真正发出时才建会话文件；title 取首问截断。已有会话则复用。
+    private func ensureSession(firstQuestion: String) {
+        guard sessionRef == nil else { return }
+        sessionRef = ChatSessionStore.createSession(
+            entry: entryKind,
+            title: firstQuestion,
+            anchorMemoID: attachedMemo?.id,
+            anchorMemoDate: attachedMemo.map { Self.dayString(from: $0.created) }
+        )
+    }
+
+    /// 本地即答的成对轮次（如提醒拦截：不走 LLM，UI 直接给确认话术）。
+    /// 之前 View 层直接改 `turns` 导致这类轮次不落盘——统一走这里。
+    public func appendLocalExchange(user: String, assistant: String) {
+        ensureSession(firstQuestion: user)
+        let userTurn = ChatTurn(role: .user, text: user)
+        let assistantTurn = ChatTurn(role: .assistant, text: assistant)
+        turns.append(userTurn)
+        turns.append(assistantTurn)
+        if let ref = sessionRef {
+            ChatSessionStore.appendTurn(userTurn, to: ref)
+            ChatSessionStore.appendTurn(assistantTurn, to: ref)
         }
     }
 
-    private static func chatLogURL(for date: Date) -> URL {
+    private static func dayString(from date: Date) -> String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyy-MM-dd"
         f.timeZone = TimeZone.current
-        let day = f.string(from: date)
-        return VaultInitializer.vaultURL
-            .appendingPathComponent("wiki/chats", isDirectory: true)
-            .appendingPathComponent("\(day).jsonl")
+        return f.string(from: date)
     }
 
     // MARK: - Pin to Diary

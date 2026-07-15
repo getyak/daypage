@@ -17,6 +17,8 @@ struct AskPastView: View {
 
     @StateObject private var chat = MemoryChatService()
     @StateObject private var voiceService = VoiceService.shared
+    /// 对话长河：封存会话的胶囊层，沉在当前对话上游（设计 v2 D4）。
+    @StateObject private var river = ChatRiverModel()
     @State private var draft: String = ""
     @State private var didSeed = false
     @State private var isRecordingVoice: Bool = false
@@ -27,12 +29,16 @@ struct AskPastView: View {
     /// Turn ID that just got pinned — drives a 1.5s success toast without
     /// having to plumb a Banner through the chat view.
     @State private var justPinnedTurnID: UUID? = nil
+    /// 初始落点只执行一次：河口（底部）。之后「更早的对话」扩窗
+    /// 不允许再把用户拽回底部。
+    @State private var didInitialLanding = false
     @FocusState private var inputFocused: Bool
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 conversation
+                ChatRiverSelectionBar(river: river)
                 Divider().background(DSColor.borderSubtle)
                 inputBar
             }
@@ -44,22 +50,36 @@ struct AskPastView: View {
                     Button("关闭", action: onClose)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
+                    // /clear 语义：封口当前会话——它以胶囊形态沉入长河，
+                    // 输入框归零。spring 让「封存」这件事被看见。
                     Button {
-                        chat.reset()
+                        Haptics.soft()
+                        withAnimation(Motion.spring) {
+                            chat.reset()
+                            river.refresh(excluding: nil)
+                        }
                         draft = ""
                     } label: { Image(systemName: "square.and.pencil") }
                         .disabled(chat.turns.isEmpty)
                         .accessibilityLabel("新对话")
                 }
             }
+            .sheet(isPresented: Binding(
+                get: { river.shareURLs != nil },
+                set: { if !$0 { river.shareURLs = nil } }
+            )) {
+                if let urls = river.shareURLs {
+                    ShareSheet(activityItems: urls)
+                }
+            }
         }
         .task {
             guard !didSeed else { return }
             didSeed = true
-            // D1: bring back today's persisted conversation before the
-            // first render finishes, so returning users see prior turns
-            // instead of an empty state.
-            chat.loadTodayHistory()
+            // D1: --continue 语义 —— 接上今天最近一段未封口会话，
+            // 让回访用户看到先前轮次而不是空态。
+            chat.resumeTodaySession()
+            river.refresh(excluding: chat.sessionRef?.id)
             if let seed = seedQuestion?.trimmingCharacters(in: .whitespacesAndNewlines), !seed.isEmpty {
                 await chat.ask(seed)
             } else if chat.turns.isEmpty {
@@ -74,6 +94,18 @@ struct AskPastView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
+                    // 长河：封存会话的沉积层。上滑即历史；点开原位回放，
+                    // 「继续这段对话」把整段交还给活跃会话。
+                    ChatRiverSection(river: river) { loaded in
+                        withAnimation(Motion.spring) {
+                            chat.resume(loaded)
+                            river.exitSelection()
+                            river.refresh(excluding: loaded.summary.id)
+                        }
+                    }
+                    if !river.summaries.isEmpty && !chat.turns.isEmpty {
+                        currentSessionMarker
+                    }
                     if chat.turns.isEmpty && !chat.isResponding {
                         emptyState
                     }
@@ -86,16 +118,47 @@ struct AskPastView: View {
                     if let err = chat.errorMessage {
                         errorRow(err)
                     }
+                    Color.clear.frame(height: 1).id("river-mouth")
                 }
                 .padding(16)
             }
+            .onAppear {
+                // 河从上游流向河口——初始落点必须在河口（底部），
+                // 历史靠上滑发现。
+                proxy.scrollTo("river-mouth", anchor: .bottom)
+            }
+            .onChange(of: river.summaries.count) { _ in
+                // 胶囊层在 .task 里异步落地；若此刻还没有活跃对话
+                // （turns 的 onChange 不会兜底），补一次落底。
+                guard !didInitialLanding, chat.turns.isEmpty else { return }
+                didInitialLanding = true
+                proxy.scrollTo("river-mouth", anchor: .bottom)
+            }
             .onChange(of: chat.turns.count) { _ in
+                didInitialLanding = true
                 withAnimation { proxy.scrollTo(chat.turns.last?.id, anchor: .bottom) }
             }
             .onChange(of: chat.isResponding) { responding in
                 if responding { withAnimation { proxy.scrollTo("responding", anchor: .bottom) } }
             }
         }
+    }
+
+    /// 长河与活跃对话的分界拍：「· · 当前对话 HH:mm · ·」。
+    private var currentSessionMarker: some View {
+        let timeLabel: String = {
+            guard let first = chat.turns.first else { return "" }
+            let f = DateFormatter()
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.dateFormat = "HH:mm"
+            f.timeZone = TimeZone.current
+            return f.string(from: first.createdAt)
+        }()
+        return Text("· · \(NSLocalizedString("chat.river.current_marker", value: "当前对话", comment: "Chat river — current conversation divider")) \(timeLabel) · ·")
+            .font(DSType.mono10)
+            .tracking(1.5)
+            .foregroundColor(DSColor.inkSubtle)
+            .frame(maxWidth: .infinity)
     }
 
     @ViewBuilder
@@ -319,6 +382,36 @@ struct AskPastView: View {
         let question = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !question.isEmpty, !chat.isResponding else { return }
         draft = ""
+
+        // Reminder vNext：问过去的输入框同样接调度 —— 「明早提醒我看这段」
+        // 在对话里直接落统一调度器，不进 RAG 检索。与 TodayCoachView.submit
+        // 同一拦截逻辑；解析失败但含提醒动词时追问。
+        if FeatureFlagStore.shared.isEnabled(.captureReminder) {
+            if let parsed = ReminderIntentParser.parse(question) {
+                let reminder = CaptureReminderService.shared.addReminder(
+                    Reminder(trigger: parsed.trigger, label: parsed.label, source: .ai)
+                )
+                // 统一走 service —— 本地即答轮次同样落盘进会话文件。
+                chat.appendLocalExchange(
+                    user: question,
+                    assistant: TodayCoachView.reminderConfirmation(for: reminder)
+                )
+                Haptics.success()
+                return
+            }
+            if ReminderIntentParser.containsReminderVerb(question) {
+                chat.appendLocalExchange(
+                    user: question,
+                    assistant: NSLocalizedString(
+                        "coach.reminder.clarify",
+                        value: "好——几点提醒你？可以说「今晚」「明早」「一小时后」，或者给个具体时间，比如「明天 15:00」；重复的话说「每天 22:00」「周一三五 9 点」。",
+                        comment: "Coach follow-up when a reminder request lacks a parseable time"
+                    )
+                )
+                return
+            }
+        }
+
         Task { await chat.ask(question) }
     }
 

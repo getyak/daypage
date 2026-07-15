@@ -1171,3 +1171,23 @@
 "memo.chat.a11y.detach"              = "摘除这条记忆";
 "memo.chat.a11y.source"              = "查看 %@ 的记录";
 "memo.chat.a11y.send"                = "发送";
+
+// MARK: - Chat River (对话长河 — AI 聊天历史 session 化)
+
+"chat.river.earlier"                = "更早的对话";
+"chat.river.continue"               = "继续这段对话";
+"chat.river.export"                 = "导出 (.md)";
+"chat.river.select"                 = "选择多段…";
+"chat.river.delete"                 = "删除";
+"chat.river.delete.confirm.title"   = "删除这段对话？";
+"chat.river.delete.confirm.message" = "对话文件将从 vault 中移除，不可恢复。";
+"chat.river.selected"               = "已选 %d 段";
+"chat.river.export_n"               = "导出 %d 段";
+"chat.river.selection.done"         = "完成";
+"chat.river.current_marker"         = "当前对话";
+"chat.river.turns"                  = "%d 轮";
+"chat.river.today"                  = "今天";
+"chat.river.yesterday"              = "昨天";
+"chat.river.badge.ask"              = "问";
+"chat.river.badge.memo"             = "锚";
+"chat.river.badge.coach"            = "陪写";

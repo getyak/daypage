@@ -204,6 +204,7 @@
 		MD0000002 /* MemoDetailViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = MD1000002 /* MemoDetailViewModel.swift */; };
 		MD0000003 /* DropToAskGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = MD1000003 /* DropToAskGesture.swift */; };
 		MC0000001 /* MemoChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = MC1000001 /* MemoChatView.swift */; };
+		CRV0000001 /* ChatRiverSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = CRV1000001 /* ChatRiverSection.swift */; };
 		MSE0000001 /* MemoSyncE2EIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MSE1000001 /* MemoSyncE2EIntegrationTests.swift */; };
 		MST0000001 /* MemoSyncUploaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MST1000001 /* MemoSyncUploaderTests.swift */; };
 		MYT0000001 /* MemoYAMLTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MYT1000001 /* MemoYAMLTests.swift */; };
@@ -483,6 +484,7 @@
 		MD1000002 /* MemoDetailViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoDetailViewModel.swift; sourceTree = "<group>"; };
 		MD1000003 /* DropToAskGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DropToAskGesture.swift; sourceTree = "<group>"; };
 		MC1000001 /* MemoChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoChatView.swift; sourceTree = "<group>"; };
+		CRV1000001 /* ChatRiverSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatRiverSection.swift; sourceTree = "<group>"; };
 		MSE1000001 /* MemoSyncE2EIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoSyncE2EIntegrationTests.swift; sourceTree = "<group>"; };
 		MST1000001 /* MemoSyncUploaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoSyncUploaderTests.swift; sourceTree = "<group>"; };
 		MYT1000001 /* MemoYAMLTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoYAMLTests.swift; sourceTree = "<group>"; };
@@ -586,6 +588,7 @@
 			children = (
 				1681BDF1E5113769618DA9B0 /* AskPastView.swift */,
 				MC1000001 /* MemoChatView.swift */,
+				CRV1000001 /* ChatRiverSection.swift */,
 			);
 			name = Ask;
 			path = Ask;
@@ -1561,6 +1564,7 @@
 				MD0000002 /* MemoDetailViewModel.swift in Sources */,
 				MD0000003 /* DropToAskGesture.swift in Sources */,
 				MC0000001 /* MemoChatView.swift in Sources */,
+				CRV0000001 /* ChatRiverSection.swift in Sources */,
 				WS0000001 /* WelcomeScreen.swift in Sources */,
 				A10000095 /* ComposerContextProvider.swift in Sources */,
 				457A17AB7F3B4BE7C2E77026 /* StartRecordingIntent.swift in Sources */,

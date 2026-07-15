@@ -1164,3 +1164,23 @@
 "memo.chat.a11y.detach"              = "Detach memory";
 "memo.chat.a11y.source"              = "Open records of %@";
 "memo.chat.a11y.send"                = "Send";
+
+// MARK: - Chat River (session-ized AI chat history)
+
+"chat.river.earlier"                = "Earlier conversations";
+"chat.river.continue"               = "Continue this conversation";
+"chat.river.export"                 = "Export (.md)";
+"chat.river.select"                 = "Select…";
+"chat.river.delete"                 = "Delete";
+"chat.river.delete.confirm.title"   = "Delete this conversation?";
+"chat.river.delete.confirm.message" = "The conversation file will be removed from your vault. This cannot be undone.";
+"chat.river.selected"               = "%d selected";
+"chat.river.export_n"               = "Export %d";
+"chat.river.selection.done"         = "Done";
+"chat.river.current_marker"         = "Current conversation";
+"chat.river.turns"                  = "%d turns";
+"chat.river.today"                  = "Today";
+"chat.river.yesterday"              = "Yesterday";
+"chat.river.badge.ask"              = "ASK";
+"chat.river.badge.memo"             = "MEMO";
+"chat.river.badge.coach"            = "COACH";
