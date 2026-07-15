@@ -1,11 +1,18 @@
-# 加载根目录 .env 文件（fastlane 默认只读 fastlane/.env）
+# 加载根目录 .env 文件（fastlane 默认只读 fastlane/.env）。
+# 遵循 dotenv 语义：已存在的环境变量优先，.env 只补齐缺失项——
+# CI workflow 通过 step env 注入的 MATCH_PASSWORD / RELEASE_VERSION 等必须赢。
+# 进程级变量（PATH 等）无条件跳过：这里不做 shell 展开，.env 里一行
+# PATH="…:$PATH" 会把 $PATH 当字面量写入，让 fastlane 进程找不到 git
+# （Errno::ENOENT，CI run 29442308968 的死因）。
 env_file = File.expand_path("../.env", __dir__)
 if File.exist?(env_file)
   File.foreach(env_file) do |line|
     line.strip!
     next if line.empty? || line.start_with?("#")
     key, value = line.split("=", 2)
-    ENV[key] = value if key && value
+    next if key.nil? || key.empty? || value.nil?
+    next if %w[PATH HOME SHELL GEM_HOME GEM_PATH].include?(key)
+    ENV[key] ||= value
   end
 end
 
