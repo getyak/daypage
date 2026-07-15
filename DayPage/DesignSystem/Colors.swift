@@ -266,9 +266,19 @@ enum DSColor {
     static let heatmapMid = Color(light: Color(hex: "C9A677"), dark: Color(hex: "96693A"))
     static let heatmapHigh = Color(light: Color(hex: "5D3000"), dark: Color(hex: "E09A55"))
 
-    /// 边框令牌
-    static let borderSubtle = Color(hex: "EDE8DF")
-    static let borderDefault = Color(hex: "D6CEC0")
+    // MARK: 边框令牌
+    //
+    // 2026-07-15:两者此前是裸 hex(#EDE8DF / #D6CEC0),没有 dark 变体 —— 暗色下
+    // 这两个近白描边会在深色卡面上烧出一道亮痕(chat 长河胶囊的虚线边框最明显)。
+    // 暗色值不另造色相:沿用 inkFaint 的做法,取同一支 ink 墨色按不透明度分级,
+    // 亮度关系与浅色态镜像(subtle < default)。
+
+    /// 极淡边框 —— 卡片描边、虚线分隔。
+    static let borderSubtle = Color(light: Color(hex: "EDE8DF"),
+                                    dark: Color(hex: "F0E8DC").opacity(0.12))
+    /// 常规边框 —— 输入框、需要看得见的容器边界。
+    static let borderDefault = Color(light: Color(hex: "D6CEC0"),
+                                     dark: Color(hex: "F0E8DC").opacity(0.24))
 
     // MARK: - Brand (unchanged)
 
