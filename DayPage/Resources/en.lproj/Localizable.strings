@@ -59,6 +59,10 @@
 "write.sheet.discard.prompt" = "Discard this draft?";
 "write.sheet.discard.keep"   = "Keep";
 "write.sheet.discard.confirm" = "Discard";
+"write.sheet.cancel"          = "Cancel";
+"write.sheet.send"            = "Send";
+"write.sheet.attachment.remove" = "Remove attachment";
+"write.sheet.attachment.photo"  = "Photo attachment";
 
 /* WriteSheet — word/char counter */
 "writesheet.count.words.one"   = "1 word";
@@ -676,6 +680,9 @@
 "settings.appearance.fontsize"               = "Body font size";
 "settings.appearance.density"                = "Card density";
 "settings.appearance.legacy_voice"           = "Use legacy voice recording";
+"settings.voice.asr_provider"                = "Speech-to-text engine";
+"voice.recording.listening"                  = "Listening…";
+"voice.recording.liveTranscript.a11y"        = "Live transcript";
 "settings.appearance.onthisday.title"        = "On This Day";
 "settings.appearance.onthisday.refresh_time" = "Refresh time";
 "settings.appearance.onthisday.midnight"     = "Midnight 00:00";

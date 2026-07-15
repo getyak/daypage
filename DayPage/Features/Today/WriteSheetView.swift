@@ -15,18 +15,21 @@ import DayPageServices
 //   • drag handle — 36×4 capsule, centered
 //   • header — Fraunces weekday (18pt) + JetBrains Mono "MAY 28 · 15:47" stamp
 //     (real now), trailing close button
-//   • 0.5px hairline
 //   • textarea — 18pt serif, italic placeholder「此刻在想什么？」, accent caret,
 //     auto-grow (lineLimit 3…10)
-//   • 0.5px hairline
-//   • footer rail — camera/photo/location/tag icons · spacer · mono「N 字」·
-//     accent「保存」pill (disabled when empty) with checkmark
-//   • mono caption「SAVED TO  VAULT / YYYY-MM-DD.md」(real date)
+//   • footer rail — camera/photo/location(-name chip) icons · spacer · mono
+//     counter · trailing action: mic when empty, ghost「取消」+ amber ↑ send
+//     circle once the draft is dirty
+//   • mono caption「SAVED TO  VAULT / YYYY-MM-DD.md」(folds while keyboard up)
+//
+// Interaction model (vNext 2026-07): "close" is two different verbs.
+//   收起(keep) — scrim tap / swipe-down: silent, the draft survives in the
+//   parent's SceneStorage and resurfaces in the dock composer.
+//   放弃(destroy) — ✕ or ghost cancel: inline confirm bar, then onDiscard.
+//   Dirty = text OR attachments; an auto-attached location never counts.
 //
 // Entrance: sheet-up via timingCurve(.2,.8,.2,1) ~320ms — mirrors
-// composer.jsx:219 `sheet-up 320ms cubic-bezier(.2,.8,.2,1)`. The icon rail is
-// presentation-only in this round (no wiring) to match the design's quiet rail;
-// the inline composer remains the full multimodal capture surface.
+// composer.jsx:219 `sheet-up 320ms cubic-bezier(.2,.8,.2,1)`.
 
 struct WriteSheetView: View {
 
@@ -35,8 +38,12 @@ struct WriteSheetView: View {
     @Binding var text: String
     /// Save — commits the current text via the parent's existing persistence.
     let onSave: () -> Void
-    /// Close — dismiss the sheet without saving.
+    /// Close — hide the sheet. The draft is NOT touched: `text` is the parent's
+    /// SceneStorage-backed draft, so a plain close means "collapse and keep".
     let onClose: () -> Void
+    /// Discard — the user explicitly abandoned the draft (✕ / cancel, then the
+    /// inline confirm). The parent clears the draft text and staged attachments.
+    var onDiscard: () -> Void = {}
     /// Location attached to the memo being written; nil when none.
     var pendingLocation: Memo.Location? = nil
     /// True while a location fetch is in flight.
@@ -95,6 +102,10 @@ struct WriteSheetView: View {
     @State private var committedClose: Bool = false
     @State private var saveReadyPulse: Bool = false
     @State private var confirmingDiscard: Bool = false
+    /// Mirrors the system keyboard. While it's up, vertical space is scarce:
+    /// the bottom padding tightens (the sheet sits flush on the keyboard, no
+    /// home-indicator inset needed) and the SAVED TO VAULT caption folds away.
+    @State private var keyboardVisible: Bool = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(AppSettings.Keys.writeSheetRailHintShown) private var railHintShown: Bool = false
     /// Snapshot taken at open time so the hint stays visible for the whole first session.
@@ -145,11 +156,15 @@ struct WriteSheetView: View {
 
     private var showReadingTime: Bool { wordCount >= 50 }
 
-    private var canSave: Bool {
+    /// True when the user has authored content: text or attachments. Location
+    /// deliberately does NOT count — it is auto-attached ambient metadata, not
+    /// something the user wrote. Counting it made every fresh sheet "dirty":
+    /// the mic never appeared and closing an empty sheet raised the discard
+    /// prompt. This single predicate drives both the send button and the
+    /// discard-confirmation gate.
+    private var isDirty: Bool {
         let hasText = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        let hasAttachments = !pendingAttachments.isEmpty
-        let hasLocation = pendingLocation != nil
-        return hasText || hasAttachments || hasLocation
+        return hasText || !pendingAttachments.isEmpty
     }
 
     /// Counter color: interpolates from fgMuted → accentAmber as wordCount grows from 100…200.
@@ -212,14 +227,36 @@ struct WriteSheetView: View {
             DSTokens.Colors.recordingBg.opacity(0.34)
                 .ignoresSafeArea()
                 .opacity(appeared ? Double(max(CGFloat.zero, CGFloat(1) - dragOffset / CGFloat(400))) : 0)
-                .onTapGesture { attemptClose() }
+                .onTapGesture { dismissKeepingDraft() }
                 .accessibilityHidden(true)
 
             sheet
                 .offset(y: (appeared ? 0 : sheetTravel) + (dragOffset < 0 ? dragOffset / 6 : dragOffset))
                 .gesture(swipeToDismiss)
         }
+        // Bleed the whole stack to the physical bottom edge so the sheet surface
+        // is continuous with it (flomo-style panel). Anchoring inside the safe
+        // area instead would float the sheet up and expose its bottom corners —
+        // which are rounded on the assumption they sit off-screen.
+        //
+        // `.container` ONLY: the bare `.ignoresSafeArea(edges:)` default region
+        // is `.all`, which also opts out of the KEYBOARD safe area — so when
+        // the keyboard rose, the whole footer rail (camera/photo/location/send)
+        // stayed pinned to the physical bottom, buried under the keyboard.
+        // Ignoring just the container keeps SwiftUI's built-in keyboard
+        // avoidance, which lifts the sheet on the system's own curve.
+        .ignoresSafeArea(.container, edges: .bottom)
         .animation(reduceMotion ? .easeOut(duration: 0.2) : Self.sheetUp, value: appeared)
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .easeOut(duration: 0.25)) {
+                keyboardVisible = true
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            withAnimation(reduceMotion ? .easeOut(duration: 0.15) : .easeOut(duration: 0.25)) {
+                keyboardVisible = false
+            }
+        }
         // Recompute the cached word/char counts ONCE per real text change,
         // instead of on every body re-render. This is the single source of
         // truth for both counters and keeps typing off the O(n) scan path.
@@ -255,6 +292,16 @@ struct WriteSheetView: View {
     /// Off-screen travel distance for the sheet-up entrance.
     private var sheetTravel: CGFloat { reduceMotion ? 0 : 420 }
 
+    /// Home-indicator inset of the active window — 0 on devices without one.
+    /// The sheet bleeds through the bottom safe area, so it has to re-add this
+    /// itself to keep the caption clear of the indicator.
+    private var bottomSafeInset: CGFloat {
+        UIApplication.shared.connectedScenes
+            .compactMap { ($0 as? UIWindowScene)?.keyWindow }
+            .first?
+            .safeAreaInsets.bottom ?? 0
+    }
+
     /// Swipe-down-to-dismiss gesture attached to the whole sheet.
     private var swipeToDismiss: some Gesture {
         DragGesture(minimumDistance: 8)
@@ -263,7 +310,7 @@ struct WriteSheetView: View {
             }
             .onEnded { value in
                 if value.translation.height > 120 || value.predictedEndTranslation.height > 240 {
-                    attemptClose()
+                    dismissKeepingDraft()
                 }
             }
     }
@@ -274,13 +321,11 @@ struct WriteSheetView: View {
         VStack(spacing: 0) {
             dragHandle
             header
-            hairline
             if !pendingAttachments.isEmpty {
                 attachmentPreviewRow
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
             textArea
-            hairline
             footerRail
             if showRailHint && pendingLocation == nil {
                 railHintCaption
@@ -288,7 +333,9 @@ struct WriteSheetView: View {
             if confirmingDiscard {
                 discardConfirmBar
                     .transition(.opacity)
-            } else {
+            } else if !keyboardVisible {
+                // The archival caption is a "quiet moment" flourish — while the
+                // keyboard is up every point of height belongs to the draft.
                 savedCaption
                     .transition(.opacity)
             }
@@ -305,7 +352,11 @@ struct WriteSheetView: View {
             photosPickerItems = []
         }
         .animation(reduceMotion ? .easeOut(duration: 0.15) : Motion.spring, value: confirmingDiscard)
-        .padding(.bottom, 28)
+        // Resting: 28pt of breathing room below the caption plus the
+        // home-indicator inset the surface bleeds through. Keyboard up: the
+        // sheet sits flush on the keyboard, so both allowances collapse to a
+        // tight 12pt.
+        .padding(.bottom, keyboardVisible ? 12 : 28 + bottomSafeInset)
         .frame(maxWidth: .infinity)
         .onAppear {
             // Capture first-visit before flipping the UserDefaults flag so
@@ -364,7 +415,7 @@ struct WriteSheetView: View {
                 let shouldDismiss = value.translation.height > 120
                     || value.predictedEndTranslation.height > 260
                 if shouldDismiss {
-                    attemptClose()
+                    dismissKeepingDraft()
                 }
                 // Below the threshold we do nothing here: `dragOffset` is a
                 // @GestureState, so it auto-resets to 0 on release and springs
@@ -392,7 +443,9 @@ struct WriteSheetView: View {
             Spacer()
 
             // Close button — 30pt sunken circle (composer.jsx:241-248).
-            Button(action: attemptClose) {
+            // Semantics: explicit CANCEL. Dirty drafts confirm inline first;
+            // soft dismissal (keep draft) lives on the scrim / swipe-down.
+            Button(action: attemptDiscard) {
                 Image(systemName: "xmark")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(DSColor.inkMuted)
@@ -407,15 +460,6 @@ struct WriteSheetView: View {
         .padding(.bottom, 12)
         .contentShape(Rectangle())
         .gesture(swipeDownGesture)
-    }
-
-    // MARK: - 0.5px hairline (composer.jsx:252 / 279)
-
-    private var hairline: some View {
-        Rectangle()
-            .fill(DSColor.inkFaint)
-            .frame(height: 0.5)
-            .padding(.horizontal, 22)
     }
 
     // MARK: - Textarea (composer.jsx:255-276)
@@ -454,9 +498,14 @@ struct WriteSheetView: View {
             cameraRailIcon
             photoRailIcon
             locationRailIcon
-            railIcon("tag", label: NSLocalizedString("write.sheet.icon.tag", comment: "标签"))
+            // The decorative tag icon yields its 40pt once the trailing side
+            // needs room for cancel + send (it is dead weight at 0.4 opacity;
+            // the location name chip + counter must not get squeezed).
+            if !isDirty {
+                railIcon("tag", label: NSLocalizedString("write.sheet.icon.tag", comment: "标签"))
+            }
 
-            Spacer()
+            Spacer(minLength: 6)
 
             // Single counter — for CJK drafts the segmenter counts ~1 word per
             // character, so "10 个词 · 10 字符" said the same number twice
@@ -504,17 +553,23 @@ struct WriteSheetView: View {
 
             // Trailing action: when the draft is empty, show a press-to-talk
             // mic (long-press = voice memo, short tap = open recorder). The
-            // moment any content exists, it morphs into the amber save pill.
-            // This is the single send affordance — no more dock-level mic.
-            if canSave {
-                savePill
+            // moment authored content exists, the same 38pt amber circle
+            // swaps its symbol to ↑ send, and a quiet ghost "cancel" fades in
+            // beside it — the only explicit discard affordance besides ✕.
+            if isDirty {
+                HStack(spacing: 8) {
+                    cancelGhostButton
+                    sendButton
+                }
+                .transition(.opacity)
             } else {
                 writeSheetMicButton
+                    .transition(.opacity)
             }
         }
         .padding(.horizontal, 18)
         .padding(.top, 14)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: canSave)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: isDirty)
     }
 
     /// Camera capture — opens the in-app CameraPickerView via the parent VM.
@@ -564,7 +619,7 @@ struct WriteSheetView: View {
                 onStartVoiceRecording()
             },
             size: 38,
-            idleBackgroundColor: DSColor.amberDeep,
+            idleBackgroundColor: DSColor.amberAccent,
             idleIconColor: .white
         )
         .frame(width: 44, height: 38)
@@ -619,11 +674,57 @@ struct WriteSheetView: View {
                 }
             }
             .padding(.horizontal, 22)
-            .padding(.vertical, 8)
+            // Extra headroom on top so the photo-thumb remove badge (offset
+            // -6pt past the tile corner) isn't clipped by the ScrollView.
+            .padding(.top, 10)
+            .padding(.bottom, 8)
         }
     }
 
+    @ViewBuilder
     private func attachmentChip(_ att: PendingAttachment) -> some View {
+        // Photos render as real 52pt thumbnails (the PhotoPickerResult has
+        // carried a ready-made `thumbnail` all along) — a filename chip like
+        // "IMG_2043.jpg" says nothing about which picture it is. Voice and
+        // file attachments keep the capsule: they have no visual body.
+        if case .photo(let result) = att, let thumb = result.thumbnail {
+            photoThumbChip(id: att.id, image: thumb)
+        } else {
+            capsuleChip(att)
+        }
+    }
+
+    private func photoThumbChip(id: String, image: UIImage) -> some View {
+        Image(uiImage: image)
+            .resizable()
+            .scaledToFill()
+            .frame(width: 52, height: 52)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(DSColor.inkFaint, lineWidth: 0.5)
+            )
+            .overlay(alignment: .topTrailing) {
+                Button {
+                    Haptics.light()
+                    onRemoveAttachment(id)
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 8, weight: .bold))
+                        // Static ink over photo content — badge legibility is
+                        // governed by the image beneath it, not by the theme.
+                        .foregroundColor(.white)
+                        .frame(width: 17, height: 17)
+                        .background(Circle().fill(Color.black.opacity(0.62)))
+                }
+                .buttonStyle(.plain)
+                .offset(x: 6, y: -6)
+                .accessibilityLabel(NSLocalizedString("write.sheet.attachment.remove", comment: "移除附件"))
+            }
+            .accessibilityLabel(NSLocalizedString("write.sheet.attachment.photo", comment: "照片附件"))
+    }
+
+    private func capsuleChip(_ att: PendingAttachment) -> some View {
         let (icon, label) = chipContent(att)
         return HStack(spacing: 4) {
             Image(systemName: icon)
@@ -667,14 +768,19 @@ struct WriteSheetView: View {
             )
     }
 
-    /// Live location icon — active, tappable, amber when a location is attached.
+    /// Live location affordance. Detached: a quiet mappin icon (tap to fetch).
+    /// Attached: the icon expands into a Notion-property-style chip carrying
+    /// the actual place name — "带上了地址" becomes a readable fact instead of
+    /// a tinted pin the user has to decode. Tapping the chip detaches.
     @ViewBuilder
     private var locationRailIcon: some View {
+        let placeName = pendingLocation?.name?.trimmingCharacters(in: .whitespaces) ?? ""
+        let showsChip = pendingLocation != nil && !placeName.isEmpty
         Button(action: {
             Haptics.soft()
             onToggleLocation()
         }) {
-            ZStack {
+            HStack(spacing: 4) {
                 if isLocating {
                     ProgressView()
                         .progressViewStyle(.circular)
@@ -682,18 +788,32 @@ struct WriteSheetView: View {
                         .tint(DSColor.inkMuted)
                 } else {
                     Image(systemName: "mappin.and.ellipse")
-                        .font(.system(size: 18, weight: .regular))
+                        .font(.system(size: showsChip ? 12 : 18, weight: .regular))
                         .foregroundColor(
                             pendingLocation != nil
                                 ? DSColor.accentOnBg
                                 : DSColor.inkMuted
                         )
                 }
+                if showsChip {
+                    Text(placeName)
+                        .font(DSFonts.jetBrainsMono(size: 9, weight: .semibold, relativeTo: .caption2))
+                        .tracking(0.4)
+                        .foregroundColor(DSColor.accentOnBg)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
             }
-            .frame(width: 40, height: 40)
+            .padding(.horizontal, showsChip ? 9 : 0)
+            .frame(width: showsChip ? nil : 40, height: showsChip ? 26 : 40)
+            .frame(maxWidth: showsChip ? 128 : 40)
+            .background(
+                Capsule().fill(DSColor.accentOnBg.opacity(showsChip ? 0.12 : 0))
+            )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: showsChip)
         .accessibilityLabel(NSLocalizedString("write.sheet.icon.location", comment: "位置"))
         .accessibilityValue(
             pendingLocation != nil
@@ -702,44 +822,62 @@ struct WriteSheetView: View {
         )
     }
 
-    // MARK: - Save pill (composer.jsx:312-329)
+    // MARK: - Send button + ghost cancel (vNext, replaces the Save pill)
 
-    private var savePill: some View {
+    /// Circular ↑ send — same 38pt amber circle as the mic, so the mic → send
+    /// swap reads as a symbol replacement inside one stable shape rather than
+    /// a control being torn down and rebuilt. `amberAccent`, not `amberDeep`:
+    /// the archival dark brown read as a heavy ink blot against the cream
+    /// footer; the brighter interactive amber matches the dock's mic.
+    private var sendButton: some View {
         Button(action: handleSave) {
-            HStack(spacing: 6) {
-                Text(NSLocalizedString("write.sheet.save", comment: "保存"))
-                    .font(DSFonts.inter(size: 13.5, weight: .semibold, relativeTo: .subheadline))
-                    .tracking(0.2)
-                Image(systemName: "checkmark")
-                    .font(.system(size: 11, weight: .bold))
-            }
-            .foregroundColor(canSave ? DSTokens.Colors.accentSoft : DSColor.inkSubtle)
-            .padding(.horizontal, 16)
-            .frame(height: 38)
-            .background(
-                Capsule().fill(canSave ? DSTokens.Colors.accent : DSColor.surfaceSunken)
-                    .shadow(
-                        color: DSColor.accentAmber.opacity(saveReadyPulse ? 0.5 : 0),
-                        radius: saveReadyPulse ? 16 : 0
-                    )
-                    .animation(reduceMotion ? nil : .easeOut(duration: 0.6), value: saveReadyPulse)
-            )
-            .scaleEffect(saveReadyPulse ? 1.06 : 1.0)
-            .animation(reduceMotion ? nil : Motion.spring, value: saveReadyPulse)
+            Image(systemName: "arrow.up")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(width: 38, height: 38)
+                .background(
+                    Circle().fill(DSColor.amberAccent)
+                        .shadow(
+                            color: DSColor.amberAccent.opacity(saveReadyPulse ? 0.45 : 0),
+                            radius: saveReadyPulse ? 14 : 0
+                        )
+                        .animation(reduceMotion ? nil : .easeOut(duration: 0.6), value: saveReadyPulse)
+                )
+                .scaleEffect(saveReadyPulse ? 1.06 : 1.0)
+                .animation(reduceMotion ? nil : Motion.spring, value: saveReadyPulse)
         }
         .pressScale(scale: 0.96, animation: .easeInOut(duration: 0.12))
-        .disabled(!canSave)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: canSave)
         .accessibilityIdentifier("write-sheet-save")
-        .accessibilityLabel(NSLocalizedString("write.sheet.save", comment: "保存"))
-        .onChange(of: canSave) { newValue in
-            guard newValue, !reduceMotion else { return }
+        .accessibilityLabel(NSLocalizedString("write.sheet.send", comment: "发送"))
+        .onAppear {
+            // The button only mounts once the draft turned dirty — greet the
+            // first character with the same soft amber pulse the pill had.
+            guard !reduceMotion else { return }
             saveReadyPulse = true
             Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 600_000_000)
                 saveReadyPulse = false
             }
         }
+    }
+
+    /// Quiet discard affordance beside send. Bare text, no capsule: the
+    /// filled pill next to the filled circle made two competing shapes and
+    /// read heavy — a destructive action must never fight the primary one
+    /// for visual weight. The 38pt frame keeps a full-size touch target.
+    private var cancelGhostButton: some View {
+        Button(action: attemptDiscard) {
+            Text(NSLocalizedString("write.sheet.cancel", comment: "取消"))
+                .font(DSFonts.inter(size: 13, weight: .medium, relativeTo: .caption))
+                .tracking(0.2)
+                .foregroundColor(DSColor.inkMuted)
+                .padding(.horizontal, 8)
+                .frame(height: 38)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("write-sheet-cancel")
+        .accessibilityLabel(NSLocalizedString("write.sheet.cancel", comment: "取消"))
     }
 
     // MARK: - Saved-to caption (composer.jsx:333-341)
@@ -791,9 +929,7 @@ struct WriteSheetView: View {
 
             // Discard pill
             Button {
-                Haptics.soft()
-                isFocused = false
-                onClose()
+                performDiscard()
             } label: {
                 Text(NSLocalizedString("write.sheet.discard.confirm", comment: "Discard"))
                     .font(DSFonts.inter(size: 12, weight: .semibold, relativeTo: .caption))
@@ -825,9 +961,27 @@ struct WriteSheetView: View {
     }
 
     // MARK: - Actions
+    //
+    // "Close" is two different verbs now:
+    //   • dismissKeepingDraft — scrim tap / swipe-down. The draft is sacred:
+    //     collapse silently, keep every character. The text lives in the
+    //     parent's SceneStorage-backed draft and reappears in the dock
+    //     composer, which is itself the visible proof nothing was lost.
+    //   • attemptDiscard — ✕ / ghost cancel. Destroying content is the ONLY
+    //     action in the sheet that asks for confirmation (inline bar, 4s).
 
-    private func attemptClose() {
-        if canSave && !confirmingDiscard {
+    /// Soft dismissal: hide the sheet, keep the draft. Never prompts.
+    private func dismissKeepingDraft() {
+        Haptics.soft()
+        isFocused = false
+        onClose()
+    }
+
+    /// Explicit cancel: confirm before destroying a dirty draft; a clean
+    /// sheet (empty, or location-only — location is ambient, not content)
+    /// closes silently. A second ✕ while the bar is up counts as "confirm".
+    private func attemptDiscard() {
+        if isDirty && !confirmingDiscard {
             Haptics.warn()
             withAnimation(Motion.spring) { confirmingDiscard = true }
             isFocused = false
@@ -835,15 +989,25 @@ struct WriteSheetView: View {
                 try? await Task.sleep(for: .seconds(4))
                 withAnimation(Motion.spring) { confirmingDiscard = false }
             }
+        } else if isDirty {
+            performDiscard()
         } else {
-            Haptics.soft()
-            isFocused = false
-            onClose()
+            dismissKeepingDraft()
         }
     }
 
+    /// Confirmed discard: actually destroy the draft, then close. The old
+    /// "Discard" pill only hid the sheet — the SceneStorage draft survived,
+    /// so the destructive path silently wasn't (#see design vNext).
+    private func performDiscard() {
+        Haptics.soft()
+        isFocused = false
+        onDiscard()
+        onClose()
+    }
+
     private func handleSave() {
-        guard canSave else { return }
+        guard isDirty else { return }
         Haptics.medium()
         isFocused = false
         onSave()
