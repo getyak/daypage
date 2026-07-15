@@ -56,9 +56,13 @@
 "write.sheet.rail.hint"      = "轻点底部工具栏可添加照片、位置等";
 
 /* WriteSheet — discard confirmation */
-"write.sheet.discard.prompt" = "丢弃这条草稿？";
+"write.sheet.discard.prompt" = "放弃这段草稿？";
 "write.sheet.discard.keep"   = "保留";
-"write.sheet.discard.confirm" = "丢弃";
+"write.sheet.discard.confirm" = "放弃";
+"write.sheet.cancel"          = "取消";
+"write.sheet.send"            = "发送";
+"write.sheet.attachment.remove" = "移除附件";
+"write.sheet.attachment.photo"  = "照片附件";
 
 /* WriteSheet — word/char counter */
 "writesheet.count.words.one"   = "1 个词";
@@ -74,6 +78,7 @@
 "input.a11y.mic_hint_full"   = "单击进入录音页；长按说话松手发送";
 "input.a11y.ask_ai"          = "和过去对话";
 "input.a11y.write_text"      = "写文字";
+"input.dock.placeholder"     = "记下此刻…";
 "input.a11y.mic_transcribe"  = "录音转文字";
 "input.a11y.mic_stop_transcribe" = "停止录音并转文字";
 "input.a11y.camera"          = "拍照";
@@ -682,6 +687,9 @@
 "settings.appearance.fontsize"               = "正文字号";
 "settings.appearance.density"                = "卡片密度";
 "settings.appearance.legacy_voice"           = "使用旧版语音录制";
+"settings.voice.asr_provider"                = "语音转写引擎";
+"voice.recording.listening"                  = "正在聆听…";
+"voice.recording.liveTranscript.a11y"        = "实时转写";
 "settings.appearance.onthisday.title"        = "那年今日";
 "settings.appearance.onthisday.refresh_time" = "刷新时间";
 "settings.appearance.onthisday.midnight"     = "午夜 00:00";

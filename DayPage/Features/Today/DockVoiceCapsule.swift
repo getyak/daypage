@@ -270,9 +270,17 @@ struct DockRecordingCapsuleContent: View {
             // Header — pulsing dot + status · mono timer
             HStack(alignment: .firstTextBaseline) {
                 HStack(spacing: 7) {
+                    // A recording tally-light should read as EMITTING, not as a
+                    // painted dot. Flat `recordingRed` at 8pt sat only 5:1 off
+                    // the brown substrate and visually dissolved into it. The
+                    // hue stays (it is shared with the sheet / overlay / Dynamic
+                    // Island — changing the token would ripple); what it gains
+                    // is a halo, so it glows like a live indicator.
                     Circle()
                         .fill(DSTokens.Colors.recordingRed)
                         .frame(width: 8, height: 8)
+                        .shadow(color: DSTokens.Colors.recordingRed.opacity(0.9), radius: 5)
+                        .shadow(color: DSTokens.Colors.recordingRed.opacity(0.5), radius: 10)
                         .scaleEffect(reduceMotion ? 1 : (pulse ? 1.0 : 0.72))
                         .opacity(reduceMotion ? 1 : (pulse ? 1.0 : 0.6))
                         .animation(
@@ -283,7 +291,10 @@ struct DockRecordingCapsuleContent: View {
                         .font(DSFonts.jetBrainsMono(size: 11, weight: .medium, relativeTo: .caption))
                         .tracking(1.3)
                         .textCase(.uppercase)
-                        .foregroundColor(DSTokens.Colors.accentSoft)
+                        // Warm amber instead of flat cream — the chamber is lit
+                        // by the amber orb the finger is still holding, so its
+                        // labels should carry that light too (10.7:1, well past AA).
+                        .foregroundColor(DSColor.warnAmber)
                         .animation(nil, value: statusLabel)
                 }
                 Spacer()
@@ -296,9 +307,15 @@ struct DockRecordingCapsuleContent: View {
 
             // Live waveform — level-driven, 80ms linear per bar (the only
             // motion here; matches the design's `transition: height 80ms`).
+            //
+            // The bars were flat `accentSoft` cream, which on the brown
+            // substrate read as ash — the one element that should feel ALIVE
+            // was the deadest thing in the chamber. Warm amber ties the
+            // waveform to the mic orb the user just pressed, and a floor keeps
+            // silence legible as a quiet line rather than invisible dust.
             WaveformStripView(
                 bars: bars,
-                color: DSTokens.Colors.accentSoft,
+                color: DSColor.warnAmber,
                 barWidth: 2.5,
                 gap: 2.5,
                 maxHeight: 26
@@ -314,7 +331,7 @@ struct DockRecordingCapsuleContent: View {
                 }
                 .font(DSFonts.jetBrainsMono(size: 9, relativeTo: .caption2))
                 .tracking(1.0)
-                .foregroundColor(DSTokens.Colors.accentSoft.opacity(
+                .foregroundColor(DSColor.warnAmber.opacity(
                     phase == .cancelArmed ? 1.0 : 0.45 + 0.4 * dragProgress.cancel
                 ))
 
@@ -325,7 +342,7 @@ struct DockRecordingCapsuleContent: View {
                 }
                 .font(DSFonts.jetBrainsMono(size: 9, relativeTo: .caption2))
                 .tracking(1.0)
-                .foregroundColor(DSTokens.Colors.accentSoft.opacity(
+                .foregroundColor(DSColor.warnAmber.opacity(
                     phase == .transcribeArmed ? 1.0 : 0.45 + 0.4 * dragProgress.transcribe
                 ))
 
@@ -334,7 +351,7 @@ struct DockRecordingCapsuleContent: View {
                 Text(NSLocalizedString("dockvoice.hint.send", value: "松手发送", comment: ""))
                     .font(DSFonts.jetBrainsMono(size: 9, relativeTo: .caption2))
                     .tracking(1.0)
-                    .foregroundColor(DSTokens.Colors.accentSoft.opacity(armProgress > 0.15 ? 0.3 : 0.75))
+                    .foregroundColor(DSColor.warnAmber.opacity(armProgress > 0.15 ? 0.3 : 0.75))
             }
             .labelStyle(CompactHintLabelStyle())
         }
@@ -344,13 +361,45 @@ struct DockRecordingCapsuleContent: View {
             // Warm dark recording surface + continuous arm tint overlay.
             // The tint opacity is DIRECTLY the drag progress — input drives
             // displacement; no withAnimation between finger and color.
+            //
+            // The substrate was a single flat fill with no rim, so against the
+            // cream page the chamber read as a hole punched in the paper rather
+            // than a lit booth resting on it. It now carries a subtle top-lit
+            // gradient (the same "receives light from above" logic as the mic
+            // orb) and a warm amber rim that separates it from the canvas.
             RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(DSTokens.Colors.recordingBg.opacity(0.94))
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            DSTokens.Colors.recordingBg.opacity(0.97),
+                            DSTokens.Colors.recordingBg.opacity(0.99)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
                 .overlay(
                     RoundedRectangle(cornerRadius: 26, style: .continuous)
                         .fill(armTint.opacity(0.32 * armProgress))
                 )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 26, style: .continuous)
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [
+                                    DSColor.warnAmber.opacity(0.22),
+                                    DSColor.warnAmber.opacity(0.06)
+                                ],
+                                startPoint: .top, endPoint: .bottom
+                            ),
+                            lineWidth: 0.75
+                        )
+                )
         )
+        // The chamber is a lit booth floating over the page — give it real lift
+        // so it separates from the cream canvas instead of sitting flush in it.
+        .shadow(color: Color.black.opacity(0.34), radius: 28, x: 0, y: 12)
+        .shadow(color: Color.black.opacity(0.18), radius: 2, x: 0, y: 1)
         .onAppear { pulse = true }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(statusLabel)

@@ -65,6 +65,11 @@
 		A10000013 /* TodayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000013 /* TodayViewModel.swift */; };
 		A10000014 /* MemoCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000014 /* MemoCardView.swift */; };
 		A10000018 /* PhotoService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000018 /* PhotoService.swift */; };
+		ASR1000001 /* ASRProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = ASR2000001 /* ASRProvider.swift */; };
+		ASR1000002 /* DoubaoFileASRClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = ASR2000002 /* DoubaoFileASRClient.swift */; };
+		ASR1000003 /* GzipCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = ASR2000003 /* GzipCodec.swift */; };
+		ASR1000004 /* DoubaoStreamASRClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = ASR2000004 /* DoubaoStreamASRClient.swift */; };
+		ASR1000005 /* LivePCMCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = ASR2000005 /* LivePCMCapture.swift */; };
 		A10000019 /* VoiceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000019 /* VoiceService.swift */; };
 		A10000020 /* VoiceRecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000020 /* VoiceRecordingView.swift */; };
 		A10000023 /* BackgroundCompilationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000023 /* BackgroundCompilationService.swift */; };
@@ -196,6 +201,8 @@
 		IN1000003 /* AskTodayIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = IN2000003 /* AskTodayIntent.swift */; };
 		INF0000001 /* InflightDraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = INF1000001 /* InflightDraftStore.swift */; };
 		INF0000002 /* InflightDraftStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = INF1000002 /* InflightDraftStoreTests.swift */; };
+		DBT0000001 /* DoubaoASRTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBT1000001 /* DoubaoASRTests.swift */; };
+		DBR0000001 /* DoubaoASRResolutionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBR1000001 /* DoubaoASRResolutionTests.swift */; };
 		KC0000001 /* KeychainHelperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = KC1000001 /* KeychainHelperTests.swift */; };
 		LLM0000002 /* LLMClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = LLM1000002 /* LLMClientTests.swift */; };
 		LS0000001 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = LS1000001 /* Localizable.strings */; };
@@ -337,6 +344,11 @@
 		A20000013 /* TodayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayViewModel.swift; sourceTree = "<group>"; };
 		A20000014 /* MemoCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoCardView.swift; sourceTree = "<group>"; };
 		A20000018 /* PhotoService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoService.swift; sourceTree = "<group>"; };
+		ASR2000001 /* ASRProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASRProvider.swift; sourceTree = "<group>"; };
+		ASR2000002 /* DoubaoFileASRClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoubaoFileASRClient.swift; sourceTree = "<group>"; };
+		ASR2000003 /* GzipCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GzipCodec.swift; sourceTree = "<group>"; };
+		ASR2000004 /* DoubaoStreamASRClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoubaoStreamASRClient.swift; sourceTree = "<group>"; };
+		ASR2000005 /* LivePCMCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePCMCapture.swift; sourceTree = "<group>"; };
 		A20000019 /* VoiceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceService.swift; sourceTree = "<group>"; };
 		A20000020 /* VoiceRecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceRecordingView.swift; sourceTree = "<group>"; };
 		A20000023 /* BackgroundCompilationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundCompilationService.swift; sourceTree = "<group>"; };
@@ -475,6 +487,8 @@
 		IN2000003 /* AskTodayIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AskTodayIntent.swift; sourceTree = "<group>"; };
 		INF1000001 /* InflightDraftStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InflightDraftStore.swift; sourceTree = "<group>"; };
 		INF1000002 /* InflightDraftStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InflightDraftStoreTests.swift; sourceTree = "<group>"; };
+		DBT1000001 /* DoubaoASRTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoubaoASRTests.swift; sourceTree = "<group>"; };
+		DBR1000001 /* DoubaoASRResolutionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoubaoASRResolutionTests.swift; sourceTree = "<group>"; };
 		KC1000001 /* KeychainHelperTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelperTests.swift; sourceTree = "<group>"; };
 		LLM1000002 /* LLMClientTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LLMClientTests.swift; sourceTree = "<group>"; };
 		LS1000002 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -800,6 +814,11 @@
 				T20000074 /* WatchTranscriptSender.swift */,
 				A20000018 /* PhotoService.swift */,
 				A20000019 /* VoiceService.swift */,
+				ASR2000005 /* LivePCMCapture.swift */,
+				ASR2000004 /* DoubaoStreamASRClient.swift */,
+				ASR2000003 /* GzipCodec.swift */,
+				ASR2000002 /* DoubaoFileASRClient.swift */,
+				ASR2000001 /* ASRProvider.swift */,
 				A20000023 /* BackgroundCompilationService.swift */,
 				A20000039 /* VoiceAttachmentQueue.swift */,
 				A20000047 /* OnThisDayScheduler.swift */,
@@ -1139,6 +1158,8 @@
 				T20000006 /* ComposerContextProviderTests.swift */,
 				84FFEA3DDB8DCB528A4189BF /* HapticFeedbackTests.swift */,
 				KC1000001 /* KeychainHelperTests.swift */,
+				DBR1000001 /* DoubaoASRResolutionTests.swift */,
+				DBT1000001 /* DoubaoASRTests.swift */,
 				TI2000001 /* AppIntentsTests.swift */,
 				A11Y1001 /* AccessibilityTests.swift */,
 				SP1001 /* SwipePolishContractTests.swift */,
@@ -1482,6 +1503,11 @@
 				A10000014 /* MemoCardView.swift in Sources */,
 				A10000018 /* PhotoService.swift in Sources */,
 				A10000019 /* VoiceService.swift in Sources */,
+				ASR1000005 /* LivePCMCapture.swift in Sources */,
+				ASR1000004 /* DoubaoStreamASRClient.swift in Sources */,
+				ASR1000003 /* GzipCodec.swift in Sources */,
+				ASR1000002 /* DoubaoFileASRClient.swift in Sources */,
+				ASR1000001 /* ASRProvider.swift in Sources */,
 				A10000020 /* VoiceRecordingView.swift in Sources */,
 				A10000033 /* CameraPickerView.swift in Sources */,
 				A10000046 /* OnThisDayCard.swift in Sources */,
@@ -1618,6 +1644,8 @@
 				T10000006 /* ComposerContextProviderTests.swift in Sources */,
 				09C6E4728050D69F54949DD1 /* HapticFeedbackTests.swift in Sources */,
 				KC0000001 /* KeychainHelperTests.swift in Sources */,
+				DBR0000001 /* DoubaoASRResolutionTests.swift in Sources */,
+				DBT0000001 /* DoubaoASRTests.swift in Sources */,
 				TI1000001 /* AppIntentsTests.swift in Sources */,
 				A11Y0001 /* AccessibilityTests.swift in Sources */,
 				SP0001 /* SwipePolishContractTests.swift in Sources */,

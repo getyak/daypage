@@ -59,6 +59,10 @@
 "write.sheet.discard.prompt" = "Discard this draft?";
 "write.sheet.discard.keep"   = "Keep";
 "write.sheet.discard.confirm" = "Discard";
+"write.sheet.cancel"          = "Cancel";
+"write.sheet.send"            = "Send";
+"write.sheet.attachment.remove" = "Remove attachment";
+"write.sheet.attachment.photo"  = "Photo attachment";
 
 /* WriteSheet — word/char counter */
 "writesheet.count.words.one"   = "1 word";
@@ -74,6 +78,7 @@
 "input.a11y.mic_hint_full"   = "Tap to open the recorder; press-and-hold to send a voice memo";
 "input.a11y.ask_ai"          = "Chat with your past";
 "input.a11y.write_text"      = "Write text";
+"input.dock.placeholder"     = "Set it down…";
 "input.a11y.mic_transcribe"  = "Record and transcribe";
 "input.a11y.mic_stop_transcribe" = "Stop recording and transcribe";
 "input.a11y.camera"          = "Take photo";
@@ -675,6 +680,9 @@
 "settings.appearance.fontsize"               = "Body font size";
 "settings.appearance.density"                = "Card density";
 "settings.appearance.legacy_voice"           = "Use legacy voice recording";
+"settings.voice.asr_provider"                = "Speech-to-text engine";
+"voice.recording.listening"                  = "Listening…";
+"voice.recording.liveTranscript.a11y"        = "Live transcript";
 "settings.appearance.onthisday.title"        = "On This Day";
 "settings.appearance.onthisday.refresh_time" = "Refresh time";
 "settings.appearance.onthisday.midnight"     = "Midnight 00:00";

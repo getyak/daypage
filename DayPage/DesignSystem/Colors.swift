@@ -97,6 +97,39 @@ enum DSColor {
     /// Amber glow — used in ambient light blobs.
     static let amberGlow     = Color(hex: "E8974D").opacity(0.45)
 
+    // MARK: - Dock orb (Today input dock)
+    //
+    // The mic orb is the app's single loudest control, and it was filled with
+    // `amberDeep` (#5D3000) — 11:1 against white. That much contrast stops
+    // being "deep amber" and becomes near-black brown: on the warm cream canvas
+    // it read as a dead chocolate disc, and its halo (cast in the same colour)
+    // blurred into grey soot. These tokens give the orb its own warm ramp
+    // instead of widening `amberDeep`, which has 38 call sites across the graph
+    // and heatmap where the near-black IS the intended archival tone.
+
+    /// Mic-orb fill — a lit sphere, not a flat disc. Top lifts to #C9722F,
+    /// body settles on the brand accent #A8541B (5.3:1 with `onAmber` → AA).
+    /// Dark mode lifts the whole ramp so the orb keeps glowing on charcoal.
+    static let dockOrbFill = LinearGradient(
+        colors: [
+            Color(light: Color(hex: "C9722F"), dark: Color(hex: "E8974D")),
+            Color(light: Color(hex: "A8541B"), dark: Color(hex: "B45F1F"))
+        ],
+        startPoint: .top,
+        endPoint: .bottom
+    )
+
+    /// Halo cast by the mic orb. Must stay in the orb's own warm family —
+    /// a blurred near-black reads as dirt, never as light.
+    static let dockOrbGlow = Color(light: Color(hex: "A8541B"), dark: Color(hex: "E8974D"))
+
+    /// Dock chrome glyphs (`+`, sparkle, caret). NOT `accentOnBg` — that token's
+    /// light value is #5D3000, the same near-black brown the orb was rescued
+    /// from, so routing chrome through it just relocated the mud. This is the
+    /// live accent, letting the whole dock speak one warm language while the
+    /// orb stays the row's only saturated voice via its fill.
+    static let dockChrome = Color(light: Color(hex: "A8541B"), dark: Color(hex: "D9975A"))
+
     // MARK: - Graph category hues (#828)
     //
     // The knowledge graph splits entities into three categories that must be
@@ -233,9 +266,19 @@ enum DSColor {
     static let heatmapMid = Color(light: Color(hex: "C9A677"), dark: Color(hex: "96693A"))
     static let heatmapHigh = Color(light: Color(hex: "5D3000"), dark: Color(hex: "E09A55"))
 
-    /// 边框令牌
-    static let borderSubtle = Color(hex: "EDE8DF")
-    static let borderDefault = Color(hex: "D6CEC0")
+    // MARK: 边框令牌
+    //
+    // 2026-07-15:两者此前是裸 hex(#EDE8DF / #D6CEC0),没有 dark 变体 —— 暗色下
+    // 这两个近白描边会在深色卡面上烧出一道亮痕(chat 长河胶囊的虚线边框最明显)。
+    // 暗色值不另造色相:沿用 inkFaint 的做法,取同一支 ink 墨色按不透明度分级,
+    // 亮度关系与浅色态镜像(subtle < default)。
+
+    /// 极淡边框 —— 卡片描边、虚线分隔。
+    static let borderSubtle = Color(light: Color(hex: "EDE8DF"),
+                                    dark: Color(hex: "F0E8DC").opacity(0.12))
+    /// 常规边框 —— 输入框、需要看得见的容器边界。
+    static let borderDefault = Color(light: Color(hex: "D6CEC0"),
+                                     dark: Color(hex: "F0E8DC").opacity(0.24))
 
     // MARK: - Brand (unchanged)
 

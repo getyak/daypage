@@ -513,7 +513,11 @@ struct InputBarV4: View {
             } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 18, weight: .regular))
-                    .foregroundStyle(DSColor.inkMuted)
+                    // Was `inkMuted` — a desaturated brown-grey, while the
+                    // sparkle two slots over was amber. One row, two colour
+                    // languages. Both chrome glyphs now speak amber (muted to
+                    // 0.62 so the mic orb stays the row's only loud voice).
+                    .foregroundStyle(DSColor.dockChrome.opacity(0.62))
                     .frame(width: 36, height: 44)
                     .contentShape(Rectangle())
             }
@@ -524,11 +528,18 @@ struct InputBarV4: View {
                         animation: .spring(response: 0.2, dampingFraction: 0.7))
             .accessibilityLabel(NSLocalizedString("input.a11y.more_attachments", comment: ""))
 
-            // CENTER — silent breathing caret only, taps to open WriteSheet.
-            // Previously an italic "记下此刻" hint sat next to the caret; users
-            // complained it felt like prefilled text they had to delete, so the
-            // affordance reduces to the caret alone. It still telegraphs
-            // "tap to write" without polluting the composer with copy.
+            // CENTER — breathing caret + a quiet placeholder, taps to open
+            // WriteSheet.
+            //
+            // History: an ITALIC "记下此刻" once sat here and was cut because
+            // users read the italic as prefilled text they had to delete. The
+            // caret-alone replacement over-corrected — a lone 2pt tick in a
+            // wide beige trough gives the eye nothing, and the dock's whole
+            // middle read as an empty sink rather than an invitation.
+            //
+            // The placeholder returns, but styled so it can never be mistaken
+            // for content: `inkSubtle` (38% — clearly below body ink), upright
+            // (no italic), and it disappears the moment a draft exists.
             Button {
                 guard !isDockTapBlocked else { return }
                 Haptics.soft()
@@ -539,11 +550,24 @@ struct InputBarV4: View {
                     isFocused = true
                 }
             } label: {
-                HStack(spacing: 0) {
+                HStack(spacing: 5) {
                     Rectangle()
-                        .fill(DSColor.amberDeep.opacity(0.35))
+                        .fill(DSColor.dockChrome.opacity(0.65))
                         .frame(width: 2, height: 14)
                         .modifier(BreathingCaretModifier())
+                    if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        // Deliberately NOT the serif body face. Rendering the
+                        // hint in the same type as a real entry is what made
+                        // the original italic version read as prefilled text
+                        // users had to delete. A small tracked mono label reads
+                        // as chrome — the same visual class as the `+` and the
+                        // "BY DAY" rail — so it invites without impersonating.
+                        Text(NSLocalizedString("input.dock.placeholder", comment: "Dock write affordance"))
+                            .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
+                            .tracking(0.6)
+                            .foregroundStyle(DSColor.inkSubtle)
+                            .lineLimit(1)
+                    }
                     Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -567,9 +591,27 @@ struct InputBarV4: View {
             } label: {
                 Image(systemName: "mic.fill")
                     .font(.system(size: 19.8, weight: .regular))
-                    .foregroundColor(.white)
+                    .foregroundColor(DSColor.onAmber)
                     .frame(width: 44, height: 44)
-                    .background(DSColor.amberDeep)
+                    // The orb used to be a flat fill of `amberDeep` (#5D3000),
+                    // which is 11:1 against white — that is not amber, it is
+                    // near-black brown, and on the warm cream canvas it read as
+                    // a dead chocolate disc (the "土" the redesign was called
+                    // for). It now uses the brand's real accent (#A8541B, still
+                    // 5.3:1 → AA) lifted toward #C9722F at the top, so the orb
+                    // reads as a warm sphere catching light rather than a
+                    // flat-painted circle.
+                    .background(DSColor.dockOrbFill)
+                    .overlay(
+                        // Inner specular rim — the top edge of a lit sphere.
+                        Circle().strokeBorder(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.34), Color.white.opacity(0.04)],
+                                startPoint: .top, endPoint: .bottom
+                            ),
+                            lineWidth: 0.75
+                        )
+                    )
                     .clipShape(Circle())
                     .contentShape(Circle())
             }
@@ -579,12 +621,16 @@ struct InputBarV4: View {
             .pressScale(scale: 0.94,
                         animation: .spring(response: 0.22, dampingFraction: 0.72))
             .frame(width: 50, height: 44)
-            // Amber glow that makes the send/mic button read as "lit". Kept as a
-            // deliberate colored halo (not a neutral DSElevation), but sourced
-            // from the dark-adaptive `accentOnBg` so it doesn't sink into the
-            // charcoal canvas in dark mode the way hardcoded #5D3000 did.
-            .shadow(color: DSColor.accentOnBg.opacity(0.45), radius: 10, x: 0, y: 4)
-            .shadow(color: DSColor.accentOnBg.opacity(0.18), radius: 1, x: 0, y: 1)
+            // Amber glow that makes the mic orb read as "lit". This is a
+            // deliberate coloured halo, not a neutral DSElevation.
+            //
+            // It used to be cast in `accentOnBg` — #5D3000 in light mode. A
+            // near-black brown blurred at radius 10 is not light, it is soot:
+            // it rendered as a grey smudge bleeding onto the capsule. The halo
+            // now uses the same warm accent the orb is filled with, so the orb
+            // casts amber instead of dirt.
+            .shadow(color: DSColor.dockOrbGlow.opacity(0.42), radius: 12, x: 0, y: 4)
+            .shadow(color: DSColor.dockOrbGlow.opacity(0.20), radius: 2, x: 0, y: 1)
             .accessibilityLabel(NSLocalizedString("input.a11y.mic", comment: ""))
             .accessibilityHint(NSLocalizedString("input.a11y.mic_hint_full", comment: ""))
             .accessibilityIdentifier("dock-mic-button")
@@ -603,7 +649,11 @@ struct InputBarV4: View {
                 } label: {
                     Image(systemName: "sparkles")
                         .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(DSColor.amberDeep)
+                        // Was `amberDeep` — near-black on the cream canvas, so
+                        // the "calm AI side-door" read as a soot smudge. Matches
+                        // the `+` glyph's weight now: same amber family, muted
+                        // below the mic orb.
+                        .foregroundStyle(DSColor.dockChrome.opacity(0.80))
                         .frame(width: 40, height: 44)
                         .contentShape(Rectangle())
                 }
@@ -614,8 +664,10 @@ struct InputBarV4: View {
                 .accessibilityIdentifier("dock-ask-ai-button")
             }
         }
-        .padding(.leading, 10)
-        .padding(.trailing, 6)
+        // Symmetric 8pt inset. Was 10 leading / 6 trailing, which pushed the
+        // sparkle up against the capsule's right edge while the `+` had room
+        // to breathe — the row's optical centre sat left of the real one.
+        .padding(.horizontal, 8)
         .padding(.vertical, 6)
         // Liquid Glass vNext (Phase 1 demo): dual-track dock capsule.
         // iOS 26 → native .glassEffect (refraction + specular + interactive),

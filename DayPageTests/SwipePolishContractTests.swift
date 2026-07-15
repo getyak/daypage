@@ -8,9 +8,9 @@ import DayPageServices
 ///
 /// These tests do NOT simulate touches — they lock down the *tokens* and
 /// public API surface the polish depends on. If someone silently reverts
-/// SwipePhysics.snapSpring to an inline spring, or shrinks
-/// actionCommitDelay so the drawer swallows itself, or drops the public
-/// init that unblocks the test target, the numbers here catch the
+/// the velocity-handoff springs / momentum projection to fixed thresholds,
+/// or shrinks actionCommitDelay so the drawer swallows itself, or drops the
+/// public init that unblocks the test target, the numbers here catch the
 /// regression before a user does.
 @Suite("SwipePolish")
 struct SwipePolishContractTests {
@@ -18,15 +18,16 @@ struct SwipePolishContractTests {
     // MARK: - actionCommitDelay stays synced with Motion.panel response
 
     /// TimelineDayRow.actionCommitDelay (same value as
-    /// SwipePhysics.actionCommitDelay) must exceed Motion.panel's 0.32s
-    /// response so the parent's action (share sheet / delete dialog) never
-    /// animates in over an open drawer. 0.36 gives a 40ms settle margin.
+    /// SwipePhysics.actionCommitDelay) must cover the close spring's visual
+    /// settle (response 0.35s, critically damped → ~99% flush at 0.36s) so
+    /// the parent's action (share sheet / delete dialog) never animates in
+    /// over an open drawer.
     ///
     /// SwipePhysics is internal since the full-swipe-commit work, so this
     /// asserts the real token instead of a mirrored literal.
-    @Test("actionCommitDelay matches Motion.panel response + settle")
+    @Test("actionCommitDelay covers the close spring settle")
     func actionCommitDelayIsSynced() {
-        #expect(SwipePhysics.actionCommitDelay == 0.36, "SwipePhysics.actionCommitDelay must stay ≥ Motion.panel.response(0.32) + 40ms")
+        #expect(SwipePhysics.actionCommitDelay == 0.36, "SwipePhysics.actionCommitDelay must stay ≥ closeSpring response(0.35) + settle margin")
     }
 
     // MARK: - SwipeSnapLogic release resolution (full-swipe commit)
@@ -65,10 +66,11 @@ struct SwipePolishContractTests {
                 == .close)
     }
 
-    /// 小位移大速度的 flick 也能开（velocityOpen=600 之外）。
+    /// 小位移大速度的 flick 也能开——动量投射把 700pt/s 折算成 ~69pt 的
+    /// 预期滑行距离,越过 openThreshold(40)。
     @Test("flick velocity opens with tiny translation")
     func flickOpens() {
-        #expect(SwipeSnapLogic.resolve(revealed: nil, visualOffset: -10, dx: -10, velocity: -(SwipePhysics.velocityOpen + 100))
+        #expect(SwipeSnapLogic.resolve(revealed: nil, visualOffset: -10, dx: -10, velocity: -700)
                 == .open(.trailing))
     }
 
@@ -79,12 +81,50 @@ struct SwipePolishContractTests {
         let closeT = SwipePhysics.closeThreshold
         #expect(SwipeSnapLogic.resolve(revealed: .trailing, visualOffset: -120, dx: closeT + 6, velocity: 0)
                 == .close)
-        #expect(SwipeSnapLogic.resolve(revealed: .trailing, visualOffset: -140, dx: 10, velocity: SwipePhysics.velocityClose + 100)
+        // 10pt 反向拖 + 600pt/s 反向 flick:投射 ~69pt 的关闭意图。
+        #expect(SwipeSnapLogic.resolve(revealed: .trailing, visualOffset: -140, dx: 10, velocity: 600)
                 == .close)
         #expect(SwipeSnapLogic.resolve(revealed: .trailing, visualOffset: -150, dx: -5, velocity: 0)
                 == .open(.trailing))
         #expect(SwipeSnapLogic.resolve(revealed: .leading, visualOffset: 120, dx: -(closeT + 6), velocity: 0)
                 == .close)
+    }
+
+    /// 动量投射契约(WWDC Designing Fluid Interfaces 公式):
+    /// project(v) = v/1000 · rate/(1−rate)。rate=0.99 → 600pt/s ≈ 59.4pt。
+    /// 这是老 velocityOpen=600 悬崖的连续化——同样的 flick 依旧能开,
+    /// 但中间速度也按比例参与判定,而不是全有或全无。
+    @Test("momentum projection replaces the velocity cliffs")
+    func momentumProjectionScale() {
+        let p600 = SwipePhysics.project(velocity: 600)
+        #expect(abs(p600 - 59.4) < 0.5)
+        // 缓慢漂移也有贡献,只是小:100pt/s ≈ 9.9pt。
+        #expect(abs(SwipePhysics.project(velocity: 100) - 9.9) < 0.2)
+        // 奇函数:方向对称。
+        #expect(SwipePhysics.project(velocity: -600) == -p600)
+    }
+
+    /// 边界橡皮筋契约:commit 线之后位移渐近封顶,卡片永远拖不出
+    /// commitThreshold + terminalOvershoot;三段曲线连续且单调。
+    @Test("damped offset rubber-bands to a hard asymptotic cap")
+    func dampedOffsetIsCapped() {
+        let w = SwipePhysics.panelWidth
+        let cap = SwipePhysics.commitThreshold + SwipePhysics.terminalOvershoot
+        // Stage 1 — 1:1 up to the panel.
+        #expect(SwipePhysics.dampedOffset(w) == w)
+        #expect(SwipePhysics.dampedOffset(-80) == -80)
+        // Stage 2 — the 0.85 doorway keeps commit reachable.
+        #expect(SwipePhysics.dampedOffset(260) > SwipePhysics.commitThreshold)
+        // Stage 3 — even an absurd drag never exceeds the terminal cap.
+        #expect(SwipePhysics.dampedOffset(10_000) < cap)
+        #expect(SwipePhysics.dampedOffset(-10_000) > -cap)
+        // Monotonic: more finger travel never moves the card backwards.
+        var last: CGFloat = 0
+        for raw in stride(from: CGFloat(0), through: 800, by: 10) {
+            let v = SwipePhysics.dampedOffset(raw)
+            #expect(v >= last)
+            last = v
+        }
     }
 
     /// commit 需要的真实手指行程（阻尼区按 overdragDamping 换算）落在

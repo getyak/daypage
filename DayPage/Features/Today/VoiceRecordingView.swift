@@ -62,11 +62,17 @@ struct VoiceRecordingView: View {
                 .padding(.horizontal, 24)
                 .padding(.top, 12)
 
-            // Post-record transcription notice
-            Text(NSLocalizedString("voice.recording.autoTranscribe", value: "停止后自动转写", comment: "Voice recording — hint shown beneath waveform"))
-                .bodySMStyle()
-                .foregroundColor(DSColor.onSurfaceVariant.opacity(0.7))
-                .padding(.top, 12)
+            // Live transcript when the provider streams; otherwise the
+            // post-record notice. Showing "停止后自动转写" while text is
+            // already appearing would contradict what the user sees.
+            if voiceService.canStreamLive {
+                liveTranscriptView
+            } else {
+                Text(NSLocalizedString("voice.recording.autoTranscribe", value: "停止后自动转写", comment: "Voice recording — hint shown beneath waveform"))
+                    .bodySMStyle()
+                    .foregroundColor(DSColor.onSurfaceVariant.opacity(0.7))
+                    .padding(.top, 12)
+            }
 
             Spacer()
 
@@ -157,6 +163,45 @@ struct VoiceRecordingView: View {
             }
         }
     }
+
+    // MARK: - Live Transcript
+
+    /// Streaming transcript, updated as the user speaks.
+    ///
+    /// Height is fixed rather than intrinsic: the text grows word by word, and
+    /// letting the container resize would shove the waveform and timer around
+    /// on nearly every frame. Newest text stays pinned to the bottom, the way
+    /// a caption track reads.
+    @ViewBuilder
+    private var liveTranscriptView: some View {
+        ScrollViewReader { proxy in
+            ScrollView(.vertical, showsIndicators: false) {
+                Text(voiceService.liveTranscript.isEmpty
+                     ? NSLocalizedString("voice.recording.listening", value: "正在聆听…", comment: "Voice recording — shown before the first streamed words arrive")
+                     : voiceService.liveTranscript)
+                    .bodySMStyle()
+                    .foregroundColor(voiceService.liveTranscript.isEmpty
+                                     ? DSColor.onSurfaceVariant.opacity(0.7)
+                                     : DSColor.onSurface)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .id(liveTranscriptAnchor)
+            }
+            .frame(height: 64)
+            .padding(.horizontal, 24)
+            .padding(.top, 12)
+            .onChange(of: voiceService.liveTranscript) { _ in
+                withAnimation(reduceMotion ? nil : Motion.fade) {
+                    proxy.scrollTo(liveTranscriptAnchor, anchor: .bottom)
+                }
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text(NSLocalizedString("voice.recording.liveTranscript.a11y", value: "实时转写", comment: "Accessibility label for the live transcript region")))
+        .accessibilityValue(Text(voiceService.liveTranscript))
+    }
+
+    private var liveTranscriptAnchor: String { "live-transcript" }
 
     // MARK: - Waveform View
 

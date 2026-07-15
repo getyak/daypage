@@ -32,6 +32,15 @@ extension Secrets {
     static var resolvedGitHubToken: String {
         resolve(keychainName: "githubToken", fallback: kubotGitHubToken)
     }
+    static var resolvedDoubaoASRAppID: String {
+        resolve(keychainName: "doubaoASRAppID", fallback: doubaoASRAppID)
+    }
+    static var resolvedDoubaoASRAccessToken: String {
+        resolve(keychainName: "doubaoASRAccessToken", fallback: doubaoASRAccessToken)
+    }
+    static var resolvedDoubaoASRSecretKey: String {
+        resolve(keychainName: "doubaoASRSecretKey", fallback: doubaoASRSecretKey)
+    }
 
     // MARK: - Internal
 

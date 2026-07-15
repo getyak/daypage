@@ -414,6 +414,32 @@ final class CaptureReminderService: ObservableObject {
         }
     }
 
+    /// Syncs `alarmKitAuthorized` from AlarmKit's *current* state without ever
+    /// showing a permission prompt, then re-arms the schedule if that flipped
+    /// us onto the AlarmKit path.
+    ///
+    /// Why this exists (2026-07-15) — the Dynamic Island never appeared:
+    /// `alarmKitAuthorized` is in-memory only (unlike `preferAlarmKit`, it has
+    /// no UserDefaults key) and starts false on every launch. The only writer
+    /// was `requestAlarmKitAuthorization()`, reachable just from onboarding's
+    /// one-shot `enableFromOnboarding`. So authorization was true for the
+    /// onboarding session and false on every launch after it — `useAlarmKit`
+    /// went false, `refreshSchedule()` skipped the AlarmKit branch, and every
+    /// reminder silently degraded to a plain UN notification.
+    ///
+    /// Reading the real state at foreground also picks up permission being
+    /// revoked or granted in Settings.app without a relaunch. Prompt-free by
+    /// design: `.notDetermined` is left alone here and only requested from the
+    /// Settings toggle, where the user has just asked for the feature.
+    @available(iOS 26.0, *)
+    func refreshAlarmKitAuthorizationState() {
+        let authorized = alarmManager.authorizationState == .authorized
+        guard authorized != alarmKitAuthorized else { return }
+        alarmKitAuthorized = authorized
+        DayPageLogger.shared.info("[CaptureReminder] AlarmKit authorization → \(authorized)")
+        refreshSchedule()
+    }
+
     /// AlarmKit 重排:清 UNCalendar 侧旧通知 → 取消旧 alarm → 为每条启用的
     /// 提醒排 alarm(一次性 = .fixed;重复 = .relative)。
     @available(iOS 26.0, *)

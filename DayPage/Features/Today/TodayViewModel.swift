@@ -670,6 +670,13 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
         pendingAttachments.removeAll { $0.id == id }
     }
 
+    /// Drops every staged attachment — the WriteSheet's confirmed-discard
+    /// path. Mirrors removePendingAttachment's semantics (list only; the
+    /// already-saved asset files stay on disk, same as per-chip removal).
+    func clearPendingAttachments() {
+        pendingAttachments.removeAll()
+    }
+
     // MARK: - Add Voice Attachment (staged)
 
     /// Stages a completed voice recording result into pendingAttachments and resets the recorder.

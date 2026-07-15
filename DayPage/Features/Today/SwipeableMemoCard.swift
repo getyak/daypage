@@ -42,19 +42,29 @@ enum SwipePhysics {
     /// opening — closing should feel lighter.
     static let closeThreshold: CGFloat = 24
 
-    /// Velocity (pt/s) past which a flick alone opens the panel, regardless
-    /// of translation. UIKit reports real velocity so we use the same
-    /// numeric scale as iOS Mail (~600 pt/s).
-    static let velocityOpen: CGFloat = 600
-
-    /// Velocity past which a flick alone closes the panel.
-    static let velocityClose: CGFloat = 500
+    /// Deceleration rate used to project the finger's momentum at release
+    /// (UIScrollView.DecelerationRate.fast). Instead of the old hard
+    /// velocity cliffs (600 pt/s opens, 500 closes), release resolution asks
+    /// "where would this velocity coast to if it decayed like a scroll?" —
+    /// WWDC 2018 *Designing Fluid Interfaces*' momentum projection. A 600
+    /// pt/s flick projects ~59pt of extra travel, so the old thresholds fall
+    /// out as a special case, but now every intermediate speed contributes
+    /// continuously instead of all-or-nothing.
+    static let decelerationRate: CGFloat = 0.99
 
     /// Damping applied to drag travel past the panel edge. Unlike the old
     /// 0.25 rubber wall, 0.85 keeps the card following the finger — the
     /// overdrag is now a doorway to the full-swipe commit, not a dead end.
     /// Mail tracks 1:1 here; a light 15% drag keeps some tactile weight.
     static let overdragDamping: CGFloat = 0.85
+
+    /// Maximum extra visual travel past commitThreshold. Beyond the commit
+    /// line there is nothing left to arm, so the surface becomes a real —
+    /// but soft — boundary: an asymptotic rubber band (see `rubberBand`)
+    /// that approaches, and never exceeds, this cap. Previously the 0.85
+    /// linear damping ran unbounded and the card could be dragged clean off
+    /// the screen edge.
+    static let terminalOvershoot: CGFloat = 56
 
     /// Visual offset past which releasing the finger commits the OUTERMOST
     /// action directly (trailing → share, leading → pin), Mail-style.
@@ -69,23 +79,115 @@ enum SwipePhysics {
     /// poking square corners out of a rounded card.
     static let cardCornerRadius: CGFloat = DSRadius.md
 
-    /// Spring used for snap-open / snap-close. Delegated to the shared
-    /// `Motion.panel` token (0.32s response, 0.85 damping) so drawer motion
-    /// stays consistent with the recording panel, popovers, and other card
-    /// surfaces. Previously duplicated inline as spring(0.28, 0.86) — the
-    /// 40ms delta was audible against the rest of the app.
-    static let snapSpring: Animation = Motion.panel
+    /// Width for `.contextMenu(preview:)` cards, so every long-press across the
+    /// app lifts a card of the same size — a memo card and a timeline day must
+    /// not come up at different widths for the same gesture.
+    ///
+    /// Measured from the app's own window rather than `UIScreen.main.bounds`:
+    /// `UIScreen.main` reports the whole physical display, so under iPad Split
+    /// View / Stage Manager it hands back a width wider than the window and the
+    /// preview gets clipped. Falls back to the screen only when no window is
+    /// attached yet.
+    @MainActor
+    static var contextPreviewWidth: CGFloat {
+        let window = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows)
+            .first { $0.isKeyWindow }
+        let available = window?.bounds.width ?? UIScreen.main.bounds.width
+        // Cap so the card stays a card on iPad, not a full-bleed slab.
+        return min(available - 40, 420)
+    }
 
-    /// Eased curve used in place of `snapSpring` when Reduce Motion is on.
-    /// Reuses `Motion.dismiss` (0.22s easeOut) so all fallbacks share one curve.
+    // MARK: Springs (velocity handoff)
+    //
+    // The old snap used one fixed spring (`Motion.panel`) with ZERO initial
+    // velocity — the single biggest "feels dead" defect: a fast flick's card
+    // suddenly moved slower than the finger that threw it, and a gentle
+    // release got the same canned motion. Per *Designing Fluid Interfaces*,
+    // the animation must pick up at the finger's exact release velocity, so
+    // both springs below are built per-release via `interpolatingSpring`
+    // with the normalized handoff `velocity / (target − current)`.
+
+    /// Open settle: response 0.38s, damping ratio 0.85 — a whisper of life
+    /// as the drawer arrives, amplified naturally by whatever velocity the
+    /// finger handed off.
+    static func openSpring(from current: CGFloat, to target: CGFloat, velocity: CGFloat) -> Animation {
+        settleSpring(from: current, to: target, velocity: velocity, response: 0.38, dampingRatio: 0.85)
+    }
+
+    /// Close settle: response 0.35s, critically damped — the "回来" motion.
+    /// No designed bounce; any overshoot comes only from real handed-off
+    /// velocity, which is exactly the physical answer.
+    static func closeSpring(from current: CGFloat, velocity: CGFloat = 0) -> Animation {
+        settleSpring(from: current, to: 0, velocity: velocity, response: 0.35, dampingRatio: 1.0)
+    }
+
+    /// Shared spring builder. Apple's designer parameters (response +
+    /// damping ratio) converted to interpolatingSpring's physics triplet:
+    /// stiffness = (2π/response)², damping = 2·ratio·√stiffness (mass 1).
+    /// `initialVelocity` is expressed relative to the remaining distance,
+    /// hence the normalization; a near-zero distance skips the handoff to
+    /// avoid the division blowing up.
+    static func settleSpring(
+        from current: CGFloat, to target: CGFloat, velocity: CGFloat,
+        response: CGFloat, dampingRatio: CGFloat
+    ) -> Animation {
+        let stiffness = pow(2 * .pi / response, 2)
+        let damping = 2 * dampingRatio * (2 * .pi / response)
+        let distance = target - current
+        guard abs(distance) > 1 else {
+            return .interpolatingSpring(stiffness: stiffness, damping: damping)
+        }
+        return .interpolatingSpring(
+            mass: 1, stiffness: stiffness, damping: damping,
+            initialVelocity: velocity / distance
+        )
+    }
+
+    /// Spring for the commit-arm layout change (secondary column folds away,
+    /// primary expands). Not gesture-driven, so the shared panel token fits.
+    static let commitLayoutSpring: Animation = Motion.panel
+
+    /// Eased curve used in place of the snap springs when Reduce Motion is
+    /// on. Reuses `Motion.dismiss` (0.22s easeOut) so all fallbacks share one curve.
     static let reducedSnap: Animation = Motion.dismiss
 
     /// Delay before the parent's action callback fires after `snapClose()`.
-    /// Matches the resolved response of `snapSpring` (+ a small settle
-    /// margin) so any presented sheet / dialog animates in only after the
-    /// drawer is visually flush. Previously hardcoded 0.25s which was 30ms
-    /// short of the panel response.
+    /// Covers the close spring's visual settle (response 0.35s critically
+    /// damped is ~99% flush by 0.36s) so any presented sheet / dialog
+    /// animates in only after the drawer is visually flush.
     static let actionCommitDelay: TimeInterval = 0.36
+
+    // MARK: Motion math
+
+    /// Momentum projection (WWDC 2018, exact formula from the sample code):
+    /// where would the release velocity coast to under scroll-style decay?
+    static func project(velocity: CGFloat) -> CGFloat {
+        (velocity / 1000) * decelerationRate / (1 - decelerationRate)
+    }
+
+    /// Asymptotic rubber band: maps unbounded overshoot into (0, cap).
+    /// Progressive resistance — the further past the boundary, the less the
+    /// card follows — instead of a hard stop or an unbounded linear drag.
+    static func rubberBand(_ overshoot: CGFloat, cap: CGFloat = terminalOvershoot) -> CGFloat {
+        guard overshoot > 0 else { return 0 }
+        return cap * overshoot / (overshoot + cap)
+    }
+
+    /// Raw drag → on-screen offset, in three continuous stages:
+    ///   |raw| ≤ panelWidth      1:1, glued to the finger.
+    ///   … ≤ commit line          light 0.85 drag — the doorway to full-swipe.
+    ///   past the commit line     asymptotic rubber band, capped at
+    ///                            commitThreshold + terminalOvershoot.
+    static func dampedOffset(_ raw: CGFloat) -> CGFloat {
+        let w = panelWidth
+        guard abs(raw) > w else { return raw }
+        let sign: CGFloat = raw < 0 ? -1 : 1
+        let doorway = w + (abs(raw) - w) * overdragDamping
+        guard doorway > commitThreshold else { return sign * doorway }
+        return sign * (commitThreshold + rubberBand(doorway - commitThreshold))
+    }
 }
 
 // MARK: - CardSwipeSide / SwipeSnapLogic
@@ -130,19 +232,25 @@ enum SwipeSnapLogic {
         if visualOffset <= -SwipePhysics.commitThreshold { return .commitOuter(.trailing) }
         if visualOffset >= SwipePhysics.commitThreshold { return .commitOuter(.leading) }
 
+        // Momentum projection replaces the old velocity cliffs: the release
+        // decision is made at the point the finger's momentum would coast
+        // to, not the point it happened to lift at. Every speed contributes
+        // continuously — a lazy 100 pt/s drift nudges the verdict a little,
+        // a real flick carries it across the threshold on its own.
         let openT = SwipePhysics.openThreshold
         let closeT = SwipePhysics.closeThreshold
-        let vOpen = SwipePhysics.velocityOpen
-        let vClose = SwipePhysics.velocityClose
+        let momentum = SwipePhysics.project(velocity: velocity)
         switch revealed {
         case nil:
-            if      dx < -openT || velocity < -vOpen { return .open(.trailing) }
-            else if dx >  openT || velocity >  vOpen { return .open(.leading)  }
-            else                                     { return .close           }
+            let projected = visualOffset + momentum
+            if      projected < -openT { return .open(.trailing) }
+            else if projected >  openT { return .open(.leading)  }
+            else                       { return .close           }
         case .trailing:
-            return (dx > closeT || velocity > vClose) ? .close : .open(.trailing)
+            // Closing travel is the drag back toward center plus momentum.
+            return (dx + momentum > closeT) ? .close : .open(.trailing)
         case .leading:
-            return (dx < -closeT || velocity < -vClose) ? .close : .open(.leading)
+            return (-(dx + momentum) > closeT) ? .close : .open(.leading)
         }
     }
 }
@@ -249,12 +357,10 @@ struct SwipeableMemoCard: View {
     // Sign contract (relied on by revealProgress AND the per-side
     // revealWidth passed to each SwipeActionPanel): POSITIVE offset =
     // leading (right-swipe) reveal, NEGATIVE = trailing (left-swipe).
+    // Three-stage damping (1:1 → commit doorway → terminal rubber band)
+    // lives in SwipePhysics.dampedOffset so the curve is unit-testable.
     private var currentOffset: CGFloat {
-        let raw = settledOffset + dragDelta
-        let w = SwipePhysics.panelWidth
-        if raw > w  { return w  + (raw - w)  * SwipePhysics.overdragDamping }
-        if raw < -w { return -w + (raw + w)  * SwipePhysics.overdragDamping }
-        return raw
+        SwipePhysics.dampedOffset(settledOffset + dragDelta)
     }
 
     /// Normalized reveal progress used by the panel choreography. Positive
@@ -271,10 +377,6 @@ struct SwipeableMemoCard: View {
         let prefix = memo.body.prefix(50)
         let trimmed = prefix.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "Memo" : "Memo: \(trimmed)"
-    }
-
-    private var snapAnimation: Animation {
-        reduceMotion ? SwipePhysics.reducedSnap : SwipePhysics.snapSpring
     }
 
     /// Contact-shadow opacity for the sliding card, 0 at rest → 0.16 at a
@@ -338,12 +440,20 @@ struct SwipeableMemoCard: View {
             // 0, hit-testing off) until `progress` rises, so at rest the
             // drawers never steal taps from the card. Hit-testing for the
             // whole layer is additionally gated on an actually-open panel.
+            // Each panel is EXACTLY as wide as the area the card has exposed
+            // (Mail-style proportional reveal). The old `max(panelWidth, …)`
+            // floor meant a partially-revealed 152pt glass panel sat ON TOP
+            // of the card (panels render above the card for tap reliability),
+            // washing the card's edge with a pale glass slab — the visual
+            // mess this redesign kills. Width now tracks the offset 1:1, so
+            // the panel and the card edge stay glued through drag, snap, and
+            // overdrag alike.
             HStack(spacing: 0) {
                 SwipeActionPanel(
                     actions: leadingActions,
                     edge: .leading,
                     progress: max(0, revealProgress),
-                    revealWidth: max(SwipePhysics.panelWidth, currentOffset),
+                    revealWidth: max(0, currentOffset),
                     commitArmed: commitArmedSide == .leading
                 )
                 Spacer(minLength: 0)
@@ -351,7 +461,7 @@ struct SwipeableMemoCard: View {
                     actions: trailingActions,
                     edge: .trailing,
                     progress: max(0, -revealProgress),
-                    revealWidth: max(SwipePhysics.panelWidth, -currentOffset),
+                    revealWidth: max(0, -currentOffset),
                     commitArmed: commitArmedSide == .trailing
                 )
             }
@@ -517,22 +627,24 @@ struct SwipeableMemoCard: View {
         fullyRevealedSide = nil
         didNotifyPeers = false
 
+        // Hand the live drag over to settledOffset first — the composed
+        // value is unchanged, so there is no visual jump — and only then
+        // animate. Every snap therefore starts from EXACTLY where the finger
+        // left the card and inherits the finger's release velocity: the
+        // seam between dragging and animating disappears.
+        settledOffset = visualOffset
+        dragDelta = 0
+
         switch resolution {
         case .open(let side):
-            dragDelta = 0
             commitArmedSide = nil
-            snapOpen(side)
+            snapOpen(side, from: visualOffset, velocity: velocity)
         case .close:
-            dragDelta = 0
             commitArmedSide = nil
-            snapClose()
+            snapClose(from: visualOffset, velocity: velocity)
         case .commitOuter(let side):
-            // Hand the live drag offset to settledOffset before zeroing the
-            // delta — same composed value, so no visual jump — then run the
-            // OUTERMOST action (trailing → share, leading → pin). run()
-            // already carries the haptic + animated close + settle delay.
-            settledOffset = visualOffset
-            dragDelta = 0
+            // Run the OUTERMOST action (trailing → share, leading → pin).
+            // run() already carries the haptic + animated close + settle delay.
             let outer = (side == .trailing ? trailingActions : leadingActions).first
             outer?.run()
             // Keep the expanded single-button layout through the close
@@ -602,7 +714,7 @@ struct SwipeableMemoCard: View {
             commitSide = nil
         }
         if commitSide != commitArmedSide {
-            let animation: Animation? = reduceMotion ? nil : SwipePhysics.snapSpring
+            let animation: Animation? = reduceMotion ? nil : SwipePhysics.commitLayoutSpring
             withAnimation(animation) { commitArmedSide = commitSide }
             if commitSide != nil {
                 Haptics.rigid(intensity: 0.8)
@@ -614,17 +726,26 @@ struct SwipeableMemoCard: View {
 
     // MARK: - Snap Logic
     //
-    // Release resolution lives in SwipeSnapLogic (pure, unit-tested);
-    // these two just animate the card to the resolved resting position.
+    // Release resolution lives in SwipeSnapLogic (pure, unit-tested); these
+    // two animate the card to the resolved resting position with the
+    // finger's release velocity handed into the spring. Non-gesture callers
+    // (tap-to-close, peer close, selection mode) omit the arguments and get
+    // the same springs at rest velocity — one motion language everywhere.
 
-    private func snapOpen(_ side: CardSwipeSide) {
+    private func snapOpen(_ side: CardSwipeSide, from current: CGFloat? = nil, velocity: CGFloat = 0) {
         let target: CGFloat = side == .trailing ? -SwipePhysics.panelWidth : SwipePhysics.panelWidth
-        withAnimation(snapAnimation) { settledOffset = target }
+        let animation = reduceMotion
+            ? SwipePhysics.reducedSnap
+            : SwipePhysics.openSpring(from: current ?? settledOffset, to: target, velocity: velocity)
+        withAnimation(animation) { settledOffset = target }
         HapticFeedback.light()
     }
 
-    func snapClose() {
-        withAnimation(snapAnimation) { settledOffset = 0 }
+    func snapClose(from current: CGFloat? = nil, velocity: CGFloat = 0) {
+        let animation = reduceMotion
+            ? SwipePhysics.reducedSnap
+            : SwipePhysics.closeSpring(from: current ?? settledOffset, velocity: velocity)
+        withAnimation(animation) { settledOffset = 0 }
     }
 }
 
@@ -651,10 +772,14 @@ struct SwipeAction: Identifiable {
 
 // MARK: - SwipeActionPanel
 //
-// Visual surface for one side of the swipe drawer. Lays out N action buttons
-// side by side, each `SwipePhysics.actionWidth` wide, clipped to the card's
-// outer corner radius by the ZStack's `.clipped()` so the drawer reads as a
-// nested glass surface waking up rather than abutting bright rectangles.
+// Visual surface for one side of the swipe drawer, Mail-style proportional
+// reveal: the panel is EXACTLY as wide as the area the card has exposed and
+// its buttons flex to share that width equally. At the settled open position
+// each button is `SwipePhysics.actionWidth` wide; during an overdrag they
+// stretch together with the drawer; on full-swipe commit the primary takes
+// the whole width. Because the panel never extends under the card (it
+// renders ABOVE the card for tap reliability), width == reveal is also what
+// keeps its glass from washing over the card's edge.
 //
 // Choreography (driven by `progress`, 0…1+):
 //   0.00 – 0.30   Icon at 0.6× scale, label hidden, soft tone.
@@ -670,10 +795,11 @@ private struct SwipeActionPanel: View {
     let actions: [SwipeAction]
     let edge: Edge
     let progress: CGFloat
-    /// Live drawer width. Tracks the (damped) finger past panelWidth so the
-    /// panel's inner edge always hugs the card edge during an overdrag —
-    /// with the old fixed width a full swipe opened a bare gap between them.
-    var revealWidth: CGFloat = SwipePhysics.panelWidth
+    /// Live drawer width — the exact number of points the card has exposed
+    /// on this side (0 when closed, panelWidth when settled open, larger
+    /// during overdrag). The panel and the card edge stay glued because the
+    /// same animated offset drives both.
+    var revealWidth: CGFloat = 0
     /// Full-swipe commit armed: the outermost (primary) action expands to
     /// fill the whole drawer and the secondary column folds away, signalling
     /// "release to execute", mirroring Mail's full-swipe choreography.
@@ -689,8 +815,12 @@ private struct SwipeActionPanel: View {
         glassGrouped {
             panelColumns
         }
-        .frame(width: max(SwipePhysics.panelWidth, revealWidth))
+        .frame(width: max(0, revealWidth))
         .frame(maxHeight: .infinity)
+        // Icons are fixed-size; at sliver reveals they'd overflow their
+        // compressed columns and draw over the card. Clip to the live panel
+        // bounds so partially revealed actions emerge from the edge.
+        .clipped()
         // Hide entirely when closed so VoiceOver doesn't announce hidden
         // targets and a stray tap on the laid-out panel can't fire.
         .opacity(progress > 0.02 ? 1 : 0)
@@ -702,10 +832,13 @@ private struct SwipeActionPanel: View {
     /// shared container — the container both batches the render pass and
     /// enables morphing between the members. iOS 16–25 falls through to the
     /// plain column stack (the material recipe there has nothing to morph).
+    /// Spacing 0 (was 12): the columns abut, and a merge distance wider than
+    /// their gap made the two differently-tinted glass shapes bleed into one
+    /// smeared blob along the seam.
     @ViewBuilder
     private func glassGrouped<C: View>(@ViewBuilder content: () -> C) -> some View {
         if #available(iOS 26.0, *) {
-            GlassEffectContainer(spacing: 12.0, content: content)
+            GlassEffectContainer(spacing: 0, content: content)
         } else {
             content()
         }
@@ -785,8 +918,12 @@ private struct SwipeActionButton: View {
                 background
                 content
             }
-            .frame(width: fillsWidth ? nil : SwipePhysics.actionWidth)
-            .frame(maxWidth: fillsWidth ? .infinity : nil)
+            // Flexible width: the enclosing HStack divides the live drawer
+            // width equally among the visible columns (Mail's proportional
+            // stretch). At the settled open position that resolves to the
+            // canonical `actionWidth`; during overdrag both columns grow
+            // together; commit-armed leaves one column owning it all.
+            .frame(maxWidth: .infinity)
             .frame(maxHeight: .infinity)
             // iOS 26 glass goes HERE — on the sized content view, after the
             // frame modifiers, per the canonical Liquid Glass pattern. The
@@ -847,7 +984,10 @@ private struct SwipeActionButton: View {
             Text(action.label)
                 .font(.custom("Inter-Medium", size: 10.5))
                 .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                // Natural width, never "Sh…": in a still-compressed column the
+                // full label stays centered and the panel's .clipped() lets it
+                // emerge from the edge as the column grows (Mail's reveal).
+                .fixedSize()
                 .foregroundColor(foreground)
                 .opacity(labelOpacity)
         }

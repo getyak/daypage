@@ -274,7 +274,7 @@ struct ChatRiverSection: View {
             .padding(.vertical, 9)
             .background(
                 RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
-                    .fill(DSColor.surfaceContainerHigh.opacity(isSelected ? 0.9 : 0.55))
+                    .fill(DSColor.glassHi.opacity(isSelected ? 0.9 : 0.55))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
@@ -285,6 +285,14 @@ struct ChatRiverSection: View {
             )
         }
         .buttonStyle(.plain)
+        // The lift snapshot must share the capsule's silhouette — without this
+        // the system clips it to a bare rect and hard corners flash around the
+        // rounded row for the first frames of the pick-up. Same fix the memo
+        // card carries (TodayViewComponents.swift).
+        .contentShape(
+            .contextMenuPreview,
+            RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
+        )
         .contextMenu {
             if !river.selectionMode {
                 Button {
@@ -296,21 +304,33 @@ struct ChatRiverSection: View {
                     Label(NSLocalizedString("chat.river.continue", value: "继续这段对话", comment: "Chat river — resume session"), systemImage: "arrow.uturn.down")
                 }
                 Button {
+                    Haptics.tapConfirm()
                     river.export([summary])
                 } label: {
                     Label(NSLocalizedString("chat.river.export", value: "导出 (.md)", comment: "Chat river — export one session"), systemImage: "square.and.arrow.up")
                 }
                 Button {
+                    Haptics.selection()
                     river.enterSelection(with: summary)
                 } label: {
                     Label(NSLocalizedString("chat.river.select", value: "选择多段…", comment: "Chat river — enter multi-select"), systemImage: "checkmark.circle")
                 }
+                // Divider isolates the destructive item, matching the memo card
+                // and timeline row. Deleting drops a whole conversation.
+                Divider()
                 Button(role: .destructive) {
+                    Haptics.warningNotification()
                     river.pendingDelete = summary
                 } label: {
                     Label(NSLocalizedString("chat.river.delete", value: "删除", comment: ""), systemImage: "trash")
                 }
             }
+        } preview: {
+            // The capsule already shows title + turn count, so a preview that
+            // just enlarged those would add nothing. It shows the opening
+            // exchange instead — that's what tells you which conversation
+            // "继续这段对话" is about to resume.
+            ChatSessionPreviewCard(summary: summary)
         }
         .accessibilityLabel("\(ChatMarkdownRenderer.entryLabel(summary.entry))：\(summary.title)")
     }
@@ -431,5 +451,112 @@ struct ChatRiverSelectionBar: View {
             .padding(.bottom, 6)
             .transition(.opacity.combined(with: .move(edge: .bottom)))
         }
+    }
+}
+
+// MARK: - ChatSessionPreviewCard
+//
+// Shown inside `.contextMenu(preview:)` on long-press of a river capsule.
+// Deliberately mirrors TimelineDayPreviewCard's hierarchy — mono metadata
+// header, content body, mono footer — so the two long-press surfaces feel
+// like one system rather than two designs.
+//
+// Shows the opening exchange rather than the whole thread: the capsule already
+// carries title + turn count, and the question this card answers is "which
+// conversation is this?", which the first turns settle immediately.
+private struct ChatSessionPreviewCard: View {
+
+    let summary: ChatSessionSummary
+
+    @State private var turns: [ChatTurn] = []
+    @State private var hasLoaded = false
+
+    /// First user turn + the reply it drew.
+    private var openingTurns: [ChatTurn] { Array(turns.prefix(2)) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            header
+            if hasLoaded && openingTurns.isEmpty {
+                Text(NSLocalizedString(
+                    "chat.river.preview.empty",
+                    value: "这段对话还没有内容。",
+                    comment: "Chat river preview — no turns yet"
+                ))
+                .font(DSFonts.serif(size: 15, italic: true, relativeTo: .body))
+                .foregroundColor(DSColor.inkMuted)
+            } else {
+                ForEach(openingTurns) { turn in
+                    turnBlock(turn)
+                }
+            }
+            if turns.count > openingTurns.count {
+                Text(String(format: NSLocalizedString(
+                    "chat.river.preview.moreTurns",
+                    value: "+ %d 轮",
+                    comment: "Chat river preview — remaining turn count"
+                ), turns.count - openingTurns.count))
+                .font(DSFonts.jetBrainsMono(size: 10, weight: .bold, relativeTo: .caption2))
+                .tracking(1.4)
+                .foregroundColor(DSColor.inkMuted)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(20)
+        .frame(width: SwipePhysics.contextPreviewWidth, alignment: .leading)
+        .background(DSColor.surfaceWhite)
+        .clipShape(
+            RoundedRectangle(cornerRadius: SwipePhysics.cardCornerRadius, style: .continuous)
+        )
+        .task { await load() }
+    }
+
+    private var header: some View {
+        HStack(spacing: 8) {
+            Text(ChatMarkdownRenderer.entryLabel(summary.entry).uppercased())
+                .font(DSFonts.jetBrainsMono(size: 10, weight: .bold, relativeTo: .caption2))
+                .tracking(1.6)
+                .foregroundColor(DSColor.accentAmber)
+            Spacer(minLength: 8)
+            Text(summary.dayString)
+                .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold, relativeTo: .caption2))
+                .tracking(1.4)
+                .foregroundColor(DSColor.inkMuted)
+        }
+    }
+
+    /// One turn. The speaker is carried by indent + ink weight rather than a
+    /// label — two turns don't need "你 /「问过去」" spelled out to be legible.
+    private func turnBlock(_ turn: ChatTurn) -> some View {
+        let isUser = turn.role == .user
+        return Text(turn.text)
+            .font(isUser
+                  ? DSFonts.serif(size: 15, weight: .semibold, relativeTo: .body)
+                  : DSFonts.inter(size: 13, relativeTo: .footnote))
+            .foregroundColor(isUser ? DSColor.inkPrimary : DSColor.inkPrimary.opacity(0.85))
+            .lineLimit(isUser ? 3 : 4)
+            .fixedSize(horizontal: false, vertical: true)
+            .multilineTextAlignment(.leading)
+            .padding(.leading, isUser ? 0 : 10)
+            .overlay(alignment: .leading) {
+                // Faint amber rule marks the reply — the one accent in the card.
+                if !isUser {
+                    RoundedRectangle(cornerRadius: 1, style: .continuous)
+                        .fill(DSColor.accentAmber.opacity(0.35))
+                        .frame(width: 2)
+                }
+            }
+    }
+
+    /// Reads the session off the main actor — `preview:` is built the moment
+    /// the press is recognized, so this must not block that frame.
+    private func load() async {
+        guard !hasLoaded else { return }
+        let summary = summary
+        let loaded = await Task.detached(priority: .userInitiated) {
+            ChatSessionStore.load(summary: summary)
+        }.value
+        turns = loaded?.turns ?? []
+        hasLoaded = true
     }
 }

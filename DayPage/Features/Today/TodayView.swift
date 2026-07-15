@@ -2586,6 +2586,12 @@ struct TodayView: View {
                     announceMemoSaved()
                 },
                 onClose: { showWriteSheet = false },
+                onDiscard: {
+                    // Explicit, confirmed discard — the ONLY path that
+                    // destroys the draft. Plain close keeps everything.
+                    draftText = ""
+                    viewModel.clearPendingAttachments()
+                },
                 pendingLocation: viewModel.pendingLocation,
                 isLocating: viewModel.isLocating,
                 onToggleLocation: {
