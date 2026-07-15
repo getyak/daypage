@@ -97,6 +97,39 @@ enum DSColor {
     /// Amber glow — used in ambient light blobs.
     static let amberGlow     = Color(hex: "E8974D").opacity(0.45)
 
+    // MARK: - Dock orb (Today input dock)
+    //
+    // The mic orb is the app's single loudest control, and it was filled with
+    // `amberDeep` (#5D3000) — 11:1 against white. That much contrast stops
+    // being "deep amber" and becomes near-black brown: on the warm cream canvas
+    // it read as a dead chocolate disc, and its halo (cast in the same colour)
+    // blurred into grey soot. These tokens give the orb its own warm ramp
+    // instead of widening `amberDeep`, which has 38 call sites across the graph
+    // and heatmap where the near-black IS the intended archival tone.
+
+    /// Mic-orb fill — a lit sphere, not a flat disc. Top lifts to #C9722F,
+    /// body settles on the brand accent #A8541B (5.3:1 with `onAmber` → AA).
+    /// Dark mode lifts the whole ramp so the orb keeps glowing on charcoal.
+    static let dockOrbFill = LinearGradient(
+        colors: [
+            Color(light: Color(hex: "C9722F"), dark: Color(hex: "E8974D")),
+            Color(light: Color(hex: "A8541B"), dark: Color(hex: "B45F1F"))
+        ],
+        startPoint: .top,
+        endPoint: .bottom
+    )
+
+    /// Halo cast by the mic orb. Must stay in the orb's own warm family —
+    /// a blurred near-black reads as dirt, never as light.
+    static let dockOrbGlow = Color(light: Color(hex: "A8541B"), dark: Color(hex: "E8974D"))
+
+    /// Dock chrome glyphs (`+`, sparkle, caret). NOT `accentOnBg` — that token's
+    /// light value is #5D3000, the same near-black brown the orb was rescued
+    /// from, so routing chrome through it just relocated the mud. This is the
+    /// live accent, letting the whole dock speak one warm language while the
+    /// orb stays the row's only saturated voice via its fill.
+    static let dockChrome = Color(light: Color(hex: "A8541B"), dark: Color(hex: "D9975A"))
+
     // MARK: - Graph category hues (#828)
     //
     // The knowledge graph splits entities into three categories that must be

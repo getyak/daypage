@@ -74,6 +74,7 @@
 "input.a11y.mic_hint_full"   = "Tap to open the recorder; press-and-hold to send a voice memo";
 "input.a11y.ask_ai"          = "Chat with your past";
 "input.a11y.write_text"      = "Write text";
+"input.dock.placeholder"     = "Set it down…";
 "input.a11y.mic_transcribe"  = "Record and transcribe";
 "input.a11y.mic_stop_transcribe" = "Stop recording and transcribe";
 "input.a11y.camera"          = "Take photo";

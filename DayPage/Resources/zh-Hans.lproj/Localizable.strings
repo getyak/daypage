@@ -74,6 +74,7 @@
 "input.a11y.mic_hint_full"   = "单击进入录音页；长按说话松手发送";
 "input.a11y.ask_ai"          = "和过去对话";
 "input.a11y.write_text"      = "写文字";
+"input.dock.placeholder"     = "记下此刻…";
 "input.a11y.mic_transcribe"  = "录音转文字";
 "input.a11y.mic_stop_transcribe" = "停止录音并转文字";
 "input.a11y.camera"          = "拍照";
