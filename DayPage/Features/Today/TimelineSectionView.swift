@@ -172,6 +172,15 @@ struct TimelineDayRow: View {
                 .accessibilityHint(NSLocalizedString("today.timeline.openDailyPage", value: "Open Daily Page", comment: ""))
                 .accessibilityAction(named: shareActionTitle) { onShareDate?(entry) }
                 .accessibilityAction(named: pinActionTitle) { _ = pinService.togglePin(entry.dateString) }
+                // `preview:` is built the instant the long-press is recognized,
+                // so the memos must already be in hand — loading them *from*
+                // the preview would render an empty card on first press. The
+                // row-level `.task` warms them when the row scrolls on.
+                //
+                // 2026-07-15: `ensureMemosLoaded()` had zero callers, so
+                // `loadedMemos` was permanently [] and the preview card's memo
+                // section never rendered at all.
+                .task { await ensureMemosLoaded() }
                 .contextMenu { menuButtons } preview: { previewCard }
                 .alert(deleteAlertTitle, isPresented: $showDeleteConfirm, actions: deleteAlertActions, message: deleteAlertMessage)
         )
@@ -227,26 +236,37 @@ struct TimelineDayRow: View {
     /// LAYER 2 — both side panels. Hidden at rest; only hit-testable once a
     /// side is actually open so they never steal taps from the row.
     private var sidePanels: some View {
+        // Exact-width panels (Mail-style proportional reveal): each panel is
+        // precisely as wide as the area the row has exposed, so the panel
+        // and the row edge stay glued through drag / snap / rubber band —
+        // the old fixed 84pt panel sat over the row at partial reveals.
         HStack(spacing: 0) {
             TimelineSwipePanel(
                 actions: leadingActions,
                 edge: .leading,
-                progress: max(0, revealProgress)
+                progress: max(0, revealProgress),
+                revealWidth: max(0, currentOffset)
             )
             Spacer(minLength: 0)
             TimelineSwipePanel(
                 actions: trailingActions,
                 edge: .trailing,
-                progress: max(0, -revealProgress)
+                progress: max(0, -revealProgress),
+                revealWidth: max(0, -currentOffset)
             )
         }
         .allowsHitTesting(revealedSide != nil)
     }
 
+    /// The card sizes itself (shared preview width + intrinsic height) — the
+    /// old hardcoded 320×360 forced a fixed box, so short days padded out to a
+    /// tall empty card and long days got their memos clipped.
+    ///
+    /// Loading is warmed by the row's `.task`, not from here: `preview:` is
+    /// built the instant the press is recognized, so an `.onAppear` load lands
+    /// a frame too late and the first long-press showed a card with no memos.
     private var previewCard: some View {
         TimelineDayPreviewCard(entry: entry, memos: loadedMemos)
-            .frame(width: 320, height: 360)
-            .onAppear { ensureMemosLoaded() }
     }
 
     // MARK: Localized strings (computed once per render)
@@ -385,16 +405,18 @@ struct TimelineDayRow: View {
         onOpenDate?(entry.dateString)
     }
 
-    /// Loads memos lazily for the contextMenu preview card.
-    private func ensureMemosLoaded() {
+    /// Loads memos for the contextMenu preview card. Idempotent — `.task` can
+    /// re-fire when the row is recycled, and the parse is not free.
+    private func ensureMemosLoaded() async {
         guard !hasLoaded else { return }
-        Task {
-            let memos = TimelineService.memos(for: entry)
-            await MainActor.run {
-                loadedMemos = memos
-                hasLoaded = true
-            }
-        }
+        let entry = entry
+        // Off the main actor: TimelineService.memos parses that day's Markdown,
+        // and this runs while the row scrolls into view.
+        let memos = await Task.detached(priority: .utility) {
+            TimelineService.memos(for: entry)
+        }.value
+        loadedMemos = memos
+        hasLoaded = true
     }
 
     // MARK: Context menu items
@@ -502,10 +524,15 @@ struct TimelineDayRow: View {
     // MARK: Pan callbacks (slimmed copy of SwipeableMemoCard's gesture loop)
 
     private var currentOffset: CGFloat {
+        // 1:1 to the panel, then an asymptotic rubber band (shared with the
+        // memo card) — progressive resistance capped at overdragCap instead
+        // of the old unbounded 0.25 linear drag. Rows have no full-swipe
+        // commit, so past the panel the surface is a soft boundary.
         let raw = settledOffset + dragDelta
         let w = TimelineSwipePhysics.panelWidth
-        if raw > w  { return w  + (raw - w)  * TimelineSwipePhysics.rubberBand }
-        if raw < -w { return -w + (raw + w)  * TimelineSwipePhysics.rubberBand }
+        let cap = TimelineSwipePhysics.overdragCap
+        if raw > w  { return w  + SwipePhysics.rubberBand(raw - w,    cap: cap) }
+        if raw < -w { return -w - SwipePhysics.rubberBand(-(raw + w), cap: cap) }
         return raw
     }
 
@@ -518,10 +545,6 @@ struct TimelineDayRow: View {
         if settledOffset < -1 { return .trailing }
         if settledOffset > 1  { return .leading }
         return nil
-    }
-
-    private var snapAnimation: Animation {
-        reduceMotion ? TimelineSwipePhysics.reducedSnap : TimelineSwipePhysics.snapSpring
     }
 
     private func handlePanChanged(_ translation: CGFloat) {
@@ -542,22 +565,36 @@ struct TimelineDayRow: View {
     }
 
     private func handlePanEnded(_ translation: CGFloat, _ velocity: CGFloat) {
-        dragDelta = 0
-        let openT = TimelineSwipePhysics.openThreshold
-        let closeT = TimelineSwipePhysics.closeThreshold
-        let vOpen = TimelineSwipePhysics.velocityOpen
-        let vClose = TimelineSwipePhysics.velocityClose
-        switch revealedSide {
-        case nil:
-            if      translation < -openT || velocity < -vOpen { snapOpen(.trailing) }
-            else if translation >  openT || velocity >  vOpen { snapOpen(.leading)  }
-            else                                              { snapClose()         }
-        case .trailing:
-            (translation > closeT || velocity > vClose) ? snapClose() : snapOpen(.trailing)
-        case .leading:
-            (translation < -closeT || velocity < -vClose) ? snapClose() : snapOpen(.leading)
+        // Same release physics as the memo card: momentum projection picks
+        // the resting position, and the finger's velocity is handed into the
+        // settle spring. Resolution is delegated to the shared, unit-tested
+        // SwipeSnapLogic; rows can never reach its full-swipe commit line
+        // (visual travel caps at panelWidth + overdragCap), so commitOuter
+        // is mapped to a plain open for safety.
+        let visualOffset = currentOffset
+        let revealed: CardSwipeSide? = switch revealedSide {
+        case .trailing: .trailing
+        case .leading:  .leading
+        case nil:       nil
         }
+        let resolution = SwipeSnapLogic.resolve(
+            revealed: revealed,
+            visualOffset: visualOffset,
+            dx: translation,
+            velocity: velocity
+        )
+        settledOffset = visualOffset
+        dragDelta = 0
         armedSide = nil
+
+        switch resolution {
+        case .open(.trailing), .commitOuter(.trailing):
+            snapOpen(.trailing, from: visualOffset, velocity: velocity)
+        case .open(.leading), .commitOuter(.leading):
+            snapOpen(.leading, from: visualOffset, velocity: velocity)
+        case .close:
+            snapClose(from: visualOffset, velocity: velocity)
+        }
     }
 
     private func handlePanCancelled() {
@@ -565,16 +602,22 @@ struct TimelineDayRow: View {
         armedSide = nil
     }
 
-    private func snapOpen(_ side: SwipeSide) {
+    private func snapOpen(_ side: SwipeSide, from current: CGFloat? = nil, velocity: CGFloat = 0) {
         let target: CGFloat = side == .trailing
             ? -TimelineSwipePhysics.panelWidth
             : TimelineSwipePhysics.panelWidth
-        withAnimation(snapAnimation) { settledOffset = target }
+        let animation = reduceMotion
+            ? TimelineSwipePhysics.reducedSnap
+            : SwipePhysics.openSpring(from: current ?? settledOffset, to: target, velocity: velocity)
+        withAnimation(animation) { settledOffset = target }
         HapticFeedback.light()
     }
 
-    private func snapClose() {
-        withAnimation(snapAnimation) { settledOffset = 0 }
+    private func snapClose(from current: CGFloat? = nil, velocity: CGFloat = 0) {
+        let animation = reduceMotion
+            ? TimelineSwipePhysics.reducedSnap
+            : SwipePhysics.closeSpring(from: current ?? settledOffset, velocity: velocity)
+        withAnimation(animation) { settledOffset = 0 }
     }
 
     // MARK: Derived content
@@ -818,12 +861,13 @@ enum TimelineSpine {
 private enum TimelineSwipePhysics {
     static let actionWidth: CGFloat = 84
     static let panelWidth: CGFloat = actionWidth        // single action per side
+    /// Mid-drag "armed" haptic threshold — same value SwipeSnapLogic uses
+    /// for its release resolution (SwipePhysics.openThreshold).
     static let openThreshold: CGFloat = 40
-    static let closeThreshold: CGFloat = 24
-    static let velocityOpen: CGFloat = 600
-    static let velocityClose: CGFloat = 500
-    static let rubberBand: CGFloat = 0.25
-    static let snapSpring: Animation = .spring(response: 0.28, dampingFraction: 0.86)
+    /// Max extra visual travel past the panel (asymptotic rubber-band cap).
+    /// Smaller than the memo card's 56 — a row has no full-swipe commit to
+    /// telegraph, so the boundary sits closer.
+    static let overdragCap: CGFloat = 32
     static let reducedSnap: Animation = .easeOut(duration: 0.22)
 }
 
@@ -838,6 +882,8 @@ private struct TimelineSwipePanel: View {
     let actions: [SwipeAction]
     let edge: Edge
     let progress: CGFloat
+    /// Exact exposed width — tracks the row offset 1:1 (see sidePanels).
+    var revealWidth: CGFloat = 0
 
     var body: some View {
         HStack(spacing: 0) {
@@ -845,8 +891,9 @@ private struct TimelineSwipePanel: View {
                 TimelineSwipeButton(action: action, progress: progress)
             }
         }
-        .frame(width: TimelineSwipePhysics.panelWidth)
+        .frame(width: max(0, revealWidth))
         .frame(maxHeight: .infinity)
+        .clipped()
         .opacity(progress > 0.02 ? 1 : 0)
         .allowsHitTesting(progress > 0.02)
         .accessibilityHidden(progress <= 0.02)
@@ -867,7 +914,9 @@ private struct TimelineSwipeButton: View {
                 background
                 content
             }
-            .frame(width: TimelineSwipePhysics.actionWidth)
+            // Flexible: fills the live panel width so the surface emerges
+            // with the reveal instead of sliding out from a fixed slab.
+            .frame(maxWidth: .infinity)
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
         }
@@ -892,7 +941,9 @@ private struct TimelineSwipeButton: View {
             Text(action.label)
                 .font(.custom("Inter-Medium", size: 10.5))
                 .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                // Natural width + panel .clipped(): the label emerges from the
+                // edge as the column grows instead of truncating to "Sh…".
+                .fixedSize()
                 .foregroundColor(.white)
                 .opacity(Double(max(0, min(1, (progress - labelFadeStart) / (1 - labelFadeStart)))))
         }
@@ -949,7 +1000,17 @@ struct TimelineDayPreviewCard: View {
             Spacer(minLength: 0)
         }
         .padding(20)
+        // Pinned to the shared preview width so a lifted day card and a lifted
+        // memo card are the same size. Without it the card sized to content —
+        // a short day came up as a narrow slip, a long one filled the screen.
+        .frame(width: SwipePhysics.contextPreviewWidth, alignment: .leading)
         .background(DSColor.surfaceWhite)
+        // The card's own 14pt continuous silhouette. Previously an unclipped
+        // rect, so the lift showed square corners while every other card in
+        // the app is rounded.
+        .clipShape(
+            RoundedRectangle(cornerRadius: SwipePhysics.cardCornerRadius, style: .continuous)
+        )
     }
 
     private var header: some View {

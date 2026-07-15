@@ -343,7 +343,7 @@ struct TimelineRow: View {
                     // reuses MemoCardView so the preview is the card, not a
                     // cropped screenshot of the row.
                     MemoCardView(memo: memo)
-                        .frame(width: UIScreen.main.bounds.width - 40)
+                        .frame(width: SwipePhysics.contextPreviewWidth)
                 }
         }
     }
@@ -421,8 +421,11 @@ struct TimelineRow: View {
                 )
             }
         }
+        // Every item in this menu confirms under the finger — three of them
+        // used to fire silently, which read as a missed tap.
         if let onShare {
             Button {
+                Haptics.tapConfirm()
                 onShare()
             } label: {
                 Label(NSLocalizedString("memo.menu.shareCard", comment: "contextMenu: share memo as card"),
@@ -431,6 +434,7 @@ struct TimelineRow: View {
         }
         if let onShareAsQuote {
             Button {
+                Haptics.tapConfirm()
                 onShareAsQuote()
             } label: {
                 Label(NSLocalizedString("memo.menu.shareQuote", comment: "contextMenu: share memo as quote"),
@@ -452,6 +456,9 @@ struct TimelineRow: View {
         }
         if let onEnterSelectionMode {
             Button {
+                // selection() rather than tapConfirm() — this enters a mode
+                // rather than committing an action.
+                Haptics.selection()
                 onEnterSelectionMode()
             } label: {
                 Label(NSLocalizedString("memo.menu.multiselect", comment: "contextMenu: enter multi-select mode"),
