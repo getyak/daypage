@@ -43,6 +43,11 @@ struct TodayView: View {
     /// small chip row above the input surface; CompilationService reads
     /// the same store on the next compile.
     @StateObject private var focusStore = TodayFocusStore.shared
+    /// Reminder vNext (2026-07-15): 统一调度器 —— Today 胶囊条/编辑 sheet/AI
+    /// 对话调度共用的单一数据源。
+    @StateObject private var reminderService = CaptureReminderService.shared
+    /// 非 nil = 打开提醒编辑 sheet；`reminder == nil` 表示新建。
+    @State private var reminderSheetTarget: ReminderSheetTarget? = nil
     @AppStorage(AppSettings.Keys.aiFeaturesEnabled) private var aiFeaturesEnabled: Bool = true
     @EnvironmentObject private var sidebarVM: SidebarViewModel
 
@@ -884,6 +889,13 @@ struct TodayView: View {
             .sheet(isPresented: $showSettings) {
                 SettingsView()
             }
+            // Reminder vNext: 提醒编辑/新建 sheet。滴答式时间自定义收在这里，
+            // Today 面上只留胶囊条；自然语言路径走 Coach/问过去对话。
+            .sheet(item: $reminderSheetTarget) { target in
+                ReminderEditSheet(service: reminderService, editing: target.reminder)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
             // Issue #804: Today sparkle → 陪写引导（TodayCoachView），不再是
             // AskPastView。前者引导写下一条今日 memo，后者是 RAG 历史检索——
             // 用户 tap "让 AI 陪你聊聊今天" 应该进入陪写而非搜索。
@@ -1605,6 +1617,25 @@ struct TodayView: View {
             }
         } else {
             todayFocusRow
+        }
+    }
+
+    /// Reminder vNext: 即将触发的提醒胶囊条。FeatureFlag.captureReminder 关
+    /// 时整条不挂载（kill switch 与调度器一致）。点胶囊 → 编辑；点「＋」→
+    /// 新建。数据源是统一调度器，AI 排的提醒也会出现在这里。
+    @ViewBuilder
+    private var reminderStrip: some View {
+        if FeatureFlagStore.shared.isEnabled(.captureReminder) {
+            ReminderCapsuleStrip(
+                service: reminderService,
+                now: currentTime,
+                onEdit: { reminder in
+                    reminderSheetTarget = ReminderSheetTarget(reminder: reminder)
+                },
+                onAdd: {
+                    reminderSheetTarget = ReminderSheetTarget(reminder: nil)
+                }
+            )
         }
     }
 
@@ -2990,10 +3021,20 @@ struct TodayView: View {
                         focusDisclosureRow
                             .padding(.top, 2)
 
+                        // Reminder vNext: 即将触发的提醒胶囊 + 快捷新建。
+                        // 空态放在焦点行之下 —— 与 chrome 同级，不与诗抢戏。
+                        reminderStrip
+                            .padding(.top, 6)
+
                         fallbackContentView
                             .padding(.top, 18)
                     }
                 } else {
+                    // Reminder vNext: memo 日的胶囊条 —— 一行薄 chrome，
+                    // 在今日信号之上给 AI/手动排的提醒一个可见落点，随画布滚走。
+                    reminderStrip
+                        .padding(.bottom, 2)
+
                     ForEach(Array(viewModel.memos.enumerated()), id: \.element.id) { idx, memo in
                         TimelineRow(
                             memo: memo,

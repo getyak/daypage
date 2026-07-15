@@ -426,6 +426,36 @@ struct TodayCoachView: View {
         guard !text.isEmpty, !coach.isResponding else { return }
         draft = ""
 
+        // Reminder vNext：「提醒我…」在 IntentRouter 之前拦截，直接落统一
+        // 调度器 —— 排提醒是高频小意图，零 LLM 往返。解析出时间就排 +
+        // 确认；有提醒动词但时间模糊则追问，绝不猜时间。
+        if FeatureFlagStore.shared.isEnabled(.captureReminder) {
+            if let parsed = ReminderIntentParser.parse(text) {
+                let reminder = CaptureReminderService.shared.addReminder(
+                    Reminder(trigger: parsed.trigger, label: parsed.label, source: .ai)
+                )
+                coach.turns.append(CoachTurn(role: .user, text: text))
+                coach.turns.append(CoachTurn(
+                    role: .assistant,
+                    text: Self.reminderConfirmation(for: reminder)
+                ))
+                Haptics.success()
+                return
+            }
+            if ReminderIntentParser.containsReminderVerb(text) {
+                coach.turns.append(CoachTurn(role: .user, text: text))
+                coach.turns.append(CoachTurn(
+                    role: .assistant,
+                    text: NSLocalizedString(
+                        "coach.reminder.clarify",
+                        value: "好——几点提醒你？可以说「今晚」「明早」「一小时后」，或者给个具体时间，比如「明天 15:00」；重复的话说「每天 22:00」「周一三五 9 点」。",
+                        comment: "Coach follow-up when a reminder request lacks a parseable time"
+                    )
+                ))
+                return
+            }
+        }
+
         // IntentRouter：只有明确历史意图才提示切换到「问过去」；其余走 Coach。
         let intent = IntentRouter.classify(text, hasHistoryHints: false)
         if intent == .askPast {
@@ -440,6 +470,27 @@ struct TodayCoachView: View {
             return
         }
         Task { await coach.ask(text) }
+    }
+
+    /// 排好后的确认文案：一次性 = 「今晚 20:00」；重复 = 「每天 22:00」。
+    /// 落点提示指向 Today 胶囊条 —— AI 排的提醒在那里可见、可改、可删。
+    static func reminderConfirmation(for reminder: Reminder) -> String {
+        let when: String
+        if case .once(let date) = reminder.trigger {
+            // relativeDayLabel 已含时间(「今天 13:29」),不再拼 timeString。
+            when = Reminder.relativeDayLabel(for: date)
+        } else {
+            when = "\(reminder.repeatDescription) \(reminder.timeString)"
+        }
+        let labelPart = reminder.label.isEmpty ? "" : "「\(reminder.label)」"
+        return String(
+            format: NSLocalizedString(
+                "coach.reminder.confirmed",
+                value: "已排好：%@ %@。到点我会来敲你——在 Today 顶部的提醒条里随时可改可删。",
+                comment: "Coach confirmation after scheduling a reminder (1: when, 2: label)"
+            ),
+            when, labelPart
+        )
     }
 
     // MARK: - Static
