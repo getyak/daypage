@@ -63,9 +63,12 @@ public enum KeychainHelper {
     /// Safe to call multiple times — no-ops if the key is already in Keychain or absent from UserDefaults.
     public static func migrateAPIKeysFromUserDefaultsIfNeeded() {
         let migrations: [(udKey: String, keychainId: String)] = [
-            ("runtimeDeepSeekKey",    "deepSeekApiKey"),
-            ("runtimeOpenAIKey",      "openAIWhisperApiKey"),
-            ("runtimeOpenWeatherKey", "openWeatherApiKey"),
+            ("runtimeDeepSeekKey",         "deepSeekApiKey"),
+            ("runtimeOpenAIKey",           "openAIWhisperApiKey"),
+            ("runtimeOpenWeatherKey",      "openWeatherApiKey"),
+            ("runtimeDoubaoASRAppID",      "doubaoASRAppID"),
+            ("runtimeDoubaoASRAccessToken","doubaoASRAccessToken"),
+            ("runtimeDoubaoASRSecretKey",  "doubaoASRSecretKey"),
         ]
         for (udKey, keychainId) in migrations {
             guard

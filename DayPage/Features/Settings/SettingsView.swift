@@ -14,9 +14,12 @@ import DayPageServices
 /// codebase (Onboarding/ApiKeysPage, Secrets resolution helpers) already
 /// uses — renaming them would orphan existing user keychain entries.
 enum ApiKeyKind: String, CaseIterable {
-    case deepSeek         = "deepSeekApiKey"
-    case openAIWhisper    = "openAIWhisperApiKey"
-    case openWeather      = "openWeatherApiKey"
+    case deepSeek             = "deepSeekApiKey"
+    case openAIWhisper        = "openAIWhisperApiKey"
+    case openWeather          = "openWeatherApiKey"
+    case doubaoASRAppID       = "doubaoASRAppID"
+    case doubaoASRAccessToken = "doubaoASRAccessToken"
+    case doubaoASRSecretKey   = "doubaoASRSecretKey"
 }
 
 // MARK: - SettingsView
@@ -32,11 +35,16 @@ struct SettingsView: View {
     @State private var deepSeekTesting = false
     @State private var whisperTesting = false
     @State private var weatherTesting = false
+    @State private var doubaoTesting = false
 
     // Inline test result per key (cleared on next test)
     @State private var deepSeekResult: APITestResult?
     @State private var whisperResult: APITestResult?
     @State private var weatherResult: APITestResult?
+    @State private var doubaoResult: APITestResult?
+
+    // Speech-to-text backend. `nil` override = follow the .env default.
+    @State private var asrProvider: ASRProvider = ASRSettings.active
 
     // On This Day settings (backed by OnThisDayScheduler.shared via UserDefaults)
     @State private var onThisDayEnabled: Bool = OnThisDayScheduler.shared.isEnabled
@@ -310,13 +318,44 @@ struct SettingsView: View {
                 providerID: "deepseek"
             )
             apiKeyRow(
+                name: "豆包 App ID",
+                keychainID: ApiKeyKind.doubaoASRAppID.rawValue,
+                key: Secrets.resolvedDoubaoASRAppID,
+                isTesting: doubaoTesting,
+                result: doubaoResult,
+                onTest: { Task { await testDoubao() } },
+                providerID: "doubao",
+                isRequired: false
+            )
+            apiKeyRow(
+                name: "豆包 Access Token",
+                keychainID: ApiKeyKind.doubaoASRAccessToken.rawValue,
+                key: Secrets.resolvedDoubaoASRAccessToken,
+                isTesting: false,
+                result: nil,
+                onTest: {},
+                providerID: "doubao",
+                isRequired: false
+            )
+            apiKeyRow(
+                name: "豆包 Secret Key",
+                keychainID: ApiKeyKind.doubaoASRSecretKey.rawValue,
+                key: Secrets.resolvedDoubaoASRSecretKey,
+                isTesting: false,
+                result: nil,
+                onTest: {},
+                providerID: "doubao",
+                isRequired: false
+            )
+            apiKeyRow(
                 name: "OpenAI Whisper",
                 keychainID: ApiKeyKind.openAIWhisper.rawValue,
                 key: Secrets.resolvedOpenAIWhisperApiKey,
                 isTesting: whisperTesting,
                 result: whisperResult,
                 onTest: { Task { await testWhisper() } },
-                providerID: "whisper"
+                providerID: "whisper",
+                isRequired: false
             )
             apiKeyRow(
                 name: "OpenWeatherMap",
@@ -562,6 +601,22 @@ struct SettingsView: View {
                 }
             )) {
                 Label(NSLocalizedString("settings.appearance.legacy_voice", comment: ""), systemImage: "mic.circle")
+            }
+
+            // Speech-to-text backend. Every provider degrades to on-device
+            // recognition when its credentials are missing, so switching here
+            // can reduce transcription quality but never break capture.
+            Picker(selection: $asrProvider) {
+                ForEach(ASRProvider.allCases) { provider in
+                    Text(provider.displayName).tag(provider)
+                }
+            } label: {
+                Label(NSLocalizedString("settings.voice.asr_provider", comment: "Speech-to-text backend"), systemImage: "waveform")
+            }
+            .accessibilityIdentifier("asr-provider-picker")
+            .onChange(of: asrProvider) { newValue in
+                Haptics.selection()
+                ASRSettings.override = newValue
             }
 
             // On This Day configuration
@@ -1400,10 +1455,19 @@ struct SettingsView: View {
             .accessibilityIdentifier("reminder-quiet-hours")
 
             // 仅 iOS 26+ 显示:是否用系统灵动岛(AlarmKit)。关掉回退普通通知。
+            //
+            // 打开开关时必须真的去要 AlarmKit 授权 —— 只写 preferAlarmKit 是不够的:
+            // useAlarmKit 同时要求 alarmKitAuthorized。此前只有 onboarding 那一次
+            // 会请求授权,跳过 onboarding 的用户在这里打开开关后,偏好是 on 但授权态
+            // 恒 false,灵动岛永远不出现且没有任何提示。(2026-07-15)
             if reminderService.isAlarmKitAvailable {
                 Toggle(isOn: Binding(
                     get: { reminderService.preferAlarmKit },
-                    set: { reminderService.preferAlarmKit = $0 }
+                    set: { enabled in
+                        reminderService.preferAlarmKit = enabled
+                        guard enabled, #available(iOS 26.0, *) else { return }
+                        Task { await reminderService.requestAlarmKitAuthorization() }
+                    }
                 )) {
                     Label(
                         NSLocalizedString("settings.reminder.alarmkit", value: "系统灵动岛提醒", comment: "Use AlarmKit system Live Activity"),
@@ -1411,6 +1475,20 @@ struct SettingsView: View {
                     )
                 }
                 .accessibilityIdentifier("reminder-prefer-alarmkit")
+                // 已开偏好但系统未授权 —— 否则用户会以为开着却永远等不到灵动岛。
+                if reminderService.preferAlarmKit && !reminderService.alarmKitAuthorized {
+                    Label(
+                        NSLocalizedString(
+                            "settings.reminder.alarmkit.denied",
+                            value: "系统未授权提醒,灵动岛不会出现 —— 前往「设置 › DayPage」开启。",
+                            comment: "AlarmKit permission missing hint"
+                        ),
+                        systemImage: "exclamationmark.triangle"
+                    )
+                    .font(.caption)
+                    .foregroundColor(DSColor.warnAmber)
+                    .accessibilityIdentifier("reminder-alarmkit-denied-hint")
+                }
             }
         } header: {
             Text(NSLocalizedString("settings.reminder.section", value: "记录提醒", comment: "Capture reminder section title"))
@@ -1467,6 +1545,88 @@ struct SettingsView: View {
         } catch {
             deepSeekResult = .failure(hintForNetwork(error: error))
         }
+    }
+
+    /// Verifies the Doubao ASR credentials end-to-end by sending a short
+    /// silent WAV to the flash endpoint.
+    ///
+    /// A silent clip comes back as `20000003 静音音频` rather than
+    /// `20000000` — which is exactly what we want to assert on: reaching a
+    /// *semantic* verdict proves auth, the `volc.bigasr.auc_turbo`
+    /// entitlement, and endpoint routing all work. Only an auth/permission
+    /// failure produces a 4xxxxxxx code.
+    private func testDoubao() async {
+        doubaoTesting = true
+        doubaoResult = nil
+        defer { doubaoTesting = false }
+
+        guard DoubaoASRConfig.hasCredentials else {
+            doubaoResult = .failure("请先填写 App ID 与 Access Token")
+            return
+        }
+        guard let endpoint = URL(string: DoubaoASRConfig.fileSubmitURL) else {
+            doubaoResult = .failure("端点配置无效")
+            return
+        }
+
+        var req = URLRequest(url: endpoint)
+        req.httpMethod = "POST"
+        req.timeoutInterval = 15
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(DoubaoASRConfig.appID, forHTTPHeaderField: "X-Api-App-Key")
+        req.setValue(DoubaoASRConfig.accessToken, forHTTPHeaderField: "X-Api-Access-Key")
+        req.setValue(DoubaoASRConfig.fileResourceID, forHTTPHeaderField: "X-Api-Resource-Id")
+        req.setValue(UUID().uuidString, forHTTPHeaderField: "X-Api-Request-Id")
+        req.setValue("-1", forHTTPHeaderField: "X-Api-Sequence")
+
+        let body: [String: Any] = [
+            "user": ["uid": "daypage"],
+            "audio": ["format": "wav", "data": Self.silentProbeWAV().base64EncodedString()],
+            "request": ["model_name": DoubaoASRConfig.fileModelName],
+        ]
+        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        do {
+            let (_, resp) = try await URLSession.shared.data(for: req)
+            let http = resp as? HTTPURLResponse
+            let status = http?.value(forHTTPHeaderField: "X-Api-Status-Code") ?? ""
+
+            // 20000000 (transcribed) and 20000003 (silence) both mean the
+            // request was accepted and understood.
+            if status.hasPrefix("2000000") {
+                doubaoResult = .success("连接正常")
+            } else {
+                let message = http?.value(forHTTPHeaderField: "X-Api-Message") ?? "未知错误"
+                doubaoResult = .failure("\(status) · \(message)")
+            }
+        } catch {
+            doubaoResult = .failure(hintForNetwork(error: error))
+        }
+    }
+
+    /// 0.1s of 16kHz mono silence as a minimal valid WAV container.
+    private static func silentProbeWAV() -> Data {
+        let sampleRate: UInt32 = 16_000
+        let sampleCount = Int(sampleRate) / 10
+        let dataBytes = UInt32(sampleCount * 2)
+
+        var wav = Data()
+        func le<T: FixedWidthInteger>(_ value: T) { withUnsafeBytes(of: value.littleEndian) { wav.append(contentsOf: $0) } }
+
+        wav.append(contentsOf: Array("RIFF".utf8))
+        le(UInt32(36) + dataBytes)
+        wav.append(contentsOf: Array("WAVEfmt ".utf8))
+        le(UInt32(16))            // fmt chunk size
+        le(UInt16(1))             // PCM
+        le(UInt16(1))             // mono
+        le(sampleRate)
+        le(sampleRate * 2)        // byte rate
+        le(UInt16(2))             // block align
+        le(UInt16(16))            // bits per sample
+        wav.append(contentsOf: Array("data".utf8))
+        le(dataBytes)
+        wav.append(Data(repeating: 0, count: sampleCount * 2))
+        return wav
     }
 
     private func testWhisper() async {

@@ -73,6 +73,10 @@ final class VoiceService: NSObject, ObservableObject {
     /// `nil` when no interruption is active. Cleared once recording resumes
     /// or the session terminates.
     @Published var interruptionMessage: String? = nil
+    /// Live transcript while recording, when the active provider supports
+    /// streaming. Cumulative — each update replaces the whole string. Empty
+    /// when streaming is unavailable or nothing has been recognised yet.
+    @Published var liveTranscript: String = ""
 
     // MARK: Private
 
@@ -81,6 +85,10 @@ final class VoiceService: NSObject, ObservableObject {
     private var recordingStartDate: Date?
     private var timer: Timer?
     private var meteringTimer: Timer?
+    /// Live-streaming ASR trio. All nil unless a streaming provider is active.
+    private var streamClient: DoubaoStreamASRClient?
+    private var liveCapture: LivePCMCapture?
+    private var streamTask: Task<Void, Never>?
     /// Token returned by `NotificationCenter.addObserver(forName:...)` so the
     /// observer can be removed in `deinit`. Lives as long as the singleton
     /// (which is for the app lifetime) — held for symmetry / future cleanup
@@ -173,6 +181,10 @@ final class VoiceService: NSObject, ObservableObject {
                     startMeteringTimer()
                     interruptionMessage = nil
                     state = .recording
+                    // The interruption path tore the stream down alongside the
+                    // timers; bring it back or live text dies for the rest of
+                    // the take even though recording resumed.
+                    Task { await startLiveTranscriptionIfAvailable() }
                     SentryReporter.breadcrumb(
                         category: "voice",
                         level: .info,
@@ -316,6 +328,90 @@ final class VoiceService: NSObject, ObservableObject {
             state = .failed("录音启动失败：\(error.localizedDescription)")
             return
         }
+
+        // Live transcription rides alongside the file recording rather than
+        // replacing it: the .m4a on disk stays the source of truth (and the
+        // input to the post-hoc transcript), while this only drives the
+        // on-screen text. If it fails, recording is unaffected.
+        await startLiveTranscriptionIfAvailable()
+    }
+
+    // MARK: - Live Streaming Transcription
+
+    /// True when the active provider can transcribe while the user speaks and
+    /// is actually configured. The UI reads this to decide whether to reserve
+    /// space for live text.
+    var canStreamLive: Bool {
+        AppSettings.aiFeaturesEnabled
+            && NetworkMonitor.shared.isOnline
+            && ASRSettings.active.supportsStreaming
+            && DoubaoASRConfig.hasCredentials
+    }
+
+    private func startLiveTranscriptionIfAvailable() async {
+        guard canStreamLive else { return }
+
+        liveTranscript = ""
+        let client = DoubaoStreamASRClient()
+        streamClient = client
+
+        do {
+            try await client.start()
+        } catch {
+            // Streaming is best-effort. The recording continues, and the
+            // post-hoc transcript still runs on the saved file.
+            DayPageLogger.shared.error("live ASR start failed: \(error.localizedDescription)")
+            teardownLiveTranscription()
+            return
+        }
+
+        // Pump: mic → converter → WebSocket. The tap fires on an audio thread,
+        // so hop onto the actor before sending.
+        let capture = LivePCMCapture()
+        liveCapture = capture
+        do {
+            try capture.start { [weak self] chunk in
+                Task { [weak self] in
+                    guard let self, let client = await self.streamClient else { return }
+                    try? await client.send(audio: chunk)
+                }
+            }
+        } catch {
+            DayPageLogger.shared.error("live PCM capture failed: \(error.localizedDescription)")
+            teardownLiveTranscription()
+            return
+        }
+
+        // Drain results until the server closes or we tear down.
+        streamTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                guard let client = await self.streamClient else { break }
+                do {
+                    guard let update = try await client.receive() else { break }
+                    // Results are cumulative — replace, never append.
+                    if !update.text.isEmpty { await self.setLiveTranscript(update.text) }
+                    if update.isFinal { break }
+                } catch {
+                    DayPageLogger.shared.error("live ASR receive: \(error.localizedDescription)")
+                    break
+                }
+            }
+        }
+    }
+
+    private func setLiveTranscript(_ text: String) {
+        liveTranscript = text
+    }
+
+    private func teardownLiveTranscription() {
+        streamTask?.cancel()
+        streamTask = nil
+        liveCapture?.stop()
+        liveCapture = nil
+        let client = streamClient
+        streamClient = nil
+        Task { await client?.close() }
     }
 
     // MARK: - Pause / Resume
@@ -325,6 +421,7 @@ final class VoiceService: NSObject, ObservableObject {
         recorder?.pause()
         stopTimer()
         stopMeteringTimer()
+        teardownLiveTranscription()
         state = .paused
     }
 
@@ -334,6 +431,10 @@ final class VoiceService: NSObject, ObservableObject {
         startTimer()
         startMeteringTimer()
         state = .recording
+        // pauseRecording() tore the stream down (the socket would otherwise
+        // time out waiting for audio). Without this the recorder resumes but
+        // live text stays frozen for the rest of the take.
+        Task { await startLiveTranscriptionIfAvailable() }
     }
 
     // MARK: - Stop & Transcribe
@@ -355,6 +456,7 @@ final class VoiceService: NSObject, ObservableObject {
 
         stopTimer()
         stopMeteringTimer()
+        teardownLiveTranscription()
         let finalDuration = Double(elapsedSeconds)
         rec.stop()
         recorder = nil
@@ -392,6 +494,7 @@ final class VoiceService: NSObject, ObservableObject {
 
         stopTimer()
         stopMeteringTimer()
+        teardownLiveTranscription()
         let finalDuration = Double(elapsedSeconds)
         rec.stop()
         recorder = nil
@@ -459,6 +562,7 @@ final class VoiceService: NSObject, ObservableObject {
         if state == .requesting { cancelRequestedDuringStart = true }
         stopTimer()
         stopMeteringTimer()
+        teardownLiveTranscription()
         recorder?.stop()
         if let url = currentFileURL {
             do {
@@ -482,6 +586,7 @@ final class VoiceService: NSObject, ObservableObject {
     func reset() {
         stopTimer()
         stopMeteringTimer()
+        teardownLiveTranscription()
         recorder = nil
         currentFileURL = nil
         elapsedSeconds = 0
@@ -495,23 +600,64 @@ final class VoiceService: NSObject, ObservableObject {
     // MARK: - Whisper Transcription
 
     func transcribeAudio(at url: URL) async -> String? {
-        // C4 fix: when the master AI toggle is off, do not call Whisper even
-        // if the network is up. Fall back to on-device SFSpeechRecognizer so
-        // the user still gets a transcript without any third-party upload.
+        // C4 fix: when the master AI toggle is off, do not call any cloud ASR
+        // even if the network is up. Fall back to on-device SFSpeechRecognizer
+        // so the user still gets a transcript without any third-party upload.
         if !AppSettings.aiFeaturesEnabled {
             return await transcribeAudioOffline(at: url)
         }
-        // US-013: If offline, skip Whisper and try on-device SFSpeechRecognizer
+        // US-013: If offline, skip cloud ASR and try on-device SFSpeechRecognizer
         if !NetworkMonitor.shared.isOnline {
             return await transcribeAudioOffline(at: url)
         }
-        // #821: no Whisper key configured — fall back to on-device
-        // recognition instead of silently returning nil and burning the
-        // queue's retry budget on calls that can never succeed.
-        if Secrets.resolvedOpenAIWhisperApiKey.isEmpty {
+
+        // #821: when the selected provider has no credentials, fall back to
+        // on-device recognition instead of silently returning nil and burning
+        // the queue's retry budget on calls that can never succeed.
+        switch ASRSettings.active {
+        case .onDevice:
+            return await transcribeAudioOffline(at: url)
+
+        case .doubao:
+            guard DoubaoASRConfig.hasCredentials else {
+                return await transcribeAudioOffline(at: url)
+            }
+            return await transcribeAudioDoubao(at: url)
+
+        case .whisper:
+            guard !Secrets.resolvedOpenAIWhisperApiKey.isEmpty else {
+                return await transcribeAudioOffline(at: url)
+            }
+            return await transcribeAudioWhisper(at: url)
+        }
+    }
+
+    // MARK: - Doubao (火山引擎) Transcription
+
+    private func transcribeAudioDoubao(at url: URL) async -> String? {
+        let span = Secrets.sentryDSN.isEmpty ? nil
+            : SentrySDK.startTransaction(name: "voice.doubao", operation: "http.client")
+        defer { span?.finish() }
+
+        do {
+            return try await DoubaoFileASRClient.transcribe(at: url)
+        } catch DoubaoFileASRClient.ClientError.silentAudio {
+            // The service parsed the audio and found no speech. Retrying or
+            // falling back to on-device recognition would just spend time
+            // rediscovering the same thing.
+            DayPageLogger.shared.info("transcribeAudioDoubao: silent audio, no speech detected")
+            return nil
+        } catch {
+            DayPageLogger.shared.error("transcribeAudioDoubao: \(error.localizedDescription)")
+            SentryReporter.breadcrumb(
+                category: "voice",
+                level: .error,
+                message: "transcribeAudioDoubao: \(error.localizedDescription)"
+            )
+            // Cloud ASR failed but the audio is intact on disk — on-device
+            // recognition is a better outcome than no transcript at all.
             return await transcribeAudioOffline(at: url)
         }
-        return await transcribeAudioWhisper(at: url)
     }
 
     // MARK: - On-device fallback (US-013)
