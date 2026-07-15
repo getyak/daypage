@@ -421,6 +421,13 @@ struct DayPageApp: App {
                     // 「记录提醒」:每次启动幂等重排,让配置与已注册通知保持一致
                     // (处理 flag 切换 / 时区变化 / 系统清空 pending 等情况)。
                     // 仅当用户已授权时才会真正落地通知(refreshSchedule 内部安全)。
+                    //
+                    // 先同步 AlarmKit 授权态再重排:alarmKitAuthorized 默认 false,
+                    // 不同步的话 useAlarmKit 恒 false,真灵动岛路径永远不可达
+                    // (提醒会静默退化成普通 UN 通知)。这一步不弹权限框。
+                    if #available(iOS 26.0, *) {
+                        CaptureReminderService.shared.refreshAlarmKitAuthorizationState()
+                    }
                     CaptureReminderService.shared.refreshSchedule()
                     // Issue #20 / Gate A fix (2026-07-03): 请求本地通知权限
                     // (用于 2am 编译完成回执)。原实现在 RootView.onAppear 无条件

@@ -284,4 +284,33 @@ struct CaptureReminderServiceTests {
         #expect(comps.day == 16)
         #expect(comps.hour == 10)
     }
+
+    // MARK: - AlarmKit 授权态(灵动岛路径)
+    //
+    // 2026-07-15:灵动岛「没生效」的根因是授权态只活在内存里 —— 用户在
+    // onboarding 授过权,但 alarmKitAuthorized 不落盘,下次冷启动重置回 false,
+    // useAlarmKit 随之恒 false,提醒静默退化成普通 UN 通知。修法是每次前台
+    // 从 AlarmKit 读真实 authorizationState 回填,而不是把它记在 UserDefaults
+    // 里 —— 权限的真源是系统,缓存必然会和「用户去设置里关掉」脱节。
+
+    /// preferAlarmKit 是用户偏好,必须跨实例(≈冷启动)存活。
+    @Test func preferAlarmKitSurvivesRelaunch() {
+        let suite = "captureReminder.test.\(UUID().uuidString)"
+        let (service, defaults) = makeService(suite: suite)
+        #expect(service.preferAlarmKit == true) // 默认 on
+
+        service.preferAlarmKit = false
+        // 同一 suite 造新实例 = 冷启动重读。
+        let relaunched = CaptureReminderService(defaults: defaults)
+        #expect(relaunched.preferAlarmKit == false)
+    }
+
+    /// 授权态绝不能被偏好或持久化「推断」成 true —— 它只能来自系统。
+    /// 冷启动默认 false,直到 refreshAlarmKitAuthorizationState() 去问 AlarmKit。
+    @Test func alarmKitAuthorizationIsNeverAssumedFromPreference() {
+        let (service, _) = makeService()
+        service.preferAlarmKit = true
+        // 偏好开着不代表系统授了权:两者是独立的与条件。
+        #expect(service.alarmKitAuthorized == false)
+    }
 }
