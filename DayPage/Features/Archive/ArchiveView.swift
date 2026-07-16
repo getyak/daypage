@@ -515,6 +515,12 @@ struct ArchiveView: View {
     @State private var rawDates: Set<String> = []
     @State private var dailyDates: Set<String> = []
 
+    /// Per-day one-line teasers for the ledger list (raw excerpt fallback for
+    /// days without a compiled summary). Snapshotted from the launch-warmed
+    /// TimelineIndex in `preScanVault` — a computed read per body pass would
+    /// rebuild the dictionary on every scroll frame.
+    @State private var dayTeasers: [String: String] = [:]
+
     /// Controls the year/month jump picker overlay (opened by tapping the
     /// Archive header's month title).
     @State private var showMonthPicker: Bool = false
@@ -790,50 +796,47 @@ struct ArchiveView: View {
         }.value
         rawDates = scanned.0
         dailyDates = scanned.1
+        dayTeasers = Dictionary(
+            uniqueKeysWithValues: TimelineIndex.shared.entries().compactMap { entry in
+                let teaser = (entry.summary?.isEmpty == false ? entry.summary : entry.excerpt)
+                guard let teaser, !teaser.isEmpty else { return nil }
+                // One-line ledger teaser — fold markdown syntax out.
+                return (entry.dateString, SearchView.strippedLineArtifacts(MemoMarkdown.plainText(teaser)))
+            }
+        )
     }
 
     // MARK: - Archive Header
 
     private var archiveHeader: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 0) {
-            VStack(alignment: .leading, spacing: 2) {
-                // "Archive" title — opens the sidebar (tap), keeping the
-                // primary navigation affordance the rest of the app uses.
-                Button {
-                    nav.openSidebar()
-                } label: {
-                    Text(NSLocalizedString("archive.title", comment: "Archive page title"))
-                        .font(DSType.serifDisplay28)
-                        .foregroundColor(DSColor.inkPrimary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(NSLocalizedString("a11y.nav.open", comment: "Sidebar open button"))
-                .accessibilityIdentifier("sidebar-menu-button")
-
-                // Month subtitle — now a jump-to-month affordance. A chevron
-                // signals it's interactive; tapping opens the YearMonthPicker.
-                Button {
-                    Haptics.soft()
-                    withAnimation(reduceMotion ? nil : Motion.fade) { showMonthPicker = true }
-                } label: {
-                    HStack(spacing: DSSpacing.xs) {
-                        Text(viewModel.currentMonthTitle.uppercased())
-                            .font(DSType.mono10)
-                            .foregroundColor(DSColor.inkMuted)
-                            .tracking(1.0)
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 8, weight: .semibold))
-                            .foregroundColor(DSColor.inkMuted)
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(String(format: NSLocalizedString("archive.picker.open", comment: "Jump to month, current %@"), viewModel.currentMonthTitle))
-                .accessibilityHint(NSLocalizedString("archive.picker.open.hint", comment: "Opens the month picker"))
-                .accessibilityIdentifier("archive-month-picker-button")
+        HStack(alignment: .center, spacing: DSSpacing.md) {
+            // "Archive" title — opens the sidebar (tap), keeping the
+            // primary navigation affordance the rest of the app uses.
+            // (W1: the mono month subtitle moved down to the month row as a
+            // serif headline — the header kept two voices for one job.)
+            Button {
+                nav.openSidebar()
+            } label: {
+                Text(NSLocalizedString("archive.title", comment: "Archive page title"))
+                    .font(DSType.serifDisplay28)
+                    .foregroundColor(DSColor.inkPrimary)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(NSLocalizedString("a11y.nav.open", comment: "Sidebar open button"))
+            .accessibilityIdentifier("sidebar-menu-button")
 
             Spacer()
+
+            // CAL / LIST view-mode toggle — page-level chrome, so it lives in
+            // the header instead of floating mid-content.
+            HStack(spacing: 2) {
+                toggleButton("CAL", isSelected: mode == .calendar) { mode = .calendar }
+                toggleButton("LIST", isSelected: mode == .list) { mode = .list }
+            }
+            .padding(3)
+            // #771: CAL/LIST view-mode toggle → glass engine (.pill).
+            .dpGlass(.pill, in: Capsule())
+            .clipShape(Capsule())
 
             Button(action: { showSearch = true }) {
                 Image(systemName: "magnifyingglass")
@@ -878,8 +881,65 @@ struct ArchiveView: View {
         .accessibilityElement(children: .combine)
     }
 
+    /// Localized "July 2026" headline for the month row (the export/a11y
+    /// string keeps using the archival en_US_POSIX `currentMonthTitle`).
+    private var localizedMonthTitle: String {
+        var comps = DateComponents()
+        comps.year = viewModel.currentYear
+        comps.month = viewModel.currentMonth
+        comps.day = 1
+        guard let date = Calendar.current.date(from: comps) else { return viewModel.currentMonthTitle }
+        return Self.monthHeaderFormatter.string(from: date)
+    }
+
+    /// One quiet mono line under the headline: "N days · M entries", plus an
+    /// inline "back to this month" affordance when browsing history — always
+    /// present, so its appearance never reflows the row (the old floating
+    /// TODAY capsule made the whole bar jump).
+    private var monthMetaLine: some View {
+        let days = viewModel.activeDayCount
+        let entries = viewModel.totalEntries
+        // Narrative line → per-count plural keys ("1 day · 2 entries"); a
+        // single "%d days" format would ship the very "1 days" bug this
+        // branch fixes elsewhere.
+        let dayPart = String(format: NSLocalizedString(
+            days == 1 ? "archive.month.meta.days.one" : "archive.month.meta.days",
+            comment: "Month meta line day part"), days)
+        let entryPart = String(format: NSLocalizedString(
+            entries == 1 ? "archive.month.meta.entries.one" : "archive.month.meta.entries",
+            comment: "Month meta line entry part"), entries)
+        return HStack(spacing: DSSpacing.sm) {
+            Text("\(dayPart) · \(entryPart)")
+            .font(DSType.mono10)
+            .tracking(0.8)
+            .foregroundColor(DSColor.inkMuted)
+
+            if !viewModel.isViewingCurrentMonth {
+                Button(action: {
+                    Haptics.tapConfirm()
+                    let now = Calendar.current.dateComponents([.year, .month], from: Date())
+                    let targetYear = now.year ?? viewModel.currentYear
+                    let targetMonth = now.month ?? viewModel.currentMonth
+                    let isFuture = (viewModel.currentYear, viewModel.currentMonth) > (targetYear, targetMonth)
+                    monthNavDirection = isFuture ? .leading : .trailing
+                    withAnimation(reduceMotion ? nil : Motion.spring) { viewModel.goToCurrentMonth() }
+                    UIAccessibility.post(notification: .announcement, argument: viewModel.currentMonthTitle)
+                }) {
+                    Text(NSLocalizedString("archive.today", comment: "Today button"))
+                        .font(DSType.mono10)
+                        .tracking(0.8)
+                        .foregroundColor(DSColor.accentOnBg)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(NSLocalizedString("archive.a11y.currentMonth.label", comment: "A11y label: back-to-current-month button"))
+                .accessibilityHint(NSLocalizedString("archive.a11y.currentMonth.hint", comment: "A11y hint: back-to-current-month button"))
+                .transition(.opacity)
+            }
+        }
+    }
+
     private var monthNavigationRow: some View {
-        HStack {
+        HStack(alignment: .center) {
             Button(action: {
                 Haptics.rigid(intensity: 0.4)
                 monthNavDirection = .leading
@@ -898,41 +958,31 @@ struct ArchiveView: View {
 
             Spacer()
 
-            // CALENDAR / LIST toggle — glass pill
-            HStack(spacing: 2) {
-                toggleButton("CAL", isSelected: mode == .calendar) { mode = .calendar }
-                toggleButton("LIST", isSelected: mode == .list) { mode = .list }
-            }
-            .padding(3)
-            // #771: CAL/LIST view-mode toggle → glass engine (.pill).
-            .dpGlass(.pill, in: Capsule())
-            .clipShape(Capsule())
-
-            Spacer()
-
-            if !viewModel.isViewingCurrentMonth {
-                Button(action: {
-                    Haptics.tapConfirm()
-                    let now = Calendar.current.dateComponents([.year, .month], from: Date())
-                    let targetYear = now.year ?? viewModel.currentYear
-                    let targetMonth = now.month ?? viewModel.currentMonth
-                    let isFuture = (viewModel.currentYear, viewModel.currentMonth) > (targetYear, targetMonth)
-                    monthNavDirection = isFuture ? .leading : .trailing
-                    withAnimation(reduceMotion ? nil : Motion.spring) { viewModel.goToCurrentMonth() }
-                    UIAccessibility.post(notification: .announcement, argument: viewModel.currentMonthTitle)
-                }) {
-                    Text(NSLocalizedString("archive.today", comment: "Today button"))
-                        .monoLabelStyle(size: 10)
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(DSColor.amberDeep, in: Capsule())
-                        .overlay(Capsule().strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+            // Serif month headline = the jump-to-month affordance (tap →
+            // YearMonthPicker). The calendar's protagonist is the month, so
+            // the month gets the display voice.
+            VStack(spacing: 3) {
+                Button {
+                    Haptics.soft()
+                    withAnimation(reduceMotion ? nil : Motion.fade) { showMonthPicker = true }
+                } label: {
+                    HStack(spacing: DSSpacing.xs) {
+                        Text(localizedMonthTitle)
+                            .font(DSFonts.serif(size: 22, weight: .semibold, relativeTo: .title2))
+                            .foregroundColor(DSColor.inkPrimary)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(DSColor.inkMuted)
+                            .padding(.top, 2)
+                    }
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(NSLocalizedString("archive.a11y.currentMonth.label", comment: "A11y label: back-to-current-month button"))
-                .accessibilityHint(NSLocalizedString("archive.a11y.currentMonth.hint", comment: "A11y hint: back-to-current-month button"))
-                .transition(.scale.combined(with: .opacity))
+                .accessibilityLabel(String(format: NSLocalizedString("archive.picker.open", comment: "Jump to month, current %@"), viewModel.currentMonthTitle))
+                .accessibilityHint(NSLocalizedString("archive.picker.open.hint", comment: "Opens the month picker"))
+                .accessibilityIdentifier("archive-month-picker-button")
+
+                monthMetaLine
             }
 
             Spacer()
@@ -975,7 +1025,16 @@ struct ArchiveView: View {
 
     // MARK: - Calendar Grid
 
-    private let weekdaySymbols = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
+    /// Monday-first, locale-aware single-glyph weekday rail ("一 二 三…" in
+    /// Chinese, "M T W…" in English). The old hardcoded MON–SUN row shouted
+    /// over the day numbers it was only meant to caption.
+    private static let weekdaySymbols: [String] = {
+        let cal = Calendar.current
+        let symbols = cal.veryShortStandaloneWeekdaySymbols  // [Sun, Mon, …]
+        guard symbols.count == 7 else { return ["M", "T", "W", "T", "F", "S", "S"] }
+        return (1...7).map { symbols[$0 % 7] }               // Monday-first
+    }()
+    private var weekdaySymbols: [String] { Self.weekdaySymbols }
 
     private var calendarGrid: some View {
         // 4pt gutters + 8pt inset: with the previous 1pt gaps the amber cell
@@ -984,12 +1043,12 @@ struct ArchiveView: View {
         VStack(spacing: DSSpacing.xs) {
             // Weekday header row
             HStack(spacing: DSSpacing.xs) {
-                ForEach(weekdaySymbols, id: \.self) { day in
+                ForEach(Array(weekdaySymbols.enumerated()), id: \.offset) { _, day in
                     Text(day)
                         .monoLabelStyle(size: 9)
                         .foregroundColor(DSColor.onSurfaceVariant)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 28)
+                        .frame(height: 24)
                 }
             }
 
@@ -1041,13 +1100,16 @@ struct ArchiveView: View {
 
             // Heatmap color from cached memo-count bucket; fall back to
             // pre-scanned file-existence state for days not yet loaded.
+            // Empty days deliberately drop to a near-white whisper — with the
+            // old densityNone fill the whole month fused with the amber glass
+            // panel into one salmon slab and the ramp stopped reading.
             let density = viewModel.dayStats[dateStr]?.densityLevel
             let fillColor: Color = {
-                if let d = density { return d.fillColor }
+                if let d = density, d != .empty { return d.fillColor }
                 switch data {
                 case .compiled: return DSColor.amberDeep
                 case .rawOnly:  return DSColor.densityLow
-                case .none:     return DSColor.densityNone
+                case .none:     return DSColor.surfaceWhite.opacity(0.38)
                 }
             }()
 
@@ -1087,8 +1149,8 @@ struct ArchiveView: View {
                             .allowsHitTesting(false)
                     }
 
-                    Text(String(format: "%02d", day))
-                        .monoLabelStyle(size: 9)
+                    Text("\(day)")
+                        .monoLabelStyle(size: 10)
                         .foregroundColor(textColor)
                         .padding(DSSpacing.xs)
 
@@ -1146,19 +1208,23 @@ struct ArchiveView: View {
 
     private var legendRow: some View {
         HStack(spacing: DSSpacing.sm) {
-            Text("Activity:")
+            // Narrative caption, not archival vocabulary → localized
+            // (unlike the FINDING-010 mono ledger labels).
+            Text(NSLocalizedString("archive.legend.density", comment: "Calendar legend caption: entry density"))
                 .monoLabelStyle(size: 9)
                 .foregroundColor(DSColor.inkMuted)
 
-            ForEach([DayStats.DensityLevel.empty, .low, .medium, .high], id: \.label) { level in
+            // First swatch mirrors the quiet empty-cell fill, then the ramp.
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(DSColor.surfaceWhite.opacity(0.38))
+                .overlay(RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .strokeBorder(DSColor.glassRim, lineWidth: 0.5))
+                .frame(width: 10, height: 10)
+            ForEach([DayStats.DensityLevel.low, .medium, .high], id: \.label) { level in
                 RoundedRectangle(cornerRadius: 3, style: .continuous)
                     .fill(level.fillColor)
-                    .frame(width: 12, height: 12)
+                    .frame(width: 10, height: 10)
             }
-
-            Text(NSLocalizedString("archive.heatmap.higher", comment: "Heatmap legend higher"))
-                .monoLabelStyle(size: 9)
-                .foregroundColor(DSColor.inkMuted)
 
             Spacer()
         }
@@ -1171,25 +1237,56 @@ struct ArchiveView: View {
 
     private var monthlySummary: some View {
         VStack(alignment: .leading, spacing: DSSpacing.lg) {
-            HStack(spacing: DSSpacing.lg) {
-                Text(String(format: NSLocalizedString("archive.summary.title", comment: "Monthly summary section title; %@ = month title"), viewModel.currentMonthTitle))
-                    .font(DSType.sectionLabel)
-                    .foregroundColor(DSColor.inkMuted)
+            // "This month" — a diary's month-end note, not a dashboard.
+            // (W1: four 110pt shouting stat cards → one serif pillar row; the
+            // export/share buttons fold into a quiet overflow menu.)
+            HStack(alignment: .firstTextBaseline, spacing: DSSpacing.lg) {
+                Text(NSLocalizedString("archive.summary.thisMonth", comment: "Monthly summary section title"))
+                    .font(DSFonts.serif(size: 16, weight: .semibold, relativeTo: .headline))
+                    .foregroundColor(DSColor.inkPrimary)
                 Rectangle()
                     .fill(DSColor.inkFaint)
                     .frame(height: 0.5)
+                Menu {
+                    Button(action: exportMarkdown) {
+                        Label(NSLocalizedString("archive.export.markdown", comment: "Button: export monthly summary as Markdown"), systemImage: "square.and.arrow.up")
+                    }
+                    Button {
+                        Task { await shareScreenshot() }
+                    } label: {
+                        Label(NSLocalizedString("archive.export.screenshot", comment: "Button: share monthly summary as screenshot"), systemImage: "camera")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(DSColor.inkMuted)
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel(NSLocalizedString("archive.summary.menu.a11y", comment: "A11y: monthly summary actions menu"))
             }
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: DSSpacing.md) {
-                summaryCard("TOTAL ENTRIES", value: "\(viewModel.totalEntries)", accentPrimary: true)
-                if viewModel.totalVoiceMinutes > 0 {
-                    summaryCard("VOICE DURATION", value: "\(viewModel.totalVoiceMinutes)", unit: "min", accentPrimary: false)
-                }
+            HStack(alignment: .top, spacing: 0) {
+                digestStat(value: "\(viewModel.totalEntries)",
+                           label: NSLocalizedString("archive.stat.entries", comment: "Stat pillar label: entries"),
+                           accent: true)
                 if viewModel.totalPhotos > 0 {
-                    summaryCard("PHOTOS CAPTURED", value: "\(viewModel.totalPhotos)", accentPrimary: false)
+                    digestDivider
+                    digestStat(value: "\(viewModel.totalPhotos)",
+                               label: NSLocalizedString("archive.stat.photos", comment: "Stat pillar label: photos"),
+                               accent: false)
+                }
+                if viewModel.totalVoiceMinutes > 0 {
+                    digestDivider
+                    digestStat(value: "\(viewModel.totalVoiceMinutes)",
+                               label: NSLocalizedString("archive.stat.voiceMin", comment: "Stat pillar label: voice minutes"),
+                               accent: false)
                 }
                 if viewModel.totalLocations > 0 {
-                    summaryCard("TRAVEL LOCATIONS", value: "\(viewModel.totalLocations)", accentPrimary: true)
+                    digestDivider
+                    digestStat(value: "\(viewModel.totalLocations)",
+                               label: NSLocalizedString("archive.stat.places", comment: "Stat pillar label: places"),
+                               accent: false)
                 }
             }
 
@@ -1245,32 +1342,6 @@ struct ArchiveView: View {
                 }
             }
 
-            // Export / Share actions
-            HStack(spacing: 10) {
-                Button(action: exportMarkdown) {
-                    Label(NSLocalizedString("archive.export.markdown", comment: "Button: export monthly summary as Markdown"), systemImage: "square.and.arrow.up")
-                        .monoLabelStyle(size: 11)
-                        .foregroundColor(DSColor.inkPrimary)
-                        .padding(.horizontal, DSSpacing.md)
-                        .padding(.vertical, DSSpacing.sm)
-                        .liquidGlassCard(cornerRadius: 8)
-                }
-                .buttonStyle(.plain)
-
-                Button {
-                    Task { await shareScreenshot() }
-                } label: {
-                    Label(NSLocalizedString("archive.export.screenshot", comment: "Button: share monthly summary as screenshot"), systemImage: "camera")
-                        .monoLabelStyle(size: 11)
-                        .foregroundColor(DSColor.inkPrimary)
-                        .padding(.horizontal, DSSpacing.md)
-                        .padding(.vertical, DSSpacing.sm)
-                        .liquidGlassCard(cornerRadius: 8)
-                }
-                .buttonStyle(.plain)
-
-                Spacer()
-            }
         }
         .sheet(isPresented: $showShareSheet) {
             ShareSheet(activityItems: shareItems)
@@ -1327,34 +1398,6 @@ struct ArchiveView: View {
                 totalLocations: viewModel.totalLocations
             )
         )
-    }
-
-    private func summaryCard(_ label: String, value: String, unit: String? = nil, accentPrimary: Bool) -> some View {
-        VStack(alignment: .leading, spacing: DSSpacing.sm) {
-            Text(label)
-                .monoLabelStyle(size: 10)
-                .foregroundColor(DSColor.onSurfaceVariant)
-
-            HStack(alignment: .firstTextBaseline, spacing: DSSpacing.xs) {
-                Text(value)
-                    .font(DSType.serifDisplay32)
-                    .foregroundColor(accentPrimary ? DSColor.accentOnBg : DSColor.inkPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.5)
-                if let unit {
-                    Text(unit.uppercased())
-                        .monoLabelStyle(size: 10)
-                        .foregroundColor(DSColor.inkMuted)
-                }
-            }
-        }
-        .padding(DSSpacing.lg)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 110)
-        .liquidGlassCard(cornerRadius: 12)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(label)
-        .accessibilityValue(unit != nil ? "\(value) \(unit!)" : value)
     }
 
     // MARK: - List Content
@@ -1424,23 +1467,31 @@ struct ArchiveView: View {
         let headerTitle = Self.monthKeyParser.date(from: monthKey)
             .map { Self.monthHeaderFormatter.string(from: $0) } ?? monthKey
         let dayCountText = String(
-            format: NSLocalizedString("archive.section.dayCount", comment: "Month section header trailing label: %d days with entries"),
+            format: NSLocalizedString(
+                dayCount == 1 ? "archive.section.dayCount.one" : "archive.section.dayCount",
+                comment: "Month section header trailing label: %d days with entries"
+            ),
             dayCount
         )
 
-        return HStack(alignment: .firstTextBaseline) {
+        // Quiet ledger chapter head — mono caption + hairline, no material
+        // slab (W1: three container styles in one list was two too many).
+        return HStack(alignment: .firstTextBaseline, spacing: DSSpacing.md) {
             Text(headerTitle)
-                .font(DSType.titleSM)
-                .foregroundColor(DSColor.inkPrimary)
-            Spacer(minLength: 8)
+                .font(DSType.mono10)
+                .tracking(1.0)
+                .foregroundColor(DSColor.inkMuted)
+            Rectangle()
+                .fill(DSColor.inkFaint)
+                .frame(height: 0.5)
             Text(dayCountText)
-                .font(DSType.labelSM)
+                .font(DSType.mono10)
                 .foregroundColor(DSColor.inkMuted)
         }
-        .padding(.horizontal, DSSpacing.lg)
-        .padding(.vertical, DSSpacing.sm)
+        .padding(.horizontal, DSSpacing.xs)
+        .padding(.top, DSSpacing.lg)
+        .padding(.bottom, DSSpacing.xs)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.ultraThinMaterial)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(headerTitle), \(dayCountText)")
     }
@@ -1465,20 +1516,30 @@ struct ArchiveView: View {
                 .foregroundColor(DSColor.inkMuted)
 
             HStack(alignment: .top, spacing: 0) {
-                digestStat(value: "\(activeDays)", label: "DAYS", accent: true)
+                digestStat(value: "\(activeDays)",
+                           label: NSLocalizedString("archive.stat.days", comment: "Stat pillar label: active days"),
+                           accent: true)
                 digestDivider
-                digestStat(value: "\(entries)", label: "ENTRIES", accent: false)
+                digestStat(value: "\(entries)",
+                           label: NSLocalizedString("archive.stat.entries", comment: "Stat pillar label: entries"),
+                           accent: false)
                 if photos > 0 {
                     digestDivider
-                    digestStat(value: "\(photos)", label: "PHOTOS", accent: false)
+                    digestStat(value: "\(photos)",
+                               label: NSLocalizedString("archive.stat.photos", comment: "Stat pillar label: photos"),
+                               accent: false)
                 }
                 if voice > 0 {
                     digestDivider
-                    digestStat(value: "\(voice)", label: "VOICE MIN", accent: false)
+                    digestStat(value: "\(voice)",
+                               label: NSLocalizedString("archive.stat.voiceMin", comment: "Stat pillar label: voice minutes"),
+                               accent: false)
                 }
                 if locations > 0 {
                     digestDivider
-                    digestStat(value: "\(locations)", label: "PLACES", accent: false)
+                    digestStat(value: "\(locations)",
+                               label: NSLocalizedString("archive.stat.places", comment: "Stat pillar label: places"),
+                               accent: false)
                 }
             }
         }
@@ -1573,59 +1634,74 @@ struct ArchiveView: View {
         RelativeDate.label(for: dateString, style: .caps)
     }
 
+    /// Journal-ledger row (W1): date column + one-line teaser + bare count.
+    /// Replaces the shouting per-day glass card — twice the days per screen,
+    /// and the scroll reads like flipping a ledger. Compiled days speak in
+    /// primary ink and an amber date; metadata-only days stay muted. Zero
+    /// photo/voice counters no longer occupy space (they said nothing).
     private func archiveListRow(stats: DayStats) -> some View {
-        let isMetadataOnly = !stats.isDailyPageCompiled
+        let isCompiled = stats.isDailyPageCompiled
+        let teaser: String? = {
+            if let s = stats.dailySummary, !s.isEmpty { return s }
+            return dayTeasers[stats.dateString]
+        }()
+        let stateLabel = isCompiled
+            ? NSLocalizedString("archive.a11y.day.compiled", comment: "A11y: day has a compiled daily page")
+            : NSLocalizedString("archive.a11y.day.rawOnly", comment: "A11y: day has raw memos only")
+
         return Button(action: {
             handleDateTap(dateStr: stats.dateString)
         }) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Text(relativeDateLabel(stats.dateString))
-                        .font(DSType.h2)
-                        .foregroundColor(DSColor.inkPrimary)
-                        .opacity(isMetadataOnly ? 0.7 : 1.0)
+            HStack(alignment: .firstTextBaseline, spacing: DSSpacing.md) {
+                Text(ledgerDateLabel(stats.dateString))
+                    .font(DSType.mono10)
+                    .tracking(0.5)
+                    .foregroundColor(isCompiled ? DSColor.accentOnBg : DSColor.inkMuted)
+                    .frame(width: 64, alignment: .leading)
 
-                    Spacer()
+                Text(teaser ?? "—")
+                    .font(DSType.bodySM)
+                    .foregroundColor(isCompiled ? DSColor.inkPrimary : DSColor.inkMuted)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
 
-                    StatusBadge(
-                        label: stats.isDailyPageCompiled ? "VERIFIED" : "METADATA",
-                        style: stats.isDailyPageCompiled ? .verified : .metadata
-                    )
-                }
+                Spacer(minLength: DSSpacing.sm)
 
-                if let summary = stats.dailySummary, !summary.isEmpty {
-                    Text(summary)
-                        .font(DSType.serifBody16)
-                        .foregroundColor(DSColor.inkMuted)
-                        .italic()
-                        .lineLimit(2)
-                        .opacity(isMetadataOnly ? 0.7 : 1.0)
-                }
-
-                HStack(spacing: DSSpacing.lg) {
-                    metaIcon("doc.text", count: stats.memoCount)
-                    metaIcon("photo", count: stats.photoCount)
-                    metaIcon("mic", count: stats.voiceMinutes, unit: "min")
-                }
-                .opacity(isMetadataOnly ? 0.7 : 1.0)
+                Text("\(stats.memoCount)")
+                    .font(DSType.mono10)
+                    .foregroundColor(DSColor.inkMuted)
             }
-            .padding(DSSpacing.cardGap)
+            .padding(.vertical, 13)
+            .padding(.horizontal, DSSpacing.xs)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .liquidGlassCard(cornerRadius: DSRadius.md)
-            .pressableCard()
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(DSColor.inkFaint)
+                .frame(height: 0.5)
+                .padding(.leading, 64 + DSSpacing.md)
+        }
         .modifier(ArchiveDayZoomSource(id: stats.dateString, namespace: dayZoomNamespace))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(relativeDateLabel(stats.dateString))，\(stateLabel)，\(stats.memoCount)")
+        .accessibilityHint(NSLocalizedString("archive.a11y.day.hint", comment: "A11y hint: calendar day cell opens the day detail"))
     }
 
-    private func metaIcon(_ systemName: String, count: Int, unit: String? = nil) -> some View {
-        HStack(spacing: DSSpacing.xs) {
-            Image(systemName: systemName)
-                .font(DSType.labelXS)
-                .foregroundColor(DSColor.inkMuted)
-            Text(unit != nil ? "\(count) \(unit!)" : "\(count)")
-                .monoLabelStyle(size: 11)
-                .foregroundColor(DSColor.inkMuted)
+    /// Fixed-width mono date column: relative caps for today/yesterday,
+    /// "07·12" for everything older.
+    private func ledgerDateLabel(_ dateString: String) -> String {
+        guard let date = DateFormatters.isoDate.date(from: dateString) else { return dateString }
+        let cal = Calendar.current
+        let days = cal.dateComponents([.day], from: cal.startOfDay(for: date), to: cal.startOfDay(for: Date())).day ?? 99
+        switch days {
+        case 0: return NSLocalizedString("archive.ledger.today", comment: "Ledger date column: today")
+        case 1: return NSLocalizedString("archive.ledger.yesterday", comment: "Ledger date column: yesterday")
+        default:
+            let parts = dateString.split(separator: "-")
+            guard parts.count == 3 else { return dateString }
+            return "\(parts[1])·\(parts[2])"
         }
     }
 }

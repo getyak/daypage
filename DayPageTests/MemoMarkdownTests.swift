@@ -219,4 +219,45 @@ struct MemoMarkdownTests {
         #expect(MemoMarkdown.cachedParse(text) == MemoMarkdown.parse(text))
         #expect(MemoMarkdown.cachedParse(text) == MemoMarkdown.cachedParse(text))
     }
+
+    // MARK: - plainText folding (search snippets)
+
+    @Test("plainText strips inline syntax")
+    func plainTextInline() {
+        let folded = MemoMarkdown.plainText("`grab` 叫车比想象中便宜——机场线 `THB 120`。**先续签**再说，*不排队*。")
+        #expect(!folded.contains("`"))
+        #expect(!folded.contains("*"))
+        #expect(folded.contains("grab 叫车比想象中便宜"))
+        #expect(folded.contains("THB 120"))
+        #expect(folded.contains("先续签"))
+    }
+
+    @Test("plainText flattens blocks to one line and drops dividers")
+    func plainTextBlocks() {
+        let source = """
+        # 标题
+
+        - [x] TM.30 房东回执
+        - 照片 4×6
+
+        ---
+
+        > 引用一句
+        """
+        let folded = MemoMarkdown.plainText(source)
+        #expect(!folded.contains("#"))
+        #expect(!folded.contains("---"))
+        #expect(!folded.contains("[x]"))
+        #expect(!folded.contains(">"))
+        #expect(!folded.contains("\n"))
+        #expect(folded.contains("标题"))
+        #expect(folded.contains("TM.30 房东回执"))
+        #expect(folded.contains("引用一句"))
+    }
+
+    @Test("plainText keeps plain memos verbatim modulo newlines")
+    func plainTextPlain() {
+        #expect(MemoMarkdown.plainText("没有语法的一条 memo。") == "没有语法的一条 memo。")
+        #expect(MemoMarkdown.plainText("两行\n合一行") == "两行 合一行")
+    }
 }

@@ -198,7 +198,13 @@ struct SidebarHeatmapView: View {
 
             // Month labels along the top edge. Canvas clips to its bounds, so
             // a label anchored at the last column (e.g. "JUL") must be clamped
-            // back inside the canvas or it renders truncated ("JU").
+            // back inside the canvas or it renders truncated ("JU"). Clamping
+            // can also drag a label leftwards onto its neighbour (a 16-week
+            // window that opens late in a month puts two labels one column
+            // apart → "MARAPR"), so any label that would start before the
+            // previous one ended is dropped — a missing month reads better
+            // than two fused ones.
+            var prevLabelMaxX: CGFloat = -.infinity
             for label in grid.monthLabels {
                 let rawX = railWidth + CGFloat(label.column) * (cellW + cellSpacing)
                 let text = Text(label.text)
@@ -207,7 +213,9 @@ struct SidebarHeatmapView: View {
                 let resolved = context.resolve(text)
                 let textWidth = resolved.measure(in: CGSize(width: 60, height: 12)).width
                 let x = min(rawX, size.width - textWidth)
+                guard x >= prevLabelMaxX + 6 else { continue }
                 context.draw(resolved, at: CGPoint(x: x, y: 4.5), anchor: .leading)
+                prevLabelMaxX = x + textWidth
             }
 
             // Day cells.
@@ -343,7 +351,7 @@ struct SidebarHeatmapView: View {
             if streak > 0 {
                 streakPill(
                     icon: "flame.fill",
-                    text: "\(streak) DAYS",
+                    text: "\(streak) \(Self.dayUnit(streak))",
                     fg: DSColor.accentAmber,
                     bg: DSColor.accentSoft,
                     border: DSColor.accentBorder
@@ -351,7 +359,7 @@ struct SidebarHeatmapView: View {
             } else if longestStreak > 0 {
                 streakPill(
                     icon: "flame",
-                    text: "BEST \(longestStreak) DAYS",
+                    text: "BEST \(longestStreak) \(Self.dayUnit(longestStreak))",
                     fg: DSColor.inkSubtle,
                     bg: DSColor.glassStd,
                     border: DSColor.borderSubtle
@@ -359,6 +367,10 @@ struct SidebarHeatmapView: View {
             }
         }
     }
+
+    /// Archival mono label unit (intentionally untranslated, FINDING-010) —
+    /// but never "1 DAYS".
+    private static func dayUnit(_ n: Int) -> String { n == 1 ? "DAY" : "DAYS" }
 
     private func streakPill(icon: String, text: String, fg: Color, bg: Color, border: Color) -> some View {
         HStack(spacing: 5) {
