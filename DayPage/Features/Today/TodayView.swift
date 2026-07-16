@@ -311,6 +311,17 @@ struct TodayView: View {
         CGFloat(heroFadeBucket) / 8.0
     }
 
+    // Hoisted out of the builder: `reduceMotion ? 1 : 1 - 0.85 * progress`
+    // inline is an "ambiguous use of operator '-'" on Xcode 26.3's solver
+    // (literal-vs-CGFloat overload picking inside a ternary inside a builder).
+    private var heroFadeOpacity: Double {
+        reduceMotion ? 1.0 : 1.0 - 0.85 * Double(heroFadeProgress)
+    }
+
+    private var heroFadeScale: CGFloat {
+        reduceMotion ? 1.0 : 1.0 - 0.05 * heroFadeProgress
+    }
+
     private var isInSelectionMode: Bool { selectedMemoIds != nil }
 
     /// Progress of the scroll-to-top ring: 0 at 240pt (button appears), 1 after
@@ -3046,8 +3057,8 @@ struct TodayView: View {
                         // uses (never the raw 60Hz value; see the
                         // `timelineScrollOffset` property doc).
                         orbHero
-                            .opacity(reduceMotion ? 1 : 1 - 0.85 * heroFadeProgress)
-                            .scaleEffect(reduceMotion ? 1 : 1 - 0.05 * heroFadeProgress, anchor: .top)
+                            .opacity(heroFadeOpacity)
+                            .scaleEffect(heroFadeScale, anchor: .top)
 
                         // 今日焦点 — collapsed to a single ghost line; expands
                         // on tap, summarizes once lenses are chosen.
