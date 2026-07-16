@@ -149,19 +149,19 @@ struct DailyPageView: View {
                             Button {
                                 showRecompileConfirm = true
                             } label: {
-                                Label("重新编译", systemImage: "arrow.clockwise")
+                                Label(NSLocalizedString("daily.menu.recompile", value: "Recompile", comment: "Daily page menu: recompile"), systemImage: "arrow.clockwise")
                             }
                             Button {
                                 showEditMetadata = true
                             } label: {
-                                Label("编辑元数据", systemImage: "pencil")
+                                Label(NSLocalizedString("daily.menu.editMetadata", value: "Edit Metadata", comment: "Daily page menu: edit metadata"), systemImage: "pencil")
                             }
                             // Issue #302: share daily page as card.
                             if let m = model {
                                 Button {
                                     sharePayload = .daily(DailySnapshot.from(m, rawMemos: rawMemos))
                                 } label: {
-                                    Label("分享为卡片", systemImage: "square.and.arrow.up.on.square")
+                                    Label(NSLocalizedString("daily.menu.shareCard", value: "Share as Card", comment: "Daily page menu: share as card"), systemImage: "square.and.arrow.up.on.square")
                                 }
                                 Button {
                                     var attrib = m.dateString
@@ -173,7 +173,7 @@ struct DailyPageView: View {
                                         attribution: attrib
                                     ))
                                 } label: {
-                                    Label("分享为引用", systemImage: "quote.opening")
+                                    Label(NSLocalizedString("daily.menu.shareQuote", value: "Share as Quote", comment: "Daily page menu: share as quote"), systemImage: "quote.opening")
                                 }
                                 let photoMemos = rawMemos.filter { $0.attachments.contains { $0.kind == "photo" } }
                                 if let firstPhoto = photoMemos.first,
@@ -181,7 +181,7 @@ struct DailyPageView: View {
                                     Button {
                                         sharePayload = .photo(snap)
                                     } label: {
-                                        Label("分享照片", systemImage: "photo.on.rectangle")
+                                        Label(NSLocalizedString("daily.menu.sharePhoto", value: "Share Photo", comment: "Daily page menu: share photo card"), systemImage: "photo.on.rectangle")
                                     }
                                 }
                                 let voiceMemos = rawMemos.filter { $0.attachments.contains { $0.kind == "audio" } }
@@ -190,7 +190,7 @@ struct DailyPageView: View {
                                     Button {
                                         sharePayload = .voice(snap)
                                     } label: {
-                                        Label("分享语音日记", systemImage: "mic.badge.plus")
+                                        Label(NSLocalizedString("daily.menu.shareVoice", value: "Share Voice Diary", comment: "Daily page menu: share voice card"), systemImage: "mic.badge.plus")
                                     }
                                 }
                             }

@@ -8,25 +8,25 @@ import DayPageServices
 /// people-page frontmatter. These tests pin the explicit singular mapping and
 /// the self-heal path for already-poisoned pages.
 ///
-/// Serialized for the same reason as EntitySlugDedupTests: global
-/// `VaultInitializer.testOverrideURL` + the `EntityPageService.shared` singleton.
-@Suite("EntityTypeSingularTests", .serialized)
+/// Uses a per-test `EntityPageService(vaultRootOverride:)` instance instead of
+/// the global `VaultInitializer.testOverrideURL` — parallel suites race on
+/// that global, which made these tests flake on CI while passing locally.
+@Suite("EntityTypeSingularTests")
 @MainActor
 struct EntityTypeSingularTests {
 
     private let tempDir: URL
     private let fm = FileManager.default
-    private var service: EntityPageService { EntityPageService.shared }
+    private let service: EntityPageService
 
     init() throws {
         tempDir = fm.temporaryDirectory
             .appendingPathComponent("EntityTypeSingularTests-\(UUID().uuidString)", isDirectory: true)
         try fm.createDirectory(at: tempDir, withIntermediateDirectories: true)
-        VaultInitializer.testOverrideURL = tempDir
+        service = EntityPageService(vaultRootOverride: tempDir)
     }
 
     private func cleanup() {
-        VaultInitializer.testOverrideURL = nil
         try? fm.removeItem(at: tempDir)
     }
 

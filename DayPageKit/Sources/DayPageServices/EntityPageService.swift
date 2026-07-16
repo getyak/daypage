@@ -53,7 +53,20 @@ public final class EntityPageService {
     // MARK: Singleton
 
     public static let shared = EntityPageService()
-    private init() {}
+    private init() { vaultRootOverride = nil }
+
+    // MARK: Vault root
+
+    /// Test seam: parallel test suites race on the process-global
+    /// `VaultInitializer.testOverrideURL`, so tests construct their own
+    /// instance pinned to a private temp vault instead of mutating the global.
+    private let vaultRootOverride: URL?
+
+    public init(vaultRootOverride: URL) {
+        self.vaultRootOverride = vaultRootOverride
+    }
+
+    private var vaultRoot: URL { vaultRootOverride ?? VaultInitializer.vaultURL }
 
     // MARK: - Apply Instructions
 
@@ -116,7 +129,7 @@ public final class EntityPageService {
         // Normalize: trim whitespace then re-sanitize so caller casing/spacing is irrelevant.
         let normalized = EntityPageService.sanitizeSlug(proposed.trimmingCharacters(in: .whitespaces))
 
-        let dir = VaultInitializer.vaultURL
+        let dir = vaultRoot
             .appendingPathComponent("wiki")
             .appendingPathComponent(type)
         let fm = FileManager.default
@@ -190,7 +203,7 @@ public final class EntityPageService {
     /// Returns a slug with an appended numeric suffix that doesn't collide with
     /// any existing file in the entity type directory (e.g. "coffee-2", "coffee-3").
     public func deduplicatedSlug(base: String, type: String) -> String {
-        let dir = VaultInitializer.vaultURL
+        let dir = vaultRoot
             .appendingPathComponent("wiki")
             .appendingPathComponent(type)
         var candidate = base
@@ -340,7 +353,7 @@ public final class EntityPageService {
 
     /// 更新 vault/wiki/index.md，将新创建的实体按类型分组纳入。
     private func updateIndex(newEntities: [(type: String, slug: String, name: String)]) throws {
-        let indexURL = VaultInitializer.vaultURL
+        let indexURL = vaultRoot
             .appendingPathComponent("wiki")
             .appendingPathComponent("index.md")
 
@@ -498,7 +511,7 @@ public final class EntityPageService {
     // MARK: - File Helpers
 
     private func entityURL(type: String, slug: String) -> URL {
-        VaultInitializer.vaultURL
+        vaultRoot
             .appendingPathComponent("wiki")
             .appendingPathComponent(type)
             .appendingPathComponent("\(slug).md")

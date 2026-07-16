@@ -38,6 +38,22 @@ struct MemoDetailView: View {
     // Share sheet (mono text → UIActivityViewController)
     @State private var showShareSheet: Bool = false
 
+    // Poster share (card/quote) — same ShareCardSheet pipeline as Today/Daily,
+    // so memo detail is no longer the one surface stuck with raw-text sharing.
+    @State private var sharePayload: SharePayload? = nil
+
+    /// "2026-07-16 · 宁曼路" — date plus location when available, matching the
+    /// attribution format the Daily page quote path uses.
+    private var quoteAttribution: String {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        var attrib = df.string(from: memo.created)
+        if let loc = memo.location?.name, !loc.isEmpty {
+            attrib += " · " + loc
+        }
+        return attrib
+    }
+
     // Entity Ink — tapped entity opens its wiki page (issue #835)
     @State private var selectedEntityType: String = "themes"
     @State private var selectedEntitySlug: String?
@@ -114,13 +130,38 @@ struct MemoDetailView: View {
 
                             Button {
                                 Haptics.soft()
+                                sharePayload = SharePayload.auto(from: memo)
+                            } label: {
+                                Label(NSLocalizedString(
+                                    "memo.detail.action.shareCard",
+                                    value: "Share as Card",
+                                    comment: "Detail view — menu: share as poster card"
+                                ), systemImage: "square.and.arrow.up")
+                            }
+
+                            Button {
+                                Haptics.soft()
+                                sharePayload = .quote(QuoteSnapshot(
+                                    text: MemoMarkdown.plainText(memo.body),
+                                    attribution: quoteAttribution
+                                ))
+                            } label: {
+                                Label(NSLocalizedString(
+                                    "memo.detail.action.shareQuote",
+                                    value: "Share as Quote",
+                                    comment: "Detail view — menu: share as quote card"
+                                ), systemImage: "quote.opening")
+                            }
+
+                            Button {
+                                Haptics.soft()
                                 showShareSheet = true
                             } label: {
                                 Label(NSLocalizedString(
                                     "memo.detail.action.share",
-                                    value: "Share",
-                                    comment: "Detail view — menu: share"
-                                ), systemImage: "square.and.arrow.up")
+                                    value: "Share as Text",
+                                    comment: "Detail view — menu: share plain text"
+                                ), systemImage: "text.alignleft")
                             }
 
                             Divider()
@@ -499,9 +540,12 @@ struct MemoDetailView: View {
         }
         .sheet(isPresented: $showShareSheet) {
             // Reuse the app-wide ShareSheet wrapper (Settings/ObsidianExport
-            // already ships it). Sends the memo body as plain text — future
-            // work can attach photo/audio URLs alongside.
-            ShareSheet(activityItems: [memo.body])
+            // already ships it). Markdown is folded to plain text — raw
+            // `**` asterisks leaking into shared text read as broken.
+            ShareSheet(activityItems: [MemoMarkdown.plainText(memo.body)])
+        }
+        .sheet(item: $sharePayload) { payload in
+            ShareCardSheet(payload: payload)
         }
         .confirmationDialog(
             NSLocalizedString(

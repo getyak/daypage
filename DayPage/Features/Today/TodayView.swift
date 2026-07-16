@@ -3107,7 +3107,9 @@ struct TodayView: View {
                                     attrib += " · " + loc
                                 }
                                 sharePayload = .quote(QuoteSnapshot(
-                                    text: memo.body,
+                                    // Fold markdown first — raw `**` asterisks
+                                    // on a quote poster read as a rendering bug.
+                                    text: MemoMarkdown.plainText(memo.body),
                                     attribution: attrib
                                 ))
                             },

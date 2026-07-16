@@ -196,6 +196,15 @@ final class BackgroundCompilationService: ObservableObject {
                     // Foreground backfill: full exponential backoff (no iOS BGTask budget).
                     try await compileWithRetry(for: date, trigger: "backfill", delays: Self.foregroundRetryDelays)
                     sendSuccessNotification(for: date)
+                } catch CompilationError.missingApiKey {
+                    // Fullchain audit P1: a missing key used to fail the whole
+                    // backfill batch silently — log-only, zero UI. Surface one
+                    // calm in-app banner (foreground pushes don't display) and
+                    // stop the batch: every remaining date fails identically,
+                    // so retry backoff on them is pure waste.
+                    DayPageLogger.shared.error("[BGCompile] Backfill halted: AI key not configured")
+                    Self.surfaceMissingKeyBannerOnce()
+                    break
                 } catch {
                     DayPageLogger.shared.error("[BGCompile] Backfill failed for \(formatter.string(from: date)): \(error.localizedDescription)")
                     // Continue to next date, don't abort the whole batch
@@ -584,18 +593,41 @@ final class BackgroundCompilationService: ObservableObject {
         }
     }
 
+    /// 一次性站内横幅：AI 密钥未配置导致编译暂停。每个 app 进程只提示一次，
+    /// 避免每次回前台都被同一句话打断。
+    private static var didShowMissingKeyBanner = false
+    private static func surfaceMissingKeyBannerOnce() {
+        guard !didShowMissingKeyBanner else { return }
+        didShowMissingKeyBanner = true
+        BannerCenter.shared.show(AppBannerModel(
+            kind: .info,
+            title: NSLocalizedString(
+                "today.compile.keymissing.banner",
+                value: "AI key not set — diary compilation is paused. Add one in Settings.",
+                comment: "Banner when backfill compilation halts because no AI key is configured"
+            ),
+            autoDismiss: true
+        ))
+    }
+
     /// 在所有重试尝试耗尽后发送失败通知。
     private func sendFailureNotification() {
         let center = UNUserNotificationCenter.current()
 
         let content = UNMutableNotificationContent()
         content.title = "DayPage"
-        content.body = "今日编译失败，点击查看"
+        content.body = NSLocalizedString(
+            "notif.compile.failed.body",
+            value: "Couldn't compile your page — tap to review.",
+            comment: "Push body when the nightly compilation fails after retries"
+        )
         content.sound = .default
         content.userInfo = ["compilationFailed": true]
 
+        // Stable identifier: repeated nightly failures collapse into one
+        // notification instead of stacking a guilt pile in Notification Center.
         let request = UNNotificationRequest(
-            identifier: "com.daypage.compilation-failed-\(Date().timeIntervalSince1970)",
+            identifier: "com.daypage.compilation-failed",
             content: content,
             trigger: nil
         )
