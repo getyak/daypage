@@ -478,8 +478,9 @@ struct DailyPageView: View {
                         .foregroundColor(DSColor.accentOnBg)
                 }
 
-                // Truncated body
-                Text(memo.body.isEmpty ? "(no text)" : memo.body)
+                // Truncated body — fold markdown syntax (**bold**, `code`)
+                // to plain text; a one-line teaser must never leak asterisks.
+                Text(memo.body.isEmpty ? "(no text)" : MemoMarkdown.plainText(memo.body))
                     .font(DSType.bodySM)
                     .foregroundColor(DSColor.inkPrimary)
                     .lineLimit(1)

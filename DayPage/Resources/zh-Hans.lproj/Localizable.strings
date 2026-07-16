@@ -895,8 +895,9 @@
 
 /* 编译完成通知 (R4-HIGH #35) */
 "notif.compile.success.title"                = "今日页面已生成";
-"notif.compile.success.body"                 = "DayPage 已编译完成你的今日记录。点按查看。";
-"notif.compile.success.body.partial"         = "已编译部分内容（%lld/%lld）。点按查看。";
+"notif.compile.success.title.dated"          = "%@ 的页面已生成";
+"notif.compile.success.body"                 = "DayPage 已编译完成这一天的记录。点按查看。";
+"notif.compile.success.body.partial"         = "已编译完成（%d 条更新失败）。点按查看。";
 
 /* 错误 — 定位忙 */
 "error.location.busy"                        = "定位服务繁忙，请稍后再试。";
@@ -942,8 +943,11 @@
 
 /* R6 — Today SyncQueue banner + sheet */
 "today.syncqueue.banner.pending"             = "%d 条 memo 待同步";
+"today.syncqueue.banner.pending.one"         = "%d 条 memo 待同步";
 "today.syncqueue.banner.flushing"            = "正在同步 %d 条…";
+"today.syncqueue.banner.flushing.one"        = "正在同步 %d 条…";
 "today.syncqueue.banner.waited_hours"        = "已等待 %d 小时";
+"today.syncqueue.banner.waited_hours.one"    = "已等待 %d 小时";
 "today.syncqueue.banner.waited_over_day"     = "网络受限，已等待超过 24 小时";
 "today.syncqueue.sheet.title"                = "待同步队列";
 "today.syncqueue.sheet.summary"              = "%d 条 memo 等待上传";

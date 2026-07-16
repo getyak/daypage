@@ -735,6 +735,16 @@ struct TodayView: View {
                 // .onAppear reads when SceneStorage comes back empty.
                 draftSaveTask?.cancel()
                 let snapshot = draftText
+                // Clearing (send / confirmed discard) must NOT wait out the
+                // debounce: a process kill inside the 0.8s window leaves the
+                // stale mirror behind, and the next cold launch resurrects a
+                // draft the user explicitly destroyed or already sent. An
+                // empty write is a single event, so flush it synchronously.
+                if snapshot.isEmpty {
+                    draftDate = 0
+                    UserDefaults.standard.removeObject(forKey: draftBackupKey)
+                    return
+                }
                 draftSaveTask = Task {
                     try? await Task.sleep(nanoseconds: 800_000_000)
                     guard !Task.isCancelled else { return }
@@ -1440,7 +1450,9 @@ struct TodayView: View {
         if syncQueue.isFlushingNow {
             return String(
                 format: NSLocalizedString(
-                    "today.syncqueue.banner.flushing",
+                    count == 1
+                        ? "today.syncqueue.banner.flushing.one"
+                        : "today.syncqueue.banner.flushing",
                     value: "正在同步 %d 条…",
                     comment: "Today banner headline while an upload pass is running"
                 ),
@@ -1449,7 +1461,9 @@ struct TodayView: View {
         }
         return String(
             format: NSLocalizedString(
-                "today.syncqueue.banner.pending",
+                count == 1
+                    ? "today.syncqueue.banner.pending.one"
+                    : "today.syncqueue.banner.pending",
                 value: "%d 条 memo 待同步",
                 comment: "Today banner headline: N memos waiting for cloud sync"
             ),
@@ -1697,9 +1711,13 @@ struct TodayView: View {
                             .foregroundColor(DSColor.statusError)
                             .lineLimit(1)
                     } else if syncQueueWaitedTooLong {
+                        // Per-count key pair, same pattern as FINDING-010
+                        // ("1 RESULTS") — avoids shipping "Waiting 1 hours".
                         Text(String(
                             format: NSLocalizedString(
-                                "today.syncqueue.banner.waited_hours",
+                                syncQueueWaitedHours == 1
+                                    ? "today.syncqueue.banner.waited_hours.one"
+                                    : "today.syncqueue.banner.waited_hours",
                                 value: "已等待 %d 小时",
                                 comment: "Today banner sub-label: queue stuck for N hours"
                             ),

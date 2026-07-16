@@ -888,8 +888,9 @@
 
 /* Compile finished notification (R4-HIGH #35) */
 "notif.compile.success.title"                = "Today's page is ready";
-"notif.compile.success.body"                 = "DayPage has compiled your entries for today. Tap to read.";
-"notif.compile.success.body.partial"         = "Compiled partial entries (%lld/%lld). Tap to read.";
+"notif.compile.success.title.dated"          = "Your %@ page is ready";
+"notif.compile.success.body"                 = "DayPage has compiled your entries for this day. Tap to read.";
+"notif.compile.success.body.partial"         = "Compiled with %d failed updates. Tap to read.";
 
 /* Error — location busy */
 "error.location.busy"                        = "Location service is busy. Please try again.";
@@ -935,8 +936,11 @@
 
 /* R6 — Today SyncQueue banner + sheet */
 "today.syncqueue.banner.pending"             = "%d memos pending sync";
+"today.syncqueue.banner.pending.one"         = "%d memo pending sync";
 "today.syncqueue.banner.flushing"            = "Syncing %d memos…";
+"today.syncqueue.banner.flushing.one"        = "Syncing %d memo…";
 "today.syncqueue.banner.waited_hours"        = "Waiting %d hours";
+"today.syncqueue.banner.waited_hours.one"    = "Waiting %d hour";
 "today.syncqueue.banner.waited_over_day"     = "Network unavailable — waiting over 24 hours";
 "today.syncqueue.sheet.title"                = "Pending sync";
 "today.syncqueue.sheet.summary"              = "%d memos waiting to upload";

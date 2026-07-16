@@ -448,7 +448,7 @@ struct MemoChatView: View {
                     .font(DSType.mono9)
                     .tracking(1.0)
                     .foregroundColor(DSColor.inkMuted)
-                Text(memo.body.replacingOccurrences(of: "\n", with: " "))
+                Text(MemoMarkdown.plainText(memo.body).replacingOccurrences(of: "\n", with: " "))
                     .font(DSFonts.serif(size: 13, weight: .regular, relativeTo: .footnote))
                     .foregroundColor(DSColor.inkSecondary)
                     .lineLimit(2)

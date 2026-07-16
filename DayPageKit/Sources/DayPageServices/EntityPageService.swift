@@ -16,6 +16,20 @@ public struct EntityUpdateInstruction {
     public let content: String
     /// 人类可读的显示名称，例如 "Joma Coffee"
     public let displayName: String
+
+    public init(
+        entityType: String,
+        entitySlug: String,
+        section: String,
+        content: String,
+        displayName: String
+    ) {
+        self.entityType = entityType
+        self.entitySlug = entitySlug
+        self.section = section
+        self.content = content
+        self.displayName = displayName
+    }
 }
 
 // MARK: - EntityPageService
@@ -213,7 +227,7 @@ public final class EntityPageService {
         let typeLabel = entityTypeLabel(instruction.entityType)
         var lines: [String] = [
             "---",
-            "type: \(instruction.entityType.dropLast())", // "place" / "person" / "theme"
+            "type: \(entityTypeSingular(instruction.entityType))", // "place" / "person" / "theme"
             "name: \"\(escapedYAML(instruction.displayName))\"",
             "slug: \(instruction.entitySlug)",
             "first_seen: \(firstSeen)",
@@ -248,6 +262,14 @@ public final class EntityPageService {
         date: String
     ) throws {
         var pageContent = try String(contentsOf: url, encoding: .utf8)
+
+        // 自愈历史 dropLast 产物：type: peopl → type: person
+        if pageContent.contains("\ntype: peopl\n") {
+            pageContent = pageContent.replacingOccurrences(
+                of: "\ntype: peopl\n",
+                with: "\ntype: person\n"
+            )
+        }
 
         // 更新 frontmatter 字段
         pageContent = updateFrontmatterField(
@@ -525,6 +547,17 @@ public final class EntityPageService {
             if char == "#" { level += 1 } else { break }
         }
         return level
+    }
+
+    /// Frontmatter `type:` value for an entity folder name.
+    /// Explicit mapping — naive dropLast() turned "people" into "peopl".
+    func entityTypeSingular(_ type: String) -> String {
+        switch type {
+        case "places": return "place"
+        case "people": return "person"
+        case "themes": return "theme"
+        default: return type
+        }
     }
 
     private func entityTypeLabel(_ type: String) -> String {

@@ -458,6 +458,15 @@ final class BackgroundCompilationService: ObservableObject {
         return f
     }()
 
+    /// User-facing date for notification copy ("Jul 8" / "7月8日") —
+    /// follows the device locale, unlike the POSIX file-name formatter above.
+    private static let displayDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale.current
+        f.setLocalizedDateFormatFromTemplate("MMMd")
+        return f
+    }()
+
     /// 如果 `date` 需要编译则返回 true（issue #814 升级为 stale 检测）：
     ///   1. raw 存在且 daily 缺失 → true（经典缺页路径）；
     ///   2. daily 存在且 frontmatter 带 source_hash，但与当前 raw 内容的
@@ -518,24 +527,39 @@ final class BackgroundCompilationService: ObservableObject {
 
         let dateString = Self.dateFormatter.string(from: date)
 
+        // Backfill compiles days that are NOT today — a hardcoded "Today's
+        // page is ready" title lies about which page just landed. Name the
+        // actual date unless it really is today's page.
+        let isToday = Calendar.current.isDateInToday(date)
+        let displayDate = Self.displayDateFormatter.string(from: date)
+
         let content = UNMutableNotificationContent()
-        content.title = NSLocalizedString(
-            "notif.compile.success.title",
-            value: "今日 Daily Page 已生成",
-            comment: "Local notification title fired after a successful nightly compilation"
-        )
+        if isToday {
+            content.title = NSLocalizedString(
+                "notif.compile.success.title",
+                value: "今日 Daily Page 已生成",
+                comment: "Local notification title fired after a successful compilation of today's page"
+            )
+        } else {
+            let fmt = NSLocalizedString(
+                "notif.compile.success.title.dated",
+                value: "%@ 的 Daily Page 已生成",
+                comment: "Notification title when a past day was compiled (backfill); %@ is the localized date"
+            )
+            content.title = String(format: fmt, displayDate)
+        }
         if failures > 0 {
             let fmt = NSLocalizedString(
                 "notif.compile.success.body.partial",
-                value: "AI 已编译完成 (%d 条更新失败)，点击查看今日的故事",
+                value: "AI 已编译完成 (%d 条更新失败)，点击查看这一天的故事",
                 comment: "Notification body when compile succeeded but some memo writes failed"
             )
             content.body = String(format: fmt, failures)
         } else {
             content.body = NSLocalizedString(
                 "notif.compile.success.body",
-                value: "AI 已编译完成，点击查看今日的故事",
-                comment: "Notification body for a fully successful nightly compilation"
+                value: "AI 已编译完成，点击查看这一天的故事",
+                comment: "Notification body for a fully successful compilation"
             )
         }
         content.sound = .default

@@ -980,7 +980,7 @@ struct TimelineDayPreviewCard: View {
             Divider().padding(.vertical, 2)
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(memos.prefix(3), id: \.id) { memo in
-                    Text(memo.body)
+                    Text(MemoMarkdown.plainText(memo.body))
                         .font(DSFonts.inter(size: 13, relativeTo: .footnote))
                         .foregroundColor(DSColor.inkPrimary.opacity(0.85))
                         .lineLimit(2)
