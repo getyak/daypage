@@ -445,7 +445,7 @@
 "settings.ai.model" = "Model";
 "settings.ai.provider" = "Provider";
 "settings.ai.endpoint" = "Endpoint";
-"settings.ai.footer" = "AI compilation is read-only. Change the API key and model via the API Keys section above.";
+"settings.ai.footer" = "Powers the nightly daily digest and Ask the Past. Model and endpoint are fixed by the build; edit the key right here.";
 
 /* Markdown Export — US-019 */
 "export.action.title"  = "Export as Markdown";
@@ -652,11 +652,11 @@
 "settings.data.vault.computing"              = "Calculating…";
 "settings.nav.title"                         = "Settings";
 "settings.nav.close"                         = "Close";
-"settings.apikey.editor.title"               = "Enter the API Key for %@";
-"settings.apikey.editor.placeholder"         = "sk-... or paste directly";
+"settings.apikey.editor.title"               = "Enter the value for %@";
+"settings.apikey.editor.placeholder"         = "Paste or type the key";
 "settings.apikey.editor.paste"               = "Paste";
 "settings.apikey.editor.clear"               = "Clear";
-"settings.apikey.editor.nav.title"           = "Configure API Key";
+"settings.apikey.editor.nav.title"           = "Configure Credential";
 "settings.apikey.editor.cancel"              = "Cancel";
 "settings.apikey.editor.save"                = "Save";
 "settings.account.section"                   = "Account";
@@ -1192,3 +1192,129 @@
 "chat.river.badge.ask"              = "ASK";
 "chat.river.badge.memo"             = "MEMO";
 "chat.river.badge.coach"            = "COACH";
+
+
+// MARK: - Settings hub (2026-07 restructure)
+"settings.hub.aivoice"                       = "AI & Voice";
+"settings.hub.reminders"                     = "Reminders & Alerts";
+"settings.hub.syncdata"                      = "Sync & Data";
+"settings.hub.about"                         = "About DayPage";
+"settings.hub.aivoice.summary.verified"      = "%@ · Verified";
+"settings.hub.aivoice.summary.failed"        = "Voice test failed";
+"settings.hub.aivoice.summary.unverified"    = "Not verified yet";
+"settings.hub.reminders.summary.none"        = "Off";
+"settings.hub.sync.summary.off"              = "iCloud off";
+"settings.hub.sync.summary.on"               = "iCloud on";
+"settings.hub.sync.summary.syncing"          = "Syncing…";
+"settings.hub.sync.summary.error"            = "Sync error";
+
+// Voice section
+"settings.voice.section"                     = "Speech to Text";
+"settings.voice.footer"                      = "When the selected engine has no credentials or a call fails, transcription falls back to on-device recognition — capture never breaks, but quality may drop.";
+"settings.services.section"                  = "Other Services";
+"settings.services.footer"                   = "Weather is attached to each memo's context. Without a key, weather is skipped.";
+
+// AI usage
+"settings.ai.usage.section"                  = "AI Usage";
+"settings.ai.usage.month_total"              = "This month (estimated)";
+"settings.ai.usage.tokens_format"            = "%d tokens";
+"settings.ai.usage.active_days"              = "Active days";
+"settings.ai.usage.budget"                   = "Monthly cap";
+"settings.ai.usage.budget.unset"             = "Not set";
+"settings.ai.usage.warning"                  = "You have used 80% of this month's budget — consider raising the cap or compiling less often.";
+"settings.ai.usage.footer"                   = "Estimated as tokens ≈ characters / 4, covering daily digests, weekly reviews, Ask the Past, and every other AI call. Data stays on this device.";
+
+// Doubao unified config
+"settings.doubao.nav.title"                  = "Doubao Speech";
+"settings.doubao.title"                      = "Doubao · Volcano Engine";
+"settings.doubao.row.subtitle"               = "App ID + Access Token";
+"settings.doubao.status.footer"              = "Powers live dictation and voice-memo transcription. Both endpoints are tested with a real speech sample.";
+"settings.doubao.verified_at"                = "Verified · %@";
+"settings.doubao.verified_at_format"         = "MMM d, HH:mm";
+"settings.doubao.failed_at"                  = "Failed: %@";
+"settings.doubao.subtitle.unverified"        = "Configured — run the test below";
+"settings.doubao.subtitle.not_configured"    = "Both fields are required";
+"settings.doubao.credentials.section"        = "Credentials · Both Required";
+"settings.doubao.credentials.footer"         = "Get both from console.volcengine.com → Speech Technology → your app. They belong to the same app and only work as a pair. The old Secret Key field is gone — nothing ever used it.";
+"settings.doubao.appid.placeholder"          = "Numeric app ID, e.g. 8927462501";
+"settings.doubao.token.placeholder"          = "Access token";
+"settings.doubao.save"                       = "Save credentials";
+"settings.doubao.saved"                      = "Saved";
+"settings.doubao.saved.banner"               = "Doubao credentials saved";
+"settings.doubao.test.section"               = "Real Transcription Test";
+"settings.doubao.test.run"                   = "Run real transcription test";
+"settings.doubao.test.running"               = "Testing…";
+"settings.doubao.test.save_first"            = "Save the credentials first, then test.";
+"settings.doubao.test.footer"                = "Sends a bundled speech sample (\"%@\") to both production endpoints — file transcription and live streaming — and checks the recognized text. Green means your voice memos will actually transcribe.";
+"settings.doubao.test.need_credentials"      = "Fill in App ID and Access Token first.";
+"settings.doubao.test.credentials_ok"        = "Both credentials present";
+"settings.doubao.test.result_format"         = "Recognized: \"%@\" · %.1fs";
+"settings.doubao.test.mismatch"              = "Service replied, but the text does not match the sample: \"%@\"";
+"settings.doubao.test.sample_missing"        = "Bundled test audio is missing from this build.";
+"settings.doubao.test.timeout"               = "Timed out waiting for the service.";
+"settings.doubao.step.credentials"           = "Credential check";
+"settings.doubao.step.file"                  = "File transcription (voice memos)";
+"settings.doubao.step.stream"                = "Live streaming (dictation)";
+"settings.doubao.state.not_configured"       = "Not set";
+"settings.doubao.state.unverified"           = "Not verified";
+"settings.doubao.state.verified"             = "Verified ✓";
+"settings.doubao.state.failed"               = "Failed";
+"settings.doubao.resource.file"              = "File transcription (auc_turbo)";
+"settings.doubao.resource.stream"            = "Streaming (sauc.duration)";
+"settings.doubao.hint.quota"                 = "Streaming quota exhausted or not purchased (45000292) — open the Volcano console → Speech Recognition → enable/refill the hourly streaming package.";
+"settings.doubao.hint.not_granted"           = "The \"%@\" resource is not enabled for this app — enable it in the Volcano console → Speech Recognition. Resources are enabled one by one; the other one working does not cover this.";
+"settings.doubao.hint.not_allowed"           = "The endpoint rejected the \"%@\" resource ID — usually a product-line mismatch in the console.";
+"settings.doubao.hint.audio_format"          = "The service rejected the audio format (45000151).";
+"settings.doubao.hint.credentials"           = "Credentials rejected — re-check App ID and Access Token in the Volcano console.";
+"settings.doubao.hint.unknown"               = "Request failed — check the network and try again.";
+
+// Web sync
+"settings.websync.section"                   = "Sync to Web";
+"settings.websync.url"                       = "Web address";
+"settings.websync.key.placeholder"           = "Paste the key from the web app";
+"settings.websync.save"                      = "Save & sync now";
+"settings.websync.saved"                     = "Saved";
+"settings.websync.configured"                = "Configured";
+"settings.websync.pending"                   = "Waiting to sync";
+"settings.websync.pending_count"             = "%d items";
+"settings.websync.all_synced"                = "Everything synced";
+"settings.websync.footer"                    = "In the web app, go to Settings → API Keys and create a key with write access, then paste it here. Memos you write in the app sync to your web account automatically.";
+
+// Data & danger zone
+"settings.data.export_full"                  = "Export everything (.zip)";
+"settings.data.export_full.working"          = "Packing everything…";
+"settings.data.export_full.failed.title"     = "Full export failed";
+"settings.data.export_full.failed.reason"    = "%@ — most common when disk space is low or iCloud is mid-sync.";
+"settings.danger.section"                    = "Danger Zone";
+"settings.danger.footer"                     = "These actions cannot be undone. Deleting local data does not touch your cloud account.";
+"settings.common.retry"                      = "Try again";
+"settings.common.dismiss"                    = "Not now";
+
+// iCloud last-sync formats
+"settings.icloud.lastsync.today_format"      = "'Today' HH:mm";
+"settings.icloud.lastsync.date_format"       = "MMM d · HH:mm";
+
+// Reminders & notifications (previously hardcoded Chinese)
+"settings.reminder.frequency"                = "Reminder frequency";
+"settings.reminder.active"                   = "Active reminders";
+"settings.reminder.count"                    = "%d";
+"settings.reminder.quiet"                    = "Quiet hours";
+"settings.reminder.alarmkit"                 = "Dynamic Island alerts";
+"settings.reminder.alarmkit.denied"          = "Alerts are not authorized, so the Dynamic Island will not appear — enable it in Settings › DayPage.";
+"settings.reminder.section"                  = "Capture Reminders";
+"settings.reminder.footer"                   = "At the set time you get a local notification (landing in the Dynamic Island) nudging you to log a line. Long-press it to choose voice or text.\nAdd or remove reminders on the Today page, or just tell Ask the Past to remind you every night at 10. Repeating reminders inside quiet hours are skipped.";
+"settings.notifications.compile"             = "Daily digest ready";
+"settings.notifications.section_title"       = "Notifications";
+"settings.notifications.footer"              = "When the 2:00 AM background digest finishes, a local notification lands on your lock screen.";
+"settings.experiments.simulate_offline"      = "Simulate offline mode";
+
+// About & developer options
+"settings.about.dev_unlock_progress"         = "%d more taps to unlock developer options";
+"settings.dev.unlocked"                      = "Developer options unlocked";
+"settings.dev.entry"                         = "Developer options";
+"settings.dev.title"                         = "Developer Options";
+"settings.analytics.empty"                   = "No events yet today";
+"settings.analytics.recent"                  = "Last %d events";
+"settings.analytics.clear"                   = "Clear debug events";
+"settings.analytics.section"                 = "Debug Board · Event Stream";
+"settings.analytics.footer"                  = "Shows today's event counts and the last 12 entries from vault/.analytics/events.jsonl. Visible on this device only.";

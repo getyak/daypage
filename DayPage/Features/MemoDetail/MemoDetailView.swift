@@ -27,6 +27,10 @@ struct MemoDetailView: View {
     // Edit body state
     @State private var isEditingBody: Bool = false
     @State private var editedBody: String = ""
+    /// Content-driven editor height, measured by MarkdownEditor's coordinator.
+    @State private var editorHeight: CGFloat = 180
+    /// Bridges the docked format bar to the editor's coordinator.
+    @StateObject private var editorController = MarkdownEditorController()
 
     // Delete confirmation
     @State private var showDeleteConfirm: Bool = false
@@ -88,9 +92,7 @@ struct MemoDetailView: View {
 
                         Menu {
                             Button {
-                                Haptics.soft()
-                                editedBody = memo.body
-                                isEditingBody = true
+                                startBodyEdit()
                             } label: {
                                 Label(NSLocalizedString(
                                     "memo.detail.action.edit",
@@ -171,64 +173,132 @@ struct MemoDetailView: View {
                         })
 
                     if isEditingBody {
+                        // In-place editing cabin (Markdown M3, WYSIWYG):
+                        // prose reads fully rendered — syntax characters
+                        // conceal except on the caret's line (Typora line-
+                        // reveal) — with the format bar docked to the
+                        // cabin's bottom edge.
                         VStack(alignment: .leading, spacing: 10) {
-                            TextEditor(text: $editedBody)
-                                .font(DSType.serifBody16)
-                                .foregroundColor(DSColor.inkPrimary)
-                                .frame(minHeight: 120)
-                                .scrollContentBackground(.hidden)
+                            VStack(spacing: 0) {
+                                MarkdownEditor(
+                                    text: $editedBody,
+                                    measuredHeight: $editorHeight,
+                                    controller: editorController
+                                )
+                                .frame(height: editorHeight)
+
+                                MarkdownFormatBar { action in
+                                    editorController.perform(action)
+                                }
+                            }
                                 .background(DSColor.glassLo)
                                 .clipShape(RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: DSRadius.sm, style: .continuous)
+                                        .strokeBorder(DSColor.amberRim, lineWidth: 0.5)
+                                )
 
                             HStack(spacing: DSSpacing.md) {
-                                Button(NSLocalizedString(
-                                    "memo.detail.edit.cancel",
-                                    value: "Cancel",
-                                    comment: "Detail view — cancel body edit"
-                                )) {
+                                Button {
                                     Haptics.soft()
-                                    isEditingBody = false
+                                    dismissKeyboard()
+                                    withAnimation(.easeOut(duration: 0.18)) {
+                                        isEditingBody = false
+                                    }
+                                } label: {
+                                    Text(NSLocalizedString(
+                                        "memo.detail.edit.cancel",
+                                        value: "Cancel",
+                                        comment: "Detail view — cancel body edit"
+                                    ))
+                                    .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
+                                    .tracking(0.6)
+                                    .textCase(.uppercase)
+                                    .foregroundColor(DSColor.inkMuted)
                                 }
-                                .font(DSType.bodySM)
-                                .foregroundColor(DSColor.inkMuted)
                                 .buttonStyle(.plain)
 
                                 Spacer()
 
-                                Button(NSLocalizedString(
-                                    "memo.detail.edit.save",
-                                    value: "Save",
-                                    comment: "Detail view — save body edit"
-                                )) {
+                                Button {
                                     Haptics.tapConfirm()
+                                    dismissKeyboard()
                                     vm.update(memo: memo, body: editedBody)
-                                    isEditingBody = false
+                                    withAnimation(.easeOut(duration: 0.18)) {
+                                        isEditingBody = false
+                                    }
+                                } label: {
+                                    Text(NSLocalizedString(
+                                        "memo.detail.edit.save",
+                                        value: "Save",
+                                        comment: "Detail view — save body edit"
+                                    ))
+                                    .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
+                                    .tracking(0.6)
+                                    .textCase(.uppercase)
+                                    .foregroundColor(DSColor.accentOnBg)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(DSColor.amberSoft)
+                                    .clipShape(Capsule())
+                                    .overlay(Capsule().strokeBorder(DSColor.amberRim, lineWidth: 0.5))
                                 }
-                                .font(DSType.bodySM)
-                                .foregroundColor(DSColor.accentOnBg)
                                 .buttonStyle(.plain)
+                                .disabled(editedBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                                .pressScale(scale: 0.96, opacity: 0.9,
+                                            animation: .spring(response: 0.2, dampingFraction: 0.7))
+                                .accessibilityIdentifier("memo.detail.body.save")
                             }
                         }
                         .padding(.bottom, 14)
                     } else if !bodyTrimmed.isEmpty && !isBodyDuplicate {
-                        Text(inkedBody(bodyTrimmed))
-                            .font(DSType.serifBody16)
-                            .foregroundColor(DSColor.inkPrimary)
-                            // Line-spacing raised from 6→8 (≈1.5× serifBody16) so
-                            // long-form journal entries breathe like a printed
-                            // page. Below 8pt the CJK stroke density read as a
-                            // tight paragraph rather than reflective prose.
-                            .lineSpacing(8)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .textSelection(.enabled)
-                            .environment(\.openURL, OpenURLAction { url in
-                                guard url.scheme == "daypage-entity" else { return .systemAction }
-                                if let slug = URLComponents(url: url, resolvingAgainstBaseURL: false)?
-                                    .queryItems?.first(where: { $0.name == "s" })?.value {
-                                    openEntity(slug: slug)
-                                }
-                                return .handled
-                            })
+                        // Markdown M1 — full block rendering with entity ink
+                        // merged in one pass (MarkdownBodyView is the ink
+                        // engine; flag-off falls back inside via isPlain to
+                        // the same serif look, so only the markdown parse is
+                        // gated here).
+                        Group {
+                            if FeatureFlagStore.shared.isEnabled(.markdownRendering) {
+                                MarkdownBodyView(
+                                    text: bodyTrimmed,
+                                    // Line-spacing 8 (≈1.5× serifBody16) so
+                                    // long-form journal entries breathe like a
+                                    // printed page.
+                                    lineSpacing: 8,
+                                    blockSpacing: 12,
+                                    entitySlugs: memo.entityMentions,
+                                    entityDisplayNames: entityDisplayNames
+                                )
+                            } else {
+                                Text(inkedBody(bodyTrimmed))
+                                    .font(DSType.serifBody16)
+                                    .foregroundColor(DSColor.inkPrimary)
+                                    .lineSpacing(8)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                        .contentShape(Rectangle())
+                        // Tap the prose to edit it — the ellipsis-menu route
+                        // stays for discoverability, but the body itself is
+                        // the affordance. Entity links keep priority: link
+                        // taps are handled by Text before this gesture.
+                        .onTapGesture {
+                            startBodyEdit()
+                        }
+                        .environment(\.openURL, OpenURLAction { url in
+                            guard url.scheme == "daypage-entity" else { return .systemAction }
+                            if let slug = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                                .queryItems?.first(where: { $0.name == "s" })?.value {
+                                openEntity(slug: slug)
+                            }
+                            return .handled
+                        })
+                        .accessibilityHint(NSLocalizedString(
+                            "memo.detail.a11y.tap_to_edit",
+                            value: "双击以编辑正文",
+                            comment: "Detail view — body tap-to-edit VoiceOver hint"
+                        ))
                     }
 
                     // MARK: AI Marginalia (issue #835)
@@ -468,6 +538,27 @@ struct MemoDetailView: View {
                 value: "This cannot be undone.",
                 comment: "Detail view — delete confirmation warning body"
             ))
+        }
+    }
+
+    // MARK: - Body editing
+
+    /// MarkdownEditor manages first-responder itself; SAVE/CANCEL just need
+    /// the keyboard gone before the cabin collapses.
+    private func dismissKeyboard() {
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil
+        )
+    }
+
+    /// Single entry point for both edit affordances (body tap + ellipsis
+    /// menu): seed the editor with the *raw* vault text — view mode renders
+    /// markdown, edit mode shows exactly what's stored.
+    private func startBodyEdit() {
+        Haptics.soft()
+        editedBody = memo.body
+        withAnimation(.easeOut(duration: 0.18)) {
+            isEditingBody = true
         }
     }
 
