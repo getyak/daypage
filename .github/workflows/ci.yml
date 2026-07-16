@@ -305,7 +305,7 @@ jobs:
       - name: Cache DerivedData
         uses: actions/cache@v4
         with:
-          path: ~/Library/Developer/Xcode/DerivedData
+          path: build/DD
           key: deriveddata-ci-${{ hashFiles('DayPage.xcodeproj/project.pbxproj') }}-${{ runner.os }}
           restore-keys: |
             deriveddata-ci-${{ hashFiles('DayPage.xcodeproj/project.pbxproj') }}-
@@ -354,25 +354,27 @@ jobs:
             DEST="platform=iOS Simulator,name=iPhone 16"
           fi
           echo "Using simulator: $DEST"
-          # NOTE: no `-sdk iphonesimulator` here — a global -sdk override is
-          # applied to EVERY target, so the embedded DayPageWatch app got
-          # compiled against the iPhone SDK and died on `import WatchKit`.
-          # The -destination alone pins the platform; per-target SDKs
-          # (watchsimulator for the watch app) then resolve correctly, same
-          # as the green xcode-tests job.
+          # NOTE 1: no `-sdk iphonesimulator` — a global -sdk override applies
+          # to EVERY target, so the embedded DayPageWatch app got compiled
+          # against the iPhone SDK and died on `import WatchKit`.
+          # NOTE 2: no `CONFIGURATION_BUILD_DIR` — flattening products into
+          # one dir makes the shared SPM packages (DayPageModels etc.) build
+          # once per platform (iphonesimulator + watchsimulator) into the SAME
+          # path → "Multiple commands produce". -derivedDataPath keeps the
+          # per-platform Products/ subdirs.
           xcodebuild \
             -scheme DayPage \
             -destination "$DEST" \
             CODE_SIGNING_ALLOWED=NO \
             COMPILER_CONTENT_PROTECTION=NO \
-            CONFIGURATION_BUILD_DIR=$PWD/build/Products \
+            -derivedDataPath $PWD/build/DD \
             build 2>&1 | tee build.log
           grep 'BUILD SUCCEEDED' build.log
 
       - name: Export built .app path
         id: app_path
         run: |
-          APP=$(find build/Products -name "DayPage.app" -maxdepth 3 | head -1)
+          APP=$(find build/DD/Build/Products -name "DayPage.app" -maxdepth 3 | head -1)
           echo "app_path=$APP" >> "$GITHUB_OUTPUT"
           echo "Found .app: $APP"
 
@@ -380,7 +382,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: DayPage-app-${{ github.sha }}
-          path: build/Products
+          path: build/DD/Build/Products/Debug-iphonesimulator
           retention-days: 1
 
   ui-tests:
