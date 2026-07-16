@@ -507,7 +507,7 @@
 "settings.ai.model" = "模型";
 "settings.ai.provider" = "服务商";
 "settings.ai.endpoint" = "接入点";
-"settings.ai.footer" = "AI 编译信息仅供查看。如需更换模型，请在上方「API Keys」中配置。";
+"settings.ai.footer" = "驱动每日整理与「问过去」。模型与端点由构建决定；密钥就在本区编辑。";
 
 /* Markdown Export — US-019 */
 "export.action.title"  = "导出为 Markdown";
@@ -659,11 +659,11 @@
 "settings.data.vault.computing"              = "计算中…";
 "settings.nav.title"                         = "设置";
 "settings.nav.close"                         = "关闭";
-"settings.apikey.editor.title"               = "填入 %@ 的 API Key";
-"settings.apikey.editor.placeholder"         = "sk-... 或直接粘贴";
+"settings.apikey.editor.title"               = "填入 %@";
+"settings.apikey.editor.placeholder"         = "粘贴或输入密钥";
 "settings.apikey.editor.paste"               = "粘贴";
 "settings.apikey.editor.clear"               = "清除";
-"settings.apikey.editor.nav.title"           = "配置 API Key";
+"settings.apikey.editor.nav.title"           = "配置凭据";
 "settings.apikey.editor.cancel"              = "取消";
 "settings.apikey.editor.save"                = "保存";
 "settings.account.section"                   = "账号";
@@ -1199,3 +1199,129 @@
 "chat.river.badge.ask"              = "问";
 "chat.river.badge.memo"             = "锚";
 "chat.river.badge.coach"            = "陪写";
+
+
+// MARK: - 设置 hub（2026-07 重组）
+"settings.hub.aivoice"                       = "AI 与语音";
+"settings.hub.reminders"                     = "提醒与通知";
+"settings.hub.syncdata"                      = "同步与数据";
+"settings.hub.about"                         = "关于 DayPage";
+"settings.hub.aivoice.summary.verified"      = "%@ · 已验证";
+"settings.hub.aivoice.summary.failed"        = "语音测试未通过";
+"settings.hub.aivoice.summary.unverified"    = "尚未验证";
+"settings.hub.reminders.summary.none"        = "未开启";
+"settings.hub.sync.summary.off"              = "iCloud 未开启";
+"settings.hub.sync.summary.on"               = "iCloud 已开启";
+"settings.hub.sync.summary.syncing"          = "同步中…";
+"settings.hub.sync.summary.error"            = "同步异常";
+
+// 语音
+"settings.voice.section"                     = "语音转文字";
+"settings.voice.footer"                      = "所选引擎缺少凭据或调用失败时，会自动改用设备端识别 —— 记录永远不会中断，但转写质量可能下降。";
+"settings.services.section"                  = "其他服务";
+"settings.services.footer"                   = "天气会附在每条 memo 的上下文里。不填密钥则跳过天气。";
+
+// AI 用量
+"settings.ai.usage.section"                  = "AI 用量";
+"settings.ai.usage.month_total"              = "本月累计（估算）";
+"settings.ai.usage.tokens_format"            = "%d tokens";
+"settings.ai.usage.active_days"              = "活跃天数";
+"settings.ai.usage.budget"                   = "月度上限";
+"settings.ai.usage.budget.unset"             = "未设置";
+"settings.ai.usage.warning"                  = "已用掉本月预算的 80% —— 可以考虑调高上限或降低整理频率。";
+"settings.ai.usage.footer"                   = "按 tokens ≈ 字符数 / 4 估算，涵盖每日整理、周回顾、问过去等所有 AI 调用。数据仅保存在本机。";
+
+// 豆包统一配置
+"settings.doubao.nav.title"                  = "豆包语音";
+"settings.doubao.title"                      = "豆包 · 火山引擎";
+"settings.doubao.row.subtitle"               = "App ID + Access Token";
+"settings.doubao.status.footer"              = "驱动实时听写与语音 memo 转写。测试会用一段真实语音同时验证两个端点。";
+"settings.doubao.verified_at"                = "已验证 · %@";
+"settings.doubao.verified_at_format"         = "M月d日 HH:mm";
+"settings.doubao.failed_at"                  = "未通过：%@";
+"settings.doubao.subtitle.unverified"        = "已配置 —— 运行下方测试";
+"settings.doubao.subtitle.not_configured"    = "两项均为必填";
+"settings.doubao.credentials.section"        = "凭据 · 成对必填";
+"settings.doubao.credentials.footer"         = "两项都在 console.volcengine.com → 语音技术 → 你的应用里获取。它们属于同一个应用，缺一不可。旧的 Secret Key 字段已移除 —— 它从未被使用过。";
+"settings.doubao.appid.placeholder"          = "纯数字 App ID，如 8927462501";
+"settings.doubao.token.placeholder"          = "Access Token";
+"settings.doubao.save"                       = "保存凭据";
+"settings.doubao.saved"                      = "已保存";
+"settings.doubao.saved.banner"               = "豆包凭据已保存";
+"settings.doubao.test.section"               = "真实转写测试";
+"settings.doubao.test.run"                   = "运行真实转写测试";
+"settings.doubao.test.running"               = "测试中…";
+"settings.doubao.test.save_first"            = "先保存凭据，再运行测试。";
+"settings.doubao.test.footer"                = "把内置语音样本（「%@」）依次发给两个生产端点 —— 文件转写与实时流式 —— 并核对识别文字。全绿即代表你的语音 memo 真的能转写。";
+"settings.doubao.test.need_credentials"      = "请先填写 App ID 与 Access Token。";
+"settings.doubao.test.credentials_ok"        = "两项凭据均已就绪";
+"settings.doubao.test.result_format"         = "识别结果：「%@」 · %.1f 秒";
+"settings.doubao.test.mismatch"              = "服务有响应，但识别文字与样本不符：「%@」";
+"settings.doubao.test.sample_missing"        = "此构建缺少内置测试音频。";
+"settings.doubao.test.timeout"               = "等待服务响应超时。";
+"settings.doubao.step.credentials"           = "凭据检查";
+"settings.doubao.step.file"                  = "文件转写（语音 memo）";
+"settings.doubao.step.stream"                = "实时流式（听写）";
+"settings.doubao.state.not_configured"       = "未配置";
+"settings.doubao.state.unverified"           = "未验证";
+"settings.doubao.state.verified"             = "已验证 ✓";
+"settings.doubao.state.failed"               = "未通过";
+"settings.doubao.resource.file"              = "录音文件极速版（auc_turbo）";
+"settings.doubao.resource.stream"            = "流式小时版（sauc.duration）";
+"settings.doubao.hint.quota"                 = "流式小时包已用尽或未购买（45000292）—— 前往火山控制台 → 语音识别大模型 → 开通/续费流式（小时版）。";
+"settings.doubao.hint.not_granted"           = "「%@」资源未对此应用开通 —— 前往火山控制台 → 语音识别大模型逐项开通。资源是分开开通的，另一个能用不代表这个能用。";
+"settings.doubao.hint.not_allowed"           = "端点拒绝了「%@」资源 ID —— 通常是控制台里产品线选错了。";
+"settings.doubao.hint.audio_format"          = "服务拒绝了该音频格式（45000151）。";
+"settings.doubao.hint.credentials"           = "凭据被拒 —— 请回火山控制台核对 App ID 与 Access Token。";
+"settings.doubao.hint.unknown"               = "请求失败 —— 请检查网络后重试。";
+
+// 同步到 Web
+"settings.websync.section"                   = "同步到 Web";
+"settings.websync.url"                       = "Web 地址";
+"settings.websync.key.placeholder"           = "粘贴 web 端生成的 key";
+"settings.websync.save"                      = "保存并立即同步";
+"settings.websync.saved"                     = "已保存";
+"settings.websync.configured"                = "已配置";
+"settings.websync.pending"                   = "待同步";
+"settings.websync.pending_count"             = "%d 条";
+"settings.websync.all_synced"                = "已全部同步";
+"settings.websync.footer"                    = "在 web 端 设置 → API Keys 生成一个带写入权限的 key，粘贴到这里。App 写下的 memo 会自动同步到你的 web 账号。";
+
+// 数据与危险区
+"settings.data.export_full"                  = "导出全部数据（zip）";
+"settings.data.export_full.working"          = "正在打包全部数据…";
+"settings.data.export_full.failed.title"     = "全量导出失败";
+"settings.data.export_full.failed.reason"    = "%@ —— 磁盘空间不足或 iCloud 正在同步时最常见。";
+"settings.danger.section"                    = "危险区";
+"settings.danger.footer"                     = "以下操作不可撤销。删除本地数据不会影响你的云端账户。";
+"settings.common.retry"                      = "再试一次";
+"settings.common.dismiss"                    = "先算了";
+
+// iCloud 最近同步时间格式
+"settings.icloud.lastsync.today_format"      = "'今天' HH:mm";
+"settings.icloud.lastsync.date_format"       = "M月d日 HH:mm";
+
+// 提醒与通知（原硬编码中文收口）
+"settings.reminder.frequency"                = "提醒频率";
+"settings.reminder.active"                   = "已启用提醒";
+"settings.reminder.count"                    = "%d 条";
+"settings.reminder.quiet"                    = "静音时段";
+"settings.reminder.alarmkit"                 = "系统灵动岛提醒";
+"settings.reminder.alarmkit.denied"          = "系统未授权提醒，灵动岛不会出现 —— 前往「设置 › DayPage」开启。";
+"settings.reminder.section"                  = "记录提醒";
+"settings.reminder.footer"                   = "到点时会发一条本地通知（灵动岛落点）召唤你记一句。长按通知可选「语音」或「文字」。\n在 Today 页可增删提醒；也可在「问过去」里直接说「每天晚上 10 点提醒我」，让 AI 帮你排。静音时段内的重复提醒会自动跳过。";
+"settings.notifications.compile"             = "整理完成通知";
+"settings.notifications.section_title"       = "通知";
+"settings.notifications.footer"              = "凌晨 2:00 后台自动整理完成时，会发本地通知到锁屏。";
+"settings.experiments.simulate_offline"      = "模拟离线模式";
+
+// 关于与开发者选项
+"settings.about.dev_unlock_progress"         = "再点 %d 次解锁开发者选项";
+"settings.dev.unlocked"                      = "开发者选项已解锁";
+"settings.dev.entry"                         = "开发者选项";
+"settings.dev.title"                         = "开发者选项";
+"settings.analytics.empty"                   = "今天还没有事件";
+"settings.analytics.recent"                  = "最近 %d 条事件";
+"settings.analytics.clear"                   = "清空调试事件";
+"settings.analytics.section"                 = "调试看板 · 事件流";
+"settings.analytics.footer"                  = "显示 vault/.analytics/events.jsonl 里今天的事件计数与最近 12 条。仅本机可见。";
