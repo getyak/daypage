@@ -712,6 +712,17 @@ struct TodayView: View {
                    let backup = UserDefaults.standard.string(forKey: draftBackupKey),
                    !backup.isEmpty {
                     draftText = backup
+                } else if !draftText.isEmpty,
+                          UserDefaults.standard.string(forKey: draftBackupKey) == nil {
+                    // The mirror is the journal: send and confirmed discard
+                    // clear it SYNCHRONOUSLY, while the SceneStorage snapshot
+                    // is only taken on backgrounding. A process that dies
+                    // without backgrounding (crash, simctl terminate) can
+                    // therefore restore a draft the user already destroyed —
+                    // a restored draft with no mirror behind it IS that stale
+                    // snapshot. Drop it. (The willResignActive flush below
+                    // keeps this test airtight for legitimate drafts.)
+                    draftText = ""
                 }
                 viewModel.load()
                 // Drain any inflight drafts left behind by a submit that
@@ -743,6 +754,21 @@ struct TodayView: View {
             }
             // Reload when app returns from background to correct the active date (midnight crossover).
             .onChange(of: scenePhase) { phase in
+                if phase == .inactive || phase == .background {
+                    // Flush the debounced mirror write NOW: past this point the
+                    // process can die without another runloop turn, and the
+                    // cold-launch restore treats "mirror absent" as proof of an
+                    // intentional clear. Without this flush, a draft typed
+                    // < 0.8s before backgrounding would be misread as stale.
+                    draftSaveTask?.cancel()
+                    if draftText.isEmpty {
+                        draftDate = 0
+                        UserDefaults.standard.removeObject(forKey: draftBackupKey)
+                    } else {
+                        draftDate = Date().timeIntervalSince1970
+                        UserDefaults.standard.set(draftText, forKey: draftBackupKey)
+                    }
+                }
                 if phase == .active {
                     viewModel.load()
                     // R3 — A2: re-check Keychain so the banner flips off the
