@@ -2904,6 +2904,45 @@ struct TodayView: View {
             }
             .frame(height: 0)
 
+            timelineList
+        }
+        .refreshable {
+            await viewModel.refresh()
+            Haptics.success()
+            if !reduceMotion {
+                refreshGlow = true
+                Task {
+                    try? await Task.sleep(nanoseconds: 600_000_000)
+                    refreshGlow = false
+                }
+            }
+        }
+        .overlay(
+            LinearGradient(
+                colors: [Color.clear, DSColor.bgWarm],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 40)
+            .allowsHitTesting(false),
+            alignment: .bottom
+        )
+        .coordinateSpace(name: "todayScroll")
+        .modifier(TodayScrollOffsetWatcher(onChange: { value in
+            handleScrollOffset(value)
+        }))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear { timelineScrollProxy = proxy }
+        } // end ScrollViewReader
+    }
+
+    /// Timeline list body, extracted from `timelineSection`'s ScrollView.
+    /// CI's Xcode 26.3 solver gives up on ScrollView init disambiguation when
+    /// the content closure carries the whole LazyVStack (main was already red
+    /// with "ambiguous use of 'init'"); a smaller closure type-checks on both
+    /// 26.3 and 26.4.
+    @ViewBuilder
+    private var timelineList: some View {
             LazyVStack(spacing: 10) {
                 // Invisible anchor: scrollTo("timelineTop") brings the list to the very top.
                 Color.clear.frame(height: 0).id("timelineTop")
@@ -3159,35 +3198,6 @@ struct TodayView: View {
                 radius: refreshGlow ? 18 : 0
             )
             .animation(reduceMotion ? nil : .easeOut(duration: 0.6), value: refreshGlow)
-        }
-        .refreshable {
-            await viewModel.refresh()
-            Haptics.success()
-            if !reduceMotion {
-                refreshGlow = true
-                Task {
-                    try? await Task.sleep(nanoseconds: 600_000_000)
-                    refreshGlow = false
-                }
-            }
-        }
-        .overlay(
-            LinearGradient(
-                colors: [Color.clear, DSColor.bgWarm],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: 40)
-            .allowsHitTesting(false),
-            alignment: .bottom
-        )
-        .coordinateSpace(name: "todayScroll")
-        .modifier(TodayScrollOffsetWatcher(onChange: { value in
-            handleScrollOffset(value)
-        }))
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear { timelineScrollProxy = proxy }
-        } // end ScrollViewReader
     }
 
     /// Single consumer for the timeline's scroll offset, regardless of which
