@@ -95,6 +95,13 @@ public enum FeatureFlag: String, CaseIterable {
     /// **Default**: on
     case chatHistory
 
+    /// **Used in**: `MemoCardView` / `MemoDetailView` / `DailyPageSummarySection`（正文渲染点）
+    /// **When off**: 正文回退为纯文本 `Text`（含 CJKTextPolish 与实体墨迹），markdown 语法字符原样显示。
+    /// **Markdown M1**: 轻量 markdown 渲染（加粗/斜体/删除线/行内代码/列表/任务/引用/链接/分隔线）——
+    /// 纯展示层，永不回写 vault；给解析/排版异常一个无需 hot-fix 的兜底开关。
+    /// **Default**: on
+    case markdownRendering
+
     /// Default state when the user has never touched the toggle. All Round 4
     /// flags default-on so the app behaves the way the user already expects
     /// after upgrading — Experiments only lets them *opt out*.
@@ -112,7 +119,8 @@ public enum FeatureFlag: String, CaseIterable {
              .watchCaptureConfig,
              .captureReminder,
              .todayFocusCollapsed,
-             .chatHistory:
+             .chatHistory,
+             .markdownRendering:
             return true
         }
     }
@@ -135,6 +143,7 @@ public enum FeatureFlag: String, CaseIterable {
         case .captureReminder:        return "记录提醒"
         case .todayFocusCollapsed:    return "今日焦点折叠"
         case .chatHistory:            return "聊天历史长河"
+        case .markdownRendering:      return "Markdown 渲染"
         }
     }
 }

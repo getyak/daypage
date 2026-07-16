@@ -292,14 +292,22 @@ struct MemoCardView: View {
                     !bodyTrimmed.isEmpty
                 })
             if !bodyTrimmed.isEmpty && !isBodyDuplicate {
-                // Render-only polish: CJK/Latin spacing; does not modify vault file.
-                Text(CJKTextPolish.polish(bodyTrimmed))
-                    .font(DSType.serifBody16)
-                    .foregroundColor(DSColor.inkPrimary)
-                    // Museum reading rhythm: tight leading. Design app.jsx:546-548
-                    // renders 16pt body at line-height 1.62; for SwiftUI's
-                    // *additive* lineSpacing that compact rhythm is ~2pt, not 6.
-                    .lineSpacing(2)
+                // Museum reading rhythm: tight leading. Design app.jsx:546-548
+                // renders 16pt body at line-height 1.62; for SwiftUI's
+                // *additive* lineSpacing that compact rhythm is ~2pt, not 6.
+                Group {
+                    if FeatureFlagStore.shared.isEnabled(.markdownRendering) {
+                        // Markdown M1 — links render styled but inert here:
+                        // the swipe overlay / card tap own this surface.
+                        MarkdownBodyView(text: bodyTrimmed, lineSpacing: 2, linksActive: false)
+                    } else {
+                        // Render-only polish: CJK/Latin spacing; does not modify vault file.
+                        Text(CJKTextPolish.polish(bodyTrimmed))
+                            .font(DSType.serifBody16)
+                            .foregroundColor(DSColor.inkPrimary)
+                            .lineSpacing(2)
+                    }
+                }
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 14)

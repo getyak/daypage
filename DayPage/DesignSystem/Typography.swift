@@ -163,6 +163,47 @@ enum DSFonts {
         let cascadedFont = UIFont(descriptor: cascadeDescriptor, size: size)
         return Font(cascadedFont)
     }
+
+    /// UIKit twin of `serif(size:weight:italic:)` for surfaces that live in
+    /// UIKit-land (the live markdown editor's NSAttributedString styling).
+    /// Same PostScript mapping + CJK cascade; falls back to the system serif
+    /// design when a bundled face is missing.
+    static func serifUIFont(size: CGFloat, weight: Font.Weight = .regular, italic: Bool = false) -> UIFont {
+        let latinPS: String
+        if italic {
+            latinPS = "SourceSerif4-It"
+        } else {
+            switch weight {
+            case .medium:     latinPS = "SourceSerif4-Medium"
+            case .semibold:   latinPS = "SourceSerif4-SemiBold"
+            default:          latinPS = "SourceSerif4-Regular"
+            }
+        }
+        let cjkPS: String
+        switch weight {
+        case .medium:   cjkPS = "SourceHanSerifSC-Medium"
+        case .semibold: cjkPS = "SourceHanSerifSC-SemiBold"
+        default:        cjkPS = "SourceHanSerifSC-Regular"
+        }
+
+        guard
+            let latinBase = UIFont(name: latinPS, size: size),
+            let cjkBase   = UIFont(name: cjkPS,   size: size)
+        else {
+            let descriptor = UIFont.systemFont(ofSize: size).fontDescriptor
+                .withDesign(.serif) ?? UIFont.systemFont(ofSize: size).fontDescriptor
+            var traits: UIFontDescriptor.SymbolicTraits = []
+            if italic { traits.insert(.traitItalic) }
+            if weight == .semibold || weight == .medium { traits.insert(.traitBold) }
+            let traited = descriptor.withSymbolicTraits(traits) ?? descriptor
+            return UIFont(descriptor: traited, size: size)
+        }
+
+        let cascadeDescriptor = latinBase.fontDescriptor.addingAttributes([
+            UIFontDescriptor.AttributeName.cascadeList: [cjkBase.fontDescriptor]
+        ])
+        return UIFont(descriptor: cascadeDescriptor, size: size)
+    }
 }
 
 // MARK: - Font.TextStyle Bridging

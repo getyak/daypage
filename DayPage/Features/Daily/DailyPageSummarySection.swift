@@ -48,11 +48,19 @@ struct DailyPageSummarySection: View {
     // MARK: - Sub-views
 
     private func narrativeParagraph(_ body: String) -> some View {
-        Text(CJKTextPolish.polish(body))
-            .font(DSType.serifBody16)
-            .foregroundColor(DSColor.inkPrimary)
-            .lineSpacing(8)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        // Markdown M1: the compiler model occasionally emits **emphasis** in
+        // narrative prose — render it instead of leaking syntax characters.
+        Group {
+            if FeatureFlagStore.shared.isEnabled(.markdownRendering) {
+                MarkdownBodyView(text: body, lineSpacing: 8)
+            } else {
+                Text(CJKTextPolish.polish(body))
+                    .font(DSType.serifBody16)
+                    .foregroundColor(DSColor.inkPrimary)
+                    .lineSpacing(8)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Issue #4: "引用 N 条" evidence chip row. Empty ID list renders

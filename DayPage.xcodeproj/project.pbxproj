@@ -59,6 +59,8 @@
 		A10000005 /* Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000005 /* Colors.swift */; };
 		A10000006 /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000006 /* Typography.swift */; };
 		A10000007 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000007 /* Components.swift */; };
+		MDR0000001 /* MarkdownBodyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = MDR1000001 /* MarkdownBodyView.swift */; };
+		MDE0000001 /* MarkdownEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = MDE1000001 /* MarkdownEditor.swift */; };
 		A10000010 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010 /* TodayView.swift */; };
 		A10000011 /* ArchiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000011 /* ArchiveView.swift */; };
 		A10000012 /* GraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000012 /* GraphView.swift */; };
@@ -211,6 +213,7 @@
 		INF0000001 /* InflightDraftStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = INF1000001 /* InflightDraftStore.swift */; };
 		INF0000002 /* InflightDraftStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = INF1000002 /* InflightDraftStoreTests.swift */; };
 		DBT0000001 /* DoubaoASRTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBT1000001 /* DoubaoASRTests.swift */; };
+		MDT0000001 /* MemoMarkdownTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MDT1000001 /* MemoMarkdownTests.swift */; };
 		DBR0000001 /* DoubaoASRResolutionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBR1000001 /* DoubaoASRResolutionTests.swift */; };
 		SR30000001 /* DoubaoConnectivityTesterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SR40000001 /* DoubaoConnectivityTesterTests.swift */; };
 		KC0000001 /* KeychainHelperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = KC1000001 /* KeychainHelperTests.swift */; };
@@ -348,6 +351,8 @@
 		A20000005 /* Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Colors.swift; sourceTree = "<group>"; };
 		A20000006 /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
 		A20000007 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		MDR1000001 /* MarkdownBodyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownBodyView.swift; sourceTree = "<group>"; };
+		MDE1000001 /* MarkdownEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownEditor.swift; sourceTree = "<group>"; };
 		A20000010 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
 		A20000011 /* ArchiveView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchiveView.swift; sourceTree = "<group>"; };
 		A20000012 /* GraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphView.swift; sourceTree = "<group>"; };
@@ -507,6 +512,7 @@
 		INF1000001 /* InflightDraftStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InflightDraftStore.swift; sourceTree = "<group>"; };
 		INF1000002 /* InflightDraftStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InflightDraftStoreTests.swift; sourceTree = "<group>"; };
 		DBT1000001 /* DoubaoASRTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoubaoASRTests.swift; sourceTree = "<group>"; };
+		MDT1000001 /* MemoMarkdownTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoMarkdownTests.swift; sourceTree = "<group>"; };
 		DBR1000001 /* DoubaoASRResolutionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoubaoASRResolutionTests.swift; sourceTree = "<group>"; };
 		SR40000001 /* DoubaoConnectivityTesterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoubaoConnectivityTesterTests.swift; sourceTree = "<group>"; };
 		KC1000001 /* KeychainHelperTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelperTests.swift; sourceTree = "<group>"; };
@@ -782,6 +788,8 @@
 				A20000005 /* Colors.swift */,
 				A20000006 /* Typography.swift */,
 				A20000007 /* Components.swift */,
+				MDR1000001 /* MarkdownBodyView.swift */,
+				MDE1000001 /* MarkdownEditor.swift */,
 				A200000F1 /* GlassSurface.swift */,
 				A200000F2 /* Surfaces.swift */,
 				A20000091 /* GrainOverlay.swift */,
@@ -1190,6 +1198,7 @@
 				DBR1000001 /* DoubaoASRResolutionTests.swift */,
 				SR40000001 /* DoubaoConnectivityTesterTests.swift */,
 				DBT1000001 /* DoubaoASRTests.swift */,
+				MDT1000001 /* MemoMarkdownTests.swift */,
 				TI2000001 /* AppIntentsTests.swift */,
 				A11Y1001 /* AccessibilityTests.swift */,
 				SP1001 /* SwipePolishContractTests.swift */,
@@ -1516,6 +1525,8 @@
 				A10000005 /* Colors.swift in Sources */,
 				A10000006 /* Typography.swift in Sources */,
 				A10000007 /* Components.swift in Sources */,
+				MDR0000001 /* MarkdownBodyView.swift in Sources */,
+				MDE0000001 /* MarkdownEditor.swift in Sources */,
 				A100000F1 /* GlassSurface.swift in Sources */,
 				A100000F2 /* Surfaces.swift in Sources */,
 				A10000091 /* GrainOverlay.swift in Sources */,
@@ -1686,6 +1697,7 @@
 				DBR0000001 /* DoubaoASRResolutionTests.swift in Sources */,
 				SR30000001 /* DoubaoConnectivityTesterTests.swift in Sources */,
 				DBT0000001 /* DoubaoASRTests.swift in Sources */,
+				MDT0000001 /* MemoMarkdownTests.swift in Sources */,
 				TI1000001 /* AppIntentsTests.swift in Sources */,
 				A11Y0001 /* AccessibilityTests.swift in Sources */,
 				SP0001 /* SwipePolishContractTests.swift in Sources */,
