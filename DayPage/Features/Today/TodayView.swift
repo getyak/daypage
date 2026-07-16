@@ -722,37 +722,7 @@ struct TodayView: View {
                 refreshAIKeyMissing()
             }
             .onChange(of: draftText) { _ in
-                // B3: Debounce — only persist `draftDate` after typing pauses
-                // for 0.8s. Cancels any in-flight write each keystroke, so a
-                // burst of typing produces exactly one UserDefaults write.
-                //
-                // R4-B2: also mirror the body into UserDefaults under
-                // `today.draftText.backup`. SceneStorage survives backgrounding
-                // but NOT a process kill — iOS may evict saved scene state
-                // under memory pressure, and the user loses every keystroke
-                // since the last "Send". UserDefaults is flushed at process
-                // exit, so it acts as the cold-launch fallback that TodayView
-                // .onAppear reads when SceneStorage comes back empty.
-                draftSaveTask?.cancel()
-                let snapshot = draftText
-                // Clearing (send / confirmed discard) must NOT wait out the
-                // debounce: a process kill inside the 0.8s window leaves the
-                // stale mirror behind, and the next cold launch resurrects a
-                // draft the user explicitly destroyed or already sent. An
-                // empty write is a single event, so flush it synchronously.
-                if snapshot.isEmpty {
-                    draftDate = 0
-                    UserDefaults.standard.removeObject(forKey: draftBackupKey)
-                    return
-                }
-                draftSaveTask = Task {
-                    try? await Task.sleep(nanoseconds: 800_000_000)
-                    guard !Task.isCancelled else { return }
-                    await MainActor.run {
-                        draftDate = Date().timeIntervalSince1970
-                        UserDefaults.standard.set(snapshot, forKey: draftBackupKey)
-                    }
-                }
+                persistDraftMirror(snapshot: draftText)
             }
             .onChange(of: voiceQueue.pendingCount) { count in
                 updateVoiceQueueBanner(count: count)
@@ -3481,6 +3451,39 @@ struct TodayView: View {
         Haptics.success()
         UIAccessibility.post(notification: .announcement,
                              argument: NSLocalizedString("today.memo.saved", comment: ""))
+    }
+
+    // B3: Debounce — only persist `draftDate` after typing pauses for 0.8s.
+    // Cancels any in-flight write each keystroke, so a burst of typing
+    // produces exactly one UserDefaults write.
+    //
+    // R4-B2: also mirror the body into UserDefaults under
+    // `today.draftText.backup`. SceneStorage survives backgrounding but NOT a
+    // process kill — iOS may evict saved scene state under memory pressure,
+    // and the user loses every keystroke since the last "Send". UserDefaults
+    // is flushed at process exit, so it acts as the cold-launch fallback that
+    // TodayView .onAppear reads when SceneStorage comes back empty.
+    //
+    // Clearing (send / confirmed discard) must NOT wait out the debounce: a
+    // process kill inside the 0.8s window leaves the stale mirror behind, and
+    // the next cold launch resurrects a draft the user explicitly destroyed
+    // or already sent. An empty write is a single event, so flush it
+    // synchronously.
+    private func persistDraftMirror(snapshot: String) {
+        draftSaveTask?.cancel()
+        if snapshot.isEmpty {
+            draftDate = 0
+            UserDefaults.standard.removeObject(forKey: draftBackupKey)
+            return
+        }
+        draftSaveTask = Task {
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                draftDate = Date().timeIntervalSince1970
+                UserDefaults.standard.set(snapshot, forKey: draftBackupKey)
+            }
+        }
     }
 
     // US-006: Clear draft when it's more than 30 days old.
