@@ -250,19 +250,24 @@ struct SearchView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                DSColor.background.ignoresSafeArea()
+                // W1: the flat background made the sheet read like a cold
+                // sheet of printer paper against the warm archive behind it —
+                // search breathes the same ambient air as every other page.
+                AmbientBackground().ignoresSafeArea()
 
                 VStack(spacing: 0) {
+                    // The capsule floats on the ambient ground — no hard
+                    // divider slicing the sheet in two.
                     searchBar
                         .padding(.horizontal, DSSpacing.lg)
                         .padding(.vertical, DSSpacing.md)
 
-                    Divider().background(DSColor.outlineVariant)
-
                     if showFilters {
                         filterPanel
                             .transition(.opacity.combined(with: .move(edge: .top)))
-                        Divider().background(DSColor.outlineVariant)
+                        Rectangle()
+                            .fill(DSColor.inkFaint)
+                            .frame(height: 0.5)
                     }
 
                     contentArea
@@ -416,12 +421,12 @@ struct SearchView: View {
         HStack(spacing: DSSpacing.md) {
             HStack(spacing: DSSpacing.sm) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 14, weight: .regular))
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundColor(DSColor.inkMuted)
 
                 TextField(NSLocalizedString("search.placeholder", comment: "Search text field placeholder"), text: $vm.query)
-                    .font(DSFonts.inter(size: 14, relativeTo: .subheadline))
-                    .foregroundColor(DSColor.onSurface)
+                    .font(DSFonts.inter(size: 15, relativeTo: .subheadline))
+                    .foregroundColor(DSColor.inkPrimary)
                     .textInputAutocapitalization(.never)
                     .disableAutocorrection(true)
                     .focused($isInputFocused)
@@ -442,7 +447,7 @@ struct SearchView: View {
                 if vm.isSearching {
                     ProgressView()
                         .scaleEffect(0.7)
-                        .tint(DSColor.onSurfaceVariant)
+                        .tint(DSColor.inkMuted)
                         .accessibilityLabel(NSLocalizedString("search.a11y.searching", comment: "Accessibility label for the searching progress indicator"))
                 } else if !vm.query.isEmpty {
                     Button(action: {
@@ -467,17 +472,19 @@ struct SearchView: View {
                     }) {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 14))
-                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .foregroundColor(DSColor.inkMuted)
                             .scaleEffect(clearPressed ? 0.8 : 1.0)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel(NSLocalizedString("search.a11y.clearSearch", comment: "Accessibility label for the clear search button"))
                 }
             }
-            .padding(.horizontal, DSSpacing.md)
-            .frame(height: 36)
-            .background(DSColor.surfaceContainer)
-            .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
+            // W1: 36pt hard-stroked box → 44pt capsule on the glass engine,
+            // same family as the archive header's search control.
+            .padding(.horizontal, DSSpacing.lg)
+            .frame(height: 44)
+            .dpGlass(.control, in: Capsule())
+            .clipShape(Capsule())
 
             Button(action: {
                 Haptics.soft()
@@ -486,7 +493,7 @@ struct SearchView: View {
             }) {
                 Image(systemName: filters.isActive ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
                     .font(.system(size: 20))
-                    .foregroundColor(filters.isActive ? DSColor.primary : DSColor.onSurfaceVariant)
+                    .foregroundColor(filters.isActive ? DSColor.accentOnBg : DSColor.inkMuted)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(NSLocalizedString("search.a11y.filter", comment: "Accessibility label for the filter button"))
@@ -496,7 +503,7 @@ struct SearchView: View {
             Button(action: { dismiss() }) {
                 Text(NSLocalizedString("search.cancel", comment: "Cancel button in search bar"))
                     .monoLabelStyle(size: 11)
-                    .foregroundColor(DSColor.primary)
+                    .foregroundColor(DSColor.accentOnBg)
             }
             .buttonStyle(.plain)
             .accessibilityLabel(NSLocalizedString("search.a11y.cancelSearch", comment: "Accessibility label for the cancel search button"))
@@ -510,12 +517,12 @@ struct SearchView: View {
             HStack(spacing: DSSpacing.sm) {
                 Image(systemName: "calendar")
                     .font(.system(size: 12))
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
                     .frame(width: 16)
 
                 Text(NSLocalizedString("search.filter.dateRange", comment: "Filter panel label: date range"))
                     .monoLabelStyle(size: 11)
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
                     .frame(width: 48, alignment: .leading)
 
                 Spacer()
@@ -530,7 +537,7 @@ struct SearchView: View {
                 .frame(maxWidth: 120)
                 .overlay(
                     filters.startDate == nil
-                        ? Text(NSLocalizedString("search.filter.startDate", comment: "Filter panel start date placeholder")).monoLabelStyle(size: 11).foregroundColor(DSColor.onSurfaceVariant).allowsHitTesting(false)
+                        ? Text(NSLocalizedString("search.filter.startDate", comment: "Filter panel start date placeholder")).monoLabelStyle(size: 11).foregroundColor(DSColor.inkMuted).allowsHitTesting(false)
                         : nil
                 )
 
@@ -555,7 +562,7 @@ struct SearchView: View {
                     }) {
                         Image(systemName: "xmark.circle.fill")
                             .font(.system(size: 12))
-                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .foregroundColor(DSColor.inkMuted)
                     }
                     .buttonStyle(.plain)
                 }
@@ -564,12 +571,12 @@ struct SearchView: View {
             HStack(spacing: DSSpacing.sm) {
                 Image(systemName: "tag")
                     .font(.system(size: 12))
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
                     .frame(width: 16)
 
                 Text(NSLocalizedString("search.filter.type", comment: "Filter panel label: memo type"))
                     .monoLabelStyle(size: 11)
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
                     .frame(width: 48, alignment: .leading)
 
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -584,18 +591,18 @@ struct SearchView: View {
             HStack(spacing: DSSpacing.sm) {
                 Image(systemName: "mappin")
                     .font(.system(size: 12))
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
                     .frame(width: 16)
 
                 Text(NSLocalizedString("search.filter.location", comment: "Filter panel label: location"))
                     .monoLabelStyle(size: 11)
-                    .foregroundColor(DSColor.onSurfaceVariant)
+                    .foregroundColor(DSColor.inkMuted)
                     .frame(width: 48, alignment: .leading)
 
                 HStack(spacing: 6) {
                     TextField(NSLocalizedString("search.filter.location.placeholder", comment: "Filter panel location text field placeholder"), text: $filters.locationQuery)
                         .font(DSFonts.inter(size: 13, relativeTo: .footnote))
-                        .foregroundColor(DSColor.onSurface)
+                        .foregroundColor(DSColor.inkPrimary)
                         .textInputAutocapitalization(.never)
                         .disableAutocorrection(true)
                         .onChange(of: filters.locationQuery) { _ in runSearch(keyword: vm.query) }
@@ -607,15 +614,15 @@ struct SearchView: View {
                         }) {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.system(size: 12))
-                                .foregroundColor(DSColor.onSurfaceVariant)
+                                .foregroundColor(DSColor.inkMuted)
                         }
                         .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, 10)
-                .frame(height: 30)
-                .background(DSColor.surfaceContainer)
-                .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
+                .padding(.horizontal, 12)
+                .frame(height: 32)
+                .dpGlass(.pill, in: Capsule())
+                .clipShape(Capsule())
             }
 
             if filters.isActive {
@@ -628,7 +635,7 @@ struct SearchView: View {
                     }) {
                         Text(NSLocalizedString("search.filter.clearAll", comment: "Clear all filters button"))
                             .monoLabelStyle(size: 10)
-                            .foregroundColor(DSColor.primary)
+                            .foregroundColor(DSColor.accentOnBg)
                     }
                     .buttonStyle(.plain)
                 }
@@ -636,7 +643,7 @@ struct SearchView: View {
         }
         .padding(.horizontal, DSSpacing.lg)
         .padding(.vertical, DSSpacing.md)
-        .background(DSColor.surfaceContainer.opacity(0.5))
+        .background(DSColor.surfaceWhite.opacity(0.35))
     }
 
     private func typeChip(_ type: Memo.MemoType) -> some View {
@@ -656,14 +663,10 @@ struct SearchView: View {
                 Text(type.displayName)
                     .monoLabelStyle(size: 10)
             }
-            .foregroundColor(isSelected ? DSColor.onPrimary : DSColor.onSurfaceVariant)
-            .padding(.horizontal, DSSpacing.sm)
-            .padding(.vertical, DSSpacing.xs)
-            .background(isSelected ? DSColor.primary : DSColor.surfaceContainer)
-            .overlay(
-                Rectangle()
-                    .stroke(isSelected ? DSColor.primary : DSColor.outlineVariant, lineWidth: 1)
-            )
+            .foregroundColor(isSelected ? DSColor.onAmber : DSColor.inkMuted)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(isSelected ? DSColor.amberDeep : DSColor.glassLo, in: Capsule())
         }
         .buttonStyle(.plain)
     }
@@ -687,43 +690,23 @@ struct SearchView: View {
     /// launch-warmed TimelineIndex synchronously (O(1) once built); shows
     /// em-dashes before warm-up so "loading" is distinguishable from a
     /// genuinely empty vault.
+    /// One quiet mono line ("1,284 MEMOS · 342 DAYS") — the old two serif
+    /// pillars gave a footnote the loudest voice on the sheet.
     private var vaultOverviewStrip: some View {
         let all = TimelineIndex.shared.entries()
         let totalMemos = all.reduce(0) { $0 + $1.memoCount }
         let totalDays = all.count
         let hasData = totalDays > 0 || totalMemos > 0
-        return HStack(alignment: .center, spacing: DSSpacing.xl) {
-            statPillar(
-                label: NSLocalizedString("search.overview.memos", comment: "Vault overview: all-time memo count label"),
-                value: hasData ? "\(totalMemos)" : "—"
-            )
-            Rectangle()
-                .fill(DSColor.glassRimD)
-                .frame(width: 0.5, height: 26)
-            statPillar(
-                label: NSLocalizedString("search.overview.days", comment: "Vault overview: all-time day count label"),
-                value: hasData ? "\(totalDays)" : "—"
-            )
-            Spacer()
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(String(
-            format: NSLocalizedString("search.overview.a11y", comment: "Vault overview a11y: %d memos across %d days"),
-            totalMemos, totalDays
-        ))
-    }
-
-    private func statPillar(label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: DSSpacing.xs) {
-            Text(label)
-                .font(DSType.mono10)
-                .tracking(1.2)
-                .textCase(.uppercase)
-                .foregroundColor(DSColor.inkMuted)
-            Text(value)
-                .font(DSFonts.serif(size: 22, weight: .regular, relativeTo: .title2))
-                .foregroundColor(DSColor.inkPrimary)
-        }
+        return Text(hasData
+            ? String(format: NSLocalizedString("search.overview.line", comment: "Vault overview line: %1$d memos, %2$d days"), totalMemos, totalDays)
+            : "— · —")
+            .font(DSType.mono10)
+            .tracking(1.0)
+            .foregroundColor(DSColor.inkMuted)
+            .accessibilityLabel(String(
+                format: NSLocalizedString("search.overview.a11y", comment: "Vault overview a11y: %d memos across %d days"),
+                totalMemos, totalDays
+            ))
     }
 
     // MARK: - Empty-query state (recent searches + frequent entities)
@@ -742,19 +725,11 @@ struct SearchView: View {
                     .padding(.top, 10)
                     .padding(.bottom, 6)
 
-                if !recent.isEmpty || !entities.isEmpty {
-                    sectionHeader(title: NSLocalizedString("search.section.quickSearch", comment: "Quick search section header"), trailing: AnyView(EmptyView()))
-
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: DSSpacing.sm) {
-                            ForEach(SearchView.starterSuggestions, id: \.self) { suggestion in
-                                entityChip(suggestion)
-                            }
-                        }
-                        .padding(.horizontal, DSSpacing.xl)
-                        .padding(.vertical, DSSpacing.xs)
-                    }
-                }
+                // W1: the "QUICK SEARCH" starter row is gone from the
+                // populated state — it stacked a fourth equal-weight section
+                // above the user's own history and mostly duplicated the
+                // entity chips below. Starters still carry the true-empty
+                // state further down.
 
                 if !recent.isEmpty {
                     sectionHeader(title: NSLocalizedString("search.section.recentSearches", comment: "Recent searches section header"), trailing: AnyView(
@@ -764,7 +739,7 @@ struct SearchView: View {
                         }) {
                             Text(NSLocalizedString("search.recent.clear", comment: "Clear recent searches button"))
                                 .monoLabelStyle(size: 10)
-                                .foregroundColor(DSColor.primary)
+                                .foregroundColor(DSColor.accentOnBg)
                         }
                         .buttonStyle(.plain)
                     ))
@@ -806,7 +781,7 @@ struct SearchView: View {
                                 .foregroundColor(DSColor.outlineVariant)
                             Text(NSLocalizedString("search.empty.prompt", comment: "Empty search state main prompt"))
                                 .bodySMStyle()
-                                .foregroundColor(DSColor.onSurfaceVariant)
+                                .foregroundColor(DSColor.inkMuted)
                             Text(NSLocalizedString("search.empty.hint", comment: "Empty search state hint text"))
                                 .monoLabelStyle(size: 10)
                                 .foregroundColor(DSColor.outline)
@@ -815,7 +790,7 @@ struct SearchView: View {
                         VStack(alignment: .leading, spacing: 10) {
                             Text(NSLocalizedString("search.empty.trySuggestion", comment: "Try a suggestion label in empty search state"))
                                 .monoLabelStyle(size: 10)
-                                .foregroundColor(DSColor.onSurfaceVariant)
+                                .foregroundColor(DSColor.inkMuted)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal, DSSpacing.xl)
 
@@ -839,16 +814,25 @@ struct SearchView: View {
         .scrollDismissesKeyboard(.interactively)
     }
 
+    /// "1 RESULTS" fix — mono archival label, code-side singular (the label
+    /// family is intentionally untranslated English; see FINDING-010).
+    static func resultCountText(_ n: Int) -> String {
+        String(format: NSLocalizedString(
+            n == 1 ? "search.result.count.one" : "search.result.count",
+            comment: "Total result count label; %d = count"
+        ), n)
+    }
+
     private func sectionHeader(title: String, trailing: AnyView) -> some View {
         HStack {
             Text(title)
                 .monoLabelStyle(size: 10)
-                .foregroundColor(DSColor.onSurfaceVariant)
+                .foregroundColor(DSColor.inkMuted)
             Spacer()
             trailing
         }
         .padding(.horizontal, DSSpacing.xl)
-        .padding(.top, DSSpacing.lg)
+        .padding(.top, 24)
         .padding(.bottom, DSSpacing.xs)
     }
 
@@ -881,11 +865,11 @@ struct SearchView: View {
         }) {
             Text(entity)
                 .font(DSFonts.inter(size: 13, relativeTo: .footnote))
-                .foregroundColor(DSColor.onSurface)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(DSColor.surfaceContainer)
-                .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
+                .foregroundColor(DSColor.inkPrimary)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .dpGlass(.pill, in: Capsule())
+                .clipShape(Capsule())
         }
         .buttonStyle(ChipButtonStyle(reduceMotion: reduceMotion))
         .accessibilityLabel(String(format: NSLocalizedString("search.a11y.entityChip", comment: "Accessibility label for entity chip; %@ = entity name"), entity))
@@ -924,19 +908,19 @@ struct SearchView: View {
                     if vm.query.isEmpty && filters.isActive {
                         Text(NSLocalizedString("search.empty.noMatchFiltered", comment: "No results with active filters and no query"))
                             .bodySMStyle()
-                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .foregroundColor(DSColor.inkMuted)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
                     } else if !vm.query.isEmpty && filters.isActive {
                         Text(String(format: NSLocalizedString("search.empty.noMatchQueryFiltered", comment: "No results for query with active filters; %@ = query"), vm.query))
                             .bodySMStyle()
-                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .foregroundColor(DSColor.inkMuted)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
                     } else {
                         Text(String(format: NSLocalizedString("search.empty.noMatchQuery", comment: "No results for query; %@ = query"), vm.query))
                             .bodySMStyle()
-                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .foregroundColor(DSColor.inkMuted)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 40)
                     }
@@ -950,10 +934,10 @@ struct SearchView: View {
                     }) {
                         Text(NSLocalizedString("search.empty.clearFilters", comment: "Clear filters button in empty result state"))
                             .monoLabelStyle(size: 11)
-                            .foregroundColor(DSColor.primary)
+                            .foregroundColor(DSColor.accentOnBg)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 6)
-                            .background(Capsule().stroke(DSColor.primary, lineWidth: 1))
+                            .background(Capsule().stroke(DSColor.accentOnBg, lineWidth: 1))
                     }
                     .buttonStyle(.plain)
                 } else if !vm.query.isEmpty {
@@ -970,7 +954,7 @@ struct SearchView: View {
                     }) {
                         Text(NSLocalizedString("search.empty.clearSearch", comment: "Clear search button in empty result state"))
                             .monoLabelStyle(size: 11)
-                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .foregroundColor(DSColor.inkMuted)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 6)
                             .background(Capsule().stroke(DSColor.outlineVariant, lineWidth: 1))
@@ -983,7 +967,7 @@ struct SearchView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(NSLocalizedString("search.empty.tryAnother", comment: "Try another keyword suggestion label"))
                             .monoLabelStyle(size: 10)
-                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .foregroundColor(DSColor.inkMuted)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, DSSpacing.xl)
 
@@ -1004,7 +988,7 @@ struct SearchView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text(NSLocalizedString("search.section.topEntities", comment: "Top entities section header"))
                             .monoLabelStyle(size: 10)
-                            .foregroundColor(DSColor.onSurfaceVariant)
+                            .foregroundColor(DSColor.inkMuted)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, DSSpacing.xl)
 
@@ -1061,17 +1045,17 @@ struct SearchView: View {
                 }) {
                 HStack {
                     Text(activeMatchKinds.isEmpty
-                         ? String(format: NSLocalizedString("search.result.count", comment: "Total result count label; %d = count"), total)
+                         ? Self.resultCountText(total)
                          : String(format: NSLocalizedString("search.result.countFiltered", comment: "Filtered result count label; first %d = visible, second %d = total"), visibleCount, total))
                         .monoLabelStyle(size: 10)
-                        .foregroundColor(DSColor.onSurfaceVariant)
+                        .foregroundColor(DSColor.inkMuted)
                         .modifier(NumericTextContentTransition(value: Double(visibleCount), reduceMotion: reduceMotion))
                         .animation(reduceMotion ? nil : Motion.spring, value: visibleCount)
                     Spacer()
                     if filters.isActive {
                         Label(NSLocalizedString("search.result.filtered", comment: "Filtered badge label"), systemImage: "line.3.horizontal.decrease.circle.fill")
                             .monoLabelStyle(size: 10)
-                            .foregroundColor(DSColor.primary)
+                            .foregroundColor(DSColor.accentOnBg)
                     }
                 }
                 .padding(.horizontal, DSSpacing.xl)
@@ -1108,14 +1092,16 @@ struct SearchView: View {
                         HStack {
                             Text(group.section.title)
                                 .monoLabelStyle(size: 10)
-                                .foregroundColor(DSColor.onSurfaceVariant)
+                                .foregroundColor(DSColor.inkMuted)
                             Rectangle()
-                                .fill(DSColor.outlineVariant)
-                                .frame(height: 1)
+                                .fill(DSColor.inkFaint)
+                                .frame(height: 0.5)
                         }
                         .padding(.horizontal, DSSpacing.xl)
                         .padding(.vertical, DSSpacing.sm)
-                        .background(DSColor.background)
+                        // Pinned header needs an opaque-ish mask over the
+                        // ambient ground — material keeps the warmth visible.
+                        .background(.ultraThinMaterial)
                     }
                 }
             }
@@ -1164,14 +1150,10 @@ struct SearchView: View {
                 Text(label)
                     .monoLabelStyle(size: 10)
             }
-            .foregroundColor(isActive ? DSColor.onPrimary : DSColor.onSurfaceVariant)
-            .padding(.horizontal, DSSpacing.sm)
-            .padding(.vertical, DSSpacing.xs)
-            .background(isActive ? DSColor.primary : DSColor.surfaceContainer)
-            .overlay(
-                Rectangle()
-                    .stroke(isActive ? DSColor.primary : DSColor.outlineVariant, lineWidth: 1)
-            )
+            .foregroundColor(isActive ? DSColor.onAmber : DSColor.inkMuted)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(isActive ? DSColor.amberDeep : DSColor.glassLo, in: Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(String(format: NSLocalizedString("search.a11y.kindChip", comment: "Accessibility label for match kind chip; %1$@ = kind label, %2$d = count"), matchLabel(for: kind), kindCount))
@@ -1187,54 +1169,51 @@ struct SearchView: View {
             format: NSLocalizedString("search.a11y.resultRow", comment: "Result row a11y: date, match kind, compile state, snippet"),
             formatDate(result.dateString), matchLabel(for: result.matchKind), badgeLabel, String(result.snippet.prefix(80))
         )
+        // W1: the 4pt alarm-bar + hard gray slab becomes a warm glass card;
+        // the date takes the serif voice. The memo-type icon pair is shown
+        // only when it adds information — "MEMO doc + TEXT doc" was the same
+        // glyph twice.
         return Button(action: {
             Haptics.tapConfirm()
             vm.recordSearch(vm.query)
             onSelect(result.dateString)
         }) {
-            HStack(spacing: 0) {
-                Rectangle()
-                    .fill(DSColor.primary)
-                    .frame(width: 4)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(formatDate(result.dateString))
+                        .font(DSFonts.serif(size: 15, weight: .semibold, relativeTo: .subheadline))
+                        .foregroundColor(DSColor.inkPrimary)
+                    Spacer()
+                    Text(badgeLabel)
+                        .monoLabelStyle(size: 9)
+                        .foregroundColor(result.isDailyPageCompiled ? DSColor.accentOnBg : DSColor.inkMuted)
+                }
 
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text(formatDate(result.dateString))
-                            .font(DSFonts.spaceGrotesk(size: 14, weight: .bold, relativeTo: .footnote))
-                            .foregroundColor(DSColor.onSurface)
-                        Spacer()
-                        StatusBadge(
-                            label: badgeLabel,
-                            style: result.isDailyPageCompiled ? .verified : .metadata
-                        )
-                    }
+                highlightedSnippet(result.snippet, keyword: vm.query)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                    highlightedSnippet(result.snippet, keyword: vm.query)
-                        .lineLimit(2)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 6) {
+                    Image(systemName: matchIcon(for: result.matchKind))
+                        .font(.system(size: 10))
+                        .foregroundColor(DSColor.inkMuted)
+                    Text(matchLabel(for: result.matchKind))
+                        .monoLabelStyle(size: 10)
+                        .foregroundColor(DSColor.inkMuted)
 
-                    HStack(spacing: 6) {
-                        Image(systemName: matchIcon(for: result.matchKind))
+                    if let type = result.memoType, type != .text {
+                        Image(systemName: type.iconName)
                             .font(.system(size: 10))
-                            .foregroundColor(DSColor.onSurfaceVariant)
-                        Text(matchLabel(for: result.matchKind))
+                            .foregroundColor(DSColor.inkMuted)
+                        Text(type.displayName.uppercased())
                             .monoLabelStyle(size: 10)
-                            .foregroundColor(DSColor.onSurfaceVariant)
-
-                        if let type = result.memoType {
-                            Image(systemName: type.iconName)
-                                .font(.system(size: 10))
-                                .foregroundColor(DSColor.onSurfaceVariant)
-                            Text(type.displayName.uppercased())
-                                .monoLabelStyle(size: 10)
-                                .foregroundColor(DSColor.onSurfaceVariant)
-                        }
+                            .foregroundColor(DSColor.inkMuted)
                     }
                 }
-                .padding(DSSpacing.lg)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(DSColor.surfaceContainer)
             }
+            .padding(DSSpacing.lg)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .liquidGlassCard(cornerRadius: DSRadius.md)
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
@@ -1252,16 +1231,34 @@ struct SearchView: View {
 
     @ViewBuilder
     private func highlightedSnippet(_ snippet: String, keyword: String) -> some View {
+        // Fold raw markdown out of the excerpt first — backticks, task
+        // boxes and `---` dividers read as garbage in a one-line teaser
+        // (M1 renders memo bodies, but snippets bypassed that pipeline).
+        // Windowing + highlight offsets then operate on the cleaned text.
+        let cleaned = Self.strippedLineArtifacts(MemoMarkdown.plainText(snippet))
         let trimmed = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
-            Text(snippet)
+            Text(cleaned)
                 .bodySMStyle()
-                .foregroundColor(DSColor.onSurface)
+                .foregroundColor(DSColor.inkPrimary)
         } else {
-            let windowed = snippetWindow(snippet, keyword: trimmed)
+            let windowed = snippetWindow(cleaned, keyword: trimmed)
             Text(buildHighlightedString(windowed, keyword: trimmed))
                 .bodySMStyle()
         }
+    }
+
+    /// Upstream snippet generation collapses newlines to spaces, so
+    /// line-level markdown (dividers, task boxes, heading hashes) loses the
+    /// line boundary `MemoMarkdown.plainText` needs to recognise it — the
+    /// tokens survive as mid-line litter (" --- ", "- [x] "). Salvage pass.
+    static func strippedLineArtifacts(_ s: String) -> String {
+        var out = s
+        out = out.replacingOccurrences(of: #"(^|\s)-{3,}(\s|$)"#, with: " ", options: .regularExpression)
+        out = out.replacingOccurrences(of: #"(^|\s)- \[[ xX]\]\s"#, with: " ", options: .regularExpression)
+        out = out.replacingOccurrences(of: #"(^|\s)#{1,4}\s"#, with: " ", options: .regularExpression)
+        out = out.replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)
+        return out.trimmingCharacters(in: .whitespaces)
     }
 
     /// Returns a ~80-char window of `snippet` centered just before the first folded match of
@@ -1295,7 +1292,7 @@ struct SearchView: View {
 
     private func buildHighlightedString(_ text: String, keyword: String) -> AttributedString {
         var attributed = AttributedString(text)
-        attributed.foregroundColor = UIColor(DSColor.onSurface)
+        attributed.foregroundColor = UIColor(DSColor.inkPrimary)
 
         let foldedText = foldedForSearch(text)
         let foldedKeyword = foldedForSearch(keyword)
@@ -1312,8 +1309,12 @@ struct SearchView: View {
             let attrEnd = attributed.index(attrStart, offsetByCharacters: length)
             let attrRange = attrStart..<attrEnd
 
-            attributed[attrRange].backgroundColor = UIColor(DSColor.amberAccent).withAlphaComponent(0.28)
-            attributed[attrRange].foregroundColor = UIColor(DSColor.onSurface)
+            // W1: amber underline + semibold instead of a 28% background
+            // wash — crisper, and it needs no dark-mode recolouring.
+            // SwiftUI-scope LineStyle: the UIKit underline attributes are
+            // not reliably rendered by SwiftUI `Text`.
+            attributed[attrRange].foregroundColor = UIColor(DSColor.accentOnBg)
+            attributed[attrRange].underlineStyle = Text.LineStyle(pattern: .solid, color: DSColor.amberAccent)
             // Scaled font keeps highlight emphasis in lockstep with the snippet's Dynamic Type size.
             attributed[attrRange].font = UIFontMetrics(forTextStyle: .footnote).scaledFont(for: .systemFont(ofSize: 13, weight: .semibold))
 
@@ -1400,11 +1401,11 @@ private struct EntityFrequencyChip: View {
                 HStack(spacing: 6) {
                     Text(entity.name)
                         .font(DSFonts.inter(size: 13, relativeTo: .footnote))
-                        .foregroundColor(DSColor.onSurface)
+                        .foregroundColor(DSColor.inkPrimary)
 
                     Text("\(entity.count)")
                         .font(DSType.mono10)
-                        .foregroundColor(DSColor.onSurfaceVariant)
+                        .foregroundColor(DSColor.inkMuted)
                         .padding(.horizontal, DSSpacing.xs)
                         .padding(.vertical, 2)
                         .background(DSColor.outlineVariant.opacity(0.4))
@@ -1420,7 +1421,7 @@ private struct EntityFrequencyChip: View {
                             .frame(width: chipWidth, height: 3)
 
                         Capsule()
-                            .fill(DSColor.primary)
+                            .fill(DSColor.accentOnBg)
                             .frame(width: barAppeared ? chipWidth * ratio : 0, height: 3)
                             .animation(
                                 reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.72)
@@ -1431,10 +1432,10 @@ private struct EntityFrequencyChip: View {
                 }
                 .frame(height: 3)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(DSColor.surfaceContainer)
-            .overlay(Rectangle().stroke(DSColor.outlineVariant, lineWidth: 1))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .dpGlass(.pill, in: Capsule())
+            .clipShape(Capsule())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(a11yLabel)
@@ -1565,7 +1566,7 @@ private struct SwipeableRecentRow: View {
                 }) {
                     Text(query)
                         .font(DSFonts.inter(size: 14, relativeTo: .subheadline))
-                        .foregroundColor(DSColor.onSurface)
+                        .foregroundColor(DSColor.inkPrimary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.plain)

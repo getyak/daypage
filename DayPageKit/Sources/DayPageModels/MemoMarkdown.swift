@@ -112,6 +112,47 @@ public enum MemoMarkdown {
         return doc
     }
 
+    // MARK: - Plain-text folding
+
+    /// Collapses markdown to its bare prose — no backticks, emphasis
+    /// markers, task boxes, heading hashes or dividers. Single-line output
+    /// (blocks joined by spaces), built for search snippets and other
+    /// one-line teasers where raw syntax reads as garbage.
+    public static func plainText(_ text: String) -> String {
+        let doc = cachedParse(text)
+        if doc.isPlain {
+            return text
+                .replacingOccurrences(of: "\n", with: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        func fold(_ runs: [InlineRun]) -> String {
+            runs.map(\.text).joined()
+        }
+
+        var parts: [String] = []
+        for block in doc.blocks {
+            switch block {
+            case .paragraph(let runs), .heading(let runs), .quote(let runs):
+                parts.append(fold(runs))
+            case .bullets(let items):
+                parts.append(items.map { fold($0.runs) }.joined(separator: " "))
+            case .ordered(_, let items):
+                parts.append(items.map { fold($0.runs) }.joined(separator: " "))
+            case .tasks(let items):
+                parts.append(items.map { fold($0.runs) }.joined(separator: " "))
+            case .codeBlock(let code):
+                parts.append(code.replacingOccurrences(of: "\n", with: " "))
+            case .divider:
+                continue
+            }
+        }
+        return parts
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     // MARK: - Block parsing
 
     public static func parse(_ text: String) -> Document {

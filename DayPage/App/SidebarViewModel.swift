@@ -11,6 +11,10 @@ import DayPageServices
 struct RecentDay: Identifiable, Equatable {
     let dateString: String  // YYYY-MM-DD
     let memoCount: Int
+    /// One-line teaser for the jump list — compiled summary if the day has
+    /// one, else the first memo's opening words. nil when the TimelineIndex
+    /// hasn't warmed yet (row falls back to the bare date).
+    var excerpt: String? = nil
 
     var id: String { dateString }
 }
@@ -175,7 +179,22 @@ final class SidebarViewModel: ObservableObject {
         let (recentResult, streakResult, heatmapResult, statsResult) =
             await (recent, streak, heatmap, stats)
         await MainActor.run {
-            self.recentDays = recentResult
+            // Enrich the jump list with per-day teasers from the launch-warmed
+            // TimelineIndex (O(days) dictionary build, zero disk I/O). Prefer
+            // the compiled summary; fall back to the raw excerpt.
+            let teasers: [String: String] = Dictionary(
+                uniqueKeysWithValues: TimelineIndex.shared.entries().compactMap { entry in
+                    let teaser = (entry.summary?.isEmpty == false ? entry.summary : entry.excerpt)
+                    guard let teaser, !teaser.isEmpty else { return nil }
+                    // One-line jump-list teaser — fold markdown syntax out.
+                    return (entry.dateString, SearchView.strippedLineArtifacts(MemoMarkdown.plainText(teaser)))
+                }
+            )
+            self.recentDays = recentResult.map { day in
+                var enriched = day
+                enriched.excerpt = teasers[day.dateString]
+                return enriched
+            }
             self.streakDays = streakResult
             let counts = Dictionary(
                 heatmapResult.map { ($0.dateString, $0.memoCount) },

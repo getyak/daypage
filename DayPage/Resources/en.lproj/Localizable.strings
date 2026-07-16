@@ -1318,3 +1318,25 @@
 "settings.analytics.clear"                   = "Clear debug events";
 "settings.analytics.section"                 = "Debug Board · Event Stream";
 "settings.analytics.footer"                  = "Shows today's event counts and the last 12 entries from vault/.analytics/events.jsonl. Visible on this device only.";
+
+/* W1 redesign (search / archive / sidebar) — 2026-07-16 */
+"sidebar.nav.search"              = "Search";
+"sidebar.nav.search.a11y"         = "Global search";
+"archive.month.meta"              = "%1$d days · %2$d entries";
+"archive.legend.density"          = "Density";
+"archive.summary.thisMonth"       = "This month";
+"archive.summary.menu.a11y"       = "Monthly summary actions";
+"archive.stat.entries"            = "ENTRIES";
+"archive.stat.photos"             = "PHOTOS";
+"archive.stat.voiceMin"           = "VOICE MIN";
+"archive.stat.places"             = "PLACES";
+"archive.stat.days"               = "DAYS";
+"archive.ledger.today"            = "TODAY";
+"archive.ledger.yesterday"        = "YESTERDAY";
+"search.result.count.one"         = "%d result";
+"search.overview.line"            = "%1$d MEMOS · %2$d DAYS";
+"archive.month.meta.days"         = "%d days";
+"archive.month.meta.days.one"     = "%d day";
+"archive.month.meta.entries"      = "%d entries";
+"archive.month.meta.entries.one"  = "%d entry";
+"archive.section.dayCount.one"    = "%d day";

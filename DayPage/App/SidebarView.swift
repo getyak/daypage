@@ -55,14 +55,8 @@ struct SidebarView: View {
 
                         if !sidebarVM.recentDays.isEmpty {
                             recentSection
-                                .padding(.top, 18)
+                                .padding(.top, 22)
                         }
-
-                        // Always show feedback row at the bottom of the
-                        // scrollable area so it stays reachable even when the
-                        // Recent list grows.
-                        feedbackSection
-                            .padding(.top, 18)
                     }
                     .padding(.bottom, DSSpacing.xl2)
                 }
@@ -146,7 +140,7 @@ struct SidebarView: View {
                 .accessibilityHidden(true)
         }
         .padding(.horizontal, DSSpacing.xl)
-        .padding(.top, 58)
+        .padding(.top, 44)
         .padding(.bottom, DSSpacing.md)
     }
 
@@ -312,9 +306,13 @@ struct SidebarView: View {
         VStack(alignment: .leading, spacing: 2) {
             navItem(tab: .today, icon: "square.and.pencil",
                     label: NSLocalizedString("sidebar.nav.today", comment: "Today nav"))
-            navItem(tab: .archive, icon: "archivebox",
+            // Icon set rationale (W1 redesign): one optical family, all
+            // `.medium` weight. `books.vertical` reads "bound journals"
+            // (archivebox read "cardboard box"); `circle.hexagongrid` stays
+            // crisp at 16pt where the dotted-triangle graph glyph smeared.
+            navItem(tab: .archive, icon: "books.vertical",
                     label: NSLocalizedString("sidebar.nav.archive", comment: "Archive nav"))
-            navItem(tab: .graph, icon: "point.3.connected.trianglepath.dotted",
+            navItem(tab: .graph, icon: "circle.hexagongrid",
                     label: NSLocalizedString("sidebar.nav.graph", comment: "Graph nav"))
             // Issue #16 (2026-07-03): global-search row. Between the
             // structured tabs (Today/Archive/Graph) and the memory-chat
@@ -338,25 +336,22 @@ struct SidebarView: View {
             nav.pendingSearchQuery = ""
         } label: {
             HStack(spacing: DSSpacing.md) {
-                RoundedRectangle(cornerRadius: 1, style: .continuous)
-                    .fill(Color.clear)
-                    .frame(width: 2, height: 20)
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 16, weight: .regular))
-                    .frame(width: 20)
+                    .font(.system(size: 15, weight: .medium))
+                    .frame(width: 26, height: 26)
                     .foregroundColor(DSColor.inkMuted)
-                Text("搜索")
+                Text(NSLocalizedString("sidebar.nav.search", comment: "Search nav row"))
                     .font(DSType.bodyMD)
                     .foregroundColor(DSColor.inkMuted)
             }
-            .padding(.trailing, DSSpacing.lg)
-            .padding(.vertical, 11)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("sidebar.search")
-        .accessibilityLabel("全局搜索")
+        .accessibilityLabel(NSLocalizedString("sidebar.nav.search.a11y", comment: "Global search a11y label"))
     }
 
     /// In-app entry point for the D1 "和过去对话" memory-chat agent. Without
@@ -370,34 +365,25 @@ struct SidebarView: View {
             nav.pendingAskQuery = ""
         } label: {
             HStack(spacing: DSSpacing.md) {
-                RoundedRectangle(cornerRadius: 1, style: .continuous)
-                    .fill(Color.clear)
-                    .frame(width: 2, height: 20)
-                Image(systemName: "sparkle.magnifyingglass")
-                    .font(.system(size: 16, weight: .regular))
-                    .frame(width: 20)
+                // `sparkles` — the AI-voice glyph. The old compound
+                // `sparkle.magnifyingglass` collided with the search row's
+                // magnifier one row above.
+                Image(systemName: "sparkles")
+                    .font(.system(size: 15, weight: .medium))
+                    .frame(width: 26, height: 26)
                     .foregroundColor(DSColor.inkMuted)
                 Text(NSLocalizedString("sidebar.ask_past", comment: "Ask the past chat entry"))
                     .font(DSType.bodyMD)
                     .foregroundColor(DSColor.inkMuted)
             }
-            .padding(.trailing, DSSpacing.lg)
-            .padding(.vertical, 11)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(NSLocalizedString("sidebar.ask_past", comment: "Ask the past chat entry"))
         .accessibilityHint(NSLocalizedString("sidebar.ask_past.hint", comment: "Ask based on your notes"))
-    }
-
-    private var feedbackSection: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            sectionLabel("Support")
-            navItem(tab: .feedback, icon: "bubble.left.and.exclamationmark.bubble.right",
-                    label: NSLocalizedString("sidebar.nav.feedback", comment: "Feedback nav"))
-        }
-        .padding(.horizontal, DSSpacing.md)
     }
 
     @ViewBuilder
@@ -416,18 +402,20 @@ struct SidebarView: View {
             }
         } label: {
             HStack(spacing: DSSpacing.md) {
-                // Left amber accent strip
-                RoundedRectangle(cornerRadius: 1, style: .continuous)
-                    .fill(isActive ? DSColor.accentOnBg : Color.clear)
-                    .frame(width: 2, height: 20)
-
+                // Icon on a soft 26pt backing when active — the selection
+                // reads as one warm rounded block instead of the old edge-to-
+                // edge fill + 2pt "toothpick" strip.
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .regular))
-                    .frame(width: 20)
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundColor(
                         disabled ? DSColor.inkSubtle
                         : isActive ? DSColor.accentOnBg
                         : DSColor.inkMuted
+                    )
+                    .frame(width: 26, height: 26)
+                    .background(
+                        RoundedRectangle(cornerRadius: 7, style: .continuous)
+                            .fill(isActive ? DSColor.accentOnBg.opacity(0.12) : Color.clear)
                     )
 
                 Text(label)
@@ -448,11 +436,13 @@ struct SidebarView: View {
                         .background(DSColor.amberSoft, in: Capsule())
                 }
             }
-            .padding(.leading, 0)
-            .padding(.trailing, DSSpacing.lg)
-            .padding(.vertical, 11)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(isActive ? DSColor.amberSoft : Color.clear)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(isActive ? DSColor.amberSoft : Color.clear)
+            )
             .contentShape(Rectangle())
         }
         .disabled(disabled)
@@ -521,7 +511,7 @@ struct SidebarView: View {
                     .foregroundColor(DSColor.inkMuted)
                     .rotationEffect(.degrees(recentExpanded ? 0 : -90))
             }
-            .padding(.leading, 34)  // align with row text column (2 + 12 + 20)
+            .padding(.leading, 48)  // align with nav text column (10 + 26 + 12)
             .padding(.trailing, DSSpacing.lg)
             .padding(.vertical, DSSpacing.sm)
             .contentShape(Rectangle())
@@ -536,38 +526,34 @@ struct SidebarView: View {
         .accessibilityAddTraits(.isButton)
     }
 
+    /// Ledger-style jump row: relative date + one-line teaser, bare mono
+    /// count on the right. (W1: the 6pt amber dot carried no information and
+    /// the per-row count capsule duplicated the disclosure badge.)
     private func recentRow(day: RecentDay) -> some View {
         Button {
             nav.openArchive(at: day.dateString)
         } label: {
-            HStack(spacing: DSSpacing.md) {
-                Color.clear.frame(width: 2, height: 20)
+            HStack(alignment: .firstTextBaseline, spacing: DSSpacing.sm) {
+                Text(Self.formatRowTitle(day.dateString))
+                    .font(DSType.bodySM)
+                    .foregroundColor(DSColor.inkPrimary)
+                    .layoutPriority(1)
 
-                Image(systemName: "circle.fill")
-                    .font(.system(size: 6))
-                    .frame(width: 20)
-                    .foregroundColor(DSColor.accentOnBg.opacity(0.75))
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(Self.formatRowTitle(day.dateString))
+                if let excerpt = day.excerpt, !excerpt.isEmpty {
+                    Text("· \(excerpt)")
                         .font(DSType.bodySM)
-                        .foregroundColor(DSColor.inkPrimary)
-                    Text(day.dateString)
-                        .font(DSType.mono9)
                         .foregroundColor(DSColor.inkMuted)
-                        .tracking(0.5)
-                        .textCase(.uppercase)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
                 }
 
-                Spacer()
+                Spacer(minLength: DSSpacing.sm)
 
                 Text("\(day.memoCount)")
                     .font(DSType.mono10)
                     .foregroundColor(DSColor.inkMuted)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(DSColor.amberSoft, in: Capsule())
             }
+            .padding(.leading, 48)  // align with nav text column (10 + 26 + 12)
             .padding(.trailing, DSSpacing.lg)
             .padding(.vertical, 7)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -581,40 +567,32 @@ struct SidebarView: View {
         .accessibilityAddTraits(.isButton)
     }
 
-    private func sectionLabel(_ text: String) -> some View {
-        Text(text)
-            .font(DSType.mono9)
-            .foregroundColor(DSColor.inkMuted)
-            .tracking(1.2)
-            .textCase(.uppercase)
-            .padding(.leading, 34)  // align with row text column (2 + 12 + 20)
-            .padding(.bottom, DSSpacing.xs)
-            // Use isHeader so VoiceOver rotor lists these as section titles
-            // rather than skipping them; users can jump between sections.
-            .accessibilityAddTraits(.isHeader)
-    }
-
     // MARK: - Bottom Section
 
     private var bottomSection: some View {
         VStack(alignment: .leading, spacing: 2) {
+            // Feedback — lives with Settings in the anchored bottom block
+            // (W1: the old scroll-area "Support" section label was one layer
+            // of hierarchy more than two utility rows deserve).
+            navItem(tab: .feedback, icon: "paperplane",
+                    label: NSLocalizedString("sidebar.nav.feedback", comment: "Feedback nav"))
+
             // Settings
             Button {
                 Haptics.tapConfirm()
                 showSettings = true
             } label: {
                 HStack(spacing: DSSpacing.md) {
-                    Color.clear.frame(width: 2, height: 20)
                     Image(systemName: "gearshape")
-                        .font(.system(size: 16, weight: .regular))
-                        .frame(width: 20)
+                        .font(.system(size: 15, weight: .medium))
+                        .frame(width: 26, height: 26)
                         .foregroundColor(DSColor.inkMuted)
                     Text(NSLocalizedString("sidebar.settings", comment: "Settings row"))
                         .font(DSType.bodyMD)
                         .foregroundColor(DSColor.inkMuted)
                 }
-                .padding(.trailing, DSSpacing.lg)
-                .padding(.vertical, 11)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
             }
@@ -643,25 +621,24 @@ struct SidebarView: View {
             showAccountSheet = true
         } label: {
             HStack(spacing: DSSpacing.md) {
-                Color.clear.frame(width: 2, height: 20)
                 ZStack {
                     Circle()
                         .fill(DSColor.amberSoft)
-                        .frame(width: 28, height: 28)
+                        .frame(width: 24, height: 24)
                         .overlay(Circle().strokeBorder(DSColor.amberRim, lineWidth: 0.5))
                     Text(initial)
                         .font(DSType.labelSM)
                         .foregroundColor(DSColor.accentOnBg)
                 }
-                .frame(width: 20)
+                .frame(width: 26, height: 26)
                 Text(email)
                     .font(DSType.bodySM)
                     .foregroundColor(DSColor.inkMuted)
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
-            .padding(.trailing, DSSpacing.lg)
-            .padding(.vertical, 9)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
         }

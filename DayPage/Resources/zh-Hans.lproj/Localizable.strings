@@ -1325,3 +1325,25 @@
 "settings.analytics.clear"                   = "清空调试事件";
 "settings.analytics.section"                 = "调试看板 · 事件流";
 "settings.analytics.footer"                  = "显示 vault/.analytics/events.jsonl 里今天的事件计数与最近 12 条。仅本机可见。";
+
+/* W1 redesign (search / archive / sidebar) — 2026-07-16 */
+"sidebar.nav.search"              = "搜索";
+"sidebar.nav.search.a11y"         = "全局搜索";
+"archive.month.meta"              = "%1$d 天有记录 · %2$d 条";
+"archive.legend.density"          = "记录密度";
+"archive.summary.thisMonth"       = "这个月";
+"archive.summary.menu.a11y"       = "月度总结操作";
+"archive.stat.entries"            = "条记录";
+"archive.stat.photos"             = "张照片";
+"archive.stat.voiceMin"           = "分钟语音";
+"archive.stat.places"             = "个地点";
+"archive.stat.days"               = "天有记录";
+"archive.ledger.today"            = "今天";
+"archive.ledger.yesterday"        = "昨天";
+"search.result.count.one"         = "%d 条结果";
+"search.overview.line"            = "%1$d 条记录 · 跨 %2$d 天";
+"archive.month.meta.days"         = "%d 天有记录";
+"archive.month.meta.days.one"     = "%d 天有记录";
+"archive.month.meta.entries"      = "%d 条";
+"archive.month.meta.entries.one"  = "%d 条";
+"archive.section.dayCount.one"    = "%d 天";
