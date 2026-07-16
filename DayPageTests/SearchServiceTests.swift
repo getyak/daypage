@@ -5,12 +5,13 @@ import DayPageStorage
 import DayPageServices
 @testable import DayPage
 
-// `.serialized`: every test in this file mutates the process-global
-// `VaultInitializer.testOverrideURL`. Swift Testing runs suites and cases in
-// parallel by default, so two tests pointing the vault override at different
-// temp directories race and read each other's vaults (#827 — surfaced the
-// moment this orphaned file was first wired into the target). The parity
-// suite below is NESTED so the serialization covers it too.
+// #827 flake root cause: these tests used to mutate the process-global
+// `VaultInitializer.testOverrideURL`, and Swift Testing runs OTHER suites in
+// parallel — `.serialized` only covers this file, so a foreign suite could
+// repoint the vault mid-test and empty out the results. Every search/rebuild
+// now pins its private temp vault via the explicit `root:` seam instead, so
+// the global is never touched. `.serialized` stays only for the nested parity
+// suite, whose `SearchIndex.shared` singleton state is still process-global.
 @Suite("SearchService", .serialized)
 struct SearchServiceTests {
 
@@ -54,24 +55,17 @@ struct SearchServiceTests {
 
     @Test func emptyKeywordNoFiltersReturnsEmpty() throws {
         let tmp = try Self.makeTempVault()
-        defer {
-            VaultInitializer.testOverrideURL = nil
-            try? FileManager.default.removeItem(at: tmp)
-        }
+        defer { try? FileManager.default.removeItem(at: tmp) }
         let memo = Memo(type: .text, created: Self.makeDate(year: 2026, month: 4, day: 14), body: "hello world")
         try Self.writeMemo(memo, dateString: "2026-04-14", to: tmp)
-        VaultInitializer.testOverrideURL = tmp
 
-        let results = SearchService.search(keyword: "", filters: .empty)
+        let results = SearchService.search(keyword: "", filters: .empty, root: tmp)
         #expect(results.isEmpty)
     }
 
     @Test func caseInsensitiveBodyMatch_snippetEllipsis() throws {
         let tmp = try Self.makeTempVault()
-        defer {
-            VaultInitializer.testOverrideURL = nil
-            try? FileManager.default.removeItem(at: tmp)
-        }
+        defer { try? FileManager.default.removeItem(at: tmp) }
         // Short body — no truncation expected
         let shortMemo = Memo(type: .text, created: Self.makeDate(year: 2026, month: 4, day: 14),
                              body: "Hello World today")
@@ -82,12 +76,11 @@ struct SearchServiceTests {
         let longMemo = Memo(type: .text, created: Self.makeDate(year: 2026, month: 3, day: 1),
                             body: longBody)
         try Self.writeMemo(longMemo, dateString: "2026-03-01", to: tmp)
-        VaultInitializer.testOverrideURL = tmp
 
-        let results = SearchService.search(keyword: "world")
+        let results = SearchService.search(keyword: "world", root: tmp)
         #expect(results.contains { $0.snippet.lowercased().contains("world") })
 
-        let longResults = SearchService.search(keyword: "keyword")
+        let longResults = SearchService.search(keyword: "keyword", root: tmp)
         let longSnippet = longResults.first { $0.snippet.lowercased().contains("keyword") }?.snippet
         #expect(longSnippet != nil)
         // Should have leading ellipsis (match is 60 chars in, beyond the 30-char window back from start)
@@ -98,17 +91,13 @@ struct SearchServiceTests {
 
     @Test func cjkBodyMatch_nonCrashing() throws {
         let tmp = try Self.makeTempVault()
-        defer {
-            VaultInitializer.testOverrideURL = nil
-            try? FileManager.default.removeItem(at: tmp)
-        }
+        defer { try? FileManager.default.removeItem(at: tmp) }
         let cjkBody = "今天天气很好，我去了一家咖啡馆，喝了一杯拿铁，感觉很不错。"
         let memo = Memo(type: .text, created: Self.makeDate(year: 2026, month: 4, day: 14), body: cjkBody)
         try Self.writeMemo(memo, dateString: "2026-04-14", to: tmp)
-        VaultInitializer.testOverrideURL = tmp
 
         // Should not crash and should return a result
-        let results = SearchService.search(keyword: "咖啡馆")
+        let results = SearchService.search(keyword: "咖啡馆", root: tmp)
         #expect(!results.isEmpty)
         let snippet = results.first?.snippet ?? ""
         #expect(!snippet.isEmpty)
@@ -118,23 +107,19 @@ struct SearchServiceTests {
 
     @Test func dateRangeFilter_boundaryInclusion() throws {
         let tmp = try Self.makeTempVault()
-        defer {
-            VaultInitializer.testOverrideURL = nil
-            try? FileManager.default.removeItem(at: tmp)
-        }
+        defer { try? FileManager.default.removeItem(at: tmp) }
         for (ds, d) in [("2026-04-14", Self.makeDate(year: 2026, month: 4, day: 14)),
                         ("2026-04-15", Self.makeDate(year: 2026, month: 4, day: 15)),
                         ("2026-04-16", Self.makeDate(year: 2026, month: 4, day: 16))] {
             let memo = Memo(type: .text, created: d, body: "entry")
             try Self.writeMemo(memo, dateString: ds, to: tmp)
         }
-        VaultInitializer.testOverrideURL = tmp
 
         var filters = SearchFilters.empty
         filters.startDate = Self.makeDate(year: 2026, month: 4, day: 14)
         filters.endDate   = Self.makeDate(year: 2026, month: 4, day: 15)
 
-        let results = SearchService.search(keyword: "entry", filters: filters)
+        let results = SearchService.search(keyword: "entry", filters: filters, root: tmp)
         let dates = Set(results.map { $0.dateString })
         #expect(dates.contains("2026-04-14"))   // boundary — included
         #expect(dates.contains("2026-04-15"))   // boundary — included
@@ -143,21 +128,17 @@ struct SearchServiceTests {
 
     @Test func typesFilter_restrictsMemoType() throws {
         let tmp = try Self.makeTempVault()
-        defer {
-            VaultInitializer.testOverrideURL = nil
-            try? FileManager.default.removeItem(at: tmp)
-        }
+        defer { try? FileManager.default.removeItem(at: tmp) }
         let d = Self.makeDate(year: 2026, month: 4, day: 14)
         let textMemo  = Memo(id: UUID(), type: .text,  created: d, body: "shared keyword")
         let voiceMemo = Memo(id: UUID(), type: .voice, created: d, body: "shared keyword")
         try Self.writeMemo(textMemo,  dateString: "2026-04-14", to: tmp)
         try Self.writeMemo(voiceMemo, dateString: "2026-04-14", to: tmp)
-        VaultInitializer.testOverrideURL = tmp
 
         var filters = SearchFilters.empty
         filters.types = [.voice]
 
-        let results = SearchService.search(keyword: "shared keyword", filters: filters)
+        let results = SearchService.search(keyword: "shared keyword", filters: filters, root: tmp)
         // Only voice memos should be returned
         for r in results {
             if r.matchKind != .date {
@@ -170,22 +151,18 @@ struct SearchServiceTests {
 
     @Test func locationQueryFilter_matchesMemoLocation() throws {
         let tmp = try Self.makeTempVault()
-        defer {
-            VaultInitializer.testOverrideURL = nil
-            try? FileManager.default.removeItem(at: tmp)
-        }
+        defer { try? FileManager.default.removeItem(at: tmp) }
         let d = Self.makeDate(year: 2026, month: 4, day: 14)
         let loc = Memo.Location(name: "Shibuya Coffee", lat: 35.659, lng: 139.700)
         let memoWithLoc = Memo(id: UUID(), type: .text, created: d, location: loc, body: "had a great time")
         let memoNoLoc   = Memo(id: UUID(), type: .text, created: d, body: "had a great time")
         try Self.writeMemo(memoWithLoc, dateString: "2026-04-14", to: tmp)
         try Self.writeMemo(memoNoLoc,   dateString: "2026-04-14", to: tmp)
-        VaultInitializer.testOverrideURL = tmp
 
         var filters = SearchFilters.empty
         filters.locationQuery = "shibuya"
 
-        let results = SearchService.search(keyword: "had", filters: filters)
+        let results = SearchService.search(keyword: "had", filters: filters, root: tmp)
         // Only the memo with matching location should appear
         #expect(results.count == 1)
         #expect(results.first?.snippet.lowercased().contains("had") == true)
@@ -193,19 +170,15 @@ struct SearchServiceTests {
 
     @Test func transcriptMatch_hitsWhenBodyMissesButTranscriptContainsKeyword() throws {
         let tmp = try Self.makeTempVault()
-        defer {
-            VaultInitializer.testOverrideURL = nil
-            try? FileManager.default.removeItem(at: tmp)
-        }
+        defer { try? FileManager.default.removeItem(at: tmp) }
         let d = Self.makeDate(year: 2026, month: 4, day: 14)
         let att = Memo.Attachment(file: "voice.m4a", kind: "audio",
                                   transcript: "the meeting was productive")
         let memo = Memo(id: UUID(), type: .voice, created: d,
                         attachments: [att], body: "no relevant text here")
         try Self.writeMemo(memo, dateString: "2026-04-14", to: tmp)
-        VaultInitializer.testOverrideURL = tmp
 
-        let results = SearchService.search(keyword: "productive")
+        let results = SearchService.search(keyword: "productive", root: tmp)
         #expect(!results.isEmpty)
         let r = results.first!
         #expect(r.matchKind == .memoBody)
@@ -214,16 +187,12 @@ struct SearchServiceTests {
 
     @Test func diacriticInsensitive_cafeMatchesCafe() throws {
         let tmp = try Self.makeTempVault()
-        defer {
-            VaultInitializer.testOverrideURL = nil
-            try? FileManager.default.removeItem(at: tmp)
-        }
+        defer { try? FileManager.default.removeItem(at: tmp) }
         let memo = Memo(type: .text, created: Self.makeDate(year: 2026, month: 4, day: 14),
                         body: "I visited a lovely café in the morning")
         try Self.writeMemo(memo, dateString: "2026-04-14", to: tmp)
-        VaultInitializer.testOverrideURL = tmp
 
-        let results = SearchService.search(keyword: "cafe")
+        let results = SearchService.search(keyword: "cafe", root: tmp)
         #expect(!results.isEmpty)
         // Snippet must preserve the original accented character
         let snippet = results.first?.snippet ?? ""
@@ -232,17 +201,13 @@ struct SearchServiceTests {
 
     @Test func diacriticInsensitive_zurichMatchesZurich() throws {
         let tmp = try Self.makeTempVault()
-        defer {
-            VaultInitializer.testOverrideURL = nil
-            try? FileManager.default.removeItem(at: tmp)
-        }
+        defer { try? FileManager.default.removeItem(at: tmp) }
         let loc = Memo.Location(name: "Zürich", lat: 47.376, lng: 8.541)
         let memo = Memo(id: UUID(), type: .location, created: Self.makeDate(year: 2026, month: 4, day: 14),
                         location: loc, body: "arrived in the city")
         try Self.writeMemo(memo, dateString: "2026-04-14", to: tmp)
-        VaultInitializer.testOverrideURL = tmp
 
-        let results = SearchService.search(keyword: "zurich")
+        let results = SearchService.search(keyword: "zurich", root: tmp)
         #expect(!results.isEmpty)
         let locationResult = results.first { $0.matchKind == .location }
         #expect(locationResult != nil)
@@ -251,16 +216,12 @@ struct SearchServiceTests {
 
     @Test func diacriticInsensitive_saoPauloMatchesSaoPaulo() throws {
         let tmp = try Self.makeTempVault()
-        defer {
-            VaultInitializer.testOverrideURL = nil
-            try? FileManager.default.removeItem(at: tmp)
-        }
+        defer { try? FileManager.default.removeItem(at: tmp) }
         let memo = Memo(type: .text, created: Self.makeDate(year: 2026, month: 4, day: 14),
                         body: "flying into São Paulo tomorrow")
         try Self.writeMemo(memo, dateString: "2026-04-14", to: tmp)
-        VaultInitializer.testOverrideURL = tmp
 
-        let results = SearchService.search(keyword: "sao paulo")
+        let results = SearchService.search(keyword: "sao paulo", root: tmp)
         #expect(!results.isEmpty)
         let snippet = results.first?.snippet ?? ""
         #expect(snippet.contains("São Paulo"))
@@ -268,19 +229,15 @@ struct SearchServiceTests {
 
     @Test func resultsOrderedNewestFirst() throws {
         let tmp = try Self.makeTempVault()
-        defer {
-            VaultInitializer.testOverrideURL = nil
-            try? FileManager.default.removeItem(at: tmp)
-        }
+        defer { try? FileManager.default.removeItem(at: tmp) }
         for (ds, d) in [("2026-01-01", Self.makeDate(year: 2026, month: 1, day: 1)),
                         ("2026-03-01", Self.makeDate(year: 2026, month: 3, day: 1)),
                         ("2026-04-14", Self.makeDate(year: 2026, month: 4, day: 14))] {
             let memo = Memo(type: .text, created: d, body: "searchable content")
             try Self.writeMemo(memo, dateString: ds, to: tmp)
         }
-        VaultInitializer.testOverrideURL = tmp
 
-        let results = SearchService.search(keyword: "searchable content")
+        let results = SearchService.search(keyword: "searchable content", root: tmp)
         let dates = results.compactMap { $0.matchKind == .memoBody ? $0.dateString : nil }
         #expect(dates == dates.sorted(by: >), "Results must be ordered newest-first")
     }
@@ -342,19 +299,17 @@ struct SearchIndexParityTests {
     @Test func indexedResultsMatchLegacyAcrossMatchKinds() throws {
         let tmp = try seedMixedVault()
         defer {
-            VaultInitializer.testOverrideURL = nil
             SearchIndex.shared.resetForTesting()
             try? FileManager.default.removeItem(at: tmp)
         }
-        VaultInitializer.testOverrideURL = tmp
-        SearchIndex.shared.rebuildSynchronouslyForTesting()
+        SearchIndex.shared.rebuildSynchronouslyForTesting(root: tmp)
         let docs = try #require(SearchIndex.shared.documentsIfBuilt())
 
         // Keywords covering: body, transcript, location, date, diacritic
         // folding, and a zero-hit query.
         for keyword in ["coffee", "roaster", "chiang mai", "2026-01", "sao paulo", "nothing-matches"] {
-            let legacy = SearchService.search(keyword: keyword).map(Hit.init)
-            let indexed = SearchService.search(keyword: keyword, in: docs).map(Hit.init)
+            let legacy = SearchService.search(keyword: keyword, root: tmp).map(Hit.init)
+            let indexed = SearchService.search(keyword: keyword, in: docs, root: tmp).map(Hit.init)
             #expect(indexed == legacy, "fast path diverged from legacy for '\(keyword)'")
         }
     }
@@ -362,12 +317,10 @@ struct SearchIndexParityTests {
     @Test func indexedResultsMatchLegacyUnderFilters() throws {
         let tmp = try seedMixedVault()
         defer {
-            VaultInitializer.testOverrideURL = nil
             SearchIndex.shared.resetForTesting()
             try? FileManager.default.removeItem(at: tmp)
         }
-        VaultInitializer.testOverrideURL = tmp
-        SearchIndex.shared.rebuildSynchronouslyForTesting()
+        SearchIndex.shared.rebuildSynchronouslyForTesting(root: tmp)
         let docs = try #require(SearchIndex.shared.documentsIfBuilt())
 
         var typeFilter = SearchFilters.empty
@@ -379,8 +332,8 @@ struct SearchIndexParityTests {
 
         for (keyword, filters) in [("coffee", typeFilter), ("coffee", rangeFilter),
                                    ("", typeFilter), ("", locFilter)] {
-            let legacy = SearchService.search(keyword: keyword, filters: filters).map(Hit.init)
-            let indexed = SearchService.search(keyword: keyword, filters: filters, in: docs).map(Hit.init)
+            let legacy = SearchService.search(keyword: keyword, filters: filters, root: tmp).map(Hit.init)
+            let indexed = SearchService.search(keyword: keyword, filters: filters, in: docs, root: tmp).map(Hit.init)
             #expect(indexed == legacy, "fast path diverged for '\(keyword)' + filters")
         }
     }
@@ -394,24 +347,22 @@ struct SearchIndexParityTests {
     @Test func rebuildPicksUpNewDay() throws {
         let tmp = try seedMixedVault()
         defer {
-            VaultInitializer.testOverrideURL = nil
             SearchIndex.shared.resetForTesting()
             try? FileManager.default.removeItem(at: tmp)
         }
-        VaultInitializer.testOverrideURL = tmp
-        SearchIndex.shared.rebuildSynchronouslyForTesting()
+        SearchIndex.shared.rebuildSynchronouslyForTesting(root: tmp)
         let before = SearchService.search(
-            keyword: "freshly-added", in: SearchIndex.shared.documentsIfBuilt() ?? [])
+            keyword: "freshly-added", in: SearchIndex.shared.documentsIfBuilt() ?? [], root: tmp)
         #expect(before.isEmpty)
 
         try SearchServiceTests.writeMemo(
             Memo(type: .text, created: SearchServiceTests.makeDate(year: 2026, month: 5, day: 5),
                  body: "freshly-added memo body"),
             dateString: "2026-05-05", to: tmp)
-        SearchIndex.shared.rebuildSynchronouslyForTesting()
+        SearchIndex.shared.rebuildSynchronouslyForTesting(root: tmp)
 
         let after = SearchService.search(
-            keyword: "freshly-added", in: SearchIndex.shared.documentsIfBuilt() ?? [])
+            keyword: "freshly-added", in: SearchIndex.shared.documentsIfBuilt() ?? [], root: tmp)
         #expect(after.count == 1)
         #expect(after.first?.dateString == "2026-05-05")
     }

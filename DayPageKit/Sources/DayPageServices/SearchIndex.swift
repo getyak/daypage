@@ -186,9 +186,9 @@ public final class SearchIndex {
 
     /// Full-vault scan → day documents. Same file discovery rules as the
     /// legacy `SearchService.search` (raw/*.md, valid yyyy-MM-dd stems only).
-    nonisolated private static func scanAllDocuments() -> [String: DayDocument] {
+    nonisolated private static func scanAllDocuments(root: URL? = nil) -> [String: DayDocument] {
         let fm = FileManager.default
-        let rawDir = VaultInitializer.vaultURL.appendingPathComponent("raw")
+        let rawDir = (root ?? VaultInitializer.vaultURL).appendingPathComponent("raw")
         guard let files = try? fm.contentsOfDirectory(
             at: rawDir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles]
         ) else { return [:] }
@@ -261,8 +261,10 @@ public final class SearchIndex {
     // MARK: - Test support
 
     /// Test-only: synchronous full build so tests can assert deterministically.
-    public func rebuildSynchronouslyForTesting() {
-        docsByDate = Self.scanAllDocuments()
+    /// `root` pins the scan to a private temp vault so parallel suites can't
+    /// race on the global vault override (#827).
+    public func rebuildSynchronouslyForTesting(root: URL? = nil) {
+        docsByDate = Self.scanAllDocuments(root: root)
         sortedSnapshot = nil
         rawDirMtimeSnapshot = Self.rawDirMtime()
         isBuilt = true

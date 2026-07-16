@@ -47,8 +47,12 @@ public enum SearchService {
     /// 搜索原始 memo + 编译的日记页面，匹配 ``keyword`` 并应用可选的 ``filters``。
     /// 返回按日期降序排列的结果（最新优先）。
     /// 空关键字 + 无活跃过滤器时返回空数组。
+    /// `root` is a test seam: parallel test suites race on the process-global
+    /// `VaultInitializer.testOverrideURL` (#827 flake), so tests pass their
+    /// private temp vault explicitly. Production callers omit it.
     public nonisolated static func search(keyword rawKeyword: String,
-                                   filters: SearchFilters = .empty) -> [SearchResult] {
+                                   filters: SearchFilters = .empty,
+                                   root: URL? = nil) -> [SearchResult] {
         let keyword = rawKeyword.trimmingCharacters(in: .whitespacesAndNewlines)
         let folded = foldForSearch(keyword)
         let hasKeyword = !keyword.isEmpty
@@ -57,8 +61,9 @@ public enum SearchService {
         var results: [SearchResult] = []
 
         let fm = FileManager.default
-        let rawDir = VaultInitializer.vaultURL.appendingPathComponent("raw")
-        let dailyDir = VaultInitializer.vaultURL.appendingPathComponent("wiki/daily")
+        let vaultRoot = root ?? VaultInitializer.vaultURL
+        let rawDir = vaultRoot.appendingPathComponent("raw")
+        let dailyDir = vaultRoot.appendingPathComponent("wiki/daily")
 
         let files: [URL]
         do {
@@ -182,7 +187,8 @@ public enum SearchService {
     public nonisolated static func search(
         keyword rawKeyword: String,
         filters: SearchFilters = .empty,
-        in docs: [SearchIndex.DayDocument]
+        in docs: [SearchIndex.DayDocument],
+        root: URL? = nil
     ) -> [SearchResult] {
         let keyword = rawKeyword.trimmingCharacters(in: .whitespacesAndNewlines)
         let folded = foldForSearch(keyword)
@@ -190,7 +196,7 @@ public enum SearchService {
         guard hasKeyword || filters.isActive else { return [] }
 
         let fm = FileManager.default
-        let dailyDir = VaultInitializer.vaultURL.appendingPathComponent("wiki/daily")
+        let dailyDir = (root ?? VaultInitializer.vaultURL).appendingPathComponent("wiki/daily")
         // Per-day compiled flags are memoized so multiple matches inside one
         // day cost a single stat().
         var compiledByDate: [String: Bool] = [:]
