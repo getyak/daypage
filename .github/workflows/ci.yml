@@ -452,6 +452,17 @@ jobs:
             defaults write com.daypage.app hasSeenWelcome -bool YES
           xcrun simctl spawn "$SIMULATOR_UDID" \
             defaults write com.daypage.app authSkipped -bool YES
+          # Two more gates discovered via diag-after-launch.png (2026-07-17):
+          # without hasRequestedNotifications the app fires the iOS
+          # notification-permission dialog at cold launch — a SYSTEM alert
+          # Maestro cannot see past, which is why flows died on
+          # "Element not found: Archive" while Today was rendered right
+          # behind it. And the first-run input-bar tutorial (Skip/Next
+          # overlay) sits on top of the dock, hiding expand-text-composer.
+          xcrun simctl spawn "$SIMULATOR_UDID" \
+            defaults write com.daypage.app hasRequestedNotifications -bool YES
+          xcrun simctl spawn "$SIMULATOR_UDID" \
+            defaults write com.daypage.app inputBarTutorialCompleted -bool YES
           # Pin app + system language to English so Maestro flow selectors
           # like "Archive" / "Today" / "Graph" match the rendered sidebar.
           # Without this the runner defaults to zh-Hans (the dev locale)
