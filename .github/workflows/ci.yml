@@ -354,9 +354,14 @@ jobs:
             DEST="platform=iOS Simulator,name=iPhone 16"
           fi
           echo "Using simulator: $DEST"
+          # NOTE: no `-sdk iphonesimulator` here — a global -sdk override is
+          # applied to EVERY target, so the embedded DayPageWatch app got
+          # compiled against the iPhone SDK and died on `import WatchKit`.
+          # The -destination alone pins the platform; per-target SDKs
+          # (watchsimulator for the watch app) then resolve correctly, same
+          # as the green xcode-tests job.
           xcodebuild \
             -scheme DayPage \
-            -sdk iphonesimulator \
             -destination "$DEST" \
             CODE_SIGNING_ALLOWED=NO \
             COMPILER_CONTENT_PROTECTION=NO \
