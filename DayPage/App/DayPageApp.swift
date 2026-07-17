@@ -439,8 +439,43 @@ struct DayPageApp: App {
                     // (提醒会静默退化成普通 UN 通知)。这一步不弹权限框。
                     if #available(iOS 26.0, *) {
                         CaptureReminderService.shared.refreshAlarmKitAuthorizationState()
+                        // 冷启动清掉上一会话遗留的 alerting alarm(灵动岛悬挂占位),
+                        // 并常驻观察前台触发(前台 iOS 不显示自家灵动岛,须转投横幅)。
+                        CaptureReminderService.shared.stopAlertingAlarms()
+                        CaptureReminderService.shared.startAlarmAlertObservation()
                     }
                     CaptureReminderService.shared.refreshSchedule()
+                    #if DEBUG
+                    // QA bridge (simulator only): `-qaAlarmInSeconds 90` schedules a
+                    // one-shot capture reminder N seconds out so the AlarmKit Dynamic
+                    // Island path can be exercised deterministically. Requests
+                    // AlarmKit authorization first (the system prompt is tapped by
+                    // the UI driver). Same launch-arg pattern as -dockVoiceDemo.
+                    if #available(iOS 26.0, *) {
+                        let args = ProcessInfo.processInfo.arguments
+                        if let idx = args.firstIndex(of: "-qaAlarmInSeconds"),
+                           args.indices.contains(idx + 1),
+                           let seconds = TimeInterval(args[idx + 1]), seconds > 0 {
+                            Task {
+                                await CaptureReminderService.shared.requestAlarmKitAuthorization()
+                                CaptureReminderService.shared.scheduleOnce(
+                                    at: Date().addingTimeInterval(seconds),
+                                    label: "QA 灵动岛测试"
+                                )
+                            }
+                        }
+                        // `-qaAlarmTimerSeconds 120`:起 countdown 计时器。
+                        // countdown 是唯一由自家 widget 渲染岛 compact/expanded
+                        // 的状态,QA 用它实测自定义岛 UI(.alert 由系统钉横幅)。
+                        if let idx = args.firstIndex(of: "-qaAlarmTimerSeconds"),
+                           args.indices.contains(idx + 1),
+                           let seconds = TimeInterval(args[idx + 1]), seconds > 0 {
+                            Task {
+                                await CaptureReminderService.shared.qaStartCountdownTimer(seconds: seconds)
+                            }
+                        }
+                    }
+                    #endif
                     // Issue #20 / Gate A fix (2026-07-03): 请求本地通知权限
                     // (用于 2am 编译完成回执)。原实现在 RootView.onAppear 无条件
                     // 触发，导致 onboarding 的 Welcome 页刚露头就弹系统授权框，
@@ -490,6 +525,14 @@ struct DayPageApp: App {
                     // re-check the raw/ mtime and rebuild the index only if it
                     // actually changed (issue #345).
                     if phase == .active {
+                        // AlarmKit 授权真源在系统,前台回填(启动路径注释所承诺的
+                        // 「每次前台读」此前只在 .task 做了一次,这里补齐);同时
+                        // 停掉 alerting 中的 alarm —— 用户已回到 App,提醒完成
+                        // 使命,不再让灵动岛挂着黑胶囊(实测会无限期占位)。
+                        if #available(iOS 26.0, *) {
+                            CaptureReminderService.shared.refreshAlarmKitAuthorizationState()
+                            CaptureReminderService.shared.stopAlertingAlarms()
+                        }
                         TimelineIndex.shared.refreshIfExternallyModified()
                         SearchIndex.shared.refreshIfExternallyModified()
                         // Re-warm generators after backgrounding so they're ready immediately.
