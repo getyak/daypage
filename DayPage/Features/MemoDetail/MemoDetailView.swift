@@ -1051,6 +1051,7 @@ private struct DetailFileRow: View {
     let attachment: Memo.Attachment
 
     @State private var fileSize: String = ""
+    @State private var previewItem: PreviewFileItem?
 
     private var fileURL: URL {
         VaultInitializer.vaultURL.appendingPathComponent(attachment.file)
@@ -1123,6 +1124,10 @@ private struct DetailFileRow: View {
         .padding(.horizontal, 14)
         .padding(.vertical, DSSpacing.md)
         .onAppear { loadFileSize() }
+        .sheet(item: $previewItem) { item in
+            FilePreviewSheet(url: item.url)
+                .ignoresSafeArea()
+        }
     }
 
     private func loadFileSize() {
@@ -1132,7 +1137,10 @@ private struct DetailFileRow: View {
     }
 
     private func openFile() {
-        UIApplication.shared.open(fileURL)
+        // In-app QuickLook — `UIApplication.shared.open(fileURL)` hands the
+        // sandboxed URL to an external app with no read access, which renders
+        // a blank/incomplete document.
+        previewItem = PreviewFileItem(url: fileURL)
     }
 }
 

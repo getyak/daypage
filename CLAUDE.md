@@ -25,7 +25,6 @@ DayPage: a personal logging tool centered on daily raw data capture. Users dump,
 
 | Feature | Choice | Notes |
 |---|---|---|
-| Provider | **Aliyun DashScope** (OpenAI-compatible) | `CompilationService.swift`, model `qwen3.5-plus` |
 | API key | `Config/GeneratedSecrets.swift` (generated from env, gitignored) | Never hardcode in source |
 | Schedule | **BGTaskScheduler** `com.daypage.daily-compilation`, 02:00 daily + backfill | `BackgroundCompilationService.swift` |
 | Input | Text only — no raw audio / image bytes sent | |
