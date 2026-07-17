@@ -5,6 +5,8 @@ appId: com.daypage.app
     arguments:
       hasOnboarded: "true"
       authSkipped: "true"
+      hasSeenWelcome: "true"
+      hasRequestedNotifications: "true"
 - takeScreenshot: launch
 
 # 等待 Today View 加载（DAYPAGE 可见）

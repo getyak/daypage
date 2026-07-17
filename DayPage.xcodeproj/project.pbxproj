@@ -214,6 +214,7 @@
 		INF0000002 /* InflightDraftStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = INF1000002 /* InflightDraftStoreTests.swift */; };
 		DBT0000001 /* DoubaoASRTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBT1000001 /* DoubaoASRTests.swift */; };
 		MDT0000001 /* MemoMarkdownTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = MDT1000001 /* MemoMarkdownTests.swift */; };
+		ETS0000001 /* EntityTypeSingularTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ETS1000001 /* EntityTypeSingularTests.swift */; };
 		DBR0000001 /* DoubaoASRResolutionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBR1000001 /* DoubaoASRResolutionTests.swift */; };
 		SR30000001 /* DoubaoConnectivityTesterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = SR40000001 /* DoubaoConnectivityTesterTests.swift */; };
 		KC0000001 /* KeychainHelperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = KC1000001 /* KeychainHelperTests.swift */; };
@@ -513,6 +514,7 @@
 		INF1000002 /* InflightDraftStoreTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InflightDraftStoreTests.swift; sourceTree = "<group>"; };
 		DBT1000001 /* DoubaoASRTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoubaoASRTests.swift; sourceTree = "<group>"; };
 		MDT1000001 /* MemoMarkdownTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoMarkdownTests.swift; sourceTree = "<group>"; };
+		ETS1000001 /* EntityTypeSingularTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntityTypeSingularTests.swift; sourceTree = "<group>"; };
 		DBR1000001 /* DoubaoASRResolutionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoubaoASRResolutionTests.swift; sourceTree = "<group>"; };
 		SR40000001 /* DoubaoConnectivityTesterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoubaoConnectivityTesterTests.swift; sourceTree = "<group>"; };
 		KC1000001 /* KeychainHelperTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainHelperTests.swift; sourceTree = "<group>"; };
@@ -1182,6 +1184,7 @@
 		T50000001 /* DayPageTests */ = {
 			isa = PBXGroup;
 			children = (
+				ETS1000001 /* EntityTypeSingularTests.swift */,
 				T20000001 /* DayDetailViewStateTests.swift */,
 				T20000002 /* ConflictMergerTests.swift */,
 				T20000003 /* VaultMigrationServiceTests.swift */,
@@ -1698,6 +1701,7 @@
 				SR30000001 /* DoubaoConnectivityTesterTests.swift in Sources */,
 				DBT0000001 /* DoubaoASRTests.swift in Sources */,
 				MDT0000001 /* MemoMarkdownTests.swift in Sources */,
+				ETS0000001 /* EntityTypeSingularTests.swift in Sources */,
 				TI1000001 /* AppIntentsTests.swift in Sources */,
 				A11Y0001 /* AccessibilityTests.swift in Sources */,
 				SP0001 /* SwipePolishContractTests.swift in Sources */,

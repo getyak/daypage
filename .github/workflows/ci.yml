@@ -305,7 +305,7 @@ jobs:
       - name: Cache DerivedData
         uses: actions/cache@v4
         with:
-          path: ~/Library/Developer/Xcode/DerivedData
+          path: build/DD
           key: deriveddata-ci-${{ hashFiles('DayPage.xcodeproj/project.pbxproj') }}-${{ runner.os }}
           restore-keys: |
             deriveddata-ci-${{ hashFiles('DayPage.xcodeproj/project.pbxproj') }}-
@@ -354,20 +354,27 @@ jobs:
             DEST="platform=iOS Simulator,name=iPhone 16"
           fi
           echo "Using simulator: $DEST"
+          # NOTE 1: no `-sdk iphonesimulator` — a global -sdk override applies
+          # to EVERY target, so the embedded DayPageWatch app got compiled
+          # against the iPhone SDK and died on `import WatchKit`.
+          # NOTE 2: no `CONFIGURATION_BUILD_DIR` — flattening products into
+          # one dir makes the shared SPM packages (DayPageModels etc.) build
+          # once per platform (iphonesimulator + watchsimulator) into the SAME
+          # path → "Multiple commands produce". -derivedDataPath keeps the
+          # per-platform Products/ subdirs.
           xcodebuild \
             -scheme DayPage \
-            -sdk iphonesimulator \
             -destination "$DEST" \
             CODE_SIGNING_ALLOWED=NO \
             COMPILER_CONTENT_PROTECTION=NO \
-            CONFIGURATION_BUILD_DIR=$PWD/build/Products \
+            -derivedDataPath $PWD/build/DD \
             build 2>&1 | tee build.log
           grep 'BUILD SUCCEEDED' build.log
 
       - name: Export built .app path
         id: app_path
         run: |
-          APP=$(find build/Products -name "DayPage.app" -maxdepth 3 | head -1)
+          APP=$(find build/DD/Build/Products -name "DayPage.app" -maxdepth 3 | head -1)
           echo "app_path=$APP" >> "$GITHUB_OUTPUT"
           echo "Found .app: $APP"
 
@@ -375,13 +382,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: DayPage-app-${{ github.sha }}
-          path: build/Products
+          path: build/DD/Build/Products/Debug-iphonesimulator
           retention-days: 1
 
   ui-tests:
     name: Maestro UI Tests
     runs-on: macos-15
-    timeout-minutes: 20
+    # 前置开销(装 Maestro+起模拟器)约 7 min,4 条 flow 全跑完约 15-20 min;
+    # 20 min 预算会在 flow 全通过时被 job 超时掐掉(表现为整个 run "cancelled")
+    timeout-minutes: 35
     needs: build
     # 仅 PR 和定时任务运行 UI 测试（push 跳过，加快常规开发循环）
     if: (github.event_name == 'pull_request' && github.event.action != 'closed') || github.event_name == 'schedule'
@@ -445,6 +454,17 @@ jobs:
             defaults write com.daypage.app hasSeenWelcome -bool YES
           xcrun simctl spawn "$SIMULATOR_UDID" \
             defaults write com.daypage.app authSkipped -bool YES
+          # Two more gates discovered via diag-after-launch.png (2026-07-17):
+          # without hasRequestedNotifications the app fires the iOS
+          # notification-permission dialog at cold launch — a SYSTEM alert
+          # Maestro cannot see past, which is why flows died on
+          # "Element not found: Archive" while Today was rendered right
+          # behind it. And the first-run input-bar tutorial (Skip/Next
+          # overlay) sits on top of the dock, hiding expand-text-composer.
+          xcrun simctl spawn "$SIMULATOR_UDID" \
+            defaults write com.daypage.app hasRequestedNotifications -bool YES
+          xcrun simctl spawn "$SIMULATOR_UDID" \
+            defaults write com.daypage.app inputBarTutorialCompleted -bool YES
           # Pin app + system language to English so Maestro flow selectors
           # like "Archive" / "Today" / "Graph" match the rendered sidebar.
           # Without this the runner defaults to zh-Hans (the dev locale)
@@ -484,6 +504,7 @@ jobs:
         id: maestro
         env:
           MAESTRO_DEVICE_ID: ${{ env.SIMULATOR_UDID }}
+          MAESTRO_CLI_NO_ANALYTICS: "1"
         run: |
           mkdir -p maestro-results
           maestro test flows/ \

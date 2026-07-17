@@ -196,6 +196,15 @@ final class BackgroundCompilationService: ObservableObject {
                     // Foreground backfill: full exponential backoff (no iOS BGTask budget).
                     try await compileWithRetry(for: date, trigger: "backfill", delays: Self.foregroundRetryDelays)
                     sendSuccessNotification(for: date)
+                } catch CompilationError.missingApiKey {
+                    // Fullchain audit P1: a missing key used to fail the whole
+                    // backfill batch silently — log-only, zero UI. Surface one
+                    // calm in-app banner (foreground pushes don't display) and
+                    // stop the batch: every remaining date fails identically,
+                    // so retry backoff on them is pure waste.
+                    DayPageLogger.shared.error("[BGCompile] Backfill halted: AI key not configured")
+                    Self.surfaceMissingKeyBannerOnce()
+                    break
                 } catch {
                     DayPageLogger.shared.error("[BGCompile] Backfill failed for \(formatter.string(from: date)): \(error.localizedDescription)")
                     // Continue to next date, don't abort the whole batch
@@ -458,6 +467,15 @@ final class BackgroundCompilationService: ObservableObject {
         return f
     }()
 
+    /// User-facing date for notification copy ("Jul 8" / "7月8日") —
+    /// follows the device locale, unlike the POSIX file-name formatter above.
+    private static let displayDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale.current
+        f.setLocalizedDateFormatFromTemplate("MMMd")
+        return f
+    }()
+
     /// 如果 `date` 需要编译则返回 true（issue #814 升级为 stale 检测）：
     ///   1. raw 存在且 daily 缺失 → true（经典缺页路径）；
     ///   2. daily 存在且 frontmatter 带 source_hash，但与当前 raw 内容的
@@ -518,24 +536,39 @@ final class BackgroundCompilationService: ObservableObject {
 
         let dateString = Self.dateFormatter.string(from: date)
 
+        // Backfill compiles days that are NOT today — a hardcoded "Today's
+        // page is ready" title lies about which page just landed. Name the
+        // actual date unless it really is today's page.
+        let isToday = Calendar.current.isDateInToday(date)
+        let displayDate = Self.displayDateFormatter.string(from: date)
+
         let content = UNMutableNotificationContent()
-        content.title = NSLocalizedString(
-            "notif.compile.success.title",
-            value: "今日 Daily Page 已生成",
-            comment: "Local notification title fired after a successful nightly compilation"
-        )
+        if isToday {
+            content.title = NSLocalizedString(
+                "notif.compile.success.title",
+                value: "今日 Daily Page 已生成",
+                comment: "Local notification title fired after a successful compilation of today's page"
+            )
+        } else {
+            let fmt = NSLocalizedString(
+                "notif.compile.success.title.dated",
+                value: "%@ 的 Daily Page 已生成",
+                comment: "Notification title when a past day was compiled (backfill); %@ is the localized date"
+            )
+            content.title = String(format: fmt, displayDate)
+        }
         if failures > 0 {
             let fmt = NSLocalizedString(
                 "notif.compile.success.body.partial",
-                value: "AI 已编译完成 (%d 条更新失败)，点击查看今日的故事",
+                value: "AI 已编译完成 (%d 条更新失败)，点击查看这一天的故事",
                 comment: "Notification body when compile succeeded but some memo writes failed"
             )
             content.body = String(format: fmt, failures)
         } else {
             content.body = NSLocalizedString(
                 "notif.compile.success.body",
-                value: "AI 已编译完成，点击查看今日的故事",
-                comment: "Notification body for a fully successful nightly compilation"
+                value: "AI 已编译完成，点击查看这一天的故事",
+                comment: "Notification body for a fully successful compilation"
             )
         }
         content.sound = .default
@@ -560,18 +593,41 @@ final class BackgroundCompilationService: ObservableObject {
         }
     }
 
+    /// 一次性站内横幅：AI 密钥未配置导致编译暂停。每个 app 进程只提示一次，
+    /// 避免每次回前台都被同一句话打断。
+    private static var didShowMissingKeyBanner = false
+    private static func surfaceMissingKeyBannerOnce() {
+        guard !didShowMissingKeyBanner else { return }
+        didShowMissingKeyBanner = true
+        BannerCenter.shared.show(AppBannerModel(
+            kind: .info,
+            title: NSLocalizedString(
+                "today.compile.keymissing.banner",
+                value: "AI key not set — diary compilation is paused. Add one in Settings.",
+                comment: "Banner when backfill compilation halts because no AI key is configured"
+            ),
+            autoDismiss: true
+        ))
+    }
+
     /// 在所有重试尝试耗尽后发送失败通知。
     private func sendFailureNotification() {
         let center = UNUserNotificationCenter.current()
 
         let content = UNMutableNotificationContent()
         content.title = "DayPage"
-        content.body = "今日编译失败，点击查看"
+        content.body = NSLocalizedString(
+            "notif.compile.failed.body",
+            value: "Couldn't compile your page — tap to review.",
+            comment: "Push body when the nightly compilation fails after retries"
+        )
         content.sound = .default
         content.userInfo = ["compilationFailed": true]
 
+        // Stable identifier: repeated nightly failures collapse into one
+        // notification instead of stacking a guilt pile in Notification Center.
         let request = UNNotificationRequest(
-            identifier: "com.daypage.compilation-failed-\(Date().timeIntervalSince1970)",
+            identifier: "com.daypage.compilation-failed",
             content: content,
             trigger: nil
         )

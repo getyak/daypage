@@ -142,6 +142,18 @@ struct DayPageApp: App {
                 let key = String(arg[..<eq])
                 let value = String(arg[arg.index(after: eq)...])
                 applyBridged(key: key, value: value)
+                i += 1
+                continue
+            }
+            // Form 3: bare "key" "value" pairs — Maestro's `launchApp:
+            // arguments:` reach iOS without dashes or equals signs, so
+            // neither form above fires and CI flows launched into the
+            // Welcome sheet + notification prompt. The allow-list makes
+            // this safe: a stray positional argument can't flip app state.
+            if bridgeableBoolKeys.contains(arg), i + 1 < args.count {
+                applyBridged(key: arg, value: args[i + 1])
+                i += 2
+                continue
             }
             i += 1
         }

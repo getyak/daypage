@@ -311,6 +311,17 @@ struct TodayView: View {
         CGFloat(heroFadeBucket) / 8.0
     }
 
+    // Hoisted out of the builder: `reduceMotion ? 1 : 1 - 0.85 * progress`
+    // inline is an "ambiguous use of operator '-'" on Xcode 26.3's solver
+    // (literal-vs-CGFloat overload picking inside a ternary inside a builder).
+    private var heroFadeOpacity: Double {
+        reduceMotion ? 1.0 : 1.0 - 0.85 * Double(heroFadeProgress)
+    }
+
+    private var heroFadeScale: CGFloat {
+        reduceMotion ? 1.0 : 1.0 - 0.05 * heroFadeProgress
+    }
+
     private var isInSelectionMode: Bool { selectedMemoIds != nil }
 
     /// Progress of the scroll-to-top ring: 0 at 240pt (button appears), 1 after
@@ -701,6 +712,17 @@ struct TodayView: View {
                    let backup = UserDefaults.standard.string(forKey: draftBackupKey),
                    !backup.isEmpty {
                     draftText = backup
+                } else if !draftText.isEmpty,
+                          UserDefaults.standard.string(forKey: draftBackupKey) == nil {
+                    // The mirror is the journal: send and confirmed discard
+                    // clear it SYNCHRONOUSLY, while the SceneStorage snapshot
+                    // is only taken on backgrounding. A process that dies
+                    // without backgrounding (crash, simctl terminate) can
+                    // therefore restore a draft the user already destroyed —
+                    // a restored draft with no mirror behind it IS that stale
+                    // snapshot. Drop it. (The willResignActive flush below
+                    // keeps this test airtight for legitimate drafts.)
+                    draftText = ""
                 }
                 viewModel.load()
                 // Drain any inflight drafts left behind by a submit that
@@ -722,27 +744,7 @@ struct TodayView: View {
                 refreshAIKeyMissing()
             }
             .onChange(of: draftText) { _ in
-                // B3: Debounce — only persist `draftDate` after typing pauses
-                // for 0.8s. Cancels any in-flight write each keystroke, so a
-                // burst of typing produces exactly one UserDefaults write.
-                //
-                // R4-B2: also mirror the body into UserDefaults under
-                // `today.draftText.backup`. SceneStorage survives backgrounding
-                // but NOT a process kill — iOS may evict saved scene state
-                // under memory pressure, and the user loses every keystroke
-                // since the last "Send". UserDefaults is flushed at process
-                // exit, so it acts as the cold-launch fallback that TodayView
-                // .onAppear reads when SceneStorage comes back empty.
-                draftSaveTask?.cancel()
-                let snapshot = draftText
-                draftSaveTask = Task {
-                    try? await Task.sleep(nanoseconds: 800_000_000)
-                    guard !Task.isCancelled else { return }
-                    await MainActor.run {
-                        draftDate = Date().timeIntervalSince1970
-                        UserDefaults.standard.set(snapshot, forKey: draftBackupKey)
-                    }
-                }
+                persistDraftMirror(snapshot: draftText)
             }
             .onChange(of: voiceQueue.pendingCount) { count in
                 updateVoiceQueueBanner(count: count)
@@ -752,6 +754,21 @@ struct TodayView: View {
             }
             // Reload when app returns from background to correct the active date (midnight crossover).
             .onChange(of: scenePhase) { phase in
+                if phase == .inactive || phase == .background {
+                    // Flush the debounced mirror write NOW: past this point the
+                    // process can die without another runloop turn, and the
+                    // cold-launch restore treats "mirror absent" as proof of an
+                    // intentional clear. Without this flush, a draft typed
+                    // < 0.8s before backgrounding would be misread as stale.
+                    draftSaveTask?.cancel()
+                    if draftText.isEmpty {
+                        draftDate = 0
+                        UserDefaults.standard.removeObject(forKey: draftBackupKey)
+                    } else {
+                        draftDate = Date().timeIntervalSince1970
+                        UserDefaults.standard.set(draftText, forKey: draftBackupKey)
+                    }
+                }
                 if phase == .active {
                     viewModel.load()
                     // R3 — A2: re-check Keychain so the banner flips off the
@@ -1440,7 +1457,9 @@ struct TodayView: View {
         if syncQueue.isFlushingNow {
             return String(
                 format: NSLocalizedString(
-                    "today.syncqueue.banner.flushing",
+                    count == 1
+                        ? "today.syncqueue.banner.flushing.one"
+                        : "today.syncqueue.banner.flushing",
                     value: "正在同步 %d 条…",
                     comment: "Today banner headline while an upload pass is running"
                 ),
@@ -1449,7 +1468,9 @@ struct TodayView: View {
         }
         return String(
             format: NSLocalizedString(
-                "today.syncqueue.banner.pending",
+                count == 1
+                    ? "today.syncqueue.banner.pending.one"
+                    : "today.syncqueue.banner.pending",
                 value: "%d 条 memo 待同步",
                 comment: "Today banner headline: N memos waiting for cloud sync"
             ),
@@ -1697,9 +1718,13 @@ struct TodayView: View {
                             .foregroundColor(DSColor.statusError)
                             .lineLimit(1)
                     } else if syncQueueWaitedTooLong {
+                        // Per-count key pair, same pattern as FINDING-010
+                        // ("1 RESULTS") — avoids shipping "Waiting 1 hours".
                         Text(String(
                             format: NSLocalizedString(
-                                "today.syncqueue.banner.waited_hours",
+                                syncQueueWaitedHours == 1
+                                    ? "today.syncqueue.banner.waited_hours.one"
+                                    : "today.syncqueue.banner.waited_hours",
                                 value: "已等待 %d 小时",
                                 comment: "Today banner sub-label: queue stuck for N hours"
                             ),
@@ -2916,6 +2941,45 @@ struct TodayView: View {
             }
             .frame(height: 0)
 
+            timelineList
+        }
+        .refreshable {
+            await viewModel.refresh()
+            Haptics.success()
+            if !reduceMotion {
+                refreshGlow = true
+                Task {
+                    try? await Task.sleep(nanoseconds: 600_000_000)
+                    refreshGlow = false
+                }
+            }
+        }
+        .overlay(
+            LinearGradient(
+                colors: [Color.clear, DSColor.bgWarm],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .frame(height: 40)
+            .allowsHitTesting(false),
+            alignment: .bottom
+        )
+        .coordinateSpace(name: "todayScroll")
+        .modifier(TodayScrollOffsetWatcher(onChange: { value in
+            handleScrollOffset(value)
+        }))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear { timelineScrollProxy = proxy }
+        } // end ScrollViewReader
+    }
+
+    /// Timeline list body, extracted from `timelineSection`'s ScrollView.
+    /// CI's Xcode 26.3 solver gives up on ScrollView init disambiguation when
+    /// the content closure carries the whole LazyVStack (main was already red
+    /// with "ambiguous use of 'init'"); a smaller closure type-checks on both
+    /// 26.3 and 26.4.
+    @ViewBuilder
+    private var timelineList: some View {
             LazyVStack(spacing: 10) {
                 // Invisible anchor: scrollTo("timelineTop") brings the list to the very top.
                 Color.clear.frame(height: 0).id("timelineTop")
@@ -3019,8 +3083,8 @@ struct TodayView: View {
                         // uses (never the raw 60Hz value; see the
                         // `timelineScrollOffset` property doc).
                         orbHero
-                            .opacity(reduceMotion ? 1 : 1 - 0.85 * heroFadeProgress)
-                            .scaleEffect(reduceMotion ? 1 : 1 - 0.05 * heroFadeProgress, anchor: .top)
+                            .opacity(heroFadeOpacity)
+                            .scaleEffect(heroFadeScale, anchor: .top)
 
                         // 今日焦点 — collapsed to a single ghost line; expands
                         // on tap, summarizes once lenses are chosen.
@@ -3069,7 +3133,9 @@ struct TodayView: View {
                                     attrib += " · " + loc
                                 }
                                 sharePayload = .quote(QuoteSnapshot(
-                                    text: memo.body,
+                                    // Fold markdown first — raw `**` asterisks
+                                    // on a quote poster read as a rendering bug.
+                                    text: MemoMarkdown.plainText(memo.body),
                                     attribution: attrib
                                 ))
                             },
@@ -3171,35 +3237,6 @@ struct TodayView: View {
                 radius: refreshGlow ? 18 : 0
             )
             .animation(reduceMotion ? nil : .easeOut(duration: 0.6), value: refreshGlow)
-        }
-        .refreshable {
-            await viewModel.refresh()
-            Haptics.success()
-            if !reduceMotion {
-                refreshGlow = true
-                Task {
-                    try? await Task.sleep(nanoseconds: 600_000_000)
-                    refreshGlow = false
-                }
-            }
-        }
-        .overlay(
-            LinearGradient(
-                colors: [Color.clear, DSColor.bgWarm],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: 40)
-            .allowsHitTesting(false),
-            alignment: .bottom
-        )
-        .coordinateSpace(name: "todayScroll")
-        .modifier(TodayScrollOffsetWatcher(onChange: { value in
-            handleScrollOffset(value)
-        }))
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear { timelineScrollProxy = proxy }
-        } // end ScrollViewReader
     }
 
     /// Single consumer for the timeline's scroll offset, regardless of which
@@ -3463,6 +3500,39 @@ struct TodayView: View {
         Haptics.success()
         UIAccessibility.post(notification: .announcement,
                              argument: NSLocalizedString("today.memo.saved", comment: ""))
+    }
+
+    // B3: Debounce — only persist `draftDate` after typing pauses for 0.8s.
+    // Cancels any in-flight write each keystroke, so a burst of typing
+    // produces exactly one UserDefaults write.
+    //
+    // R4-B2: also mirror the body into UserDefaults under
+    // `today.draftText.backup`. SceneStorage survives backgrounding but NOT a
+    // process kill — iOS may evict saved scene state under memory pressure,
+    // and the user loses every keystroke since the last "Send". UserDefaults
+    // is flushed at process exit, so it acts as the cold-launch fallback that
+    // TodayView .onAppear reads when SceneStorage comes back empty.
+    //
+    // Clearing (send / confirmed discard) must NOT wait out the debounce: a
+    // process kill inside the 0.8s window leaves the stale mirror behind, and
+    // the next cold launch resurrects a draft the user explicitly destroyed
+    // or already sent. An empty write is a single event, so flush it
+    // synchronously.
+    private func persistDraftMirror(snapshot: String) {
+        draftSaveTask?.cancel()
+        if snapshot.isEmpty {
+            draftDate = 0
+            UserDefaults.standard.removeObject(forKey: draftBackupKey)
+            return
+        }
+        draftSaveTask = Task {
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                draftDate = Date().timeIntervalSince1970
+                UserDefaults.standard.set(snapshot, forKey: draftBackupKey)
+            }
+        }
     }
 
     // US-006: Clear draft when it's more than 30 days old.

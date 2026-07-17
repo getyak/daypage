@@ -12,6 +12,8 @@ appId: com.daypage.app
     arguments:
       hasOnboarded: "true"
       authSkipped: "true"
+      hasSeenWelcome: "true"
+      hasRequestedNotifications: "true"
       forceLocale: "en"
       forceTheme: "light"
       loadFixture: "empty"
@@ -46,6 +48,8 @@ appId: com.daypage.app
     arguments:
       hasOnboarded: "true"
       authSkipped: "true"
+      hasSeenWelcome: "true"
+      hasRequestedNotifications: "true"
       forceLocale: "en"
       forceTheme: "light"
       loadFixture: "with_memos"
@@ -80,6 +84,8 @@ appId: com.daypage.app
     arguments:
       hasOnboarded: "true"
       authSkipped: "true"
+      hasSeenWelcome: "true"
+      hasRequestedNotifications: "true"
       forceLocale: "en"
       forceTheme: "dark"
       loadFixture: "empty"
@@ -114,6 +120,8 @@ appId: com.daypage.app
     arguments:
       hasOnboarded: "true"
       authSkipped: "true"
+      hasSeenWelcome: "true"
+      hasRequestedNotifications: "true"
       forceLocale: "en"
       forceTheme: "dark"
       loadFixture: "with_memos"
@@ -148,6 +156,8 @@ appId: com.daypage.app
     arguments:
       hasOnboarded: "true"
       authSkipped: "true"
+      hasSeenWelcome: "true"
+      hasRequestedNotifications: "true"
       forceLocale: "zh-Hans"
       forceTheme: "light"
       loadFixture: "empty"
@@ -182,6 +192,8 @@ appId: com.daypage.app
     arguments:
       hasOnboarded: "true"
       authSkipped: "true"
+      hasSeenWelcome: "true"
+      hasRequestedNotifications: "true"
       forceLocale: "zh-Hans"
       forceTheme: "light"
       loadFixture: "with_memos"
@@ -216,6 +228,8 @@ appId: com.daypage.app
     arguments:
       hasOnboarded: "true"
       authSkipped: "true"
+      hasSeenWelcome: "true"
+      hasRequestedNotifications: "true"
       forceLocale: "zh-Hans"
       forceTheme: "dark"
       loadFixture: "empty"
@@ -250,6 +264,8 @@ appId: com.daypage.app
     arguments:
       hasOnboarded: "true"
       authSkipped: "true"
+      hasSeenWelcome: "true"
+      hasRequestedNotifications: "true"
       forceLocale: "zh-Hans"
       forceTheme: "dark"
       loadFixture: "with_memos"

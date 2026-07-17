@@ -361,6 +361,25 @@
 
 /* MemoDetailView — US-033 (iOS P2-4) */
 
+/* Ellipsis menu + edit/delete flows (fullchain audit: this family lived on
+   NSLocalizedString value: fallbacks only, so the menu ignored the locale) */
+"memo.detail.action.edit" = "Edit Body";
+"memo.detail.action.copy" = "Copy Text";
+"memo.detail.action.shareCard" = "Share as Card";
+"memo.detail.action.shareQuote" = "Share as Quote";
+"memo.detail.action.share" = "Share as Text";
+"memo.detail.action.delete" = "Delete Memo";
+"memo.detail.edit.cancel" = "Cancel";
+"memo.detail.edit.save" = "Save";
+"memo.detail.delete.title" = "Delete this memo?";
+"memo.detail.delete.warning" = "This cannot be undone.";
+"memo.detail.delete.confirm" = "Delete";
+"memo.detail.delete.cancel" = "Cancel";
+"memo.detail.a11y.back" = "Back to Today";
+"memo.detail.a11y.menu" = "More actions";
+"memo.detail.a11y.tap_to_edit" = "Double-tap to edit body";
+"memo.detail.a11y.margin_note" = "AI margin note";
+
 /* Section labels */
 "memo.detail.section.voice" = "Voice";
 "memo.detail.section.photo" = "Photo";
@@ -888,8 +907,19 @@
 
 /* Compile finished notification (R4-HIGH #35) */
 "notif.compile.success.title"                = "Today's page is ready";
-"notif.compile.success.body"                 = "DayPage has compiled your entries for today. Tap to read.";
-"notif.compile.success.body.partial"         = "Compiled partial entries (%lld/%lld). Tap to read.";
+"notif.compile.success.title.dated"          = "Your %@ page is ready";
+"notif.compile.success.body"                 = "DayPage has compiled your entries for this day. Tap to read.";
+"notif.compile.success.body.partial"         = "Compiled with %d failed updates. Tap to read.";
+"notif.compile.failed.body"                  = "Couldn't compile your page — tap to review.";
+"today.compile.keymissing.banner"            = "AI key not set — diary compilation is paused. Add one in Settings.";
+
+/* Daily page ellipsis menu (fullchain audit L10n sweep — was hardcoded zh) */
+"daily.menu.recompile"                       = "Recompile";
+"daily.menu.editMetadata"                    = "Edit Metadata";
+"daily.menu.shareCard"                       = "Share as Card";
+"daily.menu.shareQuote"                      = "Share as Quote";
+"daily.menu.sharePhoto"                      = "Share Photo";
+"daily.menu.shareVoice"                      = "Share Voice Diary";
 
 /* Error — location busy */
 "error.location.busy"                        = "Location service is busy. Please try again.";
@@ -935,8 +965,11 @@
 
 /* R6 — Today SyncQueue banner + sheet */
 "today.syncqueue.banner.pending"             = "%d memos pending sync";
+"today.syncqueue.banner.pending.one"         = "%d memo pending sync";
 "today.syncqueue.banner.flushing"            = "Syncing %d memos…";
+"today.syncqueue.banner.flushing.one"        = "Syncing %d memo…";
 "today.syncqueue.banner.waited_hours"        = "Waiting %d hours";
+"today.syncqueue.banner.waited_hours.one"    = "Waiting %d hour";
 "today.syncqueue.banner.waited_over_day"     = "Network unavailable — waiting over 24 hours";
 "today.syncqueue.sheet.title"                = "Pending sync";
 "today.syncqueue.sheet.summary"              = "%d memos waiting to upload";

@@ -74,6 +74,77 @@ struct MemoCardView: View {
         pollDownloadStatus(for: url)
     }
 
+    // MARK: - Photo gallery
+
+    private static let galleryColumns = [
+        GridItem(.flexible(), spacing: 6),
+        GridItem(.flexible(), spacing: 6)
+    ]
+
+    /// Count-aware photo layout. Solo photos keep the full-width 4:5 museum
+    /// crop; anything more folds into rows/grids so the card's photo block
+    /// never exceeds roughly one 4:5 frame in height.
+    @ViewBuilder
+    private func photoGallery(_ atts: [Memo.Attachment]) -> some View {
+        switch atts.count {
+        case 1:
+            photoCell(atts[0], aspect: 4.0 / 5.0, compact: false)
+        case 2:
+            HStack(spacing: 6) {
+                photoCell(atts[0], aspect: 4.0 / 5.0, compact: true)
+                photoCell(atts[1], aspect: 4.0 / 5.0, compact: true)
+            }
+        case 3:
+            HStack(spacing: 6) {
+                ForEach(atts, id: \.file) { att in
+                    photoCell(att, aspect: 1.0, compact: true)
+                }
+            }
+        default:
+            LazyVGrid(columns: Self.galleryColumns, spacing: 6) {
+                ForEach(atts, id: \.file) { att in
+                    photoCell(att, aspect: 1.0, compact: true)
+                }
+            }
+        }
+    }
+
+    /// One photo cell: thumbnail when the asset is local, download placeholder
+    /// otherwise. Hero-zoom identity stays the attachment relative path so
+    /// every cell zooms from its own frame regardless of layout.
+    @ViewBuilder
+    private func photoCell(_ att: Memo.Attachment, aspect: CGFloat, compact: Bool) -> some View {
+        let photoURL = VaultInitializer.vaultURL.appendingPathComponent(att.file)
+        let photoState = attachmentDownloadState(for: photoURL)
+        switch photoState {
+        case .current:
+            PhotoThumbnailView(fileURL: photoURL, aspect: aspect, compact: compact)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .modifier(PhotoZoomSource(id: att.file, namespace: photoZoomNamespace))
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    Haptics.tapConfirm()
+                    viewerPhoto = PhotoViewerTarget(file: att.file)
+                }
+                .a11yButton(label: L10n.MemoCard.photoA11yLabel, hint: L10n.MemoCard.photoA11yHint)
+        case .downloading, .notDownloaded, .failed:
+            PhotoDownloadPlaceholder(state: photoState)
+                .onAppear {
+                    if photoState == .notDownloaded || photoState == .failed {
+                        startDownload(photoURL)
+                    }
+                }
+                .onTapGesture {
+                    if photoState == .notDownloaded || photoState == .failed {
+                        startDownload(photoURL)
+                    }
+                }
+                .minTapTarget()
+                .a11yButton(label: L10n.MemoCard.photoDownloadA11yLabel,
+                            hint: L10n.MemoCard.downloadA11yHint)
+        }
+    }
+
     private func pollDownloadStatus(for url: URL) {
         guard downloadStates[url] == .downloading else { return }
         downloadTask = Task {
@@ -211,49 +282,24 @@ struct MemoCardView: View {
             // Photo — every photo attachment renders, not just the first.
             // A two-photo memo used to silently drop the second image from
             // the card (and the viewer), which read as data loss.
+            //
+            // Layout scales with count so a multi-photo memo never fills the
+            // whole screen with stacked full-width crops (fullchain audit,
+            // aesthetic top-1): 1 → full-width 4:5 (museum rhythm), 2 →
+            // side-by-side 4:5 diptych, 3 → 1:1 triptych strip, 4+ →
+            // two-column 1:1 grid.
             let photoAtts = memo.attachments.filter { $0.kind == "photo" }
-            ForEach(photoAtts, id: \.file) { att in
-                let photoURL = VaultInitializer.vaultURL.appendingPathComponent(att.file)
-                let photoState = attachmentDownloadState(for: photoURL)
-                switch photoState {
-                case .current:
-                    PhotoThumbnailView(fileURL: photoURL)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        // Hero zoom source (iOS 18+). Identity = attachment
-                        // relative path — stable per photo, so multi-photo
-                        // memos each zoom from their own thumbnail.
-                        .modifier(PhotoZoomSource(id: att.file, namespace: photoZoomNamespace))
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            Haptics.tapConfirm()
-                            viewerPhoto = PhotoViewerTarget(file: att.file)
-                        }
-                        .a11yButton(label: L10n.MemoCard.photoA11yLabel, hint: L10n.MemoCard.photoA11yHint)
-                        .padding(.horizontal, 14)
-                        .padding(.top, 14)
-                case .downloading, .notDownloaded, .failed:
-                    PhotoDownloadPlaceholder(state: photoState)
-                        .padding(.top, 4)
-                        .onAppear {
-                            if photoState == .notDownloaded { startDownload(photoURL) }
-                            else if photoState == .failed { startDownload(photoURL) }
-                        }
-                        .onTapGesture {
-                            if photoState == .notDownloaded || photoState == .failed {
-                                startDownload(photoURL)
-                            }
-                        }
-                        .minTapTarget()
-                        .a11yButton(label: L10n.MemoCard.photoDownloadA11yLabel,
-                                    hint: L10n.MemoCard.downloadA11yHint)
-                }
-            }
-            .fullScreenCover(item: $viewerPhoto) { target in
-                PhotoFullScreenViewer(
-                    fileURL: VaultInitializer.vaultURL.appendingPathComponent(target.file),
-                    exifText: PhotoThumbnailView.exifText(forRelativePath: target.file)
-                )
-                .modifier(PhotoZoomDestination(id: target.file, namespace: photoZoomNamespace))
+            if !photoAtts.isEmpty {
+                photoGallery(photoAtts)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 14)
+                    .fullScreenCover(item: $viewerPhoto) { target in
+                        PhotoFullScreenViewer(
+                            fileURL: VaultInitializer.vaultURL.appendingPathComponent(target.file),
+                            exifText: PhotoThumbnailView.exifText(forRelativePath: target.file)
+                        )
+                        .modifier(PhotoZoomDestination(id: target.file, namespace: photoZoomNamespace))
+                    }
             }
 
             // File attachments
@@ -1351,6 +1397,12 @@ private let thumbnailCache: NSCache<NSURL, UIImage> = {
 
 struct PhotoThumbnailView: View {
     let fileURL: URL
+    /// Aspect the cell crops to. Solo photos keep the museum 4:5 portrait;
+    /// grid cells use 1:1 so multi-photo memos stay height-bounded.
+    var aspect: CGFloat = 4.0 / 5.0
+    /// Compact grid cells drop the EXIF caption and zoom badge — at half
+    /// width or less they read as clutter, and tap-to-zoom still works.
+    var compact: Bool = false
     /// Self-owned: each thumbnail in a multi-photo memo decodes and caches
     /// independently (a shared parent binding made siblings overwrite each
     /// other). EXIF caption loads with the decode, off the main actor —
@@ -1372,7 +1424,7 @@ struct PhotoThumbnailView: View {
                 // and landscape photos blew the card out past the screen edge.
                 Color.clear
                     .frame(maxWidth: .infinity)
-                    .aspectRatio(4.0 / 5.0, contentMode: .fit)
+                    .aspectRatio(aspect, contentMode: .fit)
                     .overlay {
                         Image(uiImage: thumb)
                             .resizable()
@@ -1383,7 +1435,7 @@ struct PhotoThumbnailView: View {
                 Rectangle()
                     .fill(DSColor.glassLo)
                     .frame(maxWidth: .infinity)
-                    .aspectRatio(4.0 / 5.0, contentMode: .fit)
+                    .aspectRatio(aspect, contentMode: .fit)
             }
         }
         .task(id: fileURL) {
@@ -1405,7 +1457,7 @@ struct PhotoThumbnailView: View {
             }.value
         }
         .overlay(alignment: .bottom) {
-            if let exifText {
+            if let exifText, !compact {
                 Text(exifText)
                     .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
                     .tracking(0.5)
@@ -1428,7 +1480,7 @@ struct PhotoThumbnailView: View {
         // photos are cropped to 4:5 in the card; the badge tells users the
         // original composition is one tap away without adding chrome text.
         .overlay(alignment: .topTrailing) {
-            if thumbnail != nil {
+            if thumbnail != nil && !compact {
                 Image(systemName: "arrow.up.left.and.arrow.down.right")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(.white.opacity(0.85))

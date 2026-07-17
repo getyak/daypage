@@ -420,6 +420,25 @@
 
 /* MemoDetailView — US-033 (iOS P2-4) */
 
+/* Ellipsis menu + edit/delete flows (fullchain audit: this family lived on
+   NSLocalizedString value: fallbacks only, so the menu ignored the locale) */
+"memo.detail.action.edit" = "编辑正文";
+"memo.detail.action.copy" = "拷贝文本";
+"memo.detail.action.shareCard" = "分享为卡片";
+"memo.detail.action.shareQuote" = "分享为引用";
+"memo.detail.action.share" = "分享为文本";
+"memo.detail.action.delete" = "删除 Memo";
+"memo.detail.edit.cancel" = "取消";
+"memo.detail.edit.save" = "保存";
+"memo.detail.delete.title" = "删除这条 memo？";
+"memo.detail.delete.warning" = "此操作无法撤销。";
+"memo.detail.delete.confirm" = "删除";
+"memo.detail.delete.cancel" = "取消";
+"memo.detail.a11y.back" = "返回今天";
+"memo.detail.a11y.menu" = "更多操作";
+"memo.detail.a11y.tap_to_edit" = "双击以编辑正文";
+"memo.detail.a11y.margin_note" = "AI 眉批";
+
 /* Section labels */
 "memo.detail.section.voice" = "语音";
 "memo.detail.section.photo" = "照片";
@@ -895,8 +914,19 @@
 
 /* 编译完成通知 (R4-HIGH #35) */
 "notif.compile.success.title"                = "今日页面已生成";
-"notif.compile.success.body"                 = "DayPage 已编译完成你的今日记录。点按查看。";
-"notif.compile.success.body.partial"         = "已编译部分内容（%lld/%lld）。点按查看。";
+"notif.compile.success.title.dated"          = "%@ 的页面已生成";
+"notif.compile.success.body"                 = "DayPage 已编译完成这一天的记录。点按查看。";
+"notif.compile.success.body.partial"         = "已编译完成（%d 条更新失败）。点按查看。";
+"notif.compile.failed.body"                  = "这一天的页面没有编译成功，点按查看。";
+"today.compile.keymissing.banner"            = "还没有配置 AI 密钥，日记编译已暂停 — 可在设置中添加。";
+
+/* Daily 页省略号菜单（全链路审计 L10n 收口 — 原为硬编码中文） */
+"daily.menu.recompile"                       = "重新编译";
+"daily.menu.editMetadata"                    = "编辑元数据";
+"daily.menu.shareCard"                       = "分享为卡片";
+"daily.menu.shareQuote"                      = "分享为引用";
+"daily.menu.sharePhoto"                      = "分享照片";
+"daily.menu.shareVoice"                      = "分享语音日记";
 
 /* 错误 — 定位忙 */
 "error.location.busy"                        = "定位服务繁忙，请稍后再试。";
@@ -942,8 +972,11 @@
 
 /* R6 — Today SyncQueue banner + sheet */
 "today.syncqueue.banner.pending"             = "%d 条 memo 待同步";
+"today.syncqueue.banner.pending.one"         = "%d 条 memo 待同步";
 "today.syncqueue.banner.flushing"            = "正在同步 %d 条…";
+"today.syncqueue.banner.flushing.one"        = "正在同步 %d 条…";
 "today.syncqueue.banner.waited_hours"        = "已等待 %d 小时";
+"today.syncqueue.banner.waited_hours.one"    = "已等待 %d 小时";
 "today.syncqueue.banner.waited_over_day"     = "网络受限，已等待超过 24 小时";
 "today.syncqueue.sheet.title"                = "待同步队列";
 "today.syncqueue.sheet.summary"              = "%d 条 memo 等待上传";

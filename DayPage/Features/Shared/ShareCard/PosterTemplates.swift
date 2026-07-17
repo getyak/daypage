@@ -1287,15 +1287,16 @@ enum PolaroidDailyTemplate: PosterTemplate {
             let esz = statsAttr.size()
             statsAttr.draw(at: CGPoint(x: frameRect.maxX - photoSide - esz.width, y: y + 30))
 
-            // Brand watermark — left side, mirrors the stats line on the right
-            // so a shared Daily card is unambiguously DayPage (issue #309 W1-④).
-            // The other 11 templates already render this; Daily was the gap.
+            // Brand watermark — below the handwritten date, never inside it.
+            // Drawing at y+30 put the mark inside the 60pt date's glyph box,
+            // so "Jul 8, 2026" and "daypage.app" printed on top of each other
+            // (fullchain audit Bug #6). Offset by the date's measured height.
             let wm = NSAttributedString(string: "daypage.app", attributes: [
                 .font: UIFont.monospacedSystemFont(ofSize: 20, weight: .regular),
                 .foregroundColor: PolaroidPalette.inkMuted.withAlphaComponent(0.7),
                 .kern: 1.5
             ])
-            wm.draw(at: CGPoint(x: photoX, y: y + 30))
+            wm.draw(at: CGPoint(x: photoX, y: y + ceil(dateAttr.size().height) + 14))
         }
     }
 }
