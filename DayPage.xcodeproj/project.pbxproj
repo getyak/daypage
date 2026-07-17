@@ -205,6 +205,7 @@
 		I180000001 /* ErrorPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000001 /* ErrorPresenter.swift */; };
 		I180000002 /* InsightActionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000002 /* InsightActionService.swift */; };
 		I180000009 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000009 /* ShareSheet.swift */; };
+		I18000000A /* FilePreviewSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = I28000000A /* FilePreviewSheet.swift */; };
 		I180000010 /* DurationFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000010 /* DurationFormatter.swift */; };
 		I180000011 /* RelativeDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = I280000011 /* RelativeDate.swift */; };
 		IN1000001 /* QuickCaptureTextIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = IN2000001 /* QuickCaptureTextIntent.swift */; };
@@ -505,6 +506,7 @@
 		I280000001 /* ErrorPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorPresenter.swift; sourceTree = "<group>"; };
 		I280000002 /* InsightActionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightActionService.swift; sourceTree = "<group>"; };
 		I280000009 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheet.swift; sourceTree = "<group>"; };
+		I28000000A /* FilePreviewSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilePreviewSheet.swift; sourceTree = "<group>"; };
 		I280000010 /* DurationFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DurationFormatter.swift; sourceTree = "<group>"; };
 		I280000011 /* RelativeDate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeDate.swift; sourceTree = "<group>"; };
 		IN2000001 /* QuickCaptureTextIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuickCaptureTextIntent.swift; sourceTree = "<group>"; };
@@ -1012,6 +1014,7 @@
 				A20000037 /* AppBanner.swift */,
 				I280000001 /* ErrorPresenter.swift */,
 				I280000009 /* ShareSheet.swift */,
+				I28000000A /* FilePreviewSheet.swift */,
 				I280000010 /* DurationFormatter.swift */,
 				I280000011 /* RelativeDate.swift */,
 				8664207AF5BA4660FF0E134F /* ShareCard */,
@@ -1666,6 +1669,7 @@
 				E5077A7D97855770914BFB8D /* MarkdownExportService.swift in Sources */,
 				I180000001 /* ErrorPresenter.swift in Sources */,
 				I180000009 /* ShareSheet.swift in Sources */,
+				I18000000A /* FilePreviewSheet.swift in Sources */,
 				I180000010 /* DurationFormatter.swift in Sources */,
 				I180000011 /* RelativeDate.swift in Sources */,
 				I180000002 /* InsightActionService.swift in Sources */,
