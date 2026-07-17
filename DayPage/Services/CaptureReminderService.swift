@@ -3,6 +3,7 @@ import UserNotifications
 import DayPageStorage
 import DayPageServices
 import SwiftUI
+import UIKit
 #if canImport(AlarmKit)
 import AlarmKit
 #endif
@@ -513,7 +514,10 @@ final class CaptureReminderService: ObservableObject {
         let attributes = AlarmAttributes(
             presentation: presentation,
             metadata: metadata,
-            tintColor: Color(red: 0.74, green: 0.49, blue: 0.14)
+            // 灵动岛恒黑底 → 取 tokens.json accent 的暗色变体 #C9883A
+            // (= DSTokens.Colors.accent dark)。widget 端一律读
+            // attributes.tintColor,不再各自硬编码副本(单源防漂移)。
+            tintColor: Color(red: 0.788, green: 0.533, blue: 0.227)
         )
         let config = AlarmManager.AlarmConfiguration(
             countdownDuration: nil,
@@ -529,6 +533,120 @@ final class CaptureReminderService: ObservableObject {
         } catch {
             DayPageLogger.shared.error("[CaptureReminder] AlarmKit schedule failed: \(error.localizedDescription)")
             return false
+        }
+    }
+
+    #if DEBUG
+    /// QA(模拟器专用):起一个 AlarmKit countdown 计时器。countdown 是唯一
+    /// 由我们的 widget 渲染灵动岛 compact/expanded 的状态(.alert 态由系统
+    /// 钉横幅接管),QA 用它实测自定义岛 UI。生产路径不会走到这里。
+    @available(iOS 26.0, *)
+    func qaStartCountdownTimer(seconds: TimeInterval) async {
+        _ = await requestAlarmKitAuthorization()
+        let alert = AlarmPresentation.Alert(
+            title: LocalizedStringResource(stringLiteral: "记录此刻"),
+            stopButton: AlarmButton(
+                text: LocalizedStringResource(stringLiteral: "稍后"),
+                textColor: .white,
+                systemImageName: "xmark"
+            ),
+            secondaryButton: AlarmButton(
+                text: LocalizedStringResource(stringLiteral: "记一句"),
+                textColor: .white,
+                systemImageName: "mic.fill"
+            ),
+            secondaryButtonBehavior: .custom
+        )
+        let countdown = AlarmPresentation.Countdown(
+            title: LocalizedStringResource(stringLiteral: "记录此刻"))
+        let presentation = AlarmPresentation(alert: alert, countdown: countdown)
+        let metadata = CaptureAlarmMetadata(prompt: "记一句给今天", slotID: UUID().uuidString)
+        let attributes = AlarmAttributes(
+            presentation: presentation,
+            metadata: metadata,
+            // 同 scheduleAlarm:tokens accent 暗色变体,widget 读 tintColor 单源。
+            tintColor: Color(red: 0.788, green: 0.533, blue: 0.227)
+        )
+        let config = AlarmManager.AlarmConfiguration.timer(
+            duration: seconds, attributes: attributes)
+        do {
+            _ = try await alarmManager.schedule(id: UUID(), configuration: config)
+            DayPageLogger.shared.info("[CaptureReminder] QA countdown timer scheduled (\(Int(seconds))s)")
+        } catch {
+            DayPageLogger.shared.error("[CaptureReminder] QA timer failed: \(error.localizedDescription)")
+        }
+    }
+    #endif
+
+    // MARK: AlarmKit alert lifecycle (2026-07-17)
+    //
+    // 实测发现的两个灵动岛硬伤:
+    //   1. alarm 触发后进入 .alerting,Live Activity 会无限期占住灵动岛 ——
+    //      cancel() 只撤未触发的调度,全工程没有任何一处调 stop()。用户点了
+    //      「记一句」进 App、录完音回桌面,岛上的黑胶囊还挂着。
+    //   2. App 在前台时触发:iOS 会隐藏本 App 自己的灵动岛呈现,而 App 内又
+    //      没有任何兜底 UI → 提醒完全不可见,静默被吞。
+    // 修法:观察 alarmUpdates;前台触发 → 立即 stop + 重投一条普通 UN 横幅
+    // (willPresent 已返回 .banner,category/action/深链全部复用既有轨道);
+    // 启动与回前台 → stop 所有 .alerting(用户已经回到 App,提醒完成使命)。
+
+    private var alarmObservationTask: Task<Void, Never>?
+
+    /// 停掉所有正在 alerting 的 alarm,释放灵动岛。重复提醒 stop 后自动
+    /// 重新武装到下一次触发;一次性提醒交给 pruneExpiredOneShots 收尾。
+    @available(iOS 26.0, *)
+    func stopAlertingAlarms() {
+        let alerting = ((try? alarmManager.alarms) ?? []).filter { $0.state == .alerting }
+        guard !alerting.isEmpty else { return }
+        for alarm in alerting {
+            try? alarmManager.stop(id: alarm.id)
+        }
+        DayPageLogger.shared.info("[CaptureReminder] stopped \(alerting.count) alerting alarm(s)")
+    }
+
+    /// 常驻观察 alarm 状态。App 处于前台时有 alarm 进入 .alerting →
+    /// 立即 stop(灵动岛对前台 App 本就不显示,留着只会在退到桌面后
+    /// 变成一个悬挂的黑胶囊)并重投一条前台 UN 横幅作为可见的提醒落点。
+    @available(iOS 26.0, *)
+    func startAlarmAlertObservation() {
+        guard alarmObservationTask == nil else { return }
+        alarmObservationTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            for await alarms in self.alarmManager.alarmUpdates {
+                let alerting = alarms.filter { $0.state == .alerting }
+                guard !alerting.isEmpty,
+                      UIApplication.shared.applicationState == .active else { continue }
+                for alarm in alerting {
+                    try? self.alarmManager.stop(id: alarm.id)
+                    self.postForegroundReminderBanner(alarmID: alarm.id)
+                }
+                DayPageLogger.shared.info("[CaptureReminder] foreground alert → stopped \(alerting.count), reposted as banner")
+                // 一次性提醒触发即过期;重排顺带剔除并让 Today 胶囊同步。
+                self.refreshSchedule()
+            }
+        }
+    }
+
+    /// 前台触发的可见落点:一条立即送达的 UN 横幅,复用既有 category
+    /// (语音 / 文字 action)与点击路由,与 UN 降级路径行为完全一致。
+    private func postForegroundReminderBanner(alarmID: UUID) {
+        let content = UNMutableNotificationContent()
+        content.title = "记录此刻"
+        content.body = reminders.first { $0.id == alarmID }?.promptBody ?? "记一句给今天"
+        content.sound = .default
+        content.categoryIdentifier = Self.categoryID
+        content.userInfo = ["captureReminderID": alarmID.uuidString]
+        let request = UNNotificationRequest(
+            identifier: Self.requestPrefix + "foreground." + alarmID.uuidString,
+            content: content,
+            trigger: nil
+        )
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error {
+                Task { @MainActor in
+                    DayPageLogger.shared.error("[CaptureReminder] foreground banner failed: \(error.localizedDescription)")
+                }
+            }
         }
     }
 
