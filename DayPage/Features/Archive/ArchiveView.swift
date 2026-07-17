@@ -822,7 +822,13 @@ struct ArchiveView: View {
                     .foregroundColor(DSColor.inkPrimary)
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(NSLocalizedString("a11y.nav.open", comment: "Sidebar open button"))
+            // Label = what it IS ("Archive" — the page identity the user sees),
+            // hint = what it DOES (opens the sidebar). The old label override
+            // erased the page title from the a11y tree entirely: VoiceOver
+            // heard "Open sidebar" with no page context, and UI tests lost
+            // their only "which page am I on" anchor.
+            .accessibilityLabel(NSLocalizedString("archive.title", comment: "Archive page title"))
+            .accessibilityHint(NSLocalizedString("a11y.nav.open.hint", comment: "Opens the sidebar navigation drawer"))
             .accessibilityIdentifier("sidebar-menu-button")
 
             Spacer()
