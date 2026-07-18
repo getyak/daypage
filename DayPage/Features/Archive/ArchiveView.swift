@@ -1614,12 +1614,14 @@ struct ArchiveView: View {
             // NavigationLink), unifying it with the entity/day pushes on this
             // stack so edge-back pops it and the pop gesture is re-armed.
             //
-            // NOTE (pre-existing, tracked separately): on iOS 26 the
-            // `.liquidGlassCard` (role .panel, no `.interactive()`) can swallow a
-            // synthetic tap on this card, so the entry is hard to trigger in the
-            // simulator. That is an existing Liquid Glass hit-testing issue on
-            // this card, independent of this navigation migration — the push
-            // wiring here is correct and matches every other Archive push.
+            // Hit-testing fix (2026-07-18): the card body used `.liquidGlassCard`
+            // (role .panel, no `.interactive()`), whose iOS 26 native
+            // `glassEffect` layer swallowed the synthetic/real tap over most of
+            // the card — only a tap near the trailing chevron registered, so the
+            // entry was hard to open on device and in the simulator. Switched the
+            // body to `.solidCard` (surface-white + hairline, no glass layer),
+            // which never intercepts the NavigationLink label's tap and also
+            // matches the surface-white card language of WeeklyRecapDetailView.
             NavigationLink(value: WeeklyRecapRef(referenceDate: Date())) {
                 weeklyRecapEntryCardBody
             }
@@ -1663,7 +1665,9 @@ struct ArchiveView: View {
         .padding(.horizontal, DSSpacing.lg)
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .liquidGlassCard(cornerRadius: DSRadius.md)
+        // solidCard (not liquidGlassCard): a glass layer here swallowed the
+        // NavigationLink's tap on iOS 26 (see note above the NavigationLink).
+        .solidCard(cornerRadius: DSRadius.md)
     }
 
     private func relativeDateLabel(_ dateString: String) -> String {
