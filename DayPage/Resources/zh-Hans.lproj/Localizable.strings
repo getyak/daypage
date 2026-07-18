@@ -1004,6 +1004,16 @@
 "weekly.recap.section.places.a11y"                = "本周地点区域";
 "weekly.recap.section.highlights.a11y"            = "本周高光区域";
 
+// 杂志编排重构 — hero / 5 问 / 孤峰 / 编译时间
+"weekly.recap.hero.eyebrow"                       = "本周回顾";
+"weekly.recap.compiled.at.format"                 = "编译于 %@";
+"weekly.recap.section.reflections"                = "本周 5 问";
+"weekly.recap.section.reflections.a11y"           = "本周反思问题区域";
+"weekly.recap.reflection.hint"                    = "带着这个问题去写一段";
+"weekly.recap.section.outliers"                   = "值得回看的孤峰";
+"weekly.recap.section.outliers.a11y"              = "值得回看的孤峰区域";
+"weekly.recap.section.number.format"              = "%02d";
+
 // R8 — chip/place tap (B2) + detailed error state (B3) + Today preview (B1)
 "weekly.recap.keyword.hint"                       = "打开实体页";
 "weekly.recap.place.hint"                         = "打开地点页";

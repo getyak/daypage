@@ -997,6 +997,16 @@
 "weekly.recap.section.places.a11y"                = "Places section";
 "weekly.recap.section.highlights.a11y"            = "Highlights section";
 
+// Magazine layout refactor — hero / reflections / outliers / compiled time
+"weekly.recap.hero.eyebrow"                       = "WEEKLY RECAP";
+"weekly.recap.compiled.at.format"                 = "Compiled %@";
+"weekly.recap.section.reflections"                = "Five Questions";
+"weekly.recap.section.reflections.a11y"           = "Reflection questions section";
+"weekly.recap.reflection.hint"                    = "Write a memo answering this";
+"weekly.recap.section.outliers"                   = "Peaks Worth Revisiting";
+"weekly.recap.section.outliers.a11y"              = "Outlier moments section";
+"weekly.recap.section.number.format"              = "%02d";
+
 // R8 — chip/place tap (B2) + detailed error state (B3) + Today preview (B1)
 "weekly.recap.keyword.hint"                       = "Open entity page";
 "weekly.recap.place.hint"                         = "Open place page";

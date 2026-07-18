@@ -796,14 +796,26 @@ struct TodayView: View {
                 }
             }
             // US-017: consume pending draft text from daypage://memo/new?text=…
+            // 以及周摘要「本周 5 问」点击回写(WeeklyRecapDetailView.handleReflectionTap)。
             .onChange(of: nav.pendingDraftText) { text in
                 guard let text else { return }
                 draftText = text
                 nav.pendingDraftText = nil
-                // 「记录提醒」的「文字」action 传空串 → 只聚焦输入框、光标就绪,
-                // 让用户到点点一下就能直接打字(复用既有 orbFocusToggle 聚焦轨道)。
                 if text.isEmpty {
+                    // 「记录提醒」的「文字」action 传空串 → 只聚焦输入框、光标就绪,
+                    // 让用户到点点一下就能直接打字(复用既有 orbFocusToggle 聚焦轨道)。
                     orbFocusToggle.toggle()
+                } else {
+                    // 带文本的预填(QuickCapture / 周摘要 5 问)：draftText 由 dock 的
+                    // press-to-talk InputBarV4 与 WriteSheet 共享,但 dock 栏是语音形态,
+                    // 不把 draftText 当可编辑文字显示 —— 只设 draftText 而不展开 WriteSheet
+                    // 会让预填文本进了状态却看不见(用户只见空聚焦框)。所以带文本时主动
+                    // 打开 WriteSheet,预填内容立即可见可编辑。async 一拍确保跨 tab 切换
+                    // 后视图已稳定再呈现 sheet,避免与 tab 选择的同批更新竞态。
+                    DispatchQueue.main.async {
+                        guard !showWriteSheet else { return }
+                        showWriteSheet = true
+                    }
                 }
             }
             // Bridge the ViewModel settings flag to the View-local sheet binding.
