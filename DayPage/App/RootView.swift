@@ -131,7 +131,11 @@ struct RootView: View {
     // open-sidebar DragGesture was attached to the entire ZStack with a 20pt
     // minimumDistance, which fought UIKit's 10pt direction-lock inside
     // SwipeableMemoCard and effectively froze left/right swipe-to-reveal.
-    private let edgeSwipeWidth: CGFloat = 20
+    //
+    // Shares `DSGesture.systemEdgeBackZone` as the single source: this same
+    // 20pt strip is what in-app pagers (DayDetail day paging) exclude so the
+    // edge stays owned by back-navigation. One number, one meaning.
+    private let edgeSwipeWidth: CGFloat = DSGesture.systemEdgeBackZone
 
     // MARK: - Interactive drawer drag
 
@@ -242,21 +246,25 @@ struct RootView: View {
                 // most natural close gesture) hit nothing and the drawer sat
                 // frozen until release. Same horizontal-dominance engage rule
                 // as the edge strip so the panel's vertical scroll stays free.
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 12)
-                        .onChanged { value in
-                            if sidebarDragTranslation == nil {
-                                let dx = value.translation.width
-                                let dy = value.translation.height
-                                guard dx < 0, abs(dx) > abs(dy) * 1.2 else { return }
-                            }
-                            sidebarDragTranslation = value.translation.width
+                //
+                // Attached ONLY while the sidebar is open. When closed, the
+                // panel is parked at x=-280 but its right edge still sits at
+                // global x=0, overlapping the exact left-edge strip the system
+                // interactive-pop needs. An always-mounted simultaneousGesture
+                // there stays in SwiftUI's arbitration pool and beats the child
+                // stack's UIKit pop — so a detail-page edge-back opened this
+                // (invisible, off-screen) drawer instead of going back. Gating
+                // on `isSidebarOpen` frees the edge whenever there's nothing to
+                // close. This is the second half of the edge-back fix; the
+                // edge-open strip is gated on `!activeStackCanPop` above.
+                .modifier(
+                    SidebarCloseDragModifier(
+                        isOpen: nav.isSidebarOpen,
+                        translation: $sidebarDragTranslation,
+                        onSettle: { predicted in
+                            settleSidebar(predictedTranslation: predicted)
                         }
-                        .onEnded { value in
-                            settleSidebar(
-                                predictedTranslation: value.predictedEndTranslation.width
-                            )
-                        }
+                    )
                 )
                 // Take the panel out of the accessibility tree when it's off-
                 // screen, otherwise VoiceOver users can still focus Settings /
@@ -316,7 +324,17 @@ struct RootView: View {
             // simultaneousGesture keeps siblings active, so vertical timeline
             // scroll and horizontal card swipes are no longer blocked while
             // SwiftUI is still in the "Possible" arbitration window.
-            if !nav.isSidebarOpen {
+            //
+            // `!nav.activeStackCanPop`: when the focused tab has a detail page
+            // pushed, this root-level strip would otherwise beat the child
+            // stack's UIKit interactive-pop for the same 20pt edge (SwiftUI wins
+            // that arbitration), so a left-edge swipe opened the sidebar instead
+            // of going back. Un-mounting the strip while a page is poppable hands
+            // the edge to the system pop; the strip returns once we're back at a
+            // tab root. This is the actual fix for edge-back — the deeper
+            // `.restoresInteractivePop()` only re-arms the recognizer this strip
+            // was shadowing.
+            if !nav.isSidebarOpen && !nav.activeStackCanPop {
                 Color.clear
                     .frame(width: edgeSwipeWidth)
                     .frame(maxHeight: .infinity)
@@ -392,6 +410,42 @@ private struct FeedbackCloseSwipeModifier: ViewModifier {
                 DragGesture(minimumDistance: 20)
                     .onEnded { value in
                         if value.translation.width > 60 { onClose() }
+                    }
+            )
+        } else {
+            content
+        }
+    }
+}
+
+// MARK: - SidebarCloseDragModifier
+//
+// Attaches the sidebar's close-by-drag gesture ONLY while the sidebar is open.
+// When closed, the 280pt panel is parked at x=-280 but its right edge is at
+// global x=0 — the same left-edge strip the system interactive-pop claims. A
+// permanently-mounted simultaneousGesture there stays in SwiftUI's arbitration
+// pool (even off-screen) and wins the edge against the child NavigationStack's
+// UIKit pop, so a detail-page edge-back swiped this invisible drawer instead of
+// popping. Conditionally attaching frees the edge whenever the drawer is shut.
+private struct SidebarCloseDragModifier: ViewModifier {
+    let isOpen: Bool
+    @Binding var translation: CGFloat?
+    let onSettle: (CGFloat) -> Void
+
+    func body(content: Content) -> some View {
+        if isOpen {
+            content.simultaneousGesture(
+                DragGesture(minimumDistance: 12)
+                    .onChanged { value in
+                        if translation == nil {
+                            let dx = value.translation.width
+                            let dy = value.translation.height
+                            guard dx < 0, abs(dx) > abs(dy) * 1.2 else { return }
+                        }
+                        translation = value.translation.width
+                    }
+                    .onEnded { value in
+                        onSettle(value.predictedEndTranslation.width)
                     }
             )
         } else {

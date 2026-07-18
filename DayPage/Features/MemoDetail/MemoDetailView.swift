@@ -21,6 +21,7 @@ struct MemoDetailView: View {
     )
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var nav: AppNavigationModel
     @State private var fullResImage: UIImage?
     @State private var showPhotoFullscreen: Bool = false
 
@@ -54,9 +55,8 @@ struct MemoDetailView: View {
         return attrib
     }
 
-    // Entity Ink — tapped entity opens its wiki page (issue #835)
-    @State private var selectedEntityType: String = "themes"
-    @State private var selectedEntitySlug: String?
+    // Entity Ink — tapped entity pushes its wiki page onto the host stack
+    // (W1; issue #835). No local sheet state anymore — see openEntity(slug:).
 
     // Drop-to-Ask — memo 锚定 AI 对话（issue #837）：拖拽入坞或 CTA 触发。
     @State private var showMemoChat: Bool = false
@@ -400,8 +400,14 @@ struct MemoDetailView: View {
                                     location: memo.location,
                                     memoDateString: DateFormatters.isoDate.string(from: memo.created),
                                     onOpenPlace: { slug in
-                                        selectedEntityType = "places"
-                                        selectedEntitySlug = slug
+                                        nav.push(
+                                            EntityRef(
+                                                type: "places",
+                                                slug: slug,
+                                                sourceDateString: DateFormatters.isoDate.string(from: memo.created)
+                                            ),
+                                            in: nav.selectedTab
+                                        )
                                     }
                                 )
                             }
@@ -514,18 +520,8 @@ struct MemoDetailView: View {
         .fullScreenCover(isPresented: $showPhotoFullscreen) {
             PhotoFullscreenView(image: fullResImage)
         }
-        .sheet(isPresented: Binding(
-            get: { selectedEntitySlug != nil },
-            set: { if !$0 { selectedEntitySlug = nil } }
-        )) {
-            if let slug = selectedEntitySlug {
-                EntityPageView(
-                    entityType: selectedEntityType,
-                    entitySlug: slug,
-                    sourceDateString: DateFormatters.isoDate.string(from: memo.created)
-                )
-            }
-        }
+        // W1: entity ink now pushes onto the host stack (see openEntity /
+        // onOpenPlace) — the old local `.sheet(selectedEntitySlug)` is gone.
         // Issue #837: memo 锚定 AI 对话——Drop-to-Ask 拖拽与 ask-past CTA
         // 汇入同一个 sheet。entityDisplayNames 复用实体墨迹的异步解析结果，
         // 喂给对话的 retrieving 阶段文案与建议问题。
@@ -680,16 +676,27 @@ struct MemoDetailView: View {
     private func openEntity(slug: String) {
         Haptics.soft()
         let wikiBase = VaultInitializer.vaultURL.appendingPathComponent("wiki")
+        var resolvedType = "themes"
         for type in ["places", "people", "themes"] {
             let url = wikiBase.appendingPathComponent(type).appendingPathComponent("\(slug).md")
             if FileManager.default.fileExists(atPath: url.path) {
-                selectedEntityType = type
-                selectedEntitySlug = slug
-                return
+                resolvedType = type
+                break
             }
         }
-        selectedEntityType = "themes"
-        selectedEntitySlug = slug
+        // W1: MemoDetail is always pushed onto a host stack (Today/Archive/
+        // Daily), so push the entity onto that stack instead of opening a local
+        // sheet — it inherits system back + edge-pop and can recurse.
+        // sourceDateString = memo's date, so the entity page shows the "from
+        // {date}" breadcrumb the old .sheet passed (preserved across W1).
+        nav.push(
+            EntityRef(
+                type: resolvedType,
+                slug: slug,
+                sourceDateString: DateFormatters.isoDate.string(from: memo.created)
+            ),
+            in: nav.selectedTab
+        )
     }
 
     // MARK: - Echoes navigation

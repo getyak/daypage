@@ -17,6 +17,7 @@ struct DailyPageView: View {
     var isEmbedded: Bool = false
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var nav: AppNavigationModel
     @StateObject private var memoVM = DailyPageMemoVM()
     @ObservedObject private var compilationService = CompilationService.shared
     @State private var selectedTab: DailyPageTab = .digest
@@ -54,6 +55,19 @@ struct DailyPageView: View {
             content()
         } else {
             NavigationStack(root: content)
+        }
+    }
+
+    /// Open an entity page. When embedded in a host stack (Today/Archive → …),
+    /// push an `EntityRef` onto the shared path so it inherits system back +
+    /// edge-pop and can recurse. When presented modally (self-contained stack),
+    /// fall back to the local `.sheet`.
+    private func openEntity(type: String, slug: String) {
+        if isEmbedded {
+            nav.push(EntityRef(type: type, slug: slug, sourceDateString: dateString), in: nav.selectedTab)
+        } else {
+            selectedEntityType = type
+            selectedEntitySlug = slug
         }
     }
 
@@ -106,8 +120,12 @@ struct DailyPageView: View {
                     }
                 }
             }
-            .navigationDestination(for: Memo.ID.self) { memoID in
-                if let memo = memoVM.memos.first(where: { $0.id == memoID }) {
+            // W1 fix: DailyMemoRef (not bare Memo.ID) so an embedded DailyPage's
+            // memo destination doesn't collide with the host stack's
+            // `for: UUID.self` — see DailyMemoRef doc. Looked up in this page's
+            // own memoVM.
+            .navigationDestination(for: DailyMemoRef.self) { ref in
+                if let memo = memoVM.memos.first(where: { $0.id == ref.id }) {
                     MemoDetailView(
                         memo: memo,
                         vm: memoVM,
@@ -117,6 +135,11 @@ struct DailyPageView: View {
                             comment: "Detail view — back label when pushed from a daily page"
                         )
                     )
+                    // W0: when DailyPage is embedded in a bar-hidden host stack
+                    // (Today/Archive → DayDetail), this MemoDetail push inherits
+                    // the suppressed pop gesture; re-arm it. Harmless (idempotent)
+                    // in the modal path where the bar is already visible.
+                    .restoresInteractivePop()
                 } else {
                     Text(NSLocalizedString("memo.not_found", comment: "Memo missing fallback")).foregroundColor(DSColor.inkMuted)
                 }
@@ -400,7 +423,7 @@ struct DailyPageView: View {
 
             VStack(spacing: 0) {
                 ForEach(memoVM.memos) { memo in
-                    NavigationLink(value: memo.id) {
+                    NavigationLink(value: DailyMemoRef(id: memo.id)) {
                         SourceSignalRow(memo: memo)
                     }
                     .buttonStyle(.plain)
@@ -524,8 +547,7 @@ struct DailyPageView: View {
             DailyPageSummarySection(model: model, onMentionTap: { mention in
                 let slug = mention.hasPrefix("@") ? String(mention.dropFirst()) : mention
                 let (type, resolved) = resolveEntityTypeAndSlug(slug)
-                selectedEntityType = type
-                selectedEntitySlug = resolved
+                openEntity(type: type, slug: resolved)
             })
         }
         .padding(28)

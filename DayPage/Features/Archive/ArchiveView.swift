@@ -482,8 +482,9 @@ struct ArchiveView: View {
     /// DayDetailView. Replaces the former `selectedDateString` + `showDayDetail`
     /// bool that drove a `fullScreenCover`; pushing gives the day a system back
     /// button + interactive edge-swipe-to-pop and a zoom hero (iOS 18+) out of
-    /// the tapped calendar cell / list row.
-    @State private var selectedDay: DayNavTarget? = nil
+    /// the tapped calendar cell / list row. W1: now pushed via
+    /// `nav.push(DayNavTarget…)` onto `archivePath` (path-unified with entity/
+    /// daily pushes) instead of a local `@State selectedDay` + isPresented.
     /// Shared zoom namespace so the tapped calendar cell / list row is the
     /// `matchedTransitionSource` for the pushed DayDetailView.
     @Namespace private var dayZoomNamespace
@@ -537,7 +538,7 @@ struct ArchiveView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $nav.archivePath) {
             ZStack {
                 AmbientBackground().ignoresSafeArea()
                 VStack(spacing: 0) {
@@ -685,22 +686,32 @@ struct ArchiveView: View {
             .onChange(of: nav.pendingSearchQuery) { _ in
                 consumePendingSearchQuery()
             }
-            // isPresented-based (iOS 16+) rather than item: (iOS 17+) so the
-            // push compiles against the 17.0 deployment target without an
-            // availability gate. The bound day is read inside the builder.
-            .navigationDestination(
-                isPresented: Binding(
-                    get: { selectedDay != nil },
-                    set: { if !$0 { selectedDay = nil } }
-                )
-            ) {
-                if let target = selectedDay {
-                    DayDetailView(dateString: target.dateString)
-                        .modifier(ArchiveDayZoomDestination(
-                            id: target.dateString, namespace: dayZoomNamespace
-                        ))
-                }
+            // W1 unification: DayDetail is now a PATH push (`DayNavTarget` on
+            // `nav.archivePath`), not `isPresented`. Mixing an isPresented push
+            // with the path-driven EntityRef/DailyRef pushes on the same stack
+            // made a single back-gesture collapse two levels (DayDetail skipped,
+            // straight to Archive). One push mechanism = correct per-level pop.
+            .navigationDestination(for: DayNavTarget.self) { target in
+                DayDetailView(dateString: target.dateString)
+                    .modifier(ArchiveDayZoomDestination(
+                        id: target.dateString, namespace: dayZoomNamespace
+                    ))
+                    // W0: Archive's stack also hides its nav bar (:670), so the
+                    // pushed day needs the pop gesture re-armed.
+                    .restoresInteractivePop()
             }
+            // W1: shared entity + daily push destinations on Archive's stack.
+            .entityDailyDestinations()
+            // W1 fix: WeeklyRecap now pushes via the path too (was a closure
+            // NavigationLink). Re-arm the pop gesture like every other pushed
+            // page on this bar-hidden stack.
+            .navigationDestination(for: WeeklyRecapRef.self) { ref in
+                WeeklyRecapDetailView(referenceDate: ref.referenceDate)
+                    .restoresInteractivePop()
+            }
+            // The edge-strip `activeStackCanPop` signal is now driven purely by
+            // `archivePath` being non-empty (see AppNavigationModel) — no manual
+            // per-tab flag needed once every push runs through the path.
             .sheet(isPresented: $showSearch) {
                 SearchView(
                     onSelect: { dateStr in
@@ -710,7 +721,7 @@ struct ArchiveView: View {
                         // shorter than the old 0.25s cover-vs-sheet workaround.
                         showSearch = false
                         DispatchQueue.main.async {
-                            selectedDay = DayNavTarget(dateString: dateStr)
+                            nav.push(DayNavTarget(dateString: dateStr), in: .archive)
                         }
                     },
                     initialQuery: searchInitialQuery
@@ -750,7 +761,7 @@ struct ArchiveView: View {
     /// `.empty` / `.error` / `.rawOnly` / `.compiled` 等状态 — 参见 US-002。
     private func handleDateTap(dateStr: String) {
         Haptics.soft()
-        selectedDay = DayNavTarget(dateString: dateStr)
+        nav.push(DayNavTarget(dateString: dateStr), in: .archive)
     }
 
     /// Consume any pending deep-link from the sidebar's Recent row. Cleared
@@ -762,7 +773,7 @@ struct ArchiveView: View {
         // Defer the push so SwiftUI commits the tab switch first; pushing during
         // the same runloop as the tab change can race and skip the animation.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            selectedDay = DayNavTarget(dateString: dateStr)
+            nav.push(DayNavTarget(dateString: dateStr), in: .archive)
         }
     }
 
@@ -1594,15 +1605,38 @@ struct ArchiveView: View {
         let flagOn = FeatureFlagStore.shared.isEnabled(.weeklyRecap)
         let recentDailyCount = WeeklyRecapService.shared.entries(referenceDate: Date()).count
         if flagOn && recentDailyCount >= 3 {
-            NavigationLink {
-                WeeklyRecapDetailView(referenceDate: Date())
-            } label: {
+            // W1 fix: value-based push onto archivePath (was a closure
+            // NavigationLink). Unifies it with the entity/day pushes on this
+            // stack so edge-back pops it, the pop gesture is re-armed, and
+            // entity-chip pushes from inside it land at the right depth.
+            //
+            // W1: value-based push onto archivePath (was a closure
+            // NavigationLink), unifying it with the entity/day pushes on this
+            // stack so edge-back pops it and the pop gesture is re-armed.
+            //
+            // NOTE (pre-existing, tracked separately): on iOS 26 the
+            // `.liquidGlassCard` (role .panel, no `.interactive()`) can swallow a
+            // synthetic tap on this card, so the entry is hard to trigger in the
+            // simulator. That is an existing Liquid Glass hit-testing issue on
+            // this card, independent of this navigation migration — the push
+            // wiring here is correct and matches every other Archive push.
+            NavigationLink(value: WeeklyRecapRef(referenceDate: Date())) {
                 weeklyRecapEntryCardBody
             }
             .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(weeklyRecapEntryA11yLabel)
+            .accessibilityHint(NSLocalizedString("weekly.recap.entrycard.hint", comment: ""))
+            .accessibilityAddTraits(.isButton)
         } else {
             EmptyView()
         }
+    }
+
+    private var weeklyRecapEntryA11yLabel: String {
+        let isoWeek = WeeklyCompilationService.isoWeekKey(for: Date())
+        let title = NSLocalizedString("weekly.recap.entrycard.title", comment: "")
+        return "\(title), \(isoWeek)"
     }
 
     private var weeklyRecapEntryCardBody: some View {
@@ -1630,10 +1664,6 @@ struct ArchiveView: View {
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .liquidGlassCard(cornerRadius: DSRadius.md)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(title), \(isoWeek)")
-        .accessibilityHint(NSLocalizedString("weekly.recap.entrycard.hint", comment: ""))
-        .accessibilityAddTraits(.isButton)
     }
 
     private func relativeDateLabel(_ dateString: String) -> String {

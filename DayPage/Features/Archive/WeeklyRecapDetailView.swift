@@ -25,12 +25,11 @@ struct WeeklyRecapDetailView: View {
     @State private var detailedError: WeeklyCompilationError?
     @State private var error: String?
 
-    /// R8-MEDIUM B2: pushed when a keyword chip / place row is tapped.
-    /// Drives a `.sheet` of `EntityPageView`. Slug is lowercased + trimmed
-    /// before resolve so cache hits work the same way DailyPage's wikilink
-    /// resolver does.
-    @State private var entityNavSlug: String?
-    @State private var entityNavType: String = "themes"
+    /// W1: keyword chip / place row taps push an `EntityRef` onto the host
+    /// (Archive) stack instead of opening a local sheet — inherits system back
+    /// + edge-pop. Slug is lowercased + trimmed before resolve so cache hits
+    /// work the same way DailyPage's wikilink resolver does.
+    @EnvironmentObject private var nav: AppNavigationModel
 
     /// R8-LOW: monitor the network so the offline error auto-retries the
     /// moment connectivity returns. The view drops the subscription on
@@ -70,18 +69,6 @@ struct WeeklyRecapDetailView: View {
             guard isOnline else { return }
             guard case .offline = detailedError else { return }
             Task { await reload(forceRefresh: false) }
-        }
-        // R8-MEDIUM B2: keyword chip / place row taps push EntityPageView
-        // as a sheet (mirrors DailyPageView's wikilink behaviour). The
-        // slug→type resolve happens in `handleKeywordTap`; sheet item is
-        // the slug so a quick re-tap re-presents cleanly.
-        .sheet(isPresented: Binding(
-            get: { entityNavSlug != nil },
-            set: { if !$0 { entityNavSlug = nil } }
-        )) {
-            if let slug = entityNavSlug {
-                EntityPageView(entityType: entityNavType, entitySlug: slug)
-            }
         }
     }
 
@@ -598,8 +585,7 @@ struct WeeklyRecapDetailView: View {
         let slug = keyword.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         guard !slug.isEmpty else { return }
         let (type, resolved) = Self.resolveEntityTypeAndSlug(slug)
-        entityNavType = type
-        entityNavSlug = resolved
+        nav.push(EntityRef(type: type, slug: resolved), in: nav.selectedTab)
     }
 
     /// Place row tap → push EntityPageView under "places" preferentially.
@@ -607,8 +593,7 @@ struct WeeklyRecapDetailView: View {
         let slug = raw.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         guard !slug.isEmpty else { return }
         let (type, resolved) = Self.resolveEntityTypeAndSlug(slug, preferPlaces: true)
-        entityNavType = type
-        entityNavSlug = resolved
+        nav.push(EntityRef(type: type, slug: resolved), in: nav.selectedTab)
     }
 
     /// Mirrors DailyPageView.resolveEntityTypeAndSlug. Static so we can hit

@@ -16,8 +16,17 @@ struct EntityPageView: View {
     let entitySlug: String
     /// When presented from a Daily Page, pass the dateString to show a breadcrumb.
     var sourceDateString: String? = nil
+    /// True when pushed onto a host NavigationStack (Today / Archive / Daily /
+    /// MemoDetail): the page drops its own stack + custom back button (it
+    /// inherits the host's system back + edge-pop) and pushes recursive
+    /// entity/daily links onto the shared path via `nav`. False when presented
+    /// modally as a `.sheet` (only Graph still does this): it keeps its own
+    /// NavigationStack, its dismiss back button, and its local `.sheet`
+    /// recursion, since there is no host path to append to.
+    var isPushed: Bool = false
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var nav: AppNavigationModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var model: EntityModel? = nil
     @State private var notFound: Bool = false
@@ -53,78 +62,65 @@ struct EntityPageView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                DSColor.background.ignoresSafeArea()
-
-                if notFound {
-                    notFoundView(reason: notFoundReason)
-                } else if let model {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 0) {
-                            entityHeader(model: model)
-                                .padding(.horizontal, DSSpacing.xl)
-                                .padding(.top, DSSpacing.xl2)
-                                .padding(.bottom, 32)
-
-                            entityBody(model: model)
-                                .padding(.horizontal, DSSpacing.xl)
-                                .padding(.bottom, 40)
-
-                            relatedMemos(model: model)
-                                .padding(.horizontal, DSSpacing.xl)
-                                .padding(.bottom, 40)
-
-                            // R4-MEDIUM #39 — backlinks gated behind a
-                            // FeatureFlag so we can kill-switch it in TestFlight
-                            // without a hot-fix build. Default-on.
-                            if FeatureFlagStore.shared.isEnabled(.backlinks) {
-                                backlinksSection
-                                    .padding(.horizontal, DSSpacing.xl)
-                                    .padding(.bottom, 40)
-                            }
-                        }
-                    }
-                } else {
-                    entitySkeleton
-                }
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    if let src = sourceDateString {
-                        Button(action: { dismiss() }) {
-                            HStack(spacing: DSSpacing.xs) {
-                                Image(systemName: "arrow.left")
-                                    .font(.system(size: 13, weight: .medium))
-                                Text(src)
-                                    .font(.custom("JetBrainsMono-Regular", fixedSize: 11))
-                                    .kerning(0.5)
-                            }
-                            .foregroundColor(DSColor.primary)
-                        }
-                    } else {
-                        Button(action: { dismiss() }) {
-                            Image(systemName: "arrow.left")
-                                .font(.system(size: 16, weight: .medium))
+        Group {
+            if isPushed {
+                // Pushed onto a host stack: no inner NavigationStack, no custom
+                // back button. Recursive entity/daily links push onto the shared
+                // path (see `openEntity`/`openDaily`). Inherits system back +
+                // edge-pop from the host.
+                scrollContent
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .principal) {
+                            Text(entitySlug.uppercased())
+                                .monoLabelStyle(size: 11)
                                 .foregroundColor(DSColor.onSurface)
                         }
                     }
-                }
-                ToolbarItem(placement: .principal) {
-                    Text(entitySlug.uppercased())
-                        .monoLabelStyle(size: 11)
-                        .foregroundColor(DSColor.onSurface)
-                }
+                    .modifier(EntityLifecycleModifier(onAppearLoad: loadEntity, onDisappearCancel: cancelScan))
+            } else {
+                // Modal sheet path (Graph only): keep the self-contained stack,
+                // the dismiss back button, and local `.sheet` recursion.
+                sheetContainer
             }
         }
-        .onAppear { loadEntity() }
-        .onDisappear {
-            // Cancel any in-flight scan so a quick dismiss/re-open doesn't
-            // pile up detached tasks racing on @MainActor writes.
-            scanTask?.cancel()
-            scanTask = nil
+    }
+
+    /// Sheet-mode container: self-contained NavigationStack + dismiss chrome +
+    /// local `.sheet` recursion. Only reached from Graph's `.sheet` presentation.
+    private var sheetContainer: some View {
+        NavigationStack {
+            scrollContent
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        if let src = sourceDateString {
+                            Button(action: { dismiss() }) {
+                                HStack(spacing: DSSpacing.xs) {
+                                    Image(systemName: "arrow.left")
+                                        .font(.system(size: 13, weight: .medium))
+                                    Text(src)
+                                        .font(.custom("JetBrainsMono-Regular", fixedSize: 11))
+                                        .kerning(0.5)
+                                }
+                                .foregroundColor(DSColor.primary)
+                            }
+                        } else {
+                            Button(action: { dismiss() }) {
+                                Image(systemName: "arrow.left")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(DSColor.onSurface)
+                            }
+                        }
+                    }
+                    ToolbarItem(placement: .principal) {
+                        Text(entitySlug.uppercased())
+                            .monoLabelStyle(size: 11)
+                            .foregroundColor(DSColor.onSurface)
+                    }
+                }
         }
+        .modifier(EntityLifecycleModifier(onAppearLoad: loadEntity, onDisappearCancel: cancelScan))
         .sheet(isPresented: Binding(
             get: { selectedDate != nil },
             set: { if !$0 { selectedDate = nil } }
@@ -140,6 +136,73 @@ struct EntityPageView: View {
             if let slug = selectedEntitySlug {
                 EntityPageView(entityType: selectedEntityType, entitySlug: slug)
             }
+        }
+    }
+
+    /// The scrollable page body, shared by both presentation modes.
+    @ViewBuilder
+    private var scrollContent: some View {
+        ZStack {
+            DSColor.background.ignoresSafeArea()
+
+            if notFound {
+                notFoundView(reason: notFoundReason)
+            } else if let model {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        entityHeader(model: model)
+                            .padding(.horizontal, DSSpacing.xl)
+                            .padding(.top, DSSpacing.xl2)
+                            .padding(.bottom, 32)
+
+                        entityBody(model: model)
+                            .padding(.horizontal, DSSpacing.xl)
+                            .padding(.bottom, 40)
+
+                        relatedMemos(model: model)
+                            .padding(.horizontal, DSSpacing.xl)
+                            .padding(.bottom, 40)
+
+                        // R4-MEDIUM #39 — backlinks gated behind a
+                        // FeatureFlag so we can kill-switch it in TestFlight
+                        // without a hot-fix build. Default-on.
+                        if FeatureFlagStore.shared.isEnabled(.backlinks) {
+                            backlinksSection
+                                .padding(.horizontal, DSSpacing.xl)
+                                .padding(.bottom, 40)
+                        }
+                    }
+                }
+            } else {
+                entitySkeleton
+            }
+        }
+    }
+
+    private func cancelScan() {
+        // Cancel any in-flight scan so a quick dismiss/re-open doesn't
+        // pile up detached tasks racing on @MainActor writes.
+        scanTask?.cancel()
+        scanTask = nil
+    }
+
+    /// Open a child entity — push onto the host path when embedded, else set the
+    /// local `.sheet` state (Graph modal path).
+    private func openEntity(type: String, slug: String) {
+        if isPushed {
+            nav.push(EntityRef(type: type, slug: slug, sourceDateString: sourceDateString), in: nav.selectedTab)
+        } else {
+            selectedEntityType = type
+            selectedEntitySlug = slug
+        }
+    }
+
+    /// Open a daily page — push a `DailyRef` when embedded, else local `.sheet`.
+    private func openDaily(_ dateString: String) {
+        if isPushed {
+            nav.push(DailyRef(dateString: dateString), in: nav.selectedTab)
+        } else {
+            selectedDate = dateString
         }
     }
 
@@ -337,7 +400,7 @@ struct EntityPageView: View {
                 // Show individual memo snippets with navigation
                 ForEach(linkedMemos.indices, id: \.self) { idx in
                     let item = linkedMemos[idx]
-                    Button(action: { Haptics.tapConfirm(); selectedDate = item.dateStr }) {
+                    Button(action: { Haptics.tapConfirm(); openDaily(item.dateStr) }) {
                         VStack(alignment: .leading, spacing: DSSpacing.xs) {
                             Text(relativeDateLabel(item.dateStr))
                                 .monoLabelStyle(size: 9)
@@ -367,7 +430,7 @@ struct EntityPageView: View {
             } else {
                 // Fallback: daily page dates only (entity mentioned in compiled page but not raw)
                 ForEach(model.relatedDates, id: \.self) { dateStr in
-                    Button(action: { Haptics.tapConfirm(); selectedDate = dateStr }) {
+                    Button(action: { Haptics.tapConfirm(); openDaily(dateStr) }) {
                         HStack {
                             Text(relativeDateLabel(dateStr))
                                 .monoLabelStyle(size: 11)
@@ -539,8 +602,7 @@ struct EntityPageView: View {
     private func wikifiedText(_ text: String) -> some View {
         WikilinkBodyText(text: text) { inner in
             let (type, slug) = resolveEntityTypeAndSlug(inner)
-            selectedEntityType = type
-            selectedEntitySlug = slug
+            openEntity(type: type, slug: slug)
         }
     }
 
@@ -794,5 +856,21 @@ enum EntityPageParser {
             sections: sections,
             relatedDates: relatedDates
         )
+    }
+}
+
+// MARK: - EntityLifecycleModifier
+
+/// Shared onAppear-load / onDisappear-cancel wiring for EntityPageView, so both
+/// the pushed and sheet presentation branches run the same lifecycle without
+/// duplicating the closures inline.
+private struct EntityLifecycleModifier: ViewModifier {
+    let onAppearLoad: () -> Void
+    let onDisappearCancel: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear { onAppearLoad() }
+            .onDisappear { onDisappearCancel() }
     }
 }

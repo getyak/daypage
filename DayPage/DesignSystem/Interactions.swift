@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - DSGesture
 
@@ -14,6 +15,13 @@ enum DSGesture {
     static let horizontalDominance: CGFloat = 1.5
     /// Fixed travel that commits a month-page change in the Archive grid.
     static let monthSwipeCommitDistance: CGFloat = 50
+    /// Width of the left-screen-edge strip reserved for the system interactive
+    /// pop (swipe-to-go-back). Any in-app horizontal pager (DayDetail day
+    /// paging, Archive month paging) must NOT engage when a drag starts inside
+    /// this strip, so the edge stays owned by back-navigation. Same 20pt the
+    /// RootView sidebar edge strip uses, hoisted here as the single source so
+    /// paging and drawer share one definition.
+    static let systemEdgeBackZone: CGFloat = 20
 }
 
 // MARK: - PressableCardModifier
@@ -140,5 +148,109 @@ extension View {
             animation: animation,
             respectsReduceMotion: respectsReduceMotion
         ))
+    }
+}
+
+// MARK: - Interactive Pop Restorer
+//
+// WHY: TodayView roots its NavigationStack with `.navigationBarHidden(true)`
+// (a real crash-fix constraint — see TodayView's giant-generic-type note). On
+// iOS, hiding the navigation bar makes UIKit repoint the stack's
+// `interactivePopGestureRecognizer.delegate` to an internal object whose
+// `gestureRecognizerShouldBegin` returns false while the bar is hidden — so the
+// left-edge swipe-to-pop dies on EVERY page pushed onto that stack
+// (MemoDetailView / DayDetailView). The user feels this as "edge-back works
+// sometimes, not others": the exact reported symptom.
+//
+// FIX: swap in our own delegate that re-enables the gesture, but ONLY when the
+// stack has something to pop (viewControllers.count > 1). Guarding on depth
+// keeps the root page from arming a pop it can't service (which UIKit turns
+// into a dead, unresponsive-feeling swipe), while restoring genuine edge-back
+// on every child. This changes NO visual chrome — it purely re-arms the
+// system gesture the hidden bar suppressed.
+//
+// Usage: attach `.restoresInteractivePop()` to any view PUSHED onto a
+// bar-hidden NavigationStack (the detail pages), not to the stack root.
+
+private struct InteractivePopRestorer: UIViewControllerRepresentable {
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    func makeUIViewController(context: Context) -> ProbeController {
+        // The probe re-claims the pop delegate in `viewWillAppear`, not just on
+        // `updateUIViewController`. WHY: in an A→B push (both restored), popping
+        // B back to A releases B's coordinator, leaving the delegate nil; SwiftUI
+        // does not reliably re-run A's `update`, so A's edge-back would silently
+        // die on the second visit. `viewWillAppear` fires on every re-exposure,
+        // so each page re-arms itself as it comes back to the top.
+        let vc = ProbeController()
+        vc.coordinator = context.coordinator
+        vc.view.backgroundColor = .clear
+        vc.view.isUserInteractionEnabled = false
+        return vc
+    }
+
+    func updateUIViewController(_ uiViewController: ProbeController, context: Context) {
+        uiViewController.coordinator = context.coordinator
+        uiViewController.rearm()
+    }
+
+    /// Zero-size probe that lives in the responder chain purely to resolve
+    /// `navigationController` and re-claim the pop gesture on every appearance.
+    final class ProbeController: UIViewController {
+        // STRONG (not weak): the pop gesture's `delegate` is a weak reference,
+        // and the coordinator is otherwise only retained by SwiftUI's Context.
+        // Holding it strongly here binds the coordinator's lifetime to this
+        // probe (which SwiftUI retains for the view's lifetime), so the deferred
+        // `rearm()` can never set `gesture.delegate` to an object about to
+        // deallocate. No cycle: the coordinator does not retain the probe.
+        var coordinator: Coordinator?
+
+        override func viewWillAppear(_ animated: Bool) {
+            super.viewWillAppear(animated)
+            rearm()
+        }
+
+        func rearm() {
+            // Defer one hop: on the first pass the view may not yet be in the
+            // nav hierarchy, so `navigationController` is nil.
+            DispatchQueue.main.async { [weak self] in
+                guard let self,
+                      let coordinator = self.coordinator,
+                      let nc = self.navigationController,
+                      let gesture = nc.interactivePopGestureRecognizer
+                else { return }
+                coordinator.stackProvider = { [weak nc] in nc?.viewControllers.count ?? 0 }
+                gesture.isEnabled = true
+                gesture.delegate = coordinator
+            }
+        }
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        /// Reads the live stack depth so the edge-pop only arms when there is a
+        /// parent to return to — never on the stack root.
+        var stackProvider: (() -> Int)?
+
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            (stackProvider?() ?? 0) > 1
+        }
+
+        // Deliberately do NOT implement `shouldRecognizeSimultaneouslyWith`.
+        // The default (false = mutually exclusive) is what we want: MemoDetail
+        // also hosts a horizontal UIKit pan (DropToAskGesture). If the edge-pop
+        // ran simultaneously, an edge drag meant as "go back" would also fire
+        // "drag-to-ask". Keeping them exclusive lets UIKit's arbitration pick
+        // one — the system pop wins at the screen edge (its recognizer is
+        // edge-anchored), drag-to-ask wins from the card interior.
+    }
+}
+
+extension View {
+    /// Re-arms the system left-edge swipe-to-pop on a view pushed onto a
+    /// NavigationStack whose root hid the navigation bar (which otherwise
+    /// suppresses the interactive pop gesture). Attach to the DETAIL page, not
+    /// the stack root. No visual effect — restores gesture behavior only.
+    func restoresInteractivePop() -> some View {
+        background(InteractivePopRestorer().frame(width: 0, height: 0).allowsHitTesting(false))
     }
 }
