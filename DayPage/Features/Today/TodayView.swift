@@ -104,9 +104,9 @@ struct TodayView: View {
     /// All three former entry points — On This Day card, zero-memo fallback
     /// "yesterday" page, and timeline tap/long-press — now set this single
     /// item (previously three separate `String?` bindings driving three
-    /// `fullScreenCover`s). Pushing instead of covering gives the day a system
-    /// back button + interactive edge-swipe-to-pop and a zoom transition.
-    @State private var historicalDay: DayNavTarget? = nil
+    /// `fullScreenCover`s). W1: historical day is now pushed via
+    /// `nav.push(DayNavTarget…)` onto todayPath (path-unified), not a local
+    /// `@State historicalDay` — gives system back + edge-pop + zoom.
 
     /// Plain-text payload for the system share sheet when the user shares a
     /// timeline day. Identifiable wrapper because `.sheet(item:)` needs an id.
@@ -179,8 +179,8 @@ struct TodayView: View {
     /// Programmatic memo-detail navigation. The card body no longer uses a
     /// SwiftUI NavigationLink (the swipe gesture's UIKit host hit-tests to
     /// self, which would swallow the link's tap); instead a tap recognizer
-    /// fires `onOpen`, which sets this id and drives `navigationDestination`.
-    @State private var openedMemoID: UUID? = nil
+    /// fires `onOpen`, which W1 routes through `nav.push(ZoomedMemoRef…)` onto
+    /// todayPath (path-unified) instead of a local `@State openedMemoID`.
 
     /// iOS 18+ zoom transition: the tapped card is the `matchedTransitionSource`
     /// and MemoDetailView zooms out of it (App Store / Photos-style hero).
@@ -341,7 +341,7 @@ struct TodayView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $nav.todayPath) {
             ZStack(alignment: .top) {
                 // V4: Warm ambient canvas — glass surfaces refract against this
                 AmbientBackground()
@@ -673,26 +673,29 @@ struct TodayView: View {
             // duplicate here competed in gesture arbitration with that
             // interactive version and could win, making the drawer pop open
             // with a canned animation instead of following the finger.
+            // W1: shared entity + daily push destinations (replaces the old
+            // per-view .sheet recursion). Registered once; resolves recursive
+            // entity→entity→daily chains via the shared todayPath.
+            .entityDailyDestinations()
             .navigationDestination(for: UUID.self) { memoID in
                 if let memo = viewModel.memos.first(where: { $0.id == memoID }) {
                     MemoDetailView(memo: memo, vm: viewModel)
+                        // W0: re-arm edge-back suppressed by the stack root's
+                        // hidden nav bar (applyNavigationAndOverlays :670).
+                        .restoresInteractivePop()
                 }
             }
-            // Programmatic detail navigation for the card-body tap (the swipe
-            // card drives this instead of a NavigationLink — see openedMemoID).
-            // Uses isPresented (iOS 16+) rather than item: to stay portable.
-            .navigationDestination(
-                isPresented: Binding(
-                    get: { openedMemoID != nil },
-                    set: { if !$0 { openedMemoID = nil } }
-                )
-            ) {
-                if let id = openedMemoID,
-                   let memo = viewModel.memos.first(where: { $0.id == id }) {
+            // Card-body tap → MemoDetail with zoom hero. W1: PATH push
+            // (`ZoomedMemoRef` on todayPath), not isPresented — mixing an
+            // isPresented push with the path-driven entity/UUID pushes on this
+            // same stack made one back-gesture collapse two levels.
+            .navigationDestination(for: ZoomedMemoRef.self) { ref in
+                if let memo = viewModel.memos.first(where: { $0.id == ref.id }) {
                     MemoDetailView(memo: memo, vm: viewModel)
                         .modifier(CardZoomDestination(
-                            id: id, namespace: detailZoomNamespace
+                            id: ref.id, namespace: detailZoomNamespace
                         ))
+                        .restoresInteractivePop()
                 }
             }
     }
@@ -701,6 +704,10 @@ struct TodayView: View {
     @ViewBuilder
     private func applyLifecycleHooks(_ content: some View) -> some View {
         content
+            // W1: Today's edge-strip `activeStackCanPop` signal is now driven
+            // purely by `todayPath` being non-empty (AppNavigationModel) — every
+            // push (memo / historical day / entity / daily) runs through the
+            // path, so the old manual `setStackHasDetail` onChange is gone.
             .onAppear {
                 clearDraftIfExpired()
                 // R4-B2: SceneStorage may come back empty after a process kill
@@ -970,21 +977,16 @@ struct TodayView: View {
             // three covers. Push gives the day a system back button + interactive
             // edge-swipe-to-pop, and (iOS 18+) a zoom transition out of the
             // tapped source via `.matchedTransitionSource` at each call site.
-            // isPresented-based (iOS 16+) rather than item: (iOS 17+) so the
-            // push compiles against the 17.0 deployment target without an
-            // availability gate. The bound day is read inside the builder.
-            .navigationDestination(
-                isPresented: Binding(
-                    get: { historicalDay != nil },
-                    set: { if !$0 { historicalDay = nil } }
-                )
-            ) {
-                if let target = historicalDay {
-                    DayDetailView(dateString: target.dateString)
-                        .modifier(CardZoomDestination(
-                            id: target.dateString, namespace: detailZoomNamespace
-                        ))
-                }
+            // W1: historical-day push unified onto the path (`DayNavTarget` on
+            // todayPath), not isPresented — same two-level-collapse fix as the
+            // memo push above. `matchedTransitionSource` at each call site still
+            // drives the zoom hero.
+            .navigationDestination(for: DayNavTarget.self) { target in
+                DayDetailView(dateString: target.dateString)
+                    .modifier(CardZoomDestination(
+                        id: target.dateString, namespace: detailZoomNamespace
+                    ))
+                    .restoresInteractivePop()
             }
             // Timeline share sheet — plain text payload, no poster pipeline.
             .sheet(item: $timelineShareText) { payload in
@@ -1908,7 +1910,7 @@ struct TodayView: View {
             // empty.
             if viewModel.timelineSections.isEmpty {
                 WeeklyRecapSection(entries: entries) { dateString in
-                    historicalDay = DayNavTarget(dateString: dateString)
+                    nav.push(DayNavTarget(dateString: dateString), in: .today)
                 }
             }
         case .pureEmpty:
@@ -1969,7 +1971,7 @@ struct TodayView: View {
                         comment: "Yesterday card meta: N raw memos"), page.memoCount)
                     : nil,
                 onTap: {
-                    historicalDay = DayNavTarget(dateString: page.dateString)
+                    nav.push(DayNavTarget(dateString: page.dateString), in: .today)
                 }
             )
             .modifier(CardZoomSource(id: page.dateString, namespace: detailZoomNamespace))
@@ -2019,7 +2021,7 @@ struct TodayView: View {
                     section: section,
                     zoomNamespace: detailZoomNamespace,
                     onOpenDate: { dateString in
-                        historicalDay = DayNavTarget(dateString: dateString)
+                        nav.push(DayNavTarget(dateString: dateString), in: .today)
                     },
                     onShareDate: { entry in shareTimelineDay(entry) },
                     onDeleteDate: { entry in deleteTimelineDay(entry) }
@@ -2106,7 +2108,7 @@ struct TodayView: View {
         let dateStr = Self.dateString(from: entry.originalDate)
         // Keep the in-Today push path so the existing UX (open the historical
         // DayDetail without switching tabs) still works.
-        historicalDay = DayNavTarget(dateString: dateStr)
+        nav.push(DayNavTarget(dateString: dateStr), in: .today)
         // Forward to .openArchiveAt for consumers that want to pivot to
         // Archive instead — R5 backlinks + EntityPageView already use this
         // bus, so OnThisDay rides the same channel.
@@ -3171,7 +3173,7 @@ struct TodayView: View {
                                 // open, so tap-into-detail feels identical
                                 // across today's cards and historical rows.
                                 Haptics.tapConfirm()
-                                openedMemoID = memo.id
+                                nav.push(ZoomedMemoRef(id: memo.id), in: .today)
                             }
                         )
                         .offset(x: idx == 0 ? memoCardHintOffset : 0)
