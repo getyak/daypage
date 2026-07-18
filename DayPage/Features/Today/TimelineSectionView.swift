@@ -4,24 +4,19 @@ import DayPageServices
 
 // MARK: - TimelineSectionView
 //
-// One band of the Today historical timeline rendered as a continuous
-// "kakejiku" (掛軸) museum spine — a single 0.5pt vertical hairline running
-// through every row, with a marker shape that encodes granularity
-// (dot → bar → ring → concentric). Content floats on bg-warm with NO card
-// chrome, NO rounded corners, NO shadow — the serif title and inter lede
-// hang off the spine like a scroll.
+// One band of the Today historical timeline rendered as a flomo-style card
+// stream (2026-07-18 redesign, superseding the v8 museum spine): one warm
+// paper slip per day on surface-white, hairline-stroked, sharing the memo
+// cards' continuous corner radius. Interior is content-first — an amber
+// mono weekday overline, the compiled summary as ONE small body paragraph
+// (lead sentence medium, spill quiet), a mono meta footer — plus an
+// oversized ~5%-ink serif day numeral bleeding off the top-right as the
+// editorial art layer.
 //
-// Design source of truth: .design-handoff/v8/app.jsx:590-720
-// (Timeline / TimelineSection / TimelineRow / DayRow / WeekRowItem /
-//  MonthRow / YearRow / RowMeta). Faithful web port:
-// web/src/app/(app)/today/WeekFeedSpine.tsx.
-//
+// Band headers are museum labels: serif title · hairline · mono "BY DAY · N".
 // The iOS data model currently only produces day-level entries
 // (`TimelineSectionKind` = thisWeekOthers / lastWeek / weekBeforeLast /
-// month). The four marker shapes & row builders are all implemented so the
-// week/month/year granularities are structurally ready the moment the
-// view-model starts emitting coarser buckets — matching how the web groups
-// 本周 BY DAY · 本月 BY WEEK · 今年 BY MONTH · 历年 BY YEAR.
+// month); coarser buckets would reuse the same card grammar.
 
 struct TimelineSectionView: View {
 
@@ -46,12 +41,14 @@ struct TimelineSectionView: View {
         .padding(.bottom, TimelineSpine.sectionGap)
     }
 
-    // MARK: Spine + rows
+    // MARK: Card stream
 
-    /// The relative-positioned region: a fixed-x hairline behind the rows.
-    /// app.jsx:617-624 — `padding: 8px 22px 4px`, spine inset top:18 bottom:6.
+    /// The card stream — one warm paper slip per day, flomo-style. The old
+    /// museum spine (fixed hairline + nameplate column) spent 76pt of every
+    /// row on chrome; the cards give the full measure to content and rhyme
+    /// with the compiled-yesterday card that opens the feed.
     private var spineBody: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 12) {
             ForEach(Array(section.days.enumerated()), id: \.element.id) { index, day in
                 TimelineDayRow(
                     entry: day,
@@ -64,20 +61,8 @@ struct TimelineSectionView: View {
                 )
             }
         }
-        .padding(.top, 8)
-        .padding(.bottom, 4)
+        .padding(.top, 2)
         .padding(.horizontal, TimelineSpine.sectionPadH)
-        .background(alignment: .topLeading) {
-            // ONE continuous hairline, fixed left x, behind every row.
-            // app.jsx:618 — width:0.5, var(--border-subtle), top:18 bottom:6.
-            Rectangle()
-                .fill(DSColor.inkFaint)
-                .frame(width: 0.5)
-                .padding(.leading, TimelineSpine.spineX - 0.25)
-                .padding(.top, 18)
-                .padding(.bottom, 6)
-                .frame(maxHeight: .infinity, alignment: .top)
-        }
     }
 
     // MARK: Section header copy
@@ -209,17 +194,42 @@ struct TimelineDayRow: View {
         }
     }
 
-    /// LAYER 1 — the museum row, offset by the live swipe translation. The
+    /// LAYER 1 — the day card, offset by the live swipe translation. The
     /// UIKit pan/tap host sits as an overlay so vertical scrolls still belong
     /// to the parent ScrollView (see SwipeableMemoCard for the rationale).
+    /// Ghost numeral lives in the background ZStack so the clipShape crops
+    /// its top-edge bleed with the card silhouette.
     private var rowContent: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            rowScaffold
-        }
-        .contentShape(Rectangle())
-        .background(DSColor.bgWarm)
-        .offset(x: currentOffset)
-        .overlay(panGestureOverlay)
+        rowScaffold
+            .background {
+                ZStack(alignment: .topTrailing) {
+                    RoundedRectangle(cornerRadius: SwipePhysics.cardCornerRadius, style: .continuous)
+                        .fill(DSColor.surfaceWhite)
+                    ghostNumeral
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: SwipePhysics.cardCornerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: SwipePhysics.cardCornerRadius, style: .continuous)
+                    .strokeBorder(DSColor.inkFaint.opacity(0.55), lineWidth: 0.5)
+            }
+            .contentShape(Rectangle())
+            .offset(x: currentOffset)
+            .overlay(panGestureOverlay)
+    }
+
+    /// Oversized faint serif day numeral bleeding off the card's top-right —
+    /// the editorial art layer. Texture, never ink: ~5% opacity, hidden from
+    /// hit-testing and accessibility, cropped by the card silhouette.
+    private var ghostNumeral: some View {
+        Text(dayNumberLabel)
+            .font(DSFonts.serif(size: 62, weight: .semibold, relativeTo: .largeTitle))
+            .tracking(-1.5)
+            .foregroundColor(DSColor.inkPrimary.opacity(0.055))
+            .padding(.trailing, 10)
+            .padding(.top, -12)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 
     private var panGestureOverlay: some View {
@@ -302,69 +312,24 @@ struct TimelineDayRow: View {
         return Text(String(format: format, entry.memoCount, entry.dateString))
     }
 
-    // MARK: Row scaffold — nameplate | marker | content
+    // MARK: Card scaffold — overline date | body | mono meta
 
-    /// app.jsx:631-647 — grid 52px | 1fr, columnGap 24, paddingTop 26
-    /// (0 first), paddingBottom 26 (6 last). The marker is overlaid in the
-    /// gap so it sits exactly on the spine.
+    /// flomo-style card interior. Content is the interface: the compiled
+    /// summary reads as ONE small body block — lead sentence in a medium
+    /// weight for scan rhythm, spill continuing quieter at the same size —
+    /// under a whisper-height amber weekday overline. No display type,
+    /// no nameplate column: the full measure belongs to the prose.
     private var rowScaffold: some View {
-        HStack(alignment: .top, spacing: TimelineSpine.columnGap) {
-            nameplate
-            content
-        }
-        .padding(.top, isFirst ? 0 : 26)
-        .padding(.bottom, isLast ? 6 : 26)
-        // Marker overlaid on the spine — top-leading so the dot lines up with
-        // the title regardless of content height. app.jsx:654.
-        // When the day is user-pinned the marker is replaced by a tiny pin
-        // glyph so the row reads as "this one's mine" at a glance.
-        .overlay(alignment: .topLeading) {
-            Group {
-                if isPinned {
-                    Image(systemName: "pin.fill")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundColor(DSColor.accentAmber)
-                } else {
-                    TimelineSpine.DayMarker()
-                }
-            }
-            .offset(
-                x: TimelineSpine.rowSpineX - TimelineSpine.DayMarker.size / 2,
-                y: (isFirst ? 0 : 26) + 11
-            )
-        }
-    }
-
-    /// Left nameplate column — right-aligned mono weekday + display date.
-    /// app.jsx:638-643 (mono 9.5 / display 13).
-    private var nameplate: some View {
-        VStack(alignment: .trailing, spacing: 4) {
-            Text(weekdayLabel)
-                .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold, relativeTo: .caption2))
-                .tracking(1.8)
-                .textCase(.uppercase)
-                .foregroundColor(DSColor.inkMuted)
-            Text(monthDayLabel)
-                .font(DSFonts.spaceGrotesk(size: 13, weight: .semibold, relativeTo: .footnote))
-                .tracking(-0.1)
-                .foregroundColor(DSColor.inkPrimary)
-        }
-        .frame(width: TimelineSpine.nameplateWidth, alignment: .trailing)
-        .padding(.top, 6)
-    }
-
-    /// Right content column — serif title, inter lede, mono meta footer.
-    private var content: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if let title = displayTitle {
-                TimelineSpine.RowTitle(text: title, size: 20)
-            }
-            if let lede = displayLede {
-                TimelineSpine.RowLede(text: lede)
-                    // app.jsx:656 margin:'10px 0 0' — only under a title;
-                    // an uncompiled row's excerpt starts flush at the top.
-                    .padding(.top, displayTitle == nil ? 0 : 10)
+            cardHeader
+            if let parts = summaryParts {
+                TimelineSpine.RowBody(lead: parts.lead, rest: parts.rest)
+                    .lineLimit(4)
+                    .padding(.top, 10)
+            } else if let excerpt = entry.excerpt {
+                TimelineSpine.RowLede(text: excerpt)
                     .lineLimit(3)
+                    .padding(.top, 10)
             }
             TimelineSpine.RowMeta(tags: metaTags, right: {
                 // Word count only for compiled prose. Uncompiled days used
@@ -372,10 +337,35 @@ struct TimelineDayRow: View {
                 // WORDS" — fabricated data that always mirrored the left tag.
                 if hasSummary { wordsRight }
             })
-            .padding(.top, 14)                // app.jsx:705 marginTop:14
+            .padding(.top, 12)
         }
-        .padding(.leading, 6)                 // app.jsx:645 paddingLeft:6
+        .padding(.horizontal, 16)
+        .padding(.top, 13)
+        .padding(.bottom, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Overline: amber mono weekday + quiet grotesk date — the card's only
+    /// warm signal (flomo's tag-green energy, translated to the amber house
+    /// key). A pinned day leads with the pin glyph instead of a marker dot.
+    private var cardHeader: some View {
+        HStack(spacing: 8) {
+            if isPinned {
+                Image(systemName: "pin.fill")
+                    .font(.system(size: 8.5, weight: .bold))
+                    .foregroundColor(DSColor.accentOnBg)
+            }
+            Text(weekdayLabel)
+                .font(DSFonts.jetBrainsMono(size: 9.5, weight: .bold, relativeTo: .caption2))
+                .tracking(1.8)
+                .textCase(.uppercase)
+                .foregroundColor(DSColor.accentOnBg)
+            Text(monthDayLabel)
+                .font(DSFonts.spaceGrotesk(size: 12.5, weight: .semibold, relativeTo: .footnote))
+                .tracking(0.2)
+                .foregroundColor(DSColor.inkMuted)
+            Spacer(minLength: 0)
+        }
     }
 
     /// Right-aligned word count for a day row. app.jsx:657.
@@ -627,29 +617,22 @@ struct TimelineDayRow: View {
         return !summary.isEmpty
     }
 
-    /// Compiled summary acts as the serif title (the day's "成稿" headline).
-    /// Uncompiled days get NO serif title — the nameplate already states the
-    /// date, and repeating it at 20pt serif was pure duplication. The serif
-    /// voice is reserved for compiled prose; drafts speak through the lede.
-    private var displayTitle: String? {
-        guard let summary = entry.summary, !summary.isEmpty else { return nil }
-        // First sentence / line as the title; keeps the serif headline tight.
-        return summary
-            .split(whereSeparator: { $0 == "\n" || $0 == "。" })
-            .first.map(String.init) ?? summary
-    }
-
-    /// Lede: the compiled summary's spill-over — or, for uncompiled days,
-    /// the first memo's opening line so the row smells of real content.
-    private var displayLede: String? {
-        guard let summary = entry.summary, !summary.isEmpty else {
-            return entry.excerpt
+    /// Splits the compiled summary into a lead sentence + spill for the
+    /// flomo-style body block. The lead keeps its 。 so the two runs join
+    /// back into natural prose; a newline split joins with a space instead.
+    private var summaryParts: (lead: String, rest: String)? {
+        guard let summary = entry.summary else { return nil }
+        let s = summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !s.isEmpty else { return nil }
+        guard let idx = s.firstIndex(where: { $0 == "。" || $0 == "\n" }) else {
+            return (s, "")
         }
-        guard let title = displayTitle, summary.count > title.count + 1 else { return nil }
-        let remainder = summary.dropFirst(title.count)
-            .drop(while: { $0 == "\n" || $0 == "。" || $0 == " " })
-        let text = String(remainder)
-        return text.isEmpty ? nil : text
+        let isPeriod = s[idx] == "。"
+        var lead = String(s[..<idx]) + (isPeriod ? "。" : "")
+        let rest = String(s[s.index(after: idx)...])
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if !isPeriod && !rest.isEmpty { lead += " " }
+        return (lead, rest)
     }
 
     private var metaTags: [String] {
@@ -672,9 +655,14 @@ struct TimelineDayRow: View {
         DateFormatters.weekdayShort.string(from: entry.date).uppercased()
     }
 
-    /// Display date for the nameplate — mirrors web's `item.date` (e.g. 05.30).
+    /// Display date for the overline — mirrors web's `item.date` (e.g. 05.30).
     private var monthDayLabel: String {
         DateFormatters.monthDayDotted.string(from: entry.date)
+    }
+
+    /// Two-digit day-of-month for the ghost numeral ("05", "16").
+    private var dayNumberLabel: String {
+        String(format: "%02d", Calendar.current.component(.day, from: entry.date))
     }
 
     private var memoCountTag: String {
@@ -731,8 +719,9 @@ enum TimelineSpine {
 
     // MARK: Geometry
 
-    /// Section internal horizontal padding. app.jsx:611/617 — 22.
-    static let sectionPadH: CGFloat = 22
+    /// Section internal horizontal padding — matches the memo-card margin
+    /// so the day cards and the composer column share one edge.
+    static let sectionPadH: CGFloat = 20
     /// Left nameplate column width. app.jsx:634 — 52.
     static let nameplateWidth: CGFloat = 52
     /// Gap between nameplate and content. app.jsx:634 — columnGap 24.
@@ -786,6 +775,27 @@ enum TimelineSpine {
         }
     }
 
+    /// flomo-style content body — the row's voice, 2026-07-18. Content is
+    /// the interface: no display type in list rows. The lead sentence takes
+    /// a medium weight for scan rhythm; the spill continues at the same
+    /// small size in a quieter ink so long summaries read as one paragraph.
+    struct RowBody: View {
+        let lead: String
+        let rest: String
+        var body: some View {
+            (Text(lead)
+                .font(DSFonts.inter(size: 14, weight: .medium, relativeTo: .subheadline))
+                .foregroundColor(DSColor.inkPrimary.opacity(0.95))
+             + Text(rest)
+                .font(DSFonts.inter(size: 14, relativeTo: .subheadline))
+                .foregroundColor(DSColor.inkPrimary.opacity(0.68)))
+                .tracking(0.1)
+                .lineSpacing(14 * 0.55)       // line-height ≈ 1.55
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     /// Inter body lede, 3-line clamp, 0.85 opacity. app.jsx:656.
     struct RowLede: View {
         let text: String
@@ -826,15 +836,15 @@ enum TimelineSpine {
 
     // MARK: Section header
 
-    /// Hairline-bounded mono caption. app.jsx:611-615.
+    /// Hairline-bounded museum label — serif band title, mono count tail.
     struct SectionHeader: View {
         let label: String
         let sub: String
         var body: some View {
             HStack(alignment: .lastTextBaseline, spacing: 14) {
                 Text(label)
-                    .font(DSFonts.spaceGrotesk(size: 13, weight: .bold, relativeTo: .footnote))
-                    .tracking(1.5)
+                    .font(DSFonts.serif(size: 16, weight: .semibold, relativeTo: .callout))
+                    .tracking(0.2)
                     .foregroundColor(DSColor.inkPrimary)
                 Rectangle()
                     .fill(DSColor.inkFaint)
@@ -893,7 +903,9 @@ private struct TimelineSwipePanel: View {
         }
         .frame(width: max(0, revealWidth))
         .frame(maxHeight: .infinity)
-        .clipped()
+        // Rounded with the card silhouette so a mid-reveal panel reads as
+        // part of the same paper slip, not a square slab behind it.
+        .clipShape(RoundedRectangle(cornerRadius: SwipePhysics.cardCornerRadius, style: .continuous))
         .opacity(progress > 0.02 ? 1 : 0)
         .allowsHitTesting(progress > 0.02)
         .accessibilityHidden(progress <= 0.02)
