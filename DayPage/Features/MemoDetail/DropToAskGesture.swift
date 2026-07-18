@@ -126,15 +126,32 @@ private struct DropPanAttacher: UIViewRepresentable {
 
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
                                shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool {
-            true
+            // Do NOT run simultaneously with the system interactive-pop
+            // (a screen-edge pan). Since W0 re-arms edge-back on MemoDetail, a
+            // left-edge swipe would otherwise fire BOTH pop and drag-to-ask
+            // (UIKit recognizes simultaneously if EITHER delegate returns true).
+            // Yield the edge to back-navigation; keep simultaneity with
+            // everything else (scroll, etc.).
+            if other is UIScreenEdgePanGestureRecognizer { return false }
+            return true
         }
 
-        // 让 ScrollView 的滚动 pan 等待我们的方向判定（一次查询，纵向即
-        // 秒败放行）——没有这条，滚动 pan 先动手就永远轮不到我们。
+        // Wait for the system edge-pop to fail before we begin: an edge-anchored
+        // swipe is a back gesture, not a drag-to-ask. Combined with the
+        // non-simultaneity above, the edge belongs to pop and the interior
+        // belongs to drag-to-ask.
         func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
                                shouldBeRequiredToFailBy other: UIGestureRecognizer) -> Bool {
+            if other is UIScreenEdgePanGestureRecognizer { return false }
             guard gestureRecognizer is UIPanGestureRecognizer else { return false }
             return other is UIPanGestureRecognizer && other !== gestureRecognizer
+        }
+
+        // The inverse: our pan should wait for the screen-edge pop to fail, so a
+        // true edge swipe pops instead of arming drag-to-ask.
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                               shouldRequireFailureOf other: UIGestureRecognizer) -> Bool {
+            other is UIScreenEdgePanGestureRecognizer
         }
 
         @objc func handlePan(_ pan: UIPanGestureRecognizer) {

@@ -118,16 +118,23 @@ struct DayDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .navigationBarTrailing) {
+                // Day stepper. `.circle` variants (not bare chevrons): a bare
+                // `chevron.left` in a navigation bar reads as "back" — iOS has
+                // trained that glyph as the pop affordance, and the real back
+                // button sits at leading. Wrapping in a circle marks these as
+                // discrete stepper controls, not a second back arrow, and
+                // `.backward`/`.forward` (vs `.left`/`.right`) keep the
+                // direction semantic and RTL-correct.
                 Button(action: { go(.backward) }) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 15, weight: .semibold))
+                    Image(systemName: "chevron.backward.circle")
+                        .font(.system(size: 17, weight: .regular))
                         .foregroundColor(DSColor.onSurface)
                 }
                 .accessibilityLabel(NSLocalizedString("daydetail.a11y.prevDay", comment: "A11y label: go to previous day"))
 
                 Button(action: { go(.forward) }) {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 15, weight: .semibold))
+                    Image(systemName: "chevron.forward.circle")
+                        .font(.system(size: 17, weight: .regular))
                         .foregroundColor(canGoForward ? DSColor.onSurface : DSColor.onSurfaceVariant.opacity(0.35))
                 }
                 .disabled(!canGoForward)
@@ -170,12 +177,21 @@ struct DayDetailView: View {
     private static let boundsResistance: CGFloat = 0.3
 
     private var pageSwipeGesture: some Gesture {
-        DragGesture(minimumDistance: DSGesture.pagerMinimumDistance)
+        // `.global` so `startLocation.x` is a true screen coordinate — the
+        // left-edge exclusion below must measure against the physical edge, not
+        // this view's local origin.
+        DragGesture(minimumDistance: DSGesture.pagerMinimumDistance, coordinateSpace: .global)
             .updating($pageDrag) { value, drag, _ in
                 // Engage only once the drag is dominantly sideways, so we never
                 // fight vertical scrolling inside the daily/raw content; after
                 // that, latch and follow the finger for the rest of the gesture.
                 if !drag.isEngaged {
+                    // Yield the left screen edge to the system interactive pop:
+                    // a drag that starts within `systemEdgeBackZone` is a
+                    // back-navigation, never a day-page turn. Without this, a
+                    // rightward pull from the edge ambiguously meant both "go
+                    // back" and "previous day".
+                    guard value.startLocation.x > DSGesture.systemEdgeBackZone else { return }
                     guard abs(value.translation.width) > abs(value.translation.height) * DSGesture.horizontalDominance else { return }
                     drag.isEngaged = true
                 }
@@ -185,8 +201,10 @@ struct DayDetailView: View {
                 drag.offset = canPage ? translation : translation * Self.boundsResistance
             }
             .onEnded { value in
-                // Same horizontal-dominance guard as tracking: an end that never
-                // engaged (vertical scroll) must stay a no-op.
+                // Same edge-exclusion + horizontal-dominance guards as tracking:
+                // an end that never engaged (edge-pop or vertical scroll) must
+                // stay a no-op.
+                guard value.startLocation.x > DSGesture.systemEdgeBackZone else { return }
                 guard abs(value.translation.width) > abs(value.translation.height) * DSGesture.horizontalDominance else { return }
                 let screenWidth = UIScreen.main.bounds.width
                 let translation = value.translation.width
