@@ -1494,17 +1494,32 @@ struct PhotoThumbnailView: View {
         }
     }
 
-    /// "IMG_… // FOCUS: 26MM" caption. Metadata-only read (no pixel decode),
-    /// but still disk I/O — call off the main actor.
+    /// A film-strip caption of *real* camera parameters — e.g. "26MM · F/1.8".
+    /// Metadata-only read (no pixel decode), but still disk I/O — call off the
+    /// main actor.
+    ///
+    /// Deliberately returns `nil` when no meaningful EXIF is present. The raw
+    /// filename (`IMG_2043.JPG`, `WECHAT_XXX.JPG`, a screenshot's name) must
+    /// never surface as a caption: it reads as a debug watermark, not a photo
+    /// credit, and leaks the file system into the museum surface. No params →
+    /// no caption at all. Formatting is shared with the detail-view overlay via
+    /// `MemoExifFormat`, which also carries the EXIF→Int crash guards.
     static func exifText(for fileURL: URL) -> String? {
-        let filename = fileURL.lastPathComponent.uppercased()
-        if let source = CGImageSourceCreateWithURL(fileURL as CFURL, nil),
-           let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any],
-           let exif = props[kCGImagePropertyExifDictionary as String] as? [String: Any],
-           let focal = exif[kCGImagePropertyExifFocalLength as String] as? Double {
-            return "\(filename) // FOCUS: \(Int(focal))mm"
+        guard let source = CGImageSourceCreateWithURL(fileURL as CFURL, nil),
+              let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any],
+              let exif = props[kCGImagePropertyExifDictionary as String] as? [String: Any]
+        else { return nil }
+
+        var parts: [String] = []
+        if let focal = exif[kCGImagePropertyExifFocalLength as String] as? Double,
+           let label = MemoExifFormat.focalLengthLabel(focal) {
+            parts.append(label)
         }
-        return filename
+        if let aperture = exif[kCGImagePropertyExifFNumber as String] as? Double,
+           let label = MemoExifFormat.apertureLabel(aperture) {
+            parts.append(label)
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     /// Convenience for callers that hold a vault-relative path (viewer).
