@@ -195,6 +195,9 @@ struct TodayView: View {
     /// #821: true while a whole-dock press-to-talk session is recording.
     /// Drives the timeline spotlight scrim behind the in-place capsule.
     @State private var isDockVoiceActive: Bool = false
+    /// vNext:tap 录音持久 sheet 的当前档位。每次打开重置为 .medium("弹一点点"),
+    /// 用户可拖拽拉到 .large 全屏。
+    @State private var voiceRecorderDetent: PresentationDetent = .medium
 
     /// Issue #804: Today sparkle 现在打开 `TodayCoachView`（陪写引导）。
     /// AskPastView（RAG 「问过去」）保留在侧边栏 + Siri intent —— 两条路径
@@ -925,8 +928,13 @@ struct TodayView: View {
                         viewModel.cancelVoiceRecording()
                     }
                 )
-                .presentationDetents([.medium])
-                .presentationDragIndicator(.hidden)
+                // vNext:tap 录音的持久舱从"只弹一半"升级为可从 medium 拉到
+                // large 全屏 —— 用户明确要"这个弹窗可以拉上去"。显示 drag
+                // indicator 让"可拖拽放大"可发现。detent 变化由 sheet 原生驱动,
+                // 录音在 VoiceRecordingView 内部持续,拖拽不中断音频。
+                .presentationDetents([.medium, .large], selection: $voiceRecorderDetent)
+                .presentationDragIndicator(.visible)
+                .onAppear { voiceRecorderDetent = .medium }
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
