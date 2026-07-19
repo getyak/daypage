@@ -1077,8 +1077,11 @@ struct SearchView: View {
                         ForEach(group.results) { result in
                             let appeared = appearedIDs.contains(result.id)
                             resultRow(result)
-                                .padding(.horizontal, DSSpacing.xl)
-                                .padding(.bottom, DSSpacing.sm)
+                                // Hairline rows sit flush (the row draws its
+                                // own 0.5pt bottom rule), so the per-card bottom
+                                // gap is gone; horizontal inset relaxes from xl
+                                // to lg to match the ledger rhythm.
+                                .padding(.horizontal, DSSpacing.lg)
                                 .opacity(appeared ? 1 : 0)
                                 .offset(y: appeared || reduceMotion ? 0 : 10)
                                 .onAppear {
@@ -1211,11 +1214,23 @@ struct SearchView: View {
                     }
                 }
             }
-            .padding(DSSpacing.lg)
+            // §4 density: the heavy 16pt-all-sides glass card is dropped for a
+            // hairline row in the archive's own visual language. Search results
+            // were a denser, glossier surface than the archive list they sit
+            // beside; now both read as the same ledger. Content stays multi-line
+            // (date · snippet · match kind) so nothing is lost — only the
+            // container weight comes down, packing more hits per screen.
+            .padding(.vertical, 13)
+            .padding(.horizontal, DSSpacing.xs)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .liquidGlassCard(cornerRadius: DSRadius.md)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(DSColor.inkFaint)
+                .frame(height: 0.5)
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(a11yLabel)
         .accessibilityHint(NSLocalizedString("search.a11y.resultRow.hint", comment: "Accessibility hint for a search result row"))

@@ -6,6 +6,21 @@ import Foundation
 /// Does NOT modify persisted vault content — apply only at display time.
 public enum CJKTextPolish {
 
+    // MARK: - Cache
+    //
+    // `polish` is called from `MemoCardView`'s body (and once per inline run in
+    // the markdown path), which re-evaluates on every scroll-in, entrance
+    // transition, and press-state flip. The work — `Array(String)` copy + 8
+    // `replacingOccurrences` + a full scalar scan — is pure and deterministic,
+    // so the result is memoized. This turns a per-frame O(n) string tax on the
+    // scroll path into a one-time cost per distinct memo body. Bounded so a long
+    // session can't grow it unbounded; NSCache also purges under memory pressure.
+    private static let cache: NSCache<NSString, NSString> = {
+        let c = NSCache<NSString, NSString>()
+        c.countLimit = 512   // ~a few full timeline pages of distinct bodies
+        return c
+    }()
+
     // MARK: - Public API
 
     /// Returns a typographically polished copy of `raw`.
@@ -13,8 +28,11 @@ public enum CJKTextPolish {
     /// 1. Collapse doubled punctuation: Chinese-then-ASCII → Chinese form
     /// 2. Insert U+200A (hair space) between adjacent CJK and Latin characters
     public static func polish(_ raw: String) -> String {
+        let key = raw as NSString
+        if let cached = cache.object(forKey: key) { return cached as String }
         var s = collapsePunctuation(raw)
         s = insertHairSpaces(s)
+        cache.setObject(s as NSString, forKey: key)
         return s
     }
 
