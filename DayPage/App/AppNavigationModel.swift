@@ -166,6 +166,13 @@ final class AppNavigationModel: ObservableObject {
     /// keyword search (Archive) or the memory-chat agent without ambiguity.
     @Published var pendingAskQuery: String? = nil
 
+    /// vNext:调度中心(ScheduleHubView)的呈现开关。放在 nav(全局稳定层)而非
+    /// SidebarView 的 @State —— 侧边栏点「调度」要先 closeSidebar,抽屉随即被
+    /// offset 离屏 + accessibilityHidden,若 sheet 状态挂在 SidebarView 上,它的
+    /// @State 在动画中不可靠(实测延迟置 true 也被丢),sheet 不呈现。改由稳定的
+    /// RootView 挂 .sheet 驱动,和 pendingAskQuery 从侧边栏可靠打开是同款模式。
+    @Published var showScheduleHub: Bool = false
+
     init() {}
 
     private static func initialTab() -> AppTab {
