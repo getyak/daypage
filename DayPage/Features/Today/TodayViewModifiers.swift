@@ -52,21 +52,30 @@ struct TodayScrollOffsetWatcher: ViewModifier {
 // MARK: - Scroll entrance (iOS 17+)
 
 /// 美术馆入场: timeline memo cards settle in as they scroll into the
-/// viewport — rows just outside the visible region sit at 72% opacity /
-/// 98.5% scale and ease to identity. Deliberately subtle: the timeline is
-/// a quiet gallery wall, not a showcase. iOS 16 and Reduce Motion pass
-/// the content through unmodified. Applied to the row container that
-/// wraps SwipeableMemoCard (never inside it) so the phase scale cannot
-/// fight the card's UIKit pan + offset swipe-to-reveal.
+/// viewport — rows just outside the visible region fade up from 82% opacity
+/// to identity. Deliberately subtle: the timeline is a quiet gallery wall,
+/// not a showcase. iOS 16 and Reduce Motion pass the content through
+/// unmodified. Applied to the row container that wraps SwipeableMemoCard
+/// (never inside it) so the phase transform cannot fight the card's UIKit
+/// pan + offset swipe-to-reveal.
+///
+/// Performance (2026-07-19, §4 scroll polish): the entrance used to also
+/// interpolate `scaleEffect(0.985→1)` every frame. A per-frame `scaleEffect`
+/// on every near-edge row forces an off-screen composite buffer per card,
+/// which was the single largest recurring cost on the scroll path (confirmed
+/// by the timeline perf audit). The scale delta was 1.5% — optically
+/// imperceptible — so it's dropped entirely. Opacity stays: a `.interactive`
+/// opacity ramp is cheap (a layer alpha, no off-screen pass) and keeps the
+/// settle-in feel that reads as "quiet gallery". The rest opacity is nudged
+/// 0.72→0.82 so, without the scale cue, the fade alone still feels gentle
+/// rather than a hard flicker.
 struct ScrollEntranceModifier: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         if #available(iOS 17.0, *), !reduceMotion {
             content.scrollTransition(.interactive(timingCurve: .easeOut), axis: .vertical) { view, phase in
-                view
-                    .opacity(phase.isIdentity ? 1 : 0.72)
-                    .scaleEffect(phase.isIdentity ? 1 : 0.985, anchor: .center)
+                view.opacity(phase.isIdentity ? 1 : 0.82)
             }
         } else {
             content

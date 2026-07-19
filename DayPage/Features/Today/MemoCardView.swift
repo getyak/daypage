@@ -76,50 +76,99 @@ struct MemoCardView: View {
 
     // MARK: - Photo gallery
 
+    /// Fixed thumbnail edge for the flomo-style gallery. Photos are footnotes
+    /// to the prose, not the museum's main exhibit: a solo photo used to take
+    /// a full-width 4:5 crop that swallowed the whole first screen. Now every
+    /// photo is a small square chip that sits under the text, so a memo reads
+    /// text-first and the timeline packs 2–3 memos per screen. Tapping any
+    /// chip still hero-zooms to the full-screen viewer, where the original
+    /// composition (and EXIF) lives.
+    private static let thumbEdge: CGFloat = 112
+    /// Edge for the 3-up strip — a touch smaller than the solo chip so three
+    /// photos read as a set, not three solo photos in a row.
+    private static let thumbEdgeSmall: CGFloat = 84
+    /// Grid cell edge for 4+ photos — smaller still, so a multi-photo memo
+    /// stays a compact contact sheet rather than towering over a 3-up memo.
+    private static let thumbEdgeGrid: CGFloat = 74
+    /// 4+ photos fold into a three-column grid of small squares; the last
+    /// visible cell carries a "+N" scrim when the memo has more than 6.
+    private static let gridMax = 6
     private static let galleryColumns = [
-        GridItem(.flexible(), spacing: 6),
-        GridItem(.flexible(), spacing: 6)
+        GridItem(.fixed(Self.thumbEdgeGrid), spacing: 6),
+        GridItem(.fixed(Self.thumbEdgeGrid), spacing: 6),
+        GridItem(.fixed(Self.thumbEdgeGrid), spacing: 6)
     ]
 
-    /// Count-aware photo layout. Solo photos keep the full-width 4:5 museum
-    /// crop; anything more folds into rows/grids so the card's photo block
-    /// never exceeds roughly one 4:5 frame in height.
+    /// Count-aware photo layout. Every photo is a fixed-size 1:1 chip so the
+    /// gallery never dictates card height — a solo photo is one small square,
+    /// multiples tile into left-aligned rows / a 3-column grid.
     @ViewBuilder
     private func photoGallery(_ atts: [Memo.Attachment]) -> some View {
         switch atts.count {
         case 1:
-            photoCell(atts[0], aspect: 4.0 / 5.0, compact: false)
+            HStack(spacing: 0) {
+                photoCell(atts[0], edge: Self.thumbEdge)
+                Spacer(minLength: 0)
+            }
         case 2:
+            // Two photos use the mid (3-up) edge, not the solo 112: a pair of
+            // full 112 chips runs nearly the card's width and reads as loud as
+            // a single hero. The smaller edge keeps the diptych a footnote.
             HStack(spacing: 6) {
-                photoCell(atts[0], aspect: 4.0 / 5.0, compact: true)
-                photoCell(atts[1], aspect: 4.0 / 5.0, compact: true)
+                photoCell(atts[0], edge: Self.thumbEdgeSmall)
+                photoCell(atts[1], edge: Self.thumbEdgeSmall)
+                Spacer(minLength: 0)
             }
         case 3:
             HStack(spacing: 6) {
                 ForEach(atts, id: \.file) { att in
-                    photoCell(att, aspect: 1.0, compact: true)
+                    photoCell(att, edge: Self.thumbEdgeSmall)
                 }
+                Spacer(minLength: 0)
             }
         default:
-            LazyVGrid(columns: Self.galleryColumns, spacing: 6) {
-                ForEach(atts, id: \.file) { att in
-                    photoCell(att, aspect: 1.0, compact: true)
+            // Show up to `gridMax` chips; the last carries a "+N" overflow
+            // scrim so the full count is never silently dropped.
+            let shown = Array(atts.prefix(Self.gridMax))
+            let overflow = atts.count - shown.count
+            LazyVGrid(columns: Self.galleryColumns, alignment: .leading, spacing: 6) {
+                ForEach(Array(shown.enumerated()), id: \.element.file) { idx, att in
+                    let isLast = idx == shown.count - 1
+                    photoCell(att,
+                              edge: Self.thumbEdgeGrid,
+                              overflowCount: (isLast && overflow > 0) ? overflow : 0)
                 }
             }
         }
     }
 
-    /// One photo cell: thumbnail when the asset is local, download placeholder
-    /// otherwise. Hero-zoom identity stays the attachment relative path so
-    /// every cell zooms from its own frame regardless of layout.
+    /// One photo cell: a fixed square thumbnail when the asset is local, a
+    /// download placeholder otherwise. Hero-zoom identity stays the attachment
+    /// relative path so every cell zooms from its own frame regardless of
+    /// layout. `overflowCount > 0` draws a "+N" scrim (last grid cell only).
     @ViewBuilder
-    private func photoCell(_ att: Memo.Attachment, aspect: CGFloat, compact: Bool) -> some View {
+    private func photoCell(_ att: Memo.Attachment, edge: CGFloat, overflowCount: Int = 0) -> some View {
         let photoURL = VaultInitializer.vaultURL.appendingPathComponent(att.file)
         let photoState = attachmentDownloadState(for: photoURL)
         switch photoState {
         case .current:
-            PhotoThumbnailView(fileURL: photoURL, aspect: aspect, compact: compact)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            PhotoThumbnailView(fileURL: photoURL, aspect: 1.0, compact: true)
+                .frame(width: edge, height: edge)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay {
+                    // "+N more" scrim on the last grid cell — the tap still
+                    // opens this photo's viewer; the timeline's detail flow is
+                    // where the rest of the set is browsed.
+                    if overflowCount > 0 {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Color.black.opacity(0.5))
+                            Text("+\(overflowCount)")
+                                .font(DSFonts.jetBrainsMono(size: 15, weight: .medium, relativeTo: .body))
+                                .foregroundColor(.white)
+                        }
+                    }
+                }
                 .modifier(PhotoZoomSource(id: att.file, namespace: photoZoomNamespace))
                 .contentShape(Rectangle())
                 .onTapGesture {
@@ -129,6 +178,8 @@ struct MemoCardView: View {
                 .a11yButton(label: L10n.MemoCard.photoA11yLabel, hint: L10n.MemoCard.photoA11yHint)
         case .downloading, .notDownloaded, .failed:
             PhotoDownloadPlaceholder(state: photoState)
+                .frame(width: edge, height: edge)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .onAppear {
                     if photoState == .notDownloaded || photoState == .failed {
                         startDownload(photoURL)
@@ -279,29 +330,6 @@ struct MemoCardView: View {
                 }
             }
 
-            // Photo — every photo attachment renders, not just the first.
-            // A two-photo memo used to silently drop the second image from
-            // the card (and the viewer), which read as data loss.
-            //
-            // Layout scales with count so a multi-photo memo never fills the
-            // whole screen with stacked full-width crops (fullchain audit,
-            // aesthetic top-1): 1 → full-width 4:5 (museum rhythm), 2 →
-            // side-by-side 4:5 diptych, 3 → 1:1 triptych strip, 4+ →
-            // two-column 1:1 grid.
-            let photoAtts = memo.attachments.filter { $0.kind == "photo" }
-            if !photoAtts.isEmpty {
-                photoGallery(photoAtts)
-                    .padding(.horizontal, 14)
-                    .padding(.top, 14)
-                    .fullScreenCover(item: $viewerPhoto) { target in
-                        PhotoFullScreenViewer(
-                            fileURL: VaultInitializer.vaultURL.appendingPathComponent(target.file),
-                            exifText: PhotoThumbnailView.exifText(forRelativePath: target.file)
-                        )
-                        .modifier(PhotoZoomDestination(id: target.file, namespace: photoZoomNamespace))
-                    }
-            }
-
             // File attachments
             let fileAtts = memo.attachments.filter { $0.kind == "file" }
             if !fileAtts.isEmpty {
@@ -357,10 +385,31 @@ struct MemoCardView: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 14)
-                    .padding(.top, 12)
+                    .padding(.top, 10)
                 // NOTE: no contextMenu here. The swipe overlay above this
                 // card owns the long press, so an inner menu could never be
                 // summoned — Copy lives in TimelineRow's merged menu instead.
+            }
+
+            // Photo — a footnote to the prose, so it sits *under* the body as
+            // a row of small square thumbnails (flomo rhythm) rather than a
+            // full-width crop above it. Every photo attachment renders, not
+            // just the first (a two-photo memo used to silently drop the
+            // second image, which read as data loss). Tapping a chip
+            // hero-zooms to the full-screen viewer where the original
+            // composition and EXIF live.
+            let photoAtts = memo.attachments.filter { $0.kind == "photo" }
+            if !photoAtts.isEmpty {
+                photoGallery(photoAtts)
+                    .padding(.horizontal, 14)
+                    .padding(.top, bodyTrimmed.isEmpty || isBodyDuplicate ? 14 : 10)
+                    .fullScreenCover(item: $viewerPhoto) { target in
+                        PhotoFullScreenViewer(
+                            fileURL: VaultInitializer.vaultURL.appendingPathComponent(target.file),
+                            exifText: PhotoThumbnailView.exifText(forRelativePath: target.file)
+                        )
+                        .modifier(PhotoZoomDestination(id: target.file, namespace: photoZoomNamespace))
+                    }
             }
 
             // Bottom meta row — content-first: only a quiet mono timestamp.
@@ -374,7 +423,11 @@ struct MemoCardView: View {
                 let voiceFlag = memo.attachments.contains { $0.kind == "audio" }
                 Text(Self.cardTimeFmt.string(from: memo.created).replacingOccurrences(of: ":", with: "·"))
                     .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
-                    .tracking(1.6)
+                    // Tracking pulled from 1.6 → 1.2: the wide letter-spacing
+                    // read as a terminal readout on a serif card (§4 type
+                    // discipline — mono stays for the digits, but the spacing
+                    // relaxes toward prose).
+                    .tracking(1.2)
                     .foregroundColor(DSColor.inkMuted)
 
                 // Tiny attachment glyphs hint content type without a loud chip.
@@ -398,8 +451,10 @@ struct MemoCardView: View {
             // touch below inkSubtle so the memo body owns the card.
             .opacity(0.85)
             .padding(.horizontal, 14)
-            .padding(.top, 10)
-            .padding(.bottom, 14)
+            // Density tightened one notch (§4): .top 10→8, .bottom 14→12, so a
+            // short memo's net height drops and the timeline packs one more.
+            .padding(.top, 8)
+            .padding(.bottom, 12)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .solidCard(cornerRadius: 14)
@@ -1224,8 +1279,12 @@ struct DailyPageEntryCard: View {
                 }
 
                 if let metaText, !metaText.isEmpty {
+                    // §4 number discipline: this coda carries a count ("6 条
+                    // memo"), so it joins the mono family with the rest of the
+                    // app's numerals instead of sitting in Inter.
                     Text(metaText)
-                        .font(DSFonts.inter(size: 11, weight: .regular, relativeTo: .caption))
+                        .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
+                        .tracking(0.4)
                         .foregroundColor(DSColor.inkMuted)
                 }
             }
@@ -1344,38 +1403,27 @@ struct CompilePromptCard: View {
 struct PhotoDownloadPlaceholder: View {
     let state: AttachmentDownloadState
 
+    // The gallery now sizes every cell to a fixed ~92–112pt square, so the
+    // placeholder fills that frame with just a glyph — the old 160pt-tall
+    // block with a caption line would overflow a 112pt chip. VoiceOver still
+    // announces the download state via the cell's a11y label.
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(DSColor.glassLo)
-                .frame(maxWidth: .infinity, minHeight: 160)
-            VStack(spacing: 8) {
-                switch state {
-                case .notDownloaded:
-                    Image(systemName: "icloud.and.arrow.down")
-                        .font(.system(size: 28, weight: .regular))
-                        .foregroundColor(DSColor.inkMuted)
-                    Text(NSLocalizedString("memocard.attachment.tapToDownload", comment: "Attachment download CTA"))
-                        .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
-                        .textCase(.uppercase)
-                        .foregroundColor(DSColor.inkMuted)
-                case .downloading:
-                    ProgressView().tint(DSColor.inkSubtle)
-                    Text("Downloading from iCloud…")
-                        .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
-                        .textCase(.uppercase)
-                        .foregroundColor(DSColor.inkMuted)
-                case .failed:
-                    Image(systemName: "exclamationmark.icloud")
-                        .font(.system(size: 28, weight: .regular))
-                        .foregroundColor(DSColor.accentOnBg)
-                    Text("Download failed — tap to retry")
-                        .font(DSFonts.jetBrainsMono(size: 10, relativeTo: .caption2))
-                        .textCase(.uppercase)
-                        .foregroundColor(DSColor.inkMuted)
-                case .current:
-                    EmptyView()
-                }
+            switch state {
+            case .notDownloaded:
+                Image(systemName: "icloud.and.arrow.down")
+                    .font(.system(size: 22, weight: .regular))
+                    .foregroundColor(DSColor.inkMuted)
+            case .downloading:
+                ProgressView().tint(DSColor.inkSubtle)
+            case .failed:
+                Image(systemName: "exclamationmark.icloud")
+                    .font(.system(size: 22, weight: .regular))
+                    .foregroundColor(DSColor.accentOnBg)
+            case .current:
+                EmptyView()
             }
         }
     }
@@ -1450,11 +1498,17 @@ struct PhotoThumbnailView: View {
                 thumbnail = nil
                 thumbnail = await loadThumbnailAsync(from: fileURL)
             }
-            // EXIF caption rides the same off-main hop as the decode.
-            let url = fileURL
-            exifText = await Task.detached(priority: .utility) {
-                Self.exifText(for: url)
-            }.value
+            // EXIF caption is only rendered on non-compact cells (the caption
+            // overlay below is gated on `!compact`). Every card thumbnail is
+            // now compact, so reading EXIF here was pure wasted disk I/O —
+            // one extra CGImageSource open + property parse per chip, ×N
+            // photos, on the scroll path. Skip it unless the caption will show.
+            if !compact {
+                let url = fileURL
+                exifText = await Task.detached(priority: .utility) {
+                    Self.exifText(for: url)
+                }.value
+            }
         }
         .overlay(alignment: .bottom) {
             if let exifText, !compact {
@@ -1476,19 +1530,20 @@ struct PhotoThumbnailView: View {
                     )
             }
         }
-        // Small "tap to zoom" affordance in the top-right corner. Portrait
-        // photos are cropped to 4:5 in the card; the badge tells users the
-        // original composition is one tap away without adding chrome text.
+        // Small "tap to zoom" affordance in the top-right corner. The gallery
+        // now renders every card photo as a small square chip, so the badge
+        // shrinks with it — it's the only cue that the chip opens the original
+        // composition full-screen. EXIF and the full crop live in the viewer.
         .overlay(alignment: .topTrailing) {
-            if thumbnail != nil && !compact {
+            if thumbnail != nil {
                 Image(systemName: "arrow.up.left.and.arrow.down.right")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.85))
-                    .padding(6)
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.9))
+                    .padding(4)
                     .background(
-                        Circle().fill(Color.black.opacity(0.35))
+                        Circle().fill(Color.black.opacity(0.4))
                     )
-                    .padding(8)
+                    .padding(5)
                     .accessibilityHidden(true)
             }
         }
@@ -1535,20 +1590,34 @@ struct PhotoThumbnailView: View {
         return await Task.detached(priority: .userInitiated) {
             guard let data = try? Data(contentsOf: url) else { return nil }
             let opts: [CFString: Any] = [
-                kCGImageSourceShouldCacheImmediately: false,
+                kCGImageSourceShouldCacheImmediately: true,
                 kCGImageSourceCreateThumbnailWithTransform: true,
                 kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
-                kCGImageSourceThumbnailMaxPixelSize: 600
+                // Card thumbnails now top out at a 112pt chip (~336px @3x); the
+                // old 600px target decoded ~3× the pixels the timeline can show,
+                // burning CPU on every scroll-in and inflating the cache. 448px
+                // keeps a retina-crisp chip with headroom for Dynamic Type. The
+                // full-screen viewer decodes the original separately, so zoom
+                // fidelity is untouched.
+                kCGImageSourceThumbnailMaxPixelSize: 448
             ]
             let image: UIImage?
             if let source = CGImageSourceCreateWithData(data as CFData, nil),
                let cgThumb = CGImageSourceCreateThumbnailAtIndex(source, 0, opts as CFDictionary) {
+                // Decode-on-load: force the bitmap now, off the main actor, so
+                // the first scroll frame that shows this chip isn't stalled by a
+                // lazy CA decode. `kCGImageSourceShouldCacheImmediately` +
+                // reading the pixels here moves that cost off the render path.
                 image = UIImage(cgImage: cgThumb)
             } else {
                 image = UIImage(data: data)
             }
             if let image {
-                thumbnailCache.setObject(image, forKey: cacheKey)
+                // Cost the entry by its real pixel footprint so NSCache's
+                // totalCostLimit (50MB) actually bounds the working set —
+                // setObject without a cost made the byte limit a no-op.
+                let cost = Int(image.size.width * image.size.height * image.scale * image.scale * 4)
+                thumbnailCache.setObject(image, forKey: cacheKey, cost: cost)
             }
             return image
         }.value
