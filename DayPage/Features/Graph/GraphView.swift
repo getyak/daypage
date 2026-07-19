@@ -827,7 +827,13 @@ struct GraphView: View {
             let label = Text(node.name)
                 .font(.custom("JetBrainsMono-Regular", fixedSize: fontSize))
                 .fontWeight(isSearchMatch ? .bold : .regular)
-                .foregroundColor((isSearchMatch ? DSColor.amberDeep : DSColor.inkPrimary).opacity(focusAlpha))
+                // §2: search-match emphasis was `amberDeep` (#5D3000) — a second
+                // amber grade doing the same job as the `amberAccent` the rest
+                // of the graph's emphasis uses, AND it sank into the charcoal
+                // canvas in dark mode. `accentOnBg` is the single ink-amber
+                // token (adaptive light/dark), so matches stay legible and the
+                // graph speaks one amber for emphasis.
+                .foregroundColor((isSearchMatch ? DSColor.accentOnBg : DSColor.inkPrimary).opacity(focusAlpha))
             ctx.draw(label, at: CGPoint(x: x, y: labelY), anchor: .center)
         }
     }

@@ -109,11 +109,16 @@ struct WeeklyRecapDetailView: View {
 
         return VStack(alignment: .leading, spacing: 10) {
             // Eyebrow — mono, wide-tracked, quiet.
+            // Accent-budget (§2): the eyebrow is a masthead label, not an
+            // action. On a page where every section number, reflection index
+            // and place pin also pulled amber, tinting it too made the accent
+            // meaningless. Neutral ink; amber is reserved for the one action
+            // per screen (the highlight "→ tomorrow's to-do" CTA).
             Text(NSLocalizedString("weekly.recap.hero.eyebrow", comment: "")
                 .uppercased())
                 .font(DSType.mono11)
                 .tracking(2.4)
-                .foregroundColor(DSColor.accentOnBg)
+                .foregroundColor(DSColor.inkMuted)
 
             // Serif week title — the masthead. Ranges like "06.22 – 06.28"
             // read as a magazine issue span.
@@ -128,11 +133,12 @@ struct WeeklyRecapDetailView: View {
                 .foregroundColor(DSColor.inkMuted)
                 .padding(.top, 2)
 
-            // Hairline rule closes the masthead off from the body — a thin
-            // amber rule, not a full-width grey divider (§12 scroll edges over
-            // hard dividers).
+            // Hairline rule closes the masthead off from the body — a short
+            // rule, not a full-width divider (§12 scroll edges over hard
+            // dividers). Was amber; demoted to ink so it stops being one more
+            // amber anchor in a page that had one per section (§2).
             Rectangle()
-                .fill(DSColor.amberRim)
+                .fill(DSColor.inkFaint)
                 .frame(width: 44, height: 2)
                 .padding(.top, DSSpacing.sm)
         }
@@ -224,9 +230,11 @@ struct WeeklyRecapDetailView: View {
 
     private func sectionHeader(number: Int, title: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
+            // §2: the section index repeats once per section — amber here made
+            // the accent a structural motif rather than a signal. Neutral ink.
             Text(String(format: NSLocalizedString("weekly.recap.section.number.format", comment: ""), number))
                 .font(DSType.mono11)
-                .foregroundColor(DSColor.accentOnBg)
+                .foregroundColor(DSColor.inkSubtle)
             Text(title.uppercased())
                 .font(DSType.sectionLabel)
                 .tracking(1.5)
@@ -250,16 +258,21 @@ struct WeeklyRecapDetailView: View {
                     Haptics.selection()
                     handleKeywordTap(kw)
                 } label: {
+                    // Was triple-amber (ink + fill + rim). §2: one cue is
+                    // enough — ink text on a faint amber wash reads as tappable
+                    // without three amber layers stacking. Rim demoted to a
+                    // neutral hairline so the chip stops being a saturated
+                    // block competing with the page's real accent.
                     Text(kw)
                         .font(DSType.bodyMD)
-                        .foregroundColor(DSColor.accentOnBg)
+                        .foregroundColor(DSColor.inkPrimary)
                         .padding(.horizontal, DSSpacing.md)
                         .padding(.vertical, 7)
                         .background(
-                            Capsule().fill(DSColor.amberAccent.opacity(0.12))
+                            Capsule().fill(DSColor.amberAccent.opacity(0.08))
                         )
                         .overlay(
-                            Capsule().stroke(DSColor.amberRim, lineWidth: 1)
+                            Capsule().stroke(DSColor.glassRim, lineWidth: 1)
                         )
                 }
                 .pressScale(scale: 0.94, opacity: 0.9, animation: Motion.press)
@@ -290,7 +303,7 @@ struct WeeklyRecapDetailView: View {
                     HStack(alignment: .top, spacing: DSSpacing.md) {
                         Text(String(format: "%02d", idx + 1))
                             .font(DSType.mono11)
-                            .foregroundColor(DSColor.accentOnBg)
+                            .foregroundColor(DSColor.inkSubtle)  // §2: index, not accent
                             .padding(.top, 3)
                         Text(q)
                             .font(DSType.bodyMD)
@@ -334,8 +347,11 @@ struct WeeklyRecapDetailView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(DSSpacing.lg)
             .background(
+                // §2: was a faint amber wash — one more amber surface on a page
+                // full of them. Neutral sunken keeps the mood block set apart
+                // from the body without spending accent.
                 RoundedRectangle(cornerRadius: DSRadius.md, style: .continuous)
-                    .fill(DSColor.amberAccent.opacity(0.06))
+                    .fill(DSColor.surfaceSunken)
             )
     }
 
@@ -354,7 +370,7 @@ struct WeeklyRecapDetailView: View {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "mappin.and.ellipse")
                     .font(.system(size: 15))
-                    .foregroundColor(DSColor.accentOnBg)
+                    .foregroundColor(DSColor.inkMuted)  // §2: locator glyph, not accent
                     .padding(.top, 2)
                 Text(text.isEmpty ? "—" : text)
                     .font(DSType.bodyMD)
@@ -390,7 +406,7 @@ struct WeeklyRecapDetailView: View {
                 HStack(alignment: .top, spacing: DSSpacing.md) {
                     Image(systemName: "sparkle")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(DSColor.accentOnBg)
+                        .foregroundColor(DSColor.inkMuted)  // §2: bullet glyph, repeats per item — not accent
                         .padding(.top, 3)
                     Text(items[idx])
                         .font(DSType.bodyMD)

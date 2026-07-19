@@ -493,17 +493,23 @@ struct TodayView: View {
                                     .frame(width: 28, height: 28)
                                     .glassSurface(in: Circle())
                                     .overlay(
+                                        // Accent-budget (§2): the scroll progress
+                                        // ring is a background-state indicator, not
+                                        // an action — it read as a second amber
+                                        // voice competing with the mic orb. Demoted
+                                        // to ink so the "new content" dot below stays
+                                        // the row's only warm signal.
                                         Circle()
                                             .trim(from: 0, to: scrollProgress)
                                             .stroke(
-                                                DSColor.accentAmber,
+                                                DSColor.inkSubtle,
                                                 style: StrokeStyle(lineWidth: 1.5, lineCap: .round)
                                             )
                                             .rotationEffect(.degrees(-90))
                                             .animation(reduceMotion ? nil : Motion.fade, value: scrollProgress)
                                     )
                                     .shadow(
-                                        color: DSColor.accentAmber.opacity(scrollRingGlow ? 0.5 : 0),
+                                        color: DSColor.inkSubtle.opacity(scrollRingGlow ? 0.5 : 0),
                                         radius: scrollRingGlow ? 14 : 0
                                     )
                                     .animation(reduceMotion ? nil : .easeOut(duration: 0.6), value: scrollRingGlow)
@@ -1578,18 +1584,24 @@ struct TodayView: View {
                 Haptics.soft()
                 focusStore.toggle(focus)
             } label: {
+                // Accent-budget (§2): only the SELECTED chip lights amber.
+                // Previously every chip — selected or not — was amber text on
+                // an amber wash with an amber rim, so an untouched focus row
+                // read as a wall of active pills competing with the mic orb.
+                // Unselected now sits in neutral ink/sunken; selection is what
+                // spends the accent.
                 Text(focus.displayName)
                     .font(DSType.bodySM)
-                    .foregroundColor(isSelected ? DSColor.surfaceWhite : DSColor.amberDeep)
+                    .foregroundColor(isSelected ? DSColor.onAmber : DSColor.inkMuted)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(
-                        Capsule().fill(isSelected ? DSColor.amberDeep : DSColor.amberSoft)
+                        Capsule().fill(isSelected ? DSColor.amberDeep : DSColor.surfaceSunken)
                     )
                     .overlay(
-                        Capsule().strokeBorder(DSColor.amberRim, lineWidth: 0.5)
+                        Capsule().strokeBorder(isSelected ? DSColor.amberRim : DSColor.glassRim, lineWidth: 0.5)
                     )
             }
             .buttonStyle(.plain)
@@ -1700,7 +1712,12 @@ struct TodayView: View {
                 // motion at all.
                 Image(systemName: "arrow.triangle.2.circlepath")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(DSColor.amberAccent)
+                    // Accent-budget (§2): sync is pipeline *status*, not an
+                    // action the user takes here. The amber icon + amber wash
+                    // made a background housekeeping strip shout as loud as the
+                    // mic orb. Demoted to ink; the amber is reserved for the
+                    // one saturated action per screen.
+                    .foregroundColor(DSColor.inkMuted)
                     .rotationEffect(.degrees(syncQueue.isFlushingNow ? 360 : 0))
                     .dsAnimation(
                         syncQueue.isFlushingNow
@@ -1754,7 +1771,10 @@ struct TodayView: View {
             .padding(.horizontal, DSSpacing.pageMargin)
             .frame(maxWidth: .infinity)
             .frame(height: 44)
-            .background(DSColor.amberAccent.opacity(0.14))
+            // Was a 14% amber wash — a whole strip tinted the brand accent for
+            // a background sync state. Neutral sunken surface keeps it legible
+            // and tappable without spending the screen's accent budget.
+            .background(DSColor.surfaceSunken)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
