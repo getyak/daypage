@@ -141,16 +141,25 @@ struct MemoMarkdownTests {
         #expect(runs.map(\.text).joined() == "第一行\n第二行")
     }
 
-    @Test("all heading levels collapse to the single card-heading tier")
-    func headingCollapse() {
+    @Test("heading level (# count) is preserved so the renderer can tier it")
+    func headingLevelPreserved() {
+        // The model used to drop `#` depth and collapse every heading to one
+        // tier. It now carries `level` (1–6) so MarkdownBodyView can render H1
+        // above H2 above H3+. This guards that the depth survives parsing.
         let doc = MemoMarkdown.parse("# 大\n\n### 小")
         #expect(doc.blocks.count == 2)
-        for block in doc.blocks {
-            guard case .heading = block else {
-                Issue.record("expected heading, got \(block)")
-                return
-            }
+        guard case .heading(let l1, let r1) = doc.blocks[0] else {
+            Issue.record("expected heading, got \(doc.blocks[0])")
+            return
         }
+        guard case .heading(let l3, let r3) = doc.blocks[1] else {
+            Issue.record("expected heading, got \(doc.blocks[1])")
+            return
+        }
+        #expect(l1 == 1)
+        #expect(l3 == 3)
+        #expect(r1.map(\.text).joined() == "大")
+        #expect(r3.map(\.text).joined() == "小")
     }
 
     @Test("divider requires 3+ dashes on their own line")

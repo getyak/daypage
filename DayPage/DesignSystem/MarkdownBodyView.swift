@@ -77,11 +77,15 @@ struct MarkdownBodyView: View {
             Text(attributed(runs))
                 .lineSpacing(lineSpacing)
 
-        case .heading(let runs):
-            // 标题降维: every #-level lands on one quiet card-heading tier.
-            Text(attributed(runs, baseWeight: .semibold, size: bodySize + 2.5))
+        case .heading(let level, let runs):
+            // Restore a hierarchy the model used to drop. Still a quiet,
+            // museum-voice ramp (no dramatic display sizes), but H1 now reads
+            // distinctly above H2, and H3-and-deeper share the smallest heading
+            // tier — enough structure that long-form entries regain an outline
+            // without shouting. Was one flat `bodySize + 2.5` tier for all.
+            Text(attributed(runs, baseWeight: .semibold, size: headingSize(for: level)))
                 .lineSpacing(lineSpacing)
-                .padding(.top, 4)
+                .padding(.top, level <= 1 ? 8 : 5)
 
         case .bullets(let items):
             VStack(alignment: .leading, spacing: 4) {
@@ -152,6 +156,18 @@ struct MarkdownBodyView: View {
                 .frame(height: 0.5)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 4)
+        }
+    }
+
+    /// Heading size ramp keyed off the `#` count. Deliberately gentle — a
+    /// "museum voice" outline, not a web-page H1/H2/H3 blowout: H1 sits +6 over
+    /// body, H2 +3, and H3-and-deeper share a quiet +1 tier. Two clear steps of
+    /// hierarchy without any heading dominating the page.
+    private func headingSize(for level: Int) -> CGFloat {
+        switch level {
+        case ...1: return bodySize + 6   // H1
+        case 2:    return bodySize + 3   // H2
+        default:   return bodySize + 1   // H3–H6
         }
     }
 

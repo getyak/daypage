@@ -280,9 +280,7 @@ struct MemoDetailView: View {
                                     .foregroundColor(DSColor.accentOnBg)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
-                                    .background(DSColor.amberSoft)
-                                    .clipShape(Capsule())
-                                    .overlay(Capsule().strokeBorder(DSColor.amberRim, lineWidth: 0.5))
+                                    .amberPillSurface(Capsule())
                                 }
                                 .buttonStyle(.plain)
                                 .disabled(editedBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -456,12 +454,7 @@ struct MemoDetailView: View {
                         }
                         .padding(.horizontal, 14)
                         .padding(.vertical, DSSpacing.md)
-                        .background(DSColor.amberSoft)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: DSRadius.md)
-                                .strokeBorder(DSColor.amberRim, lineWidth: 0.5)
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: DSRadius.md))
+                        .amberPillSurface(RoundedRectangle(cornerRadius: DSRadius.md))
                     }
                     // #150 press feedback — this is a card-style CTA, so a
                     // slightly deeper dip with a fade reads as "the panel presses".
@@ -1041,18 +1034,11 @@ private struct DetailFileRow: View {
 
     var body: some View {
         HStack(spacing: DSSpacing.md) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(DSColor.amberSoft)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .strokeBorder(DSColor.amberRim, lineWidth: 0.5)
-                    )
-                    .frame(width: 32, height: 32)
-                Image(systemName: fileIcon)
-                    .font(.system(size: 14, weight: .regular))
-                    .foregroundColor(DSColor.accentOnBg)
-            }
+            Image(systemName: fileIcon)
+                .font(.system(size: 14, weight: .regular))
+                .foregroundColor(DSColor.accentOnBg)
+                .frame(width: 32, height: 32)
+                .amberPillSurface(RoundedRectangle(cornerRadius: 8, style: .continuous))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(fileName)
@@ -1076,9 +1062,7 @@ private struct DetailFileRow: View {
                     .foregroundColor(DSColor.accentOnBg)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
-                    .background(DSColor.amberSoft)
-                    .clipShape(Capsule())
-                    .overlay(Capsule().strokeBorder(DSColor.amberRim, lineWidth: 0.5))
+                    .amberPillSurface(Capsule())
             }
             // #150 press feedback for the "Open" attachment pill.
             .pressScale(scale: 0.96, opacity: 0.9,

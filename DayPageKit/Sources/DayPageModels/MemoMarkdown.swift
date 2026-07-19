@@ -69,8 +69,11 @@ public enum MemoMarkdown {
 
     public enum Block: Equatable {
         case paragraph([InlineRun])
-        /// `#`–`######` all collapse to this single tier (design: 标题降维).
-        case heading([InlineRun])
+        /// A markdown heading. `level` is the 1–6 `#` count, preserved so the
+        /// renderer can express at least two tiers (H1 vs the rest) — the old
+        /// model dropped `#` depth entirely and every heading rendered on one
+        /// flat tier, so long-form entries lost all structure.
+        case heading(level: Int, runs: [InlineRun])
         case bullets([ListItem])
         case ordered(start: Int, items: [ListItem])
         case tasks([TaskItem])
@@ -133,7 +136,9 @@ public enum MemoMarkdown {
         var parts: [String] = []
         for block in doc.blocks {
             switch block {
-            case .paragraph(let runs), .heading(let runs), .quote(let runs):
+            case .paragraph(let runs), .quote(let runs):
+                parts.append(fold(runs))
+            case .heading(_, let runs):
                 parts.append(fold(runs))
             case .bullets(let items):
                 parts.append(items.map { fold($0.runs) }.joined(separator: " "))
@@ -234,9 +239,9 @@ public enum MemoMarkdown {
                 continue
             }
 
-            if let content = headingContent(line) {
+            if let heading = headingContent(line) {
                 flushAll()
-                blocks.append(.heading(parseInline(content)))
+                blocks.append(.heading(level: heading.level, runs: parseInline(heading.content)))
                 continue
             }
 
@@ -310,7 +315,7 @@ public enum MemoMarkdown {
 
     /// `# Title` … `###### Title` → "Title". `#tag` (no space) is NOT a
     /// heading — hashtags survive as prose.
-    private static func headingContent(_ line: String) -> String? {
+    private static func headingContent(_ line: String) -> (level: Int, content: String)? {
         guard line.hasPrefix("#") else { return nil }
         var hashes = 0
         for ch in line {
@@ -320,7 +325,7 @@ public enum MemoMarkdown {
         let rest = line.dropFirst(hashes)
         guard rest.hasPrefix(" ") else { return nil }
         let content = rest.trimmingCharacters(in: .whitespaces)
-        return content.isEmpty ? nil : content
+        return content.isEmpty ? nil : (hashes, content)
     }
 
     /// `- [ ] text` / `- [x] text` (also `*` marker, case-insensitive x).

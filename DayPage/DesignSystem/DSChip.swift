@@ -94,3 +94,32 @@ struct DSChip: View {
         }
     }
 }
+
+// MARK: - Amber pill surface
+//
+// The recurring "amber-soft fill + hairline amber rim" recipe. It was copy-
+// pasted verbatim across the detail view — the Save pill, the Ask-past CTA
+// card, the attachment icon tile, and the "Open" pill — each re-declaring
+// `background(amberSoft) + overlay(strokeBorder(amberRim, 0.5)) + clipShape`.
+// Four copies meant four places to drift. This modifier is the single source
+// of that surface; callers keep their own content, label, and padding (which
+// legitimately differ) but share one tinted-glass recipe. Shape is a parameter
+// so both the Capsule pills and the rounded-rect card/tile can adopt it.
+struct AmberPillSurface<S: InsettableShape>: ViewModifier {
+    let shape: S
+    func body(content: Content) -> some View {
+        content
+            .background(DSColor.amberSoft)
+            .clipShape(shape)
+            .overlay(shape.strokeBorder(DSColor.amberRim, lineWidth: 0.5))
+    }
+}
+
+extension View {
+    /// Applies the shared amber-soft-fill + amber-rim surface. Pass the shape
+    /// the pill should take (`Capsule()` for text pills, a
+    /// `RoundedRectangle(cornerRadius:)` for card CTAs / icon tiles).
+    func amberPillSurface<S: InsettableShape>(_ shape: S) -> some View {
+        modifier(AmberPillSurface(shape: shape))
+    }
+}

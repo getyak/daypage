@@ -52,20 +52,28 @@ struct DayStats {
         case empty, low, medium, high
 
         var fillColor: Color {
+            // Unified onto the heat-map ramp (the carefully-tuned warm hex
+            // stops the sidebar already uses) so the SAME busy day reads the
+            // same colour in the sidebar heat-map and the archive calendar.
+            // Was the parallel `densityNone/Low/Mid/High` single-hue-opacity
+            // ramp — two ramps meant one busy day rendered two different browns.
             switch self {
-            case .empty:  return DSColor.densityNone
-            case .low:    return DSColor.densityLow
-            case .medium: return DSColor.densityMid
-            case .high:   return DSColor.densityHigh
+            case .empty:  return DSColor.heatmapEmpty
+            case .low:    return DSColor.heatmapLow
+            case .medium: return DSColor.heatmapMid
+            case .high:   return DSColor.heatmapHigh
             }
         }
 
         var textColor: Color {
             switch self {
-            case .empty, .low: return DSColor.inkPrimary
-            // medium / high density chips fill with amber → use onAmber token
-            // so the warm-cream foreground tracks dark mode correctly.
-            case .medium, .high: return DSColor.onAmber
+            // `.medium` now fills with `heatmapMid` (#C9A677 in light) — a light
+            // tan, NOT the old saturated `densityMid` amber. Near-white `onAmber`
+            // over that tan drops to ~2:1, below AA, so `.medium` joins the
+            // dark-ink group; only `.high` (heatmapHigh #5D3000 deep-brown) is
+            // dark enough to carry the near-white foreground.
+            case .empty, .low, .medium: return DSColor.inkPrimary
+            case .high: return DSColor.onAmber
             }
         }
 
@@ -1125,7 +1133,7 @@ struct ArchiveView: View {
                 if let d = density, d != .empty { return d.fillColor }
                 switch data {
                 case .compiled: return DSColor.amberDeep
-                case .rawOnly:  return DSColor.densityLow
+                case .rawOnly:  return DSColor.heatmapLow
                 case .none:     return DSColor.surfaceWhite.opacity(0.38)
                 }
             }()

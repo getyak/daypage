@@ -962,27 +962,12 @@ struct SearchView: View {
                     .buttonStyle(.plain)
                 }
 
-                let recentSuggestions = Array(vm.recentSearches.filter { $0 != vm.query }.prefix(4))
-                if !recentSuggestions.isEmpty {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text(NSLocalizedString("search.empty.tryAnother", comment: "Try another keyword suggestion label"))
-                            .monoLabelStyle(size: 10)
-                            .foregroundColor(DSColor.inkMuted)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, DSSpacing.xl)
-
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: DSSpacing.sm) {
-                                ForEach(recentSuggestions, id: \.self) { q in
-                                    entityChip(q)
-                                }
-                            }
-                            .padding(.horizontal, DSSpacing.xl)
-                            .padding(.vertical, DSSpacing.xs)
-                        }
-                    }
-                }
-
+                // A "no results" state should stay quiet. It used to stack TWO
+                // independent horizontal chip rails (recent searches + top
+                // entities), which crowded the empty state and fought for the
+                // eye. Only the entity rail survives — entities are real nodes in
+                // the knowledge graph, so they guide toward content that exists,
+                // whereas recent queries just replay dead ends.
                 let entitySuggestions = vm.topEntities.prefix(6).map(\.name).filter { $0 != vm.query }
                 if !entitySuggestions.isEmpty {
                     VStack(alignment: .leading, spacing: 10) {

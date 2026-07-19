@@ -513,11 +513,11 @@ struct InputBarV4: View {
             } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 18, weight: .regular))
-                    // Was `inkMuted` — a desaturated brown-grey, while the
-                    // sparkle two slots over was amber. One row, two colour
-                    // languages. Both chrome glyphs now speak amber (muted to
-                    // 0.62 so the mic orb stays the row's only loud voice).
-                    .foregroundStyle(DSColor.dockChrome.opacity(0.62))
+                    // Neutral ink, not amber. Per the "one amber lead per screen"
+                    // law the mic orb is the row's sole accent; the chrome glyphs
+                    // (+, caret, sparkle) all recede to ink so the orb is the only
+                    // loud voice. Was `dockChrome` (=#A8541B burnt-orange).
+                    .foregroundStyle(DSColor.inkMuted)
                     .frame(width: 36, height: 44)
                     .contentShape(Rectangle())
             }
@@ -552,20 +552,20 @@ struct InputBarV4: View {
             } label: {
                 HStack(spacing: 5) {
                     Rectangle()
-                        .fill(DSColor.dockChrome.opacity(0.65))
+                        .fill(DSColor.inkSubtle.opacity(0.7))
                         .frame(width: 2, height: 14)
                         .modifier(BreathingCaretModifier())
                     if text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        // Deliberately NOT the serif body face. Rendering the
-                        // hint in the same type as a real entry is what made
-                        // the original italic version read as prefilled text
-                        // users had to delete. A small tracked mono label reads
-                        // as chrome — the same visual class as the `+` and the
-                        // "BY DAY" rail — so it invites without impersonating.
+                        // The invitation returns to the serif body family (§ type
+                        // discipline: mono is for numbers/labels, not sentences)
+                        // and to a legible weight (`inkMuted`, not the old 38%
+                        // `inkSubtle` mono). It stays UPRIGHT, never italic —
+                        // italic was the real reason the first version read as
+                        // prefilled text users had to delete, not the face itself.
+                        // Upright serif at mid-contrast reads as a written prompt.
                         Text(NSLocalizedString("input.dock.placeholder", comment: "Dock write affordance"))
-                            .font(DSFonts.jetBrainsMono(size: 11, relativeTo: .caption))
-                            .tracking(0.6)
-                            .foregroundStyle(DSColor.inkSubtle)
+                            .font(DSFonts.serif(size: 15, relativeTo: .subheadline))
+                            .foregroundStyle(DSColor.inkMuted)
                             .lineLimit(1)
                     }
                     Spacer(minLength: 0)
@@ -649,11 +649,10 @@ struct InputBarV4: View {
                 } label: {
                     Image(systemName: "sparkles")
                         .font(.system(size: 17, weight: .semibold))
-                        // Was `amberDeep` — near-black on the cream canvas, so
-                        // the "calm AI side-door" read as a soot smudge. Matches
-                        // the `+` glyph's weight now: same amber family, muted
-                        // below the mic orb.
-                        .foregroundStyle(DSColor.dockChrome.opacity(0.80))
+                        // Neutral ink, matching the `+` glyph. The calm AI
+                        // side-door is chrome, not an accent — only the mic orb
+                        // carries amber on this row. Was `dockChrome` amber.
+                        .foregroundStyle(DSColor.inkMuted)
                         .frame(width: 40, height: 44)
                         .contentShape(Rectangle())
                 }

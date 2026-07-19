@@ -558,9 +558,14 @@ struct GraphView: View {
                 .font(DSType.sectionLabel)
                 .textCase(.uppercase)
                 .tracking(1.5)
-                .foregroundColor(Color.white)
+                .foregroundColor(DSColor.onAmber)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
+                // `amberDeep` here is the SOLID-FILL tier (deep enough to carry a
+                // near-white label), not a second emphasis grade. All foreground
+                // emphasis in Graph — icons, strokes, search-match — is the single
+                // `amberAccent`; only filled pills go deep. Kept distinct on
+                // purpose so the two never overlap in the same role.
                 .background(DSColor.amberDeep)
                 .clipShape(Capsule())
         }

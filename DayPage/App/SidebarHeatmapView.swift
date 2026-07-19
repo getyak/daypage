@@ -190,9 +190,12 @@ struct SidebarHeatmapView: View {
             let letters = ["M", "T", "W", "T", "F", "S", "S"]
             for (ri, letter) in letters.enumerated() {
                 let y = monthRowHeight + CGFloat(ri) * (cellHeight + cellSpacing) + cellHeight / 2
+                // Uniform faint weekday rail. The old `ri % 2` alternation between
+                // 0.4 and 0.9 opacity made the letters flicker row-to-row and read
+                // as a rendering bug rather than a legible axis. One quiet weight.
                 let text = Text(letter)
                     .font(.system(size: 8, design: .monospaced))
-                    .foregroundColor(DSColor.inkSubtle.opacity(ri % 2 == 1 ? 0.4 : 0.9))
+                    .foregroundColor(DSColor.inkSubtle.opacity(0.6))
                 context.draw(context.resolve(text), at: CGPoint(x: 5, y: y))
             }
 
