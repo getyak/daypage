@@ -347,8 +347,15 @@ struct SidebarView: View {
         let upcomingCount = reminderService.upcoming(limit: 99).count
         return Button {
             Haptics.light()
+            // closeSidebar() 会 animate 抽屉离屏并标 .accessibilityHidden;若在
+            // 同一 tick 里 showSchedule = true,SidebarView(sheet 宿主)正被移出,
+            // .sheet 呈现被抑制 → 点了没反应(实测)。等关闭动画走完再弹,复用
+            // 本文件 recentDays 刷新用的同款延迟模式。
             nav.closeSidebar()
-            showSchedule = true
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 320_000_000)
+                showSchedule = true
+            }
         } label: {
             HStack(spacing: DSSpacing.md) {
                 Image(systemName: "clock")
