@@ -1670,9 +1670,14 @@ struct TodayView: View {
     /// Reminder vNext: 即将触发的提醒胶囊条。FeatureFlag.captureReminder 关
     /// 时整条不挂载（kill switch 与调度器一致）。点胶囊 → 编辑；点「＋」→
     /// 新建。数据源是统一调度器，AI 排的提醒也会出现在这里。
+    ///
+    /// Today 瘦身（vNext 2026-07-19）：增删改已迁到「调度中心」，主流里只在
+    /// 真有「即将触发」提醒时才挂载这一条，让空态不占位；没有即将触发的提醒
+    /// 时整条消失，用户去侧边栏「调度」管理。
     @ViewBuilder
     private var reminderStrip: some View {
-        if FeatureFlagStore.shared.isEnabled(.captureReminder) {
+        if FeatureFlagStore.shared.isEnabled(.captureReminder),
+           !reminderService.upcoming(limit: 1, now: currentTime).isEmpty {
             ReminderCapsuleStrip(
                 service: reminderService,
                 now: currentTime,
