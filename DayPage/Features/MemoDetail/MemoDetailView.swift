@@ -830,15 +830,17 @@ private struct DetailPhotoSection: View {
            let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any],
            let exif = props[kCGImagePropertyExifDictionary as String] as? [String: Any] {
             var parts: [String] = [filename]
-            if let focal = exif[kCGImagePropertyExifFocalLength as String] as? Double {
-                parts.append("\(Int(focal))mm")
+            if let focal = exif[kCGImagePropertyExifFocalLength as String] as? Double,
+               let label = MemoExifFormat.focalLengthLabel(focal) {
+                parts.append(label)
             }
-            if let aperture = exif[kCGImagePropertyExifFNumber as String] as? Double {
-                parts.append(String(format: "f/%.1f", aperture))
+            if let aperture = exif[kCGImagePropertyExifFNumber as String] as? Double,
+               let label = MemoExifFormat.apertureLabel(aperture) {
+                parts.append(label)
             }
-            if let shutter = exif[kCGImagePropertyExifExposureTime as String] as? Double {
-                let denom = Int(1.0 / shutter)
-                parts.append("1/\(denom)s")
+            if let shutter = exif[kCGImagePropertyExifExposureTime as String] as? Double,
+               let label = MemoExifFormat.shutterLabel(exposureTime: shutter) {
+                parts.append(label)
             }
             return parts.joined(separator: "  //  ")
         }
@@ -1267,19 +1269,21 @@ private struct DetailMetadataSection: View {
         }
         var rows: [(label: String, value: String)] = []
         if let exif = props[kCGImagePropertyExifDictionary as String] as? [String: Any] {
-            if let aperture = exif[kCGImagePropertyExifFNumber as String] as? Double {
-                rows.append(("Aperture", String(format: "f/%.1f", aperture)))
+            if let aperture = exif[kCGImagePropertyExifFNumber as String] as? Double,
+               let label = MemoExifFormat.apertureLabel(aperture) {
+                rows.append(("Aperture", label))
             }
-            if let shutter = exif[kCGImagePropertyExifExposureTime as String] as? Double {
-                let denom = Int(1.0 / shutter)
-                rows.append(("Shutter", "1/\(denom)s"))
+            if let shutter = exif[kCGImagePropertyExifExposureTime as String] as? Double,
+               let label = MemoExifFormat.shutterLabel(exposureTime: shutter) {
+                rows.append(("Shutter", label))
             }
             if let iso = exif[kCGImagePropertyExifISOSpeedRatings as String] as? [Int],
                let isoVal = iso.first {
                 rows.append(("ISO", "\(isoVal)"))
             }
-            if let focal = exif[kCGImagePropertyExifFocalLength as String] as? Double {
-                rows.append(("Focal Length", "\(Int(focal))mm"))
+            if let focal = exif[kCGImagePropertyExifFocalLength as String] as? Double,
+               let label = MemoExifFormat.focalLengthLabel(focal) {
+                rows.append(("Focal Length", label))
             }
         }
         if let w = props[kCGImagePropertyPixelWidth as String] as? Int,
@@ -1531,4 +1535,65 @@ private func sectionLabel(_ title: String) -> some View {
         .font(DSType.mono10)
         .foregroundColor(DSColor.inkMuted)
         .tracking(1.2)
+}
+
+// MARK: - EXIF formatting helpers
+
+/// Formatting for EXIF fields that appear in the photo detail sections.
+///
+/// CRASH-FIX (2026-07-19): the shutter label used to be `Int(1.0 / shutter)`
+/// inline in two places (the photo EXIF overlay and the metadata "Shutter"
+/// row). When a photo's EXIF `ExposureTime` is exactly 0 — common in
+/// screenshots, composited/exported images, and some messaging-app re-encodes —
+/// `1.0 / 0.0` is `+Inf`, and `Int(+Inf)` is a Swift fatal error
+/// ("Double value cannot be converted to Int because it is either infinite or
+/// NaN"), crashing the app the instant such a photo's detail view rendered.
+/// The three OTHER EXIF-shutter sites in the codebase (ShareCardSystem,
+/// PhotoService ×2) already guarded with `> 0` / `isFinite`; MemoDetailView's
+/// two sites were the only unguarded ones. This helper centralises the guarded
+/// conversion so the guard can never drift out of a call site again.
+enum MemoExifFormat {
+
+    /// Human-readable shutter label for an EXIF exposure time in seconds:
+    /// fast exposures render as a fraction ("1/125s"), exposures of one second
+    /// or longer render as whole seconds ("2s"). Returns `nil` when the value
+    /// can't form a sensible label — zero, negative, infinite, or NaN. Never
+    /// traps: the `Int(...)` conversions are always fed a guarded finite value.
+    static func shutterLabel(exposureTime: Double) -> String? {
+        guard exposureTime > 0, exposureTime.isFinite else { return nil }
+        // Sub-second exposures are the fractional "1/N s" case. One second and
+        // longer read as whole seconds — "1/1s" / "1/0s" would be nonsense.
+        if exposureTime < 1.0 {
+            let reciprocal = 1.0 / exposureTime
+            guard reciprocal.isFinite else { return nil }
+            let denom = Int(reciprocal.rounded())
+            guard denom > 1 else { return nil }
+            return "1/\(denom)s"
+        } else {
+            let seconds = Int(exposureTime.rounded())
+            guard seconds > 0 else { return nil }
+            return "\(seconds)s"
+        }
+    }
+
+    /// Human-readable focal-length label ("26mm") for an EXIF focal length in
+    /// millimetres, or `nil` when the value can't form a label — non-positive,
+    /// infinite, or NaN. Guards the same `Int(...)` trap the shutter path had:
+    /// `Int(Double.infinity)`/`Int(.nan)` is a fatal error. Focal length is far
+    /// less likely to be 0/∞ than exposure time, but it is the same class of
+    /// unguarded EXIF→Int conversion in the same two functions, so it gets the
+    /// same guard rather than being left as a twin landmine.
+    static func focalLengthLabel(_ focalLength: Double) -> String? {
+        guard focalLength > 0, focalLength.isFinite else { return nil }
+        return "\(Int(focalLength.rounded()))mm"
+    }
+
+    /// Human-readable aperture label ("f/2.8") for an EXIF f-number, or `nil`
+    /// when the value is non-positive, infinite, or NaN. `String(format:)`
+    /// wouldn't trap on ∞/NaN the way `Int(...)` does, but it would print
+    /// "f/inf" / "f/nan"; the guard keeps the metadata honest.
+    static func apertureLabel(_ fNumber: Double) -> String? {
+        guard fNumber > 0, fNumber.isFinite else { return nil }
+        return String(format: "f/%.1f", fNumber)
+    }
 }

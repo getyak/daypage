@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		09C6E4728050D69F54949DD1 /* HapticFeedbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84FFEA3DDB8DCB528A4189BF /* HapticFeedbackTests.swift */; };
+		0AE41F00C0DE515000EF0001 /* MemoExifShutterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AE41F00C0DE515000EF0002 /* MemoExifShutterTests.swift */; };
 		0AA94A9D087DA366336C8480 /* DayPageServices in Frameworks */ = {isa = PBXBuildFile; productRef = 160D427C0AE7DAC5724A134F /* DayPageServices */; };
 		14188AFE740A834ADF7A41F4 /* DayPageWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B2DFF2B446D2F0AC8DE530A1 /* DayPageWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		0B7722A154C2145670104616 /* DayPageWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 23EA9C83B41565EDB263FB35 /* DayPageWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -342,6 +343,7 @@
 		7909ED56F96754E4C4FA21CC /* QuickCaptureWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = QuickCaptureWidget.swift; sourceTree = "<group>"; };
 		82AF0D6D988BC74555DFB3ED /* AISummaryCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AISummaryCard.swift; sourceTree = "<group>"; };
 		84FFEA3DDB8DCB528A4189BF /* HapticFeedbackTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HapticFeedbackTests.swift; sourceTree = "<group>"; };
+		0AE41F00C0DE515000EF0002 /* MemoExifShutterTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MemoExifShutterTests.swift; sourceTree = "<group>"; };
 		8DB2FBA71981BA7516DA9A3F /* LiquidGlassEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LiquidGlassEngine.swift; sourceTree = "<group>"; };
 		8F07950D8A46BAC7B9CCB1ED /* ShareCardSystem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ShareCardSystem.swift; path = ShareCard/ShareCardSystem.swift; sourceTree = "<group>"; };
 		912420086719F3FFFB45FE7A /* InputBarTutorialOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = InputBarTutorialOverlay.swift; sourceTree = "<group>"; };
@@ -1200,6 +1202,7 @@
 				WR1000003 /* WeeklyCompilationServiceTests.swift */,
 				T20000006 /* ComposerContextProviderTests.swift */,
 				84FFEA3DDB8DCB528A4189BF /* HapticFeedbackTests.swift */,
+				0AE41F00C0DE515000EF0002 /* MemoExifShutterTests.swift */,
 				KC1000001 /* KeychainHelperTests.swift */,
 				DBR1000001 /* DoubaoASRResolutionTests.swift */,
 				SR40000001 /* DoubaoConnectivityTesterTests.swift */,
@@ -1700,6 +1703,7 @@
 				WR0000003 /* WeeklyCompilationServiceTests.swift in Sources */,
 				T10000006 /* ComposerContextProviderTests.swift in Sources */,
 				09C6E4728050D69F54949DD1 /* HapticFeedbackTests.swift in Sources */,
+				0AE41F00C0DE515000EF0001 /* MemoExifShutterTests.swift in Sources */,
 				KC0000001 /* KeychainHelperTests.swift in Sources */,
 				DBR0000001 /* DoubaoASRResolutionTests.swift in Sources */,
 				SR30000001 /* DoubaoConnectivityTesterTests.swift in Sources */,
