@@ -155,11 +155,11 @@ enum DSColor {
     /// adaptive for dark). Warmest of the three: themes are the "what".
     static let graphThemes = Color(light: Color(hex: "A8541B"), dark: Color(hex: "E8974D"))
 
-    // V4 amber-density heatmap (4-step)
-    static let densityNone   = Color(hex: "A8541B").opacity(0.06)
-    static let densityLow    = Color(hex: "A8541B").opacity(0.20)
-    static let densityMid    = Color(hex: "A8541B").opacity(0.45)
-    static let densityHigh   = Color(hex: "A8541B").opacity(0.85)
+    // (Removed) The old V4 single-hue-opacity density ramp `densityNone/Low/
+    // Mid/High` was a SECOND heat ramp parallel to `heatmap{Empty,Low,Mid,High}`,
+    // so the same busy day rendered one brown in the sidebar heat-map and a
+    // different brown in the archive calendar. The calendar now shares the
+    // heat-map ramp; this ramp had no remaining callers and was deleted.
 
     /// Foreground ink on amber-deep / amber-accent surfaces. Stays near-white
     /// in both light and dark schemes since the amber substrate carries the

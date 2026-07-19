@@ -260,8 +260,13 @@ struct CompilationProgressBar: View {
                     Capsule()
                         .fill(DSColor.glassStd)
                         .frame(height: 3)
+                    // Progress fill is a BACKGROUND state, not a call to action —
+                    // per the "one amber lead per screen" law it must not compete
+                    // with the mic orb for the accent budget. Ink at 55% reads as a
+                    // determinate meter (quiet, mono-family with the % label below)
+                    // rather than a branded highlight. Was `accentAmber`.
                     Capsule()
-                        .fill(DSColor.accentAmber)
+                        .fill(DSColor.inkPrimary.opacity(0.55))
                         .frame(width: geo.size.width * progress, height: 3)
                         .animation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.8), value: progress)
                 }
