@@ -48,6 +48,8 @@ struct ReminderEditSheet: View {
     @State private var time: Date
     @State private var selectedDays: Set<Int>
     @State private var label: String
+    /// 呈现级别 —— 安静(灵动岛/横幅悬浮)/ 重要(闹钟)。默认安静。
+    @State private var level: Reminder.Level
 
     // MARK: Init
 
@@ -72,11 +74,13 @@ struct ReminderEditSheet: View {
                 _selectedDays = State(initialValue: days)
             }
             _label = State(initialValue: r.label)
+            _level = State(initialValue: r.level)
         } else {
             _kind = State(initialValue: .once)
             _time = State(initialValue: Self.defaultOnceTime())
             _selectedDays = State(initialValue: [2, 3, 4, 5, 6])
             _label = State(initialValue: "")
+            _level = State(initialValue: .quiet)
         }
     }
 
@@ -92,6 +96,26 @@ struct ReminderEditSheet: View {
                     }
                     .pickerStyle(.segmented)
                     .accessibilityIdentifier("reminder-kind-picker")
+                }
+
+                // 呈现级别 —— 安静(默认,灵动岛/横幅悬浮不吵)/ 重要(闹钟+声音)。
+                // vNext 分层的落点:先答"这条有多重要",再定时间。
+                Section {
+                    Picker("", selection: $level) {
+                        Text(NSLocalizedString("reminder.level.quiet", value: "安静", comment: "Quiet reminder level"))
+                            .tag(Reminder.Level.quiet)
+                        Text(NSLocalizedString("reminder.level.loud", value: "重要", comment: "Loud reminder level"))
+                            .tag(Reminder.Level.loud)
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("reminder-level-picker")
+                } header: {
+                    Text(NSLocalizedString("reminder.level.section", value: "提醒方式", comment: "Reminder presentation level"))
+                } footer: {
+                    Text(level == .quiet
+                        ? NSLocalizedString("reminder.level.quiet.hint", value: "到点在灵动岛 / 锁屏优雅悬浮,不响、不夺屏。", comment: "Quiet level footer")
+                        : NSLocalizedString("reminder.level.loud.hint", value: "到点全屏闹钟 + 声音。留给不能错过的事。", comment: "Loud level footer"))
+                        .font(.caption)
                 }
 
                 // 一次性快捷 chips —— 直接落一个绝对时间点到轮盘。
@@ -270,10 +294,10 @@ struct ReminderEditSheet: View {
         }
 
         if let editing {
-            service.updateReminder(editing.id, trigger: trigger, label: trimmedLabel)
+            service.updateReminder(editing.id, trigger: trigger, label: trimmedLabel, level: level)
         } else {
             let fallbackLabel = trimmedLabel.isEmpty ? defaultLabel(for: kind) : trimmedLabel
-            service.addReminder(Reminder(trigger: trigger, label: fallbackLabel, source: .user))
+            service.addReminder(Reminder(trigger: trigger, label: fallbackLabel, source: .user, level: level))
         }
         Haptics.success()
         dismiss()

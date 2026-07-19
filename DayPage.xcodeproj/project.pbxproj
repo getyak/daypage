@@ -102,6 +102,7 @@
 		A10000046 /* OnThisDayCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000046 /* OnThisDayCard.swift */; };
 		A10000047 /* OnThisDayScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000047 /* OnThisDayScheduler.swift */; };
 		CRS0000001 /* CaptureReminderService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CRS1000001 /* CaptureReminderService.swift */; };
+		CVI0000001 /* CaptureVoiceIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = CVI1000001 /* CaptureVoiceIntent.swift */; };
 		RMD0000001 /* Reminder.swift in Sources */ = {isa = PBXBuildFile; fileRef = RMD1000001 /* Reminder.swift */; };
 		RTR0000001 /* RelativeTimeResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = RTR1000001 /* RelativeTimeResolver.swift */; };
 		RCS0000001 /* ReminderCapsuleStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = RCS1000001 /* ReminderCapsuleStrip.swift */; };
@@ -398,6 +399,7 @@
 		A20000046 /* OnThisDayCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayCard.swift; sourceTree = "<group>"; };
 		A20000047 /* OnThisDayScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnThisDayScheduler.swift; sourceTree = "<group>"; };
 		CRS1000001 /* CaptureReminderService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureReminderService.swift; sourceTree = "<group>"; };
+		CVI1000001 /* CaptureVoiceIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureVoiceIntent.swift; sourceTree = "<group>"; };
 		RMD1000001 /* Reminder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reminder.swift; sourceTree = "<group>"; };
 		RTR1000001 /* RelativeTimeResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeTimeResolver.swift; sourceTree = "<group>"; };
 		RCS1000001 /* ReminderCapsuleStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderCapsuleStrip.swift; sourceTree = "<group>"; };
@@ -858,6 +860,7 @@
 				A20000039 /* VoiceAttachmentQueue.swift */,
 				A20000047 /* OnThisDayScheduler.swift */,
 				CRS1000001 /* CaptureReminderService.swift */,
+				CVI1000001 /* CaptureVoiceIntent.swift */,
 				RMD1000001 /* Reminder.swift */,
 				RTR1000001 /* RelativeTimeResolver.swift */,
 				RIP1000001 /* ReminderIntentParser.swift */,
@@ -1587,6 +1590,7 @@
 				INF0000001 /* InflightDraftStore.swift in Sources */,
 				A10000047 /* OnThisDayScheduler.swift in Sources */,
 				CRS0000001 /* CaptureReminderService.swift in Sources */,
+				CVI0000001 /* CaptureVoiceIntent.swift in Sources */,
 				RMD0000001 /* Reminder.swift in Sources */,
 				RTR0000001 /* RelativeTimeResolver.swift in Sources */,
 				RCS0000001 /* ReminderCapsuleStrip.swift in Sources */,
