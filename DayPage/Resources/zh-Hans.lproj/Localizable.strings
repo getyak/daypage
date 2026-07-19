@@ -1390,3 +1390,51 @@
 "archive.month.meta.entries"      = "%d 条";
 "archive.month.meta.entries.one"  = "%d 条";
 "archive.section.dayCount.one"    = "%d 天";
+
+/* Daily page — language discipline (§3) */
+"daily.load.failed"                  = "无法加载日记";
+"daily.recompile.confirm.title"      = "重新编译今天？";
+"daily.recompile.confirm.action"     = "重新编译";
+"daily.recompile.confirm.last_compiled" = "上次编译于 %@";
+"daily.recompile.confirm.message"    = "AI 会把今天的备忘重新编译成一份新的每日页。";
+"daily.recompile.error.invalid_date" = "日期格式无效";
+"daily.recompile.success.one"        = "✓ 已将 %d 条备忘编译进今天的页面";
+"daily.recompile.success.other"      = "✓ 已将 %d 条备忘编译进今天的页面";
+"daily.action.regenerate"            = "重新生成";
+"daily.action.add_note"              = "补记一条";
+"daily.action.reflect"               = "回顾";
+"daily.action.retry_arrow"           = "重试 →";
+"daily.action.view_flow"             = "查看原始流 →";
+"daily.section.source_signals"       = "原始信号";
+"daily.section.threads"              = "脉络";
+"daily.section.mentions"             = "提及";
+"daily.badge.coming_soon"            = "即将上线";
+"daily.memo.no_text"                 = "(无文字)";
+"daily.empty.no_raw"                 = "该日无原始记录";
+"daily.chat.placeholder"             = "你想聊什么…";
+"daily.progress.extracting"          = "正在提取备忘…";
+"daily.progress.compiling"           = "AI 编译中…";
+"daily.progress.formatting"          = "正在排版…";
+"daily.progress.done"                = "完成";
+"daily.stats.signals.one"            = "已编译 %d 条信号";
+"daily.stats.signals.other"          = "已编译 %d 条信号";
+"daily.stats.from_entries.one"       = "由 %d 条原始记录编译";
+"daily.stats.from_entries.other"     = "由 %d 条原始记录编译";
+"daily.evidence.count.one"           = "引用 %d 条";
+"daily.evidence.count.other"         = "引用 %d 条";
+"daily.evidence.a11y"                = "引用 %d 条原始 memo";
+"daily.evidence.a11y.hint"           = "双击打开第一条引用的原始 memo";
+"daily.mention.a11y"                 = "打开 %@ 的实体页";
+"daily.mention.a11y.hint"            = "双击以打开 %@ 的实体页";
+
+/* Weekly recap — highlight → to-do (§3 language discipline) */
+"weekly.recap.highlight.todo.added"  = "已加入明日待办";
+"weekly.recap.highlight.todo.failed" = "加入待办失败：%@";
+"weekly.recap.highlight.todo.action" = "变成明日待办";
+
+/* Sidebar heatmap — tooltip + VoiceOver (§3 language discipline) */
+"heatmap.tooltip.count.one"   = "%d 条";
+"heatmap.tooltip.count.other" = "%d 条";
+"heatmap.a11y.base"           = "活动热力图，过去 16 周共 %d 条记录";
+"heatmap.a11y.current_streak" = "%1$@，当前连续 %2$d 天";
+"heatmap.a11y.best_streak"    = "%1$@，当前连续 0 天，历史最佳 %2$d 天";

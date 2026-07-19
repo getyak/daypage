@@ -270,7 +270,17 @@ struct SidebarHeatmapView: View {
     }
 
     private func tooltip(for day: HeatGrid.Day, cellW: CGFloat) -> some View {
-        let tooltipText = "\(Self.monthDayFmt.string(from: day.date).uppercased()) · \(day.count) 条"
+        // §3 language discipline: the count unit was a bare Chinese "条" that
+        // showed even in an English locale, and never pluralized. Route it
+        // through a localized .one/.other pair.
+        let countUnit = String(
+            format: NSLocalizedString(
+                day.count == 1 ? "heatmap.tooltip.count.one" : "heatmap.tooltip.count.other",
+                comment: "Heatmap tooltip entry count, %d = number of memos that day"
+            ),
+            day.count
+        )
+        let tooltipText = "\(Self.monthDayFmt.string(from: day.date).uppercased()) · \(countUnit)"
         let xOffset = railWidth + CGFloat(selectedColumnIndex) * (cellW + cellSpacing) + cellW / 2
         return Text(tooltipText)
             .font(DSType.mono9)
@@ -389,11 +399,32 @@ struct SidebarHeatmapView: View {
     }
 
     private var accessibilityText: String {
-        let base = "活动热力图，过去 16 周共 \(totalEntries) 条记录"
+        // §3 language discipline: was a hardcoded Chinese sentence read verbatim
+        // by VoiceOver even in an English locale. Routed through localized
+        // format strings.
+        let base = String(
+            format: NSLocalizedString(
+                "heatmap.a11y.base",
+                comment: "Heatmap VoiceOver summary, %d = entries in the last 16 weeks"
+            ),
+            totalEntries
+        )
         if streak > 0 {
-            return "\(base)，当前连续 \(streak) 天"
+            return String(
+                format: NSLocalizedString(
+                    "heatmap.a11y.current_streak",
+                    comment: "Heatmap VoiceOver: %1$@ = base summary, %2$d = current streak days"
+                ),
+                base, streak
+            )
         } else if longestStreak > 0 {
-            return "\(base)，当前连续 0 天，历史最佳 \(longestStreak) 天"
+            return String(
+                format: NSLocalizedString(
+                    "heatmap.a11y.best_streak",
+                    comment: "Heatmap VoiceOver: %1$@ = base summary, %2$d = longest streak days"
+                ),
+                base, longestStreak
+            )
         }
         return base
     }
