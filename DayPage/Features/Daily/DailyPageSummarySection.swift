@@ -80,7 +80,7 @@ struct DailyPageSummarySection: View {
                     Image(systemName: "link")
                         .font(.system(size: 10, weight: .medium))
                         .foregroundColor(DSColor.inkMuted)
-                    Text("引用 \(memoIDs.count) 条")
+                    Text(String(format: NSLocalizedString(memoIDs.count == 1 ? "daily.evidence.count.one" : "daily.evidence.count.other", comment: "Daily page evidence chip — citation count"), memoIDs.count))
                         .font(DSFonts.spaceGrotesk(size: 11, weight: .medium, relativeTo: .caption))
                         .tracking(0.6)
                         .textCase(.uppercase)
@@ -99,8 +99,8 @@ struct DailyPageSummarySection: View {
             .buttonStyle(.plain)
             .simultaneousGesture(TapGesture().onEnded { HapticFeedback.soft() })
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("引用 \(memoIDs.count) 条原始 memo")
-            .accessibilityHint("双击打开第一条引用的原始 memo")
+            .accessibilityLabel(String(format: NSLocalizedString("daily.evidence.a11y", comment: "Daily page evidence chip — accessibility label"), memoIDs.count))
+            .accessibilityHint(NSLocalizedString("daily.evidence.a11y.hint", comment: "Daily page evidence chip — accessibility hint"))
             .accessibilityIdentifier("daily.evidence.chip")
         }
     }
@@ -114,7 +114,7 @@ struct DailyPageSummarySection: View {
 
     private func threadsView(threads: [DailyPageModel.ThreadEntry]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("THREADS")
+            Text(NSLocalizedString("daily.section.threads", comment: "Daily page section: threads"))
                 .font(DSFonts.spaceGrotesk(size: 11, weight: .semibold, relativeTo: .caption))
                 .foregroundColor(DSColor.inkMuted)
                 .tracking(1.6)
@@ -134,7 +134,7 @@ struct DailyPageSummarySection: View {
 
     private func mentionsView(mentions: [String]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("MENTIONS")
+            Text(NSLocalizedString("daily.section.mentions", comment: "Daily page section: mentions"))
                 .font(DSFonts.spaceGrotesk(size: 11, weight: .semibold, relativeTo: .caption))
                 .foregroundColor(DSColor.inkMuted)
                 .tracking(1.6)
@@ -148,8 +148,8 @@ struct DailyPageSummarySection: View {
                             mentionCapsule(mention)
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("打开 \(mention) 的实体页")
-                        .accessibilityHint("双击以打开 \(mention) 的实体页")
+                        .accessibilityLabel(String(format: NSLocalizedString("daily.mention.a11y", comment: "Daily page mention — accessibility label"), mention))
+                        .accessibilityHint(String(format: NSLocalizedString("daily.mention.a11y.hint", comment: "Daily page mention — accessibility hint"), mention))
                     } else {
                         mentionCapsule(mention)
                     }

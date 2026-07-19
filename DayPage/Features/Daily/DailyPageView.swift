@@ -107,13 +107,13 @@ struct DailyPageView: View {
                     }
                 } else {
                     VStack(spacing: DSSpacing.lg) {
-                        Text("无法加载日记")
+                        Text(NSLocalizedString("daily.load.failed", comment: "Daily page — failed to load entry"))
                             .bodyMDStyle()
                             .foregroundColor(DSColor.onSurfaceVariant)
                         Text(dateString)
                             .monoLabelStyle(size: 11)
                             .foregroundColor(DSColor.onSurfaceVariant)
-                        Button("关闭") { dismiss() }
+                        Button(NSLocalizedString("daydetail.close", comment: "Close button")) { dismiss() }
                             .monoLabelStyle(size: 12)
                             .foregroundColor(DSColor.primary)
                             .padding(.top, DSSpacing.sm)
@@ -227,23 +227,23 @@ struct DailyPageView: View {
             }
         }
         .onAppear { loadPage() }
-        .alert("Recompile today?", isPresented: $showRecompileConfirm) {
-            Button("Cancel", role: .cancel) {}
-            Button("Recompile", role: .destructive) {
+        .alert(NSLocalizedString("daily.recompile.confirm.title", comment: "Recompile confirm alert title"), isPresented: $showRecompileConfirm) {
+            Button(NSLocalizedString("common.cancel", comment: "Cancel button"), role: .cancel) {}
+            Button(NSLocalizedString("daily.recompile.confirm.action", comment: "Recompile confirm alert action"), role: .destructive) {
                 Task { await recompile() }
             }
         } message: {
             if let t = lastCompiledTimeLabel {
-                Text("Last compiled at \(t)")
+                Text(String(format: NSLocalizedString("daily.recompile.confirm.last_compiled", comment: "Recompile confirm — last compiled time"), t))
             } else {
-                Text("AI will recompile today's memos into a new daily page.")
+                Text(NSLocalizedString("daily.recompile.confirm.message", comment: "Recompile confirm alert message"))
             }
         }
-        .alert("编译失败", isPresented: Binding(
+        .alert(NSLocalizedString("error.compile.title", comment: "Compilation failed alert title"), isPresented: Binding(
             get: { recompileError != nil },
             set: { if !$0 { recompileError = nil } }
         )) {
-            Button("确定", role: .cancel) {}
+            Button(NSLocalizedString("common.cancel", comment: "Cancel button"), role: .cancel) {}
         } message: {
             Text(recompileError ?? "")
         }
@@ -280,7 +280,7 @@ struct DailyPageView: View {
         defer { isRecompiling = false }
 
         guard let date = DateFormatters.isoDate.date(from: dateString) else {
-            recompileError = "日期格式无效"
+            recompileError = NSLocalizedString("daily.recompile.error.invalid_date", comment: "Recompile — invalid date format error")
             return
         }
 
@@ -294,7 +294,7 @@ struct DailyPageView: View {
             // US-022: show success banner with memo count
             BannerCenter.shared.show(AppBannerModel(
                 kind: .success,
-                title: "✓ Compiled \(memoCount) memos into today's page",
+                title: String(format: NSLocalizedString(memoCount == 1 ? "daily.recompile.success.one" : "daily.recompile.success.other", comment: "Recompile success banner — memo count"), memoCount),
                 autoDismiss: true
             ))
         } catch {
@@ -398,14 +398,14 @@ struct DailyPageView: View {
 
     private func sourceActionsRow(model: DailyPageModel) -> some View {
         HStack(spacing: DSSpacing.sm) {
-            ActionBtn(icon: "arrow.clockwise", label: "Regenerate") {
+            ActionBtn(icon: "arrow.clockwise", label: NSLocalizedString("daily.action.regenerate", comment: "Daily page action: regenerate")) {
                 Task { await recompile() }
             }
-            ActionBtn(icon: "plus.bubble", label: "Add note") {
+            ActionBtn(icon: "plus.bubble", label: NSLocalizedString("daily.action.add_note", comment: "Daily page action: add note")) {
                 dismiss()
                 onReturnToToday?("")
             }
-            ActionBtn(icon: "text.bubble", label: "Reflect", disabled: true) {
+            ActionBtn(icon: "text.bubble", label: NSLocalizedString("daily.action.reflect", comment: "Daily page action: reflect"), disabled: true) {
                 // Coming soon — TODO: Reflect feature follow-up issue
             }
         }
@@ -415,7 +415,7 @@ struct DailyPageView: View {
 
     private var sourceSignalsSection: some View {
         VStack(alignment: .leading, spacing: DSSpacing.sm) {
-            Text("SOURCE SIGNALS")
+            Text(NSLocalizedString("daily.section.source_signals", comment: "Daily page section: source signals"))
                 .font(DSFonts.spaceGrotesk(size: 11, weight: .semibold, relativeTo: .caption))
                 .foregroundColor(DSColor.inkMuted)
                 .tracking(1.6)
@@ -450,7 +450,7 @@ struct DailyPageView: View {
                     Text(label)
                         .font(DSType.labelSM)
                     if disabled {
-                        Text("Coming soon")
+                        Text(NSLocalizedString("daily.badge.coming_soon", comment: "Daily page badge: coming soon"))
                             .font(DSType.mono9)
                             .foregroundColor(DSColor.inkMuted)
                             .padding(.horizontal, DSSpacing.xs)
@@ -503,7 +503,7 @@ struct DailyPageView: View {
 
                 // Truncated body — fold markdown syntax (**bold**, `code`)
                 // to plain text; a one-line teaser must never leak asterisks.
-                Text(memo.body.isEmpty ? "(no text)" : MemoMarkdown.plainText(memo.body))
+                Text(memo.body.isEmpty ? NSLocalizedString("daily.memo.no_text", comment: "Daily page — empty memo body placeholder") : MemoMarkdown.plainText(memo.body))
                     .font(DSType.bodySM)
                     .foregroundColor(DSColor.inkPrimary)
                     .lineLimit(1)
@@ -529,7 +529,7 @@ struct DailyPageView: View {
                     .fill(DSColor.accentOnBg)
                     .frame(width: 8, height: 8)
                     .shadow(color: DSColor.amberGlow, radius: 6, x: 0, y: 0)
-                Text("COMPILED \(model.entriesCount) SIGNALS")
+                Text(String(format: NSLocalizedString(model.entriesCount == 1 ? "daily.stats.signals.one" : "daily.stats.signals.other", comment: "Daily page stats — compiled signals count"), model.entriesCount))
                     .font(DSType.mono10)
                     .foregroundColor(DSColor.inkMuted)
                     .tracking(0.8)
@@ -563,7 +563,7 @@ struct DailyPageView: View {
                 Image(systemName: "tray")
                     .font(.system(size: 32))
                     .foregroundColor(DSColor.onSurfaceVariant.opacity(0.5))
-                Text("该日无原始记录")
+                Text(NSLocalizedString("daily.empty.no_raw", comment: "Daily page — no raw memos for this day"))
                     .h2Style()
                     .foregroundColor(DSColor.onSurfaceVariant)
             }
@@ -588,7 +588,7 @@ struct DailyPageView: View {
 
     private func threadsSection(model: DailyPageModel) -> some View {
         VStack(alignment: .leading, spacing: DSSpacing.md) {
-            Text("THREADS")
+            Text(NSLocalizedString("daily.section.threads", comment: "Daily page section: threads"))
                 .sectionLabelStyle()
                 .foregroundColor(DSColor.outline)
 
@@ -641,7 +641,7 @@ struct DailyPageView: View {
 
             // Input bar
             HStack(spacing: DSSpacing.sm) {
-                TextField("你想聊什么…", text: $freeformDraft)
+                TextField(NSLocalizedString("daily.chat.placeholder", comment: "Daily page — freeform chat input placeholder"), text: $freeformDraft)
                     .font(DSType.bodySM)
                     .foregroundColor(DSColor.inkPrimary)
                     .submitLabel(.send)
@@ -720,7 +720,7 @@ struct DailyPageView: View {
                         .foregroundColor(DSColor.statusError)
                         .fixedSize(horizontal: false, vertical: true)
                     Button(action: { Task { await recompile() } }) {
-                        Text("RETRY →")
+                        Text(NSLocalizedString("daily.action.retry_arrow", comment: "Daily page action: retry with arrow"))
                             .monoLabelStyle(size: 10)
                             .foregroundColor(DSColor.primary)
                             .underline()
@@ -731,14 +731,14 @@ struct DailyPageView: View {
             }
 
             HStack {
-                Text("Compiled from \(model.memoCount) raw entries".uppercased())
+                Text(String(format: NSLocalizedString(model.memoCount == 1 ? "daily.stats.from_entries.one" : "daily.stats.from_entries.other", comment: "Daily page footer — compiled from N raw entries"), model.memoCount).uppercased())
                     .monoLabelStyle(size: 10)
                     .foregroundColor(DSColor.onSurfaceVariant)
 
                 Spacer()
 
                 Button(action: { dismiss() }) {
-                    Text("VIEW ORIGINAL FLOW →")
+                    Text(NSLocalizedString("daily.action.view_flow", comment: "Daily page action: view original flow"))
                         .monoLabelStyle(size: 10)
                         .foregroundColor(DSColor.primary)
                         .underline()
@@ -751,10 +751,10 @@ struct DailyPageView: View {
 
     private func compilationStageLabel(_ stage: CompilationStage) -> String {
         switch stage {
-        case .extracting: return "Extracting memos…"
-        case .compiling:  return "Compiling with AI…"
-        case .formatting: return "Formatting output…"
-        case .done:       return "Done"
+        case .extracting: return NSLocalizedString("daily.progress.extracting", comment: "Daily page compile progress: extracting memos")
+        case .compiling:  return NSLocalizedString("daily.progress.compiling", comment: "Daily page compile progress: compiling with AI")
+        case .formatting: return NSLocalizedString("daily.progress.formatting", comment: "Daily page compile progress: formatting output")
+        case .done:       return NSLocalizedString("daily.progress.done", comment: "Daily page compile progress: done")
         }
     }
 

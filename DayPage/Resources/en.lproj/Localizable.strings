@@ -1383,3 +1383,51 @@
 "archive.month.meta.entries"      = "%d entries";
 "archive.month.meta.entries.one"  = "%d entry";
 "archive.section.dayCount.one"    = "%d day";
+
+/* Daily page — language discipline (§3) */
+"daily.load.failed"                  = "Couldn't load this entry";
+"daily.recompile.confirm.title"      = "Recompile today?";
+"daily.recompile.confirm.action"     = "Recompile";
+"daily.recompile.confirm.last_compiled" = "Last compiled at %@";
+"daily.recompile.confirm.message"    = "AI will recompile today's memos into a new daily page.";
+"daily.recompile.error.invalid_date" = "Invalid date format";
+"daily.recompile.success.one"        = "✓ Compiled %d memo into today's page";
+"daily.recompile.success.other"      = "✓ Compiled %d memos into today's page";
+"daily.action.regenerate"            = "Regenerate";
+"daily.action.add_note"              = "Add note";
+"daily.action.reflect"               = "Reflect";
+"daily.action.retry_arrow"           = "RETRY →";
+"daily.action.view_flow"             = "VIEW ORIGINAL FLOW →";
+"daily.section.source_signals"       = "SOURCE SIGNALS";
+"daily.section.threads"              = "THREADS";
+"daily.section.mentions"             = "MENTIONS";
+"daily.badge.coming_soon"            = "Coming soon";
+"daily.memo.no_text"                 = "(no text)";
+"daily.empty.no_raw"                 = "No raw memos for this day";
+"daily.chat.placeholder"             = "What's on your mind…";
+"daily.progress.extracting"          = "Extracting memos…";
+"daily.progress.compiling"           = "Compiling with AI…";
+"daily.progress.formatting"          = "Formatting output…";
+"daily.progress.done"                = "Done";
+"daily.stats.signals.one"            = "COMPILED %d SIGNAL";
+"daily.stats.signals.other"          = "COMPILED %d SIGNALS";
+"daily.stats.from_entries.one"       = "Compiled from %d raw entry";
+"daily.stats.from_entries.other"     = "Compiled from %d raw entries";
+"daily.evidence.count.one"           = "%d citation";
+"daily.evidence.count.other"         = "%d citations";
+"daily.evidence.a11y"                = "%d source memos cited";
+"daily.evidence.a11y.hint"           = "Double-tap to open the first cited memo";
+"daily.mention.a11y"                 = "Open %@'s entity page";
+"daily.mention.a11y.hint"            = "Double-tap to open %@'s entity page";
+
+/* Weekly recap — highlight → to-do (§3 language discipline) */
+"weekly.recap.highlight.todo.added"  = "Added to tomorrow's to-do";
+"weekly.recap.highlight.todo.failed" = "Couldn't add to to-do: %@";
+"weekly.recap.highlight.todo.action" = "Turn into tomorrow's to-do";
+
+/* Sidebar heatmap — tooltip + VoiceOver (§3 language discipline) */
+"heatmap.tooltip.count.one"   = "%d entry";
+"heatmap.tooltip.count.other" = "%d entries";
+"heatmap.a11y.base"           = "Activity heatmap, %d entries over the last 16 weeks";
+"heatmap.a11y.current_streak" = "%1$@, current streak %2$d days";
+"heatmap.a11y.best_streak"    = "%1$@, current streak 0 days, best ever %2$d days";

@@ -426,18 +426,33 @@ struct WeeklyRecapDetailView: View {
                             Haptics.commit()
                             BannerCenter.shared.show(.init(
                                 kind: .info,
-                                title: "已加入明日待办",
+                                title: NSLocalizedString(
+                                    "weekly.recap.highlight.todo.added",
+                                    comment: "Banner: highlight added to tomorrow's to-do"
+                                ),
                                 autoDismiss: true
                             ))
                         } catch {
                             BannerCenter.shared.show(.init(
                                 kind: .error,
-                                title: "加入待办失败：\(error.localizedDescription)",
+                                title: String(
+                                    format: NSLocalizedString(
+                                        "weekly.recap.highlight.todo.failed",
+                                        comment: "Banner: failed to add highlight to to-do, %@ = error"
+                                    ),
+                                    error.localizedDescription
+                                ),
                                 autoDismiss: true
                             ))
                         }
                     } label: {
-                        Label("变成明日待办", systemImage: "checklist")
+                        Label(
+                            NSLocalizedString(
+                                "weekly.recap.highlight.todo.action",
+                                comment: "Context-menu action: turn highlight into tomorrow's to-do"
+                            ),
+                            systemImage: "checklist"
+                        )
                     }
                 }
             }
