@@ -293,30 +293,25 @@ struct MemoDetailView: View {
                         }
                         .padding(.bottom, 14)
                     } else if !bodyTrimmed.isEmpty && !isBodyDuplicate {
-                        // Markdown M1 — full block rendering with entity ink
-                        // merged in one pass (MarkdownBodyView is the ink
-                        // engine; flag-off falls back inside via isPlain to
-                        // the same serif look, so only the markdown parse is
-                        // gated here).
-                        Group {
-                            if FeatureFlagStore.shared.isEnabled(.markdownRendering) {
-                                MarkdownBodyView(
-                                    text: bodyTrimmed,
-                                    // Line-spacing 8 (≈1.5× serifBody16) so
-                                    // long-form journal entries breathe like a
-                                    // printed page.
-                                    lineSpacing: 8,
-                                    blockSpacing: 12,
-                                    entitySlugs: memo.entityMentions,
-                                    entityDisplayNames: entityDisplayNames
-                                )
-                            } else {
-                                Text(inkedBody(bodyTrimmed))
-                                    .font(DSType.serifBody16)
-                                    .foregroundColor(DSColor.inkPrimary)
-                                    .lineSpacing(8)
-                            }
-                        }
+                        // Single ink engine — MarkdownBodyView renders block
+                        // markdown + entity ink in one pass, and folds inline
+                        // `**`/`#` whether or not the source contains markdown
+                        // (plain prose takes its `isPlain` fast path to the
+                        // same serif look, still inking entity mentions). The
+                        // former flag-off `Text(inkedBody(...))` branch skipped
+                        // parsing, so with the markdown experiment disabled the
+                        // detail body showed raw `**` asterisks. Rendering here
+                        // unconditionally closes that leak and collapses the two
+                        // divergent body paths into one.
+                        MarkdownBodyView(
+                            text: bodyTrimmed,
+                            // Line-spacing 8 (≈1.5× serifBody16) so long-form
+                            // journal entries breathe like a printed page.
+                            lineSpacing: 8,
+                            blockSpacing: 12,
+                            entitySlugs: memo.entityMentions,
+                            entityDisplayNames: entityDisplayNames
+                        )
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .textSelection(.enabled)
                         .contentShape(Rectangle())
@@ -604,51 +599,6 @@ struct MemoDetailView: View {
 
     // MARK: - Entity Ink (issue #835)
 
-    /// Body text with compiled entity mentions rendered as quiet amber-underlined
-    /// links. Mentions that don't literally appear in the text are skipped —
-    /// the ink never guesses.
-    private func inkedBody(_ text: String) -> AttributedString {
-        let polished = CJKTextPolish.polish(text)
-        var attr = AttributedString(polished)
-        guard !memo.entityMentions.isEmpty else { return attr }
-
-        for slug in memo.entityMentions where !slug.isEmpty {
-            // Latin slugs may appear verbatim or space-separated; CJK prose
-            // is matched via the wiki page's display name (resolved async).
-            // First variant that matches wins.
-            var terms = [slug, slug.replacingOccurrences(of: "-", with: " ")]
-            if let display = entityDisplayNames[slug], !display.isEmpty {
-                terms.insert(display, at: 0)
-            }
-            for term in terms {
-                var matched = false
-                var searchRange = polished.startIndex..<polished.endIndex
-                while let r = polished.range(
-                    of: term,
-                    options: [.caseInsensitive, .diacriticInsensitive],
-                    range: searchRange
-                ) {
-                    matched = true
-                    if let ar = Range(r, in: attr) {
-                        let encoded = slug.addingPercentEncoding(
-                            withAllowedCharacters: .alphanumerics
-                        ) ?? slug
-                        attr[ar].link = URL(string: "daypage-entity://o?s=\(encoded)")
-                        attr[ar].underlineStyle = Text.LineStyle(
-                            pattern: .solid,
-                            color: DSColor.amberAccent.opacity(0.5)
-                        )
-                        // Links default to tint blue — keep journal ink.
-                        attr[ar].foregroundColor = DSColor.inkPrimary
-                    }
-                    searchRange = r.upperBound..<polished.endIndex
-                }
-                if matched { break }
-            }
-        }
-        return attr
-    }
-
     /// Reads each mention's wiki page frontmatter `name:` so display names
     /// can be matched in prose. Slugs with no wiki page simply stay unmapped.
     nonisolated private static func resolveDisplayNames(for slugs: [String]) -> [String: String] {
@@ -824,27 +774,31 @@ private struct DetailPhotoSection: View {
         }
     }
 
+    /// A film-strip caption of *real* camera parameters — e.g.
+    /// "26MM · F/1.8 · 1/125S". The raw filename is deliberately excluded: it
+    /// is a file-system detail, not a photo credit, and `//` (a code comment
+    /// marker) leaked the technical layer into the museum surface. No EXIF
+    /// params → `nil`, so the caption vanishes rather than showing a filename.
     nonisolated private static func exifOverlayText(file: String, photoURL: URL) -> String? {
-        let filename = URL(fileURLWithPath: file).lastPathComponent.uppercased()
-        if let source = CGImageSourceCreateWithURL(photoURL as CFURL, nil),
-           let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any],
-           let exif = props[kCGImagePropertyExifDictionary as String] as? [String: Any] {
-            var parts: [String] = [filename]
-            if let focal = exif[kCGImagePropertyExifFocalLength as String] as? Double,
-               let label = MemoExifFormat.focalLengthLabel(focal) {
-                parts.append(label)
-            }
-            if let aperture = exif[kCGImagePropertyExifFNumber as String] as? Double,
-               let label = MemoExifFormat.apertureLabel(aperture) {
-                parts.append(label)
-            }
-            if let shutter = exif[kCGImagePropertyExifExposureTime as String] as? Double,
-               let label = MemoExifFormat.shutterLabel(exposureTime: shutter) {
-                parts.append(label)
-            }
-            return parts.joined(separator: "  //  ")
+        guard let source = CGImageSourceCreateWithURL(photoURL as CFURL, nil),
+              let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [String: Any],
+              let exif = props[kCGImagePropertyExifDictionary as String] as? [String: Any]
+        else { return nil }
+
+        var parts: [String] = []
+        if let focal = exif[kCGImagePropertyExifFocalLength as String] as? Double,
+           let label = MemoExifFormat.focalLengthLabel(focal) {
+            parts.append(label)
         }
-        return filename
+        if let aperture = exif[kCGImagePropertyExifFNumber as String] as? Double,
+           let label = MemoExifFormat.apertureLabel(aperture) {
+            parts.append(label)
+        }
+        if let shutter = exif[kCGImagePropertyExifExposureTime as String] as? Double,
+           let label = MemoExifFormat.shutterLabel(exposureTime: shutter) {
+            parts.append(label)
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
     private func loadFullResImage(from url: URL) async -> UIImage? {

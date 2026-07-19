@@ -33,34 +33,37 @@ struct DailyPageSummarySection: View {
                 narrativeParagraph(model.summary).padding(.bottom, 8)
             }
 
-            // Threads
-            let displayThreads = model.threads.isEmpty ? stubThreads : model.threads
-            hairlineDivider.padding(.vertical, 22)
-            threadsView(threads: displayThreads)
+            // Threads — hide the whole block when empty. Filling it with
+            // placeholder threads shipped stub data as real content: users saw
+            // "Daily reflection" / "Work notes" for days that had neither.
+            if !model.threads.isEmpty {
+                hairlineDivider.padding(.vertical, 22)
+                threadsView(threads: model.threads)
+            }
 
-            // Mentions
-            let displayMentions = model.mentions.isEmpty ? stubMentions : model.mentions
-            hairlineDivider.padding(.vertical, 22)
-            mentionsView(mentions: displayMentions)
+            // Mentions — likewise. The old stub emitted @today / @log, which
+            // rendered as tappable entity chips leading to pages that don't
+            // exist. An empty mentions list simply shows nothing.
+            if !model.mentions.isEmpty {
+                hairlineDivider.padding(.vertical, 22)
+                mentionsView(mentions: model.mentions)
+            }
         }
     }
 
     // MARK: - Sub-views
 
     private func narrativeParagraph(_ body: String) -> some View {
-        // Markdown M1: the compiler model occasionally emits **emphasis** in
-        // narrative prose — render it instead of leaking syntax characters.
-        Group {
-            if FeatureFlagStore.shared.isEnabled(.markdownRendering) {
-                MarkdownBodyView(text: body, lineSpacing: 8)
-            } else {
-                Text(CJKTextPolish.polish(body))
-                    .font(DSType.serifBody16)
-                    .foregroundColor(DSColor.inkPrimary)
-                    .lineSpacing(8)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // The compiler model occasionally emits **emphasis** / `#` in narrative
+        // prose. MarkdownBodyView is the single ink engine: it folds those
+        // markers whether or not markdown is present (plain text takes its
+        // `isPlain` fast path to the same serif look). The old flag-gated
+        // `else Text(polish(body))` branch skipped parsing entirely, so with
+        // the experiment off users saw raw `**` asterisks — the one path that
+        // leaked syntax. Rendering through MarkdownBodyView unconditionally
+        // removes that leak.
+        MarkdownBodyView(text: body, lineSpacing: 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Issue #4: "引用 N 条" evidence chip row. Empty ID list renders
@@ -165,15 +168,4 @@ struct DailyPageSummarySection: View {
             .overlay(Capsule().strokeBorder(DSColor.amberRim, lineWidth: 0.5))
             .clipShape(Capsule())
     }
-
-    // MARK: - Stubs
-
-    private var stubThreads: [DailyPageModel.ThreadEntry] {
-        [
-            DailyPageModel.ThreadEntry(label: "Daily reflection", color: DSColor.amberAccent),
-            DailyPageModel.ThreadEntry(label: "Work notes", color: DSColor.amberDeep),
-        ]
-    }
-
-    private var stubMentions: [String] { ["@today", "@log"] }
 }
