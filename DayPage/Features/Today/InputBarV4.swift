@@ -1109,11 +1109,11 @@ struct InputBarV4: View {
             isFocused = false
             return
         }
-        // Fire the commit haptic on THIS frame (causality) — the memo's
-        // async append later fires `.successNotification()` on completion, but
-        // waiting for the disk write to feed back reads as "half a beat late".
-        // Mirrors WriteSheetView.handleSave(), which already commits on tap.
-        Haptics.commit()
+        // No tap-time haptic here: submitCombinedMemo now inserts the memo and
+        // fires the single authoritative `.successNotification()` on this same
+        // frame (optimistic commit), so a separate commit-on-tap buzz would
+        // just double up. It only existed to cover the old multi-second delay
+        // between tap and the async landing haptic, which no longer exists.
         onSubmit()
         isFocused = false
         transition(to: .collapsing)
