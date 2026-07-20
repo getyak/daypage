@@ -458,10 +458,15 @@ struct DayPageApp: App {
                            let seconds = TimeInterval(args[idx + 1]), seconds > 0 {
                             Task {
                                 await CaptureReminderService.shared.requestAlarmKitAuthorization()
-                                CaptureReminderService.shared.scheduleOnce(
-                                    at: Date().addingTimeInterval(seconds),
-                                    label: "QA 灵动岛测试"
+                                // 必须 .loud 才走 AlarmKit 路径(.quiet 走 UN,测不到岛)。
+                                // seconds 应 > islandPreheatSeconds(60),否则一进 App
+                                // 就已过预热窗口起点,岛在剩余不足 60s 内即时上屏。
+                                let r = Reminder(
+                                    trigger: .once(Date().addingTimeInterval(seconds)),
+                                    label: "QA 灵动岛测试",
+                                    level: .loud
                                 )
+                                CaptureReminderService.shared.addReminder(r)
                             }
                         }
                         // `-qaAlarmTimerSeconds 120`:起 countdown 计时器。
