@@ -481,6 +481,27 @@ final class CaptureReminderService: ObservableObject {
         refreshSchedule()
     }
 
+    /// 灵动岛「预热窗口」—— alarm 触发前多少秒进入 .countdown 态、把品牌灵动岛
+    /// 推上屏。这是让自定义琥珀岛 UI 真正可见的唯一窗口:AlarmKit 的 .alerting
+    /// (响铃)态灵动岛由系统 chrome 强制接管,widget 的 dynamicIsland 闭包只在
+    /// .countdown 态被调用。技术依据(2026-07-20 逐条核对 iOS26.4 SDK swiftinterface
+    /// + Apple 官方 countdownDuration 属性文档):配了 countdownDuration 后,
+    /// 倒计时 UI 在「下一次 alert 时刻 − preAlert」自动上屏,归零进 .alerting;
+    /// .relative 重复日程每次触发前都重演这个预热。
+    ///
+    /// 取 60s:提醒前 1 分钟悄悄进岛,克制、不长时间占岛(呼应「悄悄召唤、不打扰」
+    /// 的产品气质)。别设太长 —— 重复提醒每天都会提前这么久常驻灵动岛。
+    static let islandPreheatSeconds: TimeInterval = 60
+
+    /// 构造闹钟 countdown 呈现 —— .countdown 态(预热窗口内)的模板 UI。
+    /// 生产必须给 AlarmPresentation 配 countdown,否则预热窗口进 .countdown 态却
+    /// 没有呈现内容;widget 的自定义岛 UI 也才在这个态被系统调用。
+    @available(iOS 26.0, *)
+    private static func makeCaptureCountdown() -> AlarmPresentation.Countdown {
+        AlarmPresentation.Countdown(
+            title: LocalizedStringResource(stringLiteral: "记录此刻"))
+    }
+
     /// 构造闹钟 alert 呈现 —— 副按钮「记一句」+ .custom。iOS 26.1 起停止按钮
     /// 由系统自动提供(不带 stopButton 的 init 也从 26.1 才可用);26.0 回退带
     /// stopButton 的旧构造。两分支的副按钮都靠 config.secondaryIntent 落地。
@@ -571,8 +592,13 @@ final class CaptureReminderService: ObservableObject {
         // 静默失效 bug(见下方 config 的 secondaryIntent)。iOS 26.1 起 stopButton
         // 已废弃(停止按钮由系统自动提供),但无 stopButton 的 init 也只在 26.1+
         // 可用;部署 gate 是 26.0,故按版本分支,26.0 仍用带 stopButton 的旧构造。
+        // countdown 态呈现 —— 预热窗口(触发前 islandPreheatSeconds 秒)灵动岛
+        // 由 widget 的自定义琥珀 UI 渲染;.alerting 响铃态由系统接管。
         let alert = Self.makeCaptureAlert()
-        let presentation = AlarmPresentation(alert: alert)
+        let presentation = AlarmPresentation(
+            alert: alert,
+            countdown: Self.makeCaptureCountdown()
+        )
         let metadata = CaptureAlarmMetadata(prompt: reminder.promptBody, slotID: reminder.id.uuidString)
         let attributes = AlarmAttributes(
             presentation: presentation,
@@ -582,10 +608,14 @@ final class CaptureReminderService: ObservableObject {
             // attributes.tintColor,不再各自硬编码副本(单源防漂移)。
             tintColor: Color(red: 0.788, green: 0.533, blue: 0.227)
         )
+        // countdownDuration.preAlert = 预热窗口:灵动岛在「alert 时刻 − preAlert」
+        // 进 .countdown 态上屏(SDK 语义,见 islandPreheatSeconds 注释),归零响铃。
+        // postAlert nil —— 不配贪睡/重复倒计时(响铃后不自动再倒计)。
         // secondaryIntent 必须是 LiveActivityIntent(SDK 类型约束),点副按钮
-        // 前台唤起 app + open daypage://record → 录音。这是本次核心 bug 修复。
+        // 前台唤起 app + open daypage://record → 录音。
         let config = AlarmManager.AlarmConfiguration(
-            countdownDuration: nil,
+            countdownDuration: Alarm.CountdownDuration(
+                preAlert: Self.islandPreheatSeconds, postAlert: nil),
             schedule: schedule,
             attributes: attributes,
             stopIntent: nil,
@@ -609,9 +639,7 @@ final class CaptureReminderService: ObservableObject {
     func qaStartCountdownTimer(seconds: TimeInterval) async {
         _ = await requestAlarmKitAuthorization()
         let alert = Self.makeCaptureAlert()
-        let countdown = AlarmPresentation.Countdown(
-            title: LocalizedStringResource(stringLiteral: "记录此刻"))
-        let presentation = AlarmPresentation(alert: alert, countdown: countdown)
+        let presentation = AlarmPresentation(alert: alert, countdown: Self.makeCaptureCountdown())
         let metadata = CaptureAlarmMetadata(prompt: "记一句给今天", slotID: UUID().uuidString)
         let attributes = AlarmAttributes(
             presentation: presentation,

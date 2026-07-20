@@ -76,24 +76,17 @@ struct CaptureReminderLiveActivity: Widget {
                 .activitySystemActionForegroundColor(Palette.amber)
         } dynamicIsland: { context in
             DynamicIsland {
+                // ── Expanded:一张有呼吸的卡。品牌行明确写「DayPage」释除
+                //    「这是谁的」疑惑;大倒计时是主角;底部一句提示 + 琥珀 CTA。
                 DynamicIslandExpandedRegion(.leading) {
-                    HStack(spacing: 7) {
-                        Image(systemName: "mic.fill")
-                            .font(.title3)
-                            .foregroundStyle(context.attributes.tintColor)
-                            .symbolEffect(.breathe, options: .repeat(.continuous),
-                                          isActive: Self.isAlerting(context))
-                        Text("记录此刻")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
-                    }
+                    Self.brandMark(context)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    // countdown 态给剩余时间(对齐系统计时器的数据位);
-                    // alerting 态由系统横幅接管 expanded,这里自然留白。
+                    // countdown 态给剩余时间(数据位,mono 大字);alerting 态由
+                    // 系统横幅接管 expanded,这里自然留白。
                     if case .countdown(let cd) = context.state.mode {
                         Text(timerInterval: cd.startDate...cd.fireDate, countsDown: true)
-                            .font(.subheadline.weight(.semibold).monospacedDigit())
+                            .font(.title3.weight(.semibold).monospacedDigit())
                             .foregroundStyle(context.attributes.tintColor)
                             .multilineTextAlignment(.trailing)
                             .padding(.trailing, 2)
@@ -103,39 +96,36 @@ struct CaptureReminderLiveActivity: Widget {
                     HStack(spacing: 10) {
                         Text(context.attributes.metadata?.prompt ?? "记一句给今天")
                             .font(.footnote)
-                            .foregroundStyle(.white.opacity(0.65))
+                            .foregroundStyle(.white.opacity(0.62))
                             .lineLimit(1)
+                            .minimumScaleFactor(0.85)
                         Spacer(minLength: 8)
                         Link(destination: Self.recordURL) {
                             Label("记一句", systemImage: "waveform")
                                 .font(.footnote.weight(.semibold))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(Self.onAmberInk(context))
                                 .symbolEffect(.variableColor.iterative.reversing,
                                               options: .repeat(.continuous),
                                               isActive: Self.isAlerting(context))
-                                .padding(.horizontal, 12)
+                                .padding(.horizontal, 13)
                                 .padding(.vertical, 6)
                                 .background(context.attributes.tintColor, in: Capsule())
                         }
                     }
-                    .padding(.top, 6)
+                    .padding(.top, 8)
                 }
             } compactLeading: {
-                Image(systemName: "mic.fill")
-                    .foregroundStyle(context.attributes.tintColor)
-                    .symbolEffect(.breathe, options: .repeat(.continuous),
-                                  isActive: Self.isAlerting(context))
+                // 复合品牌标:琥珀圆底盛麦克风 —— 比裸符号更有辨识度,一眼是
+                // 「有品牌的记录提醒」而非通用闹钟。呼吸只在 alerting。
+                Self.compactBadge(context)
             } compactTrailing: {
-                // 2026-07-17 实测:只放 6pt 小圆点时,compact 岛拉宽后中间
-                // 大片乌黑、信息量为零,被用户点名「占了位置却什么都不显示」。
-                // 改成可扫读信息 —— compact 态的 trailing 本就该是数据位
-                // (参照系统计时器/Now Playing):countdown 态给实时倒计时,
-                // 其余(alerting)给 3 字 CTA,宽度预算内不会截断。
+                // compact trailing 是数据位:countdown 给实时倒计时;
+                // 其余(alerting)给 3 字 CTA。宽度预算内不截断。
                 if case .countdown(let cd) = context.state.mode {
                     Text(timerInterval: cd.startDate...cd.fireDate, countsDown: true)
-                        .font(.caption2.weight(.semibold).monospacedDigit())
+                        .font(.caption.weight(.semibold).monospacedDigit())
                         .foregroundStyle(context.attributes.tintColor)
-                        .frame(maxWidth: 44)
+                        .frame(maxWidth: 46)
                         .multilineTextAlignment(.trailing)
                 } else {
                     Text("记一句")
@@ -143,8 +133,11 @@ struct CaptureReminderLiveActivity: Widget {
                         .foregroundStyle(context.attributes.tintColor)
                 }
             } minimal: {
+                // minimal 空间只一个符号:琥珀麦克风,呼吸态 = alerting。
                 Image(systemName: "mic.fill")
                     .foregroundStyle(context.attributes.tintColor)
+                    .symbolEffect(.breathe, options: .repeat(.continuous),
+                                  isActive: Self.isAlerting(context))
             }
             .widgetURL(Self.recordURL)
             .keylineTint(context.attributes.tintColor)
@@ -158,6 +151,46 @@ struct CaptureReminderLiveActivity: Widget {
         return false
     }
 
+    // MARK: - Brand marks(建立「这是 DayPage」的辨识度)
+
+    /// Expanded leading 的品牌行:琥珀圆底麦克风 + 「DayPage」名 + 一句状态。
+    /// 明确写出 App 名,释除用户「主屏冒出个麦克风倒计时,谁的?」的疑惑。
+    @ViewBuilder
+    private static func brandMark(_ context: Context) -> some View {
+        HStack(spacing: 9) {
+            compactBadge(context)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("DayPage")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                Text("记录此刻")
+                    .font(.caption2)
+                    .foregroundStyle(.white.opacity(0.55))
+            }
+        }
+    }
+
+    /// compact leading / expanded 品牌圆标:琥珀圆底盛麦克风。比裸 SF Symbol
+    /// 更有辨识度 —— 圆底 + 品牌琥珀让它读作「有身份的记录提醒」。呼吸态 =
+    /// alerting(响铃前的预热窗口静态,不抢注意力)。
+    @ViewBuilder
+    private static func compactBadge(_ context: Context) -> some View {
+        Image(systemName: "mic.fill")
+            .font(.system(size: 11, weight: .bold))
+            .foregroundStyle(onAmberInk(context))
+            .frame(width: 22, height: 22)
+            .background(context.attributes.tintColor, in: Circle())
+            .symbolEffect(.breathe, options: .repeat(.continuous),
+                          isActive: isAlerting(context))
+    }
+
+    /// 琥珀底上的前景墨色:琥珀偏亮(暗色变体 #C9883A)→ 用深墨够对比;
+    /// tintColor 由 app 侧单源下发,这里取一个恒定深墨(灵动岛恒黑底语境)。
+    private static func onAmberInk(_ context: Context) -> Color {
+        // 灵动岛恒黑底 + 琥珀 tint(#C9883A 亮琥珀)→ 深墨字对比最佳。
+        Color(red: 0.102, green: 0.094, blue: 0.078)
+    }
+
     @ViewBuilder
     private func lockScreen(_ context: Context) -> some View {
         HStack(spacing: 14) {
@@ -167,9 +200,16 @@ struct CaptureReminderLiveActivity: Widget {
                 .symbolEffect(.breathe, options: .repeat(.continuous),
                               isActive: Self.isAlerting(context))
             VStack(alignment: .leading, spacing: 3) {
-                Text("记录此刻")
-                    .font(.headline)
-                    .foregroundStyle(Palette.ink)
+                // 锁屏也明确写 App 名 —— 与灵动岛 expanded 品牌行一致,
+                // 用户一眼知道是 DayPage 在召唤记录。
+                HStack(spacing: 6) {
+                    Text("DayPage")
+                        .font(.headline)
+                        .foregroundStyle(Palette.ink)
+                    Text("记录此刻")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(Palette.inkMuted)
+                }
                 Text(context.attributes.metadata?.prompt ?? "记一句给今天")
                     .font(.subheadline)
                     .foregroundStyle(Palette.inkMuted)

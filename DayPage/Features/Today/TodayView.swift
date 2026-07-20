@@ -1675,28 +1675,15 @@ struct TodayView: View {
         }
     }
 
-    /// Reminder vNext: 即将触发的提醒胶囊条。FeatureFlag.captureReminder 关
-    /// 时整条不挂载（kill switch 与调度器一致）。点胶囊 → 编辑；点「＋」→
-    /// 新建。数据源是统一调度器，AI 排的提醒也会出现在这里。
+    /// Reminder vNext: 即将触发的提醒胶囊条。
     ///
-    /// Today 瘦身（vNext 2026-07-19）：增删改已迁到「调度中心」，主流里只在
-    /// 真有「即将触发」提醒时才挂载这一条，让空态不占位；没有即将触发的提醒
-    /// 时整条消失，用户去侧边栏「调度」管理。
+    /// Today 收敛（2026-07-20）：整条胶囊行从 Today 主流移除 —— 提醒的增删改查
+    /// 全部收进侧边栏「调度中心」（ScheduleHubView），主页只写「今天」本身、
+    /// 不再把日程 chrome 摆在首屏。挂载点保留（padding 布局不塌），body 返回
+    /// EmptyView。若日后要恢复,把下面的 ReminderCapsuleStrip 重新挂回即可。
     @ViewBuilder
     private var reminderStrip: some View {
-        if FeatureFlagStore.shared.isEnabled(.captureReminder),
-           !reminderService.upcoming(limit: 1, now: currentTime).isEmpty {
-            ReminderCapsuleStrip(
-                service: reminderService,
-                now: currentTime,
-                onEdit: { reminder in
-                    reminderSheetTarget = ReminderSheetTarget(reminder: reminder)
-                },
-                onAdd: {
-                    reminderSheetTarget = ReminderSheetTarget(reminder: nil)
-                }
-            )
-        }
+        EmptyView()
     }
 
     /// Ghost-line text: bare label when nothing is chosen, "· 工作 · 学习"
