@@ -340,14 +340,17 @@ struct VoiceRecordingView: View {
             .accessibilityLabel(NSLocalizedString("voice.recording.a11y.discard", value: "丢弃录音", comment: "Voice recording — discard button a11y label"))
             .accessibilityHint(NSLocalizedString("voice.recording.a11y.discard.hint", value: "永久删除此次录音内容", comment: "Voice recording — discard hint"))
 
-            // 保存 — send path: audio saves instantly, transcription runs in the
-            // background via VoiceAttachmentQueue and patches the memo later.
+            // 保存 — send path: audio saves instantly. When live streaming
+            // produced text it becomes the transcript immediately; otherwise
+            // the flash file pass runs in the background and patches later.
             Button(action: {
                 guard canSave else { return }
-                if let result = voiceService.stopAndSaveAudio() {
-                    onComplete(result)
-                } else {
-                    onCancel()
+                Task {
+                    if let result = await voiceService.stopAndSaveAudio() {
+                        onComplete(result)
+                    } else {
+                        onCancel()
+                    }
                 }
             }) {
                 Text(NSLocalizedString("voice.recording.save", value: "保存", comment: "Save recording"))

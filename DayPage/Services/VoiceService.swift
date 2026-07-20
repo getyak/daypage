@@ -414,6 +414,67 @@ final class VoiceService: NSObject, ObservableObject {
         Task { await client?.close() }
     }
 
+    /// Flushes the live-streaming recognizer and returns the best transcript we
+    /// can get for the take, WITHOUT tearing anything down.
+    ///
+    /// Why this exists: the send path used to throw the already-recognized live
+    /// text away and re-transcribe the saved .m4a from scratch via the flash
+    /// file endpoint — a second, separately-provisioned service that can fail
+    /// while streaming works, leaving the card stuck at "转录中" forever. When
+    /// streaming already produced text, that text IS the transcript; the file
+    /// pass becomes an optional refinement, not the only source.
+    ///
+    /// Flow: stop the mic pump so no more audio flows, send the terminal frame
+    /// (`isLast: true`) so the server flushes its final result, then drain for a
+    /// short bounded window for an `isFinal` packet that's usually a hair more
+    /// complete than the last partial. If the window elapses, we fall back to
+    /// whatever `liveTranscript` already holds — never blocking the send.
+    ///
+    /// Returns the trimmed transcript, or "" when streaming wasn't active or
+    /// produced nothing.
+    private func finalizeLiveTranscript(maxWait: TimeInterval = 2.0) async -> String {
+        guard let client = streamClient else {
+            return liveTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        // Stop feeding the socket and cancel the background drain so we own
+        // `receive()` for the flush window — two concurrent receivers on one
+        // WebSocket task race for frames.
+        liveCapture?.stop()
+        liveCapture = nil
+        streamTask?.cancel()
+        streamTask = nil
+
+        // Ask the server to flush. Best-effort: a send failure here just means
+        // we return the partial text we already have.
+        try? await client.send(audio: Data(), isLast: true)
+
+        // Bounded drain, all on the main actor (no @Sendable hop needed): race
+        // each `receive()` against the remaining budget so a server that never
+        // sends its terminal frame can't stall the send. `receive()` on an
+        // actor is itself cancellable via the timeout child task.
+        let deadline = Date().addingTimeInterval(maxWait)
+        while Date() < deadline {
+            let remaining = deadline.timeIntervalSinceNow
+            guard remaining > 0 else { break }
+            let update = await withTaskGroup(of: DoubaoStreamASRClient.Update?.self) { group in
+                group.addTask { try? await client.receive() }
+                group.addTask {
+                    try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
+                    return nil
+                }
+                let first = await group.next() ?? nil
+                group.cancelAll()
+                return first
+            }
+            guard let update else { break }        // timeout or stream closed
+            if !update.text.isEmpty { setLiveTranscript(update.text) }
+            if update.isFinal { break }
+        }
+
+        return liveTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     // MARK: - Pause / Resume
 
     func pauseRecording() {
@@ -439,16 +500,18 @@ final class VoiceService: NSObject, ObservableObject {
 
     // MARK: - Stop & Transcribe
 
-    /// 停止录制、保存 .m4a 文件，并**立即**返回一个 transcript=nil 的结果。
+    /// 停止录制、保存 .m4a 文件，并返回结果。
     ///
-    /// 转录任务被推入 VoiceAttachmentQueue，由它在后台跑 Whisper 并事后
-    /// patch memo.attachment.transcript。这样"点击发送"的体感 = 停止
-    /// 录音的那一帧，不会再被 Whisper HTTPS 往返阻塞。
+    /// 若实时流式转写在录音期间已产出文本，则**直接把它作为 transcript 返回**，
+    /// memo 落盘即 `.done`，不再入队、不再走文件极速版。仅当没有实时文本
+    /// （未开流式 / 离线 / 未识别到内容）时，才把转录任务推入
+    /// VoiceAttachmentQueue 由文件极速版事后补写。
+    ///
+    /// 返回前会给流式一个 ~2s 的短窗口冲刷最终结果（`finalizeLiveTranscript`），
+    /// 因此不是零延迟，但绝不会无限等待。
     ///
     /// 用于用户显式选择"发送"的路径（长按松手→send、录音条→送出）。
-    /// 需要 transcript **在返回前**已经就绪的场景（例如松开手指后立即
-    /// 把文字填进输入框），请继续使用 `stopAndTranscribe()`。
-    func stopAndSaveAudio() -> VoiceRecordingResult? {
+    func stopAndSaveAudio() async -> VoiceRecordingResult? {
         guard let rec = recorder, let fileURL = currentFileURL else {
             state = .failed("没有活跃的录音")
             return nil
@@ -456,7 +519,23 @@ final class VoiceService: NSObject, ObservableObject {
 
         stopTimer()
         stopMeteringTimer()
+
+        // While we flush the stream (~2s), surface "正在转写…" instead of
+        // leaving the pulsing "正在录音" dot up — the mic is already off. Only
+        // when streaming was actually active; a non-streaming take returns
+        // instantly and shouldn't flash a processing state.
+        if streamClient != nil {
+            state = .processing
+        }
+
+        // Flush the live recognizer FIRST, while the socket is still open, so
+        // the text the user already watched appear becomes the memo's initial
+        // transcript. Only then tear the stream down. This is the fix for
+        // "发送后一直转录中": streaming text that already exists is used
+        // directly instead of re-running the flash file endpoint from scratch.
+        let liveText = await finalizeLiveTranscript()
         teardownLiveTranscription()
+
         let finalDuration = Double(elapsedSeconds)
         rec.stop()
         recorder = nil
@@ -469,23 +548,33 @@ final class VoiceService: NSObject, ObservableObject {
 
         let filePath = "raw/assets/\(fileURL.lastPathComponent)"
         lastTranscriptFailed = false
-        VoiceAttachmentQueue.shared.enqueue(audioPath: filePath, memoDate: Date())
+
+        // When live streaming gave us text, that IS the transcript — the memo
+        // lands as `.done` immediately (TodayViewModel maps transcript != nil →
+        // .done) and never touches the queue. Only enqueue the flash file pass
+        // when we have NO live text (streaming off, offline, or nothing
+        // recognized), so the audio still gets transcribed later.
+        let transcript = liveText.isEmpty ? nil : liveText
+        if transcript == nil {
+            VoiceAttachmentQueue.shared.enqueue(audioPath: filePath, memoDate: Date())
+        }
 
         state = .done
         return VoiceRecordingResult(
             filePath: filePath,
             fileURL: fileURL,
             duration: finalDuration,
-            transcript: nil
+            transcript: transcript
         )
     }
 
-    /// 停止录制、保存 .m4a 文件、调用 Whisper API 并返回结果。
-    /// 网络失败时音频仍会保存；transcript 将为 nil。
-    /// 仅在没有有效可保存的录音时返回 nil。
+    /// 停止录制、保存 .m4a 文件、返回带 transcript 的结果（转录文本在返回前
+    /// 就绪）。用于"松开手指立即把 transcript 填进输入框"的场景。
     ///
-    /// **阻塞**在 Whisper 上 —— 仅用于"松开手指立即把 transcript 填进
-    /// 输入框"这类需要转录文本在返回前就绪的场景。
+    /// 优先使用录音期间已产出的实时流式文本 —— 若有,则**不再**阻塞去跑
+    /// 文件极速版 / Whisper,松手即得文字。仅当实时文本为空时才退回到事后
+    /// 转写（此时会阻塞在该 API 上）。网络失败时音频仍会保存,transcript 为 nil。
+    /// 仅在没有有效可保存的录音时返回 nil。
     func stopAndTranscribe() async -> VoiceRecordingResult? {
         guard let rec = recorder, let fileURL = currentFileURL else {
             state = .failed("没有活跃的录音")
@@ -494,6 +583,13 @@ final class VoiceService: NSObject, ObservableObject {
 
         stopTimer()
         stopMeteringTimer()
+
+        // Prefer the text streaming already produced. Flush it (~2s) BEFORE
+        // teardown, same as the send path — otherwise this blocks the user's
+        // input box on a flash/Whisper round trip that can fail even when
+        // streaming works.
+        state = streamClient != nil ? .processing : state
+        let liveText = await finalizeLiveTranscript()
         teardownLiveTranscription()
         let finalDuration = Double(elapsedSeconds)
         rec.stop()
@@ -521,15 +617,23 @@ final class VoiceService: NSObject, ObservableObject {
         let filePath = "raw/assets/\(fileURL.lastPathComponent)"
 
         lastTranscriptFailed = false
-        let transcript = await transcribeAudio(at: fileURL)
 
-        if transcript == nil {
-            if NetworkMonitor.shared.isOnline {
-                // Online but transcription failed — surface banner so user knows audio is saved.
-                lastTranscriptFailed = true
-            } else {
-                // Offline — queue for later retry.
-                VoiceAttachmentQueue.shared.enqueue(audioPath: filePath, memoDate: Date())
+        // Live text wins: if streaming already recognized speech, use it and
+        // skip the blocking file/Whisper round trip entirely. Only fall back to
+        // post-hoc transcription when there's no live text.
+        let transcript: String?
+        if !liveText.isEmpty {
+            transcript = liveText
+        } else {
+            transcript = await transcribeAudio(at: fileURL)
+            if transcript == nil {
+                if NetworkMonitor.shared.isOnline {
+                    // Online but transcription failed — surface banner so user knows audio is saved.
+                    lastTranscriptFailed = true
+                } else {
+                    // Offline — queue for later retry.
+                    VoiceAttachmentQueue.shared.enqueue(audioPath: filePath, memoDate: Date())
+                }
             }
         }
 

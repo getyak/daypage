@@ -636,10 +636,13 @@ struct WriteSheetView: View {
             voiceService.cancelRecording()
             return
         }
-        // Send path: audio is saved instantly, transcription runs in the
-        // background via VoiceAttachmentQueue and patches the memo later.
-        if let result = voiceService.stopAndSaveAudio() {
-            onPressToTalkSend(result)
+        // Send path: audio is saved instantly. Live-streamed text (if any)
+        // becomes the transcript right away; otherwise the flash file pass runs
+        // in the background and patches the memo later.
+        Task {
+            if let result = await voiceService.stopAndSaveAudio() {
+                onPressToTalkSend(result)
+            }
         }
     }
 

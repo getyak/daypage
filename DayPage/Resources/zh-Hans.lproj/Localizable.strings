@@ -543,6 +543,7 @@
 "voice.retry.transcribing"     = "正在转写…";
 "voice.retry.failed_permanent" = "转写不可用";
 "voice.retry.failed_permanent_a11y" = "已重试 3 次，转写失败。音频已保存。";
+"voice.retry.rerun"            = "重新转写";
 
 "search.undo.cleared" = "已清除搜索记录";
 

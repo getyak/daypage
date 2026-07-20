@@ -117,6 +117,46 @@ final class VoiceTranscriptWritebackTests: XCTestCase {
         XCTAssertFalse(ok)
     }
 
+    // MARK: - applyStatus (retry-exhaustion path, #821 + stuck-pending fix)
+
+    /// When retries are exhausted the queue writes a bare `.failed` status so
+    /// the card can downgrade from the shimmer to a retry affordance. If this
+    /// silently no-ops, the card shimmers forever — the exact "一直转录中" bug.
+    func testApplyStatus_writesFailedOnMatchingAttachment() throws {
+        let memo = makeVoiceMemo(audioPath: "raw/assets/voice-a.m4a")
+        try seedDayFile(memos: [memo])
+
+        let ok = VoiceAttachmentQueue.applyStatus(
+            .failed,
+            audioPath: "raw/assets/voice-a.m4a",
+            memoDate: dateString
+        )
+        XCTAssertTrue(ok)
+
+        let m = try readBack().first!
+        XCTAssertEqual(m.attachments.first?.transcriptionStatus, .failed,
+            "status must flip to .failed so the card leaves the shimmer state")
+        XCTAssertNil(m.attachments.first?.transcript, "no transcript text on a failed write")
+    }
+
+    /// The match-miss must be observable (returns false), not silent — the
+    /// caller relies on this to breadcrumb instead of leaving a frozen card.
+    func testApplyStatus_noMatchingAttachment_returnsFalse() throws {
+        let memo = makeVoiceMemo(audioPath: "raw/assets/voice-a.m4a")
+        try seedDayFile(memos: [memo])
+
+        let ok = VoiceAttachmentQueue.applyStatus(
+            .failed,
+            audioPath: "raw/assets/voice-DOES-NOT-EXIST.m4a",
+            memoDate: dateString
+        )
+        XCTAssertFalse(ok)
+
+        // The real attachment's status is untouched — we didn't clobber it.
+        let m = try readBack().first!
+        XCTAssertEqual(m.attachments.first?.transcriptionStatus, .pending)
+    }
+
     // MARK: - YAML escape safety (the prior implementation broke on these)
 
     func testApplyTranscript_handlesQuotesBackslashesAndNewlines() throws {
