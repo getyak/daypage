@@ -372,6 +372,12 @@ struct RootView: View {
                 nav.pendingAskQuery = nil
             }
         }
+        // vNext 调度中心 sheet。驱动源 `nav.showScheduleHub`(全局稳定层),由
+        // 侧边栏「调度」行置 true。挂在 RootView 而非 SidebarView 上 —— 抽屉关闭
+        // 后 SidebarView 被离屏隐藏,其 @State 不可靠,sheet 呈现会被丢(实测)。
+        .sheet(isPresented: $nav.showScheduleHub) {
+            NavigationStack { ScheduleHubView() }
+        }
     }
 
     /// Bridges the optional `pendingAskQuery` string to a `.sheet(item:)`

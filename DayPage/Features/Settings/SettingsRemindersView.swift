@@ -37,6 +37,20 @@ struct SettingsRemindersView: View {
 
     private var captureReminderSection: some View {
         Section {
+            // 提醒的增删改现在归到「调度中心」(侧边栏 › 调度)。这里只留频率、
+            // 静音、系统提醒等全局配置 + 一行指引,避免两处都能改造成漂移。
+            HStack {
+                SettingsLabel(
+                    title: NSLocalizedString("settings.reminder.hub_hint", value: "在调度中心增删改提醒", comment: "Pointer to schedule hub for CRUD"),
+                    systemImage: "clock.badge"
+                )
+                Spacer()
+                Image(systemName: "arrow.up.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(DSColor.inkSubtle)
+            }
+            .accessibilityIdentifier("reminder-hub-hint")
+
             Picker(
                 NSLocalizedString("settings.reminder.frequency", value: "提醒频率", comment: "Capture reminder frequency preset"),
                 selection: Binding(

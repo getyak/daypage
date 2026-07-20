@@ -1431,3 +1431,25 @@
 "heatmap.a11y.base"           = "Activity heatmap, %d entries over the last 16 weeks";
 "heatmap.a11y.current_streak" = "%1$@, current streak %2$d days";
 "heatmap.a11y.best_streak"    = "%1$@, current streak 0 days, best ever %2$d days";
+
+
+/* MARK: - 调度中心 vNext (Schedule & Notifications) */
+"reminder.level.section" = "Reminder style";
+"reminder.level.quiet" = "Quiet";
+"reminder.level.loud" = "Important";
+"reminder.level.quiet.hint" = "Hovers gently on the Dynamic Island / Lock Screen — no sound, no takeover.";
+"reminder.level.loud.hint" = "A full-screen alarm with sound. For things you can't miss.";
+"schedule.hub.title" = "Schedule";
+"schedule.add" = "New reminder";
+"schedule.delete" = "Delete";
+"schedule.badge.ai" = "Scheduled by AI";
+"schedule.row.enabled" = "Enabled";
+"schedule.section.reminders" = "Reminders";
+"schedule.section.frequency" = "Frequency";
+"schedule.section.quiet" = "Quiet hours";
+"schedule.section.alarmkit" = "System alerts";
+"schedule.level.a11y.quiet" = "Level: Quiet. Tap to switch to Important.";
+"schedule.level.a11y.loud" = "Level: Important. Tap to switch to Quiet.";
+"sidebar.nav.schedule" = "Schedule";
+"sidebar.schedule.hint" = "Open the schedule center";
+"sidebar.schedule.upcoming" = "%d upcoming";

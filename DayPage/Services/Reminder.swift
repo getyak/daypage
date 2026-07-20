@@ -35,24 +35,58 @@ struct Reminder: Codable, Identifiable, Equatable {
         case ai
     }
 
+    /// 呈现级别 —— 到点时"多大声"。这是 vNext(2026-07-19)分层的支点:
+    ///   • .quiet —— 安静。轻量 UN 通知(interruptionLevel .active + sound nil),
+    ///     不夺屏、可真无声,只在锁屏/横幅优雅悬浮。默认。
+    ///   • .loud  —— 重要。AlarmKit 全屏闹钟 alert + 声音,给不能错过的事。
+    ///
+    /// 技术依据(逐行核对 iOS 26.4 SDK):AlarmKit 的 sound 非 Optional、无静音
+    /// 档,到点必全屏 alert —— 做不到"安静不响";故安静态走 UN,只有 .loud 走
+    /// AlarmKit。Codable 缺字段解码回退 .quiet,老数据无损升级。
+    enum Level: String, Codable, Equatable {
+        case quiet
+        case loud
+    }
+
     let id: UUID
     var trigger: Trigger
     var label: String
     var enabled: Bool
     var source: Source
+    var level: Level
 
     init(
         id: UUID = UUID(),
         trigger: Trigger,
         label: String,
         enabled: Bool = true,
-        source: Source = .user
+        source: Source = .user,
+        level: Level = .quiet
     ) {
         self.id = id
         self.trigger = trigger
         self.label = label
         self.enabled = enabled
         self.source = source
+        self.level = level
+    }
+
+    // MARK: Codable — level 向后兼容
+
+    /// 手写 decode 只为一件事:老数据(无 `level` 字段)解码成 `.quiet` 而非
+    /// 抛错。其余字段用默认合成行为。`trigger`/`source` 仍走自动 Codable。
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        trigger = try c.decode(Trigger.self, forKey: .trigger)
+        label = try c.decode(String.self, forKey: .label)
+        enabled = try c.decode(Bool.self, forKey: .enabled)
+        source = try c.decode(Source.self, forKey: .source)
+        level = try c.decodeIfPresent(Level.self, forKey: .level) ?? .quiet
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, trigger, label, enabled, source, level
     }
 
     // MARK: - Derived display

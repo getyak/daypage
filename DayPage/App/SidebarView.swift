@@ -13,6 +13,11 @@ struct SidebarView: View {
     @State private var showSettings = false
     @State private var showAccountSheet = false
 
+    /// Live reminder service — drives the schedule row's "upcoming" badge and
+    /// the feature-flag gate. Shared singleton so it stays in sync with Today.
+    @StateObject private var reminderService = CaptureReminderService.shared
+    @StateObject private var flagStore = FeatureFlagStore.shared
+
     /// Disclosure state for the Recent jump list — collapsed by default so
     /// the drawer opens to a single, calm screen (heatmap + stats + nav).
     @AppStorage("sidebar.recentExpanded") private var recentExpanded = false
@@ -320,8 +325,61 @@ struct SidebarView: View {
             // ask" ladder.
             searchRow
             askRow
+            // Schedule hub — capture-reminder CRUD lives here. Gated by the
+            // same feature flag as the reminder scheduler, so it disappears
+            // entirely when the flag is off (kill switch parity).
+            if flagStore.isEnabled(.captureReminder) {
+                scheduleRow
+            }
         }
         .padding(.horizontal, DSSpacing.md)
+    }
+
+    /// Entry to the "调度中心" (ScheduleHubView). Mirrors `askRow`/`searchRow`
+    /// styling, plus a mono badge showing how many reminders will fire next so
+    /// the drawer surfaces at-a-glance scheduling state. Closes the drawer,
+    /// then presents the hub as a sheet (Settings-style).
+    private var scheduleRow: some View {
+        let upcomingCount = reminderService.upcoming(limit: 99).count
+        return Button {
+            Haptics.light()
+            // sheet 由 RootView 挂在 nav.showScheduleHub 上(全局稳定层),关抽屉
+            // 不会影响它 —— 所以同 tick closeSidebar + 置 true 即可,无需延迟。
+            // (旧法把 sheet 挂在 SidebarView 上,抽屉离屏后其 @State 失活,呈现被丢。)
+            nav.closeSidebar()
+            nav.showScheduleHub = true
+        } label: {
+            HStack(spacing: DSSpacing.md) {
+                Image(systemName: "clock")
+                    .font(.system(size: 15, weight: .medium))
+                    .frame(width: 26, height: 26)
+                    .foregroundColor(DSColor.inkMuted)
+                Text(NSLocalizedString("sidebar.nav.schedule", value: "调度", comment: "Schedule hub nav row"))
+                    .font(DSType.bodyMD)
+                    .foregroundColor(DSColor.inkMuted)
+                if upcomingCount > 0 {
+                    Spacer(minLength: DSSpacing.sm)
+                    Text("\(upcomingCount)")
+                        .font(DSType.mono9)
+                        .foregroundColor(DSColor.inkMuted)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 1)
+                        .background(DSColor.amberSoft, in: Capsule())
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("sidebar.schedule")
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(NSLocalizedString("sidebar.nav.schedule", value: "调度", comment: "Schedule hub nav row"))
+        .accessibilityValue(upcomingCount > 0
+            ? String(format: NSLocalizedString("sidebar.schedule.upcoming", value: "%d 条即将触发", comment: "Upcoming reminders count"), upcomingCount)
+            : "")
+        .accessibilityHint(NSLocalizedString("sidebar.schedule.hint", value: "打开调度中心", comment: "Schedule hub hint"))
     }
 
     /// Issue #16 (2026-07-03): entry to the app-wide SearchView. Reuses

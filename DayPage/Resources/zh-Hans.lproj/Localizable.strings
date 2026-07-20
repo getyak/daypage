@@ -1438,3 +1438,25 @@
 "heatmap.a11y.base"           = "活动热力图，过去 16 周共 %d 条记录";
 "heatmap.a11y.current_streak" = "%1$@，当前连续 %2$d 天";
 "heatmap.a11y.best_streak"    = "%1$@，当前连续 0 天，历史最佳 %2$d 天";
+
+
+/* MARK: - 调度中心 vNext (Schedule & Notifications) */
+"reminder.level.section" = "提醒方式";
+"reminder.level.quiet" = "安静";
+"reminder.level.loud" = "重要";
+"reminder.level.quiet.hint" = "到点在灵动岛 / 锁屏优雅悬浮，不响、不夺屏。";
+"reminder.level.loud.hint" = "到点全屏闹钟 + 声音。留给不能错过的事。";
+"schedule.hub.title" = "调度";
+"schedule.add" = "新建提醒";
+"schedule.delete" = "删除";
+"schedule.badge.ai" = "AI 排的提醒";
+"schedule.row.enabled" = "启用";
+"schedule.section.reminders" = "提醒";
+"schedule.section.frequency" = "频率";
+"schedule.section.quiet" = "静音";
+"schedule.section.alarmkit" = "系统提醒";
+"schedule.level.a11y.quiet" = "级别：安静，点按切换为重要";
+"schedule.level.a11y.loud" = "级别：重要，点按切换为安静";
+"sidebar.nav.schedule" = "调度";
+"sidebar.schedule.hint" = "打开调度中心";
+"sidebar.schedule.upcoming" = "%d 条即将触发";

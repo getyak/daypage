@@ -195,6 +195,9 @@ struct TodayView: View {
     /// #821: true while a whole-dock press-to-talk session is recording.
     /// Drives the timeline spotlight scrim behind the in-place capsule.
     @State private var isDockVoiceActive: Bool = false
+    /// vNext:tap 录音持久 sheet 的当前档位。每次打开重置为 .medium("弹一点点"),
+    /// 用户可拖拽拉到 .large 全屏。
+    @State private var voiceRecorderDetent: PresentationDetent = .medium
 
     /// Issue #804: Today sparkle 现在打开 `TodayCoachView`（陪写引导）。
     /// AskPastView（RAG 「问过去」）保留在侧边栏 + Siri intent —— 两条路径
@@ -925,8 +928,13 @@ struct TodayView: View {
                         viewModel.cancelVoiceRecording()
                     }
                 )
-                .presentationDetents([.medium])
-                .presentationDragIndicator(.hidden)
+                // vNext:tap 录音的持久舱从"只弹一半"升级为可从 medium 拉到
+                // large 全屏 —— 用户明确要"这个弹窗可以拉上去"。显示 drag
+                // indicator 让"可拖拽放大"可发现。detent 变化由 sheet 原生驱动,
+                // 录音在 VoiceRecordingView 内部持续,拖拽不中断音频。
+                .presentationDetents([.medium, .large], selection: $voiceRecorderDetent)
+                .presentationDragIndicator(.visible)
+                .onAppear { voiceRecorderDetent = .medium }
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
@@ -1670,9 +1678,14 @@ struct TodayView: View {
     /// Reminder vNext: 即将触发的提醒胶囊条。FeatureFlag.captureReminder 关
     /// 时整条不挂载（kill switch 与调度器一致）。点胶囊 → 编辑；点「＋」→
     /// 新建。数据源是统一调度器，AI 排的提醒也会出现在这里。
+    ///
+    /// Today 瘦身（vNext 2026-07-19）：增删改已迁到「调度中心」，主流里只在
+    /// 真有「即将触发」提醒时才挂载这一条，让空态不占位；没有即将触发的提醒
+    /// 时整条消失，用户去侧边栏「调度」管理。
     @ViewBuilder
     private var reminderStrip: some View {
-        if FeatureFlagStore.shared.isEnabled(.captureReminder) {
+        if FeatureFlagStore.shared.isEnabled(.captureReminder),
+           !reminderService.upcoming(limit: 1, now: currentTime).isEmpty {
             ReminderCapsuleStrip(
                 service: reminderService,
                 now: currentTime,

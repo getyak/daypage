@@ -120,12 +120,22 @@ final class CaptureReminderService: ObservableObject {
         refreshSchedule()
     }
 
-    /// 整体替换某条提醒的 trigger(编辑 sheet 保存时用)。
-    func updateReminder(_ id: UUID, trigger: Reminder.Trigger, label: String? = nil) {
+    /// 整体替换某条提醒的 trigger / label / level(编辑 sheet 保存时用)。
+    func updateReminder(_ id: UUID, trigger: Reminder.Trigger, label: String? = nil, level: Reminder.Level? = nil) {
         guard let idx = reminders.firstIndex(where: { $0.id == id }) else { return }
         reminders[idx].trigger = trigger
         if let label { reminders[idx].label = label }
+        if let level { reminders[idx].level = level }
         sortReminders()
+        persist()
+        refreshSchedule()
+    }
+
+    /// 仅切换某条提醒的呈现级别(调度中心快捷切换 / 芯片点击用)。
+    func setLevel(_ id: UUID, _ level: Reminder.Level) {
+        guard let idx = reminders.firstIndex(where: { $0.id == id }) else { return }
+        guard reminders[idx].level != level else { return }
+        reminders[idx].level = level
         persist()
         refreshSchedule()
     }
@@ -220,19 +230,36 @@ final class CaptureReminderService: ObservableObject {
 
     // MARK: - Scheduling
 
-    /// 幂等重排。先剔除过期一次性,再按两条路径装载:
-    ///   • iOS 26+ 且 AlarmKit 已授权 → AlarmKit(真灵动岛),同时清 UNCalendar 侧。
-    ///   • 否则 → UN 通知(一次性用 TimeInterval,重复用 Calendar)。
-    /// FeatureFlag 关时只清不装(两条路径都清)。
+    /// 幂等重排。先剔除过期一次性,再<b>按每条提醒的 level 分派</b>(vNext 分层):
+    ///   • `.loud` 且 iOS 26+ AlarmKit 已授权 → AlarmKit 全屏闹钟 alert。
+    ///   • `.quiet`(或 AlarmKit 不可用时的 `.loud` 降级)→ UN 通知:安静态
+    ///     用 interruptionLevel .active + sound nil(真无声悬浮)。
+    /// 两条路径每次都各自全清再重装(前缀清 UN,遍历 cancel AlarmKit),所以
+    /// 一条提醒改 level 后不会在旧路径留残影。FeatureFlag 关时只清不装。
     func refreshSchedule() {
         registerCategoryIfNeeded()
         pruneExpiredOneShots()
 
-        if #available(iOS 26.0, *), useAlarmKit {
-            refreshViaAlarmKit()
-            return
-        }
+        // UN 路径始终处理"安静 + AlarmKit 降级的 loud";AlarmKit 路径只处理
+        // "loud 且可用"。两者的 reminder 集合互斥,靠 shouldUseAlarmKit(for:)
+        // 单一判定,避免同一条被两边都装。
         refreshViaNotifications()
+
+        if #available(iOS 26.0, *) {
+            refreshViaAlarmKit()
+        }
+    }
+
+    /// 某条提醒是否走 AlarmKit(全屏闹钟)。仅 `.loud` + iOS26+ + 已授权 + flag 开。
+    /// 其余(含 AlarmKit 未授权时的 `.loud`)一律降级 UN。
+    private func shouldUseAlarmKit(for reminder: Reminder) -> Bool {
+        guard reminder.level == .loud else { return false }
+        guard FeatureFlagStore.shared.isEnabled(.captureReminder) else { return false }
+        guard preferAlarmKit else { return false }
+        if #available(iOS 26.0, *) {
+            return alarmKitAuthorized
+        }
+        return false
     }
 
     /// 剔除已过期的一次性提醒(fireDate < now)。重复提醒不受影响。
@@ -269,6 +296,8 @@ final class CaptureReminderService: ObservableObject {
     private func installActiveReminders(into center: UNUserNotificationCenter) {
         var scheduled = 0
         for reminder in reminders where reminder.enabled {
+            // 走 AlarmKit(全屏闹钟)的 loud 提醒不在 UN 侧装,避免双份触发。
+            if shouldUseAlarmKit(for: reminder) { continue }
             // 一条 Reminder 可能展开成多条 UN request(weekdays:每个周几一条)。
             // sub-identifier 用 "<prefix><id>" 或 "<prefix><id>.w<weekday>",
             // 都以 requestPrefix 打头,重排时被前缀清理统一带走。
@@ -276,9 +305,9 @@ final class CaptureReminderService: ObservableObject {
                 let content = UNMutableNotificationContent()
                 content.title = "记录此刻"
                 content.body = reminder.promptBody
-                content.sound = .default
                 content.categoryIdentifier = Self.categoryID
                 content.userInfo = ["captureReminderID": reminder.id.uuidString]
+                applyPresentation(reminder.level, to: content)
 
                 let request = UNNotificationRequest(
                     identifier: spec.identifier,
@@ -293,7 +322,23 @@ final class CaptureReminderService: ObservableObject {
                 scheduled += 1
             }
         }
-        DayPageLogger.shared.info("[CaptureReminder] scheduled \(scheduled) requests")
+        DayPageLogger.shared.info("[CaptureReminder] scheduled \(scheduled) UN requests")
+    }
+
+    /// 把 level 映射到 UN content 的呈现强度(vNext 分层):
+    ///   • .quiet → interruptionLevel .active + sound nil —— 优雅悬浮、真无声,
+    ///     不夺屏(UN 的 sound 是 Optional,nil = 完全静音,这是 AlarmKit 缺的)。
+    ///   • .loud  → 到这条路径说明 AlarmKit 不可用(降级):给声音 + timeSensitive,
+    ///     尽量接近"重要"语义。真全屏闹钟需 AlarmKit 可用时才有。
+    private func applyPresentation(_ level: Reminder.Level, to content: UNMutableNotificationContent) {
+        switch level {
+        case .quiet:
+            content.interruptionLevel = .active
+            content.sound = nil
+        case .loud:
+            content.interruptionLevel = .timeSensitive
+            content.sound = .default
+        }
     }
 
     /// 把一条 Reminder 展开成 (identifier, trigger) 列表。
@@ -359,18 +404,13 @@ final class CaptureReminderService: ObservableObject {
         }
     }
 
-    // MARK: - AlarmKit (iOS 26+ 真灵动岛路径)
+    // MARK: - AlarmKit (iOS 26+ 全屏闹钟路径 · 仅 .loud 提醒)
+    //
+    // vNext(2026-07-19):AlarmKit 不再是"全局默认",而是"重要提醒"的落点。
+    // 每条提醒的路由由 shouldUseAlarmKit(for:) 按 level 判定;preferAlarmKit
+    // 从"是否全用 AlarmKit"降级为"允许 .loud 走 AlarmKit"的总闸(默认 on)。
 
-    private var useAlarmKit: Bool {
-        guard FeatureFlagStore.shared.isEnabled(.captureReminder) else { return false }
-        guard preferAlarmKit else { return false }
-        if #available(iOS 26.0, *) {
-            return alarmKitAuthorized
-        }
-        return false
-    }
-
-    /// 用户偏好:iOS 26+ 上是否用 AlarmKit 系统灵动岛(默认 on)。存 UserDefaults。
+    /// 用户偏好:iOS 26+ 上是否允许 .loud 提醒走 AlarmKit 全屏闹钟(默认 on)。存 UserDefaults。
     var preferAlarmKit: Bool {
         get {
             let v = defaults.object(forKey: Keys.preferAlarmKit)
@@ -441,6 +481,36 @@ final class CaptureReminderService: ObservableObject {
         refreshSchedule()
     }
 
+    /// 构造闹钟 alert 呈现 —— 副按钮「记一句」+ .custom。iOS 26.1 起停止按钮
+    /// 由系统自动提供(不带 stopButton 的 init 也从 26.1 才可用);26.0 回退带
+    /// stopButton 的旧构造。两分支的副按钮都靠 config.secondaryIntent 落地。
+    @available(iOS 26.0, *)
+    private static func makeCaptureAlert() -> AlarmPresentation.Alert {
+        let secondary = AlarmButton(
+            text: LocalizedStringResource(stringLiteral: "记一句"),
+            textColor: .white,
+            systemImageName: "mic.fill"
+        )
+        if #available(iOS 26.1, *) {
+            return AlarmPresentation.Alert(
+                title: LocalizedStringResource(stringLiteral: "记录此刻"),
+                secondaryButton: secondary,
+                secondaryButtonBehavior: .custom
+            )
+        } else {
+            return AlarmPresentation.Alert(
+                title: LocalizedStringResource(stringLiteral: "记录此刻"),
+                stopButton: AlarmButton(
+                    text: LocalizedStringResource(stringLiteral: "稍后"),
+                    textColor: .white,
+                    systemImageName: "xmark"
+                ),
+                secondaryButton: secondary,
+                secondaryButtonBehavior: .custom
+            )
+        }
+    }
+
     /// AlarmKit 重排:清 UNCalendar 侧旧通知 → 取消旧 alarm → 为每条启用的
     /// 提醒排 alarm(一次性 = .fixed;重复 = .relative)。
     @available(iOS 26.0, *)
@@ -463,6 +533,8 @@ final class CaptureReminderService: ObservableObject {
             }
             var scheduled = 0
             for reminder in reminders where reminder.enabled {
+                // 只装"重要 + AlarmKit 可用"的;安静态与降级 loud 已在 UN 侧装。
+                guard shouldUseAlarmKit(for: reminder) else { continue }
                 if await scheduleAlarm(for: reminder) { scheduled += 1 }
             }
             DayPageLogger.shared.info("[CaptureReminder] AlarmKit scheduled \(scheduled) alarms")
@@ -495,20 +567,11 @@ final class CaptureReminderService: ObservableObject {
             schedule = .relative(.init(time: time, repeats: .weekly(weekdays)))
         }
 
-        let alert = AlarmPresentation.Alert(
-            title: LocalizedStringResource(stringLiteral: "记录此刻"),
-            stopButton: AlarmButton(
-                text: LocalizedStringResource(stringLiteral: "稍后"),
-                textColor: .white,
-                systemImageName: "xmark"
-            ),
-            secondaryButton: AlarmButton(
-                text: LocalizedStringResource(stringLiteral: "记一句"),
-                textColor: .white,
-                systemImageName: "mic.fill"
-            ),
-            secondaryButtonBehavior: .custom
-        )
+        // 副按钮「记一句」走 .custom + secondaryIntent —— 修好"点了没反应"的
+        // 静默失效 bug(见下方 config 的 secondaryIntent)。iOS 26.1 起 stopButton
+        // 已废弃(停止按钮由系统自动提供),但无 stopButton 的 init 也只在 26.1+
+        // 可用;部署 gate 是 26.0,故按版本分支,26.0 仍用带 stopButton 的旧构造。
+        let alert = Self.makeCaptureAlert()
         let presentation = AlarmPresentation(alert: alert)
         let metadata = CaptureAlarmMetadata(prompt: reminder.promptBody, slotID: reminder.id.uuidString)
         let attributes = AlarmAttributes(
@@ -519,12 +582,14 @@ final class CaptureReminderService: ObservableObject {
             // attributes.tintColor,不再各自硬编码副本(单源防漂移)。
             tintColor: Color(red: 0.788, green: 0.533, blue: 0.227)
         )
+        // secondaryIntent 必须是 LiveActivityIntent(SDK 类型约束),点副按钮
+        // 前台唤起 app + open daypage://record → 录音。这是本次核心 bug 修复。
         let config = AlarmManager.AlarmConfiguration(
             countdownDuration: nil,
             schedule: schedule,
             attributes: attributes,
             stopIntent: nil,
-            secondaryIntent: nil,
+            secondaryIntent: CaptureVoiceIntent(reminderID: reminder.id.uuidString),
             sound: .default
         )
         do {
@@ -543,20 +608,7 @@ final class CaptureReminderService: ObservableObject {
     @available(iOS 26.0, *)
     func qaStartCountdownTimer(seconds: TimeInterval) async {
         _ = await requestAlarmKitAuthorization()
-        let alert = AlarmPresentation.Alert(
-            title: LocalizedStringResource(stringLiteral: "记录此刻"),
-            stopButton: AlarmButton(
-                text: LocalizedStringResource(stringLiteral: "稍后"),
-                textColor: .white,
-                systemImageName: "xmark"
-            ),
-            secondaryButton: AlarmButton(
-                text: LocalizedStringResource(stringLiteral: "记一句"),
-                textColor: .white,
-                systemImageName: "mic.fill"
-            ),
-            secondaryButtonBehavior: .custom
-        )
+        let alert = Self.makeCaptureAlert()
         let countdown = AlarmPresentation.Countdown(
             title: LocalizedStringResource(stringLiteral: "记录此刻"))
         let presentation = AlarmPresentation(alert: alert, countdown: countdown)
