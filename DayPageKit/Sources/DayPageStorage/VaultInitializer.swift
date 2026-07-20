@@ -7,13 +7,26 @@ public enum VaultInitializer {
 
     // MARK: - Vault root
 
-    /// Swappable storage backend. Lazily resolved: uses iCloudVaultLocator when
-    /// the ubiquity container is available; falls back to LocalVaultLocator otherwise.
-    /// Can be overridden at runtime (e.g., after the user enables iCloud in Settings).
-    public static var shared: VaultLocator = {
-        let icloud = iCloudVaultLocator()
-        return icloud.isUsingiCloud ? icloud : LocalVaultLocator()
-    }()
+    /// Swappable storage backend.
+    ///
+    /// Defaults to `LocalVaultLocator` — a pure local-Documents path that never
+    /// touches the iCloud daemon. This is deliberate: `iCloudVaultLocator`
+    /// resolves the ubiquity container via `FileManager.url(forUbiquityContainerIdentifier:)`,
+    /// which Apple documents as a *blocking* call that must not run on the main
+    /// thread. `initializeIfNeeded()` reads `vaultURL` 13+ times synchronously
+    /// inside `DayPageApp.init()` (before the first frame). On a fresh install the
+    /// iCloud daemon hasn't provisioned the container yet, so each call could hang
+    /// for seconds — enough to blow past the launch watchdog (~20s) and get the
+    /// process killed with `0x8badf00d` (symptom: blank screen, then crash on
+    /// first launch after reinstall).
+    ///
+    /// iCloud detection is instead performed off the main thread in
+    /// `DayPageApp.init`'s `Task.detached` re-probe, which hot-swaps this locator
+    /// to `iCloudVaultLocator` once the container becomes available. Runtime
+    /// readers (`MemoCardView`, the sync/conflict monitors, migration) observe the
+    /// swap transparently. Can also be overridden at runtime (e.g., after the user
+    /// toggles iCloud in Settings).
+    public static var shared: VaultLocator = LocalVaultLocator()
 
     /// Test-only override. When non-nil, `vaultURL` returns this instead of the
     /// locator-derived URL. Keep `internal` so `@testable import DayPage` tests
