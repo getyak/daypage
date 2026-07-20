@@ -481,6 +481,7 @@
 "voice.retry.transcribing"     = "Transcribing…";
 "voice.retry.failed_permanent" = "Transcription unavailable";
 "voice.retry.failed_permanent_a11y" = "Transcription permanently failed after 3 attempts. Audio is saved.";
+"voice.retry.rerun"            = "Re-transcribe";
 
 "search.undo.cleared" = "Recent searches cleared";
 

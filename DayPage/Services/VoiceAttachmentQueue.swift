@@ -40,6 +40,23 @@ final class VoiceAttachmentQueue: ObservableObject {
         updateCount()
         observeNetworkChanges()
         observeAppActive()
+        kickOnLaunch()
+    }
+
+    /// Cold-start recovery. The exponential-backoff retry chain
+    /// (`scheduleBackoffRetry`) lives entirely in an in-memory `Task.sleep`, so
+    /// killing the app mid-chain strands any not-yet-`.failed` entry: only
+    /// `attempts` is persisted, not the pending timer. Nothing re-drives the
+    /// queue on a fresh launch except `didBecomeActive`, which may fire before
+    /// or after this singleton exists. This kicks the queue once at startup
+    /// (deferred off the init frame to avoid touching `vaultURL` synchronously —
+    /// see the iCloud launch-watchdog fix) so a stranded card resumes instead of
+    /// shimmering forever.
+    private func kickOnLaunch() {
+        Task { @MainActor [weak self] in
+            guard let self, self.pendingCount > 0 else { return }
+            await self.processQueue()
+        }
     }
 
     // MARK: - Public API
@@ -91,7 +108,20 @@ final class VoiceAttachmentQueue: ObservableObject {
                 }
 
                 if let transcript = await VoiceService.shared.transcribeAudio(at: audioURL) {
-                    writeTranscriptBack(transcript: transcript, entry: entry)
+                    let written = writeTranscriptBack(transcript: transcript, entry: entry)
+                    // Transcription succeeded but the write-back found no
+                    // matching attachment (memo deleted / moved / date drift).
+                    // Retrying can never help — the target row is gone — so drop
+                    // the entry instead of leaving a card frozen at `.pending`
+                    // forever while the queue silently thinks it's done. Loud
+                    // breadcrumb so this stops being invisible.
+                    if !written {
+                        SentryReporter.breadcrumb(
+                            category: "voice-queue",
+                            level: .warning,
+                            message: "transcript ready but no matching attachment — dropping entry \(entry.audioPath)"
+                        )
+                    }
                     entries.remove(at: i)
                     changedThisPass = true
                     consumedOne = true
@@ -105,7 +135,18 @@ final class VoiceAttachmentQueue: ObservableObject {
                         // into the day file — the card UI keys off the
                         // attachment's transcription_status, and leaving it
                         // `pending` froze the shimmer placeholder forever.
-                        Self.applyStatus(.failed, audioPath: entry.audioPath, memoDate: entry.memoDate)
+                        let wrote = Self.applyStatus(.failed, audioPath: entry.audioPath, memoDate: entry.memoDate)
+                        if !wrote {
+                            // The queue is about to mark this entry done, but the
+                            // attachment status never flipped — the card would
+                            // shimmer forever with no retry. Surface it instead
+                            // of failing silently.
+                            SentryReporter.breadcrumb(
+                                category: "voice-queue",
+                                level: .warning,
+                                message: "retries exhausted but no matching attachment for .failed write: \(entry.audioPath)"
+                            )
+                        }
                     }
                     changedThisPass = true
                 }
@@ -180,7 +221,10 @@ final class VoiceAttachmentQueue: ObservableObject {
         }
     }
 
-    private func writeTranscriptBack(transcript: String, entry: VoiceQueueEntry) {
+    /// Returns whether a matching attachment was found and rewritten. A `false`
+    /// means the transcript had nowhere to land — the caller drops the entry.
+    @discardableResult
+    private func writeTranscriptBack(transcript: String, entry: VoiceQueueEntry) -> Bool {
         Self.applyTranscript(
             transcript: transcript,
             audioPath: entry.audioPath,

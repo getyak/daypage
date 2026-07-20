@@ -991,6 +991,19 @@ struct VoiceMemoPlayerRow: View {
                             } label: {
                                 Label("复制", systemImage: "doc.on.doc")
                             }
+                            // Long-press to re-run transcription even on an
+                            // already-transcribed clip. The live-stream draft is
+                            // fast but occasionally rougher than the flash file
+                            // pass; this lets the user upgrade it on demand
+                            // instead of being stuck with the first result.
+                            if onRetranscribe != nil {
+                                Button {
+                                    isRetranscribing = true
+                                    onRetranscribe?()
+                                } label: {
+                                    Label(NSLocalizedString("voice.retry.rerun", value: "重新转写", comment: "Re-run transcription on an already-transcribed clip"), systemImage: "arrow.clockwise")
+                                }
+                            }
                         }
                     Text("\u{201D}")
                         .font(DSFonts.serif(size: 20, weight: .medium, relativeTo: .title3))
