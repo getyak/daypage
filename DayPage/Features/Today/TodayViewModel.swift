@@ -828,136 +828,206 @@ final class TodayViewModel: ObservableObject, MemoDetailViewModel {
 
     /// Submits a memo combining the draft text with all staged pendingAttachments.
     /// Determines type automatically: text | voice | photo | mixed.
+    ///
+    /// **落盘先于加载 (persist-then-enrich).** The memo is built from data we
+    /// already hold — body, attachments, EXIF timestamp/GPS, device — with **no
+    /// awaits**, then committed in three synchronous steps the user feels this
+    /// frame: it flies into the list, the composer clears, and a haptic fires.
+    /// Only after the card is on screen do we (a) durably append it to disk and
+    /// (b) chase the two slow, optional signals — GPS + weather — which are
+    /// patched in afterward by `enrichMetadata`. The old flow awaited a 3-second
+    /// location lookup + a weather network call *before* the card ever appeared,
+    /// so a send read as a multi-second stall for metadata the Today card does
+    /// not even render.
     func submitCombinedMemo(body: String) {
         let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
         let hasText = !trimmed.isEmpty
-        let attachments = pendingAttachments
-        guard hasText || !attachments.isEmpty else { return }
+        let snapshotAttachments = pendingAttachments
+        guard hasText || !snapshotAttachments.isEmpty else { return }
 
-        // B4: re-entrancy guard. Without this, a rapid double-tap on the send
-        // arrow (or send + an auto-submit from photo batch processing) can
-        // enqueue two parallel Tasks that both append the same memo and race
-        // on the inflight-draft store. Drops the second call as a no-op.
+        // B4: re-entrancy guard. The commit below is fully synchronous on the
+        // MainActor, so this only ever trips on a genuine second invocation
+        // (e.g. a photo-batch auto-submit racing a manual send) — and by then
+        // the composer state is already cleared, so no memo can be duplicated.
         guard !isSubmitting else { return }
-
         isSubmitting = true
         submitError = nil
 
-        let loc = pendingLocation
-        let snapshotAttachments = attachments
+        let userSetLocation = pendingLocation
 
-        // Persist an inflight record BEFORE we await anything. If the user
-        // kills the app (or the OS does) during the location/weather/append
-        // await chain, this on-disk record lets the next launch restore the
-        // body into the composer — without it, the synchronous `draftText
-        // = ""` in TodayView's Send handler would have silently destroyed
-        // the user's typed text. Issue #23.
-        let inflightAttachmentPaths = snapshotAttachments.map { $0.attachment.file }
-        let inflightURL = InflightDraftStore.enqueue(
-            body: trimmed,
-            attachmentPaths: inflightAttachmentPaths
-        )
+        // --- Build the memo synchronously, from data already in hand ---
 
-        submitMemoTask = Task { @MainActor in
-            defer { isSubmitting = false }
+        // created: photo-only memos inherit the shot's EXIF capture time.
+        var created = Date()
+        if !hasText, case .photo(let r) = snapshotAttachments.first,
+           let exifDate = r.exif?.capturedAt {
+            created = exifDate
+        }
 
-            // Auto-fetch location for every memo when not already set by the user.
-            // Falls back silently on denial or timeout — location is best-effort metadata.
-            var memoLocation: Memo.Location? = loc
-            if memoLocation == nil {
-                memoLocation = try? await locationService.currentLocation(timeout: 3)
-            }
-
-            // Derive location from first photo EXIF when GPS is still missing
-            if memoLocation == nil {
-                for att in snapshotAttachments {
-                    if case .photo(let r) = att,
-                       let lat = r.exif?.gpsLat,
-                       let lng = r.exif?.gpsLng {
-                        memoLocation = Memo.Location(name: nil, lat: lat, lng: lng)
-                        break
-                    }
-                }
-            }
-
-            let weatherString = await weatherService.currentWeather(at: memoLocation)
-
-            // Determine created date: prefer first photo EXIF date when text is absent
-            var created = Date()
-            if !hasText, case .photo(let r) = snapshotAttachments.first,
-               let exifDate = r.exif?.capturedAt {
-                created = exifDate
-            }
-
-            // Build Memo.Attachment array
-            let memoAttachments = snapshotAttachments.map { $0.attachment }
-
-            // Determine type
-            let hasPhotos = snapshotAttachments.contains { if case .photo = $0 { return true }; return false }
-            let hasVoice  = snapshotAttachments.contains { if case .voice = $0 { return true }; return false }
-            let hasFiles  = snapshotAttachments.contains { if case .file = $0 { return true }; return false }
-            let memoType: Memo.MemoType
-            let typeCount = (hasText ? 1 : 0) + (hasPhotos ? 1 : 0) + (hasVoice ? 1 : 0) + (hasFiles ? 1 : 0)
-            if typeCount > 1 {
-                memoType = .mixed
-            } else if hasPhotos {
-                memoType = .photo
-            } else if hasVoice {
-                memoType = .voice
-            } else if hasFiles {
-                memoType = .mixed
-            } else {
-                memoType = .text
-            }
-
-            // Body is always the user-typed text (trimmed). For voice-only memos this
-            // is empty — the transcript lives exclusively in attachment.transcript and
-            // is rendered by VoiceMemoPlayerRow, preventing duplicate display.
-            let finalBody = trimmed
-
-            let memo = Memo(
-                type: memoType,
-                created: created,
-                location: memoLocation,
-                weather: weatherString,
-                device: deviceDescription(),
-                attachments: memoAttachments,
-                body: finalBody
-            )
-
-            do {
-                try RawStorage.append(memo)
-                InflightDraftStore.dequeue(inflightURL)
-                // Issue #18 (2026-07-03): record the creation event with
-                // the memo kind so the debug board can show a per-kind
-                // stack for "what am I capturing this month?".
-                AnalyticsService.shared.record(
-                    AnalyticsService.Name.memoCreated,
-                    props: ["kind": memo.type.rawValue]
-                )
-                withAnimation(Motion.spring) {
-                    memos.insert(memo, at: 0)
-                }
-                Haptics.successNotification()
-                pendingLocation = nil
-                pendingAttachments = []
-                // B4: clear any residual failed-body breadcrumb from a prior
-                // attempt. Without this, after recovery + successful resubmit
-                // the next onChange of `lastFailedBody` could re-fire and
-                // restore stale text into the now-clean composer.
-                lastFailedBody = nil
-                // Track save count for sync banner (US-010)
-                let count = UserDefaults.standard.integer(forKey: AppSettings.Keys.memoSaveCount)
-                UserDefaults.standard.set(count + 1, forKey: AppSettings.Keys.memoSaveCount)
-            } catch {
-                // The inflight record stays on disk — next launch (or the
-                // user retrying via lastFailedBody) gets the body back.
-                submitError = String(format: NSLocalizedString("error.memo.save_failed", comment: ""), error.localizedDescription)
-                if !finalBody.isEmpty {
-                    lastFailedBody = finalBody
+        // location: prefer the user's explicit pin, else a photo's EXIF GPS.
+        // If neither is present the field stays nil and `enrichMetadata` fills
+        // it in from a live GPS fix after the card is already on screen.
+        var initialLocation: Memo.Location? = userSetLocation
+        if initialLocation == nil {
+            for att in snapshotAttachments {
+                if case .photo(let r) = att,
+                   let lat = r.exif?.gpsLat,
+                   let lng = r.exif?.gpsLng {
+                    initialLocation = Memo.Location(name: nil, lat: lat, lng: lng)
+                    break
                 }
             }
         }
+
+        let memoAttachments = snapshotAttachments.map { $0.attachment }
+
+        // Determine type
+        let hasPhotos = snapshotAttachments.contains { if case .photo = $0 { return true }; return false }
+        let hasVoice  = snapshotAttachments.contains { if case .voice = $0 { return true }; return false }
+        let hasFiles  = snapshotAttachments.contains { if case .file = $0 { return true }; return false }
+        let memoType: Memo.MemoType
+        let typeCount = (hasText ? 1 : 0) + (hasPhotos ? 1 : 0) + (hasVoice ? 1 : 0) + (hasFiles ? 1 : 0)
+        if typeCount > 1 {
+            memoType = .mixed
+        } else if hasPhotos {
+            memoType = .photo
+        } else if hasVoice {
+            memoType = .voice
+        } else if hasFiles {
+            memoType = .mixed
+        } else {
+            memoType = .text
+        }
+
+        // Body is always the user-typed text (trimmed). For voice-only memos this
+        // is empty — the transcript lives exclusively in attachment.transcript and
+        // is rendered by VoiceMemoPlayerRow, preventing duplicate display.
+        let memo = Memo(
+            type: memoType,
+            created: created,
+            location: initialLocation,
+            weather: nil,               // enriched after the card lands (see enrichMetadata)
+            device: deviceDescription(),
+            attachments: memoAttachments,
+            body: trimmed
+        )
+
+        // Persist an inflight record BEFORE the durable append is scheduled. If
+        // the app is killed in the (now tiny, await-free) window between the
+        // optimistic insert and the disk write, this on-disk record lets the
+        // next launch restore the body into the composer. Issue #23.
+        let inflightURL = InflightDraftStore.enqueue(
+            body: trimmed,
+            attachmentPaths: memoAttachments.map { $0.file }
+        )
+
+        // --- 1. Optimistic insert: the memo is on screen THIS frame. ---
+        withAnimation(Motion.spring) {
+            memos.insert(memo, at: 0)
+        }
+        // Single authoritative "committed" haptic, now firing on the same frame
+        // as the visual — the composers no longer fire a redundant tap-time
+        // haptic to paper over the old multi-second landing delay.
+        Haptics.successNotification()
+
+        // --- 2. Clear composer state synchronously. ---
+        pendingLocation = nil
+        pendingAttachments = []
+        // B4: clear any residual failed-body breadcrumb from a prior attempt so
+        // a later onChange of `lastFailedBody` can't restore stale text.
+        lastFailedBody = nil
+
+        // The perceived work is done — re-enable the send affordance now so a
+        // heavy-capturing user can fire the next memo without waiting on disk.
+        isSubmitting = false
+
+        // Issue #18: record the creation event with the memo kind, and bump the
+        // save count (US-010). The memo is committed to the UI, so these are
+        // true now regardless of how the background enrichment resolves.
+        AnalyticsService.shared.record(
+            AnalyticsService.Name.memoCreated,
+            props: ["kind": memo.type.rawValue]
+        )
+        let count = UserDefaults.standard.integer(forKey: AppSettings.Keys.memoSaveCount)
+        UserDefaults.standard.set(count + 1, forKey: AppSettings.Keys.memoSaveCount)
+
+        // --- 3. Durable write (落盘), then 4. progressive enrichment. ---
+        submitMemoTask = Task { @MainActor in
+            // Persist first. Disk I/O is offloaded so the append + atomic
+            // rename never blocks the main thread (CLAUDE.md convention). The
+            // failure is surfaced as a plain String so no Error existential
+            // crosses the actor boundary.
+            let writeErrorMessage: String? = await Task.detached(priority: .userInitiated) { () -> String? in
+                do { try RawStorage.append(memo); return nil }
+                catch { return error.localizedDescription }
+            }.value
+
+            if let writeErrorMessage {
+                // Durable write failed — roll the optimistic card back out and
+                // hand the body back to the composer. The inflight record stays
+                // on disk for next-launch recovery.
+                withAnimation(Motion.rise) {
+                    self.memos.removeAll { $0.id == memo.id }
+                }
+                self.submitError = String(format: NSLocalizedString("error.memo.save_failed", comment: ""), writeErrorMessage)
+                if !trimmed.isEmpty { self.lastFailedBody = trimmed }
+                Haptics.warn()
+                return
+            }
+
+            InflightDraftStore.dequeue(inflightURL)
+            // Chase the slow, optional GPS + weather signals only now that the
+            // memo is safely on disk.
+            await self.enrichMetadata(for: memo)
+        }
+    }
+
+    /// Fills in the slow, optional GPS + weather signals AFTER a memo is already
+    /// on screen and on disk. Reverse of the old submit order: the user never
+    /// waits on these. Best-effort — any signal that can't be resolved is simply
+    /// left off. The raw file is patched in place via `RawStorage.mutate` (which
+    /// runs on the write queue, so it can't clobber a concurrent append/rewrite)
+    /// and the resolved values crossfade into the on-screen card.
+    private func enrichMetadata(for memo: Memo) async {
+        // 1. Resolve a live GPS fix only when we don't already have coordinates
+        //    (user pin / photo EXIF already supplied them at commit time).
+        let needsLocation = memo.location?.lat == nil
+        var resolvedLocation = memo.location
+        if needsLocation {
+            resolvedLocation = try? await locationService.currentLocation(timeout: 3)
+        }
+        let locationChanged = needsLocation && resolvedLocation?.lat != nil
+
+        // 2. Weather needs coordinates; fetch once location has settled.
+        let resolvedWeather = await weatherService.currentWeather(at: resolvedLocation)
+
+        // Nothing new to write — leave the memo as committed.
+        guard locationChanged || resolvedWeather != nil else { return }
+
+        // 3. Patch the raw file in place, keyed by memo id. Returning nil (memo
+        //    no longer present — e.g. deleted mid-enrichment) aborts the write.
+        let memoID = memo.id
+        let createdDate = memo.created
+        let locationToWrite = locationChanged ? resolvedLocation : nil
+        Task.detached(priority: .utility) {
+            try? RawStorage.mutate(for: createdDate) { current in
+                guard let idx = current.firstIndex(where: { $0.id == memoID }) else { return nil }
+                var updated = current
+                if let loc = locationToWrite { updated[idx].location = loc }
+                if let w = resolvedWeather { updated[idx].weather = w }
+                return updated
+            }
+        }
+
+        // 4. Reflect the enriched metadata in the on-screen card (gentle
+        //    crossfade — the row is unchanged except for these quiet fields).
+        guard let idx = memos.firstIndex(where: { $0.id == memoID }) else { return }
+        var patched = memos[idx]
+        if let loc = locationToWrite { patched.location = loc }
+        if let w = resolvedWeather { patched.weather = w }
+        var newMemos = memos
+        newMemos[idx] = patched
+        withAnimation(Motion.fade) { memos = newMemos }
     }
 
     // MARK: - Fetch Location

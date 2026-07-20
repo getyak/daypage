@@ -1008,7 +1008,9 @@ struct WriteSheetView: View {
 
     private func handleSave() {
         guard isDirty else { return }
-        Haptics.medium()
+        // No tap-time haptic: submitCombinedMemo fires the single authoritative
+        // `.successNotification()` on the same frame it inserts the memo
+        // (optimistic commit), so a commit-on-tap buzz would double up.
         isFocused = false
         onSave()
     }

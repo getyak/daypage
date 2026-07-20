@@ -141,6 +141,43 @@ struct TodayViewModelTests {
         #expect(vm.memos.first?.pinnedAt != nil)
     }
 
+    // MARK: - submitCombinedMemo (optimistic commit + durable persist)
+
+    /// 落盘先于加载：the memo must appear in `memos` on the SAME synchronous turn
+    /// the user taps send — no awaiting location/weather first — and must still
+    /// land on disk afterward via the background durable-write task.
+    @Test func submitCombinedMemo_insertsOptimisticallyThenPersists() async throws {
+        defer { cleanup() }
+        #expect(vm.memos.isEmpty)
+
+        vm.submitCombinedMemo(body: "optimistic hello")
+
+        // Optimistic insert + composer reset happen synchronously — the user
+        // perceives the memo immediately, before any GPS/weather await.
+        #expect(vm.memos.count == 1)
+        #expect(vm.memos.first?.body == "optimistic hello")
+        #expect(vm.isSubmitting == false)
+        #expect(vm.pendingAttachments.isEmpty)
+
+        // The durable append runs off-main; poll until the raw file reflects it.
+        let deadline = Date().addingTimeInterval(5)
+        var persisted: [Memo] = []
+        while Date() < deadline {
+            persisted = (try? RawStorage.read(for: Date())) ?? []
+            if !persisted.isEmpty { break }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        #expect(persisted.contains { $0.body == "optimistic hello" })
+    }
+
+    /// An empty submit with no attachments is a no-op — no ghost card, no write.
+    @Test func submitCombinedMemo_emptyBodyNoAttachments_isNoOp() {
+        defer { cleanup() }
+        vm.submitCombinedMemo(body: "   \n  ")
+        #expect(vm.memos.isEmpty)
+        #expect(vm.isSubmitting == false)
+    }
+
     // MARK: - signalCount
 
     @Test func signalCount_matchesMemoCount() {
