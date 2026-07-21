@@ -404,6 +404,28 @@ enum PosterStyle: String, CaseIterable, Identifiable {
         case .postcard: return "明信片"  // detail.jsx:761
         }
     }
+
+    /// Picks the style that flatters this payload, so the sheet opens on the
+    /// best-looking card rather than always defaulting to `.minimal`.
+    ///
+    /// Pairs each content type with the template built around it: photos get
+    /// the postcard's full-bleed image well, voice gets the film gate (its dark
+    /// frame is where the waveform/duration treatment lives), and everything
+    /// text-shaped stays on the editorial minimal layout. Multi-memo collages
+    /// only have a Minimal renderer (see `PosterDispatcher`), so seeding them
+    /// with anything else would silently fall back anyway.
+    static func auto(for payload: SharePayload) -> PosterStyle {
+        switch payload {
+        case .photo:   return .postcard
+        case .voice:   return .film
+        case .memo(let s):
+            // A memo carrying a photo is really a photo card; honour that
+            // rather than the nominal payload case.
+            return s.coverImage != nil ? .postcard : .minimal
+        case .daily, .monthly, .quote, .collage:
+            return .minimal
+        }
+    }
 }
 
 // MARK: - PosterTemplate
@@ -508,10 +530,29 @@ struct ShareCardSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
-    @State private var style: PosterStyle = .minimal
+    @State private var style: PosterStyle
     @State private var renderedImage: UIImage?
     @State private var showSystemShare = false
     @State private var savedToast: String?
+    /// True while an off-screen render is in flight. The previous image stays
+    /// on screen (softly blurred) instead of being torn down for a spinner —
+    /// switching styles must never flash an empty frame.
+    @State private var isRendering = false
+    /// Drives the "stamped into the album" press-back after a successful save.
+    @State private var saveStampScale: CGFloat = 1
+    /// Shared geometry for the sliding selection pill in the style picker.
+    @Namespace private var chipNamespace
+    /// Monotonic counter identifying the newest render request, so stale
+    /// off-screen renders can be discarded when they finish out of order.
+    @State private var renderGeneration = 0
+
+    /// Seeds the picker with the style that best suits the content instead of
+    /// always opening on `.minimal`, so the sheet is already showing the most
+    /// flattering card the moment it appears. Users can still switch freely.
+    init(payload: SharePayload) {
+        self.payload = payload
+        _style = State(initialValue: PosterStyle.auto(for: payload))
+    }
 
     var body: some View {
         NavigationStack {
@@ -524,17 +565,55 @@ struct ShareCardSheet: View {
                             .aspectRatio(contentMode: .fit)
                             .frame(maxWidth: .infinity)
                             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                            .shadow(color: Color.black.opacity(0.10), radius: 12, x: 0, y: 4)
+                            // A black shadow does nothing against the near-black
+                            // sheet in dark mode — the poster's own dark paper
+                            // just bleeds into the background. A hairline rim
+                            // gives it an edge to sit on; the shadow still does
+                            // the lifting in light mode.
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                    .strokeBorder(
+                                        Color.white.opacity(colorScheme == .dark ? 0.08 : 0),
+                                        lineWidth: 1
+                                    )
+                            }
+                            .shadow(
+                                color: Color.black.opacity(colorScheme == .dark ? 0.45 : 0.10),
+                                radius: 12, x: 0, y: 4
+                            )
+                            // Cross-dissolve between styles: keying the identity
+                            // on `style` makes SwiftUI treat each poster as a new
+                            // view, so the outgoing card fades out as the incoming
+                            // one fades in rather than snapping.
+                            .id(style)
+                            .transition(.opacity)
+                            // While the next poster renders, the current one stays
+                            // put under a light blur — a "developing" beat that
+                            // reads as continuity instead of a blank spinner.
+                            .blur(radius: isRendering ? 6 : 0)
+                            .opacity(isRendering ? 0.55 : 1)
+                            .scaleEffect(saveStampScale)
                             .accessibilityLabel(payload.accessibilityDescription)
                     } else {
+                        // Only ever shown on the very first render, when there is
+                        // genuinely no prior card to hold on to.
                         ProgressView()
                             .frame(height: 460)
                             .frame(maxWidth: .infinity)
+                            .transition(.opacity)
                     }
                 }
+                .animation(Motion.fade, value: isRendering)
+                .animation(Motion.spring, value: renderedImage)
+                .animation(Motion.press, value: saveStampScale)
                 .padding(.horizontal, 24)
                 .padding(.top, 8)
 
+                // Chips sit directly under the card. Letting the preview absorb
+                // the spare height instead just relocates the dead zone: a short
+                // poster then floats at the top with a quarter-screen gap before
+                // the picker. The slack belongs below the controls, not inside
+                // the content.
                 stylePicker
 
                 Spacer(minLength: 0)
@@ -592,18 +671,28 @@ struct ShareCardSheet: View {
             HStack(spacing: 10) {
                 ForEach(PosterStyle.pickerOrder) { s in
                     Button {
+                        // The only haptic in the switch flow, fired on the tap
+                        // itself so touch and feedback land in the same frame.
                         Haptics.soft()
-                        style = s
+                        withAnimation(Motion.spring) { style = s }
                     } label: {
                         Text(s.displayName)
                             .monoLabelStyle(size: 12)
                             .foregroundColor(style == s ? DSColor.glassHi : DSColor.inkPrimary)
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
-                            .background(
-                                style == s ? DSColor.amberDeep : DSColor.glassLo,
-                                in: Capsule()
-                            )
+                            .background {
+                                if style == s {
+                                    // Shared-geometry pill: the amber selection
+                                    // slides between chips instead of blinking
+                                    // off one and on at the next.
+                                    Capsule()
+                                        .fill(DSColor.amberDeep)
+                                        .matchedGeometryEffect(id: "styleChip", in: chipNamespace)
+                                } else {
+                                    Capsule().fill(DSColor.glassLo)
+                                }
+                            }
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(s.displayName) 风格")
@@ -654,6 +743,18 @@ struct ShareCardSheet: View {
     private func rerender() async {
         // Off-main rendering keeps the UI responsive on long memos. Rendering at
         // 1080 width is ~10-30ms but CJK + many highlights can spike it.
+        //
+        // `renderedImage` is deliberately NOT cleared here: the outgoing poster
+        // stays on screen (blurred, via `isRendering`) until the replacement is
+        // ready, so switching styles cross-dissolves instead of flashing an
+        // empty frame.
+        //
+        // Guard against out-of-order completions: tapping through the chips
+        // quickly starts several renders, and without this a slower earlier one
+        // could land after — and overwrite — the style the user actually chose.
+        renderGeneration &+= 1
+        let generation = renderGeneration
+        isRendering = true
         let snapshot = (payload, style)
         // Capture the SwiftUI colorScheme on the main actor and translate it
         // for the renderer — UITraitCollection.current is per-thread, so the
@@ -662,8 +763,14 @@ struct ShareCardSheet: View {
         let img = await Task.detached(priority: .userInitiated) {
             PosterDispatcher.render(payload: snapshot.0, style: snapshot.1, colorScheme: scheme)
         }.value
+        // A newer render superseded this one: drop the stale image and leave the
+        // in-flight state alone so the placeholder blur persists until it lands.
+        guard generation == renderGeneration else { return }
         renderedImage = img
-        Haptics.soft()
+        isRendering = false
+        // No haptic here on purpose. The tap on the style chip already fires one
+        // synchronously; a second pulse landing whenever the render happens to
+        // finish reads as lag rather than feedback.
     }
 
     private func saveToPhotos() {
@@ -677,6 +784,17 @@ struct ShareCardSheet: View {
                 PHAssetChangeRequest.creationRequestForAsset(from: image)
             } completionHandler: { ok, _ in
                 Task { @MainActor in
+                    if ok {
+                        // "Stamped into the album": the card presses down and
+                        // springs back under a success haptic, so filing a page
+                        // away has a beat of ceremony instead of a bare toast.
+                        Haptics.success()
+                        saveStampScale = 0.97
+                        try? await Task.sleep(nanoseconds: 120_000_000)
+                        saveStampScale = 1
+                    } else {
+                        Haptics.warn()
+                    }
                     showToast(ok ? "已保存到相册" : "保存失败")
                 }
             }

@@ -560,7 +560,14 @@ enum MinimalMemoTemplate: PosterTemplate {
             80 + 80 +
             96 + 80
 
-        let size = CGSize(width: W, height: max(1200, totalH))
+        // The floor keeps a one-liner from rendering as a squat strip, but it has
+        // to stay close to the content: the footer is pinned to `size.height`, so
+        // any slack between `totalH` and the floor opens as dead space between the
+        // body and the watermark. A photo card already has 540pt of cover filling
+        // the frame; a text-only card needs a much lower floor, otherwise a short
+        // memo ships with a quarter-page hole under it.
+        let minH: CGFloat = s.coverImage != nil ? 1200 : 720
+        let size = CGSize(width: W, height: max(minH, totalH))
         let renderer = UIGraphicsImageRenderer(size: size, format: imageFormat1x())
 
         return renderer.image { ctx in
@@ -2119,9 +2126,14 @@ enum FilmMemoTemplate: PosterTemplate {
         let inset = FilmGeom.inset
         let bodyW = W - inset * 2
 
-        // 4:5 photo fills the column width.
+        // 4:5 photo fills the column width. With no photo the gate collapses
+        // entirely rather than reserving an empty frame: a text-only memo was
+        // rendering a ~1170pt hollow box above the body, which reads as a
+        // failed image load rather than a design choice. The film aesthetic is
+        // a single contemplative frame, so text alone simply gets the frame.
+        let hasPhoto = image != nil
         let photoW = bodyW
-        let photoH = photoW * 5.0 / 4.0
+        let photoH = hasPhoto ? photoW * 5.0 / 4.0 : 0
 
         let body = truncate(rawBody.trimmingCharacters(in: .whitespacesAndNewlines), to: 130)
         let bodyPara = NSMutableParagraphStyle()
@@ -2133,10 +2145,14 @@ enum FilmMemoTemplate: PosterTemplate {
         ])
         let bodyMeasure = bodyAttr.measure(width: bodyW)
 
+        let gateH = hasPhoto ? photoH + FilmGeom.perfHeight + 48 : 72
         let totalH = inset + FilmGeom.headerH + 30 + FilmGeom.perfHeight
-            + photoH + FilmGeom.perfHeight + 48
+            + gateH
             + ceil(bodyMeasure.height) + 42 + 36 + inset
-        let size = CGSize(width: W, height: max(1200, totalH))
+        // Text-only film cards drop the 1170pt gate, so the 1200 floor would
+        // re-open the same hole it was meant to prevent. 620 is just enough to
+        // keep a one-line memo from rendering as a letterbox strip.
+        let size = CGSize(width: W, height: max(hasPhoto ? 1200 : 620, totalH))
         let renderer = UIGraphicsImageRenderer(size: size, format: imageFormat1x())
 
         return renderer.image { ctx in
@@ -2148,9 +2164,15 @@ enum FilmMemoTemplate: PosterTemplate {
             drawFilmHeader(at: CGPoint(x: inset, y: y), width: bodyW, date: date, ctx: cg)
             y += FilmGeom.headerH + 30 + FilmGeom.perfHeight
 
-            let photoRect = CGRect(x: inset, y: y, width: photoW, height: photoH)
-            drawFilmPhoto(in: photoRect, image: image, ctx: cg)
-            y += photoH + FilmGeom.perfHeight + 48
+            if hasPhoto {
+                let photoRect = CGRect(x: inset, y: y, width: photoW, height: photoH)
+                drawFilmPhoto(in: photoRect, image: image, ctx: cg)
+                y += photoH + FilmGeom.perfHeight + 48
+            } else {
+                // No gate to draw — give the body the room the photo would have
+                // taken instead of leaving a hollow rectangle above it.
+                y += 72
+            }
 
             bodyAttr.draw(with: CGRect(x: inset, y: y, width: bodyW, height: bodyMeasure.height),
                           options: [.usesLineFragmentOrigin], context: nil)
@@ -2475,8 +2497,12 @@ enum PostcardMemoTemplate: PosterTemplate {
         let W = CardGeom.width
         let pad = PostcardGeom.pad
 
-        // 3:2 photo across the full width.
-        let photoH = W * 2.0 / 3.0
+        // 3:2 photo across the full width. Without one the band collapses to a
+        // slim tinted header instead of a 720pt placeholder: the empty ▢ glyph
+        // read as a broken image, and on a text memo the postcard's real
+        // subject is the place name and the stamp, not a missing picture.
+        let hasPhoto = image != nil
+        let photoH = hasPhoto ? W * 2.0 / 3.0 : 132
         let bodyW = W - pad * 2
 
         // Body sits left of the stamp; text column is bodyW - stamp - gap.
@@ -2497,7 +2523,10 @@ enum PostcardMemoTemplate: PosterTemplate {
         let rowH = max(ceil(bodyMeasure.height), PostcardGeom.stampH)
         let headerH: CGFloat = 64 + 30     // place/date row + dashed divider gap
         let totalH = photoH + pad + headerH + 42 + rowH + pad
-        let size = CGSize(width: W, height: max(1100, totalH))
+        // Without the 720pt photo band the 1100 floor would re-open the gap the
+        // collapsed band just closed. `totalH` already covers the stamp row, so
+        // the text-only floor only has to stop a one-liner going letterbox.
+        let size = CGSize(width: W, height: max(hasPhoto ? 1100 : 560, totalH))
         let renderer = UIGraphicsImageRenderer(size: size, format: imageFormat1x())
 
         return renderer.image { ctx in
@@ -2505,20 +2534,13 @@ enum PostcardMemoTemplate: PosterTemplate {
             PostcardPalette.bg.setFill()
             cg.fill(CGRect(origin: .zero, size: size))
 
-            // 3:2 photo across the top
+            // 3:2 photo across the top, or a slim tinted band when there is none.
             let photoRect = CGRect(x: 0, y: 0, width: W, height: photoH)
             if let image = image {
                 drawAspectFill(image, in: photoRect, ctx: cg)
             } else {
                 PostcardPalette.photoBg.setFill()
                 cg.fill(photoRect)
-                let glyph = NSAttributedString(string: "\u{25A2}", attributes: [
-                    .font: UIFont.systemFont(ofSize: 160, weight: .ultraLight),
-                    .foregroundColor: PostcardPalette.iconStroke
-                ])
-                let gsz = glyph.size()
-                glyph.draw(at: CGPoint(x: photoRect.midX - gsz.width / 2,
-                                       y: photoRect.midY - gsz.height / 2))
             }
 
             var y = photoH + pad

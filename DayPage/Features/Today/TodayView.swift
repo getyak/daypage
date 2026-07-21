@@ -1098,6 +1098,31 @@ struct TodayView: View {
         if launchFlag("openWriteSheet", in: args) {
             showWriteSheet = true
         }
+        // QA bridge: the share sheet normally opens from a long-press context
+        // menu, and synthesised touches can't drive that recogniser on the
+        // simulator (the HID layer rejects touch-move), so automated runs had
+        // no way to reach the share card at all. This presents it directly for
+        // the newest memo, using the same `SharePayload.auto(from:)` entry the
+        // context menu uses so what's tested is the real path.
+        if launchFlag("openShareCard", in: args) {
+            presentShareCardForQA()
+        }
+    }
+
+    /// Presents the share card for the most recent memo. Retries briefly
+    /// because `applyLaunchPresentationFlags()` runs on appear, which can beat
+    /// the first vault load — without the wait the flag would silently no-op on
+    /// a cold launch.
+    private func presentShareCardForQA() {
+        Task { @MainActor in
+            for _ in 0..<20 {
+                if let memo = viewModel.memos.first {
+                    sharePayload = SharePayload.auto(from: memo)
+                    return
+                }
+                try? await Task.sleep(nanoseconds: 250_000_000)
+            }
+        }
     }
 
     private func launchFlag(_ key: String, in args: [String]) -> Bool {
