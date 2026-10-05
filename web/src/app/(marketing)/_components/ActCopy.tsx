@@ -1,6 +1,7 @@
 "use client";
 
 import { motion, useTransform, type MotionValue } from "framer-motion";
+import { usePrefersReducedMotion } from "@/hooks/useBrowserSnapshot";
 
 export interface ActCopyItem {
   title: string;
@@ -18,6 +19,7 @@ interface ActCopyProps {
  * Each panel owns 1/N of progress and softly crossfades at the seams.
  */
 export function ActCopy({ items, progress, tone = "warm" }: ActCopyProps) {
+  const reduced = usePrefersReducedMotion();
   const titleColor =
     tone === "dark"
       ? "text-[color:var(--bg-warm)]"
@@ -30,6 +32,19 @@ export function ActCopy({ items, progress, tone = "warm" }: ActCopyProps) {
     tone === "dark"
       ? "bg-[color:var(--bg-warm)]"
       : "bg-[color:var(--accent)]";
+
+  if (reduced) {
+    return (
+      <div className="space-y-10">
+        {items.map(item => (
+          <div key={item.title}>
+            <h3 className={`font-serif text-[clamp(30px,4.2vw,48px)] leading-[1.05] tracking-[-0.02em] ${titleColor}`}>{item.title}</h3>
+            <p className={`mt-6 max-w-[460px] text-[17px] leading-[1.6] ${bodyColor}`}>{item.body}</p>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="relative h-[340px]">

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
+import { usePrefersReducedMotion } from "@/hooks/useBrowserSnapshot";
 import type { SessionUser } from "@/lib/auth/session";
 import { LenisProvider } from "./LenisProvider";
 import { NavClient } from "./NavClient";
@@ -30,7 +31,7 @@ const BADGES = ["本地优先", "隐私默认", "自带 LLM Key", "Markdown 仓�
 type Props = { user: SessionUser | null };
 
 export function MarketingZhLanding({ user }: Props) {
-  const reduced = useReducedMotion();
+  const reduced = usePrefersReducedMotion();
 
   return (
     <LenisProvider>

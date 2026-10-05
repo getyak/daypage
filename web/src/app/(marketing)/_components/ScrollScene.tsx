@@ -3,9 +3,10 @@
 import {
   motion,
   useScroll,
-  useReducedMotion,
+  useMotionValue,
   type MotionValue,
 } from "framer-motion";
+import { usePrefersReducedMotion } from "@/hooks/useBrowserSnapshot";
 import { useRef, type ReactNode } from "react";
 
 interface ScrollSceneProps {
@@ -43,25 +44,27 @@ export function ScrollScene({
   label,
 }: ScrollSceneProps) {
   const targetRef = useRef<HTMLDivElement | null>(null);
-  const reduced = useReducedMotion();
+  const reduced = usePrefersReducedMotion();
+  const stillProgress = useMotionValue(1);
 
   const { scrollYProgress } = useScroll({
     target: targetRef,
+    layoutEffect: false,
     offset: ["start start", "end end"],
   });
 
   if (reduced) {
     return (
-      <section id={id} className={`relative ${TONE_BG[tone]}`}>
-        {Array.from({ length: acts }, (_, i) => (
+      <section id={id} ref={targetRef} className={`relative ${TONE_BG[tone]}`}>
           <div
-            key={i}
             className="mx-auto grid max-w-[1280px] grid-cols-1 items-center gap-12 px-6 py-24 lg:grid-cols-2 lg:px-10"
           >
-            <div>{copy(scrollYProgress)}</div>
-            <div className="flex justify-center">{stage(scrollYProgress)}</div>
+            <div>
+              {label ? <p className="mb-6 text-[12px] font-semibold uppercase tracking-[0.14em] text-[color:var(--fg-subtle-aa)]">{label}</p> : null}
+              {copy(stillProgress)}
+            </div>
+            <div className="flex justify-center">{stage(stillProgress)}</div>
           </div>
-        ))}
       </section>
     );
   }

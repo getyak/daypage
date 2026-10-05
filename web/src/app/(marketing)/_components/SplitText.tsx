@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, useReducedMotion, type Variants } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
+import { usePrefersReducedMotion } from "@/hooks/useBrowserSnapshot";
 import { createElement, type ReactNode } from "react";
 
 type Split = "word" | "char";
@@ -51,7 +52,7 @@ export function SplitText({
   as = "span",
   renderToken,
 }: SplitTextProps) {
-  const reduced = useReducedMotion();
+  const reduced = usePrefersReducedMotion();
 
   // Tokens are split by whitespace for "word", or by Unicode segmenter for "char"
   // so multi-codepoint glyphs (emoji, CJK) stay intact.

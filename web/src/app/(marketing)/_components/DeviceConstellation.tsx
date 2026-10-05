@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
+import { usePrefersReducedMotion } from "@/hooks/useBrowserSnapshot";
 import { IPhoneFrame, TodayMockScreen } from "./IPhoneFrame";
 import { MacBookFrame, MacBookArchiveMock } from "./MacBookFrame";
 import { WatchFrame, WatchGlanceMock } from "./WatchFrame";
@@ -11,7 +12,7 @@ import { WatchFrame, WatchGlanceMock } from "./WatchFrame";
  * only — the other surfaces appear in the PlatformStrip below.
  */
 export function DeviceConstellation() {
-  const reduced = useReducedMotion();
+  const reduced = usePrefersReducedMotion();
 
   return (
     <div className="relative w-full">

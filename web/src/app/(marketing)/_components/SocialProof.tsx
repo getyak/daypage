@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
+import { usePrefersReducedMotion } from "@/hooks/useBrowserSnapshot";
 
 const BADGES = [
   { label: "Local-first", hint: "Your data on your device" },
@@ -16,7 +17,7 @@ const STATS = [
 ];
 
 export function SocialProof() {
-  const reduced = useReducedMotion();
+  const reduced = usePrefersReducedMotion();
 
   return (
     <section
