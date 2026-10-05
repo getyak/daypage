@@ -43,6 +43,11 @@ permissions:
   contents: write
   pull-requests: read
 
+# Keep automatic and manual uploads from selecting the same release version.
+concurrency:
+  group: daypage-release-${{ github.repository }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Build & Upload to TestFlight
@@ -64,9 +69,11 @@ jobs:
       #   3) 无 tag                            → 从 pbxproj 读 MARKETING_VERSION 作起点
       #
       # 为什么用循环：workflow 可能因并发推送、重跑、或与外部 tag（如手动发版）
-      # 竞争而碰到"目标 tag 已存在"的情况。幂等的做法是找第一个空位而不是直接报错。
+      # 竞争而碰到"目标 tag 已存在"的情况。只在构建前选择空位；构建后禁止改版本。
       - name: Compute next version
         id: version
+        env:
+          VERSION_OVERRIDE: ${{ github.event.inputs.version_override }}
         run: |
           set -euo pipefail
 
@@ -76,13 +83,22 @@ jobs:
           # 辅助：某个 tag 是否已被占用（本地或远端任一存在即算占用）。
           tag_exists() {
             local t="$1"
+            local remote_ref
             if git rev-parse -q --verify "refs/tags/$t" >/dev/null 2>&1; then return 0; fi
-            if git ls-remote --tags origin "refs/tags/$t" | grep -q "refs/tags/$t$"; then return 0; fi
+            if ! remote_ref=$(git ls-remote --tags origin "refs/tags/$t"); then
+              echo "::error::Cannot verify remote tags." >&2
+              exit 1
+            fi
+            if [ -n "$remote_ref" ]; then return 0; fi
             return 1
           }
 
-          OVERRIDE="${{ github.event.inputs.version_override }}"
+          OVERRIDE="$VERSION_OVERRIDE"
           if [ -n "$OVERRIDE" ]; then
+            if ! [[ "$OVERRIDE" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+              echo "::error::version_override must be a numeric MAJOR.MINOR.PATCH version."
+              exit 1
+            fi
             NEXT="$OVERRIDE"
             TAG="v$NEXT"
             if tag_exists "$TAG"; then
@@ -91,7 +107,7 @@ jobs:
             fi
             echo "Using manual override: $NEXT"
           else
-            LAST_TAG=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1 || true)
+            LAST_TAG=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | grep -E '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' | head -n 1 || true)
             if [ -n "$LAST_TAG" ]; then
               BASE="${LAST_TAG#v}"
               IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE"
@@ -195,7 +211,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/Library/Developer/Xcode/DerivedData
-          key: deriveddata-${{ hashFiles('DayPage.xcodeproj/project.pbxproj') }}
+          key: deriveddata-${{ hashFiles('DayPage.xcodeproj/project.pbxproj', 'DayPage.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
           restore-keys: |
             deriveddata-
 
@@ -237,6 +253,7 @@ jobs:
       # ── 11. Run Fastlane ─────────────────────────────────────────────────
       - name: Run Fastlane
         env:
+          FASTLANE_LANE:                        ${{ github.event.inputs.lane || 'beta' }}
           DEVELOPMENT_TEAM:                     ${{ secrets.DEVELOPMENT_TEAM }}
           APP_STORE_CONNECT_API_KEY_ID:         ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           APP_STORE_CONNECT_ISSUER_ID:          ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
@@ -252,44 +269,45 @@ jobs:
           FASTLANE_XCODE_LIST_TIMEOUT:          "120"
           FASTLANE_SKIP_UPDATE_CHECK:           "1"
         run: |
-          LANE="${{ github.event.inputs.lane || 'beta' }}"
+          LANE="$FASTLANE_LANE"
+          case "$LANE" in
+            beta|release) ;;
+            *) echo "::error::Unsupported release lane."; exit 1 ;;
+          esac
           echo "Running lane=$LANE for version=$RELEASE_VERSION"
-          bundle exec fastlane $LANE
+          bundle exec fastlane "$LANE"
 
       # ── 12. Tag the release (only after fastlane succeeds) ───────────────
       - name: Tag release and push
         if: success()
         env:
           TAG: ${{ steps.version.outputs.release_tag }}
+          RELEASE_VERSION: ${{ steps.version.outputs.release_version }}
         run: |
           set -euo pipefail
+          if ! [[ "$RELEASE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || [ "$TAG" != "v$RELEASE_VERSION" ]; then
+            echo "::error::Release tag must match the version already built and uploaded."
+            exit 1
+          fi
+          if [ "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]; then
+            echo "::error::Checkout does not match the release candidate commit."
+            exit 1
+          fi
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           # Re-fetch at push time to detect concurrent runs that grabbed the same tag.
           git fetch --tags --force origin
 
-          FINAL_TAG="$TAG"
-          if git rev-parse -q --verify "refs/tags/$FINAL_TAG" >/dev/null 2>&1 || \
-             git ls-remote --tags origin "refs/tags/$FINAL_TAG" | grep -q "refs/tags/$FINAL_TAG$"; then
-            echo "Tag $FINAL_TAG taken by a concurrent run. Finding next available patch..."
-            BASE="${FINAL_TAG#v}"
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE"
-            for i in $(seq 1 50); do
-              CANDIDATE="v${MAJOR}.${MINOR}.$((PATCH + i))"
-              if ! git rev-parse -q --verify "refs/tags/$CANDIDATE" >/dev/null 2>&1 && \
-                 ! git ls-remote --tags origin "refs/tags/$CANDIDATE" | grep -q "refs/tags/$CANDIDATE$"; then
-                FINAL_TAG="$CANDIDATE"
-                echo "Using $FINAL_TAG instead"
-                break
-              fi
-              echo "  $CANDIDATE also taken, trying next..."
-            done
+          REMOTE_TAG=$(git ls-remote --tags origin "refs/tags/$TAG")
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1 || [ -n "$REMOTE_TAG" ]; then
+            echo "::error::Tag $TAG is already occupied. Refusing to relabel the uploaded build; rerun with a fresh version."
+            exit 1
           fi
 
-          git tag -a "$FINAL_TAG" -m "Release $FINAL_TAG"
-          git push origin "$FINAL_TAG"
-          echo "Pushed tag $FINAL_TAG"
+          git tag -a "$TAG" -m "Release $TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$TAG:refs/tags/$TAG"
+          echo "Pushed tag $TAG"
 
       # ── 13. Create GitHub Release ────────────────────────────────────────
       # 从 Fastfile 迁过来：之前 fastlane 用 sh("gh release create ...") + rescue

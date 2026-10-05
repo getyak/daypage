@@ -15,6 +15,8 @@ struct DailyPageView: View {
     /// Lets an embedded host reveal its actual raw-memo surface. Modal callers
     /// fall back to dismissing this page to return to the original flow.
     var onViewOriginalFlow: (() -> Void)? = nil
+    /// Publishes saved Daily weather after the existing file reload.
+    var onWeatherChange: ((String, String) -> Void)? = nil
     /// true = 由外层导航栈 push 呈现（DayDetailView 内嵌）；false = 独立模态
     /// （Today fullScreenCover / EntityPage sheet）需要自带 NavigationStack。
     var isEmbedded: Bool = false
@@ -212,9 +214,13 @@ struct DailyPageView: View {
         }
         .onAppear { loadPage() }
         .onReceive(NotificationCenter.default.publisher(for: .rawStorageDidWrite)) { notification in
-            guard let writtenDate = notification.object as? Date,
-                  DateFormatters.isoDate.string(from: writtenDate) == dateString
-            else { return }
+            // A known written day refreshes only this page. Unknown legacy or
+            // malformed events conservatively refresh without guessing a day
+            // from a Date under a different time zone.
+            if let writtenDay = notification.userInfo?[RawStorage.writtenDayStringKey] as? String,
+               RawStorage.isValidDayString(writtenDay) {
+                guard writtenDay == dateString else { return }
+            }
             loadPage()
         }
         .alert(NSLocalizedString("daily.recompile.confirm.title", comment: "Recompile confirm alert title"), isPresented: $showRecompileConfirm) {
@@ -302,6 +308,18 @@ struct DailyPageView: View {
             }
         }
         return ""
+    }
+
+    static func dailyWeather(in text: String) -> String {
+        let lines = text.components(separatedBy: "\n")
+        guard lines.first?.trimmingCharacters(in: .whitespacesAndNewlines) == "---",
+              let closing = lines.dropFirst().firstIndex(where: {
+                  $0.trimmingCharacters(in: .whitespacesAndNewlines) == "---"
+              }) else { return "" }
+        // Never interpret narrative or nested metadata as the day's weather.
+        let fields = Array(lines[1..<closing]).filter { $0.first?.isWhitespace != true }
+        return (YAMLParser(lines: fields).scalar("weather") ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func extractMoodFromRawText(_ text: String) -> String {
@@ -410,16 +428,16 @@ struct DailyPageView: View {
                 .tracking(1.6)
                 .padding(.bottom, DSSpacing.xs)
 
-            VStack(spacing: 0) {
+            LazyVStack(spacing: 0) {
                 ForEach(rawMemos) { memo in
-                    NavigationLink(value: MemoDetailRef(
-                        id: memo.id,
-                        day: memo.created,
-                        source: .daily
-                    )) {
-                        SourceSignalRow(memo: memo)
+                    // Daily entry points already know the owning raw day key;
+                    // preserve it instead of re-deriving a day from `created`.
+                    if let ref = MemoDetailRef(id: memo.id, dayString: dateString, source: .daily) {
+                        NavigationLink(value: ref) {
+                            SourceSignalRow(memo: memo)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .liquidGlassCard(cornerRadius: DSRadius.lg, tone: .std)
@@ -804,6 +822,7 @@ struct DailyPageView: View {
     // MARK: - Load
 
     private func loadPage() {
+        var loadedWeather = ""
         let url = VaultInitializer.vaultURL
             .appendingPathComponent("wiki")
             .appendingPathComponent("daily")
@@ -813,6 +832,7 @@ struct DailyPageView: View {
             do {
                 let content = try String(contentsOf: url, encoding: .utf8)
                 rawText = content
+                loadedWeather = Self.dailyWeather(in: content)
                 model = DailyPageParser.parse(content: content, dateString: dateString)
                 // US-021: derive "Last compiled at HH:MM" from file modification date
                 if let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
@@ -829,24 +849,31 @@ struct DailyPageView: View {
         }
 
         loadRawMemos()
+        onWeatherChange?(dateString, loadedWeather)
+    }
+
+    static func rawMemos(forDayString dayString: String, vaultRoot: URL) throws -> [Memo] {
+        try RawStorage.read(dayString: dayString, vaultRoot: vaultRoot)
+            .sorted { $0.created < $1.created }
     }
 
     private func loadRawMemos() {
         // Load raw memos for Timeline Tab
-        guard let date = DateFormatters.isoDate.date(from: dateString) else {
+        guard RawStorage.isValidDayString(dateString) else {
             DayPageLogger.shared.error("DailyPageView: invalid dateString '\(dateString)'")
             rawMemos = []
             return
         }
+        let vaultRoot = VaultInitializer.vaultURL
         let loaded: [Memo]
-        do { loaded = try RawStorage.read(for: date) }
+        do { loaded = try Self.rawMemos(forDayString: dateString, vaultRoot: vaultRoot) }
         catch {
-            let rawURL = VaultInitializer.vaultURL
+            let rawURL = vaultRoot
                 .appendingPathComponent("raw")
                 .appendingPathComponent("\(dateString).md")
             DayPageLogger.shared.error("DailyPageView: load memos \(rawURL.path) errno=\(errno): \(error)")
             loaded = []
         }
-        rawMemos = loaded.sorted { $0.created < $1.created }
+        rawMemos = loaded
     }
 }

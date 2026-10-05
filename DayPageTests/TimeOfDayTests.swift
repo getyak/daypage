@@ -3,6 +3,7 @@ import SwiftUI
 import DayPageServices
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 @Suite("TimeOfDay")
 struct TimeOfDayTests {
 
@@ -187,3 +188,9 @@ struct TimeOfDayTests {
         #expect(TimeOfDay.from(cal.date(from: comps)!, calendar: cal) == .lateNight)
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias TimeOfDayTests = DayPageSerialSwiftTests.TimeOfDayTests

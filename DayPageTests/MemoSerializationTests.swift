@@ -4,6 +4,7 @@ import DayPageModels
 import DayPageServices
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 @Suite("MemoSerializationTests")
 struct MemoSerializationTests {
 
@@ -34,7 +35,6 @@ struct MemoSerializationTests {
             created: fixedDate,
             location: Memo.Location(name: "Café \"Le Monde\" \\ Paris", lat: 48.8566, lng: 2.3522),
             weather: "Sunny ☀️ \"warm\"",
-            mood: "happy\\excited \"joy\"",
             attachments: [
                 Memo.Attachment(
                     file: "audio.m4a",
@@ -44,6 +44,7 @@ struct MemoSerializationTests {
                     transcriptionStatus: .done
                 )
             ],
+            mood: "happy\\excited \"joy\"",
             body: "A normal body"
         )
         assertRoundTrip(memo)
@@ -195,7 +196,6 @@ struct MemoSerializationTests {
             id: UUID(),
             type: .voice,
             created: fixedDate,
-            mood: "happy\nexcited",
             attachments: [
                 Memo.Attachment(
                     file: "audio.m4a",
@@ -205,6 +205,7 @@ struct MemoSerializationTests {
                     transcriptionStatus: .done
                 )
             ],
+            mood: "happy\nexcited",
             body: "Body text"
         )
         assertRoundTrip(memo)
@@ -235,3 +236,9 @@ struct MemoSerializationTests {
         #expect(md.contains("attachments: []"))
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias MemoSerializationTests = DayPageSerialSwiftTests.MemoSerializationTests

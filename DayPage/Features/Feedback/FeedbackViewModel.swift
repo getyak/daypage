@@ -44,6 +44,8 @@ final class FeedbackViewModel: ObservableObject {
     // MARK: - Published State
 
     @Published var rawFeedback: String = ""
+    /// Explicit per-draft choice; technical context is omitted by default.
+    @Published var includeDiagnostics: Bool = false
     @Published var status: FeedbackStatus = .idle
     @Published var submittedIssues: [SubmittedIssue] = []
 
@@ -54,7 +56,11 @@ final class FeedbackViewModel: ObservableObject {
 
     /// Pending image attachments (uploaded only at submit time).
     @Published var pendingImages: [PendingFeedbackImage] = []
-    @Published var isProcessingImage: Bool = false
+    @Published private(set) var imageProcessingCount = 0
+    @Published private(set) var sendInFlight = false
+    private var draftGeneration = UUID()
+    private(set) var voiceGeneration: UUID?
+    var isProcessingImage: Bool { imageProcessingCount > 0 }
 
     /// Voice recording mirror, exposed so the view can render an overlay.
     @Published var pressToTalkPhase: PressToTalkPhase = .idle
@@ -65,12 +71,19 @@ final class FeedbackViewModel: ObservableObject {
 
     let voiceService = VoiceService.shared
     private var capturedContext: FeedbackContext?
+    private let createIssue: @MainActor (String, String, [String]) async throws -> GitHubIssue
+    private let uploadImage: @MainActor (Data, String) async throws -> String
+
+    var diagnosticsPreview: String {
+        let context = capturedContext ?? FeedbackContext.capture()
+        capturedContext = context
+        return context.promptDescription
+    }
 
     // MARK: - Computed
 
     var isSending: Bool {
-        if case .sending = status { return true }
-        return false
+        sendInFlight
     }
     var errorMessage: String? {
         if case .error(let msg) = status { return msg }
@@ -79,7 +92,16 @@ final class FeedbackViewModel: ObservableObject {
 
     // MARK: - Init
 
-    init() {
+    init(
+        createIssue: @escaping @MainActor (String, String, [String]) async throws -> GitHubIssue = {
+            try await FeedbackService.shared.createIssueViaBot(title: $0, body: $1, labels: $2)
+        },
+        uploadImage: @escaping @MainActor (Data, String) async throws -> String = {
+            try await FeedbackService.shared.uploadFeedbackImage(data: $0, filename: $1)
+        }
+    ) {
+        self.createIssue = createIssue
+        self.uploadImage = uploadImage
         loadSubmittedIssues()
     }
 
@@ -90,17 +112,22 @@ final class FeedbackViewModel: ObservableObject {
     /// server-side and rewrites title/body/labels via DeepSeek, so the user
     /// sees a confirmation in well under a second instead of waiting on AI.
     func send() async {
+        guard !isSending, !isProcessingImage else { return }
         let trimmed = rawFeedback.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty || !pendingImages.isEmpty else {
-            status = .error("Please describe your feedback or attach a screenshot.")
+            status = .error(NSLocalizedString("feedback.error.empty", comment: ""))
             return
         }
 
         HapticFeedback.medium()
 
+        sendInFlight = true
+        defer { sendInFlight = false }
         status = .sending
-        let context = capturedContext ?? FeedbackContext.capture()
-        capturedContext = context
+        // Freeze the choice before suspension. A later toggle cannot change
+        // the payload of an upload already in progress.
+        let diagnosticPayload = includeDiagnostics ? diagnosticsPreview : nil
+        let imagesToUpload = pendingImages
 
         let rawText = trimmed.isEmpty ? "(no text — see attached screenshots)" : trimmed
         let title = Self.makeProvisionalTitle(from: rawText)
@@ -109,12 +136,9 @@ final class FeedbackViewModel: ObservableObject {
         // the issue itself, but we surface a warning by appending a note).
         var imageMarkdown = ""
         var uploadedAll = true
-        for image in pendingImages {
+        for image in imagesToUpload {
             do {
-                let url = try await FeedbackService.shared.uploadFeedbackImage(
-                    data: image.data,
-                    filename: image.filename
-                )
+                let url = try await uploadImage(image.data, image.filename)
                 imageMarkdown += "\n\n![\(image.filename)](\(url))"
             } catch {
                 uploadedAll = false
@@ -123,20 +147,18 @@ final class FeedbackViewModel: ObservableObject {
         }
 
         var body = "## Raw feedback\n\n\(rawText)"
-        body += "\n\n---\n\n<details><summary>📱 Diagnostic context</summary>\n\n```\n\(context.promptDescription)\n```\n\n</details>"
+        if let diagnosticPayload {
+            body += "\n\n---\n\n<details><summary>Diagnostic context</summary>\n\n```\n\(diagnosticPayload)\n```\n\n</details>"
+        }
         if !imageMarkdown.isEmpty {
             body += "\n\n## Screenshots" + imageMarkdown
         }
-        if !pendingImages.isEmpty && !uploadedAll {
+        if !imagesToUpload.isEmpty && !uploadedAll {
             body += "\n\n> ⚠️ Some screenshots failed to upload."
         }
 
         do {
-            let issue = try await FeedbackService.shared.createIssueViaBot(
-                title: title,
-                body: body,
-                labels: ["triage"]
-            )
+            let issue = try await createIssue(title, body, ["triage"])
             let submitted = SubmittedIssue(
                 number: issue.number,
                 url: issue.htmlURL,
@@ -173,13 +195,30 @@ final class FeedbackViewModel: ObservableObject {
 
     /// Called by PressToTalkButton when the user starts a long-press.
     func voicePressStart() {
-        Task { await voiceService.startRecording() }
+        guard prepareVoiceStart() else { return }
+        let generation = draftGeneration
+        voiceGeneration = generation
+        Task {
+            guard !self.isSending, self.draftGeneration == generation,
+                  self.voiceGeneration == generation,
+                  self.voiceService.state == .idle else { return }
+            await self.voiceService.startRecording(purpose: .feedback)
+        }
+    }
+
+    /// A shared recording or pending transcription must finish before another
+    /// feedback recording starts. Failed permission/ASR attempts remain retryable.
+    private func prepareVoiceStart() -> Bool {
+        guard !isSending, !isShowingVoiceRecorder else { return false }
+        if case .failed = voiceService.state { voiceService.cancelRecording() }
+        return voiceService.state == .idle
     }
 
     /// Long-press release in the default zone — transcribe via Whisper and
     /// fill the input field. We deliberately do NOT auto-submit; the user
     /// can still tweak the wording before sending.
     func voiceReleaseSendAsTranscript() {
+        guard !isSending else { return }
         Task { await consumeRecordingAsTranscript() }
     }
 
@@ -192,6 +231,7 @@ final class FeedbackViewModel: ObservableObject {
     /// zone — same behaviour as the default in this screen (fill draft, no
     /// submit).
     func voiceReleaseTranscribe() {
+        guard !isSending else { return }
         Task { await consumeRecordingAsTranscript() }
     }
 
@@ -199,6 +239,8 @@ final class FeedbackViewModel: ObservableObject {
     /// TodayView input bar so users get pause/resume/save instead of a
     /// press-to-talk gesture.
     func startVoiceRecording() {
+        guard prepareVoiceStart() else { return }
+        voiceGeneration = draftGeneration
         isShowingVoiceRecorder = true
     }
 
@@ -209,10 +251,14 @@ final class FeedbackViewModel: ObservableObject {
     }
 
     /// Recorder sheet finished — append the transcript to the feedback draft.
-    /// The audio file itself is discarded; feedback is text-only.
-    func handleVoiceRecordingComplete(result: VoiceRecordingResult) {
+    /// Only the transcript is attached to feedback; VoiceService deletes its
+    /// transient recording after transcription and never queues a diary retry.
+    func handleVoiceRecordingComplete(result: VoiceRecordingResult, generation: UUID? = nil) {
+        guard let generation = generation ?? voiceGeneration,
+              generation == draftGeneration else { return }
         isShowingVoiceRecorder = false
-        defer { voiceService.reset() }
+        defer { if generation == draftGeneration { voiceService.reset() } }
+        guard !isSending else { return }
         if let text = result.transcript?.trimmingCharacters(in: .whitespacesAndNewlines),
            !text.isEmpty {
             if rawFeedback.isEmpty {
@@ -221,13 +267,17 @@ final class FeedbackViewModel: ObservableObject {
                 rawFeedback += " " + text
             }
         } else {
-            status = .error("Voice transcription failed. Check your network or OpenAI Whisper key.")
+            status = .error(NSLocalizedString("feedback.error.voice", comment: ""))
         }
     }
 
     private func consumeRecordingAsTranscript() async {
+        guard !isSending, let generation = voiceGeneration,
+              generation == draftGeneration else { return }
         guard let result = await voiceService.stopAndTranscribe() else { return }
-        defer { voiceService.reset() }
+        guard generation == draftGeneration else { return }
+        defer { if generation == draftGeneration { voiceService.reset() } }
+        guard !isSending else { return }
         if let text = result.transcript, !text.isEmpty {
             if rawFeedback.isEmpty {
                 rawFeedback = text
@@ -235,26 +285,42 @@ final class FeedbackViewModel: ObservableObject {
                 rawFeedback += " " + text
             }
         } else {
-            status = .error("Voice transcription failed. Check your network or OpenAI Whisper key.")
+            status = .error(NSLocalizedString("feedback.error.voice", comment: ""))
         }
     }
 
     // MARK: - Image Attachments
 
-    func addImage(from item: PhotosPickerItem) async {
-        isProcessingImage = true
-        defer { isProcessingImage = false }
-        guard let data = try? await item.loadTransferable(type: Data.self),
-              let thumb = UIImage(data: data) else {
-            status = .error("Could not load that image.")
+    func addImages(from items: [PhotosPickerItem]) async {
+        guard !isSending else { return }
+        let generation = draftGeneration
+        imageProcessingCount += 1
+        defer { if generation == draftGeneration { imageProcessingCount -= 1 } }
+        for item in items {
+            guard generation == draftGeneration else { return }
+            await addImageData { try await item.loadTransferable(type: Data.self) }
+        }
+    }
+
+    /// Shared importer keeps overlapping loads and reset lifetimes separate.
+    func addImageData(load: () async throws -> Data?) async {
+        guard !isSending else { return }
+        let generation = draftGeneration
+        imageProcessingCount += 1
+        defer { if generation == draftGeneration { imageProcessingCount -= 1 } }
+        let data = try? await load()
+        guard generation == draftGeneration, !isSending else { return }
+        guard let data, let thumb = UIImage(data: data) else {
+            status = .error(NSLocalizedString("feedback.error.image.load", comment: ""))
             return
         }
         appendImage(data: data, thumbnail: thumb)
     }
 
     func addCameraImage(_ image: UIImage) {
+        guard !isSending else { return }
         guard let data = image.jpegData(compressionQuality: 0.85) else {
-            status = .error("Could not encode that photo.")
+            status = .error(NSLocalizedString("feedback.error.image.encode", comment: ""))
             return
         }
         appendImage(data: data, thumbnail: image)
@@ -270,6 +336,7 @@ final class FeedbackViewModel: ObservableObject {
     }
 
     func removeImage(id: String) {
+        guard !isSending else { return }
         pendingImages.removeAll { $0.id == id }
     }
 
@@ -289,7 +356,13 @@ final class FeedbackViewModel: ObservableObject {
     // MARK: - Reset
 
     func reset() {
+        guard !isSending else { return }
+        draftGeneration = UUID()
+        voiceGeneration = nil
+        isShowingVoiceRecorder = false
+        imageProcessingCount = 0
         rawFeedback = ""
+        includeDiagnostics = false
         pendingImages = []
         capturedContext = nil
         status = .idle

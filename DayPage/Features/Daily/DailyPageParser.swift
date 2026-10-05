@@ -126,19 +126,17 @@ enum DailyPageParser {
         )
     }
 
-    /// 扫描 vault/raw/YYYY-MM-DD.md，返回第一个照片附件的 vault 相对路径
-    ///（优先使用文件名以 "cover-" 为前缀的附件）。
-    /// 如果没有照片附件则返回 nil。
     /// Issue #4: strip `[^m:<uuid>]` footnote markers out of a compiled
     /// section body and return the cleaned prose + the deduped ordered list
-    /// of memo UUIDs the AI cited for that section. Malformed UUIDs are
-    /// silently dropped — the viewer treats the section as unevidenced
-    /// rather than showing a broken chip.
+    /// of memo UUIDs the AI cited for that section. Every complete reserved
+    /// marker — including empty or malformed payloads — is hidden from the
+    /// reader, but only well-formed UUID payloads are collected as evidence
+    /// (invalid ones are silently dropped: the viewer treats the section as
+    /// unevidenced rather than showing a broken chip). Persisted `rawContent`
+    /// is never rewritten, and the cleaned prose still passes through
+    /// `normalizeWikilinks(in:)`.
     private static func extractEvidence(from raw: String) -> (String, [UUID]) {
-        guard let regex = try? NSRegularExpression(
-            pattern: #"\[\^m:([0-9a-fA-F\-]{8,})\]"#,
-            options: []
-        ) else { return (raw, []) }
+        guard let regex = evidenceMarkerRegex else { return (raw, []) }
 
         let ns = raw as NSString
         let range = NSRange(location: 0, length: ns.length)
@@ -148,8 +146,8 @@ enum DailyPageParser {
         var seen = Set<UUID>()
         var ordered: [UUID] = []
         for m in matches where m.numberOfRanges >= 2 {
-            let raw = ns.substring(with: m.range(at: 1))
-            if let uuid = UUID(uuidString: raw), !seen.contains(uuid) {
+            let payload = ns.substring(with: m.range(at: 1))
+            if let uuid = UUID(uuidString: payload), !seen.contains(uuid) {
                 seen.insert(uuid)
                 ordered.append(uuid)
             }
@@ -165,6 +163,17 @@ enum DailyPageParser {
     // Cached — pattern is invariant, and sections re-parse on every page load.
     private static let wikilinkDisplayRegex = try? NSRegularExpression(
         pattern: #"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]"#
+    )
+
+    /// Issue #4 reserved-marker grammar. A *complete* memo marker is
+    /// `[^m:` + payload + `]` on a single line; the payload may not contain
+    /// `[`, `]`, or a line break. That bound is deliberate:
+    ///   • nothing matches across newlines (an unterminated `[^m:` opener
+    ///     never swallows following lines up to some later `]`), and
+    ///   • ordinary footnotes (`[^1]`, `[^term]`), non-memo footnotes
+    ///     (`[^memo: note]`), and adjacent bracketed prose are never consumed.
+    private static let evidenceMarkerRegex = try? NSRegularExpression(
+        pattern: #"\[\^m:([^\[\]\r\n]*)\]"#
     )
 
     /// 将叙事正文中的 wikilink 展示为人类可读名称（FINDING-005）。
@@ -190,10 +199,14 @@ enum DailyPageParser {
         return ns as String
     }
 
+    /// 扫描 vault/raw/YYYY-MM-DD.md，返回第一个照片附件的 vault 相对路径
+    ///（优先使用文件名以 "cover-" 为前缀的附件）。
+    /// 如果没有照片附件则返回 nil。
     private static func firstPhotoAttachmentPath(for dateString: String) -> String? {
-        guard let date = DateFormatters.isoDate.date(from: dateString) else { return nil }
+        guard RawStorage.isValidDayString(dateString) else { return nil }
 
-        let memos: [Memo] = (try? RawStorage.read(for: date)) ?? []
+        let vaultRoot = VaultInitializer.vaultURL
+        let memos: [Memo] = (try? RawStorage.read(dayString: dateString, vaultRoot: vaultRoot)) ?? []
         let photoAttachments = memos.flatMap { $0.attachments }.filter { $0.kind == "photo" }
 
         // 优先使用文件名以 "cover" 开头的附件（手动覆盖约定）。

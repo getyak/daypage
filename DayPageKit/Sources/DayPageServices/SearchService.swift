@@ -12,11 +12,31 @@ public struct SearchResult: Identifiable, Equatable {
     public let matchKind: MatchKind
     public let isDailyPageCompiled: Bool
     public let memoType: Memo.MemoType?        // matchKind == .date 时为 nil
+    /// 命中的实际 memo 稳定身份（`Memo.id`，与 `SearchIndex.MemoDocument.id` 同源）。
+    /// 仅日期命中（matchKind == .date）为 nil —— 那不是某个具体 memo 的命中。
+    /// 与随机的 ``id`` 不同：`memoID` 跨搜索调用稳定，供 UI 锚定到真实 memo。
+    public let memoID: UUID?
 
     public enum MatchKind: Equatable, Hashable {
         case memoBody
         case location
         case date
+    }
+
+    /// 显式初始化器：保持原有五个参数标签与顺序，`memoID` 为尾随默认参数
+    /// （nil）以维持既有调用点的源兼容。
+    public init(dateString: String,
+                snippet: String,
+                matchKind: MatchKind,
+                isDailyPageCompiled: Bool,
+                memoType: Memo.MemoType?,
+                memoID: UUID? = nil) {
+        self.dateString = dateString
+        self.snippet = snippet
+        self.matchKind = matchKind
+        self.isDailyPageCompiled = isDailyPageCompiled
+        self.memoType = memoType
+        self.memoID = memoID
     }
 }
 
@@ -127,7 +147,8 @@ public enum SearchService {
                             snippet: makeSnippet(memo.body, around: folded),
                             matchKind: SearchResult.MatchKind.memoBody,
                             isDailyPageCompiled: isDailyCompiled,
-                            memoType: memo.type
+                            memoType: memo.type,
+                            memoID: memo.id
                         ))
                         continue
                     }
@@ -137,7 +158,8 @@ public enum SearchService {
                             snippet: makeSnippet(transcript, around: folded),
                             matchKind: SearchResult.MatchKind.memoBody,
                             isDailyPageCompiled: isDailyCompiled,
-                            memoType: memo.type
+                            memoType: memo.type,
+                            memoID: memo.id
                         ))
                         continue
                     }
@@ -148,7 +170,8 @@ public enum SearchService {
                             snippet: name,
                             matchKind: SearchResult.MatchKind.location,
                             isDailyPageCompiled: isDailyCompiled,
-                            memoType: memo.type
+                            memoType: memo.type,
+                            memoID: memo.id
                         ))
                         continue
                     }
@@ -162,7 +185,8 @@ public enum SearchService {
                         snippet: snippet,
                         matchKind: SearchResult.MatchKind.memoBody,
                         isDailyPageCompiled: isDailyCompiled,
-                        memoType: memo.type
+                        memoType: memo.type,
+                        memoID: memo.id
                     ))
                 }
             }
@@ -250,7 +274,8 @@ public enum SearchService {
                             snippet: makeSnippet(memo.body, around: folded),
                             matchKind: SearchResult.MatchKind.memoBody,
                             isDailyPageCompiled: isDailyCompiled(day.dateString),
-                            memoType: memo.type
+                            memoType: memo.type,
+                            memoID: memo.id
                         ))
                         continue
                     }
@@ -260,7 +285,8 @@ public enum SearchService {
                             snippet: makeSnippet(hit.raw, around: folded),
                             matchKind: SearchResult.MatchKind.memoBody,
                             isDailyPageCompiled: isDailyCompiled(day.dateString),
-                            memoType: memo.type
+                            memoType: memo.type,
+                            memoID: memo.id
                         ))
                         continue
                     }
@@ -270,7 +296,8 @@ public enum SearchService {
                             snippet: memo.locationName ?? "",
                             matchKind: SearchResult.MatchKind.location,
                             isDailyPageCompiled: isDailyCompiled(day.dateString),
-                            memoType: memo.type
+                            memoType: memo.type,
+                            memoID: memo.id
                         ))
                         continue
                     }
@@ -283,7 +310,8 @@ public enum SearchService {
                         snippet: snippet,
                         matchKind: SearchResult.MatchKind.memoBody,
                         isDailyPageCompiled: isDailyCompiled(day.dateString),
-                        memoType: memo.type
+                        memoType: memo.type,
+                        memoID: memo.id
                     ))
                 }
             }

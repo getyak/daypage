@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth/session";
+import { requestTime } from "@/lib/request-time";
 import { db } from "@/lib/db/client";
 import { users, prompt_log } from "@/lib/db/schema";
 import { eq, and, gte, sql } from "drizzle-orm";
@@ -42,7 +43,7 @@ export async function SystemCostCard({ range }: { range: string }) {
   let estimatedCost = 0;
 
   if (userId) {
-    const since = new Date(Date.now() - rangeToMs(range));
+    const since = new Date(await requestTime() - rangeToMs(range));
     try {
       const rows = await db
         .select({

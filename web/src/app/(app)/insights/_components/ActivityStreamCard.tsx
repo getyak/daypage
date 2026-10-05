@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth/session";
+import { requestTime } from "@/lib/request-time";
 import { db } from "@/lib/db/client";
 import { users, activities } from "@/lib/db/schema";
 import { eq, and, gte, desc, lt, sql } from "drizzle-orm";
@@ -36,7 +37,7 @@ export async function ActivityStreamCard({ range, type, cursor }: { range: strin
   let nextCursor: string | null = null;
 
   if (userId) {
-    const since = new Date(Date.now() - rangeToMs(range));
+    const since = new Date(await requestTime() - rangeToMs(range));
     try {
       // Get distinct verbs for filter chips
       const verbRows = await db

@@ -14,6 +14,38 @@ enum DSFonts {
     /// (DayPageApp.init + a test bundle, for instance). Issue #29.
     private static var hasRegistered = false
 
+    /// Real faces that genuinely exist in the bundle, keyed by the canonical
+    /// PostScript name used at resolution time, with bundle file names in
+    /// fallback order. Font-file inspection (2026-10-02) established that
+    /// `SourceSerif4-Medium.ttf` is a byte-identical copy of
+    /// `SourceSerif4-Regular.ttf` whose real PostScript name is
+    /// `SourceSerif4-Regular` — there is no genuine Latin Medium face. So
+    /// `SourceSerif4-Medium.ttf` is only a fallback *file* candidate for the
+    /// `SourceSerif4-Regular` face and is never a face of its own: treating
+    /// the fictitious `SourceSerif4-Medium` name as a missing face would
+    /// re-register the same Regular face (a duplicate registration) purely
+    /// because the fictitious name can never resolve.
+    private static let bundledFaces: [(psName: String, fileNames: [String])] = [
+        ("SpaceGrotesk-Light", ["SpaceGrotesk-Light.ttf"]),
+        ("SpaceGrotesk-Regular", ["SpaceGrotesk-Regular.ttf"]),
+        ("SpaceGrotesk-Medium", ["SpaceGrotesk-Medium.ttf"]),
+        // The SemiBold file is a duplicate of the real Bold face.
+        ("SpaceGrotesk-Bold", ["SpaceGrotesk-Bold.ttf", "SpaceGrotesk-SemiBold.ttf"]),
+        ("Inter-Light", ["Inter-Light.ttf"]),
+        ("Inter-Regular", ["Inter-Regular.ttf"]),
+        ("Inter-Medium", ["Inter-Medium.ttf"]),
+        ("Inter-SemiBold", ["Inter-SemiBold.ttf"]),
+        ("Inter-Bold", ["Inter-Bold.ttf"]),
+        ("JetBrainsMono-Regular", ["JetBrainsMono-Regular.ttf"]),
+        ("JetBrainsMono-Medium", ["JetBrainsMono-Medium.ttf"]),
+        ("SourceSerif4-Regular", ["SourceSerif4-Regular.ttf", "SourceSerif4-Medium.ttf"]),
+        ("SourceSerif4-Semibold", ["SourceSerif4-SemiBold.ttf"]),
+        ("SourceSerif4-It", ["SourceSerif4-It.ttf"]),
+        ("SourceHanSerifSC-Regular", ["SourceHanSerifSC-Regular.otf"]),
+        ("SourceHanSerifSC-Medium", ["SourceHanSerifSC-Medium.otf"]),
+        ("SourceHanSerifSC-SemiBold", ["SourceHanSerifSC-SemiBold.otf"]),
+    ]
+
     /// 从应用包中注册自定义字体。
     /// 在应用启动时调用一次（例如在 DayPageApp.init 中）。
     /// 如果字体文件未打包，SwiftUI 将回退到系统字体。
@@ -31,60 +63,56 @@ enum DSFonts {
     /// CoreText round-trip per face. That single batched call is ~3× faster
     /// than 19 individual ones on cold launch.
     static func registerAll() {
+        // Once-per-process idempotence: repeated callsites (DayPageApp.init +
+        // test bundles) must not re-register anything.
         guard !hasRegistered else { return }
         hasRegistered = true
 
-        // The application target declares every face in UIAppFonts, which
-        // CoreText registers before App.init. Re-registering those URLs adds
-        // startup work and produces noisy "already registered" diagnostics.
-        // Keep the manual path only for preview/test hosts that do not carry
-        // the application's Info.plist.
-        if let declaredFonts = Bundle.main.object(forInfoDictionaryKey: "UIAppFonts") as? [String],
-           !declaredFonts.isEmpty {
-            return
-        }
-
-        let ttfNames = [
-            "SpaceGrotesk-Light", "SpaceGrotesk-Regular", "SpaceGrotesk-Medium",
-            "SpaceGrotesk-SemiBold", "SpaceGrotesk-Bold",
-            "Inter-Light", "Inter-Regular", "Inter-Medium",
-            "Inter-SemiBold", "Inter-Bold",
-            "JetBrainsMono-Regular", "JetBrainsMono-Medium",
-            "SourceSerif4-Regular", "SourceSerif4-Medium",
-            "SourceSerif4-SemiBold", "SourceSerif4-It",
-        ]
-        let otfNames = [
-            "SourceHanSerifSC-Regular", "SourceHanSerifSC-Medium", "SourceHanSerifSC-SemiBold",
-        ]
-
-        // `UIAppFonts` normally registers every bundled face before App.init.
-        // Only register faces that are genuinely absent so startup does not
-        // emit a CoreText warning for every font on every launch. This still
-        // keeps previews and stripped test hosts working when Info.plist font
-        // registration is unavailable.
-        let missingTTFNames = ttfNames.filter { UIFont(name: $0, size: 12) == nil }
-        let missingOTFNames = otfNames.filter { UIFont(name: $0, size: 12) == nil }
-
+        // Synchronously register ONLY genuinely missing real faces. The old
+        // wholesale "UIAppFonts declared ⇒ return" shortcut assumed every
+        // declared face had materialized and left partially-registered hosts
+        // (stripped test hosts, previews) with no usable faces at all. The
+        // per-face `UIFont(name:)` probe is the UIKit-process availability
+        // check: a face counts as available only when UIKit can resolve it
+        // right now, so already-registered faces are never registered twice.
         var urls: [URL] = []
-        urls.reserveCapacity(missingTTFNames.count + missingOTFNames.count)
-        for name in missingTTFNames {
-            if let url = Bundle.main.url(forResource: name, withExtension: "ttf") {
-                urls.append(url)
-            }
-        }
-        for name in missingOTFNames {
-            if let url = Bundle.main.url(forResource: name, withExtension: "otf") {
-                urls.append(url)
-            }
+        var seen = Set<URL>()
+        for face in bundledFaces where UIFont(name: face.psName, size: 12) == nil {
+            guard let url = face.fileNames.compactMap({ fontFileURL(named: $0) }).first,
+                  seen.insert(url).inserted else { continue }
+            urls.append(url)
         }
         guard !urls.isEmpty else { return }
 
+        // `enabled: true` is load-bearing. Per CTFontManager.h
+        // (`CTFontManagerRegisterFontURLs`), `enabled == false` registers the
+        // faces *disabled* for font-descriptor matching, so `UIFont(name:)`
+        // keeps failing and every serif request silently falls back to the
+        // system font. Synchronous, process-scope registration makes the
+        // faces available to UIKit before the first SwiftUI body evaluates
+        // (issue #29).
         CTFontManagerRegisterFontURLs(
             urls as CFArray,
             .process,
-            false, // enabled — fonts become available immediately
-            nil    // no error reporting; missing faces silently fall back
+            true, // enabled — faces participate in font matching immediately
+            nil   // no error reporting; missing faces silently fall back
         )
+    }
+
+    /// Looks up a bundled font file in the main bundle first, then in every
+    /// loaded bundle/framework, so registration also works in test hosts and
+    /// previews where the application's Info.plist (and its `UIAppFonts`
+    /// entries) is absent.
+    private static func fontFileURL(named fileName: String) -> URL? {
+        let ns = fileName as NSString
+        let base = ns.deletingPathExtension
+        let ext = ns.pathExtension
+        for bundle in [Bundle.main] + Bundle.allBundles + Bundle.allFrameworks {
+            if let url = bundle.url(forResource: base, withExtension: ext) {
+                return url
+            }
+        }
+        return nil
     }
 
     // MARK: - Resolved Font Helpers (with system fallbacks)
@@ -116,8 +144,65 @@ enum DSFonts {
 
     // MARK: - Cascading Serif (Source Serif 4 + Source Han Serif SC)
 
+    /// Canonical PostScript names of the serif faces that genuinely exist in
+    /// the bundle (font-file inspection, 2026-10-02):
+    ///
+    ///   • `SourceSerif4-Regular.ttf`  → `SourceSerif4-Regular`
+    ///   • `SourceSerif4-Medium.ttf`   → `SourceSerif4-Regular` — a byte-identical
+    ///     copy of the Regular face; there is NO genuine Latin Medium face.
+    ///   • `SourceSerif4-SemiBold.ttf` → `SourceSerif4-Semibold` (lowercase “b”)
+    ///   • `SourceSerif4-It.ttf`       → `SourceSerif4-It`
+    ///   • `SourceHanSerifSC-{Regular,Medium,SemiBold}.otf` → same names.
+    ///
+    /// Requested `.medium` therefore resolves to the nearest real bundled
+    /// Latin face — `SourceSerif4-Semibold` (600) — instead of asking for the
+    /// nonexistent `SourceSerif4-Medium` name, which made the whole serif
+    /// chain fall back to the system font. The CJK cascade keeps its
+    /// matching-weight face (`.medium` → `SourceHanSerifSC-Medium`), and
+    /// italic keeps its dedicated Latin face (CJK stays upright — Source Han
+    /// Serif SC has no italic face).
+    ///
+    /// Shared by `serif(...)` and `serifUIFont(...)` so the SwiftUI and UIKit
+    /// serif surfaces cannot drift apart.
+    static func serifFacePostScriptNames(weight: Font.Weight, italic: Bool) -> (latin: String, cjk: String) {
+        let latin: String
+        if italic {
+            latin = "SourceSerif4-It"
+        } else {
+            switch weight {
+            case .medium:   latin = "SourceSerif4-Semibold" // nearest real bundled face; no Medium face exists
+            case .semibold: latin = "SourceSerif4-Semibold"
+            default:        latin = "SourceSerif4-Regular"
+            }
+        }
+        let cjk: String
+        switch weight {
+        case .medium:   cjk = "SourceHanSerifSC-Medium"
+        case .semibold: cjk = "SourceHanSerifSC-SemiBold"
+        default:        cjk = "SourceHanSerifSC-Regular"
+        }
+        return (latin, cjk)
+    }
+
+    /// Single construction point shared by `serif(...)` and `serifUIFont(...)`:
+    /// a descriptor for the resolved Latin face carrying a matching-weight CJK
+    /// cascade, or `nil` when any required bundled face is missing (callers
+    /// then fall back to the system serif design).
+    static func serifUIFontDescriptor(size: CGFloat, weight: Font.Weight, italic: Bool) -> UIFontDescriptor? {
+        let faces = serifFacePostScriptNames(weight: weight, italic: italic)
+        guard
+            let latinBase = UIFont(name: faces.latin, size: size),
+            let cjkBase   = UIFont(name: faces.cjk,   size: size)
+        else { return nil }
+        return latinBase.fontDescriptor.addingAttributes([
+            UIFontDescriptor.AttributeName.cascadeList: [cjkBase.fontDescriptor]
+        ])
+    }
+
     /// Returns a SwiftUI Font backed by a UIFontDescriptor cascade list so that:
-    ///   • Latin characters render via Source Serif 4 (Regular/Medium/SemiBold or italic)
+    ///   • Latin characters render via Source Serif 4 (Regular/Semibold or italic —
+    ///     see `serifFacePostScriptNames(weight:italic:)` for the nearest-real-face
+    ///     mapping used for requested `.medium`)
     ///   • CJK characters automatically fall back to Source Han Serif SC at the same weight.
     ///     (Source Han Serif SC has no italic face; iOS renders CJK in upright style even
     ///      when italic is requested — this is the standard platform behaviour for CJK fonts.)
@@ -145,82 +230,32 @@ enum DSFonts {
             }
         }
 
-        // PostScript name mapping for the primary Latin face.
-        let latinPS: String
-        if italic {
-            latinPS = "SourceSerif4-It"
-        } else {
-            switch weight {
-            case .medium:     latinPS = "SourceSerif4-Medium"
-            case .semibold:   latinPS = "SourceSerif4-SemiBold"
-            default:          latinPS = "SourceSerif4-Regular"
-            }
+        // Resolved through the shared face table + cascade construction.
+        if let descriptor = serifUIFontDescriptor(size: size, weight: weight, italic: italic) {
+            return Font(UIFont(descriptor: descriptor, size: size))
         }
 
-        // PostScript name mapping for the CJK fallback face.
-        let cjkPS: String
-        switch weight {
-        case .medium:   cjkPS = "SourceHanSerifSC-Medium"
-        case .semibold: cjkPS = "SourceHanSerifSC-SemiBold"
-        default:        cjkPS = "SourceHanSerifSC-Regular"
-        }
-
-        guard
-            let latinBase = UIFont(name: latinPS, size: size),
-            let cjkBase   = UIFont(name: cjkPS,   size: size)
-        else {
-            // Either face is missing from the bundle — fall back to system serif.
-            let base = Font.system(size: size, weight: weight, design: .serif)
-            return italic ? base.italic() : base
-        }
-
-        let cjkDescriptor = cjkBase.fontDescriptor
-        let cascadeDescriptor = latinBase.fontDescriptor.addingAttributes([
-            UIFontDescriptor.AttributeName.cascadeList: [cjkDescriptor]
-        ])
-        let cascadedFont = UIFont(descriptor: cascadeDescriptor, size: size)
-        return Font(cascadedFont)
+        // A required face is missing from the bundle — fall back to system serif.
+        let base = Font.system(size: size, weight: weight, design: .serif)
+        return italic ? base.italic() : base
     }
 
     /// UIKit twin of `serif(size:weight:italic:)` for surfaces that live in
     /// UIKit-land (the live markdown editor's NSAttributedString styling).
-    /// Same PostScript mapping + CJK cascade; falls back to the system serif
-    /// design when a bundled face is missing.
+    /// Same shared PostScript resolution + CJK cascade; falls back to the
+    /// system serif design when a bundled face is missing.
     static func serifUIFont(size: CGFloat, weight: Font.Weight = .regular, italic: Bool = false) -> UIFont {
-        let latinPS: String
-        if italic {
-            latinPS = "SourceSerif4-It"
-        } else {
-            switch weight {
-            case .medium:     latinPS = "SourceSerif4-Medium"
-            case .semibold:   latinPS = "SourceSerif4-SemiBold"
-            default:          latinPS = "SourceSerif4-Regular"
-            }
-        }
-        let cjkPS: String
-        switch weight {
-        case .medium:   cjkPS = "SourceHanSerifSC-Medium"
-        case .semibold: cjkPS = "SourceHanSerifSC-SemiBold"
-        default:        cjkPS = "SourceHanSerifSC-Regular"
+        if let descriptor = serifUIFontDescriptor(size: size, weight: weight, italic: italic) {
+            return UIFont(descriptor: descriptor, size: size)
         }
 
-        guard
-            let latinBase = UIFont(name: latinPS, size: size),
-            let cjkBase   = UIFont(name: cjkPS,   size: size)
-        else {
-            let descriptor = UIFont.systemFont(ofSize: size).fontDescriptor
-                .withDesign(.serif) ?? UIFont.systemFont(ofSize: size).fontDescriptor
-            var traits: UIFontDescriptor.SymbolicTraits = []
-            if italic { traits.insert(.traitItalic) }
-            if weight == .semibold || weight == .medium { traits.insert(.traitBold) }
-            let traited = descriptor.withSymbolicTraits(traits) ?? descriptor
-            return UIFont(descriptor: traited, size: size)
-        }
-
-        let cascadeDescriptor = latinBase.fontDescriptor.addingAttributes([
-            UIFontDescriptor.AttributeName.cascadeList: [cjkBase.fontDescriptor]
-        ])
-        return UIFont(descriptor: cascadeDescriptor, size: size)
+        let descriptor = UIFont.systemFont(ofSize: size).fontDescriptor
+            .withDesign(.serif) ?? UIFont.systemFont(ofSize: size).fontDescriptor
+        var traits: UIFontDescriptor.SymbolicTraits = []
+        if italic { traits.insert(.traitItalic) }
+        if weight == .semibold || weight == .medium { traits.insert(.traitBold) }
+        let traited = descriptor.withSymbolicTraits(traits) ?? descriptor
+        return UIFont(descriptor: traited, size: size)
     }
 }
 

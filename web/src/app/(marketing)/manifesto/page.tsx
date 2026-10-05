@@ -57,7 +57,7 @@ export default function ManifestoPage() {
       </p>
       <p>
         We dump fragments at people we trust — friends, group chats, voice
-        memos to ourselves. That's where the real signal lives. DayPage takes
+        memos to ourselves. That&apos;s where the real signal lives. DayPage takes
         that input mode seriously.
       </p>
 

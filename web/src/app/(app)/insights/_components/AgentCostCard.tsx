@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth/session";
+import { requestTime } from "@/lib/request-time";
 import { db } from "@/lib/db/client";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -41,7 +42,7 @@ export async function AgentCostCard() {
   let month: AgentCostSummary | null = null;
 
   if (userId) {
-    const now = Date.now();
+    const now = await requestTime();
     const since7 = new Date(now - 7 * 24 * 60 * 60 * 1000);
     const since30 = new Date(now - 30 * 24 * 60 * 60 * 1000);
     try {

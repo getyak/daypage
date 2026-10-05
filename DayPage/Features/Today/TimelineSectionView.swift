@@ -79,11 +79,12 @@ struct TimelineSectionView: View {
         case .weekBeforeLast:
             return NSLocalizedString("today.timeline.weekBeforeLast", value: "前两周", comment: "Timeline band")
         case .month(let date):
-            let f = DateFormatter()
-            f.dateFormat = "MMMM yyyy"
-            f.locale = Locale.current
-            f.timeZone = TimeZone.current
-            return f.string(from: date)
+            // Payload is the owning civil month's first day in the neutral
+            // Gregorian calendar; the helper formats it with that same
+            // neutral calendar so the civil month can never slide back a
+            // month under a negative-offset system zone. Month NAMES follow
+            // the user's locale.
+            return TimelineDayDisplay.monthHeader(forMonthStart: date, locale: .current)
         }
     }
 
@@ -581,7 +582,6 @@ struct TimelineDayRow: View {
         guard let summary = entry.summary else { return false }
         return !summary.isEmpty
     }
-
     /// Splits the compiled summary into a lead sentence + spill for the
     /// flomo-style body block. The lead keeps its 。 so the two runs join
     /// back into natural prose; a newline split joins with a space instead.
@@ -608,26 +608,32 @@ struct TimelineDayRow: View {
 
     // MARK: Formatters
     //
-    // These read from process-level cached formatters instead of allocating a
-    // fresh `DateFormatter` per computed-var read. The Today history timeline
-    // reads `weekdayLabel`/`monthDayLabel` per visible row, re-evaluated on
-    // every scroll frame (the main scroll fires a ScrollOffsetPreferenceKey) —
-    // a `DateFormatter()` alloc there is one of Foundation's most expensive
-    // per-frame costs and showed up as visible scroll hitching.
+    // Labels derive STRICTLY from the canonical `dateString` file key via the
+    // internally testable `TimelineDayDisplay` helper — never from the
+    // scan-derived `entry.date` (which may carry a stale zone midnight), the
+    // system zone, or the preferred zone. The helper reads immutable,
+    // context-scoped formatter caches (`TimelineDisplayFormatters`), so the
+    // history timeline never allocates a `DateFormatter` per scroll frame.
 
+    private var dayLabels: TimelineDayDisplay.DayLabels {
+        // Fail closed: a row with a malformed key shows its raw key rather
+        // than guessing a day (grouping already drops such entries).
+        TimelineDayDisplay.dayLabels(forDayKey: entry.dateString)
+            ?? TimelineDayDisplay.DayLabels(weekday: "", monthDay: entry.dateString, dayNumber: "")
+    }
 
     private var weekdayLabel: String {
-        DateFormatters.weekdayShort.string(from: entry.date).uppercased()
+        dayLabels.weekday
     }
 
     /// Display date for the overline — mirrors web's `item.date` (e.g. 05.30).
     private var monthDayLabel: String {
-        DateFormatters.monthDayDotted.string(from: entry.date)
+        dayLabels.monthDay
     }
 
     /// Two-digit day-of-month for the ghost numeral ("05", "16").
     private var dayNumberLabel: String {
-        String(format: "%02d", Calendar.current.component(.day, from: entry.date))
+        dayLabels.dayNumber
     }
 
     private var memoCountTag: String {
@@ -1002,5 +1008,101 @@ struct TimelineDayPreviewCard: View {
                 .tracking(1.4)
                 .foregroundColor(DSColor.inkMuted)
         }
+    }
+}
+
+// MARK: - TimelineDayDisplay
+
+/// Minimal, internally testable display helper for the timeline date labels.
+///
+/// Every label derives STRICTLY from the canonical `yyyy-MM-dd` file key (the
+/// Gregorian civil identity of the owning `vault/raw/YYYY-MM-DD.md`) through
+/// `TimelineDayKey`'s timezone-neutral calendar — never from
+/// `TimelineDayEntry.date` (a scan-zone midnight snapshot that can be stale),
+/// the system zone, or the preferred zone. The same key therefore renders the
+/// same day card and the same owning civil month under any device or
+/// preferred zone, including zone-skipped civil days such as Pacific/Apia's
+/// 2011-12-30.
+enum TimelineDayDisplay {
+
+    /// Day-card labels for one canonical key — the flomo overline pair plus
+    /// the ghost numeral. English-POSIX small-caps style ("SAT" / "10.03" /
+    /// "03"), matching the rendered design regardless of locale.
+    struct DayLabels: Equatable {
+        let weekday: String
+        let monthDay: String
+        let dayNumber: String
+    }
+
+    /// Labels for a canonical day key. Returns nil when the key is malformed
+    /// — fail closed rather than guess a day.
+    static func dayLabels(forDayKey key: String) -> DayLabels? {
+        guard let day = TimelineDayKey.day(fromKey: key),
+              let anchor = TimelineDayKey.startOfDay(for: day) else { return nil }
+        return DayLabels(
+            weekday: TimelineDisplayFormatters.weekday.string(from: anchor).uppercased(),
+            monthDay: String(format: "%02d.%02d", day.month, day.day),
+            dayNumber: String(format: "%02d", day.day)
+        )
+    }
+
+    /// Localized band header for an owning civil month ("October 2026").
+    /// `monthStart` is the neutral civil month-start payload of
+    /// `TimelineSectionKind.month`; formatting it with the same neutral
+    /// calendar keeps the civil month unchanged under any system zone (a
+    /// month-first UTC instant would render as the previous month in a
+    /// negative-offset display zone), while month names follow `locale`.
+    @MainActor
+    static func monthHeader(forMonthStart monthStart: Date, locale: Locale = .current) -> String {
+        TimelineDisplayFormatters.monthHeader(locale: locale).string(from: monthStart)
+    }
+}
+
+// MARK: - TimelineDisplayFormatters
+
+/// Immutable, context-scoped formatter caches for the timeline labels.
+/// Configured once and never mutated afterwards — no per-scroll-frame
+/// allocation and no mutation of the shared `DateFormatters` caches (which
+/// serve machine strings and other callers). All formatters are pinned to the
+/// neutral civil calendar so labels follow the owning file day only.
+enum TimelineDisplayFormatters {
+
+    /// "Sat" — English-POSIX short weekday of the owning civil day.
+    static let weekday: DateFormatter = posix("EEE")
+
+    /// Localized "MMMM yyyy" month-header formatter, cached per locale on the
+    /// main actor instead of being rebuilt for every band header render.
+    @MainActor
+    static func monthHeader(locale: Locale) -> DateFormatter {
+        MonthHeaderFormatterCache.formatter(for: locale)
+    }
+
+    private static func posix(_ format: String) -> DateFormatter {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.calendar = TimelineDayKey.neutralCalendar()
+        f.dateFormat = format
+        f.timeZone = TimelineDayKey.neutralTimeZone
+        return f
+    }
+}
+
+/// Locale-keyed cache for the localized month-header formatter. Main-actor
+/// scoped and immutable per entry: entries are configured once, then only
+/// read (DateFormatter is safe to reuse while never mutated).
+@MainActor
+private enum MonthHeaderFormatterCache {
+    private static var formatters: [String: DateFormatter] = [:]
+
+    static func formatter(for locale: Locale) -> DateFormatter {
+        let key = locale.identifier
+        if let hit = formatters[key] { return hit }
+        let f = DateFormatter()
+        f.locale = locale
+        f.calendar = TimelineDayKey.neutralCalendar()
+        f.dateFormat = "MMMM yyyy"
+        f.timeZone = TimelineDayKey.neutralTimeZone
+        formatters[key] = f
+        return f
     }
 }

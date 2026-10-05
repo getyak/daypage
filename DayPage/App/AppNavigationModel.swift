@@ -1,5 +1,6 @@
 import SwiftUI
 import DayPageServices
+import DayPageStorage
 
 // MARK: - AppTab
 
@@ -55,6 +56,8 @@ struct DailyRef: Hashable {
 enum MemoDetailSource: Hashable {
     case today
     case daily
+    case raw
+    case archive
 
     var backLabel: String {
         switch self {
@@ -68,27 +71,61 @@ enum MemoDetailSource: Hashable {
                 "memo.detail.nav.back.daily", value: "Daily",
                 comment: "Detail view — back label when pushed from a daily page"
             )
+        case .raw:
+            return NSLocalizedString(
+                "daydetail.tab.raw", value: "Raw Memos",
+                comment: "Detail view — return to the owning raw memo day"
+            )
+        case .archive:
+            return NSLocalizedString(
+                "archive.title", value: "Archive",
+                comment: "Detail view — return from a selected search memo"
+            )
         }
     }
 }
 
 /// The single memo-detail route used by every entry point.  It carries stable
-/// identity and the owning day, never a mutable list snapshot.  The destination
-/// resolves the current memo through `MemoRecordStore`; `usesZoomTransition`
-/// is presentation-only and does not change record identity.
+/// identity and the validated canonical owning raw day FILE KEY
+/// (`YYYY-MM-DD`), never a mutable list snapshot and never a `Date` that a
+/// later preferred-time-zone change could reinterpret into a neighbouring
+/// file.  The destination resolves the current memo through
+/// `MemoRecordStore`'s canonical `dayString:` paths; `usesZoomTransition` is
+/// presentation-only and does not change record identity.
 struct MemoDetailRef: Hashable {
     let id: UUID
-    let day: Date
+    /// Canonical owning raw day file key, validated at construction.
+    let dayString: String
     let source: MemoDetailSource
     var usesZoomTransition = false
 
+    /// Canonical initializer. The owning-day key is validated independently
+    /// of the current preferred zone and fails closed on invalid input.
+    init?(id: UUID, dayString: String, source: MemoDetailSource, usesZoomTransition: Bool = false) {
+        guard RawStorage.isValidDayString(dayString) else { return nil }
+        self.id = id
+        self.dayString = dayString
+        self.source = source
+        self.usesZoomTransition = usesZoomTransition
+    }
+
+    /// Legacy Date-based initializer kept for existing callers/tests.
+    /// Converts the Date to its canonical owning-day key ONCE, at construction
+    /// — the ref never re-derives a day from a stored Date afterwards.
+    init(id: UUID, day: Date, source: MemoDetailSource, usesZoomTransition: Bool = false) {
+        self.id = id
+        self.dayString = RawStorage.dayString(for: day)
+        self.source = source
+        self.usesZoomTransition = usesZoomTransition
+    }
+
     static func == (lhs: MemoDetailRef, rhs: MemoDetailRef) -> Bool {
-        lhs.id == rhs.id && lhs.day == rhs.day && lhs.source == rhs.source
+        lhs.id == rhs.id && lhs.dayString == rhs.dayString && lhs.source == rhs.source
     }
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
-        hasher.combine(day)
+        hasher.combine(dayString)
         hasher.combine(source)
     }
 }

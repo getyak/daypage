@@ -4,6 +4,7 @@ import DayPageStorage
 import DayPageServices
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 /// Fullchain audit Bug #4: `entityType.dropLast()` wrote `type: peopl` into
 /// people-page frontmatter. These tests pin the explicit singular mapping and
 /// the self-heal path for already-poisoned pages.
@@ -111,3 +112,9 @@ struct EntityTypeSingularTests {
         #expect(healed.contains("- 2026-07-16: test mention"))
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias EntityTypeSingularTests = DayPageSerialSwiftTests.EntityTypeSingularTests

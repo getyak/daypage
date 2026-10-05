@@ -24,6 +24,7 @@ import DayPageStorage
 import DayPageServices
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 @MainActor
 @Suite(.serialized)
 struct WeeklyRecapAutoTriggerTests {
@@ -323,3 +324,9 @@ struct WeeklyRecapAutoTriggerTests {
         }
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias WeeklyRecapAutoTriggerTests = DayPageSerialSwiftTests.WeeklyRecapAutoTriggerTests

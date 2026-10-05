@@ -8,6 +8,7 @@ struct SidebarView: View {
 
     @EnvironmentObject private var nav: AppNavigationModel
     @EnvironmentObject private var authService: AuthService
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @EnvironmentObject private var sidebarVM: SidebarViewModel
     @State private var showSettings = false
@@ -57,15 +58,19 @@ struct SidebarView: View {
                             recentSection
                                 .padding(.top, DSSpacing.sm)
                         }
+                        if dynamicTypeSize.isAccessibilitySize {
+                            bottomSection
+                        }
                     }
                     .padding(.bottom, DSSpacing.xl2)
                 }
 
-                Rectangle()
-                    .fill(DSColor.inkFaint)
-                    .frame(height: 0.5)
-
-                bottomSection
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Rectangle()
+                        .fill(DSColor.inkFaint)
+                        .frame(height: 0.5)
+                    bottomSection
+                }
             }
             .frame(maxHeight: .infinity)
         }
@@ -165,11 +170,12 @@ struct SidebarView: View {
                 Text(profileName)
                     .font(.headline.weight(.semibold))
                     .foregroundColor(DSColor.inkPrimary)
-                    .lineLimit(1)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Spacer()
 
-                if !sidebarVM.isLoggedIn {
+                if !sidebarVM.isLoggedIn && !dynamicTypeSize.isAccessibilitySize {
                     Text(NSLocalizedString("sidebar.profile.sync", value: "Sync", comment: "Account sync action"))
                         .font(.footnote.weight(.semibold))
                         .foregroundColor(DSColor.accentOnBg)
@@ -278,13 +284,15 @@ struct SidebarView: View {
                     .font(DSType.bodyMD)
                     .foregroundColor(DSColor.inkMuted)
                 Spacer(minLength: DSSpacing.sm)
-                Text("REVIEW")
-                    .font(DSType.mono9)
-                    .tracking(1.1)
-                    .foregroundColor(DSColor.accentOnBg)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(DSColor.amberSoft, in: Capsule())
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Text("REVIEW")
+                        .font(DSType.mono9)
+                        .tracking(1.1)
+                        .foregroundColor(DSColor.accentOnBg)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(DSColor.amberSoft, in: Capsule())
+                }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 9)

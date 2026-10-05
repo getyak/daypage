@@ -55,6 +55,14 @@ struct TodayView: View {
     @AppStorage(AppSettings.Keys.aiFeaturesEnabled) private var aiFeaturesEnabled: Bool = true
     @EnvironmentObject private var sidebarVM: SidebarViewModel
 
+    /// Explicit SwiftUI observation of the *completed* preferred-time-zone
+    /// value. `AppSettings` publishes `objectWillChange` BEFORE writing the
+    /// defaults value, so a synchronous subscriber would still read the old
+    /// zone; `.onChange(of: appSettings.preferredTimeZone.identifier)` (see
+    /// `applyLifecycleHooks`) fires only after the new identifier is
+    /// committed. Also feeds the hero's single display snapshot below.
+    @ObservedObject private var appSettings = AppSettings.shared
+
     @Environment(\.scenePhase) private var scenePhase
 
     @State private var showSyncBanner: Bool = false
@@ -98,8 +106,11 @@ struct TodayView: View {
     @SceneStorage("today.draftBackupSceneID") private var draftBackupSceneID: String = UUID().uuidString
 
     /// Per-scene UserDefaults key for the draft backup mirror. See
-    /// `draftBackupSceneID` for the multi-window rationale.
-    private var draftBackupKey: String { "today.draftText.backup.\(draftBackupSceneID)" }
+    /// `draftBackupSceneID` for the multi-window rationale. Built by
+    /// `TodayViewModel.draftBackupKey(forSceneID:)` so the writer and the
+    /// cold-start reconciliation share one frozen key format.
+    private var draftBackupKey: String { TodayViewModel.draftBackupKey(forSceneID: draftBackupSceneID) }
+    private var draftDateBackupKey: String { TodayViewModel.draftDateBackupKey(forSceneID: draftBackupSceneID) }
     private var recoveryBackupKey: String { "\(draftBackupKey).recoveryURL" }
 
     /// Whether to show the Daily Page sheet.
@@ -164,9 +175,11 @@ struct TodayView: View {
     // UserDefaults.set(...) — a known cause of main-thread hitches on long
     // drafts. We coalesce into one write 0.8s after the user pauses typing.
     @State private var draftSaveTask: Task<Void, Never>? = nil
+    @State private var initialDraftRestorationSnapshot: String? = nil
 
     // US-010: First-run tutorial overlay
     @State private var showTutorial: Bool = false
+    @AppStorage(InputBarTutorialOverlay.completionKey) private var inputBarTutorialCompleted = false
 
     // Issue #302: share-card sheet payload. Set by long-press on a memo.
     @State private var sharePayload: SharePayload? = nil
@@ -752,8 +765,10 @@ struct TodayView: View {
     private func submitComposer(closeSheet: Bool = false) {
         let body = draftText
         guard viewModel.submitCombinedMemo(body: body) else { return }
+        draftSaveTask?.cancel()
         draftText = ""
         UserDefaults.standard.removeObject(forKey: draftBackupKey)
+        UserDefaults.standard.removeObject(forKey: draftDateBackupKey)
         UserDefaults.standard.removeObject(forKey: recoveryBackupKey)
         if closeSheet { showWriteSheet = false }
         showUndoPill(for: body)
@@ -769,27 +784,15 @@ struct TodayView: View {
             // push (memo / historical day / entity / daily) runs through the
             // path, so the old manual `setStackHasDetail` onChange is gone.
             .onAppear {
-                clearDraftIfExpired()
-                // R4-B2: SceneStorage may come back empty after a process kill
-                // even though we wrote on every keystroke. Fall back to the
-                // UserDefaults mirror so the user doesn't lose the in-flight
-                // draft. Only restore when SceneStorage is empty — never
-                // clobber a fresh keystroke that's already in flight.
-                if draftText.isEmpty,
-                   let backup = UserDefaults.standard.string(forKey: draftBackupKey),
-                   !backup.isEmpty {
-                    draftText = backup
-                } else if !draftText.isEmpty,
-                          UserDefaults.standard.string(forKey: draftBackupKey) == nil {
-                    // The mirror is the journal: send and confirmed discard
-                    // clear it SYNCHRONOUSLY, while the SceneStorage snapshot
-                    // is only taken on backgrounding. A process that dies
-                    // without backgrounding (crash, simctl terminate) can
-                    // therefore restore a draft the user already destroyed —
-                    // a restored draft with no mirror behind it IS that stale
-                    // snapshot. Drop it. (The willResignActive flush below
-                    // keeps this test airtight for legitimate drafts.)
-                    draftText = ""
+                if !viewModel.hasReconciledInitialDraft {
+                    draftSaveTask?.cancel()
+                    if let recovered = viewModel.reconcileInitialDraft(
+                        sceneID: draftBackupSceneID, sceneText: draftText
+                    ), recovered != draftText {
+                        // Recovery is not an edit; preserve the journal's age.
+                        initialDraftRestorationSnapshot = recovered
+                        draftText = recovered
+                    }
                 }
                 viewModel.load()
                 // Drain any inflight drafts left behind by a submit that
@@ -816,6 +819,9 @@ struct TodayView: View {
                 refreshAIKeyMissing()
             }
             .onChange(of: draftText) { _ in
+                let restoredSnapshot = initialDraftRestorationSnapshot
+                initialDraftRestorationSnapshot = nil
+                if let restoredSnapshot, restoredSnapshot == draftText { return }
                 persistDraftMirror(snapshot: draftText)
             }
             .onChange(of: viewModel.activeRecoveryDraft?.url) { url in
@@ -843,8 +849,10 @@ struct TodayView: View {
                     if draftText.isEmpty {
                         draftDate = 0
                         UserDefaults.standard.removeObject(forKey: draftBackupKey)
+                        UserDefaults.standard.removeObject(forKey: draftDateBackupKey)
                     } else {
                         draftDate = Date().timeIntervalSince1970
+                        UserDefaults.standard.set(draftDate, forKey: draftDateBackupKey)
                         UserDefaults.standard.set(draftText, forKey: draftBackupKey)
                     }
                 }
@@ -860,6 +868,18 @@ struct TodayView: View {
                     // redundant third path that just thrashed the debounce.
                 }
             }
+            // Preferred time zone change (Settings → 时区选择): observe the
+            // COMPLETED identifier value (see the `appSettings` note — an
+            // objectWillChange subscriber would read the stale defaults
+            // value). `viewModel.load()` is the existing synchronous reload:
+            // it cancels the older load generation, reloads the current own
+            // day under the new zone, and regroups the warm TimelineIndex
+            // cache — no raw rescan is forced just to switch zones. No
+            // `.id(...)` / navigation / reference / editor / draft reset
+            // happens here: a zone switch must not disturb composer state.
+            .onChange(of: appSettings.preferredTimeZone.identifier) { _ in
+                viewModel.load()
+            }
             // Re-seed the word milestone tracker once data finishes loading so
             // pre-existing word counts on app launch don't trigger celebrations.
             .onChange(of: viewModel.loadState) { state in
@@ -871,6 +891,10 @@ struct TodayView: View {
             // 以及周摘要「本周 5 问」点击回写(WeeklyRecapDetailView.handleReflectionTap)。
             .onChange(of: nav.pendingDraftText) { text in
                 guard let text else { return }
+                // Explicit draft replacement (URL prefill / recap question):
+                // press-to-talk results bound to the replaced draft must not
+                // land in its replacement.
+                viewModel.rotateComposerGenerations()
                 draftText = text
                 nav.pendingDraftText = nil
                 if text.isEmpty {
@@ -964,6 +988,8 @@ struct TodayView: View {
                 DailyPageView(
                     dateString: dateStr,
                     onReturnToToday: { question in
+                        // Explicit draft replacement from the Daily Page.
+                        viewModel.rotateComposerGenerations()
                         draftText = question
                         showDailyPage = false
                     }
@@ -1084,9 +1110,8 @@ struct TodayView: View {
             .bannerOverlay(topInset: 60)
             // US-010: First-run input bar tutorial
             .overlay {
-                if showTutorial {
+                if showTutorial && !inputBarTutorialCompleted {
                     InputBarTutorialOverlay(isPresented: $showTutorial)
-                        .ignoresSafeArea()
                         .transition(.opacity)
                 }
             }
@@ -1259,10 +1284,17 @@ struct TodayView: View {
         Task { @MainActor in
             for _ in 0..<20 {
                 if let memo = viewModel.memos.first {
-                    nav.push(
-                        MemoDetailRef(id: memo.id, day: memo.created, source: .today),
-                        in: .today
-                    )
+                    // QA must exercise the production route with the day
+                    // actually loaded by TodayViewModel — never a day
+                    // recomputed from `memo.created` under a possibly-changed
+                    // preferred zone.
+                    if let ref = MemoDetailRef(
+                        id: memo.id,
+                        dayString: viewModel.loadedDayString,
+                        source: .today
+                    ) {
+                        nav.push(ref, in: .today)
+                    }
                     return
                 }
                 try? await Task.sleep(nanoseconds: 250_000_000)
@@ -2815,6 +2847,12 @@ struct TodayView: View {
 
     @ViewBuilder
     private var inputBarV4: some View {
+        // Snapshot the composer generation when these callbacks are created:
+        // a press-to-talk result may arrive after the draft it was recorded
+        // for was discarded or sent, and must then be dropped. Typing and
+        // soft dismissal never rotate the generation, so this draft's own
+        // results stay legitimate.
+        let voiceToken = viewModel.composerToken(for: .dock)
         InputBarV4(
             text: $draftText,
             isSubmitting: viewModel.isSubmitting,
@@ -2845,15 +2883,14 @@ struct TodayView: View {
                 showWriteSheet = true
             },
             onPressToTalkSend: { result in
-                viewModel.addVoiceAttachment(result: result)
+                // Late send results are dropped unless the captured token
+                // still names the live draft generation.
+                guard viewModel.stageVoiceResult(result, token: voiceToken) else { return }
                 submitComposer()
             },
             onPressToTalkTranscribe: { transcript in
-                if draftText.isEmpty {
-                    draftText = transcript
-                } else {
-                    draftText += (draftText.hasSuffix(" ") ? "" : " ") + transcript
-                }
+                guard let next = viewModel.draftByAppendingTranscript(transcript, to: draftText, token: voiceToken) else { return }
+                draftText = next
             },
             onAddFile: { viewModel.startFilePicker() },
             onSubmit: {
@@ -2887,6 +2924,9 @@ struct TodayView: View {
 
     @ViewBuilder
     private var writeSheetOverlay: some View {
+        // Same per-surface generation snapshot as the dock, captured when the
+        // WriteSheet's press-to-talk callbacks are created.
+        let voiceToken = viewModel.composerToken(for: .writeSheet)
         if showWriteSheet {
             WriteSheetView(
                 text: $draftText,
@@ -2897,7 +2937,10 @@ struct TodayView: View {
                 onDiscard: {
                     // Explicit, confirmed discard — the ONLY path that
                     // destroys the draft. Plain close keeps everything.
+                    draftSaveTask?.cancel()
                     draftText = ""
+                    UserDefaults.standard.removeObject(forKey: draftBackupKey)
+                    UserDefaults.standard.removeObject(forKey: draftDateBackupKey)
                     viewModel.discardActiveInflightDraft()
                     UserDefaults.standard.removeObject(forKey: recoveryBackupKey)
                     viewModel.clearPendingAttachments()
@@ -2913,6 +2956,8 @@ struct TodayView: View {
                 },
                 locationAuthStatus: LocationService.shared.authorizationStatus,
                 pendingAttachments: viewModel.pendingAttachments,
+                isProcessingPhoto: viewModel.isProcessingPhoto,
+                submissionError: viewModel.submitError,
                 onRemoveAttachment: { id in viewModel.removePendingAttachment(id: id) },
                 onAddPhoto: { items in
                     for item in items {
@@ -2921,16 +2966,15 @@ struct TodayView: View {
                 },
                 onCapturePhoto: { viewModel.startCameraCapture() },
                 onPressToTalkSend: { result in
-                    viewModel.addVoiceAttachment(result: result)
+                    // Same generation gate as the dock: a result from an
+                    // abandoned or already-sent draft is dropped untouched.
+                    guard viewModel.stageVoiceResult(result, token: voiceToken) else { return }
                     submitComposer(closeSheet: true)
                 },
                 onStartVoiceRecording: { viewModel.startVoiceRecording() },
                 onPressToTalkTranscribe: { transcript in
-                    if draftText.isEmpty {
-                        draftText = transcript
-                    } else {
-                        draftText += (draftText.hasSuffix(" ") ? "" : " ") + transcript
-                    }
+                    guard let next = viewModel.draftByAppendingTranscript(transcript, to: draftText, token: voiceToken) else { return }
+                    draftText = next
                 },
                 onSubmit: {
                     submitComposer(closeSheet: true)
@@ -2949,6 +2993,10 @@ struct TodayView: View {
     private var sidebarSection: some View {
         let isScrolled = isTimelineScrolled
         let hasMemos = !viewModel.memos.isEmpty
+        // ONE preferred-zone/locale snapshot for the whole hero cluster —
+        // weekday, month/day, time-of-day hour and the accessibility clock
+        // all read from it, so they can never drift apart mid-render.
+        let hero = heroDisplaySnapshot()
         // Empty days still have scrollable history below the invitation. Once
         // that canvas moves, collapse the museum-scale heading into the same
         // compact toolbar title used by memo days; otherwise a large, pinned
@@ -2992,7 +3040,7 @@ struct TodayView: View {
                 // one glance away. Keeps the hero's affordances (tap →
                 // scroll-to-top, context menu → export / copy).
                 if usesCompactHeader {
-                    compactHeroTitle
+                    compactHeroTitle(hero)
                         .transition(.opacity.combined(with: .scale(scale: 0.92)))
                 }
 
@@ -3041,14 +3089,14 @@ struct TodayView: View {
             // `compactHeroTitle`, returning the vertical space to reading.
             if !usesCompactHeader {
                 VStack(alignment: .center, spacing: 6) {
-                    Text(weekdayName(currentTime))
+                    Text(weekdayName(currentTime, display: hero))
                         .font(DSFonts.serif(size: 26, weight: .regular, relativeTo: .title))
                         .foregroundColor(DSColor.inkPrimary)
                         .lineLimit(1)
                         .dynamicTypeSize(.xSmall ... .accessibility2)
                         .minimumScaleFactor(0.6)
-                    headerSublineView(currentTime)
-                        .accessibilityLabel(headerSublineAccessibilityLabel(currentTime))
+                    headerSublineView(currentTime, display: hero)
+                        .accessibilityLabel(headerSublineAccessibilityLabel(currentTime, display: hero))
                 }
                 .frame(maxWidth: .infinity, alignment: .center)
                 // On an empty day this heading is already at the top. The old
@@ -3119,7 +3167,7 @@ struct TodayView: View {
     /// hero so captured content owns the fold while the date stays one
     /// glance away. Carries the hero's affordances forward: tap scrolls the
     /// timeline to top; long-press context menu exposes export / copy.
-    private var compactHeroTitle: some View {
+    private func compactHeroTitle(_ display: HeroDisplaySnapshot) -> some View {
         Button {
             hasNewContentAboveFold = false
             Haptics.soft()
@@ -3130,7 +3178,7 @@ struct TodayView: View {
             // Canvas vNext: date only, muted. On a day with content the
             // calendar is chrome, not content — the weekday dropped out and
             // the ink stepped back so the timeline owns the reader's eye.
-            Text(Self.headerDateFmt.string(from: currentTime))
+            Text(display.monthDayFormatter.string(from: currentTime))
                 .font(DSFonts.serif(size: 14, weight: .regular, relativeTo: .subheadline))
                 .foregroundColor(DSColor.inkMuted)
                 .lineLimit(1)
@@ -3436,15 +3484,17 @@ struct TodayView: View {
                                 // open, so tap-into-detail feels identical
                                 // across today's cards and historical rows.
                                 Haptics.tapConfirm()
-                                nav.push(
-                                    MemoDetailRef(
-                                        id: memo.id,
-                                        day: memo.created,
-                                        source: .today,
-                                        usesZoomTransition: true
-                                    ),
-                                    in: .today
-                                )
+                                // Route on the owning day actually loaded by
+                                // TodayViewModel, not one recomputed from the
+                                // memo timestamp after a zone change.
+                                if let ref = MemoDetailRef(
+                                    id: memo.id,
+                                    dayString: viewModel.loadedDayString,
+                                    source: .today,
+                                    usesZoomTransition: true
+                                ) {
+                                    nav.push(ref, in: .today)
+                                }
                             }
                         )
                         .offset(x: idx == 0 ? memoCardHintOffset : 0)
@@ -3811,29 +3861,20 @@ struct TodayView: View {
         if snapshot.isEmpty {
             draftDate = 0
             UserDefaults.standard.removeObject(forKey: draftBackupKey)
+            UserDefaults.standard.removeObject(forKey: draftDateBackupKey)
             return
         }
+        let bodyKey = draftBackupKey
+        let savedAtKey = draftDateBackupKey
         draftSaveTask = Task {
             try? await Task.sleep(nanoseconds: 800_000_000)
             guard !Task.isCancelled else { return }
             await MainActor.run {
+                guard !Task.isCancelled else { return }
                 draftDate = Date().timeIntervalSince1970
-                UserDefaults.standard.set(snapshot, forKey: draftBackupKey)
+                UserDefaults.standard.set(draftDate, forKey: savedAtKey)
+                UserDefaults.standard.set(snapshot, forKey: bodyKey)
             }
-        }
-    }
-
-    // US-006: Clear draft when it's more than 30 days old.
-    private func clearDraftIfExpired() {
-        guard !draftText.isEmpty, draftDate > 0 else { return }
-        let age = Date().timeIntervalSince1970 - draftDate
-        if age > 30 * 24 * 3600 {
-            draftText = ""
-            draftDate = 0
-            // R4-B2: keep the UserDefaults backup mirror aligned with the
-            // SceneStorage truth — otherwise a stale 31-day-old draft would
-            // be resurrected by .onAppear on the next cold launch.
-            UserDefaults.standard.removeObject(forKey: draftBackupKey)
         }
     }
 
@@ -3859,27 +3900,81 @@ struct TodayView: View {
         }
     }
 
-    // Weekday "Thursday / 星期四" — follows the user's current locale so
-    // Chinese users see 星期四 and English users see Thursday on the hero.
-    private static let weekdayFmt: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale.current
-        f.timeZone = TimeZone.current
-        f.setLocalizedDateFormatFromTemplate("EEEE")
-        return f
-    }()
+    // MARK: - Preferred-zone hero display snapshot
 
-    // "MAY 28" / "5月28日" subline — also locale-aware.
-    private static let headerDateFmt: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale.current
-        f.timeZone = TimeZone.current
-        f.setLocalizedDateFormatFromTemplate("MMM d")
-        return f
-    }()
+    /// One immutable (preferred zone × locale) display snapshot for the Today
+    /// hero cluster. The hero weekday, month/day subline, time-of-day hour,
+    /// and the accessibility clock all read from this single snapshot so they
+    /// always describe the same instant the same way. Formatters and the hour
+    /// calendar are bound to the snapshot's zone — never to `TimeZone.current`
+    /// and never re-created per scroll frame.
+    struct HeroDisplaySnapshot {
+        let timeZone: TimeZone
+        /// "Thursday" / "星期四" — locale-aware weekday of the hero.
+        let weekdayFormatter: DateFormatter
+        /// "MAY 28" / "5月28日" — locale-aware month/day subline.
+        let monthDayFormatter: DateFormatter
+        /// "07:09" — 24h accessibility clock (POSIX digits keep the current
+        /// rendered layout), pinned to the snapshot's zone.
+        let clockFormatter: DateFormatter
+        let hourCalendar: Calendar
 
-    private func weekdayName(_ date: Date) -> String {
-        Self.weekdayFmt.string(from: date)
+        /// Time-of-day hour of `date` in the snapshot's preferred zone.
+        func hour(of date: Date) -> Int {
+            hourCalendar.component(.hour, from: date)
+        }
+    }
+
+    /// Immutable formatter cache keyed by (preferred zone, locale). Entries
+    /// are configured once and never mutated afterwards — no per-scroll-frame
+    /// allocation and no mutation of the shared `DateFormatters` caches.
+    @MainActor
+    private enum HeroDisplayCache {
+        private static var snapshots: [String: HeroDisplaySnapshot] = [:]
+
+        static func snapshot(timeZone: TimeZone, locale: Locale) -> HeroDisplaySnapshot {
+            let key = "\(timeZone.identifier)#\(locale.identifier)"
+            if let hit = snapshots[key] { return hit }
+
+            let weekday = DateFormatter()
+            weekday.locale = locale
+            weekday.timeZone = timeZone
+            weekday.setLocalizedDateFormatFromTemplate("EEEE")
+
+            let monthDay = DateFormatter()
+            monthDay.locale = locale
+            monthDay.timeZone = timeZone
+            monthDay.setLocalizedDateFormatFromTemplate("MMM d")
+
+            let clock = DateFormatter()
+            clock.locale = Locale(identifier: "en_US_POSIX")
+            clock.dateFormat = "HH:mm"
+            clock.timeZone = timeZone
+
+            var hourCalendar = Calendar(identifier: .gregorian)
+            hourCalendar.timeZone = timeZone
+
+            let built = HeroDisplaySnapshot(
+                timeZone: timeZone,
+                weekdayFormatter: weekday,
+                monthDayFormatter: monthDay,
+                clockFormatter: clock,
+                hourCalendar: hourCalendar
+            )
+            snapshots[key] = built
+            return built
+        }
+    }
+
+    /// The hero cluster's single (preferred zone, locale) snapshot for this
+    /// render. Reads the completed `AppSettings` value at call time — the
+    /// same committed semantics as the `.onChange` zone hook above.
+    private func heroDisplaySnapshot() -> HeroDisplaySnapshot {
+        HeroDisplayCache.snapshot(timeZone: appSettings.preferredTimeZone, locale: Locale.current)
+    }
+
+    private func weekdayName(_ date: Date, display: HeroDisplaySnapshot) -> String {
+        display.weekdayFormatter.string(from: date)
     }
 
     /// Renders the header subline as a single concise mono row.
@@ -3895,9 +3990,9 @@ struct TodayView: View {
     /// The word-count milestone glow becomes a one-shot ripple on the
     /// hero scale handled elsewhere, so the subline stays quiet on writes.
     @ViewBuilder
-    private func headerSublineView(_ date: Date) -> some View {
-        let dateStr = Self.headerDateFmt.string(from: date)
-        let timeOfDay = headerTimeOfDay(date)
+    private func headerSublineView(_ date: Date, display: HeroDisplaySnapshot) -> some View {
+        let dateStr = display.monthDayFormatter.string(from: date)
+        let timeOfDay = headerTimeOfDay(date, display: display)
         let separator = "  ·  "
         Text((dateStr + separator + timeOfDay).uppercased())
             .font(DSType.mono10)
@@ -3908,9 +4003,11 @@ struct TodayView: View {
     }
 
     /// Maps an hour to one of four poetic time-of-day buckets used by the
-    /// header subline ("黎明 / 上午 / 下午 / 深夜").
-    private func headerTimeOfDay(_ date: Date) -> String {
-        let hour = Calendar.current.component(.hour, from: date)
+    /// header subline ("黎明 / 上午 / 下午 / 深夜"). The hour comes from the
+    /// hero's preferred-zone snapshot so the bucket matches the rendered
+    /// clock, not the device zone.
+    private func headerTimeOfDay(_ date: Date, display: HeroDisplaySnapshot) -> String {
+        let hour = display.hour(of: date)
         let key: String
         switch hour {
         case 5..<11:  key = "today.subline.time.morning"
@@ -3923,12 +4020,12 @@ struct TodayView: View {
 
     /// Comma-separated version of the header subline for VoiceOver.
     /// e.g. "May 28, 2 notes, 340 words, 28°, Vientiane"
-    private func headerSublineAccessibilityLabel(_ date: Date) -> String {
+    private func headerSublineAccessibilityLabel(_ date: Date, display: HeroDisplaySnapshot) -> String {
         let count = viewModel.memos.count
-        let dateStr = Self.headerDateFmt.string(from: date)
+        let dateStr = display.monthDayFormatter.string(from: date)
         var parts: [String]
         if count == 0 {
-            parts = [dateStr, DateFormatters.timeHHmm.string(from: date)]
+            parts = [dateStr, display.clockFormatter.string(from: date)]
         } else {
             let notesKey = count == 1 ? "today.subline.notes.one" : "today.subline.notes.other"
             let notesStr = String(format: NSLocalizedString(notesKey, comment: ""), count)
@@ -3941,7 +4038,7 @@ struct TodayView: View {
         }
         if let weather = todayWeatherAccessibility() { parts.append(weather) }
         if let place = todayPlaceShort() { parts.append(place) }
-        parts.append(todayTimeZoneShort())
+        parts.append(todayTimeZoneShort(display: display, at: date))
         return parts.joined(separator: ", ")
     }
 
@@ -4008,8 +4105,11 @@ struct TodayView: View {
         return nil
     }
 
-    private func todayTimeZoneShort() -> String {
-        TimeZoneBadge.gmtOffset(for: .current, at: currentTime)
+    /// GMT-offset badge for the accessibility subline — printed for the same
+    /// preferred-zone snapshot the clock uses, so "07:09 (GMT+14)" reads as
+    /// one coherent moment.
+    private func todayTimeZoneShort(display: HeroDisplaySnapshot, at date: Date) -> String {
+        TimeZoneBadge.gmtOffset(for: display.timeZone, at: date)
     }
 
     // MARK: - Timeline row actions

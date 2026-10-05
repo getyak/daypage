@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth/session";
+import { requestTime } from "@/lib/request-time";
 import { db } from "@/lib/db/client";
 import { users, memos, pages, annotations } from "@/lib/db/schema";
 import { eq, and, gte, sql, count } from "drizzle-orm";
@@ -56,7 +57,7 @@ export async function DigitalFootprintCard({ range }: { range: string }) {
   let heatmap: { date: string; count: number }[] = [];
 
   if (userId) {
-    const since = new Date(Date.now() - rangeToMs(range));
+    const since = new Date(await requestTime() - rangeToMs(range));
 
     try {
       // Lifetime counts
@@ -275,7 +276,7 @@ function WeekHeatmap({
   const GAP = 3;
 
   const weeks: { date: string; count: number }[][] = [];
-  let current = new Date(startDate);
+  const current = new Date(startDate);
 
   while (current <= today) {
     const week: { date: string; count: number }[] = [];

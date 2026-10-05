@@ -4,11 +4,15 @@ import DayPageStorage
 import DayPageServices
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 /// US-025: Entity slug dedup + fuzzy matching.
 ///
 /// Serialized because tests mutate global `VaultInitializer.testOverrideURL`
 /// and exercise `EntityPageService.shared` (singleton).
 @Suite("EntitySlugDedupTests", .serialized)
+// @MainActor: EntityPageService is @MainActor-isolated, so every call into the
+// service (and its `shared` singleton) must originate from MainActor context.
+@MainActor
 struct EntitySlugDedupTests {
 
     private let tempDir: URL
@@ -183,3 +187,9 @@ struct EntitySlugDedupTests {
                 "Distinct entities must not be merged")
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias EntitySlugDedupTests = DayPageSerialSwiftTests.EntitySlugDedupTests

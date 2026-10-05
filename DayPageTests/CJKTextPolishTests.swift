@@ -47,7 +47,9 @@ final class CJKTextPolishTests: XCTestCase {
 
     func testMixedSentenceHairSpaces() {
         let input = "今天天气好，visit北京"
-        let expected = "今天天气好，visit\(hs)北京"
+        // Full-width punctuation belongs to the CJK block, matching the
+        // punctuation-to-Latin rule exercised by testMixedHalfFullWidthMultipleRules.
+        let expected = "今天天气好，\(hs)visit\(hs)北京"
         XCTAssertEqual(CJKTextPolish.polish(input), expected)
     }
 

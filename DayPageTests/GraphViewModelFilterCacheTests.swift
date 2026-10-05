@@ -1,7 +1,9 @@
 import Testing
+import CoreGraphics
 import DayPageServices
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 @Suite("GraphViewModel filter cache")
 @MainActor
 struct GraphViewModelFilterCacheTests {
@@ -78,9 +80,11 @@ struct GraphViewModelFilterCacheTests {
         #expect(first == second)
     }
 }
+}
 
 // MARK: - #828 focus state machine + weighted edges
 
+extension DayPageSerialSwiftTests {
 @Suite("GraphViewModel focus & edge weight (#828)")
 @MainActor
 struct GraphFocusAndWeightTests {
@@ -170,3 +174,10 @@ struct GraphFocusAndWeightTests {
         #expect(GraphNode.color(for: "unknown") == themes)
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias GraphFocusAndWeightTests = DayPageSerialSwiftTests.GraphFocusAndWeightTests
+typealias GraphViewModelFilterCacheTests = DayPageSerialSwiftTests.GraphViewModelFilterCacheTests

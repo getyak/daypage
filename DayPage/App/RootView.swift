@@ -300,9 +300,11 @@ struct RootView: View {
         case .memo:
             guard let id = UUID(uuidString: request.identifier),
                   let dateString = request.dateString,
-                  let day = Self.entityDateFormatter.date(from: dateString) else { return }
+                  // Validate and PRESERVE the incoming day key; no static
+                  // cached parser time zone may retarget it.
+                  let ref = MemoDetailRef(id: id, dayString: dateString, source: .daily) else { return }
             nav.navigate(to: .archive)
-            nav.push(MemoDetailRef(id: id, day: day, source: .daily), in: .archive)
+            nav.push(ref, in: .archive)
         case .dailyPage:
             nav.openArchive(at: request.identifier)
         case .place:
@@ -331,14 +333,6 @@ struct RootView: View {
             return false
         }
     }
-
-    private static let entityDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = AppSettings.currentTimeZone()
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter
-    }()
 
     @ViewBuilder
     private var phaseContent: some View {
@@ -711,16 +705,17 @@ private struct FeedbackCloseSwipeModifier: ViewModifier {
     let onClose: () -> Void
 
     func body(content: Content) -> some View {
-        if isOpen {
-            content.gesture(
-                DragGesture(minimumDistance: 20)
+        // Keep the content's structural identity stable while toggling the
+        // recognizer. Branching around content recreated FeedbackView's
+        // StateObject and lost the draft every time this drawer closed.
+        content.gesture(
+            isOpen
+                ? DragGesture(minimumDistance: 20)
                     .onEnded { value in
                         if value.translation.width > 60 { onClose() }
                     }
-            )
-        } else {
-            content
-        }
+                : nil
+        )
     }
 }
 

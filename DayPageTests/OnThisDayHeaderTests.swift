@@ -1,6 +1,7 @@
 import Testing
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 /// Verifies the "On This Day" header renders natural, grammatically-correct
 /// relative copy — clean month multiples collapse to months, and singular
 /// counts never read as "1 DAYS AGO".
@@ -25,3 +26,9 @@ struct OnThisDayHeaderTests {
         #expect(OnThisDayCard.relativeSpan(days: 100) == "100 DAYS AGO")
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias OnThisDayHeaderTests = DayPageSerialSwiftTests.OnThisDayHeaderTests

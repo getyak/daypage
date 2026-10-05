@@ -31,7 +31,7 @@ const mockMemo = {
 
 const mockUser = { id: "user-uuid-1" };
 
-vi.mock("@/auth", () => ({ auth: vi.fn() }));
+vi.mock("@/lib/auth/session", () => ({ auth: vi.fn() }));
 
 const mockDb = {
   select: vi.fn(),

@@ -8,22 +8,41 @@ import Security
 /// 以便后台刷新任务仍能读取值而无需 iCloud 同步。
 public enum KeychainHelper {
 
-    private static let service = "com.daypage.auth"
-    private static let apiKeyService = "com.daypage.apikeys"
+    private static let service = serviceName("com.daypage.auth")
+    private static let apiKeyService = serviceName("com.daypage.apikeys")
+
+    /// Simulator signing may not enforce separate access groups. Dedicated QA
+    /// apps therefore use distinct service names before any test can delete a
+    /// familiar credential name. Normal app and macOS package behavior is unchanged.
+    private static func serviceName(_ name: String) -> String {
+        #if DEBUG && os(iOS)
+        if let identity = Bundle.main.bundleIdentifier,
+           identity == "com.daypage.app.qa-unit" || identity == "com.daypage.app.qa-ui" {
+            return "\(identity).\(name)"
+        }
+        #endif
+        return name
+    }
 
     // MARK: - API Key Storage (US-002)
 
     /// Stores an API key securely in Keychain under the `com.daypage.apikeys` service.
     public static func setAPIKey(_ value: String, for identifier: String) {
-        let data = Data(value.utf8)
+        write(value, service: apiKeyService, account: identifier)
+    }
+
+    /// Update in place so an unsuccessful replacement cannot delete the old value.
+    private static func write(_ value: String, service: String, account: String) {
         let base: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: apiKeyService,
-            kSecAttrAccount as String: identifier,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
         ]
-        SecItemDelete(base as CFDictionary)
+        let updated: [String: Any] = [kSecValueData as String: Data(value.utf8)]
+        let status = SecItemUpdate(base as CFDictionary, updated as CFDictionary)
+        guard status == errSecItemNotFound else { return }
         var attrs = base
-        attrs[kSecValueData as String] = data
+        attrs[kSecValueData as String] = Data(value.utf8)
         attrs[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         SecItemAdd(attrs as CFDictionary, nil)
     }
@@ -59,9 +78,19 @@ public enum KeychainHelper {
         SecItemDelete(query as CFDictionary)
     }
 
-    /// Migrates any API keys stored in UserDefaults to Keychain, then removes them from UserDefaults.
-    /// Safe to call multiple times — no-ops if the key is already in Keychain or absent from UserDefaults.
+    /// Clear legacy defaults only once a Keychain value can be read back.
+    /// Failed writes keep the legacy value for the next retry.
     public static func migrateAPIKeysFromUserDefaultsIfNeeded() {
+        migrateAPIKeysFromUserDefaultsIfNeeded(
+            defaults: .standard, read: getAPIKey(for:), write: setAPIKey(_:for:)
+        )
+    }
+
+    static func migrateAPIKeysFromUserDefaultsIfNeeded(
+        defaults: UserDefaults,
+        read: (String) -> String?,
+        write: (String, String) -> Void
+    ) {
         let migrations: [(udKey: String, keychainId: String)] = [
             ("runtimeDeepSeekKey",         "deepSeekApiKey"),
             ("runtimeOpenAIKey",           "openAIWhisperApiKey"),
@@ -72,34 +101,22 @@ public enum KeychainHelper {
         ]
         for (udKey, keychainId) in migrations {
             guard
-                let existing = UserDefaults.standard.string(forKey: udKey),
+                let existing = defaults.string(forKey: udKey),
                 !existing.isEmpty
             else { continue }
             // Only migrate if Keychain doesn't already have a value
-            if getAPIKey(for: keychainId) == nil {
-                setAPIKey(existing, for: keychainId)
+            if read(keychainId) == nil {
+                write(existing, keychainId)
+                guard read(keychainId) == existing else { continue }
             }
-            UserDefaults.standard.removeObject(forKey: udKey)
+            defaults.removeObject(forKey: udKey)
         }
     }
 
     // MARK: - Auth Token Storage
 
     public static func set(_ value: String, forKey key: String) {
-        let data = Data(value.utf8)
-        let base: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: key,
-        ]
-        // 删除后添加更简单，对我们的用例来说也足够原子化；
-        // SecItemUpdate 需要第二个查询字典。
-        SecItemDelete(base as CFDictionary)
-
-        var attrs = base
-        attrs[kSecValueData as String] = data
-        attrs[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        SecItemAdd(attrs as CFDictionary, nil)
+        write(value, service: service, account: key)
     }
 
     public static func get(forKey key: String) -> String? {

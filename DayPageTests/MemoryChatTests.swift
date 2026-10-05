@@ -7,6 +7,7 @@ import DayPageModels
 
 // MARK: - LLMClient parsing
 
+extension DayPageSerialSwiftTests {
 @Suite("LLMClient.parseContent")
 struct LLMClientParseTests {
 
@@ -35,9 +36,11 @@ struct LLMClientParseTests {
         }
     }
 }
+}
 
 // MARK: - GraphRetriever entity-page parsing
 
+extension DayPageSerialSwiftTests {
 @Suite("GraphRetriever entity parsing")
 struct GraphRetrieverParseTests {
 
@@ -92,9 +95,11 @@ struct GraphRetrieverParseTests {
         #expect(hit?.occurrenceCount == 2)
     }
 }
+}
 
 // MARK: - RetrievedContext prompt assembly
 
+extension DayPageSerialSwiftTests {
 @Suite("RetrievedContext.toPromptContext")
 struct RetrievedContextTests {
 
@@ -118,9 +123,11 @@ struct RetrievedContextTests {
         #expect(prompt.contains("出现 7 次"))
     }
 }
+}
 
 // MARK: - MemoryChatService
 
+extension DayPageSerialSwiftTests {
 /// Serialized because tests mutate global `VaultInitializer.testOverrideURL`
 /// (session 化后 `ask` 会真实落盘 —— 不隔离会把测试会话泄漏进真机/模拟器
 /// 的 vault/wiki/chats，正是 2026-07-15 验收时撞见的污染源)。
@@ -214,9 +221,11 @@ struct MemoryChatServiceTests {
         #expect(service.errorMessage == nil)
     }
 }
+}
 
 // MARK: - LLMClient SSE line parsing (issue #837)
 
+extension DayPageSerialSwiftTests {
 @Suite("LLMClient.parseSSELine")
 struct LLMClientSSETests {
 
@@ -239,9 +248,11 @@ struct LLMClientSSETests {
         #expect(LLMClient.parseSSELine("data: not-json") == .ignore)
     }
 }
+}
 
 // MARK: - Memo-anchored chat (issue #837)
 
+extension DayPageSerialSwiftTests {
 /// Serialized —— 同 MemoryChatServiceTests：ask() 落盘，须用临时 vault 隔离。
 @Suite("MemoryChatService memo anchoring", .serialized)
 @MainActor
@@ -377,6 +388,7 @@ struct MemoAnchoredChatTests {
         #expect(service.errorMessage == nil)
     }
 }
+}
 
 /// 跨 @Sendable 闭包捕获检索种子的小盒子（class 引用语义；测试里检索
 /// 闭包只被调用一次，无并发写）。
@@ -393,3 +405,13 @@ private final class FlipFlop: @unchecked Sendable {
         return first
     }
 }
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias GraphRetrieverParseTests = DayPageSerialSwiftTests.GraphRetrieverParseTests
+typealias LLMClientParseTests = DayPageSerialSwiftTests.LLMClientParseTests
+typealias LLMClientSSETests = DayPageSerialSwiftTests.LLMClientSSETests
+typealias MemoAnchoredChatTests = DayPageSerialSwiftTests.MemoAnchoredChatTests
+typealias MemoryChatServiceTests = DayPageSerialSwiftTests.MemoryChatServiceTests
+typealias RetrievedContextTests = DayPageSerialSwiftTests.RetrievedContextTests

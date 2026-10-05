@@ -16,6 +16,9 @@ struct VoiceRecordingView: View {
     /// Called when the user cancels (no file saved).
     var onCancel: () -> Void
 
+    /// Diary recordings are durable; feedback only consumes the transcript.
+    var purpose: VoiceRecordingPurpose = .memo
+
     // MARK: Private State
 
     @StateObject private var voiceService = VoiceService.shared
@@ -96,7 +99,7 @@ struct VoiceRecordingView: View {
             // Only kick off a new recording when the service is genuinely idle.
             guard voiceService.state == .idle else { return }
             Task {
-                await voiceService.startRecording()
+                await voiceService.startRecording(purpose: purpose)
             }
         }
         .onChange(of: voiceService.elapsedSeconds) { seconds in

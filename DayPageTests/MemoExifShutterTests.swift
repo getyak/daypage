@@ -2,6 +2,7 @@ import Testing
 import UIKit
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 // Regression suite for the MemoDetailView photo-detail crash (2026-07-19).
 //
 // Bug: a memo card containing a photo whose EXIF `ExposureTime` was exactly 0
@@ -103,7 +104,9 @@ struct MemoExifShutterTests {
         #expect(MemoExifFormat.apertureLabel(.nan) == nil)
     }
 }
+}
 
+extension DayPageSerialSwiftTests {
 @Suite("AttachmentImagePipeline")
 struct AttachmentImagePipelineTests {
     @Test @MainActor
@@ -123,7 +126,9 @@ struct AttachmentImagePipelineTests {
         #expect(max(cgImage.width, cgImage.height) <= 320)
     }
 }
+}
 
+extension DayPageSerialSwiftTests {
 @Suite("MemoDetailRef")
 struct MemoDetailRefTests {
     @Test
@@ -143,3 +148,11 @@ struct MemoDetailRefTests {
         #expect(plain != MemoDetailRef(id: id, day: day, source: .daily))
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias AttachmentImagePipelineTests = DayPageSerialSwiftTests.AttachmentImagePipelineTests
+typealias MemoDetailRefTests = DayPageSerialSwiftTests.MemoDetailRefTests
+typealias MemoExifShutterTests = DayPageSerialSwiftTests.MemoExifShutterTests

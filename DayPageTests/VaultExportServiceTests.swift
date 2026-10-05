@@ -16,6 +16,7 @@ import DayPageStorage
 import DayPageServices
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 @MainActor
 @Suite(.serialized)
 struct VaultExportServiceTests {
@@ -292,6 +293,7 @@ struct VaultExportServiceTests {
         #expect(box.maxSeen >= 0.99)
     }
 }
+}
 
 /// Tiny @MainActor sink that just records the highest progress value seen.
 /// We isolate it to the main actor because `exportVaultZip`'s progress
@@ -304,3 +306,8 @@ private final class ProgressBox {
         if v > maxSeen { maxSeen = v }
     }
 }
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias VaultExportServiceTests = DayPageSerialSwiftTests.VaultExportServiceTests

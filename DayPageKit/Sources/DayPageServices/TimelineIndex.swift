@@ -86,9 +86,9 @@ public final class TimelineIndex {
         let writeToken = NotificationCenter.default.addObserver(
             forName: .rawStorageDidWrite, object: nil, queue: .main
         ) { [weak self] note in
-            let date = note.object as? Date
+            let dayString = note.userInfo?[RawStorage.writtenDayStringKey] as? String
             MainActor.assumeIsolated {
-                self?.handleDidWrite(date: date)
+                self?.handleDidWrite(dayString: dayString)
             }
         }
         let conflictToken = NotificationCenter.default.addObserver(
@@ -238,13 +238,14 @@ public final class TimelineIndex {
 
     // MARK: - Notification handlers
 
-    private func handleDidWrite(date: Date?) {
-        guard let date else {
-            // Unknown origin → safest is a full rebuild.
+    private func handleDidWrite(dayString: String?) {
+        // The writer captured this key from the actual raw file URL. A Date
+        // can mean a different stored day after the preferred zone changes.
+        // Legacy or malformed notifications conservatively refresh all files.
+        guard let stem = dayString, RawStorage.isValidDayString(stem) else {
             scheduleRebuild(rebuildAgainIfRunning: true)
             return
         }
-        let stem = Self.dateFormatter.string(from: date)
         guard isBuilt, rebuildTask == nil else {
             pendingWriteDates.insert(stem)
             if rebuildTask == nil { scheduleRebuild() }
@@ -267,14 +268,6 @@ public final class TimelineIndex {
         )
         orderedEntries = entries.sorted { $0.date > $1.date }
     }
-
-    private static let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = AppSettings.currentTimeZone()
-        return f
-    }()
 
     // MARK: - Test support
 

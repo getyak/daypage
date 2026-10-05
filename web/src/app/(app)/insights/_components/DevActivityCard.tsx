@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth/session";
+import { requestTime } from "@/lib/request-time";
 import { db } from "@/lib/db/client";
 import { users, prompt_log, activities } from "@/lib/db/schema";
 import { eq, and, gte, sql } from "drizzle-orm";
@@ -31,7 +32,7 @@ export async function DevActivityCard({ range }: { range: string }) {
   let devActivities: { verb: string; count: number }[] = [];
 
   if (userId) {
-    const since = new Date(Date.now() - rangeToMs(range));
+    const since = new Date(await requestTime() - rangeToMs(range));
     try {
       // prompt_log rows where kind = 'claude_code' (Claude Code MCP sessions)
       const logRows = await db

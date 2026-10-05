@@ -1,7 +1,7 @@
 import SwiftUI
 import WidgetKit
 
-private let systemActionAppGroup = "group.com.daypage"
+private let systemActionAppGroup = SystemActionSharedSummaryStore.appGroupIdentifier
 private let systemActionSnapshotKey = "system-actions.redacted-summaries.v1"
 
 private struct SystemActionWidgetSummary: Codable, Identifiable {

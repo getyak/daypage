@@ -4,6 +4,7 @@ import DayPageStorage
 import DayPageServices
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 /// R4-B4: Targeted tests for the `RawStorage.atomicWrite` failure surface.
 ///
 /// The hardened path (issue #108 / R3) added two distinct error sites:
@@ -117,6 +118,14 @@ struct RawStorageWriteFailedTests {
             // Defensive: switch over .writeFailed must never fall through to
             // .readFailed. If it does, pin the failure with a hard #expect.
             #expect(Bool(false), "writeFailed must not match readFailed")
+        case .invalidDayString:
+            #expect(Bool(false), "writeFailed must not match invalidDayString")
         }
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias RawStorageWriteFailedTests = DayPageSerialSwiftTests.RawStorageWriteFailedTests

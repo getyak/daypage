@@ -1,11 +1,14 @@
 import Testing
 import CoreLocation
 import DayPageModels
-import DayPageServices
+// @testable: WeatherService's per-test instance seam `init(testing:)` is
+// internal to DayPageServices, so internal access is required here.
+@testable import DayPageServices
 @testable import DayPage
 
 // MARK: - WeatherServiceCacheTests
 
+extension DayPageSerialSwiftTests {
 /// Tests for the geo-bucketed LRU weather cache introduced to serve nomads who
 /// alternate between nearby locations (café ↔ co-working ↔ home).
 ///
@@ -136,31 +139,31 @@ struct WeatherServiceCacheTests {
 
     // MARK: - Glyph mapping
 
-    @Test func glyphThunderstorm_returns⛈() {
+    @Test func glyphThunderstorm_returnsThunderstorm() {
         #expect(WeatherService.glyph(forConditionCode: 200, icon: nil) == "⛈")
     }
 
-    @Test func glyphRain_returns🌧() {
+    @Test func glyphRain_returnsRain() {
         #expect(WeatherService.glyph(forConditionCode: 500, icon: nil) == "🌧")
     }
 
-    @Test func glyphSnow_returns❄️() {
+    @Test func glyphSnow_returnsSnowflake() {
         #expect(WeatherService.glyph(forConditionCode: 600, icon: nil) == "❄️")
     }
 
-    @Test func glyphFog_returns🌫() {
+    @Test func glyphFog_returnsFog() {
         #expect(WeatherService.glyph(forConditionCode: 741, icon: nil) == "🌫")
     }
 
-    @Test func glyphClearDay_returns☀️() {
+    @Test func glyphClearDay_returnsSun() {
         #expect(WeatherService.glyph(forConditionCode: 800, icon: "01d") == "☀️")
     }
 
-    @Test func glyphClearNight_returns🌙() {
+    @Test func glyphClearNight_returnsMoon() {
         #expect(WeatherService.glyph(forConditionCode: 800, icon: "01n") == "🌙")
     }
 
-    @Test func glyphCloudy_returns☁️() {
+    @Test func glyphCloudy_returnsCloud() {
         #expect(WeatherService.glyph(forConditionCode: 803, icon: nil) == "☁️")
     }
 
@@ -201,3 +204,9 @@ struct WeatherServiceCacheTests {
         Memo.Location(name: nil, lat: lat, lng: lng)
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias WeatherServiceCacheTests = DayPageSerialSwiftTests.WeatherServiceCacheTests

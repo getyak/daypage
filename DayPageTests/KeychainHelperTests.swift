@@ -1,9 +1,12 @@
 import Testing
+import XCTest
 import Foundation
+import Security
 import DayPageStorage
 import DayPageServices
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 /// Unit tests for KeychainHelper API-key storage — write/read/delete cycle
 /// and UserDefaults migration. Acceptance criteria for US-002.
 ///
@@ -98,7 +101,11 @@ struct KeychainHelperTests {
         let udValue = UserDefaults.standard.string(forKey: udKey)
 
         expectKeychain(keychainValue, equals: "migrated-key-value", "Value must be moved to Keychain after migration")
-        #expect(udValue == nil, "UserDefaults entry must be removed after migration")
+        if Self.keychainAvailable {
+            #expect(udValue == nil, "Confirmed migration removes the legacy value")
+        } else {
+            #expect(udValue == "migrated-key-value", "Failed migration must preserve the only credential copy")
+        }
     }
 
     @Test mutating func migrateFromUserDefaults_doesNotOverwriteExistingKeychainValue() throws {
@@ -119,7 +126,11 @@ struct KeychainHelperTests {
         expectKeychain(keychainValue, equals: "existing-keychain-value", "Existing Keychain value must not be overwritten by migration")
         // UserDefaults entry is still cleaned up even when Keychain is not written
         let udValue = UserDefaults.standard.string(forKey: udKey)
-        #expect(udValue == nil, "UserDefaults entry must be removed even when Keychain already has a value")
+        if Self.keychainAvailable {
+            #expect(udValue == nil, "A readable existing credential permits legacy cleanup")
+        } else {
+            #expect(udValue == "ud-value", "Unavailable Keychain must preserve legacy defaults")
+        }
     }
 
     /// Assert `actual == expected` when Keychain is usable; otherwise record the
@@ -140,3 +151,66 @@ struct KeychainHelperTests {
         }
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias KeychainHelperTests = DayPageSerialSwiftTests.KeychainHelperTests
+
+/// Run this bounded probe before tests that use familiar credential account names.
+/// Only a newly generated dummy account is queried or deleted.
+#if DAYPAGE_ISOLATED_TEST_HOST
+final class QAKeychainIsolationProbeTests: XCTestCase {
+    func testAPIKeysUseQAServiceNamespace() throws {
+        try verifyNamespace(baseService: "com.daypage.apikeys", apiKey: true)
+    }
+
+    func testAuthKeysUseQAServiceNamespace() throws {
+        try verifyNamespace(baseService: "com.daypage.auth", apiKey: false)
+    }
+
+    private func verifyNamespace(baseService: String, apiKey: Bool) throws {
+        let identity = "com.daypage.app.qa-unit"
+        guard Bundle.main.bundleIdentifier == identity else {
+            XCTFail("Run this probe only in the isolated QA unit host")
+            return
+        }
+        let account = "qa.namespace.probe.\(UUID().uuidString)"
+        let value = "qa-dummy-value"
+        if apiKey {
+            KeychainHelper.setAPIKey(value, for: account)
+        } else {
+            KeychainHelper.set(value, forKey: account)
+        }
+        defer {
+            if apiKey {
+                KeychainHelper.deleteAPIKey(for: account)
+            } else {
+                KeychainHelper.delete(forKey: account)
+            }
+        }
+        func query(service: String) -> (OSStatus, Data?) {
+            let attributes: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: service,
+                kSecAttrAccount as String: account,
+                kSecReturnData as String: true,
+                kSecMatchLimit as String: kSecMatchLimitOne,
+            ]
+            var output: CFTypeRef?
+            let status = SecItemCopyMatching(attributes as CFDictionary, &output)
+            return (status, output as? Data)
+        }
+        let isolated = query(service: "\(identity).\(baseService)")
+        if isolated.0 == errSecMissingEntitlement {
+            throw XCTSkip("Unsigned Simulator Keychain is unavailable (-34018); namespace not verified")
+        }
+        XCTAssertEqual(isolated.0, errSecSuccess, "QA service must contain the dummy item")
+        XCTAssertEqual(isolated.1, Data(value.utf8))
+        let ordinary = query(service: baseService)
+        XCTAssertEqual(ordinary.0, errSecItemNotFound, "The fresh dummy account must not reach the ordinary service")
+        XCTAssertNil(ordinary.1)
+    }
+}
+#endif

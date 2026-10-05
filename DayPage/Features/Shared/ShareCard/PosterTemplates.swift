@@ -437,14 +437,12 @@ private func drawWashiTape(center: CGPoint, width: CGFloat, height: CGFloat,
     ctx.restoreGState()
 }
 
-// Faux-coordinate footer for film cards. The design hardcodes Vientiane coords
-// (FilmTemplate.tsx:127) as flavour; we keep that string only when no real
-// location/coords exist, otherwise show the memo's actual place name.
+// Show supplied location metadata only. Template examples are not user data.
 private func filmFooter(location: String?) -> String {
     if let l = location, !l.isEmpty {
         return l.uppercased()
     }
-    return "VIENTIANE · 18.04°N 102.64°E"
+    return ""
 }
 
 private func imageFormat1x() -> UIGraphicsImageRendererFormat {
@@ -2390,20 +2388,20 @@ enum JournalMemoTemplate: PosterTemplate {
                           options: [.usesLineFragmentOrigin], context: nil)
             y += ceil(bodyMeasure.height) + 42
 
-            // Footer: red dot + LOCATION · TEMP
-            let dotSize: CGFloat = 30
-            JournalPalette.redDot.setFill()
-            cg.fillEllipse(in: CGRect(x: inset, y: y, width: dotSize, height: dotSize))
             var footParts: [String] = []
             if let l = location, !l.isEmpty { footParts.append(l.uppercased()) }
             if !temp.isEmpty { footParts.append(temp) }
-            if footParts.isEmpty { footParts.append("VIENTIANE") }
-            let foot = NSAttributedString(string: truncate(footParts.joined(separator: " \u{00B7} "), to: 50), attributes: [
-                .font: UIFont.monospacedSystemFont(ofSize: 28, weight: .regular),
-                .foregroundColor: JournalPalette.subInk,
-                .kern: 1.2
-            ])
-            foot.draw(at: CGPoint(x: inset + dotSize + 16, y: y + 1))
+            if !footParts.isEmpty {
+                let dotSize: CGFloat = 30
+                JournalPalette.redDot.setFill()
+                cg.fillEllipse(in: CGRect(x: inset, y: y, width: dotSize, height: dotSize))
+                let foot = NSAttributedString(string: truncate(footParts.joined(separator: " \u{00B7} "), to: 50), attributes: [
+                    .font: UIFont.monospacedSystemFont(ofSize: 28, weight: .regular),
+                    .foregroundColor: JournalPalette.subInk,
+                    .kern: 1.2
+                ])
+                foot.draw(at: CGPoint(x: inset + dotSize + 16, y: y + 1))
+            }
         }
     }
 }
@@ -2486,8 +2484,8 @@ private func drawPostcardStamp(at origin: CGPoint, time: String, place: String, 
 enum PostcardMemoTemplate: PosterTemplate {
     static func render(_ payload: SharePayload) -> UIImage {
         guard case .memo(let s) = payload else { return UIImage() }
-        let place = (s.locationName?.isEmpty == false ? s.locationName! : "Vientiane")
-        let country = (s.locationName?.isEmpty == false) ? "" : "LAOS"
+        let place = s.locationName ?? ""
+        let country = ""
         return draw(body: s.body, date: s.createdAt, place: place,
                     country: country, image: s.coverImage)
     }
@@ -2572,7 +2570,7 @@ enum PostcardMemoTemplate: PosterTemplate {
             let stampX = pad + textColW + stampGap
             drawPostcardStamp(at: CGPoint(x: stampX, y: y),
                               time: headerTime(from: date),
-                              place: country.isEmpty ? "LAOS" : country, ctx: cg)
+                              place: country, ctx: cg)
         }
     }
 }
@@ -2583,8 +2581,8 @@ enum PostcardDailyTemplate: PosterTemplate {
     static func render(_ payload: SharePayload) -> UIImage {
         guard case .daily(let s) = payload else { return UIImage() }
         let date = parseDailyDate(s.dateString)
-        let place = s.locationPrimary.isEmpty ? "Vientiane" : s.locationPrimary
-        let country = s.locationPrimary.isEmpty ? "LAOS" : ""
+        let place = s.locationPrimary
+        let country = ""
         return PostcardMemoTemplate.draw(body: s.summary, date: date, place: place,
                                          country: country, image: s.coverImage)
     }
@@ -2595,8 +2593,8 @@ enum PostcardDailyTemplate: PosterTemplate {
 enum PostcardPhotoTemplate: PosterTemplate {
     static func render(_ payload: SharePayload) -> UIImage {
         guard case .photo(let s) = payload else { return UIImage() }
-        let place = (s.location?.isEmpty == false ? s.location! : "Vientiane")
-        let country = (s.location?.isEmpty == false) ? "" : "LAOS"
+        let place = s.location ?? ""
+        let country = ""
         // PhotoSnapshot has no Date; use today's date for the postcard stamp.
         return PostcardMemoTemplate.draw(body: s.caption, date: Date(), place: place,
                                          country: country, image: s.image)

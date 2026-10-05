@@ -354,6 +354,10 @@ struct InputBarV4: View {
             guard !newItems.isEmpty else { return }
             onAddPhoto(newItems)
             photosPickerItems = []
+            // The idle dock has no send action. Take a selected photo to the
+            // existing preview/composer so an attachment-only memo can be saved
+            // without guessing that "Write text" is also its confirmation step.
+            onOpenWriteSheet?()
         }
         .onChange(of: pendingAttachments.count) { newCount in
             // US-012: medium haptic when an attachment is added; removal haptic

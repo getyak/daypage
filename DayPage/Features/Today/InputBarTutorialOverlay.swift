@@ -6,6 +6,7 @@ import DayPageServices
 /// Three-step coach-mark tutorial shown on first launch.
 /// Completion is stored in UserDefaults so it only shows once.
 struct InputBarTutorialOverlay: View {
+    static let completionKey = "inputBarTutorialCompleted"
 
     @Binding var isPresented: Bool
     @State private var step: Int = 0
@@ -152,7 +153,7 @@ struct InputBarTutorialOverlay: View {
     }
 
     private func complete() {
-        UserDefaults.standard.set(true, forKey: "inputBarTutorialCompleted")
+        UserDefaults.standard.set(true, forKey: Self.completionKey)
         withAnimation(Motion.respectReduceMotion(.easeInOut(duration: 0.22))) {
             isPresented = false
         }
@@ -163,6 +164,6 @@ struct InputBarTutorialOverlay: View {
 
 extension InputBarTutorialOverlay {
     static var shouldShow: Bool {
-        !UserDefaults.standard.bool(forKey: "inputBarTutorialCompleted")
+        !UserDefaults.standard.bool(forKey: completionKey)
     }
 }

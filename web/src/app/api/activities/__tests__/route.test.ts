@@ -15,7 +15,7 @@ const mockActivity = {
   created_at: new Date("2026-01-01T00:00:00Z"),
 };
 
-vi.mock("@/auth", () => ({ auth: vi.fn() }));
+vi.mock("@/lib/auth/session", () => ({ auth: vi.fn() }));
 
 const mockDb = { select: vi.fn() };
 vi.mock("@/lib/db/client", () => ({ db: mockDb }));

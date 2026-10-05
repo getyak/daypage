@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Sparkles, Check, CloudOff } from "lucide-react";
 import { Btn, Card, SectionLabel } from "@/components/ui";
@@ -71,18 +71,16 @@ export function EvolutionSection() {
   const save = useSaveEvolutionConfig();
 
   // Local draft so edits don't write on every keystroke; saved on "Save".
-  const [draft, setDraft] = useState<EvolutionConfig>(DEFAULT_EVOLUTION_CONFIG);
+  const [edit, setEdit] = useState<{ base: EvolutionConfig | undefined; value: EvolutionConfig } | null>(null);
+  // A new server snapshot replaces the old draft, preserving the existing
+  // refresh behavior without a second effect-driven render.
+  const draft = edit && edit.base === remote ? edit.value : remote ?? DEFAULT_EVOLUTION_CONFIG;
   const [savedAt, setSavedAt] = useState<number | null>(null);
-
-  // Sync draft from server whenever the remote value (re)loads.
-  useEffect(() => {
-    if (remote) setDraft(remote);
-  }, [remote]);
 
   const dirty = remote ? JSON.stringify(draft) !== JSON.stringify(remote) : false;
 
   function patch(next: Partial<EvolutionConfig>) {
-    setDraft((d) => ({ ...d, ...next }));
+    setEdit({ base: remote, value: { ...draft, ...next } });
   }
 
   async function handleSave() {

@@ -195,7 +195,7 @@ function CompileMockScreen({ progress }: { progress: MotionValue<number> }) {
               }}
             >
               Walked to Belém in the afternoon. The wiki idea kept tugging at
-              me, and João's news came late: Madeira, next month.
+              me, and João&apos;s news came late: Madeira, next month.
             </motion.p>
 
             <motion.ul

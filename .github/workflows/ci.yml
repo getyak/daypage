@@ -235,9 +235,9 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/Library/Developer/Xcode/DerivedData
-          key: deriveddata-tests-${{ hashFiles('DayPage.xcodeproj/project.pbxproj') }}-${{ runner.os }}
+          key: deriveddata-tests-${{ hashFiles('DayPage.xcodeproj/project.pbxproj', 'DayPage.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ runner.os }}
           restore-keys: |
-            deriveddata-tests-${{ hashFiles('DayPage.xcodeproj/project.pbxproj') }}-
+            deriveddata-tests-${{ hashFiles('DayPage.xcodeproj/project.pbxproj', 'DayPage.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-
             deriveddata-tests-
 
       # Same CI placeholder used by the build job. Required because the test
@@ -296,9 +296,9 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/DD
-          key: deriveddata-ci-${{ hashFiles('DayPage.xcodeproj/project.pbxproj') }}-${{ runner.os }}
+          key: deriveddata-ci-${{ hashFiles('DayPage.xcodeproj/project.pbxproj', 'DayPage.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ runner.os }}
           restore-keys: |
-            deriveddata-ci-${{ hashFiles('DayPage.xcodeproj/project.pbxproj') }}-
+            deriveddata-ci-${{ hashFiles('DayPage.xcodeproj/project.pbxproj', 'DayPage.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-
             deriveddata-ci-
 
       # CI builds use one deterministic, non-sensitive placeholder. Real

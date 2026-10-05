@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth/session";
-import { db } from "@/lib/db/client";
-import { users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
-import { writeFile, mkdir } from "fs/promises";
-import { join, extname } from "path";
-import { randomUUID } from "crypto";
+import { auth, resolveUserId } from "@/lib/auth/session";
+import { createOwnedUpload, MAX_UPLOAD_BYTES } from "@/lib/local-uploads";
 
-// fs/promises is Node-only; force the Node.js runtime so Next.js does not
-// attempt to compile this handler for the Edge runtime (would fail on `fs`).
+// local-uploads is Node-only (fs/crypto); force the Node.js runtime so Next.js
+// does not attempt to compile this handler for the Edge runtime.
 export const runtime = "nodejs";
 
-const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_SIZE_BYTES = MAX_UPLOAD_BYTES; // 10 MB
 
 const ALLOWED_MIME_PREFIXES = [
   "image/",
@@ -37,13 +32,10 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.email) return unauthorized();
 
-  const userRows = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, session.user.email))
-    .limit(1);
-
-  if (!userRows.length) return unauthorized();
+  // Owner is the internal users.id resolved from the authenticated email.
+  // Request-supplied owner/memo attachment fields are never trusted.
+  const userId = await resolveUserId(session.user.email);
+  if (!userId) return unauthorized();
 
   let formData: FormData;
   try {
@@ -68,22 +60,28 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const ext = extname(file.name) || "";
-  const filename = `${randomUUID()}${ext}`;
+  const bytes = new Uint8Array(await file.arrayBuffer());
 
-  const uploadsDir = join(process.cwd(), "uploads");
-  await mkdir(uploadsDir, { recursive: true });
+  // Exclusive blob + private ownership sidecar, fsynced before 201. Partial
+  // failure fails closed and cleans up only just-created files (never older or
+  // colliding paths).
+  const created = await createOwnedUpload({
+    ownerId: userId,
+    bytes,
+    declaredMime: mimeType,
+    declaredFilename: file.name,
+  });
 
-  const destPath = join(uploadsDir, filename);
-  const bytes = await file.arrayBuffer();
-  await writeFile(destPath, Buffer.from(bytes));
-
-  const url = `/uploads/${filename}`;
+  if (!created.ok) {
+    // Log only a stable error code — no filenames, paths, or content.
+    console.error(`[api/upload] local upload creation failed (${created.code})`);
+    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+  }
 
   return NextResponse.json(
     {
-      url,
-      filename,
+      url: created.url,
+      filename: created.record.filename,
       original_filename: file.name,
       size: file.size,
       mime_type: mimeType,

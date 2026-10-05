@@ -5,12 +5,8 @@ import DayPageServices
 
 // MARK: - FeedbackContext
 //
-// Diagnostic context attached to every feedback issue. Collected once when the
-// user starts composing so values reflect the moment the bug surfaced.
-//
-// Sent to the AI summarizer as a separate system message so it can decide
-// which fields are relevant and weave them into the body — instead of being
-// blindly appended.
+// Optional technical context, captured when the user opens the diagnostic
+// preview. That exact preview is frozen into the submission only after opt-in.
 
 struct FeedbackContext {
 
@@ -28,7 +24,7 @@ struct FeedbackContext {
     // Network
     let isOnline: Bool
 
-    // User (optional — only present when signed in)
+    // Legacy construction fields: never captured or serialized by feedback.
     let userId: String?
     let userEmail: String?
     let loginProvider: String?
@@ -52,20 +48,7 @@ struct FeedbackContext {
         }
 
         let locale = Locale.current.identifier
-        let timezone = TimeZone.current.identifier
         let isOnline = NetworkMonitor.shared.isOnline
-
-        let session = AuthService.shared.session
-        let userId = session?.user.id.uuidString
-        let userEmail = session?.user.email
-        let provider: String? = {
-            guard session != nil else { return nil }
-            switch AuthService.shared.loginProvider {
-            case .apple: return "apple"
-            case .emailLink: return "email_link"
-            case .unknown: return "unknown"
-            }
-        }()
 
         return FeedbackContext(
             appVersion: appVersion,
@@ -74,18 +57,19 @@ struct FeedbackContext {
             osVersion: osVersion,
             deviceModel: deviceModel,
             locale: locale,
-            timezone: timezone,
+            timezone: "",
             isOnline: isOnline,
-            userId: userId,
-            userEmail: userEmail,
-            loginProvider: provider
+            userId: nil,
+            userEmail: nil,
+            loginProvider: nil
         )
     }
 
     // MARK: - Serialization for AI prompt
 
     /// Emits a compact key:value block the AI can read without ambiguity.
-    /// Email is masked to limit PII exposure on the public issue tracker.
+    /// Only technical fields belong on an issue tracker. Account identifiers,
+    /// email fragments and precise timezones are never part of this payload.
     var promptDescription: String {
         var lines: [String] = []
         lines.append("appVersion: \(appVersion) (\(buildNumber))")
@@ -93,32 +77,7 @@ struct FeedbackContext {
         lines.append("os: \(osVersion)")
         lines.append("device: \(deviceModel)")
         lines.append("locale: \(locale)")
-        lines.append("timezone: \(timezone)")
         lines.append("online: \(isOnline)")
-        if let userId = userId {
-            lines.append("userId: \(userId)")
-        }
-        if let email = userEmail {
-            lines.append("userEmail: \(Self.maskEmail(email))")
-        }
-        if let provider = loginProvider {
-            lines.append("loginProvider: \(provider)")
-        }
         return lines.joined(separator: "\n")
-    }
-
-    private static func maskEmail(_ email: String) -> String {
-        let parts = email.split(separator: "@", maxSplits: 1)
-        guard parts.count == 2 else { return email }
-        let local = parts[0]
-        let domain = parts[1]
-        let visibleLocal: String
-        if local.count <= 2 {
-            visibleLocal = String(local) + "***"
-        } else {
-            let head = local.prefix(2)
-            visibleLocal = "\(head)***"
-        }
-        return "\(visibleLocal)@\(domain)"
     }
 }

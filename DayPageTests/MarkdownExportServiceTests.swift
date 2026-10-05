@@ -1,8 +1,10 @@
 import Testing
+import Foundation
 import DayPageModels
 import DayPageServices
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 @Suite("MarkdownExportService")
 struct MarkdownExportServiceTests {
 
@@ -156,10 +158,12 @@ struct MarkdownExportServiceTests {
         let memo = makeMemo(body: "test")
         let content = MarkdownExportService.buildExportContent(memos: [memo], date: date)
 
-        // H1 must contain a long-format date (EEEE, MMMM d, yyyy)
+        // H1 must contain a long-format date exactly as
+        // MarkdownExportService.longDateString formats it (EEEE, d MMMM yyyy,
+        // en_US_POSIX — e.g. "Monday, 8 June 2026").
         let df = DateFormatter()
-        df.dateFormat = "EEEE, MMMM d, yyyy"
-        df.locale = Locale.current
+        df.dateFormat = "EEEE, d MMMM yyyy"
+        df.locale = Locale(identifier: "en_US_POSIX")
         df.timeZone = AppSettings.currentTimeZone()
         let expected = df.string(from: date)
         #expect(content.contains("# DayPage — \(expected)"))
@@ -555,3 +559,9 @@ struct MarkdownExportServiceTests {
         #expect(secondPos < thirdPos)
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias MarkdownExportServiceTests = DayPageSerialSwiftTests.MarkdownExportServiceTests

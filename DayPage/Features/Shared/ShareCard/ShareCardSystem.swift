@@ -40,20 +40,22 @@ enum SharePayload: Identifiable, Equatable {
     var accessibilityDescription: String {
         switch self {
         case .memo(let s):
-            let where_ = s.locationName.map { " in \($0)" } ?? ""
-            return "Memo card: \(s.body.prefix(80))\(where_)"
+            let where_ = s.locationName.map {
+                String(format: NSLocalizedString("share_card.a11y.location", comment: "Card location suffix"), $0)
+            } ?? ""
+            return String(format: NSLocalizedString("share_card.a11y.memo", comment: "Memo card description"), String(s.body.prefix(80)), where_)
         case .daily(let s):
-            return "Daily page card for \(s.dateString), \(s.memoCount) entries"
+            return String(format: NSLocalizedString("share_card.a11y.daily", comment: "Daily card date and entry count"), s.dateString, s.memoCount)
         case .monthly(let s):
-            return "Monthly summary card: \(s.monthTitle), \(s.totalEntries) entries"
+            return String(format: NSLocalizedString("share_card.a11y.monthly", comment: "Monthly card title and entry count"), s.monthTitle, s.totalEntries)
         case .quote(let s):
-            return "Quote card: \(s.text.prefix(80))"
+            return String(format: NSLocalizedString("share_card.a11y.quote", comment: "Quote card description"), String(s.text.prefix(80)))
         case .photo(let s):
-            return "Photo card: \(s.caption.prefix(80))"
+            return String(format: NSLocalizedString("share_card.a11y.photo", comment: "Photo card description"), String(s.caption.prefix(80)))
         case .voice(let s):
-            return "Voice memo card, duration \(s.duration)"
+            return String(format: NSLocalizedString("share_card.a11y.voice", comment: "Voice card duration"), s.duration)
         case .collage(let s):
-            return "Collage card with \(s.items.count) memos from \(s.dateLabel)"
+            return String(format: NSLocalizedString("share_card.a11y.collage", comment: "Collage card memo count and date"), s.items.count, s.dateLabel)
         }
     }
 
@@ -397,11 +399,11 @@ enum PosterStyle: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .minimal:  return "极简"   // detail.jsx:761
-        case .polaroid: return "拍立得"  // detail.jsx:761
-        case .film:     return "胶片"   // detail.jsx:761
-        case .journal:  return "手账"   // detail.jsx:761
-        case .postcard: return "明信片"  // detail.jsx:761
+        case .minimal:  return NSLocalizedString("share_card.style.minimal", comment: "Share card style")   // detail.jsx:761
+        case .polaroid: return NSLocalizedString("share_card.style.polaroid", comment: "Share card style")  // detail.jsx:761
+        case .film:     return NSLocalizedString("share_card.style.film", comment: "Share card style")   // detail.jsx:761
+        case .journal:  return NSLocalizedString("share_card.style.journal", comment: "Share card style")   // detail.jsx:761
+        case .postcard: return NSLocalizedString("share_card.style.postcard", comment: "Share card style")  // detail.jsx:761
         }
     }
 
@@ -622,11 +624,11 @@ struct ShareCardSheet: View {
             }
             .padding(.bottom, 16)
             .background(DSColor.bgWarm.ignoresSafeArea())
-            .navigationTitle("分享卡片")
+            .navigationTitle(NSLocalizedString("share_card.title", comment: "Share card sheet title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("关闭") { dismiss() }
+                    Button(NSLocalizedString("share_card.close", comment: "Close share card")) { dismiss() }
                         .foregroundColor(DSColor.inkPrimary)
                 }
             }
@@ -695,7 +697,7 @@ struct ShareCardSheet: View {
                             }
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("\(s.displayName) 风格")
+                    .accessibilityLabel(String(format: NSLocalizedString("share_card.style.a11y_label", comment: "Share card style label"), s.displayName))
                     .accessibilityAddTraits(style == s ? [.isSelected] : [])
                 }
             }
@@ -709,7 +711,7 @@ struct ShareCardSheet: View {
                 Haptics.tapConfirm()
                 saveToPhotos()
             } label: {
-                Label("保存到相册", systemImage: "square.and.arrow.down")
+                Label(NSLocalizedString("share_card.save_to_photos", comment: "Save card to Photos"), systemImage: "square.and.arrow.down")
                     .monoLabelStyle(size: 12)
                     .foregroundColor(DSColor.inkPrimary)
                     .padding(.horizontal, 14)
@@ -723,7 +725,7 @@ struct ShareCardSheet: View {
                 Haptics.tapConfirm()
                 showSystemShare = true
             } label: {
-                Label("分享", systemImage: "square.and.arrow.up")
+                Label(NSLocalizedString("share_card.share", comment: "Share card"), systemImage: "square.and.arrow.up")
                     .monoLabelStyle(size: 12)
                     .foregroundColor(DSColor.glassHi)
                     .padding(.horizontal, 16)
@@ -777,7 +779,7 @@ struct ShareCardSheet: View {
         guard let image = renderedImage else { return }
         PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
             guard status == .authorized || status == .limited else {
-                Task { @MainActor in showToast("无相册权限") }
+                Task { @MainActor in showToast(NSLocalizedString("share_card.photos.permission_denied", comment: "Photos access has not been granted")) }
                 return
             }
             PHPhotoLibrary.shared().performChanges {
@@ -795,7 +797,9 @@ struct ShareCardSheet: View {
                     } else {
                         Haptics.warn()
                     }
-                    showToast(ok ? "已保存到相册" : "保存失败")
+                    showToast(ok
+                        ? NSLocalizedString("share_card.photos.saved", comment: "Card saved to Photos")
+                        : NSLocalizedString("share_card.photos.save_failed", comment: "Card could not be saved to Photos"))
                 }
             }
         }

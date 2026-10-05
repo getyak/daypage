@@ -13,6 +13,7 @@ import Testing
 import Foundation
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 struct ReminderIntentParserTests {
 
     /// 固定基准:2026-07-15(周三)14:00 本地时区。
@@ -203,3 +204,9 @@ struct ReminderIntentParserTests {
         #expect(!r.label.contains("今晚"))
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias ReminderIntentParserTests = DayPageSerialSwiftTests.ReminderIntentParserTests

@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useBrowserSnapshot, usePrefersReducedMotion } from "@/hooks/useBrowserSnapshot";
+
+const lowEndBrowser = () => (navigator.hardwareConcurrency ?? 4) < 4;
+const serverLowEnd = () => false;
 
 const FRAG = /* glsl */ `
 precision highp float;
@@ -64,17 +68,15 @@ const RGB_HIGHLIGHT = [0.788, 0.651, 0.467] as const;
 
 export function ShaderBackground({ className }: { className?: string }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [fallback, setFallback] = useState(false);
+  const [rendererFailed, setFallback] = useState(false);
+  const reduced = usePrefersReducedMotion();
+  const lowEnd = useBrowserSnapshot(lowEndBrowser, serverLowEnd);
+  const fallback = rendererFailed || reduced || lowEnd;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const lowEnd = (navigator.hardwareConcurrency ?? 4) < 4;
-    if (reduced || lowEnd) {
-      setFallback(true);
-      return;
-    }
+    if (fallback) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -144,7 +146,7 @@ export function ShaderBackground({ className }: { className?: string }) {
       cancelAnimationFrame(rafId);
       cleanup?.();
     };
-  }, []);
+  }, [fallback]);
 
   if (fallback) {
     return (

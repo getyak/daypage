@@ -25,6 +25,8 @@ import {
 } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { SetStateAction } from "react";
+import { hasSpeechAPI, noSpeechAPI, useBrowserReady, useBrowserSnapshot } from "@/hooks/useBrowserSnapshot";
 import {
   Plus,
   Send,
@@ -85,9 +87,25 @@ async function createMemo(payload: { body: string; type: "text" | "url"; tempId:
 
 // ── component ────────────────────────────────────────────────────────────────
 
+function readDraftText(): string {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    const parsed = raw ? JSON.parse(raw) as { text?: unknown } : null;
+    return typeof parsed?.text === "string" ? parsed.text : "";
+  } catch { return ""; }
+}
+
+const emptyDraft = () => "";
+
 export function Composer() {
   const reduced = useReducedMotion();
-  const [body, setBody] = useState("");
+  const restoredBody = useBrowserSnapshot(readDraftText, emptyDraft);
+  const hydrated = useBrowserReady();
+  const [editedBody, setEditedBody] = useState<string | null>(null);
+  const body = editedBody ?? restoredBody;
+  const setBody = useCallback((next: SetStateAction<string>) => {
+    setEditedBody(previous => typeof next === "function" ? next(previous ?? restoredBody) : next);
+  }, [restoredBody]);
   const [focused, setFocused] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -104,26 +122,14 @@ export function Composer() {
 
   // ── draft：静默 hydrate + debounce 保存 + 无 draft 时自动 focus (R5) ──────
   useEffect(() => {
-    let hadDraft = false;
-    try {
-      const raw = localStorage.getItem(DRAFT_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as { text?: string };
-        if (parsed.text) {
-          setBody(parsed.text);
-          hadDraft = true;
-        }
-      }
-    } catch {
-      /* ignore */
-    }
-    if (!hadDraft) {
+    if (hydrated && !restoredBody && editedBody === null) {
       // 无草稿 → 自动 focus，让"打开页面 = 已经在写"
       queueMicrotask(() => taRef.current?.focus());
     }
-  }, []);
+  }, [hydrated, restoredBody, editedBody]);
 
   useEffect(() => {
+    if (!hydrated) return;
     if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     draftTimerRef.current = setTimeout(() => {
       try {
@@ -142,7 +148,7 @@ export function Composer() {
     return () => {
       if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
     };
-  }, [body]);
+  }, [body, hydrated]);
 
   // ── 字数：useMemo 缓存 + useDeferredValue 让计数在空闲帧才更新 ─────────────
   // 这样按键的同步路径只触发 textarea 自身重渲，字数显示落到 idle frame。
@@ -267,7 +273,7 @@ export function Composer() {
       const pos = start + text.length;
       ta.setSelectionRange(pos, pos);
     });
-  }, [body]);
+  }, [body, setBody]);
 
   const wrapSelection = useCallback((marker: string) => {
     const ta = taRef.current;
@@ -284,7 +290,7 @@ export function Composer() {
       const innerEnd = innerStart + (selected.length || 2);
       ta.setSelectionRange(innerStart, innerEnd);
     });
-  }, [body]);
+  }, [body, setBody]);
 
   // ── Slash 命令清单 ───────────────────────────────────────────────────────
   // 注意：command 的 run 都用 ref/ callback 在下面用闭包绑定真实 handler，
@@ -335,7 +341,7 @@ export function Composer() {
       const pos = start + prefix.length;
       ta.setSelectionRange(pos, pos);
     });
-  }, [body]);
+  }, [body, setBody]);
 
   // ── Slash：检测 / 触发、清除触发字符、执行命令 ───────────────────────────
   const detectSlash = useCallback((nextBody: string, caret: number) => {
@@ -430,7 +436,7 @@ export function Composer() {
         return;
       }
     }
-  }, [computeStrippedSlash]);
+  }, [computeStrippedSlash, setBody]);
 
   // ── render ──────────────────────────────────────────────────────────────
   return (
@@ -1096,16 +1102,9 @@ function DrawerChip({
 // ── sub: Voice drawer chip (Speech API) ─────────────────────────────────────
 
 function VoiceDrawerChip({ onTranscript }: { onTranscript: (t: string) => void }) {
-  const [supported, setSupported] = useState(false);
+  const supported = useBrowserSnapshot(hasSpeechAPI, noSpeechAPI);
   const [recording, setRecording] = useState(false);
   const srRef = useRef<unknown>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    setSupported(
-      "SpeechRecognition" in window || "webkitSpeechRecognition" in window,
-    );
-  }, []);
 
   const handleClick = useCallback(() => {
     if (!supported) return;

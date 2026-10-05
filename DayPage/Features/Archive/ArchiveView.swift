@@ -29,7 +29,7 @@ enum MonthlySummaryFilter: String, CaseIterable {
 // MARK: - DayStats
 
 /// 存档中单日统计信息。
-struct DayStats {
+struct DayStats: Sendable {
     let dateString: String
     let memoCount: Int
     let photoCount: Int
@@ -95,6 +95,22 @@ struct DayStats {
     }
 }
 
+/// Immutable input for one background scan; no global Vault lookup during I/O.
+struct ArchiveMonthRequest: Sendable {
+    let vaultRoot: URL
+    let year: Int
+    let month: Int
+    let calendar: Calendar
+}
+
+/// All Archive surfaces are derived from the same root and scan.
+struct ArchiveMonthSnapshot: Sendable {
+    let dayStats: [String: DayStats]
+    let rawDates: Set<String>
+    let dailyDates: Set<String>
+    let dayTeasers: [String: String]
+}
+
 // MARK: - ArchiveViewModel
 
 @MainActor
@@ -134,29 +150,97 @@ final class ArchiveViewModel: ObservableObject {
     }
     @Published var isLoading: Bool = false
 
-    // Task handle used to cancel a stale loadMonth request when the user
-    // navigates to a different month before the previous load finishes.
-    private var loadMonthTask: Task<Void, Never>?
+    @Published private(set) var rawDates: Set<String> = []
+    @Published private(set) var dailyDates: Set<String> = []
+    @Published private(set) var dayTeasers: [String: String] = [:]
 
-    // Cache: keyed by "yyyy-MM" so navigating back to a viewed month is instant.
-    // Cleared only when the view model is deallocated or a forced refresh is requested.
-    private var monthCache: [String: [String: DayStats]] = [:]
+    // Kept readable internally so tests can await a retired request explicitly.
+    private(set) var loadMonthTask: Task<Void, Never>?
+    private var generation: UInt64 = 0
+    private var isActive = false
+    private var vaultIsDirty = true
+    private let vaultRootProvider: () -> URL
+    private let calendarProvider: () -> Calendar
+    private let loader: @Sendable (ArchiveMonthRequest) async throws -> ArchiveMonthSnapshot
 
-    init() {
-        let now = Calendar.current.dateComponents([.year, .month], from: Date())
-        currentYear = now.year ?? Calendar.current.component(.year, from: Date())
-        currentMonth = now.month ?? Calendar.current.component(.month, from: Date())
+    private struct CacheKey: Hashable {
+        let root: URL
+        let year: Int
+        let month: Int
+        let calendar: Calendar
+    }
+    private var monthCache: [CacheKey: ArchiveMonthSnapshot] = [:]
+    private var publishedKey: CacheKey?
+
+    init(
+        vaultRootProvider: @escaping () -> URL = { VaultInitializer.vaultURL },
+        calendarProvider: @escaping () -> Calendar = {
+            var calendar = Calendar.current
+            calendar.timeZone = StorageSettings.currentTimeZone()
+            return calendar
+        },
+        loader: @escaping @Sendable (ArchiveMonthRequest) async throws -> ArchiveMonthSnapshot = {
+            try await ArchiveVaultScan.load($0)
+        }
+    ) {
+        self.vaultRootProvider = vaultRootProvider
+        self.calendarProvider = calendarProvider
+        self.loader = loader
+        let calendar = calendarProvider()
+        let now = calendar.dateComponents([.year, .month], from: Date())
+        currentYear = now.year ?? calendar.component(.year, from: Date())
+        currentMonth = now.month ?? calendar.component(.month, from: Date())
+    }
+
+    func setActive(_ active: Bool) {
+        guard active != isActive else { return }
+        isActive = active
+        if active {
+            // A persistent tab may have missed changes while hidden.
+            invalidateVault()
+        } else {
+            retireCurrentLoad()
+            vaultIsDirty = true
+            isLoading = false
+        }
+    }
+
+    func invalidateVault() {
+        vaultIsDirty = true
+        monthCache.removeAll()
+        if isActive { loadMonth() }
+    }
+
+    func waitForCurrentLoad() async {
+        await loadMonthTask?.value
+    }
+
+    private func retireCurrentLoad() {
+        generation &+= 1
+        loadMonthTask?.cancel()
+        loadMonthTask = nil
+    }
+
+    private func publish(_ snapshot: ArchiveMonthSnapshot, for key: CacheKey) {
+        publishedKey = key
+        rawDates = snapshot.rawDates
+        dailyDates = snapshot.dailyDates
+        dayTeasers = snapshot.dayTeasers
+        dayStats = snapshot.dayStats
     }
 
     var currentMonthTitle: String {
+        let calendar = calendarProvider()
         let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
         formatter.dateFormat = "MMMM yyyy"
         formatter.locale = Locale(identifier: "en_US_POSIX")
         var comps = DateComponents()
         comps.year = currentYear
         comps.month = currentMonth
         comps.day = 1
-        guard let date = Calendar.current.date(from: comps) else { return "" }
+        guard let date = calendar.date(from: comps) else { return "" }
         return formatter.string(from: date).uppercased()
     }
 
@@ -165,8 +249,8 @@ final class ArchiveViewModel: ObservableObject {
         comps.year = currentYear
         comps.month = currentMonth - 1
         comps.day = 1
-        if let date = Calendar.current.date(from: comps) {
-            let c = Calendar.current.dateComponents([.year, .month], from: date)
+        if let date = calendarProvider().date(from: comps) {
+            let c = calendarProvider().dateComponents([.year, .month], from: date)
             currentYear = c.year ?? currentYear
             currentMonth = c.month ?? currentMonth
         }
@@ -178,8 +262,8 @@ final class ArchiveViewModel: ObservableObject {
         comps.year = currentYear
         comps.month = currentMonth + 1
         comps.day = 1
-        if let date = Calendar.current.date(from: comps) {
-            let c = Calendar.current.dateComponents([.year, .month], from: date)
+        if let date = calendarProvider().date(from: comps) {
+            let c = calendarProvider().dateComponents([.year, .month], from: date)
             currentYear = c.year ?? currentYear
             currentMonth = c.month ?? currentMonth
         }
@@ -187,157 +271,60 @@ final class ArchiveViewModel: ObservableObject {
     }
 
     func loadMonth() {
-        // Serve cached month instantly (no spinner, no disk read).
-        let cacheKey = String(format: "%04d-%02d", currentYear, currentMonth)
-        if let cached = monthCache[cacheKey] {
-            dayStats = cached
+        // Retire even when serving cache: a cancelled loader may still return.
+        retireCurrentLoad()
+        guard isActive else {
+            vaultIsDirty = true
             return
         }
-
-        // Cancel any in-flight load so that a stale result from a prior month
-        // cannot overwrite the data for the month the user just navigated to.
-        loadMonthTask?.cancel()
+        let request = ArchiveMonthRequest(
+            vaultRoot: vaultRootProvider().standardizedFileURL,
+            year: currentYear,
+            month: currentMonth,
+            calendar: calendarProvider()
+        )
+        let key = CacheKey(root: request.vaultRoot, year: request.year,
+                           month: request.month, calendar: request.calendar)
+        let token = generation
+        if publishedKey != key {
+            // Last-good data belongs to its root/month/calendar. A failed new
+            // context must not leave the previous context under its new title.
+            publishedKey = nil
+            rawDates = []
+            dailyDates = []
+            dayTeasers = [:]
+            dayStats = [:]
+        }
+        if !vaultIsDirty, let cached = monthCache[key] {
+            publish(cached, for: key)
+            isLoading = false
+            return
+        }
         isLoading = true
-
-        // Capture value-type state before leaving the MainActor.
-        let year = currentYear
-        let month = currentMonth
-        let rawDir = VaultInitializer.vaultURL.appendingPathComponent("raw")
-        let dailyDir = VaultInitializer.vaultURL.appendingPathComponent("wiki/daily")
-
-        loadMonthTask = Task.detached(priority: .userInitiated) {
-            // Pure helpers inlined here to avoid calling @MainActor instance methods
-            // from a non-isolated context.
-            func daysInMonth(year: Int, month: Int) -> Int {
-                var comps = DateComponents()
-                comps.year = year
-                comps.month = month
-                guard let date = Calendar.current.date(from: comps),
-                      let range = Calendar.current.range(of: .day, in: .month, for: date)
-                else { return 30 }
-                return range.count
-            }
-
-            let fmt = DateFormatters.isoDate
-
-            // Issue #28: single contentsOfDirectory scan + on-disk filename
-            // filter beats 31 fileExists() probes. Most months have <10
-            // populated days; the previous code paid 31 full RawStorage.read
-            // calls (= 31 YAML parses + 31 Memo[] allocations) regardless.
-            //
-            // We restrict to filenames matching the current `yyyy-MM-` prefix
-            // and only parse the days that actually have a file. The empty
-            // days fall through to the default DayStats below.
-            let monthPrefix = String(format: "%04d-%02d-", year, month)
-            let presentRawStems: Set<String>
-            if let entries = try? FileManager.default.contentsOfDirectory(atPath: rawDir.path) {
-                presentRawStems = Set(
-                    entries
-                        .filter { $0.hasSuffix(".md") && $0.hasPrefix(monthPrefix) }
-                        .map { String($0.dropLast(3)) }
-                )
-            } else {
-                presentRawStems = []
-            }
-            let presentDailyStems: Set<String>
-            if let entries = try? FileManager.default.contentsOfDirectory(atPath: dailyDir.path) {
-                presentDailyStems = Set(
-                    entries
-                        .filter { $0.hasSuffix(".md") && $0.hasPrefix(monthPrefix) }
-                        .map { String($0.dropLast(3)) }
-                )
-            } else {
-                presentDailyStems = []
-            }
-
-            var result: [String: DayStats] = [:]
-            let totalDays = daysInMonth(year: year, month: month)
-
-            for day in 1...totalDays {
-                // Early exit: if the task was cancelled mid-loop, reset isLoading
-                // so the UI never stays stuck on a spinner after navigation.
-                guard !Task.isCancelled else {
-                    await MainActor.run { self.isLoading = false }
-                    return
-                }
-                var comps = DateComponents()
-                comps.year = year
-                comps.month = month
-                comps.day = day
-                guard let date = Calendar.current.date(from: comps) else { continue }
-                let dateStr = fmt.string(from: date)
-
-                let hasRaw = presentRawStems.contains(dateStr)
-                let isDailyCompiled = presentDailyStems.contains(dateStr)
-
-                // Skip the entire YAML-parse + Memo allocation cost on empty
-                // days. They get no DayStats entry and the calendar simply
-                // renders no dot — which is the same visual outcome as the
-                // previous all-zero entry.
-                guard hasRaw || isDailyCompiled else { continue }
-
-                var memoCount = 0
-                var photoCount = 0
-                var voiceSeconds = 0
-                var uniqueLocations = Set<String>()
-
-                if hasRaw {
-                    let memos: [Memo]
-                    do {
-                        memos = try RawStorage.read(for: date)
-                    } catch {
-                        memos = []
-                    }
-                    memoCount = memos.count
-                    for memo in memos {
-                        if memo.type == .photo || memo.type == .mixed {
-                            photoCount += memo.attachments.filter { $0.kind == "photo" }.count
-                        }
-                        if memo.type == .voice || memo.type == .mixed {
-                            for att in memo.attachments where att.kind == "audio" {
-                                if let dur = att.duration {
-                                    voiceSeconds += Int(dur)
-                                }
-                            }
-                        }
-                        if let loc = memo.location, let name = loc.name, !name.isEmpty {
-                            uniqueLocations.insert(name)
-                        }
-                    }
-                }
-
-                var dailySummary: String? = nil
-                if isDailyCompiled {
-                    let dailyURL = dailyDir.appendingPathComponent("\(dateStr).md")
-                    if let content = (try? String(contentsOf: dailyURL, encoding: .utf8)) {
-                        dailySummary = FrontmatterParser.extractField("summary", from: content)
-                    }
-                }
-
-                result[dateStr] = DayStats(
-                    dateString: dateStr,
-                    memoCount: memoCount,
-                    photoCount: photoCount,
-                    voiceSeconds: voiceSeconds,
-                    uniqueLocations: uniqueLocations.count,
-                    isDailyPageCompiled: isDailyCompiled,
-                    dailySummary: dailySummary
-                )
-            }
-
-            // If this task was cancelled while the loop was running, discard results
-            // and ensure isLoading is reset so the UI never stays on a spinner.
-            guard !Task.isCancelled else {
-                await MainActor.run { self.isLoading = false }
+        let loader = loader
+        loadMonthTask = Task { [weak self] in
+            let result: Result<ArchiveMonthSnapshot, Error>
+            do { result = .success(try await loader(request)) }
+            catch { result = .failure(error) }
+            // This check and every mutation share one MainActor turn. A late
+            // request cannot publish, cache, or finish a newer request's spinner.
+            guard let self, !Task.isCancelled,
+                  self.isActive, self.generation == token,
+                  self.currentYear == request.year, self.currentMonth == request.month else { return }
+            guard self.vaultRootProvider().standardizedFileURL == request.vaultRoot,
+                  self.calendarProvider() == request.calendar else {
+                // Only the current generation may follow a context change that
+                // arrived without an explicit invalidation; don't strand loading.
+                self.loadMonth()
                 return
             }
-
-            let key = String(format: "%04d-%02d", year, month)
-            await MainActor.run {
-                self.monthCache[key] = result
-                self.dayStats = result
-                self.isLoading = false
+            if case .success(let snapshot) = result {
+                self.monthCache[key] = snapshot
+                self.vaultIsDirty = false
+                self.publish(snapshot, for: key)
             }
+            // Same-context failures retain last-good data and are never cached.
+            self.isLoading = false
         }
     }
 
@@ -375,14 +362,14 @@ final class ArchiveViewModel: ObservableObject {
     }
 
     var isCurrentMonthAndYear: Bool {
-        let now = Calendar.current.dateComponents([.year, .month], from: Date())
+        let now = calendarProvider().dateComponents([.year, .month], from: Date())
         return now.year == currentYear && now.month == currentMonth
     }
 
     var isViewingCurrentMonth: Bool { isCurrentMonthAndYear }
 
     func goToCurrentMonth() {
-        let now = Calendar.current.dateComponents([.year, .month], from: Date())
+        let now = calendarProvider().dateComponents([.year, .month], from: Date())
         currentYear = now.year ?? currentYear
         currentMonth = now.month ?? currentMonth
         loadMonth()
@@ -399,7 +386,7 @@ final class ArchiveViewModel: ObservableObject {
     }
 
     var today: Int {
-        Calendar.current.component(.day, from: Date())
+        calendarProvider().component(.day, from: Date())
     }
 
     // MARK: Sorted Days / Grouped By Month
@@ -464,8 +451,8 @@ final class ArchiveViewModel: ObservableObject {
         var comps = DateComponents()
         comps.year = year
         comps.month = month
-        guard let date = Calendar.current.date(from: comps),
-              let range = Calendar.current.range(of: .day, in: .month, for: date) else { return 30 }
+        guard let date = calendarProvider().date(from: comps),
+              let range = calendarProvider().range(of: .day, in: .month, for: date) else { return 30 }
         return range.count
     }
 
@@ -474,8 +461,8 @@ final class ArchiveViewModel: ObservableObject {
         comps.year = year
         comps.month = month
         comps.day = 1
-        guard let date = Calendar.current.date(from: comps) else { return 1 }
-        return Calendar.current.component(.weekday, from: date)
+        guard let date = calendarProvider().date(from: comps) else { return 1 }
+        return calendarProvider().component(.weekday, from: date)
     }
 }
 
@@ -504,12 +491,16 @@ struct ArchiveView: View {
     /// so re-triggering the same shortcut re-fires the navigation.
     @State private var searchInitialQuery: String? = nil
     @State private var summaryFilter: MonthlySummaryFilter = .all
-    @State private var showShareSheet: Bool = false
-    @State private var shareItems: [Any] = []
+    private struct ExportedFile: Identifiable {
+        let id = UUID()
+        let url: URL
+    }
+    @State private var exportedFile: ExportedFile?
     @State private var monthNavDirection: Edge = .leading
     @State private var todayPulse: Bool = false
     @State private var hasActivated: Bool = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     // MARK: - List mode scroll-to-top
     @State private var shouldShowListScrollToTop: Bool = false
@@ -518,20 +509,6 @@ struct ArchiveView: View {
     /// Issue #302: monthly summary → share-card sheet.
     @State private var sharePayload: SharePayload? = nil
     @Environment(\.colorScheme) private var colorScheme
-
-    // MARK: - Pre-scanned vault sets (US-006)
-    //
-    // 在视图出现时异步填充。驱动三态日历单元格视觉效果：
-    // 已编译日记 → 实色高亮；仅有原始记录 → 圆点标记；
-    // 二者皆无 → 50% 半透明灰色（仍可点击）。
-    @State private var rawDates: Set<String> = []
-    @State private var dailyDates: Set<String> = []
-
-    /// Per-day one-line teasers for the ledger list (raw excerpt fallback for
-    /// days without a compiled summary). Snapshotted from the launch-warmed
-    /// TimelineIndex in `preScanVault` — a computed read per body pass would
-    /// rebuild the dictionary on every scroll frame.
-    @State private var dayTeasers: [String: String] = [:]
 
     /// Controls the year/month jump picker overlay (opened by tapping the
     /// Archive header's month title).
@@ -542,7 +519,7 @@ struct ArchiveView: View {
     /// at zero extra disk cost.
     private var monthsWithEntries: Set<String> {
         var months = Set<String>()
-        for dateStr in rawDates.union(dailyDates) where dateStr.count == 10 {
+        for dateStr in viewModel.rawDates.union(viewModel.dailyDates) where dateStr.count == 10 {
             months.insert(String(dateStr.prefix(7)))  // "yyyy-MM-dd" → "yyyy-MM"
         }
         return months
@@ -686,12 +663,6 @@ struct ArchiveView: View {
             // US-030 note: the left-edge open-sidebar swipe lives ONLY in
             // RootView's edge strip (1:1 finger tracking) — see TodayView for
             // why the fire-on-release duplicate was removed.
-            .onAppear {
-                activateIfNeeded()
-            }
-            .onChange(of: isActive) { active in
-                if active { activateIfNeeded() }
-            }
             .onChange(of: nav.pendingArchiveDate) { _ in
                 consumePendingArchiveDate()
             }
@@ -714,6 +685,10 @@ struct ArchiveView: View {
             }
             // W1: shared entity + daily push destinations on Archive's stack.
             .entityDailyDestinations()
+            .navigationDestination(for: MemoDetailRef.self) { ref in
+                MemoDetailHost(reference: ref)
+                    .restoresInteractivePop()
+            }
             // W1 fix: WeeklyRecap now pushes via the path too (was a closure
             // NavigationLink). Re-arm the pop gesture like every other pushed
             // page on this bar-hidden stack.
@@ -736,7 +711,19 @@ struct ArchiveView: View {
                             nav.push(DayNavTarget(dateString: dateStr), in: .archive)
                         }
                     },
-                    initialQuery: searchInitialQuery
+                    initialQuery: searchInitialQuery,
+                    onSelectMemo: { memoID, dateString in
+                        // Search already knows the owning raw day key — carry
+                        // it through instead of re-deriving a Date under the
+                        // mutable preferred zone.
+                        guard let ref = MemoDetailRef(
+                            id: memoID, dayString: dateString, source: .archive
+                        ) else { return }
+                        showSearch = false
+                        DispatchQueue.main.async {
+                            nav.push(ref, in: .archive)
+                        }
+                    }
                 )
             }
             // Year/month jump picker — custom overlay (scrim + card) so it
@@ -765,17 +752,34 @@ struct ArchiveView: View {
                 }
             }
         }
+        .task(id: isActive) {
+            viewModel.setActive(isActive)
+            if isActive { activateIfNeeded() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .rawStorageDidWrite).receive(on: RunLoop.main)) { _ in
+            viewModel.invalidateVault()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .vaultConflictResolved).receive(on: RunLoop.main)) { _ in
+            viewModel.invalidateVault()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .compileSucceededForeground).receive(on: RunLoop.main)) { _ in
+            viewModel.invalidateVault()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .compilationDidEnd).receive(on: RunLoop.main)) { _ in
+            viewModel.invalidateVault()
+        }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active { viewModel.invalidateVault() }
+        }
     }
 
     // MARK: - Navigation Helper
 
     /// Persistent tab hosts keep Archive alive to preserve navigation and
-    /// month state. Explicit activation prevents its disk work from competing
-    /// with Today's cold launch. Month state can refresh on later selections,
-    /// while the full-Vault pre-scan remains a one-time activation cost.
+    /// month state. Data activation belongs to the outer task; this helper
+    /// only consumes navigation and runs one-time presentation effects.
     private func activateIfNeeded() {
         guard isActive else { return }
-        viewModel.loadMonth()
         consumePendingArchiveDate()
         consumePendingSearchQuery()
         guard !hasActivated else { return }
@@ -793,7 +797,6 @@ struct ArchiveView: View {
             DispatchQueue.main.async { showSearch = true }
         }
         #endif
-        Task { await preScanVault() }
         guard !reduceMotion else { return }
         withAnimation(Motion.breathing) { todayPulse = true }
     }
@@ -809,7 +812,7 @@ struct ArchiveView: View {
     /// after consumption so re-tapping the same row in the drawer still
     /// triggers a new presentation.
     private func consumePendingArchiveDate() {
-        guard let dateStr = nav.pendingArchiveDate else { return }
+        guard isActive, let dateStr = nav.pendingArchiveDate else { return }
         nav.pendingArchiveDate = nil
         // Defer the push so SwiftUI commits the tab switch first; pushing during
         // the same runloop as the tab change can race and skip the animation.
@@ -823,38 +826,12 @@ struct ArchiveView: View {
     /// clears the nav state immediately, then presents SearchView on the
     /// next runloop so the tab-switch animation commits first.
     private func consumePendingSearchQuery() {
-        guard let q = nav.pendingSearchQuery else { return }
+        guard isActive, let q = nav.pendingSearchQuery else { return }
         nav.pendingSearchQuery = nil
         searchInitialQuery = q
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             showSearch = true
         }
-    }
-
-    // MARK: - Vault Pre-Scan (US-006)
-
-    /// 列出 `vault/raw/*.md` 和 `vault/wiki/daily/*.md`（脱离主线程），并将
-    /// 发现的日期字符串发布到 `@State` 集合中。非阻塞；失败时降级为空集合
-    ///（日历会退回到"无数据"视觉效果 — 仍可点击）。
-    private func preScanVault() async {
-        let scanned: (Set<String>, Set<String>) = await Task.detached(priority: .utility) {
-            let fm = FileManager.default
-            let rawDir = VaultInitializer.vaultURL.appendingPathComponent("raw")
-            let dailyDir = VaultInitializer.vaultURL.appendingPathComponent("wiki/daily")
-            let raw = ArchiveVaultScan.listDateFilenames(in: rawDir, fileManager: fm)
-            let daily = ArchiveVaultScan.listDateFilenames(in: dailyDir, fileManager: fm)
-            return (raw, daily)
-        }.value
-        rawDates = scanned.0
-        dailyDates = scanned.1
-        dayTeasers = Dictionary(
-            uniqueKeysWithValues: TimelineIndex.shared.entries().compactMap { entry in
-                let teaser = (entry.summary?.isEmpty == false ? entry.summary : entry.excerpt)
-                guard let teaser, !teaser.isEmpty else { return nil }
-                // One-line ledger teaser — fold markdown syntax out.
-                return (entry.dateString, SearchView.strippedLineArtifacts(MemoMarkdown.plainText(teaser)))
-            }
-        )
     }
 
     // MARK: - Archive Header
@@ -1169,8 +1146,8 @@ struct ArchiveView: View {
     }
 
     private func cellState(for dateStr: String) -> CellDataState {
-        if dailyDates.contains(dateStr) { return .compiled }
-        if rawDates.contains(dateStr)   { return .rawOnly }
+        if viewModel.dailyDates.contains(dateStr) { return .compiled }
+        if viewModel.rawDates.contains(dateStr)   { return .rawOnly }
         return .none
     }
 
@@ -1440,8 +1417,8 @@ struct ArchiveView: View {
             }
 
         }
-        .sheet(isPresented: $showShareSheet) {
-            ShareSheet(activityItems: shareItems)
+        .sheet(item: $exportedFile) { payload in
+            ShareSheet(activityItems: [payload.url])
         }
         // Issue #302: card-style monthly share.
         .sheet(item: $sharePayload) { payload in
@@ -1476,9 +1453,10 @@ struct ArchiveView: View {
             try markdown.write(to: tempURL, atomically: true, encoding: .utf8)
         } catch {
             DayPageLogger.shared.error("ArchiveView export: \(error)")
+            return
         }
-        shareItems = [tempURL]
-        showShareSheet = true
+        // One immutable payload drives presentation and its initial items.
+        exportedFile = ExportedFile(url: tempURL)
     }
 
     @MainActor
@@ -1763,7 +1741,7 @@ struct ArchiveView: View {
         let isCompiled = stats.isDailyPageCompiled
         let teaser: String? = {
             if let s = stats.dailySummary, !s.isEmpty { return s }
-            return dayTeasers[stats.dateString]
+            return viewModel.dayTeasers[stats.dateString]
         }()
         let stateLabel = isCompiled
             ? NSLocalizedString("archive.a11y.day.compiled", comment: "A11y: day has a compiled daily page")
@@ -1835,32 +1813,104 @@ private struct ArchiveListScrollOffsetKey: PreferenceKey {
     }
 }
 
-// MARK: - ArchiveVaultScan (US-006)
+// MARK: - ArchiveVaultScan
 
-/// 文件级辅助函数，用于 ArchiveView 出现时在后台运行的预扫描。
-/// 放在视图外部，以便 `Task.detached` 闭包可以调用而不捕获
-/// `self`（否则会破坏脱离 `@MainActor` 的目的）。
 fileprivate enum ArchiveVaultScan {
+    static func load(_ request: ArchiveMonthRequest) async throws -> ArchiveMonthSnapshot {
+        let task = Task.detached(priority: .userInitiated) {
+            try scan(request)
+        }
+        return try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
 
-    /// 返回 `dir` 目录下 `.md` 文件的 `YYYY-MM-DD` 基础名称集合。
-    /// 忽略不匹配的文件名（assets/、附件等）。缺失目录降级为空集合
-    /// — 日历会将所有单元格渲染为"无数据"状态，仍可点击。
-    static func listDateFilenames(in dir: URL, fileManager: FileManager) -> Set<String> {
-        guard let entries = try? fileManager.contentsOfDirectory(atPath: dir.path) else {
-            return []
+    private static func scan(_ request: ArchiveMonthRequest) throws -> ArchiveMonthSnapshot {
+        try Task.checkCancellation()
+        let rawDir = request.vaultRoot.appendingPathComponent("raw")
+        let dailyDir = request.vaultRoot.appendingPathComponent("wiki/daily")
+        // One filename enumeration per directory supplies the whole-Vault dots.
+        let rawDates = try listDateFilenames(in: rawDir)
+        let dailyDates = try listDateFilenames(in: dailyDir)
+        let prefix = String(format: "%04d-%02d-", request.year, request.month)
+        let dates = rawDates.union(dailyDates).filter { $0.hasPrefix(prefix) }.sorted()
+        var stats: [String: DayStats] = [:]
+        var teasers: [String: String] = [:]
+        for dateString in dates {
+            try Task.checkCancellation()
+            var memos: [Memo] = []
+            if rawDates.contains(dateString) {
+                // Read the exact enumerated filename. RawStorage.read(for:) would
+                // derive it again from the mutable global preferred time zone.
+                let url = rawDir.appendingPathComponent("\(dateString).md")
+                let content = try String(contentsOf: url, encoding: .utf8)
+                memos = RawStorage.parse(fileContent: content, sourceFile: url)
+            }
+            var photos = 0
+            var voiceSeconds = 0
+            var locations = Set<String>()
+            for memo in memos {
+                if memo.type == .photo || memo.type == .mixed {
+                    photos += memo.attachments.filter { $0.kind == "photo" }.count
+                }
+                if memo.type == .voice || memo.type == .mixed {
+                    for attachment in memo.attachments where attachment.kind == "audio" {
+                        if let duration = attachment.duration, duration.isFinite,
+                           duration > 0, duration < Double(Int.max - voiceSeconds) {
+                            voiceSeconds += Int(duration)
+                        }
+                    }
+                }
+                if let name = memo.location?.name, !name.isEmpty { locations.insert(name) }
+            }
+            var summary: String?
+            if dailyDates.contains(dateString) {
+                let url = dailyDir.appendingPathComponent("\(dateString).md")
+                let content = try String(contentsOf: url, encoding: .utf8)
+                summary = FrontmatterParser.extractField("summary", from: content)
+            }
+            stats[dateString] = DayStats(
+                dateString: dateString, memoCount: memos.count, photoCount: photos,
+                voiceSeconds: voiceSeconds, uniqueLocations: locations.count,
+                isDailyPageCompiled: dailyDates.contains(dateString), dailySummary: summary
+            )
+            let teaser = summary?.isEmpty == false ? summary : memos.first { !$0.body.isEmpty }?.body
+            if let teaser {
+                let plain = MemoMarkdown.plainText(teaser)
+                teasers[dateString] = String(plain.prefix(160))
+            }
         }
-        var out: Set<String> = []
-        for name in entries {
-            guard name.hasSuffix(".md") else { continue }
-            let base = String(name.dropLast(3))  // 去除 ".md"
-            guard base.count == 10,
-                  base[base.index(base.startIndex, offsetBy: 4)] == "-",
-                  base[base.index(base.startIndex, offsetBy: 7)] == "-" else { continue }
-            let digits = base.replacingOccurrences(of: "-", with: "")
-            guard digits.count == 8, digits.allSatisfy({ $0.isNumber }) else { continue }
-            out.insert(base)
+        try Task.checkCancellation()
+        return ArchiveMonthSnapshot(dayStats: stats, rawDates: rawDates,
+                                    dailyDates: dailyDates, dayTeasers: teasers)
+    }
+
+    private static func listDateFilenames(in directory: URL) throws -> Set<String> {
+        let entries: [String]
+        do { entries = try FileManager.default.contentsOfDirectory(atPath: directory.path) }
+        catch {
+            let error = error as NSError
+            // Missing directories are a legitimate empty Vault. Permission and
+            // other read errors must not become a cached empty month.
+            if error.domain == NSCocoaErrorDomain,
+               error.code == NSFileNoSuchFileError || error.code == NSFileReadNoSuchFileError,
+               !FileManager.default.fileExists(atPath: directory.path) {
+                return []
+            }
+            throw error
         }
-        return out
+        return Set(entries.compactMap { name in
+            guard name.hasSuffix(".md") else { return nil }
+            let stem = String(name.dropLast(3))
+            let bytes = Array(stem.utf8)
+            guard bytes.count == 10, bytes[4] == 45, bytes[7] == 45,
+                  bytes.enumerated().allSatisfy({ index, byte in
+                      index == 4 || index == 7 || (48...57).contains(byte)
+                  }) else { return nil }
+            return stem
+        })
     }
 }
 

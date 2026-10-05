@@ -3,6 +3,7 @@ import Foundation
 import DayPageServices
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 /// R4-B4: Unit tests for the LRU geocode-cache rules used by `LocationService`.
 ///
 /// The real `LocationService.geocodeCache` is `private` and bolted to
@@ -170,3 +171,9 @@ struct LocationServiceLRUTests {
         #expect(lru.entries.last?.bucket == "bucket-10")
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias LocationServiceLRUTests = DayPageSerialSwiftTests.LocationServiceLRUTests

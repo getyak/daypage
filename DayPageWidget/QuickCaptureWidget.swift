@@ -59,7 +59,7 @@ struct QuickCaptureWidget: Widget {
 // (DayPage + DayPageWidget share `group.com.daypage`), the widget reads the
 // latest memo preview that the app writes. Without the group, the fallback
 // placeholder "开始今天的记录" keeps .systemMedium from rendering blank.
-private let kAppGroup = "group.com.daypage"
+private let kAppGroup = SystemActionSharedSummaryStore.appGroupIdentifier
 private let kLatestMemoKey = "latestMemoPreview"
 
 private struct QuickCaptureProvider: TimelineProvider {

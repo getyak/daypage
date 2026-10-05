@@ -15,12 +15,15 @@ const mockDomain = {
   created_at: new Date("2026-01-01T00:00:00Z"),
 };
 
-vi.mock("@/auth", () => ({ auth: vi.fn() }));
+vi.mock("@/lib/auth/session", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/auth/session")>(),
+  auth: vi.fn(),
+}));
 
-const mockDb = {
+const mockDb = vi.hoisted(() => ({
   select: vi.fn(),
   insert: vi.fn(),
-};
+}));
 vi.mock("@/lib/db/client", () => ({ db: mockDb }));
 
 vi.mock("@/lib/db/schema", async (importOriginal) => {

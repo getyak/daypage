@@ -12,6 +12,7 @@ import UserNotifications
 import DayPageModels
 @testable import DayPage
 
+extension DayPageSerialSwiftTests {
 @MainActor
 @Suite("System action Apple adapters", .serialized)
 struct SystemActionAppleAdapterTests {
@@ -519,6 +520,7 @@ struct SystemActionAppleAdapterTests {
                 attachesToSource: true
             )
         }
+        defer { operation.cancel() }
         let presentation = try await requirePresentation(from: broker)
         guard case .capture(let request) = presentation.content else {
             Issue.record("Expected a capture presentation")
@@ -555,6 +557,7 @@ struct SystemActionAppleAdapterTests {
                 attachesToSource: false
             )
         }
+        defer { operation.cancel() }
         let presentation = try await requirePresentation(from: broker)
         guard case .capture(let request) = presentation.content else {
             Issue.record("Expected a capture presentation")
@@ -580,6 +583,7 @@ struct SystemActionAppleAdapterTests {
         let operation = Task {
             try await adapter.execute(proposal: proposal, context: executionContext())
         }
+        defer { operation.cancel() }
         let presentation = try await requirePresentation(from: broker)
         guard case .capture(let request) = presentation.content else {
             Issue.record("Expected a capture presentation")
@@ -612,6 +616,7 @@ struct SystemActionAppleAdapterTests {
         let operation = Task {
             try await adapter.execute(proposal: proposal, context: executionContext())
         }
+        defer { operation.cancel() }
         let presentation = try await requirePresentation(from: broker)
 
         broker.cancel(presentationID: presentation.id)
@@ -625,6 +630,7 @@ struct SystemActionAppleAdapterTests {
         let broker = SystemActionUIBroker()
         let controller = EKEventEditViewController()
         let operation = Task { try await broker.presentCalendarEditor(controller) }
+        defer { operation.cancel() }
         _ = try await requirePresentation(from: broker)
 
         controller.editViewDelegate?.eventEditViewController(controller, didCompleteWith: .canceled)
@@ -639,6 +645,7 @@ struct SystemActionAppleAdapterTests {
         let broker = SystemActionUIBroker()
         let controller = CNContactViewController(forNewContact: CNMutableContact())
         let operation = Task { try await broker.presentContactEditor(controller) }
+        defer { operation.cancel() }
         _ = try await requirePresentation(from: broker)
 
         controller.delegate?.contactViewController?(controller, didCompleteWith: nil)
@@ -659,6 +666,7 @@ struct SystemActionAppleAdapterTests {
                 attachesToSource: false
             )
         }
+        defer { first.cancel() }
         let firstPresentation = try await requirePresentation(from: broker)
 
         await #expect(throws: AppleSystemActionAdapterError.presentationInProgress(.contacts)) {
@@ -938,14 +946,20 @@ struct SystemActionAppleAdapterTests {
         #expect(index.deletedDomains == [SystemActionSharedSummaryStore.spotlightDomainIdentifier])
     }
 }
+}
 
 @MainActor
 private func requirePresentation(
     from broker: SystemActionUIBroker
 ) async throws -> SystemActionUIPresentation {
-    for _ in 0..<100 {
+    // Task.yield() is only a scheduling hint: a fixed number of yields can
+    // finish before the child task gets its first MainActor turn. Wait for the
+    // actual presentation under a bounded monotonic deadline instead.
+    let clock = ContinuousClock()
+    let deadline = clock.now.advanced(by: .seconds(2))
+    while clock.now < deadline {
         if let presentation = broker.activePresentation { return presentation }
-        await Task.yield()
+        try await Task.sleep(for: .milliseconds(2))
     }
     throw AppleSystemActionAdapterError.requiresUserInterface(.capture)
 }
@@ -1316,3 +1330,8 @@ private func executionContext() -> SystemActionExecutionContext {
         lease: nil
     )
 }
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias SystemActionAppleAdapterTests = DayPageSerialSwiftTests.SystemActionAppleAdapterTests

@@ -2,6 +2,7 @@ import Testing
 import Foundation
 import DayPageModels
 
+extension DayPageSerialSwiftTests {
 /// Unit tests for the hand-rolled memo markdown parser (Markdown M1).
 ///
 /// The invariant that matters most: NOTHING can render worse than the
@@ -270,3 +271,9 @@ struct MemoMarkdownTests {
         #expect(MemoMarkdown.plainText("两行\n合一行") == "两行 合一行")
     }
 }
+}
+
+
+// MARK: - DayPageSerialSwiftTests namespace aliases (preserve global names for helpers,
+// extensions, and qualified references after the serialized-root move)
+typealias MemoMarkdownTests = DayPageSerialSwiftTests.MemoMarkdownTests

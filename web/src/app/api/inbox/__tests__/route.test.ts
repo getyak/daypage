@@ -18,9 +18,12 @@ const mockInboxItem = {
   resolved_at: null,
 };
 
-vi.mock("@/auth", () => ({ auth: vi.fn() }));
+vi.mock("@/lib/auth/session", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/auth/session")>(),
+  auth: vi.fn(),
+}));
 
-const mockDb = { select: vi.fn() };
+const mockDb = vi.hoisted(() => ({ select: vi.fn() }));
 vi.mock("@/lib/db/client", () => ({ db: mockDb }));
 
 vi.mock("@/lib/db/schema", async (importOriginal) => {
@@ -80,7 +83,7 @@ describe("GET /api/inbox", () => {
         from: vi.fn().mockReturnThis(),
         where: vi.fn().mockReturnThis(),
         limit: vi.fn().mockResolvedValue(callCount === 1 ? [mockUser] : []),
-        orderBy: vi.fn().mockResolvedValue([]),
+        orderBy: vi.fn().mockReturnThis(),
       });
     });
 

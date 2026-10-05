@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { usePrefersReducedMotion } from "@/hooks/useBrowserSnapshot";
 
 type AISummaryData = {
   summary: string | null;
@@ -31,60 +32,48 @@ function SparkleSVG() {
 }
 
 function useTypewriter(text: string, enabled: boolean) {
-  const [displayed, setDisplayed] = useState("");
-  const [done, setDone] = useState(false);
-  const frameRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [progress, setProgress] = useState({ text, enabled, index: 0 });
+  if (progress.text !== text || progress.enabled !== enabled) {
+    setProgress({ text, enabled, index: 0 });
+  }
 
   useEffect(() => {
-    if (!enabled) {
-      setDisplayed(text);
-      setDone(true);
-      return;
-    }
-
-    setDisplayed("");
-    setDone(false);
+    if (!enabled) return;
 
     let index = 0;
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
 
     const tick = () => {
       if (cancelled) return;
       if (index >= text.length) {
-        setDone(true);
+        setProgress({ text, enabled, index: text.length });
         return;
       }
-      setDisplayed(text.slice(0, index + 1));
       index++;
+      setProgress({ text, enabled, index });
       const delay = 36 + Math.random() * 30;
-      frameRef.current = setTimeout(tick, delay);
+      timer = setTimeout(tick, delay);
     };
 
-    const startDelay = setTimeout(tick, 380);
+    timer = setTimeout(tick, 380);
 
     return () => {
       cancelled = true;
-      clearTimeout(startDelay);
-      if (frameRef.current !== null) clearTimeout(frameRef.current);
+      clearTimeout(timer);
     };
   }, [text, enabled]);
 
-  return { displayed, done };
+  const index = progress.text === text ? progress.index : 0;
+  return { displayed: enabled ? text.slice(0, index) : text,
+           done: !enabled || index >= text.length };
 }
 
 export function AISummaryCard() {
   const [data, setData] = useState<AISummaryData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [prefersReduced, setPrefersReduced] = useState(false);
+  const prefersReduced = usePrefersReducedMotion();
   const [timestamp, setTimestamp] = useState<string>("");
-
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setPrefersReduced(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setPrefersReduced(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
 
   useEffect(() => {
     fetch("/api/today/ai-summary")

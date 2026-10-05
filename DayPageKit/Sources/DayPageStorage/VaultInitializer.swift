@@ -5,6 +5,13 @@ import DayPageModels
 // under the App Sandbox Documents directory.
 public enum VaultInitializer {
 
+    // Background indexers read these values while startup/settings (and test
+    // fixtures) replace them. Copying a URL or protocol existential concurrently
+    // with assignment is not safe, even when the values themselves are immutable.
+    private static let stateLock = NSLock()
+    private static var locator: VaultLocator = LocalVaultLocator()
+    private static var overrideURL: URL?
+
     // MARK: - Vault root
 
     /// Swappable storage backend.
@@ -26,16 +33,44 @@ public enum VaultInitializer {
     /// readers (`MemoCardView`, the sync/conflict monitors, migration) observe the
     /// swap transparently. Can also be overridden at runtime (e.g., after the user
     /// toggles iCloud in Settings).
-    public static var shared: VaultLocator = LocalVaultLocator()
+    public static var shared: VaultLocator {
+        get {
+            stateLock.lock()
+            defer { stateLock.unlock() }
+            return locator
+        }
+        set {
+            stateLock.lock()
+            defer { stateLock.unlock() }
+            locator = newValue
+        }
+    }
 
     /// Test-only override. When non-nil, `vaultURL` returns this instead of the
-    /// locator-derived URL. Keep `internal` so `@testable import DayPage` tests
-    /// can set/clear it; production code never touches it.
-    public static var testOverrideURL: URL?
+    /// locator-derived URL. This remains public for cross-module test fixtures.
+    /// Synchronization prevents torn reads, not logical isolation between tests;
+    /// fixtures that share this override must still avoid overlapping lifetimes.
+    public static var testOverrideURL: URL? {
+        get {
+            stateLock.lock()
+            defer { stateLock.unlock() }
+            return overrideURL
+        }
+        set {
+            stateLock.lock()
+            defer { stateLock.unlock() }
+            overrideURL = newValue
+        }
+    }
 
     public static var vaultURL: URL {
-        if let override = testOverrideURL { return override }
-        return shared.vaultURL
+        stateLock.lock()
+        let snapshot = (overrideURL, locator)
+        stateLock.unlock()
+        if let override = snapshot.0 { return override }
+        // Resolve outside the lock: iCloud can block and custom locators can
+        // re-enter VaultInitializer. The snapshot retains the selected locator.
+        return snapshot.1.vaultURL
     }
 
     // MARK: - Public entry point

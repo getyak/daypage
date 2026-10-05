@@ -39,6 +39,11 @@ const nextConfig: NextConfig = {
         source: "/(.*)",
         headers: securityHeaders,
       },
+      // Keep private upload responses sandboxed after the global page policy.
+      {
+        source: "/uploads/:path*",
+        headers: [{ key: "Content-Security-Policy", value: "sandbox" }],
+      },
     ];
   },
 };
