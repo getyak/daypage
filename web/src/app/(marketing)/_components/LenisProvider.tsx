@@ -2,15 +2,12 @@
 
 import { useEffect } from "react";
 import Lenis from "lenis";
+import { useReducedMotionPreference } from "@/hooks/useBrowserCapabilities";
 
 export function LenisProvider({ children }: { children: React.ReactNode }) {
+  const reduced = useReducedMotionPreference();
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const prefersReducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    if (prefersReducedMotion) return;
+    if (typeof window === "undefined" || reduced) return;
 
     const lenis = new Lenis({
       duration: 1.2,
@@ -30,7 +27,7 @@ export function LenisProvider({ children }: { children: React.ReactNode }) {
       cancelAnimationFrame(rafId);
       lenis.destroy();
     };
-  }, []);
+  }, [reduced]);
 
   return <>{children}</>;
 }

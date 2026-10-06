@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { fileURLToPath } from "node:url";
+import path from "node:path";
 import type { LLMProvider } from "@/lib/ai/provider";
 import {
   parseMemoUnderstanding,
@@ -7,7 +7,7 @@ import {
 } from "./contracts";
 
 export const MEMO_PROCESSING_PROMPT = fs.readFileSync(
-  fileURLToPath(new URL("../ai/prompts/memo-understand-v1.md", import.meta.url)),
+  path.join(process.cwd(), "src/lib/ai/prompts/memo-understand-v1.md"),
   "utf8",
 );
 

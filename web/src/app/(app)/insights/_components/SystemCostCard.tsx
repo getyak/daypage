@@ -1,5 +1,4 @@
 import { auth } from "@/lib/auth/session";
-import { requestTime } from "@/lib/request-time";
 import { db } from "@/lib/db/client";
 import { users, prompt_log } from "@/lib/db/schema";
 import { eq, and, gte, sql } from "drizzle-orm";
@@ -31,9 +30,10 @@ function fmtCost(usd: number): string {
   return `$${usd.toFixed(2)}`;
 }
 
-export async function SystemCostCard({ range }: { range: string }) {
+export async function loadSystemCostData({ range }: { range: string }) {
   const session = await auth();
   const userId = session?.user?.email ? await resolveUserId(session.user.email) : null;
+  const asOfMs = Date.now();
 
   type DailyRow = { date: string; calls: number; tokens_in: number; tokens_out: number };
   let daily: DailyRow[] = [];
@@ -43,7 +43,7 @@ export async function SystemCostCard({ range }: { range: string }) {
   let estimatedCost = 0;
 
   if (userId) {
-    const since = new Date(await requestTime() - rangeToMs(range));
+    const since = new Date(asOfMs - rangeToMs(range));
     try {
       const rows = await db
         .select({
@@ -67,6 +67,11 @@ export async function SystemCostCard({ range }: { range: string }) {
     }
   }
 
+  return { asOfMs, daily, totalCalls, totalTokensIn, totalTokensOut, estimatedCost };
+}
+
+export async function SystemCostCard({ range }: { range: string }) {
+  const { daily, totalCalls, totalTokensIn, totalTokensOut, estimatedCost } = await loadSystemCostData({ range });
   const callsSparkline = daily.map((d) => d.calls);
 
   return (

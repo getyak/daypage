@@ -1,5 +1,4 @@
 import { auth } from "@/lib/auth/session";
-import { requestTime } from "@/lib/request-time";
 import { db } from "@/lib/db/client";
 import { users, prompt_log, activities } from "@/lib/db/schema";
 import { eq, and, gte, sql } from "drizzle-orm";
@@ -20,9 +19,10 @@ function rangeToMs(range: string): number {
   }
 }
 
-export async function DevActivityCard({ range }: { range: string }) {
+export async function loadDevActivityData({ range }: { range: string }) {
   const session = await auth();
   const userId = session?.user?.email ? await resolveUserId(session.user.email) : null;
+  const asOfMs = Date.now();
 
   let claudeCodeCalls = 0;
   let claudeCodeTokensIn = 0;
@@ -32,7 +32,7 @@ export async function DevActivityCard({ range }: { range: string }) {
   let devActivities: { verb: string; count: number }[] = [];
 
   if (userId) {
-    const since = new Date(await requestTime() - rangeToMs(range));
+    const since = new Date(asOfMs - rangeToMs(range));
     try {
       // prompt_log rows where kind = 'claude_code' (Claude Code MCP sessions)
       const logRows = await db
@@ -72,6 +72,11 @@ export async function DevActivityCard({ range }: { range: string }) {
     }
   }
 
+  return { asOfMs, claudeCodeCalls, claudeCodeTokensIn, claudeCodeTokensOut, devActivities };
+}
+
+export async function DevActivityCard({ range }: { range: string }) {
+  const { claudeCodeCalls, claudeCodeTokensIn, claudeCodeTokensOut, devActivities } = await loadDevActivityData({ range });
   const hasData = claudeCodeCalls > 0;
 
   return (

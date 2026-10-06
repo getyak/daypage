@@ -2,7 +2,7 @@
 
 import { motion, type Variants } from "framer-motion";
 import { usePrefersReducedMotion } from "@/hooks/useBrowserSnapshot";
-import { createElement, type ReactNode } from "react";
+import { createElement, useState, type ReactNode } from "react";
 
 type Split = "word" | "char";
 
@@ -53,6 +53,7 @@ export function SplitText({
   renderToken,
 }: SplitTextProps) {
   const reduced = usePrefersReducedMotion();
+  const [initiallyReduced] = useState(reduced);
 
   // Tokens are split by whitespace for "word", or by Unicode segmenter for "char"
   // so multi-codepoint glyphs (emoji, CJK) stay intact.
@@ -76,7 +77,7 @@ export function SplitText({
     <MotionTag
       className={className}
       variants={containerVariants(delay, stagger)}
-      initial="hidden"
+      initial={initiallyReduced ? "visible" : "hidden"}
       animate="visible"
       aria-label={text}
     >

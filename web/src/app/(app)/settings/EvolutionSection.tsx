@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Sparkles, Check, CloudOff } from "lucide-react";
 import { Btn, Card, SectionLabel } from "@/components/ui";
@@ -71,21 +71,33 @@ export function EvolutionSection() {
   const save = useSaveEvolutionConfig();
 
   // Local draft so edits don't write on every keystroke; saved on "Save".
-  const [edit, setEdit] = useState<{ base: EvolutionConfig | undefined; value: EvolutionConfig } | null>(null);
-  // A new server snapshot replaces the old draft, preserving the existing
-  // refresh behavior without a second effect-driven render.
-  const draft = edit && edit.base === remote ? edit.value : remote ?? DEFAULT_EVOLUTION_CONFIG;
+  const [editedDraft, setEditedDraft] = useState<EvolutionConfig | null>(null);
+  const editRevision = useRef(0);
   const [savedAt, setSavedAt] = useState<number | null>(null);
-
-  const dirty = remote ? JSON.stringify(draft) !== JSON.stringify(remote) : false;
+  const baseline = remote ?? DEFAULT_EVOLUTION_CONFIG;
+  const draft = editedDraft ?? baseline;
+  const dirty = JSON.stringify(draft) !== JSON.stringify(baseline);
 
   function patch(next: Partial<EvolutionConfig>) {
-    setEdit({ base: remote, value: { ...draft, ...next } });
+    editRevision.current += 1;
+    setEditedDraft((current) => ({ ...(current ?? baseline), ...next }));
   }
 
   async function handleSave() {
-    await save.mutateAsync(draft);
-    setSavedAt(Date.now());
+    if (save.isPending) return;
+    const submitted = draft;
+    const submittedRevision = editRevision.current;
+    try {
+      await save.mutateAsync(submitted);
+      // onSuccess updates the remote cache with the server-normalized value.
+      // An edit made while saving must keep its own draft, even after refetch.
+      if (editRevision.current === submittedRevision) {
+        setEditedDraft((current) => current === submitted ? null : current);
+        setSavedAt(Date.now());
+      }
+    } catch {
+      // The mutation exposes the error below; keep the draft for a retry.
+    }
   }
 
   const inputStyle: React.CSSProperties = {

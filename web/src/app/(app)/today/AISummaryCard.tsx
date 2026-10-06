@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { usePrefersReducedMotion } from "@/hooks/useBrowserSnapshot";
+import { useReducedMotionPreference } from "@/hooks/useBrowserCapabilities";
 
 type AISummaryData = {
   summary: string | null;
@@ -31,48 +31,39 @@ function SparkleSVG() {
   );
 }
 
-function useTypewriter(text: string, enabled: boolean) {
-  const [progress, setProgress] = useState({ text, enabled, index: 0 });
-  if (progress.text !== text || progress.enabled !== enabled) {
-    setProgress({ text, enabled, index: 0 });
-  }
-
+function AnimatedSummaryText({ text }: { text: string }) {
+  const [count, setCount] = useState(0);
   useEffect(() => {
-    if (!enabled) return;
-
     let index = 0;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
-
     const tick = () => {
       if (cancelled) return;
-      if (index >= text.length) {
-        setProgress({ text, enabled, index: text.length });
-        return;
-      }
-      index++;
-      setProgress({ text, enabled, index });
-      const delay = 36 + Math.random() * 30;
-      timer = setTimeout(tick, delay);
+      index += 1;
+      setCount(index);
+      if (index < text.length) timer = setTimeout(tick, 36 + Math.random() * 30);
     };
-
     timer = setTimeout(tick, 380);
-
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [text, enabled]);
-
-  const index = progress.text === text ? progress.index : 0;
-  return { displayed: enabled ? text.slice(0, index) : text,
-           done: !enabled || index >= text.length };
+  }, [text]);
+  const done = count >= text.length;
+  return <>
+    <span className={done ? "shimmer-text" : undefined}>{text.slice(0, count)}</span>
+    {!done && <span
+      aria-hidden="true"
+      style={{ display: "inline-block", width: 1, height: "1em", background: "var(--accent)",
+        marginLeft: 1, verticalAlign: "text-bottom", animation: "ai-caret-blink 900ms step-end infinite" }}
+    />}
+  </>;
 }
 
 export function AISummaryCard() {
   const [data, setData] = useState<AISummaryData | null>(null);
   const [loading, setLoading] = useState(true);
-  const prefersReduced = usePrefersReducedMotion();
+  const prefersReduced = useReducedMotionPreference();
   const [timestamp, setTimestamp] = useState<string>("");
 
   useEffect(() => {
@@ -94,16 +85,6 @@ export function AISummaryCard() {
   const summaryText = data?.summary ?? PLACEHOLDER;
   const isPlaceholder = !data?.summary;
   const animateEnabled = !prefersReduced && !isPlaceholder && !loading;
-
-  const { displayed, done } = useTypewriter(summaryText, animateEnabled);
-
-  const renderedText = animateEnabled ? displayed : summaryText;
-  const showCaret = animateEnabled && !done;
-  // Signature elegance (gap CRITICAL): once the typewriter finishes, the
-  // resolved summary breathes via the iridescent .shimmer-text sweep
-  // (globals.css ← tokens.css:54-60). Skipped for placeholder copy, while
-  // loading, and when the user prefers reduced motion.
-  const showShimmer = !isPlaceholder && !loading && !prefersReduced && (done || !animateEnabled);
 
   if (loading) {
     return (
@@ -286,25 +267,7 @@ export function AISummaryCard() {
           color: isPlaceholder ? "var(--fg-subtle)" : "var(--fg-primary)",
         }}
       >
-        {showShimmer ? (
-          <span className="shimmer-text">{renderedText}</span>
-        ) : (
-          renderedText
-        )}
-        {showCaret && (
-          <span
-            aria-hidden="true"
-            style={{
-              display: "inline-block",
-              width: 1,
-              height: "1em",
-              background: "var(--accent)",
-              marginLeft: 1,
-              verticalAlign: "text-bottom",
-              animation: "ai-caret-blink 900ms step-end infinite",
-            }}
-          />
-        )}
+        {animateEnabled ? <AnimatedSummaryText key={summaryText} text={summaryText} /> : summaryText}
         {data?.is_stale && !isPlaceholder && (
           <>
             {" "}

@@ -200,7 +200,7 @@ checkpoint.
 | Gate | Status |
 |---|---|
 | Regression-suite repetition (this runner) | Implemented; dry-tested with mocks; native repetition runs belong to the parent's session |
-| DayPageTests membership + serialized-root namespace | Deterministic hard gates over all 65 registered test files and the serialized root; missing registration or namespace fails, including complete removal |
+| DayPageTests membership + serialized-root namespace | Deterministic hard gates over all 66 registered test files and the serialized root; missing registration or namespace fails, including complete removal |
 | Tiny serial probe (root architecture) | Parent-run, five real-host rounds (`evidence/serial-probe`) |
 | UIKit/real compilation of the moved suites | Parent's Debug Simulator build passed; runtime acceptance remains separate |
 | Dry tests (this runner's own behavior) | Mocked subprocess + temp fixtures only; no Simulator |
@@ -220,7 +220,7 @@ real skip; no historical environment report substitutes for current checks.
 
 ## Test registration scope
 
-`DayPage.xcodeproj` registers all 65 Swift files under `DayPageTests/` in the
+`DayPage.xcodeproj` registers all 66 Swift files under `DayPageTests/` in the
 `DayPageTests` target (issue #830 scope), so repetition exercises the full
 registered suite. Orphan-test fixes already accepted: DST noon `11/23`
 (`DayProgressTests`), POSIX long-form date (`MarkdownExportServiceTests`),

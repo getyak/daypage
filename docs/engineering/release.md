@@ -52,5 +52,20 @@ push also fails; no alternate version is published. Inspect App Store Connect fo
 the partially uploaded build before retrying with a fresh version. The isolated
 real-Git regressions run via `scripts/tests/test_testflight_release_tags.py`.
 
+## Web candidate checks
+
+CI runs Web lint, every unit-test file under `web/src`, and a production Webpack
+build on the candidate commit. The build uses an `.invalid` Supabase URL and an
+explicit synthetic public key; it does not access a database or authenticate a
+real account. These checks verify compilation and local regressions, not hosted
+login, cloud sync, attachment ownership with real sessions, or deployment.
+
+The built English/Chinese public landing pages also run in Chrome on desktop
+and mobile, with both motion preferences repeated five times. CI uses the
+runner's preinstalled Chrome and saves screenshots/failure traces for seven days.
+For a local run, set `DAYPAGE_MARKETING_OUTPUT_DIR` to a registered task artifact
+directory and use `web/playwright.marketing.config.ts`; the config starts the
+already-built product on `127.0.0.1:13000` and refuses to reuse another server.
+
 See `.agents/workflows/release.md`. Never place credentials or private release evidence in
 the repository.

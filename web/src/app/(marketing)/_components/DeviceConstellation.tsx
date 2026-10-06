@@ -120,7 +120,7 @@ export function DeviceConstellation() {
       </div>
 
       {/* <md : iPhone only, centered */}
-      <div className="flex h-[420px] items-center justify-center md:hidden">
+      <div className="grid min-h-[420px] place-items-center md:hidden">
         <motion.div
           initial={reduced ? { opacity: 0 } : { opacity: 0, y: 20, rotate: 1 }}
           animate={reduced ? { opacity: 1 } : { opacity: 1, y: 0, rotate: -1 }}

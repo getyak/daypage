@@ -33,6 +33,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   devIndicators: false,
+  // The browser sandbox loads Chromium lazily through this installed package.
+  // Keep its native Node modules out of the Route Handler bundle.
+  serverExternalPackages: ["@playwright/test"],
   async headers() {
     return [
       {

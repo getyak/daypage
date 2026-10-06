@@ -1,5 +1,4 @@
 import { auth } from "@/lib/auth/session";
-import { requestTime } from "@/lib/request-time";
 import { db } from "@/lib/db/client";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -34,17 +33,17 @@ function backendLabel(backend: string): string {
   return BACKEND_LABEL[backend] ?? backend;
 }
 
-export async function AgentCostCard() {
+export async function loadAgentCostData() {
   const session = await auth();
   const userId = session?.user?.email ? await resolveUserId(session.user.email) : null;
+  const asOfMs = Date.now();
 
   let week: AgentCostSummary | null = null;
   let month: AgentCostSummary | null = null;
 
   if (userId) {
-    const now = await requestTime();
-    const since7 = new Date(now - 7 * 24 * 60 * 60 * 1000);
-    const since30 = new Date(now - 30 * 24 * 60 * 60 * 1000);
+    const since7 = new Date(asOfMs - 7 * 24 * 60 * 60 * 1000);
+    const since30 = new Date(asOfMs - 30 * 24 * 60 * 60 * 1000);
     try {
       [week, month] = await Promise.all([
         agentCostSummary({ userId, since: since7 }),
@@ -55,6 +54,11 @@ export async function AgentCostCard() {
     }
   }
 
+  return { asOfMs, week, month };
+}
+
+export async function AgentCostCard() {
+  const { week, month } = await loadAgentCostData();
   const hasData =
     (week?.dispatchCount ?? 0) > 0 ||
     (month?.dispatchCount ?? 0) > 0 ||

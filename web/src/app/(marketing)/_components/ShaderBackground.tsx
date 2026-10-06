@@ -84,6 +84,11 @@ export function ShaderBackground({ className }: { className?: string }) {
     let disposed = false;
     let rafId = 0;
     let cleanup: (() => void) | null = null;
+    const fail = () => {
+      if (disposed) return;
+      cleanup?.();
+      setFallback(true);
+    };
 
     void import("ogl").then(({ Renderer, Program, Mesh, Triangle }) => {
       if (disposed) return;
@@ -97,11 +102,20 @@ export function ShaderBackground({ className }: { className?: string }) {
           antialias: false,
         });
       } catch {
-        setFallback(true);
+        fail();
         return;
       }
 
       const gl = renderer.gl;
+      let cleaned = false;
+      let removeResizeListener: (() => void) | null = null;
+      cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
+        removeResizeListener?.();
+        cancelAnimationFrame(rafId);
+        gl.getExtension("WEBGL_lose_context")?.loseContext();
+      };
       gl.clearColor(RGB_BASE[0], RGB_BASE[1], RGB_BASE[2], 1);
 
       const geometry = new Triangle(gl);
@@ -125,21 +139,22 @@ export function ShaderBackground({ className }: { className?: string }) {
       };
       resize();
       window.addEventListener("resize", resize, { passive: true });
+      removeResizeListener = () => window.removeEventListener("resize", resize);
 
       const start = performance.now();
       const loop = (now: number) => {
-        program.uniforms.uTime.value = (now - start) / 1000;
-        renderer.render({ scene: mesh });
-        rafId = requestAnimationFrame(loop);
+        if (disposed || cleaned) return;
+        try {
+          program.uniforms.uTime.value = (now - start) / 1000;
+          renderer.render({ scene: mesh });
+          rafId = requestAnimationFrame(loop);
+        } catch {
+          fail();
+        }
       };
       rafId = requestAnimationFrame(loop);
 
-      cleanup = () => {
-        window.removeEventListener("resize", resize);
-        cancelAnimationFrame(rafId);
-        gl.getExtension("WEBGL_lose_context")?.loseContext();
-      };
-    });
+    }).catch(fail);
 
     return () => {
       disposed = true;

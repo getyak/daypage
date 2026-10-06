@@ -21,12 +21,12 @@ interface HomeHeroProps {
 const PLAYED_KEY = "home-hero-played";
 
 export function HomeHero({ date, weekday, sourceCount, pageCount, thisWeekCount }: HomeHeroProps) {
-  const entrance = useSessionEntrance(PLAYED_KEY);
+  const controls = useSessionEntrance(PLAYED_KEY);
 
   return (
     <motion.header
       initial={false}
-      animate={entrance}
+      animate={controls}
       transition={{
         duration: 0.36,                       // motion.island
         ease: [0.2, 0.8, 0.2, 1],              // motion.spring

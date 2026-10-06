@@ -16,12 +16,17 @@ import {
 } from "lucide-react";
 import { useAddDraft } from "./useAddDraft";
 import { Dialog } from "../_components/Dialog";
-import { hasSpeechAPI, noSpeechAPI, useBrowserSnapshot } from "@/hooks/useBrowserSnapshot";
+import { useSpeechSupported } from "@/hooks/useBrowserCapabilities";
 
 const isMac =
   typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
 
 // Check if browser supports SpeechRecognition
+function hasSpeechAPI(): boolean {
+  if (typeof window === "undefined") return false;
+  return "SpeechRecognition" in window || "webkitSpeechRecognition" in window;
+}
+
 type SpeechRecognitionLike = {
   continuous: boolean;
   interimResults: boolean;
@@ -53,7 +58,7 @@ function createSpeechRecognition(): SpeechRecognitionLike | null {
 // ── VoiceButton ───────────────────────────────────────────────────────────────
 function VoiceButton({ onTranscript }: { onTranscript: (text: string) => void }) {
   const [recording, setRecording] = useState(false);
-  const supported = useBrowserSnapshot(hasSpeechAPI, noSpeechAPI);
+  const supported = useSpeechSupported();
   const srRef = useRef<SpeechRecognitionLike | null>(null);
 
   const handleClick = useCallback(() => {

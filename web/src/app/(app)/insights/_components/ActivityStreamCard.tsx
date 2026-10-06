@@ -1,8 +1,7 @@
 import { auth } from "@/lib/auth/session";
-import { requestTime } from "@/lib/request-time";
 import { db } from "@/lib/db/client";
 import { users, activities } from "@/lib/db/schema";
-import { eq, and, gte, desc, lt, sql } from "drizzle-orm";
+import { eq, and, gte, desc, lt } from "drizzle-orm";
 import { Activity } from "lucide-react";
 import { ActivityStreamClient } from "./ActivityStreamClient";
 
@@ -23,9 +22,10 @@ function rangeToMs(range: string): number {
 
 const PAGE_SIZE = 20;
 
-export async function ActivityStreamCard({ range, type, cursor }: { range: string; type?: string; cursor?: string }) {
+export async function loadActivityStreamData({ range, type, cursor }: { range: string; type?: string; cursor?: string }) {
   const session = await auth();
   const userId = session?.user?.email ? await resolveUserId(session.user.email) : null;
+  const asOfMs = Date.now();
 
   // Collect available activity verbs for filter UI
   let verbOptions: string[] = [];
@@ -37,7 +37,7 @@ export async function ActivityStreamCard({ range, type, cursor }: { range: strin
   let nextCursor: string | null = null;
 
   if (userId) {
-    const since = new Date(await requestTime() - rangeToMs(range));
+    const since = new Date(asOfMs - rangeToMs(range));
     try {
       // Get distinct verbs for filter chips
       const verbRows = await db
@@ -65,6 +65,12 @@ export async function ActivityStreamCard({ range, type, cursor }: { range: strin
       // empty
     }
   }
+
+  return { asOfMs, verbOptions, items, hasMore, nextCursor };
+}
+
+export async function ActivityStreamCard({ range, type, cursor }: { range: string; type?: string; cursor?: string }) {
+  const { verbOptions, items, hasMore, nextCursor } = await loadActivityStreamData({ range, type, cursor });
 
   return (
     <div style={{

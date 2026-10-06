@@ -31,7 +31,7 @@ const MONTHS = [
 const WEEKDAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"] as const;
 
 export function CaptureHero({ queueCount, doneCount }: CaptureHeroProps) {
-  const entrance = useSessionEntrance(PLAYED_KEY);
+  const controls = useSessionEntrance(PLAYED_KEY);
 
   // Compute date on the client so SSR/client match without hydration flicker.
   // The hero renders the same textual date either way — we just tolerate a
@@ -47,7 +47,7 @@ export function CaptureHero({ queueCount, doneCount }: CaptureHeroProps) {
   return (
     <motion.header
       initial={false}
-      animate={entrance}
+      animate={controls}
       transition={{ duration: 0.36, ease: [0.2, 0.8, 0.2, 1] }}
       className="ds-home-hero ds-capture-hero"
       data-testid="capture-hero"
