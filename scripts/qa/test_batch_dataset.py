@@ -81,6 +81,7 @@ class _UploadServer:
         self.requests: list[dict] = []
         outer = self
         outer.files = {}
+        outer.download_requests = []
 
         class Handler(http.server.BaseHTTPRequestHandler):
             def do_POST(self):
@@ -95,7 +96,7 @@ class _UploadServer:
                         "body": body,
                     }
                 )
-                if outer.mode in ("ok", "bad-download"):
+                if outer.mode in ("ok", "bad-download", "cookie-required"):
                     image = body.split(b"\r\n\r\n", 1)[1].rsplit(b"\r\n--", 1)[0]
                     original = re.search(br'filename="([^"]+)"', body).group(1).decode()
                     filename = str(uuid.UUID(int=len(outer.requests))) + ".jpg"
@@ -120,6 +121,14 @@ class _UploadServer:
                 self.wfile.write(payload)
 
             def do_GET(self):
+                outer.download_requests.append({
+                    "cookie": self.headers.get("Cookie"),
+                    "authorization": self.headers.get("Authorization"),
+                })
+                if outer.mode == "cookie-required" and self.headers.get("Cookie") != "session=synthetic":
+                    self.send_response(401)
+                    self.end_headers()
+                    return
                 data = outer.files.get(self.path.removeprefix("/uploads/"))
                 if outer.mode == "bad-download":
                     data = b"damaged image"
@@ -571,12 +580,14 @@ class UploadImagesTests(BatchDatasetTestBase):
 
     def test_cookie_auth_and_download_hash_receipt(self):
         report = self.tmp / "cookie-receipt.json"
-        with _UploadServer("ok") as server:
+        with _UploadServer("cookie-required") as server:
             proc = run_cli("upload-images", str(self.ds), "--endpoint", server.endpoint,
                            "--cookie-env", "QA_COOKIE", "--report", str(report),
                            env_extra={"QA_COOKIE": "session=synthetic"})
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertTrue(all(r["cookie"] == "session=synthetic" for r in server.requests))
+        self.assertEqual(len(server.download_requests), len(self.manifest["images"]))
+        self.assertTrue(all(r["cookie"] == "session=synthetic" for r in server.download_requests))
         receipt = json.loads(report.read_text())
         self.assertEqual(receipt["verified"], len(self.manifest["images"]))
         for row in receipt["receipts"]:

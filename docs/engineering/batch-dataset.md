@@ -34,7 +34,9 @@ python3 scripts/qa/batch_dataset.py upload-images /absolute/new/dataset \
 
 The CLI sends multipart `file` bytes and requires the actual 201 response fields
 `url`, `filename`, `original_filename`, `size`, `mime_type`. It downloads each
-returned image and checks exact bytes, then writes hashes to the receipt. Failed
+returned image with the same session Cookie (or configured test-server Bearer
+token) and checks exact bytes, then writes hashes to the receipt. Only validated
+same-origin `/uploads/<filename>` responses reach this authenticated download. Failed
 HTTP requests, malformed success bodies and mismatched downloads fail the run.
 The receipt contains no authentication header. Redirects are refused. Remote
 endpoints require `--allow-remote-host` and HTTPS; URLs containing credentials,

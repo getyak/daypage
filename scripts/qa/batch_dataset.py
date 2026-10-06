@@ -1145,7 +1145,12 @@ def cmd_upload_images(args) -> int:
                         failure = f"HTTP {status} but response is not a success object for DayPage /api/upload"
                     else:
                         try:
-                            with opener.open(urllib.parse.urljoin(endpoint, parsed_body["url"]),
+                            download_request = urllib.request.Request(
+                                urllib.parse.urljoin(endpoint, parsed_body["url"]),
+                                headers={"Cookie": token} if args.cookie_env else
+                                        {"Authorization": f"Bearer {token}"},
+                            )
+                            with opener.open(download_request,
                                              timeout=args.timeout) as download:
                                 downloaded = download.read(len(data) + 1)
                             if downloaded != data:
